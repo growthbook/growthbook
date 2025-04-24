@@ -12,7 +12,7 @@ import {
   getSafeRolloutResultStatus,
 } from "shared/enterprise";
 import { ExperimentResultStatus } from "back-end/types/experiment";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { featureRequiresReview } from "shared/util";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
@@ -103,12 +103,9 @@ export default function SafeRolloutStatusModal({
 
   const settings = organization?.settings;
 
-  const reviewRequired = featureRequiresReview(
-    feature,
-    [environment],
-    false,
-    settings
-  );
+  const reviewRequired = useMemo(() => {
+    return featureRequiresReview(feature, [environment], false, settings);
+  }, [feature, environment, settings]);
 
   const daysLeft = getSafeRolloutDaysLeft({
     safeRollout: safeRollout,
