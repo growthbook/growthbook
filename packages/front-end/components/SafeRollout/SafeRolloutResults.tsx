@@ -247,6 +247,10 @@ const SafeRolloutResults: FC<{
                       />
                     </Box>
                   </>
+                ) : traffic ? (
+                  <Callout status="info" mt="3">
+                    No data yet.
+                  </Callout>
                 ) : (
                   <Callout status="info" mt="3">
                     Please run a query to see health data.
