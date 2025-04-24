@@ -68,4 +68,5 @@ export type AppFeatures = {
   "experiment-results-timeseries": boolean;
   "decision-framework-criteria": boolean;
   "safe-rollout": boolean;
+  "safe-rollout-promo": boolean;
 };

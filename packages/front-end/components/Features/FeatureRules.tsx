@@ -96,7 +96,7 @@ export default function FeatureRules({
   const selectedDropdownEnv = dropdownEnvs.find((e) => e.id === env)?.id;
 
   const gb = useGrowthBook<AppFeatures>();
-  const isSafeRolloutEnabled = gb.isOn("safe-rollout");
+  const isSafeRolloutPromoEnabled = gb.isOn("safe-rollout-promo");
   const hasSafeRollout = hasCommercialFeature("safe-rollout");
 
   return (
@@ -239,7 +239,7 @@ export default function FeatureRules({
                       </Button>
                     </Flex>
                     {/* TODO: This if/else should be handled by PremiumCallout component */}
-                    {isSafeRolloutEnabled && !hasSafeRollout ? (
+                    {isSafeRolloutPromoEnabled && !hasSafeRollout ? (
                       <PremiumCallout
                         id="feature-rules-add-rule"
                         commercialFeature="safe-rollout"
@@ -252,7 +252,7 @@ export default function FeatureRules({
                           </Text>
                         </Flex>
                       </PremiumCallout>
-                    ) : isSafeRolloutEnabled && hasSafeRollout ? (
+                    ) : isSafeRolloutPromoEnabled && hasSafeRollout ? (
                       <Callout
                         mt="5"
                         status="info"
