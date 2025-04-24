@@ -245,7 +245,6 @@ const CompactResults: FC<{
             hasRisk={hasRisk(rows)}
             editMetrics={editMetrics}
             statsEngine="frequentist"
-            sequentialTestingEnabled={true}
             pValueCorrection={pValueCorrection}
             differenceType="absolute"
             renderLabelColumn={getRenderLabelColumn(
