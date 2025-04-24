@@ -19,7 +19,6 @@ interface Props
   showSuspicious?: boolean;
   showPercentComplete?: boolean;
   showTimeRemaining?: boolean;
-  showGuardrailWarning?: boolean;
   className?: string;
   hideScaledImpact?: boolean;
 }
@@ -32,7 +31,6 @@ export default function StatusColumn({
   showSuspicious = true,
   showPercentComplete = false,
   showTimeRemaining = true,
-  showGuardrailWarning = false,
   className,
   hideScaledImpact = false,
   ...otherProps
@@ -71,13 +69,6 @@ export default function StatusColumn({
               className={rowResults.riskMeta.riskStatus}
               style={{ marginLeft: 1 }}
             >
-              <HiOutlineExclamationCircle />
-            </span>
-          ) : null}
-          {showGuardrailWarning &&
-          rowResults.guardrailWarning &&
-          !shouldRenderRisk ? (
-            <span className="warning" style={{ marginLeft: 1 }}>
               <HiOutlineExclamationCircle />
             </span>
           ) : null}

@@ -565,9 +565,6 @@ export default function ResultsTable({
                             showSuspicious={true}
                             showPercentComplete={false}
                             showTimeRemaining={true}
-                            showGuardrailWarning={
-                              row.resultGroup === "guardrail"
-                            }
                             hideScaledImpact={hideScaledImpact}
                             className={clsx(
                               "results-pval",
