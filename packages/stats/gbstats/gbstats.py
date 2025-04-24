@@ -5,6 +5,7 @@ import copy
 from typing import Any, Dict, Hashable, List, Optional, Set, Tuple, Union
 
 import pandas as pd
+import numpy as np
 
 from gbstats.bayesian.tests import (
     BayesianTestResult,
@@ -50,6 +51,7 @@ from gbstats.models.results import (
     MetricStats,
     MultipleExperimentMetricAnalysis,
     BanditResult,
+    ResponseCI,
     SingleVariationResult,
     PowerResponse,
 )
@@ -505,10 +507,16 @@ def format_variation_result(
             )
         else:
             power_response = None
+
+        # sanitize CIs to replace inf with None
+        ci: ResponseCI = (
+            None if np.isinf(row[f"{prefix}_ci"][0]) else row[f"{prefix}_ci"][0],
+            None if np.isinf(row[f"{prefix}_ci"][1]) else row[f"{prefix}_ci"][1],
+        )
         testResult = {
             "expected": row[f"{prefix}_expected"],
             "uplift": row[f"{prefix}_uplift"],
-            "ci": row[f"{prefix}_ci"],
+            "ci": ci,
             "errorMessage": row[f"{prefix}_error_message"],
         }
         if row["engine"] == "frequentist":

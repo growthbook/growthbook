@@ -1,5 +1,6 @@
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import {
+  FeatureInterface,
   FeatureValueType,
   SafeRolloutRule,
 } from "back-end/src/validators/features";
@@ -11,7 +12,8 @@ import {
   getSafeRolloutResultStatus,
 } from "shared/enterprise";
 import { ExperimentResultStatus } from "back-end/types/experiment";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
+import { featureRequiresReview } from "shared/util";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { useUser } from "@/services/UserContext";
@@ -30,7 +32,7 @@ export interface Props {
   environment: string;
   version: number;
   i: number;
-  featureId: string;
+  feature: FeatureInterface;
   mutate?: () => void;
 }
 
@@ -91,7 +93,7 @@ export default function SafeRolloutStatusModal({
   environment,
   version,
   i,
-  featureId,
+  feature,
   mutate,
 }: Props) {
   const { apiCall } = useAuth();
@@ -100,6 +102,10 @@ export default function SafeRolloutStatusModal({
   const { hasCommercialFeature, organization } = useUser();
 
   const settings = organization?.settings;
+
+  const reviewRequired = useMemo(() => {
+    return featureRequiresReview(feature, [environment], false, settings);
+  }, [feature, environment, settings]);
 
   const daysLeft = getSafeRolloutDaysLeft({
     safeRollout: safeRollout,
@@ -147,7 +153,7 @@ export default function SafeRolloutStatusModal({
       ctaEnabled={!!status}
       submit={form.handleSubmit(async (values) => {
         const res = await apiCall<{ version: number }>(
-          `/feature/${featureId}/${version}/rule/status`,
+          `/feature/${feature.id}/${version}/rule/status`,
           {
             method: "PUT",
             body: JSON.stringify({
@@ -201,8 +207,9 @@ export default function SafeRolloutStatusModal({
         </div>
       ) : null}
       <Callout status="info" my="4">
-        A new revision will be published and changes will take effect
-        immediately.
+        {reviewRequired
+          ? "A new draft will be created and the safe rollout will continue running until the draft is reviewed and published."
+          : "A new revision will be published and changes will take effect immediately."}
       </Callout>
     </Modal>
   );

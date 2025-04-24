@@ -208,7 +208,9 @@ export class ReqContextClass {
       ? {
           apiKey: this.apiKey,
         }
-      : null;
+      : ({
+          system: true,
+        } as const);
     if (!auditUser) {
       throw new Error("Must have user or apiKey in context to audit log");
     }

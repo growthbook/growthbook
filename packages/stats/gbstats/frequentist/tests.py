@@ -206,7 +206,7 @@ class TTest(BaseABTest):
 
     @property
     @abstractmethod
-    def confidence_interval(self) -> List[Optional[float]]:
+    def confidence_interval(self) -> List[float]:
         pass
 
     def _default_output(
@@ -287,8 +287,8 @@ class TTest(BaseABTest):
                 adjustment = self.total_users / (
                     self.traffic_percentage * self.phase_length_days
                 )
-                ci_lower = result.ci[0] * adjustment if result.ci[0] else None
-                ci_upper = result.ci[1] * adjustment if result.ci[1] else None
+                ci_lower = result.ci[0] * adjustment
+                ci_upper = result.ci[1] * adjustment
                 return FrequentistTestResult(
                     expected=result.expected * adjustment,
                     ci=[ci_lower, ci_upper],
@@ -310,16 +310,16 @@ class TTest(BaseABTest):
 
 def one_sided_confidence_interval(
     point_estimate: float, halfwidth: float, lesser: bool = True
-) -> List[Optional[float]]:
+) -> List[float]:
     if lesser:
-        return [None, point_estimate + halfwidth]
+        return [-np.inf, point_estimate + halfwidth]
     else:
-        return [point_estimate - halfwidth, None]
+        return [point_estimate - halfwidth, np.inf]
 
 
 def two_sided_confidence_interval(
     point_estimate: float, halfwidth: float
-) -> List[Optional[float]]:
+) -> List[float]:
     return [point_estimate - halfwidth, point_estimate + halfwidth]
 
 
@@ -329,7 +329,7 @@ class TwoSidedTTest(TTest):
         return 2 * (1 - t.cdf(abs(self.critical_value), self.dof))  # type: ignore
 
     @property
-    def confidence_interval(self) -> List[Optional[float]]:
+    def confidence_interval(self) -> List[float]:
         halfwidth: float = t.ppf(1 - self.alpha / 2, self.dof) * np.sqrt(self.variance)
         return two_sided_confidence_interval(self.point_estimate, halfwidth)
 
@@ -340,7 +340,7 @@ class OneSidedTreatmentGreaterTTest(TTest):
         return 1 - t.cdf(self.critical_value, self.dof)  # type: ignore
 
     @property
-    def confidence_interval(self) -> List[Optional[float]]:
+    def confidence_interval(self) -> List[float]:
         halfwidth: float = t.ppf(1 - self.alpha, self.dof) * np.sqrt(self.variance)
         return one_sided_confidence_interval(
             self.point_estimate, halfwidth, lesser=False
@@ -353,7 +353,7 @@ class OneSidedTreatmentLesserTTest(TTest):
         return t.cdf(self.critical_value, self.dof)  # type: ignore
 
     @property
-    def confidence_interval(self) -> List[Optional[float]]:
+    def confidence_interval(self) -> List[float]:
         halfwidth: float = t.ppf(1 - self.alpha, self.dof) * np.sqrt(self.variance)
         return one_sided_confidence_interval(
             self.point_estimate, halfwidth, lesser=True
@@ -411,7 +411,9 @@ class SequentialTTest(TTest):
         self.rho = config_dict.pop("rho", None)
         if self.rho is None:
             self.rho = sequential_rho(
-                self.alpha, self.sequential_tuning_parameter, two_sided=True
+                self.alpha,
+                self.sequential_tuning_parameter,
+                two_sided=not self.sequential_one_sided_test,
             )
 
     @property
@@ -423,6 +425,10 @@ class SequentialTTest(TTest):
     def halfwidth(self) -> float:
         pass
 
+    @property
+    def sequential_one_sided_test(self) -> bool:
+        return False
+
 
 class SequentialTwoSidedTTest(SequentialTTest):
     @property
@@ -433,7 +439,7 @@ class SequentialTwoSidedTTest(SequentialTTest):
         )
 
     @property
-    def confidence_interval(self) -> List[Optional[float]]:
+    def confidence_interval(self) -> List[float]:
         return two_sided_confidence_interval(self.point_estimate, self.halfwidth)
 
     @property
@@ -467,7 +473,7 @@ class SequentialOneSidedTreatmentLesserTTest(SequentialTTest):
         )
 
     @property
-    def confidence_interval(self) -> List[Optional[float]]:
+    def confidence_interval(self) -> List[float]:
         return one_sided_confidence_interval(
             self.point_estimate, self.halfwidth, lesser=self.lesser
         )
@@ -496,27 +502,10 @@ class SequentialOneSidedTreatmentLesserTTest(SequentialTTest):
         ci_index = 1 if self.lesser else 0
         this_ci_small = this_test(
             self.stat_a, self.stat_b, this_config
-        ).confidence_interval  # type: ignore
+        ).confidence_interval
         # smaller alpha => bigger confidence interval;
         if self.lesser:
-            if this_ci_small[ci_index] is not None:
-                if this_ci_small[ci_index] < 0:  # type: ignore
-                    return PValueResult(
-                        p_value=min_alpha,
-                        p_value_error_message=None,
-                    )
-            this_config.alpha = max_alpha
-            # bigger alpha => smaller confidence interval;
-            this_ci_big = this_test(
-                self.stat_a, self.stat_b, this_config
-            ).confidence_interval
-            if this_ci_big[ci_index] is not None and this_ci_big[ci_index] > 0:  # type: ignore
-                return PValueResult(
-                    p_value=max_alpha,
-                    p_value_error_message=None,
-                )
-        else:
-            if this_ci_small[ci_index] is not None and this_ci_small[ci_index] > 0:  # type: ignore
+            if this_ci_small[ci_index] < 0:
                 return PValueResult(
                     p_value=min_alpha,
                     p_value_error_message=None,
@@ -526,7 +515,23 @@ class SequentialOneSidedTreatmentLesserTTest(SequentialTTest):
             this_ci_big = this_test(
                 self.stat_a, self.stat_b, this_config
             ).confidence_interval
-            if this_ci_big[ci_index] is not None and this_ci_big[ci_index] < 0:  # type: ignore
+            if this_ci_big[ci_index] > 0:
+                return PValueResult(
+                    p_value=max_alpha,
+                    p_value_error_message=None,
+                )
+        else:
+            if this_ci_small[ci_index] > 0:
+                return PValueResult(
+                    p_value=min_alpha,
+                    p_value_error_message=None,
+                )
+            this_config.alpha = max_alpha
+            # bigger alpha => smaller confidence interval;
+            this_ci_big = this_test(
+                self.stat_a, self.stat_b, this_config
+            ).confidence_interval
+            if this_ci_big[ci_index] < 0:
                 return PValueResult(
                     p_value=max_alpha,
                     p_value_error_message=None,
@@ -539,21 +544,20 @@ class SequentialOneSidedTreatmentLesserTTest(SequentialTTest):
             this_ci = this_test(
                 self.stat_a, self.stat_b, this_config
             ).confidence_interval
-            if this_ci[ci_index] is not None:
-                diff = this_ci[ci_index] - 0  # type: ignore
-                if self.lesser:
-                    if diff > 0:
-                        min_alpha = this_alpha
-                    else:
-                        max_alpha = this_alpha
+            diff = this_ci[ci_index] - 0
+            if self.lesser:
+                if diff > 0:
+                    min_alpha = this_alpha
                 else:
-                    if diff < 0:
-                        min_alpha = this_alpha
-                    else:
-                        max_alpha = this_alpha
-                this_alpha = 0.5 * (min_alpha + max_alpha)
-                if abs(diff) < tol:
-                    break
+                    max_alpha = this_alpha
+            else:
+                if diff < 0:
+                    min_alpha = this_alpha
+                else:
+                    max_alpha = this_alpha
+            this_alpha = 0.5 * (min_alpha + max_alpha)
+            if abs(diff) < tol:
+                break
         converged = abs(diff) < tol and iters != max_iters
         if converged:
             return PValueResult(

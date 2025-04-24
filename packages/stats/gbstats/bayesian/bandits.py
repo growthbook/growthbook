@@ -32,7 +32,7 @@ class BanditConfig(BayesianConfig):
 class BanditResponse:
     users: Optional[List[float]]
     cr: Optional[List[float]]
-    ci: Optional[List[List[Optional[float]]]]
+    ci: Optional[List[List[float]]]
     bandit_weights: Optional[List[float]]
     best_arm_probabilities: Optional[List[float]]
     seed: int
