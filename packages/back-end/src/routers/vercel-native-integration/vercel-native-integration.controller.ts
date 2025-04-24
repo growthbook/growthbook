@@ -322,9 +322,9 @@ export async function postVercelIntegrationSSO(req: Request, res: Response) {
 
   if (!installationId) return res.status(400).send("Invalid request!");
 
-  const { user } = await getContext({ installationId, res });
+  const { nativeIntegration } = await getContext({ installationId, res });
 
-  await fetch(`${VERCEL_URL}/v1/integrations/sso/token`, {
+  const r = await fetch(`${VERCEL_URL}/v1/integrations/sso/token`, {
     method: "POST",
     body: JSON.stringify({
       code,
@@ -333,8 +333,31 @@ export async function postVercelIntegrationSSO(req: Request, res: Response) {
     }),
     headers: {
       "Content-Type": "application/json",
+      Authorization: `Bearer ${nativeIntegration.upsertData.payload.credentials.access_token}`,
     },
   });
+
+  const json = await r.json();
+
+  const checkedToken = await checkAuth({ token: json.id_token, type: "user" });
+
+  if (checkedToken.status === "error")
+    return res.status(400).send("Invalid request!");
+
+  const { authentication: data } = checkedToken;
+
+  if (data.payload.installation_id !== installationId)
+    return res.status(400).send("Invalid request!");
+
+  const email = data.payload.user_email;
+
+  const user =
+    (await getUserByEmail(email)) ||
+    (await createUser({
+      name: email.split("@")[0],
+      email,
+      password: crypto.randomBytes(18).toString("hex"),
+    }));
 
   return sendLocalSuccessResponse(req, res, user);
 }

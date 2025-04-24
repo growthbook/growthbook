@@ -2,7 +2,7 @@ import { GetServerSideProps } from "next";
 
 export const getServerSideProps: GetServerSideProps = async ({
   res,
-  query: { code, resource_id: resourceId },
+  query: { state, code, resource_id: resourceId },
 }) => {
   const apiHost =
     (process.env.API_HOST ?? "").replace(/\/$/, "") || "http://localhost:3100";
@@ -12,6 +12,7 @@ export const getServerSideProps: GetServerSideProps = async ({
       method: "POST",
       body: JSON.stringify({
         code,
+        state,
         resourceId,
       }),
       headers: {
