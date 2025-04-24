@@ -320,7 +320,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                           <SafeRolloutStatusModal
                             safeRollout={safeRollout}
                             rule={rule}
-                            featureId={feature.id}
+                            feature={feature}
                             environment={environment}
                             version={version}
                             i={i}
