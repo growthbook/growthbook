@@ -385,6 +385,56 @@ class TestOneSidedGreaterTTest(TestCase):
         )
 
 
+class TestOneSidedLesserTTest(TestCase):
+    def setUp(self):
+        self.stat_a = SampleMeanStatistic(sum=1396.87, sum_squares=52377.9767, n=3000)
+        self.stat_b = SampleMeanStatistic(sum=2422.7, sum_squares=134698.29, n=3461)
+
+    def test_one_sided_ttest(self):
+        result_dict = asdict(
+            OneSidedTreatmentLesserTTest(self.stat_a, self.stat_b).compute_result()
+        )
+        expected_rounded_dict = asdict(
+            FrequentistTestResult(
+                expected=0.5033610858562358,
+                ci=[-np.inf, 1.0518588475628676],
+                uplift=Uplift(
+                    dist="normal", mean=0.5033610858562358, stddev=0.3334122146400735
+                ),
+                error_message=None,
+                p_value=0.9344173713153225,
+                p_value_error_message=None,
+            )
+        )
+        self.assertDictEqual(
+            _round_result_dict(result_dict), _round_result_dict(expected_rounded_dict)
+        )
+
+    def test_one_sided_ttest_absolute(self):
+        result_dict = asdict(
+            OneSidedTreatmentLesserTTest(
+                self.stat_a,
+                self.stat_b,
+                FrequentistConfig(difference_type="absolute"),
+            ).compute_result()
+        )
+        expected_rounded_dict = asdict(
+            FrequentistTestResult(
+                expected=0.23437666666666668,
+                ci=[-np.inf, 0.44796185327007765],
+                uplift=Uplift(
+                    dist="normal", mean=0.23437666666666668, stddev=0.12983081254184736
+                ),
+                error_message=None,
+                p_value=0.9644572751012698,
+                p_value_error_message=None,
+            )
+        )
+        self.assertDictEqual(
+            _round_result_dict(result_dict), _round_result_dict(expected_rounded_dict)
+        )
+
+
 class TestSequentialOneSidedGreaterTTest(TestCase):
     def setUp(self):
         self.stat_a = SampleMeanStatistic(sum=1396.87, sum_squares=52377.9767, n=3000)
@@ -428,57 +478,7 @@ class TestSequentialOneSidedGreaterTTest(TestCase):
                     dist="normal", mean=0.23437666666666668, stddev=0.12983081254184736
                 ),
                 error_message=None,
-                p_value=0.4999,
-                p_value_error_message=None,
-            )
-        )
-        self.assertDictEqual(
-            _round_result_dict(result_dict), _round_result_dict(expected_rounded_dict)
-        )
-
-
-class TestOneSidedLesserTTest(TestCase):
-    def setUp(self):
-        self.stat_a = SampleMeanStatistic(sum=1396.87, sum_squares=52377.9767, n=3000)
-        self.stat_b = SampleMeanStatistic(sum=2422.7, sum_squares=134698.29, n=3461)
-
-    def test_one_sided_ttest(self):
-        result_dict = asdict(
-            OneSidedTreatmentLesserTTest(self.stat_a, self.stat_b).compute_result()
-        )
-        expected_rounded_dict = asdict(
-            FrequentistTestResult(
-                expected=0.5033610858562358,
-                ci=[-np.inf, 1.0518588475628676],
-                uplift=Uplift(
-                    dist="normal", mean=0.5033610858562358, stddev=0.3334122146400735
-                ),
-                error_message=None,
-                p_value=0.9344173713153225,
-                p_value_error_message=None,
-            )
-        )
-        self.assertDictEqual(
-            _round_result_dict(result_dict), _round_result_dict(expected_rounded_dict)
-        )
-
-    def test_one_sided_ttest_absolute(self):
-        result_dict = asdict(
-            OneSidedTreatmentLesserTTest(
-                self.stat_a,
-                self.stat_b,
-                FrequentistConfig(difference_type="absolute"),
-            ).compute_result()
-        )
-        expected_rounded_dict = asdict(
-            FrequentistTestResult(
-                expected=0.23437666666666668,
-                ci=[-np.inf, 0.44796185327007765],
-                uplift=Uplift(
-                    dist="normal", mean=0.23437666666666668, stddev=0.12983081254184736
-                ),
-                error_message=None,
-                p_value=0.9644572751012698,
+                p_value=0.46316491943359384,
                 p_value_error_message=None,
             )
         )
