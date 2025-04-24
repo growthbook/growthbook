@@ -597,6 +597,11 @@ export interface components {
                   matchType: "all" | "any" | "none";
                   savedGroups: (string)[];
                 })[];
+              prerequisites?: ({
+                  /** @description Feature ID */
+                  id: string;
+                  condition: string;
+                })[];
               id: string;
               trackingKey?: string;
               enabled: boolean;
@@ -690,6 +695,11 @@ export interface components {
                     /** @enum {string} */
                     matchType: "all" | "any" | "none";
                     savedGroups: (string)[];
+                  })[];
+                prerequisites?: ({
+                    /** @description Feature ID */
+                    id: string;
+                    condition: string;
                   })[];
                 id: string;
                 trackingKey?: string;
@@ -813,6 +823,11 @@ export interface components {
                   matchType: "all" | "any" | "none";
                   savedGroups: (string)[];
                 })[];
+              prerequisites?: ({
+                  /** @description Feature ID */
+                  id: string;
+                  condition: string;
+                })[];
               id: string;
               trackingKey?: string;
               enabled: boolean;
@@ -906,6 +921,11 @@ export interface components {
                     /** @enum {string} */
                     matchType: "all" | "any" | "none";
                     savedGroups: (string)[];
+                  })[];
+                prerequisites?: ({
+                    /** @description Feature ID */
+                    id: string;
+                    condition: string;
                   })[];
                 id: string;
                 trackingKey?: string;
@@ -1020,6 +1040,11 @@ export interface components {
                     matchType: "all" | "any" | "none";
                     savedGroups: (string)[];
                   })[];
+                prerequisites?: ({
+                    /** @description Feature ID */
+                    id: string;
+                    condition: string;
+                  })[];
                 id: string;
                 trackingKey?: string;
                 enabled: boolean;
@@ -1118,6 +1143,11 @@ export interface components {
               matchType: "all" | "any" | "none";
               savedGroups: (string)[];
             })[];
+          prerequisites?: ({
+              /** @description Feature ID */
+              id: string;
+              condition: string;
+            })[];
           id: string;
           trackingKey?: string;
           enabled: boolean;
@@ -1212,6 +1242,11 @@ export interface components {
                 matchType: "all" | "any" | "none";
                 savedGroups: (string)[];
               })[];
+            prerequisites?: ({
+                /** @description Feature ID */
+                id: string;
+                condition: string;
+              })[];
             id: string;
             trackingKey?: string;
             enabled: boolean;
@@ -1305,6 +1340,11 @@ export interface components {
           matchType: "all" | "any" | "none";
           savedGroups: (string)[];
         })[];
+      prerequisites?: ({
+          /** @description Feature ID */
+          id: string;
+          condition: string;
+        })[];
       id: string;
       trackingKey?: string;
       enabled: boolean;
@@ -1374,6 +1414,11 @@ export interface components {
           /** @enum {string} */
           matchType: "all" | "any" | "none";
           savedGroups: (string)[];
+        })[];
+      prerequisites?: ({
+          /** @description Feature ID */
+          id: string;
+          condition: string;
         })[];
       id: string;
       trackingKey?: string;
@@ -2345,6 +2390,11 @@ export interface operations {
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
+                          })[];
                         id: string;
                         trackingKey?: string;
                         enabled: boolean;
@@ -2438,6 +2488,11 @@ export interface operations {
                               /** @enum {string} */
                               matchType: "all" | "any" | "none";
                               savedGroups: (string)[];
+                            })[];
+                          prerequisites?: ({
+                              /** @description Feature ID */
+                              id: string;
+                              condition: string;
                             })[];
                           id: string;
                           trackingKey?: string;
@@ -2813,6 +2868,11 @@ export interface operations {
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
+                      prerequisites?: ({
+                          /** @description Feature ID */
+                          id: string;
+                          condition: string;
+                        })[];
                       id: string;
                       trackingKey?: string;
                       enabled: boolean;
@@ -2906,6 +2966,11 @@ export interface operations {
                             /** @enum {string} */
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
                           })[];
                         id: string;
                         trackingKey?: string;
@@ -3050,6 +3115,11 @@ export interface operations {
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
+                      prerequisites?: ({
+                          /** @description Feature ID */
+                          id: string;
+                          condition: string;
+                        })[];
                       id: string;
                       trackingKey?: string;
                       enabled: boolean;
@@ -3143,6 +3213,11 @@ export interface operations {
                             /** @enum {string} */
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
                           })[];
                         id: string;
                         trackingKey?: string;
@@ -3256,6 +3331,11 @@ export interface operations {
                             /** @enum {string} */
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
                           })[];
                         id: string;
                         trackingKey?: string;
@@ -3611,6 +3691,11 @@ export interface operations {
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
+                      prerequisites?: ({
+                          /** @description Feature ID */
+                          id: string;
+                          condition: string;
+                        })[];
                       id: string;
                       trackingKey?: string;
                       enabled: boolean;
@@ -3704,6 +3789,11 @@ export interface operations {
                             /** @enum {string} */
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
                           })[];
                         id: string;
                         trackingKey?: string;
@@ -3870,6 +3960,11 @@ export interface operations {
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
+                      prerequisites?: ({
+                          /** @description Feature ID */
+                          id: string;
+                          condition: string;
+                        })[];
                       id: string;
                       trackingKey?: string;
                       enabled: boolean;
@@ -3963,6 +4058,11 @@ export interface operations {
                             /** @enum {string} */
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
                           })[];
                         id: string;
                         trackingKey?: string;

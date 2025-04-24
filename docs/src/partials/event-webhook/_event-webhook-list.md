@@ -116,6 +116,11 @@ Triggered when a feature is created
                             matchType: "all" | "any" | "none";
                             savedGroups: string[];
                         }[] | undefined;
+                        prerequisites?: {
+                            /** Feature ID */
+                            id: string;
+                            condition: string;
+                        }[] | undefined;
                         id: string;
                         trackingKey?: string | undefined;
                         enabled: boolean;
@@ -200,6 +205,11 @@ Triggered when a feature is created
                             savedGroupTargeting?: {
                                 matchType: "all" | "any" | "none";
                                 savedGroups: string[];
+                            }[] | undefined;
+                            prerequisites?: {
+                                /** Feature ID */
+                                id: string;
+                                condition: string;
                             }[] | undefined;
                             id: string;
                             trackingKey?: string | undefined;
@@ -342,6 +352,11 @@ Triggered when a feature is updated
                             matchType: "all" | "any" | "none";
                             savedGroups: string[];
                         }[] | undefined;
+                        prerequisites?: {
+                            /** Feature ID */
+                            id: string;
+                            condition: string;
+                        }[] | undefined;
                         id: string;
                         trackingKey?: string | undefined;
                         enabled: boolean;
@@ -426,6 +441,11 @@ Triggered when a feature is updated
                             savedGroupTargeting?: {
                                 matchType: "all" | "any" | "none";
                                 savedGroups: string[];
+                            }[] | undefined;
+                            prerequisites?: {
+                                /** Feature ID */
+                                id: string;
+                                condition: string;
                             }[] | undefined;
                             id: string;
                             trackingKey?: string | undefined;
@@ -536,6 +556,11 @@ Triggered when a feature is updated
                             matchType: "all" | "any" | "none";
                             savedGroups: string[];
                         }[] | undefined;
+                        prerequisites?: {
+                            /** Feature ID */
+                            id: string;
+                            condition: string;
+                        }[] | undefined;
                         id: string;
                         trackingKey?: string | undefined;
                         enabled: boolean;
@@ -620,6 +645,11 @@ Triggered when a feature is updated
                             savedGroupTargeting?: {
                                 matchType: "all" | "any" | "none";
                                 savedGroups: string[];
+                            }[] | undefined;
+                            prerequisites?: {
+                                /** Feature ID */
+                                id: string;
+                                condition: string;
                             }[] | undefined;
                             id: string;
                             trackingKey?: string | undefined;
@@ -762,6 +792,11 @@ Triggered when a feature is deleted
                             matchType: "all" | "any" | "none";
                             savedGroups: string[];
                         }[] | undefined;
+                        prerequisites?: {
+                            /** Feature ID */
+                            id: string;
+                            condition: string;
+                        }[] | undefined;
                         id: string;
                         trackingKey?: string | undefined;
                         enabled: boolean;
@@ -846,6 +881,11 @@ Triggered when a feature is deleted
                             savedGroupTargeting?: {
                                 matchType: "all" | "any" | "none";
                                 savedGroups: string[];
+                            }[] | undefined;
+                            prerequisites?: {
+                                /** Feature ID */
+                                id: string;
+                                condition: string;
                             }[] | undefined;
                             id: string;
                             trackingKey?: string | undefined;
