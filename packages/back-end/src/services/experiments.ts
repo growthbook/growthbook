@@ -3020,7 +3020,7 @@ export async function getExperimentAnalysisSummary({
     if (overallResults && overallResults.name === "") {
       const resultsStatus = await computeResultsStatus({
         context,
-        relativeAnalysis,
+        analysis: relativeAnalysis,
         experiment,
       });
 
@@ -3069,11 +3069,11 @@ function getVariationId(
 
 export async function computeResultsStatus({
   context,
-  relativeAnalysis,
+  analysis,
   experiment,
 }: {
   context: ReqContext;
-  relativeAnalysis: ExperimentSnapshotAnalysis | SafeRolloutSnapshotAnalysis;
+  analysis: ExperimentSnapshotAnalysis | SafeRolloutSnapshotAnalysis;
   experiment: ExperimentInterface | SafeRolloutInterface;
 }): Promise<ExperimentAnalysisSummaryResultsStatus | undefined> {
   const statsEngine = analysis.settings.statsEngine;
@@ -3176,7 +3176,7 @@ export async function computeResultsStatus({
   return {
     variations: variationStatuses,
     settings: {
-      sequentialTesting: relativeAnalysis.settings.sequentialTesting ?? false,
+      sequentialTesting: analysis.settings.sequentialTesting ?? false,
     },
   };
 }
