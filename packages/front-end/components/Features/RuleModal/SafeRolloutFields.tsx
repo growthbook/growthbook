@@ -21,6 +21,7 @@ import MetricsSelector from "@/components/Experiment/MetricsSelector";
 import Checkbox from "@/components/Radix/Checkbox";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import HelperText from "@/components/Radix/HelperText";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 export default function SafeRolloutFields({
   feature,
@@ -157,9 +158,10 @@ export default function SafeRolloutFields({
           onChange={(v) => {
             form.setValue("hashAttribute", v);
           }}
+          className="mb-4"
           required
         />
-        <div className="bg-highlight rounded p-3 mb-3">
+        <div className="bg-highlight rounded p-3 mb-4">
           <div className="mb-3 pb-1">
             <SelectField
               label="Data source"
@@ -274,14 +276,14 @@ export default function SafeRolloutFields({
           rows="auto auto auto"
           gapX="5"
           gapY="3"
-          align="center"
-          mb="4"
+          align={feature.valueType === "json" ? "start" : "center"}
+          mb="6"
         >
           <Text as="label" weight="medium">
             Variation
           </Text>
           <Text as="label" weight="medium">
-            Weight
+            Traffic
           </Text>
           <Text as="label" weight="medium">
             Value to Force
@@ -310,7 +312,10 @@ export default function SafeRolloutFields({
             )}
           </Flex>
 
-          <Text as="label">Control</Text>
+          <Text as="label">
+            Control{" "}
+            <Tooltip body="The baseline that the rollout value will be compared against" />
+          </Text>
           <Text>50%</Text>
           <Box width="100%" style={{ gridColumn: "3 / span 2" }}>
             <FeatureValueField
@@ -353,16 +358,16 @@ export default function SafeRolloutFields({
 
   return (
     <>
-      <Text size="2" as="div" mb="4">
-        Run an A/B test for a short period of time while monitoring guardrail
-        metrics for regressions. Based on the results, choose whether to revert
-        the feature or release it to 100% of users.
+      <Text size="2" as="div" mb="4" color="gray">
+        This rule runs an A/B test for a short period of time while monitoring
+        guardrail metrics for regressions. Based on the results, you can choose
+        whether to revert the feature or release it to 100% of users.
       </Text>
       <Text as="label" weight="medium" size="2" mb="2">
         Description
       </Text>
       <TextField.Root
-        mb="4"
+        mb="6"
         {...form.register("description")}
         placeholder="Short human-readable description of the safe rollout"
       />

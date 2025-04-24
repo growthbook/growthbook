@@ -272,9 +272,9 @@ function SimpleSchemaPrimitiveEditor<T = unknown>({
                   value: "false",
                 },
               ]}
-              value={value as string}
+              value={value ? "true" : "false"}
               setValue={(v) => {
-                setValue(v as T);
+                setValue((v === "true") as T);
               }}
               disabled={(!field.required && !isset) || disabled}
             />
@@ -297,9 +297,9 @@ function SimpleSchemaPrimitiveEditor<T = unknown>({
                   value: "false",
                 },
               ]}
-              value={value as string}
+              value={value ? "true" : "false"}
               setValue={(v) => {
-                setValue(v as T);
+                setValue((v === "true") as T);
               }}
               disabled={(!field.required && !isset) || disabled}
             />
@@ -489,17 +489,19 @@ function SimpleSchemaEditor({
             disabled
             label={label}
           />
-          <a
-            href="#"
-            className="text-purple"
-            onClick={(e) => {
-              e.preventDefault();
-              setTempValue(value);
-              setOpen(true);
-            }}
-          >
-            Edit Value <BsBoxArrowUpRight style={{ marginTop: -3 }} />
-          </a>
+          {!disabled && (
+            <a
+              href="#"
+              className="text-purple"
+              onClick={(e) => {
+                e.preventDefault();
+                setTempValue(value);
+                setOpen(true);
+              }}
+            >
+              Edit Value <BsBoxArrowUpRight style={{ marginTop: -3 }} />
+            </a>
+          )}
         </div>
       </>
     );
@@ -514,6 +516,7 @@ function SimpleSchemaEditor({
       fields={schema.fields}
       label={label}
       placeholder={placeholder}
+      disabled={disabled}
     />
   );
 }
@@ -619,7 +622,7 @@ function SimpleSchemaObjectArrayEditor({
 }) {
   let valueParsed: unknown;
   try {
-    valueParsed = JSON.parse(value);
+    valueParsed = value === "" ? {} : JSON.parse(value);
   } catch (e) {
     // Ignore
   }
@@ -653,16 +656,18 @@ function SimpleSchemaObjectArrayEditor({
       <div className="form-group">
         <div className="d-flex">
           <label>{label}</label>
-          <a
-            href="#"
-            className="ml-auto"
-            onClick={(e) => {
-              e.preventDefault();
-              setRawJSONInput(true);
-            }}
-          >
-            Edit as JSON
-          </a>
+          {!disabled && (
+            <a
+              href="#"
+              className="ml-auto"
+              onClick={(e) => {
+                e.preventDefault();
+                setRawJSONInput(true);
+              }}
+            >
+              Edit as JSON
+            </a>
+          )}
         </div>
         <div className="appbox bg-light px-3 pt-3">
           {fields.map((field) => {

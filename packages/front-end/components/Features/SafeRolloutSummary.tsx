@@ -1,5 +1,9 @@
 import { Fragment } from "react";
-import { expandMetricGroups } from "shared/experiments";
+import {
+  expandMetricGroups,
+  isFactMetricId,
+  isMetricGroupId,
+} from "shared/experiments";
 import { FeatureInterface } from "back-end/types/feature";
 import { Box, Flex, Text, Tooltip } from "@radix-ui/themes";
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
@@ -28,15 +32,33 @@ export default function SafeRolloutSummary({
   const numOfVariations = 2; // Control & Rollout
   const singleVariationCoverage = coverage / numOfVariations;
 
-  const { getMetricById, metricGroups } = useDefinitions();
+  const { getFactMetricById, getMetricById, metricGroups } = useDefinitions();
+  const getMetricNameAndKey = (metricId: string, groupId?: string) => {
+    const key = groupId ? `${groupId}-${metricId}` : metricId;
+    let name: string | undefined;
+
+    if (isFactMetricId(metricId)) {
+      name = getFactMetricById(metricId)?.name;
+    } else {
+      name = getMetricById(metricId)?.name;
+    }
+
+    return { key, name };
+  };
+
   const { guardrailMetricIds } = safeRollout;
-  const expandedGuardrailMetricIds: string[] = expandMetricGroups(
-    guardrailMetricIds,
-    metricGroups
-  );
+  const metricNames = guardrailMetricIds.flatMap((id) => {
+    if (isMetricGroupId(id)) {
+      return expandMetricGroups([id], metricGroups).map((metricId) =>
+        getMetricNameAndKey(metricId, id)
+      );
+    }
+
+    return getMetricNameAndKey(id);
+  });
+
   const { controlValue, variationValue, hashAttribute } = rule;
   const type = feature.valueType;
-
   const rolledBackOrReleased =
     rule.status === "rolled-back" || rule.status === "released";
 
@@ -61,42 +83,41 @@ export default function SafeRolloutSummary({
   }
 
   return (
-    <Flex direction="column" gap="4">
-      <Flex direction="column" gap="2">
-        <Flex direction="row" gap="2">
-          <Text weight="medium">SPLIT</Text>users by
-          <Badge
-            color="gray"
-            label={
-              <Text style={{ color: "var(--slate-12)" }}>{hashAttribute}</Text>
-            }
-          />
-        </Flex>
-        <Flex direction="row" gap="2">
-          <Text weight="medium">MONITOR</Text>
-          <Badge
-            color="gray"
-            variant="soft"
-            label={
-              <Tooltip
-                content={expandedGuardrailMetricIds.map((id) => (
-                  <Fragment key={id}>
-                    {getMetricById(id)?.name}
-                    <br />
-                  </Fragment>
-                ))}
-              >
-                <Text style={{ color: "var(--slate-12)" }}>
-                  {expandedGuardrailMetricIds.length}
-                </Text>
-              </Tooltip>
-            }
-          />
-          metric{expandedGuardrailMetricIds.length > 1 ? "s" : ""}
-        </Flex>
-        <ValidateValue value={controlValue} feature={feature} />
-        <ValidateValue value={variationValue} feature={feature} />
+    <Flex direction="column" gap="3">
+      <Flex direction="row" gap="2">
+        <Text weight="medium">SPLIT</Text>users by
+        <Badge
+          color="gray"
+          label={
+            <Text style={{ color: "var(--slate-12)" }}>{hashAttribute}</Text>
+          }
+        />
       </Flex>
+      <Flex direction="row" gap="2">
+        <Text weight="medium">MONITOR</Text>
+        <Badge
+          color="gray"
+          variant="soft"
+          label={
+            <Tooltip
+              content={metricNames.map(({ key, name }) => (
+                <Fragment key={key}>
+                  {name}
+                  <br />
+                </Fragment>
+              ))}
+            >
+              <Text style={{ color: "var(--slate-12)" }}>
+                {metricNames.length}
+              </Text>
+            </Tooltip>
+          }
+        />
+        metric{metricNames.length > 1 ? "s" : ""}
+      </Flex>
+      <ValidateValue value={controlValue} feature={feature} />
+      <ValidateValue value={variationValue} feature={feature} />
+      <Text weight="medium">SERVE</Text>
       <Box
         px="3"
         py="1"

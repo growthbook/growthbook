@@ -35,7 +35,7 @@ export default function SafeRolloutSnapshotProvider({
   feature: FeatureInterface;
   children: ReactNode;
 }) {
-  const { data, error, isValidating, mutate } = useApi<{
+  const { data, error, mutate, isLoading } = useApi<{
     snapshot: SafeRolloutSnapshotInterface;
     latest?: SafeRolloutSnapshotInterface;
   }>(`/safe-rollout/${safeRollout.id}/snapshot`);
@@ -66,7 +66,7 @@ export default function SafeRolloutSnapshotProvider({
         mutateSnapshot: mutate,
         analysisSettings: defaultAnalysisSettings,
         error,
-        loading: isValidating,
+        loading: isLoading,
       }}
     >
       {children}

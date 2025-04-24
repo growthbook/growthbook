@@ -20,7 +20,6 @@ import {
   PValueCorrection,
   StatsEngine,
 } from "back-end/types/stats";
-import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
@@ -71,7 +70,6 @@ export type ResultsTableProps = {
   statsEngine: StatsEngine;
   pValueCorrection?: PValueCorrection;
   differenceType: DifferenceType;
-  sequentialTestingEnabled?: boolean;
   metricFilter?: ResultsMetricFilters;
   setMetricFilter?: (filter: ResultsMetricFilters) => void;
   metricTags?: string[];
@@ -82,11 +80,6 @@ export type ResultsTableProps = {
   isGoalMetrics?: boolean;
   ssrPolyfills?: SSRPolyfills;
 };
-
-const percentFormatter = new Intl.NumberFormat(undefined, {
-  style: "percent",
-  maximumFractionDigits: 2,
-});
 
 export default function ResultsTable({
   id: _,
@@ -102,11 +95,9 @@ export default function ResultsTable({
   startDate,
   renderLabelColumn,
   dateCreated,
-  hasRisk,
   statsEngine,
   pValueCorrection,
   differenceType,
-  sequentialTestingEnabled = false,
   metricFilter,
   setMetricFilter,
   metricTags = [],
@@ -425,15 +416,7 @@ export default function ResultsTable({
                           innerClassName={"text-left"}
                           body={
                             <div style={{ lineHeight: 1.5 }}>
-                              {getChangeTooltip(
-                                changeTitle,
-                                statsEngine || DEFAULT_STATS_ENGINE,
-                                differenceType,
-                                hasRisk,
-                                !!sequentialTestingEnabled,
-                                pValueCorrection ?? null,
-                                pValueThreshold
-                              )}
+                              {getChangeTooltip(changeTitle, differenceType)}
                             </div>
                           }
                         >
@@ -655,15 +638,7 @@ function drawEmptyRow({
   );
 }
 
-function getChangeTooltip(
-  changeTitle: string,
-  statsEngine: StatsEngine,
-  differenceType: DifferenceType,
-  hasRisk: boolean,
-  sequentialTestingEnabled: boolean,
-  pValueCorrection: PValueCorrection,
-  pValueThreshold: number
-) {
+function getChangeTooltip(changeTitle: string, differenceType: DifferenceType) {
   let changeText =
     "The uplift comparing the variation to the baseline, in percent change from the baseline value.";
   if (differenceType == "absolute") {
@@ -681,49 +656,5 @@ function getChangeTooltip(
       </p>
     </>
   );
-  let intervalText = <></>;
-  if (hasRisk && statsEngine === "bayesian") {
-    intervalText = (
-      <>
-        The interval is a 95% credible interval. The true value is more likely
-        to be in the thicker parts of the graph.
-      </>
-    );
-  }
-  if (statsEngine === "frequentist") {
-    const confidencePct = percentFormatter.format(1 - pValueThreshold);
-    intervalText = (
-      <>
-        The interval is a {confidencePct} confidence interval. If you re-ran the
-        experiment 100 times, the true value would be in this range{" "}
-        {confidencePct} of the time.
-        {sequentialTestingEnabled && (
-          <p className="mt-2 mb-0">
-            Because sequential testing is enabled for all safe rollouts, these
-            confidence intervals are valid no matter how many times you analyze
-            (or peek at) this experiment as it runs.
-          </p>
-        )}
-        {pValueCorrection && (
-          <p className="mt-2 mb-0">
-            Because your organization has multiple comparisons corrections
-            enabled, these confidence intervals have been inflated so that they
-            match the adjusted psuedo-p-value. Because confidence intervals do
-            not generally exist for all adjusted p-values, we use a method that
-            recreates the confidence intervals that would have produced these
-            psuedo-p-values. For adjusted psuedo-p-values that are 1.0, the
-            confidence intervals are infinite.
-          </p>
-        )}
-      </>
-    );
-  }
-  return (
-    <>
-      {changeElem}
-      <p className="mt-3">
-        <b>Graph</b> - {intervalText}
-      </p>
-    </>
-  );
+  return <>{changeElem}</>;
 }

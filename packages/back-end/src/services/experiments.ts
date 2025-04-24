@@ -3076,7 +3076,7 @@ export async function computeResultsStatus({
   relativeAnalysis: ExperimentSnapshotAnalysis | SafeRolloutSnapshotAnalysis;
   experiment: ExperimentInterface | SafeRolloutInterface;
 }): Promise<ExperimentAnalysisSummaryResultsStatus | undefined> {
-  const statsEngine = relativeAnalysis.settings.statsEngine;
+  const statsEngine = analysis.settings.statsEngine;
   const pValueCorrection = getPValueCorrectionForOrg(context);
   const { ciUpper, ciLower } = getConfidenceLevelsForOrg(context);
   const metricDefaults = getMetricDefaultsForOrg(context);
@@ -3093,7 +3093,7 @@ export async function computeResultsStatus({
       ? expandMetricGroups(experiment.guardrailMetrics, metricGroups)
       : expandMetricGroups(experiment.guardrailMetricIds, metricGroups);
 
-  const results = cloneDeep(relativeAnalysis.results);
+  const results = cloneDeep(analysis.results);
 
   // modifies results in place
   setAdjustedPValuesOnResults(results, expandedGoalMetrics, pValueCorrection);

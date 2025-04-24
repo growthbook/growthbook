@@ -199,10 +199,10 @@ const DecisionBanner = ({
       <Callout status="info" icon={null} fullWidthChildren={true}>
         <Flex direction="column" gap="2">
           <Flex direction="row" align="center" justify="between" width="100%">
-            {Math.ceil(daysLeft).toFixed(0)} days left
+            {Math.ceil(daysLeft).toFixed(0)} days left, no issues detected yet.
             <Button variant="soft" onClick={openStatusModal}>
               {safeRolloutDraftStatusChangeCopy
-                ? "Update Variation"
+                ? "Change Status"
                 : "Stop Early"}
             </Button>
           </Flex>
