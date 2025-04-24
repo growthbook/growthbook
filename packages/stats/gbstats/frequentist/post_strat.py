@@ -496,10 +496,6 @@ class PostStratificationRegressionAdjustedRatio(PostStratificationRegressionAdju
         return m
 
     @property
-    def coef_covariance_denominator(self) -> np.ndarray:
-        return np.kron(self.sigma, self.xtx_inv)
-
-    @property
     def mean(self) -> np.ndarray:
         return (self.contrast_matrix.dot(self.bhat)).ravel()
 
