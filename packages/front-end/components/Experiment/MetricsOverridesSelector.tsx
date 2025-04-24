@@ -8,6 +8,7 @@ import {
 } from "shared/constants";
 import { isUndefined } from "lodash";
 import {
+  expandMetricGroups,
   getConversionWindowHours,
   getDelayWindowHours,
   isBinomialMetric,
@@ -53,6 +54,7 @@ export default function MetricsOverridesSelector({
   const {
     metrics: metricDefinitions,
     factMetrics: factMetricDefinitions,
+    metricGroups,
     getExperimentMetricById,
   } = useDefinitions();
   const settings = useOrgSettings();
@@ -63,16 +65,23 @@ export default function MetricsOverridesSelector({
     [metricDefinitions, factMetricDefinitions]
   );
 
-  const metrics = new Set<string>(
+  const unexpandedMetrics = new Set<string>(
     form
       .watch(fieldMap["goalMetrics"])
       .concat(form.watch(fieldMap["guardrailMetrics"]))
       .concat(form.watch(fieldMap["secondaryMetrics"]))
   );
+
+  // expand metric groups
   const activationMetric = form.watch(fieldMap["activationMetric"]);
   if (activationMetric) {
-    metrics.add(activationMetric);
+    unexpandedMetrics.add(activationMetric);
   }
+
+  const expandedMetrics = expandMetricGroups(
+    Array.from(unexpandedMetrics),
+    metricGroups
+  );
 
   const metricOverrides = useFieldArray({
     control: form.control,
@@ -82,7 +91,7 @@ export default function MetricsOverridesSelector({
   const usedMetrics: Set<string> = new Set(
     form.watch(fieldMap["metricOverrides"]).map((m) => m.id)
   );
-  const unusedMetrics: string[] = [...metrics].filter(
+  const unusedMetrics: string[] = [...expandedMetrics].filter(
     (m) => !usedMetrics.has(m)
   );
 
