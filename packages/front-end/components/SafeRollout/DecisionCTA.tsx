@@ -27,6 +27,9 @@ const DecisionCTA = ({
   if (!safeRollout || !safeRollout.startedAt || rule.enabled === false) {
     return null;
   }
+  if (rule.status !== safeRollout.status) {
+    return null;
+  }
 
   const daysLeft = getSafeRolloutDaysLeft({
     safeRollout,
