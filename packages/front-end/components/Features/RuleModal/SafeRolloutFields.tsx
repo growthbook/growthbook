@@ -21,6 +21,7 @@ import MetricsSelector from "@/components/Experiment/MetricsSelector";
 import Checkbox from "@/components/Radix/Checkbox";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import HelperText from "@/components/Radix/HelperText";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 export default function SafeRolloutFields({
   feature,
@@ -311,7 +312,10 @@ export default function SafeRolloutFields({
             )}
           </Flex>
 
-          <Text as="label">Control</Text>
+          <Text as="label">
+            Control{" "}
+            <Tooltip body="The baseline that the rollout value will be compared against" />
+          </Text>
           <Text>50%</Text>
           <Box width="100%" style={{ gridColumn: "3 / span 2" }}>
             <FeatureValueField
@@ -355,9 +359,9 @@ export default function SafeRolloutFields({
   return (
     <>
       <Text size="2" as="div" mb="4" color="gray">
-        Run an A/B test for a short period of time while monitoring guardrail
-        metrics for regressions. Based on the results, choose whether to revert
-        the feature or release it to 100% of users.
+        This rule runs an A/B test for a short period of time while monitoring
+        guardrail metrics for regressions. Based on the results, you can choose
+        whether to revert the feature or release it to 100% of users.
       </Text>
       <Text as="label" weight="medium" size="2" mb="2">
         Description

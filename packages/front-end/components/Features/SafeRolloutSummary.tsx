@@ -83,42 +83,41 @@ export default function SafeRolloutSummary({
   }
 
   return (
-    <Flex direction="column" gap="4">
-      <Flex direction="column" gap="2">
-        <Flex direction="row" gap="2">
-          <Text weight="medium">SPLIT</Text>users by
-          <Badge
-            color="gray"
-            label={
-              <Text style={{ color: "var(--slate-12)" }}>{hashAttribute}</Text>
-            }
-          />
-        </Flex>
-        <Flex direction="row" gap="2">
-          <Text weight="medium">MONITOR</Text>
-          <Badge
-            color="gray"
-            variant="soft"
-            label={
-              <Tooltip
-                content={metricNames.map(({ key, name }) => (
-                  <Fragment key={key}>
-                    {name}
-                    <br />
-                  </Fragment>
-                ))}
-              >
-                <Text style={{ color: "var(--slate-12)" }}>
-                  {metricNames.length}
-                </Text>
-              </Tooltip>
-            }
-          />
-          metric{metricNames.length > 1 ? "s" : ""}
-        </Flex>
-        <ValidateValue value={controlValue} feature={feature} />
-        <ValidateValue value={variationValue} feature={feature} />
+    <Flex direction="column" gap="3">
+      <Flex direction="row" gap="2">
+        <Text weight="medium">SPLIT</Text>users by
+        <Badge
+          color="gray"
+          label={
+            <Text style={{ color: "var(--slate-12)" }}>{hashAttribute}</Text>
+          }
+        />
       </Flex>
+      <Flex direction="row" gap="2">
+        <Text weight="medium">MONITOR</Text>
+        <Badge
+          color="gray"
+          variant="soft"
+          label={
+            <Tooltip
+              content={metricNames.map(({ key, name }) => (
+                <Fragment key={key}>
+                  {name}
+                  <br />
+                </Fragment>
+              ))}
+            >
+              <Text style={{ color: "var(--slate-12)" }}>
+                {metricNames.length}
+              </Text>
+            </Tooltip>
+          }
+        />
+        metric{metricNames.length > 1 ? "s" : ""}
+      </Flex>
+      <ValidateValue value={controlValue} feature={feature} />
+      <ValidateValue value={variationValue} feature={feature} />
+      <Text weight="medium">SERVE</Text>
       <Box
         px="3"
         py="1"

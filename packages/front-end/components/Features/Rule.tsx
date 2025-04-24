@@ -246,7 +246,10 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       </Flex>
                     ) : rule.type === "safe-rollout" ? (
                       <Flex gap="3" align="center">
-                        <div>{title}</div>
+                        <div>Safe Rollout{rule.description ? ":" : ""}</div>
+                        {rule.description ? (
+                          <div>{rule.description}</div>
+                        ) : null}
                       </Flex>
                     ) : (
                       title
