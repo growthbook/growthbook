@@ -235,13 +235,13 @@ export default function SafeRolloutFields({
             <Text as="label" size="2" weight="medium">
               Duration to monitor guardrail results
               <Text size="1" as="div" weight="regular" color="gray">
-                Monitor for regressions and receive recommendations based on
-                guardrail metric results
+                Enter the number of days to monitor for regressions and receive
+                recommendations based on guardrail metric results
               </Text>
             </Text>
             <Box maxWidth="100px">
               <TextField.Root
-                placeholder="7"
+                placeholder=""
                 type="number"
                 disabled={
                   form.watch("status") === "stopped" ||
