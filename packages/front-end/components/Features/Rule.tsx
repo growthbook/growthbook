@@ -273,6 +273,14 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 </Flex>
                 <Box>{info.callout}</Box>
                 <Box style={{ opacity: isInactive ? 0.6 : 1 }} mt="3">
+                  {rule.type === "safe-rollout" && safeRollout ? (
+                    <>
+                      <DecisionHelpText rule={rule} />
+                      {rule.description ? (
+                        <Box pb="3">{rule.description}</Box>
+                      ) : null}
+                    </>
+                  ) : null}
                   {hasCondition && rule.type !== "experiment-ref" && (
                     <Flex align="center" justify="start" gap="3">
                       <Box pb="3">
@@ -306,11 +314,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                   )}
                   {rule.type === "safe-rollout" &&
                     (safeRollout ? (
-                      <div style={{ marginTop: -5 }}>
-                        <DecisionHelpText rule={rule} />
-                        {rule.description ? (
-                          <Box mb="3">{rule.description}</Box>
-                        ) : null}
+                      <Box>
                         <SafeRolloutSummary
                           safeRollout={safeRollout}
                           rule={rule}
@@ -342,7 +346,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                             start when this feature revision is published.
                           </Callout>
                         )}
-                      </div>
+                      </Box>
                     ) : (
                       <div>
                         {/* Better error state if safe rollout is not found */}
