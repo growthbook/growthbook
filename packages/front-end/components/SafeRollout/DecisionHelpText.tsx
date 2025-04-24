@@ -55,7 +55,7 @@ const DecisionHelpText = ({ rule }: { rule: SafeRolloutRule }) => {
   } else if (safeRollout.status === "released") {
     return (
       <HelperText status="info" mb="3">
-        All users will receive the variation value. If this is no longer needed,
+        All users will receive the rollout value. If this is no longer needed,
         you can disable or delete this rule.
       </HelperText>
     );
@@ -83,24 +83,36 @@ const DecisionHelpText = ({ rule }: { rule: SafeRolloutRule }) => {
       </HelperText>
     );
   } else if (decisionStatus.status === "unhealthy") {
+    const messages: string[] = [];
+
+    if (decisionStatus.unhealthyData.srm) {
+      messages.push(
+        "SRM Warning - Traffic is imbalanced and the Safe Rollout should be reverted."
+      );
+    }
+    if (decisionStatus.unhealthyData.multipleExposures) {
+      messages.push(
+        `Multiple Exposures Warning - ${numberFormatter.format(
+          decisionStatus.unhealthyData.multipleExposures.multipleExposedUsers
+        )} users (${percentFormatter.format(
+          decisionStatus.unhealthyData.multipleExposures.rawDecimal
+        )}) saw multiple variations and were automatically removed from results.`
+      );
+    }
+
+    if (!messages.length) {
+      return null;
+    }
+
     return (
       <HelperText status="warning" mb="3">
-        {decisionStatus.unhealthyData.srm
-          ? "SRM Warning. Traffic is imbalanced and the Safe Rollout should be stopped."
-          : decisionStatus.unhealthyData.multipleExposures
-          ? `Multiple Exposures Warning. ${numberFormatter.format(
-              decisionStatus.unhealthyData.multipleExposures
-                .multipleExposedUsers
-            )} users (${percentFormatter.format(
-              decisionStatus.unhealthyData.multipleExposures.rawDecimal
-            )}) saw multiple variations and were automatically removed from results.`
-          : "The Safe Rollout is unhealthy"}
+        {messages.join(" ")}
       </HelperText>
     );
   } else if (decisionStatus.status === "rollback-now") {
     return (
       <HelperText status="error" mb="3">
-        Guardrails are failing and the Safe Rollout should be stopped.
+        Guardrails are failing and the Safe Rollout should be reverted.
       </HelperText>
     );
   } else if (decisionStatus.status === "ship-now") {
