@@ -136,7 +136,6 @@ export default function RuleModal({
 
   const settings = useOrgSettings();
   const { settings: scopedSettings } = getScopedSettings({ organization });
-
   const defaultRuleValues = getDefaultRuleValue({
     defaultValue: getFeatureDefaultValue(feature),
     ruleType: defaultType,
@@ -276,6 +275,7 @@ export default function RuleModal({
         ruleType: v,
         attributeSchema,
         settings,
+        datasources,
       }),
       description: form.watch("description"),
     };

@@ -209,6 +209,23 @@ export default function SafeRolloutFields({
               onChange={(v) =>
                 form.setValue("safeRolloutFields.exposureQueryId", v)
               }
+              formatOptionLabel={({ label, value }) => {
+                const userIdType = exposureQueries?.find((e) => e.id === value)
+                  ?.userIdType;
+                return (
+                  <>
+                    {label}
+                    {userIdType ? (
+                      <span
+                        className="text-muted small float-right position-relative"
+                        style={{ top: 3 }}
+                      >
+                        Identifier Type: <code>{userIdType}</code>
+                      </span>
+                    ) : null}
+                  </>
+                );
+              }}
             />
           </div>
           <div className="pb-1 ">

@@ -35,6 +35,7 @@ import isEqual from "lodash/isEqual";
 import { ExperimentLaunchChecklistInterface } from "back-end/types/experimentLaunchChecklist";
 import { SavedGroupInterface } from "shared/src/types";
 import { SafeRolloutRule } from "back-end/src/validators/features";
+import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
@@ -663,11 +664,13 @@ export function getDefaultRuleValue({
   attributeSchema,
   ruleType,
   settings,
+  datasources,
 }: {
   defaultValue: string;
   attributeSchema?: SDKAttributeSchema;
   ruleType: string;
   settings?: OrganizationSettings;
+  datasources?: DataSourceInterfaceWithParams[];
 }): FeatureRule | NewExperimentRefRule | safeRolloutFields {
   const hashAttributes =
     attributeSchema?.filter((a) => a.hashAttribute)?.map((a) => a.property) ||
@@ -676,7 +679,10 @@ export function getDefaultRuleValue({
   const hashAttribute = hashAttributes.includes("id")
     ? "id"
     : hashAttributes[0] || "id";
-
+  let defaultDataSource = settings?.defaultDataSource;
+  if (datasources && !defaultDataSource && datasources.length === 1) {
+    defaultDataSource = datasources[0].id;
+  }
   const value = getDefaultVariationValue(defaultValue);
   if (ruleType === "rollout") {
     return {
@@ -716,7 +722,7 @@ export function getDefaultRuleValue({
       seed: "",
       status: "running",
       safeRolloutFields: {
-        datasourceId: settings?.defaultDataSource || "",
+        datasourceId: defaultDataSource || "",
         exposureQueryId: "",
         guardrailMetricIds: [],
       },
