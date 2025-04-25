@@ -7,6 +7,13 @@ import {
 } from "back-end/src/routers/vercel-native-integration/vercel-native-integration.validators";
 import { MakeModelClass } from "./BaseModel";
 
+const upsertDataValidator = z
+  .object({
+    payload: upsertInstallationPayloadValidator,
+    authentication: userAuthenticationValidator.shape.payload.strict(),
+  })
+  .strict();
+
 const vercelNativeIntegrationValidator = z
   .object({
     id: z.string(),
@@ -17,12 +24,7 @@ const vercelNativeIntegrationValidator = z
     // This is NOT an installation-level billingPlanId
     billingPlanId: z.string().optional(),
     resource: resourceValidator.optional(),
-    upsertData: z
-      .object({
-        payload: upsertInstallationPayloadValidator,
-        authentication: userAuthenticationValidator.shape.payload.strict(),
-      })
-      .strict(),
+    upsertData: upsertDataValidator,
   })
   .strict();
 
@@ -70,34 +72,26 @@ export class VercelNativeIntegrationModel extends BaseClass {
   }
 }
 
-export const findVercelInstallationDataByResourceId = async (
+export const findVercelInstallationByResourceId = async (
   resourceId: string
-): Promise<{ organizationId: string; id: string; installationId: string }> => {
+): Promise<VercelNativeIntegration> => {
   const model = await mongoose.connection.db
     .collection(COLLECTION_NAME)
     .findOne({ "resource.id": resourceId });
 
   if (!model) throw "Installation not found!";
 
-  return {
-    organizationId: model.organization,
-    id: model.id,
-    installationId: model.installationId,
-  };
+  return (model as unknown) as VercelNativeIntegration;
 };
 
-export const findVercelInstallationDataByInstallationId = async (
+export const findVercelInstallationByInstallationId = async (
   installationId: string
-): Promise<{ organizationId: string; id: string; installationId: string }> => {
+): Promise<VercelNativeIntegration> => {
   const model = await mongoose.connection.db
     .collection(COLLECTION_NAME)
     .findOne({ installationId: installationId });
 
   if (!model) throw "Installation not found!";
 
-  return {
-    organizationId: model.organization,
-    id: model.id,
-    installationId: model.installationId,
-  };
+  return (model as unknown) as VercelNativeIntegration;
 };

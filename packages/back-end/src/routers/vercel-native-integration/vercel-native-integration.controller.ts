@@ -4,8 +4,8 @@ import { z } from "zod";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { v4 as uuidv4 } from "uuid";
 import {
-  findVercelInstallationDataByResourceId,
-  findVercelInstallationDataByInstallationId,
+  findVercelInstallationByResourceId,
+  findVercelInstallationByInstallationId,
   VercelNativeIntegrationModel,
 } from "back-end/src/models/VercelNativeIntegration";
 import {
@@ -200,9 +200,8 @@ const authContext = async (req: Request, res: Response) => {
     },
   } = checkedAuth;
 
-  const { organizationId } = await findVercelInstallationDataByInstallationId(
-    installationId
-  );
+  const { organization: organizationId } =
+    await findVercelInstallationByInstallationId(installationId);
 
   return getContext({
     organizationId,
@@ -282,7 +281,7 @@ export async function updateInstallation(req: Request, res: Response) {
 export async function deleteInstallation(req: Request, res: Response) {
   const { nativeIntegrationModel, nativeIntegration } = await authContext(
     req,
-    res
+    res,
   );
 
   if (nativeIntegration.installationId !== req.params.installation_id)
@@ -297,16 +296,14 @@ export async function deleteInstallation(req: Request, res: Response) {
 export async function provisionResource(req: Request, res: Response) {
   const { nativeIntegrationModel, nativeIntegration } = await authContext(
     req,
-    res
+    res,
   );
 
   if (nativeIntegration.installationId !== req.params.installation_id)
     return res.status(400).send("Invalid request!");
 
-  const {
-    externalId: _externalId,
-    ...payload
-  } = req.body as ProvisitionResource;
+  const { externalId: _externalId, ...payload } =
+    req.body as ProvisitionResource;
 
   const resource: Resource = {
     ...payload,
@@ -335,7 +332,7 @@ export async function getResource(req: Request, res: Response) {
 export async function deleteResource(req: Request, res: Response) {
   const { nativeIntegrationModel, nativeIntegration } = await authContext(
     req,
-    res
+    res,
   );
 
   if (nativeIntegration.installationId !== req.params.installation_id)
@@ -370,21 +367,12 @@ export async function postVercelIntegrationSSO(req: Request, res: Response) {
   const { code, resourceId } = req.body;
 
   const {
-    organizationId,
+    organization: organizationId,
     installationId,
-    id,
-  } = await findVercelInstallationDataByResourceId(resourceId);
+    upsertData,
+  } = await findVercelInstallationByResourceId(resourceId);
 
   if (!organizationId) return res.status(400).send("Invalid request!");
-
-  const { nativeIntegration } = await getContext({
-    organizationId,
-    installationId,
-    res,
-  });
-
-  if (nativeIntegration.id !== id)
-    return res.status(400).send("Invalid request!");
 
   const r = await fetch(`${VERCEL_URL}/v1/integrations/sso/token`, {
     method: "POST",
@@ -395,7 +383,7 @@ export async function postVercelIntegrationSSO(req: Request, res: Response) {
     }),
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${nativeIntegration.upsertData.payload.credentials.access_token}`,
+      Authorization: `Bearer ${upsertData.payload.credentials.access_token}`,
     },
   });
 
@@ -411,15 +399,12 @@ export async function postVercelIntegrationSSO(req: Request, res: Response) {
   if (data.payload.installation_id !== installationId)
     return res.status(400).send("Invalid request!");
 
-  const email = data.payload.user_email;
-
-  const user =
-    (await getUserByEmail(email)) ||
-    (await createUser({
-      name: email.split("@")[0],
-      email,
-      password: crypto.randomBytes(18).toString("hex"),
-    }));
+  const { user } = await getContext({
+    organizationId,
+    installationId,
+    userEmail: data.payload.user_email,
+    res,
+  });
 
   return sendLocalSuccessResponse(req, res, user);
 }
