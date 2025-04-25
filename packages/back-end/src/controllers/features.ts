@@ -1208,7 +1208,6 @@ export async function postFeatureRule(
     }
     rule.safeRolloutId = safeRollout.id;
   }
-  // diff current revision with the new rule to see if it's a change
   const revision = await getDraftRevision(context, feature, parseInt(version));
   const resetReview = resetReviewOnChange({
     feature,
