@@ -3,7 +3,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import React, { forwardRef, ReactElement, useState } from "react";
 import Link from "next/link";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates, ExperimentResultStatusData } from "back-end/types/experiment";
 import { filterEnvironmentsByFeature } from "shared/util";
 import { Box, Card, Flex, Heading } from "@radix-ui/themes";
 import { RiAlertLine, RiDraggable } from "react-icons/ri";
@@ -39,6 +39,7 @@ import FeatureUsageGraph, { useFeatureUsage } from "./FeatureUsageGraph";
 import ExperimentRefSummary, {
   isExperimentRefRuleSkipped,
 } from "./ExperimentRefSummary";
+import { getSafeRolloutDaysLeft } from "shared/enterprise";
 
 interface SortableProps {
   i: number;
@@ -190,6 +191,36 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       return null;
     }
 
+    // unhealthy
+    const decisionStatus: ExperimentResultStatusData = {
+      status: "unhealthy",
+      unhealthyData: {
+        srm: true,
+      },
+    }
+
+    const daysLeft = 6;
+    // days left status
+    // const decisionStatus: ExperimentResultStatusData = {
+    //   status: "days-left",
+    //   daysLeft: daysLeft,
+    // }
+    // const decisionStatus: ExperimentResultStatusData = {
+    //   status: "no-data",
+    // }
+    // const decisionStatus: ExperimentResultStatusData = {
+    //   status: "ship-now",
+    //   variationIds: ["1"],
+    //   powerReached: false,
+    //   sequentialUsed: true,
+    // }
+    // const decisionStatus: ExperimentResultStatusData = {
+    //   status: "rollback-now",
+    //   variationIds: ["1"],
+    //   powerReached: false,
+    //   sequentialUsed: true,
+    // }
+
     const contents = (
       <Box {...props} ref={ref}>
         <Box mt="3">
@@ -252,7 +283,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       ) : rule.type === "safe-rollout" ? (
                         <Flex gap="3" align="center">
                           <div>Safe Rollout</div>
-                          <SafeRolloutStatusBadge rule={rule} />
+                          <SafeRolloutStatusBadge rule={rule} decisionStatus={decisionStatus} daysLeft={daysLeft} />
                           {rule.enabled !== false && (
                             <div className="ml-auto">
                               <DecisionCTA
@@ -260,6 +291,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                 openStatusModal={() => {
                                   setSafeRolloutStatusModalOpen(true);
                                 }}
+                                decisionStatus={decisionStatus}
                               />
                             </div>
                           )}
@@ -275,7 +307,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 <Box style={{ opacity: isInactive ? 0.6 : 1 }} mt="3">
                   {rule.type === "safe-rollout" && safeRollout ? (
                     <>
-                      <DecisionHelpText rule={rule} />
+                      <DecisionHelpText rule={rule} decisionStatus={decisionStatus} />
                       {rule.description ? (
                         <Box pb="3">{rule.description}</Box>
                       ) : null}

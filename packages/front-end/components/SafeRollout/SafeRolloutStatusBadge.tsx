@@ -1,15 +1,16 @@
 import {
   getHealthSettings,
   getSafeRolloutDaysLeft,
-  getSafeRolloutResultStatus,
+  getSafeRolloutResultStatus
 } from "shared/enterprise";
 
 import { SafeRolloutRule } from "back-end/src/validators/features";
 import { useUser } from "@/services/UserContext";
 import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
 import Badge from "@/components/Radix/Badge";
+import { ExperimentResultStatusData } from "back-end/types/experiment";
 
-const SafeRolloutStatusBadge = ({ rule }: { rule: SafeRolloutRule }) => {
+const SafeRolloutStatusBadge = ({ rule, decisionStatus, daysLeft }: { rule: SafeRolloutRule, decisionStatus: ExperimentResultStatusData, daysLeft: number }) => {
   const {
     safeRollout,
     snapshot: snapshotWithResults,
@@ -24,20 +25,6 @@ const SafeRolloutStatusBadge = ({ rule }: { rule: SafeRolloutRule }) => {
 
   // If we're looking at a non-live revision, don't rely on snapshot data
   const useSnapshotData = rule.status === safeRollout.status;
-
-  const daysLeft = getSafeRolloutDaysLeft({
-    safeRollout,
-    snapshotWithResults,
-  });
-
-  const decisionStatus = getSafeRolloutResultStatus({
-    safeRollout,
-    healthSettings: getHealthSettings(
-      settings,
-      hasCommercialFeature("decision-framework")
-    ),
-    daysLeft,
-  });
 
   let color: "violet" | "green" | "red" | "amber" = "violet";
   let label = "";

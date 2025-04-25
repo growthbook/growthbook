@@ -8,13 +8,16 @@ import { SafeRolloutRule } from "back-end/src/validators/features";
 import Button, { Color, Variant } from "@/components/Radix/Button";
 import { useUser } from "@/services/UserContext";
 import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
+import { ExperimentResultStatusData } from "back-end/types/experiment";
 
 const DecisionCTA = ({
   openStatusModal,
   rule,
+  decisionStatus,
 }: {
   openStatusModal: () => void;
   rule: SafeRolloutRule;
+  decisionStatus: ExperimentResultStatusData;
 }) => {
   const {
     safeRollout,
@@ -32,20 +35,6 @@ const DecisionCTA = ({
   if (rule.status !== safeRollout.status) {
     return null;
   }
-
-  const daysLeft = getSafeRolloutDaysLeft({
-    safeRollout,
-    snapshotWithResults,
-  });
-
-  const decisionStatus = getSafeRolloutResultStatus({
-    safeRollout,
-    healthSettings: getHealthSettings(
-      settings,
-      hasCommercialFeature("decision-framework")
-    ),
-    daysLeft,
-  });
 
   // Already finished, no CTA
   if (safeRollout.status === "rolled-back") {

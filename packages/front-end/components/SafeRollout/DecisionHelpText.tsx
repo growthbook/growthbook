@@ -8,8 +8,9 @@ import { SafeRolloutRule } from "back-end/src/validators/features";
 import HelperText from "@/components/Radix/HelperText";
 import { useUser } from "@/services/UserContext";
 import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
+import { ExperimentResultStatusData } from "back-end/types/experiment";
 
-const DecisionHelpText = ({ rule }: { rule: SafeRolloutRule }) => {
+const DecisionHelpText = ({ rule, decisionStatus }: { rule: SafeRolloutRule, decisionStatus: ExperimentResultStatusData }) => {
   const {
     safeRollout,
     snapshot: snapshotWithResults,
@@ -31,20 +32,6 @@ const DecisionHelpText = ({ rule }: { rule: SafeRolloutRule }) => {
 
   // Only use the snapshot data when looking at a live revision (or at least one with the same status as the live revision)
   const useSnapshotData = rule.status === safeRollout.status;
-
-  const daysLeft = getSafeRolloutDaysLeft({
-    safeRollout,
-    snapshotWithResults,
-  });
-
-  const decisionStatus = getSafeRolloutResultStatus({
-    safeRollout,
-    healthSettings: getHealthSettings(
-      settings,
-      hasCommercialFeature("decision-framework")
-    ),
-    daysLeft,
-  });
 
   // If the safe rollout has been rolled back or released, explain that the safe rollout is
   // acting as a temporary rollout with the control or variation value
