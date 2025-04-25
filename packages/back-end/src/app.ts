@@ -692,7 +692,7 @@ app.post(
 app.put("/feature/:id/:version/comment", featuresController.putRevisionComment);
 app.put("/feature/:id/:version/rule", featuresController.putFeatureRule);
 app.put(
-  "/feature/:id/:version/rule/status",
+  "/feature/:id/safeRollout/status",
   featuresController.putSafeRolloutStatus
 );
 app.delete("/feature/:id/:version/rule", featuresController.deleteFeatureRule);
