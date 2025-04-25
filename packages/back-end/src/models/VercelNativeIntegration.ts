@@ -1,10 +1,10 @@
 import { z } from "zod";
+import mongoose from "mongoose";
 import {
   upsertInstallationPayloadValidator,
   userAuthenticationValidator,
   resourceValidator,
 } from "back-end/src/routers/vercel-native-integration/vercel-native-integration.validators";
-import mongoose from "mongoose";
 import { MakeModelClass } from "./BaseModel";
 
 const vercelNativeIntegrationValidator = z
@@ -70,14 +70,34 @@ export class VercelNativeIntegrationModel extends BaseClass {
   }
 }
 
-export const findVercelInstallationIdByResourceId = async (
-  resourceId: string,
-) => {
+export const findVercelInstallationDataByResourceId = async (
+  resourceId: string
+): Promise<{ organizationId: string; id: string; installationId: string }> => {
   const model = await mongoose.connection.db
     .collection(COLLECTION_NAME)
     .findOne({ "resource.id": resourceId });
 
-  if (!model) return;
+  if (!model) throw "Installation not found!";
 
-  return model.installationId;
+  return {
+    organizationId: model.organization,
+    id: model.id,
+    installationId: model.installationId,
+  };
+};
+
+export const findVercelInstallationDataByInstallationId = async (
+  installationId: string
+): Promise<{ organizationId: string; id: string; installationId: string }> => {
+  const model = await mongoose.connection.db
+    .collection(COLLECTION_NAME)
+    .findOne({ installationId: installationId });
+
+  if (!model) throw "Installation not found!";
+
+  return {
+    organizationId: model.organization,
+    id: model.id,
+    installationId: model.installationId,
+  };
 };

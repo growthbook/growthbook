@@ -114,7 +114,6 @@ const organizationSchema = new mongoose.Schema({
   discountCode: String,
   priceId: String,
   freeSeats: Number,
-  vercelIntegration: Boolean,
   disableSelfServeBilling: Boolean,
   freeTrialDate: Date,
   enterprise: Boolean,
@@ -178,7 +177,6 @@ export async function createOrganization({
   url = "",
   verifiedDomain = "",
   externalId = "",
-  vercelIntegration = false,
 }: {
   email: string;
   userId: string;
@@ -187,7 +185,6 @@ export async function createOrganization({
   url?: string;
   verifiedDomain?: string;
   externalId?: string;
-  vercelIntegration?: boolean;
 }) {
   // TODO: sanitize fields
   const doc = await OrganizationModel.create({
@@ -209,7 +206,6 @@ export async function createOrganization({
     ],
     id: uniqid("org_"),
     dateCreated: new Date(),
-    vercelIntegration,
     settings: {
       environments: [
         {
@@ -278,16 +274,6 @@ export async function findAllOrganizations(
 
 export async function findOrganizationById(id: string) {
   const doc = await getCollection(COLLECTION).findOne({ id });
-  return doc ? toInterface(doc) : null;
-}
-
-export async function findOrganizationByVercelInstallationId(
-  externalId: string
-) {
-  const doc = await getCollection(COLLECTION).findOne({
-    externalId,
-    vercelIntegration: true,
-  });
   return doc ? toInterface(doc) : null;
 }
 
