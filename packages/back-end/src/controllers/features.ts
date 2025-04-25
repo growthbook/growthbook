@@ -1880,7 +1880,7 @@ export async function putFeatureRule(
     version: parseInt(version),
   });
   if (!currentRevision) {
-    throw new Error("Could not lookup feature history");
+    throw new Error("Could not find the current revision");
   }
   const currentRule = currentRevision.rules[environment].find(
     (r) => r.id === rule.id
