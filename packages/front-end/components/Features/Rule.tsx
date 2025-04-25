@@ -326,7 +326,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                             rule={rule}
                             feature={feature}
                             environment={environment}
-                            version={version}
                             i={i}
                             setVersion={setVersion}
                             mutate={mutate}
