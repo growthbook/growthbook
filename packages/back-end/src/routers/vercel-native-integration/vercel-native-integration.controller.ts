@@ -97,6 +97,20 @@ const checkAuth = async <T extends string | "user">({
   }
 };
 
+const addOrganizationUser = (id: string, organization: OrganizationInterface) =>
+  updateOrganization(organization.id, {
+    members: [
+      ...organization.members,
+      {
+        id,
+        role: "admin",
+        dateCreated: new Date(),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+    ],
+  });
+
 const findOrCreateUser = async ({
   email,
   organization,
@@ -106,7 +120,11 @@ const findOrCreateUser = async ({
 }) => {
   const existingUser = await getUserByEmail(email);
 
-  if (existingUser) return existingUser;
+  if (existingUser) {
+    if (!organization.members.find(({ id }) => existingUser.id === id))
+      await addOrganizationUser(existingUser.id, organization);
+    return existingUser;
+  }
 
   const newUser = await createUser({
     name: email.split("@")[0],
@@ -114,18 +132,7 @@ const findOrCreateUser = async ({
     password: crypto.randomBytes(18).toString("hex"),
   });
 
-  await updateOrganization(organization.id, {
-    members: [
-      ...organization.members,
-      {
-        id: newUser.id,
-        role: "admin",
-        dateCreated: new Date(),
-        limitAccessByEnvironment: false,
-        environments: [],
-      },
-    ],
-  });
+  await addOrganizationUser(newUser.id, organization);
 
   return newUser;
 };
@@ -200,8 +207,9 @@ const authContext = async (req: Request, res: Response) => {
     },
   } = checkedAuth;
 
-  const { organization: organizationId } =
-    await findVercelInstallationByInstallationId(installationId);
+  const {
+    organization: organizationId,
+  } = await findVercelInstallationByInstallationId(installationId);
 
   return getContext({
     organizationId,
@@ -281,7 +289,7 @@ export async function updateInstallation(req: Request, res: Response) {
 export async function deleteInstallation(req: Request, res: Response) {
   const { nativeIntegrationModel, nativeIntegration } = await authContext(
     req,
-    res,
+    res
   );
 
   if (nativeIntegration.installationId !== req.params.installation_id)
@@ -296,14 +304,16 @@ export async function deleteInstallation(req: Request, res: Response) {
 export async function provisionResource(req: Request, res: Response) {
   const { nativeIntegrationModel, nativeIntegration } = await authContext(
     req,
-    res,
+    res
   );
 
   if (nativeIntegration.installationId !== req.params.installation_id)
     return res.status(400).send("Invalid request!");
 
-  const { externalId: _externalId, ...payload } =
-    req.body as ProvisitionResource;
+  const {
+    externalId: _externalId,
+    ...payload
+  } = req.body as ProvisitionResource;
 
   const resource: Resource = {
     ...payload,
@@ -332,7 +342,7 @@ export async function getResource(req: Request, res: Response) {
 export async function deleteResource(req: Request, res: Response) {
   const { nativeIntegrationModel, nativeIntegration } = await authContext(
     req,
-    res,
+    res
   );
 
   if (nativeIntegration.installationId !== req.params.installation_id)
