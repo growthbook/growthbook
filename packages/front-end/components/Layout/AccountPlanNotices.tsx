@@ -474,8 +474,9 @@ export default function AccountPlanNotices() {
       }
     }
 
-    // More seats than the license allows for
-    if (license.plan === "enterprise" && seatsInUse > (license.seats || 0)) {
+    const isEnterpriseLicense = license.plan === "enterprise";
+    const seatsExceedLicense = seatsInUse > (license.seats || 0);
+    if (isEnterpriseLicense && seatsExceedLicense && canManageBilling) {
       return (
         <Tooltip
           body={
