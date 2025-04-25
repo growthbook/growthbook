@@ -585,13 +585,11 @@ const sidebars = {
           type: "doc",
           id: "integrations/slack",
           label: "Slack alerts",
-          className: "pill-new",
         },
         {
           type: "doc",
           id: "integrations/discord",
           label: "Discord alerts",
-          className: "pill-new",
         },
         {
           type: "doc",
@@ -616,13 +614,18 @@ const sidebars = {
         {
           type: "doc",
           id: "tools/cli",
-          className: "pill-new",
           label: "GrowthBook CLI",
         },
         {
           type: "doc",
           id: "integrations/clarity",
           label: "Microsoft Clarity (Heatmaps)",
+          className: "pill-new",
+        },
+        {
+          type: "doc",
+          id: "integrations/jira",
+          label: "Jira",
           className: "pill-new",
         },
       ],
