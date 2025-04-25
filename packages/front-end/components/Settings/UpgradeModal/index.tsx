@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import clsx from "clsx";
-import { date, daysLeft } from "shared/dates";
-import Link from "next/link";
+import { date } from "shared/dates";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { FaCheckCircle } from "react-icons/fa";
 import { PiCaretRight, PiArrowSquareOut } from "react-icons/pi";
@@ -83,34 +82,13 @@ export default function UpgradeModal({
   const currentUsers =
     (organization.members?.length || 0) + (organization.invites?.length || 0);
 
-  const licensePlanText =
-    (accountPlan === "enterprise"
-      ? "Enterprise"
-      : accountPlan === "pro"
-      ? "Pro"
-      : accountPlan === "pro_sso"
-      ? "Pro + SSO"
-      : "Starter") + (license && license.isTrial ? " trial" : "");
-
   // When signing up to pro, but not finishing the checkout process a license gets generated and saved but has no plan.
   const freeTrialAvailable =
     !license || !license.plan || !license.emailVerified;
 
-  // These are some Upgrade CTAs throughout the app related to enterprise-only features
-  // we don't want to show a user the test treatments if that's the case
-  // since this test doesn't highlight enterprise features at all.
   const lowestPlan = commercialFeature
     ? commercialFeatureLowestPlan?.[commercialFeature]
     : "starter";
-  const featureFlagValue =
-    isCloud() && lowestPlan !== "enterprise" && license?.plan !== "enterprise"
-      ? growthbook.getFeatureValue("pro-upgrade-modal", "OFF")
-      : "OFF";
-  const daysToGo = license?.dateExpires ? daysLeft(license.dateExpires) : 0;
-
-  const hasCanceledSubscription =
-    ["pro", "pro_sso"].includes(license?.plan || "") &&
-    subscription?.status === "canceled";
 
   const trackContext = {
     accountPlan,
@@ -136,11 +114,6 @@ export default function UpgradeModal({
       close();
     }
   }, [effectiveAccountPlan, license, close]);
-
-  const isAtLeastPro = ["pro", "pro_sso", "enterprise"].includes(
-    effectiveAccountPlan || ""
-  );
-  const proTrialCopy = "free 14-day Pro trial";
 
   const startPro = async () => {
     setError("");
@@ -303,6 +276,7 @@ export default function UpgradeModal({
   };
 
   const bullets: Partial<Record<CommercialFeature, string>> = {
+    "metric-groups": "Simplify experiment analysis with Metric Groups",
     "advanced-permissions": "Manage advanced user permissions",
     "encrypt-features-endpoint": "SDK endpoint encryption",
     "schedule-feature-flag": "Schedule feature flag rollouts",
@@ -339,6 +313,13 @@ export default function UpgradeModal({
       "Power calculator that uses historical data for accurate predictions",
     "decision-framework":
       "Estimate experiment duration using your data & get shipping recommendations.",
+    "custom-roles": "",
+    teams: "Organize members into teams to manage permissions centrally",
+    "pipeline-mode":
+      "Improve query performance and reduce data warehouse costs by up to 50%",
+    "require-approvals":
+      "Reduce errors by requiring approval flows when changing feature flag values",
+    "audit-logging": "Easily export historical audit logs",
   };
 
   const upgradeHeader = (
@@ -347,14 +328,15 @@ export default function UpgradeModal({
         className="mb-1"
         style={{ color: "var(--color-text-high)", fontSize: "20px" }}
       >
-        Upgrade to Pro
+        {`Upgrade to ${lowestPlan === "enterprise" ? "Enterprise" : "Pro"}`}
       </h3>
       <p
         className="mb-0"
         style={{ color: "var(--color-text-mid)", fontSize: "16px" }}
       >
-        Get instant access to advanced experimentation, permissioning and
-        security features.
+        {lowestPlan === "enterprise"
+          ? "Contact Sales to access advanced experimentation tools, custom roles, and additional security features."
+          : "Get instant access to advanced experimentation, permissioning and security features."}
       </p>
     </>
   );
@@ -402,6 +384,81 @@ export default function UpgradeModal({
           />
         </div>
         {enterpriseCallout}
+      </div>
+    );
+  }
+
+  function enterpriseTreatment() {
+    const dynamicBullet = commercialFeature ? bullets[commercialFeature] : null;
+    const now = new Date();
+
+    const licensePlanText =
+      license?.plan === "enterprise" ? "Enterprise" : "Pro";
+    const notice =
+      license?.dateExpires && new Date(license?.dateExpires) < now
+        ? `${licensePlanText} license expired ${date(
+            license.dateExpires || ""
+          )}. Renew to regain access to ${licensePlanText} features and higher usage limits.`
+        : null;
+    return (
+      <div>
+        {upgradeHeader}
+        {notice && (
+          <Box mt="4">
+            <Callout status="error">{notice}</Callout>
+          </Box>
+        )}
+        <div className="py-4">
+          {dynamicBullet ? (
+            <Tooltip
+              body="* The 50% cost reduction figure is based on querying 30GB/day for an experiment with 10 metrics over a 14 day period, and is compared to the cost without pipeline mode enabled."
+              shouldDisplay={commercialFeature === "pipeline-mode"}
+            >
+              <Flex align="center" className="pb-2">
+                <FaCheckCircle className="mr-2" color="var(--indigo-9)" />
+                <Text
+                  size={"3"}
+                  style={{ color: "var(--color-text-high)", fontWeight: 500 }}
+                >
+                  {dynamicBullet}
+                </Text>
+              </Flex>
+            </Tooltip>
+          ) : null}
+          {!["custom-roles", "teams"].includes(commercialFeature || "") ? (
+            <Flex align="center" className="pb-2">
+              <FaCheckCircle className="mr-2" color="var(--indigo-9)" />
+              <Text
+                size={"3"}
+                style={{ color: "var(--color-text-high)", fontWeight: 500 }}
+              >
+                Add unlimited team members, create custom roles, and organize
+                members with Teams
+              </Text>
+            </Flex>
+          ) : null}
+          {commercialFeature !== "encrypt-features-endpoint" ? (
+            <Flex align="center" className="pb-2">
+              <FaCheckCircle className="mr-2" color="var(--indigo-9)" />
+              <Text
+                size={"3"}
+                style={{ color: "var(--color-text-high)", fontWeight: 500 }}
+              >
+                Encrypt SDK endpoint response
+              </Text>
+            </Flex>
+          ) : null}
+          <Flex align="center" className="pb-2">
+            <FaCheckCircle className="mr-2" color="var(--indigo-9)" />
+            <Text
+              size={"3"}
+              style={{ color: "var(--color-text-high)", fontWeight: 500 }}
+            >
+              Get all Pro features plus custom SLAs, roadmap acceleration,
+              volume price discounts
+            </Text>
+          </Flex>
+        </div>
       </div>
     );
   }
@@ -577,13 +634,15 @@ export default function UpgradeModal({
   }
 
   async function onSubmit() {
-    if (
-      featureFlagValue === "UPGRADE-ONLY" ||
-      trialAndUpgradePreference === "upgrade"
-    ) {
-      await startPro();
+    if (lowestPlan === "enterprise") {
+      startEnterprise();
     } else {
-      await startProTrial(name, email);
+      if (trialAndUpgradePreference === "upgrade") {
+        await startPro();
+        //MKTODO: Clean up this else block and simplify logic to remove trial option
+      } else {
+        await startProTrial(name, email);
+      }
     }
   }
 
@@ -664,18 +723,18 @@ export default function UpgradeModal({
           allowlistedTrackingEventProps={trackContext}
           open={true}
           autoCloseOnSubmit={false}
-          includeCloseCta={featureFlagValue !== "OFF" ? true : false}
+          includeCloseCta={true}
           close={close}
           size="lg"
-          header={
-            featureFlagValue === "OFF" ? <>Get more out of GrowthBook</> : null
-          }
-          showHeaderCloseButton={featureFlagValue === "OFF" ? true : false}
+          header={null}
+          showHeaderCloseButton={false}
           loading={loading}
           cta={
             <>
-              {featureFlagValue === "UPGRADE-ONLY" ||
-              trialAndUpgradePreference === "upgrade"
+              {lowestPlan === "enterprise"
+                ? "Schedule Call"
+                : ["pro", "pro_sso"].includes(lowestPlan || "") ||
+                  trialAndUpgradePreference === "upgrade"
                 ? "Continue"
                 : "Start Trial"}
               <PiCaretRight />
@@ -683,7 +742,7 @@ export default function UpgradeModal({
           }
           disabledMessage="Contact your admin to upgrade."
           ctaEnabled={permissionsUtil.canManageBilling()}
-          submit={featureFlagValue !== "OFF" ? onSubmit : undefined}
+          submit={onSubmit}
         >
           <div
             className={clsx(
@@ -691,211 +750,14 @@ export default function UpgradeModal({
               styles.upgradeModal
             )}
           >
-            {featureFlagValue === "OFF" ? (
-              <>
-                {!license?.isTrial &&
-                  (daysToGo >= 0 && !hasCanceledSubscription ? (
-                    <div className="row bg-main-color p-3 mb-3 rounded">
-                      <span>You are currently using the </span>
-                      <b className="mx-1"> {licensePlanText} </b> version of
-                      Growthbook.
-                    </div>
-                  ) : daysToGo < 0 ? (
-                    <div className="row p-3 mb-3 rounded alert-danger">
-                      {" "}
-                      <span>
-                        Your old <b className="mx-1">{licensePlanText}</b>{" "}
-                        version of Growthbook expired. Renew below.
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="row p-3 mb-3 rounded alert-danger">
-                      {" "}
-                      <span>
-                        Your old <b className="mx-1">{licensePlanText}</b>{" "}
-                        version of Growthbook was cancelled. Renew below.
-                      </span>
-                    </div>
-                  ))}
-                {license?.isTrial && (
-                  <div
-                    className={`row p-3 mb-3 rounded ${
-                      daysToGo <= 3
-                        ? "alert-danger"
-                        : daysToGo <= 7
-                        ? "bg-muted-yellow"
-                        : "bg-main-color"
-                    }`}
-                  >
-                    {(daysToGo >= 0 && (
-                      <div>
-                        <span>
-                          You have{" "}
-                          <b>{daysLeft(license.dateExpires || "")} days</b> left
-                          in your {licensePlanText} of Growthbook with{" "}
-                        </span>
-                        <Link
-                          href="/settings/team"
-                          className="mx-1 font-weight-bold"
-                        >
-                          {currentUsers} team members
-                        </Link>
-                        ↗
-                      </div>
-                    )) || (
-                      <div>
-                        <span>Your {licensePlanText} of Growthbook with </span>
-                        <Link
-                          href="/settings/team"
-                          className="mx-1 font-weight-bold"
-                        >
-                          {currentUsers} team members
-                        </Link>
-                        ↗<span> has expired</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </>
-            ) : null}
-            {featureFlagValue === "UPGRADE-ONLY" ? (
-              upgradeOnlyTreatment()
-            ) : featureFlagValue === "TRIAL-AND-UPGRADE" ? (
-              trialAndUpgradeTreatment()
+            {lowestPlan === "enterprise" ? (
+              enterpriseTreatment()
             ) : (
-              <div className="row">
-                <div
-                  className={clsx(
-                    "col-lg-6 mb-4",
-                    isAtLeastPro && !license?.isTrial ? "disabled-opacity" : ""
-                  )}
-                >
-                  <div className="pr-lg-2 border rounded p-0 d-flex flex-column">
-                    <div className="d-flex justify-content-between align-items-center p-2 px-3">
-                      <h4 className="mb-0">Pro</h4>
-                      <div className="text-right text-muted">
-                        $20/user/month
-                      </div>
-                    </div>
-                    <div className="border-top p-0 flex-grow-1">
-                      <ul className="pt-4">
-                        <li>
-                          <b>Up to 100 team members</b>
-                        </li>
-                        <li>
-                          <b>Advanced permissioning</b>
-                        </li>
-                        <li>
-                          <b>Visual A/B test editor</b>
-                        </li>
-                        <li>Custom fields</li>
-                        <li>Premium support</li>
-                        <li>Encrypt SDK endpoint response</li>
-                        <li>
-                          Advanced experimentation features (CUPED, Sequential
-                          testing, etc.)
-                        </li>
-                        <li>Early access to new features</li>
-                      </ul>
-                      <div
-                        className={
-                          "d-flex justify-content-between " +
-                          (freeTrialAvailable ? "" : "mb-2")
-                        }
-                      >
-                        <button
-                          className="btn btn-primary m-3 w-100"
-                          onClick={startPro}
-                          disabled={isAtLeastPro && !license?.isTrial}
-                        >
-                          Upgrade Now
-                        </button>
-                      </div>
-                      {freeTrialAvailable && !isCloud() && (
-                        <div className="mb-4 text-center">
-                          or, start a{" "}
-                          {isAtLeastPro ? (
-                            <span>{proTrialCopy}</span>
-                          ) : (
-                            <a
-                              role="button"
-                              className={clsx(
-                                isAtLeastPro ? "cursor-default" : ""
-                              )}
-                              onClick={() =>
-                                isCloud()
-                                  ? setShowCloudProTrial(true)
-                                  : setShowSHProTrial(true)
-                              }
-                            >
-                              {proTrialCopy}
-                            </a>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="col-lg-6 mb-4">
-                  <div className="pl-lg-2 border rounded p-0 d-flex flex-column">
-                    <div className="d-flex justify-content-between align-items-center p-2 px-3">
-                      <h4 className="mb-0">Enterprise</h4>
-                      <div className="text-right text-muted">Contact Us</div>
-                    </div>
-                    <div className="border-top p-0 flex-grow-1">
-                      <div className="mt-4 ml-3 font-italic">
-                        Includes all Pro features, plus...
-                      </div>
-                      {/*The minHeight is a hack to get the two buttons aligned vertically */}
-                      <ul className=" pr-2" style={{ minHeight: "168px" }}>
-                        <li>
-                          <b>Unlimited users</b>
-                        </li>
-                        <li>
-                          <b>SSO / SAML integration</b>
-                        </li>
-                        <li>
-                          <b>Roadmap acceleration</b>
-                        </li>
-                        <li>Service-level agreements</li>
-                        <li>Exportable audit logs</li>
-                        <li>Enterprise support and training</li>
-                        <li>Advanced organization and performance</li>
-                      </ul>
-                      <div
-                        className={
-                          "d-flex justify-content-between " +
-                          (freeTrialAvailable ? "" : "mb-2")
-                        }
-                      >
-                        <button
-                          className="btn btn-primary m-3 w-100"
-                          onClick={startEnterprise}
-                        >
-                          Contact Us
-                        </button>
-                      </div>
-                      {freeTrialAvailable && (
-                        <div className="mb-4 text-center">
-                          or,
-                          <a
-                            href="#"
-                            className="ml-1"
-                            onClick={() =>
-                              isCloud()
-                                ? setShowCloudEnterpriseTrial(true)
-                                : setShowSHEnterpriseTrial(true)
-                            }
-                          >
-                            request an Enterprise trial
-                          </a>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <>
+                {trialAndUpgradePreference === "upgrade"
+                  ? upgradeOnlyTreatment()
+                  : trialAndUpgradeTreatment()}
+              </>
             )}
           </div>
 
