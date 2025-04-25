@@ -253,7 +253,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         <Flex gap="3" align="center">
                           <div>Safe Rollout</div>
                           <SafeRolloutStatusBadge rule={rule} />
-                          {rule.enabled !== false && (
+                          {!locked && rule.enabled !== false && (
                             <div className="ml-auto">
                               <DecisionCTA
                                 rule={rule}
