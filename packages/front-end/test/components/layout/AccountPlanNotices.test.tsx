@@ -85,6 +85,31 @@ describe("AccountPlanNotices", () => {
       ).not.toBeInTheDocument();
     });
 
+    it("does not render an error if the user does not have billing permissions", () => {
+      // @ts-expect-error "partial test mock"
+      vi.mocked(useUser).mockReturnValue({
+        license: {
+          plan: "enterprise",
+          seats: 5,
+        },
+        seatsInUse: 10,
+      });
+
+      // @ts-expect-error "partial test mock"
+      vi.mocked(usePermissionsUtil).mockReturnValue({
+        canManageBilling: () => false,
+        canViewUsage: () => true,
+      });
+
+      render(<AccountPlanNotices />);
+
+      expect(
+        screen.queryByText((content) =>
+          content.includes("License seat quota exceeded")
+        )
+      ).not.toBeInTheDocument();
+    });
+
     it("renders an error when seats surpass limit", () => {
       // @ts-expect-error "partial test mock"
       vi.mocked(useUser).mockReturnValue({
