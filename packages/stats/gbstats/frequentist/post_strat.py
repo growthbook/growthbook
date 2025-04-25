@@ -179,6 +179,10 @@ class PostStratificationRegressionAdjusted:
         return xtx
 
     @property
+    def xtx_inv(self) -> np.ndarray:
+        return np.linalg.inv(self.xtx)
+
+    @property
     def xty(self) -> np.ndarray:
         xty = np.zeros((3, 1))
         xty[0] = self.stat_a.post_statistic.sum + self.stat_b.post_statistic.sum
@@ -190,7 +194,7 @@ class PostStratificationRegressionAdjusted:
 
     @property
     def bhat(self) -> np.ndarray:
-        return np.linalg.inv(self.xtx).dot(self.xty)
+        return self.xtx_inv.dot(self.xty)
 
     @property
     def sigma2(self) -> float:
@@ -202,8 +206,17 @@ class PostStratificationRegressionAdjusted:
         return (resids_part_1 + resids_part_2) / (self.n - 3)
 
     @property
+    def contrast_matrix(self) -> np.ndarray:
+        statistic_pre = self.stat_a.pre_statistic + self.stat_b.pre_statistic
+        mean_baseline = statistic_pre.mean
+        m = np.zeros((2, 3))
+        m[0, :] = [1, 0, mean_baseline]
+        m[1, :] = [0, 1, 0]
+        return m
+
+    @property
     def mean(self) -> np.ndarray:
-        return (self.bhat[0:2]).ravel()
+        return self.contrast_matrix.dot(self.bhat).ravel()
 
     @property
     def coef_covariance(self) -> np.ndarray:
@@ -211,7 +224,9 @@ class PostStratificationRegressionAdjusted:
 
     @property
     def covariance(self) -> np.ndarray:
-        return self.coef_covariance[0:2, 0:2] * self.n
+        return float(self.n) * self.contrast_matrix.dot(self.coef_covariance).dot(
+            self.contrast_matrix.T
+        )
 
     def compute_result(self) -> StrataResult:
         return StrataResult(self.n, self.mean, self.covariance)
