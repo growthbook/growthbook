@@ -199,12 +199,6 @@ export function getDecisionFrameworkStatus({
   guardrailMetrics: string[];
   daysNeeded?: number;
 }): ExperimentResultStatusData | undefined {
-  // Fully skip decision framework if there are no goal metrics
-  // TODO @dmf-experiment: Add front-end information about this
-  if (!goalMetrics.length) {
-    return undefined;
-  }
-
   const powerReached = daysNeeded === 0;
   const sequentialTesting = resultsStatus?.settings?.sequentialTesting;
 
@@ -357,15 +351,18 @@ export function getExperimentResultStatus({
       ? healthSummary.power.additionalDaysNeeded
       : undefined;
 
-  const decisionStatus = resultsStatus
-    ? getDecisionFrameworkStatus({
-        resultsStatus,
-        decisionCriteria,
-        goalMetrics: experimentData.goalMetrics,
-        guardrailMetrics: experimentData.guardrailMetrics,
-        daysNeeded,
-      })
-    : undefined;
+  // Fully skip decision framework if there are no goal metrics
+  // TODO @dmf-experiment: Add front-end information about this
+  let decisionStatus: ExperimentResultStatusData | undefined = undefined;
+  if (experimentData.goalMetrics.length && resultsStatus) {
+    decisionStatus = getDecisionFrameworkStatus({
+      resultsStatus,
+      decisionCriteria,
+      goalMetrics: experimentData.goalMetrics,
+      guardrailMetrics: experimentData.guardrailMetrics,
+      daysNeeded,
+    });
+  }
 
   const daysLeftStatus = daysNeeded
     ? getDaysLeftStatus({ daysNeeded })
