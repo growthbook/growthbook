@@ -110,7 +110,11 @@ export default function ExperimentMetricTimeSeriesGraphWrapper({
         let adjustedCI: [number, number] | undefined;
         const pValueAdjusted = i[differenceType]?.pValueAdjusted;
         const lift = i[differenceType]?.expected;
-        const ci = i[differenceType]?.ci;
+        const ciFromStats = i[differenceType]?.ci;
+        const ci: [number, number] | undefined =
+          ciFromStats !== undefined
+            ? [ciFromStats[0] ?? -Infinity, ciFromStats[1] ?? Infinity]
+            : undefined;
         if (
           pValueAdjusted !== undefined &&
           lift !== undefined &&
@@ -128,7 +132,7 @@ export default function ExperimentMetricTimeSeriesGraphWrapper({
           users: i.stats?.users ?? 0,
           up: i[differenceType]?.expected ?? 0,
           ctw: i[differenceType]?.chanceToWin ?? undefined,
-          ci: adjustedCI ?? i[differenceType]?.ci ?? undefined,
+          ci: adjustedCI ?? ci ?? undefined,
           p: i[differenceType]?.pValueAdjusted ?? i[differenceType]?.pValue,
           // TODO: What do we do with denominator?
         };
