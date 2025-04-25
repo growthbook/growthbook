@@ -43,7 +43,6 @@ describe("AccountPlanNotices", () => {
       // @ts-expect-error "partial test mock"
       usage: { cdn: { lastUpdated: new Date(), status: "approaching" } },
       license: null,
-      licenseError: "null",
       seatsInUse: 0,
     });
     // @ts-expect-error "partial test mock"
@@ -58,5 +57,81 @@ describe("AccountPlanNotices", () => {
       screen.getByText(/Approaching CDN usage limit/i)
     ).toBeInTheDocument();
     expect(screen.getByText(/Upgrade license/i)).toBeInTheDocument();
+  });
+
+  describe("enterprise license seat quota", () => {
+    it("does not render an error when seats is within limit", () => {
+      // @ts-expect-error "partial test mock"
+      vi.mocked(useUser).mockReturnValue({
+        license: {
+          plan: "enterprise",
+          seats: 15,
+        },
+        seatsInUse: 10,
+      });
+
+      // @ts-expect-error "partial test mock"
+      vi.mocked(usePermissionsUtil).mockReturnValue({
+        canManageBilling: () => true,
+        canViewUsage: () => true,
+      });
+
+      render(<AccountPlanNotices />);
+
+      expect(
+        screen.queryByText((content) =>
+          content.includes("License seat quota exceeded")
+        )
+      ).not.toBeInTheDocument();
+    });
+
+    it("renders an error when seats surpass limit", () => {
+      // @ts-expect-error "partial test mock"
+      vi.mocked(useUser).mockReturnValue({
+        license: {
+          plan: "enterprise",
+          seats: 5,
+        },
+        seatsInUse: 10,
+      });
+
+      // @ts-expect-error "partial test mock"
+      vi.mocked(usePermissionsUtil).mockReturnValue({
+        canManageBilling: () => true,
+        canViewUsage: () => true,
+      });
+
+      render(<AccountPlanNotices />);
+
+      expect(
+        screen.queryByText((content) =>
+          content.includes("License seat quota exceeded")
+        )
+      ).toBeInTheDocument();
+    });
+
+    it("renders an error when license seats is undefined", () => {
+      // @ts-expect-error "partial test mock"
+      vi.mocked(useUser).mockReturnValue({
+        license: {
+          plan: "enterprise",
+        },
+        seatsInUse: 10,
+      });
+
+      // @ts-expect-error "partial test mock"
+      vi.mocked(usePermissionsUtil).mockReturnValue({
+        canManageBilling: () => true,
+        canViewUsage: () => true,
+      });
+
+      render(<AccountPlanNotices />);
+
+      expect(
+        screen.queryByText((content) =>
+          content.includes("License seat quota exceeded")
+        )
+      ).toBeInTheDocument();
+    });
   });
 });
