@@ -10,11 +10,13 @@ import {
 } from "back-end/src/models/VercelNativeIntegration";
 import {
   createOrganization,
+  updateOrganization,
   findOrganizationById,
 } from "back-end/src/models/OrganizationModel";
 import { createUser, getUserByEmail } from "back-end/src/models/UserModel";
 import { ReqContextClass } from "back-end/src/services/context";
 import { sendLocalSuccessResponse } from "back-end/src/controllers/auth";
+import { OrganizationInterface } from "back-end/types/organization";
 import {
   userAuthenticationValidator,
   systemAuthenticationValidator,
@@ -95,13 +97,48 @@ const checkAuth = async <T extends string | "user">({
   }
 };
 
+const findOrCreateUser = async ({
+  email,
+  organization,
+}: {
+  email: string;
+  organization: OrganizationInterface;
+}) => {
+  const existingUser = await getUserByEmail(email);
+
+  if (existingUser) return existingUser;
+
+  const newUser = await createUser({
+    name: email.split("@")[0],
+    email,
+    password: crypto.randomBytes(18).toString("hex"),
+  });
+
+  await updateOrganization(organization.id, {
+    members: [
+      ...organization.members,
+      {
+        id: newUser.id,
+        role: "admin",
+        dateCreated: new Date(),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+    ],
+  });
+
+  return newUser;
+};
+
 const getContext = async ({
   organizationId,
   installationId,
+  userEmail,
   res,
 }: {
   organizationId: string;
   installationId: string;
+  userEmail?: string;
   res: Response;
 }) => {
   const failed = (status: number, reason?: string) => {
@@ -115,9 +152,10 @@ const getContext = async ({
 
   if (!org) return failed(400, "Invalid installation!");
 
-  const user = await getUserByEmail(org.ownerEmail);
-
-  if (!user) return failed(400, "Invalid installation!");
+  const user = await findOrCreateUser({
+    email: userEmail || org.ownerEmail,
+    organization: org,
+  });
 
   const context = new ReqContextClass({
     org,
@@ -169,6 +207,11 @@ const authContext = async (req: Request, res: Response) => {
   return getContext({
     organizationId,
     installationId,
+    userEmail:
+      "user_email" in checkedAuth.authentication.payload &&
+      typeof checkedAuth.authentication.payload.user_email === "string"
+        ? checkedAuth.authentication.payload.user_email
+        : undefined,
     res,
   });
 };
@@ -190,17 +233,15 @@ export async function upsertInstallation(req: Request, res: Response) {
   if (authentication.payload.installation_id !== req.params.installation_id)
     return res.status(400).send("Invalid request!");
 
+  const user = await createUser({
+    name: payload.account.name || payload.account.contact.email.split("@")[0],
+    email: payload.account.contact.email,
+    password: crypto.randomBytes(18).toString("hex"),
+  });
+
   const installationName =
     payload.account.name ||
     `Vercel instalation ${authentication.payload.installation_id}`;
-
-  const user =
-    (await getUserByEmail(payload.account.contact.email)) ||
-    (await createUser({
-      name: installationName,
-      email: payload.account.contact.email,
-      password: crypto.randomBytes(18).toString("hex"),
-    }));
 
   const org = await createOrganization({
     email: payload.account.contact.email,
