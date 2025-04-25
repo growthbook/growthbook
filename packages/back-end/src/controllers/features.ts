@@ -1873,15 +1873,25 @@ export async function putFeatureRule(
     }
   }
   let hasChanges = false;
-  const liveRule = feature.environmentSettings[environment].rules.find(
+  const currentRevision = await getRevision({
+    context,
+    organization: feature.organization,
+    featureId: feature.id,
+    version: parseInt(version),
+  });
+  if (!currentRevision) {
+    throw new Error("Could not lookup feature history");
+  }
+  const currentRule = currentRevision.rules[environment].find(
     (r) => r.id === rule.id
   );
+
   Object.keys(rule).forEach((key) => {
     if (
-      liveRule &&
+      currentRule &&
       !isEqual(
         rule[key as keyof FeatureRule],
-        liveRule[key as keyof FeatureRule]
+        currentRule[key as keyof FeatureRule]
       )
     ) {
       hasChanges = true;
@@ -1890,7 +1900,7 @@ export async function putFeatureRule(
   if (!hasChanges) {
     return res.status(200).json({
       status: 200,
-      version: feature.version,
+      version: currentRevision.version,
     });
   }
   const revision = await getDraftRevision(context, feature, parseInt(version));
