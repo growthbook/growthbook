@@ -1208,7 +1208,7 @@ export async function postFeatureRule(
     }
     rule.safeRolloutId = safeRollout.id;
   }
-
+  // diff current revision with the new rule to see if it's a change
   const revision = await getDraftRevision(context, feature, parseInt(version));
   const resetReview = resetReviewOnChange({
     feature,
@@ -1873,7 +1873,27 @@ export async function putFeatureRule(
       });
     }
   }
-
+  let hasChanges = false;
+  const liveRule = feature.environmentSettings[environment].rules.find(
+    (r) => r.id === rule.id
+  );
+  Object.keys(rule).forEach((key) => {
+    if (
+      liveRule &&
+      !isEqual(
+        rule[key as keyof FeatureRule],
+        liveRule[key as keyof FeatureRule]
+      )
+    ) {
+      hasChanges = true;
+    }
+  });
+  if (!hasChanges) {
+    return res.status(200).json({
+      status: 200,
+      version: feature.version,
+    });
+  }
   const revision = await getDraftRevision(context, feature, parseInt(version));
   const resetReview = resetReviewOnChange({
     feature,
