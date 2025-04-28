@@ -487,7 +487,11 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       </Box>
     );
     return safeRollout ? (
-      <SafeRolloutSnapshotProvider safeRollout={safeRollout} feature={feature}>
+      <SafeRolloutSnapshotProvider
+        safeRollout={safeRollout}
+        feature={feature}
+        mutateSafeRollout={mutate}
+      >
         {contents}
       </SafeRolloutSnapshotProvider>
     ) : (
