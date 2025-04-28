@@ -75,7 +75,7 @@ export default function ChangeColumn({
   }
   return (
     <>
-      {metric && rowResults.enoughData ? (
+      {metric ? (
         <td className={clsx("results-change", className)} {...otherProps}>
           <Flex align="center" justify="end" gap="2">
             <div
@@ -90,9 +90,9 @@ export default function ChangeColumn({
                 (rowResults.directionalStatus === "losing" &&
                   metric.inverse) ? (
                   <FaArrowUp />
-                ) : (
+                ) : expected !== 0 ? (
                   <FaArrowDown />
-                )}
+                ) : null}
               </span>{" "}
               <span className="expected">
                 {formatter(expected, formatterOptions)}{" "}

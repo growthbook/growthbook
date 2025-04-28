@@ -561,8 +561,6 @@ export default function ResultsTable({
                             stats={stats}
                             baseline={baseline}
                             rowResults={rowResults}
-                            showRisk={true}
-                            showSuspicious={true}
                             showPercentComplete={false}
                             showTimeRemaining={true}
                             hideScaledImpact={hideScaledImpact}
