@@ -585,6 +585,9 @@ export default function ResultsTable({
                             className={resultsHighlightClassname}
                             ssrPolyfills={ssrPolyfills}
                             showPlusMinus={false}
+                            onMouseMove={onPointerMove}
+                            onMouseLeave={onPointerLeave}
+                            onClick={onPointerMove}
                           />
                         ) : (
                           <td></td>
