@@ -5,4 +5,6 @@ export {
   devtoolsPlugin,
   devtoolsNextjsPlugin,
   devtoolsExpressPlugin,
+  getDebugScriptContents,
+  getDebugEvent,
 } from "./devtools";
