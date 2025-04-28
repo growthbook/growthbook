@@ -142,7 +142,7 @@ function getPublicKey(): Buffer {
 }
 
 // The end of the key is base64 encoding of the sha256 hash and is random
-// comparing the last 10 characters is random enough for 1/2^60 which is good enough
+// comparing the last 10 characters is enough that a chance of a collision is 1/2^60
 const forbiddenAirGappedLicenseKeyEndings = ["JenaAbOBsY"];
 
 function isForbiddenAirGappedLicenseKey(key?: string): boolean {
