@@ -1,7 +1,7 @@
 import { FC } from "react";
 import Badge from "@/components/Radix/Badge";
 
-type Results = "won" | "lost" | "dnf" | "inconclusive";
+export type Results = "won" | "lost" | "dnf" | "inconclusive";
 
 const getColorAndVariant = (
   results: Results
