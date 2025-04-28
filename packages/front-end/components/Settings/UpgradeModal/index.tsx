@@ -5,7 +5,6 @@ import { Box, Flex, Text } from "@radix-ui/themes";
 import { FaCheckCircle } from "react-icons/fa";
 import { PiCaretRight, PiArrowSquareOut } from "react-icons/pi";
 import { CommercialFeature } from "shared/enterprise";
-import { growthbook } from "@/services/utils";
 import { useUser } from "@/services/UserContext";
 import { getGrowthBookBuild, isCloud } from "@/services/env";
 import track from "@/services/track";
@@ -41,7 +40,7 @@ export default function UpgradeModal({
   const [
     trialAndUpgradePreference,
     setTrialAndUpgradePreference,
-  ] = useState<string>("trial");
+  ] = useState<string>("upgrade");
   const [showSHProTrial, setShowSHProTrial] = useState(false);
   const [showSHProTrialSuccess, setShowSHProTrialSuccess] = useState(false);
   const [showSHEnterpriseTrial, setShowSHEnterpriseTrial] = useState(false);
@@ -108,8 +107,7 @@ export default function UpgradeModal({
     freeTrialAvailable,
   };
 
-  const useInlineUpgradeForm =
-    isCloud() && growthbook.getFeatureValue("ff_embedded-payment-form", false);
+  const useInlineUpgradeForm = isCloud();
 
   useEffect(() => {
     track("View Upgrade Modal", trackContext);
@@ -742,15 +740,9 @@ export default function UpgradeModal({
               styles.upgradeModal
             )}
           >
-            {lowestPlan === "enterprise" ? (
-              enterpriseTreatment()
-            ) : (
-              <>
-                {trialAndUpgradePreference === "upgrade"
-                  ? upgradeOnlyTreatment()
-                  : trialAndUpgradeTreatment()}
-              </>
-            )}
+            {lowestPlan === "enterprise"
+              ? enterpriseTreatment()
+              : upgradeOnlyTreatment()}
           </div>
 
           {error && <div className="alert alert-danger">{error}</div>}
