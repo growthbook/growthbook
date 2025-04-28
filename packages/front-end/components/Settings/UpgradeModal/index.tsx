@@ -90,6 +90,17 @@ export default function UpgradeModal({
     ? commercialFeatureLowestPlan?.[commercialFeature]
     : "starter";
 
+  const now = new Date();
+
+  const licensePlanText = license?.plan === "enterprise" ? "Enterprise" : "Pro";
+
+  const notice =
+    license?.dateExpires && new Date(license?.dateExpires) < now
+      ? `${licensePlanText} license expired ${date(
+          license.dateExpires || ""
+        )}. Renew to regain access to ${licensePlanText} features and higher usage limits.`
+      : null;
+
   const trackContext = {
     accountPlan,
     source,
@@ -312,8 +323,8 @@ export default function UpgradeModal({
     "historical-power":
       "Power calculator that uses historical data for accurate predictions",
     "decision-framework":
-      "Estimate experiment duration using your data & get shipping recommendations.",
-    "custom-roles": "",
+      "Estimate experiment duration using your data & get shipping recommendations",
+    "custom-roles": "Create new roles with custom permissions",
     teams: "Organize members into teams to manage permissions centrally",
     "pipeline-mode":
       "Improve query performance and reduce data warehouse costs by up to 50%",
@@ -390,16 +401,7 @@ export default function UpgradeModal({
 
   function enterpriseTreatment() {
     const dynamicBullet = commercialFeature ? bullets[commercialFeature] : null;
-    const now = new Date();
 
-    const licensePlanText =
-      license?.plan === "enterprise" ? "Enterprise" : "Pro";
-    const notice =
-      license?.dateExpires && new Date(license?.dateExpires) < now
-        ? `${licensePlanText} license expired ${date(
-            license.dateExpires || ""
-          )}. Renew to regain access to ${licensePlanText} features and higher usage limits.`
-        : null;
     return (
       <div>
         {upgradeHeader}
@@ -465,16 +467,6 @@ export default function UpgradeModal({
 
   function upgradeOnlyTreatment() {
     const dynamicBullet = commercialFeature ? bullets[commercialFeature] : null;
-    const now = new Date();
-
-    const licensePlanText =
-      license?.plan === "enterprise" ? "Enterprise" : "Pro";
-    const notice =
-      license?.dateExpires && new Date(license?.dateExpires) < now
-        ? `${licensePlanText} license expired ${date(
-            license.dateExpires || ""
-          )}. Renew to regain access to ${licensePlanText} features and higher usage limits.`
-        : null;
 
     return (
       <div>
