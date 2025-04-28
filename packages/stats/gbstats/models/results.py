@@ -59,11 +59,14 @@ class PowerResponse:
     scalingFactor: Optional[float]
 
 
+ResponseCI = Tuple[Optional[float], Optional[float]]
+
+
 @dataclass
 class BaseVariationResponse(BaselineResponse):
     expected: float
     uplift: Uplift
-    ci: Tuple[float, float]
+    ci: ResponseCI
     errorMessage: Optional[str]
     power: Optional[PowerResponse]
 

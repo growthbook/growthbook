@@ -8,6 +8,9 @@ import {
 import { Environment } from "back-end/types/organization";
 import { Box, Container, Flex, Text } from "@radix-ui/themes";
 import clsx from "clsx";
+import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
+import { useGrowthBook } from "@growthbook/growthbook-react";
+import { AppFeatures } from "@/types/app-features";
 import RuleModal from "@/components/Features/RuleModal/index";
 import RuleList from "@/components/Features/RuleList";
 import track from "@/services/track";
@@ -22,6 +25,9 @@ import {
 } from "@/components/Radix/Tabs";
 import Badge from "@/components/Radix/Badge";
 import Link from "@/components/Radix/Link";
+import Callout from "@/components/Radix/Callout";
+import { useUser } from "@/services/UserContext";
+import PremiumCallout from "@/components/Radix/PremiumCallout";
 import EnvironmentDropdown from "../Environments/EnvironmentDropdown";
 import CompareEnvironmentsModal from "./CompareEnvironmentsModal";
 
@@ -37,6 +43,7 @@ export default function FeatureRules({
   setVersion,
   hideInactive,
   isDraft,
+  safeRolloutsMap,
 }: {
   environments: Environment[];
   feature: FeatureInterface;
@@ -49,7 +56,9 @@ export default function FeatureRules({
   setVersion: (v: number) => void;
   hideInactive: boolean;
   isDraft: boolean;
+  safeRolloutsMap: Map<string, SafeRolloutInterface>;
 }) {
+  const { hasCommercialFeature } = useUser();
   const envs = environments.map((e) => e.id);
   const [env, setEnv] = useEnvironmentState();
   const [ruleModal, setRuleModal] = useState<{
@@ -85,6 +94,10 @@ export default function FeatureRules({
   const tabEnvs = environments.slice(0, 4);
   const dropdownEnvs = environments.slice(4);
   const selectedDropdownEnv = dropdownEnvs.find((e) => e.id === env)?.id;
+
+  const gb = useGrowthBook<AppFeatures>();
+  const isSafeRolloutPromoEnabled = gb.isOn("safe-rollout-promo");
+  const hasSafeRollout = hasCommercialFeature("safe-rollout");
 
   return (
     <>
@@ -182,7 +195,7 @@ export default function FeatureRules({
         {environments.map((e) => {
           return (
             <TabsContent key={e.id} value={e.id}>
-              <div className="mb-4 mt-2">
+              <div className="mt-2">
                 {rulesByEnv[e.id].length > 0 ? (
                   <RuleList
                     environment={e.id}
@@ -196,6 +209,7 @@ export default function FeatureRules({
                     experimentsMap={experimentsMap}
                     hideInactive={hideInactive}
                     isDraft={isDraft}
+                    safeRolloutsMap={safeRolloutsMap}
                   />
                 ) : (
                   <Box py="4" className="text-muted">
@@ -204,22 +218,52 @@ export default function FeatureRules({
                 )}
 
                 {canEditDrafts && !isLocked && (
-                  <Flex pt="4" justify="end" align="center">
-                    <Button
-                      onClick={() => {
-                        setRuleModal({
-                          environment: env,
-                          i: getRules(feature, env).length,
-                        });
-                        track("Viewed Rule Modal", {
-                          source: "add-rule",
-                          type: "force",
-                        });
-                      }}
-                    >
-                      Add Rule
-                    </Button>
-                  </Flex>
+                  <>
+                    <Flex pt="4" justify="between" align="center">
+                      <Text weight="bold" size="3">
+                        Add rule to {env}
+                      </Text>
+                      <Button
+                        onClick={() => {
+                          setRuleModal({
+                            environment: env,
+                            i: getRules(feature, env).length,
+                          });
+                          track("Viewed Rule Modal", {
+                            source: "add-rule",
+                            type: "force",
+                          });
+                        }}
+                      >
+                        Add Rule
+                      </Button>
+                    </Flex>
+                    {/* TODO: This if/else should be handled by PremiumCallout component */}
+                    {isSafeRolloutPromoEnabled && !hasSafeRollout ? (
+                      <PremiumCallout
+                        id="feature-rules-add-rule"
+                        commercialFeature="safe-rollout"
+                        mt="5"
+                      >
+                        <Flex direction="row" gap="3">
+                          <Text>
+                            <strong>Safe Rollouts</strong> can be used to
+                            release new values while monitoring for errors.
+                          </Text>
+                        </Flex>
+                      </PremiumCallout>
+                    ) : isSafeRolloutPromoEnabled && hasSafeRollout ? (
+                      <Callout
+                        mt="5"
+                        status="info"
+                        icon={<Badge label="NEW!" />}
+                      >
+                        Use <strong>Safe Rollouts</strong> to test for guardrail
+                        errors while releasing a new value. Click &lsquo;Add
+                        Rule&rsquo; to get started.
+                      </Callout>
+                    ) : null}
+                  </>
                 )}
               </div>
             </TabsContent>
@@ -231,6 +275,7 @@ export default function FeatureRules({
           feature={feature}
           close={() => setRuleModal(null)}
           i={ruleModal.i}
+          safeRolloutsMap={safeRolloutsMap}
           environment={ruleModal.environment}
           mutate={mutate}
           defaultType={ruleModal.defaultType || ""}
@@ -249,6 +294,7 @@ export default function FeatureRules({
           rules={copyRuleModal.rules}
           cancel={() => setCopyRuleModal(null)}
           mutate={mutate}
+          safeRolloutsMap={safeRolloutsMap}
         />
       )}
       {compareEnvModal !== null && (
