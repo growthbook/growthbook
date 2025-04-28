@@ -12,6 +12,7 @@ import {
   resetReviewOnChange,
   getAffectedEnvsForExperiment,
 } from "shared/util";
+import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import {
   getConnectionSDKCapabilities,
   SDKCapability,
@@ -1193,7 +1194,8 @@ export async function postFeatureRule(
     // Set default status for safe rollout rule
     rule.status = "running";
     rule.seed = rule.seed || uuidv4();
-    rule.trackingKey = rule.trackingKey || `srk_${uuidv4()}`;
+    rule.trackingKey =
+      rule.trackingKey || `${SAFE_ROLLOUT_TRACKING_KEY_PREFIX}${uuidv4()}`;
 
     const safeRollout = await context.models.safeRollout.create({
       ...validatedSafeRolloutFields,

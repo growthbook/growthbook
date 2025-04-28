@@ -173,12 +173,14 @@ function convertMetricToMetricValue(
   // when SnapshotMetric and MetricTimeSeriesDataPoint change
   return {
     value: metric.value,
-    denominator: metric.denominator,
-    expected: metric.expected,
-    ci: metric.ci,
-    pValue: metric.pValue,
-    pValueAdjusted: metric.pValueAdjusted,
-    chanceToWin: metric.chanceToWin,
+    // FIXME: This converts null into undefined, needed because of type mismatch
+    // between zod & mongoose & stats engine
+    denominator: metric.denominator ?? undefined,
+    expected: metric.expected ?? undefined,
+    ci: metric.ci ?? undefined,
+    pValue: metric.pValue ?? undefined,
+    pValueAdjusted: metric.pValueAdjusted ?? undefined,
+    chanceToWin: metric.chanceToWin ?? undefined,
   };
 }
 
