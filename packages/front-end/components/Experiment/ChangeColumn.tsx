@@ -75,7 +75,7 @@ export default function ChangeColumn({
   }
   return (
     <>
-      {metric ? (
+      {metric && rowResults.enoughData ? (
         <td className={clsx("results-change", className)} {...otherProps}>
           <Flex align="center" justify="end" gap="2">
             <div
