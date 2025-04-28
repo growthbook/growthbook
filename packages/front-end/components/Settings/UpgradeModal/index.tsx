@@ -369,6 +369,7 @@ export default function UpgradeModal({
     </p>
   );
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   function trialAndUpgradeTreatment() {
     return (
       <div>
