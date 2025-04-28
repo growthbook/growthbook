@@ -54,7 +54,8 @@ export type CommercialFeature =
   | "templates"
   | "historical-power"
   | "decision-framework"
-  | "unlimited-cdn-usage";
+  | "unlimited-cdn-usage"
+  | "safe-rollout";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
@@ -192,6 +193,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "multi-armed-bandits",
     "historical-power",
     "decision-framework",
+    "safe-rollout",
   ]),
   pro_sso: new Set<CommercialFeature>([
     "sso",
@@ -219,6 +221,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "multi-armed-bandits",
     "historical-power",
     "decision-framework",
+    "safe-rollout",
   ]),
   enterprise: new Set<CommercialFeature>([
     "scim",
@@ -265,6 +268,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "templates",
     "historical-power",
     "decision-framework",
+    "safe-rollout",
   ]),
 };
 

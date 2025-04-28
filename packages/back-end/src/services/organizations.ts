@@ -80,6 +80,7 @@ import {
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
 import { getLicense, licenseInit } from "back-end/src/enterprise";
+import { PValueCorrection } from "back-end/types/stats";
 import {
   encryptParams,
   getSourceIntegrationObject,
@@ -197,6 +198,12 @@ export function getMetricDefaultsForOrg(context: ReqContext): MetricDefaults {
 
 export function getPValueThresholdForOrg(context: ReqContext): number {
   return context.org.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD;
+}
+
+export function getPValueCorrectionForOrg(
+  context: ReqContext
+): PValueCorrection {
+  return context.org.settings?.pValueCorrection ?? null;
 }
 
 export function getRole(
