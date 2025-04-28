@@ -48,6 +48,7 @@ export default function StatusColumn({
           rowResults={rowResults}
           showTimeRemaining={showTimeRemaining}
           showPercentComplete={showPercentComplete}
+          showBaselineZero={baseline.value === 0}
         />
       ) : (
         <div className="d-flex align-items-center">
