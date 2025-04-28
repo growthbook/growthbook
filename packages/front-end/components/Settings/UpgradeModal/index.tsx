@@ -78,6 +78,27 @@ export default function UpgradeModal({
 
   const { organization, refreshOrganization } = useUser();
 
+  function getLowestAvailablePlan() {
+    // If no commercialFeature is passed in, the lowestAvailablePlan is the plan higher than their effectiveAccountPlan
+    if (!commercialFeature) {
+      if (
+        !effectiveAccountPlan ||
+        ["oss", "starter"].includes(effectiveAccountPlan)
+      ) {
+        return "pro";
+      }
+
+      if (
+        effectiveAccountPlan &&
+        ["pro", "pro_sso"].includes(effectiveAccountPlan)
+      ) {
+        return "enterprise";
+      }
+    } else {
+      return commercialFeatureLowestPlan?.[commercialFeature] || "starter";
+    }
+  }
+
   const currentUsers =
     (organization.members?.length || 0) + (organization.invites?.length || 0);
 
@@ -85,9 +106,7 @@ export default function UpgradeModal({
   const freeTrialAvailable =
     !license || !license.plan || !license.emailVerified;
 
-  const lowestPlan = commercialFeature
-    ? commercialFeatureLowestPlan?.[commercialFeature]
-    : "starter";
+  const lowestPlan = getLowestAvailablePlan();
 
   const now = new Date();
 
@@ -181,13 +200,11 @@ export default function UpgradeModal({
 
   function startEnterprise() {
     track("Start Enterprise Checkout", trackContext);
-    const subject = organization.name
-      ? "Inquiry about Enterprise Plan for " + organization.name
-      : "Inquiry about Enterprise Plan";
-    const mailtoLink = `mailto:sales@growthbook.io?subject=${encodeURIComponent(
-      subject
-    )}`;
-    const newWindow = window.open(mailtoLink, "_blank", "noreferrer");
+    const newWindow = window.open(
+      "https://www.growthbook.io/demo",
+      "_blank",
+      "noreferrer"
+    );
     if (newWindow) newWindow.opener = null;
   }
 
@@ -455,8 +472,8 @@ export default function UpgradeModal({
               size={"3"}
               style={{ color: "var(--color-text-high)", fontWeight: 500 }}
             >
-              Get all Pro features plus custom SLAs, roadmap acceleration,
-              volume price discounts
+              All Pro features + custom SLAs, roadmap acceleration, volume price
+              discounts and more
             </Text>
           </Flex>
         </div>
