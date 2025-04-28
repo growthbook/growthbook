@@ -360,7 +360,6 @@ export class UserScopedGrowthBook<
 > {
   private _gb: GrowthBookClient;
   private _userContext: UserContext;
-  private _trackedFeatures: Record<string, string>;
   public logs: Array<LogUnion>;
 
   constructor(
@@ -370,9 +369,13 @@ export class UserScopedGrowthBook<
   ) {
     this._gb = gb;
     this._userContext = userContext;
-    this._userContext.onFeatureUsage = this._getOnFeatureUsage();
-    this._trackedFeatures = {};
     this.logs = [];
+
+    this._userContext.trackedExperiments =
+      this._userContext.trackedExperiments || new Set();
+    this._userContext.trackedFeatureUsage =
+      this._userContext.trackedFeatureUsage || {};
+    this._userContext.devLogs = this.logs;
 
     if (plugins) {
       for (const plugin of plugins) {
@@ -408,6 +411,14 @@ export class UserScopedGrowthBook<
   }
 
   public logEvent(eventName: string, properties?: EventProperties) {
+    if (this._userContext.enableDevMode) {
+      this.logs.push({
+        eventName,
+        properties,
+        timestamp: Date.now().toString(),
+        logType: "event",
+      });
+    }
     this._gb.logEvent(eventName, properties || {}, this._userContext);
   }
 
@@ -447,33 +458,5 @@ export class UserScopedGrowthBook<
   }
   public getDecryptedPayload() {
     return this._gb.getDecryptedPayload();
-  }
-
-  private _getOnFeatureUsage() {
-    const onFeatureUsage = this._userContext.onFeatureUsage;
-    return (key: string, res: FeatureResult): void => {
-      // Only track a feature once, unless the assigned value changed
-      const stringifiedValue = JSON.stringify(res.value);
-      if (this._trackedFeatures[key] === stringifiedValue) return;
-      this._trackedFeatures[key] = stringifiedValue;
-
-      if (this._userContext.enableDevMode) {
-        this.logs.push({
-          featureKey: key,
-          result: res,
-          timestamp: Date.now().toString(),
-          logType: "feature",
-        });
-      }
-
-      // Fire user-supplied callback
-      if (onFeatureUsage) {
-        try {
-          onFeatureUsage(key, res);
-        } catch (e) {
-          // Ignore feature usage callback errors
-        }
-      }
-    };
   }
 }

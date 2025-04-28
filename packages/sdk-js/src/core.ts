@@ -73,7 +73,26 @@ function onExperimentViewed(
   ctx: EvalContext,
   experiment: Experiment<unknown>,
   result: Result<unknown>
-) {
+): Promise<void>[] {
+  const k = getExperimentTrackKey(experiment, result);
+
+  // Make sure a tracking callback is only fired once per unique experiment
+  if (ctx.user.trackedExperiments) {
+    if (ctx.user.trackedExperiments.has(k)) {
+      return [];
+    }
+    ctx.user.trackedExperiments.add(k);
+  }
+
+  if (ctx.user.enableDevMode && ctx.user.devLogs) {
+    ctx.user.devLogs.push({
+      experiment,
+      result,
+      timestamp: Date.now().toString(),
+      logType: "experiment",
+    });
+  }
+
   const calls: Promise<void>[] = [];
 
   if (ctx.global.trackingCallback) {
@@ -102,6 +121,53 @@ function onExperimentViewed(
     );
   }
   return calls;
+}
+
+function onFeatureUsage(
+  ctx: EvalContext,
+  key: string,
+  ret: FeatureResult<unknown>
+): void {
+  // Only track a feature once, unless the assigned value changed
+  if (ctx.user.trackedFeatureUsage) {
+    const stringifiedValue = JSON.stringify(ret.value);
+    if (ctx.user.trackedFeatureUsage[key] === stringifiedValue) return;
+    ctx.user.trackedFeatureUsage[key] = stringifiedValue;
+
+    if (ctx.user.enableDevMode && ctx.user.devLogs) {
+      ctx.user.devLogs.push({
+        featureKey: key,
+        result: ret,
+        timestamp: Date.now().toString(),
+        logType: "feature",
+      });
+    }
+  }
+
+  if (ctx.global.onFeatureUsage) {
+    const cb = ctx.global.onFeatureUsage;
+    safeCall(() => cb(key, ret, ctx.user));
+  }
+  if (ctx.user.onFeatureUsage) {
+    const cb = ctx.user.onFeatureUsage;
+    safeCall(() => cb(key, ret));
+  }
+  if (ctx.global.eventLogger) {
+    const cb = ctx.global.eventLogger;
+    safeCall(() =>
+      cb(
+        EVENT_FEATURE_EVALUATED,
+        {
+          feature: key,
+          source: ret.source,
+          value: ret.value,
+          ruleId: ret.source === "defaultValue" ? "$default" : ret.ruleId || "",
+          variationId: ret.experimentResult ? ret.experimentResult.key : "",
+        },
+        ctx.user
+      )
+    );
+  }
 }
 
 export function evalFeature<V = unknown>(
@@ -736,35 +802,17 @@ function getFeatureResult<T>(
 
   // Track the usage of this feature in real-time
   if (source !== "override") {
-    if (ctx.global.onFeatureUsage) {
-      const cb = ctx.global.onFeatureUsage;
-      safeCall(() => cb(key, ret, ctx.user));
-    }
-    if (ctx.user.onFeatureUsage) {
-      const cb = ctx.user.onFeatureUsage;
-      safeCall(() => cb(key, ret));
-    }
-
-    if (ctx.global.eventLogger) {
-      const cb = ctx.global.eventLogger;
-      safeCall(() =>
-        cb(
-          EVENT_FEATURE_EVALUATED,
-          {
-            feature: key,
-            source: ret.source,
-            value: ret.value,
-            ruleId:
-              ret.source === "defaultValue" ? "$default" : ret.ruleId || "",
-            variationId: ret.experimentResult ? ret.experimentResult.key : "",
-          },
-          ctx.user
-        )
-      );
-    }
+    onFeatureUsage(ctx, key, ret);
   }
 
   return ret;
+}
+
+function getAttributes(ctx: EvalContext) {
+  return {
+    ...ctx.user.attributes,
+    ...ctx.user.attributeOverrides,
+  };
 }
 
 function conditionPasses(
@@ -772,7 +820,7 @@ function conditionPasses(
   ctx: EvalContext
 ): boolean {
   return evalCondition(
-    ctx.user.attributes || {},
+    getAttributes(ctx),
     condition,
     ctx.global.savedGroups || {}
   );
@@ -891,14 +939,16 @@ export function getHashAttribute(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let hashValue: any = "";
 
-  if (ctx.user.attributes && ctx.user.attributes[hashAttribute]) {
-    hashValue = ctx.user.attributes[hashAttribute];
+  const attributes = getAttributes(ctx);
+
+  if (attributes[hashAttribute]) {
+    hashValue = attributes[hashAttribute];
   }
 
   // if no match, try fallback
-  if (ctx.user.attributes && !hashValue && fallback) {
-    if (ctx.user.attributes[fallback]) {
-      hashValue = ctx.user.attributes[fallback];
+  if (!hashValue && fallback) {
+    if (attributes[fallback]) {
+      hashValue = attributes[fallback];
     }
     if (hashValue) {
       hashAttribute = fallback;
@@ -1164,4 +1214,16 @@ export function getApiHosts(
     apiRequestHeaders: options.apiHostRequestHeaders,
     streamingHostRequestHeaders: options.streamingHostRequestHeaders,
   };
+}
+
+export function getExperimentTrackKey(
+  experiment: Experiment<unknown>,
+  result: Result<unknown>
+) {
+  return (
+    result.hashAttribute +
+    result.hashValue +
+    experiment.key +
+    result.variationId
+  );
 }

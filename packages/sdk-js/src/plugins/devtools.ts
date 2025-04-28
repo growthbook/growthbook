@@ -167,20 +167,30 @@ type LogEvent = {
   sdkInfo?: SdkInfo;
 };
 /**
- * Helper method to get log events for DevTools
+ * Helper method to get debug script contents for DevTools
  * @param gb - GrowthBook instance. DevMode must be enabled to view log events.
  * @param {string} [source] - Label these events for ease of reading in DevTools
  * @example
  * A React logger component (implement yourself):
  ```
-  const event = getDebugEvent({ gb, source: "nextjs" });
   return (
     <script dangerouslySetInnerHTML={{
-      __html: \`(window._gbdebugEvents = (window._gbdebugEvents || [])).push(${JSON.stringify(event)});\`
+      __html: getDebugScriptContents(gb, "nextjs")
     }} />
   );
  ```
  */
+export function getDebugScriptContents(
+  gb: GrowthBook,
+  source?: string
+): string {
+  const event = getDebugEvent(gb, source);
+  if (!event) return "";
+  return `(window._gbdebugEvents = (window._gbdebugEvents || [])).push(${JSON.stringify(
+    event
+  )});`;
+}
+
 export function getDebugEvent(
   gb: GrowthBook | UserScopedGrowthBook,
   source?: string

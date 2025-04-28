@@ -350,6 +350,9 @@ export type UserContext = {
   attributeOverrides?: Attributes;
   trackingCallback?: TrackingCallback;
   onFeatureUsage?: FeatureUsageCallback;
+  trackedExperiments?: Set<string>;
+  trackedFeatureUsage?: Record<string, string>;
+  devLogs?: LogUnion[];
 };
 
 export type StackContext = {
