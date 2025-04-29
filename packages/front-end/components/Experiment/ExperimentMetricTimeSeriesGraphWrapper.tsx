@@ -3,15 +3,14 @@ import { DifferenceType, StatsEngine } from "back-end/types/stats";
 import { ExperimentStatus } from "back-end/src/validators/experiments";
 import { MetricTimeSeries } from "back-end/src/validators/metric-time-series";
 import { daysBetween, getValidDate } from "shared/dates";
-import { ExperimentMetricInterface } from "shared/src/experiments";
 import { addDays, min } from "date-fns";
+import { ExperimentMetricInterface, getAdjustedCI } from "shared/experiments";
 import useApi from "@/hooks/useApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   getExperimentMetricFormatter,
   formatPercent,
 } from "@/services/metrics";
-import { getAdjustedCI } from "@/services/experiments";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useSnapshot } from "./SnapshotProvider";
@@ -136,7 +135,7 @@ export default function ExperimentMetricTimeSeriesGraphWrapper({
       });
       const parsedPoint: ExperimentTimeSeriesGraphDataPoint = {
         d: new Date(point.date),
-        variations: variations,
+        variations,
         helperText:
           idx < lastIndexInvalidConfiguration
             ? "Analysis or metric settings do not match current version"
