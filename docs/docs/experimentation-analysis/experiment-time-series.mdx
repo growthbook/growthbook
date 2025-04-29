@@ -1,0 +1,32 @@
+---
+title: Experiment Time Series
+slug: /app/experiment-time-series
+---
+
+# Experiment Time Series
+
+Time series showing the cumulative results of your experiment though a given experiment update are available in-line in the experiment results.
+
+![Experiment Time Series](/images/experiment-time-series.png)
+
+Each data point in the time series represents the cumulative results of the experiment as of a historical experiment update. There will be as many data points as there have been experiment updates.
+
+![Tooltip of a single data point in the time series](/images/experiment-time-series-tooltip.png)
+
+Selecting a difference type (Relative, Absolute, Scaled Impact) will change the y-axis of the time series to the relevant effect. Selecting a different baseline variation will hide the time series as they are only computed for the default baseline variation.
+
+## FAQ
+
+### Why is some part of the time series dotted?
+
+The dotted part of the time series represents the results that were computed when the settings for either the metric or the analysis were changed. It's possible that results computed with the old settings do not line up with the current settings, so GrowthBook shows the part of the time series that is immediately comparable over time as a solid line, and uses a dotted line for the history where comparability is less certain.
+
+### Why are the intervals between data points not equal?
+
+The intervals between data points are not equal because the time series is computed as the cumulative results of the experiment as of a historical experiment update. The time between experiment updates will be variable if users in your organizations are manually refreshing the experiment results.
+
+### Why does the time series only go back so far?
+
+The time series will only go back as far as the oldest experiment update (and as far back as late March 2025, when the time series feature was launched). If you have not manually refreshed the experiment results, then the time series will only go back to the last time the experiment was refreshed.
+
+Furthermore, if you add a metric mid-experiment, the time series will only show the history of the metric as long as the metric has been in the experiment.
