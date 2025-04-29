@@ -27,6 +27,7 @@ import {
 import { FeatureUsageLookback } from "back-end/src/types/Integration";
 import { Box, Flex, Heading, Switch, Text } from "@radix-ui/themes";
 import { RxListBullet } from "react-icons/rx";
+import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import Button from "@/components/Radix/Button";
 import { GBAddCircle, GBEdit } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -96,12 +97,14 @@ export default function FeaturesOverview({
   dependents,
   dependentFeatures,
   dependentExperiments,
+  safeRollouts,
 }: {
   baseFeature: FeatureInterface;
   feature: FeatureInterface;
   revision: FeatureRevisionInterface | null;
   revisions: FeatureRevisionInterface[];
   experiments: ExperimentInterfaceStringDates[] | undefined;
+  safeRollouts: SafeRolloutInterface[] | undefined;
   mutate: () => Promise<unknown>;
   editProjectModal: boolean;
   setEditProjectModal: (b: boolean) => void;
@@ -191,6 +194,11 @@ export default function FeaturesOverview({
     if (!experiments) return new Map();
     return new Map(experiments.map((exp) => [exp.id, exp]));
   }, [experiments]);
+
+  const safeRolloutsMap = useMemo<Map<string, SafeRolloutInterface>>(() => {
+    if (!safeRollouts) return new Map();
+    return new Map(safeRollouts.map((rollout) => [rollout.id, rollout]));
+  }, [safeRollouts]);
 
   const {
     showFeatureUsage,
@@ -1099,6 +1107,7 @@ export default function FeaturesOverview({
                       setVersion={setVersion}
                       hideInactive={hideInactive}
                       isDraft={isDraft}
+                      safeRolloutsMap={safeRolloutsMap}
                     />
                   </>
                 ) : (

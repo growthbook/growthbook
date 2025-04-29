@@ -4,14 +4,16 @@ import {
   DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
   DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,
 } from "shared/constants";
+import { SafeRolloutSnapshotInterface } from "back-end/types/safe-rollout";
+import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import { StatusBadge } from "./StatusBadge";
 import { IssueValue } from "./IssueTags";
 
 interface Props {
   totalUsers: number;
-  onNotify: (issue: IssueValue) => void;
+  onNotify?: (issue: IssueValue) => void;
+  snapshot: ExperimentSnapshotInterface | SafeRolloutSnapshotInterface;
 }
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -20,9 +22,12 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 });
 const numberFormatter = new Intl.NumberFormat();
 
-export default function MultipleExposuresCard({ totalUsers, onNotify }: Props) {
+export default function MultipleExposuresCard({
+  totalUsers,
+  onNotify,
+  snapshot,
+}: Props) {
   const settings = useOrgSettings();
-  const { snapshot } = useSnapshot();
 
   const minPercentThreshold =
     settings?.multipleExposureMinPercent ??
@@ -40,7 +45,7 @@ export default function MultipleExposuresCard({ totalUsers, onNotify }: Props) {
   );
 
   useEffect(() => {
-    if (health.status === "unhealthy") {
+    if (health.status === "unhealthy" && onNotify) {
       onNotify({ label: "Multiple Exposures", value: "multipleExposures" });
     }
   }, [snapshot, health, onNotify]);
