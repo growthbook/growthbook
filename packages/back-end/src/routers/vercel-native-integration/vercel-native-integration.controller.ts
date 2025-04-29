@@ -241,11 +241,13 @@ export async function upsertInstallation(req: Request, res: Response) {
   if (authentication.payload.installation_id !== req.params.installation_id)
     return res.status(400).send("Invalid request!");
 
-  const user = await createUser({
-    name: payload.account.name || payload.account.contact.email.split("@")[0],
-    email: payload.account.contact.email,
-    password: crypto.randomBytes(18).toString("hex"),
-  });
+  const user =
+    (await await getUserByEmail(payload.account.contact.email)) ||
+    (await createUser({
+      name: payload.account.name || payload.account.contact.email.split("@")[0],
+      email: payload.account.contact.email,
+      password: crypto.randomBytes(18).toString("hex"),
+    }));
 
   const installationName =
     payload.account.name ||
