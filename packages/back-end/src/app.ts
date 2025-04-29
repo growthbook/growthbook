@@ -310,25 +310,25 @@ if (CORS_ORIGIN_REGEX) {
   origins.push(CORS_ORIGIN_REGEX);
 }
 
-if (ENVIRONMENT !== "production" || IS_CLOUD) {
-  app.use(
-    "/vercel",
-    cors({
-      credentials: false,
-      origin: "*",
-    }),
-    vercelRouter
-  );
+//if (ENVIRONMENT !== "production" || IS_CLOUD) {
+app.use(
+  "/vercel",
+  cors({
+    credentials: false,
+    origin: "*",
+  }),
+  vercelRouter
+);
 
-  app.post(
-    "/auth/sso/vercel",
-    cors({
-      credentials: true,
-      origin: origins,
-    }),
-    vercelController.postVercelIntegrationSSO
-  );
-}
+app.post(
+  "/auth/sso/vercel",
+  cors({
+    credentials: true,
+    origin: origins,
+  }),
+  vercelController.postVercelIntegrationSSO
+);
+//}
 
 app.use(
   cors({
