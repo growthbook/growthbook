@@ -7,4 +7,10 @@ export {
   devtoolsExpressPlugin,
   getDebugScriptContents,
   getDebugEvent,
+  DevtoolsState,
+  ExpressRequestCompat,
+  NextjsReadonlyRequestCookiesCompat,
+  NextjsRequestCompat,
+  LogEvent,
+  SdkInfo,
 } from "./devtools";
