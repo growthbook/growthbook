@@ -50,7 +50,7 @@ import {
   getAllStickyBucketAssignmentDocs,
   decryptPayload,
   getApiHosts,
-  getExperimentTrackKey,
+  getExperimentDedupeKey,
 } from "./core";
 
 const isBrowser =
@@ -899,7 +899,7 @@ export class GrowthBook<
       calls
         .filter((c) => c && c.experiment && c.result)
         .map((c) => {
-          return [getExperimentTrackKey(c.experiment, c.result), c];
+          return [getExperimentDedupeKey(c.experiment, c.result), c];
         })
     );
   }
@@ -966,7 +966,7 @@ export class GrowthBook<
 
   private _saveDeferredTrack(data: TrackingData) {
     this._deferredTrackingCalls.set(
-      getExperimentTrackKey(data.experiment, data.result),
+      getExperimentDedupeKey(data.experiment, data.result),
       data
     );
   }
@@ -1091,6 +1091,10 @@ export class GrowthBook<
       );
       this._options.stickyBucketAssignmentDocs = docs;
     }
+  }
+
+  public inDevMode(): boolean {
+    return !!this._options.enableDevMode;
   }
 }
 

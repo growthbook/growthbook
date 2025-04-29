@@ -74,10 +74,9 @@ function onExperimentViewed(
   experiment: Experiment<unknown>,
   result: Result<unknown>
 ): Promise<void>[] {
-  const k = getExperimentTrackKey(experiment, result);
-
   // Make sure a tracking callback is only fired once per unique experiment
   if (ctx.user.trackedExperiments) {
+    const k = getExperimentDedupeKey(experiment, result);
     if (ctx.user.trackedExperiments.has(k)) {
       return [];
     }
@@ -1216,7 +1215,7 @@ export function getApiHosts(
   };
 }
 
-export function getExperimentTrackKey(
+export function getExperimentDedupeKey(
   experiment: Experiment<unknown>,
   result: Result<unknown>
 ) {

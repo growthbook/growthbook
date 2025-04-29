@@ -8,16 +8,16 @@ import {
 } from "../types/growthbook";
 import { GrowthBookClient, UserScopedGrowthBook } from "../GrowthBookClient";
 
-type DevtoolsState = {
+export type DevtoolsState = {
   attributes?: Record<string, any>;
   features?: Record<string, any>;
   experiments?: Record<string, number>;
 };
 
-interface NextjsReadonlyRequestCookiesCompat {
+export interface NextjsReadonlyRequestCookiesCompat {
   get: (name: string) => { name: string; value: string } | undefined;
 }
-interface NextjsRequestCompat {
+export interface NextjsRequestCompat {
   nextUrl: {
     searchParams: URLSearchParams;
   };
@@ -25,7 +25,7 @@ interface NextjsRequestCompat {
     get: (name: string) => { name: string; value: string } | undefined;
   };
 }
-interface ExpressRequestCompat {
+export interface ExpressRequestCompat {
   cookies: Record<string, string | string[]>;
   query: Record<string, string>;
   [key: string]: unknown;
@@ -35,6 +35,11 @@ function applyDevtoolsState(
   devtoolsState: DevtoolsState,
   gb: GrowthBook | UserScopedGrowthBook
 ) {
+  // Only enable in dev mode
+  if (!gb.inDevMode()) {
+    return;
+  }
+
   if (
     devtoolsState.attributes &&
     typeof devtoolsState.attributes === "object"
@@ -55,9 +60,11 @@ function applyDevtoolsState(
 
 export function devtoolsPlugin(devtoolsState?: DevtoolsState): Plugin {
   return (gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient) => {
-    // Only works for standard GrowthBook instances
+    // Only works for user-scoped GrowthBook instances
     if ("createScopedInstance" in gb) {
-      return;
+      throw new Error(
+        "devtoolsPlugin can only be set on a user-scoped instance"
+      );
     }
     if (devtoolsState) {
       applyDevtoolsState(devtoolsState, gb);
@@ -154,7 +161,7 @@ export function devtoolsExpressPlugin({
   };
 }
 
-type SdkInfo = {
+export type SdkInfo = {
   apiHost: string;
   clientKey: string;
   source?: string;
@@ -162,7 +169,7 @@ type SdkInfo = {
   payload?: FeatureApiResponse;
   attributes?: Attributes;
 };
-type LogEvent = {
+export type LogEvent = {
   logs: LogUnion[];
   sdkInfo?: SdkInfo;
 };

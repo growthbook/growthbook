@@ -349,8 +349,14 @@ export class GrowthBookClient<
     };
   }
 
-  public createScopedInstance(userContext: UserContext) {
-    return new UserScopedGrowthBook(this, userContext, this._options.plugins);
+  public createScopedInstance(
+    userContext: UserContext,
+    userPlugins?: Plugin[]
+  ) {
+    return new UserScopedGrowthBook(this, userContext, [
+      ...(this._options.plugins || []),
+      ...(userPlugins || []),
+    ]);
   }
 }
 
@@ -458,5 +464,8 @@ export class UserScopedGrowthBook<
   }
   public getDecryptedPayload() {
     return this._gb.getDecryptedPayload();
+  }
+  public inDevMode(): boolean {
+    return !!this._userContext.enableDevMode;
   }
 }
