@@ -13,7 +13,7 @@ const VercelPage = () => {
 
     const fn = async () => {
       try {
-        await fetch(`${apiHost}/vercel/auth/sso`, {
+        await fetch(`${apiHost}/auth/sso/vercel`, {
           method: "POST",
           body: JSON.stringify({
             code,
