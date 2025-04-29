@@ -1667,12 +1667,12 @@ export async function postFeatureSchema(
 export async function putSafeRolloutStatus(
   req: AuthRequest<
     { status: SafeRolloutRule["status"]; environment: string; i: number },
-    { id: string; version: string }
+    { id: string }
   >,
   res: Response<{ status: 200; version: number }, EventUserForResponseLocals>
 ) {
   const context = getContextFromReq(req);
-  const { id, version } = req.params;
+  const { id } = req.params;
   const { status, environment, i } = req.body;
   const { org } = context;
   const feature = await getFeature(context, id);
@@ -1680,7 +1680,14 @@ export async function putSafeRolloutStatus(
     throw new Error("Could not find feature");
   }
 
-  const revision = await getDraftRevision(context, feature, parseInt(version));
+  const revision = await createRevision({
+    context,
+    feature,
+    user: context.auditUser,
+    environments: getEnvironmentIdsFromOrg(context.org),
+    baseVersion: feature.version,
+    org,
+  });
   const resetReview = resetReviewOnChange({
     feature,
     changedEnvironments: [environment],
@@ -1778,6 +1785,10 @@ export async function putSafeRolloutStatus(
         revision: revision.version,
         comment: "auto-publish status change",
       }),
+    });
+  } else {
+    await updateFeature(context, feature, {
+      hasDrafts: true,
     });
   }
   res.status(200).json({
