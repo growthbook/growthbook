@@ -89,6 +89,77 @@ app.get("/", (req, res) => {
 
 Scoped instances were first introduced in SDK version 1.3.1.
 
+## Plugins
+
+GrowthBook comes with a number of built-in plugins that add additional functionality. You can enable these by passing them into the GrowthBook constructor.
+
+Plugins require GrowthBook version 1.4.0 or higher, released in Feb 2025.
+
+### DevTools for back-end
+
+The [GrowthBook DevTools Browser Extension](/tools/chrome-extension) now supports debugging back-end environments. This includes sending overrides (attribute, feature, and experiment) from the browser extension to the back end, and also displaying back-end logged events (feature evaluations, experiment exposure events).
+
+We provide first-class devtools support via plugins and helper functions for a variety of Node.js-based environments, including:
+
+- Next.js
+- Express
+- Node.js (platform-agnostic)
+
+The DevTools plugins are designed to work both GrowthBookClient and GrowthBook (legacy) SDK instances. Your SDK must be in dev mode (`enableDevMode: true`) for the plugin to work.
+
+#### Next.js
+
+For RSCs (React server components) or SSR (server-side rendering), pass in the readonly request cookies and search params to the plugin. In Next 15+, these may need to be awaited.
+
+```js
+import { cookies } from "next/headers";
+import { devtoolsNextjsPlugin } from "@growthbook/growthbook/plugins";
+
+export default async function Home({ searchParams }) {
+  const requestCookies = await cookies();
+  const awaitedSearchParams = await searchParams;
+
+  const growthbook = new GrowthBook({
+    apiHost: "https://cdn.growthbook.io",
+    clientKey: "sdk-abc123",
+    enableDevMode: true,
+    plugins: [
+      devtoolsNextjsPlugin({ searchParams: awaitedSearchParams, requestCookies })
+    ],
+  });
+
+  return (
+    <main>
+      <h1>Hello World</h1>
+      <Widget growthbook={growthbook} />
+
+      <DevtoolsLogger growthbook={growthbook} />
+    </main>
+  );
+}
+```
+
+Note the component named `<DevtoolsLogger>`. We will discuss how and why to implement this below.
+
+For middleware implementations or API routes, pass the `request` object to `devtoolsNextjsPlugin` instead of searchParams and requestCookies.
+
+```js
+export function middleware(request) {
+  const growthbook = new GrowthBook({
+    apiHost: "https://cdn.growthbook.io",
+    clientKey: "sdk-abc123",
+    enableDevMode: true,
+    plugins: [
+      devtoolsNextjsPlugin({ request })
+    ],
+  });
+
+  // etc...
+}
+```
+
+#### Express
+
 ### GrowthBook class (legacy)
 
 The `GrowthBookClient` class was introduced in SDK version 1.3.0 to improve performance in back-end environments by up to 3x. It does this by re-using the core instance across many different user requests.

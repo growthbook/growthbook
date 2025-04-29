@@ -169,6 +169,7 @@ GrowthBook DevTools works great out of the box, but if you want even more power,
 
 - Synced attributes: Brings in all possible attributes and their types from GrowthBook.
 - [Archetypes](https://docs.growthbook.io/features/rules#archetype): Toggle between preset user attributes defined in GrowthBook.
+- Feature revisions and drafts: Preview how feature drafts or previous revisions would behave on your site.
 
 To enables these features:
 
@@ -190,7 +191,7 @@ DevTools supports back end debugging. This includes:
 
 ![Back-end evaluation logging with DevTools](/images/devtools-back-end-evaluation.png)
 
-While much of the communication is automatically handled (mediated by cookies and datalayer-like events), some manual work is required to enable back end debugging. DevTools uses well-defined standard interfaces; additionally, we provide helper functions to make bridging these environments easier.
+While much of the communication is automatically handled (mediated by cookies and datalayer-like events), some manual configuration is required to enable back end debugging. In the JavaScript SDK, we provide several environment-specific SDK plugins and helper functions to make back-end debugging simpler.
 
 ### Ingesting the DevTools cookie and applying overrides (Node.js / Express / NextJS)
 
