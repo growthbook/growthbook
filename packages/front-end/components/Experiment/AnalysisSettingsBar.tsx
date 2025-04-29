@@ -495,16 +495,29 @@ export function isOutdated({
     reasons.push("Variations changed");
   }
   if (
+    // start date changed
     isDifferentDate(
       getValidDate(experiment.phases?.[phase ?? 0]?.dateStarted ?? ""),
       getValidDate(snapshotSettings.startDate)
     ) ||
+    // end date exists on phase and is different
+    (experiment.phases?.[phase ?? 0]?.dateEnded &&
+      isDifferentDate(
+        getValidDate(experiment.phases?.[phase ?? 0]?.dateEnded ?? ""),
+        getValidDate(snapshotSettings.endDate)
+      ))
+  ) {
+    reasons.push("Analysis dates changed");
+  }
+  if (
+    // end date exists on phase and is over 24 hours old
+    !experiment.phases?.[phase ?? 0]?.dateEnded &&
     isDifferentDate(
       getValidDate(experiment.phases?.[phase ?? 0]?.dateEnded ?? ""),
       getValidDate(snapshotSettings.endDate)
     )
   ) {
-    reasons.push("Analysis dates changed");
+    reasons.push("Analysis over 24 hours old");
   }
   if (
     isDifferent(
