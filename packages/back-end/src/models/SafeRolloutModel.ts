@@ -53,6 +53,7 @@ export class SafeRolloutModel extends BaseClass {
         "lastSnapshotAttempt",
         "nextSnapshotAttempt",
         "analysisSummary",
+        "pastNotifications",
       ];
 
       // Check for disallowed field updates
