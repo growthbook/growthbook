@@ -380,7 +380,10 @@ export async function postVercelIntegrationSSO(req: Request, res: Response) {
     upsertData,
   } = await findVercelInstallationByResourceId(String(resourceId));
 
-  if (!organizationId) return res.status(400).send("Invalid request!");
+  if (!organizationId)
+    return res
+      .status(400)
+      .send(`Could not find installation for resourceId: ${resourceId}`);
 
   const token = await getVercelSSOToken({
     code: String(code),
@@ -391,12 +394,12 @@ export async function postVercelIntegrationSSO(req: Request, res: Response) {
   const checkedToken = await checkAuth({ token, type: "user" });
 
   if (checkedToken.status === "error")
-    return res.status(400).send("Invalid request!");
+    return res.status(400).send("Invalid authentication token!");
 
   const { authentication: data } = checkedToken;
 
   if (data.payload.installation_id !== installationId)
-    return res.status(400).send("Invalid request!");
+    return res.status(400).send("Invalid installation Id!");
 
   const { user } = await getContext({
     organizationId,
