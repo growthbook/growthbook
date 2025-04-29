@@ -254,6 +254,8 @@ export async function upsertInstallation(req: Request, res: Response) {
     email: payload.account.contact.email,
     userId: user.id,
     name: installationName,
+    vercelIntegration: true,
+    restrictLoginMethod: "vercel",
   });
 
   const context = new ReqContextClass({
