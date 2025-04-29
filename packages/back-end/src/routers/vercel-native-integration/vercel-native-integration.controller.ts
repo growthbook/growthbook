@@ -372,18 +372,19 @@ export async function getProducts(req: Request, res: Response) {
 }
 
 export async function postVercelIntegrationSSO(req: Request, res: Response) {
-  const { code, resourceId } = req.body;
+  const { code, state, resourceId } = req.query;
 
   const {
     organization: organizationId,
     installationId,
     upsertData,
-  } = await findVercelInstallationByResourceId(resourceId);
+  } = await findVercelInstallationByResourceId(String(resourceId));
 
   if (!organizationId) return res.status(400).send("Invalid request!");
 
   const token = await getVercelSSOToken({
-    code,
+    code: String(code),
+    state: String(state),
     accessToken: upsertData.payload.credentials.access_token,
   });
 

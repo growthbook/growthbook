@@ -24,14 +24,17 @@ const FEATURE_ORIGIN = "app.growthbook.io";
 export const getVercelSSOToken = async ({
   code,
   accessToken,
+  state,
 }: {
   code: string;
+  state: string;
   accessToken: string;
 }) => {
   const r = await fetch(`${VERCEL_URL}/v1/integrations/sso/token`, {
     method: "POST",
     body: JSON.stringify({
       code,
+      state,
       client_id: VERCEL_CLIENT_ID,
       client_secret: VERCEL_CLIENT_SECRET,
     }),

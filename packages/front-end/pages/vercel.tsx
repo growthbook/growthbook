@@ -1,8 +1,6 @@
 import { useEffect } from "react";
 import { useRouter } from "next/router";
-
-const apiHost =
-  (process.env.API_HOST ?? "").replace(/\/$/, "") || "http://localhost:3100";
+import { getApiHost } from "@/services/env";
 
 const VercelPage = () => {
   const router = useRouter();
@@ -13,18 +11,13 @@ const VercelPage = () => {
 
     const fn = async () => {
       try {
-        await fetch(`${apiHost}/auth/sso/vercel`, {
-          method: "POST",
-          body: JSON.stringify({
-            code,
-            state,
-            resourceId,
-          }),
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
+        await fetch(
+          `${getApiHost()}/auth/sso/vercel?code=${code}&state=${state}&resourceId=${resourceId}`,
+          {
+            method: "POST",
+            credentials: "include",
+          }
+        );
       } catch (err) {
         console.log("Ignored:", err);
       } finally {
