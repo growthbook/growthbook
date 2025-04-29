@@ -29,6 +29,14 @@ export type CreateSafeRolloutInterface = z.infer<
   typeof createSafeRolloutValidator
 >;
 
+const safeRolloutNotification = [
+  "srm",
+  "multipleExposures",
+  "ship",
+  "rollback",
+] as const;
+export type SafeRolloutNotification = typeof safeRolloutNotification[number];
+
 const safeRollout = createSafeRolloutValidator.extend({
   // Refs
   featureId: z.string(),
@@ -41,6 +49,7 @@ const safeRollout = createSafeRolloutValidator.extend({
   lastSnapshotAttempt: z.date().optional(),
   nextSnapshotAttempt: z.date().optional(),
   analysisSummary: experimentAnalysisSummary.optional(),
+  pastNotifications: z.array(z.enum(safeRolloutNotification)).optional(),
 });
 export const safeRolloutValidator = baseSchema
   .extend(safeRollout.shape)
