@@ -3,6 +3,8 @@ import {
   StickyAssignmentsDocument,
   StickyAttributeKey,
 } from "./types/growthbook";
+import { toString } from "./util";
+import { getStickyBucketAttributeKey } from "./core";
 
 export interface CookieAttributes {
   expires?: number | Date | undefined;
@@ -77,7 +79,10 @@ export abstract class StickyBucketService {
       )
     ).forEach((doc) => {
       if (doc) {
-        const key = `${doc.attributeName}||${doc.attributeValue}`;
+        const key = getStickyBucketAttributeKey(
+          doc.attributeName,
+          doc.attributeValue
+        );
         docs[key] = doc;
       }
     });
@@ -97,6 +102,14 @@ export abstract class StickyBucketServiceSync extends StickyBucketService {
 
   abstract saveAssignmentsSync(doc: StickyAssignmentsDocument): void;
 
+  async getAssignments(attributeName: string, attributeValue: string) {
+    return this.getAssignmentsSync(attributeName, attributeValue);
+  }
+
+  async saveAssignments(doc: StickyAssignmentsDocument) {
+    this.saveAssignmentsSync(doc);
+  }
+
   getAllAssignmentsSync(
     attributes: Record<string, string>
   ): Record<StickyAttributeKey, StickyAssignmentsDocument> {
@@ -107,7 +120,10 @@ export abstract class StickyBucketServiceSync extends StickyBucketService {
       )
       .forEach((doc) => {
         if (doc) {
-          const key = `${doc.attributeName}||${doc.attributeValue}`;
+          const key = getStickyBucketAttributeKey(
+            doc.attributeName,
+            doc.attributeValue
+          );
           docs[key] = doc;
         }
       });
@@ -196,9 +212,6 @@ export class ExpressCookieStickyBucketService extends StickyBucketServiceSync {
     }
     return doc;
   }
-  async getAssignments(attributeName: string, attributeValue: string) {
-    return await this.getAssignmentsSync(attributeName, attributeValue);
-  }
   saveAssignmentsSync(doc: StickyAssignmentsDocument) {
     const key = this.getKey(doc.attributeName, doc.attributeValue);
     if (!this.res) return;
@@ -208,9 +221,6 @@ export class ExpressCookieStickyBucketService extends StickyBucketServiceSync {
       encodeURIComponent(str),
       this.cookieAttributes
     );
-  }
-  async saveAssignments(doc: StickyAssignmentsDocument) {
-    await this.saveAssignmentsSync(doc);
   }
 }
 
@@ -253,17 +263,11 @@ export class BrowserCookieStickyBucketService extends StickyBucketServiceSync {
     }
     return doc;
   }
-  async getAssignments(attributeName: string, attributeValue: string) {
-    return await this.getAssignmentsSync(attributeName, attributeValue);
-  }
   async saveAssignmentsSync(doc: StickyAssignmentsDocument) {
     const key = this.getKey(doc.attributeName, doc.attributeValue);
     if (!this.jsCookie) return;
     const str = JSON.stringify(doc);
     this.jsCookie.set(key, str, this.cookieAttributes);
-  }
-  async saveAssignments(doc: StickyAssignmentsDocument) {
-    await this.saveAssignmentsSync(doc);
   }
 }
 
@@ -281,15 +285,22 @@ export class RedisStickyBucketService extends StickyBucketService {
     const keys = Object.entries(
       attributes
     ).map(([attributeName, attributeValue]) =>
-      this.getKey(attributeName, attributeValue)
+      getStickyBucketAttributeKey(attributeName, attributeValue)
     );
     if (!this.redis) return docs;
     await this.redis.mget(...keys).then((values) => {
       values.forEach((raw) => {
         try {
           const data = JSON.parse(raw || "{}");
-          if (data.attributeName && data.attributeValue && data.assignments) {
-            const key = `${data.attributeName}||${data.attributeValue}`;
+          if (
+            data.attributeName &&
+            "attributeValue" in data &&
+            data.assignments
+          ) {
+            const key = getStickyBucketAttributeKey(
+              data.attributeName,
+              toString(data.attributeValue)
+            );
             docs[key] = data;
           }
         } catch (e) {
