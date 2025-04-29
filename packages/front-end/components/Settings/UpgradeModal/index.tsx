@@ -78,26 +78,23 @@ export default function UpgradeModal({
 
   const { organization, refreshOrganization } = useUser();
 
-  function getLowestAvailablePlan() {
-    // If no commercialFeature is passed in, the lowestAvailablePlan is the plan higher than their effectiveAccountPlan
+  function shouldShowEnterpriseTreatment(): boolean {
+    // if no commercialFeature is provided, determine what plan to show based on org's current plan
     if (!commercialFeature) {
       if (
         !effectiveAccountPlan ||
         ["oss", "starter"].includes(effectiveAccountPlan)
       ) {
-        return "pro";
+        return false;
       }
 
-      if (
-        effectiveAccountPlan &&
-        ["pro", "pro_sso"].includes(effectiveAccountPlan)
-      ) {
-        return "enterprise";
-      }
+      return ["pro", "pro_sso"].includes(effectiveAccountPlan);
     } else {
-      return commercialFeatureLowestPlan?.[commercialFeature] || "starter";
+      return commercialFeatureLowestPlan?.[commercialFeature] === "enterprise";
     }
   }
+
+  const showEnterpriseTreatment = shouldShowEnterpriseTreatment();
 
   const currentUsers =
     (organization.members?.length || 0) + (organization.invites?.length || 0);
@@ -105,8 +102,6 @@ export default function UpgradeModal({
   // When signing up to pro, but not finishing the checkout process a license gets generated and saved but has no plan.
   const freeTrialAvailable =
     !license || !license.plan || !license.emailVerified;
-
-  const lowestPlan = getLowestAvailablePlan();
 
   const now = new Date();
 
@@ -354,13 +349,13 @@ export default function UpgradeModal({
         className="mb-1"
         style={{ color: "var(--color-text-high)", fontSize: "20px" }}
       >
-        {`Upgrade to ${lowestPlan === "enterprise" ? "Enterprise" : "Pro"}`}
+        {`Upgrade to ${showEnterpriseTreatment ? "Enterprise" : "Pro"}`}
       </h3>
       <p
         className="mb-0"
         style={{ color: "var(--color-text-mid)", fontSize: "16px" }}
       >
-        {lowestPlan === "enterprise"
+        {showEnterpriseTreatment
           ? "Contact Sales to access advanced experimentation tools, custom roles, and additional security features."
           : "Get instant access to advanced experimentation, permissioning and security features."}
       </p>
@@ -481,7 +476,7 @@ export default function UpgradeModal({
     );
   }
 
-  function upgradeOnlyTreatment() {
+  function proTreatment() {
     const dynamicBullet = commercialFeature ? bullets[commercialFeature] : null;
 
     return (
@@ -642,7 +637,7 @@ export default function UpgradeModal({
   }
 
   async function onSubmit() {
-    if (lowestPlan === "enterprise") {
+    if (showEnterpriseTreatment) {
       startEnterprise();
     } else {
       if (trialAndUpgradePreference === "upgrade") {
@@ -739,10 +734,9 @@ export default function UpgradeModal({
           loading={loading}
           cta={
             <>
-              {lowestPlan === "enterprise"
+              {showEnterpriseTreatment
                 ? "Schedule Call"
-                : ["pro", "pro_sso"].includes(lowestPlan || "") ||
-                  trialAndUpgradePreference === "upgrade"
+                : trialAndUpgradePreference === "upgrade"
                 ? "Continue"
                 : "Start Trial"}
               <PiCaretRight />
@@ -758,9 +752,7 @@ export default function UpgradeModal({
               styles.upgradeModal
             )}
           >
-            {lowestPlan === "enterprise"
-              ? enterpriseTreatment()
-              : upgradeOnlyTreatment()}
+            {showEnterpriseTreatment ? enterpriseTreatment() : proTreatment()}
           </div>
 
           {error && <div className="alert alert-danger">{error}</div>}
