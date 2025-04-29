@@ -153,7 +153,7 @@ export default function SetupTabOverview({
                 and parameters of your experiment
               </Box>
             )}
-            {!customFields.length ? (
+            {!customFields.length && experiment.description ? (
               <PremiumCallout
                 mt="3"
                 commercialFeature="custom-metadata"
