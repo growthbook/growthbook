@@ -40,7 +40,7 @@ export default forwardRef<
   ref
 ) {
   const [dismissed, setDismissed] = useLocalStorage(
-    `premium-callout:${id}`,
+    `dismissable-callout:${id}`,
     false
   );
 

@@ -237,7 +237,7 @@ const MetricsList = (): React.ReactElement => {
   } = useDefinitions();
   const { getUserDisplay } = useUser();
   const [factTablePromoDismissed] = useLocalStorage(
-    "premium-callout:metrics-list-fact-table-promo",
+    "dismissable-callout:metrics-list-fact-table-promo",
     false
   );
 
@@ -411,8 +411,7 @@ const MetricsList = (): React.ReactElement => {
           <TagsFilter filter={tagsFilter} items={unpaginatedItems} />
         </div>
       </div>
-      {/* only show fact table promo if org doesn't have any AND they haven't previously dismissed the callout */}
-      {!factTables && !factTablePromoDismissed ? (
+      {!factTables.length && !factTablePromoDismissed ? (
         <DismissableCallout
           id="metrics-list-fact-table-promo"
           mb="2"
@@ -435,7 +434,7 @@ const MetricsList = (): React.ReactElement => {
             </Link>
           </Flex>
         </DismissableCallout>
-      ) : !metricGroups.length ? (
+      ) : metrics.length > 4 && !metricGroups.length ? (
         <PremiumCallout
           commercialFeature="metric-groups"
           dismissable={true}
