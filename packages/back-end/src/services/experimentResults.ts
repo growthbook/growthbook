@@ -6,6 +6,7 @@ import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot"
 import { ExperimentInterface } from "back-end/types/experiment";
 import { DifferenceType } from "back-end/types/stats";
 import { findDimensionById } from "back-end/src/models/DimensionModel";
+import { getSRMValue } from "shared/health";
 
 type ExperimentResultRow = {
   experimentName: string;
@@ -26,7 +27,7 @@ type ExperimentResultRow = {
   baselineVariationStdDev: number | null;
   variationName: string | null;
   variationId: string | null;
-  variationUsers: number;
+  variationUnits: number;
   variationNumerator: number;
   variationDenominator: number | null;
   variationMean: number;
@@ -36,11 +37,14 @@ type ExperimentResultRow = {
   chanceToWin: number | null;
   relativeRisk: number | null;
   pValue: number | null;
-  pValueAdjusted: number | null;
+  pValueCorrected: number | null;
   ciLower: number | null;
   ciUpper: number | null;
-  ciLowerAdjusted: number | null;
-  ciUpperAdjusted: number | null;
+  ciLowerCorrected: number | null;
+  ciUpperCorrected: number | null;
+  srmPValue: number | null;
+  totalMultipleExposureUnits: number | null;
+  totalUnits: number | null;
 };
 
 export async function getExperimentResultRows({
@@ -62,8 +66,12 @@ export async function getExperimentResultRows({
 
   const rows: ExperimentResultRow[] = [];
 
+  const srm = getSRMValue(experiment.type ?? "standard", snapshot);
+  const multipleExposures = snapshot.multipleExposures;
+  const totalUnits = snapshot.health?.traffic.overall.variationUnits.reduce((a, b) => a + b, 0);
+
   snapshot.analyses.forEach((analysis) => {
-    // skip analyses where the control variation is not the baseline variation
+    // Only keep default 3 analyses of 3 difference types
     if (analysis.settings.baselineVariationIndex !== 0) {
       return;
     }
@@ -104,7 +112,7 @@ export async function getExperimentResultRows({
               baselineVariationStdDev: baselineMetric?.stats?.stddev ?? null,
               variationName: experiment.variations[i]?.name ?? null,
               variationId: experiment.variations[i]?.id ?? `${i}`,
-              variationUsers: metricResult.users,
+              variationUnits: metricResult.users,
               variationNumerator: metricResult.value,
               variationDenominator: metricResult.denominator ?? null,
               variationMean: metricResult.cr,
@@ -114,11 +122,14 @@ export async function getExperimentResultRows({
               chanceToWin: metricResult.chanceToWin ?? null,
               relativeRisk: relativeRisk ?? null,
               pValue: metricResult.pValue ?? null,
-              pValueAdjusted: metricResult.pValueAdjusted ?? null,
+              pValueCorrected: metricResult.pValueAdjusted ?? null,
               ciLower: metricResult.ci?.[0] ?? null,
               ciUpper: metricResult.ci?.[1] ?? null,
-              ciLowerAdjusted: metricResult.ciAdjusted?.[0] ?? null,
-              ciUpperAdjusted: metricResult.ciAdjusted?.[1] ?? null,
+              ciLowerCorrected: metricResult.ciAdjusted?.[0] ?? null,
+              ciUpperCorrected: metricResult.ciAdjusted?.[1] ?? null,
+              srmPValue: srm ?? null,
+              totalMultipleExposureUnits: multipleExposures ?? null,
+              totalUnits: totalUnits ?? null,
             };
             rows.push(row);
           }
