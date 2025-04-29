@@ -256,7 +256,7 @@ export async function upsertInstallation(req: Request, res: Response) {
     userId: user.id,
     name: installationName,
     isVercelIntegration: true,
-    restrictLoginMethod: "vercel",
+    //restrictLoginMethod: "vercel",
   });
 
   const context = new ReqContextClass({
