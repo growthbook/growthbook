@@ -120,6 +120,7 @@ import { metricGroupRouter } from "./routers/metric-group/metric-group.router";
 import { findOrCreateGeneratedHypothesis } from "./models/GeneratedHypothesis";
 import { getContextFromReq } from "./services/organizations";
 import { templateRouter } from "./routers/experiment-template/template.router";
+import { safeRolloutRouter } from "./routers/safe-rollout/safe-rollout.router";
 
 const app = express();
 
@@ -639,6 +640,9 @@ app.use("/decision-criteria", decisionCriteriaRouter);
 // URL Redirects
 app.use("/url-redirects", urlRedirectRouter);
 
+// Safe Rollouts
+app.use("/safe-rollout", safeRolloutRouter);
+
 // Reports
 app.get("/report/:id", reportsController.getReport);
 app.put("/report/:id", reportsController.putReport);
@@ -702,6 +706,10 @@ app.post(
 );
 app.put("/feature/:id/:version/comment", featuresController.putRevisionComment);
 app.put("/feature/:id/:version/rule", featuresController.putFeatureRule);
+app.put(
+  "/feature/:id/safeRollout/status",
+  featuresController.putSafeRolloutStatus
+);
 app.delete("/feature/:id/:version/rule", featuresController.deleteFeatureRule);
 app.post("/feature/:id/prerequisite", featuresController.postPrerequisite);
 app.put("/feature/:id/prerequisite", featuresController.putPrerequisite);

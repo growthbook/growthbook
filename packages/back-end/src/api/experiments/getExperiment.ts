@@ -1,5 +1,5 @@
 import {
-  DEFAULT_DECISION_CRITERIA,
+  PRESET_DECISION_CRITERIA,
   getPresetDecisionCriteriaForOrg,
   getHealthSettings,
   getStatusIndicatorData,
@@ -29,12 +29,12 @@ export const getExperiment = createApiRequestHandler(getExperimentValidator)(
         decisionCriteria ||=
           (await req.context.models.decisionCriteria.getById(
             settings.defaultDecisionCriteriaId
-          )) ?? DEFAULT_DECISION_CRITERIA;
+          )) ?? PRESET_DECISION_CRITERIA;
       } catch {
         // Empty catch - we fall back to the default below if the query failed.
       }
     }
-    decisionCriteria ||= DEFAULT_DECISION_CRITERIA;
+    decisionCriteria ||= PRESET_DECISION_CRITERIA;
 
     const { status, detailedStatus } = getStatusIndicatorData(
       experiment,

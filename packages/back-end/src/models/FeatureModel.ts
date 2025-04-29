@@ -18,6 +18,7 @@ import {
   getSavedGroupMap,
   refreshSDKPayloadCache,
 } from "back-end/src/services/features";
+import { determineNextDate } from "back-end/src/services/experiments";
 import { upgradeFeatureInterface } from "back-end/src/util/migrations";
 import { ReqContext } from "back-end/types/organization";
 import {
@@ -33,9 +34,13 @@ import {
   getEnvironmentIdsFromOrg,
 } from "back-end/src/services/organizations";
 import { ApiReqContext } from "back-end/types/api";
-import { simpleSchemaValidator } from "back-end/src/validators/features";
+import {
+  SafeRolloutRule,
+  simpleSchemaValidator,
+} from "back-end/src/validators/features";
 import { getChangedApiFeatureEnvironments } from "back-end/src/events/handlers/utils";
 import { ResourceEvents } from "back-end/src/events/base-types";
+import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import {
   createVercelExperimentationItemFromFeature,
   updateVercelExperimentationItemFromFeature,
@@ -930,6 +935,54 @@ export async function setJsonSchema(
   });
 }
 
+const updateSafeRolloutStatuses = async (
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface
+) => {
+  const safeRolloutStatusesMap: Record<
+    string,
+    { status: "running" | "rolled-back" | "released" | "stopped" }
+  > = Object.fromEntries(
+    Object.values(revision.rules)
+      .flat()
+      .filter((rule) => rule.type === "safe-rollout")
+      .map((rule: SafeRolloutRule) => {
+        return [rule.safeRolloutId, { status: rule.status }];
+      })
+  );
+  // stop safe rollouts that have been removed from the in the revision
+  Object.keys(feature.environmentSettings)
+    .flatMap((env) => feature.environmentSettings[env].rules)
+    .forEach((rule: FeatureRule) => {
+      if (
+        rule.type === "safe-rollout" &&
+        !safeRolloutStatusesMap[rule.safeRolloutId]
+      ) {
+        safeRolloutStatusesMap[rule.safeRolloutId] = { status: "stopped" };
+      }
+    });
+
+  const safeRollouts = await context.models.safeRollout.getByIds(
+    Object.keys(safeRolloutStatusesMap)
+  );
+
+  safeRollouts.forEach((safeRollout) => {
+    // sync the status of the safe rollout to the status of the revision
+    const safeRolloutUpdates: Partial<SafeRolloutInterface> = {
+      status: safeRolloutStatusesMap[safeRollout.id].status,
+    };
+    if (!safeRollout.startedAt && safeRolloutUpdates.status === "running") {
+      safeRolloutUpdates["startedAt"] = new Date();
+      safeRolloutUpdates["nextSnapshotAttempt"] =
+        determineNextDate(context.org.settings?.updateSchedule || null) ??
+        new Date(); // TODO: `null` should not be possible here because we need to update
+    }
+
+    context.models.safeRollout.update(safeRollout, safeRolloutUpdates);
+  });
+};
+
 export async function applyRevisionChanges(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -976,7 +1029,7 @@ export async function applyRevisionChanges(
   changes.hasDrafts = await hasDraft(context.org.id, feature, [
     revision.version,
   ]);
-
+  await updateSafeRolloutStatuses(context, feature, revision);
   return await updateFeature(context, feature, changes);
 }
 
