@@ -17,6 +17,7 @@ import { createUser, getUserByEmail } from "back-end/src/models/UserModel";
 import { ReqContextClass } from "back-end/src/services/context";
 import { sendLocalSuccessResponse } from "back-end/src/controllers/auth";
 import { OrganizationInterface } from "back-end/types/organization";
+import { getVercelSSOToken } from "back-end/src/services/vercel-native-integration.service";
 import {
   userAuthenticationValidator,
   systemAuthenticationValidator,
@@ -254,7 +255,7 @@ export async function upsertInstallation(req: Request, res: Response) {
     email: payload.account.contact.email,
     userId: user.id,
     name: installationName,
-    vercelIntegration: true,
+    isVercelIntegration: true,
     restrictLoginMethod: "vercel",
   });
 
@@ -370,11 +371,6 @@ export async function getProducts(req: Request, res: Response) {
   return res.json({ plans: billingPlans });
 }
 
-const VERCEL_URL = "https://api.vercel.com";
-
-const VERCEL_CLIENT_ID = "oac_3hOBpTjMhOxQtMxq8zfKOqUm";
-const VERCEL_CLIENT_SECRET = "ROFdNRGEkd1j49WQGAKAO9aV";
-
 export async function postVercelIntegrationSSO(req: Request, res: Response) {
   const { code, resourceId } = req.body;
 
@@ -386,22 +382,12 @@ export async function postVercelIntegrationSSO(req: Request, res: Response) {
 
   if (!organizationId) return res.status(400).send("Invalid request!");
 
-  const r = await fetch(`${VERCEL_URL}/v1/integrations/sso/token`, {
-    method: "POST",
-    body: JSON.stringify({
-      code,
-      client_id: VERCEL_CLIENT_ID,
-      client_secret: VERCEL_CLIENT_SECRET,
-    }),
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${upsertData.payload.credentials.access_token}`,
-    },
+  const token = await getVercelSSOToken({
+    code,
+    accessToken: upsertData.payload.credentials.access_token,
   });
 
-  const json = await r.json();
-
-  const checkedToken = await checkAuth({ token: json.id_token, type: "user" });
+  const checkedToken = await checkAuth({ token, type: "user" });
 
   if (checkedToken.status === "error")
     return res.status(400).send("Invalid request!");

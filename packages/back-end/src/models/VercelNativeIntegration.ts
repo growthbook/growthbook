@@ -89,7 +89,19 @@ export const findVercelInstallationByInstallationId = async (
 ): Promise<VercelNativeIntegration> => {
   const model = await mongoose.connection.db
     .collection(COLLECTION_NAME)
-    .findOne({ installationId: installationId });
+    .findOne({ installationId });
+
+  if (!model) throw "Installation not found!";
+
+  return (model as unknown) as VercelNativeIntegration;
+};
+
+export const findVercelInstallationByOrganization = async (
+  organization: string
+): Promise<VercelNativeIntegration> => {
+  const model = await mongoose.connection.db
+    .collection(COLLECTION_NAME)
+    .findOne({ organization });
 
   if (!model) throw "Installation not found!";
 

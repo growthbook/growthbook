@@ -37,6 +37,11 @@ import { simpleSchemaValidator } from "back-end/src/validators/features";
 import { getChangedApiFeatureEnvironments } from "back-end/src/events/handlers/utils";
 import { ResourceEvents } from "back-end/src/events/base-types";
 import {
+  createVercelExperimentationItemFromFeature,
+  updateVercelExperimentationItemFromFeature,
+  deleteVercelExperimentationItemFromFeature,
+} from "back-end/src/services/vercel-native-integration.service";
+import {
   createEvent,
   hasPreviousObject,
   CreateEventData,
@@ -341,6 +346,12 @@ export async function createFeature(
   onFeatureCreate(context, feature).catch((e) => {
     logger.error(e, "Error refreshing SDK Payload on feature create");
   });
+
+  if (org.isVercelIntegration)
+    await createVercelExperimentationItemFromFeature({
+      feature,
+      organization: org,
+    });
 }
 
 export async function deleteFeature(
@@ -364,6 +375,12 @@ export async function deleteFeature(
   onFeatureDelete(context, feature).catch((e) => {
     logger.error(e, "Error refreshing SDK Payload on feature delete");
   });
+
+  if (context.org.isVercelIntegration)
+    await deleteVercelExperimentationItemFromFeature({
+      feature,
+      organization: context.org,
+    });
 }
 
 /**
@@ -626,6 +643,13 @@ export async function updateFeature(
   onFeatureUpdate(context, feature, updatedFeature).catch((e) => {
     logger.error(e, "Error refreshing SDK Payload on feature update");
   });
+
+  if (context.org.isVercelIntegration)
+    await updateVercelExperimentationItemFromFeature({
+      feature,
+      organization: context.org,
+    });
+
   return updatedFeature;
 }
 

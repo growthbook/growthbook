@@ -71,7 +71,7 @@ const organizationSchema = new mongoose.Schema({
   restrictLoginMethod: String,
   restrictAuthSubPrefix: String,
   autoApproveMembers: Boolean,
-  vercelIngegration: Boolean,
+  isVercelIntegration: Boolean,
   members: [
     {
       ...baseMemberFields,
@@ -178,7 +178,7 @@ export async function createOrganization({
   url = "",
   verifiedDomain = "",
   externalId = "",
-  vercelIntegration = false,
+  isVercelIntegration = false,
   restrictLoginMethod,
 }: {
   email: string;
@@ -188,7 +188,7 @@ export async function createOrganization({
   url?: string;
   verifiedDomain?: string;
   externalId?: string;
-  vercelIntegration?: boolean;
+  isVercelIntegration?: boolean;
   restrictLoginMethod?: string;
 }) {
   // TODO: sanitize fields
@@ -242,7 +242,7 @@ export async function createOrganization({
       ],
     },
     getStartedChecklistItems: [],
-    vercelIntegration,
+    isVercelIntegration,
     ...(restrictLoginMethod ? { restrictLoginMethod } : {}),
   });
   return toInterface(doc);
