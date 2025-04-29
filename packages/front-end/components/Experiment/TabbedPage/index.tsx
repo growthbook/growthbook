@@ -11,7 +11,6 @@ import { useRouter } from "next/router";
 import { DifferenceType } from "back-end/types/stats";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
 import { FaChartBar } from "react-icons/fa";
-import { isMetricGroupId } from "shared/experiments";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import FeatureFromExperimentModal from "@/components/Features/FeatureModal/FeatureFromExperimentModal";
 import Modal from "@/components/Modal";
@@ -181,7 +180,7 @@ export default function TabbedPage({
   const { data, mutate: mutateWatchers } = useApi<{
     userIds: string[];
   }>(`/experiment/${experiment.id}/watchers`);
-  const { users, organization, hasCommercialFeature } = useUser();
+  const { users, organization } = useUser();
 
   // Get name or email of all active users watching this experiment
   const usersWatching = (data?.userIds || [])
