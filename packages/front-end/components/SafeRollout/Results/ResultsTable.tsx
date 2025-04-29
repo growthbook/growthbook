@@ -561,8 +561,6 @@ export default function ResultsTable({
                             stats={stats}
                             baseline={baseline}
                             rowResults={rowResults}
-                            showRisk={true}
-                            showSuspicious={true}
                             showPercentComplete={false}
                             showTimeRemaining={true}
                             hideScaledImpact={hideScaledImpact}
@@ -587,6 +585,9 @@ export default function ResultsTable({
                             className={resultsHighlightClassname}
                             ssrPolyfills={ssrPolyfills}
                             showPlusMinus={false}
+                            onMouseMove={onPointerMove}
+                            onMouseLeave={onPointerLeave}
+                            onClick={onPointerMove}
                           />
                         ) : (
                           <td></td>

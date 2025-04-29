@@ -59,6 +59,12 @@ const sidebars = {
         },
         {
           type: "doc",
+          id: "features/safe-rollouts",
+          label: "Safe Rollouts",
+          className: "pill-new",
+        },
+        {
+          type: "doc",
           id: "features/prerequisites",
           label: "Prerequisites",
         },
@@ -81,7 +87,6 @@ const sidebars = {
           type: "doc",
           id: "features/approval-flows",
           label: "Approval Flows",
-          className: "pill-new",
         },
       ],
     },
