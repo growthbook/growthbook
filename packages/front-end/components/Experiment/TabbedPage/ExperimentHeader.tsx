@@ -3,14 +3,12 @@ import {
   ExperimentPhaseStringDates,
   LinkedFeatureInfo,
 } from "back-end/types/experiment";
-import { FaAngleRight, FaExclamationTriangle } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { experimentHasLiveLinkedChanges } from "shared/util";
 import React, { ReactNode, useEffect, useRef, useState } from "react";
 import { date, daysBetween } from "shared/dates";
 import { MdRocketLaunch } from "react-icons/md";
 import clsx from "clsx";
-import Collapsible from "react-collapsible";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiCheck, PiEye, PiLink } from "react-icons/pi";
@@ -32,8 +30,6 @@ import { useCelebration } from "@/hooks/useCelebration";
 import InitialSDKConnectionForm from "@/components/Features/SDKConnections/InitialSDKConnectionForm";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useUser } from "@/services/UserContext";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import { formatPercent } from "@/services/metrics";
 import { AppFeatures } from "@/types/app-features";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import {
@@ -72,6 +68,7 @@ export interface Props {
   duplicate?: (() => void) | null;
   setStatusModal: (open: boolean) => void;
   setAuditModal: (open: boolean) => void;
+  setShowBanditModal: (open: boolean) => void;
   setWatchersModal: (open: boolean) => void;
   editResult?: () => void;
   safeToEdit: boolean;
@@ -124,6 +121,7 @@ export default function ExperimentHeader({
   setAuditModal,
   setStatusModal,
   setWatchersModal,
+  setShowBanditModal,
   safeToEdit,
   usersWatching,
   mutateWatchers,
@@ -151,7 +149,6 @@ export default function ExperimentHeader({
   const [showSdkForm, setShowSdkForm] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
-  const [showBanditModal, setShowBanditModal] = useState(false);
   const [showEditInfoModal, setShowEditInfoModal] = useState(false);
   const [
     editInfoFocusSelector,
@@ -216,10 +213,6 @@ export default function ExperimentHeader({
   const viewingOldPhase = phases.length > 0 && phase < phases.length - 1;
 
   const [showStartExperiment, setShowStartExperiment] = useState(false);
-
-  const hasMultiArmedBanditFeature = hasCommercialFeature(
-    "multi-armed-bandits"
-  );
 
   const hasUpdatePermissions = permissionsUtil.canViewExperimentModal(
     experiment.project
@@ -400,102 +393,6 @@ export default function ExperimentHeader({
           }}
         />
       )}
-      {showBanditModal ? (
-        <Modal
-          open={true}
-          close={() => setShowBanditModal(false)}
-          trackingEventModalType=""
-          size="lg"
-          trackingEventModalSource="experiment-more-menu"
-          header={`Convert to ${isBandit ? "Experiment" : "Bandit"}`}
-          submit={async () => {
-            if (!isBandit && !hasMultiArmedBanditFeature) return;
-            try {
-              await apiCall(`/experiment/${experiment.id}`, {
-                method: "POST",
-                body: JSON.stringify({
-                  type: !isBandit ? "multi-armed-bandit" : "standard",
-                }),
-              });
-              mutate();
-            } catch (e) {
-              console.error(e);
-            }
-          }}
-          cta={
-            isBandit ? (
-              "Convert"
-            ) : (
-              <PremiumTooltip
-                body={null}
-                commercialFeature="multi-armed-bandits"
-                usePortal={true}
-              >
-                Convert
-              </PremiumTooltip>
-            )
-          }
-          ctaEnabled={isBandit || hasMultiArmedBanditFeature}
-        >
-          <div>
-            <p>
-              Are you sure you want to convert this{" "}
-              {!isBandit ? "Experiment" : "Bandit"} to a{" "}
-              <strong>{isBandit ? "Experiment" : "Bandit"}</strong>?
-            </p>
-            {!isBandit && experiment.goalMetrics.length > 0 && (
-              <div className="alert alert-warning">
-                <Collapsible
-                  trigger={
-                    <div>
-                      <FaExclamationTriangle className="mr-2" />
-                      Some of your experiment settings may be altered. More info{" "}
-                      <FaAngleRight className="chevron" />
-                    </div>
-                  }
-                  transitionTime={100}
-                >
-                  <ul className="ml-0 pl-3 mt-3">
-                    <li>
-                      A <strong>single decision metric</strong> will be
-                      automatically assigned. You may change this before running
-                      the experiment.
-                    </li>
-                    <li>
-                      Experiment variations will begin with{" "}
-                      <strong>equal weights</strong> (
-                      {experiment.variations
-                        .map((_, i) =>
-                          i < 3
-                            ? formatPercent(
-                                1 / (experiment.variations.length ?? 2)
-                              )
-                            : i === 3
-                            ? "..."
-                            : null
-                        )
-                        .filter(Boolean)
-                        .join(", ")}
-                      ).
-                    </li>
-                    <li>
-                      The stats engine will be locked to{" "}
-                      <strong>Bayesian</strong>.
-                    </li>
-                    <li>
-                      Any <strong>Activation Metric</strong>,{" "}
-                      <strong>Segments</strong>,{" "}
-                      <strong>Conversion Window overrides</strong>,{" "}
-                      <strong>Custom SQL Filters</strong>, or{" "}
-                      <strong>Metric Overrides</strong> will be removed.
-                    </li>
-                  </ul>
-                </Collapsible>
-              </div>
-            )}
-          </div>
-        </Modal>
-      ) : null}
       {showDeleteModal ? (
         <Modal
           header="Delete Experiment"

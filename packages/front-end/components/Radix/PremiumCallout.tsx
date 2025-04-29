@@ -12,12 +12,13 @@ import Link from "@/components/Radix/Link";
 import styles from "./RadixOverrides.module.scss";
 
 export type Props = {
-  commercialFeature: CommercialFeature | null;
+  commercialFeature: CommercialFeature;
   id: string;
   dismissable?: boolean;
   renderWhenDismissed?: (undismiss: () => void) => React.ReactElement;
   children: React.ReactNode;
   docSection?: DocSection;
+  cta?: React.ReactElement;
 } & MarginProps;
 
 export default function PremiumCallout({
@@ -26,13 +27,12 @@ export default function PremiumCallout({
   dismissable = false,
   children,
   docSection,
+  cta,
   renderWhenDismissed,
   ...containerProps
 }: Props) {
   const { hasCommercialFeature, commercialFeatureLowestPlan } = useUser();
-  const hasFeature = commercialFeature
-    ? hasCommercialFeature(commercialFeature)
-    : true;
+  const hasFeature = hasCommercialFeature(commercialFeature);
 
   const [dismissed, setDismissed] = useLocalStorage(
     `premium-callout:${id}`,
@@ -41,56 +41,55 @@ export default function PremiumCallout({
 
   const [upgradeModal, setUpgradeModal] = useState(false);
 
-  if (hasFeature && !docSection) return null;
+  if (hasFeature && !docSection && !cta) return null;
   if (dismissable && dismissed)
     return renderWhenDismissed
       ? renderWhenDismissed(() => setDismissed(false))
       : null;
 
-  const lowestPlanLevel = commercialFeature
-    ? commercialFeatureLowestPlan?.[commercialFeature]
-    : null;
+  const lowestPlanLevel =
+    commercialFeatureLowestPlan?.[commercialFeature] || "";
 
   const enterprise = lowestPlanLevel === "enterprise";
   const pro = lowestPlanLevel === "pro";
 
   // Some unknown plan, skip showing the callout
-  if (!enterprise && !pro && commercialFeature) {
+  if (!enterprise && !pro) {
     return null;
   }
 
   const color = hasFeature ? "violet" : pro ? "gold" : "indigo";
-  const icon =
-    hasFeature || !commercialFeature ? (
-      <PiLightbulb size={15} />
-    ) : (
-      <PaidFeatureBadge commercialFeature={commercialFeature} useTip={false} />
-    );
+  const icon = hasFeature ? (
+    <PiLightbulb size={15} />
+  ) : (
+    <PaidFeatureBadge commercialFeature={commercialFeature} useTip={false} />
+  );
 
-  const link =
-    hasFeature && docSection ? (
-      <DocLink docSection={docSection} useRadix={true}>
-        View docs <PiArrowSquareOut size={15} />
-      </DocLink>
-    ) : pro ? (
-      <Link
-        href="#"
-        onClick={(e) => {
-          e.preventDefault();
-          setUpgradeModal(true);
-        }}
-      >
-        Upgrade Now
-      </Link>
-    ) : (
-      <Link
-        href="https://www.growthbook.io/demo"
-        target="_blank"
-        rel="noreferrer"
-      >
-        Talk to Sales <PiArrowSquareOut size={15} />
-      </Link>
-    );
+  const link = cta ? (
+    cta
+  ) : hasFeature && docSection ? (
+    <DocLink docSection={docSection} useRadix={true}>
+      View docs <PiArrowSquareOut size={15} />
+    </DocLink>
+  ) : pro ? (
+    <Link
+      href="#"
+      onClick={(e) => {
+        e.preventDefault();
+        setUpgradeModal(true);
+      }}
+    >
+      Upgrade Now
+    </Link>
+  ) : (
+    <Link
+      href="https://www.growthbook.io/demo"
+      target="_blank"
+      rel="noreferrer"
+    >
+      Talk to Sales <PiArrowSquareOut size={15} />
+    </Link>
+  );
 
   return (
     <>

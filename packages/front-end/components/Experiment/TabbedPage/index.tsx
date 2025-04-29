@@ -10,7 +10,12 @@ import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasourc
 import { useRouter } from "next/router";
 import { DifferenceType } from "back-end/types/stats";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
-import { FaChartBar } from "react-icons/fa";
+import {
+  FaAngleRight,
+  FaChartBar,
+  FaExclamationTriangle,
+} from "react-icons/fa";
+import Collapsible from "react-collapsible";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import FeatureFromExperimentModal from "@/components/Features/FeatureModal/FeatureFromExperimentModal";
 import Modal from "@/components/Modal";
@@ -34,6 +39,8 @@ import UrlRedirectModal from "@/components/Experiment/UrlRedirectModal";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import BanditSummaryResultsTab from "@/components/Experiment/TabbedPage/BanditSummaryResultsTab";
 import Button from "@/components/Radix/Button";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { formatPercent } from "@/services/metrics";
 import ExperimentHeader from "./ExperimentHeader";
 import SetupTabOverview from "./SetupTabOverview";
 import Implementation from "./Implementation";
@@ -97,6 +104,7 @@ export default function TabbedPage({
   const [visualEditorModal, setVisualEditorModal] = useState(false);
   const [featureModal, setFeatureModal] = useState(false);
   const [urlRedirectModal, setUrlRedirectModal] = useState(false);
+  const [showBanditModal, setShowBanditModal] = useState(false);
   const [healthNotificationCount, setHealthNotificationCount] = useState(0);
 
   // Results tab filters
@@ -177,7 +185,11 @@ export default function TabbedPage({
   const { data, mutate: mutateWatchers } = useApi<{
     userIds: string[];
   }>(`/experiment/${experiment.id}/watchers`);
-  const { users, organization } = useUser();
+  const { users, organization, hasCommercialFeature } = useUser();
+
+  const hasMultiArmedBanditFeature = hasCommercialFeature(
+    "multi-armed-bandits"
+  );
 
   // Get name or email of all active users watching this experiment
   const usersWatching = (data?.userIds || [])
@@ -267,6 +279,102 @@ export default function TabbedPage({
           source={trackSource}
         />
       )}
+      {showBanditModal ? (
+        <Modal
+          open={true}
+          close={() => setShowBanditModal(false)}
+          trackingEventModalType=""
+          size="lg"
+          trackingEventModalSource="experiment-id-page"
+          header={`Convert to ${isBandit ? "Experiment" : "Bandit"}`}
+          submit={async () => {
+            if (!isBandit && !hasMultiArmedBanditFeature) return;
+            try {
+              await apiCall(`/experiment/${experiment.id}`, {
+                method: "POST",
+                body: JSON.stringify({
+                  type: !isBandit ? "multi-armed-bandit" : "standard",
+                }),
+              });
+              mutate();
+            } catch (e) {
+              console.error(e);
+            }
+          }}
+          cta={
+            isBandit ? (
+              "Convert"
+            ) : (
+              <PremiumTooltip
+                body={null}
+                commercialFeature="multi-armed-bandits"
+                usePortal={true}
+              >
+                Convert
+              </PremiumTooltip>
+            )
+          }
+          ctaEnabled={isBandit || hasMultiArmedBanditFeature}
+        >
+          <div>
+            <p>
+              Are you sure you want to convert this{" "}
+              {!isBandit ? "Experiment" : "Bandit"} to a{" "}
+              <strong>{isBandit ? "Experiment" : "Bandit"}</strong>?
+            </p>
+            {!isBandit && experiment.goalMetrics.length > 0 && (
+              <div className="alert alert-warning">
+                <Collapsible
+                  trigger={
+                    <div>
+                      <FaExclamationTriangle className="mr-2" />
+                      Some of your experiment settings may be altered. More info{" "}
+                      <FaAngleRight className="chevron" />
+                    </div>
+                  }
+                  transitionTime={100}
+                >
+                  <ul className="ml-0 pl-3 mt-3">
+                    <li>
+                      A <strong>single decision metric</strong> will be
+                      automatically assigned. You may change this before running
+                      the experiment.
+                    </li>
+                    <li>
+                      Experiment variations will begin with{" "}
+                      <strong>equal weights</strong> (
+                      {experiment.variations
+                        .map((_, i) =>
+                          i < 3
+                            ? formatPercent(
+                                1 / (experiment.variations.length ?? 2)
+                              )
+                            : i === 3
+                            ? "..."
+                            : null
+                        )
+                        .filter(Boolean)
+                        .join(", ")}
+                      ).
+                    </li>
+                    <li>
+                      The stats engine will be locked to{" "}
+                      <strong>Bayesian</strong>.
+                    </li>
+                    <li>
+                      Any <strong>Activation Metric</strong>,{" "}
+                      <strong>Segments</strong>,{" "}
+                      <strong>Conversion Window overrides</strong>,{" "}
+                      <strong>Custom SQL Filters</strong>, or{" "}
+                      <strong>Metric Overrides</strong> will be removed.
+                    </li>
+                  </ul>
+                </Collapsible>
+              </div>
+            )}
+          </div>
+        </Modal>
+      ) : null}
       {/* TODO: Update Experiment Header props to include redirect and pipe through to StartExperimentBanner */}
 
       <ExperimentHeader
@@ -279,6 +387,7 @@ export default function TabbedPage({
         setAuditModal={setAuditModal}
         setStatusModal={setStatusModal}
         setWatchersModal={setWatchersModal}
+        setShowBanditModal={setShowBanditModal}
         duplicate={duplicate}
         usersWatching={usersWatching}
         mutateWatchers={mutateWatchers}
@@ -370,6 +479,7 @@ export default function TabbedPage({
             visualChangesets={visualChangesets}
             urlRedirects={urlRedirects}
             editTargeting={editTargeting}
+            setShowBanditModal={setShowBanditModal}
             linkedFeatures={linkedFeatures}
             envs={envs}
           />
