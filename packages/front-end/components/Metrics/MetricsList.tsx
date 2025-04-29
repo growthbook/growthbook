@@ -34,7 +34,6 @@ import {
 } from "@/components/FactTables/NewMetricModal";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import PremiumCallout from "../Radix/PremiumCallout";
-import MetricGroupsList from "./MetricGroupsList";
 
 export interface MetricTableItem {
   id: string;
