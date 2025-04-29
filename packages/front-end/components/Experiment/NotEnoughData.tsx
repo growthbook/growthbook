@@ -19,16 +19,17 @@ export default function NotEnoughData({
   showPercentComplete = false,
   noStyle = false,
   style,
+  showBaselineZero = false,
 }: {
   rowResults: RowResults;
   showTimeRemaining?: boolean;
   showPercentComplete?: boolean;
   noStyle?: boolean;
   style?: CSSProperties;
+  showBaselineZero?: boolean;
 }) {
   const numerator = rowResults.enoughDataMeta.percentCompleteNumerator;
   const denominator = rowResults.enoughDataMeta.percentCompleteDenominator;
-
   return (
     <div className="not-enough-data" style={style}>
       <div>
@@ -54,6 +55,8 @@ export default function NotEnoughData({
               </span>{" "}
               left
             </>
+          ) : showBaselineZero ? (
+            "0 value in baseline"
           ) : (
             "try updating now"
           )}

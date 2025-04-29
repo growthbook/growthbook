@@ -4,6 +4,7 @@ import {
   backgroundUpdateUsageDataFromServerForTests,
   getUsage,
   getUsageFromCache,
+  setUsageInCache,
   resetUsageCache,
   UNLIMITED_USAGE,
 } from "back-end/src/enterprise/billing";
@@ -80,18 +81,10 @@ describe("getUsage", () => {
     });
 
     it("should return UNLIMITED_USAGE getUsageFromCache", async () => {
-      const mockResponse = {
-        limits: { requests: "1000", bandwidth: "10GB" },
-        cdn: { lastUpdated: new Date(), status: "under" },
-      };
-      mockedFetch.mockResolvedValueOnce(({
-        ok: true,
-        json: jest.fn().mockResolvedValueOnce(mockResponse),
-      } as unknown) as Response);
-
       const usage = await getUsageFromCache(mockOrganization);
       expect(usage).toEqual(UNLIMITED_USAGE);
 
+      // Since it is not cloud, it should not fetch even in the background
       await backgroundUpdateUsageDataFromServerForTests;
       expect(mockedFetch).toHaveBeenCalledTimes(0);
     });
@@ -114,6 +107,24 @@ describe("getUsage", () => {
 
         expect(usage).toEqual(UNLIMITED_USAGE);
         expect(mockedFetch).toHaveBeenCalledTimes(0);
+      });
+
+      describe("with existing usage data in cache from when it was free", () => {
+        beforeEach(() => {
+          setUsageInCache(mockOrganization.id, {
+            limits: { requests: 10000000, bandwidth: 100000000 },
+            cdn: { lastUpdated: new Date(), status: "over" },
+          });
+        });
+
+        it("should return UNLIMITED_USAGE getUsageFromCache for plans with unlimited usage", async () => {
+          const usage = await getUsageFromCache(mockOrganization);
+          expect(usage).toEqual(UNLIMITED_USAGE);
+
+          // Since it is a pro account now, it should not refetch the data even in the background
+          await backgroundUpdateUsageDataFromServerForTests;
+          expect(mockedFetch).toHaveBeenCalledTimes(0);
+        });
       });
     });
 
