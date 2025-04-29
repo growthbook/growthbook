@@ -203,6 +203,10 @@ export function getDebugEvent(
   source?: string
 ): LogEvent | null {
   if (!("logs" in gb)) return null;
+  // Only enable in dev mode
+  if (!gb.inDevMode()) {
+    return null;
+  }
   if (gb instanceof GrowthBook) {
     // GrowthBook SDK
     const [apiHost, clientKey] = gb.getApiInfo();
