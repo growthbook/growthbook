@@ -34,6 +34,7 @@ import {
 } from "@/components/FactTables/NewMetricModal";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import PremiumCallout from "../Radix/PremiumCallout";
+import MetricGroupsList from "./MetricGroupsList";
 
 export interface MetricTableItem {
   id: string;
@@ -402,7 +403,7 @@ const MetricsList = (): React.ReactElement => {
           <TagsFilter filter={tagsFilter} items={unpaginatedItems} />
         </div>
       </div>
-      {!metricGroups.length ? (
+      {metrics.length > 4 && !metricGroups.length ? (
         <PremiumCallout
           commercialFeature="metric-groups"
           dismissable={true}

@@ -11,6 +11,7 @@ import { useRouter } from "next/router";
 import { DifferenceType } from "back-end/types/stats";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
 import { FaChartBar } from "react-icons/fa";
+import { isMetricGroupId } from "shared/experiments";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import FeatureFromExperimentModal from "@/components/Features/FeatureModal/FeatureFromExperimentModal";
 import Modal from "@/components/Modal";
@@ -180,7 +181,7 @@ export default function TabbedPage({
   const { data, mutate: mutateWatchers } = useApi<{
     userIds: string[];
   }>(`/experiment/${experiment.id}/watchers`);
-  const { users, organization } = useUser();
+  const { users, organization, hasCommercialFeature } = useUser();
 
   // Get name or email of all active users watching this experiment
   const usersWatching = (data?.userIds || [])
@@ -197,6 +198,43 @@ export default function TabbedPage({
 
   const isBandit = experiment.type === "multi-armed-bandit";
   const trackSource = "tabbed-page";
+
+  const showMetricGroupPromo = (): boolean => {
+    // If the org has metric groups already & has the feature, don't show helper
+    // an org could not have the feature and have metric groups if they downgraded, this reminds them
+    // that they can get more feature if they upgrade
+    if (hasCommercialFeature("metric-groups") && metricGroups.length)
+      return false;
+
+    if (metricGroups.length) {
+      // if org has metric groups and metrics contain a metric group, don't show the helper
+      if (
+        experiment.goalMetrics.some((goalMetric) =>
+          isMetricGroupId(goalMetric)
+        ) ||
+        experiment.secondaryMetrics.some((secondaryMetric) =>
+          isMetricGroupId(secondaryMetric)
+        ) ||
+        experiment.guardrailMetrics.some((guardrailMetric) =>
+          isMetricGroupId(guardrailMetric)
+        )
+      ) {
+        return false;
+      }
+    }
+
+    // only show if there are atleast 2 metrics in any section
+    if (
+      experiment.goalMetrics.length > 2 ||
+      experiment.secondaryMetrics.length > 2 ||
+      experiment.guardrailMetrics.length > 2
+    ) {
+      return true;
+    }
+
+    return false;
+  };
+
   return (
     <>
       {auditModal && (
@@ -413,7 +451,7 @@ export default function TabbedPage({
             : "d-none d-print-block"
         }
       >
-        {!metricGroups.length ? (
+        {showMetricGroupPromo() ? (
           <PremiumCallout
             commercialFeature="metric-groups"
             dismissable={true}

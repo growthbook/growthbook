@@ -58,6 +58,11 @@ export default function MetricGroupInlineForm({
 
       onChange([res.metricGroup.id]);
     } catch (e) {
+      track("Create Metric Group Error", {
+        error: e.message,
+        source: "Add New Experiment Modal",
+        value,
+      });
       setError(
         `Unable to save Metric Group. ${
           e.message ? `Reason:  ${e.message}` : ""

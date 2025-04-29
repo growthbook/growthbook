@@ -2,6 +2,7 @@ import React, { FC, ReactNode, useState } from "react";
 import { isProjectListValidForProject } from "shared/util";
 import {
   isFactMetric,
+  isMetricGroupId,
   isMetricJoinable,
   quantileMetricType,
 } from "shared/experiments";
@@ -114,7 +115,7 @@ const MetricsSelector: FC<{
   const { hasCommercialFeature } = useUser();
 
   const metricListContainsGroup = selected.some((metric) =>
-    metric.startsWith("mg_")
+    isMetricGroupId(metric)
   );
 
   const options: MetricOption[] = [
