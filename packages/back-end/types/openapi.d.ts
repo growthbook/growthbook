@@ -590,7 +590,31 @@ export interface components {
                   variationId: string;
                 })[];
               experimentId: string;
-            })[];
+            } | ({
+              condition: string;
+              savedGroupTargeting?: ({
+                  /** @enum {string} */
+                  matchType: "all" | "any" | "none";
+                  savedGroups: (string)[];
+                })[];
+              prerequisites?: ({
+                  /** @description Feature ID */
+                  id: string;
+                  condition: string;
+                })[];
+              id: string;
+              trackingKey?: string;
+              enabled: boolean;
+              /** @enum {string} */
+              type: "safe-rollout";
+              controlValue: string;
+              variationValue: string;
+              seed?: string;
+              hashAttribute?: string;
+              safeRolloutId?: string;
+              /** @enum {string} */
+              status?: "running" | "released" | "rolled-back" | "stopped";
+            }))[];
           /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
           definition?: string;
           draft?: {
@@ -665,7 +689,31 @@ export interface components {
                     variationId: string;
                   })[];
                 experimentId: string;
-              })[];
+              } | ({
+                condition: string;
+                savedGroupTargeting?: ({
+                    /** @enum {string} */
+                    matchType: "all" | "any" | "none";
+                    savedGroups: (string)[];
+                  })[];
+                prerequisites?: ({
+                    /** @description Feature ID */
+                    id: string;
+                    condition: string;
+                  })[];
+                id: string;
+                trackingKey?: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "safe-rollout";
+                controlValue: string;
+                variationValue: string;
+                seed?: string;
+                hashAttribute?: string;
+                safeRolloutId?: string;
+                /** @enum {string} */
+                status?: "running" | "released" | "rolled-back" | "stopped";
+              }))[];
             /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
             definition?: string;
           };
@@ -768,7 +816,31 @@ export interface components {
                   variationId: string;
                 })[];
               experimentId: string;
-            })[];
+            } | ({
+              condition: string;
+              savedGroupTargeting?: ({
+                  /** @enum {string} */
+                  matchType: "all" | "any" | "none";
+                  savedGroups: (string)[];
+                })[];
+              prerequisites?: ({
+                  /** @description Feature ID */
+                  id: string;
+                  condition: string;
+                })[];
+              id: string;
+              trackingKey?: string;
+              enabled: boolean;
+              /** @enum {string} */
+              type: "safe-rollout";
+              controlValue: string;
+              variationValue: string;
+              seed?: string;
+              hashAttribute?: string;
+              safeRolloutId?: string;
+              /** @enum {string} */
+              status?: "running" | "released" | "rolled-back" | "stopped";
+            }))[];
           /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
           definition?: string;
           draft?: {
@@ -843,7 +915,31 @@ export interface components {
                     variationId: string;
                   })[];
                 experimentId: string;
-              })[];
+              } | ({
+                condition: string;
+                savedGroupTargeting?: ({
+                    /** @enum {string} */
+                    matchType: "all" | "any" | "none";
+                    savedGroups: (string)[];
+                  })[];
+                prerequisites?: ({
+                    /** @description Feature ID */
+                    id: string;
+                    condition: string;
+                  })[];
+                id: string;
+                trackingKey?: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "safe-rollout";
+                controlValue: string;
+                variationValue: string;
+                seed?: string;
+                hashAttribute?: string;
+                safeRolloutId?: string;
+                /** @enum {string} */
+                status?: "running" | "released" | "rolled-back" | "stopped";
+              }))[];
             /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
             definition?: string;
           };
@@ -937,7 +1033,31 @@ export interface components {
                     variationId: string;
                   })[];
                 experimentId: string;
-              })[]) | undefined;
+              } | ({
+                condition: string;
+                savedGroupTargeting?: ({
+                    /** @enum {string} */
+                    matchType: "all" | "any" | "none";
+                    savedGroups: (string)[];
+                  })[];
+                prerequisites?: ({
+                    /** @description Feature ID */
+                    id: string;
+                    condition: string;
+                  })[];
+                id: string;
+                trackingKey?: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "safe-rollout";
+                controlValue: string;
+                variationValue: string;
+                seed?: string;
+                hashAttribute?: string;
+                safeRolloutId?: string;
+                /** @enum {string} */
+                status?: "running" | "released" | "rolled-back" | "stopped";
+              }))[]) | undefined;
           };
           definitions?: {
             [key: string]: string | undefined;
@@ -1016,7 +1136,31 @@ export interface components {
               variationId: string;
             })[];
           experimentId: string;
-        })[];
+        } | ({
+          condition: string;
+          savedGroupTargeting?: ({
+              /** @enum {string} */
+              matchType: "all" | "any" | "none";
+              savedGroups: (string)[];
+            })[];
+          prerequisites?: ({
+              /** @description Feature ID */
+              id: string;
+              condition: string;
+            })[];
+          id: string;
+          trackingKey?: string;
+          enabled: boolean;
+          /** @enum {string} */
+          type: "safe-rollout";
+          controlValue: string;
+          variationValue: string;
+          seed?: string;
+          hashAttribute?: string;
+          safeRolloutId?: string;
+          /** @enum {string} */
+          status?: "running" | "released" | "rolled-back" | "stopped";
+        }))[];
       /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
       definition?: string;
       draft?: {
@@ -1091,7 +1235,31 @@ export interface components {
                 variationId: string;
               })[];
             experimentId: string;
-          })[];
+          } | ({
+            condition: string;
+            savedGroupTargeting?: ({
+                /** @enum {string} */
+                matchType: "all" | "any" | "none";
+                savedGroups: (string)[];
+              })[];
+            prerequisites?: ({
+                /** @description Feature ID */
+                id: string;
+                condition: string;
+              })[];
+            id: string;
+            trackingKey?: string;
+            enabled: boolean;
+            /** @enum {string} */
+            type: "safe-rollout";
+            controlValue: string;
+            variationValue: string;
+            seed?: string;
+            hashAttribute?: string;
+            safeRolloutId?: string;
+            /** @enum {string} */
+            status?: "running" | "released" | "rolled-back" | "stopped";
+          }))[];
         /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
         definition?: string;
       };
@@ -1165,7 +1333,31 @@ export interface components {
           variationId: string;
         })[];
       experimentId: string;
-    };
+    } | ({
+      condition: string;
+      savedGroupTargeting?: ({
+          /** @enum {string} */
+          matchType: "all" | "any" | "none";
+          savedGroups: (string)[];
+        })[];
+      prerequisites?: ({
+          /** @description Feature ID */
+          id: string;
+          condition: string;
+        })[];
+      id: string;
+      trackingKey?: string;
+      enabled: boolean;
+      /** @enum {string} */
+      type: "safe-rollout";
+      controlValue: string;
+      variationValue: string;
+      seed?: string;
+      hashAttribute?: string;
+      safeRolloutId?: string;
+      /** @enum {string} */
+      status?: "running" | "released" | "rolled-back" | "stopped";
+    });
     FeatureDefinition: {
       defaultValue: OneOf<[string, number, (unknown)[], any, null]>;
       rules?: ({
@@ -1215,6 +1407,31 @@ export interface components {
       value: string;
       coverage: number;
       hashAttribute: string;
+    };
+    FeatureSafeRolloutRule: {
+      condition: string;
+      savedGroupTargeting?: ({
+          /** @enum {string} */
+          matchType: "all" | "any" | "none";
+          savedGroups: (string)[];
+        })[];
+      prerequisites?: ({
+          /** @description Feature ID */
+          id: string;
+          condition: string;
+        })[];
+      id: string;
+      trackingKey?: string;
+      enabled: boolean;
+      /** @enum {string} */
+      type: "safe-rollout";
+      controlValue: string;
+      variationValue: string;
+      seed?: string;
+      hashAttribute?: string;
+      safeRolloutId?: string;
+      /** @enum {string} */
+      status?: "running" | "released" | "rolled-back" | "stopped";
     };
     FeatureExperimentRule: {
       description: string;
@@ -2166,7 +2383,31 @@ export interface operations {
                             variationId: string;
                           })[];
                         experimentId: string;
-                      })[];
+                      } | ({
+                        condition: string;
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
+                          })[];
+                        id: string;
+                        trackingKey?: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "safe-rollout";
+                        controlValue: string;
+                        variationValue: string;
+                        seed?: string;
+                        hashAttribute?: string;
+                        safeRolloutId?: string;
+                        /** @enum {string} */
+                        status?: "running" | "released" | "rolled-back" | "stopped";
+                      }))[];
                     /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string;
                     draft?: {
@@ -2241,7 +2482,31 @@ export interface operations {
                               variationId: string;
                             })[];
                           experimentId: string;
-                        })[];
+                        } | ({
+                          condition: string;
+                          savedGroupTargeting?: ({
+                              /** @enum {string} */
+                              matchType: "all" | "any" | "none";
+                              savedGroups: (string)[];
+                            })[];
+                          prerequisites?: ({
+                              /** @description Feature ID */
+                              id: string;
+                              condition: string;
+                            })[];
+                          id: string;
+                          trackingKey?: string;
+                          enabled: boolean;
+                          /** @enum {string} */
+                          type: "safe-rollout";
+                          controlValue: string;
+                          variationValue: string;
+                          seed?: string;
+                          hashAttribute?: string;
+                          safeRolloutId?: string;
+                          /** @enum {string} */
+                          status?: "running" | "released" | "rolled-back" | "stopped";
+                        }))[];
                       /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                       definition?: string;
                     };
@@ -2596,7 +2861,31 @@ export interface operations {
                           variationId: string;
                         })[];
                       experimentId: string;
-                    })[];
+                    } | ({
+                      condition: string;
+                      savedGroupTargeting?: ({
+                          /** @enum {string} */
+                          matchType: "all" | "any" | "none";
+                          savedGroups: (string)[];
+                        })[];
+                      prerequisites?: ({
+                          /** @description Feature ID */
+                          id: string;
+                          condition: string;
+                        })[];
+                      id: string;
+                      trackingKey?: string;
+                      enabled: boolean;
+                      /** @enum {string} */
+                      type: "safe-rollout";
+                      controlValue: string;
+                      variationValue: string;
+                      seed?: string;
+                      hashAttribute?: string;
+                      safeRolloutId?: string;
+                      /** @enum {string} */
+                      status?: "running" | "released" | "rolled-back" | "stopped";
+                    }))[];
                   /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                   definition?: string;
                   draft?: {
@@ -2671,7 +2960,31 @@ export interface operations {
                             variationId: string;
                           })[];
                         experimentId: string;
-                      })[];
+                      } | ({
+                        condition: string;
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
+                          })[];
+                        id: string;
+                        trackingKey?: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "safe-rollout";
+                        controlValue: string;
+                        variationValue: string;
+                        seed?: string;
+                        hashAttribute?: string;
+                        safeRolloutId?: string;
+                        /** @enum {string} */
+                        status?: "running" | "released" | "rolled-back" | "stopped";
+                      }))[];
                     /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string;
                   };
@@ -2795,7 +3108,31 @@ export interface operations {
                           variationId: string;
                         })[];
                       experimentId: string;
-                    })[];
+                    } | ({
+                      condition: string;
+                      savedGroupTargeting?: ({
+                          /** @enum {string} */
+                          matchType: "all" | "any" | "none";
+                          savedGroups: (string)[];
+                        })[];
+                      prerequisites?: ({
+                          /** @description Feature ID */
+                          id: string;
+                          condition: string;
+                        })[];
+                      id: string;
+                      trackingKey?: string;
+                      enabled: boolean;
+                      /** @enum {string} */
+                      type: "safe-rollout";
+                      controlValue: string;
+                      variationValue: string;
+                      seed?: string;
+                      hashAttribute?: string;
+                      safeRolloutId?: string;
+                      /** @enum {string} */
+                      status?: "running" | "released" | "rolled-back" | "stopped";
+                    }))[];
                   /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                   definition?: string;
                   draft?: {
@@ -2870,7 +3207,31 @@ export interface operations {
                             variationId: string;
                           })[];
                         experimentId: string;
-                      })[];
+                      } | ({
+                        condition: string;
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
+                          })[];
+                        id: string;
+                        trackingKey?: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "safe-rollout";
+                        controlValue: string;
+                        variationValue: string;
+                        seed?: string;
+                        hashAttribute?: string;
+                        safeRolloutId?: string;
+                        /** @enum {string} */
+                        status?: "running" | "released" | "rolled-back" | "stopped";
+                      }))[];
                     /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string;
                   };
@@ -2964,7 +3325,31 @@ export interface operations {
                             variationId: string;
                           })[];
                         experimentId: string;
-                      })[]) | undefined;
+                      } | ({
+                        condition: string;
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
+                          })[];
+                        id: string;
+                        trackingKey?: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "safe-rollout";
+                        controlValue: string;
+                        variationValue: string;
+                        seed?: string;
+                        hashAttribute?: string;
+                        safeRolloutId?: string;
+                        /** @enum {string} */
+                        status?: "running" | "released" | "rolled-back" | "stopped";
+                      }))[]) | undefined;
                   };
                   definitions?: {
                     [key: string]: string | undefined;
@@ -3299,7 +3684,31 @@ export interface operations {
                           variationId: string;
                         })[];
                       experimentId: string;
-                    })[];
+                    } | ({
+                      condition: string;
+                      savedGroupTargeting?: ({
+                          /** @enum {string} */
+                          matchType: "all" | "any" | "none";
+                          savedGroups: (string)[];
+                        })[];
+                      prerequisites?: ({
+                          /** @description Feature ID */
+                          id: string;
+                          condition: string;
+                        })[];
+                      id: string;
+                      trackingKey?: string;
+                      enabled: boolean;
+                      /** @enum {string} */
+                      type: "safe-rollout";
+                      controlValue: string;
+                      variationValue: string;
+                      seed?: string;
+                      hashAttribute?: string;
+                      safeRolloutId?: string;
+                      /** @enum {string} */
+                      status?: "running" | "released" | "rolled-back" | "stopped";
+                    }))[];
                   /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                   definition?: string;
                   draft?: {
@@ -3374,7 +3783,31 @@ export interface operations {
                             variationId: string;
                           })[];
                         experimentId: string;
-                      })[];
+                      } | ({
+                        condition: string;
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
+                          })[];
+                        id: string;
+                        trackingKey?: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "safe-rollout";
+                        controlValue: string;
+                        variationValue: string;
+                        seed?: string;
+                        hashAttribute?: string;
+                        safeRolloutId?: string;
+                        /** @enum {string} */
+                        status?: "running" | "released" | "rolled-back" | "stopped";
+                      }))[];
                     /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string;
                   };
@@ -3520,7 +3953,31 @@ export interface operations {
                           variationId: string;
                         })[];
                       experimentId: string;
-                    })[];
+                    } | ({
+                      condition: string;
+                      savedGroupTargeting?: ({
+                          /** @enum {string} */
+                          matchType: "all" | "any" | "none";
+                          savedGroups: (string)[];
+                        })[];
+                      prerequisites?: ({
+                          /** @description Feature ID */
+                          id: string;
+                          condition: string;
+                        })[];
+                      id: string;
+                      trackingKey?: string;
+                      enabled: boolean;
+                      /** @enum {string} */
+                      type: "safe-rollout";
+                      controlValue: string;
+                      variationValue: string;
+                      seed?: string;
+                      hashAttribute?: string;
+                      safeRolloutId?: string;
+                      /** @enum {string} */
+                      status?: "running" | "released" | "rolled-back" | "stopped";
+                    }))[];
                   /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                   definition?: string;
                   draft?: {
@@ -3595,7 +4052,31 @@ export interface operations {
                             variationId: string;
                           })[];
                         experimentId: string;
-                      })[];
+                      } | ({
+                        condition: string;
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
+                          })[];
+                        id: string;
+                        trackingKey?: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "safe-rollout";
+                        controlValue: string;
+                        variationValue: string;
+                        seed?: string;
+                        hashAttribute?: string;
+                        safeRolloutId?: string;
+                        /** @enum {string} */
+                        status?: "running" | "released" | "rolled-back" | "stopped";
+                      }))[];
                     /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string;
                   };
@@ -8589,6 +9070,7 @@ export type ApiFeatureRule = z.infer<typeof openApiValidators.apiFeatureRuleVali
 export type ApiFeatureDefinition = z.infer<typeof openApiValidators.apiFeatureDefinitionValidator>;
 export type ApiFeatureForceRule = z.infer<typeof openApiValidators.apiFeatureForceRuleValidator>;
 export type ApiFeatureRolloutRule = z.infer<typeof openApiValidators.apiFeatureRolloutRuleValidator>;
+export type ApiFeatureSafeRolloutRule = z.infer<typeof openApiValidators.apiFeatureSafeRolloutRuleValidator>;
 export type ApiFeatureExperimentRule = z.infer<typeof openApiValidators.apiFeatureExperimentRuleValidator>;
 export type ApiFeatureExperimentRefRule = z.infer<typeof openApiValidators.apiFeatureExperimentRefRuleValidator>;
 export type ApiSdkConnection = z.infer<typeof openApiValidators.apiSdkConnectionValidator>;

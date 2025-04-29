@@ -141,6 +141,18 @@ class RegressionAdjustedStatistic(Statistic):
     post_pre_sum_of_products: float
     theta: Optional[float]
 
+    def __add__(self, other):
+        if not isinstance(other, RegressionAdjustedStatistic):
+            raise TypeError("Can add only another RegressionAdjustedStatistic instance")
+        return RegressionAdjustedStatistic(
+            n=self.n + other.n,
+            post_statistic=self.post_statistic + other.post_statistic,
+            pre_statistic=self.pre_statistic + other.pre_statistic,
+            post_pre_sum_of_products=self.post_pre_sum_of_products
+            + other.post_pre_sum_of_products,
+            theta=None,
+        )
+
     @property
     def mean(self) -> float:
         theta = self.theta if self.theta else 0
@@ -234,6 +246,32 @@ class RegressionAdjustedRatioStatistic(Statistic):
     m_post_d_pre_sum_of_products: float
     m_pre_d_post_sum_of_products: float
     theta: Optional[float]
+
+    def __add__(self, other):
+        if not isinstance(other, RegressionAdjustedRatioStatistic):
+            raise TypeError(
+                "Can add only another RegressionAdjustedRatioStatistic instance"
+            )
+        return RegressionAdjustedRatioStatistic(
+            n=self.n + other.n,
+            m_statistic_post=self.m_statistic_post + other.m_statistic_post,
+            d_statistic_post=self.d_statistic_post + other.d_statistic_post,
+            m_statistic_pre=self.m_statistic_pre + other.m_statistic_pre,
+            d_statistic_pre=self.d_statistic_pre + other.d_statistic_pre,
+            m_post_m_pre_sum_of_products=self.m_post_m_pre_sum_of_products
+            + other.m_post_m_pre_sum_of_products,
+            d_post_d_pre_sum_of_products=self.d_post_d_pre_sum_of_products
+            + other.d_post_d_pre_sum_of_products,
+            m_pre_d_pre_sum_of_products=self.m_pre_d_pre_sum_of_products
+            + other.m_pre_d_pre_sum_of_products,
+            m_post_d_post_sum_of_products=self.m_post_d_post_sum_of_products
+            + other.m_post_d_post_sum_of_products,
+            m_post_d_pre_sum_of_products=self.m_post_d_pre_sum_of_products
+            + other.m_post_d_pre_sum_of_products,
+            m_pre_d_post_sum_of_products=self.m_pre_d_post_sum_of_products
+            + other.m_pre_d_post_sum_of_products,
+            theta=None,
+        )
 
     @property
     def mean(self) -> float:

@@ -24,7 +24,7 @@ const docSections = {
   namespaces: "/features/rules#namespaces",
   environments: "/features/environments",
   archetypes: "/features/rules#archetype",
-  team: "/account/user-permissions",
+  team: "/account/user-permissions#teams",
   //DataSourceType
   athena: "/app/datasources#aws-athena",
   mixpanel: "/guide/mixpanel",
