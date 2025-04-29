@@ -200,28 +200,7 @@ export default function TabbedPage({
   const trackSource = "tabbed-page";
 
   const showMetricGroupPromo = (): boolean => {
-    // If the org has metric groups already & has the feature, don't show helper
-    // an org could not have the feature and have metric groups if they downgraded, this reminds them
-    // that they can get more feature if they upgrade
-    if (hasCommercialFeature("metric-groups") && metricGroups.length)
-      return false;
-
-    if (metricGroups.length) {
-      // if org has metric groups and metrics contain a metric group, don't show the helper
-      if (
-        experiment.goalMetrics.some((goalMetric) =>
-          isMetricGroupId(goalMetric)
-        ) ||
-        experiment.secondaryMetrics.some((secondaryMetric) =>
-          isMetricGroupId(secondaryMetric)
-        ) ||
-        experiment.guardrailMetrics.some((guardrailMetric) =>
-          isMetricGroupId(guardrailMetric)
-        )
-      ) {
-        return false;
-      }
-    }
+    if (metricGroups.length) return false;
 
     // only show if there are atleast 2 metrics in any section
     if (
