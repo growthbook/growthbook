@@ -1,40 +1,44 @@
-import { GetServerSideProps } from "next";
+import { useEffect } from "react";
+import { useRouter } from "next/router";
 
-export const getServerSideProps: GetServerSideProps = async ({
-  res,
-  query: { state, code, resource_id: resourceId },
-}) => {
-  const apiHost =
-    (process.env.API_HOST ?? "").replace(/\/$/, "") || "http://localhost:3100";
+const apiHost =
+  (process.env.API_HOST ?? "").replace(/\/$/, "") || "http://localhost:3100";
 
-  try {
-    const r = await fetch(`${apiHost}/vercel/auth/sso`, {
-      method: "POST",
-      body: JSON.stringify({
-        code,
-        state,
-        resourceId,
-      }),
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
+const VercelPage = () => {
+  const router = useRouter();
+  useEffect(() => {
+    const { code, state, resource_id: resourceId } = router.query;
 
-    r.headers
-      .getSetCookie()
-      .forEach((cookie) => res.setHeader("Set-Cookie", cookie));
-  } catch (err) {
-    console.log("Ignored:", err);
-  }
+    if (!code || !state || !resourceId) return;
 
-  return {
-    redirect: {
-      destination: "/",
-      permanent: false,
-    },
-  };
+    const fn = async () => {
+      try {
+        await fetch(`${apiHost}/vercel/auth/sso`, {
+          method: "POST",
+          body: JSON.stringify({
+            code,
+            state,
+            resourceId,
+          }),
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+      } catch (err) {
+        console.log("Ignored:", err);
+      } finally {
+        router.push("/");
+      }
+    };
+
+    fn();
+  }, [router]);
+
+  return null;
 };
 
-export default function Vercel() {
-  return "bla";
-}
+VercelPage.noOrganization = true;
+VercelPage.preAuth = true;
+
+export default VercelPage;

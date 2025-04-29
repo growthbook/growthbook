@@ -115,6 +115,28 @@ export async function postOAuthCallback(req: Request, res: Response) {
   }
 }
 
+export async function setResponseCookies(
+  req: Request,
+  res: Response,
+  user: UserInterface
+) {
+  const { idToken, refreshToken, expiresIn } = await auth.processCallback(
+    req,
+    res,
+    user
+  );
+
+  if (!idToken) {
+    return res.status(400).json({
+      status: 400,
+      message: "Unable to create id token for user",
+    });
+  }
+
+  IdTokenCookie.setValue(idToken, req, res, expiresIn);
+  RefreshTokenCookie.setValue(refreshToken, req, res);
+}
+
 export async function sendLocalSuccessResponse(
   req: Request,
   res: Response,
@@ -126,6 +148,7 @@ export async function sendLocalSuccessResponse(
     res,
     user
   );
+
   if (!idToken) {
     return res.status(400).json({
       status: 400,

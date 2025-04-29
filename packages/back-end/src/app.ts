@@ -41,6 +41,9 @@ if (SENTRY_DSN) {
 import * as authControllerRaw from "./controllers/auth";
 const authController = wrapController(authControllerRaw);
 
+import * as vercelControllerRaw from "./routers/vercel-native-integration/vercel-native-integration.controller";
+const vercelController = wrapController(vercelControllerRaw);
+
 import * as datasourcesControllerRaw from "./controllers/datasources";
 const datasourcesController = wrapController(datasourcesControllerRaw);
 
@@ -279,17 +282,6 @@ app.get(
   experimentsController.getExperimentPublic
 );
 
-if (ENVIRONMENT !== "production" || IS_CLOUD) {
-  app.use(
-    "/vercel",
-    cors({
-      credentials: false,
-      origin: "*",
-    }),
-    vercelRouter
-  );
-}
-
 // Secret API routes (no JWT or CORS)
 app.use(
   "/api/v1",
@@ -317,6 +309,27 @@ const origins: (string | RegExp)[] = [APP_ORIGIN];
 if (CORS_ORIGIN_REGEX) {
   origins.push(CORS_ORIGIN_REGEX);
 }
+
+if (ENVIRONMENT !== "production" || IS_CLOUD) {
+  app.use(
+    "/vercel",
+    cors({
+      credentials: false,
+      origin: "*",
+    }),
+    vercelRouter
+  );
+
+  app.post(
+    "/auth/sso/vercel",
+    cors({
+      credentials: true,
+      origin: origins,
+    }),
+    vercelController.postVercelIntegrationSSO
+  );
+}
+
 app.use(
   cors({
     credentials: true,

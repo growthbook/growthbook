@@ -15,7 +15,7 @@ import {
 } from "back-end/src/models/OrganizationModel";
 import { createUser, getUserByEmail } from "back-end/src/models/UserModel";
 import { ReqContextClass } from "back-end/src/services/context";
-import { sendLocalSuccessResponse } from "back-end/src/controllers/auth";
+import { setResponseCookies } from "back-end/src/controllers/auth";
 import { OrganizationInterface } from "back-end/types/organization";
 import { getVercelSSOToken } from "back-end/src/services/vercel-native-integration.service";
 import {
@@ -404,5 +404,7 @@ export async function postVercelIntegrationSSO(req: Request, res: Response) {
     res,
   });
 
-  return sendLocalSuccessResponse(req, res, user);
+  await setResponseCookies(req, res, user);
+
+  res.send("Ok!");
 }
