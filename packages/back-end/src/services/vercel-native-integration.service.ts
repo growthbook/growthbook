@@ -104,11 +104,7 @@ export const createVercelExperimentationItemFromFeature = async ({
     `${VERCEL_URL}/v1/installations/${installationId}/resources/${resourceId}/experimentation/items`,
     {
       method: "POST",
-      body: JSON.stringify({
-        items: [vercelExpeimentationItem(feature)],
-        client_id: VERCEL_CLIENT_ID,
-        client_secret: VERCEL_CLIENT_SECRET,
-      }),
+      body: JSON.stringify({ items: [vercelExpeimentationItem(feature)] }),
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${accessToken}`,
@@ -134,11 +130,7 @@ export const updateVercelExperimentationItemFromFeature = async ({
     `${VERCEL_URL}/v1/installations/${installationId}/resources/${resourceId}/experimentation/items/${feature.id}`,
     {
       method: "PATCH",
-      body: JSON.stringify({
-        items: [vercelExpeimentationItem(feature)],
-        client_id: VERCEL_CLIENT_ID,
-        client_secret: VERCEL_CLIENT_SECRET,
-      }),
+      body: JSON.stringify(vercelExpeimentationItem(feature)),
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${accessToken}`,
