@@ -94,6 +94,7 @@ class BasePostStratification(ABC):
         )
 
 
+# Algorithm 1 for count metrics
 class PostStratification(BasePostStratification):
     def __init__(
         self,
@@ -137,6 +138,7 @@ class PostStratification(BasePostStratification):
         return StrataResult(self.n, self.mean, self.covariance)
 
 
+# Regression version of Algorithm 1 for count metrics
 class PostStratificationRegressionAdjusted:
     def __init__(
         self,
@@ -163,8 +165,16 @@ class PostStratificationRegressionAdjusted:
         return self.n_a + self.n_b
 
     @property
+    def len_alpha(self) -> int:
+        return 2
+
+    @property
+    def len_gamma(self) -> int:
+        return 3
+
+    @property
     def xtx(self) -> np.ndarray:
-        xtx = np.zeros((3, 3))
+        xtx = np.zeros((self.len_gamma, self.len_gamma))
         xtx[0, 0] = self.n_a + self.n_b
         xtx[1, 1] = self.n_b
         xtx[2, 2] = (
@@ -184,7 +194,7 @@ class PostStratificationRegressionAdjusted:
 
     @property
     def xty(self) -> np.ndarray:
-        xty = np.zeros((3, 1))
+        xty = np.zeros((self.len_gamma, 1))
         xty[0] = self.stat_a.post_statistic.sum + self.stat_b.post_statistic.sum
         xty[1] = self.stat_b.post_statistic.sum
         xty[2] = (
@@ -193,45 +203,298 @@ class PostStratificationRegressionAdjusted:
         return xty
 
     @property
-    def bhat(self) -> np.ndarray:
+    def gammahat(self) -> np.ndarray:
         return self.xtx_inv.dot(self.xty)
 
+    # covariance matrix, 1 x 1 in this case
     @property
-    def sigma2(self) -> float:
+    def sigma(self) -> np.ndarray:
         resids_part_1 = (
             self.stat_a.post_statistic.sum_squares
             + self.stat_b.post_statistic.sum_squares
         )
         resids_part_2 = -self.xty.T.dot(np.linalg.inv(self.xtx)).dot(self.xty)
-        return (resids_part_1 + resids_part_2) / (self.n - 3)
+        return np.array([[(resids_part_1 + resids_part_2) / (self.n - 3)]])
+
+    @property
+    def baseline_mean(self) -> float:
+        statistic_pre = self.stat_a.pre_statistic + self.stat_b.pre_statistic
+        return statistic_pre.mean
+
+    @property
+    def baseline_variance(self) -> float:
+        statistic_pre = self.stat_a.pre_statistic + self.stat_b.pre_statistic
+        return statistic_pre.variance
+
+    def contrast_matrix_estimated_mean(self, i: int) -> np.ndarray:
+        return np.expand_dims(self.contrast_matrix[i, :], axis=1)
+
+    def contrast_matrix_covariance(self, i: int, j: int) -> np.ndarray:
+        v = np.zeros((self.len_gamma, self.len_gamma))
+        if i == 0 and j == 0:
+            v[2, 2] = self.baseline_variance / self.n
+        return v
+
+    def contrast_matrix_second_moment(self, i: int, j: int) -> np.ndarray:
+        m_i = self.contrast_matrix_estimated_mean(i)
+        m_j = self.contrast_matrix_estimated_mean(j)
+        return self.contrast_matrix_covariance(i, j) + m_i.dot(m_j.T)
 
     @property
     def contrast_matrix(self) -> np.ndarray:
-        statistic_pre = self.stat_a.pre_statistic + self.stat_b.pre_statistic
-        mean_baseline = statistic_pre.mean
         m = np.zeros((2, 3))
-        m[0, :] = [1, 0, mean_baseline]
+        m[0, :] = [1, 0, self.baseline_mean]
         m[1, :] = [0, 1, 0]
         return m
 
     @property
     def mean(self) -> np.ndarray:
-        return self.contrast_matrix.dot(self.bhat).ravel()
+        return self.contrast_matrix.dot(self.gammahat).ravel()
 
     @property
     def coef_covariance(self) -> np.ndarray:
-        return self.sigma2 * np.linalg.inv(self.xtx)
+        return np.kron(self.sigma, self.xtx_inv)
 
     @property
     def covariance(self) -> np.ndarray:
-        return float(self.n) * self.contrast_matrix.dot(self.coef_covariance).dot(
-            self.contrast_matrix.T
-        )
+        v_alpha = np.zeros((self.len_alpha, self.len_alpha))
+        for i in range(self.len_alpha):
+            for j in range(i + 1):
+                sum_1 = sum(
+                    np.diag(
+                        self.coef_covariance.dot(
+                            self.contrast_matrix_second_moment(i, j)
+                        )
+                    )
+                )
+                sum_2 = sum(
+                    np.diag(
+                        self.gammahat.dot(self.gammahat.T).dot(
+                            self.contrast_matrix_covariance(i, j)
+                        )
+                    )
+                )
+                v_alpha[i, j] = sum_1 + sum_2
+                v_alpha[j, i] = v_alpha[i, j]
+        return float(self.n) * v_alpha
 
     def compute_result(self) -> StrataResult:
         return StrataResult(self.n, self.mean, self.covariance)
 
 
+# Regression version of Algorithm 1 for ratio metrics
+class PostStratificationRegressionAdjustedRatio(PostStratificationRegressionAdjusted):
+    def __init__(
+        self,
+        stat_a: RegressionAdjustedRatioStatistic,
+        stat_b: RegressionAdjustedRatioStatistic,
+        alpha: float = 0.05,
+        theta: Optional[float] = None,
+    ):
+        self.stat_a = stat_a
+        self.stat_b = stat_b
+        self.alpha = alpha
+        self.theta = theta
+
+    @property
+    def len_alpha(self) -> int:
+        return 4
+
+    @property
+    def len_gamma(self) -> int:
+        return 8
+
+    @property
+    def xtx(self) -> np.ndarray:
+        xtx = np.zeros((4, 4))
+        xtx[0, 0] = self.n_a + self.n_b
+        xtx[1, 1] = self.n_b
+        xtx[2, 2] = (
+            self.stat_a.m_statistic_pre.sum_squares
+            + self.stat_b.m_statistic_pre.sum_squares
+        )
+        xtx[3, 3] = (
+            self.stat_a.d_statistic_pre.sum_squares
+            + self.stat_b.d_statistic_pre.sum_squares
+        )
+        xtx[0, 1] = xtx[1, 0] = xtx[1, 1]
+        xtx[0, 2] = xtx[2, 0] = (
+            self.stat_a.m_statistic_pre.sum + self.stat_b.m_statistic_pre.sum
+        )
+        xtx[0, 3] = xtx[3, 0] = (
+            self.stat_a.d_statistic_pre.sum + self.stat_b.d_statistic_pre.sum
+        )
+        xtx[1, 2] = xtx[2, 1] = self.stat_b.m_statistic_pre.sum
+        xtx[1, 3] = xtx[3, 1] = self.stat_b.d_statistic_pre.sum
+        xtx[2, 3] = xtx[3, 2] = (
+            self.stat_a.m_pre_d_pre_sum_of_products
+            + self.stat_b.m_pre_d_pre_sum_of_products
+        )
+        return xtx
+
+    @property
+    def xty_numerator(self) -> np.ndarray:
+        xty = np.zeros((4, 1))
+        xty[0] = self.stat_a.m_statistic_post.sum + self.stat_b.m_statistic_post.sum
+        xty[1] = self.stat_b.m_statistic_post.sum
+        xty[2] = (
+            self.stat_a.m_post_m_pre_sum_of_products
+            + self.stat_b.m_post_m_pre_sum_of_products
+        )
+        xty[3] = (
+            self.stat_a.m_post_d_pre_sum_of_products
+            + self.stat_b.m_post_d_pre_sum_of_products
+        )
+        return xty
+
+    @property
+    def xty_denominator(self) -> np.ndarray:
+        xty = np.zeros((4, 1))
+        xty[0] = self.stat_a.d_statistic_post.sum + self.stat_b.d_statistic_post.sum
+        xty[1] = self.stat_b.d_statistic_post.sum
+        xty[2] = (
+            self.stat_a.m_pre_d_post_sum_of_products
+            + self.stat_b.m_pre_d_post_sum_of_products
+        )
+        xty[3] = (
+            self.stat_a.d_post_d_pre_sum_of_products
+            + self.stat_b.d_post_d_pre_sum_of_products
+        )
+        return xty
+
+    @property
+    def gammahat_numerator(self) -> np.ndarray:
+        return self.xtx_inv.dot(self.xty_numerator)
+
+    @property
+    def gammahat_denominator(self) -> np.ndarray:
+        return self.xtx_inv.dot(self.xty_denominator)
+
+    @property
+    def gammahat(self) -> np.ndarray:
+        return np.concatenate(
+            (self.gammahat_numerator, self.gammahat_denominator), axis=0
+        )
+
+    @property
+    def sigma_1_1(self) -> float:
+        resids_part_1 = (
+            self.stat_a.m_statistic_post.sum_squares
+            + self.stat_b.m_statistic_post.sum_squares
+        )
+        resids_part_2 = -self.xty_numerator.T.dot(self.xtx_inv).dot(self.xty_numerator)
+        return (resids_part_1 + resids_part_2) / (self.n - 6)
+
+    @property
+    def sigma_2_2(self) -> float:
+        resids_part_1 = (
+            self.stat_a.d_statistic_post.sum_squares
+            + self.stat_b.d_statistic_post.sum_squares
+        )
+        resids_part_2 = -self.xty_denominator.T.dot(self.xtx_inv).dot(
+            self.xty_denominator
+        )
+        return (resids_part_1 + resids_part_2) / (self.n - 6)
+
+    @property
+    def sigma_1_2(self) -> float:
+        resids_part_1 = (
+            self.stat_a.m_post_d_post_sum_of_products
+            + self.stat_b.m_post_d_post_sum_of_products
+        )
+        resids_part_2 = -self.xty_numerator.T.dot(self.gammahat_denominator)
+        resids_part_3 = -self.xty_denominator.T.dot(self.gammahat_numerator)
+        resids_part_4 = self.gammahat_numerator.T.dot(self.xtx).dot(
+            self.gammahat_denominator
+        )
+        return (resids_part_1 + resids_part_2 + resids_part_3 + resids_part_4) / (
+            self.n - 6
+        )
+
+    @property
+    def sigma(self) -> np.ndarray:
+        return np.array(
+            [[self.sigma_1_1, self.sigma_1_2], [self.sigma_1_2, self.sigma_2_2]]
+        ).reshape(2, 2)
+
+    @property
+    def baseline_mean_numerator(self) -> float:
+        m_statistic_pre = self.stat_a.m_statistic_pre + self.stat_b.m_statistic_pre
+        return m_statistic_pre.mean
+
+    @property
+    def baseline_mean_denominator(self) -> float:
+        d_statistic_pre = self.stat_a.d_statistic_pre + self.stat_b.d_statistic_pre
+        return d_statistic_pre.mean
+
+    @property
+    def baseline_variance_numerator(self) -> float:
+        m_statistic_pre = self.stat_a.m_statistic_pre + self.stat_b.m_statistic_pre
+        return m_statistic_pre.variance
+
+    @property
+    def baseline_variance_denominator(self) -> float:
+        d_statistic_pre = self.stat_a.d_statistic_pre + self.stat_b.d_statistic_pre
+        return d_statistic_pre.variance
+
+    @property
+    def baseline_covariance(self) -> float:
+        stat_combined = self.stat_a + self.stat_b
+        return stat_combined.cov_m_pre_d_pre
+
+    @property
+    def contrast_matrix(self) -> np.ndarray:
+        m = np.zeros((4, 8))
+        m[0, :] = [
+            1,
+            0,
+            self.baseline_mean_numerator,
+            self.baseline_mean_denominator,
+            0,
+            0,
+            0,
+            0,
+        ]
+        m[1, :] = [0, 1, 0, 0, 0, 0, 0, 0]
+        m[2, :] = [
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            self.baseline_mean_numerator,
+            self.baseline_mean_denominator,
+        ]
+        m[3, :] = [0, 0, 0, 0, 0, 1, 0, 0]
+        return m
+
+    def contrast_matrix_covariance(self, i: int, j: int) -> np.ndarray:
+        v = np.zeros((self.len_gamma, self.len_gamma))
+        if i == 0 and j == 0:
+            v[2, 2] = self.baseline_variance_numerator / self.n
+            v[3, 3] = self.baseline_variance_denominator / self.n
+            v[2, 3] = v[3, 2] = self.baseline_covariance / self.n
+
+        if i == 2 and j == 2:
+            v[6, 6] = self.baseline_variance_numerator / self.n
+            v[7, 7] = self.baseline_variance_denominator / self.n
+            v[6, 7] = v[7, 6] = self.baseline_covariance / self.n
+
+        if i == 0 and j == 2:
+            v[2, 6] = self.baseline_variance_numerator / self.n
+            v[3, 7] = self.baseline_variance_denominator / self.n
+            v[2, 7] = v[3, 6] = self.baseline_covariance / self.n
+
+        if i == 2 and j == 0:
+            v[6, 2] = self.baseline_variance_numerator / self.n
+            v[7, 3] = self.baseline_variance_denominator / self.n
+            v[7, 2] = v[6, 3] = self.baseline_covariance / self.n
+
+        return v
+
+
+# Algorithm 1 for CUPED adjusted count metrics
 class PostStratificationCupedAdjusted(BasePostStratification):
     def __init__(
         self,
@@ -303,6 +566,7 @@ class PostStratificationCupedAdjusted(BasePostStratification):
         return StrataResult(self.n, self.mean, self.covariance)
 
 
+# Algorithm 1 for ratio metrics
 class PostStratificationRatio(BasePostStratification):
     def __init__(
         self,
@@ -367,163 +631,7 @@ class PostStratificationRatio(BasePostStratification):
         return StrataResult(self.n, self.mean, self.covariance)
 
 
-class PostStratificationRegressionAdjustedRatio(PostStratificationRegressionAdjusted):
-    def __init__(
-        self,
-        stat_a: RegressionAdjustedRatioStatistic,
-        stat_b: RegressionAdjustedRatioStatistic,
-        alpha: float = 0.05,
-        theta: Optional[float] = None,
-    ):
-        self.stat_a = stat_a
-        self.stat_b = stat_b
-        self.alpha = alpha
-        self.theta = theta
-
-    @property
-    def xtx(self) -> np.ndarray:
-        xtx = np.zeros((4, 4))
-        xtx[0, 0] = self.n_a + self.n_b
-        xtx[1, 1] = self.n_b
-        xtx[2, 2] = (
-            self.stat_a.m_statistic_pre.sum_squares
-            + self.stat_b.m_statistic_pre.sum_squares
-        )
-        xtx[3, 3] = (
-            self.stat_a.d_statistic_pre.sum_squares
-            + self.stat_b.d_statistic_pre.sum_squares
-        )
-        xtx[0, 1] = xtx[1, 0] = xtx[1, 1]
-        xtx[0, 2] = xtx[2, 0] = (
-            self.stat_a.m_statistic_pre.sum + self.stat_b.m_statistic_pre.sum
-        )
-        xtx[0, 3] = xtx[3, 0] = (
-            self.stat_a.d_statistic_pre.sum + self.stat_b.d_statistic_pre.sum
-        )
-        xtx[1, 2] = xtx[2, 1] = self.stat_b.m_statistic_pre.sum
-        xtx[1, 3] = xtx[3, 1] = self.stat_b.d_statistic_pre.sum
-        xtx[2, 3] = xtx[3, 2] = (
-            self.stat_a.m_pre_d_pre_sum_of_products
-            + self.stat_b.m_pre_d_pre_sum_of_products
-        )
-        return xtx
-
-    @property
-    def xtx_inv(self) -> np.ndarray:
-        return np.linalg.inv(self.xtx)
-
-    @property
-    def xty_numerator(self) -> np.ndarray:
-        xty = np.zeros((4, 1))
-        xty[0] = self.stat_a.m_statistic_post.sum + self.stat_b.m_statistic_post.sum
-        xty[1] = self.stat_b.m_statistic_post.sum
-        xty[2] = (
-            self.stat_a.m_post_m_pre_sum_of_products
-            + self.stat_b.m_post_m_pre_sum_of_products
-        )
-        xty[3] = (
-            self.stat_a.m_post_d_pre_sum_of_products
-            + self.stat_b.m_post_d_pre_sum_of_products
-        )
-        return xty
-
-    @property
-    def xty_denominator(self) -> np.ndarray:
-        xty = np.zeros((4, 1))
-        xty[0] = self.stat_a.d_statistic_post.sum + self.stat_b.d_statistic_post.sum
-        xty[1] = self.stat_b.d_statistic_post.sum
-        xty[2] = (
-            self.stat_a.m_pre_d_post_sum_of_products
-            + self.stat_b.m_pre_d_post_sum_of_products
-        )
-        xty[3] = (
-            self.stat_a.d_post_d_pre_sum_of_products
-            + self.stat_b.d_post_d_pre_sum_of_products
-        )
-        return xty
-
-    @property
-    def bhat_numerator(self) -> np.ndarray:
-        return self.xtx_inv.dot(self.xty_numerator)
-
-    @property
-    def bhat_denominator(self) -> np.ndarray:
-        return self.xtx_inv.dot(self.xty_denominator)
-
-    @property
-    def bhat(self) -> np.ndarray:
-        return np.concatenate((self.bhat_numerator, self.bhat_denominator), axis=0)
-
-    @property
-    def sigma_1_1(self) -> float:
-        resids_part_1 = (
-            self.stat_a.m_statistic_post.sum_squares
-            + self.stat_b.m_statistic_post.sum_squares
-        )
-        resids_part_2 = -self.xty_numerator.T.dot(self.xtx_inv).dot(self.xty_numerator)
-        return (resids_part_1 + resids_part_2) / (self.n - 6)
-
-    @property
-    def sigma_2_2(self) -> float:
-        resids_part_1 = (
-            self.stat_a.d_statistic_post.sum_squares
-            + self.stat_b.d_statistic_post.sum_squares
-        )
-        resids_part_2 = -self.xty_denominator.T.dot(self.xtx_inv).dot(
-            self.xty_denominator
-        )
-        return (resids_part_1 + resids_part_2) / (self.n - 6)
-
-    @property
-    def sigma_1_2(self) -> float:
-        resids_part_1 = (
-            self.stat_a.m_post_d_post_sum_of_products
-            + self.stat_b.m_post_d_post_sum_of_products
-        )
-        resids_part_2 = -self.xty_numerator.T.dot(self.bhat_denominator)
-        resids_part_3 = -self.xty_denominator.T.dot(self.bhat_numerator)
-        resids_part_4 = self.bhat_numerator.T.dot(self.xtx).dot(self.bhat_denominator)
-        return (resids_part_1 + resids_part_2 + resids_part_3 + resids_part_4) / (
-            self.n - 6
-        )
-
-    @property
-    def sigma(self) -> np.ndarray:
-        return np.array(
-            [[self.sigma_1_1, self.sigma_1_2], [self.sigma_1_2, self.sigma_2_2]]
-        ).reshape(2, 2)
-
-    @property
-    def coef_covariance(self) -> np.ndarray:
-        return np.kron(self.sigma, self.xtx_inv)
-
-    @property
-    def contrast_matrix(self) -> np.ndarray:
-        m_statistic_pre = self.stat_a.m_statistic_pre + self.stat_b.m_statistic_pre
-        d_statistic_pre = self.stat_a.d_statistic_pre + self.stat_b.d_statistic_pre
-        mean_baseline_numerator = m_statistic_pre.mean
-        mean_baseline_denominator = d_statistic_pre.mean
-        m = np.zeros((4, 8))
-        m[0, :] = [1, 0, mean_baseline_numerator, mean_baseline_denominator, 0, 0, 0, 0]
-        m[1, :] = [0, 1, 0, 0, 0, 0, 0, 0]
-        m[2, :] = [0, 0, 0, 0, 1, 0, mean_baseline_numerator, mean_baseline_denominator]
-        m[3, :] = [0, 0, 0, 0, 0, 1, 0, 0]
-        return m
-
-    @property
-    def mean(self) -> np.ndarray:
-        return (self.contrast_matrix.dot(self.bhat)).ravel()
-
-    @property
-    def covariance(self) -> np.ndarray:
-        return float(self.n) * self.contrast_matrix.dot(self.coef_covariance).dot(
-            self.contrast_matrix.T
-        )
-
-    def compute_result(self) -> StrataResult:
-        return StrataResult(self.n, self.mean, self.covariance)
-
-
+# Algorithm 1 for CUPED adjusted ratio metrics
 class PostStratificationCupedAdjustedRatio(BasePostStratification):
     def __init__(
         self,
@@ -629,6 +737,7 @@ class PostStratificationCupedAdjustedRatio(BasePostStratification):
         return StrataResult(self.n, self.mean, self.covariance)
 
 
+# Algorithm 4
 class PostStratificationSummary:
     def __init__(
         self,
@@ -829,6 +938,7 @@ class PostStratificationSummary:
         )
 
 
+# Algorithm 3
 class PostStratificationSummaryRatio(PostStratificationSummary):
     def __init__(
         self,
