@@ -33,6 +33,7 @@ import {
   MetricModal,
 } from "@/components/FactTables/NewMetricModal";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import PremiumCallout from "../Radix/PremiumCallout";
 
 export interface MetricTableItem {
   id: string;
@@ -225,6 +226,7 @@ const MetricsList = (): React.ReactElement => {
     getDatasourceById,
     mutateDefinitions,
     getProjectById,
+    metricGroups,
     project,
     ready,
   } = useDefinitions();
@@ -400,6 +402,18 @@ const MetricsList = (): React.ReactElement => {
           <TagsFilter filter={tagsFilter} items={unpaginatedItems} />
         </div>
       </div>
+      {metrics.length > 4 && !metricGroups.length ? (
+        <PremiumCallout
+          commercialFeature="metric-groups"
+          dismissable={true}
+          id="metrics-list-metric-group-promo"
+          docSection="metricGroups"
+          mb="2"
+        >
+          <strong>Metric Groups</strong> help you organize and manage your
+          metrics at scale.
+        </PremiumCallout>
+      ) : null}
       <table className="table appbox gbtable table-hover">
         <thead>
           <tr>

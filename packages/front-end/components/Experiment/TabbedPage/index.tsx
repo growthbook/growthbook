@@ -34,6 +34,8 @@ import UrlRedirectModal from "@/components/Experiment/UrlRedirectModal";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import BanditSummaryResultsTab from "@/components/Experiment/TabbedPage/BanditSummaryResultsTab";
 import Button from "@/components/Radix/Button";
+import PremiumCallout from "@/components/Radix/PremiumCallout";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import ExperimentHeader from "./ExperimentHeader";
 import SetupTabOverview from "./SetupTabOverview";
 import Implementation from "./Implementation";
@@ -126,6 +128,7 @@ export default function TabbedPage({
   }, [setTab]);
 
   const { phase, setPhase } = useSnapshot();
+  const { metricGroups } = useDefinitions();
 
   const variables = {
     experiment: experiment.name,
@@ -194,6 +197,22 @@ export default function TabbedPage({
 
   const isBandit = experiment.type === "multi-armed-bandit";
   const trackSource = "tabbed-page";
+
+  const showMetricGroupPromo = (): boolean => {
+    if (metricGroups.length) return false;
+
+    // only show if there are atleast 2 metrics in any section
+    if (
+      experiment.goalMetrics.length > 2 ||
+      experiment.secondaryMetrics.length > 2 ||
+      experiment.guardrailMetrics.length > 2
+    ) {
+      return true;
+    }
+
+    return false;
+  };
+
   return (
     <>
       {auditModal && (
@@ -410,6 +429,18 @@ export default function TabbedPage({
             : "d-none d-print-block"
         }
       >
+        {showMetricGroupPromo() ? (
+          <PremiumCallout
+            commercialFeature="metric-groups"
+            dismissable={true}
+            id="metrics-list-metric-group-promo"
+            docSection="metricGroups"
+            mb="2"
+          >
+            <strong>Metric Groups</strong> help you organize and manage your
+            metrics at scale.
+          </PremiumCallout>
+        ) : null}
         {/* TODO: Update ResultsTab props to include redirect and pipe through to StartExperimentBanner */}
         <ResultsTab
           experiment={experiment}

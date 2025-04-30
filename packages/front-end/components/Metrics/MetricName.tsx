@@ -4,10 +4,11 @@ import {
   isFactMetric,
   quantileMetricType,
 } from "shared/experiments";
-import { VscListTree } from "react-icons/vsc";
 import React from "react";
 import { FaExclamationCircle } from "react-icons/fa";
 import clsx from "clsx";
+import { PiFolderDuotone } from "react-icons/pi";
+import { Flex } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { getPercentileLabel } from "@/services/metrics";
@@ -123,8 +124,8 @@ export default function MetricName({
     }
     const allJoinable = metrics?.every((m) => m.joinable) ?? true;
     return (
-      <>
-        <VscListTree className="mr-1" />
+      <Flex align="center">
+        <PiFolderDuotone size={16} className="mr-1" />
         {metricGroup.name}
         <Tooltip
           className={clsx("px-1", { "text-danger": !allJoinable })}
@@ -176,7 +177,7 @@ export default function MetricName({
               : metricGroup?.description}
           </span>
         ) : null}
-      </>
+      </Flex>
     );
   }
 
