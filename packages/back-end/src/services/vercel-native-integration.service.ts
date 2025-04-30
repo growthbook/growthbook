@@ -1,5 +1,6 @@
 import { OrganizationInterface } from "back-end/types/organization";
 import { FeatureInterface } from "back-end/types/feature";
+import { ExperimentInterface } from "back-end/types/experiment";
 import { findVercelInstallationByOrganization } from "back-end/src/models/VercelNativeIntegration";
 
 const VERCEL_URL = "https://api.vercel.com";
@@ -11,7 +12,7 @@ export type VercelExperimentationItem = {
   id: string;
   slug: string;
   origin: string;
-  category?: string;
+  category: "flag" | "experiment";
   name?: string;
   description?: string;
   isArchived?: boolean;
@@ -73,7 +74,7 @@ const getVercelInstallationData = async (organizationId: string) => {
   return { installationId, resourceId, accessToken };
 };
 
-const vercelExpeimentationItem = ({
+const vercelFeatureExperimentationItem = ({
   id,
   archived: isArchived,
   id: slug,
@@ -84,17 +85,36 @@ const vercelExpeimentationItem = ({
   id,
   slug,
   origin: FEATURE_ORIGIN,
+  category: "flag",
   isArchived,
   description,
   createdAt: Math.floor(dateCreated.getTime() / 1000),
   updatedAt: Math.floor(dateUpdated.getTime() / 1000),
 });
 
-export const createVercelExperimentationItemFromFeature = async ({
-  feature,
+const vercelExperimentExperimentationItem = ({
+  id,
+  archived: isArchived,
+  trackingKey: slug,
+  description,
+  dateCreated,
+  dateUpdated,
+}: ExperimentInterface): VercelExperimentationItem => ({
+  id,
+  slug,
+  origin: FEATURE_ORIGIN,
+  category: "experiment",
+  isArchived,
+  description,
+  createdAt: Math.floor(dateCreated.getTime() / 1000),
+  updatedAt: Math.floor(dateUpdated.getTime() / 1000),
+});
+
+const createVercelExperimentationItem = async ({
+  experimentationItem,
   organization,
 }: {
-  feature: FeatureInterface;
+  experimentationItem: VercelExperimentationItem;
   organization: OrganizationInterface;
 }) => {
   const {
@@ -107,7 +127,9 @@ export const createVercelExperimentationItemFromFeature = async ({
     `${VERCEL_URL}/v1/installations/${installationId}/resources/${resourceId}/experimentation/items`,
     {
       method: "POST",
-      body: JSON.stringify({ items: [vercelExpeimentationItem(feature)] }),
+      body: JSON.stringify({
+        items: [experimentationItem],
+      }),
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${accessToken}`,
@@ -119,11 +141,35 @@ export const createVercelExperimentationItemFromFeature = async ({
     throw new Error(`Error creating vercel resource: ${await ret.text()}`);
 };
 
-export const updateVercelExperimentationItemFromFeature = async ({
+export const createVercelExperimentationItemFromFeature = ({
   feature,
   organization,
 }: {
   feature: FeatureInterface;
+  organization: OrganizationInterface;
+}) =>
+  createVercelExperimentationItem({
+    experimentationItem: vercelFeatureExperimentationItem(feature),
+    organization,
+  });
+
+export const createVercelExperimentationItemFromExperiment = ({
+  experiment,
+  organization,
+}: {
+  experiment: ExperimentInterface;
+  organization: OrganizationInterface;
+}) =>
+  createVercelExperimentationItem({
+    experimentationItem: vercelExperimentExperimentationItem(experiment),
+    organization,
+  });
+
+const updateVercelExperimentationItem = async ({
+  experimentationItem,
+  organization,
+}: {
+  experimentationItem: VercelExperimentationItem;
   organization: OrganizationInterface;
 }) => {
   const {
@@ -132,13 +178,13 @@ export const updateVercelExperimentationItemFromFeature = async ({
     accessToken,
   } = await getVercelInstallationData(organization.id);
 
-  const { id: _id, ...updatedFeature } = vercelExpeimentationItem(feature);
+  const { id: _id, ...updatedItem } = experimentationItem;
 
   const ret = await fetch(
-    `${VERCEL_URL}/v1/installations/${installationId}/resources/${resourceId}/experimentation/items/${feature.id}`,
+    `${VERCEL_URL}/v1/installations/${installationId}/resources/${resourceId}/experimentation/items/${experimentationItem.id}`,
     {
       method: "PATCH",
-      body: JSON.stringify(updatedFeature),
+      body: JSON.stringify(updatedItem),
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${accessToken}`,
@@ -150,11 +196,35 @@ export const updateVercelExperimentationItemFromFeature = async ({
     throw new Error(`Error updating vercel resource: ${await ret.text()}`);
 };
 
-export const deleteVercelExperimentationItemFromFeature = async ({
+export const updateVercelExperimentationItemFromFeature = ({
   feature,
   organization,
 }: {
   feature: FeatureInterface;
+  organization: OrganizationInterface;
+}) =>
+  updateVercelExperimentationItem({
+    experimentationItem: vercelFeatureExperimentationItem(feature),
+    organization,
+  });
+
+export const updateVercelExperimentationItemFromExperiment = ({
+  experiment,
+  organization,
+}: {
+  experiment: ExperimentInterface;
+  organization: OrganizationInterface;
+}) =>
+  updateVercelExperimentationItem({
+    experimentationItem: vercelExperimentExperimentationItem(experiment),
+    organization,
+  });
+
+const deleteVercelExperimentationItem = async ({
+  experimentationItem,
+  organization,
+}: {
+  experimentationItem: VercelExperimentationItem;
   organization: OrganizationInterface;
 }) => {
   const {
@@ -164,7 +234,7 @@ export const deleteVercelExperimentationItemFromFeature = async ({
   } = await getVercelInstallationData(organization.id);
 
   const ret = await fetch(
-    `${VERCEL_URL}/v1/installations/${installationId}/resources/${resourceId}/experimentation/items/${feature.id}`,
+    `${VERCEL_URL}/v1/installations/${installationId}/resources/${resourceId}/experimentation/items/${experimentationItem.id}`,
     {
       method: "DELETE",
       body: JSON.stringify({
@@ -181,3 +251,27 @@ export const deleteVercelExperimentationItemFromFeature = async ({
   if (!ret.ok)
     throw new Error(`Error deleting vercel resource: ${await ret.text()}`);
 };
+
+export const deleteVercelExperimentationItemFromFeature = ({
+  feature,
+  organization,
+}: {
+  feature: FeatureInterface;
+  organization: OrganizationInterface;
+}) =>
+  deleteVercelExperimentationItem({
+    experimentationItem: vercelFeatureExperimentationItem(feature),
+    organization,
+  });
+
+export const deleteVercelExperimentationItemFromExperiment = ({
+  experiment,
+  organization,
+}: {
+  experiment: ExperimentInterface;
+  organization: OrganizationInterface;
+}) =>
+  deleteVercelExperimentationItem({
+    experimentationItem: vercelExperimentExperimentationItem(experiment),
+    organization,
+  });
