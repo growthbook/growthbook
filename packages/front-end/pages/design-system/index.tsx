@@ -2,7 +2,12 @@ import { Box, Flex, Slider } from "@radix-ui/themes";
 import React, { useEffect, useState } from "react";
 import { FaDownload, FaExternalLinkAlt } from "react-icons/fa";
 import { BsArrowRepeat } from "react-icons/bs";
-import { PiCaretDownFill, PiHourglassMedium, PiInfoFill } from "react-icons/pi";
+import {
+  PiArrowSquareOut,
+  PiCaretDownFill,
+  PiHourglassMedium,
+  PiInfoFill,
+} from "react-icons/pi";
 import { Permissions } from "shared/permissions";
 import HelperText from "@/components/Radix/HelperText";
 import Checkbox from "@/components/Radix/Checkbox";
@@ -40,6 +45,7 @@ import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
 import SplitButton from "@/components/Radix/SplitButton";
 import PremiumCallout from "@/components/Radix/PremiumCallout";
 import { UserContext } from "@/services/UserContext";
+import { DocLink } from "@/components/DocLink";
 
 export default function DesignSystemPage() {
   const [checked, setChecked] = useState<"indeterminate" | boolean>(false);
@@ -357,7 +363,11 @@ export default function DesignSystemPage() {
             <PremiumCallout
               commercialFeature="multi-armed-bandits"
               id="design-system-dismissable"
-              docSection="bandits"
+              cta={
+                <DocLink docSection="bandits" useRadix={true}>
+                  View docs <PiArrowSquareOut size={15} />
+                </DocLink>
+              }
               dismissable={true}
               renderWhenDismissed={(undismiss) => (
                 <a

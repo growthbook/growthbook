@@ -18,7 +18,6 @@ import AnalysisSettings from "@/components/Experiment/TabbedPage/AnalysisSetting
 import Callout from "@/components/Radix/Callout";
 import Button from "@/components/Radix/Button";
 import PremiumCallout from "@/components/Radix/PremiumCallout";
-import { useUser } from "@/services/UserContext";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -52,7 +51,6 @@ export default function Implementation({
   const phases = experiment.phases || [];
 
   const permissionsUtil = usePermissionsUtil();
-  const { hasCommercialFeature } = useUser();
 
   const canEditExperiment =
     !experiment.archived &&
@@ -100,17 +98,15 @@ export default function Implementation({
             mx="3"
             mb="5"
             cta={
-              hasCommercialFeature("multi-armed-bandits") ? (
-                <Link
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setShowBanditModal(true);
-                  }}
-                >
-                  Convert to Bandit
-                </Link>
-              ) : undefined
+              <Link
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setShowBanditModal(true);
+                }}
+              >
+                Convert to Bandit
+              </Link>
             }
           >
             Bandits can help you quickly find the best performing variant.
