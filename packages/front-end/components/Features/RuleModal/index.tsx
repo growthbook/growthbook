@@ -633,7 +633,7 @@ export default function RuleModal({
         hasPrerequisites: !!values.prerequisites?.length,
         hasDescription: values.description && values.description.length > 0,
       });
-      let res: { version: number };
+      let res: { version: number } | undefined;
 
       if (!duplicate && i !== rules.length) {
         if (values.type === "safe-rollout") {
@@ -677,7 +677,9 @@ export default function RuleModal({
       }
 
       await mutate();
-      res.version && setVersion(res.version);
+      if (res && res?.version) {
+        setVersion(res.version);
+      }
     } catch (e) {
       track("Feature Rule Error", {
         source: ruleAction,
