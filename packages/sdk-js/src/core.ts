@@ -1039,6 +1039,13 @@ function getStickyBucketExperimentKey(
   return `${experimentKey}__${experimentBucketVersion}`;
 }
 
+export function getStickyBucketAttributeKey(
+  attributeName: string,
+  attributeValue: string
+): StickyAttributeKey {
+  return `${attributeName}||${attributeValue}`;
+}
+
 function getStickyBucketAssignments(
   ctx: EvalContext,
   expHashAttribute: string,
@@ -1046,14 +1053,17 @@ function getStickyBucketAssignments(
 ): StickyAssignments {
   if (!ctx.user.stickyBucketAssignmentDocs) return {};
   const { hashAttribute, hashValue } = getHashAttribute(ctx, expHashAttribute);
-  const hashKey = `${hashAttribute}||${toString(hashValue)}`;
+  const hashKey = getStickyBucketAttributeKey(
+    hashAttribute,
+    toString(hashValue)
+  );
 
   const {
     hashAttribute: fallbackAttribute,
     hashValue: fallbackValue,
   } = getHashAttribute(ctx, expFallbackAttribute);
   const fallbackKey = fallbackValue
-    ? `${fallbackAttribute}||${toString(fallbackValue)}`
+    ? getStickyBucketAttributeKey(fallbackAttribute, toString(fallbackValue))
     : null;
 
   const assignments: StickyAssignments = {};
@@ -1082,7 +1092,7 @@ function generateStickyBucketAssignmentDoc(
   doc: StickyAssignmentsDocument;
   changed: boolean;
 } {
-  const key = `${attributeName}||${attributeValue}`;
+  const key = getStickyBucketAttributeKey(attributeName, attributeValue);
   const existingAssignments =
     ctx.user.stickyBucketAssignmentDocs &&
     ctx.user.stickyBucketAssignmentDocs[key]
@@ -1143,7 +1153,7 @@ export async function getAllStickyBucketAssignmentDocs(
   return stickyBucketService.getAllAssignments(attributes);
 }
 
-function getStickyBucketAttributes(
+export function getStickyBucketAttributes(
   ctx: EvalContext,
   data?: FeatureApiResponse
 ): Record<string, string> {

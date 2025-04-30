@@ -51,7 +51,9 @@ import {
   decryptPayload,
   getApiHosts,
   getExperimentDedupeKey,
+  getStickyBucketAttributes,
 } from "./core";
+import { StickyBucketServiceSync } from "./sticky-bucket-service";
 
 const isBrowser =
   typeof window !== "undefined" && typeof document !== "undefined";
@@ -236,8 +238,9 @@ export class GrowthBook<
       this._options.stickyBucketService &&
       !this._options.stickyBucketAssignmentDocs
     ) {
-      throw new Error(
-        "initSync requires you to pass stickyBucketAssignmentDocs into the GrowthBook constructor"
+      this._options.stickyBucketAssignmentDocs = this.generateStickyBucketAssignmentDocsSync(
+        this._options.stickyBucketService as StickyBucketServiceSync,
+        payload
       );
     }
 
@@ -1091,6 +1094,21 @@ export class GrowthBook<
       );
       this._options.stickyBucketAssignmentDocs = docs;
     }
+  }
+
+  public generateStickyBucketAssignmentDocsSync(
+    stickyBucketService: StickyBucketServiceSync,
+    payload: FeatureApiResponse
+  ) {
+    if (!("getAllAssignmentsSync" in stickyBucketService)) {
+      console.error(
+        "generating StickyBucketAssignmentDocs docs requires StickyBucketServiceSync"
+      );
+      return;
+    }
+    const ctx = this._getEvalContext();
+    const attributes = getStickyBucketAttributes(ctx, payload);
+    return stickyBucketService.getAllAssignmentsSync(attributes);
   }
 
   public inDevMode(): boolean {
