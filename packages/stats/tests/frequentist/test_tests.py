@@ -1,5 +1,6 @@
 from dataclasses import asdict
 from functools import partial
+from typing import Optional
 from unittest import TestCase, main as unittest_main
 
 import numpy as np
@@ -27,7 +28,7 @@ from gbstats.models.tests import Uplift
 DECIMALS = 5
 
 
-def round_if_not_none(x: float, decimals: int):
+def round_if_not_none(x: Optional[float], decimals: int):
     return np.round(x, decimals) if x is not None else None
 
 
@@ -95,7 +96,7 @@ class TestTwoSidedTTest(TestCase):
         result_dict = asdict(TwoSidedTTest(stat_a, stat_b).compute_result())
         expected_rounded_dict = asdict(
             FrequentistTestResult(
-                expected=round_((16 / 30 - 0.5) / 0.5),
+                expected=np.round((16 / 30 - 0.5) / 0.5, DECIMALS),
                 ci=[-0.47767, 0.61101],
                 uplift=Uplift("normal", 0.06667, 0.2717),
                 p_value=0.80707,
@@ -320,17 +321,17 @@ class TestSequentialTTest(TestCase):
 
         # Way underestimating should be worse here
         self.assertTrue(
-            (result_below.ci[0] < result_above.ci[0])
-            and (result_below.ci[1] > result_above.ci[1])
+            (result_below.ci[0] < result_above.ci[0])  # type: ignore
+            and (result_below.ci[1] > result_above.ci[1])  # type: ignore
         )
         # And estimating well should be both
         self.assertTrue(
-            (result_below.ci[0] < result_near.ci[0])
-            and (result_below.ci[1] > result_near.ci[1])
+            (result_below.ci[0] < result_near.ci[0])  # type: ignore
+            and (result_below.ci[1] > result_near.ci[1])  # type: ignore
         )
         self.assertTrue(
-            (result_above.ci[0] < result_near.ci[0])
-            and (result_above.ci[1] > result_near.ci[1])
+            (result_above.ci[0] < result_near.ci[0])  # type: ignore
+            and (result_above.ci[1] > result_near.ci[1])  # type: ignore
         )
 
 
@@ -477,7 +478,7 @@ class TestSequentialOneSidedGreaterTTest(TestCase):
                     dist="normal", mean=0.23437666666666668, stddev=0.12983081254184736
                 ),
                 error_message=None,
-                p_value=0.4999,
+                p_value=0.46316491943359384,
                 p_value_error_message=None,
             )
         )

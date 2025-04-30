@@ -123,6 +123,8 @@ export const IdListItemInput: FC<{
                         .replaceAll(/,,/g, ",")
                         // Remove trailing delimiters to prevent adding an empty value
                         .replace(/,$/, "")
+                        // Remove Windows carriage return
+                        .replaceAll(/\r/g, "")
                         .split(",");
                       setFileName(file.name);
                       setValues(newValues);

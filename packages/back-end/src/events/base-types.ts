@@ -9,6 +9,10 @@ import { userLoginInterface } from "back-end/src/validators/users";
 import { experimentWarningNotificationPayload } from "back-end/src/validators/experiment-warnings";
 import { experimentInfoSignificance } from "back-end/src/validators/experiment-info";
 import { experimentDecisionNotificationPayload } from "back-end/src/validators/experiment-decision";
+import {
+  safeRolloutDecisionNotificationPayload,
+  safeRolloutUnhealthyNotificationPayload,
+} from "back-end/src/validators/safe-rollout-notifications";
 import { EventUser } from "./event-types";
 
 type WebhookEntry = {
@@ -48,6 +52,21 @@ export const notificationEvents = {
     deleted: {
       schema: apiFeatureValidator,
       description: "Triggered when a feature is deleted",
+    },
+    "saferollout.ship": {
+      schema: safeRolloutDecisionNotificationPayload,
+      description:
+        "Triggered when a safe rollout is completed and safe to rollout to 100%.",
+    },
+    "saferollout.rollback": {
+      schema: safeRolloutDecisionNotificationPayload,
+      description:
+        "Triggered when a safe rollout has a failing guardrail and should be reverted.",
+    },
+    "saferollout.unhealthy": {
+      schema: safeRolloutUnhealthyNotificationPayload,
+      description:
+        "Triggered when a safe rollout is failing a health check and may not be working as expected.",
     },
   },
   experiment: {

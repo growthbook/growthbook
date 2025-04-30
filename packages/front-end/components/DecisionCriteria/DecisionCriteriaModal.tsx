@@ -129,7 +129,7 @@ const DecisionCriteriaModal: FC<DecisionCriteriaModalProps> = ({
   return (
     <Modal
       open={true}
-      header="Modify Decision Criteria"
+      header={editable ? "Modify Decision Criteria" : "View Decision Criteria"}
       subHeader="Define rules for automatic decision making based on experiment results"
       close={onClose}
       submit={editable ? handleSave : undefined}

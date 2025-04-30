@@ -43,6 +43,10 @@ export const notificationEventNames = [
   "feature.created",
   "feature.updated",
   "feature.deleted",
+  // Safe Rollouts
+  "feature.saferollout.ship",
+  "feature.saferollout.rollback",
+  "feature.saferollout.unhealthy",
   // Experiments
   "experiment.created",
   "experiment.updated",
@@ -72,6 +76,19 @@ export const eventWebHookEventOptions: {
   {
     id: "feature.deleted",
     name: "feature.deleted",
+  },
+  // Safe Rollouts
+  {
+    id: "feature.saferollout.ship",
+    name: "feature.saferollout.ship",
+  },
+  {
+    id: "feature.saferollout.rollback",
+    name: "feature.saferollout.rollback",
+  },
+  {
+    id: "feature.saferollout.unhealthy",
+    name: "feature.saferollout.unhealthy",
   },
   // Experiments
   {

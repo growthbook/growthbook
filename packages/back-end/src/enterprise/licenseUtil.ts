@@ -141,6 +141,19 @@ function getPublicKey(): Buffer {
   return Buffer.from(LICENSE_PUBLIC_KEY);
 }
 
+// The end of the key is base64 encoding of the sha256 hash and is random
+// comparing the last 10 characters is enough that a chance of a collision is 1/2^60
+const forbiddenAirGappedLicenseKeyEndings = ["JenaAbOBsY"];
+
+function isForbiddenAirGappedLicenseKey(key?: string): boolean {
+  if (!key) {
+    return false;
+  }
+  return forbiddenAirGappedLicenseKeyEndings.some((ending) =>
+    key.endsWith(ending)
+  );
+}
+
 function getVerifiedLicenseData(key: string): Partial<LicenseInterface> {
   const [license, signature] = key
     .split(".")
@@ -838,7 +851,10 @@ export function getLicenseError(org: MinimalOrganization): string {
     return "Invalid license";
   }
 
-  if (licenseData?.remoteDowngrade) {
+  if (
+    licenseData?.remoteDowngrade ||
+    (isAirGappedLicenseKey(key) && isForbiddenAirGappedLicenseKey(key))
+  ) {
     return "License invalidated";
   }
 
