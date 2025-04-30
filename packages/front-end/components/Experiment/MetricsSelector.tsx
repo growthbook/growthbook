@@ -213,11 +213,15 @@ const MetricsSelector: FC<{
     }
   });
 
-  const showMetricGroupHelper =
+  let showMetricGroupHelper =
     hasCommercialFeature("metric-groups") &&
     selected.length >= 2 &&
     !metricListContainsGroup &&
     datasource;
+
+  // Disable this for now since it is making the UI too cluttered
+  // We will revisit when we re-design the metric selector
+  showMetricGroupHelper = false;
 
   const selector = !forceSingleMetric ? (
     <MultiSelectField
@@ -291,7 +295,7 @@ const MetricsSelector: FC<{
       helpText={
         <>
           {helpText}
-          {showMetricGroupHelper ? (
+          {showMetricGroupHelper && datasource ? (
             <Flex align="center">
               {createMetricGroup ? (
                 <MetricGroupInlineForm
