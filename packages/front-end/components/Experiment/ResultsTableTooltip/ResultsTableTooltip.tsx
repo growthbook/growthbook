@@ -579,7 +579,7 @@ export default function ResultsTableTooltip({
                 {!data.rowResults.enoughData ? (
                   <Tooltip
                     className="cursor-pointer"
-                    body={data.rowResults.enoughDataMeta.reason}
+                    body={data.rowResults.enoughDataMeta.reasonText}
                   >
                     <div className="flagged d-flex border rounded p-1 flagged-not-enough-data">
                       <BsHourglassSplit

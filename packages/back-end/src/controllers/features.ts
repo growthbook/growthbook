@@ -1804,7 +1804,7 @@ export async function putFeatureRule(
   const context = getContextFromReq(req);
   const { org } = context;
   const { id, version } = req.params;
-  const { environment, rule, safeRolloutFields, i } = req.body;
+  const { environment, rule, i } = req.body;
 
   const feature = await getFeature(context, id);
   if (!feature) {
@@ -1872,18 +1872,6 @@ export async function putFeatureRule(
           `Cannot update the following fields after a Safe Rollout has started: ${fieldNames}`
         );
       }
-    }
-
-    if (safeRolloutFields) {
-      const validatedSafeRolloutFields = await validateCreateSafeRolloutFields(
-        safeRolloutFields,
-        context
-      );
-
-      await context.models.safeRollout.update(existingSafeRollout, {
-        ...validatedSafeRolloutFields,
-        ...(rule.status && { status: rule.status }),
-      });
     }
   }
 
