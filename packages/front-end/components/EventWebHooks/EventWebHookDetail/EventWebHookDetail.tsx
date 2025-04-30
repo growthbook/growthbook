@@ -228,7 +228,7 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
           )}
         </div>
 
-        {payloadType === "raw" && (
+        {["raw", "json"].includes(payloadType) && (
           <div className="ml-2 d-flex align-items-center">
             <div className="text-main">
               <b>Secret:</b>
