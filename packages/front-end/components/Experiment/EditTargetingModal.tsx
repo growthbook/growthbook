@@ -554,7 +554,6 @@ function TargetingForm({
         <FeatureVariationsInput
           valueType={"string"}
           coverage={form.watch("coverage")}
-          isBandit={isBandit}
           setCoverage={(coverage) => form.setValue("coverage", coverage)}
           setWeight={(i, weight) =>
             form.setValue(`variationWeights.${i}`, weight)

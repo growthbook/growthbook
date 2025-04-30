@@ -185,7 +185,6 @@ export default function BanditRefNewFields({
           <FeatureVariationsInput
             simple={true}
             label="Traffic Percent & Variations"
-            isBandit={true}
             defaultValue={feature ? getFeatureDefaultValue(feature) : undefined}
             valueType={feature?.valueType ?? "string"}
             coverageLabel="Traffic included in this Bandit"

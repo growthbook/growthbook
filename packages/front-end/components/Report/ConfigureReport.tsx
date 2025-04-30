@@ -798,7 +798,6 @@ export default function ConfigureReport({
           <TabsContent value="variations">
             <FeatureVariationsInput
               label={null}
-              isBandit={isBandit}
               coverageTooltip="Used to compute scaled impact (Difference type: scaled)"
               setWeight={(i, weight) => {
                 form.setValue(

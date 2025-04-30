@@ -17,7 +17,6 @@ import { GBAddCircle } from "@/components/Icons";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Field from "@/components/Forms/Field";
 import Link from "@/components/Radix/Link";
-import PremiumCallout from "../Radix/PremiumCallout";
 import styles from "./VariationsInput.module.scss";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 import {
@@ -54,7 +53,6 @@ export interface Props {
   simple?: boolean;
   sortableClassName?: string;
   onlySafeToEditVariationMetadata?: boolean;
-  isBandit: boolean;
 }
 
 export default function FeatureVariationsInput({
@@ -85,7 +83,6 @@ export default function FeatureVariationsInput({
   simple,
   sortableClassName,
   onlySafeToEditVariationMetadata,
-  isBandit,
 }: Props) {
   const weights = variations?.map((v) => v.weight) || [];
   const isEqualWeights = weights?.every(
@@ -386,18 +383,6 @@ export default function FeatureVariationsInput({
                   )}
                 </tbody>
               </table>
-              {variations && variations.length > 2 && !isBandit ? (
-                <PremiumCallout
-                  id="exp-implementation-bandit-promo"
-                  commercialFeature="multi-armed-bandits"
-                  docSection="bandits"
-                  dismissable={true}
-                  mt="4"
-                  mb="1"
-                >
-                  Bandits can help you quickly find the best performing variant.
-                </PremiumCallout>
-              ) : null}
               {!disableVariations &&
                 variations &&
                 setWeight &&

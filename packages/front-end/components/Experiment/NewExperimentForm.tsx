@@ -961,7 +961,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               )}
               <FeatureVariationsInput
                 valueType="string"
-                isBandit={isBandit}
                 coverage={form.watch("phases.0.coverage")}
                 setCoverage={(coverage) =>
                   form.setValue("phases.0.coverage", coverage)
