@@ -138,7 +138,7 @@ export default function AnalysisResultPopover({
       data.statsEngine === "bayesian" &&
       data.metricSnapshotSettings?.properPrior;
 
-    if (!priorUsed && !cupedUsed) {
+    if (!data.rowResults.enoughData || (!priorUsed && !cupedUsed)) {
       return null;
     }
 
