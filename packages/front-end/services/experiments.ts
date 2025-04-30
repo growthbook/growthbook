@@ -262,14 +262,22 @@ export type RiskMeta = {
   relativeRiskFormatted: string;
   riskReason: string;
 };
-export type EnoughDataMeta = {
+export type EnoughDataMetaZeroValues = {
+  reason: "baselineZero" | "variationZero";
+  reasonText: string;
+};
+export type EnoughDataMetaNotEnoughData = {
+  reason: "notEnoughData";
+  reasonText: string;
   percentComplete: number;
   percentCompleteNumerator: number;
   percentCompleteDenominator: number;
   timeRemainingMs: number | null;
   showTimeRemaining: boolean;
-  reason: string;
 };
+export type EnoughDataMeta =
+  | EnoughDataMetaZeroValues
+  | EnoughDataMetaNotEnoughData;
 export function getRowResults({
   stats,
   baseline,
@@ -327,39 +335,75 @@ export function getRowResults({
   const baselineSampleSize = metricSampleSize.baselineValue ?? baseline.value;
   const variationSampleSize = metricSampleSize.variationValue ?? stats.value;
   const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
-  const enoughDataReason =
-    `This metric has a minimum ${
-      quantileMetricType(metric) ? "sample size" : "total"
-    } of ${minSampleSize}; this value must be reached in one variation before results are displayed. ` +
-    `The total ${
-      quantileMetricType(metric) ? "sample size" : "metric value"
-    } of the variation is ${compactNumberFormatter.format(
-      variationSampleSize
-    )} and the baseline total is ${compactNumberFormatter.format(
-      baselineSampleSize
-    )}.`;
-  const percentComplete =
-    minSampleSize > 0
-      ? Math.max(baselineSampleSize, variationSampleSize) / minSampleSize
-      : 1;
-  const timeRemainingMs =
-    percentComplete > 0.1
-      ? ((snapshotDate.getTime() - getValidDate(phaseStartDate).getTime()) *
-          (1 - percentComplete)) /
-          percentComplete -
-        (Date.now() - snapshotDate.getTime())
-      : null;
-  const showTimeRemaining =
-    timeRemainingMs !== null && isLatestPhase && experimentStatus === "running";
-  const enoughDataMeta: EnoughDataMeta = {
-    percentComplete,
-    percentCompleteNumerator: Math.max(baselineSampleSize, variationSampleSize),
-    percentCompleteDenominator: minSampleSize,
-    timeRemainingMs,
-    showTimeRemaining,
-    reason: enoughDataReason,
-  };
 
+  const reason: EnoughDataMeta["reason"] =
+    baseline.value === 0
+      ? "baselineZero"
+      : stats.value === 0
+      ? "variationZero"
+      : "notEnoughData";
+
+  const enoughDataMeta: EnoughDataMeta = (() => {
+    switch (reason) {
+      case "notEnoughData": {
+        const reasonText =
+          `This metric has a minimum ${
+            quantileMetricType(metric) ? "sample size" : "total"
+          } of ${minSampleSize}; this value must be reached in one variation before results are displayed. ` +
+          `The total ${
+            quantileMetricType(metric) ? "sample size" : "metric value"
+          } of the variation is ${compactNumberFormatter.format(
+            variationSampleSize
+          )} and the baseline total is ${compactNumberFormatter.format(
+            baselineSampleSize
+          )}.`;
+        const percentComplete =
+          minSampleSize > 0
+            ? Math.max(baselineSampleSize, variationSampleSize) / minSampleSize
+            : 1;
+        const timeRemainingMs =
+          percentComplete !== null && percentComplete > 0.1
+            ? ((snapshotDate.getTime() -
+                getValidDate(phaseStartDate).getTime()) *
+                (1 - percentComplete)) /
+                percentComplete -
+              (Date.now() - snapshotDate.getTime())
+            : null;
+        const showTimeRemaining =
+          timeRemainingMs !== null &&
+          isLatestPhase &&
+          experimentStatus === "running";
+        return {
+          percentComplete,
+          percentCompleteNumerator: Math.max(
+            baselineSampleSize,
+            variationSampleSize
+          ),
+          percentCompleteDenominator: minSampleSize,
+          timeRemainingMs,
+          showTimeRemaining,
+          reason,
+          reasonText,
+        };
+        break;
+      }
+      case "baselineZero": {
+        const reasonText = `Statistics can only be displayed once the baseline has a non-zero value.`;
+        return {
+          reason,
+          reasonText,
+        };
+        break;
+      }
+      case "variationZero": {
+        const reasonText = `Statistics can only be displayed once the variation has a non-zero value.`;
+        return {
+          reason,
+          reasonText,
+        };
+      }
+    }
+  })();
   const suspiciousChange = isSuspiciousUplift(
     baseline,
     stats,
