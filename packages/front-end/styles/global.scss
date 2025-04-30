@@ -3259,6 +3259,9 @@ td.disabled {
 .form-group.error input[type="text"] {
   border-color: colors.$danger !important;
 }
+.gb-select-wrapper.warning .gb-select__control {
+  border-color: var(--amber-11) !important;
+}
 
 .gb-select--is-disabled,
 .gb-multi-select--is-disabled {
