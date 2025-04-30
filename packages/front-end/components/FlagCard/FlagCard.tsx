@@ -223,11 +223,8 @@ export default function FlagCard({
   );
 
   const renderContent = () => {
-    const numerator = data.rowResults.enoughDataMeta.percentCompleteNumerator;
-    const denominator =
-      data.rowResults.enoughDataMeta.percentCompleteDenominator;
-
     if (!data.rowResults.enoughData) {
+      const enoughDataMeta = data.rowResults.enoughDataMeta;
       return (
         <Flex direction="column" gap="1" p="3">
           <Text
@@ -236,21 +233,22 @@ export default function FlagCard({
             style={{ color: "var(--color-text-mid)" }}
           >
             <i>Not enough data</i>{" "}
-            <Tooltip content={data.rowResults.enoughDataMeta.reason}>
+            <Tooltip content={enoughDataMeta.reason}>
               <span>
                 <PiInfo />
               </span>
             </Tooltip>
           </Text>
-
-          <Text size="1" weight="medium">
-            {numberFormatter.format(numerator)} /{" "}
-            {numberFormatter.format(denominator)} (
-            {percentFormatter.format(
-              data.rowResults.enoughDataMeta.percentComplete
-            )}
-            )
-          </Text>
+          {enoughDataMeta.reason === "notEnoughData" ? (
+            <Text size="1" weight="medium">
+              {numberFormatter.format(enoughDataMeta.percentCompleteNumerator)}{" "}
+              /{" "}
+              {numberFormatter.format(
+                enoughDataMeta.percentCompleteDenominator
+              )}{" "}
+              ({percentFormatter.format(enoughDataMeta.percentComplete)})
+            </Text>
+          ) : null}
         </Flex>
       );
     } else {
