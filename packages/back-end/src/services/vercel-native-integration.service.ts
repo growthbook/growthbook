@@ -16,7 +16,7 @@ export type VercelExperimentationItem = {
   description?: string;
   isArchived?: boolean;
   createdAt?: number;
-  dateUpdated?: number;
+  updatedAt?: number;
 };
 
 const FEATURE_ORIGIN = "app.growthbook.io";
@@ -30,7 +30,7 @@ export const getVercelSSOToken = async ({
   state: string;
   accessToken: string;
 }) => {
-  const r = await fetch(`${VERCEL_URL}/v1/integrations/sso/token`, {
+  const ret = await fetch(`${VERCEL_URL}/v1/integrations/sso/token`, {
     method: "POST",
     body: JSON.stringify({
       code,
@@ -44,7 +44,10 @@ export const getVercelSSOToken = async ({
     },
   });
 
-  const data = await r.json();
+  if (!ret.ok)
+    throw new Error(`Error fetching vercel SSO auth: ${await ret.text()}`);
+
+  const data = await ret.json();
 
   if (!("id_token" in data) || typeof data.id_token !== "string")
     throw "Invalid response!";
@@ -84,7 +87,7 @@ const vercelExpeimentationItem = ({
   isArchived,
   description,
   createdAt: Math.floor(dateCreated.getTime() / 1000),
-  dateUpdated: Math.floor(dateUpdated.getTime() / 1000),
+  updatedAt: Math.floor(dateUpdated.getTime() / 1000),
 });
 
 export const createVercelExperimentationItemFromFeature = async ({
@@ -100,7 +103,7 @@ export const createVercelExperimentationItemFromFeature = async ({
     accessToken,
   } = await getVercelInstallationData(organization.id);
 
-  await fetch(
+  const ret = await fetch(
     `${VERCEL_URL}/v1/installations/${installationId}/resources/${resourceId}/experimentation/items`,
     {
       method: "POST",
@@ -111,6 +114,9 @@ export const createVercelExperimentationItemFromFeature = async ({
       },
     }
   );
+
+  if (!ret.ok)
+    throw new Error(`Error creating vercel resource: ${await ret.text()}`);
 };
 
 export const updateVercelExperimentationItemFromFeature = async ({
@@ -126,17 +132,22 @@ export const updateVercelExperimentationItemFromFeature = async ({
     accessToken,
   } = await getVercelInstallationData(organization.id);
 
-  await fetch(
+  const { id: _id, ...updatedFeature } = vercelExpeimentationItem(feature);
+
+  const ret = await fetch(
     `${VERCEL_URL}/v1/installations/${installationId}/resources/${resourceId}/experimentation/items/${feature.id}`,
     {
       method: "PATCH",
-      body: JSON.stringify(vercelExpeimentationItem(feature)),
+      body: JSON.stringify(updatedFeature),
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${accessToken}`,
       },
     }
   );
+
+  if (!ret.ok)
+    throw new Error(`Error updating vercel resource: ${await ret.text()}`);
 };
 
 export const deleteVercelExperimentationItemFromFeature = async ({
@@ -152,7 +163,7 @@ export const deleteVercelExperimentationItemFromFeature = async ({
     accessToken,
   } = await getVercelInstallationData(organization.id);
 
-  await fetch(
+  const ret = await fetch(
     `${VERCEL_URL}/v1/installations/${installationId}/resources/${resourceId}/experimentation/items/${feature.id}`,
     {
       method: "DELETE",
@@ -166,4 +177,7 @@ export const deleteVercelExperimentationItemFromFeature = async ({
       },
     }
   );
+
+  if (!ret.ok)
+    throw new Error(`Error deleting vercel resource: ${await ret.text()}`);
 };
