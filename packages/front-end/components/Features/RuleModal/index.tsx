@@ -639,10 +639,7 @@ export default function RuleModal({
       let res: { version: number };
 
       if (!duplicate && i !== rules.length) {
-        if (
-          values.type === "safe-rollout" &&
-          !safeRolloutRuleHasChanges(values as SafeRolloutRuleCreateFields)
-        ) {
+        if (values.type === "safe-rollout") {
           res = await apiCall(`/safe-rollout/${values.safeRolloutId}`, {
             method: "PUT",
             body: JSON.stringify({
@@ -650,7 +647,12 @@ export default function RuleModal({
               safeRolloutFields,
             }),
           });
-        } else {
+        }
+        if (
+          values.type !== "safe-rollout" ||
+          (values.type === "safe-rollout" &&
+            safeRolloutRuleHasChanges(values as SafeRolloutRuleCreateFields))
+        ) {
           res = await apiCall<{ version: number }>(
             `/feature/${feature.id}/${version}/rule`,
             {
@@ -658,7 +660,6 @@ export default function RuleModal({
               body: JSON.stringify({
                 rule: values,
                 environment,
-                safeRolloutFields,
                 i,
               } as PutFeatureRuleBody),
             }
