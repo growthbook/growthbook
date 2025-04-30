@@ -341,6 +341,7 @@ There is a alternate synchronous version of init named `initSync`, which can be 
 - You MUST pass in `payload`
 - The `payload` MUST NOT have encrypted features or experiments
 - The return value is the GrowthBook instance to enable easy method chaining
+- If using sticky bucketing, you should use an instance of `StickyBucketServiceSync`, such as `ExpressCookieStickyBucketService`.
 
 ```ts
 const gbClient = new GrowthBookClient().initSync({
