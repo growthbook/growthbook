@@ -20,6 +20,7 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import track from "@/services/track";
+import PremiumCallout from "../Radix/PremiumCallout";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import { MetricsSelectorTooltip } from "./MetricsSelector";
 import MetricSelector from "./MetricSelector";
@@ -212,6 +213,19 @@ const EditMetricsForm: FC<{
           form.setValue("guardrailMetrics", guardrailMetrics)
         }
       />
+      {/* If the org has the feature, we render a callout within MetricsSelector */}
+      {!hasCommercialFeature("metric-groups") ? (
+        <PremiumCallout
+          commercialFeature="metric-groups"
+          dismissable={true}
+          id="metrics-list-metric-group-promo"
+          docSection="metricGroups"
+          mb="4"
+        >
+          <strong>Metric Groups</strong> make it possible to reuse sets of
+          metrics in your experiments.
+        </PremiumCallout>
+      ) : null}
 
       {!(isBandit && experiment.status === "running") && (
         <>

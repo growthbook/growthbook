@@ -90,6 +90,7 @@ const docSections = {
   apiPostEnvironment: "/api#tag/environments/operation/postEnvironment",
   idLists: "/features/targeting#id-lists",
   queryOptimization: "/app/query-optimization",
+  metricGroups: "/app/metrics#metric-groups",
 };
 
 export type DocSection = keyof typeof docSections;
