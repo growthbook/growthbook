@@ -162,6 +162,8 @@ import { NextResponse } from 'next/server';
 import { devtoolsNextjsPlugin } from "@growthbook/growthbook/plugins";
 
 export function middleware(request) {
+  const response = NextResponse.next();
+
   const growthbook = new GrowthBook({
     apiHost: "https://cdn.growthbook.io",
     clientKey: "sdk-abc123",
@@ -173,13 +175,25 @@ export function middleware(request) {
 
   // etc...
 
-  const response = NextResponse.next();
-  response.headers.set("x-gbdebugEvents", getDebugEvent(req.growthbook, "nextjs_middleware"));
+  response.headers.set(
+    "x-gbdebug-events",
+    JSON.stringify(getDebugEvent(req.growthbook, "nextjs_middleware"))
+  );
   return response;
 }
 ```
 
-On the front-end, you are responsible for parsing the `x-debugEvents` header value and pushing it to `window._gbdebugEvents`. You may wish to import the `getDebugScriptContents()` method on the front-end to ingest these debug events.
+For passing the debug events back to DevTools, this middleware example assumes the receiving end has access to headers. This may not always be the case (e.g. redirects); you may need to rely on cookies or an encoded URL parameter.
+
+For API routes or middleware redirects, you are responsible for parsing the `x-debug-events` header value on the front-end and pushing it to `window._gbdebugEvents`. You may wish to import the `getDebugScriptContents()` method on the front-end to ingest these debug events. An example integration may look like this:
+
+```js
+const response = await fetch(apiUrl);
+const event = response.headers.get("x-gbdebug-events");
+if (event) {
+  window._gbdebugEvents?.push(event);
+}
+```
 
 #### DevTools with Express
 
@@ -206,14 +220,14 @@ app.use((req, res, next) => {
     [ devtoolsExpressPlugin({ request: req }) ]
   );
 
-  res.set("x-gbdebugEvents", getDebugEvent(req.growthbook, "express"));
+  res.set("x-gbdebug-events", getDebugEvent(req.growthbook, "express"));
 
   // etc...
   next();
 });
 ```
 
-Similar to the Next.js middleware example above, you are responsible for parsing the `x-debugEvents` header value on the front-end and pushing it to `window._gbdebugEvents`. You may use `getDebugScriptContents()` on the front-end to help.
+Similar to the Next.js middleware example above, you are responsible for parsing the `x-debug-events` header value on the front-end and pushing it to `window._gbdebugEvents`. You may use `getDebugScriptContents()` on the front-end to help.
 
 #### DevTools with Node.js (platform agnostic)
 
