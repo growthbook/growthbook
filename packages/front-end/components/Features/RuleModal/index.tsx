@@ -589,9 +589,6 @@ export default function RuleModal({
         // eslint-disable-next-line
         delete (values as any).value;
       } else if (values.type === "safe-rollout") {
-        // delete for now
-        delete values.scheduleRules;
-
         safeRolloutFields = values.safeRolloutFields;
         // eslint-disable-next-line
         delete (values as any).safeRolloutFields;
