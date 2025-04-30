@@ -214,7 +214,7 @@ class PostStratificationRegressionAdjusted:
             + self.stat_b.post_statistic.sum_squares
         )
         resids_part_2 = -self.xty.T.dot(np.linalg.inv(self.xtx)).dot(self.xty)
-        return np.array([[(resids_part_1 + resids_part_2) / (self.n - 3)]])
+        return np.array((resids_part_1 + resids_part_2) / (self.n - 3))
 
     @property
     def baseline_mean(self) -> float:
