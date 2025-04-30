@@ -109,7 +109,7 @@ The DevTools plugins are designed to work both GrowthBookClient and GrowthBook (
 
 #### Next.js
 
-For RSCs (React server components) or SSR (server-side rendering), pass in the readonly request cookies and search params to the plugin. In Next 15+, these may need to be awaited.
+For RSCs (React server components) or SSR (server-side rendering), in order to apply SDK overrides from DevTools, pass the readonly request cookies and search params into the `devtoolsNextjsPlugin` plugin. In Next 15+, these may need to be awaited.
 
 ```js
 import { cookies } from "next/headers";
@@ -159,6 +159,36 @@ export function middleware(request) {
 ```
 
 #### Express
+
+In an Express.js context, in order to apply SDK overrides from DevTools, pass the request object into the `devtoolsExpressPlugin` plugin.
+
+```js
+import {
+  devtoolsExpressPlugin,
+  getDebugEvent,
+} from "@growthbook/growthbook/plugins";
+
+app.use((req, res, next) => {
+  const userContext = {
+    attributes: {
+      url: req.url,
+      id: req.user.id
+    },
+    enableDevMode: true,
+  };
+
+  // Create a scoped GrowthBook instance and store in req
+  req.growthbook = gbClient.createScopedInstance(
+    userContext,
+    [ devtoolsExpressPlugin({ request: req }) ]
+  );
+
+  res.set("x-gbdebugEvents", getDebugEvent(req.growthbook, "express"));
+
+  // etc...
+  next();
+});
+```
 
 ### GrowthBook class (legacy)
 
