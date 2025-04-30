@@ -457,14 +457,14 @@ export default function ResultsTable({
                     return (
                       <Popover.Root
                         key={`${i}-${j}`}
-                        open={isRowTooltipOpen(i)}
+                        open={isRowTooltipOpen(i, j)}
                         onOpenChange={(open) =>
                           setOpenTooltipRowIndex(open ? i : null)
                         }
                       >
                         <Popover.Content
-                          onMouseEnter={() => handleRowTooltipMouseEnter(i)}
-                          onMouseLeave={() => handleRowTooltipMouseLeave(i)}
+                          onMouseEnter={() => handleRowTooltipMouseEnter(i, j)}
+                          onMouseLeave={() => handleRowTooltipMouseLeave(i, j)}
                           side="bottom"
                           sideOffset={-5}
                         >
@@ -516,10 +516,10 @@ export default function ResultsTable({
                             >
                               <Popover.Trigger
                                 onMouseEnter={() =>
-                                  handleRowTooltipMouseEnter(i)
+                                  handleRowTooltipMouseEnter(i, j)
                                 }
                                 onMouseLeave={() =>
-                                  handleRowTooltipMouseLeave(i)
+                                  handleRowTooltipMouseLeave(i, j)
                                 }
                               >
                                 <Box height="100%">
@@ -548,10 +548,10 @@ export default function ResultsTable({
                             >
                               <Popover.Trigger
                                 onMouseEnter={() =>
-                                  handleRowTooltipMouseEnter(i)
+                                  handleRowTooltipMouseEnter(i, j)
                                 }
                                 onMouseLeave={() =>
-                                  handleRowTooltipMouseLeave(i)
+                                  handleRowTooltipMouseLeave(i, j)
                                 }
                               >
                                 <Box height="100%">

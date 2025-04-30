@@ -27,7 +27,7 @@ import {
 } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { Flex } from "@radix-ui/themes";
+import { Flex, Popover } from "@radix-ui/themes";
 import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
 import { useAuth } from "@/services/auth";
 import {
@@ -57,6 +57,8 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { useResultsTableTooltip } from "@/components/Experiment/ResultsTableTooltip/useResultsTableTooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { AppFeatures } from "@/types/app-features";
+import { useAnalysisResultPopover } from "../AnalysisResultPopover/useAnalysisResultPopover";
+import AnalysisResultPopover from "../AnalysisResultPopover/AnalysisResultPopover";
 import AlignedGraph from "./AlignedGraph";
 import ExperimentMetricTimeSeriesGraphWrapper from "./ExperimentMetricTimeSeriesGraphWrapper";
 import ChanceToWinColumn from "./ChanceToWinColumn";
@@ -340,6 +342,23 @@ export default function ResultsTable({
     getFactTableById,
     getExperimentMetricById,
   ]);
+
+  const {
+    getTooltipData,
+    isRowTooltipOpen,
+    setOpenTooltipRowIndex,
+    handleRowTooltipMouseEnter,
+    handleRowTooltipMouseLeave,
+  } = useAnalysisResultPopover({
+    orderedVariations,
+    rows,
+    rowsResults,
+    dimension,
+    statsEngine,
+    pValueCorrection,
+    differenceType,
+    noTooltip,
+  });
 
   const {
     containerRef,
@@ -934,18 +953,56 @@ export default function ResultsTable({
                           )}
                         </td>
                         {j > 0 ? (
-                          <ChangeColumn
-                            metric={row.metric}
-                            stats={stats}
-                            rowResults={rowResults}
-                            differenceType={differenceType}
-                            statsEngine={statsEngine}
-                            className={resultsHighlightClassname}
-                            ssrPolyfills={ssrPolyfills}
-                            additionalButton={
-                              compactResults ? timeSeriesButton : undefined
+                          <Popover.Root
+                            key={`${i}-${j}`}
+                            open={isRowTooltipOpen(i, j)}
+                            onOpenChange={(open) =>
+                              setOpenTooltipRowIndex(open ? i : null)
                             }
-                          />
+                          >
+                            <Popover.Trigger
+                              onMouseEnter={() =>
+                                handleRowTooltipMouseEnter(i, j)
+                              }
+                              onMouseLeave={() =>
+                                handleRowTooltipMouseLeave(i, j)
+                              }
+                            >
+                              <span>
+                                <ChangeColumn
+                                  metric={row.metric}
+                                  stats={stats}
+                                  rowResults={rowResults}
+                                  differenceType={differenceType}
+                                  statsEngine={statsEngine}
+                                  className={resultsHighlightClassname}
+                                  ssrPolyfills={ssrPolyfills}
+                                  additionalButton={
+                                    compactResults
+                                      ? timeSeriesButton
+                                      : undefined
+                                  }
+                                />
+                              </span>
+                            </Popover.Trigger>
+                            <Popover.Content
+                              onMouseEnter={() =>
+                                handleRowTooltipMouseEnter(i, j)
+                              }
+                              onMouseLeave={() =>
+                                handleRowTooltipMouseLeave(i, j)
+                              }
+                              side="bottom"
+                              sideOffset={-5}
+                            >
+                              <AnalysisResultPopover
+                                data={getTooltipData(i, j)}
+                                differenceType={differenceType}
+                                isBandit={isBandit}
+                                ssrPolyfills={ssrPolyfills}
+                              />
+                            </Popover.Content>
+                          </Popover.Root>
                         ) : (
                           <td></td>
                         )}

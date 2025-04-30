@@ -141,9 +141,8 @@ export default function FlagCard({
                     !data.metric.inverse) ||
                   (data.rowResults.directionalStatus === "losing" &&
                     data.metric.inverse)
-                    ? "var(--green-a11)"
+                    ? "var(--green-11)"
                     : "var(--red-a11)",
-                opacity: data.rowResults.significant ? 1 : 0.75,
               }}
             >
               {deltaFormatter(data.stats.expected ?? 0, deltaFormatterOptions)}

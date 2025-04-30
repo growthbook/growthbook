@@ -29,24 +29,38 @@ export function useAnalysisResultPopover({
   const [openTooltipRowIndex, setOpenTooltipRowIndex] = useState<number | null>(
     null
   );
+  const [openTooltipVariationIndex, setOpenTooltipVariationIndex] = useState<
+    number | null
+  >(null);
 
-  const isRowTooltipOpen = (rowIndex: number) => {
-    return openTooltipRowIndex === rowIndex;
+  const isRowTooltipOpen = (rowIndex: number, variationIndex: number) => {
+    return (
+      openTooltipRowIndex === rowIndex &&
+      openTooltipVariationIndex === variationIndex
+    );
   };
 
   const leaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const handleRowTooltipMouseEnter = (rowIndex: number) => {
+  const handleRowTooltipMouseEnter = (
+    rowIndex: number,
+    variationIndex: number
+  ) => {
     if (leaveTimeoutRef.current) {
       clearTimeout(leaveTimeoutRef.current);
       leaveTimeoutRef.current = null;
     }
     setOpenTooltipRowIndex(rowIndex);
+    setOpenTooltipVariationIndex(variationIndex);
   };
 
-  const handleRowTooltipMouseLeave = (_rowIndex: number) => {
+  const handleRowTooltipMouseLeave = (
+    _rowIndex: number,
+    _variationIndex: number
+  ) => {
     leaveTimeoutRef.current = setTimeout(() => {
       setOpenTooltipRowIndex(null);
+      setOpenTooltipVariationIndex(null);
     }, 80);
   };
 
