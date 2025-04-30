@@ -8,7 +8,7 @@ import { SafeRolloutResultsQueryRunner } from "back-end/src/queryRunners/SafeRol
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { SNAPSHOT_TIMEOUT } from "back-end/src/controllers/experiments";
 import {
-  SafeRolloutInterface,
+  CreateSafeRolloutInterface,
   validateCreateSafeRolloutFields,
 } from "back-end/src/validators/safe-rollout";
 
@@ -184,7 +184,10 @@ export async function putSafeRolloutStatus(
  */
 export async function putSafeRollout(
   req: AuthRequest<
-    { safeRolloutFields: Partial<SafeRolloutInterface>; environment: string },
+    {
+      safeRolloutFields: Partial<CreateSafeRolloutInterface>;
+      environment: string;
+    },
     { id: string }
   >,
   res: Response<{ status: 200 }>
@@ -200,16 +203,14 @@ export async function putSafeRollout(
     throw new Error("Safe rollout environment does not match");
   }
 
-  if (safeRolloutFields) {
-    const validatedSafeRolloutFields = await validateCreateSafeRolloutFields(
-      safeRolloutFields,
-      context
-    );
+  const validatedSafeRolloutFields = await validateCreateSafeRolloutFields(
+    safeRolloutFields,
+    context
+  );
 
-    await context.models.safeRollout.update(safeRollout, {
-      ...validatedSafeRolloutFields,
-    });
-  }
+  await context.models.safeRollout.update(safeRollout, {
+    ...validatedSafeRolloutFields,
+  });
 
   res.status(200).json({
     status: 200,
