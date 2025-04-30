@@ -65,7 +65,7 @@ export default function FlagCard({
       <>
         <div>{pValueFormatter(data.stats.pValueAdjusted)}</div>
         <Text size="1" color="gray">
-          (unadj.:&nbsp;{pValText})
+          unadj.:&nbsp;{pValText}
         </Text>
       </>
     );
@@ -81,7 +81,7 @@ export default function FlagCard({
           {deltaFormatter(ci1, deltaFormatterOptions)}]
         </div>
         <Text size="1" color="gray">
-          (unadj.:&nbsp; [
+          unadj.:&nbsp; [
           {deltaFormatter(
             data.stats.ci?.[0] ?? -Infinity,
             deltaFormatterOptions
@@ -91,7 +91,7 @@ export default function FlagCard({
             data.stats.ci?.[1] ?? Infinity,
             deltaFormatterOptions
           )}
-          ] )
+          ]
         </Text>
       </>
     ) : (
@@ -176,7 +176,7 @@ export default function FlagCard({
           }
           tooltip={
             <div>
-              {data.statsEngine === "bayesian"
+              {data.rowResults.significant
                 ? data.rowResults.resultsReason
                 : data.rowResults.significantReason}
               {!data.isGuardrail &&
@@ -284,7 +284,7 @@ function CardItem({
   tooltip?: React.ReactNode;
 }) {
   return (
-    <Flex justify="between">
+    <Flex justify="between" gapX="5">
       <span>
         {label}
         {tooltip ? (

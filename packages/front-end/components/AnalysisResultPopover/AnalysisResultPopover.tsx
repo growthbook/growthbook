@@ -277,7 +277,7 @@ export default function AnalysisResultPopover({
             <TableColumnHeader pl="0">Variation</TableColumnHeader>
             <TableColumnHeader justify="end">
               {quantileMetric && quantileIgnoreZeros ? "Non-zero " : ""}
-              {quantileMetric === "event" ? "Events" : "Users"}
+              {quantileMetric === "event" ? "Events" : "Units"}
             </TableColumnHeader>
             {!quantileMetric ? (
               <TableColumnHeader justify="end">
