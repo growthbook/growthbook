@@ -41,6 +41,7 @@ import {
   formatPercent,
   getColumnRefFormatter,
   getExperimentMetricFormatter,
+  getMetricFormatter,
   getPercentileLabel,
 } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -754,11 +755,17 @@ export default function ResultsTableTooltip({
 
                       {!quantileMetric ? (
                         <td>
-                          {getExperimentMetricFormatter(
-                            data.metric,
-                            ssrPolyfills?.getFactTableById || getFactTableById,
-                            "number"
-                          )(row.value, { currency: displayCurrency })}
+                          {isFactMetric(data.metric)
+                            ? getColumnRefFormatter(
+                                data.metric.numerator,
+                                ssrPolyfills?.getFactTableById ||
+                                  getFactTableById
+                              )(row.value, { currency: displayCurrency })
+                            : getMetricFormatter(
+                                data.metric.type === "binomial"
+                                  ? "count"
+                                  : data.metric.type
+                              )(row.value, { currency: displayCurrency })}
                         </td>
                       ) : null}
                       {hasCustomDenominator ? (

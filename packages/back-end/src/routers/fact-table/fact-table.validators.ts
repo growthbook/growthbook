@@ -177,6 +177,7 @@ export const factMetricValidator = z
     minPercentChange: z.number(),
     minSampleSize: z.number(),
     targetMDE: z.number(),
+    displayAsPercentage: z.boolean().optional(),
 
     winRisk: z.number(),
     loseRisk: z.number(),
