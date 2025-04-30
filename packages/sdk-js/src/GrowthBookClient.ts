@@ -1,27 +1,28 @@
 import type {
   ApiHost,
+  Attributes,
+  AutoExperiment,
   ClientKey,
+  ClientOptions,
+  EvalContext,
+  EventLogger,
+  EventProperties,
   Experiment,
   FeatureApiResponse,
+  FeatureDefinitions,
   FeatureResult,
-  RefreshFeaturesOptions,
-  Result,
-  WidenPrimitives,
-  EvalContext,
+  GlobalContext,
   InitOptions,
   InitResponse,
   InitSyncOptions,
-  GlobalContext,
-  UserContext,
-  ClientOptions,
-  FeatureDefinitions,
-  AutoExperiment,
-  TrackingCallbackWithUser,
-  Attributes,
-  TrackingCallback,
-  EventLogger,
-  EventProperties,
+  LogUnion,
   Plugin,
+  RefreshFeaturesOptions,
+  Result,
+  TrackingCallback,
+  TrackingCallbackWithUser,
+  UserContext,
+  WidenPrimitives,
 } from "./types/growthbook";
 import { loadSDKVersion } from "./util";
 import {
@@ -31,11 +32,11 @@ import {
   unsubscribe,
 } from "./feature-repository";
 import {
-  runExperiment,
+  decryptPayload,
   evalFeature as _evalFeature,
   getAllStickyBucketAssignmentDocs,
-  decryptPayload,
   getApiHosts,
+  runExperiment,
 } from "./core";
 import { StickyBucketService } from "./sticky-bucket-service";
 
@@ -340,18 +341,22 @@ export class GrowthBookClient<
       stickyBucketService
     );
 
-    const userContext: UserContext = {
+    return {
       ...partialContext,
       stickyBucketAssignmentDocs,
       saveStickyBucketAssignmentDoc: (doc) =>
         stickyBucketService.saveAssignments(doc),
     };
-
-    return userContext;
   }
 
-  public createScopedInstance(userContext: UserContext) {
-    return new UserScopedGrowthBook(this, userContext, this._options.plugins);
+  public createScopedInstance(
+    userContext: UserContext,
+    userPlugins?: Plugin[]
+  ) {
+    return new UserScopedGrowthBook(this, userContext, [
+      ...(this._options.plugins || []),
+      ...(userPlugins || []),
+    ]);
   }
 }
 
@@ -361,6 +366,7 @@ export class UserScopedGrowthBook<
 > {
   private _gb: GrowthBookClient;
   private _userContext: UserContext;
+  public logs: Array<LogUnion>;
 
   constructor(
     gb: GrowthBookClient<AppFeatures>,
@@ -369,6 +375,13 @@ export class UserScopedGrowthBook<
   ) {
     this._gb = gb;
     this._userContext = userContext;
+    this.logs = [];
+
+    this._userContext.trackedExperiments =
+      this._userContext.trackedExperiments || new Set();
+    this._userContext.trackedFeatureUsage =
+      this._userContext.trackedFeatureUsage || {};
+    this._userContext.devLogs = this.logs;
 
     if (plugins) {
       for (const plugin of plugins) {
@@ -404,11 +417,22 @@ export class UserScopedGrowthBook<
   }
 
   public logEvent(eventName: string, properties?: EventProperties) {
+    if (this._userContext.enableDevMode) {
+      this.logs.push({
+        eventName,
+        properties,
+        timestamp: Date.now().toString(),
+        logType: "event",
+      });
+    }
     this._gb.logEvent(eventName, properties || {}, this._userContext);
   }
 
   public setTrackingCallback(cb: TrackingCallback) {
     this._userContext.trackingCallback = cb;
+  }
+  public getApiInfo(): [ApiHost, ClientKey] {
+    return this._gb.getApiInfo();
   }
   public getClientKey() {
     return this._gb.getClientKey();
@@ -421,5 +445,27 @@ export class UserScopedGrowthBook<
       ...this._userContext.attributes,
       ...attributes,
     };
+  }
+  public setAttributeOverrides(overrides: Attributes) {
+    this._userContext.attributeOverrides = overrides;
+  }
+  public async setForcedVariations(vars: Record<string, number>) {
+    this._userContext.forcedVariations = vars || {};
+  }
+  // eslint-disable-next-line
+  public setForcedFeatures(map: Map<string, any>) {
+    this._userContext.forcedFeatureValues = map;
+  }
+  public getUserContext() {
+    return this._userContext;
+  }
+  public getVersion() {
+    return SDK_VERSION;
+  }
+  public getDecryptedPayload() {
+    return this._gb.getDecryptedPayload();
+  }
+  public inDevMode(): boolean {
+    return !!this._userContext.enableDevMode;
   }
 }
