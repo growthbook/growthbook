@@ -14,16 +14,24 @@ const upsertDataValidator = z
   })
   .strict();
 
+const installationResourceValidator = resourceValidator.extend({
+  organizationId: z.string(),
+});
+
+export type Resource = z.infer<typeof installationResourceValidator>;
+
 const vercelNativeIntegrationValidator = z
   .object({
     id: z.string(),
+    // All installation need at least one org.
+    // Each additional resources map to a different org.
     organization: z.string(),
     dateCreated: z.date(),
     dateUpdated: z.date(),
     installationId: z.string(),
     // This is NOT an installation-level billingPlanId
     billingPlanId: z.string().optional(),
-    resource: resourceValidator.optional(),
+    resources: z.array(installationResourceValidator),
     upsertData: upsertDataValidator,
   })
   .strict();
@@ -63,26 +71,7 @@ export class VercelNativeIntegrationModel extends BaseClass {
   protected canDelete(): boolean {
     return this.context.permissions.canManageIntegrations();
   }
-
-  public getByInstallationId(data: {
-    organization: string;
-    installationId: string;
-  }) {
-    return this._findOne(data);
-  }
 }
-
-export const findVercelInstallationByResourceId = async (
-  resourceId: string
-): Promise<VercelNativeIntegration> => {
-  const model = await mongoose.connection.db
-    .collection(COLLECTION_NAME)
-    .findOne({ "resource.id": resourceId });
-
-  if (!model) throw "Installation not found!";
-
-  return (model as unknown) as VercelNativeIntegration;
-};
 
 export const findVercelInstallationByInstallationId = async (
   installationId: string

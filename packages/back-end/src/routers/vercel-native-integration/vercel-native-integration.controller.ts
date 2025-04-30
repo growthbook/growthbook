@@ -4,10 +4,10 @@ import { z } from "zod";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { v4 as uuidv4 } from "uuid";
 import {
-  findVercelInstallationByResourceId,
   findVercelInstallationByInstallationId,
   VercelNativeIntegrationModel,
-} from "back-end/src/models/VercelNativeIntegration";
+  Resource,
+} from "back-end/src/models/VercelNativeIntegrationModel";
 import {
   createOrganization,
   updateOrganization,
@@ -23,7 +23,6 @@ import {
   systemAuthenticationValidator,
   UpsertInstallationPayload,
   ProvisitionResource,
-  Resource,
   BillingPlan,
 } from "./vercel-native-integration.validators";
 
@@ -153,7 +152,7 @@ const getContext = async ({
     if (reason) res.status(status).send(reason);
     else res.sendStatus(status);
 
-    throw "Authentication failed";
+    throw new Error("Authentication failed");
   };
 
   const org = await findOrganizationById(organizationId);
@@ -173,22 +172,25 @@ const getContext = async ({
 
   const nativeIntegrationModel = new VercelNativeIntegrationModel(context);
 
-  const nativeIntegration = await nativeIntegrationModel.getByInstallationId({
-    installationId,
-    organization: org.id,
-  });
+  const nativeIntegration = await findVercelInstallationByInstallationId(
+    installationId
+  );
 
   if (!nativeIntegration) return failed(400, "Invalid installation!");
 
   return { context, org, user, nativeIntegrationModel, nativeIntegration };
 };
 
-const authContext = async (req: Request, res: Response) => {
+const authContext = async (
+  req: Request,
+  res: Response,
+  { resourceId }: { resourceId?: string } = {}
+) => {
   const failed = (status: number, reason?: string) => {
     if (reason) res.status(status).send(reason);
     else res.sendStatus(status);
 
-    throw "Authentication failed";
+    throw new Error("Authentication failed");
   };
 
   const token = getBearerToken(req);
@@ -209,8 +211,15 @@ const authContext = async (req: Request, res: Response) => {
   } = checkedAuth;
 
   const {
-    organization: organizationId,
+    organization,
+    resources,
   } = await findVercelInstallationByInstallationId(installationId);
+
+  const organizationId = resourceId
+    ? resources.find(({ id }) => id === resourceId)?.organizationId
+    : organization;
+
+  if (!organizationId) return failed(401, "Invalid resourceId");
 
   return getContext({
     organizationId,
@@ -249,9 +258,7 @@ export async function upsertInstallation(req: Request, res: Response) {
       password: crypto.randomBytes(18).toString("hex"),
     }));
 
-  const installationName =
-    payload.account.name ||
-    `Vercel instalation ${authentication.payload.installation_id}`;
+  const installationName = `Vercel instalation ${authentication.payload.installation_id}`;
 
   const org = await createOrganization({
     email: payload.account.contact.email,
@@ -272,6 +279,7 @@ export async function upsertInstallation(req: Request, res: Response) {
   await nativeIntegrationModel.create({
     installationId: authentication.payload.installation_id,
     upsertData: { payload, authentication: authentication.payload },
+    resources: [],
   });
 
   return res.sendStatus(204);
@@ -307,10 +315,12 @@ export async function deleteInstallation(req: Request, res: Response) {
 }
 
 export async function provisionResource(req: Request, res: Response) {
-  const { nativeIntegrationModel, nativeIntegration } = await authContext(
-    req,
-    res
-  );
+  const {
+    user,
+    org: contextOrg,
+    nativeIntegrationModel,
+    nativeIntegration,
+  } = await authContext(req, res);
 
   if (nativeIntegration.installationId !== req.params.installation_id)
     return res.status(400).send("Invalid request!");
@@ -320,44 +330,75 @@ export async function provisionResource(req: Request, res: Response) {
     ...payload
   } = req.body as ProvisitionResource;
 
+  const organizationId = await (async () => {
+    if (nativeIntegration.resources.length === 0) {
+      await updateOrganization(contextOrg.id, { name: payload.name });
+      return contextOrg.id;
+    }
+
+    const org = await createOrganization({
+      email: user.email,
+      userId: user.id,
+      name: payload.name,
+      isVercelIntegration: true,
+      //restrictLoginMethod: "vercel",
+    });
+
+    return org.id;
+  })();
+
   const resource: Resource = {
     ...payload,
     id: uuidv4(),
+    organizationId,
     secrets: [{ name: "token", value: uuidv4() }],
     status: "ready",
   };
 
-  await nativeIntegrationModel.update(nativeIntegration, { resource });
+  await nativeIntegrationModel.update(nativeIntegration, {
+    resources: [...nativeIntegration.resources, resource],
+  });
 
   return res.json(resource);
 }
 
 export async function getResource(req: Request, res: Response) {
-  const { nativeIntegration } = await authContext(req, res);
+  const { nativeIntegration } = await authContext(req, res, {
+    resourceId: req.params.resource_id,
+  });
 
   if (nativeIntegration.installationId !== req.params.installation_id)
-    return res.status(400).send("Invalid request!");
+    return res.status(400).send("Installation not found!");
 
-  if (nativeIntegration.resource?.id !== req.params.resource_id)
-    return res.status(400).send("Invalid request!");
+  const resource = nativeIntegration.resources.find(
+    ({ id }) => id === req.params.resource_id
+  );
 
-  return res.json(nativeIntegration.resource);
+  if (!resource) return res.status(400).send("Resource not found!");
+
+  return res.json(resource);
 }
 
 export async function deleteResource(req: Request, res: Response) {
   const { nativeIntegrationModel, nativeIntegration } = await authContext(
     req,
-    res
+    res,
+    { resourceId: req.params.resource_id }
   );
 
   if (nativeIntegration.installationId !== req.params.installation_id)
     return res.status(400).send("Invalid request!");
 
-  if (nativeIntegration.resource?.id !== req.params.resource_id)
-    return res.status(400).send("Invalid request!");
+  const resource = nativeIntegration.resources.find(
+    ({ id }) => id === req.params.resource_id
+  );
+
+  if (!resource) return res.status(400).send("Resource not found!");
 
   await nativeIntegrationModel.update(nativeIntegration, {
-    resource: undefined,
+    resources: nativeIntegration.resources.filter(
+      ({ id }) => id !== resource.id
+    ),
   });
 
   return res.sendStatus(204);
@@ -374,23 +415,11 @@ export async function getProducts(req: Request, res: Response) {
 }
 
 export async function postVercelIntegrationSSO(req: Request, res: Response) {
-  const { code, state, resourceId } = req.query;
-
-  const {
-    organization: organizationId,
-    installationId,
-    upsertData,
-  } = await findVercelInstallationByResourceId(String(resourceId));
-
-  if (!organizationId)
-    return res
-      .status(400)
-      .send(`Could not find installation for resourceId: ${resourceId}`);
+  const { code, state, resourceId } = req.body;
 
   const token = await getVercelSSOToken({
     code: String(code),
     state: String(state),
-    accessToken: upsertData.payload.credentials.access_token,
   });
 
   const checkedToken = await checkAuth({ token, type: "user" });
@@ -398,19 +427,46 @@ export async function postVercelIntegrationSSO(req: Request, res: Response) {
   if (checkedToken.status === "error")
     return res.status(400).send("Invalid authentication token!");
 
-  const { authentication: data } = checkedToken;
+  const {
+    authentication: {
+      payload: { user_email: userEmail, installation_id: installationId },
+    },
+  } = checkedToken;
 
-  if (data.payload.installation_id !== installationId)
-    return res.status(400).send("Invalid installation Id!");
+  const vercelInstallation = await findVercelInstallationByInstallationId(
+    installationId
+  );
+
+  if (!vercelInstallation)
+    return res
+      .status(400)
+      .send(
+        `Could not find installation for installationId: ${installationId}`
+      );
+
+  const organizationId = (() => {
+    if (!resourceId) return vercelInstallation.organization;
+
+    const resource = vercelInstallation.resources.find(
+      ({ id }) => id === resourceId
+    );
+
+    if (!resource) {
+      res.status(400).send("Invalid request!");
+      throw new Error(`Invalid resourceId: ${resourceId}`);
+    }
+
+    return resource.organizationId;
+  })();
 
   const { user } = await getContext({
     organizationId,
     installationId,
-    userEmail: data.payload.user_email,
+    userEmail,
     res,
   });
 
   await setResponseCookies(req, res, user);
 
-  res.send("Ok!");
+  res.send({ organizationId });
 }

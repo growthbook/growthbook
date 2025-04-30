@@ -1,7 +1,7 @@
 import { OrganizationInterface } from "back-end/types/organization";
 import { FeatureInterface } from "back-end/types/feature";
 import { ExperimentInterface } from "back-end/types/experiment";
-import { findVercelInstallationByOrganization } from "back-end/src/models/VercelNativeIntegration";
+import { findVercelInstallationByOrganization } from "back-end/src/models/VercelNativeIntegrationModel";
 
 const VERCEL_URL = "https://api.vercel.com";
 
@@ -24,12 +24,10 @@ const FEATURE_ORIGIN = "app.growthbook.io";
 
 export const getVercelSSOToken = async ({
   code,
-  accessToken,
   state,
 }: {
   code: string;
   state: string;
-  accessToken: string;
 }) => {
   const ret = await fetch(`${VERCEL_URL}/v1/integrations/sso/token`, {
     method: "POST",
@@ -41,7 +39,6 @@ export const getVercelSSOToken = async ({
     }),
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${accessToken}`,
     },
   });
 
@@ -59,13 +56,15 @@ export const getVercelSSOToken = async ({
 const getVercelInstallationData = async (organizationId: string) => {
   const {
     installationId,
-    resource,
+    resources,
     upsertData: {
       payload: {
         credentials: { access_token: accessToken },
       },
     },
   } = await findVercelInstallationByOrganization(organizationId);
+
+  const resource = resources.find((r) => r.organizationId === organizationId);
 
   if (!resource) throw "Invalid installation!";
 
