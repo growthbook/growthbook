@@ -1101,9 +1101,10 @@ export class GrowthBook<
     payload: FeatureApiResponse
   ) {
     if (!("getAllAssignmentsSync" in stickyBucketService)) {
-      throw new Error(
+      console.error(
         "generating StickyBucketAssignmentDocs docs requires StickyBucketServiceSync"
       );
+      return;
     }
     const ctx = this._getEvalContext();
     const attributes = getStickyBucketAttributes(ctx, payload);
