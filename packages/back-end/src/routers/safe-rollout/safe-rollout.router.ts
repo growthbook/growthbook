@@ -47,5 +47,12 @@ router.post(
   }),
   safeRolloutController.cancelSafeRolloutSnapshot
 );
+router.put(
+  "/:id",
+  validateRequestMiddleware({
+    params: snapshotParams,
+  }),
+  safeRolloutController.putSafeRollout
+);
 
 export { router as safeRolloutRouter };
