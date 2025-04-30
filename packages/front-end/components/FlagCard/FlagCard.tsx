@@ -200,12 +200,21 @@ export default function FlagCard({
             label="Risk"
             tooltip={data.rowResults.riskMeta.riskReason}
             value={
-              <>
+              <span
+                style={{
+                  color:
+                    data.rowResults.riskMeta.riskStatus === "danger"
+                      ? "var(--red-a11)"
+                      : data.rowResults.riskMeta.riskStatus === "warning"
+                      ? "var(--amber-a11)"
+                      : undefined,
+                }}
+              >
                 {data.rowResults.riskMeta.relativeRiskFormatted}
                 {data.rowResults.riskMeta.riskFormatted ? (
                   <>, {data.rowResults.riskMeta.riskFormatted}</>
                 ) : null}
-              </>
+              </span>
             }
           />
         ) : null}
