@@ -30,7 +30,6 @@ export interface Props {
   setStatusModalOpen: (open: boolean) => void;
   setVersion: (version: number) => void;
   environment: string;
-  version: number;
   i: number;
   feature: FeatureInterface;
   mutate?: () => void;
@@ -91,7 +90,6 @@ export default function SafeRolloutStatusModal({
   setStatusModalOpen,
   setVersion,
   environment,
-  version,
   i,
   feature,
   mutate,
@@ -153,7 +151,7 @@ export default function SafeRolloutStatusModal({
       ctaEnabled={!!status}
       submit={form.handleSubmit(async (values) => {
         const res = await apiCall<{ version: number }>(
-          `/feature/${feature.id}/${version}/rule/status`,
+          `/feature/${feature.id}/safeRollout/status`,
           {
             method: "PUT",
             body: JSON.stringify({
