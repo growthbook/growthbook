@@ -216,6 +216,8 @@ export type Options = {
   features?: Record<string, FeatureDefinition>;
   experiments?: AutoExperiment[];
   forcedVariations?: Record<string, number>;
+  forcedFeatureValues?: Map<string, any>;
+  attributeOverrides?: Attributes;
   blockedChangeIds?: string[];
   disableVisualExperiments?: boolean;
   disableJsInjection?: boolean;
@@ -332,6 +334,7 @@ export type GlobalContext = {
 export type UserContext = {
   enabled?: boolean;
   qaMode?: boolean;
+  enableDevMode?: boolean;
   attributes?: Attributes;
   url?: string;
   blockedChangeIds?: string[];
@@ -344,8 +347,12 @@ export type UserContext = {
   ) => Promise<unknown>;
   forcedVariations?: Record<string, number>;
   forcedFeatureValues?: Map<string, any>;
+  attributeOverrides?: Attributes;
   trackingCallback?: TrackingCallback;
   onFeatureUsage?: FeatureUsageCallback;
+  trackedExperiments?: Set<string>;
+  trackedFeatureUsage?: Record<string, string>;
+  devLogs?: LogUnion[];
 };
 
 export type StackContext = {
