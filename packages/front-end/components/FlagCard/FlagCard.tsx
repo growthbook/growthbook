@@ -233,7 +233,7 @@ export default function FlagCard({
             style={{ color: "var(--color-text-mid)" }}
           >
             <i>Not enough data</i>{" "}
-            <Tooltip content={enoughDataMeta.reason}>
+            <Tooltip content={enoughDataMeta.reasonText}>
               <span>
                 <PiInfo />
               </span>
