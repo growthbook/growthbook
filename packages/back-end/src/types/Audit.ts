@@ -56,7 +56,7 @@ export const entityEvents = {
 
 export type EntityEvents = typeof entityEvents;
 export const EntityType = Object.keys(entityEvents) as [keyof EntityEvents];
-export type EntityType = (typeof EntityType)[number];
+export type EntityType = typeof EntityType[number];
 
 export type EventTypes<K> = K extends EntityType
   ? `${K}.${EntityEvents[K][number]}`
