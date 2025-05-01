@@ -1,5 +1,9 @@
 # Changelog
 
+## **1.5.1** - May 1, 2025
+
+- Fix broken minification in the bundled file `auto.min.js` caused by a Babel update
+
 ## **1.5.0** - Apr 30, 2025
 
 - New `StickyBucketServiceSync` class for synchronous sticky bucketing implementations
