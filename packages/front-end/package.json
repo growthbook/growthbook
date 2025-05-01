@@ -117,7 +117,7 @@
     "vitest": "^2.1.5"
   },
   "optionalDependencies": {
-    "@babel/core": "^7.26.10"
+    "@babel/core": "^7.19.6"
   },
   "license": "Mixed"
 }
