@@ -31,15 +31,34 @@ export class LocalAuthConnection implements AuthConnection {
     res: Response,
     refreshToken: string
   ): Promise<TokensResponse> {
-    const userId = await getUserIdFromAuthRefreshToken(refreshToken);
-    if (!userId) {
-      throw new Error("No user found with that refresh token");
+
+    const userId = req.headers['x-user-id'];
+    const userHeader = req.headers['x-user'];
+
+    if (!userId || Array.isArray(userId)) {
+      throw new Error("Missing or invalid 'x-user-id' header");
     }
 
-    const user = await getUserById(userId);
-    if (!user) {
-      throw new Error("Invalid user id - " + userId);
+    if (!userHeader || Array.isArray(userHeader)) {
+      throw new Error("Missing or invalid 'x-user' header");
     }
+
+    let user;
+    try {
+      user = JSON.parse(userHeader) as UserInterface;
+    } catch (error) {
+      throw new Error("Error parsing x-user header: " + error.message);
+    }
+
+    //const userId = await getUserIdFromAuthRefreshToken(refreshToken);
+    //if (!userId) {
+    //  throw new Error("No user found with that refresh token");
+    //}
+
+    //const user = await getUserById(userId);
+    //if (!user) {
+    //  throw new Error("Invalid user id - " + userId);
+    //}
 
     return {
       idToken: this.generateJWT(user),
