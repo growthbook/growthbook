@@ -1,5 +1,12 @@
 # Changelog
 
+## **1.5.0** - Apr 30, 2025
+
+- New `StickyBucketServiceSync` class for synchronous sticky bucketing implementations
+- New `devtools` plugin to integrate back-end code with the GrowthBook Dev Tools browser extension
+- Ability to pass user-specific plugins into `createScopedInstance()`
+- In user-scoped instances (returned from `createScopedInstance()`), de-dupe all tracking calls and feature usage callbacks. Technically this is a breaking change, but it should not affect the vast majority of users.
+
 ## **1.4.1** - Feb 20, 2025
 
 - In `auto.min.js`, enable dev mode by default. Without this, the GrowthBook DevTools Chrome extension will only partially work.

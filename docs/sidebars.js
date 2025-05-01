@@ -340,6 +340,11 @@ const sidebars = {
         },
         {
           type: "doc",
+          id: "experimentation-analysis/experiment-time-series",
+          label: "Experiment Time Series",
+        },
+        {
+          type: "doc",
           id: "experimentation-analysis/decision-framework",
           label: "Experiment Decision Framework",
         },
