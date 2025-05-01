@@ -1,7 +1,7 @@
 {
   "js": {
     "name": "JS SDK",
-    "version": "1.5.0",
+    "version": "1.5.1",
     "github": "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
     "examples": [
       {
@@ -33,7 +33,7 @@
   },
   "react": {
     "name": "React SDK",
-    "version": "1.5.0",
+    "version": "1.5.1",
     "github": "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
     "examples": [
       {
@@ -86,7 +86,7 @@
   },
   "node": {
     "name": "Node SDK",
-    "version": "1.5.0",
+    "version": "1.5.1",
     "github": "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
     "examples": [
       {
@@ -313,7 +313,7 @@
   },
   "reactNative": {
     "name": "React SDK",
-    "version": "1.5.0",
+    "version": "1.5.1",
     "github": "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
     "examples": [
       {
