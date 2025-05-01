@@ -735,7 +735,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     project={project}
                     environments={envs}
                     noSchedule={true}
-                    isBandit={isBandit}
                     prerequisiteValue={
                       form.watch("phases.0.prerequisites") || []
                     }

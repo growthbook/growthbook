@@ -347,7 +347,6 @@ const TemplateForm: FC<Props> = ({
                 source="experiment"
                 project={form.watch("project")}
                 environments={envs}
-                isBandit={false}
                 noSchedule={true}
                 prerequisiteValue={form.watch("targeting.prerequisites") || []}
                 setPrerequisiteValue={(prerequisites) =>

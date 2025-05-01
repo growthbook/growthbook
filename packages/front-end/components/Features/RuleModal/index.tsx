@@ -1010,7 +1010,6 @@ export default function RuleModal({
                   defaultValues={defaultValues}
                   version={version}
                   revisions={revisions}
-                  isBandit={experimentType === "bandit"}
                   prerequisiteValue={form.watch("prerequisites") || []}
                   setPrerequisiteValue={(prerequisites) =>
                     form.setValue("prerequisites", prerequisites)

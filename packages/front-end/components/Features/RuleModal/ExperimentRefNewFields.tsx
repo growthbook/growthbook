@@ -84,7 +84,6 @@ export default function ExperimentRefNewFields({
   orgStickyBucketing,
   setCustomFields,
   isTemplate = false,
-  isBandit,
 }: {
   step: number;
   source: "rule" | "experiment";
@@ -120,7 +119,6 @@ export default function ExperimentRefNewFields({
   orgStickyBucketing?: boolean;
   setCustomFields?: (customFields: Record<string, string>) => void;
   isTemplate?: boolean;
-  isBandit: boolean;
 }) {
   const form = useFormContext();
 
