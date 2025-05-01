@@ -4516,6 +4516,9 @@ paths:
                   type: number
                   description: 'Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.'
                   minimum: 0
+                displayAsPercentage:
+                  type: boolean
+                  description: 'If true and the metric is a ratio metric, variation means will be displayed as a percentage'
                 minPercentChange:
                   type: number
                   description: 'Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%)'
@@ -4793,6 +4796,9 @@ paths:
                   type: number
                   description: 'Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.'
                   minimum: 0
+                displayAsPercentage:
+                  type: boolean
+                  description: 'If true and the metric is a ratio metric, variation means will be displayed as a percentage'
                 minPercentChange:
                   type: number
                   description: 'Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%)'
@@ -7133,6 +7139,9 @@ components:
           type: number
         riskThresholdDanger:
           type: number
+        displayAsPercentage:
+          type: boolean
+          description: 'If true and the metric is a ratio metric, variation means will be displayed as a percentage'
         minPercentChange:
           type: number
         maxPercentChange:
