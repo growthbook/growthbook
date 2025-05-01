@@ -144,6 +144,12 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     if ("defaultValue" in updates || "environmentSettings" in updates) {
       const revisionChanges: Partial<FeatureRevisionInterface> = {};
 
+      // Copy over current envSettings to revision as this endpoint support partial updates
+      Object.entries(feature.environmentSettings).forEach(([env, settings]) => {
+        revisionChanges.rules = revisionChanges.rules || {};
+        revisionChanges.rules[env] = settings.rules;
+      });
+
       let hasChanges = false;
       if (
         "defaultValue" in updates &&
@@ -164,6 +170,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
             ) {
               hasChanges = true;
               changedEnvironments.push(env);
+              // if the rule is different from the current feature value, update revisionChanges
               revisionChanges.rules = revisionChanges.rules || {};
               revisionChanges.rules[env] = settings.rules;
             }
