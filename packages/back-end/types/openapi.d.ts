@@ -2191,6 +2191,8 @@ export interface components {
       };
       riskThresholdSuccess: number;
       riskThresholdDanger: number;
+      /** @description If true and the metric is a ratio metric, variation means will be displayed as a percentage */
+      displayAsPercentage?: boolean;
       minPercentChange: number;
       maxPercentChange: number;
       minSampleSize: number;
@@ -8240,6 +8242,8 @@ export interface operations {
                 };
                 riskThresholdSuccess: number;
                 riskThresholdDanger: number;
+                /** @description If true and the metric is a ratio metric, variation means will be displayed as a percentage */
+                displayAsPercentage?: boolean;
                 minPercentChange: number;
                 maxPercentChange: number;
                 minSampleSize: number;
@@ -8377,6 +8381,8 @@ export interface operations {
           riskThresholdSuccess?: number;
           /** @description Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number. */
           riskThresholdDanger?: number;
+          /** @description If true and the metric is a ratio metric, variation means will be displayed as a percentage */
+          displayAsPercentage?: boolean;
           /** @description Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%) */
           minPercentChange?: number;
           /** @description Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%) */
@@ -8470,6 +8476,8 @@ export interface operations {
               };
               riskThresholdSuccess: number;
               riskThresholdDanger: number;
+              /** @description If true and the metric is a ratio metric, variation means will be displayed as a percentage */
+              displayAsPercentage?: boolean;
               minPercentChange: number;
               maxPercentChange: number;
               minSampleSize: number;
@@ -8575,6 +8583,8 @@ export interface operations {
               };
               riskThresholdSuccess: number;
               riskThresholdDanger: number;
+              /** @description If true and the metric is a ratio metric, variation means will be displayed as a percentage */
+              displayAsPercentage?: boolean;
               minPercentChange: number;
               maxPercentChange: number;
               minSampleSize: number;
@@ -8700,6 +8710,8 @@ export interface operations {
           riskThresholdSuccess?: number;
           /** @description Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number. */
           riskThresholdDanger?: number;
+          /** @description If true and the metric is a ratio metric, variation means will be displayed as a percentage */
+          displayAsPercentage?: boolean;
           /** @description Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%) */
           minPercentChange?: number;
           /** @description Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%) */
@@ -8792,6 +8804,8 @@ export interface operations {
               };
               riskThresholdSuccess: number;
               riskThresholdDanger: number;
+              /** @description If true and the metric is a ratio metric, variation means will be displayed as a percentage */
+              displayAsPercentage?: boolean;
               minPercentChange: number;
               maxPercentChange: number;
               minSampleSize: number;
@@ -8991,6 +9005,8 @@ export interface operations {
                 riskThresholdSuccess?: number;
                 /** @description Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number. */
                 riskThresholdDanger?: number;
+                /** @description If true and the metric is a ratio metric, variation means will be displayed as a percentage */
+                displayAsPercentage?: boolean;
                 /** @description Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%) */
                 minPercentChange?: number;
                 /** @description Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%) */
