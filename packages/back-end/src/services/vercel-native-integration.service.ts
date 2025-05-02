@@ -83,7 +83,7 @@ const vercelFeatureExperimentationItem = ({
 }: FeatureInterface): VercelExperimentationItem => ({
   id,
   slug,
-  origin: APP_ORIGIN,
+  origin: `${APP_ORIGIN}/features/${id}`,
   category: "flag",
   isArchived,
   description,
@@ -101,7 +101,7 @@ const vercelExperimentExperimentationItem = ({
 }: ExperimentInterface): VercelExperimentationItem => ({
   id,
   slug,
-  origin: APP_ORIGIN,
+  origin: `${APP_ORIGIN}/experiment/${id}`,
   category: "experiment",
   isArchived,
   description,
