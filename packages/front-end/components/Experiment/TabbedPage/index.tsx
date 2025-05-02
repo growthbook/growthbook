@@ -211,19 +211,18 @@ export default function TabbedPage({
   const trackSource = "tabbed-page";
 
   const showMetricGroupPromo = (): boolean => {
-    // if (metricGroups.length) return false;
+    if (metricGroups.length) return false;
 
-    // // only show if there are atleast 2 metrics in any section
-    // if (
-    //   experiment.goalMetrics.length > 2 ||
-    //   experiment.secondaryMetrics.length > 2 ||
-    //   experiment.guardrailMetrics.length > 2
-    // ) {
-    //   return true;
-    // }
+    // only show if there are atleast 2 metrics in any section
+    if (
+      experiment.goalMetrics.length > 2 ||
+      experiment.secondaryMetrics.length > 2 ||
+      experiment.guardrailMetrics.length > 2
+    ) {
+      return true;
+    }
 
-    // return false;
-    return true;
+    return false;
   };
 
   return (
