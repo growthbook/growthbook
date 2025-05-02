@@ -669,12 +669,12 @@ const sidebars = {
       },
       className: "top-divider",
       items: [
-        {type: "doc",
+        {
+          type: "doc",
           id: "integrations/framer",
           label: "Framer",
           className: "pill-new"
         },
-
         {
           type: "doc",
           id: "guide/strapi",
