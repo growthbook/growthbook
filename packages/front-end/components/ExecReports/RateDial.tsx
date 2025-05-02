@@ -25,19 +25,18 @@ interface RateDialProps {
 const RateDial: React.FC<RateDialProps> = ({
   winRate,
   height = 220,
-  dialDegrees = 220,
+  dialDegrees = 250,
   goodPercentLow = 15,
   goodPercentHigh = 40,
   outerArcRatio = 0.95,
-  innerArcRatio = 0.78,
-  circleRadiusRatio = 0.35,
+  innerArcRatio = 0.7,
   dialLengthRatio = 0.9,
   showTicks = true,
   showPercent = true,
   numPercents = 1,
   numTicks = 10,
 }) => {
-  const dialColorBase = "rgba(255,224,145,1)";
+  const dialColorBase = "rgb(217,217,217)";
   const dialColorHighlight = "rgba(125,243,200,0.65)";
   const tickColor = "rgba(128,186,252,0.55)";
 
@@ -47,7 +46,6 @@ const RateDial: React.FC<RateDialProps> = ({
     <Box>
       <ParentSizeModern>
         {({ width }) => {
-          console.log("width", width);
           const heightRadius =
             height / (1 + Math.cos((Math.PI / 180) * (180 - dialDegrees / 2)));
           const radius = Math.min(
@@ -59,7 +57,6 @@ const RateDial: React.FC<RateDialProps> = ({
 
           const innerRadius = radius * innerArcRatio;
           const outerRadius = radius * outerArcRatio;
-          const circleRadius = radius * circleRadiusRatio;
           const dialLineLength = radius * dialLengthRatio;
 
           const startAngleRad = (-1 * (dialDegrees / 2) * Math.PI) / 180;
@@ -171,8 +168,8 @@ const RateDial: React.FC<RateDialProps> = ({
                 {showPercent && percents}
                 <Line
                   from={{
-                    x: -1 * 42 * Math.sin(dialAngle),
-                    y: -1 * 42 * Math.cos(dialAngle),
+                    x: -1 * 5 * Math.sin(dialAngle),
+                    y: -1 * 5 * Math.cos(dialAngle),
                   }}
                   to={{
                     x: -1 * dialLineLength * Math.sin(dialAngle),
@@ -182,18 +179,9 @@ const RateDial: React.FC<RateDialProps> = ({
                   strokeWidth={6}
                   strokeLinecap="round"
                 />
-                <ellipse
-                  cx={0}
-                  cy={0}
-                  rx={circleRadius}
-                  ry={circleRadius}
-                  fill="var(--color-panel-solid)"
-                  stroke="var(--slate-a3)"
-                  strokeWidth={1}
-                />
                 <Text
                   x={0}
-                  y={7}
+                  y={40}
                   fontSize={20}
                   fontWeight="500"
                   textAnchor="middle"

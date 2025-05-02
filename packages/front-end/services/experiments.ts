@@ -412,11 +412,13 @@ export function setAdjustedCIs(
 export function useExperimentSearch({
   allExperiments,
   defaultSortField = "date",
+  defaultSortDir = -1,
   filterResults,
   localStorageKey = "experiments",
 }: {
   allExperiments: ExperimentInterfaceStringDates[];
   defaultSortField?: keyof ComputedExperimentInterface;
+  defaultSortDir?: -1 | 1;
   filterResults?: (
     items: ComputedExperimentInterface[]
   ) => ComputedExperimentInterface[];
@@ -472,7 +474,7 @@ export function useExperimentSearch({
     items: experiments,
     localStorageKey,
     defaultSortField,
-    defaultSortDir: -1,
+    defaultSortDir,
     updateSearchQueryOnChange: true,
     searchFields: [
       "name^3",

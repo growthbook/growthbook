@@ -1,17 +1,19 @@
 import React from "react";
-import { Box, Flex, Heading } from "@radix-ui/themes";
+import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import format from "date-fns/format";
 import RateDial from "@/components/ExecReports/RateDial";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Frame from "@/components/Radix/Frame";
-import ExperimentGraph from "@/components/Experiment/ExperimentGraph";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import ExperimentWinRateByProject from "@/components/ExecReports/ExperimentWinRateByProject";
 
 interface ExperimentWinRateProps {
   experiments: ExperimentInterfaceStringDates[];
-  dateRange?: string;
-  startDate?: Date;
-  endDate?: Date;
-  selectedProjects?: string[];
+  dateRange: string;
+  startDate: Date;
+  endDate: Date;
+  selectedProjects: string[];
+  showProjectWinRate: boolean;
 }
 
 const ExperimentWinRate: React.FC<ExperimentWinRateProps> = ({
@@ -20,7 +22,9 @@ const ExperimentWinRate: React.FC<ExperimentWinRateProps> = ({
   startDate,
   endDate,
   selectedProjects,
+  showProjectWinRate = true,
 }) => {
+  const { getProjectById } = useDefinitions();
   const wins = experiments.filter(
     (exp) => exp.status === "stopped" && exp.results === "won"
   ).length;
@@ -37,69 +41,100 @@ const ExperimentWinRate: React.FC<ExperimentWinRateProps> = ({
   const goodPercentHigh = 38;
 
   return (
-    <Frame>
+    <Box>
       <Flex align="start" justify="between">
-        <Box flexBasis="33%" flexShrink="0">
-          <Heading as="h3" size="3">
-            Win percentage{" "}
-            <Tooltip
-              body={`This shows percentage of experiments that were won vs lost or inconclusive.`}
-            />
-          </Heading>
-          <Tooltip
-            body={`A win percentage between ${goodPercentLow}% and ${goodPercentHigh}% is expected and standard.`}
-          >
-            <RateDial
-              winRate={winRate}
-              goodPercentLow={goodPercentLow}
-              goodPercentHigh={goodPercentHigh}
-            />
-          </Tooltip>
-          <Box className="appbox" p="3" mb="3">
-            <Flex direction="column" gap="0" align={"center"}>
-              <span>
+        <Box flexBasis="100%" flexShrink="1">
+          <Flex justify="between">
+            <Heading as="h3" size="3">
+              Win percentage{" "}
+              <Tooltip
+                body={`This shows percentage of experiments that were won vs lost or inconclusive.`}
+              />
+            </Heading>
+            <Box>
+              <Text weight="medium">
                 {dateRange === "custom" ? (
                   <>
-                    From {startDate} to {endDate}
+                    From {startDate ? format(startDate, "MMM dd yyy") : "-"} to{" "}
+                    {endDate ? format(endDate, "MMM dd yyy") : "-"}
                   </>
                 ) : (
-                  <>In the past {dateRange} days</>
+                  <>Past {dateRange} days</>
                 )}
-              </span>
-              <span>
-                {selectedProjects?.length ? (
-                  <>
-                    The selected projects ran {total} experiment
-                    {total === 1 ? "" : "s"}
-                  </>
-                ) : (
-                  <>
-                    {total} experiment{total === 1 ? "" : "s"} were completed
-                  </>
-                )}
-              </span>
-              <span>
-                {wins} won, {losses} lost, {incon} inconclusive
-              </span>
-            </Flex>
+              </Text>
+            </Box>
+          </Flex>
+          <Box>
+            {selectedProjects
+              ? selectedProjects.map((p) => getProjectById(p)?.name).join(", ")
+              : ""}
           </Box>
-        </Box>
-        <Box>
-          {selectedProjects?.length ? (
-            <>something for this particular project:</>
-          ) : (
-            <>All projects</>
-          )}
-          <ExperimentGraph
-            resolution={"month"}
-            num={12}
-            height={220}
-            initialShowBy={"results"}
-          />
-          <Box></Box>
+          <Flex width="100%" gap="3" align="center">
+            {showProjectWinRate ? (
+              <>
+                <Flex justify="between" gap="4" width="100%">
+                  <Box flexBasis="50%" flexGrow="0" flexShrink="1">
+                    <Tooltip
+                      body={`A win percentage between ${goodPercentLow}% and ${goodPercentHigh}% is expected and standard.`}
+                    >
+                      <RateDial
+                        winRate={winRate}
+                        goodPercentLow={goodPercentLow}
+                        goodPercentHigh={goodPercentHigh}
+                      />
+                    </Tooltip>
+                    <Box>
+                      <span>
+                        <>
+                          Of the {total} experiment{total === 1 ? " " : "s "}
+                          completed,
+                        </>
+                      </span>
+                      <span>
+                        {" "}
+                        {wins} won, {losses} lost, {incon} inconclusive
+                      </span>
+                    </Box>
+                  </Box>
+                  <Box flexBasis="50%" flexGrow="1" flexShrink="0">
+                    <ExperimentWinRateByProject
+                      selectedProjects={selectedProjects}
+                      experiments={experiments}
+                    />
+                  </Box>
+                </Flex>
+              </>
+            ) : (
+              <>
+                <Box flexGrow="1" flexShrink="0" flexBasis="60%">
+                  <Tooltip
+                    body={`A win percentage between ${goodPercentLow}% and ${goodPercentHigh}% is expected and standard.`}
+                  >
+                    <RateDial
+                      winRate={winRate}
+                      goodPercentLow={goodPercentLow}
+                      goodPercentHigh={goodPercentHigh}
+                    />
+                  </Tooltip>
+                </Box>
+                <Box>
+                  <span>
+                    <>
+                      Of the {total} experiment{total === 1 ? " " : "s "}
+                      completed,
+                    </>
+                  </span>
+                  <span>
+                    {" "}
+                    {wins} won, {losses} lost, {incon} inconclusive
+                  </span>
+                </Box>
+              </>
+            )}
+          </Flex>
         </Box>
       </Flex>
-    </Frame>
+    </Box>
   );
 };
 
