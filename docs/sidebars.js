@@ -593,6 +593,12 @@ const sidebars = {
       items: [
         {
           type: "doc",
+          id: "integrations/framer",
+          label: "Framer",
+          className: "pill-new"
+        },
+        {
+          type: "doc",
           id: "integrations/slack",
           label: "Slack alerts",
         },
@@ -679,12 +685,6 @@ const sidebars = {
       },
       className: "top-divider",
       items: [
-        {
-          type: "doc",
-          id: "integrations/framer",
-          label: "Framer",
-          className: "pill-new"
-        },
         {
           type: "doc",
           id: "guide/strapi",
