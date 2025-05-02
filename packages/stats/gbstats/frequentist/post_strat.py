@@ -139,6 +139,190 @@ class PostStratification(BasePostStratification):
 
 
 # Regression version of Algorithm 1 for count metrics
+class PostStratificationRegressionAdjustedSharedTheta:
+    def __init__(
+        self,
+        stat_a: List[RegressionAdjustedStatistic],
+        stat_b: List[RegressionAdjustedStatistic],
+        alpha: float = 0.05,
+    ):
+        self.stat_a = stat_a
+        self.stat_b = stat_b
+        self.alpha = alpha
+
+    @property
+    def num_cells(self) -> int:
+        return len(self.stat_a)
+
+    @property
+    def n_a(self) -> np.ndarray:
+        return np.array([stat.n for stat in self.stat_a])
+
+    @property
+    def n_b(self) -> np.ndarray:
+        return np.array([stat.n for stat in self.stat_b])
+
+    @property
+    def n(self) -> np.ndarray:
+        return self.n_a + self.n_b
+
+    @property
+    def n_total(self) -> int:
+        return np.sum(self.n)
+
+    @property
+    def len_alpha(self) -> int:
+        return 2
+
+    @property
+    def len_gamma(self) -> int:
+        return 2 * self.num_cells + 1
+
+    @property
+    def xtx(self) -> np.ndarray:
+        xtx = np.zeros((self.len_gamma, self.len_gamma))
+        for cell in range(self.num_cells):
+            start = cell * 2
+            xtx[start, start] = self.n[cell]
+            xtx[start + 1, start] = self.n_b[cell]
+            xtx[start, start + 1] = xtx[start + 1, start]
+            xtx[start + 1, start + 1] = self.n_b[cell]
+            xtx[start, self.len_gamma - 1] = (
+                self.stat_a[cell].pre_statistic.sum
+                + self.stat_b[cell].pre_statistic.sum
+            )
+            xtx[start + 1, self.len_gamma - 1] = self.stat_b[cell].pre_statistic.sum
+            xtx[self.len_gamma - 1, start] = xtx[start, self.len_gamma - 1]
+            xtx[self.len_gamma - 1, start + 1] = xtx[start + 1, self.len_gamma - 1]
+            xtx[self.len_gamma - 1, self.len_gamma - 1] += (
+                self.stat_a[cell].pre_statistic.sum_squares
+                + self.stat_b[cell].pre_statistic.sum_squares
+            )
+        return xtx
+
+    @property
+    def xty(self) -> np.ndarray:
+        xty = np.zeros((self.len_gamma, 1))
+        for cell in range(self.num_cells):
+            start = cell * 2
+            xty[start] = (
+                self.stat_a[cell].post_statistic.sum
+                + self.stat_b[cell].post_statistic.sum
+            )
+            xty[start + 1] = self.stat_b[cell].post_statistic.sum
+            xty[self.len_gamma - 1] += (
+                self.stat_a[cell].post_pre_sum_of_products
+                + self.stat_b[cell].post_pre_sum_of_products
+            )
+        return xty
+
+    @property
+    def xtx_inv(self) -> np.ndarray:
+        return np.linalg.inv(self.xtx)
+
+    @property
+    def gammahat(self) -> np.ndarray:
+        return self.xtx_inv.dot(self.xty)
+
+    @property
+    def sigma(self) -> np.ndarray:
+        resids_part_1 = 0
+        for cell in range(self.num_cells):
+            resids_part_1 += (
+                self.stat_a[cell].post_statistic.sum_squares
+                + self.stat_b[cell].post_statistic.sum_squares
+            )
+        resids_part_2 = -self.xty.T.dot(self.xtx_inv).dot(self.xty)
+        return np.array(
+            (resids_part_1 + resids_part_2) / (self.n_total - self.len_gamma)
+        )
+
+    @property
+    def coef_covariance(self) -> np.ndarray:
+        return np.kron(self.sigma, self.xtx_inv)
+
+    @property
+    def baseline_statistic_combined(self) -> SampleMeanStatistic:
+        statistic_pre = SampleMeanStatistic(n=0, sum=0, sum_squares=0)
+        for cell in range(self.num_cells):
+            statistic_pre += (
+                self.stat_a[cell].pre_statistic + self.stat_b[cell].pre_statistic
+            )
+        return statistic_pre
+
+    @property
+    def baseline_variance(self) -> float:
+        return self.baseline_statistic_combined.variance
+
+    @property
+    def contrast_matrix(self) -> np.ndarray:
+        m = np.zeros((2 * self.num_cells, self.len_gamma))
+        for cell in range(self.num_cells):
+            statistic_pre = (
+                self.stat_a[cell].pre_statistic + self.stat_b[cell].pre_statistic
+            )
+            start = cell * 2
+            m[start, start] = 1
+            m[start, self.len_gamma - 1] = statistic_pre.mean
+            m[start + 1, start + 1] = 1
+        return m
+
+    def contrast_matrix_estimated_mean(self, i: int) -> np.ndarray:
+        return np.expand_dims(self.contrast_matrix[i, :], axis=1)
+
+    def contrast_matrix_covariance(self, i: int, j: int) -> np.ndarray:
+        v = np.zeros((self.len_gamma, self.len_gamma))
+        if i % 2 == 0 and j % 2 == 0:
+            cell_i = int(i / self.len_alpha)
+            cell_j = int(j / self.len_alpha)
+            statistic_pre_i = (
+                self.stat_a[cell_i].pre_statistic + self.stat_b[cell_i].pre_statistic
+            )
+            statistic_pre_j = (
+                self.stat_a[cell_j].pre_statistic + self.stat_b[cell_j].pre_statistic
+            )
+            v[self.len_gamma - 1, self.len_gamma - 1] = (
+                statistic_pre_i.variance / statistic_pre_i.n
+                + statistic_pre_j.variance / statistic_pre_j.n
+            )
+            # v[self.len_gamma-1, self.len_gamma-1] = self.baseline_variance / self.n_total
+        return v
+
+    def contrast_matrix_second_moment(self, i: int, j: int) -> np.ndarray:
+        m_i = self.contrast_matrix_estimated_mean(i)
+        m_j = self.contrast_matrix_estimated_mean(j)
+        return self.contrast_matrix_covariance(i, j) + m_i.dot(m_j.T)
+
+    @property
+    def mean(self) -> np.ndarray:
+        return self.contrast_matrix.dot(self.gammahat).ravel()
+
+    def compute_result(self) -> List[StrataResult]:
+        results = []
+        for cell in range(self.num_cells):
+            start = cell * 2
+            this_mean = self.mean[start : start + 2]
+            v_alpha = np.zeros((self.len_alpha, self.len_alpha))
+            for i in range(self.len_alpha):
+                for j in range(i + 1):
+                    sum_1 = np.trace(
+                        self.coef_covariance.dot(
+                            self.contrast_matrix_second_moment(start + i, start + j)
+                        )
+                    )
+                    sum_2 = np.trace(
+                        self.gammahat.dot(self.gammahat.T).dot(
+                            self.contrast_matrix_covariance(start + i, start + j)
+                        )
+                    )
+                    v_alpha[i, j] = sum_1 + sum_2
+                    v_alpha[j, i] = v_alpha[i, j]
+            this_covariance = float(self.n[cell]) * v_alpha
+            results.append(StrataResult(self.n[cell], this_mean, this_covariance))
+        return results
+
+
+# Regression version of Algorithm 1 for count metrics
 class PostStratificationRegressionAdjusted:
     def __init__(
         self,
@@ -213,7 +397,7 @@ class PostStratificationRegressionAdjusted:
             self.stat_a.post_statistic.sum_squares
             + self.stat_b.post_statistic.sum_squares
         )
-        resids_part_2 = -self.xty.T.dot(np.linalg.inv(self.xtx)).dot(self.xty)
+        resids_part_2 = -self.xty.T.dot(self.xtx_inv).dot(self.xty)
         return np.array((resids_part_1 + resids_part_2) / (self.n - 3))
 
     @property
@@ -1059,4 +1243,44 @@ class PostStratificationSummaryXieRatio(PostStratificationSummaryRatio):
         v = np.zeros((self.len_alpha, self.len_alpha))
         for i, stat in enumerate(self.stats):
             v += stat.covariance * self.nu_adjusted[i] ** 2 / self.n[i]
+        return v
+
+
+class PostStratificationMiratrax(PostStratification):
+    # assume 50-50 split for now
+    @property
+    def beta_a(self) -> float:
+        return 1
+
+    # assume 50-50 split for now
+    @property
+    def beta_b(self) -> float:
+        return 1
+
+    @property
+    def lambda_a(self) -> np.ndarray:
+        return np.array([(1 + self.beta_a) * self.stat_a.variance])
+
+    @property
+    def lambda_b(self) -> np.ndarray:
+        return np.array([(1 + self.beta_b) * self.stat_b.variance])
+
+    @property
+    def strata_covariance(self) -> np.ndarray:
+        nrow_v = 2 * self.len_alpha
+        v = np.zeros((nrow_v, nrow_v))
+        v[0 : self.len_alpha, 0 : self.len_alpha] = self.lambda_b
+        v[
+            self.len_alpha : (2 * self.len_alpha), self.len_alpha : (2 * self.len_alpha)
+        ] = self.lambda_a
+        return v
+
+
+class PostStratificationSummaryMiratrax(PostStratificationSummary):
+    @property
+    def estimated_variance(self) -> float:
+        v = 0
+        for i, stat in enumerate(self.stats):
+            v += stat.covariance[1, 1] * self.nu_hat[i]
+        v /= self.n_total
         return v
