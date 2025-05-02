@@ -669,11 +669,17 @@ const sidebars = {
       },
       className: "top-divider",
       items: [
+        {type: "doc",
+          id: "integrations/framer",
+          label: "Framer",
+          className: "pill-new"
+        },
+
         {
           type: "doc",
           id: "guide/strapi",
-          label: "Strapi CMS",
-          className: "pill-new",
+          label: "Strapi CMS"
+          
         },
         {
           type: "doc",
