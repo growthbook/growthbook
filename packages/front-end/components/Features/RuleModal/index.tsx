@@ -325,6 +325,18 @@ export default function RuleModal({
       }
     }
   };
+  const safeRolloutRuleHasChanges = (values: SafeRolloutRuleCreateFields) => {
+    return Object.keys(values).some((key) => {
+      if (key === "safeRolloutFields") return false;
+
+      const value = values[key];
+      const originalValue = defaultValues[key];
+
+      const isDifferent =
+        JSON.stringify(value) !== JSON.stringify(originalValue);
+      return isDifferent;
+    });
+  };
 
   const submit = form.handleSubmit(async (values) => {
     const ruleAction = duplicate
@@ -585,7 +597,6 @@ export default function RuleModal({
         // eslint-disable-next-line
         delete (values as any).trackingKey;
         if (!values.sameSeed) {
-          console.log("deleting seed");
           // eslint-disable-next-line
           delete (values as any).seed;
         }
@@ -596,7 +607,6 @@ export default function RuleModal({
           safeRolloutFields.maxDuration.unit = "days";
         }
       }
-
       if (
         values.scheduleRules &&
         values.scheduleRules.length === 0 &&
@@ -623,22 +633,35 @@ export default function RuleModal({
         hasPrerequisites: !!values.prerequisites?.length,
         hasDescription: values.description && values.description.length > 0,
       });
-
-      let res: { version: number };
+      let res: { version: number } | undefined;
 
       if (!duplicate && i !== rules.length) {
-        res = await apiCall<{ version: number }>(
-          `/feature/${feature.id}/${version}/rule`,
-          {
+        if (values.type === "safe-rollout") {
+          res = await apiCall(`/safe-rollout/${values.safeRolloutId}`, {
             method: "PUT",
             body: JSON.stringify({
-              rule: values,
               environment,
               safeRolloutFields,
-              i,
-            } as PutFeatureRuleBody),
-          }
-        );
+            }),
+          });
+        }
+        if (
+          values.type !== "safe-rollout" ||
+          (values.type === "safe-rollout" &&
+            safeRolloutRuleHasChanges(values as SafeRolloutRuleCreateFields))
+        ) {
+          res = await apiCall<{ version: number }>(
+            `/feature/${feature.id}/${version}/rule`,
+            {
+              method: "PUT",
+              body: JSON.stringify({
+                rule: values,
+                environment,
+                i,
+              } as PutFeatureRuleBody),
+            }
+          );
+        }
       } else {
         res = await apiCall<{ version: number }>(
           `/feature/${feature.id}/${version}/rule`,
@@ -654,7 +677,9 @@ export default function RuleModal({
       }
 
       await mutate();
-      res.version && setVersion(res.version);
+      if (res && res?.version) {
+        setVersion(res.version);
+      }
     } catch (e) {
       track("Feature Rule Error", {
         source: ruleAction,
