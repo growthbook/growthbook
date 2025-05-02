@@ -2,6 +2,8 @@ import { OrganizationInterface } from "back-end/types/organization";
 import { FeatureInterface } from "back-end/types/feature";
 import { ExperimentInterface } from "back-end/types/experiment";
 import { findVercelInstallationByOrganization } from "back-end/src/models/VercelNativeIntegrationModel";
+import { APP_ORIGIN } from "back-end/src/util/secrets";
+import { logger } from "back-end/src/util/logger";
 
 const VERCEL_URL = "https://api.vercel.com";
 
@@ -19,8 +21,6 @@ export type VercelExperimentationItem = {
   createdAt?: number;
   updatedAt?: number;
 };
-
-const FEATURE_ORIGIN = "app.growthbook.io";
 
 export const getVercelSSOToken = async ({
   code,
@@ -83,7 +83,7 @@ const vercelFeatureExperimentationItem = ({
 }: FeatureInterface): VercelExperimentationItem => ({
   id,
   slug,
-  origin: FEATURE_ORIGIN,
+  origin: APP_ORIGIN,
   category: "flag",
   isArchived,
   description,
@@ -101,7 +101,7 @@ const vercelExperimentExperimentationItem = ({
 }: ExperimentInterface): VercelExperimentationItem => ({
   id,
   slug,
-  origin: FEATURE_ORIGIN,
+  origin: APP_ORIGIN,
   category: "experiment",
   isArchived,
   description,
@@ -116,28 +116,32 @@ const createVercelExperimentationItem = async ({
   experimentationItem: VercelExperimentationItem;
   organization: OrganizationInterface;
 }) => {
-  const {
-    installationId,
-    resourceId,
-    accessToken,
-  } = await getVercelInstallationData(organization.id);
+  try {
+    const {
+      installationId,
+      resourceId,
+      accessToken,
+    } = await getVercelInstallationData(organization.id);
 
-  const ret = await fetch(
-    `${VERCEL_URL}/v1/installations/${installationId}/resources/${resourceId}/experimentation/items`,
-    {
-      method: "POST",
-      body: JSON.stringify({
-        items: [experimentationItem],
-      }),
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-    }
-  );
+    const ret = await fetch(
+      `${VERCEL_URL}/v1/installations/${installationId}/resources/${resourceId}/experimentation/items`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          items: [experimentationItem],
+        }),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
 
-  if (!ret.ok)
-    throw new Error(`Error creating vercel resource: ${await ret.text()}`);
+    if (!ret.ok)
+      throw new Error(`Error creating vercel resource: ${await ret.text()}`);
+  } catch (err) {
+    logger.error("Error while creating vercel experimentation item:", err);
+  }
 };
 
 export const createVercelExperimentationItemFromFeature = ({
@@ -171,28 +175,32 @@ const updateVercelExperimentationItem = async ({
   experimentationItem: VercelExperimentationItem;
   organization: OrganizationInterface;
 }) => {
-  const {
-    installationId,
-    resourceId,
-    accessToken,
-  } = await getVercelInstallationData(organization.id);
+  try {
+    const {
+      installationId,
+      resourceId,
+      accessToken,
+    } = await getVercelInstallationData(organization.id);
 
-  const { id: _id, ...updatedItem } = experimentationItem;
+    const { id: _id, ...updatedItem } = experimentationItem;
 
-  const ret = await fetch(
-    `${VERCEL_URL}/v1/installations/${installationId}/resources/${resourceId}/experimentation/items/${experimentationItem.id}`,
-    {
-      method: "PATCH",
-      body: JSON.stringify(updatedItem),
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-    }
-  );
+    const ret = await fetch(
+      `${VERCEL_URL}/v1/installations/${installationId}/resources/${resourceId}/experimentation/items/${experimentationItem.id}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(updatedItem),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
 
-  if (!ret.ok)
-    throw new Error(`Error updating vercel resource: ${await ret.text()}`);
+    if (!ret.ok)
+      throw new Error(`Error updating vercel resource: ${await ret.text()}`);
+  } catch (err) {
+    logger.error("Error while creating vercel experimentation item:", err);
+  }
 };
 
 export const updateVercelExperimentationItemFromFeature = ({

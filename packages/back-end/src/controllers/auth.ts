@@ -133,8 +133,10 @@ export async function setResponseCookies(
     });
   }
 
-  IdTokenCookie.setValue(idToken, req, res, expiresIn);
+  IdTokenCookie.setValue(idToken, req, res, Math.max(600, expiresIn));
   RefreshTokenCookie.setValue(refreshToken, req, res);
+
+  return idToken;
 }
 
 export async function sendLocalSuccessResponse(
@@ -143,21 +145,7 @@ export async function sendLocalSuccessResponse(
   user: UserInterface,
   projectId?: string
 ) {
-  const { idToken, refreshToken, expiresIn } = await auth.processCallback(
-    req,
-    res,
-    user
-  );
-
-  if (!idToken) {
-    return res.status(400).json({
-      status: 400,
-      message: "Unable to create id token for user",
-    });
-  }
-
-  IdTokenCookie.setValue(idToken, req, res, Math.max(600, expiresIn));
-  RefreshTokenCookie.setValue(refreshToken, req, res);
+  const idToken = await setResponseCookies(req, res, user);
 
   res.status(200).json({
     status: 200,

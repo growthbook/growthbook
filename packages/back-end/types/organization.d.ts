@@ -249,8 +249,6 @@ export interface OrganizationSettings {
 
 export interface OrganizationConnections {
   slack?: SlackConnection;
-  /** @deprecated this field is not used anymore. */
-  vercel?: VercelConnection;
 }
 
 export interface SlackConnection {

@@ -23,7 +23,6 @@ import {
   getCollection,
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";
-import { logger } from "back-end/src/util/logger";
 
 const baseMemberFields = {
   _id: false,
@@ -136,19 +135,6 @@ const organizationSchema = new mongoose.Schema({
     slack: {
       team: String,
       token: String,
-    },
-    vercel: {
-      type: {
-        token: String,
-        configurationId: String,
-        teamId: String,
-      },
-      get: (v: unknown) => {
-        logger.error(
-          "Use of deprecated attribute `organization.connections.vercel`!"
-        );
-        return v;
-      },
     },
   },
   settings: {},

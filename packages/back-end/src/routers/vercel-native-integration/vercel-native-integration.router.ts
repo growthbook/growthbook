@@ -22,13 +22,13 @@ router.put(
 router.get(
   "/v1/installations/:installation_id",
   validateRequestMiddleware({ body: updateInstallationValidator }),
-  vercelController.upsertInstallation
+  vercelController.getInstallation
 );
 
 router.patch(
   "/v1/installations/:installation_id",
   validateRequestMiddleware({}),
-  vercelController.upsertInstallation
+  vercelController.updateInstallation
 );
 
 router.delete(
