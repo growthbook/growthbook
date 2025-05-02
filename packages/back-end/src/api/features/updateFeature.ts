@@ -24,6 +24,7 @@ import {
 } from "back-end/src/models/FeatureRevisionModel";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
+import { RevisionRules } from "back-end/src/validators/features";
 import { parseJsonSchemaForEnterprise, validateEnvKeys } from "./postFeature";
 
 export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
@@ -143,11 +144,11 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     const changedEnvironments: string[] = [];
     if ("defaultValue" in updates || "environmentSettings" in updates) {
       const revisionChanges: Partial<FeatureRevisionInterface> = {};
+      const revisedRules: RevisionRules = {};
 
       // Copy over current envSettings to revision as this endpoint support partial updates
       Object.entries(feature.environmentSettings).forEach(([env, settings]) => {
-        revisionChanges.rules = revisionChanges.rules || {};
-        revisionChanges.rules[env] = settings.rules;
+        revisedRules[env] = settings.rules;
       });
 
       let hasChanges = false;
@@ -171,12 +172,13 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
               hasChanges = true;
               changedEnvironments.push(env);
               // if the rule is different from the current feature value, update revisionChanges
-              revisionChanges.rules = revisionChanges.rules || {};
-              revisionChanges.rules[env] = settings.rules;
+              revisedRules[env] = settings.rules;
             }
           }
         );
       }
+
+      revisionChanges.rules = revisedRules;
 
       if (hasChanges) {
         const reviewRequired = featureRequiresReview(
