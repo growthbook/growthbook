@@ -2,13 +2,13 @@ import {
   computeRiskValues,
   ExperimentMetricInterface,
 } from "shared/experiments";
+import { getSRMValue } from "shared/health";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { ExperimentInterface } from "back-end/types/experiment";
 import { DifferenceType } from "back-end/types/stats";
 import { findDimensionById } from "back-end/src/models/DimensionModel";
-import { getSRMValue } from "shared/health";
 
-type ExperimentResultRow = {
+export type ExperimentResultRow = {
   experimentName: string;
   experimentId: string;
   snapshotId: string;
@@ -20,7 +20,7 @@ type ExperimentResultRow = {
   metricId: string;
   baselineVariationName: string | null;
   baselineVariationId: string | null;
-  baselineVariationUsers: number | null;
+  baselineVariationUnits: number | null;
   baselineVariationNumerator: number | null;
   baselineVariationDenominator: number | null;
   baselineVariationMean: number | null;
@@ -53,7 +53,10 @@ export async function getExperimentResultRows({
   metricMap,
   dimension,
 }: {
-  experiment: ExperimentInterface;
+  experiment: Pick<
+    ExperimentInterface,
+    "id" | "name" | "variations" | "organization" | "type"
+  >;
   snapshot: ExperimentSnapshotInterface;
   metricMap: Map<string, ExperimentMetricInterface>;
   dimension?: string;
@@ -68,7 +71,10 @@ export async function getExperimentResultRows({
 
   const srm = getSRMValue(experiment.type ?? "standard", snapshot);
   const multipleExposures = snapshot.multipleExposures;
-  const totalUnits = snapshot.health?.traffic.overall.variationUnits.reduce((a, b) => a + b, 0);
+  const totalUnits = snapshot.health?.traffic.overall.variationUnits.reduce(
+    (a, b) => a + b,
+    0
+  );
 
   snapshot.analyses.forEach((analysis) => {
     // Only keep default 3 analyses of 3 difference types
@@ -105,7 +111,7 @@ export async function getExperimentResultRows({
               metricId: metricId,
               baselineVariationId: experiment.variations[0]?.id ?? "0",
               baselineVariationName: experiment.variations[0]?.name ?? null,
-              baselineVariationUsers: baselineMetric?.users ?? null,
+              baselineVariationUnits: baselineMetric?.users ?? null,
               baselineVariationNumerator: baselineMetric?.value ?? null,
               baselineVariationDenominator: baselineMetric?.denominator ?? null,
               baselineVariationMean: baselineMetric?.cr ?? null,

@@ -9,9 +9,14 @@ required:
   - metricName
   - metricId
   - baselineVariationId
+  - baselineVariationUnits
+  - baselineVariationNumerator
+  - baselineVariationDenominator
+  - baselineVariationMean
+  - baselineVariationStdDev
   - variationName
   - variationId
-  - variationUsers
+  - variationUnits
   - variationNumerator
   - variationDenominator
   - variationMean
@@ -21,11 +26,11 @@ required:
   - chanceToBeatControl
   - relativeRisk
   - pValue
-  - pValueAdjusted
+  - pValueCorrected
   - ciLower
   - ciUpper
-  - ciLowerAdjusted
-  - ciUpperAdjusted
+  - ciLowerCorrected
+  - ciUpperCorrected
 properties:
   experimentName:
     type: string
@@ -67,9 +72,9 @@ properties:
     type: string
     description: "The id of the variation that is the baseline for this set of results."
     nullable: true
-  baselineVariationUsers:
+  baselineVariationUnits:
     type: number
-    description: "Number of users in the baseline variation. This is the denominator for non-ratio metrics."
+    description: "Number of units (e.g. users) in the baseline variation. This is the denominator for non-ratio metrics."
     nullable: true
   baselineVariationNumerator:
     type: number
@@ -95,9 +100,9 @@ properties:
     type: string
     description: "The unique identifier of the variation being compared to the baseline."
     nullable: true
-  variationUsers:
+  variationUnits:
     type: number
-    description: "Number of users in the variation being compared. This is the denominator for non-ratio metrics."
+    description: "Number of units (e.g. users) in the variation being compared. This is the denominator for non-ratio metrics."
   variationNumerator:
     type: number
     description: "Metric numerator value for the variation being compared."
@@ -135,9 +140,9 @@ properties:
     type: number
     description: "The p-value for the statistical test comparing the variations. Only present if the Frequentist engine is being used."
     nullable: true
-  pValueAdjusted:
+  pValueCorrected:
     type: number
-    description: "The p-value adjusted for multiple comparisons. Only present if multiple comparisons corrections are turned on and the Frequentist engine is being used."
+    description: "The p-value corrected for multiple comparisons. Only present if multiple comparisons corrections are turned on and the Frequentist engine is being used."
     nullable: true
   ciLower:
     type: number
@@ -147,11 +152,11 @@ properties:
     type: number
     description: "The upper bound of the confidence interval for the effect size."
     nullable: true
-  ciLowerAdjusted:
+  ciLowerCorrected:
     type: number
-    description: "The lower bound of the adjusted confidence interval for the effect size. Only present if multiple comparisons corrections are turned on and the Frequentist engine is being used."
+    description: "The lower bound of the confidence interval for the effect size, corrected for multiple comparisons. Only present if multiple comparisons corrections are turned on and the Frequentist engine is being used."
     nullable: true
-  ciUpperAdjusted:
+  ciUpperCorrected:
     type: number
-    description: "The upper bound of the adjusted confidence interval for the effect size. Only present if multiple comparisons corrections are turned on and the Frequentist engine is being used."
+    description: "The upper bound of the confidence interval for the effect size, corrected for multiple comparisons. Only present if multiple comparisons corrections are turned on and the Frequentist engine is being used."
     nullable: true

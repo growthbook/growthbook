@@ -1,14 +1,15 @@
-import { GetExperimentResultsResponse } from "back-end/types/openapi";
+import { GetResultsExperimentResponse } from "back-end/types/openapi";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getLatestSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
-import { toSnapshotApiInterface } from "back-end/src/services/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { getExperimentResultsValidator } from "back-end/src/validators/openapi";
+import { getResultsExperimentValidator } from "back-end/src/validators/openapi";
+import { getExperimentResultRows } from "back-end/src/services/experimentResults";
+import { getMetricMap } from "back-end/src/models/MetricModel";
 
-export const getExperimentResults = createApiRequestHandler(
-  getExperimentResultsValidator
+export const getResultsExperiment = createApiRequestHandler(
+  getResultsExperimentValidator
 )(
-  async (req): Promise<GetExperimentResultsResponse> => {
+  async (req): Promise<GetResultsExperimentResponse> => {
     const experiment = await getExperimentById(req.context, req.params.id);
     if (!experiment) {
       throw new Error("Could not find experiment with that id");
@@ -29,10 +30,16 @@ export const getExperimentResults = createApiRequestHandler(
       throw new Error("No results found for that experiment");
     }
 
-    const result = toSnapshotApiInterface(experiment, snapshot);
+    const metricMap = await getMetricMap(req.context);
+    const rows = await getExperimentResultRows({
+      experiment,
+      snapshot,
+      metricMap,
+      dimension: req.query.dimension,
+    });
 
     return {
-      result: result,
+      result: rows,
     };
   }
 );
