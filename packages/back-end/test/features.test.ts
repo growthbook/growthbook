@@ -1355,6 +1355,135 @@ describe("SDK Payloads", () => {
     });
   });
 
+  it("Uses safe rollouts to build feature definitions", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "safe-rollout",
+        controlValue: "false",
+        variationValue: "true",
+        safeRolloutId: "sr_123",
+        status: "running",
+        hashAttribute: "user_id",
+        seed: "testing",
+        trackingKey: "exp-key",
+        description: "",
+        id: "abc",
+        enabled: true,
+      },
+    ];
+
+    // Includes the running safe rollout as an experiment with the right preset coverage
+    // and weights
+    expect(
+      getFeatureDefinition({
+        feature,
+        environment: "production",
+        groupMap: groupMap,
+        experimentMap: experimentMap,
+      })
+    ).toEqual({
+      defaultValue: true,
+      project: undefined,
+      rules: [
+        {
+          id: "abc",
+          key: "exp-key",
+          coverage: 1,
+          hashAttribute: "user_id",
+          hashVersion: 2,
+          meta: [
+            {
+              key: "0",
+              name: "Control",
+            },
+            {
+              key: "1",
+              name: "Variation",
+            },
+          ],
+          name: "feature - Safe Rollout",
+          phase: "0",
+          seed: "testing",
+          variations: [false, true],
+          weights: [0.5, 0.5],
+        },
+      ],
+    });
+
+    const feature2 = cloneDeep(baseFeature);
+    feature2.environmentSettings["production"].rules = [
+      {
+        type: "safe-rollout",
+        controlValue: "false",
+        variationValue: "true",
+        safeRolloutId: "sr_123",
+        status: "rolled-back",
+        hashAttribute: "user_id",
+        seed: "testing",
+        trackingKey: "exp-key",
+        description: "",
+        id: "abc",
+        enabled: true,
+      },
+    ];
+
+    // Includes the rolled-back safe rollout as a force rule with the control value
+    expect(
+      getFeatureDefinition({
+        feature: feature2,
+        environment: "production",
+        groupMap: groupMap,
+        experimentMap: experimentMap,
+      })
+    ).toEqual({
+      defaultValue: true,
+      project: undefined,
+      rules: [
+        {
+          id: "abc",
+          force: false,
+        },
+      ],
+    });
+
+    const feature3 = cloneDeep(baseFeature);
+    feature3.environmentSettings["production"].rules = [
+      {
+        type: "safe-rollout",
+        controlValue: "false",
+        variationValue: "true",
+        safeRolloutId: "sr_123",
+        status: "released",
+        hashAttribute: "user_id",
+        seed: "testing",
+        trackingKey: "exp-key",
+        description: "",
+        id: "abc",
+        enabled: true,
+      },
+    ];
+
+    // Includes the released safe rollout as a force rule with the variation value
+    expect(
+      getFeatureDefinition({
+        feature: feature3,
+        environment: "production",
+        groupMap: groupMap,
+        experimentMap: experimentMap,
+      })
+    ).toEqual({
+      defaultValue: true,
+      project: undefined,
+      rules: [
+        {
+          id: "abc",
+          force: true,
+        },
+      ],
+    });
+  });
+
   it("Gets Feature Definitions", () => {
     const feature = cloneDeep(baseFeature);
 

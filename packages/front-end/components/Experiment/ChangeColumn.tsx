@@ -90,13 +90,17 @@ export default function ChangeColumn({
                 (rowResults.directionalStatus === "losing" &&
                   metric.inverse) ? (
                   <FaArrowUp />
-                ) : (
+                ) : expected !== 0 ? (
                   <FaArrowDown />
-                )}
+                ) : null}
               </span>{" "}
-              <span className="expected">
-                {formatter(expected, formatterOptions)}{" "}
-              </span>
+              {expected === 0 && stats.errorMessage ? (
+                <span className="expected">n/a</span>
+              ) : (
+                <span className="expected">
+                  {formatter(expected, formatterOptions)}{" "}
+                </span>
+              )}
               {statsEngine === "frequentist" && showPlusMinus ? (
                 <span className="plusminus font-weight-normal text-gray ml-1">
                   ±

@@ -1,8 +1,10 @@
+import { addDays, differenceInHours, differenceInMinutes } from "date-fns";
 import {
   DecisionCriteriaAction,
   DecisionCriteriaData,
   DecisionCriteriaRule,
   DecisionFrameworkExperimentRecommendationStatus,
+  DecisionFrameworkVariation,
   ExperimentAnalysisSummaryResultsStatus,
   ExperimentAnalysisSummaryVariationStatus,
   ExperimentDataForStatus,
@@ -11,6 +13,10 @@ import {
   ExperimentResultStatusData,
   ExperimentUnhealthyData,
 } from "back-end/types/experiment";
+import {
+  SafeRolloutInterface,
+  SafeRolloutSnapshotInterface,
+} from "back-end/types/safe-rollout";
 import { OrganizationSettings } from "back-end/types/organization";
 import {
   DEFAULT_DECISION_FRAMEWORK_ENABLED,
@@ -24,7 +30,7 @@ import {
 import { daysBetween } from "../../dates";
 import { getMultipleExposureHealthData, getSRMHealthData } from "../../health";
 import {
-  DEFAULT_DECISION_CRITERIA,
+  PRESET_DECISION_CRITERIA,
   PRESET_DECISION_CRITERIAS,
 } from "./constants";
 
@@ -114,11 +120,11 @@ export function getVariationDecisions({
   guardrailMetrics: string[];
   requireSuperStatSig: boolean;
 }): {
-  variationId: string;
+  variation: DecisionFrameworkVariation;
   decisionCriteriaAction: DecisionCriteriaAction;
 }[] {
   const results: {
-    variationId: string;
+    variation: DecisionFrameworkVariation;
     decisionCriteriaAction: DecisionCriteriaAction;
   }[] = [];
 
@@ -136,7 +142,10 @@ export function getVariationDecisions({
       });
       if (action) {
         results.push({
-          variationId: variation.variationId,
+          variation: {
+            variationId: variation.variationId,
+            decidingRule: rule,
+          },
           decisionCriteriaAction: action,
         });
         decisionReached = true;
@@ -147,7 +156,10 @@ export function getVariationDecisions({
     // decision criteria
     if (!decisionReached) {
       results.push({
-        variationId: variation.variationId,
+        variation: {
+          variationId: variation.variationId,
+          decidingRule: null,
+        },
         decisionCriteriaAction: decisionCriteria.defaultAction,
       });
     }
@@ -194,11 +206,9 @@ export function getDecisionFrameworkStatus({
   // if you have reached your needed power or if you used sequential testing
   const decisionReady = powerReached || sequentialTesting;
 
-  const tooltipLanguage = powerReached
-    ? ` and experiment has reached the target statistical power.`
-    : sequentialTesting
-    ? ` and sequential testing is enabled, allowing decisions as soon as statistical significance is reached.`
-    : ".";
+  const rollbackTooltip = `The test variation(s) should be rolled back.`;
+  const shipTooltip = `A test variation is ready to ship.`;
+  const reviewTooltip = `A test variation is ready to be reviewed.`;
 
   if (decisionReady) {
     const variationDecisions = getVariationDecisions({
@@ -215,42 +225,39 @@ export function getDecisionFrameworkStatus({
     if (allRollbackNow) {
       return {
         status: "rollback-now",
-        variationIds: variationDecisions.map(({ variationId }) => variationId),
+        variations: variationDecisions.map(({ variation }) => variation),
         sequentialUsed: sequentialTesting,
         powerReached: powerReached,
-        tooltip: `Guardrails are failing and/or goal metrics are not improving for all variations ${tooltipLanguage}`,
+        tooltip: rollbackTooltip,
       };
     }
 
-    const anyShipNow = variationDecisions.some(
+    const shipVariations = variationDecisions.filter(
       (d) => d.decisionCriteriaAction === "ship"
     );
-    if (anyShipNow) {
+    if (shipVariations.length > 0) {
       return {
         status: "ship-now",
-        variationIds: variationDecisions
-          .filter((d) => d.decisionCriteriaAction === "ship")
-          .map(({ variationId }) => variationId),
+        variations: shipVariations.map(({ variation }) => variation),
         sequentialUsed: sequentialTesting,
         powerReached: powerReached,
-        tooltip: `Goal metrics are improving for a test variation with no failing guardrails ${tooltipLanguage}`,
+        tooltip: shipTooltip,
       };
     }
 
     // only return ready for review if power is reached, not for premature
     // sequential results
     if (powerReached) {
-      if (
-        variationDecisions.some((d) => d.decisionCriteriaAction === "review")
-      ) {
+      const reviewVariations = variationDecisions.filter(
+        (d) => d.decisionCriteriaAction === "review"
+      );
+      if (reviewVariations.length > 0) {
         return {
           status: "ready-for-review",
-          variationIds: variationDecisions
-            .filter((d) => d.decisionCriteriaAction === "review")
-            .map(({ variationId }) => variationId),
+          variations: reviewVariations.map(({ variation }) => variation),
           sequentialUsed: sequentialTesting,
           powerReached: powerReached,
-          tooltip: `The experiment has reached the target statistical power but the results are not conclusive.`,
+          tooltip: reviewTooltip,
         };
       }
     }
@@ -272,27 +279,25 @@ export function getDecisionFrameworkStatus({
     if (allRollbackNow) {
       return {
         status: "rollback-now",
-        variationIds: superStatSigVariationDecisions.map(
-          ({ variationId }) => variationId
+        variations: superStatSigVariationDecisions.map(
+          ({ variation }) => variation
         ),
         sequentialUsed: sequentialTesting,
         powerReached: powerReached,
-        tooltip: `The experiment has not reached the target statistical power, however there are strong negative signals for all test variations.`,
+        tooltip: rollbackTooltip,
       };
     }
 
-    const anyShipNow = superStatSigVariationDecisions.some(
+    const shipVariations = superStatSigVariationDecisions.filter(
       (d) => d.decisionCriteriaAction === "ship"
     );
-    if (anyShipNow) {
+    if (shipVariations.length > 0) {
       return {
         status: "ship-now",
-        variationIds: superStatSigVariationDecisions
-          .filter((d) => d.decisionCriteriaAction === "ship")
-          .map(({ variationId }) => variationId),
+        variations: shipVariations.map(({ variation }) => variation),
         sequentialUsed: sequentialTesting,
         powerReached: powerReached,
-        tooltip: `The experiment has not reached the target statistical power, however there are strong positive signals for a test variation.`,
+        tooltip: shipTooltip,
       };
     }
   }
@@ -346,15 +351,18 @@ export function getExperimentResultStatus({
       ? healthSummary.power.additionalDaysNeeded
       : undefined;
 
-  const decisionStatus = resultsStatus
-    ? getDecisionFrameworkStatus({
-        resultsStatus,
-        decisionCriteria,
-        goalMetrics: experimentData.goalMetrics,
-        guardrailMetrics: experimentData.guardrailMetrics,
-        daysNeeded,
-      })
-    : undefined;
+  // Fully skip decision framework if there are no goal metrics
+  // TODO @dmf-experiment: Add front-end information about this
+  let decisionStatus: ExperimentResultStatusData | undefined = undefined;
+  if (experimentData.goalMetrics.length && resultsStatus) {
+    decisionStatus = getDecisionFrameworkStatus({
+      resultsStatus,
+      decisionCriteria,
+      goalMetrics: experimentData.goalMetrics,
+      guardrailMetrics: experimentData.guardrailMetrics,
+      daysNeeded,
+    });
+  }
 
   const daysLeftStatus = daysNeeded
     ? getDaysLeftStatus({ daysNeeded })
@@ -466,11 +474,156 @@ export function getExperimentResultStatus({
   }
 }
 
+export function getSafeRolloutDaysLeft({
+  safeRollout,
+  snapshotWithResults,
+}: {
+  safeRollout: SafeRolloutInterface;
+  snapshotWithResults?: SafeRolloutSnapshotInterface;
+}) {
+  // Use latest snapshot date and safe rollout start date plus maxDurationDays to determine days left
+  const startDate = safeRollout.startedAt
+    ? new Date(safeRollout.startedAt)
+    : new Date();
+  const endDate = addDays(startDate, safeRollout?.maxDuration?.amount); // TODO: Add unit
+  const latestSnapshotDate = snapshotWithResults?.runStarted
+    ? new Date(snapshotWithResults?.runStarted)
+    : null;
+
+  const daysLeft = latestSnapshotDate
+    ? differenceInMinutes(endDate, latestSnapshotDate) / 1440
+    : safeRollout?.maxDuration?.amount; // TODO: Add unit
+
+  return daysLeft;
+}
+
+export function getSafeRolloutResultStatus({
+  safeRollout,
+  healthSettings,
+  daysLeft,
+}: {
+  safeRollout: SafeRolloutInterface;
+  healthSettings: ExperimentHealthSettings;
+  daysLeft: number;
+}): ExperimentResultStatusData | undefined {
+  const unhealthyData: ExperimentUnhealthyData = {};
+  const healthSummary = safeRollout.analysisSummary?.health;
+  const resultsStatus = safeRollout.analysisSummary?.resultsStatus;
+  const hoursRunning = differenceInHours(
+    Date.now(),
+    safeRollout.startedAt ? new Date(safeRollout.startedAt) : Date.now()
+  );
+
+  // If the safe rollout has been running for over 24 hours and no data has come in
+  // return no data
+  if (!healthSummary?.totalUsers && hoursRunning > 24) {
+    return {
+      status: "no-data",
+    };
+  } else if (healthSummary?.totalUsers) {
+    const srmHealthData = getSRMHealthData({
+      srm: healthSummary.srm,
+      srmThreshold: healthSettings.srmThreshold,
+      totalUsersCount: healthSummary.totalUsers,
+      numOfVariations: 2,
+      minUsersPerVariation: DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
+    });
+
+    if (srmHealthData === "unhealthy") {
+      unhealthyData.srm = true;
+    }
+
+    const multipleExposuresHealthData = getMultipleExposureHealthData({
+      multipleExposuresCount: healthSummary.multipleExposures,
+      totalUsersCount: healthSummary.totalUsers,
+      minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
+      minPercentThreshold: healthSettings.multipleExposureMinPercent,
+    });
+
+    if (multipleExposuresHealthData.status === "unhealthy") {
+      unhealthyData.multipleExposures = {
+        rawDecimal: multipleExposuresHealthData.rawDecimal,
+        multipleExposedUsers: healthSummary.multipleExposures,
+      };
+    }
+  }
+
+  const ROLLBACK_SAFE_ROLLOUT_DECISION_CRITERIA: DecisionCriteriaData = {
+    id: "gbdeccrit_rollback_safe_rollout",
+    name: "Rollback Safe Rollout",
+    description: "",
+    rules: [
+      {
+        conditions: [
+          {
+            match: "any",
+            metrics: "guardrails",
+            direction: "statsigLoser",
+          },
+        ],
+        action: "rollback",
+      },
+    ],
+    defaultAction: "review",
+  };
+
+  const decisionStatus = resultsStatus
+    ? getDecisionFrameworkStatus({
+        resultsStatus,
+        decisionCriteria: ROLLBACK_SAFE_ROLLOUT_DECISION_CRITERIA,
+        goalMetrics: [],
+        guardrailMetrics: safeRollout.guardrailMetricIds,
+        daysNeeded: Infinity, // sequential relied upon solely for safe rollouts
+      })
+    : undefined;
+
+  // If unhealthy, return unhealthy status
+  if (unhealthyData.srm || unhealthyData.multipleExposures) {
+    return {
+      status: "unhealthy",
+      unhealthyData,
+    };
+  }
+
+  // If rollback now, return rollback now
+  if (decisionStatus?.status === "rollback-now") {
+    return {
+      status: "rollback-now",
+      variations: decisionStatus.variations,
+      sequentialUsed: true,
+      powerReached: false,
+    };
+  }
+
+  // If no decision status, return days left status
+  if (daysLeft > 0) {
+    return {
+      status: "days-left",
+      daysLeft,
+    };
+  }
+
+  if (daysLeft <= 0 && resultsStatus) {
+    // If no days left, return ship decision
+    return {
+      status: "ship-now",
+      variations: [
+        {
+          variationId: "1",
+          decidingRule: null,
+        },
+      ],
+      sequentialUsed: true,
+      powerReached: false,
+    };
+  }
+}
+
 export function getPresetDecisionCriteriaForOrg(
   settings?: OrganizationSettings
 ) {
   return !settings?.defaultDecisionCriteriaId
-    ? DEFAULT_DECISION_CRITERIA
+    ? PRESET_DECISION_CRITERIA
     : PRESET_DECISION_CRITERIAS.find(
         (dc) => dc.id === settings.defaultDecisionCriteriaId
       );

@@ -139,6 +139,8 @@ import { ApiReqContext } from "back-end/types/api";
 import { ProjectInterface } from "back-end/types/project";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
+import { SafeRolloutSnapshotAnalysis } from "back-end/src/validators/safe-rollout-snapshot";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import {
   getIntegrationFromDatasourceId,
@@ -325,8 +327,17 @@ export async function getManualSnapshotData(
     const res = analyses[0];
     const data = res.dimensions[0];
     if (!data) return;
+
+    // If the value inside the ci is null from gbstats
+    // it actually means Infinity, so handle that case
     data.variations.map((v, i) => {
-      variations[i].metrics[metric] = v;
+      const ci: [number, number] | undefined = v.ci
+        ? [v.ci[0] ?? -Infinity, v.ci[1] ?? Infinity]
+        : undefined;
+      variations[i].metrics[metric] = {
+        ...v,
+        ci,
+      };
     });
   });
 
@@ -3002,13 +3013,14 @@ export async function getExperimentAnalysisSummary({
     (v) => v.settings.differenceType === "relative"
   );
 
+  // by default, we compute experiment results status on relative analysis
   if (relativeAnalysis) {
     const overallResults = relativeAnalysis.results?.[0];
     // redundant check for dimension
     if (overallResults && overallResults.name === "") {
       const resultsStatus = await computeResultsStatus({
         context,
-        relativeAnalysis,
+        analysis: relativeAnalysis,
         experiment,
       });
 
@@ -3045,16 +3057,26 @@ export async function updateExperimentAnalysisSummary({
   });
 }
 
-async function computeResultsStatus({
+function getVariationId(
+  experiment: ExperimentInterface | SafeRolloutInterface,
+  i: number
+): string {
+  if ("variations" in experiment) {
+    return experiment.variations?.[i]?.id;
+  }
+  return i + "";
+}
+
+export async function computeResultsStatus({
   context,
-  relativeAnalysis,
+  analysis,
   experiment,
 }: {
   context: ReqContext;
-  relativeAnalysis: ExperimentSnapshotAnalysis;
-  experiment: ExperimentInterface;
+  analysis: ExperimentSnapshotAnalysis | SafeRolloutSnapshotAnalysis;
+  experiment: ExperimentInterface | SafeRolloutInterface;
 }): Promise<ExperimentAnalysisSummaryResultsStatus | undefined> {
-  const statsEngine = relativeAnalysis.settings.statsEngine;
+  const statsEngine = analysis.settings.statsEngine;
   const pValueCorrection = getPValueCorrectionForOrg(context);
   const { ciUpper, ciLower } = getConfidenceLevelsForOrg(context);
   const metricDefaults = getMetricDefaultsForOrg(context);
@@ -3062,16 +3084,16 @@ async function computeResultsStatus({
   const metricMap = await getMetricMap(context);
   const metricGroups = await context.models.metricGroups.getAll();
 
-  const expandedGoalMetrics = expandMetricGroups(
-    experiment.goalMetrics,
-    metricGroups
-  );
-  const expandedGuardrailMetrics = expandMetricGroups(
-    experiment.guardrailMetrics,
-    metricGroups
-  );
+  const expandedGoalMetrics =
+    "goalMetrics" in experiment
+      ? expandMetricGroups(experiment.goalMetrics, metricGroups)
+      : [];
+  const expandedGuardrailMetrics =
+    "guardrailMetrics" in experiment
+      ? expandMetricGroups(experiment.guardrailMetrics, metricGroups)
+      : expandMetricGroups(experiment.guardrailMetricIds, metricGroups);
 
-  const results = cloneDeep(relativeAnalysis.results);
+  const results = cloneDeep(analysis.results);
 
   // modifies results in place
   setAdjustedPValuesOnResults(results, expandedGoalMetrics, pValueCorrection);
@@ -3087,10 +3109,10 @@ async function computeResultsStatus({
 
   for (let i = 1; i < variations.length; i++) {
     // try to get id from experiment object
-    const variationId = experiment.variations?.[i]?.id;
+    const variationId = getVariationId(experiment, i);
     const currentVariation = variations[i];
     const variationStatus: ExperimentAnalysisSummaryVariationStatus = {
-      variationId: variationId ?? i + "",
+      variationId,
       goalMetrics: {},
       guardrailMetrics: {},
     };
@@ -3154,7 +3176,7 @@ async function computeResultsStatus({
   return {
     variations: variationStatuses,
     settings: {
-      sequentialTesting: relativeAnalysis.settings.sequentialTesting ?? false,
+      sequentialTesting: analysis.settings.sequentialTesting ?? false,
     },
   };
 }

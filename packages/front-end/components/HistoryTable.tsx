@@ -99,7 +99,8 @@ export function HistoryTableRow({
   const userDisplay =
     ("name" in user && user.name) ||
     ("email" in user && user.email) ||
-    ("apiKey" in user && "API Key");
+    ("apiKey" in user && "API Key") ||
+    ("system" in user && "System");
   let colSpanNum = 4;
   if (showName) colSpanNum++;
   if (showType) colSpanNum++;

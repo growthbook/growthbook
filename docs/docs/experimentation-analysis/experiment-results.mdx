@@ -44,7 +44,7 @@ If you select the "Frequentist" engine, when you navigate to the results tab to 
 
 ![Results Table (Frequentist)](/images/results-table-frequentist.png)
 
-The **P-value** column is the probability that the experiment effect for a varitopm would have been observed if the true effect was zero. When the p-value is less than 0.05 (a customizable threshold set at the organization level) and the experiment effect is in the preferred direction, we highlight the cell green, indicating it is a clear winner. When the p-value is less than 0.05 and the experiment effect is _opposite_ the preferred direction, we highlight the cell red, indicating the variant is a clear loser on this metric.
+The **P-value** column is the probability that the experiment effect for a variation would have been observed if the true effect was zero. When the p-value is less than 0.05 (a customizable threshold set at the organization level) and the experiment effect is in the preferred direction, we highlight the cell green, indicating it is a clear winner. When the p-value is less than 0.05 and the experiment effect is _opposite_ the preferred direction, we highlight the cell red, indicating the variant is a clear loser on this metric.
 
 The graph now represents a 95% confidence interval (or 100\*(1 - $\alpha$)% confidence interval if you have a custom significance threshold other than 0.05).
 
@@ -52,8 +52,15 @@ The _% Change_ column is unaffected, although we now also represent the width of
 
 ## Guardrails
 
-In the new results view (as of GrowthBook 2.4), guardrail metrics are treated much like regular metrics, but they are placed in a separate part of the results view, have an additional tooltip warning if they are trending in the wrong direction, and are not part of any p-value corrections in the frequentist engine (in other words, even with p-value corrections applied, these results will be more sensitive to negative or positive trends).
+Guardrail metrics are treated much like regular metrics, but they are placed in a separate part of the results view, have an additional tooltip warning if they are trending in the wrong direction, and are not part of any p-value corrections in the frequentist engine (in other words, even with p-value corrections applied, these results will be more sensitive to negative or positive trends).
 
+## Time Series
+
+Time series showing the cumulative results of your experiment through a given experiment update are available in the experiment results. They use a history of experiment updates (either manually triggered or from automatic refreshes) to show how the results have evolved over time. To read more about time series, see the [Experiment Time Series](/app/experiment-time-series) documentation.
+
+<MaxWidthImage border maxWidth={800}>
+![Experiment Time Series](/images/experiment-time-series-tooltip.png)
+</MaxWidthImage>
 ## Results Table Settings
 
 There are several settings at the top of the results table that allow you to control your results.
@@ -105,8 +112,6 @@ Take the following results, for example.
 In the first graph, we see the number of users who were first exposed to the experiment on that day.
 
 In the second graph, we see the uplift for the two variations relative to the control _for all users first bucketed on that day_. That means that the values on October 7 show that users first exposed to the experiment on October 7 had X% uplift relative to control, when pooling all of the data in their relevant metric window. It does not mean show the difference in conversions across variations on October 7 for all previously bucketed users.
-
-That analysis, and other time series analyses, are on GrowthBook's roadmap.
 
 ## Experiment Health
 
