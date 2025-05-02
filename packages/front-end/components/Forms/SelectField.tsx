@@ -302,6 +302,7 @@ const SelectField: FC<SelectFieldProps> = ({
                   Input,
                 }}
                 isOptionDisabled={isOptionDisabled}
+                menuPortalTarget={document.body}
               />
             )}
             {required && (
