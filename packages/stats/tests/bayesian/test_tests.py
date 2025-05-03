@@ -18,7 +18,7 @@ from gbstats.models.statistics import (
     SampleMeanStatistic,
     QuantileStatistic,
 )
-from gbstats.models.tests import Uplift
+from gbstats.frequentist.tests import Uplift
 
 DECIMALS = 5
 round_ = partial(np.round, decimals=DECIMALS)

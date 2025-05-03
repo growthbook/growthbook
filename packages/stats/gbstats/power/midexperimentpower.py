@@ -4,14 +4,16 @@ import numpy as np
 from pydantic.dataclasses import dataclass
 from scipy.stats import norm
 
-from gbstats.models.tests import TestResult
+from gbstats.models.tests import (
+    TestResult,
+    frequentist_variance,
+    frequentist_variance_relative_cuped,
+)
 from gbstats.models.statistics import (
     TestStatistic,
     RegressionAdjustedStatistic,
 )
 from gbstats.frequentist.tests import (
-    frequentist_variance,
-    frequentist_variance_relative_cuped,
     sequential_interval_halfwidth,
 )
 from gbstats.bayesian.tests import GaussianPrior

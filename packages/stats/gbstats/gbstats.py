@@ -26,7 +26,7 @@ from gbstats.power.midexperimentpower import (
     MidExperimentPowerConfig,
 )
 
-from gbstats.models.tests import BaseConfig
+from gbstats.models.tests import BaseConfig, EffectMoments, EffectMomentsConfig
 
 from gbstats.frequentist.tests import (
     FrequentistConfig,
@@ -235,6 +235,10 @@ def get_configured_test(
     stat_a = variation_statistic_from_metric_row(row, "baseline", metric)
     stat_b = variation_statistic_from_metric_row(row, f"v{test_index}", metric)
 
+    moment_result = EffectMoments(
+        stat_a, stat_b, EffectMomentsConfig(difference_type=analysis.difference_type)
+    ).compute_result()
+
     base_config = {
         "total_users": row["total_users"],
         "traffic_percentage": analysis.traffic_percentage,
@@ -245,8 +249,7 @@ def get_configured_test(
     if analysis.stats_engine == "frequentist":
         if analysis.sequential_testing_enabled:
             return SequentialTwoSidedTTest(
-                stat_a,
-                stat_b,
+                moment_result,
                 SequentialConfig(
                     **base_config,
                     alpha=analysis.alpha,
@@ -255,8 +258,7 @@ def get_configured_test(
             )
         else:
             return TwoSidedTTest(
-                stat_a,
-                stat_b,
+                moment_result,
                 FrequentistConfig(
                     **base_config,
                     alpha=analysis.alpha,
@@ -270,8 +272,7 @@ def get_configured_test(
             proper=metric.prior_proper,
         )
         return EffectBayesianABTest(
-            stat_a,
-            stat_b,
+            moment_result,
             EffectBayesianConfig(
                 **base_config,
                 inverse=metric.inverse,
@@ -369,7 +370,7 @@ def analyze_metric_df(
                     sequential_tuning_parameter=analysis.sequential_tuning_parameter,
                 )
                 mid_experiment_power = MidExperimentPower(
-                    test.stat_a, test.stat_b, res, config, power_config
+                    test.result.stat_a, test.result.stat_b, res, config, power_config
                 )
 
                 s[
@@ -393,13 +394,13 @@ def analyze_metric_df(
                 ] = mid_experiment_power_result.upper_bound_achieved
                 s[f"v{i}_scaling_factor"] = mid_experiment_power_result.scaling_factor
 
-            s["baseline_cr"] = test.stat_a.unadjusted_mean
-            s["baseline_mean"] = test.stat_a.unadjusted_mean
-            s["baseline_stddev"] = test.stat_a.stddev
+            s["baseline_cr"] = test.result.stat_a.unadjusted_mean
+            s["baseline_mean"] = test.result.stat_a.unadjusted_mean
+            s["baseline_stddev"] = test.result.stat_a.stddev
 
-            s[f"v{i}_cr"] = test.stat_b.unadjusted_mean
-            s[f"v{i}_mean"] = test.stat_b.unadjusted_mean
-            s[f"v{i}_stddev"] = test.stat_b.stddev
+            s[f"v{i}_cr"] = test.result.stat_b.unadjusted_mean
+            s[f"v{i}_mean"] = test.result.stat_b.unadjusted_mean
+            s[f"v{i}_stddev"] = test.result.stat_b.stddev
 
             # Unpack result in Pandas row
             if isinstance(res, BayesianTestResult):
@@ -411,14 +412,14 @@ def analyze_metric_df(
                     s[f"v{i}_p_value"] = res.p_value
                 else:
                     s[f"v{i}_p_value_error_message"] = res.p_value_error_message
-            if test.stat_a.unadjusted_mean <= 0:
+            if test.unadjusted_baseline_mean <= 0:
                 # negative or missing control mean
                 s[f"v{i}_expected"] = 0
             elif res.expected == 0:
                 # if result is not valid, try to return at least the diff
                 s[f"v{i}_expected"] = (
-                    test.stat_b.mean - test.stat_a.mean
-                ) / test.stat_a.unadjusted_mean
+                    test.result.stat_b.mean - test.result.stat_a.mean
+                ) / test.result.unadjusted_baseline_mean
             else:
                 # return adjusted/prior-affected guess of expectation
                 s[f"v{i}_expected"] = res.expected

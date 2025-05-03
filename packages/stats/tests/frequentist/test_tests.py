@@ -5,7 +5,14 @@ from unittest import TestCase, main as unittest_main
 import numpy as np
 
 from gbstats.messages import ZERO_NEGATIVE_VARIANCE_MESSAGE
+
+from gbstats.models.tests import (
+    EffectMomentsConfig,
+    EffectMoments,
+)
+
 from gbstats.frequentist.tests import (
+    FrequentistConfig,
     FrequentistConfig,
     FrequentistTestResult,
     SequentialConfig,
@@ -15,6 +22,7 @@ from gbstats.frequentist.tests import (
     OneSidedTreatmentLesserTTest,
     SequentialOneSidedTreatmentGreaterTTest,
     SequentialOneSidedTreatmentLesserTTest,
+    Uplift,
 )
 from gbstats.models.statistics import (
     ProportionStatistic,
@@ -22,7 +30,6 @@ from gbstats.models.statistics import (
     SampleMeanStatistic,
     RegressionAdjustedRatioStatistic,
 )
-from gbstats.models.tests import Uplift
 
 DECIMALS = 5
 
@@ -50,9 +57,16 @@ def _round_result_dict(result_dict):
 
 class TestTwoSidedTTest(TestCase):
     def test_two_sided_ttest(self):
+        difference_type = "absolute"
+        effect_moments_config = EffectMomentsConfig(difference_type=difference_type)
         stat_a = SampleMeanStatistic(sum=1396.87, sum_squares=52377.9767, n=3407)
         stat_b = SampleMeanStatistic(sum=2422.7, sum_squares=134698.29, n=3461)
-        result_dict = asdict(TwoSidedTTest(stat_a, stat_b).compute_result())
+        moments_result = EffectMoments(
+            stat_a, stat_b, effect_moments_config
+        ).compute_result()
+
+        config = FrequentistConfig(difference_type="absolute")
+        result_dict = asdict(TwoSidedTTest(moments_result, config).compute_result())
         expected_rounded_dict = asdict(
             FrequentistTestResult(
                 expected=0.70732,

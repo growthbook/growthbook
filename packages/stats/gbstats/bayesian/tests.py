@@ -8,26 +8,17 @@ from scipy.stats import norm
 
 from gbstats.messages import (
     BASELINE_VARIATION_ZERO_MESSAGE,
-    ZERO_NEGATIVE_VARIANCE_MESSAGE,
     ZERO_SCALED_VARIATION_MESSAGE,
     NO_UNITS_IN_VARIATION_MESSAGE,
 )
-from gbstats.models.tests import BaseABTest, BaseConfig, TestResult, Uplift
-from gbstats.models.statistics import (
-    TestStatistic,
-    ProportionStatistic,
-    SampleMeanStatistic,
-    RegressionAdjustedStatistic,
-    RegressionAdjustedRatioStatistic,
+
+from gbstats.models.tests import (
+    BaseConfig,
+    EffectMomentsResult,
 )
 from gbstats.frequentist.tests import (
-    frequentist_diff,
-    frequentist_variance,
-    frequentist_variance_relative_cuped,
-    frequentist_variance_relative_cuped_ratio,
-    FrequentistConfig,
-    TwoSidedTTest,
-    FrequentistTestResult,
+    TestResult,
+    Uplift,
 )
 from gbstats.utils import (
     truncated_normal_mean,
@@ -65,14 +56,20 @@ class BayesianTestResult(TestResult):
     risk_type: RiskType
 
 
-class BayesianABTest(BaseABTest):
+class BayesianABTest:
     def __init__(
         self,
-        stat_a: TestStatistic,
-        stat_b: TestStatistic,
+        result: EffectMomentsResult,
         config: BayesianConfig = BayesianConfig(),
     ):
-        super().__init__(stat_a, stat_b)
+        self.result = result
+        self.n = result.stat_a.n + result.stat_b.n
+        self.point_estimate = result.point_estimate
+        self.standard_error = result.standard_error
+        self.unadjusted_baseline_mean = result.unadjusted_baseline_mean
+        self.scaled_impact_eligible = result.scaled_impact_eligible
+        self.moments_error_message = result.error_message
+        self.config = config
         self.alpha = config.alpha
         self.inverse = config.inverse
         self.relative = config.difference_type == "relative"
@@ -101,9 +98,6 @@ class BayesianABTest(BaseABTest):
             risk_type="relative" if self.relative else "absolute",
         )
 
-    def has_empty_input(self):
-        return self.stat_a.n == 0 or self.stat_b.n == 0
-
     def chance_to_win(self, mean_diff: float, std_diff: float) -> float:
         if self.inverse:
             return 1 - norm.sf(0, mean_diff, std_diff)  # type: ignore
@@ -115,10 +109,7 @@ class BayesianABTest(BaseABTest):
             raise ValueError("Cannot scale relative results.")
         if self.phase_length_days == 0 or self.traffic_percentage == 0:
             return self._default_output(ZERO_SCALED_VARIATION_MESSAGE)
-        if isinstance(
-            self.stat_a,
-            (ProportionStatistic, SampleMeanStatistic, RegressionAdjustedStatistic),
-        ):
+        if self.scaled_impact_eligible:
             if self.total_users:
                 daily_traffic = self.total_users / (
                     self.traffic_percentage * self.phase_length_days
@@ -146,209 +137,53 @@ class BayesianABTest(BaseABTest):
 class EffectBayesianABTest(BayesianABTest):
     def __init__(
         self,
-        stat_a: TestStatistic,
-        stat_b: TestStatistic,
+        result: EffectMomentsResult,
         config: EffectBayesianConfig = EffectBayesianConfig(),
     ):
-        super().__init__(stat_a, stat_b, config)
+        super().__init__(result, config)
         self.config = config
-
-    def compute_result(self):
-        if (
-            self.stat_a.mean == 0 or self.stat_a.unadjusted_mean == 0
-        ) and self.relative:
-            return self._default_output(BASELINE_VARIATION_ZERO_MESSAGE)
-        if self.has_empty_input():
-            return self._default_output(NO_UNITS_IN_VARIATION_MESSAGE)
-        if self._has_zero_variance():
-            return self._default_output(ZERO_NEGATIVE_VARIANCE_MESSAGE)
-
-        # rescale prior if needed
-        scaled_prior_effect = self.config.prior_effect
-        if self.relative and self.config == "absolute":
-            scaled_prior_effect = GaussianPrior(
-                self.config.prior_effect.mean / abs(self.stat_a.unadjusted_mean),
-                self.config.prior_effect.variance / pow(self.stat_a.unadjusted_mean, 2),
-                self.config.prior_effect.proper,
-            )
-        elif not self.relative and self.config.prior_type == "relative":
-            if self.config.prior_effect.proper and self.stat_a.unadjusted_mean == 0:
-                return self._default_output(BASELINE_VARIATION_ZERO_MESSAGE)
-            scaled_prior_effect = GaussianPrior(
-                self.config.prior_effect.mean * abs(self.stat_a.unadjusted_mean),
-                self.config.prior_effect.variance * pow(self.stat_a.unadjusted_mean, 2),
-                self.config.prior_effect.proper,
-            )
-        if (
-            isinstance(self.stat_a, RegressionAdjustedStatistic)
-            and isinstance(self.stat_b, RegressionAdjustedStatistic)
-            and self.relative
-        ):
-            data_variance = frequentist_variance_relative_cuped(
-                self.stat_a, self.stat_b
-            )
-        elif (
-            isinstance(self.stat_a, RegressionAdjustedRatioStatistic)
-            and isinstance(self.stat_b, RegressionAdjustedRatioStatistic)
-            and self.relative
-        ):
-            data_variance = frequentist_variance_relative_cuped_ratio(
-                self.stat_a, self.stat_b
-            )
-        else:
-            data_variance = frequentist_variance(
-                self.stat_a.variance,
-                self.stat_a.unadjusted_mean,
-                self.stat_a.n,
-                self.stat_b.variance,
-                self.stat_b.unadjusted_mean,
-                self.stat_b.n,
-                self.relative,
-            )
-        data_mean = frequentist_diff(
-            self.stat_a.mean,
-            self.stat_b.mean,
-            self.relative,
-            self.stat_a.unadjusted_mean,
-        )
-        if data_variance:
-            post_prec = 1 / data_variance + (
-                1 / scaled_prior_effect.variance if scaled_prior_effect.proper else 0
-            )
-            self.mean_diff = (
-                (
-                    data_mean / data_variance
-                    + scaled_prior_effect.mean / scaled_prior_effect.variance
-                )
-                / post_prec
-                if scaled_prior_effect.proper
-                else data_mean
-            )
-        else:
-            post_prec = (
-                1 / scaled_prior_effect.variance if scaled_prior_effect.proper else 0
-            )
-            self.mean_diff = (
-                scaled_prior_effect.mean if scaled_prior_effect.proper else 0
-            )
-        if post_prec == 0:
-            return self._default_output(BASELINE_VARIATION_ZERO_MESSAGE)
-        self.std_diff = np.sqrt(1 / post_prec)
-
-        ctw = self.chance_to_win(self.mean_diff, self.std_diff)
-        ci = gaussian_credible_interval(self.mean_diff, self.std_diff, self.alpha)
-        risk = self.get_risk(self.mean_diff, self.std_diff)
-        # flip risk for inverse metrics
-        risk = [risk[0], risk[1]] if not self.inverse else [risk[1], risk[0]]
-
-        result = BayesianTestResult(
-            chance_to_win=ctw,
-            expected=self.mean_diff,
-            ci=ci,
-            uplift=Uplift(
-                dist="normal",
-                mean=self.mean_diff,
-                stddev=self.std_diff,
-            ),
-            risk=risk,
-            risk_type="relative" if self.relative else "absolute",
-            error_message=None,
-        )
-        if self.scaled:
-            result = self.scale_result(result)
-        return result
-
-    @staticmethod
-    def get_risk(mu, sigma) -> List[float]:
-        prob_ctrl_is_better = norm.cdf(0.0, loc=mu, scale=sigma)
-        mn_neg = truncated_normal_mean(mu=mu, sigma=sigma, a=-np.inf, b=0.0)
-        mn_pos = truncated_normal_mean(mu=mu, sigma=sigma, a=0, b=np.inf)
-        risk_ctrl = float((1.0 - prob_ctrl_is_better) * mn_pos)
-        risk_trt = -float(prob_ctrl_is_better * mn_neg)
-        return [risk_ctrl, risk_trt]
-
-
-class EffectBayesianABTestPostStrat(BayesianABTest):
-    def __init__(
-        self,
-        stat_a: TestStatistic,
-        stat_b: TestStatistic,
-        config: EffectBayesianConfig = EffectBayesianConfig(),
-        result: Optional[FrequentistTestResult] = None,
-    ):
-        super().__init__(stat_a, stat_b, config)
-        self.config = config
-        self.result = result
 
     @property
-    def baseline_unadjusted_mean(self):
-        if self.result is not None:
-            return self.result.unadjusted_baseline_mean
-        else:
-            return self.stat_a.unadjusted_mean
+    def data_variance(self):
+        return self.standard_error**2
+
+    @property
+    def data_mean(self):
+        return self.point_estimate
 
     def compute_result(self):
-        if self.result is not None:
-            if self.result.error_message is not None:
-                return self._default_output(self.result.error_message)
-            if self.result.p_value_error_message is not None:
-                return self._default_output(self.result.p_value_error_message)
-            data_mean = self.result.uplift.mean
-            data_variance = (
-                self.result.uplift.stddev**2
-            )  # calculate data_mean and its variance
-        else:
-            freq_config = FrequentistConfig(
-                test_value=0,
-                alpha=self.alpha,
-                difference_type=self.config.difference_type,
-                traffic_percentage=self.traffic_percentage,
-                total_users=self.total_users,
-                phase_length_days=self.phase_length_days,
-            )
-            frequentist_result = TwoSidedTTest(
-                stat_a=self.stat_a,
-                stat_b=self.stat_b,
-                config=freq_config,
-            ).compute_result()
-            if frequentist_result.error_message is not None:
-                return self._default_output(frequentist_result.error_message)
-            if frequentist_result.p_value_error_message is not None:
-                return self._default_output(frequentist_result.p_value_error_message)
-            data_mean = frequentist_result.uplift.mean
-            data_variance = frequentist_result.uplift.stddev**2
+        if self.moments_error_message is not None:
+            return self._default_output(self.moments_error_message)
 
-        # rescale prior if needed
         scaled_prior_effect = self.config.prior_effect
         if self.relative and self.config == "absolute":
             scaled_prior_effect = GaussianPrior(
-                self.config.prior_effect.mean / abs(self.baseline_unadjusted_mean),
+                self.config.prior_effect.mean / abs(self.unadjusted_baseline_mean),
                 self.config.prior_effect.variance
-                / pow(self.baseline_unadjusted_mean, 2),
+                / pow(self.unadjusted_baseline_mean, 2),
                 self.config.prior_effect.proper,
             )
         elif not self.relative and self.config.prior_type == "relative":
-            if self.config.prior_effect.proper and self.baseline_unadjusted_mean == 0:
+            if self.config.prior_effect.proper and self.unadjusted_baseline_mean == 0:
                 return self._default_output(BASELINE_VARIATION_ZERO_MESSAGE)
             scaled_prior_effect = GaussianPrior(
-                self.config.prior_effect.mean * abs(self.baseline_unadjusted_mean),
+                self.config.prior_effect.mean * abs(self.unadjusted_baseline_mean),
                 self.config.prior_effect.variance
-                * pow(self.baseline_unadjusted_mean, 2),
+                * pow(self.unadjusted_baseline_mean, 2),
                 self.config.prior_effect.proper,
             )
-
-        if data_variance:
-            post_prec = 1 / data_variance + (
+        if self.data_variance:
+            post_prec = 1 / self.data_variance + (
                 1 / scaled_prior_effect.variance if scaled_prior_effect.proper else 0
             )
             self.mean_diff = (
                 (
-                    data_mean / data_variance
+                    self.data_mean / self.data_variance
                     + scaled_prior_effect.mean / scaled_prior_effect.variance
                 )
                 / post_prec
                 if scaled_prior_effect.proper
-                else data_mean
+                else self.data_mean
             )
         else:
             post_prec = (

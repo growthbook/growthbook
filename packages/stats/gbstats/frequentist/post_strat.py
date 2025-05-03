@@ -285,7 +285,6 @@ class PostStratificationRegressionAdjustedSharedTheta:
                 statistic_pre_i.variance / statistic_pre_i.n
                 + statistic_pre_j.variance / statistic_pre_j.n
             )
-            # v[self.len_gamma-1, self.len_gamma-1] = self.baseline_variance / self.n_total
         return v
 
     def contrast_matrix_second_moment(self, i: int, j: int) -> np.ndarray:
