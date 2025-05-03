@@ -598,7 +598,7 @@ const buildSlackMessageForExperimentWarningEvent = (
 
     case "srm": {
       const text = (experimentName: string) =>
-        `Traffic imbalance detected for experiment detected for experiment ${experimentName} : Sample Ratio Mismatch (SRM) p-value below ${data.threshold}.`;
+        `Traffic imbalance detected for experiment ${experimentName} : Sample Ratio Mismatch (SRM) p-value below ${data.threshold}.`;
 
       return {
         text: text(data.experimentName),

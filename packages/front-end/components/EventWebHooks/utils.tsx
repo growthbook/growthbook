@@ -10,13 +10,19 @@ import {
   EventWebHookMethod,
 } from "back-end/types/event-webhook";
 import { VscJson } from "react-icons/vsc";
+import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 
 export type {
   EventWebHookPayloadType,
   EventWebHookMethod,
 } from "back-end/types/event-webhook";
 
-export const eventWebHookPayloadTypes = ["json", "slack", "discord"] as const;
+export const eventWebHookPayloadTypes = [
+  "json",
+  "slack",
+  "discord",
+  "datadogEvent",
+] as const;
 
 export const legacyEventWebHookPayloadTypes = [
   ...eventWebHookPayloadTypes,
@@ -208,6 +214,8 @@ export const WebhookIcon = ({
   className?: string;
   type: typeof legacyEventWebHookPayloadTypes[number];
 }) => {
+  const { theme } = useAppearanceUITheme();
+
   let invalidType: never;
 
   switch (type) {
@@ -217,6 +225,18 @@ export const WebhookIcon = ({
       return (
         <ImageIcon
           src={`/images/${type}-webhook.png`}
+          style={style}
+          className={className}
+        />
+      );
+    case "datadogEvent":
+      return (
+        <ImageIcon
+          src={
+            theme === "dark"
+              ? `/images/3rd-party-logos/datadog-white.svg`
+              : `/images/3rd-party-logos/datadog-purple.svg`
+          }
           style={style}
           className={className}
         />
