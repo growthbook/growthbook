@@ -826,8 +826,6 @@ class TestAnalyzeMetricDfRegressionAdjustment(TestCase):
             analysis=dataclasses.replace(DEFAULT_ANALYSIS, stats_engine="frequentist"),
         )
 
-        df.to_csv("/Users/lukesmith/Desktop/" + "df_poststrat.csv")
-
         # Test that metric mean is unadjusted
         self.assertEqual(len(result.index), 1)
         self.assertEqual(result.at[0, "dimension"], "All")
