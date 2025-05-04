@@ -53,6 +53,7 @@ const sdkConnectionSchema = new mongoose.Schema({
   connected: Boolean,
   remoteEvalEnabled: Boolean,
   savedGroupReferencesEnabled: Boolean,
+  eventTracker: String,
   key: {
     type: String,
     unique: true,
@@ -263,6 +264,7 @@ export const editSDKConnectionValidator = z
     includeRuleIds: z.boolean().optional(),
     remoteEvalEnabled: z.boolean().optional(),
     savedGroupReferencesEnabled: z.boolean().optional(),
+    eventTracker: z.string().optional(),
   })
   .strict();
 

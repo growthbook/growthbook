@@ -1,5 +1,5 @@
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   FaAngleDown,
   FaAngleRight,
@@ -23,6 +23,8 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import { DocLink } from "@/components/DocLink";
 import { languageMapping } from "@/components/Features/SDKConnections/SDKLanguageLogo";
 import Link from "@/components/Radix/Link";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useAuth } from "@/services/auth";
 
 interface Props {
   connection: string | null;
@@ -53,6 +55,34 @@ const VerifyConnectionPage = ({
   const currentConnection: SDKConnectionInterface | null =
     data?.connections.find((c) => c.id === connection) || null;
 
+  useEffect(() => {
+    if (currentConnection) {
+      setEventTracker(currentConnection?.eventTracker || "");
+    }
+  }, [currentConnection]);
+  const permissionsUtil = usePermissionsUtil();
+  const canUpdate = currentConnection
+    ? permissionsUtil.canUpdateSDKConnection(currentConnection, {})
+    : false;
+  const { apiCall } = useAuth();
+  const updateEventTracker = useCallback(
+    async (value: string) => {
+      try {
+        if (canUpdate && currentConnection?.id) {
+          await apiCall(`/sdk-connections/${currentConnection.id}`, {
+            method: "PUT",
+            body: JSON.stringify({
+              eventTracker: value,
+            }),
+          });
+        }
+        setEventTracker(value);
+      } catch (e) {
+        setEventTracker(value);
+      }
+    },
+    [apiCall, canUpdate, currentConnection?.id]
+  );
   const apiHost = currentConnection ? getApiBaseUrl(currentConnection) : "";
   const language = currentConnection?.languages[0] || "javascript";
   const { docs } = languageMapping[language];
@@ -134,7 +164,7 @@ const VerifyConnectionPage = ({
                 <InstallationCodeSnippet
                   language={currentConnection.languages[0]}
                   eventTracker={eventTracker}
-                  setEventTracker={setEventTracker}
+                  setEventTracker={updateEventTracker}
                   apiHost={apiHost}
                   apiKey={currentConnection.key}
                   encryptionKey={
@@ -175,7 +205,7 @@ const VerifyConnectionPage = ({
                     currentConnection.remoteEvalEnabled || false
                   }
                   eventTracker={eventTracker}
-                  setEventTracker={setEventTracker}
+                  setEventTracker={updateEventTracker}
                 />
               </div>
             )}
