@@ -216,7 +216,7 @@ RATIO_STATISTICS_DF = pd.DataFrame(
 )
 
 RATIO_STATISTICS_ADDITIONAL_DIMENSION_DF = RATIO_STATISTICS_DF.copy()
-RATIO_STATISTICS_ADDITIONAL_DIMENSION_DF["dimension"] = "fifth"
+RATIO_STATISTICS_ADDITIONAL_DIMENSION_DF["dim_browser"] = "fifth"
 
 RATIO_RA_STATISTICS_DF = pd.DataFrame(
     [
@@ -269,7 +269,7 @@ RATIO_RA_STATISTICS_DF = pd.DataFrame(
 ONE_USER_DF = pd.DataFrame(
     [
         {
-            "dimension": "one",
+            "dim_browser": "one",
             "variation": "one",
             "main_sum": 1,
             "main_sum_squares": 1,
@@ -277,7 +277,7 @@ ONE_USER_DF = pd.DataFrame(
             "count": 1,
         },
         {
-            "dimension": "one",
+            "dim_browser": "one",
             "variation": "zero",
             "main_sum": 20,
             "main_sum_squares": 443,
@@ -290,7 +290,7 @@ ONE_USER_DF = pd.DataFrame(
 ZERO_DENOM_RATIO_STATISTICS_DF = pd.DataFrame(
     [
         {
-            "dimension": "one",
+            "dim_browser": "one",
             "variation": "one",
             "users": 120,
             "count": 120,
@@ -301,7 +301,7 @@ ZERO_DENOM_RATIO_STATISTICS_DF = pd.DataFrame(
             "main_denominator_sum_product": -905,
         },
         {
-            "dimension": "one",
+            "dim_browser": "one",
             "variation": "zero",
             "main_sum": 270,
             "users": 100,
@@ -568,9 +568,8 @@ class TestReduceDimensionality(TestCase):
 
         reduced = reduce_dimensionality(df, 20)
 
-        raise ValueError(len(reduced.index))
         self.assertEqual(len(reduced.index), 2)
-        self.assertEqual(reduced.at[0, "dim_browser"], "one")
+        self.assertEqual(reduced.at[0, "dimension"], "one")
         self.assertEqual(reduced.at[0, "total_users"], 220)
         self.assertEqual(reduced.at[0, "v1_users"], 120)
         self.assertEqual(reduced.at[0, "v1_main_sum"], 300)
@@ -588,7 +587,7 @@ class TestReduceDimensionality(TestCase):
         reduced = reduce_dimensionality(df, 1)
 
         self.assertEqual(len(reduced.index), 1)
-        self.assertEqual(reduced.at[0, "browser"], "(other)")
+        self.assertEqual(reduced.at[0, "dimension"], "(other)")
         self.assertEqual(reduced.at[0, "total_users"], 220 * 2)
         self.assertEqual(reduced.at[0, "v1_users"], 120 * 2)
         self.assertEqual(reduced.at[0, "v1_main_sum"], 300 * 2)
@@ -678,12 +677,15 @@ class TestAnalyzeMetricDfBayesian(TestCase):
         self.assertEqual(round_(result.at[0, "v1_cr"]), 1)
         self.assertEqual(round_(result.at[0, "v1_risk"][1]), 0)
         self.assertEqual(round_(result.at[0, "v1_expected"]), -0.85)
+        raise ValueError(result.at[0, "v1_risk"])
         self.assertEqual(round_(result.at[0, "v1_prob_beat_baseline"]), 0.5)
         self.assertEqual(result.at[0, "v1_p_value"], None)
 
     def test_get_metric_df_ratio_zero_denom(self):
         rows = ZERO_DENOM_RATIO_STATISTICS_DF
-        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
+        df = get_metric_df(
+            rows, {"zero": 0, "one": 1}, ["zero", "one"], dimension="browser"
+        )
         result = analyze_metric_df(df, metric=RATIO_METRIC, analysis=DEFAULT_ANALYSIS)
 
         self.assertEqual(len(result.index), 1)
@@ -719,7 +721,9 @@ class TestAnalyzeMetricDfFrequentist(TestCase):
 
     def test_get_metric_df_frequentist_ratio(self):
         rows = RATIO_STATISTICS_DF
-        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
+        df = get_metric_df(
+            rows, {"zero": 0, "one": 1}, ["zero", "one"], dimension="browser"
+        )
         result = analyze_metric_df(
             df,
             metric=RATIO_METRIC,
