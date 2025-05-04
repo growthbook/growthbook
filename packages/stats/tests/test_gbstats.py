@@ -435,6 +435,7 @@ class TestGetMetricDf(TestCase):
             rows,
             {"zero": 0, "one": 1},
             ["zero", "one"],
+            "All",
         )
         for i, row in df.iterrows():
             self.assertEqual(row["baseline_count"], row["baseline_users"])
