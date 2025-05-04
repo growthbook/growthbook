@@ -326,7 +326,7 @@ RA_METRIC = MetricSettingsForStatsEngine(
 RA_STATISTICS_DF = pd.DataFrame(
     [
         {
-            "dimension": "All",
+            "dim_browser": "All",
             "variation": "one",
             "main_sum": 222,
             "main_sum_squares": 555,
@@ -337,7 +337,7 @@ RA_STATISTICS_DF = pd.DataFrame(
             "count": 3000,
         },
         {
-            "dimension": "All",
+            "dim_browser": "All",
             "variation": "zero",
             "main_sum": 300,
             "main_sum_squares": 600,
@@ -677,7 +677,6 @@ class TestAnalyzeMetricDfBayesian(TestCase):
         self.assertEqual(round_(result.at[0, "v1_cr"]), 1)
         self.assertEqual(round_(result.at[0, "v1_risk"][1]), 0)
         self.assertEqual(round_(result.at[0, "v1_expected"]), -0.85)
-        raise ValueError(result.at[0, "v1_risk"])
         self.assertEqual(round_(result.at[0, "v1_prob_beat_baseline"]), 0.5)
         self.assertEqual(result.at[0, "v1_p_value"], None)
 
@@ -812,8 +811,8 @@ class TestAnalyzeMetricDfRegressionAdjustment(TestCase):
     def test_analyze_metric_df_ra_proportion(self):
         rows = RA_STATISTICS_DF
         # override default DF
-        rows["main_sum_squares"] = None
-        rows["covariate_sum_squares"] = None
+        rows["main_sum_squares"] = 0
+        rows["covariate_sum_squares"] = 0
         df = get_metric_df(
             rows, {"zero": 0, "one": 1}, ["zero", "one"], dimension="browser"
         )
@@ -826,6 +825,8 @@ class TestAnalyzeMetricDfRegressionAdjustment(TestCase):
             ),
             analysis=dataclasses.replace(DEFAULT_ANALYSIS, stats_engine="frequentist"),
         )
+
+        df.to_csv("/Users/lukesmith/Desktop/" + "df_poststrat.csv")
 
         # Test that metric mean is unadjusted
         self.assertEqual(len(result.index), 1)

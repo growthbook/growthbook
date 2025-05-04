@@ -160,7 +160,7 @@ class EffectMoments:
             stat_a=self.stat_a,
             stat_b=self.stat_b,
             degrees_of_freedom=0,
-            unadjusted_baseline_mean=0,
+            unadjusted_baseline_mean=self.stat_a.unadjusted_mean,
             point_estimate=0,
             standard_error=0,
             scaled_impact_eligible=False,
