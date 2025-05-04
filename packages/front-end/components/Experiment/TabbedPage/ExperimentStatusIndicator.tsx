@@ -1,10 +1,8 @@
 import { Flex, Tooltip } from "@radix-ui/themes";
+import { ExperimentDataForStatusStringDates } from "back-end/types/experiment";
+import { StatusIndicatorData } from "shared/enterprise";
 import Badge from "@/components/Radix/Badge";
-import {
-  ExperimentData,
-  StatusIndicatorData,
-  useExperimentStatusIndicator,
-} from "@/hooks/useExperimentStatusIndicator";
+import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
 
 type LabelFormat = "full" | "status-only" | "detail-only";
 
@@ -12,7 +10,7 @@ export default function ExperimentStatusIndicator({
   experimentData,
   labelFormat = "full",
 }: {
-  experimentData: ExperimentData;
+  experimentData: ExperimentDataForStatusStringDates;
   labelFormat?: LabelFormat;
 }) {
   const getExperimentStatusIndicator = useExperimentStatusIndicator();

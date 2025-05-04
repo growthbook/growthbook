@@ -2,8 +2,9 @@ import { Permissions, userHasPermission } from "shared/permissions";
 import { uniq } from "lodash";
 import type pino from "pino";
 import type { Request } from "express";
-import { CommercialFeature, orgHasPremiumFeature } from "shared/enterprise";
 import { ExperimentMetricInterface } from "shared/experiments";
+import { CommercialFeature } from "shared/enterprise";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
 import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import {
@@ -34,6 +35,10 @@ import { SegmentModel } from "back-end/src/models/SegmentModel";
 import { MetricGroupModel } from "back-end/src/models/MetricGroupModel";
 import { PopulationDataModel } from "back-end/src/models/PopulationDataModel";
 import { ExperimentTemplatesModel } from "back-end/src/models/ExperimentTemplateModel";
+import { SafeRolloutModel } from "back-end/src/models/SafeRolloutModel";
+import { SafeRolloutSnapshotModel } from "back-end/src/models/SafeRolloutSnapshotModel";
+import { DecisionCriteriaModel } from "back-end/src/enterprise/models/DecisionCriteriaModel";
+import { MetricTimeSeriesModel } from "back-end/src/models/MetricTimeSeriesModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
@@ -54,6 +59,10 @@ export class ReqContextClass {
     metricGroups: MetricGroupModel;
     segments: SegmentModel;
     experimentTemplates: ExperimentTemplatesModel;
+    safeRollout: SafeRolloutModel;
+    safeRolloutSnapshots: SafeRolloutSnapshotModel;
+    decisionCriteria: DecisionCriteriaModel;
+    metricTimeSeries: MetricTimeSeriesModel;
   };
   private initModels() {
     this.models = {
@@ -66,6 +75,10 @@ export class ReqContextClass {
       metricGroups: new MetricGroupModel(this),
       segments: new SegmentModel(this),
       experimentTemplates: new ExperimentTemplatesModel(this),
+      safeRollout: new SafeRolloutModel(this),
+      safeRolloutSnapshots: new SafeRolloutSnapshotModel(this),
+      decisionCriteria: new DecisionCriteriaModel(this),
+      metricTimeSeries: new MetricTimeSeriesModel(this),
     };
   }
 
@@ -195,7 +208,9 @@ export class ReqContextClass {
       ? {
           apiKey: this.apiKey,
         }
-      : null;
+      : ({
+          system: true,
+        } as const);
     if (!auditUser) {
       throw new Error("Must have user or apiKey in context to audit log");
     }

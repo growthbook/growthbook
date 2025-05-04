@@ -1,13 +1,6 @@
 import crypto from "crypto";
 import { Response } from "express";
-import {
-  AccountPlan,
-  licenseInit,
-  LicenseServerError,
-  postCreateTrialEnterpriseLicenseToLicenseServer,
-  postResendEmailVerificationEmailToLicenseServer,
-  postVerifyEmailToLicenseServer,
-} from "shared/enterprise";
+import { AccountPlan } from "shared/enterprise";
 import {
   getLicenseMetaData,
   getUserCodesForOrg,
@@ -16,7 +9,13 @@ import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { PrivateApiErrorResponse } from "back-end/types/api";
-import { updateSubscriptionInDb } from "back-end/src/services/stripe";
+import {
+  licenseInit,
+  postCreateTrialEnterpriseLicenseToLicenseServer,
+  LicenseServerError,
+  postResendEmailVerificationEmailToLicenseServer,
+  postVerifyEmailToLicenseServer,
+} from "back-end/src/enterprise";
 
 /**
  * An endpoint mostly used to refresh the license data manually, if they
@@ -41,10 +40,6 @@ export async function getLicenseData(req: AuthRequest, res: Response) {
       getLicenseMetaData,
       true
     );
-  } else if (req.organization?.subscription) {
-    // TODO: Get rid of updateSubscriptionInDb one we have moved the license off the organizations
-    // This is to update the subscription data in the organization from stripe if they have it
-    await updateSubscriptionInDb(req.organization.subscription.id);
   }
 
   return res.status(200).json({

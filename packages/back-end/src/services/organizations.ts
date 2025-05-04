@@ -3,16 +3,6 @@ import { freeEmailDomains } from "free-email-domains-typescript";
 import { cloneDeep } from "lodash";
 import { Request } from "express";
 import {
-  getLicense,
-  isActiveSubscriptionStatus,
-  isAirGappedLicenseKey,
-  licenseInit,
-  postSubscriptionUpdateToLicenseServer,
-  getSubscriptionFromLicense,
-  SubscriptionInfo,
-  getStripeSubscriptionStatus,
-} from "shared/enterprise";
-import {
   areProjectRolesValid,
   isRoleValid,
   getDefaultRole,
@@ -89,6 +79,8 @@ import {
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
+import { getLicense, licenseInit } from "back-end/src/enterprise";
+import { PValueCorrection } from "back-end/types/stats";
 import {
   encryptParams,
   getSourceIntegrationObject,
@@ -208,6 +200,12 @@ export function getPValueThresholdForOrg(context: ReqContext): number {
   return context.org.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD;
 }
 
+export function getPValueCorrectionForOrg(
+  context: ReqContext
+): PValueCorrection {
+  return context.org.settings?.pValueCorrection ?? null;
+}
+
 export function getRole(
   org: OrganizationInterface,
   userId: string,
@@ -269,7 +267,12 @@ export async function removeMember(
   updatedOrganization.members = members;
   updatedOrganization.pendingMembers = pendingMembers;
 
-  await updateSubscriptionIfProLicense(updatedOrganization);
+  await licenseInit(
+    updatedOrganization,
+    getUserCodesForOrg,
+    getLicenseMetaData,
+    true
+  );
 
   return updatedOrganization;
 }
@@ -286,35 +289,18 @@ export async function revokeInvite(
 
   const updatedOrganization = cloneDeep(organization);
   updatedOrganization.invites = invites;
-  await updateSubscriptionIfProLicense(updatedOrganization);
+  await licenseInit(
+    updatedOrganization,
+    getUserCodesForOrg,
+    getLicenseMetaData,
+    true
+  );
 
   return updatedOrganization;
 }
 
 export function getInviteUrl(key: string) {
   return `${APP_ORIGIN}/invitation?key=${key}`;
-}
-
-async function updateSubscriptionIfProLicense(
-  organization: OrganizationInterface
-) {
-  if (
-    organization.licenseKey &&
-    !isAirGappedLicenseKey(organization.licenseKey)
-  ) {
-    const license = await getLicense(organization.licenseKey);
-    if (
-      license?.plan === "pro" &&
-      isActiveSubscriptionStatus(getSubscriptionFromLicense(license)?.status)
-    ) {
-      // Only pro plans have a Stripe subscription that needs to get updated
-      const seatsInUse = getNumberOfUniqueMembersAndInvites(organization);
-      await postSubscriptionUpdateToLicenseServer(
-        organization.licenseKey,
-        seatsInUse
-      );
-    }
-  }
 }
 
 export async function addMemberToOrg({
@@ -375,7 +361,12 @@ export async function addMemberToOrg({
   updatedOrganization.members = members;
   updatedOrganization.pendingMembers = pendingMembers;
 
-  await updateSubscriptionIfProLicense(updatedOrganization);
+  await licenseInit(
+    updatedOrganization,
+    getUserCodesForOrg,
+    getLicenseMetaData,
+    true
+  );
 }
 
 export async function addMembersToTeam({
@@ -541,7 +532,14 @@ export async function acceptInvite(key: string, userId: string) {
     pendingMembers,
   });
 
-  return organization;
+  // fetch a fresh instance of the org now that the members & invites lists have changed
+  const updatedOrg = await getOrganizationById(organization.id);
+
+  if (!updatedOrg) {
+    throw new Error("Unable to locate org");
+  }
+
+  return updatedOrg;
 }
 
 export async function inviteUser({
@@ -609,7 +607,12 @@ export async function inviteUser({
   const updatedOrganization = cloneDeep(organization);
   updatedOrganization.invites = invites;
 
-  await updateSubscriptionIfProLicense(updatedOrganization);
+  await licenseInit(
+    updatedOrganization,
+    getUserCodesForOrg,
+    getLicenseMetaData,
+    true
+  );
 
   let emailSent = false;
   if (isEmailEnabled()) {
@@ -1139,20 +1142,4 @@ export async function getContextForAgendaJobByOrgId(
   }
 
   return getContextForAgendaJobByOrgObject(organization);
-}
-
-// TODO: Remove once all orgs have moved license info off of the org
-export function getSubscriptionFromOrg(
-  organization: OrganizationInterface
-): SubscriptionInfo | null {
-  if (organization.subscription) {
-    return {
-      billingPlatform: "stripe",
-      externalId: organization.subscription.id,
-      trialEnd: organization.subscription.trialEnd,
-      status: getStripeSubscriptionStatus(organization.subscription.status),
-      hasPaymentMethod: !!organization.subscription.hasPaymentMethod,
-    };
-  }
-  return null;
 }

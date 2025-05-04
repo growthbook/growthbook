@@ -13,7 +13,6 @@ from gbstats.frequentist.tests import (
     frequentist_variance,
     frequentist_variance_relative_cuped,
     sequential_interval_halfwidth,
-    sequential_rho,
 )
 from gbstats.bayesian.tests import GaussianPrior
 from gbstats.models.tests import BaseConfig
@@ -221,22 +220,20 @@ class MidExperimentPower:
             part_neg = norm.cdf(-(num_1 + num_2 + num_3) / den)
         else:
             if self.sequential:
-                rho = sequential_rho(
-                    self.alpha / self.num_tests, self.sequential_tuning_parameter
-                )
                 s2 = self.pairwise_sample_size * self.sigmahat_2_delta
                 n_total = self.pairwise_sample_size + n_t_prime
                 halfwidth = sequential_interval_halfwidth(
-                    s2, n_total, rho, self.alpha / self.num_tests
+                    s2,
+                    n_total,
+                    self.sequential_tuning_parameter,
+                    self.alpha / self.num_tests,
                 )
             else:
                 halfwidth = self.multiplier * adjusted_variance**0.5
             part_pos = 1 - norm.cdf(
                 (halfwidth - self.target_mde) / adjusted_variance**0.5
             )
-            part_neg = norm.cdf(
-                -(halfwidth + self.target_mde) / adjusted_variance**0.5
-            )
+            part_neg = norm.cdf(-(halfwidth + self.target_mde) / adjusted_variance**0.5)
         return float(part_pos + part_neg)
 
     def calculate_scaling_factor(self) -> ScalingFactorResult:

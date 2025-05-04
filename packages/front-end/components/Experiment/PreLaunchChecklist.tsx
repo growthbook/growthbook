@@ -86,6 +86,11 @@ export function getChecklistItems({
             return !!expField;
           }
           return false;
+        case "prerequisiteTargeting": {
+          const prerequisites =
+            experiment.phases?.[experiment.phases.length - 1]?.prerequisites;
+          return !!prerequisites && prerequisites.length > 0;
+        }
       }
     }
 
@@ -284,36 +289,6 @@ export function getChecklistItems({
     });
   }
 
-  /*
-    items.push({
-      type: "manual",
-      key: "sdk-connection",
-      status: isChecklistItemComplete("manual", "sdk-connection")
-        ? "complete"
-        : "incomplete",
-      display: (
-        <>
-          Verify your app is passing both
-          <strong> attributes </strong>
-          and a <strong> trackingCallback </strong>into the GrowthBook SDK.
-        </>
-      ),
-    });
-    items.push({
-      type: "manual",
-      key: "metrics-tracked",
-      status: isChecklistItemComplete("manual", "metrics-tracked")
-        ? "complete"
-        : "incomplete",
-      display: (
-        <>
-          Verify your app is tracking events for all of the metrics that you
-          plan to include in the analysis.
-        </>
-      ),
-    });
-    */
-
   if (checklist?.tasks?.length) {
     checklist.tasks.forEach((item) => {
       if (item.completionType === "manual") {
@@ -335,6 +310,9 @@ export function getChecklistItems({
       }
 
       if (item.completionType === "auto" && item.propertyKey) {
+        if (isBandit && item.propertyKey === "hypothesis") {
+          return;
+        }
         items.push({
           display: <>{item.task}</>,
           status: isChecklistItemComplete(
@@ -540,7 +518,7 @@ export function PreLaunchChecklistUI({
       {collapsible ? (
         <Frame>
           <Collapsible
-            open={true}
+            open={!!checklistItemsRemaining}
             transitionTime={100}
             trigger={<div className="">{header}</div>}
           >

@@ -2,7 +2,7 @@
   "name": "growthbook-app",
   "repository": "https://github.com/growthbook/growthbook-app.git",
   "private": true,
-  "version": "3.5.0",
+  "version": "3.6.0",
   "scripts": {
     "lint": "eslint './**/*.{ts,tsx,js,jsx}' --fix --max-warnings 0 --cache --cache-strategy content",
     "lint:ci": "eslint './**/*.{ts,tsx,js,jsx}' --max-warnings 0 --cache --cache-strategy content",
@@ -19,6 +19,7 @@
     "build": "yarn build:deps && yarn build:app",
     "start": "wsrun -p 'back-end' -p 'front-end' --no-prefix -c start",
     "start:with-tracing": "wsrun -p 'back-end' -p 'front-end' --no-prefix -c start:with-tracing",
+    "start:with-datadog": "wsrun -p 'back-end' -p 'front-end' --no-prefix -c start:with-datadog",
     "setup": "yarn build:deps && wsrun -p 'stats' -c setup",
     "prepare": "husky install",
     "plop": "plop",
@@ -33,6 +34,7 @@
     "packages/*"
   ],
   "dependencies": {
+    "dd-trace": "^5.46.0",
     "patch-package": "^8.0.0",
     "wsrun": "^5.2.4"
   },
@@ -64,11 +66,11 @@
       "yarn eslint  --fix --max-warnings 0 --cache --cache-strategy content"
     ],
     "./packages/stats/{gbstats,tests}/**/*.py": [
-      "bash -c \"yarn workspace stats lint\" && :"
+      "yarn workspace stats lint"
     ]
   },
   "resolutions": {
-    "@growthbook/growthbook": "1.4.1"
+    "@growthbook/growthbook": "1.5.1"
   },
   "prettier": {
     "overrides": [

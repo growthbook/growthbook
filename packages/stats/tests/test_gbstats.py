@@ -363,16 +363,13 @@ DEFAULT_ANALYSIS = AnalysisSettingsForStatsEngine(
     phase_length_days=1,
     alpha=0.05,
     max_dimensions=20,
+    one_sided_intervals=False,
 )
 
 
 BANDIT_ANALYSIS = BanditSettingsForStatsEngine(
     var_names=["zero", "one", "two", "three"],
     var_ids=["zero", "one", "two", "three"],
-    historical_weights=[
-        BanditWeightsSinglePeriod(date="", weights=[1 / 4] * 4, total_users=0),
-        BanditWeightsSinglePeriod(date="", weights=[1 / 4] * 4, total_users=0),
-    ],
     current_weights=[1 / 4] * 4,
     reweight=True,
     decision_metric="count_metric",
@@ -911,7 +908,6 @@ class TestBandit(TestCase):
         self.true_additional_reward = 192.0
         num_variations = len(self.true_weights)
         self.constant_weights = [1 / num_variations] * num_variations
-        self.historical_weights = [self.constant_weights, self.constant_weights]
 
     import unittest
 

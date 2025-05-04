@@ -137,13 +137,6 @@ export function calculateMidExperimentPowerSingle(
       "Missing variation."
     );
   }
-  if (params.newDailyUsers <= 0) {
-    return calculateMidExperimentPowerSingleError(
-      metricId,
-      variation,
-      "New daily users must be greater than 0."
-    );
-  }
   const response = params.variation;
   if (response?.errorMessage) {
     return calculateMidExperimentPowerSingleError(
@@ -260,7 +253,29 @@ export function calculateMidExperimentPowerSingle(
   const additionalUsersNeeded = Math.ceil(
     response.scalingFactor * params.firstPeriodSampleSize
   );
-  const powerResults: MetricVariationPowerResult = {
+
+  // handle some special cases
+  if (additionalUsersNeeded === 0) {
+    return {
+      metricId: metricId,
+      variation: variation,
+      effectSize: targetMDE,
+      power: totalPower,
+      additionalDaysNeeded: 0,
+      isLowPowered: totalPower < lowPowerThreshold,
+    };
+  } else if (params.newDailyUsers <= 0) {
+    return {
+      metricId: metricId,
+      variation: variation,
+      effectSize: targetMDE,
+      power: totalPower,
+      additionalDaysNeeded: Infinity,
+      isLowPowered: totalPower < lowPowerThreshold,
+    };
+  }
+
+  return {
     metricId: metricId,
     variation: variation,
     effectSize: targetMDE,
@@ -270,7 +285,6 @@ export function calculateMidExperimentPowerSingle(
     ),
     isLowPowered: totalPower < lowPowerThreshold,
   };
-  return powerResults;
 }
 
 function calculateMidExperimentPowerBayes(

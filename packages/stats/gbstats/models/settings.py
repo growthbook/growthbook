@@ -28,6 +28,7 @@ class AnalysisSettingsForStatsEngine:
     max_dimensions: int = 20
     traffic_percentage: float = 1
     num_goal_metrics: int = 1
+    one_sided_intervals: bool = False
 
 
 @dataclass
@@ -41,7 +42,6 @@ class BanditWeightsSinglePeriod:
 class BanditSettingsForStatsEngine:
     var_names: List[str]
     var_ids: List[str]
-    historical_weights: Optional[List[BanditWeightsSinglePeriod]]
     current_weights: List[float]
     reweight: bool = True
     decision_metric: str = ""

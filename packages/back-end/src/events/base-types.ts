@@ -8,6 +8,11 @@ import { eventUser } from "back-end/src/validators/events";
 import { userLoginInterface } from "back-end/src/validators/users";
 import { experimentWarningNotificationPayload } from "back-end/src/validators/experiment-warnings";
 import { experimentInfoSignificance } from "back-end/src/validators/experiment-info";
+import { experimentDecisionNotificationPayload } from "back-end/src/validators/experiment-decision";
+import {
+  safeRolloutDecisionNotificationPayload,
+  safeRolloutUnhealthyNotificationPayload,
+} from "back-end/src/validators/safe-rollout-notifications";
 import { EventUser } from "./event-types";
 
 type WebhookEntry = {
@@ -48,6 +53,21 @@ export const notificationEvents = {
       schema: apiFeatureValidator,
       description: "Triggered when a feature is deleted",
     },
+    "saferollout.ship": {
+      schema: safeRolloutDecisionNotificationPayload,
+      description:
+        "Triggered when a safe rollout is completed and safe to rollout to 100%.",
+    },
+    "saferollout.rollback": {
+      schema: safeRolloutDecisionNotificationPayload,
+      description:
+        "Triggered when a safe rollout has a failing guardrail and should be reverted.",
+    },
+    "saferollout.unhealthy": {
+      schema: safeRolloutUnhealthyNotificationPayload,
+      description:
+        "Triggered when a safe rollout is failing a health check and may not be working as expected.",
+    },
   },
   experiment: {
     created: {
@@ -71,6 +91,18 @@ export const notificationEvents = {
     "info.significance": {
       schema: experimentInfoSignificance,
       description: `Triggered when a goal or guardrail metric reaches significance in an experiment (e.g. either above 95% or below 5% chance to win). Be careful using this without Sequential Testing as it can lead to peeking problems.`,
+    },
+    "decision.ship": {
+      schema: experimentDecisionNotificationPayload,
+      description: `Triggered when an experiment is ready to ship a variation.`,
+    },
+    "decision.rollback": {
+      schema: experimentDecisionNotificationPayload,
+      description: `Triggered when an experiment should be rolled back to the control.`,
+    },
+    "decision.review": {
+      schema: experimentDecisionNotificationPayload,
+      description: `Triggered when an experiment has reached the desired power point, but the results may be ambiguous.`,
     },
   },
   user: {

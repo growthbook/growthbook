@@ -340,5 +340,9 @@ export default function ConditionDisplay({
     parts.push(...prereqParts);
   }
 
-  return <Flex gap="3">{parts}</Flex>;
+  return (
+    <Flex gapX="3" gapY="2" wrap="wrap">
+      {parts}
+    </Flex>
+  );
 }

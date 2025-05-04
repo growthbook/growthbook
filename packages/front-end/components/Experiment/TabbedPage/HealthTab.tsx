@@ -279,6 +279,7 @@ export default function HealthTab({
         ) : (
           <BanditSRMCard
             experiment={experiment}
+            snapshot={snapshot}
             phase={phaseObj}
             onNotify={handleHealthNotification}
           />
@@ -294,6 +295,7 @@ export default function HealthTab({
           <MultipleExposuresCard
             totalUsers={totalUsers}
             onNotify={handleHealthNotification}
+            snapshot={snapshot}
           />
         </div>
       </div>

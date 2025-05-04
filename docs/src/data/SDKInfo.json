@@ -1,7 +1,7 @@
 {
   "js": {
     "name": "JS SDK",
-    "version": "1.3.1",
+    "version": "1.5.1",
     "github": "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
     "examples": [
       {
@@ -33,7 +33,7 @@
   },
   "react": {
     "name": "React SDK",
-    "version": "1.3.1",
+    "version": "1.5.1",
     "github": "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
     "examples": [
       {
@@ -86,11 +86,11 @@
   },
   "node": {
     "name": "Node SDK",
-    "version": "1.3.1",
+    "version": "1.5.1",
     "github": "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
     "examples": [
       {
-        "url": "http://localhost:3200/guide/express-js",
+        "url": "http://docs.growthbook.io/guide/express-js",
         "name": "Express.js guide"
       }
     ],
@@ -139,7 +139,7 @@
   },
   "python": {
     "name": "Python SDK",
-    "version": "1.1.0",
+    "version": "1.2.1",
     "github": "https://github.com/growthbook/growthbook-python",
     "examples": [],
     "packageRepos": [
@@ -149,6 +149,7 @@
       }
     ],
     "capabilities": [
+      "savedGroupReferences",
       "looseUnmarshalling",
       "prerequisites",
       "stickyBucketing",
@@ -159,7 +160,7 @@
   },
   "go": {
     "name": "Go SDK",
-    "version": "0.2.0",
+    "version": "0.2.1",
     "github": "https://github.com/growthbook/growthbook-golang",
     "examples": [
       {
@@ -185,7 +186,7 @@
   },
   "java": {
     "name": "Java SDK",
-    "version": "0.9.91",
+    "version": "0.9.95",
     "github": "https://github.com/growthbook/growthbook-sdk-java",
     "examples": [
       {
@@ -213,6 +214,7 @@
     ],
     "capabilities": [
       "prerequisites",
+      "stickyBucketing",
       "streaming",
       "semverTargeting",
       "bucketingV2",
@@ -222,7 +224,7 @@
   },
   "csharp": {
     "name": "C# SDK",
-    "version": "1.0.6",
+    "version": "1.1.0",
     "github": "https://github.com/growthbook/growthbook-c-sharp",
     "examples": [
       {
@@ -237,6 +239,9 @@
       }
     ],
     "capabilities": [
+      "stickyBucketing",
+      "prerequisites",
+      "savedGroupReferences",
       "encryption",
       "streaming",
       "bucketingV2",
@@ -264,7 +269,7 @@
   },
   "kotlin": {
     "name": "Kotlin SDK",
-    "version": "1.1.60",
+    "version": "2.0.0",
     "github": "https://github.com/growthbook/growthbook-kotlin",
     "examples": [],
     "packageRepos": [
@@ -286,7 +291,7 @@
   },
   "swift": {
     "name": "Swift SDK",
-    "version": "1.0.62",
+    "version": "1.0.68",
     "github": "https://github.com/growthbook/growthbook-swift",
     "examples": [],
     "packageRepos": [
@@ -308,7 +313,7 @@
   },
   "reactNative": {
     "name": "React SDK",
-    "version": "1.3.1",
+    "version": "1.5.1",
     "github": "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
     "examples": [
       {
@@ -339,19 +344,102 @@
     ]
   },
   "edgeCloudflare": {
-    "name": "Cloudflare Edge SDK",
-    "version": "0.2.1",
+    "name": "Cloudflare Workers App & SDK",
+    "version": "0.2.5",
     "github": "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-cloudflare",
     "examples": [
       {
-        "url": "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-utils",
-        "name": "Edge Utils"
+        "url": "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-cloudflare/example",
+        "name": "Example worker"
       }
     ],
     "packageRepos": [
       {
         "name": "npm",
-        "url": "https://www.npmjs.com/package/@growthbook/growthbook-proxy"
+        "url": "https://www.npmjs.com/package/@growthbook/edge-cloudflare"
+      }
+    ],
+    "capabilities": [
+      "savedGroupReferences",
+      "looseUnmarshalling",
+      "encryption",
+      "streaming",
+      "bucketingV2",
+      "visualEditor",
+      "semverTargeting",
+      "visualEditorJS",
+      "visualEditorDragDrop",
+      "prerequisites",
+      "redirects",
+      "stickyBucketing"
+    ]
+  },
+  "edgeFastly": {
+    "name": "Fastly Compute App & SDK",
+    "version": "0.2.5",
+    "github": "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-fastly",
+    "examples": [
+      {
+        "url": "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-fastly/example",
+        "name": "Example compute worker"
+      }
+    ],
+    "packageRepos": [
+      {
+        "name": "npm",
+        "url": "https://www.npmjs.com/package/@growthbook/edge-fastly"
+      }
+    ],
+    "capabilities": [
+      "savedGroupReferences",
+      "looseUnmarshalling",
+      "encryption",
+      "streaming",
+      "bucketingV2",
+      "visualEditor",
+      "semverTargeting",
+      "visualEditorJS",
+      "visualEditorDragDrop",
+      "prerequisites",
+      "redirects",
+      "stickyBucketing"
+    ]
+  },
+  "edgeLambda": {
+    "name": "Lambda@Edge App & SDK",
+    "version": "0.0.25",
+    "github": "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-lambda",
+    "examples": [],
+    "packageRepos": [
+      {
+        "name": "npm",
+        "url": "https://www.npmjs.com/package/@growthbook/edge-lambda"
+      }
+    ],
+    "capabilities": [
+      "savedGroupReferences",
+      "looseUnmarshalling",
+      "encryption",
+      "streaming",
+      "bucketingV2",
+      "visualEditor",
+      "semverTargeting",
+      "visualEditorJS",
+      "visualEditorDragDrop",
+      "prerequisites",
+      "redirects",
+      "stickyBucketing"
+    ]
+  },
+  "edgeUtils": {
+    "name": "Edge App (base)",
+    "version": "0.2.5",
+    "github": "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-utils",
+    "examples": [],
+    "packageRepos": [
+      {
+        "name": "npm",
+        "url": "https://www.npmjs.com/package/@growthbook/edge-utils"
       }
     ],
     "capabilities": [
@@ -371,7 +459,7 @@
   },
   "flutter": {
     "name": "Flutter SDK",
-    "version": "3.9.5",
+    "version": "3.9.9",
     "github": "https://github.com/growthbook/growthbook-flutter",
     "examples": [],
     "packageRepos": [

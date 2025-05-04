@@ -2,9 +2,10 @@ import pinoHttp from "pino-http";
 import * as Sentry from "@sentry/node";
 import { Request } from "express";
 import { BaseLogger, Level } from "pino";
+import { parseProcessLogBase } from "shared/util";
 import { ApiRequestLocals } from "back-end/types/api";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { ENVIRONMENT, IS_CLOUD, LOG_BASE, LOG_LEVEL } from "./secrets";
+import { ENVIRONMENT, IS_CLOUD, LOG_LEVEL } from "./secrets";
 
 const redactPaths = [
   "req.headers.authorization",
@@ -69,13 +70,7 @@ const isValidLevel = (input: unknown): input is Level => {
   ] as const).includes(input as Level);
 };
 
-// Only pass `base` if defined or null
-const logBase =
-  typeof LOG_BASE === "undefined"
-    ? {}
-    : {
-        base: LOG_BASE,
-      };
+const logBase = parseProcessLogBase();
 
 export const httpLogger = pinoHttp({
   autoLogging: ENVIRONMENT === "production",

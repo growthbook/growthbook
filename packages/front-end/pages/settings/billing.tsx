@@ -6,6 +6,8 @@ import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import PaymentInfo from "@/enterprise/components/Billing/PaymentInfo";
+import OrbPortal from "@/enterprise/components/Billing/OrbPortal";
+import { isCloud } from "@/services/env";
 
 const BillingPage: FC = () => {
   const [upgradeModal, setUpgradeModal] = useState(false);
@@ -67,18 +69,14 @@ const BillingPage: FC = () => {
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
-          reason=""
           source="billing-free"
           commercialFeature={null}
         />
       )}
-      <h1>Billing Settings</h1>
+      <h1>Plan Info</h1>
       <div className="appbox p-3 border">
         {subscription?.status ? (
-          <>
-            <PaymentInfo />
-            <SubscriptionInfo />
-          </>
+          <SubscriptionInfo />
         ) : canSubscribe ? (
           <div className="bg-white p-3">
             <div className="alert alert-warning mb-0">
@@ -105,6 +103,14 @@ const BillingPage: FC = () => {
           </p>
         )}
       </div>
+      {subscription?.status ? (
+        <>
+          <PaymentInfo />
+          {isCloud() && subscription?.billingPlatform === "orb" ? (
+            <OrbPortal />
+          ) : null}
+        </>
+      ) : null}
     </div>
   );
 };

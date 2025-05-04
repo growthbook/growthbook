@@ -172,14 +172,6 @@ export const languageMapping: Record<SDKLanguage, LanguageLogo> = {
     docs: "cloudflare",
     type: "edge",
     filters: ["edge", "popular"],
-    extra: (
-      <span
-        className="badge badge-purple text-uppercase position-absolute"
-        style={{ top: -16, right: -12 }}
-      >
-        Beta
-      </span>
-    ),
   },
   "edge-fastly": {
     Icon: SiFastly,
@@ -189,14 +181,6 @@ export const languageMapping: Record<SDKLanguage, LanguageLogo> = {
     docs: "edge",
     type: "edge",
     filters: ["edge", "popular"],
-    extra: (
-      <span
-        className="badge badge-purple text-uppercase position-absolute"
-        style={{ top: -16, right: -12 }}
-      >
-        Beta
-      </span>
-    ),
   },
   "edge-lambda": {
     Icon: SiAwslambda,
@@ -207,10 +191,10 @@ export const languageMapping: Record<SDKLanguage, LanguageLogo> = {
     filters: ["edge"],
     extra: (
       <span
-        className="badge badge-yellow text-uppercase position-absolute"
-        style={{ top: -16, right: -16 }}
+        className="badge badge-purple text-uppercase position-absolute"
+        style={{ top: -16, right: -12 }}
       >
-        Alpha
+        Beta
       </span>
     ),
   },
@@ -223,10 +207,10 @@ export const languageMapping: Record<SDKLanguage, LanguageLogo> = {
     filters: ["edge"],
     extra: (
       <span
-        className="badge badge-yellow text-uppercase position-absolute"
+        className="badge badge-purple text-uppercase position-absolute"
         style={{ top: -16, right: -12 }}
       >
-        Alpha
+        Beta
       </span>
     ),
   },

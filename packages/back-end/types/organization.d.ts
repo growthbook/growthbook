@@ -244,6 +244,7 @@ export interface OrganizationSettings {
   experimentMinLengthDays?: number;
   experimentMaxLengthDays?: number;
   decisionFrameworkEnabled?: boolean;
+  defaultDecisionCriteriaId?: string;
 }
 
 export interface OrganizationConnections {
@@ -291,6 +292,7 @@ export interface OrganizationInterface {
   name: string;
   ownerEmail: string;
   demographicData?: DemographicData;
+  /** @deprecated */
   stripeCustomerId?: string;
   restrictLoginMethod?: string;
   restrictAuthSubPrefix?: string;
@@ -300,6 +302,7 @@ export interface OrganizationInterface {
   disableSelfServeBilling?: boolean;
   freeTrialDate?: Date;
   enterprise?: boolean;
+  /** @deprecated */
   subscription?: {
     id: string;
     qty: number;
@@ -365,6 +368,7 @@ export type GetOrganizationResponse = {
     experiments: string[];
     features: string[];
   };
+  usage: OrganizationUsage;
 };
 
 export type DailyUsage = {
@@ -373,7 +377,20 @@ export type DailyUsage = {
   bandwidth: number;
 };
 
+type UsageLimit = number | "unlimited";
+
 export type UsageLimits = {
-  cdnRequests: number | null;
-  cdnBandwidth: number | null;
+  cdnRequests: UsageLimit;
+  cdnBandwidth: UsageLimit;
+};
+
+export type OrganizationUsage = {
+  limits: {
+    requests: UsageLimit;
+    bandwidth: UsageLimit;
+  };
+  cdn: {
+    lastUpdated: Date;
+    status: "under" | "approaching" | "over";
+  };
 };

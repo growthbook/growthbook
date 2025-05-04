@@ -57,8 +57,16 @@ export default function ReportResults({
         1 / (report.experimentMetadata?.variations?.length || 2),
     })
   );
+  // find analysis matching the difference type
   const analysis = snapshot
-    ? getSnapshotAnalysis(snapshot) ?? undefined
+    ? getSnapshotAnalysis(
+        snapshot,
+        snapshot.analyses.find(
+          (a) =>
+            a.settings.differenceType ===
+            report.experimentAnalysisSettings.differenceType
+        )?.settings
+      ) ?? undefined
     : undefined;
   const queryStatusData = getQueryStatus(
     snapshot?.queries || [],
@@ -195,6 +203,7 @@ export default function ReportResults({
                 }
                 dimensionId={snapshot.dimension ?? ""}
                 startDate={getValidDate(phaseObj.dateStarted).toISOString()}
+                endDate={getValidDate(phaseObj.dateEnded).toISOString()}
                 isLatestPhase={phase === phases.length - 1}
                 reportDate={snapshot.dateCreated}
                 status={"stopped"}
@@ -222,6 +231,7 @@ export default function ReportResults({
                 queryStatusData={queryStatusData}
                 reportDate={snapshot.dateCreated}
                 startDate={getValidDate(phaseObj.dateStarted).toISOString()}
+                endDate={getValidDate(phaseObj.dateEnded).toISOString()}
                 isLatestPhase={phase === phases.length - 1}
                 status={"stopped"}
                 goalMetrics={report.experimentAnalysisSettings.goalMetrics}
@@ -250,6 +260,7 @@ export default function ReportResults({
                 experimentType={report.experimentMetadata.type}
                 ssrPolyfills={ssrPolyfills}
                 hideDetails={!showDetails}
+                disableTimeSeriesButton={true}
               />
             ) : (
               <div className="mx-3 mb-3">

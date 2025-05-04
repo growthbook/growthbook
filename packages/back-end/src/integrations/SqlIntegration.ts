@@ -16,11 +16,14 @@ import {
   getAggregateFilters,
   isBinomialMetric,
   getDelayWindowHours,
+  getColumnExpression,
 } from "shared/experiments";
 import {
   AUTOMATIC_DIMENSION_OTHER_NAME,
   DEFAULT_TEST_QUERY_DAYS,
   DEFAULT_METRIC_HISTOGRAM_BINS,
+  BANDIT_SRM_DIMENSION_NAME,
+  SAFE_ROLLOUT_TRACKING_KEY_PREFIX,
 } from "shared/constants";
 import { MetricAnalysisSettings } from "back-end/types/metric-analysis";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
@@ -79,6 +82,7 @@ import {
   ColumnTopValuesResponse,
   PopulationMetricQueryParams,
   PopulationFactMetricsQueryParams,
+  VariationPeriodWeight,
 } from "back-end/src/types/Integration";
 import { DimensionInterface } from "back-end/types/dimension";
 import { SegmentInterface } from "back-end/types/segment";
@@ -90,7 +94,11 @@ import {
   replaceCountStar,
 } from "back-end/src/util/sql";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
-import { ExperimentSnapshotSettings } from "back-end/types/experiment-snapshot";
+import {
+  ExperimentSnapshotSettings,
+  SnapshotBanditSettings,
+  SnapshotSettingsVariation,
+} from "back-end/types/experiment-snapshot";
 import { SQLVars, TemplateVariables } from "back-end/types/sql";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { logger } from "back-end/src/util/logger";
@@ -336,6 +344,11 @@ export default abstract class SqlIntegration
     );
   }
 
+  extractJSONField(jsonCol: string, path: string, isNumeric: boolean): string {
+    const raw = `json_extract_scalar(${jsonCol}, '$.${path}')`;
+    return isNumeric ? this.ensureFloat(raw) : raw;
+  }
+
   private getExposureQuery(
     exposureQueryId: string,
     userIdType?: "anonymous" | "user"
@@ -395,6 +408,9 @@ export default abstract class SqlIntegration
           WHERE
             timestamp > ${this.toTimestamp(params.from)}
             AND timestamp <= ${this.toTimestamp(end)}
+            AND SUBSTRING(experiment_id, 1, ${
+              SAFE_ROLLOUT_TRACKING_KEY_PREFIX.length
+            }) != '${SAFE_ROLLOUT_TRACKING_KEY_PREFIX}'
           GROUP BY
             experiment_id,
             variation_id,
@@ -1339,7 +1355,7 @@ export default abstract class SqlIntegration
       rows: rows.map((row) => {
         return {
           variation: row.variation ?? "",
-          units: parseInt(row.units) || 0,
+          units: parseFloat(row.units) || 0,
           dimension_value: row.dimension_value ?? "",
           dimension_name: row.dimension_name ?? "",
         };
@@ -2034,6 +2050,30 @@ export default abstract class SqlIntegration
     )`;
   }
 
+  getBanditVariationPeriodWeights(
+    banditSettings: SnapshotBanditSettings,
+    variations: SnapshotSettingsVariation[]
+  ): VariationPeriodWeight[] | undefined {
+    let anyMissingValues = false;
+    const variationPeriodWeights = banditSettings.historicalWeights
+      .map((w) => {
+        return w.weights.map((weight, index) => {
+          const variationId = variations?.[index]?.id;
+          if (!variationId) {
+            anyMissingValues = true;
+          }
+          return { weight, variationId: variationId, date: w.date };
+        });
+      })
+      .flat();
+
+    if (anyMissingValues) {
+      return undefined;
+    }
+
+    return variationPeriodWeights;
+  }
+
   getExperimentAggregateUnitsQuery(
     params: ExperimentAggregateUnitsQueryParams
   ): string {
@@ -2053,6 +2093,19 @@ export default abstract class SqlIntegration
     );
 
     const exposureQuery = this.getExposureQuery(settings.exposureQueryId || "");
+
+    // get bandit data for SRM calculation
+    const banditDates = settings.banditSettings?.historicalWeights.map(
+      (w) => w.date
+    );
+    const variationPeriodWeights = settings.banditSettings
+      ? this.getBanditVariationPeriodWeights(
+          settings.banditSettings,
+          settings.variations
+        )
+      : undefined;
+
+    const computeBanditSrm = !!banditDates && !!variationPeriodWeights;
 
     // Get any required identity join queries
     const { baseIdType, idJoinSQL } = this.getIdentitiesCTE({
@@ -2092,6 +2145,7 @@ export default abstract class SqlIntegration
           , ${this.formatDate(
             this.dateTrunc("first_exposure_timestamp")
           )} AS dim_exposure_date
+          ${banditDates ? `${this.getBanditCaseWhen(banditDates)}` : ""}
           ${experimentDimensions.map((d) => `, dim_exp_${d.id}`).join("\n")}
           ${
             activationMetric
@@ -2105,8 +2159,8 @@ export default abstract class SqlIntegration
         FROM ${
           useUnitsTable ? `${params.unitsTableFullName}` : "__experimentUnits"
         }
-      ),
-      __unitsByDimension AS (
+      )
+      , __unitsByDimension AS (
         -- One row per variation per dimension slice
         ${[
           "dim_exposure_date",
@@ -2118,13 +2172,91 @@ export default abstract class SqlIntegration
               d,
               activationMetric && d !== "dim_activated"
                 ? "WHERE dim_activated = 'Activated'"
-                : ""
+                : "",
+              // cast to float to union with bandit test statistic which is float
+              computeBanditSrm
             )
           )
           .join("\nUNION ALL\n")}
       )
+      ${
+        computeBanditSrm
+          ? `
+        , variationBanditPeriodWeights AS (
+          ${variationPeriodWeights
+            .map(
+              (w) => `
+            SELECT
+              '${w.variationId}' AS variation
+              , ${this.toTimestamp(w.date)} AS bandit_period
+              , ${w.weight} AS weight
+          `
+            )
+            .join("\nUNION ALL\n")}
+        )
+        , __unitsByVariationBanditPeriod AS (
+          SELECT
+            v.variation AS variation
+            , v.bandit_period AS bandit_period
+            , v.weight AS weight
+            , COALESCE(COUNT(d.bandit_period), 0) AS units
+          FROM variationBanditPeriodWeights v
+          LEFT JOIN __distinctUnits d
+            ON (d.variation = v.variation AND d.bandit_period = v.bandit_period)
+          GROUP BY
+            v.variation
+            , v.bandit_period
+            , v.weight
+        )
+        , __totalUnitsByBanditPeriod AS (
+          SELECT
+            bandit_period
+            , SUM(units) AS total_units
+          FROM __unitsByVariationBanditPeriod
+          GROUP BY
+            bandit_period
+        )
+        , __expectedUnitsByVariationBanditPeriod AS (
+          SELECT
+            u.variation AS variation
+            , MAX('') AS constant
+            , SUM(u.units) AS units
+            , SUM(t.total_units * u.weight) AS expected_units
+          FROM __unitsByVariationBanditPeriod u
+          LEFT JOIN __totalUnitsByBanditPeriod t
+            ON (t.bandit_period = u.bandit_period)
+          WHERE
+            COALESCE(t.total_units, 0) > 0
+          GROUP BY
+            u.variation
+        )
+        , __banditSrm AS (
+          SELECT
+            MAX('') AS variation
+            , MAX('') AS dimension_value
+            , MAX('${BANDIT_SRM_DIMENSION_NAME}') AS dimension_name
+            , SUM(POW(expected_units - units, 2) / expected_units) AS units
+          FROM __expectedUnitsByVariationBanditPeriod
+          GROUP BY
+            constant
+        ),
+        __unitsByDimensionWithBanditSrm AS (
+          SELECT
+            *
+          FROM __unitsByDimension
+          UNION ALL
+          SELECT
+            *
+          FROM __banditSrm
+        )
+      `
+          : ""
+      }
+
       ${this.selectStarLimit(
-        "__unitsByDimension",
+        computeBanditSrm
+          ? "__unitsByDimensionWithBanditSrm"
+          : "__unitsByDimension",
         MAX_ROWS_UNIT_AGGREGATE_QUERY
       )}
     `,
@@ -2132,13 +2264,17 @@ export default abstract class SqlIntegration
     );
   }
 
-  getUnitCountCTE(dimensionColumn: string, whereClause?: string): string {
+  getUnitCountCTE(
+    dimensionColumn: string,
+    whereClause?: string,
+    ensureFloat?: boolean
+  ): string {
     return ` -- ${dimensionColumn}
     SELECT
       variation AS variation
       , ${dimensionColumn} AS dimension_value
       , MAX(${this.castToString(`'${dimensionColumn}'`)}) AS dimension_name
-      , COUNT(*) AS units
+      , ${ensureFloat ? this.ensureFloat("COUNT(*)") : "COUNT(*)"} AS units
     FROM
       __distinctUnits
     ${whereClause ?? ""}
@@ -4587,8 +4723,11 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
 
       // Numerator column
       const value = this.getMetricColumns(m, factTableMap, "m", false).value;
-      const filters = getColumnRefWhereClause(factTable, m.numerator, (s) =>
-        this.escapeStringLiteral(s)
+      const filters = getColumnRefWhereClause(
+        factTable,
+        m.numerator,
+        this.escapeStringLiteral.bind(this),
+        this.extractJSONField.bind(this)
       );
 
       const column =
@@ -4612,8 +4751,11 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         }
 
         const value = this.getMetricColumns(m, factTableMap, "m", true).value;
-        const filters = getColumnRefWhereClause(factTable, m.denominator, (s) =>
-          this.escapeStringLiteral(s)
+        const filters = getColumnRefWhereClause(
+          factTable,
+          m.denominator,
+          this.escapeStringLiteral.bind(this),
+          this.extractJSONField.bind(this)
         );
         const column =
           filters.length > 0
@@ -4807,8 +4949,11 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
 
     // Add filters from the Metric
     if (isFact && factTable && columnRef) {
-      getColumnRefWhereClause(factTable, columnRef, (s) =>
-        this.escapeStringLiteral(s)
+      getColumnRefWhereClause(
+        factTable,
+        columnRef,
+        this.escapeStringLiteral.bind(this),
+        this.extractJSONField.bind(this)
       ).forEach((filterSQL) => {
         where.push(filterSQL);
       });
@@ -5188,7 +5333,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     factTableMap: FactTableMap,
     alias = "m",
     useDenominator?: boolean
-  ) {
+  ): { userIds: Record<string, string>; timestamp: string; value: string } {
     if (isFactMetric(metric)) {
       const userIds: Record<string, string> = {};
       getUserIdTypes(metric, factTableMap, useDenominator).forEach(
@@ -5198,6 +5343,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       );
 
       const columnRef = useDenominator ? metric.denominator : metric.numerator;
+
+      const factTable = factTableMap.get(columnRef?.factTableId || "");
 
       const hasAggregateFilter =
         getAggregateFilters({
@@ -5216,6 +5363,13 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         column === "$$distinctUsers" ||
         column === "$$count"
           ? "1"
+          : factTable && column
+          ? getColumnExpression(
+              column,
+              factTable,
+              this.extractJSONField.bind(this),
+              alias
+            )
           : `${alias}.${column}`;
 
       return {

@@ -7,7 +7,7 @@ slug: /features/rules
 
 import MaxWidthImage from "@site/src/components/MaxWidthImage";
 
-# Rules (Force, Rollout, Experimentation)
+# Rules (Force, Percentage Rollout, Experimentation)
 
 Every feature has a default value that is served to all users. The real power comes when you define **Rules**
 that let you run experiments and/or change the value for specific users.
@@ -94,7 +94,7 @@ as two experiment ranges do not overlap, users will only ever be in at most one 
     ![Namespaces](/images/namespaces.png)
 </MaxWidthImage>
 
-In order to use namespaces, simply create a new namespace or modify an existing one in _SDK Configuration → Namespaces_ in the GrowthBook UI's left navigation bar.
+In order to use namespaces, simply create a new namespace or modify an existing one in _SDK Configuration → Namespaces_ in the GrowthBook UI's left navigation bar. It's essential to ensure that all experiments within the namespace use the same hash attribute (assignment attribute).
 
 ## Testing Rules
 

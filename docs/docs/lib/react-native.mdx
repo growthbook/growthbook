@@ -204,7 +204,7 @@ There is a alternate synchronous version of init named `initSync`, which can be 
 
 - You MUST pass in `payload`
 - The `payload` MUST NOT have encrypted features or experiments
-- If you use sticky bucketing, you MUST pass `stickyBucketAssignmentDocs` into your GrowthBook constructor
+- If using sticky bucketing, you should use an instance of `StickyBucketServiceSync`.
 - The return value is the GrowthBook instance to enable easy method chaining
 
 ## Waiting for Features to Load
@@ -551,7 +551,7 @@ export default withRunExperiment(OtherComponent);
 
 Some hooks are available in type-safe versions. These require you to pass in your generated types as the generic argument.
 
-See the [GrowthBook CLI](/tools/cli) documentation for more information on generating type definitions and [JavaScript &rarr; TypeScript &rarr; Scrict Typing](/lib/js#strict-typing) for how to use them.
+See the [GrowthBook CLI](/tools/cli) documentation for more information on generating type definitions and [JavaScript &rarr; TypeScript &rarr; Strict Typing](/lib/js#strict-typing) for how to use them.
 
 ### useGrowthBook&lt;T&gt;()
 

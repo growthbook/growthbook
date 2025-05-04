@@ -33,6 +33,7 @@ import {
   MetricModal,
 } from "@/components/FactTables/NewMetricModal";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import PremiumCallout from "../Radix/PremiumCallout";
 
 export interface MetricTableItem {
   id: string;
@@ -224,6 +225,8 @@ const MetricsList = (): React.ReactElement => {
   const {
     getDatasourceById,
     mutateDefinitions,
+    getProjectById,
+    metricGroups,
     project,
     ready,
   } = useDefinitions();
@@ -253,6 +256,7 @@ const MetricsList = (): React.ReactElement => {
   const metrics = useAddComputedFields(
     combinedMetrics,
     (m) => ({
+      projectNames: m.projects.map((p) => getProjectById(p)?.name || p),
       datasourceName: m.datasource
         ? getDatasourceById(m.datasource)?.name || "Unknown"
         : "None",
@@ -323,7 +327,7 @@ const MetricsList = (): React.ReactElement => {
         return item.type;
       },
       tag: (item) => item.tags,
-      project: (item) => item.projects,
+      project: (item) => [...item.projectNames, ...item.projects],
       datasource: (item) => [item.datasource, item.datasourceName],
     },
     filterResults,
@@ -398,6 +402,18 @@ const MetricsList = (): React.ReactElement => {
           <TagsFilter filter={tagsFilter} items={unpaginatedItems} />
         </div>
       </div>
+      {metrics.length > 4 && !metricGroups.length ? (
+        <PremiumCallout
+          commercialFeature="metric-groups"
+          dismissable={true}
+          id="metrics-list-metric-group-promo"
+          docSection="metricGroups"
+          mb="2"
+        >
+          <strong>Metric Groups</strong> help you organize and manage your
+          metrics at scale.
+        </PremiumCallout>
+      ) : null}
       <table className="table appbox gbtable table-hover">
         <thead>
           <tr>

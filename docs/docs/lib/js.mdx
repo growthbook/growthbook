@@ -81,7 +81,7 @@ The third-party tracking plugin automatically sends an "Experiment Viewed" event
 This plugin does not install any 3rd party libraries, it just sends events to ones that are already installed on your site. Below are all of the supported trackers:
 
 - `segment` - Requires `window.analytics` to be defined.
-- `ga4` - Requires `window.gtag` to be defined.
+- `gtag` - Requires `window.gtag` to be defined.
 - `gtm` - Requires `window.dataLayer` to be defined.
 
 ```js
@@ -90,7 +90,7 @@ import { thirdPartyTrackingPlugin } from "@growthbook/growthbook/plugins";
 // Optional settings for the plugin
 const pluginOptions = {
   // By default, it will attempt to send to all 3 of these
-  trackers: ["segment", "ga4", "gtm"],
+  trackers: ["segment", "gtag", "gtm"],
   // Additional custom tracking callback
   additionalCallback: (experiment, result) => {
     console.log("Experiment Viewed", {
@@ -236,7 +236,7 @@ There is a alternate synchronous version of init named `initSync`, which can be 
 
 - You MUST pass in `payload`
 - The `payload` MUST NOT have encrypted features or experiments
-- If you use sticky bucketing, you MUST pass `stickyBucketAssignmentDocs` into your GrowthBook constructor
+- If using sticky bucketing, you should use an instance of `StickyBucketServiceSync`, such as `BrowserCookieStickyBucketService`.
 - The return value is the GrowthBook instance to enable easy method chaining
 
 ## Streaming Updates

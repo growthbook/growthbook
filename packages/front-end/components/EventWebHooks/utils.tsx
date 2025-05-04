@@ -43,12 +43,19 @@ export const notificationEventNames = [
   "feature.created",
   "feature.updated",
   "feature.deleted",
+  // Safe Rollouts
+  "feature.saferollout.ship",
+  "feature.saferollout.rollback",
+  "feature.saferollout.unhealthy",
   // Experiments
   "experiment.created",
   "experiment.updated",
   "experiment.deleted",
   "experiment.warning",
   "experiment.info.significance",
+  "experiment.decision.ship",
+  "experiment.decision.rollback",
+  "experiment.decision.review",
   // User
   "user.login",
 ] as const;
@@ -70,6 +77,19 @@ export const eventWebHookEventOptions: {
     id: "feature.deleted",
     name: "feature.deleted",
   },
+  // Safe Rollouts
+  {
+    id: "feature.saferollout.ship",
+    name: "feature.saferollout.ship",
+  },
+  {
+    id: "feature.saferollout.rollback",
+    name: "feature.saferollout.rollback",
+  },
+  {
+    id: "feature.saferollout.unhealthy",
+    name: "feature.saferollout.unhealthy",
+  },
   // Experiments
   {
     id: "experiment.created",
@@ -90,6 +110,18 @@ export const eventWebHookEventOptions: {
   {
     id: "experiment.info.significance",
     name: "experiment.info.significance",
+  },
+  {
+    id: "experiment.decision.ship",
+    name: "experiment.decision.ship",
+  },
+  {
+    id: "experiment.decision.rollback",
+    name: "experiment.decision.rollback",
+  },
+  {
+    id: "experiment.decision.review",
+    name: "experiment.decision.review",
   },
 ];
 

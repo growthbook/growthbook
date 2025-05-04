@@ -54,10 +54,9 @@ const MetricGroupsList: FC = () => {
     return (
       <div>
         <PremiumEmptyState
-          title="Organize Your Experiment Metrics"
+          title="Streamline Metric Usage in Experiments"
           description="Create reusable groups of metrics that can be ordered and added to experiments"
           commercialFeature="metric-groups"
-          reason="No Access Metric Groups"
           learnMoreLink="https://docs.growthbook.io/app/metrics#metric-groups"
           image="/images/empty-states/metric_groups.png"
         />

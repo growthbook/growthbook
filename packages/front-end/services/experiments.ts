@@ -1,12 +1,6 @@
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
+import { DifferenceType, StatsEngine } from "back-end/types/stats";
 import {
-  DifferenceType,
-  PValueCorrection,
-  StatsEngine,
-} from "back-end/types/stats";
-import normal from "@stdlib/stats/base/dists/normal";
-import {
-  ExperimentReportResultDimension,
   ExperimentReportVariationWithIndex,
   MetricSnapshotSettings,
 } from "back-end/types/report";
@@ -249,173 +243,13 @@ export function pValueFormatter(pValue: number, digits: number = 3): string {
     : pValue.toFixed(digits);
 }
 
-export type IndexedPValue = {
-  pValue: number;
-  index: (number | string)[];
-};
-
-export function adjustPValuesBenjaminiHochberg(
-  indexedPValues: IndexedPValue[]
-): IndexedPValue[] {
-  const newIndexedPValues = cloneDeep<IndexedPValue[]>(indexedPValues);
-  const m = newIndexedPValues.length;
-
-  newIndexedPValues.sort((a, b) => {
-    return b.pValue - a.pValue;
-  });
-  newIndexedPValues.forEach((p, i) => {
-    newIndexedPValues[i].pValue = Math.min((p.pValue * m) / (m - i), 1);
-  });
-
-  let tempval = newIndexedPValues[0].pValue;
-  for (let i = 1; i < m; i++) {
-    if (newIndexedPValues[i].pValue < tempval) {
-      tempval = newIndexedPValues[i].pValue;
-    } else {
-      newIndexedPValues[i].pValue = tempval;
-    }
-  }
-  return newIndexedPValues;
-}
-
-export function adjustPValuesHolmBonferroni(
-  indexedPValues: IndexedPValue[]
-): IndexedPValue[] {
-  const newIndexedPValues = cloneDeep<IndexedPValue[]>(indexedPValues);
-  const m = newIndexedPValues.length;
-  newIndexedPValues.sort((a, b) => {
-    return a.pValue - b.pValue;
-  });
-  newIndexedPValues.forEach((p, i) => {
-    newIndexedPValues[i].pValue = Math.min(p.pValue * (m - i), 1);
-  });
-
-  let tempval = newIndexedPValues[0].pValue;
-  for (let i = 1; i < m; i++) {
-    if (newIndexedPValues[i].pValue > tempval) {
-      tempval = newIndexedPValues[i].pValue;
-    } else {
-      newIndexedPValues[i].pValue = tempval;
-    }
-  }
-  return newIndexedPValues;
-}
-
-export function setAdjustedPValuesOnResults(
-  results: ExperimentReportResultDimension[],
-  nonGuardrailMetrics: string[],
-  adjustment: PValueCorrection
-): void {
-  if (!adjustment) {
-    return;
-  }
-
-  let indexedPValues: IndexedPValue[] = [];
-  results.forEach((r, i) => {
-    r.variations.forEach((v, j) => {
-      nonGuardrailMetrics.forEach((m) => {
-        const pValue = v.metrics[m]?.pValue;
-        if (pValue !== undefined) {
-          indexedPValues.push({
-            pValue: pValue,
-            index: [i, j, m],
-          });
-        }
-      });
-    });
-  });
-
-  if (indexedPValues.length === 0) {
-    return;
-  }
-
-  if (adjustment === "benjamini-hochberg") {
-    indexedPValues = adjustPValuesBenjaminiHochberg(indexedPValues);
-  } else if (adjustment === "holm-bonferroni") {
-    indexedPValues = adjustPValuesHolmBonferroni(indexedPValues);
-  }
-
-  // modify results in place
-  indexedPValues.forEach((ip) => {
-    const ijk = ip.index;
-    results[ijk[0]].variations[ijk[1]].metrics[ijk[2]].pValueAdjusted =
-      ip.pValue;
-  });
-  return;
-}
-
-export function adjustedCI(
-  adjustedPValue: number,
-  uplift: { dist: string; mean?: number; stddev?: number },
-  zScore: number
-): [number, number] {
-  if (!uplift.mean) return [uplift.mean ?? 0, uplift.mean ?? 0];
-  const adjStdDev = Math.abs(
-    uplift.mean / normal.quantile(1 - adjustedPValue / 2, 0, 1)
-  );
-  const width = zScore * adjStdDev;
-  return [uplift.mean - width, uplift.mean + width];
-}
-
-export function setAdjustedCIs(
-  results: ExperimentReportResultDimension[],
-  pValueThreshold: number
-): void {
-  const zScore = normal.quantile(1 - pValueThreshold / 2, 0, 1);
-  results.forEach((r) => {
-    r.variations.forEach((v) => {
-      for (const key in v.metrics) {
-        const pValueAdjusted = v.metrics[key].pValueAdjusted;
-        const uplift = v.metrics[key].uplift;
-        const ci = v.metrics[key].ci;
-        if (pValueAdjusted === undefined) {
-          continue;
-        } else if (pValueAdjusted > 0.999999) {
-          // set to Inf if adjusted pValue is 1
-          v.metrics[key].ciAdjusted = [-Infinity, Infinity];
-        } else if (
-          pValueAdjusted !== undefined &&
-          uplift !== undefined &&
-          ci !== undefined
-        ) {
-          const adjCI = adjustedCI(pValueAdjusted, uplift, zScore);
-          // only update if CI got wider, should never get more narrow
-          if (adjCI[0] < ci[0] && adjCI[1] > ci[1]) {
-            v.metrics[key].ciAdjusted = adjCI;
-          } else {
-            v.metrics[key].ciAdjusted = v.metrics[key].ci;
-          }
-        }
-      }
-    });
-  });
-  return;
-}
-
-// // Most actionable status have higher numbers
-// function getExperimentStatusSortOrder(
-//   e: ExperimentInterfaceStringDates
-// ): number {
-//   if (e.archived) return 0;
-//   if (e.status === "stopped") {
-//     if (e.results === "dnf") return 1;
-//     if (e.results === "inconclusive") return 2;
-//     if (e.results === "lost") return 3;
-//     if (e.results === "won") return 4;
-//     return 5;
-//   }
-//   if (e.status === "draft") return 6;
-//   if (e.status === "running") return 7;
-//   return 8;
-// }
-
 export function useExperimentSearch({
-  allExperiments,
-  defaultSortField = "date",
-  defaultSortDir = -1,
-  filterResults,
-  localStorageKey = "experiments",
-}: {
+                                      allExperiments,
+                                      defaultSortField = "date",
+                                      defaultSortDir = -1,
+                                      filterResults,
+                                      localStorageKey = "experiments",
+                                    }: {
   allExperiments: ExperimentInterfaceStringDates[];
   defaultSortField?: keyof ComputedExperimentInterface;
   defaultSortDir?: -1 | 1;
@@ -460,8 +294,8 @@ export function useExperimentSearch({
         tab: exp.archived
           ? "archived"
           : exp.status === "draft"
-          ? "drafts"
-          : exp.status,
+            ? "drafts"
+            : exp.status,
         date: experimentDate(exp),
         statusIndicator,
         statusSortOrder,
@@ -580,14 +414,22 @@ export type RiskMeta = {
   relativeRiskFormatted: string;
   riskReason: string;
 };
-export type EnoughDataMeta = {
+export type EnoughDataMetaZeroValues = {
+  reason: "baselineZero" | "variationZero";
+  reasonText: string;
+};
+export type EnoughDataMetaNotEnoughData = {
+  reason: "notEnoughData";
+  reasonText: string;
   percentComplete: number;
   percentCompleteNumerator: number;
   percentCompleteDenominator: number;
   timeRemainingMs: number | null;
   showTimeRemaining: boolean;
-  reason: string;
 };
+export type EnoughDataMeta =
+  | EnoughDataMetaZeroValues
+  | EnoughDataMetaNotEnoughData;
 export function getRowResults({
   stats,
   baseline,
@@ -645,39 +487,75 @@ export function getRowResults({
   const baselineSampleSize = metricSampleSize.baselineValue ?? baseline.value;
   const variationSampleSize = metricSampleSize.variationValue ?? stats.value;
   const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
-  const enoughDataReason =
-    `This metric has a minimum ${
-      quantileMetricType(metric) ? "sample size" : "total"
-    } of ${minSampleSize}; this value must be reached in one variation before results are displayed. ` +
-    `The total ${
-      quantileMetricType(metric) ? "sample size" : "metric value"
-    } of the variation is ${compactNumberFormatter.format(
-      variationSampleSize
-    )} and the baseline total is ${compactNumberFormatter.format(
-      baselineSampleSize
-    )}.`;
-  const percentComplete =
-    minSampleSize > 0
-      ? Math.max(baselineSampleSize, variationSampleSize) / minSampleSize
-      : 1;
-  const timeRemainingMs =
-    percentComplete > 0.1
-      ? ((snapshotDate.getTime() - getValidDate(phaseStartDate).getTime()) *
-          (1 - percentComplete)) /
-          percentComplete -
-        (Date.now() - snapshotDate.getTime())
-      : null;
-  const showTimeRemaining =
-    timeRemainingMs !== null && isLatestPhase && experimentStatus === "running";
-  const enoughDataMeta: EnoughDataMeta = {
-    percentComplete,
-    percentCompleteNumerator: Math.max(baselineSampleSize, variationSampleSize),
-    percentCompleteDenominator: minSampleSize,
-    timeRemainingMs,
-    showTimeRemaining,
-    reason: enoughDataReason,
-  };
 
+  const reason: EnoughDataMeta["reason"] =
+    baseline.value === 0
+      ? "baselineZero"
+      : stats.value === 0
+      ? "variationZero"
+      : "notEnoughData";
+
+  const enoughDataMeta: EnoughDataMeta = (() => {
+    switch (reason) {
+      case "notEnoughData": {
+        const reasonText =
+          `This metric has a minimum ${
+            quantileMetricType(metric) ? "sample size" : "total"
+          } of ${minSampleSize}; this value must be reached in one variation before results are displayed. ` +
+          `The total ${
+            quantileMetricType(metric) ? "sample size" : "metric value"
+          } of the variation is ${compactNumberFormatter.format(
+            variationSampleSize
+          )} and the baseline total is ${compactNumberFormatter.format(
+            baselineSampleSize
+          )}.`;
+        const percentComplete =
+          minSampleSize > 0
+            ? Math.max(baselineSampleSize, variationSampleSize) / minSampleSize
+            : 1;
+        const timeRemainingMs =
+          percentComplete !== null && percentComplete > 0.1
+            ? ((snapshotDate.getTime() -
+                getValidDate(phaseStartDate).getTime()) *
+                (1 - percentComplete)) /
+                percentComplete -
+              (Date.now() - snapshotDate.getTime())
+            : null;
+        const showTimeRemaining =
+          timeRemainingMs !== null &&
+          isLatestPhase &&
+          experimentStatus === "running";
+        return {
+          percentComplete,
+          percentCompleteNumerator: Math.max(
+            baselineSampleSize,
+            variationSampleSize
+          ),
+          percentCompleteDenominator: minSampleSize,
+          timeRemainingMs,
+          showTimeRemaining,
+          reason,
+          reasonText,
+        };
+        break;
+      }
+      case "baselineZero": {
+        const reasonText = `Statistics can only be displayed once the baseline has a non-zero value.`;
+        return {
+          reason,
+          reasonText,
+        };
+        break;
+      }
+      case "variationZero": {
+        const reasonText = `Statistics can only be displayed once the variation has a non-zero value.`;
+        return {
+          reason,
+          reasonText,
+        };
+      }
+    }
+  })();
   const suspiciousChange = isSuspiciousUplift(
     baseline,
     stats,

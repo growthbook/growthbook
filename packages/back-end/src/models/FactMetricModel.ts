@@ -1,7 +1,13 @@
 import { omit } from "lodash";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import {
+  getAggregateFilters,
+  getSelectedColumnDatatype,
+} from "shared/experiments";
+import {
+  ColumnRef,
   FactMetricInterface,
+  FactMetricType,
   FactTableInterface,
   LegacyFactMetricInterface,
 } from "back-end/types/fact-table";
@@ -25,6 +31,55 @@ const BaseClass = MakeModelClass({
   globallyUniqueIds: false,
   readonlyFields: ["datasource"],
 });
+
+// extra checks on user filter
+function validateUserFilter({
+  metricType,
+  numerator,
+  factTable,
+}: {
+  metricType: FactMetricType;
+  numerator: ColumnRef;
+  factTable: FactTableInterface;
+}): void {
+  // error if one is specified but not the other
+  if (!!numerator.aggregateFilter !== !!numerator.aggregateFilterColumn) {
+    throw new Error(
+      `Must specify both "aggregateFilter" and "aggregateFilterColumn" or neither.`
+    );
+  }
+
+  // error if metric type is not retention or proportion
+  if (metricType !== "retention" && metricType !== "proportion") {
+    throw new Error(
+      `Aggregate filter is only supported for retention and proportion metrics.`
+    );
+  }
+
+  if (numerator.aggregateFilterColumn) {
+    // error if column is not numeric or $$count
+    const columnType = getSelectedColumnDatatype({
+      factTable,
+      column: numerator.aggregateFilterColumn,
+    });
+    if (
+      !(
+        columnType === "number" || numerator.aggregateFilterColumn === "$$count"
+      )
+    ) {
+      throw new Error(
+        `Aggregate filter column '${numerator.aggregateFilterColumn}' must be a numeric column or "$$count".`
+      );
+    }
+
+    // error if filter is not valid
+    getAggregateFilters({
+      columnRef: numerator,
+      column: numerator.aggregateFilterColumn,
+      ignoreInvalid: false,
+    });
+  }
+}
 
 export class FactMetricModel extends BaseClass {
   protected canRead(doc: FactMetricInterface): boolean {
@@ -134,6 +189,18 @@ export class FactMetricModel extends BaseClass {
           throw new Error(`Invalid numerator filter id: ${filter}`);
         }
       }
+    }
+
+    // validate user filter
+    if (
+      data.numerator.aggregateFilterColumn ||
+      data.numerator.aggregateFilter
+    ) {
+      validateUserFilter({
+        metricType: data.metricType,
+        numerator: data.numerator,
+        factTable: numeratorFactTable,
+      });
     }
 
     if (data.metricType === "ratio") {

@@ -154,7 +154,6 @@ export default function EditSavedGroupPage() {
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
-          reason=""
           source="large-saved-groups"
           commercialFeature="large-saved-groups"
         />

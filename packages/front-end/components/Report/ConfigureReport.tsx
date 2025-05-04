@@ -166,7 +166,6 @@ export default function ConfigureReport({
     return (
       <UpgradeModal
         close={() => setUpgradeModal(false)}
-        reason="To override metric conversion windows,"
         source="override-metrics"
         commercialFeature="override-metrics"
       />
@@ -481,7 +480,7 @@ export default function ConfigureReport({
                 ]}
               />
             )}
-            {hasMetrics && !isBandit && experiment && (
+            {hasMetrics && experiment && (
               <div className="form-group mt-4 mb-2">
                 <PremiumTooltip commercialFeature="override-metrics">
                   <label className="font-weight-bold mb-0">

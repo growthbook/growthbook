@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "start:with-tracing": "next start",
+    "start:with-datadog": "next start",
     "clean": "rimraf node_modules && rimraf tsconfig.tsbuildinfo",
     "type-check": "tsc --pretty --noEmit",
     "unused-export-check": "npx ts-unused-exports tsconfig.json --findCompletelyUnusedFiles --allowUnusedTypes --showLineNumber --excludePathsFromReport=pages;",
@@ -18,7 +19,7 @@
     "@dnd-kit/core": "^5.0.0",
     "@dnd-kit/sortable": "^10.0.0",
     "@floating-ui/react": "^0.25.4",
-    "@growthbook/growthbook-react": "^1.4.1",
+    "@growthbook/growthbook-react": "^1.5.1",
     "@jitsu/sdk-js": "^2.2.0",
     "@jukben/emoji-search": "^2.0.1",
     "@popperjs/core": "^2.11.5",
@@ -60,7 +61,7 @@
     "json2csv": "^5.0.7",
     "lodash": "^4.17.21",
     "md5": "^2.3.0",
-    "next": "14.2.18",
+    "next": "14.2.26",
     "p-queue": "^8.0.1",
     "query-string": "^7.1.3",
     "react": "^18.2.0",
@@ -117,7 +118,7 @@
     "vitest": "^2.1.5"
   },
   "optionalDependencies": {
-    "@babel/core": "^7.19.6"
+    "@babel/core": "^7.26.10"
   },
   "license": "Mixed"
 }

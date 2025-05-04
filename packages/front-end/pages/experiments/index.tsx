@@ -53,6 +53,8 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import ViewSampleDataButton from "@/components/GetStarted/ViewSampleDataButton";
 import EmptyState from "@/components/EmptyState";
 import Callout from "@/components/Radix/Callout";
+import ExperimentTemplatePromoCard from "@/enterprise/components/feature-promos/ExperimentTemplatePromoCard";
+import { useTemplates } from "@/hooks/useTemplates";
 import { useExperimentSearch } from "@/services/experiments";
 
 const NUM_PER_PAGE = 20;
@@ -71,6 +73,8 @@ export function experimentDate(exp: ExperimentInterfaceStringDates): string {
 
 const ExperimentsPage = (): React.ReactElement => {
   const { ready, project } = useDefinitions();
+
+  const { templates } = useTemplates();
 
   const [tabs, setTabs] = useLocalStorage<string[]>("experiment_tabs", []);
   const analyzeExisting = useRouter().query?.analyzeExisting === "true";
@@ -296,7 +300,8 @@ const ExperimentsPage = (): React.ReactElement => {
               <TabsList>
                 <TabsTrigger value="experiments">Experiments</TabsTrigger>
                 <TabsTrigger value="templates">
-                  Templates <PaidFeatureBadge commercialFeature="templates" />
+                  Templates{" "}
+                  <PaidFeatureBadge commercialFeature="templates" mx="2" />
                 </TabsTrigger>
               </TabsList>
             </Box>
@@ -606,6 +611,16 @@ const ExperimentsPage = (): React.ReactElement => {
                         onPageChange={setCurrentPage}
                       />
                     )}
+                    {canAddTemplate &&
+                    !templates.length &&
+                    allExperiments.length >= 5 ? (
+                      <div className="row justify-content-center m-3">
+                        <ExperimentTemplatePromoCard
+                          hasFeature={hasTemplatesFeature}
+                          onClick={() => setOpenTemplateModal({})}
+                        />
+                      </div>
+                    ) : null}
                   </>
                 )
               )}

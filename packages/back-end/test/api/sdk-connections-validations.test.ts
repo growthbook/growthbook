@@ -183,9 +183,11 @@ describe("sdk-connections validations", () => {
       expect(() => {
         validatePremiumFeatures(context, {
           encryptPayload: false,
-          includeVisualExperiments: true,
+          hashSecureAttributes: true,
         });
-      }).toThrow("Feature visual-editor requires premium subscription!");
+      }).toThrow(
+        "Feature hash-secure-attributes requires premium subscription!"
+      );
     });
 
     it("Allows available features", () => {

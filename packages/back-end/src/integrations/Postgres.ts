@@ -38,6 +38,13 @@ export default class Postgres extends SqlIntegration {
   formatDateTimeString(col: string): string {
     return `to_char(${col}, 'YYYY-MM-DD HH24:MI:SS.MS')`;
   }
+  extractJSONField(jsonCol: string, path: string, isNumeric: boolean): string {
+    const raw = `JSON_EXTRACT_PATH_TEXT(${jsonCol}::json, ${path
+      .split(".")
+      .map((p) => `'${p}'`)
+      .join(", ")})`;
+    return isNumeric ? this.ensureFloat(raw) : raw;
+  }
   getInformationSchemaWhereClause(): string {
     return "table_schema NOT IN ('pg_catalog', 'information_schema', 'pg_toast')";
   }

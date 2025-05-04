@@ -35,6 +35,9 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
 
     const { owner, archived, description, project, tags } = req.body;
 
+    const effectiveProject =
+      typeof project === "undefined" ? feature.project : project;
+
     const orgEnvs = getEnvironmentIdsFromOrg(req.organization);
 
     if (!req.context.permissions.canUpdateFeature(feature, req.body)) {
@@ -85,6 +88,14 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
           )
         : null;
 
+    const prerequisites =
+      req.body.prerequisites != null
+        ? req.body.prerequisites?.map((p) => ({
+            id: p,
+            condition: `{"value": true}`,
+          }))
+        : null;
+
     const jsonSchema =
       feature.valueType === "json" && req.body.jsonSchema != null
         ? parseJsonSchemaForEnterprise(req.organization, req.body.jsonSchema)
@@ -98,6 +109,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       ...(tags != null ? { tags } : {}),
       ...(defaultValue != null ? { defaultValue } : {}),
       ...(environmentSettings != null ? { environmentSettings } : {}),
+      ...(prerequisites != null ? { prerequisites } : {}),
       ...(jsonSchema != null ? { jsonSchema } : {}),
     };
 
@@ -109,7 +121,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     ) {
       if (
         !req.context.permissions.canPublishFeature(
-          updates,
+          { project: effectiveProject },
           Array.from(
             getEnabledEnvironments(
               {

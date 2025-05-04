@@ -1,6 +1,6 @@
 import type { Response } from "express";
-import { orgHasPremiumFeature } from "shared/enterprise";
 import { filterEnvironmentsByFeature } from "shared/util";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse, PrivateApiErrorResponse } from "back-end/types/api";
 import {

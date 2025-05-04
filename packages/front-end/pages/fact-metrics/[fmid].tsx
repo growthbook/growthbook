@@ -719,7 +719,7 @@ export default function FactMetricPage() {
                         : getExperimentMetricFormatter(
                             factMetric,
                             getFactTableById,
-                            true
+                            "number"
                           )(getMinSampleSizeForMetric(factMetric), {
                             currency: displayCurrency,
                           })}

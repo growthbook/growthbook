@@ -10,6 +10,7 @@ import {
 } from "react";
 import { CSSTransition } from "react-transition-group";
 import { RxInfoCircled } from "react-icons/rx";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import {
   ExperimentReportVariation,
   ExperimentReportVariationWithIndex,
@@ -26,7 +27,9 @@ import {
 } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { FaExclamationTriangle } from "react-icons/fa";
+import { Flex } from "@radix-ui/themes";
 import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
+import { useAuth } from "@/services/auth";
 import {
   ExperimentTableRow,
   getEffectLabel,
@@ -45,6 +48,7 @@ import ChangeColumn from "@/components/Experiment/ChangeColumn";
 import ResultsTableTooltip, {
   TooltipHoverSettings,
 } from "@/components/Experiment/ResultsTableTooltip/ResultsTableTooltip";
+import TimeSeriesButton from "@/components/TimeSeriesButton";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ResultsMetricFilter from "@/components/Experiment/ResultsMetricFilter";
@@ -52,10 +56,13 @@ import { ResultsMetricFilters } from "@/components/Experiment/Results";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useResultsTableTooltip } from "@/components/Experiment/ResultsTableTooltip/useResultsTableTooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import { AppFeatures } from "@/types/app-features";
 import AlignedGraph from "./AlignedGraph";
+import ExperimentMetricTimeSeriesGraphWrapper from "./ExperimentMetricTimeSeriesGraphWrapper";
 import ChanceToWinColumn from "./ChanceToWinColumn";
 import MetricValueColumn from "./MetricValueColumn";
 import PercentGraph from "./PercentGraph";
+import styles from "./ResultsTable.module.scss";
 
 export type ResultsTableProps = {
   id: string;
@@ -66,6 +73,7 @@ export type ResultsTableProps = {
   queryStatusData?: QueryStatusData;
   isLatestPhase: boolean;
   startDate: string;
+  endDate: string;
   rows: ExperimentTableRow[];
   dimension?: string;
   tableRowAxis: "metric" | "dimension";
@@ -92,6 +100,7 @@ export type ResultsTableProps = {
   isBandit?: boolean;
   isGoalMetrics?: boolean;
   ssrPolyfills?: SSRPolyfills;
+  disableTimeSeriesButton?: boolean;
 };
 
 const ROW_HEIGHT = 56;
@@ -117,6 +126,7 @@ export default function ResultsTable({
   variationFilter,
   baselineRow = 0,
   startDate,
+  endDate,
   renderLabelColumn,
   dateCreated,
   hasRisk,
@@ -132,6 +142,7 @@ export default function ResultsTable({
   noTooltip,
   isBandit,
   ssrPolyfills,
+  disableTimeSeriesButton,
 }: ResultsTableProps) {
   // fix any potential filter conflicts
   if (variationFilter?.includes(baselineRow)) {
@@ -162,6 +173,36 @@ export default function ResultsTable({
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const [graphCellWidth, setGraphCellWidth] = useState(800);
   const [tableCellScale, setTableCellScale] = useState(1);
+
+  const gb = useGrowthBook<AppFeatures>();
+  const { isAuthenticated } = useAuth();
+  let showTimeSeriesButton =
+    isAuthenticated &&
+    baselineRow === 0 &&
+    tableRowAxis === "metric" &&
+    !disableTimeSeriesButton &&
+    gb.isOn("experiment-results-timeseries");
+
+  // Disable time series button for stopped experiments before we added this feature (& therefore data)
+  if (status === "stopped" && endDate <= "2025-04-03") {
+    showTimeSeriesButton = false;
+  }
+
+  const [visibleTimeSeriesMetricIds, setVisibleTimeSeriesMetricIds] = useState<
+    string[]
+  >([]);
+  const toggleVisibleTimeSeriesMetricId = (metricId: string) => {
+    setVisibleTimeSeriesMetricIds((prev) =>
+      prev.includes(metricId)
+        ? prev.filter((id) => id !== metricId)
+        : [...prev, metricId]
+    );
+  };
+
+  // Ensure we close all of them if dimension changes
+  useEffect(() => {
+    setVisibleTimeSeriesMetricIds([]);
+  }, [tableRowAxis]);
 
   function onResize() {
     if (!tableContainerRef?.current?.clientWidth) return;
@@ -203,6 +244,9 @@ export default function ResultsTable({
     return sorted;
   }, [variations, baselineRow]);
 
+  const showVariations = orderedVariations.map(
+    (v) => !variationFilter?.includes(v.index)
+  );
   const filteredVariations = orderedVariations.filter(
     (v) => !variationFilter?.includes(v.index)
   );
@@ -592,6 +636,13 @@ export default function ResultsTable({
               };
               let alreadyShownQueryError = false;
 
+              const timeSeriesButton = showTimeSeriesButton ? (
+                <TimeSeriesButton
+                  onClick={() => toggleVisibleTimeSeriesMetricId(row.metric.id)}
+                  isActive={visibleTimeSeriesMetricIds.includes(row.metric.id)}
+                />
+              ) : null;
+
               return (
                 <tbody className={clsx("results-group-row")} key={i}>
                   {!compactResults &&
@@ -603,6 +654,12 @@ export default function ResultsTable({
                       id,
                       domain,
                       ssrPolyfills,
+                      lastColumnContent:
+                        !compactResults && timeSeriesButton !== null ? (
+                          <Flex justify="end" mr="-1">
+                            {timeSeriesButton}
+                          </Flex>
+                        ) : undefined,
                     })}
 
                   {orderedVariations.map((v, j) => {
@@ -885,6 +942,9 @@ export default function ResultsTable({
                             statsEngine={statsEngine}
                             className={resultsHighlightClassname}
                             ssrPolyfills={ssrPolyfills}
+                            additionalButton={
+                              compactResults ? timeSeriesButton : undefined
+                            }
                           />
                         ) : (
                           <td></td>
@@ -892,6 +952,29 @@ export default function ResultsTable({
                       </tr>
                     );
                   })}
+
+                  {visibleTimeSeriesMetricIds.includes(row.metric.id) ? (
+                    <tr>
+                      <td colSpan={6} style={{ padding: 0 }}>
+                        <div className={styles.expandAnimation}>
+                          <div className={styles.timeSeriesCell}>
+                            <ExperimentMetricTimeSeriesGraphWrapper
+                              experimentId={id}
+                              experimentStatus={status}
+                              metric={row.metric}
+                              differenceType={differenceType}
+                              showVariations={showVariations}
+                              statsEngine={statsEngine}
+                              pValueAdjustmentEnabled={
+                                !!appliedPValueCorrection && rows.length > 1
+                              }
+                              firstDateToRender={getValidDate(startDate)}
+                            />
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : null}
                 </tbody>
               );
             })}
@@ -924,6 +1007,7 @@ function drawEmptyRow({
   id,
   domain,
   ssrPolyfills,
+  lastColumnContent,
 }: {
   key?: number | string;
   className?: string;
@@ -934,10 +1018,13 @@ function drawEmptyRow({
   id: string;
   domain: [number, number];
   ssrPolyfills?: SSRPolyfills;
+  lastColumnContent?: ReactElement;
 }) {
   return (
     <tr key={key} style={style} className={className}>
-      <td colSpan={4}>{label}</td>
+      <td colSpan={4}>
+        <div style={{ marginTop: "var(--space-3)" }}>{label}</div>
+      </td>
       <td className="graph-cell">
         <AlignedGraph
           id={`${id}_axis`}
@@ -950,7 +1037,7 @@ function drawEmptyRow({
           ssrPolyfills={ssrPolyfills}
         />
       </td>
-      <td />
+      <td>{lastColumnContent}</td>
     </tr>
   );
 }
@@ -968,7 +1055,7 @@ function getChangeTooltip(
     "The uplift comparing the variation to the baseline, in percent change from the baseline value.";
   if (differenceType == "absolute") {
     changeText =
-      "The absolute difference between the average values in the variation and the baseline. For non-ratio metrics, this is average difference between users in the variation and the baseline.";
+      "The absolute difference between the average values in the variation and the baseline. For non-ratio metrics, this is average difference between users in the variation and the baseline. Differences in proportion metrics are shown in percentage points (pp).";
   } else if (differenceType == "scaled") {
     changeText =
       "The total change in the metric per day if 100% of traffic were to have gone to the variation.";

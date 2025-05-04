@@ -36,10 +36,12 @@ import {
   isFactMetric,
   isFactMetricId,
   isMetricJoinable,
+  setAdjustedCIs,
+  setAdjustedPValuesOnResults,
 } from "shared/experiments";
-import { orgHasPremiumFeature } from "shared/enterprise";
 import { hoursBetween } from "shared/dates";
 import { v4 as uuidv4 } from "uuid";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { MetricPriorSettings } from "back-end/types/fact-table";
 import {
   ExperimentAnalysisSummaryVariationStatus,
@@ -137,6 +139,8 @@ import { ApiReqContext } from "back-end/types/api";
 import { ProjectInterface } from "back-end/types/project";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
+import { SafeRolloutSnapshotAnalysis } from "back-end/src/validators/safe-rollout-snapshot";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import {
   getIntegrationFromDatasourceId,
@@ -156,6 +160,7 @@ import {
   getConfidenceLevelsForOrg,
   getEnvironmentIdsFromOrg,
   getMetricDefaultsForOrg,
+  getPValueCorrectionForOrg,
   getPValueThresholdForOrg,
 } from "./organizations";
 
@@ -322,8 +327,17 @@ export async function getManualSnapshotData(
     const res = analyses[0];
     const data = res.dimensions[0];
     if (!data) return;
+
+    // If the value inside the ci is null from gbstats
+    // it actually means Infinity, so handle that case
     data.variations.map((v, i) => {
-      variations[i].metrics[metric] = v;
+      const ci: [number, number] | undefined = v.ci
+        ? [v.ci[0] ?? -Infinity, v.ci[1] ?? Infinity]
+        : undefined;
+      variations[i].metrics[metric] = {
+        ...v,
+        ci,
+      };
     });
   });
 
@@ -582,7 +596,6 @@ export async function createManualSnapshot({
   orgPriorSettings,
   analysisSettings,
   metricMap,
-  context,
 }: {
   experiment: ExperimentInterface;
   phaseIndex: number;
@@ -593,7 +606,6 @@ export async function createManualSnapshot({
   orgPriorSettings: MetricPriorSettings | undefined;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
   metricMap: Map<string, ExperimentMetricInterface>;
-  context: Context;
 }) {
   const snapshotSettings = getSnapshotSettings({
     experiment,
@@ -646,7 +658,7 @@ export async function createManualSnapshot({
     triggeredBy: "manual",
   };
 
-  return await createExperimentSnapshotModel({ data, context });
+  return await createExperimentSnapshotModel({ data });
 }
 
 export async function parseDimensionId(
@@ -705,9 +717,7 @@ export function determineNextDate(schedule: ExperimentUpdateSchedule | null) {
   return new Date(Date.now() + hours * 60 * 60 * 1000);
 }
 
-export function determineNextBanditSchedule(
-  exp: ExperimentInterface
-): Date | undefined {
+export function determineNextBanditSchedule(exp: ExperimentInterface): Date {
   const start = (
     exp?.banditStageDateStarted ??
     exp.phases?.[exp.phases.length - 1]?.dateStarted ??
@@ -1049,22 +1059,22 @@ export async function createSnapshot({
 
   if (scheduleNextSnapshot) {
     const nextUpdate =
-      (experiment.type !== "multi-armed-bandit"
+      experiment.type !== "multi-armed-bandit"
         ? determineNextDate(organization.settings?.updateSchedule || null)
-        : determineNextBanditSchedule(experiment)) || undefined;
+        : determineNextBanditSchedule(experiment);
 
     await updateExperiment({
       context,
       experiment,
       changes: {
         lastSnapshotAttempt: new Date(),
-        nextSnapshotAttempt: nextUpdate,
+        ...(nextUpdate ? { nextSnapshotAttempt: nextUpdate } : {}),
         autoSnapshots: nextUpdate !== null,
       },
     });
   }
 
-  const snapshot = await createExperimentSnapshotModel({ data, context });
+  const snapshot = await createExperimentSnapshotModel({ data });
 
   const integration = getSourceIntegrationObject(context, datasource, true);
 
@@ -1342,12 +1352,14 @@ export async function toExperimentApiInterface(
     project: project ?? undefined,
     // todo: experiment settings
   });
+  const experimentType = experiment.type || "standard";
 
   const activationMetric = experiment.activationMetric;
   return {
     id: experiment.id,
+    trackingKey: experiment.trackingKey,
     name: experiment.name || "",
-    type: experiment.type || "standard",
+    type: experimentType,
     project: experiment.project || "",
     hypothesis: experiment.hypothesis || "",
     description: experiment.description || "",
@@ -1383,6 +1395,7 @@ export async function toExperimentApiInterface(
         weight: p.variationWeights[i] || 0,
       })),
       targetingCondition: p.condition || "",
+      prerequisites: p.prerequisites || [],
       savedGroupTargeting: (p.savedGroups || []).map((s) => ({
         matchType: s.match,
         savedGroups: s.ids,
@@ -1415,6 +1428,13 @@ export async function toExperimentApiInterface(
       regressionAdjustmentEnabled:
         experiment.regressionAdjustmentEnabled ??
         scopedSettings.regressionAdjustmentEnabled.value,
+      sequentialTestingEnabled:
+        experiment.sequentialTestingEnabled ??
+        scopedSettings.sequentialTestingEnabled.value,
+      sequentialTestingTuningParameter:
+        experiment.sequentialTestingTuningParameter ??
+        scopedSettings.sequentialTestingTuningParameter.value ??
+        DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
       ...(activationMetric
         ? {
             activationMetric: getExperimentMetric(experiment, activationMetric),
@@ -1438,6 +1458,17 @@ export async function toExperimentApiInterface(
           publicUrl: `${appOrigin}/public/e/${experiment.uid}`,
         }
       : null),
+    ...(experimentType === "multi-armed-bandit"
+      ? {
+          banditScheduleValue: experiment.banditScheduleValue ?? 1,
+          banditScheduleUnit: experiment.banditScheduleUnit ?? "days",
+          banditBurnInValue: experiment.banditBurnInValue ?? 1,
+          banditBurnInUnit: experiment.banditBurnInUnit ?? "days",
+        }
+      : null),
+    linkedFeatures: experiment.linkedFeatures || [],
+    hasVisualChangesets: experiment.hasVisualChangesets || false,
+    hasURLRedirects: experiment.hasURLRedirects || false,
   };
 }
 
@@ -2350,13 +2381,21 @@ export const toNamespaceRange = (
 export function postExperimentApiPayloadToInterface(
   payload: z.infer<typeof postExperimentValidator.bodySchema>,
   organization: OrganizationInterface,
-  datasource: DataSourceInterface
+  datasource: DataSourceInterface | null
 ): Omit<ExperimentInterface, "dateCreated" | "dateUpdated" | "id"> {
   const phases: ExperimentPhase[] = payload.phases?.map((p) => {
     const conditionRes = validateCondition(p.condition);
     if (!conditionRes.success) {
       throw new Error(`Invalid targeting condition: ${conditionRes.error}`);
     }
+    p.prerequisites?.forEach((prerequisite) => {
+      const conditionRes = validateCondition(prerequisite.condition);
+      if (!conditionRes.success) {
+        throw new Error(
+          `Invalid prerequisite condition: ${conditionRes.error}`
+        );
+      }
+    });
 
     return {
       ...p,
@@ -2365,6 +2404,7 @@ export function postExperimentApiPayloadToInterface(
       reason: p.reason || "",
       coverage: p.coverage != null ? p.coverage : 1,
       condition: p.condition || "{}",
+      prerequisites: p.prerequisites || [],
       savedGroups: (p.savedGroupTargeting || []).map((s) => ({
         match: s.matchType,
         ids: s.savedGroups,
@@ -2397,32 +2437,41 @@ export function postExperimentApiPayloadToInterface(
     },
   ];
 
-  return {
+  const obj: Omit<ExperimentInterface, "dateCreated" | "dateUpdated" | "id"> = {
     organization: organization.id,
-    datasource: datasource.id,
+    datasource: datasource?.id ?? "",
     archived: payload.archived ?? false,
     hashAttribute: payload.hashAttribute ?? "",
+    fallbackAttribute: payload.fallbackAttribute || "",
     hashVersion: payload.hashVersion ?? 2,
+    disableStickyBucketing: payload.disableStickyBucketing ?? false,
+    ...(payload.bucketVersion !== undefined
+      ? { bucketVersion: payload.bucketVersion }
+      : {}),
+    ...(payload.minBucketVersion !== undefined
+      ? { minBucketVersion: payload.minBucketVersion }
+      : {}),
     autoSnapshots: true,
     project: payload.project,
     owner: payload.owner || "",
     trackingKey: payload.trackingKey || "",
     exposureQueryId:
       payload.assignmentQueryId ||
-      datasource.settings.queries?.exposure?.[0]?.id ||
+      datasource?.settings.queries?.exposure?.[0]?.id ||
       "",
     name: payload.name || "",
+    type: payload.type || "standard",
     phases,
     tags: payload.tags || [],
     description: payload.description || "",
     hypothesis: payload.hypothesis || "",
     goalMetrics: payload.metrics || [],
     secondaryMetrics: payload.secondaryMetrics || [],
-    metricOverrides: [],
     guardrailMetrics: payload.guardrailMetrics || [],
-    activationMetric: "",
-    segment: "",
-    queryFilter: "",
+    activationMetric: payload.activationMetric || "",
+    metricOverrides: [],
+    segment: payload.segmentId || "",
+    queryFilter: payload.queryFilter || "",
     skipPartialData: payload.inProgressConversions === "strict",
     attributionModel: payload.attributionModel || "firstExposure",
     ...(payload.statsEngine ? { statsEngine: payload.statsEngine } : {}),
@@ -2442,14 +2491,34 @@ export function postExperimentApiPayloadToInterface(
     previewURL: "",
     targetURLRegex: "",
     ideaSource: "",
-    sequentialTestingEnabled: !!organization?.settings
-      ?.sequentialTestingEnabled,
-    sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+    sequentialTestingEnabled:
+      payload.sequentialTestingEnabled ??
+      !!organization?.settings?.sequentialTestingEnabled,
+    sequentialTestingTuningParameter:
+      payload.sequentialTestingTuningParameter ??
+      organization?.settings?.sequentialTestingTuningParameter ??
+      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
     regressionAdjustmentEnabled:
       payload.regressionAdjustmentEnabled ??
       !!organization?.settings?.regressionAdjustmentEnabled,
     shareLevel: payload.shareLevel,
   };
+
+  const { settings } = getScopedSettings({
+    organization,
+  });
+
+  if (payload.type === "multi-armed-bandit") {
+    Object.assign(
+      obj,
+      resetExperimentBanditSettings({
+        experiment: (obj as unknown) as ExperimentInterface,
+        settings,
+      })
+    );
+  }
+
+  return obj;
 }
 
 /**
@@ -2461,7 +2530,9 @@ export function postExperimentApiPayloadToInterface(
  */
 export function updateExperimentApiPayloadToInterface(
   payload: z.infer<typeof updateExperimentValidator.bodySchema>,
-  experiment: ExperimentInterface
+  experiment: ExperimentInterface,
+  metricMap: Map<string, ExperimentMetricInterface>,
+  organization: OrganizationInterface
 ): Partial<ExperimentInterface> {
   const {
     trackingKey,
@@ -2471,12 +2542,19 @@ export function updateExperimentApiPayloadToInterface(
     assignmentQueryId,
     hashAttribute,
     hashVersion,
+    disableStickyBucketing,
+    bucketVersion,
+    minBucketVersion,
     name,
+    type,
     tags,
     description,
     hypothesis,
     metrics,
     guardrailMetrics,
+    activationMetric,
+    segmentId,
+    queryFilter,
     archived,
     status,
     phases,
@@ -2487,10 +2565,12 @@ export function updateExperimentApiPayloadToInterface(
     attributionModel,
     statsEngine,
     regressionAdjustmentEnabled,
+    sequentialTestingEnabled,
+    sequentialTestingTuningParameter,
     secondaryMetrics,
     shareLevel,
   } = payload;
-  return {
+  let changes: ExperimentInterface = {
     ...(trackingKey ? { trackingKey } : {}),
     ...(project !== undefined ? { project } : {}),
     ...(owner !== undefined ? { owner } : {}),
@@ -2498,13 +2578,20 @@ export function updateExperimentApiPayloadToInterface(
     ...(assignmentQueryId ? { assignmentQueryId } : {}),
     ...(hashAttribute ? { hashAttribute } : {}),
     ...(hashVersion ? { hashVersion } : {}),
+    ...(disableStickyBucketing !== undefined ? { disableStickyBucketing } : {}),
+    ...(bucketVersion !== undefined ? { bucketVersion } : {}),
+    ...(minBucketVersion !== undefined ? { minBucketVersion } : {}),
     ...(name ? { name } : {}),
+    ...(type ? { type } : {}),
     ...(tags ? { tags } : {}),
     ...(description !== undefined ? { description } : {}),
     ...(hypothesis !== undefined ? { hypothesis } : {}),
     ...(metrics ? { goalMetrics: metrics } : {}),
     ...(guardrailMetrics ? { guardrailMetrics } : {}),
     ...(secondaryMetrics ? { secondaryMetrics } : {}),
+    ...(activationMetric ? { activationMetric } : {}),
+    ...(segmentId ? { segment: segmentId } : {}),
+    ...(queryFilter !== undefined ? { queryFilter } : {}),
     ...(archived !== undefined ? { archived } : {}),
     ...(status ? { status } : {}),
     ...(releasedVariationId !== undefined ? { releasedVariationId } : {}),
@@ -2516,6 +2603,12 @@ export function updateExperimentApiPayloadToInterface(
     ...(statsEngine !== undefined ? { statsEngine } : {}),
     ...(regressionAdjustmentEnabled !== undefined
       ? { regressionAdjustmentEnabled }
+      : {}),
+    ...(sequentialTestingEnabled !== undefined
+      ? { sequentialTestingEnabled }
+      : {}),
+    ...(sequentialTestingTuningParameter !== undefined
+      ? { sequentialTestingTuningParameter }
       : {}),
     ...(variations
       ? {
@@ -2535,6 +2628,14 @@ export function updateExperimentApiPayloadToInterface(
                 `Invalid targeting condition: ${conditionRes.error}`
               );
             }
+            p.prerequisites?.forEach((prerequisite) => {
+              const conditionRes = validateCondition(prerequisite.condition);
+              if (!conditionRes.success) {
+                throw new Error(
+                  `Invalid prerequisite condition: ${conditionRes.error}`
+                );
+              }
+            });
 
             return {
               ...p,
@@ -2543,6 +2644,7 @@ export function updateExperimentApiPayloadToInterface(
               reason: p.reason || "",
               coverage: p.coverage != null ? p.coverage : 1,
               condition: p.condition || "{}",
+              prerequisites: p.prerequisites || [],
               savedGroups: (p.savedGroupTargeting || []).map((s) => ({
                 match: s.matchType,
                 ids: s.savedGroups,
@@ -2564,7 +2666,44 @@ export function updateExperimentApiPayloadToInterface(
       : {}),
     ...(shareLevel !== undefined ? { shareLevel } : {}),
     dateUpdated: new Date(),
-  };
+  } as ExperimentInterface;
+
+  const { settings } = getScopedSettings({
+    organization,
+  });
+
+  // Clean up some vars for bandits, but only if safe to do so...
+  // If it's a draft, hasn't been run as a bandit before, and is/will be a MAB:
+  if (
+    experiment.status === "draft" &&
+    experiment.banditStage === undefined &&
+    ((changes.type === undefined && experiment.type === "multi-armed-bandit") ||
+      changes.type === "multi-armed-bandit")
+  ) {
+    changes = resetExperimentBanditSettings({
+      experiment,
+      metricMap,
+      changes,
+      settings,
+    }) as ExperimentInterface;
+  }
+  // If it's already a bandit and..
+  if (experiment.type === "multi-armed-bandit") {
+    // ...the schedule has changed, recompute next run
+    if (
+      changes.banditScheduleUnit !== undefined ||
+      changes.banditScheduleValue !== undefined ||
+      changes.banditBurnInUnit !== undefined ||
+      changes.banditBurnInValue !== undefined
+    ) {
+      changes.nextSnapshotAttempt = determineNextBanditSchedule({
+        ...experiment,
+        ...changes,
+      } as ExperimentInterface);
+    }
+  }
+
+  return changes;
 }
 
 export async function getSettingsForSnapshotMetrics(
@@ -2811,7 +2950,7 @@ export async function getChangesToStartExperiment(
   return changes;
 }
 
-export async function updateExperimentAnalysisSummary({
+export async function getExperimentAnalysisSummary({
   context,
   experiment,
   experimentSnapshot,
@@ -2819,7 +2958,7 @@ export async function updateExperimentAnalysisSummary({
   context: ReqContext;
   experiment: ExperimentInterface;
   experimentSnapshot: ExperimentSnapshotInterface;
-}) {
+}): Promise<ExperimentAnalysisSummary> {
   const analysisSummary: ExperimentAnalysisSummary = {
     snapshotId: experimentSnapshot.id,
   };
@@ -2844,7 +2983,7 @@ export async function updateExperimentAnalysisSummary({
 
   const srm = getSRMValue(experiment.type ?? "standard", experimentSnapshot);
 
-  if (overallTraffic && srm !== undefined) {
+  if (srm !== undefined) {
     analysisSummary.health = {
       srm,
       multipleExposures: experimentSnapshot.multipleExposures,
@@ -2874,13 +3013,14 @@ export async function updateExperimentAnalysisSummary({
     (v) => v.settings.differenceType === "relative"
   );
 
+  // by default, we compute experiment results status on relative analysis
   if (relativeAnalysis) {
     const overallResults = relativeAnalysis.results?.[0];
     // redundant check for dimension
     if (overallResults && overallResults.name === "") {
       const resultsStatus = await computeResultsStatus({
         context,
-        relativeAnalysis,
+        analysis: relativeAnalysis,
         experiment,
       });
 
@@ -2890,7 +3030,25 @@ export async function updateExperimentAnalysisSummary({
     }
   }
 
-  await updateExperiment({
+  return analysisSummary;
+}
+
+export async function updateExperimentAnalysisSummary({
+  context,
+  experiment,
+  experimentSnapshot,
+}: {
+  context: ReqContext;
+  experiment: ExperimentInterface;
+  experimentSnapshot: ExperimentSnapshotInterface;
+}): Promise<ExperimentInterface> {
+  const analysisSummary = await getExperimentAnalysisSummary({
+    context,
+    experiment,
+    experimentSnapshot,
+  });
+
+  return updateExperiment({
     context,
     experiment,
     changes: {
@@ -2899,22 +3057,49 @@ export async function updateExperimentAnalysisSummary({
   });
 }
 
-async function computeResultsStatus({
+function getVariationId(
+  experiment: ExperimentInterface | SafeRolloutInterface,
+  i: number
+): string {
+  if ("variations" in experiment) {
+    return experiment.variations?.[i]?.id;
+  }
+  return i + "";
+}
+
+export async function computeResultsStatus({
   context,
-  relativeAnalysis,
+  analysis,
   experiment,
 }: {
   context: ReqContext;
-  relativeAnalysis: ExperimentSnapshotAnalysis;
-  experiment: ExperimentInterface;
+  analysis: ExperimentSnapshotAnalysis | SafeRolloutSnapshotAnalysis;
+  experiment: ExperimentInterface | SafeRolloutInterface;
 }): Promise<ExperimentAnalysisSummaryResultsStatus | undefined> {
-  const statsEngine = relativeAnalysis.settings.statsEngine;
+  const statsEngine = analysis.settings.statsEngine;
+  const pValueCorrection = getPValueCorrectionForOrg(context);
   const { ciUpper, ciLower } = getConfidenceLevelsForOrg(context);
   const metricDefaults = getMetricDefaultsForOrg(context);
   const pValueThreshold = getPValueThresholdForOrg(context);
   const metricMap = await getMetricMap(context);
+  const metricGroups = await context.models.metricGroups.getAll();
 
-  const variations = relativeAnalysis.results[0]?.variations;
+  const expandedGoalMetrics =
+    "goalMetrics" in experiment
+      ? expandMetricGroups(experiment.goalMetrics, metricGroups)
+      : [];
+  const expandedGuardrailMetrics =
+    "guardrailMetrics" in experiment
+      ? expandMetricGroups(experiment.guardrailMetrics, metricGroups)
+      : expandMetricGroups(experiment.guardrailMetricIds, metricGroups);
+
+  const results = cloneDeep(analysis.results);
+
+  // modifies results in place
+  setAdjustedPValuesOnResults(results, expandedGoalMetrics, pValueCorrection);
+  setAdjustedCIs(results, pValueThreshold);
+
+  const variations = results[0]?.variations;
   if (!variations || !variations.length) {
     return;
   }
@@ -2924,16 +3109,16 @@ async function computeResultsStatus({
 
   for (let i = 1; i < variations.length; i++) {
     // try to get id from experiment object
-    const variationId = experiment.variations?.[i]?.id;
+    const variationId = getVariationId(experiment, i);
     const currentVariation = variations[i];
     const variationStatus: ExperimentAnalysisSummaryVariationStatus = {
-      variationId: variationId ?? i + "",
+      variationId,
       goalMetrics: {},
       guardrailMetrics: {},
     };
     for (const m in currentVariation.metrics) {
-      const goalMetric = experiment.goalMetrics.includes(m);
-      const guardrailMetric = experiment.guardrailMetrics.includes(m);
+      const goalMetric = expandedGoalMetrics.includes(m);
+      const guardrailMetric = expandedGuardrailMetrics.includes(m);
       if (goalMetric || guardrailMetric) {
         const baselineMetric = baselineVariation.metrics?.[m];
         const currentMetric = currentVariation.metrics?.[m];
@@ -2969,10 +3154,16 @@ async function computeResultsStatus({
           } else if (resultsStatus.resultsStatus === "lost") {
             metricStatus.superStatSigStatus = "lost";
           }
+          if (!variationStatus.goalMetrics) {
+            variationStatus.goalMetrics = {};
+          }
           variationStatus.goalMetrics[metric.id] = metricStatus;
         }
 
         if (guardrailMetric) {
+          if (!variationStatus.guardrailMetrics) {
+            variationStatus.guardrailMetrics = {};
+          }
           variationStatus.guardrailMetrics[metric.id] = {
             status: resultsStatus.resultsStatus === "lost" ? "lost" : "neutral",
           };
@@ -2985,7 +3176,7 @@ async function computeResultsStatus({
   return {
     variations: variationStatuses,
     settings: {
-      sequentialTesting: relativeAnalysis.settings.sequentialTesting ?? false,
+      sequentialTesting: analysis.settings.sequentialTesting ?? false,
     },
   };
 }

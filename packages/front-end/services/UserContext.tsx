@@ -11,6 +11,7 @@ import {
   ProjectScopedPermission,
   UserPermissions,
   GetOrganizationResponse,
+  OrganizationUsage,
 } from "back-end/types/organization";
 import type {
   AccountPlan,
@@ -84,6 +85,7 @@ export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
   readData: false,
   manageCustomRoles: false,
   manageCustomFields: false,
+  manageDecisionCriteria: false,
 };
 
 export interface UserContextValue {
@@ -121,6 +123,7 @@ export interface UserContextValue {
   };
   canSubscribe: boolean;
   freeSeats: number;
+  usage?: OrganizationUsage;
 }
 
 interface UserResponse {
@@ -506,6 +509,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         watching: watching,
         canSubscribe,
         freeSeats: organization?.freeSeats || 3,
+        usage: currentOrg?.usage,
       }}
     >
       {children}

@@ -63,5 +63,10 @@ export type AppFeatures = {
   "show-impact-near-top": boolean;
   "pro-upgrade-modal": string;
   "ff_payment-info": boolean;
+  "ff_embedded-payment-form": boolean;
   "cdn-usage-data": boolean;
+  "experiment-results-timeseries": boolean;
+  "decision-framework-criteria": boolean;
+  "safe-rollout": boolean;
+  "safe-rollout-promo": boolean;
 };

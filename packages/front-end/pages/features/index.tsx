@@ -154,7 +154,7 @@ export default function FeaturesPage() {
                 href="https://docs.growthbook.io/using/growthbook-best-practices#syntax-search"
                 target="_blank"
               >
-                <Tooltip body={searchTermFilterExplainations}></Tooltip>
+                <Tooltip body={searchTermFilterExplanations}></Tooltip>
               </Link>
             </div>
             <div className="col-auto">
@@ -433,7 +433,7 @@ export default function FeaturesPage() {
     environments,
   });
 
-  const searchTermFilterExplainations = (
+  const searchTermFilterExplanations = (
     <>
       <p>This search field supports advanced syntax search, including:</p>
       <ul>

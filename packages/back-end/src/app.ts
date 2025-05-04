@@ -8,6 +8,7 @@ import asyncHandler from "express-async-handler";
 import compression from "compression";
 import * as Sentry from "@sentry/node";
 import { populationDataRouter } from "back-end/src/routers/population-data/population-data.router";
+import decisionCriteriaRouter from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.router";
 import { usingFileConfig } from "./init/config";
 import { AuthRequest } from "./types/AuthRequest";
 import {
@@ -22,7 +23,6 @@ import {
   getExperimentConfig,
   getExperimentsScript,
 } from "./controllers/config";
-import { verifySlackRequestSignature } from "./services/slack";
 import { getAuthConnection, processJWT, usingOpenId } from "./services/auth";
 import { wrapController } from "./routers/wrapController";
 import apiRouter from "./api/api.router";
@@ -73,17 +73,14 @@ const adminController = wrapController(adminControllerRaw);
 import * as licenseControllerRaw from "./controllers/license";
 const licenseController = wrapController(licenseControllerRaw);
 
-import * as stripeControllerRaw from "./controllers/stripe";
-const stripeController = wrapController(stripeControllerRaw);
+import * as subscriptionControllerRaw from "./controllers/subscription";
+const subscriptionController = wrapController(subscriptionControllerRaw);
 
 import * as vercelControllerRaw from "./controllers/vercel";
 const vercelController = wrapController(vercelControllerRaw);
 
 import * as featuresControllerRaw from "./controllers/features";
 const featuresController = wrapController(featuresControllerRaw);
-
-import * as slackControllerRaw from "./controllers/slack";
-const slackController = wrapController(slackControllerRaw);
 
 import * as informationSchemasControllerRaw from "./controllers/informationSchemas";
 const informationSchemasController = wrapController(
@@ -122,6 +119,7 @@ import { metricGroupRouter } from "./routers/metric-group/metric-group.router";
 import { findOrCreateGeneratedHypothesis } from "./models/GeneratedHypothesis";
 import { getContextFromReq } from "./services/organizations";
 import { templateRouter } from "./routers/experiment-template/template.router";
+import { safeRolloutRouter } from "./routers/safe-rollout/safe-rollout.router";
 
 const app = express();
 
@@ -210,25 +208,6 @@ app.use(async (req, res, next) => {
 
 // Visual Designer js file (does not require JWT or cors)
 app.get("/js/:key.js", getExperimentsScript);
-
-// Stripe webhook (needs raw body)
-app.post(
-  "/stripe/webhook",
-  bodyParser.raw({
-    type: "application/json",
-  }),
-  stripeController.postWebhook
-);
-
-// Slack app (body is urlencoded)
-app.post(
-  "/ideas/slack",
-  bodyParser.urlencoded({
-    extended: true,
-    verify: verifySlackRequestSignature,
-  }),
-  slackController.postIdeas
-);
 
 // increase max payload json size to 1mb
 app.use(bodyParser.json({ limit: "1mb" }));
@@ -399,32 +378,47 @@ app.use("/environment", environmentRouter);
 app.post("/oauth/google", datasourcesController.postGoogleOauthRedirect);
 app.post(
   "/subscription/new-pro-trial",
-  stripeController.postNewProTrialSubscription
+  subscriptionController.postNewProTrialSubscription
 );
 
 if (IS_CLOUD) {
   app.post(
     "/subscription/payment-methods/setup-intent",
-    stripeController.postSetupIntent
+    subscriptionController.postSetupIntent
   );
   app.get(
     "/subscription/payment-methods",
-    stripeController.fetchPaymentMethods
+    subscriptionController.fetchPaymentMethods
   );
   app.post(
     "/subscription/payment-methods/detach",
-    stripeController.deletePaymentMethod
+    subscriptionController.deletePaymentMethod
   );
   app.post(
     "/subscription/payment-methods/set-default",
-    stripeController.updateCustomerDefaultPayment
+    subscriptionController.updateCustomerDefaultPayment
   );
+  app.post(
+    "/subscription/setup-intent",
+    subscriptionController.postNewProSubscriptionIntent
+  );
+  app.post(
+    "/subscription/start-new-pro",
+    subscriptionController.postInlineProSubscription
+  );
+  app.post("/subscription/cancel", subscriptionController.cancelSubscription);
+  app.get("/subscription/portal-url", subscriptionController.getPortalUrl);
+  app.get("/billing/usage", subscriptionController.getUsage);
 }
-app.post("/subscription/new", stripeController.postNewProSubscription);
-app.post("/subscription/manage", stripeController.postCreateBillingSession);
-app.post("/subscription/success", stripeController.postSubscriptionSuccess);
-
-app.get("/billing/usage", stripeController.getUsage);
+app.post("/subscription/new", subscriptionController.postNewProSubscription);
+app.post(
+  "/subscription/manage",
+  subscriptionController.postCreateBillingSession
+);
+app.post(
+  "/subscription/success",
+  subscriptionController.postSubscriptionSuccess
+);
 
 app.get("/queries/:ids", datasourcesController.getQueries);
 app.post("/query/test", datasourcesController.testLimitedQuery);
@@ -610,6 +604,12 @@ app.delete(
   experimentsController.deleteVisualChangeset
 );
 
+// Time Series
+app.get(
+  "/experiments/:id/time-series",
+  experimentsController.getExperimentTimeSeries
+);
+
 // Visual editor auth
 app.get(
   "/visual-editor/key",
@@ -619,8 +619,14 @@ app.get(
 // Experiment Templates
 app.use("/templates", templateRouter);
 
+// Decision Criteria
+app.use("/decision-criteria", decisionCriteriaRouter);
+
 // URL Redirects
 app.use("/url-redirects", urlRedirectRouter);
+
+// Safe Rollouts
+app.use("/safe-rollout", safeRolloutRouter);
 
 // Reports
 app.get("/report/:id", reportsController.getReport);
@@ -685,6 +691,10 @@ app.post(
 );
 app.put("/feature/:id/:version/comment", featuresController.putRevisionComment);
 app.put("/feature/:id/:version/rule", featuresController.putFeatureRule);
+app.put(
+  "/feature/:id/safeRollout/status",
+  featuresController.putSafeRolloutStatus
+);
 app.delete("/feature/:id/:version/rule", featuresController.deleteFeatureRule);
 app.post("/feature/:id/prerequisite", featuresController.postPrerequisite);
 app.put("/feature/:id/prerequisite", featuresController.putPrerequisite);

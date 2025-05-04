@@ -340,6 +340,7 @@ const Results: FC<{
           dimensionId={snapshot.dimension ?? ""}
           isLatestPhase={phase === experiment.phases.length - 1}
           startDate={phaseObj?.dateStarted ?? ""}
+          endDate={phaseObj?.dateEnded ?? ""}
           reportDate={snapshot.dateCreated}
           activationMetric={experiment.activationMetric}
           status={experiment.status}
@@ -374,6 +375,7 @@ const Results: FC<{
             queryStatusData={queryStatusData}
             reportDate={snapshot.dateCreated}
             startDate={phaseObj?.dateStarted ?? ""}
+            endDate={phaseObj?.dateEnded ?? ""}
             isLatestPhase={phase === experiment.phases.length - 1}
             status={experiment.status}
             goalMetrics={experiment.goalMetrics}
