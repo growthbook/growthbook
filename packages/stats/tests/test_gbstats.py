@@ -381,15 +381,22 @@ BANDIT_ANALYSIS = BanditSettingsForStatsEngine(
 class TestDiffDailyTS(TestCase):
     def test_diff_works_as_expected(self):
         dfc = MULTI_DIMENSION_STATISTICS_DF.copy()
-        dfc["dimension"].replace(
+        dfc["dim_date"] = dfc.pop("dim_browser")
+
+        dfc["dim_date"].replace(
             ["one", "two"], ["2022-01-01", "2022-01-02"], inplace=True
         )
-        dfc = diff_for_daily_time_series(dfc)
+        # make dim_date the first column
+        cols = dfc.columns.tolist()
+        cols.insert(0, cols.pop(cols.index("dim_date")))
+        dfc = dfc[cols]
+
+        dfc = diff_for_daily_time_series(dfc, "dim_date")
 
         target_df = pd.DataFrame(
             [
                 {
-                    "dimension": "2022-01-01",
+                    "dim_date": "2022-01-01",
                     "variation": "one",
                     "main_sum": 300,
                     "main_sum_squares": 869,
@@ -397,7 +404,7 @@ class TestDiffDailyTS(TestCase):
                     "count": 120,
                 },
                 {
-                    "dimension": "2022-01-01",
+                    "dim_date": "2022-01-01",
                     "variation": "zero",
                     "main_sum": 270,
                     "main_sum_squares": 848.79,
@@ -405,7 +412,7 @@ class TestDiffDailyTS(TestCase):
                     "count": 100,
                 },
                 {
-                    "dimension": "2022-01-02",
+                    "dim_date": "2022-01-02",
                     "variation": "one",
                     "main_sum": 770.0 - 300,
                     "main_sum_squares": 3571 - 869,
@@ -413,7 +420,7 @@ class TestDiffDailyTS(TestCase):
                     "count": 220,
                 },
                 {
-                    "dimension": "2022-01-02",
+                    "dim_date": "2022-01-02",
                     "variation": "zero",
                     "main_sum": 740.0 - 270,
                     "main_sum_squares": 3615.59 - 848.79,
@@ -422,9 +429,10 @@ class TestDiffDailyTS(TestCase):
                 },
             ]
         )
+
         pd.testing.assert_frame_equal(
-            dfc.sort_values(["variation", "dimension"]).reset_index(drop=True),
-            target_df.sort_values(["variation", "dimension"]).reset_index(drop=True),
+            dfc.sort_values(["variation", "dim_date"]).reset_index(drop=True),
+            target_df.sort_values(["variation", "dim_date"]).reset_index(drop=True),
         )
 
 

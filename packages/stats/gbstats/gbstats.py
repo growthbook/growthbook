@@ -114,7 +114,7 @@ def detect_unknown_variations(
     return set(unknown_var_ids)
 
 
-def diff_for_daily_time_series(df: pd.DataFrame) -> pd.DataFrame:
+def diff_for_daily_time_series(df: pd.DataFrame, dimension: str) -> pd.DataFrame:
     dfc = df.copy()
     diff_cols = [
         x
@@ -128,7 +128,7 @@ def diff_for_daily_time_series(df: pd.DataFrame) -> pd.DataFrame:
         ]
         if x in dfc.columns
     ]
-    dfc.sort_values("dimension", inplace=True)
+    dfc.sort_values(dimension, inplace=True)
     dfc[diff_cols] = dfc.groupby(["variation"])[diff_cols].diff().fillna(dfc[diff_cols])
     return dfc
 
@@ -142,8 +142,8 @@ def get_metric_df(
 ) -> pd.DataFrame:
     dfc = rows.copy()
     dimensions = {}
-    # Each row in the raw SQL result is a dimension/variation combo
-    # We want to end up with one row per dimension
+    # Each row in the raw SQL result is a (dimension level, variation combo
+    # We want to end up with one row per dimension level
     for row in dfc.itertuples(index=False):
         # TODO fix dimensionname
         dim = getattr(row, "dim_" + dimension.replace(":", "_")) if dimension else ""
@@ -169,24 +169,13 @@ def get_metric_df(
             i = var_id_map[key]
             dimensions[dim]["total_users"] += row.users
             prefix = f"v{i}" if i > 0 else "baseline"
+            # Sum here in case multiple rows per dimension
             for col in ROW_COLS:
-                # Sum here in case multiple rows per dimension
-                # print(['brenda', dimensions[dim], prefix, f"{prefix}_{col}"])
-                print(
-                    [
-                        "dim",
-                        "prefix",
-                        "{prefix}_{col}",
-                        "row",
-                        "col",
-                        "getattr(row, col, 0)",
-                    ]
-                )
-                print([dim, prefix, f"{prefix}_{col}", row, col, getattr(row, col, 0)])
-                dimensions[dim][f"{prefix}_{col}"] += getattr(row, col, 0)
-            # Special handling for count, if missing returns a method, so override with user value
-            if callable(getattr(row, "count")):
-                dimensions[dim][f"{prefix}_count"] += getattr(row, "users", 0)
+                # Special handling for count, if missing returns a method, so override with user value
+                if col == "count" and callable(getattr(row, col)):
+                    dimensions[dim][f"{prefix}_count"] += getattr(row, "users", 0)
+                else:
+                    dimensions[dim][f"{prefix}_{col}"] += getattr(row, col, 0)
     return pd.DataFrame(dimensions.values())
 
 
@@ -686,7 +675,7 @@ def process_analysis(
     max_dimensions = analysis.max_dimensions
     # If we're doing a daily time series, we need to diff the data
     if analysis.dimension == "pre:datedaily":
-        rows = diff_for_daily_time_series(rows)
+        rows = diff_for_daily_time_series(rows, analysis.dimension)
 
     # Convert raw SQL result into a dataframe of dimensions
     df = get_metric_df(
