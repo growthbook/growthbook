@@ -163,6 +163,11 @@ def get_metric_df(
                 dimensions[dim][f"{prefix}_name"] = var_names[i]
                 for col in ROW_COLS:
                     dimensions[dim][f"{prefix}_{col}"] = 0
+        print(["tristan"])
+        print(row)
+        print(dimensions[dim].keys())
+        print(dimensions[dim]["v1_users"])
+        print(dimensions[dim]["v1_count"])
         # Add this SQL result row into the dimension dict if we recognize the variation
         key = str(row.variation)
         if key in var_id_map:
@@ -171,6 +176,18 @@ def get_metric_df(
             prefix = f"v{i}" if i > 0 else "baseline"
             for col in ROW_COLS:
                 # Sum here in case multiple rows per dimension
+                # print(['brenda', dimensions[dim], prefix, f"{prefix}_{col}"])
+                print(
+                    [
+                        "dim",
+                        "prefix",
+                        "{prefix}_{col}",
+                        "row",
+                        "col",
+                        "getattr(row, col, 0)",
+                    ]
+                )
+                print([dim, prefix, f"{prefix}_{col}", row, col, getattr(row, col, 0)])
                 dimensions[dim][f"{prefix}_{col}"] += getattr(row, col, 0)
             # Special handling for count, if missing returns a method, so override with user value
             if callable(getattr(row, "count")):
@@ -700,7 +717,6 @@ def process_analysis(
     )
     if append_combined_dimension:
         reduced = append_combined_row(reduced)
-    reduced.to_csv("/Users/lukesmith/Desktop/" + "reduced.csv")
 
     # Run the analysis for each variation and dimension
     result = analyze_metric_df(

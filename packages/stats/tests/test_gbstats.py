@@ -43,7 +43,7 @@ COUNT_METRIC = MetricSettingsForStatsEngine(
 
 QUERY_OUTPUT = [
     {
-        "dimension": "one",
+        "dim_browser": "one",
         "variation": "one",
         "main_sum": 300,
         "main_sum_squares": 869,
@@ -51,7 +51,7 @@ QUERY_OUTPUT = [
         "count": 120,
     },
     {
-        "dimension": "one",
+        "dim_browser": "one",
         "variation": "zero",
         "main_sum": 270,
         "main_sum_squares": 848.79,
@@ -59,7 +59,7 @@ QUERY_OUTPUT = [
         "count": 100,
     },
     {
-        "dimension": "two",
+        "dim_browser": "two",
         "variation": "one",
         "main_sum": 770,
         "main_sum_squares": 3571,
@@ -67,7 +67,7 @@ QUERY_OUTPUT = [
         "count": 220,
     },
     {
-        "dimension": "two",
+        "dim_browser": "two",
         "variation": "zero",
         "main_sum": 740,
         "main_sum_squares": 3615.59,
@@ -355,7 +355,7 @@ DEFAULT_ANALYSIS = AnalysisSettingsForStatsEngine(
     var_ids=["0", "1"],
     weights=[0.5, 0.5],
     baseline_index=0,
-    dimension="All",
+    dimension="browser",
     stats_engine="bayesian",
     sequential_testing_enabled=False,
     sequential_tuning_parameter=5000,
@@ -435,7 +435,7 @@ class TestGetMetricDf(TestCase):
             rows,
             {"zero": 0, "one": 1},
             ["zero", "one"],
-            "All",
+            dimension="browser",
         )
         for i, row in df.iterrows():
             self.assertEqual(row["baseline_count"], row["baseline_users"])
