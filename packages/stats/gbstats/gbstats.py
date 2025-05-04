@@ -163,11 +163,6 @@ def get_metric_df(
                 dimensions[dim][f"{prefix}_name"] = var_names[i]
                 for col in ROW_COLS:
                     dimensions[dim][f"{prefix}_{col}"] = 0
-        print(["tristan"])
-        print(row)
-        print(dimensions[dim].keys())
-        print(dimensions[dim]["v1_users"])
-        print(dimensions[dim]["v1_count"])
         # Add this SQL result row into the dimension dict if we recognize the variation
         key = str(row.variation)
         if key in var_id_map:
