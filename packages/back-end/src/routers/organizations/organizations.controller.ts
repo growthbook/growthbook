@@ -717,7 +717,6 @@ export async function getOrganization(
     : invites.map((i) => ({ email: i.email }));
 
   // Some other global org data needed by the front-end
-  const apiKeys = await getAllApiKeysByOrganization(context);
   const enterpriseSSO = isEnterpriseSSO(req.loginMethod)
     ? getSSOConnectionSummary(req.loginMethod)
     : null;
@@ -749,7 +748,6 @@ export async function getOrganization(
 
   return res.status(200).json({
     status: 200,
-    apiKeys,
     enterpriseSSO,
     accountPlan: getAccountPlan(org),
     effectiveAccountPlan: getEffectiveAccountPlan(org),
