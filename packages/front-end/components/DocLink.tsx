@@ -24,7 +24,7 @@ const docSections = {
   namespaces: "/features/rules#namespaces",
   environments: "/features/environments",
   archetypes: "/features/rules#archetype",
-  team: "/account/user-permissions",
+  team: "/account/user-permissions#teams",
   //DataSourceType
   athena: "/app/datasources#aws-athena",
   mixpanel: "/guide/mixpanel",
@@ -81,6 +81,7 @@ const docSections = {
   prerequisites: "/features/prerequisites",
   statisticsSequential: "/statistics/sequential",
   customMarkdown: "/using/growthbook-best-practices#custom-markdown",
+  customMetadata: "/using/growthbook-best-practices#custom-fields",
   savedGroups: "/features/targeting#saved-groups",
   ga4BigQuery: "/guide/GA4-google-analytics",
   gtmSetup: "/guide/google-tag-manager-and-growthbook",
@@ -90,6 +91,7 @@ const docSections = {
   idLists: "/features/targeting#id-lists",
   queryOptimization: "/app/query-optimization",
   devTools: "/tools/chrome-extension",
+  metricGroups: "/app/metrics#metric-groups",
 };
 
 export type DocSection = keyof typeof docSections;

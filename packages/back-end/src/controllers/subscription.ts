@@ -427,7 +427,7 @@ export async function getUsage(
 
   const {
     limits: { requests: cdnRequests, bandwidth: cdnBandwidth },
-  } = await getOrgUsage(org, true);
+  } = await getOrgUsage(org);
 
   res.json({ status: 200, cdnUsage, limits: { cdnRequests, cdnBandwidth } });
 }

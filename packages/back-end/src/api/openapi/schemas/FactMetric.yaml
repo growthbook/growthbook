@@ -209,6 +209,9 @@ properties:
     type: number
   riskThresholdDanger:
     type: number
+  displayAsPercentage:
+    type: boolean
+    description: If true and the metric is a ratio metric, variation means will be displayed as a percentage
   minPercentChange:
     type: number
   maxPercentChange:
