@@ -85,7 +85,7 @@ export default function SafeRolloutSummary({
   return (
     <Flex direction="column" gap="3">
       <Flex direction="row" gap="2">
-        <Text weight="medium">SPLIT</Text>users by
+        <Text weight="medium">SPLIT</Text>by
         <Badge
           color="gray"
           label={

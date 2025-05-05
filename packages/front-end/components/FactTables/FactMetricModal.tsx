@@ -1612,6 +1612,11 @@ export default function FactMetricModal({
           values.denominator = null;
         }
 
+        // reset displayAsPercentage for non-ratio metrics
+        if (values.metricType !== "ratio" && values.displayAsPercentage) {
+          values.displayAsPercentage = undefined;
+        }
+
         // reset numerator for proportion/retention metrics
         if (
           (values.metricType === "proportion" ||
@@ -2204,8 +2209,8 @@ export default function FactMetricModal({
               {advancedOpen && (
                 <Tabs defaultValue="query">
                   <TabsList>
-                    <TabsTrigger value="query">Query Settings</TabsTrigger>
-                    <TabsTrigger value="display">Analysis Settings</TabsTrigger>
+                    <TabsTrigger value="query">Analysis Settings</TabsTrigger>
+                    <TabsTrigger value="display">Display Settings</TabsTrigger>
                     <div className="ml-auto">
                       <a
                         href="#"
@@ -2236,6 +2241,19 @@ export default function FactMetricModal({
                         />
                       ) : null}
 
+                      <Field
+                        label="Target MDE"
+                        type="number"
+                        step="any"
+                        append="%"
+                        {...form.register("targetMDE", {
+                          valueAsNumber: true,
+                        })}
+                        helpText={`The percentage change that you want to reliably detect before ending your experiment. This is used to estimate the "Days Left" for running experiments. (default ${
+                          metricDefaults.targetMDE * 100
+                        }%)`}
+                      />
+
                       <MetricPriorSettingsForm
                         priorSettings={form.watch("priorSettings")}
                         setPriorSettings={(priorSettings) =>
@@ -2252,17 +2270,21 @@ export default function FactMetricModal({
                       <div className="px-3 py-2 pb-0 mb-2 border rounded">
                         {regressionAdjustmentAvailableForMetric ? (
                           <>
-                            <Checkbox
-                              label="Override organization-level settings"
-                              value={form.watch("regressionAdjustmentOverride")}
-                              setValue={(v) =>
-                                form.setValue(
-                                  "regressionAdjustmentOverride",
-                                  v === true
-                                )
-                              }
-                              disabled={!hasRegressionAdjustmentFeature}
-                            />
+                            <Box mt="1">
+                              <Checkbox
+                                label="Override organization-level settings"
+                                value={form.watch(
+                                  "regressionAdjustmentOverride"
+                                )}
+                                setValue={(v) =>
+                                  form.setValue(
+                                    "regressionAdjustmentOverride",
+                                    v === true
+                                  )
+                                }
+                                disabled={!hasRegressionAdjustmentFeature}
+                              />
+                            </Box>
                             <div
                               style={{
                                 display: form.watch(
@@ -2371,19 +2393,6 @@ export default function FactMetricModal({
                     </TabsContent>
 
                     <TabsContent value="display">
-                      <Field
-                        label="Target MDE"
-                        type="number"
-                        step="any"
-                        append="%"
-                        {...form.register("targetMDE", {
-                          valueAsNumber: true,
-                        })}
-                        helpText={`The percentage change that you want to reliably detect before ending your experiment. This is used to estimate the "Days Left" for running experiments. (default ${
-                          metricDefaults.targetMDE * 100
-                        }%)`}
-                      />
-
                       <div className="form-group">
                         <label>{`Minimum ${
                           quantileMetricType
@@ -2452,6 +2461,21 @@ export default function FactMetricModal({
                         loseRiskRegisterField={form.register("loseRisk")}
                         riskError={riskError}
                       />
+                      {type === "ratio" ? (
+                        <Box mb="1">
+                          <Checkbox
+                            label="Format ratio as a percentage"
+                            value={form.watch("displayAsPercentage") ?? false}
+                            setValue={(v) =>
+                              form.setValue("displayAsPercentage", v === true)
+                            }
+                          />
+                          <Box className="text-muted small">
+                            Will render variation means as a percentage rather
+                            than a proportion (e.g. 34% instead of 0.34).
+                          </Box>
+                        </Box>
+                      ) : null}
                     </TabsContent>
                   </Box>
                 </Tabs>

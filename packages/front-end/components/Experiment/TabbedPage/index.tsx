@@ -197,6 +197,22 @@ export default function TabbedPage({
 
   const isBandit = experiment.type === "multi-armed-bandit";
   const trackSource = "tabbed-page";
+
+  const showMetricGroupPromo = (): boolean => {
+    if (metricGroups.length) return false;
+
+    // only show if there are atleast 2 metrics in any section
+    if (
+      experiment.goalMetrics.length > 2 ||
+      experiment.secondaryMetrics.length > 2 ||
+      experiment.guardrailMetrics.length > 2
+    ) {
+      return true;
+    }
+
+    return false;
+  };
+
   return (
     <>
       {auditModal && (
@@ -413,7 +429,7 @@ export default function TabbedPage({
             : "d-none d-print-block"
         }
       >
-        {!metricGroups.length ? (
+        {showMetricGroupPromo() ? (
           <PremiumCallout
             commercialFeature="metric-groups"
             dismissable={true}

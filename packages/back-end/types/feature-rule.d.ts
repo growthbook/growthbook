@@ -10,6 +10,5 @@ export type PostFeatureRuleBody = {
 export type PutFeatureRuleBody = {
   rule: Partial<FeatureRule>;
   environment: string;
-  safeRolloutFields?: Partial<CreateSafeRolloutInterface>;
   i: number;
 };

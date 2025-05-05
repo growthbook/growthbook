@@ -340,6 +340,11 @@ const sidebars = {
         },
         {
           type: "doc",
+          id: "experimentation-analysis/experiment-time-series",
+          label: "Experiment Time Series",
+        },
+        {
+          type: "doc",
           id: "experimentation-analysis/decision-framework",
           label: "Experiment Decision Framework",
         },
@@ -588,6 +593,12 @@ const sidebars = {
       items: [
         {
           type: "doc",
+          id: "integrations/framer",
+          label: "Framer",
+          className: "pill-new",
+        },
+        {
+          type: "doc",
           id: "integrations/slack",
           label: "Slack alerts",
         },
@@ -678,7 +689,6 @@ const sidebars = {
           type: "doc",
           id: "guide/strapi",
           label: "Strapi CMS",
-          className: "pill-new",
         },
         {
           type: "doc",
