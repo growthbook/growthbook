@@ -230,7 +230,7 @@ const CompactResults: FC<{
   return (
     <>
       {expandedGuardrails.length ? (
-        <div className="mt-4">
+        <div className="mt-4" style={{ overflowX: "auto" }}>
           <ResultsTable
             dateCreated={reportDate}
             isLatestPhase={isLatestPhase}

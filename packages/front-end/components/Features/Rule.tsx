@@ -253,7 +253,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         <Flex gap="3" align="center">
                           <div>Safe Rollout</div>
                           <SafeRolloutStatusBadge rule={rule} />
-                          {rule.enabled !== false && (
+                          {!locked && rule.enabled !== false && (
                             <div className="ml-auto">
                               <DecisionCTA
                                 rule={rule}
@@ -326,7 +326,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                             rule={rule}
                             feature={feature}
                             environment={environment}
-                            version={version}
                             i={i}
                             setVersion={setVersion}
                             mutate={mutate}
@@ -487,7 +486,11 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       </Box>
     );
     return safeRollout ? (
-      <SafeRolloutSnapshotProvider safeRollout={safeRollout} feature={feature}>
+      <SafeRolloutSnapshotProvider
+        safeRollout={safeRollout}
+        feature={feature}
+        mutateSafeRollout={mutate}
+      >
         {contents}
       </SafeRolloutSnapshotProvider>
     ) : (

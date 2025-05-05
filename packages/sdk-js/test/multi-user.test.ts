@@ -534,4 +534,236 @@ describe("UserScopedGrowthBook", () => {
 
     gb.destroy();
   });
+
+  it("Merges attributes and attribute overrides", () => {
+    const gb = new GrowthBookClient();
+    gb.initSync({
+      payload: {
+        features: {
+          feature: {
+            defaultValue: false,
+            rules: [
+              {
+                condition: { country: "US" },
+                force: true,
+              },
+            ],
+          },
+        },
+      },
+    });
+
+    const scoped = gb.createScopedInstance({
+      attributes: {
+        country: "US",
+      },
+    });
+
+    expect(scoped.isOn("feature")).toEqual(true);
+
+    scoped.setAttributeOverrides({
+      country: "GB",
+    });
+    expect(scoped.isOn("feature")).toEqual(false);
+
+    // Unsetting overrides falls back to old value
+    scoped.setAttributeOverrides({});
+    expect(scoped.isOn("feature")).toEqual(true);
+
+    gb.destroy();
+  });
+
+  it("Can force feature values", () => {
+    const gb = new GrowthBookClient();
+    gb.initSync({
+      payload: {
+        features: {
+          feature: {
+            defaultValue: "default",
+          },
+        },
+      },
+    });
+    const scoped = gb.createScopedInstance({
+      attributes: {},
+    });
+
+    expect(scoped.getFeatureValue("feature", "fallback")).toEqual("default");
+
+    scoped.setForcedFeatures(new Map([["feature", "forcedValue"]]));
+    expect(scoped.getFeatureValue("feature", "fallback")).toEqual(
+      "forcedValue"
+    );
+
+    gb.destroy();
+  });
+
+  it("De-dupes tracking callbacks", () => {
+    const globalTrack = jest.fn();
+    const gb = new GrowthBookClient({
+      trackingCallback: globalTrack,
+    });
+
+    gb.initSync({ payload: {} });
+
+    const exp: Experiment<boolean> = {
+      key: "my-experiment",
+      variations: [false, true],
+      hashAttribute: "id",
+      hashVersion: 2,
+    };
+
+    const exp2: Experiment<boolean> = {
+      key: "my-other-experiment",
+      variations: [false, true],
+      hashAttribute: "id",
+      hashVersion: 2,
+    };
+
+    const localTrack = jest.fn();
+    const user: UserContext = {
+      attributes: {
+        id: "1",
+      },
+      trackingCallback: localTrack,
+    };
+
+    const scoped = gb.createScopedInstance(user);
+    scoped.runInlineExperiment(exp);
+    scoped.runInlineExperiment(exp2);
+    expect(globalTrack).toHaveBeenCalledTimes(2);
+    expect(localTrack).toHaveBeenCalledTimes(2);
+
+    // Still 2 after running again
+    scoped.runInlineExperiment(exp);
+    scoped.runInlineExperiment(exp2);
+    expect(globalTrack).toHaveBeenCalledTimes(2);
+    expect(localTrack).toHaveBeenCalledTimes(2);
+
+    // Resets with a different user context, even if the attributes are the same
+    const scoped2 = gb.createScopedInstance({
+      attributes: {
+        id: "1",
+      },
+    });
+    scoped2.runInlineExperiment(exp);
+    scoped2.runInlineExperiment(exp2);
+    expect(globalTrack).toHaveBeenCalledTimes(4);
+
+    // Still 4 after running again
+    scoped2.runInlineExperiment(exp);
+    scoped2.runInlineExperiment(exp2);
+    expect(globalTrack).toHaveBeenCalledTimes(4);
+
+    gb.destroy();
+  });
+
+  it("de-dupes feature usage callbacks", () => {
+    const globalTrack = jest.fn();
+    const gb = new GrowthBookClient({
+      onFeatureUsage: globalTrack,
+    });
+
+    gb.initSync({
+      payload: {
+        features: {
+          feature: {
+            defaultValue: false,
+          },
+        },
+      },
+    });
+
+    const localTrack = jest.fn();
+    const scoped = gb.createScopedInstance({
+      attributes: {},
+      onFeatureUsage: localTrack,
+    });
+
+    scoped.evalFeature("feature");
+    scoped.evalFeature("feature");
+    expect(globalTrack).toHaveBeenCalledTimes(1);
+    expect(localTrack).toHaveBeenCalledTimes(1);
+
+    // Resets with a different user context
+    const scoped2 = gb.createScopedInstance({
+      attributes: {},
+    });
+    scoped2.evalFeature("feature");
+    expect(globalTrack).toHaveBeenCalledTimes(2);
+
+    // Still 2 after running again
+    scoped2.evalFeature("feature");
+    expect(globalTrack).toHaveBeenCalledTimes(2);
+
+    gb.destroy();
+  });
+
+  it("writes to devLogs", () => {
+    const gb = new GrowthBookClient();
+    gb.initSync({
+      payload: {
+        features: {
+          feature: {
+            defaultValue: false,
+          },
+        },
+      },
+    });
+
+    const experiment: Experiment<boolean> = {
+      key: "my-experiment",
+      variations: [false, true],
+      hashAttribute: "id",
+      hashVersion: 2,
+    };
+
+    // Does not log unless `enableDevMode` is set
+    const scoped = gb.createScopedInstance({
+      attributes: { id: "1" },
+    });
+    scoped.evalFeature("feature");
+    scoped.runInlineExperiment(experiment);
+    scoped.logEvent("event");
+    expect(scoped.logs).toHaveLength(0);
+
+    const scoped2 = gb.createScopedInstance({
+      attributes: { id: "1" },
+      enableDevMode: true,
+    });
+    const result = scoped2.evalFeature("feature");
+    const result2 = scoped2.runInlineExperiment(experiment);
+    scoped2.logEvent("event");
+
+    expect(scoped2.logs).toHaveLength(3);
+    expect(scoped2.logs[0]).toEqual({
+      featureKey: "feature",
+      logType: "feature",
+      result: result,
+      timestamp: expect.any(String),
+    });
+    expect(scoped2.logs[1]).toEqual({
+      experiment: experiment,
+      logType: "experiment",
+      result: result2,
+      timestamp: expect.any(String),
+    });
+    expect(scoped2.logs[2]).toEqual({
+      logType: "event",
+      eventName: "event",
+      properties: undefined,
+      timestamp: expect.any(String),
+    });
+
+    // De-duplication
+    scoped2.evalFeature("feature");
+    scoped2.runInlineExperiment(experiment);
+    expect(scoped2.logs).toHaveLength(3);
+
+    // Events are not de-duped
+    scoped2.logEvent("event");
+    expect(scoped2.logs).toHaveLength(4);
+
+    gb.destroy();
+  });
 });

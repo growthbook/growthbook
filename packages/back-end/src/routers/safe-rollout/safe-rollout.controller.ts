@@ -7,6 +7,10 @@ import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource
 import { SafeRolloutResultsQueryRunner } from "back-end/src/queryRunners/SafeRolloutResultsQueryRunner";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { SNAPSHOT_TIMEOUT } from "back-end/src/controllers/experiments";
+import {
+  CreateSafeRolloutInterface,
+  validateCreateSafeRolloutFields,
+} from "back-end/src/validators/safe-rollout";
 
 // region GET /safe-rollout/:id/snapshot
 /**
@@ -170,3 +174,46 @@ export async function putSafeRolloutStatus(
   });
 }
 // endregion PUT /safe-rollout/:id/status
+
+// region PUT /safe-rollout/:id
+/**
+ * PUT /safe-rollout/:id
+ * Update a safe rollout rule
+ * @param req
+ * @param res
+ */
+export async function putSafeRollout(
+  req: AuthRequest<
+    {
+      safeRolloutFields: Partial<CreateSafeRolloutInterface>;
+      environment: string;
+    },
+    { id: string }
+  >,
+  res: Response<{ status: 200 }>
+) {
+  const { id } = req.params;
+  const { safeRolloutFields, environment } = req.body;
+  const context = getContextFromReq(req);
+  const safeRollout = await context.models.safeRollout.getById(id);
+  if (!safeRollout) {
+    throw new Error("Could not find safe rollout");
+  }
+  if (safeRollout.environment !== environment) {
+    throw new Error("Safe rollout environment does not match");
+  }
+
+  const validatedSafeRolloutFields = await validateCreateSafeRolloutFields(
+    safeRolloutFields,
+    context
+  );
+
+  await context.models.safeRollout.update(safeRollout, {
+    ...validatedSafeRolloutFields,
+  });
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+// endregion PUT /safe-rollout/:id
