@@ -221,7 +221,7 @@ RATIO_STATISTICS_ADDITIONAL_DIMENSION_DF["dim_browser"] = "fifth"
 RATIO_RA_STATISTICS_DF = pd.DataFrame(
     [
         {
-            "dimension": "",
+            "dim_browser": "All",
             "variation": "zero",
             "users": 100,
             "count": 100,
@@ -242,7 +242,7 @@ RATIO_RA_STATISTICS_DF = pd.DataFrame(
             "theta": None,
         },
         {
-            "dimension": "",
+            "dim_browser": "All",
             "variation": "one",
             "users": 100,
             "count": 100,
@@ -834,7 +834,7 @@ class TestAnalyzeMetricDfRegressionAdjustment(TestCase):
         self.assertEqual(round_(result.at[0, "v1_cr"]), 0.074)
         self.assertEqual(round_(result.at[0, "v1_mean"]), 0.074)
         self.assertEqual(result.at[0, "v1_risk"], None)
-        self.assertEqual(round_(result.at[0, "v1_expected"]), -0.316211568)
+        self.assertEqual(round_(result.at[0, "v1_expected"]), -0.31620216)
         self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
         self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.000000352)
 

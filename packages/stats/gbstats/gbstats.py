@@ -170,10 +170,12 @@ def get_metric_df(
             dimensions[dim]["total_users"] += row.users
             prefix = f"v{i}" if i > 0 else "baseline"
             # Sum here in case multiple rows per dimension
-            for col in ROW_COLS:
+            for index, col in enumerate(ROW_COLS):
                 # Special handling for count, if missing returns a method, so override with user value
                 if col == "count" and callable(getattr(row, col)):
                     dimensions[dim][f"{prefix}_count"] += getattr(row, "users", 0)
+                elif col == "theta":
+                    dimensions[dim][f"{prefix}_theta"] = None
                 else:
                     dimensions[dim][f"{prefix}_{col}"] += getattr(row, col, 0)
     return pd.DataFrame(dimensions.values())
