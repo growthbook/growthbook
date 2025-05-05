@@ -595,7 +595,7 @@ const sidebars = {
           type: "doc",
           id: "integrations/framer",
           label: "Framer",
-          className: "pill-new"
+          className: "pill-new",
         },
         {
           type: "doc",
@@ -688,8 +688,7 @@ const sidebars = {
         {
           type: "doc",
           id: "guide/strapi",
-          label: "Strapi CMS"
-          
+          label: "Strapi CMS",
         },
         {
           type: "doc",
