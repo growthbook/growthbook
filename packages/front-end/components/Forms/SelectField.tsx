@@ -40,6 +40,7 @@ export type SelectFieldProps = Omit<
   onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
   isOptionDisabled?: (_: Option) => boolean;
   forceUndefinedValueToNull?: boolean;
+  closeMenuOnSelect?: boolean;
 };
 
 export function useSelectOptions(
@@ -167,6 +168,7 @@ const SelectField: FC<SelectFieldProps> = ({
   isClearable = false,
   onPaste,
   isOptionDisabled,
+  closeMenuOnSelect = true,
   // forces re-render when input is undefined
   forceUndefinedValueToNull = false,
   ...otherProps
@@ -277,6 +279,7 @@ const SelectField: FC<SelectFieldProps> = ({
                   Input,
                 }}
                 isOptionDisabled={isOptionDisabled}
+                closeMenuOnSelect={closeMenuOnSelect}
               />
             ) : (
               <ReactSelect
@@ -303,6 +306,7 @@ const SelectField: FC<SelectFieldProps> = ({
                 }}
                 isOptionDisabled={isOptionDisabled}
                 menuPortalTarget={document.body}
+                closeMenuOnSelect={closeMenuOnSelect}
               />
             )}
             {required && (

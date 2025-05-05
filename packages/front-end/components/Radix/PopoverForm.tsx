@@ -1,4 +1,4 @@
-import React from "react";
+import React, { ReactElement } from "react";
 import { Flex, Popover as RadixPopover } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import Callout from "@/components/Radix/Callout";
@@ -12,6 +12,7 @@ export interface Props {
   close: () => void;
   width?: string;
   disable?: boolean;
+  trigger?: ReactElement;
 }
 
 export default function PopoverForm({
@@ -20,6 +21,7 @@ export default function PopoverForm({
   close,
   width,
   disable,
+  trigger,
   ...otherProps
 }: Props & MarginProps) {
   const [loading, setLoading] = React.useState(false);
@@ -28,10 +30,16 @@ export default function PopoverForm({
   return (
     <RadixPopover.Root open={true} onOpenChange={() => close()} {...otherProps}>
       <RadixPopover.Trigger>
-        <a href="#"></a>
+        {trigger || <a href="#" style={{ height: 0 }}></a>}
       </RadixPopover.Trigger>
       <Portal>
-        <RadixPopover.Content width={width}>
+        <RadixPopover.Content
+          width={width}
+          onFocusOutside={(e) => {
+            console.log("Focus moved outside");
+            e.preventDefault();
+          }}
+        >
           {loading && <LoadingOverlay />}
           <form
             onSubmit={(e) => {

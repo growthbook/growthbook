@@ -188,3 +188,14 @@ export function DropdownMenuGroup({
     <RadixDropdownMenu.Group {...props}>{children}</RadixDropdownMenu.Group>
   );
 }
+
+export function DropdownMenuCheckboxItem({
+  children,
+  ...props
+}: React.ComponentProps<typeof RadixDropdownMenu.CheckboxItem>) {
+  return (
+    <RadixDropdownMenu.CheckboxItem {...props}>
+      {children}
+    </RadixDropdownMenu.CheckboxItem>
+  );
+}

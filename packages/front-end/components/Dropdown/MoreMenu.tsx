@@ -69,6 +69,7 @@ const MoreMenu: FC<{
             onClick={() => {
               setOpen(!open);
             }}
+            type="button"
           >
             <BsThreeDotsVertical size={size} />
           </IconButton>

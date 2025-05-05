@@ -103,6 +103,7 @@ export default function MetricName({
   showOfficialLabel,
   showDescription,
   isGroup,
+  useIdAsFallback = false,
   metrics,
 }: {
   id?: string;
@@ -111,6 +112,7 @@ export default function MetricName({
   showOfficialLabel?: boolean;
   showDescription?: boolean;
   isGroup?: boolean;
+  useIdAsFallback?: boolean;
   metrics?: { metric: ExperimentMetricInterface | null; joinable: boolean }[];
 }) {
   const { getExperimentMetricById, getMetricGroupById } = useDefinitions();
@@ -181,7 +183,12 @@ export default function MetricName({
     );
   }
 
-  if (!metric) return null;
+  if (!metric) {
+    if (useIdAsFallback) {
+      return <>{id ?? ""}</>;
+    }
+    return null;
+  }
 
   return (
     <>

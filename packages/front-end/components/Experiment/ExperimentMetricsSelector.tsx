@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { FaPlusCircle } from "react-icons/fa";
 import { Text } from "@radix-ui/themes";
+import NewMetricSelector from "@/components/FactTables/NewMetricSelector";
 import MetricsSelector from "./MetricsSelector";
 
 export interface Props {
@@ -63,6 +64,8 @@ export default function ExperimentMetricsSelector({
               ? "The primary metrics you are trying to improve with this experiment. "
               : "Choose the goal metric that will be used to update variation weights. "}
           </Text>
+          {/*
+          
           <MetricsSelector
             selected={goalMetrics}
             onChange={setGoalMetrics}
@@ -75,6 +78,12 @@ export default function ExperimentMetricsSelector({
             includeGroups={!forceSingleGoalMetric}
             noPercentile={noPercentileGoalMetrics}
             disabled={disabled || goalDisabled}
+          />
+          */}
+          <NewMetricSelector
+            value={goalMetrics}
+            setValue={setGoalMetrics}
+            datasource={datasource}
           />
         </div>
       )}
