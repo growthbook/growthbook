@@ -60,6 +60,7 @@ import {
 import { ResourceEvents } from "back-end/src/events/base-types";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { SafeRolloutInterface } from "back-end/types/safe-rollout";
+import { SafeRolloutNotification } from "back-end/src/validators/safe-rollout";
 import { getSourceIntegrationObject } from "./datasource";
 import {
   computeResultsStatus,
@@ -548,6 +549,26 @@ const dispatchSafeRolloutEvent = async <T extends ResourceEvents<"feature">>({
   });
 };
 
+const memoizeSafeRolloutNotification = async ({
+  context,
+  types,
+  safeRollout,
+  dispatch,
+}: {
+  context: ReqContext;
+  types: SafeRolloutNotification[];
+  safeRollout: SafeRolloutInterface;
+  dispatch: () => Promise<void>;
+}) => {
+  if (types.every((t) => safeRollout.pastNotifications?.includes(t))) return;
+
+  await dispatch();
+
+  await context.models.safeRollout.update(safeRollout, {
+    pastNotifications: types,
+  });
+};
+
 export async function notifySafeRolloutChange({
   context,
   updatedSafeRollout,
@@ -593,41 +614,59 @@ export async function notifySafeRolloutChange({
       unhealthyReasons.push("multipleExposures");
     }
 
-    dispatchSafeRolloutEvent({
+    await memoizeSafeRolloutNotification({
       context,
-      feature,
-      environment: notificationData.environment,
-      event: "saferollout.unhealthy",
-      data: {
-        object: {
-          ...notificationData,
-          unhealthyReason: unhealthyReasons,
-        },
-      },
+      types: unhealthyReasons,
+      safeRollout: updatedSafeRollout,
+      dispatch: () =>
+        dispatchSafeRolloutEvent({
+          context,
+          feature,
+          environment: notificationData.environment,
+          event: "saferollout.unhealthy",
+          data: {
+            object: {
+              ...notificationData,
+              unhealthyReason: unhealthyReasons,
+            },
+          },
+        }),
     });
   }
 
   if (safeRolloutStatus?.status === "rollback-now") {
-    dispatchSafeRolloutEvent({
+    await memoizeSafeRolloutNotification({
       context,
-      feature,
-      environment: notificationData.environment,
-      event: "saferollout.rollback",
-      data: {
-        object: notificationData,
-      },
+      types: ["rollback"],
+      safeRollout: updatedSafeRollout,
+      dispatch: () =>
+        dispatchSafeRolloutEvent({
+          context,
+          feature,
+          environment: notificationData.environment,
+          event: "saferollout.rollback",
+          data: {
+            object: notificationData,
+          },
+        }),
     });
   }
 
   if (safeRolloutStatus?.status === "ship-now") {
-    dispatchSafeRolloutEvent({
+    await memoizeSafeRolloutNotification({
       context,
-      feature,
-      environment: notificationData.environment,
-      event: "saferollout.ship",
-      data: {
-        object: notificationData,
-      },
+      types: ["ship"],
+      safeRollout: updatedSafeRollout,
+      dispatch: () =>
+        dispatchSafeRolloutEvent({
+          context,
+          feature,
+          environment: notificationData.environment,
+          event: "saferollout.ship",
+          data: {
+            object: notificationData,
+          },
+        }),
     });
   }
 }

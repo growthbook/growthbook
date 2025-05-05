@@ -82,6 +82,7 @@ export {
 
 export {
   StickyBucketService,
+  StickyBucketServiceSync,
   LocalStorageStickyBucketService,
   ExpressCookieStickyBucketService,
   BrowserCookieStickyBucketService,

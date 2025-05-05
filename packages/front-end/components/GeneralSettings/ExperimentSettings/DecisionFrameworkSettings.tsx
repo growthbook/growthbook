@@ -2,10 +2,9 @@ import React, { useState } from "react";
 import { useFormContext } from "react-hook-form";
 import { Box, Flex, Heading, Text, Tooltip } from "@radix-ui/themes";
 import { FaPlusCircle } from "react-icons/fa";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import { DecisionCriteriaData } from "back-end/types/experiment";
 import {
-  DEFAULT_DECISION_CRITERIA,
+  PRESET_DECISION_CRITERIA,
   PRESET_DECISION_CRITERIAS,
 } from "shared/enterprise";
 import Checkbox from "@/components/Radix/Checkbox";
@@ -28,8 +27,6 @@ interface DecisionFrameworkSettingsProps {
 const DecisionFrameworkSettings: React.FC<DecisionFrameworkSettingsProps> = () => {
   const { hasCommercialFeature } = useUser();
   const form = useFormContext();
-
-  const gb = useGrowthBook();
 
   const { data, mutate } = useApi<{
     status: number;
@@ -184,60 +181,58 @@ const DecisionFrameworkSettings: React.FC<DecisionFrameworkSettingsProps> = () =
                   />
                 </Box>
               </Box>
-              {gb.isOn("decision-framework-criteria") ? (
-                <Flex align="start" direction="column">
-                  <Box mb="4">
-                    <Flex align="center" gap="1" justify="between">
-                      <Heading size="2" mb="2">
-                        Default Decision Criteria
-                      </Heading>
-                      <Box mb="4">
-                        <Button
-                          variant="ghost"
-                          mt="3"
-                          onClick={() => {
-                            setDecisionCriteriaProps({
-                              open: true,
-                              editable: true,
-                              selectedCriteria: undefined,
-                            });
-                          }}
-                        >
-                          <Flex align="center" gap="1">
-                            <FaPlusCircle size={12} />
-                            <span>Add custom</span>
-                          </Flex>
-                        </Button>
-                      </Box>
-                    </Flex>
+              <Flex align="start" direction="column">
+                <Box mb="4">
+                  <Flex align="center" gap="1" justify="between">
+                    <Heading size="2" mb="2">
+                      Default Decision Criteria
+                    </Heading>
+                    <Box mb="4">
+                      <Button
+                        variant="ghost"
+                        mt="3"
+                        onClick={() => {
+                          setDecisionCriteriaProps({
+                            open: true,
+                            editable: true,
+                            selectedCriteria: undefined,
+                          });
+                        }}
+                      >
+                        <Flex align="center" gap="1">
+                          <FaPlusCircle size={12} />
+                          <span>Add custom</span>
+                        </Flex>
+                      </Button>
+                    </Box>
+                  </Flex>
 
-                    <DecisionCriteriaTable
-                      defaultCriteriaId={
-                        form.watch("defaultDecisionCriteriaId") ||
-                        DEFAULT_DECISION_CRITERIA.id
-                      }
-                      setDefaultCriteriaId={(id) =>
-                        form.setValue("defaultDecisionCriteriaId", id)
-                      }
-                      decisionCriterias={[
-                        ...PRESET_DECISION_CRITERIAS,
-                        ...(data?.decisionCriteria || []),
-                      ]}
-                      onViewEditClick={(criteria: DecisionCriteriaData) => {
-                        setDecisionCriteriaProps({
-                          open: true,
-                          editable: isEditable(criteria),
-                          selectedCriteria: criteria,
-                        });
-                      }}
-                      onDeleteClick={(criteria) => {
-                        setCriteriaToDelete(criteria);
-                      }}
-                      isEditable={isEditable}
-                    />
-                  </Box>
-                </Flex>
-              ) : null}
+                  <DecisionCriteriaTable
+                    defaultCriteriaId={
+                      form.watch("defaultDecisionCriteriaId") ||
+                      PRESET_DECISION_CRITERIA.id
+                    }
+                    setDefaultCriteriaId={(id) =>
+                      form.setValue("defaultDecisionCriteriaId", id)
+                    }
+                    decisionCriterias={[
+                      ...PRESET_DECISION_CRITERIAS,
+                      ...(data?.decisionCriteria || []),
+                    ]}
+                    onViewEditClick={(criteria: DecisionCriteriaData) => {
+                      setDecisionCriteriaProps({
+                        open: true,
+                        editable: isEditable(criteria),
+                        selectedCriteria: criteria,
+                      });
+                    }}
+                    onDeleteClick={(criteria) => {
+                      setCriteriaToDelete(criteria);
+                    }}
+                    isEditable={isEditable}
+                  />
+                </Box>
+              </Flex>
             </>
           )}
       </Box>

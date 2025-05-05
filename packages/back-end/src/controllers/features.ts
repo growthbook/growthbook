@@ -12,6 +12,7 @@ import {
   resetReviewOnChange,
   getAffectedEnvsForExperiment,
 } from "shared/util";
+import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import {
   getConnectionSDKCapabilities,
   SDKCapability,
@@ -1193,7 +1194,8 @@ export async function postFeatureRule(
     // Set default status for safe rollout rule
     rule.status = "running";
     rule.seed = rule.seed || uuidv4();
-    rule.trackingKey = rule.trackingKey || `srk_${uuidv4()}`;
+    rule.trackingKey =
+      rule.trackingKey || `${SAFE_ROLLOUT_TRACKING_KEY_PREFIX}${uuidv4()}`;
 
     const safeRollout = await context.models.safeRollout.create({
       ...validatedSafeRolloutFields,
@@ -1665,12 +1667,12 @@ export async function postFeatureSchema(
 export async function putSafeRolloutStatus(
   req: AuthRequest<
     { status: SafeRolloutRule["status"]; environment: string; i: number },
-    { id: string; version: string }
+    { id: string }
   >,
   res: Response<{ status: 200; version: number }, EventUserForResponseLocals>
 ) {
   const context = getContextFromReq(req);
-  const { id, version } = req.params;
+  const { id } = req.params;
   const { status, environment, i } = req.body;
   const { org } = context;
   const feature = await getFeature(context, id);
@@ -1678,7 +1680,14 @@ export async function putSafeRolloutStatus(
     throw new Error("Could not find feature");
   }
 
-  const revision = await getDraftRevision(context, feature, parseInt(version));
+  const revision = await createRevision({
+    context,
+    feature,
+    user: context.auditUser,
+    environments: getEnvironmentIdsFromOrg(context.org),
+    baseVersion: feature.version,
+    org,
+  });
   const resetReview = resetReviewOnChange({
     feature,
     changedEnvironments: [environment],
@@ -1777,6 +1786,10 @@ export async function putSafeRolloutStatus(
         comment: "auto-publish status change",
       }),
     });
+  } else {
+    await updateFeature(context, feature, {
+      hasDrafts: true,
+    });
   }
   res.status(200).json({
     status: 200,
@@ -1791,7 +1804,7 @@ export async function putFeatureRule(
   const context = getContextFromReq(req);
   const { org } = context;
   const { id, version } = req.params;
-  const { environment, rule, safeRolloutFields, i } = req.body;
+  const { environment, rule, i } = req.body;
 
   const feature = await getFeature(context, id);
   if (!feature) {
@@ -1859,18 +1872,6 @@ export async function putFeatureRule(
           `Cannot update the following fields after a Safe Rollout has started: ${fieldNames}`
         );
       }
-    }
-
-    if (safeRolloutFields) {
-      const validatedSafeRolloutFields = await validateCreateSafeRolloutFields(
-        safeRolloutFields,
-        context
-      );
-
-      await context.models.safeRollout.update(existingSafeRollout, {
-        ...validatedSafeRolloutFields,
-        ...(rule.status && { status: rule.status }),
-      });
     }
   }
 

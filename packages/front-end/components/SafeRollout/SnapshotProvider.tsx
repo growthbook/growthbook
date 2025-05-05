@@ -1,4 +1,4 @@
-import React, { ReactNode, useContext } from "react";
+import React, { ReactNode, useCallback, useContext } from "react";
 import {
   SafeRolloutSnapshotAnalysis,
   SafeRolloutSnapshotAnalysisSettings,
@@ -30,15 +30,26 @@ export default function SafeRolloutSnapshotProvider({
   safeRollout,
   feature,
   children,
+  mutateSafeRollout,
 }: {
   safeRollout: SafeRolloutInterface;
   feature: FeatureInterface;
   children: ReactNode;
+  mutateSafeRollout: () => void;
 }) {
   const { data, error, mutate, isLoading } = useApi<{
     snapshot: SafeRolloutSnapshotInterface;
     latest?: SafeRolloutSnapshotInterface;
   }>(`/safe-rollout/${safeRollout.id}/snapshot`);
+
+  const mutateSnapshot = useCallback(async () => {
+    try {
+      await mutate();
+      mutateSafeRollout(); // Only call this after successful mutate
+    } catch (err) {
+      //ts-ignore
+    }
+  }, [mutate, mutateSafeRollout]);
 
   const defaultAnalysisSettings = data?.snapshot
     ? getSafeRolloutSnapshotAnalysis(data?.snapshot)?.settings
@@ -63,7 +74,7 @@ export default function SafeRolloutSnapshotProvider({
               defaultAnalysisSettings
             ) ?? undefined
           : undefined,
-        mutateSnapshot: mutate,
+        mutateSnapshot,
         analysisSettings: defaultAnalysisSettings,
         error,
         loading: isLoading,

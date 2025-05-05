@@ -68,6 +68,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import MetricPriorRightRailSectionGroup from "@/components/Metrics/MetricPriorRightRailSectionGroup";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import MetricExperiments from "@/components/MetricExperiments/MetricExperiments";
+import { MetricModal } from "@/components/FactTables/NewMetricModal";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -87,6 +88,7 @@ const MetricPage: FC = () => {
   const { organization } = useUser();
 
   const [editModalOpen, setEditModalOpen] = useState<boolean | number>(false);
+  const [duplicateModalOpen, setDuplicateModalOpen] = useState<boolean>(false);
   const [editTags, setEditTags] = useState(false);
   const [editProjects, setEditProjects] = useState(false);
   const [editOwnerModal, setEditOwnerModal] = useState(false);
@@ -136,6 +138,7 @@ const MetricPage: FC = () => {
   }
 
   const metric = data.metric;
+  const canDuplicateMetric = permissionsUtil.canCreateMetric(metric);
   const canEditMetric =
     permissionsUtil.canUpdateMetric(metric, {}) && !metric.managedBy;
   const canDeleteMetric =
@@ -307,6 +310,17 @@ const MetricPage: FC = () => {
           }}
         />
       )}
+      {duplicateModalOpen && (
+        <MetricModal
+          mode="duplicate"
+          currentMetric={{
+            ...metric,
+            name: metric.name + " (copy)",
+          }}
+          close={() => setDuplicateModalOpen(false)}
+          source="metrics-detail"
+        />
+      )}
       {editTags && (
         <EditTagsForm
           cancel={() => setEditTags(false)}
@@ -435,6 +449,15 @@ const MetricPage: FC = () => {
                 onClick={() => setEditModalOpen(true)}
               >
                 Edit metric
+              </Button>
+            ) : null}
+            {canDuplicateMetric ? (
+              <Button
+                className="btn dropdown-item py-2"
+                color=""
+                onClick={() => setDuplicateModalOpen(true)}
+              >
+                Duplicate metric
               </Button>
             ) : null}
             {canDeleteMetric ? (
@@ -1231,6 +1254,22 @@ const MetricPage: FC = () => {
                 <ul className="right-rail-subsection list-unstyled mb-4">
                   <li className="mt-3 mb-1">
                     <span className="uppercase-title lg">
+                      Experiment Decision Framework
+                    </span>
+                  </li>
+                  <li className="mb-2">
+                    <span className="text-gray">Target MDE:</span>{" "}
+                    <span className="font-weight-bold">
+                      {getTargetMDEForMetric(metric) * 100}%
+                    </span>
+                  </li>
+                </ul>
+              </RightRailSectionGroup>
+
+              <RightRailSectionGroup type="custom" empty="">
+                <ul className="right-rail-subsection list-unstyled mb-4">
+                  <li className="mt-3 mb-1">
+                    <span className="uppercase-title lg">
                       Display Thresholds
                     </span>
                   </li>
@@ -1255,12 +1294,6 @@ const MetricPage: FC = () => {
                     <span className="text-gray">Min percent change:</span>{" "}
                     <span className="font-weight-bold">
                       {getMinPercentageChangeForMetric(metric) * 100}%
-                    </span>
-                  </li>
-                  <li className="mb-2">
-                    <span className="text-gray">Target MDE:</span>{" "}
-                    <span className="font-weight-bold">
-                      {getTargetMDEForMetric(metric) * 100}%
                     </span>
                   </li>
                 </ul>
