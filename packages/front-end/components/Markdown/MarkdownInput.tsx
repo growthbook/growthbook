@@ -10,10 +10,12 @@ import { FaMarkdown } from "react-icons/fa";
 import ReactTextareaAutocomplete from "@webscopeio/react-textarea-autocomplete";
 import emoji from "@jukben/emoji-search";
 import { useDropzone } from "react-dropzone";
-import { Box } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
+import { BsStars } from "react-icons/bs";
 import { useAuth } from "@/services/auth";
 import { uploadFile } from "@/services/files";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import Button from "@/components/Radix/Button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../Radix/Tabs";
 import Markdown from "./Markdown";
 
@@ -29,6 +31,7 @@ const MarkdownInput: FC<{
   id?: string;
   placeholder?: string;
   onCancel?: () => void;
+  getAISuggest?: (() => Promise<string>) | null;
 }> = ({
   value,
   setValue,
@@ -38,6 +41,7 @@ const MarkdownInput: FC<{
   id,
   onCancel,
   placeholder,
+  getAISuggest = null,
 }) => {
   const [activeControlledTab, setActiveControlledTab] = useState<
     "write" | "preview"
@@ -45,6 +49,8 @@ const MarkdownInput: FC<{
   const { apiCall } = useAuth();
   const textareaRef = useRef<null | HTMLTextAreaElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [aiSuggestionText, setAiSuggestionText] = useState("");
+  const [loading, setLoading] = useState(false);
   useEffect(() => {
     if (autofocus && textareaRef.current) {
       textareaRef.current.focus();
@@ -90,6 +96,7 @@ const MarkdownInput: FC<{
 
   return (
     <div className="">
+      {loading && <LoadingOverlay text="Generating..." />}
       <Tabs
         value={activeControlledTab}
         onValueChange={(tab) =>
@@ -101,6 +108,27 @@ const MarkdownInput: FC<{
           <TabsTrigger value="preview" disabled={!value}>
             Preview
           </TabsTrigger>
+          <Flex justify="end" width="100%">
+            <Button
+              variant="ghost"
+              disabled={!getAISuggest || loading}
+              onClick={async () => {
+                if (getAISuggest) {
+                  setLoading(true);
+                  // make sure it's on the right tab:
+                  setActiveControlledTab("write");
+                  const suggestedText = await getAISuggest();
+                  if (suggestedText) {
+                    setAiSuggestionText(suggestedText);
+                    setLoading(false);
+                  }
+                }
+              }}
+            >
+              {loading ? "Generating..." : "Get AI Suggestion "}
+              <BsStars />
+            </Button>
+          </Flex>
         </TabsList>
         <Box pt="2">
           <TabsContent value="write">
@@ -189,6 +217,22 @@ const MarkdownInput: FC<{
                 )}
               </div>
             </div>
+            {aiSuggestionText && (
+              <div className="mt-2">
+                <hr />
+                <h4>AI Suggestion</h4>
+                <div className="card-text mb-3">{aiSuggestionText}</div>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setValue(aiSuggestionText);
+                    setAiSuggestionText("");
+                  }}
+                >
+                  Use this suggestion
+                </Button>
+              </div>
+            )}
           </TabsContent>
           <TabsContent value="preview">
             <Markdown className="card-text px-2">{value}</Markdown>

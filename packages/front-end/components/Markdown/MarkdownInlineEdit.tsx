@@ -64,6 +64,7 @@ export default function MarkdownInlineEdit({
           error={error ?? undefined}
           autofocus={true}
           onCancel={() => setEdit(false)}
+          getAISuggest={getAISuggest}
         />
       </form>
     );
