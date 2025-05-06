@@ -2602,6 +2602,27 @@ export interface operations {
                   coverage: number;
                   hashAttribute: string;
                 }) | ({
+                  condition?: string;
+                  savedGroupTargeting?: ({
+                      /** @enum {string} */
+                      matchType: "all" | "any" | "none";
+                      savedGroups: (string)[];
+                    })[];
+                  prerequisites?: ({
+                      /** @description Feature ID */
+                      id: string;
+                      condition: string;
+                    })[];
+                  enabled: boolean;
+                  /** @enum {string} */
+                  type: "safe-rollout";
+                  controlValue: string;
+                  variationValue: string;
+                  seed?: string;
+                  hashAttribute: string;
+                  /** @enum {string} */
+                  status?: "running" | "released" | "rolled-back" | "stopped";
+                }) | ({
                   description?: string;
                   id?: string;
                   /** @description Enabled by default */
@@ -2702,6 +2723,27 @@ export interface operations {
                     /** @description Percent of traffic included in this experiment. Users not included in the experiment will skip this rule. */
                     coverage: number;
                     hashAttribute: string;
+                  }) | ({
+                    condition?: string;
+                    savedGroupTargeting?: ({
+                        /** @enum {string} */
+                        matchType: "all" | "any" | "none";
+                        savedGroups: (string)[];
+                      })[];
+                    prerequisites?: ({
+                        /** @description Feature ID */
+                        id: string;
+                        condition: string;
+                      })[];
+                    enabled: boolean;
+                    /** @enum {string} */
+                    type: "safe-rollout";
+                    controlValue: string;
+                    variationValue: string;
+                    seed?: string;
+                    hashAttribute: string;
+                    /** @enum {string} */
+                    status?: "running" | "released" | "rolled-back" | "stopped";
                   }) | ({
                     description?: string;
                     id?: string;
@@ -3425,6 +3467,27 @@ export interface operations {
                   coverage: number;
                   hashAttribute: string;
                 }) | ({
+                  condition?: string;
+                  savedGroupTargeting?: ({
+                      /** @enum {string} */
+                      matchType: "all" | "any" | "none";
+                      savedGroups: (string)[];
+                    })[];
+                  prerequisites?: ({
+                      /** @description Feature ID */
+                      id: string;
+                      condition: string;
+                    })[];
+                  enabled: boolean;
+                  /** @enum {string} */
+                  type: "safe-rollout";
+                  controlValue: string;
+                  variationValue: string;
+                  seed?: string;
+                  hashAttribute: string;
+                  /** @enum {string} */
+                  status?: "running" | "released" | "rolled-back" | "stopped";
+                }) | ({
                   description?: string;
                   id?: string;
                   /** @description Enabled by default */
@@ -3525,6 +3588,27 @@ export interface operations {
                     /** @description Percent of traffic included in this experiment. Users not included in the experiment will skip this rule. */
                     coverage: number;
                     hashAttribute: string;
+                  }) | ({
+                    condition?: string;
+                    savedGroupTargeting?: ({
+                        /** @enum {string} */
+                        matchType: "all" | "any" | "none";
+                        savedGroups: (string)[];
+                      })[];
+                    prerequisites?: ({
+                        /** @description Feature ID */
+                        id: string;
+                        condition: string;
+                      })[];
+                    enabled: boolean;
+                    /** @enum {string} */
+                    type: "safe-rollout";
+                    controlValue: string;
+                    variationValue: string;
+                    seed?: string;
+                    hashAttribute: string;
+                    /** @enum {string} */
+                    status?: "running" | "released" | "rolled-back" | "stopped";
                   }) | ({
                     description?: string;
                     id?: string;

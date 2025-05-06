@@ -357,7 +357,7 @@ paths:
                                     - force
                                 value:
                                   type: string
-                            - title: Rollout Rule
+                            - title: Safe Rollout Rule
                               type: object
                               required:
                                 - type
@@ -417,6 +417,69 @@ paths:
                                   description: Percent of traffic included in this experiment. Users not included in the experiment will skip this rule.
                                 hashAttribute:
                                   type: string
+                            - title: Rollout Rule
+                              type: object
+                              required:
+                                - enabled
+                                - type
+                                - controlValue
+                                - variationValue
+                                - hashAttribute
+                              properties:
+                                condition:
+                                  type: string
+                                savedGroupTargeting:
+                                  type: array
+                                  items:
+                                    type: object
+                                    required:
+                                      - matchType
+                                      - savedGroups
+                                    properties:
+                                      matchType:
+                                        type: string
+                                        enum:
+                                          - all
+                                          - any
+                                          - none
+                                      savedGroups:
+                                        type: array
+                                        items:
+                                          type: string
+                                prerequisites:
+                                  type: array
+                                  items:
+                                    type: object
+                                    required:
+                                      - id
+                                      - condition
+                                    properties:
+                                      id:
+                                        type: string
+                                        description: Feature ID
+                                      condition:
+                                        type: string
+                                enabled:
+                                  type: boolean
+                                type:
+                                  type: string
+                                  enum:
+                                    - safe-rollout
+                                controlValue:
+                                  type: string
+                                variationValue:
+                                  type: string
+                                seed:
+                                  type: string
+                                hashAttribute:
+                                  type: string
+                                status:
+                                  type: string
+                                  enum:
+                                    - running
+                                    - released
+                                    - rolled-back
+                                    - stopped
                             - title: Experiment Rule
                               type: object
                               required:
