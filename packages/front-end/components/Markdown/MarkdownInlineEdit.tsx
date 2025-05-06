@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import { BsStars } from "react-icons/bs";
 import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Button from "@/components/Radix/Button";
@@ -16,6 +17,7 @@ type Props = {
   containerClassName?: string;
   header?: string | JSX.Element;
   headerClassName?: string;
+  getAISuggest?: (() => Promise<string>) | null;
 };
 
 export default function MarkdownInlineEdit({
@@ -28,6 +30,7 @@ export default function MarkdownInlineEdit({
   containerClassName = "",
   header = "",
   headerClassName = "h3",
+  getAISuggest = null,
 }: Props) {
   const [edit, setEdit] = useState(false);
   const [val, setVal] = useState("");
@@ -67,7 +70,10 @@ export default function MarkdownInlineEdit({
   }
 
   return (
-    <Box className={className}>
+    <Box className={className} style={{ position: "relative" }}>
+      {loading && (
+        <LoadingOverlay text={getAISuggest ? "Generating..." : "Loading..."} />
+      )}
       {header && (
         <HeaderWithEdit
           edit={
@@ -89,23 +95,48 @@ export default function MarkdownInlineEdit({
           {value ? (
             <Markdown className="card-text">{value}</Markdown>
           ) : (
-            <div className="card-text">
+            <Flex className="card-text" gap="5">
               {canCreate ? (
-                <a
-                  role="button"
-                  className="link-purple"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setVal(value || "");
-                    setEdit(true);
-                  }}
-                >
-                  <em>Add {label}</em>
-                </a>
+                <>
+                  <a
+                    role="button"
+                    className="link-purple"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setVal(value || "");
+                      setEdit(true);
+                    }}
+                  >
+                    <em>Add {label}</em>
+                  </a>
+                  {getAISuggest && (
+                    <a
+                      href="#"
+                      className="link-purple"
+                      onClick={async (e) => {
+                        e.preventDefault();
+                        setLoading(true);
+                        try {
+                          const suggestion = await getAISuggest?.();
+                          if (suggestion) {
+                            setVal(suggestion);
+                          }
+                          setLoading(false);
+                          setEdit(true);
+                        } catch (e) {
+                          setLoading(false);
+                          setError(e.message);
+                        }
+                      }}
+                    >
+                      Suggest Description <BsStars />
+                    </a>
+                  )}
+                </>
               ) : (
                 <em>No {label}</em>
               )}
-            </div>
+            </Flex>
           )}
         </Box>
         {value && canEdit && !header && (

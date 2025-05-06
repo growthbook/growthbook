@@ -43,6 +43,11 @@ import { getUserById } from "back-end/src/models/UserModel";
 import { AuditUserLoggedIn } from "back-end/types/audit";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { MetricAnalysisInterface } from "back-end/types/metric-analysis";
+import { getFactTable } from "back-end/src/models/FactTableModel";
+import {
+  hasExceededUsageQuota,
+  simpleCompletion,
+} from "back-end/src/services/openai";
 
 /**
  * Fields on a metric that we allow users to update. Excluded fields are
@@ -669,4 +674,225 @@ export const getMetricNorthstarData = async (
       metric,
     },
   });
+};
+
+// get endpoint to use OpenAI library to generate a description for a given
+// metric based on the ID, based on the data source, project, SQL, any template
+// variables, and options. Supports both regular metrics and fact-table metrics.
+export const getGeneratedDescription = async (
+  req: AuthRequest<unknown, { id: string }>,
+  res: Response<{
+    status: number;
+    message?: string;
+    data?: {
+      description: string;
+    };
+  }>
+) => {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  if (!process.env.OPENAI_API_KEY) {
+    return res.status(404).json({
+      status: 404,
+      message: "AI configuration not set",
+    });
+  }
+  if (!req.organization) {
+    return res.status(404).json({
+      status: 404,
+      message: "Organization not found",
+    });
+  }
+  if (await hasExceededUsageQuota(req.organization)) {
+    return res.status(404).json({
+      status: 403,
+      message: "Over AI usage limits",
+    });
+  }
+  const behavior =
+    "You are a data analyst who provides concise and accurate descriptions of metrics used in an A/B tests for less technical users to understand what this metric does.";
+  // try to see if this id is a fact metric id:
+  if (isFactMetricId(id)) {
+    const factMetric = await context.models.factMetrics.getById(id);
+
+    if (!factMetric) {
+      return res.status(404).json({
+        status: 404,
+        message: "Metric not found",
+      });
+    }
+    if (!req.organization) {
+      return res.status(404).json({
+        status: 404,
+        message: "Organization not found",
+      });
+    }
+    // get the fact table:
+    const factTable = await getFactTable(
+      context,
+      factMetric.numerator.factTableId
+    );
+
+    const factTableSQL = factTable?.sql ?? "";
+    const factTableName = factTable?.name ?? "";
+    const factTableDesc = factTable?.description ?? "";
+    const factTableDatasource = factTable?.datasource ?? "";
+    const datasource = await getDataSourceById(context, factTableDatasource);
+    const factMetricName = factMetric.name;
+    const projectNames = factMetric?.projects
+      ? await Promise.all(
+          factMetric.projects.map(async (p) => {
+            const project = await context.models.projects.getById(p);
+            return project?.name || "";
+          })
+        )
+      : [];
+    const factMetricNumerator = factMetric.numerator;
+    const factMetricDenominator = factMetric?.denominator ?? null;
+    const factTableColumns =
+      factTable?.columns.map((c) => {
+        return { column: c.column, datatype: c.datatype };
+      }) ?? [];
+
+    const prompt =
+      "Write a concise description in markdown of the metric that will be helpful for other users who may want to use this metric in their AB tests." +
+      " Do not start with the metric name as a title. Paraphrase what this metric is used to show or measure. The metric is defined from a fact table " +
+      " with the following properties: \n" +
+      "- the metric name is: " +
+      factMetricName +
+      "\n- it is based on the fact table: " +
+      factTableName +
+      "\n- the fact table has the SQL:" +
+      factTableSQL +
+      "\n" +
+      "- the fact table has the following description: " +
+      factTableDesc +
+      "\n" +
+      "- the fact table has the following datasource: " +
+      (datasource?.name ?? "") +
+      "\n" +
+      (datasource?.description
+        ? "- the datasource has the description of: " +
+          datasource.description +
+          "\n"
+        : "") +
+      "- the fact table is added to the following projects: " +
+      projectNames.join(", ") +
+      "\n" +
+      "- the fact metric has the following numerator: " +
+      JSON.stringify(factMetricNumerator) +
+      "\n" +
+      "- the fact metric has the following denominator: " +
+      JSON.stringify(factMetricDenominator) +
+      "\n" +
+      "- the fact table has the following filters: " +
+      JSON.stringify(factTable?.filters ?? []) +
+      "\n" +
+      "- the fact table has the following columns defined: " +
+      JSON.stringify(factTableColumns) +
+      "\n" +
+      "- the fact metric is of type:" +
+      factMetric.metricType;
+
+    const priorKnowledge = [
+      "Fact metrics are used with A/B testing experiments as metrics",
+      "Fact tables are a way that one query can return multiple columns, and those columns can be used as a numerator and/or denominator in a metric.",
+      "Fact tables describe what columns are selectable in the fact metric",
+      'Fact table columns have a JSON structure per column of the "column" with the name of the column, and a "datatype" that describes what kind of data will be in that column',
+      "Fact tables describe filters that can be used in the fact metric",
+      "Each fact metric is described by a json object that has following keys: factTableId, which will match the fact table described, a column that is the column of the fact table query, an optional array of filter ids which will match the fact table filters by id, and an optional object of inlineFilters, which are not references, but will match the key to the column, and the value to the value of that column.",
+      "Timeframes are common to all metrics, and not important to describe (eg: this SQL is common for all: AND timestamp BETWEEN '{{startDate}}' AND '{{endDate}}')",
+      "Fact metrics of type 'proportion' fact metrics are used to measure the percent of experiment users who exist in a fact table",
+      "Fact metrics of type 'retention' fact metrics are used to measure the percent of experiment users who exist in a fact table a certain period after experiment exposure",
+      "Fact metrics of type 'mean' fact metrics are used to measure the average of a numeric value among all experiment users",
+      "Fact metrics of type 'ratio' fact metrics are used to measure the ratio of two numeric values among experiment users",
+      "Fact metrics of type 'quantile' fact metrics are used to measure the quantile of values after aggregating per user",
+      "Projects are a way to isolate or organize teams or products within a single organization",
+    ];
+    const aiResults = await simpleCompletion({
+      behavior,
+      prompt: prompt,
+      priorKnowledge,
+      organization: req.organization,
+      temperature: 0.1,
+    });
+
+    res.status(200).json({
+      status: 200,
+      data: {
+        description: aiResults,
+      },
+    });
+    return;
+  } else {
+    const metric = await getMetricById(context, id, true);
+    if (!metric) {
+      return res.status(404).json({
+        status: 404,
+        message: "Metric not found",
+      });
+    }
+    const metricDatasource = await getDataSourceById(
+      context,
+      metric.datasource
+    );
+    const projectNames = metric?.projects
+      ? await Promise.all(
+          metric.projects.map(async (p) => {
+            const project = await context.models.projects.getById(p);
+            return project?.name || "";
+          })
+        )
+      : [];
+    const prompt =
+      "Write a concise description in markdown of the metric that will be helpful for other users who may want to use this metric in their AB tests." +
+      " Do not start with the metric name as a title. Paraphrase what this metric is used to show or measure. " +
+      " The metric is defined with the following properties: \n" +
+      "- the metric name is: " +
+      metric.name +
+      "\n- it is based on the SQL:" +
+      metric.sql +
+      "\n" +
+      (projectNames.length
+        ? "- the metric is added to the following projects: " +
+          projectNames.join(", ") +
+          "\n"
+        : "") +
+      "- the metric has the following datasource: " +
+      (metricDatasource?.name ?? "") +
+      "\n" +
+      (metricDatasource?.description
+        ? "- the datasource has the description of: " +
+          metricDatasource.description +
+          "\n"
+        : "") +
+      (metric.templateVariables
+        ? "- the metric has the following template variables: " +
+          JSON.stringify(metric.templateVariables) +
+          "\n"
+        : "");
+
+    const priorKnowledge = [
+      "Metrics are used for A/B testing",
+      "A metric is defined by SQL which is run against the datasource",
+      "metrics may have template variables, which are replaced with values when the metric is run",
+      "Timeframes are common to all metrics, and not important to describe (eg: this SQL is common for all: AND timestamp BETWEEN '{{startDate}}' AND '{{endDate}}')",
+      "Projects are a way to isolate or organize teams or products within a single organization",
+    ];
+
+    const aiResults = await simpleCompletion({
+      behavior,
+      prompt: prompt,
+      priorKnowledge,
+      organization: req.organization,
+      temperature: 0.1,
+    });
+
+    res.status(200).json({
+      status: 200,
+      data: {
+        description: aiResults,
+      },
+    });
+  }
 };

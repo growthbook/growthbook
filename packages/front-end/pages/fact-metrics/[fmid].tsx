@@ -13,7 +13,6 @@ import {
   DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
-
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -553,6 +552,20 @@ export default function FactMetricPage() {
               canCreate={canEdit}
               canEdit={canEdit}
               value={factMetric.description}
+              getAISuggest={async () => {
+                const res = await apiCall<{
+                  status: number;
+                  data: {
+                    description: string;
+                  };
+                }>(`/metrics/${factMetric.id}/gen-description`, {
+                  method: "GET",
+                });
+                if (res?.status !== 200) {
+                  throw new Error("Could not load AI suggestions");
+                }
+                return res.data.description;
+              }}
               save={async (description) => {
                 await apiCall(`/fact-metrics/${factMetric.id}`, {
                   method: "PUT",

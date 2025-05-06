@@ -182,6 +182,7 @@ export function formatCurrency(
   });
   return currencyFormatter.format(value);
 }
+
 export function formatDurationSeconds(value: number) {
   // < 1 second
   if (value < 1) {
