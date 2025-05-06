@@ -1,0 +1,31 @@
+name: Notify on failure
+
+on:
+  workflow_run:
+    workflows:
+      [
+        CI,
+        Find feature flag code references,
+        Deploy Branch to Docker Hub,
+        Deploy,
+        Docs,
+        PR Preview Environment,
+        Release,
+        Rollback to SHA,
+      ]
+    types: [completed]
+    branches: [main, av/hack-notify-on-failure]
+
+jobs:
+  on-success:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion != 'success' }}
+    steps:
+      - name: Send GitHub Action data to a Slack workflow
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          payload-delimiter: "_"
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: webhook-trigger
+          payload: |
+            workflow_name: "${{ github.event.workflow_run.name }}"
