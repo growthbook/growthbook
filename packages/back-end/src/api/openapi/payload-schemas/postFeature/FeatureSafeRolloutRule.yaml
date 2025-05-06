@@ -1,16 +1,10 @@
 type: object
 required:
-  - id
   - enabled
   - type
   - controlValue
   - variationValue
-  - status
-  - trackingKey
-  - type
-  - seed
   - hashAttribute
-  - safeRolloutId
 properties:
   condition:
     type: string
@@ -45,10 +39,6 @@ properties:
           description: "Feature ID"
         condition:
           type: string
-  id:
-    type: string
-  trackingKey:
-    type: string
   enabled:
     type: boolean
   type:
@@ -61,8 +51,6 @@ properties:
   seed:
     type: string
   hashAttribute:
-    type: string
-  safeRolloutId:
     type: string
   status:
     type: string
