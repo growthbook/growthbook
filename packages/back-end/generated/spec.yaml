@@ -111,6 +111,9 @@ tags:
   - name: archetypes
     x-displayName: Archetypes
     description: Archetypes allow you to simulate the result of targeting rules on pre-set user attributes
+  - name: attributes
+    x-displayName: Attributes
+    description: Attributes are used to target users in experiments and feature flags.
   - name: Archetype_model
     x-displayName: Archetype
     description: <SchemaDefinition schemaRef="#/components/schemas/Archetype" />
@@ -5856,12 +5859,17 @@ components:
     FeatureSafeRolloutRule:
       type: object
       required:
-        - condition
         - id
         - enabled
         - type
         - controlValue
         - variationValue
+        - status
+        - trackingKey
+        - type
+        - seed
+        - hashAttribute
+        - safeRolloutId
       properties:
         condition:
           type: string
@@ -7304,6 +7312,7 @@ x-tagGroups:
       - fact-metrics
       - code-references
       - archetypes
+      - attributes
   - name: Models
     tags:
       - Archetype_model
