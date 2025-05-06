@@ -9,7 +9,6 @@ import {
   createContext,
   FC,
   ReactNode,
-  useCallback,
   ReactElement,
 } from "react";
 import { TagInterface } from "back-end/types/tag";
@@ -17,7 +16,10 @@ import {
   FactMetricInterface,
   FactTableInterface,
 } from "back-end/types/fact-table";
-import { ExperimentMetricInterface, isFactMetricId } from "shared/experiments";
+import {
+  ExperimentMetricMap,
+  getMetricMapWithVariants,
+} from "shared/experiments";
 import { SavedGroupInterface } from "shared/src/types";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { CustomField } from "back-end/types/custom-fields";
@@ -59,8 +61,8 @@ type DefinitionContextValue = Definitions & {
   getTagById: (id: string) => null | TagInterface;
   getFactTableById: (id: string) => null | FactTableInterface;
   getFactMetricById: (id: string) => null | FactMetricInterface;
-  getExperimentMetricById: (id: string) => null | ExperimentMetricInterface;
   getMetricGroupById: (id: string) => null | MetricGroupInterface;
+  metricMap: ExperimentMetricMap;
 };
 
 const defaultValue: DefinitionContextValue = {
@@ -98,8 +100,8 @@ const defaultValue: DefinitionContextValue = {
   getTagById: () => null,
   getFactTableById: () => null,
   getFactMetricById: () => null,
-  getExperimentMetricById: () => null,
   getMetricGroupById: () => null,
+  metricMap: new Map(),
 };
 
 export const DefinitionsContext = createContext<DefinitionContextValue>(
@@ -232,15 +234,9 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
   const getFactMetricById = useGetById(data?.factMetrics);
   const getMetricGroupById = useGetById(data?.metricGroups);
 
-  const getExperimentMetricById = useCallback(
-    (id: string) => {
-      if (isFactMetricId(id)) {
-        return getFactMetricById(id);
-      }
-      return getMetricById(id);
-    },
-    [getMetricById, getFactMetricById]
-  );
+  const metricMap = useMemo(() => {
+    return getMetricMapWithVariants(getFactMetricById, getMetricById);
+  }, [getMetricById, getFactMetricById]);
 
   let value: DefinitionContextValue;
   if (error) {
@@ -269,6 +265,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       _factTablesIncludingArchived: allFactTables,
       factMetrics: activeFactMetrics,
       _factMetricsIncludingArchived: allFactMetrics,
+      metricMap,
       setProject,
       getMetricById,
       getDatasourceById,
@@ -279,7 +276,6 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       getTagById,
       getFactTableById,
       getFactMetricById,
-      getExperimentMetricById,
       getMetricGroupById,
       refreshTags: async (tags) => {
         const existingTags = data.tags.map((t) => t.id);

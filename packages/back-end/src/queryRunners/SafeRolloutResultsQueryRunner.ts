@@ -1,4 +1,4 @@
-import { ExperimentMetricInterface } from "shared/experiments";
+import { ExperimentMetricMap } from "shared/experiments";
 import { omit } from "lodash";
 import { Queries, QueryStatus } from "back-end/types/query";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
@@ -29,7 +29,7 @@ export type SafeRolloutSnapshotResult = {
 };
 
 export type SafeRolloutQueryParams = {
-  metricMap: Map<string, ExperimentMetricInterface>;
+  metricMap: ExperimentMetricMap;
   factTableMap: FactTableMap;
 };
 
@@ -38,7 +38,7 @@ export class SafeRolloutResultsQueryRunner extends QueryRunner<
   SafeRolloutQueryParams,
   SafeRolloutSnapshotResult
 > {
-  private metricMap: Map<string, ExperimentMetricInterface> = new Map();
+  private metricMap: ExperimentMetricMap = new Map();
 
   // TODO: Decide if we want more granular permissions here for safe rollouts
   checkPermissions(): boolean {

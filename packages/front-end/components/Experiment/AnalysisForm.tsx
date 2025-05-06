@@ -69,7 +69,7 @@ const AnalysisForm: FC<{
     segments,
     getProjectById,
     getDatasourceById,
-    getExperimentMetricById,
+    metricMap,
     getSegmentById,
     datasources,
   } = useDefinitions();
@@ -151,7 +151,7 @@ const AnalysisForm: FC<{
       secondaryMetrics: experiment.secondaryMetrics || [],
       metricOverrides: getDefaultMetricOverridesFormValue(
         experiment.metricOverrides || [],
-        getExperimentMetricById,
+        metricMap,
         orgSettings
       ),
       statsEngine: experiment.statsEngine,
@@ -357,7 +357,7 @@ const AnalysisForm: FC<{
             }
 
             const isValidMetric = (id: string) =>
-              getExperimentMetricById(id)?.datasource === newDatasource;
+              metricMap.get(id)?.datasource === newDatasource;
 
             // If the activationMetric is now invalid
             const activationMetric = form.watch("activationMetric");

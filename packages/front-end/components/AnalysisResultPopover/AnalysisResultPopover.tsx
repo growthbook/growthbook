@@ -76,7 +76,7 @@ export default function AnalysisResultPopover({
   const _currency = useCurrency();
   const displayCurrency = ssrPolyfills?.useCurrency?.() || _currency;
 
-  const { getExperimentMetricById, getFactTableById } = useDefinitions();
+  const { metricMap, getFactTableById } = useDefinitions();
 
   const _pValueThreshold = usePValueThreshold();
   const pValueThreshold =
@@ -387,10 +387,7 @@ export default function AnalysisResultPopover({
                     users={row?.users || 0}
                     showRatio={false}
                     displayCurrency={displayCurrency}
-                    getExperimentMetricById={
-                      ssrPolyfills?.getExperimentMetricById ||
-                      getExperimentMetricById
-                    }
+                    metricMap={ssrPolyfills?.metricMap || metricMap}
                     getFactTableById={
                       ssrPolyfills?.getFactTableById || getFactTableById
                     }

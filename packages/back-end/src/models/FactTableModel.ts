@@ -58,6 +58,8 @@ const factTableSchema = new mongoose.Schema({
       description: String,
       value: String,
       managedBy: String,
+      createVariant: Boolean,
+      autoAddVariant: Boolean,
     },
   ],
   archived: Boolean,
@@ -319,6 +321,8 @@ export async function createFactFilter(
     value: data.value,
     description: data.description,
     managedBy: data.managedBy || "",
+    createVariant: data.createVariant || false,
+    autoAddVariant: data.autoAddVariant || false,
   };
 
   if (factTable.filters.some((f) => f.id === filter.id)) {

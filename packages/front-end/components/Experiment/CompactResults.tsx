@@ -123,7 +123,7 @@ const CompactResults: FC<{
   hideDetails,
   disableTimeSeriesButton,
 }) => {
-  const { getExperimentMetricById, metricGroups, ready } = useDefinitions();
+  const { metricMap, metricGroups, ready } = useDefinitions();
 
   const _pValueThreshold = usePValueThreshold();
   const pValueThreshold =
@@ -172,8 +172,7 @@ const CompactResults: FC<{
     [...expandedGoals, ...expandedSecondaries, ...expandedGuardrails].forEach(
       (metricId) => {
         const metric =
-          ssrPolyfills?.getExperimentMetricById?.(metricId) ||
-          getExperimentMetricById(metricId);
+          ssrPolyfills?.metricMap?.get(metricId) || metricMap.get(metricId);
         metric?.tags?.forEach((tag) => {
           allMetricTagsSet.add(tag);
         });
@@ -185,7 +184,7 @@ const CompactResults: FC<{
     expandedSecondaries,
     expandedGuardrails,
     ssrPolyfills,
-    getExperimentMetricById,
+    metricMap,
   ]);
 
   const rows = useMemo<ExperimentTableRow[]>(() => {
@@ -194,8 +193,7 @@ const CompactResults: FC<{
       resultGroup: "goal" | "secondary" | "guardrail"
     ) {
       const metric =
-        ssrPolyfills?.getExperimentMetricById?.(metricId) ||
-        getExperimentMetricById(metricId);
+        ssrPolyfills?.metricMap?.get(metricId) || metricMap.get(metricId);
       if (!metric) return null;
       const { newMetric, overrideFields } = applyMetricOverrides(
         metric,
@@ -237,8 +235,7 @@ const CompactResults: FC<{
     const metricDefs = expandedGoals
       .map(
         (metricId) =>
-          ssrPolyfills?.getExperimentMetricById?.(metricId) ||
-          getExperimentMetricById(metricId)
+          ssrPolyfills?.metricMap?.get(metricId) || metricMap.get(metricId)
       )
       .filter(isDefined);
     const sortedFilteredMetrics = sortAndFilterMetricsByTags(
@@ -249,8 +246,7 @@ const CompactResults: FC<{
     const secondaryDefs = expandedSecondaries
       .map(
         (metricId) =>
-          ssrPolyfills?.getExperimentMetricById?.(metricId) ||
-          getExperimentMetricById(metricId)
+          ssrPolyfills?.metricMap?.get(metricId) || metricMap.get(metricId)
       )
       .filter(isDefined);
     const sortedFilteredSecondary = sortAndFilterMetricsByTags(
@@ -261,8 +257,7 @@ const CompactResults: FC<{
     const guardrailDefs = expandedGuardrails
       .map(
         (metricId) =>
-          ssrPolyfills?.getExperimentMetricById?.(metricId) ||
-          getExperimentMetricById(metricId)
+          ssrPolyfills?.metricMap?.get(metricId) || metricMap.get(metricId)
       )
       .filter(isDefined);
     const sortedFilteredGuardrails = sortAndFilterMetricsByTags(
@@ -292,7 +287,7 @@ const CompactResults: FC<{
     statsEngine,
     ready,
     ssrPolyfills,
-    getExperimentMetricById,
+    metricMap,
     metricFilter,
   ]);
 

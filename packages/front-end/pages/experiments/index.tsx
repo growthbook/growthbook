@@ -76,7 +76,7 @@ const ExperimentsPage = (): React.ReactElement => {
   const {
     ready,
     project,
-    getExperimentMetricById,
+    metricMap,
     getProjectById,
     getDatasourceById,
     getSavedGroupById,
@@ -131,7 +131,7 @@ const ExperimentsPage = (): React.ReactElement => {
       return {
         ownerName: getUserDisplay(exp.owner, false) || "",
         metricNames: exp.goalMetrics
-          .map((m) => getExperimentMetricById(m)?.name)
+          .map((m) => metricMap.get(m)?.name)
           .filter(Boolean),
         datasource: getDatasourceById(exp.datasource)?.name || "",
         savedGroups: savedGroupIds.map(
@@ -150,7 +150,7 @@ const ExperimentsPage = (): React.ReactElement => {
         statusSortOrder,
       };
     },
-    [getExperimentMetricById, getProjectById, getUserDisplay]
+    [metricMap, getProjectById, getUserDisplay]
   );
 
   const { watchedExperiments } = useWatching();

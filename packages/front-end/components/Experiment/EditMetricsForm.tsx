@@ -10,7 +10,7 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
 } from "shared/constants";
 import { OrganizationSettings } from "back-end/types/organization";
-import { ExperimentMetricInterface } from "shared/experiments";
+import { ExperimentMetricMap } from "shared/experiments";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -36,7 +36,7 @@ export interface EditMetricsFormInterface {
 
 export function getDefaultMetricOverridesFormValue(
   overrides: MetricOverride[],
-  getExperimentMetricById: (id: string) => ExperimentMetricInterface | null,
+  metricMap: ExperimentMetricMap,
   settings: OrganizationSettings
 ) {
   const defaultMetricOverrides = cloneDeep(overrides);
@@ -56,9 +56,7 @@ export function getDefaultMetricOverridesFormValue(
       }
     }
     if (defaultMetricOverrides[i].regressionAdjustmentDays === undefined) {
-      const metricDefinition = getExperimentMetricById(
-        defaultMetricOverrides[i].id
-      );
+      const metricDefinition = metricMap.get(defaultMetricOverrides[i].id);
       if (metricDefinition?.regressionAdjustmentOverride) {
         defaultMetricOverrides[i].regressionAdjustmentDays =
           metricDefinition.regressionAdjustmentDays;
@@ -72,9 +70,7 @@ export function getDefaultMetricOverridesFormValue(
       isNaN(defaultMetricOverrides[i].properPriorMean ?? NaN) ||
       isNaN(defaultMetricOverrides[i].properPriorMean ?? NaN)
     ) {
-      const metricDefinition = getExperimentMetricById(
-        defaultMetricOverrides[i].id
-      );
+      const metricDefinition = metricMap.get(defaultMetricOverrides[i].id);
       const defaultValues = metricDefinition?.priorSettings?.override
         ? {
             proper: metricDefinition.priorSettings.proper,
@@ -140,11 +136,11 @@ const EditMetricsForm: FC<{
   const { hasCommercialFeature } = useUser();
   const hasOverrideMetricsFeature = hasCommercialFeature("override-metrics");
 
-  const { getExperimentMetricById } = useDefinitions();
+  const { metricMap } = useDefinitions();
 
   const defaultMetricOverrides = getDefaultMetricOverridesFormValue(
     experiment.metricOverrides || [],
-    getExperimentMetricById,
+    metricMap,
     settings
   );
 

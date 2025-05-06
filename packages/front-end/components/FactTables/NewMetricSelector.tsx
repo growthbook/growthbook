@@ -2,6 +2,7 @@ import { Box, Flex, Grid, Text } from "@radix-ui/themes";
 import {
   FactMetricInterface,
   FactTableInterface,
+  VariantSettings,
 } from "back-end/types/fact-table";
 import { useState } from "react";
 import { PiCaretDown, PiCaretRight, PiFolder, PiX } from "react-icons/pi";
@@ -10,7 +11,7 @@ import { BsThreeDotsVertical } from "react-icons/bs";
 import { isFactMetricId, isMetricGroupId } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Button from "@/components/Radix/Button";
-import SelectField from "@/components/Forms/SelectField";
+import SelectField, { GroupedValue } from "@/components/Forms/SelectField";
 import PopoverForm from "@/components/Radix/PopoverForm";
 import Field from "@/components/Forms/Field";
 import Checkbox from "@/components/Radix/Checkbox";
@@ -24,28 +25,6 @@ import {
 import Link from "@/components/Radix/Link";
 import MetricName from "@/components/Metrics/MetricName";
 import Tag from "@/components/Tags/Tag";
-
-interface VariantSettings {
-  id?: string;
-  name: string;
-  conversionDelayValue?: number;
-  conversionDelayUnit?: "weeks" | "days" | "hours" | "minutes";
-  conversionWindowType?: "" | "conversion" | "lookback";
-  conversionWindowValue?: number;
-  conversionWindowUnit?: "weeks" | "days" | "hours" | "minutes";
-
-  cappingType?: "" | "absolute" | "percentile";
-  cappingValue?: number;
-  cappingIgnoreZeros?: boolean;
-
-  quantileLevel?: number;
-  quantileIgnoreZeros?: boolean;
-
-  additionalFilters?: string[];
-
-  numeratorAggregateFilter?: string;
-  denominatorAggregateFilter?: string;
-}
 
 function parseVariants(
   ids: string[]
@@ -118,14 +97,16 @@ export default function NewMetricSelector({
     metricGroups,
     getFactMetricById,
     getFactTableById,
+    getMetricGroupById,
   } = useDefinitions();
 
   const metrics = parseVariants(value);
 
   const tags = new Map<string, number>();
 
-  const groupedMetricOptions: { value: string; label: string }[] = [];
-
+  const metricGroupOptions: { value: string; label: string }[] = [];
+  const tagOptions: { value: string; label: string }[] = [];
+  const officialMetricOptions: { value: string; label: string }[] = [];
   const individualMetricOptions: { value: string; label: string }[] = [];
 
   const tagToMetricMap = new Map<string, string[]>();
@@ -136,7 +117,12 @@ export default function NewMetricSelector({
     if (!met.id) return;
 
     if (isMetricGroupId(met.id)) {
-      groupedMetricOptions.push({
+      metricGroupOptions.push({
+        value: met.id,
+        label: met.name,
+      });
+    } else if ("managedBy" in met && met.managedBy) {
+      officialMetricOptions.push({
         value: met.id,
         label: met.name,
       });
@@ -160,7 +146,7 @@ export default function NewMetricSelector({
   [...tags.entries()]
     .sort((a, b) => b[1] - a[1])
     .forEach(([tag, count]) => {
-      groupedMetricOptions.push({
+      tagOptions.push({
         value: `tag:${tag}`,
         label: `Tag: ${tag} (${count})`,
       });
@@ -196,19 +182,35 @@ export default function NewMetricSelector({
     }
   }
 
-  const options =
-    groupedMetricOptions.length > 0 && individualMetricOptions.length > 0
-      ? [
-          {
-            label: "Metric Groups and Tags",
-            options: groupedMetricOptions,
-          },
-          {
-            label: "Individual Metrics",
-            options: individualMetricOptions,
-          },
-        ]
-      : [...groupedMetricOptions, ...individualMetricOptions];
+  const options: GroupedValue[] = [];
+
+  if (metricGroupOptions.length > 0) {
+    options.push({
+      label: "Metric Groups",
+      options: metricGroupOptions,
+    });
+  }
+  if (officialMetricOptions.length > 0) {
+    options.push({
+      label: "Official Metrics",
+      options: officialMetricOptions,
+    });
+  }
+  if (tagOptions.length > 0) {
+    options.push({
+      label: "Tags",
+      options: tagOptions,
+    });
+  }
+  if (individualMetricOptions.length > 0) {
+    options.push({
+      label:
+        officialMetricOptions.length > 0
+          ? "Other Metrics"
+          : "Individual Metrics",
+      options: individualMetricOptions,
+    });
+  }
 
   return (
     <Box mb="5">
@@ -229,18 +231,28 @@ export default function NewMetricSelector({
         closeMenuOnSelect={false}
         formatOptionLabel={({ value, label }) => {
           if (!value) return label;
-          if (value.startsWith("tag:"))
+          if (value.startsWith("tag:")) {
+            const num = tagToMetricMap.get(value.slice(4))?.length || 0;
             return (
-              <>
-                Tag: <Tag tag={value.slice(4)} /> (
-                {tagToMetricMap.get(value.slice(4))?.length || 0})
-              </>
+              <Flex align="center" gap="2">
+                <Tag tag={value.slice(4)} />
+                <Text size="1">
+                  ({num} metric
+                  {num === 1 ? "" : "s"})
+                </Text>
+              </Flex>
             );
+          }
           if (isMetricGroupId(value)) {
+            const group = getMetricGroupById(value);
+            const num = group?.metrics?.length || 0;
             return (
-              <>
-                <PiFolder /> {label}
-              </>
+              <Flex align="center" gap="2">
+                <PiFolder /> <Text>{label}</Text>
+                <Text size="1">
+                  ({num} metric{num === 1 ? "" : "s"})
+                </Text>
+              </Flex>
             );
           }
           return <MetricName id={value} disableTooltip={true} />;
@@ -474,21 +486,6 @@ function simplifyVariantSettings(
 ) {
   // Remove overrides that are identical to the original metric
   const newSettings = { ...settings };
-  if (settings.conversionDelayValue === metric.windowSettings.delayValue) {
-    delete newSettings.conversionDelayValue;
-  }
-  if (settings.conversionDelayUnit === metric.windowSettings.delayUnit) {
-    delete newSettings.conversionDelayUnit;
-  }
-  if (settings.cappingType === metric.cappingSettings.type) {
-    delete newSettings.cappingType;
-  }
-  if (settings.cappingValue === metric.cappingSettings.value) {
-    delete newSettings.cappingValue;
-  }
-  if (settings.cappingIgnoreZeros === !!metric.cappingSettings.ignoreZeros) {
-    delete newSettings.cappingIgnoreZeros;
-  }
 
   // Remove all keys where value === undefined
   Object.keys(newSettings).forEach((key) => {
@@ -497,48 +494,106 @@ function simplifyVariantSettings(
     }
   });
 
+  if (settings.windowDelaySettings) {
+    if (
+      Object.entries(settings.windowDelaySettings).every(
+        ([key, value]) => metric.windowSettings[key] === value
+      )
+    ) {
+      delete newSettings.windowDelaySettings;
+    }
+  }
+
+  if (settings.windowSettings) {
+    if (
+      Object.entries(settings.windowSettings).every(
+        ([key, value]) => metric.windowSettings[key] === value
+      )
+    ) {
+      delete newSettings.windowSettings;
+    }
+  }
+
+  if (settings.cappingSettings) {
+    if (
+      Object.entries(settings.cappingSettings).every(
+        ([key, value]) => metric.cappingSettings[key] === value
+      )
+    ) {
+      delete newSettings.cappingSettings;
+    }
+  }
+
+  if (settings.quantileSettings) {
+    if (
+      metric.quantileSettings &&
+      Object.entries(settings.quantileSettings).every(
+        ([key, value]) => metric.quantileSettings?.[key] === value
+      )
+    ) {
+      delete newSettings.quantileSettings;
+    }
+  }
+
+  if (settings.additionalFilters?.length === 0) {
+    delete newSettings.additionalFilters;
+  }
+
   return newSettings;
 }
 
 function getDefaultName(
   metric: FactMetricInterface,
-  settings: VariantSettings
+  settings: VariantSettings,
+  factTable: FactTableInterface
 ) {
   const nameParts: string[] = [];
 
-  if (
-    settings.conversionDelayUnit !== undefined ||
-    settings.conversionDelayValue !== undefined
-  ) {
-    nameParts.push(
-      `[Delay: ${
-        settings.conversionDelayValue ?? metric.windowSettings.delayValue
-      } ${settings.conversionDelayUnit ?? metric.windowSettings.delayUnit}]`
-    );
+  if (settings.windowDelaySettings !== undefined) {
+    const { delayValue, delayUnit } = settings.windowDelaySettings;
+    nameParts.push(`(Delay: ${delayValue} ${delayUnit})`);
   }
-  if (
-    settings.cappingType !== undefined ||
-    settings.cappingValue !== undefined ||
-    settings.cappingIgnoreZeros !== undefined
-  ) {
-    if (!(settings.cappingType ?? metric.cappingSettings.type)) {
-      nameParts.push("[Uncapped]");
+  if (settings.windowSettings !== undefined) {
+    const { type, windowUnit, windowValue } = settings.windowSettings;
+    if (type === "") {
+      nameParts.push(`(No conversion window)`);
+    } else if (type === "conversion") {
+      nameParts.push(`(Window: ${windowValue} ${windowUnit})`);
+    } else if (type === "lookback") {
+      nameParts.push(`(Lookback: ${windowValue} ${windowUnit})`);
+    }
+  }
+  if (settings.cappingSettings !== undefined) {
+    const { type, value, ignoreZeros } = settings.cappingSettings;
+    if (!type) {
+      nameParts.push("(Uncapped)");
     } else {
-      const type = settings.cappingType ?? metric.cappingSettings.type;
-      const value = settings.cappingValue ?? metric.cappingSettings.value;
-      const ignoreZeros =
-        settings.cappingIgnoreZeros ?? metric.cappingSettings.ignoreZeros;
-
       nameParts.push(
-        `[Capping: ${
+        `(Capping: ${
           type === "percentile"
             ? `P${value * 100}${ignoreZeros ? " Ignore Zeros" : ""}`
             : type === "absolute"
             ? value
             : ""
-        }]`
+        })`
       );
     }
+  }
+  if (settings.quantileSettings !== undefined) {
+    const { ignoreZeros, quantile } = settings.quantileSettings;
+    nameParts.push(
+      `(Quantile: ${quantile}${ignoreZeros ? ` ignore zeros` : ""})`
+    );
+  }
+  if (
+    settings.additionalFilters !== undefined &&
+    settings.additionalFilters.length > 0
+  ) {
+    const filterNames = settings.additionalFilters
+      .map((filter) => factTable.filters.find((f) => f.id === filter)?.name)
+      .filter(Boolean)
+      .join(", ");
+    nameParts.push(`(Filters: ${filterNames})`);
   }
 
   return `${metric.name} ${nameParts.join(" ")}`;
@@ -553,7 +608,7 @@ function AdhocVariantForm({
   onSave: (settings: VariantSettings) => void;
   close: () => void;
 }) {
-  const { getFactMetricById } = useDefinitions();
+  const { getFactMetricById, getFactTableById } = useDefinitions();
 
   const form = useForm<VariantSettings>({
     defaultValues: {
@@ -564,35 +619,26 @@ function AdhocVariantForm({
   const metric = getFactMetricById(id);
   if (!metric) return null;
 
+  const factTable = getFactTableById(metric.numerator.factTableId);
+  if (!factTable) return null;
+
   const value = {
     name: form.watch("name"),
-    conversionDelayValue: form.watch("conversionDelayValue"),
-    conversionDelayUnit: form.watch("conversionDelayUnit"),
-    conversionWindowType: form.watch("conversionWindowType"),
-    conversionWindowValue: form.watch("conversionWindowValue"),
-    conversionWindowUnit: form.watch("conversionWindowUnit"),
-    cappingType: form.watch("cappingType"),
-    cappingValue: form.watch("cappingValue"),
-    cappingIgnoreZeros: form.watch("cappingIgnoreZeros"),
-    quantileLevel: form.watch("quantileLevel"),
-    quantileIgnoreZeros: form.watch("quantileIgnoreZeros"),
+    windowDelaySettings: form.watch("windowDelaySettings"),
+    windowSettings: form.watch("windowSettings"),
+    cappingSettings: form.watch("cappingSettings"),
+    quantileSettings: form.watch("quantileSettings"),
     additionalFilters: form.watch("additionalFilters"),
-    numeratorAggregateFilter: form.watch("numeratorAggregateFilter"),
-    denominatorAggregateFilter: form.watch("denominatorAggregateFilter"),
   };
 
-  const overrideDelay =
-    value.conversionDelayValue !== undefined &&
-    value.conversionDelayUnit !== undefined;
+  const overrideDelay = value.windowDelaySettings !== undefined;
 
-  const overrideCapping =
-    value.cappingType !== undefined &&
-    value.cappingValue !== undefined &&
-    value.cappingIgnoreZeros !== undefined;
+  const overrideCapping = value.cappingSettings !== undefined;
 
   const defaultName = getDefaultName(
     metric,
-    simplifyVariantSettings(metric, value)
+    simplifyVariantSettings(metric, value),
+    factTable
   );
 
   const enableSave =
@@ -627,18 +673,8 @@ function AdhocVariantForm({
                 value={overrideCapping}
                 setValue={(override) => {
                   form.setValue(
-                    "cappingType",
-                    override ? metric.cappingSettings.type : ""
-                  );
-                  form.setValue(
-                    "cappingValue",
-                    override ? metric.cappingSettings.value || 0 : undefined
-                  );
-                  form.setValue(
-                    "cappingIgnoreZeros",
-                    override
-                      ? metric.cappingSettings.ignoreZeros || false
-                      : undefined
+                    "cappingSettings",
+                    override ? metric.cappingSettings : undefined
                   );
                 }}
               />
@@ -647,9 +683,9 @@ function AdhocVariantForm({
               {overrideCapping ? (
                 <Flex gap="2" wrap="wrap" align="center">
                   <SelectField
-                    value={value.cappingType || ""}
+                    value={value.cappingSettings?.type || ""}
                     onChange={(v: "" | "absolute" | "percentile") =>
-                      form.setValue("cappingType", v)
+                      form.setValue("cappingSettings.type", v)
                     }
                     options={[
                       { value: "", label: "None" },
@@ -658,18 +694,20 @@ function AdhocVariantForm({
                     ]}
                     sort={false}
                   />
-                  {value.cappingType ? (
+                  {value.cappingSettings?.type ? (
                     <Field
                       type="number"
-                      {...form.register("cappingValue")}
+                      {...form.register("cappingSettings.value")}
                       required
                       style={{ width: 70 }}
                     />
                   ) : null}
-                  {value.cappingType === "percentile" ? (
+                  {value.cappingSettings?.type === "percentile" ? (
                     <Checkbox
-                      value={value.cappingIgnoreZeros || false}
-                      setValue={(v) => form.setValue("cappingIgnoreZeros", v)}
+                      value={value.cappingSettings?.ignoreZeros || false}
+                      setValue={(v) =>
+                        form.setValue("cappingSettings.ignoreZeros", v)
+                      }
                       label="Ignore Zeros"
                     />
                   ) : null}
@@ -696,13 +734,12 @@ function AdhocVariantForm({
                 value={overrideDelay}
                 setValue={(override) => {
                   form.setValue(
-                    "conversionDelayValue",
-                    override ? metric.windowSettings.delayValue || 0 : undefined
-                  );
-                  form.setValue(
-                    "conversionDelayUnit",
+                    "windowDelaySettings",
                     override
-                      ? metric.windowSettings.delayUnit || "days"
+                      ? {
+                          delayUnit: metric.windowSettings.delayUnit || "days",
+                          delayValue: metric.windowSettings.delayValue || 0,
+                        }
                       : undefined
                   );
                 }}
@@ -713,14 +750,14 @@ function AdhocVariantForm({
                 <Flex gap="2" wrap="wrap" align="center">
                   <Field
                     type="number"
-                    {...form.register("conversionDelayValue")}
+                    {...form.register("windowDelaySettings.delayValue")}
                     required
                     style={{ width: 70 }}
                   />
                   <SelectField
-                    value={value.conversionDelayUnit || ""}
+                    value={value.windowDelaySettings?.delayUnit || ""}
                     onChange={(v: "weeks" | "days" | "hours" | "minutes") =>
-                      form.setValue("conversionDelayUnit", v)
+                      form.setValue("windowDelaySettings.delayUnit", v)
                     }
                     options={[
                       { value: "weeks", label: "Weeks" },

@@ -125,7 +125,7 @@ export default function ExperimentRefNewFields({
   const {
     segments,
     getDatasourceById,
-    getExperimentMetricById,
+    metricMap,
     getSegmentById,
     datasources,
     project: currentProject,
@@ -420,7 +420,7 @@ export default function ExperimentRefNewFields({
                 if (!newDatasource) return;
 
                 const isValidMetric = (id: string) =>
-                  getExperimentMetricById(id)?.datasource === newDatasource;
+                  metricMap.get(id)?.datasource === newDatasource;
 
                 // If the segment is now invalid
                 const segment = form.watch("segment");

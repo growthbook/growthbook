@@ -77,7 +77,7 @@ export default function ResultsTab({
 }: Props) {
   const {
     getDatasourceById,
-    getExperimentMetricById,
+    metricMap,
     getMetricById,
     getProjectById,
     metrics,
@@ -117,7 +117,7 @@ export default function ResultsTab({
     false
   );
   const allExperimentMetrics = allExperimentMetricIds.map((m) =>
-    getExperimentMetricById(m)
+    metricMap.get(m)
   );
   const denominatorMetricIds = uniq<string>(
     allExperimentMetrics

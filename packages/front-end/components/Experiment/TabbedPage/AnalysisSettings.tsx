@@ -31,7 +31,7 @@ export default function AnalysisSettings({
   const {
     getDatasourceById,
     getProjectById,
-    getExperimentMetricById,
+    metricMap,
     getSegmentById,
     metricGroups,
   } = useDefinitions();
@@ -97,22 +97,19 @@ export default function AnalysisSettings({
   const goals: { name: string; id: string }[] = [];
   expandedGoals.forEach((m) => {
     const name =
-      ssrPolyfills?.getExperimentMetricById?.(m)?.name ||
-      getExperimentMetricById(m)?.name;
+      ssrPolyfills?.metricMap?.get(m)?.name || metricMap.get(m)?.name;
     if (name) goals.push({ name, id: m });
   });
   const secondary: { name: string; id: string }[] = [];
   expandedSecondaries.forEach((m) => {
     const name =
-      ssrPolyfills?.getExperimentMetricById?.(m)?.name ||
-      getExperimentMetricById(m)?.name;
+      ssrPolyfills?.metricMap?.get(m)?.name || metricMap.get(m)?.name;
     if (name) secondary.push({ name, id: m });
   });
   const guardrails: { name: string; id: string }[] = [];
   expandedGuardrails.forEach((m) => {
     const name =
-      ssrPolyfills?.getExperimentMetricById?.(m)?.name ||
-      getExperimentMetricById(m)?.name;
+      ssrPolyfills?.metricMap?.get(m)?.name || metricMap.get(m)?.name;
     if (name) guardrails.push({ name, id: m });
   });
 
@@ -167,9 +164,7 @@ export default function AnalysisSettings({
             {experiment.activationMetric && (
               <div className="col-4 mb-4">
                 <div className="h5">Activation Metric</div>
-                <div>
-                  {getExperimentMetricById(experiment.activationMetric)?.name}
-                </div>
+                <div>{metricMap.get(experiment.activationMetric)?.name}</div>
               </div>
             )}
 

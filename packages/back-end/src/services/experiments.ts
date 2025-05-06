@@ -29,6 +29,7 @@ import { getSRMValue } from "shared/health";
 import {
   expandMetricGroups,
   ExperimentMetricInterface,
+  ExperimentMetricMap,
   getAllMetricIdsFromExperiment,
   getEqualWeights,
   getMetricResultStatus,
@@ -270,7 +271,7 @@ export async function getManualSnapshotData(
   metrics: {
     [key: string]: MetricStats[];
   },
-  metricMap: Map<string, ExperimentMetricInterface>
+  metricMap: ExperimentMetricMap
 ) {
   const phase = experiment.phases[phaseIndex];
 
@@ -413,7 +414,7 @@ export function isJoinableMetric({
   datasource,
 }: {
   metricId: string;
-  metricMap: Map<string, ExperimentMetricInterface>;
+  metricMap: ExperimentMetricMap;
   factTableMap: FactTableMap;
   exposureQuery?: ExposureQuery;
   datasource?: DataSourceInterface;
@@ -455,7 +456,7 @@ export function getSnapshotSettings({
   settings: ExperimentSnapshotAnalysisSettings;
   orgPriorSettings: MetricPriorSettings | undefined;
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
-  metricMap: Map<string, ExperimentMetricInterface>;
+  metricMap: ExperimentMetricMap;
   factTableMap: FactTableMap;
   metricGroups: MetricGroupInterface[];
   reweight?: boolean;
@@ -605,7 +606,7 @@ export async function createManualSnapshot({
   };
   orgPriorSettings: MetricPriorSettings | undefined;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
-  metricMap: Map<string, ExperimentMetricInterface>;
+  metricMap: ExperimentMetricMap;
 }) {
   const snapshotSettings = getSnapshotSettings({
     experiment,
@@ -775,7 +776,7 @@ export function resetExperimentBanditSettings({
   preserveExistingBanditEvents,
 }: {
   experiment: ExperimentInterface | Omit<ExperimentInterface, "id">;
-  metricMap?: Map<string, ExperimentMetricInterface>;
+  metricMap?: ExperimentMetricMap;
   changes?: Changeset;
   settings: ScopedSettings;
   preserveExistingBanditEvents?: boolean;
@@ -988,7 +989,7 @@ export async function createSnapshot({
   defaultAnalysisSettings: ExperimentSnapshotAnalysisSettings;
   additionalAnalysisSettings: ExperimentSnapshotAnalysisSettings[];
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
-  metricMap: Map<string, ExperimentMetricInterface>;
+  metricMap: ExperimentMetricMap;
   factTableMap: FactTableMap;
   reweight?: boolean;
 }): Promise<ExperimentResultsQueryRunner> {
@@ -1099,7 +1100,7 @@ export type SnapshotAnalysisParams = {
   experiment: ExperimentInterface;
   organization: OrganizationInterface;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
-  metricMap: Map<string, ExperimentMetricInterface>;
+  metricMap: ExperimentMetricMap;
   snapshot: ExperimentSnapshotInterface;
 };
 
@@ -2531,7 +2532,7 @@ export function postExperimentApiPayloadToInterface(
 export function updateExperimentApiPayloadToInterface(
   payload: z.infer<typeof updateExperimentValidator.bodySchema>,
   experiment: ExperimentInterface,
-  metricMap: Map<string, ExperimentMetricInterface>,
+  metricMap: ExperimentMetricMap,
   organization: OrganizationInterface
 ): Partial<ExperimentInterface> {
   const {

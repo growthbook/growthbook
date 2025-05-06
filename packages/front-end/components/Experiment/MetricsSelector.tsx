@@ -108,7 +108,7 @@ const MetricsSelector: FC<{
     metricGroups,
     factMetrics,
     factTables,
-    getExperimentMetricById,
+    metricMap,
     getDatasourceById,
     mutateDefinitions,
   } = useDefinitions();
@@ -241,7 +241,7 @@ const MetricsSelector: FC<{
         const isGroup = option?.isGroup;
         const metricsWithJoinableStatus = isGroup
           ? option?.metrics?.map((m) => {
-              const metric = getExperimentMetricById(m);
+              const metric = metricMap.get(m);
               if (!metric) return { metric, joinable: false };
               const userIdTypes = isFactMetric(metric)
                 ? factTables.find((f) => f.id === metric.numerator.factTableId)

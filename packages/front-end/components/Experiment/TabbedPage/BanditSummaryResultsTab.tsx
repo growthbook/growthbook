@@ -37,7 +37,7 @@ export default function BanditSummaryResultsTab({
   ssrPolyfills,
   isPublic,
 }: Props) {
-  const { getExperimentMetricById } = useDefinitions();
+  const { metricMap } = useDefinitions();
 
   const [chartMode, setChartMode] = useLocalStorage<
     "values" | "probabilities" | "weights"
@@ -62,9 +62,7 @@ export default function BanditSummaryResultsTab({
   }, [numPhases, setPhase]);
 
   const mid = experiment?.goalMetrics?.[0];
-  const metric =
-    ssrPolyfills?.getExperimentMetricById?.(mid) ||
-    getExperimentMetricById(mid ?? "");
+  const metric = ssrPolyfills?.metricMap?.get(mid) || metricMap.get(mid ?? "");
 
   const { latest: _latest } = useSnapshot();
   const latest = _latest ?? ssrSnapshot;

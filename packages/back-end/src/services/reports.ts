@@ -9,7 +9,7 @@ import {
 import {
   isFactMetric,
   isBinomialMetric,
-  ExperimentMetricInterface,
+  ExperimentMetricMap,
   getAllMetricIdsFromExperiment,
   getAllMetricSettingsForSnapshot,
   expandMetricGroups,
@@ -162,7 +162,7 @@ export function getAnalysisSettingsFromReportArgs(
 }
 export function getSnapshotSettingsFromReportArgs(
   args: ExperimentReportArgs,
-  metricMap: Map<string, ExperimentMetricInterface>
+  metricMap: ExperimentMetricMap
 ): {
   snapshotSettings: ExperimentSnapshotSettings;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
@@ -214,7 +214,7 @@ export function getSnapshotSettingsFromReportArgs(
 
 export function getMetricForSnapshot(
   id: string | null | undefined,
-  metricMap: Map<string, ExperimentMetricInterface>,
+  metricMap: ExperimentMetricMap,
   settingsForSnapshotMetrics?: MetricSnapshotSettings[],
   metricOverrides?: MetricOverride[]
 ): MetricForSnapshot | null {
@@ -288,7 +288,7 @@ export async function createReportSnapshot({
   previousSnapshot?: ExperimentSnapshotInterface; // todo: sensible defaults if not provided
   context: ReqContext | ApiReqContext;
   useCache?: boolean;
-  metricMap: Map<string, ExperimentMetricInterface>;
+  metricMap: ExperimentMetricMap;
   factTableMap: FactTableMap;
 }): Promise<ExperimentSnapshotInterface> {
   // todo: new query runner
@@ -464,7 +464,7 @@ export function getReportSnapshotSettings({
   phaseIndex: number;
   orgPriorSettings: MetricPriorSettings | undefined;
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
-  metricMap: Map<string, ExperimentMetricInterface>;
+  metricMap: ExperimentMetricMap;
   factTableMap: FactTableMap;
   metricGroups: MetricGroupInterface[];
   datasource?: DataSourceInterface;

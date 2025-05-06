@@ -70,7 +70,7 @@ export default function AnalysisSettingsSummary({
   const {
     getDatasourceById,
     getSegmentById,
-    getExperimentMetricById,
+    metricMap,
     factTables,
     metricGroups,
   } = useDefinitions();
@@ -141,7 +141,7 @@ export default function AnalysisSettingsSummary({
   const unjoinableMetrics = useMemo(() => {
     const unjoinables = new Set<string>();
     allExpandedMetrics.forEach((m) => {
-      const metric = getExperimentMetricById(m);
+      const metric = metricMap.get(m);
       if (!metric) return;
       const userIdTypes = isFactMetric(metric)
         ? factTables.find((f) => f.id === metric.numerator.factTableId)
@@ -161,7 +161,7 @@ export default function AnalysisSettingsSummary({
     factTables,
     userIdType,
     datasourceSettings,
-    getExperimentMetricById,
+    metricMap,
   ]);
 
   const { outdated, reasons } = isOutdated({
@@ -182,28 +182,26 @@ export default function AnalysisSettingsSummary({
   );
   const segment = getSegmentById(experiment.segment || "");
 
-  const activationMetric = getExperimentMetricById(
-    experiment.activationMetric || ""
-  );
+  const activationMetric = metricMap.get(experiment.activationMetric || "");
 
   const goals: string[] = [];
   expandMetricGroups(experiment.goalMetrics ?? [], metricGroups).forEach(
     (m) => {
-      const name = getExperimentMetricById(m)?.name;
+      const name = metricMap.get(m)?.name;
       if (name) goals.push(name);
     }
   );
   const secondary: string[] = [];
   expandMetricGroups(experiment.secondaryMetrics ?? [], metricGroups).forEach(
     (m) => {
-      const name = getExperimentMetricById(m)?.name;
+      const name = metricMap.get(m)?.name;
       if (name) secondary.push(name);
     }
   );
   const guardrails: string[] = [];
   expandMetricGroups(experiment.guardrailMetrics ?? [], metricGroups).forEach(
     (m) => {
-      const name = getExperimentMetricById(m)?.name;
+      const name = metricMap.get(m)?.name;
       if (name) guardrails.push(name);
     }
   );

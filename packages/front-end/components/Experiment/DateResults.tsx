@@ -62,12 +62,7 @@ const DateResults: FC<{
   differenceType,
   ssrPolyfills,
 }) => {
-  const {
-    getExperimentMetricById,
-    getFactTableById,
-    metricGroups,
-    ready,
-  } = useDefinitions();
+  const { metricMap, getFactTableById, metricGroups, ready } = useDefinitions();
 
   const _confidenceLevels = useConfidenceLevels();
   const _pValueThreshold = usePValueThreshold();
@@ -161,8 +156,7 @@ const DateResults: FC<{
       )
         .map((metricId) => {
           const metric =
-            ssrPolyfills?.getExperimentMetricById?.(metricId) ||
-            getExperimentMetricById(metricId);
+            ssrPolyfills?.metricMap?.get(metricId) || metricMap.get(metricId);
 
           if (!metric) return;
           // Keep track of cumulative users and value for each variation
@@ -305,7 +299,7 @@ const DateResults: FC<{
     ciLower,
     ciUpper,
     displayCurrency,
-    getExperimentMetricById,
+    metricMap,
     getFactTableById,
     expandedGuardrails,
     expandedGoals,

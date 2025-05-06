@@ -117,12 +117,7 @@ const BreakDownResults: FC<{
 }) => {
   const [showMetricFilter, setShowMetricFilter] = useState<boolean>(false);
 
-  const {
-    getDimensionById,
-    getExperimentMetricById,
-    metricGroups,
-    ready,
-  } = useDefinitions();
+  const { getDimensionById, metricMap, metricGroups, ready } = useDefinitions();
 
   const _pValueThreshold = usePValueThreshold();
   const pValueThreshold =
@@ -177,8 +172,7 @@ const BreakDownResults: FC<{
     [...goalMetrics, ...secondaryMetrics, ...guardrailMetrics].forEach(
       (metricId) => {
         const metric =
-          ssrPolyfills?.getExperimentMetricById?.(metricId) ||
-          getExperimentMetricById(metricId);
+          ssrPolyfills?.metricMap?.get(metricId) || metricMap.get(metricId);
         metric?.tags?.forEach((tag) => {
           allMetricTagsSet.add(tag);
         });
@@ -190,7 +184,7 @@ const BreakDownResults: FC<{
     secondaryMetrics,
     guardrailMetrics,
     ssrPolyfills,
-    getExperimentMetricById,
+    metricMap,
   ]);
 
   const tables = useMemo<TableDef[]>(() => {
@@ -208,8 +202,7 @@ const BreakDownResults: FC<{
     ]
       .map(
         (metricId) =>
-          ssrPolyfills?.getExperimentMetricById?.(metricId) ||
-          getExperimentMetricById(metricId)
+          ssrPolyfills?.metricMap?.get(metricId) || metricMap.get(metricId)
       )
       .filter(isDefined);
     const sortedFilteredMetrics = sortAndFilterMetricsByTags(
@@ -220,8 +213,7 @@ const BreakDownResults: FC<{
     return Array.from(new Set(sortedFilteredMetrics))
       .map((metricId) => {
         const metric =
-          ssrPolyfills?.getExperimentMetricById?.(metricId) ||
-          getExperimentMetricById(metricId);
+          ssrPolyfills?.metricMap?.get(metricId) || metricMap.get(metricId);
         if (!metric) return;
         const ret = sortAndFilterMetricsByTags([metric], metricFilter);
         if (ret.length === 0) return;
@@ -271,7 +263,7 @@ const BreakDownResults: FC<{
     pValueThreshold,
     ready,
     ssrPolyfills,
-    getExperimentMetricById,
+    metricMap,
     metricFilter,
   ]);
 
@@ -280,8 +272,8 @@ const BreakDownResults: FC<{
   );
 
   const activationMetricObj = activationMetric
-    ? ssrPolyfills?.getExperimentMetricById?.(activationMetric) ||
-      getExperimentMetricById(activationMetric)
+    ? ssrPolyfills?.metricMap?.get(activationMetric) ||
+      metricMap.get(activationMetric)
     : undefined;
 
   return (

@@ -113,10 +113,13 @@ export default function MetricName({
   showDescription?: boolean;
   isGroup?: boolean;
   useIdAsFallback?: boolean;
-  metrics?: { metric: ExperimentMetricInterface | null; joinable: boolean }[];
+  metrics?: {
+    metric: ExperimentMetricInterface | null | undefined;
+    joinable: boolean;
+  }[];
 }) {
-  const { getExperimentMetricById, getMetricGroupById } = useDefinitions();
-  const metric = _metric ?? getExperimentMetricById(id ?? "");
+  const { metricMap, getMetricGroupById } = useDefinitions();
+  const metric = _metric ?? metricMap.get(id ?? "");
 
   if (isGroup) {
     // check if this is a metric group:

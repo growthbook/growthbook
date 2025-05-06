@@ -21,6 +21,7 @@ import {
   columnAggregationValidator,
   legacyWindowSettingsValidator,
   jsonColumnFieldsValidator,
+  variantSettingsValidator,
 } from "back-end/src/routers/fact-table/fact-table.validators";
 import { TestQueryRow } from "back-end/src/types/Integration";
 import { CreateProps, UpdateProps } from "./models";
@@ -53,6 +54,8 @@ export interface FactFilterInterface {
   description: string;
   value: string;
   managedBy?: "" | "api";
+  createVariant?: boolean;
+  autoAddVariant?: boolean;
 }
 
 export interface FactTableInterface {
@@ -140,3 +143,5 @@ export type FactFilterTestResults = {
   error?: string;
   results?: TestQueryRow[];
 };
+
+export type VariantSettings = z.infer<typeof variantSettingsValidator>;

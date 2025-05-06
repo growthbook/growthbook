@@ -12,6 +12,7 @@ import { getSafeRolloutSnapshotAnalysis, isDefined } from "shared/util";
 import {
   expandMetricGroups,
   ExperimentMetricInterface,
+  ExperimentMetricMap,
   getAllMetricIdsFromExperiment,
   getMetricSnapshotSettings,
   isBinomialMetric,
@@ -70,7 +71,7 @@ import {
 
 export function getMetricForSafeRolloutSnapshot(
   id: string | null | undefined,
-  metricMap: Map<string, ExperimentMetricInterface>,
+  metricMap: ExperimentMetricMap,
   settingsForSnapshotMetrics: MetricSnapshotSettings[]
 ): MetricForSafeRolloutSnapshot | null {
   if (!id) return null;
@@ -275,7 +276,7 @@ function getSafeRolloutSnapshotSettings({
   settings: ExperimentSnapshotAnalysisSettings;
   orgPriorSettings: MetricPriorSettings | undefined;
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
-  metricMap: Map<string, ExperimentMetricInterface>;
+  metricMap: ExperimentMetricMap;
   factTableMap: FactTableMap;
   metricGroups: MetricGroupInterface[];
   datasource?: DataSourceInterface;
@@ -353,7 +354,7 @@ export async function _createSafeRolloutSnapshot({
   useCache?: boolean;
   defaultAnalysisSettings: ExperimentSnapshotAnalysisSettings;
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
-  metricMap: Map<string, ExperimentMetricInterface>;
+  metricMap: ExperimentMetricMap;
   factTableMap: FactTableMap;
 }): Promise<SafeRolloutResultsQueryRunner> {
   const { org: organization } = context;

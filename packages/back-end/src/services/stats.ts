@@ -12,6 +12,7 @@ import {
 import { putBaselineVariationFirst } from "shared/util";
 import {
   ExperimentMetricInterface,
+  ExperimentMetricMap,
   isBinomialMetric,
   isFactMetric,
   isRatioMetric,
@@ -369,7 +370,7 @@ function getBusinessMetricTypeForStatsEngine(
 
 export function getMetricSettingsForStatsEngine(
   metricDoc: ExperimentMetricInterface,
-  metricMap: Map<string, ExperimentMetricInterface>,
+  metricMap: ExperimentMetricMap,
   settings: ExperimentSnapshotSettings,
   optimizedFactMetric: boolean = false
 ): MetricSettingsForStatsEngine {
@@ -445,7 +446,7 @@ export function getMetricSettingsForStatsEngine(
 
 export function getMetricsAndQueryDataForStatsEngine(
   queryData: QueryMap,
-  metricMap: Map<string, ExperimentMetricInterface>,
+  metricMap: ExperimentMetricMap,
   settings: ExperimentSnapshotSettings
 ) {
   const queryResults: QueryResultsForStatsEngine[] = [];
@@ -707,7 +708,7 @@ export async function analyzeExperimentResults({
   analysisSettings: ExperimentSnapshotAnalysisSettings[];
   snapshotSettings: ExperimentSnapshotSettings;
   variationNames: string[];
-  metricMap: Map<string, ExperimentMetricInterface>;
+  metricMap: ExperimentMetricMap;
 }): Promise<{
   results: ExperimentReportResults[];
   banditResult?: BanditResult;

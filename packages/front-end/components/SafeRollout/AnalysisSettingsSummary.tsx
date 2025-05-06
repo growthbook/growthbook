@@ -28,11 +28,7 @@ export interface Props {
 export default function SafeRolloutAnalysisSettingsSummary({
   safeRollout,
 }: Props) {
-  const {
-    getDatasourceById,
-    getExperimentMetricById,
-    metricGroups,
-  } = useDefinitions();
+  const { getDatasourceById, metricMap, metricGroups } = useDefinitions();
 
   const permissionsUtil = usePermissionsUtil();
 
@@ -66,7 +62,7 @@ export default function SafeRolloutAnalysisSettingsSummary({
     safeRollout.guardrailMetricIds ?? [],
     metricGroups
   ).forEach((m) => {
-    const name = getExperimentMetricById(m)?.name;
+    const name = metricMap.get(m)?.name;
     if (name) guardrails.push(name);
   });
 

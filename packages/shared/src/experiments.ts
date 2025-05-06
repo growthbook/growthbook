@@ -36,6 +36,7 @@ import {
 } from "back-end/types/stats";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import uniqid from "uniqid";
+import { variantSettingsValidator } from "back-end/src/routers/fact-table/fact-table.validators";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
@@ -43,6 +44,10 @@ import {
 } from "./constants";
 
 export type ExperimentMetricInterface = MetricInterface | FactMetricInterface;
+
+export type ExperimentMetricMap = {
+  get: (id: string) => ExperimentMetricInterface | undefined;
+};
 
 export function isFactMetricId(id: string): boolean {
   return !!id.match(/^fact__/);
@@ -56,6 +61,92 @@ export function isFactMetric(
   m: ExperimentMetricInterface
 ): m is FactMetricInterface {
   return "metricType" in m;
+}
+
+export function getMetricMapWithVariants(
+  getFactMetricById: (id: string) => FactMetricInterface | null | undefined,
+  getMetricById: (id: string) => MetricInterface | null | undefined
+): ExperimentMetricMap {
+  return {
+    get: (id: string) => {
+      // Fact metric
+      if (isFactMetricId(id)) {
+        // First try getting the fact metric directly
+        const exactMatch = getFactMetricById(id);
+        if (exactMatch) return exactMatch;
+
+        // Separate out variant info from id (delimited by `#`)
+        const [metricId, variantSettingsRaw] = id.split("#");
+        const metric = getFactMetricById(metricId);
+        if (!metric) return undefined;
+        if (!variantSettingsRaw) return metric;
+
+        try {
+          let variantSettings = variantSettingsValidator.parse(
+            variantSettingsRaw
+          );
+
+          // If there's a variant id, populate from the metric interface
+          if (variantSettings.id) {
+            const fullVariantSettings = metric.variants?.find(
+              (v) => v.id === variantSettings.id
+            );
+            if (fullVariantSettings) {
+              variantSettings = fullVariantSettings;
+            }
+          }
+
+          // Apply variant settings on top of base metric definition
+          const newMetric = cloneDeep(metric);
+          newMetric.windowSettings = {
+            ...newMetric.windowSettings,
+            ...variantSettings.windowSettings,
+            ...variantSettings.windowDelaySettings,
+          };
+          newMetric.cappingSettings = {
+            ...newMetric.cappingSettings,
+            ...variantSettings.cappingSettings,
+          };
+          if (newMetric.quantileSettings) {
+            newMetric.quantileSettings = {
+              ...newMetric.quantileSettings,
+              ...variantSettings.quantileSettings,
+            };
+          }
+
+          if (variantSettings.additionalFilters?.length) {
+            newMetric.numerator.filters = [
+              ...(newMetric.numerator.filters || []),
+              ...variantSettings.additionalFilters,
+            ];
+
+            // Apply filters to both numerator and denominator (if in same fact table)
+            if (
+              newMetric.metricType === "ratio" &&
+              newMetric.numerator.factTableId ===
+                newMetric.denominator?.factTableId
+            ) {
+              newMetric.denominator.filters = [
+                ...(newMetric.denominator.filters || []),
+                ...variantSettings.additionalFilters,
+              ];
+            }
+          }
+        } catch (e) {
+          // Skip including when variant settings have an error and cannot be parsed
+          return undefined;
+        }
+      }
+      // Legacy metrics don't support variants
+      else {
+        const metric = getMetricById(id);
+        if (!metric) return undefined;
+        return metric;
+      }
+
+      return undefined;
+    },
+  };
 }
 
 export function canInlineFilterColumn(
@@ -494,7 +585,7 @@ export function getAllMetricSettingsForSnapshot({
   datasourceType,
   hasRegressionAdjustmentFeature,
 }: {
-  allExperimentMetrics: (ExperimentMetricInterface | null)[];
+  allExperimentMetrics: (ExperimentMetricInterface | null | undefined)[];
   denominatorMetrics: MetricInterface[];
   orgSettings: OrganizationSettings;
   experimentRegressionAdjustmentEnabled?: boolean;

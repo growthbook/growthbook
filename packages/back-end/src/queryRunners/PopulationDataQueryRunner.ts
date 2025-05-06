@@ -41,7 +41,7 @@ export type PopulationDataQuerySettings = Pick<
 export interface PopulationDataQueryParams {
   populationSettings: PopulationDataQuerySettings;
   snapshotSettings: ExperimentSnapshotSettings;
-  metricMap: Map<string, ExperimentMetricInterface>;
+  metricMap: ExperimentMetricMap;
   factTableMap: FactTableMap;
 }
 
@@ -263,7 +263,7 @@ export class PopulationDataQueryRunner extends QueryRunner<
   PopulationDataQueryParams,
   PopulationDataResult
 > {
-  private metricMap: Map<string, ExperimentMetricInterface> = new Map();
+  private metricMap: ExperimentMetricMap = new Map();
 
   checkPermissions(): boolean {
     return this.context.permissions.canRunExperimentQueries(

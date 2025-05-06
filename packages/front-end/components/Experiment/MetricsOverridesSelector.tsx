@@ -55,7 +55,7 @@ export default function MetricsOverridesSelector({
     metrics: metricDefinitions,
     factMetrics: factMetricDefinitions,
     metricGroups,
-    getExperimentMetricById,
+    metricMap,
   } = useDefinitions();
   const settings = useOrgSettings();
   const { hasCommercialFeature } = useUser();
@@ -850,7 +850,7 @@ export default function MetricsOverridesSelector({
                 e.preventDefault();
                 const metricOverride = getDefaultMetricOverridesFormValue(
                   [{ id: selectedMetricId }],
-                  getExperimentMetricById,
+                  metricMap,
                   settings
                 )?.[0];
                 if (metricOverride) {

@@ -40,7 +40,7 @@ const NorthStarMetricDisplay = ({
   const {
     project,
     getDatasourceById,
-    getExperimentMetricById,
+    metricMap,
     getFactTableById,
   } = useDefinitions();
 
@@ -48,7 +48,7 @@ const NorthStarMetricDisplay = ({
   const permissionsUtil = usePermissionsUtil();
   const { apiCall } = useAuth();
 
-  const metric = getExperimentMetricById(metricId);
+  const metric = metricMap.get(metricId);
 
   const { data, error, mutate } = useApi<{
     data: {

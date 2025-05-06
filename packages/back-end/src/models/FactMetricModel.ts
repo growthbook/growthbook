@@ -1,5 +1,6 @@
 import { omit } from "lodash";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
+import uniqid from "uniqid";
 import {
   getAggregateFilters,
   getSelectedColumnDatatype,
@@ -10,6 +11,7 @@ import {
   FactMetricType,
   FactTableInterface,
   LegacyFactMetricInterface,
+  VariantSettings,
 } from "back-end/types/fact-table";
 import { ApiFactMetric } from "back-end/types/openapi";
 import { factMetricValidator } from "back-end/src/routers/fact-table/fact-table.validators";
@@ -82,6 +84,40 @@ function validateUserFilter({
 }
 
 export class FactMetricModel extends BaseClass {
+  public async createVariant(
+    metric: FactMetricInterface,
+    settings: VariantSettings
+  ) {
+    await this.update(metric, {
+      variants: [
+        ...(metric.variants || []),
+        {
+          id: uniqid("var_"),
+          ...settings,
+        },
+      ],
+    });
+  }
+  public async updateVariant(
+    metric: FactMetricInterface,
+    settings: VariantSettings
+  ) {
+    if (!settings.id) {
+      throw new Error("Saved variants must have an id");
+    }
+
+    const newVariants = [...(metric.variants || [])];
+    const existingIndex = newVariants.findIndex((v) => v.id === settings.id);
+    if (existingIndex < 0) {
+      throw new Error("Cannot find variant");
+    }
+
+    newVariants[existingIndex] = settings;
+    await this.update(metric, {
+      variants: newVariants,
+    });
+  }
+
   protected canRead(doc: FactMetricInterface): boolean {
     return this.context.hasPermission("readData", doc.projects || []);
   }

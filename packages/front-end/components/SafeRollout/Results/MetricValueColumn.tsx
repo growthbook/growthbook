@@ -7,6 +7,7 @@ import {
 } from "react";
 import {
   ExperimentMetricInterface,
+  ExperimentMetricMap,
   isFactMetric,
   isRatioMetric,
   quantileMetricType,
@@ -37,7 +38,7 @@ interface Props
   showRatio?: boolean;
   noDataMessage?: ReactElement | string;
   displayCurrency: string;
-  getExperimentMetricById: (id: string) => null | ExperimentMetricInterface;
+  metricMap: ExperimentMetricMap;
   getFactTableById: (id: string) => null | FactTableInterface;
 }
 
@@ -48,7 +49,7 @@ export default function MetricValueColumn({
   showRatio = true,
   noDataMessage = "no data",
   displayCurrency,
-  getExperimentMetricById,
+  metricMap,
   getFactTableById,
 }: Props) {
   const formatterOptions = { currency: displayCurrency };
@@ -62,7 +63,7 @@ export default function MetricValueColumn({
   const denominatorValue = isRatioMetric(
     metric,
     !isFactMetric(metric) && metric.denominator
-      ? getExperimentMetricById(metric.denominator) ?? undefined
+      ? metricMap.get(metric.denominator) ?? undefined
       : undefined
   )
     ? stats.denominator ?? stats.users

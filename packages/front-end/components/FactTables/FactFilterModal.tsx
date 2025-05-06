@@ -8,6 +8,7 @@ import {
 import { useForm } from "react-hook-form";
 import { useEffect, useState } from "react";
 import { FaAngleDown, FaAngleRight, FaPlay } from "react-icons/fa";
+import { Box } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -48,6 +49,9 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
       description: existing?.description || "",
       name: existing?.name || "",
       value: existing?.value || "",
+      // Default to `false` for existing filters, but `true` for new ones
+      createVariant: existing ? existing.createVariant ?? false : true,
+      autoAddVariant: existing ? existing.autoAddVariant ?? false : true,
     },
   });
 
@@ -98,6 +102,8 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
             description: value.description,
             name: value.name,
             value: value.value,
+            createVariant: value.createVariant,
+            autoAddVariant: value.autoAddVariant,
           };
           await apiCall(`/fact-tables/${factTable.id}/filter/${existing.id}`, {
             method: "PUT",
@@ -215,6 +221,22 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
             </span>
             Test Query
           </Button>
+
+          <Box mt="4">
+            <Checkbox
+              value={form.watch("createVariant") || false}
+              setValue={(v) => form.setValue("createVariant", v === true)}
+              label="Create Metric Variants for this filter"
+            />
+
+            {form.watch("createVariant") ? (
+              <Checkbox
+                value={form.watch("autoAddVariant") || false}
+                setValue={(v) => form.setValue("autoAddVariant", v === true)}
+                label="Auto-add the variant to experiments"
+              />
+            ) : null}
+          </Box>
         </div>
         {factTable.columns?.some((col) => !col.deleted) ? (
           <div className="col-auto border-left">

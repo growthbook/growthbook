@@ -3,6 +3,7 @@ import { addDays } from "date-fns";
 import {
   expandMetricGroups,
   ExperimentMetricInterface,
+  ExperimentMetricMap,
   getAllMetricIdsFromExperiment,
   isFactMetric,
   isRatioMetric,
@@ -68,7 +69,7 @@ export type SnapshotResult = {
 export type ExperimentResultsQueryParams = {
   snapshotSettings: ExperimentSnapshotSettings;
   variationNames: string[];
-  metricMap: Map<string, ExperimentMetricInterface>;
+  metricMap: ExperimentMetricMap;
   factTableMap: FactTableMap;
   queryParentId: string;
 };
@@ -404,7 +405,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   SnapshotResult
 > {
   private variationNames: string[] = [];
-  private metricMap: Map<string, ExperimentMetricInterface> = new Map();
+  private metricMap: ExperimentMetricMap = new Map();
 
   checkPermissions(): boolean {
     return this.context.permissions.canRunExperimentQueries(

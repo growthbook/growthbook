@@ -1,11 +1,18 @@
 import { useCallback, useMemo } from "react";
 import { DEFAULT_P_VALUE_THRESHOLD } from "shared/constants";
 import { ExperimentReportSSRData } from "back-end/types/report";
-import { ExperimentMetricInterface } from "shared/experiments";
+import {
+  ExperimentMetricMap,
+  getMetricMapWithVariants,
+} from "shared/experiments";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
-import { FactTableInterface } from "back-end/types/fact-table";
+import {
+  FactMetricInterface,
+  FactTableInterface,
+} from "back-end/types/fact-table";
 import { DimensionInterface } from "back-end/types/dimension";
 import { ProjectInterface } from "back-end/types/project";
+import { MetricInterface } from "back-end/types/metric";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
@@ -18,7 +25,7 @@ import {
 } from "@/hooks/useOrganizationMetricDefaults";
 
 export interface SSRPolyfills {
-  getExperimentMetricById: (id: string) => null | ExperimentMetricInterface;
+  metricMap: ExperimentMetricMap;
   metricGroups: MetricGroupInterface[];
   getMetricGroupById: (id: string) => null | MetricGroupInterface;
   getFactTableById: (id: string) => null | FactTableInterface;
@@ -36,7 +43,7 @@ export default function useSSRPolyfills(
   ssrData: ExperimentReportSSRData | null
 ): SSRPolyfills {
   const {
-    getExperimentMetricById,
+    metricMap,
     getMetricGroupById,
     getFactTableById,
     metricGroups,
@@ -47,11 +54,19 @@ export default function useSSRPolyfills(
 
   const hasCsrSettings = !!Object.keys(useOrgSettings() || {})?.length;
 
-  const getExperimentMetricByIdSSR = useCallback(
-    (metricId: string) =>
-      getExperimentMetricById(metricId) || ssrData?.metrics?.[metricId] || null,
-    [getExperimentMetricById, ssrData?.metrics]
+  const metricMapSSR = getMetricMapWithVariants(
+    (id) => {
+      return (metricMap.get(id) || ssrData?.metrics?.[id]) as
+        | FactMetricInterface
+        | undefined;
+    },
+    (id) => {
+      return (metricMap.get(id) || ssrData?.metrics?.[id]) as
+        | MetricInterface
+        | undefined;
+    }
   );
+
   const metricGroupsSSR = useMemo(
     () => [...metricGroups, ...(ssrData?.metricGroups ?? [])],
     [metricGroups, ssrData?.metricGroups]
@@ -122,7 +137,7 @@ export default function useSSRPolyfills(
   );
 
   return {
-    getExperimentMetricById: getExperimentMetricByIdSSR,
+    metricMap: metricMapSSR,
     metricGroups: metricGroupsSSR,
     getMetricGroupById: getMetricGroupByIdSSR,
     getFactTableById: getFactTableByIdSSR,

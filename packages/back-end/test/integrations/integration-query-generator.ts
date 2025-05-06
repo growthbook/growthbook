@@ -1,6 +1,7 @@
 import fs from "fs";
 import {
   ExperimentMetricInterface,
+  ExperimentMetricMap,
   isFactMetric,
   quantileMetricType,
 } from "shared/experiments";
@@ -362,12 +363,12 @@ const baseMetricMap = new Map<string, MetricInterface>();
 analysisMetrics.forEach((m) => baseMetricMap.set(m.id, m));
 allActivationMetrics.forEach((m) => baseMetricMap.set(m.id, m));
 
-const allMetricMap: Map<string, ExperimentMetricInterface> = new Map(
+const allMetricMap: ExperimentMetricMap = new Map(
   [
     ...analysisMetrics,
     ...allActivationMetrics,
     ...analysisFactMetrics,
-  ].map((m) => [m.id, m])
+  ].map((m) => [m.id, m as ExperimentMetricInterface])
 );
 
 const metricRegressionAdjustmentStatuses = [

@@ -1,5 +1,8 @@
 import mongoose from "mongoose";
-import { ExperimentMetricInterface } from "shared/experiments";
+import {
+  ExperimentMetricMap,
+  getMetricMapWithVariants,
+} from "shared/experiments";
 import {
   InsertMetricProps,
   LegacyMetricInterface,
@@ -15,6 +18,7 @@ import {
   getCollection,
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";
+import { FactMetricInterface } from "back-end/types/fact-table";
 import { queriesSchema } from "./QueryModel";
 import { ImpactEstimateModel } from "./ImpactEstimateModel";
 import { removeMetricFromExperiments } from "./ExperimentModel";
@@ -216,19 +220,23 @@ export async function deleteAllMetricsForAProject({
 
 export async function getMetricMap(
   context: ReqContext | ApiReqContext
-): Promise<Map<string, ExperimentMetricInterface>> {
-  const metricMap = new Map<string, ExperimentMetricInterface>();
+): Promise<ExperimentMetricMap> {
+  const metricMap = new Map<string, MetricInterface>();
   const allMetrics = await getMetricsByOrganization(context);
   allMetrics.forEach((m) => {
     metricMap.set(m.id, m);
   });
 
+  const factMetricMap = new Map<string, FactMetricInterface>();
   const allFactMetrics = await context.models.factMetrics.getAll();
   allFactMetrics.forEach((m) => {
-    metricMap.set(m.id, m);
+    factMetricMap.set(m.id, m);
   });
 
-  return metricMap;
+  return getMetricMapWithVariants(
+    (id) => factMetricMap.get(id),
+    (id) => metricMap.get(id)
+  );
 }
 
 async function findMetrics(

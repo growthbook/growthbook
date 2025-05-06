@@ -51,7 +51,7 @@ const Presentation = ({
   customTheme,
   preview = false,
 }: Props): ReactElement => {
-  const { getExperimentMetricById } = useDefinitions();
+  const { metricMap } = useDefinitions();
   const orgSettings = useOrgSettings();
 
   // Interval to force the results table to redraw (currently needed for window-size-based rendering)
@@ -180,7 +180,7 @@ const Presentation = ({
                 <span style={{ fontSize: "1rem" }}>
                   Primary metrics:{" "}
                   {e?.experiment?.goalMetrics
-                    .map((m) => getExperimentMetricById(m)?.name ?? m)
+                    .map((m) => metricMap.get(m)?.name ?? m)
                     .join(", ")}
                 </span>
               </>

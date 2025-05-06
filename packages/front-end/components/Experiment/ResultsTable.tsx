@@ -149,7 +149,7 @@ export default function ResultsTable({
     variationFilter = variationFilter.filter((v) => v !== baselineRow);
   }
 
-  const { getExperimentMetricById, getFactTableById } = useDefinitions();
+  const { metricMap, getFactTableById } = useDefinitions();
 
   const _useOrganizationMetricDefaults = useOrganizationMetricDefaults();
   const { metricDefaults, getMinSampleSizeForMetric } =
@@ -290,10 +290,8 @@ export default function ResultsTable({
 
         const denominator =
           !isFactMetric(row.metric) && row.metric.denominator
-            ? (ssrPolyfills?.getExperimentMetricById?.(
-                row.metric.denominator
-              ) ||
-                getExperimentMetricById(row.metric.denominator)) ??
+            ? (ssrPolyfills?.metricMap?.get(row.metric.denominator) ||
+                metricMap.get(row.metric.denominator)) ??
               undefined
             : undefined;
         const rowResults = getRowResults({
@@ -338,7 +336,7 @@ export default function ResultsTable({
     queryStatusData,
     ssrPolyfills,
     getFactTableById,
-    getExperimentMetricById,
+    metricMap,
   ]);
 
   const {
@@ -785,10 +783,7 @@ export default function ResultsTable({
                             })}
                             showRatio={!isBandit}
                             displayCurrency={displayCurrency}
-                            getExperimentMetricById={
-                              ssrPolyfills?.getExperimentMetricById ||
-                              getExperimentMetricById
-                            }
+                            metricMap={ssrPolyfills?.metricMap || metricMap}
                             getFactTableById={
                               ssrPolyfills?.getFactTableById || getFactTableById
                             }
@@ -805,10 +800,7 @@ export default function ResultsTable({
                           })}
                           showRatio={!isBandit}
                           displayCurrency={displayCurrency}
-                          getExperimentMetricById={
-                            ssrPolyfills?.getExperimentMetricById ||
-                            getExperimentMetricById
-                          }
+                          metricMap={ssrPolyfills?.metricMap || metricMap}
                           getFactTableById={
                             ssrPolyfills?.getFactTableById || getFactTableById
                           }

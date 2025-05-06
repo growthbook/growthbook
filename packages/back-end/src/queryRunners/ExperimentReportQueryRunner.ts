@@ -1,4 +1,4 @@
-import { ExperimentMetricInterface } from "shared/experiments";
+import { ExperimentMetricMap } from "shared/experiments";
 import { ExperimentSnapshotAnalysis } from "back-end/types/experiment-snapshot";
 import { Queries, QueryStatus } from "back-end/types/query";
 import {
@@ -22,7 +22,7 @@ export type SnapshotResult = {
 };
 
 export type ReportQueryParams = {
-  metricMap: Map<string, ExperimentMetricInterface>;
+  metricMap: ExperimentMetricMap;
   factTableMap: FactTableMap;
 };
 
@@ -31,7 +31,7 @@ export class ExperimentReportQueryRunner extends QueryRunner<
   ReportQueryParams,
   ExperimentReportResults
 > {
-  private metricMap: Map<string, ExperimentMetricInterface> = new Map();
+  private metricMap: ExperimentMetricMap = new Map();
 
   checkPermissions(): boolean {
     return this.context.permissions.canRunExperimentQueries(

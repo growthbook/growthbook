@@ -149,6 +149,34 @@ export const metricTypeValidator = z.enum([
   "quantile",
 ]);
 
+export const variantSettingsValidator = z
+  .object({
+    id: z.string().optional(),
+    name: z.string(),
+    windowDelaySettings: z
+      .object({
+        delayValue: z.coerce.number(),
+        delayUnit: conversionWindowUnitValidator,
+      })
+      .optional(),
+    windowSettings: z
+      .object({
+        type: windowTypeValidator,
+        windowValue: z.number(),
+        windowUnit: conversionWindowUnitValidator,
+      })
+      .optional(),
+    cappingSettings: cappingSettingsValidator.optional(),
+    quantileSettings: z
+      .object({
+        quantile: z.number(),
+        ignoreZeros: z.boolean(),
+      })
+      .optional(),
+    additionalFilters: z.array(z.string()).optional(),
+  })
+  .strict();
+
 export const factMetricValidator = z
   .object({
     id: z.string(),
@@ -186,6 +214,8 @@ export const factMetricValidator = z
     regressionAdjustmentDays: z.number(),
 
     quantileSettings: quantileSettingsValidator.nullable(),
+
+    variants: z.array(variantSettingsValidator).default([]),
   })
   .strict();
 
@@ -196,6 +226,8 @@ export const createFactFilterPropsValidator = z
     description: z.string(),
     value: z.string(),
     managedBy: z.enum(["", "api"]).optional(),
+    createVariant: z.boolean().optional(),
+    autoAddVariant: z.boolean().optional(),
   })
   .strict();
 
@@ -205,6 +237,8 @@ export const updateFactFilterPropsValidator = z
     description: z.string().optional(),
     value: z.string().optional(),
     managedBy: z.enum(["", "api"]).optional(),
+    createVariant: z.boolean().optional(),
+    autoAddVariant: z.boolean().optional(),
   })
   .strict();
 

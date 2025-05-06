@@ -44,7 +44,7 @@ export default function ResultsDownloadButton({
   dimension?: string;
   noIcon?: boolean;
 }) {
-  const { getExperimentMetricById, getDimensionById, ready } = useDefinitions();
+  const { metricMap, getDimensionById, ready } = useDefinitions();
   const { metricDefaults } = useOrganizationMetricDefaults();
 
   const dimensionName = dimension
@@ -68,7 +68,7 @@ export default function ResultsDownloadButton({
     resultsCopy.forEach((result) => {
       metrics?.forEach((m) => {
         result.variations.forEach((variation, index) => {
-          const metric = getExperimentMetricById(m);
+          const metric = metricMap.get(m);
           if (!metric) return;
           const row: ExperimentTableRow = {
             label: metric.name,
@@ -113,7 +113,7 @@ export default function ResultsDownloadButton({
   }, [
     dimension,
     dimensionName,
-    getExperimentMetricById,
+    metricMap,
     metricDefaults,
     metrics,
     ready,
