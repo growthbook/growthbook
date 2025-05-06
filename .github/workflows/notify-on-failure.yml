@@ -14,7 +14,7 @@ on:
         Rollback to SHA,
       ]
     types: [completed]
-    branches: [main]
+    branches: [main, av/test-notify]
 
 jobs:
   notify-not-success:
