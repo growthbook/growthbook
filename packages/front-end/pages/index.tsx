@@ -15,8 +15,6 @@ export default function Home(): React.ReactElement {
     error: experimentsError,
   } = useExperiments();
 
-  invalid script to fail build
-
   const {
     features,
     loading: featuresLoading,
