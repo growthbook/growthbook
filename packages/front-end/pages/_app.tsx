@@ -8,7 +8,7 @@ import { AppProps } from "next/app";
 import Head from "next/head";
 import React, { useEffect, useState } from "react";
 import { GrowthBookProvider } from "@growthbook/growthbook-react";
-import { growthbookTrackingPlugin } from "@growthbook/growthbook/plugins";
+import { growthbookTrackingPlugin, sessionReplayPlugin } from "@growthbook/growthbook/plugins";
 import { Inter } from "next/font/google";
 import { OrganizationMessagesContainer } from "@/components/OrganizationMessages/OrganizationMessages";
 import { DemoDataSourceGlobalBannerContainer } from "@/components/DemoDataSourceGlobalBanner/DemoDataSourceGlobalBanner";
@@ -105,6 +105,8 @@ function App({
       },
       dedupeKeyAttributes: ["id", "organizationId"],
     })(growthbook);
+
+    sessionReplayPlugin({})(growthbook);
   }, [ready]);
 
   useEffect(() => {
