@@ -961,6 +961,10 @@ export class GrowthBook<
     this._options.eventLogger = logger;
   }
 
+  public setCaptureLogs(captureLogs: boolean) {
+    this._options.captureLogs = captureLogs;
+  }
+
   public async logEvent(
     eventName: string,
     properties?: Record<string, unknown>,
@@ -969,7 +973,7 @@ export class GrowthBook<
       console.error("Cannot log event to destroyed GrowthBook instance");
       return;
     }
-    if (this._options.enableDevMode) {
+    if (this._options.enableDevMode || this._options.captureLogs) {
       this.logs.push({
         eventName,
         properties,

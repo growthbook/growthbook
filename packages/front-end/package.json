@@ -108,6 +108,8 @@
     "rrweb-player": "^1.0.0-alpha.4",
     "scim2-parse-filter": "^0.2.8",
     "shared": "workspace:*",
+    "sonner": "^2.0.3",
+    "spectacle": "^9.7.2",
     "styled-jsx": "5.1.6",
     "swr": "^2.2.5",
     "uniqid": "^5.3.0",
