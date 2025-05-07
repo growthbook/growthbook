@@ -10,6 +10,7 @@ type PluginOptions = {
 declare global {
   interface Window {
     _gbReplayEvents: eventWithTime[];
+    _gbGetReplayEvents: () => eventWithTime[];
   }
 }
 
@@ -20,10 +21,6 @@ export function sessionReplayPlugin({ trackingHost = "" }: PluginOptions = {}) {
   }
 
   return (gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient) => {
-    // todo: get proper track URLs
-    // const host = trackingHost || gb.getApiInfo()[0];
-    // const metadataUrl = `${host}/`;
-    console.log("session replay cb start", trackingHost);
     if (!(gb instanceof GrowthBook)) {
       throw new Error("Must use a GrowthBook SDK instance");
     }
@@ -31,11 +28,52 @@ export function sessionReplayPlugin({ trackingHost = "" }: PluginOptions = {}) {
       throw new Error("GrowthBook instance must have a logEvent method");
     }
 
+    gb.setCaptureLogs(true);
+
+    // todo: get proper track URLs
+    const host = trackingHost || gb.getApiInfo()[0];
+    const metadataUrl = `${host}/`;
+    console.log("session replay cb start", trackingHost);
+
     window._gbReplayEvents = window._gbReplayEvents || [];
+    window._gbGetReplayEvents = () => {
+      let customEvents: eventWithTime[] = [];
+      gb.logs?.forEach?.((log) => {
+        if (log.logType === "feature") {
+          customEvents.push({
+            type: 5,
+            timestamp: parseInt(log.timestamp),
+            data: {
+              tag: "feature-flag",
+              payload: {
+                id: log.featureKey,
+                value: log.result.value,
+              }
+            },
+          })
+        } else if (log.logType === "experiment") {
+          customEvents.push({
+            type: 5,
+            timestamp: parseInt(log.timestamp),
+            data: {
+              tag: "experiment",
+              payload: {
+                id: log.experiment.key,
+                variation: log.result.variationId,
+              }
+            },
+          })
+        }
+      });
+
+      return [...window._gbReplayEvents, ...customEvents];
+    };
 
     const stopRecording = record({
       emit(event: eventWithTime) {
-        window._gbReplayEvents.push(event);
+        if (window._gbReplayEvents.length < 200) {
+          window._gbReplayEvents.push(event);
+        }
       },
       recordCanvas: false,
       sampling: {

@@ -60,7 +60,7 @@ export default function SDKConnectionsList() {
   const gb = useGrowthBook();
 
   let useNewEmptyStateLayout = false;
-  if (data && connections.length === 0 && canCreateSDKConnections) {
+  if (true || (data && connections.length === 0 && canCreateSDKConnections)) {
     useNewEmptyStateLayout = gb.isOn("sdk-connections-new-empty-state");
   }
 

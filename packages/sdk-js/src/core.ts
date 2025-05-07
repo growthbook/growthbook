@@ -83,7 +83,7 @@ function onExperimentViewed(
     ctx.user.trackedExperiments.add(k);
   }
 
-  if (ctx.user.enableDevMode && ctx.user.devLogs) {
+  if ((ctx.user.enableDevMode || ctx.user.captureLogs) && ctx.user.devLogs) {
     ctx.user.devLogs.push({
       experiment,
       result,
@@ -133,7 +133,7 @@ function onFeatureUsage(
     if (ctx.user.trackedFeatureUsage[key] === stringifiedValue) return;
     ctx.user.trackedFeatureUsage[key] = stringifiedValue;
 
-    if (ctx.user.enableDevMode && ctx.user.devLogs) {
+    if ((ctx.user.enableDevMode || ctx.user.captureLogs) && ctx.user.devLogs) {
       ctx.user.devLogs.push({
         featureKey: key,
         result: ret,

@@ -87,6 +87,7 @@
     "rrweb-player": "^1.0.0-alpha.4",
     "scim2-parse-filter": "^0.2.8",
     "shared": "0.0.1",
+    "sonner": "^2.0.3",
     "spectacle": "^9.7.2",
     "swr": "^2.2.5",
     "uniqid": "^5.3.0",
