@@ -599,14 +599,16 @@ function getDefaultName(
   return `${metric.name} ${nameParts.join(" ")}`;
 }
 
-function AdhocVariantForm({
+export function AdhocVariantForm({
   id,
   onSave,
   close,
+  side,
 }: {
   id: string;
   onSave: (settings: VariantSettings) => void;
   close: () => void;
+  side?: "top" | "right" | "bottom" | "left";
 }) {
   const { getFactMetricById, getFactTableById } = useDefinitions();
 
@@ -655,6 +657,7 @@ function AdhocVariantForm({
         onSave(settings);
       })}
       close={close}
+      side={side}
     >
       <label>Overrides</label>
       <table className="table table-sm appbox gbtable mb-3">

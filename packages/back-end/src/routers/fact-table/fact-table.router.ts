@@ -104,4 +104,17 @@ router.put("/fact-metrics/:id", factTableController.putFactMetric);
 
 router.delete("/fact-metrics/:id", factTableController.deleteFactMetric);
 
+router.post(
+  "/fact-metrics/:id/variant",
+  factTableController.addFactMetricVariant
+);
+router.put(
+  "/fact-metrics/:id/variant",
+  factTableController.updateFactMetricVariant
+);
+router.delete(
+  "/fact-metrics/:id/variant",
+  factTableController.deleteFactMetricVariant
+);
+
 export { router as factTableRouter };

@@ -117,6 +117,12 @@ export class FactMetricModel extends BaseClass {
       variants: newVariants,
     });
   }
+  public async deleteVariant(metric: FactMetricInterface, id: string) {
+    const newVariants = metric.variants.filter((v) => v.id !== id);
+    await this.update(metric, {
+      variants: newVariants,
+    });
+  }
 
   protected canRead(doc: FactMetricInterface): boolean {
     return this.context.hasPermission("readData", doc.projects || []);

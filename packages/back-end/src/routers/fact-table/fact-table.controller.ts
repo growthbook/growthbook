@@ -35,6 +35,7 @@ import {
 } from "back-end/src/jobs/refreshFactTableColumns";
 import { logger } from "back-end/src/util/logger";
 import { needsColumnRefresh } from "back-end/src/api/fact-tables/updateFactTable";
+import { variantSettingsValidator } from "back-end/src/routers/fact-table/fact-table.validators";
 
 export const getFactTables = async (
   req: AuthRequest,
@@ -484,6 +485,65 @@ export const deleteFactMetric = async (
   const context = getContextFromReq(req);
 
   await context.models.factMetrics.deleteById(req.params.id);
+
+  res.status(200).json({
+    status: 200,
+  });
+};
+
+export const addFactMetricVariant = async (
+  req: AuthRequest<unknown, { id: string }>,
+  res: Response<{ status: 200 }>
+) => {
+  const context = getContextFromReq(req);
+
+  const factMetric = await context.models.factMetrics.getById(req.params.id);
+  if (!factMetric) {
+    throw new Error("Metric not found");
+  }
+
+  const data = variantSettingsValidator.parse(req.body);
+  await context.models.factMetrics.createVariant(factMetric, data);
+
+  res.status(200).json({
+    status: 200,
+  });
+};
+
+export const updateFactMetricVariant = async (
+  req: AuthRequest<unknown, { id: string }>,
+  res: Response<{ status: 200 }>
+) => {
+  const context = getContextFromReq(req);
+
+  const factMetric = await context.models.factMetrics.getById(req.params.id);
+  if (!factMetric) {
+    throw new Error("Metric not found");
+  }
+
+  const data = variantSettingsValidator.parse(req.body);
+  await context.models.factMetrics.updateVariant(factMetric, data);
+
+  res.status(200).json({
+    status: 200,
+  });
+};
+
+export const deleteFactMetricVariant = async (
+  req: AuthRequest<null, { id: string }>,
+  res: Response<{ status: 200 }>
+) => {
+  const context = getContextFromReq(req);
+
+  const factMetric = await context.models.factMetrics.getById(req.params.id);
+  if (!factMetric) {
+    throw new Error("Metric not found");
+  }
+
+  const data = variantSettingsValidator.parse(req.body);
+  if (!data.id) throw new Error("Can only delete saved variants");
+
+  await context.models.factMetrics.deleteVariant(factMetric, data.id);
 
   res.status(200).json({
     status: 200,

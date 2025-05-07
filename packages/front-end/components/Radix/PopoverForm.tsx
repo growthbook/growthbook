@@ -13,6 +13,7 @@ export interface Props {
   width?: string;
   disable?: boolean;
   trigger?: ReactElement;
+  side?: "top" | "right" | "bottom" | "left";
 }
 
 export default function PopoverForm({
@@ -22,6 +23,7 @@ export default function PopoverForm({
   width,
   disable,
   trigger,
+  side,
   ...otherProps
 }: Props & MarginProps) {
   const [loading, setLoading] = React.useState(false);
@@ -39,6 +41,7 @@ export default function PopoverForm({
             console.log("Focus moved outside");
             e.preventDefault();
           }}
+          side={side || "bottom"}
         >
           {loading && <LoadingOverlay />}
           <form

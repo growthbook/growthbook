@@ -15,6 +15,8 @@ import {
 } from "shared/constants";
 
 import { useGrowthBook } from "@growthbook/growthbook-react";
+import { Flex } from "@radix-ui/themes";
+import { Box } from "spectacle";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBBandit, GBCuped, GBEdit, GBExperiment } from "@/components/Icons";
@@ -54,6 +56,10 @@ import DataList, { DataListItem } from "@/components/Radix/DataList";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { AppFeatures } from "@/types/app-features";
 import { useCurrency } from "@/hooks/useCurrency";
+import Badge from "@/components/Radix/Badge";
+import Button from "@/components/Radix/Button";
+import { AdhocVariantForm } from "@/components/FactTables/NewMetricSelector";
+import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -154,6 +160,7 @@ export default function FactMetricPage() {
   const [editProjectsOpen, setEditProjectsOpen] = useState(false);
   const [editTagsModal, setEditTagsModal] = useState(false);
   const [editOwnerModal, setEditOwnerModal] = useState(false);
+  const [variantFormOpen, setVariantFormOpen] = useState(false);
 
   const [tab, setTab] = useLocalStorage<string | null>(
     `metricTabbedPageTab__${fmid}`,
@@ -590,7 +597,7 @@ export default function FactMetricPage() {
             ) : null}
           </div>
 
-          <div className="mb-4">
+          <div className="mb-5">
             <h3>Metric Window</h3>
             <div className="appbox p-3 mb-3">
               {factMetric.windowSettings.type === "conversion" ? (
@@ -632,6 +639,122 @@ export default function FactMetricPage() {
                 </>
               )}
             </div>
+          </div>
+          <div className="mb-5">
+            <Flex align="center" mb="2">
+              <h3 className="mb-0">Metric Variants</h3>
+              <Box ml="auto">
+                <Button
+                  onClick={() => {
+                    setVariantFormOpen(true);
+                  }}
+                  variant="soft"
+                >
+                  Add Variant
+                </Button>
+                {variantFormOpen && (
+                  <AdhocVariantForm
+                    id={factMetric.id}
+                    close={() => setVariantFormOpen(false)}
+                    onSave={(variantData) => {
+                      apiCall(`/fact-metrics/${factMetric.id}/variant`, {
+                        method: "POST",
+                        body: JSON.stringify(variantData),
+                      })
+                        .then(() => {
+                          mutateDefinitions();
+                        })
+                        .catch((e) => {
+                          console.error(e);
+                        });
+                    }}
+                    side="left"
+                  />
+                )}
+              </Box>
+            </Flex>
+            <table className="appbox table gbtable">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Overrides</th>
+                  <th style={{ width: 40 }}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {factTable?.filters
+                  .filter((f) => f.createVariant)
+                  .map((filter) => (
+                    <tr key={filter.id}>
+                      <td>
+                        {filter.name} <Badge label={"Automatic"} />
+                      </td>
+                      <td>
+                        <DataList
+                          data={[{ label: "Saved Filter", value: filter.name }]}
+                        />
+                      </td>
+                      <td></td>
+                    </tr>
+                  ))}
+                {factMetric.variants.map((variant, i) => {
+                  const data: DataListItem[] = [];
+
+                  Object.entries(variant).forEach(([key, value]) => {
+                    if (key === "id" || key === "name") return;
+                    data.push({
+                      label: key,
+                      value: (
+                        <InlineCode
+                          language="json"
+                          code={JSON.stringify(value)}
+                        />
+                      ),
+                    });
+                  });
+
+                  return (
+                    <tr key={variant.id || i}>
+                      <td>{variant.name}</td>
+                      <td>
+                        <DataList data={data} />
+                      </td>
+                      <td>
+                        <MoreMenu useRadix={true}>
+                          {/*
+                          <a
+                            className="dropdown-item"
+                            href="#"
+                            onClick={(e) => {
+                              e.preventDefault();
+                            }}
+                          >
+                            Edit
+                          </a>
+                          */}
+                          <DeleteButton
+                            className="dropdown-item text-danger"
+                            useIcon={false}
+                            text="Delete"
+                            displayName="Metric Variant"
+                            onClick={async () => {
+                              await apiCall(
+                                `/fact-metrics/${factMetric.id}/variant`,
+                                {
+                                  method: "DELETE",
+                                  body: JSON.stringify(variant),
+                                }
+                              );
+                              await mutateDefinitions();
+                            }}
+                          />
+                        </MoreMenu>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
         <div className="col-12 col-md-4">
