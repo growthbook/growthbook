@@ -6,6 +6,7 @@ import {
   upsertInstallationPayloadValidator,
   updateInstallationValidator,
   deleteInstallationPayloadValidator,
+  updateResourceValidator,
   provisitionResourceValidator,
 } from "./vercel-native-integration.validators";
 
@@ -16,49 +17,61 @@ const vercelController = wrapController(rawVercelController);
 router.put(
   "/v1/installations/:installation_id",
   validateRequestMiddleware({ body: upsertInstallationPayloadValidator }),
-  vercelController.upsertInstallation
+  vercelController.upsertInstallation,
 );
 
 router.get(
   "/v1/installations/:installation_id",
   validateRequestMiddleware({ body: updateInstallationValidator }),
-  vercelController.getInstallation
+  vercelController.getInstallation,
 );
 
 router.patch(
   "/v1/installations/:installation_id",
   validateRequestMiddleware({}),
-  vercelController.updateInstallation
+  vercelController.updateInstallation,
 );
 
 router.delete(
   "/v1/installations/:installation_id",
   validateRequestMiddleware({ body: deleteInstallationPayloadValidator }),
-  vercelController.deleteInstallation
+  vercelController.deleteInstallation,
 );
 
 router.post(
   "/v1/installations/:installation_id/resources",
   validateRequestMiddleware({ body: provisitionResourceValidator }),
-  vercelController.provisionResource
+  vercelController.provisionResource,
 );
 
 router.get(
   "/v1/installations/:installation_id/resources/:resource_id",
   validateRequestMiddleware({}),
-  vercelController.getResource
+  vercelController.getResource,
+);
+
+router.patch(
+  "/v1/installations/:installation_id/resources/:resource_id",
+  validateRequestMiddleware({ body: updateResourceValidator }),
+  vercelController.updateResource,
+);
+
+router.get(
+  "/v1/installations/:installation_id/resources/:resource_id/plans",
+  validateRequestMiddleware({}),
+  vercelController.getResourceProducts,
 );
 
 router.delete(
   "/v1/installations/:installation_id/resources/:resource_id",
   validateRequestMiddleware({}),
-  vercelController.deleteResource
+  vercelController.deleteResource,
 );
 
 router.get(
   "/v1/products/:slug/plans",
   validateRequestMiddleware({}),
-  vercelController.getProducts
+  vercelController.getProducts,
 );
 
 export { router as vercelRouter };

@@ -23,6 +23,7 @@ import {
   systemAuthenticationValidator,
   UpsertInstallationPayload,
   ProvisitionResource,
+  UpdateResource,
   BillingPlan,
 } from "./vercel-native-integration.validators";
 
@@ -178,14 +179,16 @@ const getContext = async ({
 
   if (!nativeIntegration) return failed(400, "Invalid installation!");
 
-  return { context, org, user, nativeIntegrationModel, nativeIntegration };
+  return {
+    context,
+    org,
+    user,
+    nativeIntegrationModel,
+    nativeIntegration,
+  };
 };
 
-const authContext = async (
-  req: Request,
-  res: Response,
-  { resourceId }: { resourceId?: string } = {}
-) => {
+const authContext = async (req: Request, res: Response) => {
   const failed = (status: number, reason?: string) => {
     if (reason) res.status(status).send(reason);
     else res.sendStatus(status);
@@ -210,19 +213,12 @@ const authContext = async (
     },
   } = checkedAuth;
 
-  const {
-    organization,
-    resources,
-  } = await findVercelInstallationByInstallationId(installationId);
-
-  const organizationId = resourceId
-    ? resources.find(({ id }) => id === resourceId)?.organizationId
-    : organization;
-
-  if (!organizationId) return failed(401, "Invalid resourceId");
+  const { organization } = await findVercelInstallationByInstallationId(
+    installationId
+  );
 
   return getContext({
-    organizationId,
+    organizationId: organization,
     installationId,
     userEmail:
       "user_email" in checkedAuth.authentication.payload &&
@@ -327,8 +323,13 @@ export async function provisionResource(req: Request, res: Response) {
 
   const {
     externalId: _externalId,
+    billingPlanId,
     ...payload
   } = req.body as ProvisitionResource;
+
+  const billingPlan = billingPlans.find(({ id }) => id === billingPlanId);
+
+  if (!billingPlan) return res.status(400).send("Invalid billing plan!");
 
   const organizationId = await (async () => {
     if (nativeIntegration.resources.length === 0) {
@@ -351,6 +352,7 @@ export async function provisionResource(req: Request, res: Response) {
     ...payload,
     id: uuidv4(),
     organizationId,
+    billingPlan,
     secrets: [{ name: "token", value: uuidv4() }],
     status: "ready",
   };
@@ -363,9 +365,7 @@ export async function provisionResource(req: Request, res: Response) {
 }
 
 export async function getResource(req: Request, res: Response) {
-  const { nativeIntegration } = await authContext(req, res, {
-    resourceId: req.params.resource_id,
-  });
+  const { nativeIntegration } = await authContext(req, res);
 
   if (nativeIntegration.installationId !== req.params.installation_id)
     return res.status(400).send("Installation not found!");
@@ -379,11 +379,55 @@ export async function getResource(req: Request, res: Response) {
   return res.json(resource);
 }
 
+export async function updateResource(req: Request, res: Response) {
+  const { nativeIntegrationModel, nativeIntegration } = await authContext(
+    req,
+    res
+  );
+
+  if (nativeIntegration.installationId !== req.params.installation_id)
+    return res.status(400).send("Installation not found!");
+
+  const resource = nativeIntegration.resources.find(
+    ({ id }) => id === req.params.resource_id
+  );
+
+  if (!resource) return res.status(400).send("Resource not found!");
+
+  const { billingPlanId, ...payload } = req.body as UpdateResource;
+
+  const updatedBillingPlan = billingPlanId
+    ? billingPlans.find(({ id }) => id === billingPlanId)
+    : undefined;
+
+  if (billingPlanId && !updatedBillingPlan)
+    return res.status(400).send("Invalid billing plan!");
+
+  const updatedResource = {
+    ...resource,
+    ...payload,
+    ...(updatedBillingPlan ? { billingPlan: updatedBillingPlan } : {}),
+  };
+
+  await nativeIntegrationModel.update(nativeIntegration, {
+    resources: nativeIntegration.resources.map((r) =>
+      r.id === resource.id ? updatedResource : r
+    ),
+  });
+
+  return res.json(updatedResource);
+}
+
+export async function getResourceProducts(req: Request, res: Response) {
+  await authContext(req, res);
+
+  return res.json({ plans: billingPlans });
+}
+
 export async function deleteResource(req: Request, res: Response) {
   const { nativeIntegrationModel, nativeIntegration } = await authContext(
     req,
-    res,
-    { resourceId: req.params.resource_id }
+    res
   );
 
   if (nativeIntegration.installationId !== req.params.installation_id)
@@ -396,8 +440,8 @@ export async function deleteResource(req: Request, res: Response) {
   if (!resource) return res.status(400).send("Resource not found!");
 
   await nativeIntegrationModel.update(nativeIntegration, {
-    resources: nativeIntegration.resources.filter(
-      ({ id }) => id !== resource.id
+    resources: nativeIntegration.resources.map((r) =>
+      r.id === resource.id ? { ...resource, status: "uninstalled" } : r
     ),
   });
 

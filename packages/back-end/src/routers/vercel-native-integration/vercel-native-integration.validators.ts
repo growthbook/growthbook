@@ -112,6 +112,15 @@ export const provisitionResourceValidator = z.object({
 
 export type ProvisitionResource = z.infer<typeof provisitionResourceValidator>;
 
+const statusValidator = z.union([
+  z.literal("ready"),
+  z.literal("pending"),
+  z.literal("suspended"),
+  z.literal("resumed"),
+  z.literal("uninstalled"),
+  z.literal("error"),
+]);
+
 export const resourceValidator = z.object({
   billingPlan: billingPlanValidator.optional(),
   id: z.string(),
@@ -148,14 +157,7 @@ export const resourceValidator = z.object({
       value: z.string(),
     })
   ),
-  status: z.union([
-    z.literal("ready"),
-    z.literal("pending"),
-    z.literal("suspended"),
-    z.literal("resumed"),
-    z.literal("uninstall"),
-    z.literal("error"),
-  ]),
+  status: statusValidator,
 });
 
 export type Resource = z.infer<typeof resourceValidator>;
@@ -164,15 +166,19 @@ export const updateResourceValidator = z.object({
   name: z.string().optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
   billingPlanId: z.string().optional(),
-  status: z.string().optional(),
+  status: statusValidator.optional(),
   protocolSettings: z
     .object({
-      experimentation: z.object({
-        edgeConfigId: z.string(),
-      }),
+      experimentation: z
+        .object({
+          edgeConfigId: z.string().optional(),
+        })
+        .optional(),
     })
     .optional(),
 });
+
+export type UpdateResource = z.infer<typeof updateResourceValidator>;
 
 export const postSSOCodeValidator = z.object({
   code: z.string(),
