@@ -88,6 +88,11 @@ const navlinks: SidebarLinkProps[] = [
         href: "/datasources",
         path: /^datasources/,
       },
+      {
+        name: "Data Explorer",
+        href: "/data-explorer",
+        path: /^data-explorer/,
+      },
     ],
   },
   {

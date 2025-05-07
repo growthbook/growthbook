@@ -169,18 +169,7 @@ export default function DataExplorer({
           }}
         >
           <div className={styles.left}>
-            <Split
-              sizes={[testQueryResults ? 50 : 100, testQueryResults ? 50 : 0]}
-              minSize={100}
-              expandToMin={false}
-              gutterSize={10}
-              gutterAlign="center"
-              snapOffset={30}
-              dragInterval={1}
-              direction="vertical"
-              cursor="row-resize"
-              style={{ height: "100%" }}
-            >
+            <Split direction="vertical">
               <div
                 className="border-bottom"
                 style={{
