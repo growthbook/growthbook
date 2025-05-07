@@ -1,6 +1,5 @@
 type: object
 required:
-  - enabled
   - type
   - controlValue
   - variationValue
@@ -16,6 +15,7 @@ properties:
     type: string
   condition:
     type: string
+    description: Applied to everyone by default.
   savedGroupTargeting:
     type: array
     items:
@@ -49,6 +49,7 @@ properties:
           type: string
   enabled:
     type: boolean
+    description: Enabled by default
   type:
     type: string
     enum: ["safe-rollout"]
