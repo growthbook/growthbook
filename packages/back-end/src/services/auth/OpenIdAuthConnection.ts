@@ -40,7 +40,7 @@ if (USE_PROXY) {
   custom.setHttpOptionsDefaults(getHttpOptions());
 }
 
-const passthroughQueryParams = ["hypgen", "hypothesis"];
+const passthroughQueryParams = ["wizardHash", "hypgen", "hypothesis"];
 
 // Micro-Cache with a TTL of 30 seconds, avoids hitting Mongo on every request
 const ssoConnectionCache = new MemoryCache(async (ssoConnectionId: string) => {

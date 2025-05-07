@@ -337,6 +337,7 @@ else {
 app.post("/auth/refresh", authController.postRefresh);
 app.post("/auth/logout", authController.postLogout);
 app.get("/auth/hasorgs", authController.getHasOrganizations);
+app.get("/auth/wizard-hash", authController.getWizardHash);
 
 // All other routes require a valid JWT
 const auth = getAuthConnection();

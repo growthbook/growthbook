@@ -47,10 +47,15 @@ export async function getHasOrganizations(req: Request, res: Response) {
 
 const auth = getAuthConnection();
 
+const wizardCache: { [key: string]: string } = {};
+
 export async function postRefresh(req: Request, res: Response) {
   // First try getting the idToken from cookies
   const idToken = IdTokenCookie.getValue(req);
   if (idToken) {
+    if (req.query.wizardHash) {
+      wizardCache[req.query.wizardHash as string] = idToken;
+    }
     return res.json({
       status: 200,
       token: idToken,
@@ -74,6 +79,9 @@ export async function postRefresh(req: Request, res: Response) {
       RefreshTokenCookie.setValue(newRefreshToken, req, res);
     }
 
+    if (req.query.wizardHash) {
+      wizardCache[req.query.wizardHash as string] = idToken;
+    }
     return res.json({
       status: 200,
       token: idToken,
@@ -427,4 +435,22 @@ export async function postChangePassword(
 
   // Send back an updated token for the current user so they are not logged out
   sendLocalSuccessResponse(req as Request, res, user);
+}
+
+export async function getWizardHash(req: Request, res: Response) {
+  const { wizardHash } = req.query;
+  if (!wizardHash || typeof wizardHash !== "string") {
+    throw new Error("Invalid wizard hash");
+  }
+
+  const idToken = wizardCache[wizardHash];
+  if (!idToken) {
+    throw new Error("Invalid wizard hash");
+  }
+
+  delete wizardCache[wizardHash];
+  return res.status(200).json({
+    status: 200,
+    idToken,
+  });
 }

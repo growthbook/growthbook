@@ -67,7 +67,7 @@ export const AuthContext = React.createContext<AuthContextValue>({
 
 export const useAuth = (): AuthContextValue => useContext(AuthContext);
 
-const passthroughQueryParams = ["hypgen", "hypothesis"];
+const passthroughQueryParams = ["wizardHash", "hypgen", "hypothesis"];
 
 // Only run one refresh operation at a time
 let _currentRefreshOperation: null | Promise<
