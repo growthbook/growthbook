@@ -39,7 +39,7 @@ const DataExplorerPage: FC = () => {
       <div className="border-bottom">
         <SelectField
           style={{ maxWidth: "33vw" }}
-          label="Select A Data Source"
+          label="Select A Data Source to explore"
           value={selectedDatasourceId || ""}
           onChange={(datasourceId) => {
             setSelectedDataSourceId(datasourceId);

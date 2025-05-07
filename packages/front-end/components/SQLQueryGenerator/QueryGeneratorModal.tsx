@@ -1,0 +1,99 @@
+import { FC, useState } from "react";
+import { useForm } from "react-hook-form";
+import { InformationSchemaInterface } from "back-end/src/types/Integration";
+import Modal from "@/components/Modal";
+import Field from "@/components/Forms/Field";
+import { useAuth } from "@/services/auth";
+
+interface QueryGeneratorModalProps {
+  open: boolean;
+  datasourceType: string;
+  informationSchema: InformationSchemaInterface | undefined;
+  close: () => void;
+  setSql: (value: string) => void;
+}
+
+interface GenerateSqlResponse {
+  sql: string;
+}
+
+const QueryGeneratorModal: FC<QueryGeneratorModalProps> = ({
+  open,
+  datasourceType,
+  informationSchema,
+  close,
+  setSql,
+}) => {
+  const { apiCall } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | undefined>(undefined);
+  const [generatedQuery, setGeneratedQuery] = useState<string | null>(null);
+
+  const { handleSubmit, register } = useForm({
+    defaultValues: {
+      naturalLanguage: "",
+    },
+  });
+
+  const onSubmit = async (data: { naturalLanguage: string }) => {
+    setLoading(true);
+    setError(undefined);
+    try {
+      const response = await apiCall<GenerateSqlResponse>("/api/generate-sql", {
+        method: "POST",
+        body: JSON.stringify({
+          naturalLanguage: data.naturalLanguage,
+          datasourceType,
+          informationSchema,
+        }),
+      });
+
+      setGeneratedQuery(response.sql);
+      setSql(response.sql);
+    } catch (e) {
+      setError(e.message || "Failed to generate SQL query");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Modal
+      open={open}
+      close={close}
+      header="Generate SQL Query"
+      submit={handleSubmit(onSubmit)}
+      cta="Generate Query"
+      ctaEnabled={!loading}
+      error={error}
+      loading={loading}
+      size="lg"
+      trackingEventModalType="sql-query-generator"
+    >
+      <div className="mb-4">
+        <p className="text-muted">
+          Describe what data you want to query in natural language, and
+          we&apos;ll help you generate the SQL query.
+        </p>
+      </div>
+
+      <Field
+        label="What would you like to query?"
+        textarea
+        {...register("naturalLanguage", { required: true })}
+        placeholder="Example: Show me the total revenue by product category for the last 30 days"
+      />
+
+      {generatedQuery && (
+        <div className="mt-4">
+          <h5>Generated SQL Query:</h5>
+          <pre className="bg-light p-3 rounded">
+            <code>{generatedQuery}</code>
+          </pre>
+        </div>
+      )}
+    </Modal>
+  );
+};
+
+export default QueryGeneratorModal;

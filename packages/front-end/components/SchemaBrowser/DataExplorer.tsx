@@ -6,6 +6,7 @@ import clsx from "clsx";
 import Split from "react-split";
 import { Flex } from "@radix-ui/themes";
 import { FaPlay } from "react-icons/fa";
+import { FaWandSparkles } from "react-icons/fa6";
 import useApi from "@/hooks/useApi";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
@@ -15,6 +16,8 @@ import CodeTextArea, { AceCompletion } from "../Forms/CodeTextArea";
 import { CursorData } from "../Segments/SegmentForm";
 import Checkbox from "../Radix/Checkbox";
 import DisplayTestQueryResults from "../Settings/DisplayTestQueryResults";
+import Tooltip from "../Tooltip/Tooltip";
+import QueryGeneratorModal from "../SQLQueryGenerator/QueryGeneratorModal";
 import styles from "./DataExplorer.module.scss";
 import { TestQueryResults } from "./EditSqlModal";
 import SchemaBrowser from "./SchemaBrowser";
@@ -28,6 +31,7 @@ export default function DataExplorer({
   const [sql, setSql] = useState("");
   const [limitQuery, setLimitQuery] = useState(true);
   const [cursorData, setCursorData] = useState<null | CursorData>(null);
+  const [showGenerateQueryModal, setShowGenerateQueryModal] = useState(false);
   const [testingQuery, setTestingQuery] = useState(false);
   const [testQueryResults, setTestQueryResults] =
     useState<TestQueryResults | null>(null);
@@ -154,6 +158,18 @@ export default function DataExplorer({
   }
   return (
     <>
+      {showGenerateQueryModal ? (
+        <QueryGeneratorModal
+          open={true}
+          datasourceType={datasource.type}
+          informationSchema={informationSchema}
+          setSql={(value: string) => {
+            setSql(value);
+            setShowGenerateQueryModal(false);
+          }}
+          close={() => setShowGenerateQueryModal(false)}
+        />
+      ) : null}
       {!canRunQueries ? (
         <Callout status="error">
           You do not have permission to run queries on this data source.
@@ -178,27 +194,37 @@ export default function DataExplorer({
                   height: "100%",
                 }}
               >
-                <Flex align="center" className="pb-2">
-                  <Button
-                    loading={testingQuery}
-                    onClick={handleQuery}
-                    disabled={!canRunQueries}
-                    mr="2"
-                  >
-                    <span className="pr-2">
-                      <FaPlay />
-                    </span>{" "}
-                    Run
-                  </Button>
-                  <Button variant="ghost" onClick={formatSql}>
-                    Format
-                  </Button>
-                  <div className="pl-2">
-                    <Checkbox
-                      label="Limit 100"
-                      value={limitQuery}
-                      setValue={setLimitQuery}
-                    />
+                <Flex align="center" justify="between" className="pb-2">
+                  <Flex align="center">
+                    <Button
+                      loading={testingQuery}
+                      onClick={handleQuery}
+                      disabled={!canRunQueries || !sql}
+                      mr="2"
+                    >
+                      <span className="pr-2">
+                        <FaPlay />
+                      </span>{" "}
+                      Run
+                    </Button>
+                    <Button variant="ghost" onClick={formatSql} disabled={!sql}>
+                      Format
+                    </Button>
+                    <div className="pl-2">
+                      <Checkbox
+                        disabled={!sql}
+                        label="Limit 100"
+                        value={limitQuery}
+                        setValue={setLimitQuery}
+                      />
+                    </div>
+                  </Flex>
+                  <div>
+                    <Tooltip body="Use natural language to generate queries">
+                      <Button onClick={() => setShowGenerateQueryModal(true)}>
+                        Generate SQL <FaWandSparkles className="ml-1" />
+                      </Button>
+                    </Tooltip>
                   </div>
                 </Flex>
                 <div style={{ flex: 1, minHeight: 0 }}>
