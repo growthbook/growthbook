@@ -46,6 +46,7 @@ export const entityEvents = {
   segment: ["create", "delete", "update"],
   archetype: ["created", "deleted", "updated"],
   team: ["create", "delete", "update"],
+  vercelNativeIntegration: ["create", "update", "delete"],
   factTable: ["autocreate"],
   customField: ["create", "update", "delete"],
   experimentTemplate: ["create", "update", "delete"],
