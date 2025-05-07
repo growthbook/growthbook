@@ -78,12 +78,12 @@ export function getMetricMapWithVariants(
         // Separate out variant info from id (delimited by `#`)
         const [metricId, variantSettingsRaw] = id.split("#");
         const metric = getFactMetricById(metricId);
-        if (!metric) return undefined;
+        if (!metric) throw new Error("Unknown metric id part: " + metricId);
         if (!variantSettingsRaw) return metric;
 
         try {
           let variantSettings = variantSettingsValidator.parse(
-            variantSettingsRaw
+            JSON.parse(variantSettingsRaw)
           );
 
           // If there's a variant id, populate from the metric interface
@@ -132,6 +132,9 @@ export function getMetricMapWithVariants(
               ];
             }
           }
+
+          newMetric.variants = [];
+          return newMetric;
         } catch (e) {
           // Skip including when variant settings have an error and cannot be parsed
           return undefined;
@@ -143,8 +146,6 @@ export function getMetricMapWithVariants(
         if (!metric) return undefined;
         return metric;
       }
-
-      return undefined;
     },
   };
 }

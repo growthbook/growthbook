@@ -1,7 +1,8 @@
 import clsx from "clsx";
-import { forwardRef, useEffect, useRef, useState } from "react";
-import { Box, Tabs as RadixTabs } from "@radix-ui/themes";
+import { CSSProperties, forwardRef, useEffect, useRef, useState } from "react";
+import { Box, Container, Flex, Tabs as RadixTabs } from "@radix-ui/themes";
 import useURLHash from "@/hooks/useURLHash";
+import SelectField from "@/components/Forms/SelectField";
 
 /**
  * See more examples in design-system/index.tsx
@@ -33,6 +34,110 @@ type UncontrolledTabsProps = {
 
 type TabsProps = (ControlledTabsProps | UncontrolledTabsProps) &
   Omit<React.ComponentProps<typeof RadixTabs.Root>, "defaultValue" | "value">;
+
+export function DynamicTabs({
+  currentTabId,
+  setCurrentTabId,
+  ids,
+  getTabTrigger,
+  getTabContent,
+  overflowAfter = 10,
+}: {
+  currentTabId: string;
+  setCurrentTabId: (id: string) => void;
+  ids: string[];
+  getTabTrigger: (id: string) => React.ReactNode;
+  getTabContent?: (id: string) => React.ReactNode;
+  overflowAfter?: number;
+  className?: string;
+  style?: CSSProperties;
+}) {
+  const materializedIds = ids.slice(0, overflowAfter);
+  const dropdownIds = ids.slice(overflowAfter);
+
+  // Don't show just 1 item in the dropdown
+  if (dropdownIds.length === 1) {
+    materializedIds.push(dropdownIds.pop() as string);
+  }
+
+  const dropdownActive = dropdownIds.includes(currentTabId);
+
+  return (
+    <Tabs value={currentTabId} onValueChange={setCurrentTabId}>
+      <Container maxWidth="100%">
+        <Flex
+          align="center"
+          justify="between"
+          style={{ boxShadow: "inset 0 -1px 0 0 var(--slate-a3)" }}
+        >
+          <TabsList className="w-full" style={{ boxShadow: "none" }}>
+            <Flex wrap="wrap" overflow="hidden">
+              {materializedIds.map((id) => (
+                <TabsTrigger value={id} key={id}>
+                  {getTabTrigger(id)}
+                </TabsTrigger>
+              ))}
+              {dropdownIds.length > 0 && (
+                <Flex
+                  px="1"
+                  direction="column"
+                  justify="center"
+                  align="center"
+                  className={clsx("tab-trigger-container", {
+                    active: dropdownActive,
+                  })}
+                >
+                  <Container
+                    flexGrow="0"
+                    minWidth={dropdownActive ? undefined : "100px"}
+                  >
+                    <SelectField
+                      containerClassName="select-dropdown-no-underline"
+                      value={dropdownActive ? currentTabId : ""}
+                      onChange={(value) => {
+                        if (value) {
+                          setCurrentTabId(value);
+                        }
+                      }}
+                      options={dropdownIds.map((id) => ({
+                        value: id,
+                        label: id,
+                      }))}
+                      placeholder="Other..."
+                      formatOptionLabel={(option: {
+                        value: string;
+                        label: string;
+                      }) => (
+                        <Container
+                          className="tab-trigger-container"
+                          style={{
+                            padding: "0 1rem",
+                            width: "100%",
+                          }}
+                        >
+                          {getTabTrigger(option.value)}
+                        </Container>
+                      )}
+                    />
+                  </Container>
+                </Flex>
+              )}
+            </Flex>
+          </TabsList>
+        </Flex>
+      </Container>
+      {getTabContent ? (
+        <>
+          {ids.map((id) => (
+            <TabsContent key={id} value={id}>
+              {getTabContent(id)}
+            </TabsContent>
+          ))}
+        </>
+      ) : null}
+    </Tabs>
+  );
+}
 
 export const Tabs = forwardRef<HTMLDivElement, TabsProps>(function Tabs(
   {

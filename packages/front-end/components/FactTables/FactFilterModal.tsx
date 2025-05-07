@@ -19,6 +19,7 @@ import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import Button from "@/components/Button";
 import Checkbox from "@/components/Radix/Checkbox";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import FactTableSchema from "./FactTableSchema";
 
 export interface Props {
@@ -223,18 +224,31 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
           </Button>
 
           <Box mt="4">
-            <Checkbox
-              value={form.watch("createVariant") || false}
-              setValue={(v) => form.setValue("createVariant", v === true)}
-              label="Create Metric Variants for this filter"
-            />
-
-            {form.watch("createVariant") ? (
+            <Box>
               <Checkbox
-                value={form.watch("autoAddVariant") || false}
-                setValue={(v) => form.setValue("autoAddVariant", v === true)}
-                label="Auto-add the variant to experiments"
+                value={form.watch("createVariant") || false}
+                setValue={(v) => form.setValue("createVariant", v === true)}
+                label={
+                  <>
+                    Create Metric Variants{" "}
+                    <Tooltip body="Every metric in the fact table will get a variant created automatically that applies this filter." />
+                  </>
+                }
               />
+            </Box>
+            {form.watch("createVariant") ? (
+              <Box>
+                <Checkbox
+                  value={form.watch("autoAddVariant") || false}
+                  setValue={(v) => form.setValue("autoAddVariant", v === true)}
+                  label={
+                    <>
+                      Auto-add variant to experiments{" "}
+                      <Tooltip body="When a metric is added to an experiment, also add the variant with this filter by default." />
+                    </>
+                  }
+                />
+              </Box>
             ) : null}
           </Box>
         </div>

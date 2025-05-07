@@ -8,7 +8,7 @@ import React from "react";
 import { FaExclamationCircle } from "react-icons/fa";
 import clsx from "clsx";
 import { PiFolderDuotone } from "react-icons/pi";
-import { Flex } from "@radix-ui/themes";
+import { Flex, Text } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { getPercentileLabel } from "@/services/metrics";
@@ -129,9 +129,9 @@ export default function MetricName({
     }
     const allJoinable = metrics?.every((m) => m.joinable) ?? true;
     return (
-      <Flex align="center">
+      <Flex align="center" wrap="wrap">
         <PiFolderDuotone size={16} className="mr-1" />
-        {metricGroup.name}
+        <Text>{metricGroup.name}</Text>
         <Tooltip
           className={clsx("px-1", { "text-danger": !allJoinable })}
           body={
@@ -162,8 +162,7 @@ export default function MetricName({
           }
         >
           <span className="ml-1 small">
-            ({metricGroup.metrics.length} metric
-            {metricGroup.metrics.length === 0 ? "" : "s"})
+            ({metricGroup.metrics.length})
             {!allJoinable && (
               <FaExclamationCircle
                 size={10}

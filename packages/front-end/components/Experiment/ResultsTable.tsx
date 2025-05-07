@@ -51,7 +51,6 @@ import ResultsTableTooltip, {
 import TimeSeriesButton from "@/components/TimeSeriesButton";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import ResultsMetricFilter from "@/components/Experiment/ResultsMetricFilter";
 import { ResultsMetricFilters } from "@/components/Experiment/Results";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useResultsTableTooltip } from "@/components/Experiment/ResultsTableTooltip/useResultsTableTooltip";
@@ -134,9 +133,6 @@ export default function ResultsTable({
   pValueCorrection,
   differenceType,
   sequentialTestingEnabled = false,
-  metricFilter,
-  setMetricFilter,
-  metricTags = [],
   isTabActive,
   noStickyHeader,
   noTooltip,
@@ -167,8 +163,6 @@ export default function ResultsTable({
     ssrPolyfills?.usePValueThreshold?.() || _pValueThreshold;
   const displayCurrency = ssrPolyfills?.useCurrency?.() || _displayCurrency;
   const orgSettings = ssrPolyfills?.useOrgSettings?.() || _orgSettings;
-
-  const [showMetricFilter, setShowMetricFilter] = useState<boolean>(false);
 
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const [graphCellWidth, setGraphCellWidth] = useState(800);
@@ -415,17 +409,7 @@ export default function ResultsTable({
                   }}
                 >
                   <div className="row px-0">
-                    {setMetricFilter ? (
-                      <ResultsMetricFilter
-                        metricTags={metricTags}
-                        metricFilter={metricFilter}
-                        setMetricFilter={setMetricFilter}
-                        showMetricFilter={showMetricFilter}
-                        setShowMetricFilter={setShowMetricFilter}
-                      />
-                    ) : (
-                      <span className="pl-1" />
-                    )}
+                    <span className="pl-1" />
                     <div
                       className="col-auto px-1"
                       style={{

@@ -38,8 +38,6 @@ import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefa
 import { useCurrency } from "@/hooks/useCurrency";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import ResultsMetricFilter from "@/components/Experiment/ResultsMetricFilter";
-import { ResultsMetricFilters } from "@/components/Experiment/Results";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import ChangeColumn from "./ChangeColumn";
@@ -68,9 +66,6 @@ export type ResultsTableProps = {
   statsEngine: StatsEngine;
   pValueCorrection?: PValueCorrection;
   differenceType: DifferenceType;
-  metricFilter?: ResultsMetricFilters;
-  setMetricFilter?: (filter: ResultsMetricFilters) => void;
-  metricTags?: string[];
   isTabActive: boolean;
   noStickyHeader?: boolean;
   noTooltip?: boolean;
@@ -96,9 +91,6 @@ export default function ResultsTable({
   statsEngine,
   pValueCorrection,
   differenceType,
-  metricFilter,
-  setMetricFilter,
-  metricTags = [],
   isTabActive,
   noStickyHeader,
   noTooltip,
@@ -126,8 +118,6 @@ export default function ResultsTable({
   const pValueThreshold =
     ssrPolyfills?.usePValueThreshold?.() || _pValueThreshold;
   const displayCurrency = ssrPolyfills?.useCurrency?.() || _displayCurrency;
-
-  const [showMetricFilter, setShowMetricFilter] = useState<boolean>(false);
 
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const [tableCellScale, setTableCellScale] = useState(1);
@@ -292,17 +282,7 @@ export default function ResultsTable({
                   }}
                 >
                   <div className="row px-0">
-                    {setMetricFilter ? (
-                      <ResultsMetricFilter
-                        metricTags={metricTags}
-                        metricFilter={metricFilter}
-                        setMetricFilter={setMetricFilter}
-                        showMetricFilter={showMetricFilter}
-                        setShowMetricFilter={setShowMetricFilter}
-                      />
-                    ) : (
-                      <span className="pl-1" />
-                    )}
+                    <span className="pl-1" />
                     <div
                       className="col-auto px-1"
                       style={{

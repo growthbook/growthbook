@@ -1,5 +1,5 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import React, { FC, useEffect } from "react";
+import React, { FC, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { DifferenceType, StatsEngine } from "back-end/types/stats";
 import { getValidDate, ago, relativeDate } from "shared/dates";
@@ -7,9 +7,15 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
-import { ExperimentMetricInterface } from "shared/experiments";
+import {
+  ExperimentMetricInterface,
+  isFactMetric,
+  isMetricGroupId,
+} from "shared/experiments";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { MetricSnapshotSettings } from "back-end/types/report";
+import { PiFolder, PiTag } from "react-icons/pi";
+import { Flex, Text } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
@@ -24,6 +30,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { trackSnapshot } from "@/services/track";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/components/Radix/Callout";
+import { DynamicTabs } from "@/components/Radix/Tabs";
 import { ExperimentTab } from "./TabbedPage";
 
 const BreakDownResults = dynamic(
@@ -103,6 +110,8 @@ const Results: FC<{
     loading: snapshotLoading,
   } = useSnapshot();
 
+  const [currentTab, setCurrentTab] = useState("all");
+
   const queryStatusData = getQueryStatus(latest?.queries || [], latest?.error);
 
   useEffect(() => {
@@ -110,7 +119,7 @@ const Results: FC<{
   }, [experiment.phases.length, setPhase]);
 
   const permissionsUtil = usePermissionsUtil();
-  const { getDatasourceById } = useDefinitions();
+  const { getDatasourceById, metricMap, getMetricGroupById } = useDefinitions();
 
   const { status } = getQueryStatus(latest?.queries || [], latest?.error);
 
@@ -183,7 +192,100 @@ const Results: FC<{
     experiment.secondaryMetrics.length > 0 ||
     experiment.guardrailMetrics.length > 0;
 
+  const allMetricIds = [
+    ...experiment.goalMetrics,
+    ...experiment.secondaryMetrics,
+    ...experiment.guardrailMetrics,
+  ];
+
   const isBandit = experiment.type === "multi-armed-bandit";
+
+  // Add metric groups
+  let numMetrics = 0;
+  const metricGroups = new Set<string>();
+  const metricTagCounts = new Map<string, number>();
+  const metricVariants = new Map<string, number>();
+  function processMetric(id: string) {
+    const metric = metricMap.get(id);
+    if (!metric) return;
+    numMetrics++;
+
+    if (metric.tags) {
+      metric.tags.forEach((t) => {
+        metricTagCounts.set(t, (metricTagCounts.get(t) || 0) + 1);
+      });
+    }
+    if (isFactMetric(metric) && id.includes("#")) {
+      const [factMetricId] = id.split("#");
+      const factMetric = metricMap.get(factMetricId);
+      if (factMetric) {
+        metricVariants.set(
+          factMetricId,
+          (metricVariants.get(factMetricId) || 0) + 1
+        );
+      }
+    }
+  }
+  allMetricIds.forEach((id) => {
+    if (isMetricGroupId(id)) {
+      metricGroups.add(id);
+      const metricGroup = getMetricGroupById(id);
+      if (metricGroup) {
+        metricGroup.metrics.forEach((m) => {
+          processMetric(m);
+        });
+      }
+    } else {
+      processMetric(id);
+    }
+  });
+
+  // Sort tabs by number
+  const sortedMetricTags = Array.from(metricTagCounts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map((t) => t[0]);
+
+  const sortedMetricVariants = Array.from(metricVariants.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map((t) => t[0]);
+
+  const tabs = [
+    "all",
+    ...Array.from(metricGroups).map((id) => `group:${id}`),
+    ...Array.from(sortedMetricVariants).map((id) => `variant:${id}`),
+    ...Array.from(sortedMetricTags).map((id) => `tag:${id}`),
+  ];
+
+  function filterMetrics(metrics: string[]): string[] {
+    if (currentTab === "all") return metrics;
+
+    return metrics.filter((m) => {
+      if (currentTab.startsWith("group:")) {
+        const groupId = currentTab.substring(6);
+        return m === groupId;
+      } else if (isMetricGroupId(m)) {
+        const group = getMetricGroupById(m);
+        if (group) {
+          return filterMetrics(group.metrics).length > 0;
+        } else {
+          return false;
+        }
+      } else if (currentTab.startsWith("tag:")) {
+        const tagId = currentTab.substring(4);
+        const metric = metricMap.get(m);
+        return metric?.tags?.includes(tagId) || false;
+      } else if (currentTab.startsWith("variant:")) {
+        const metricId = currentTab.substring(8);
+        return m.startsWith(metricId);
+      }
+
+      return false;
+    });
+  }
+
+  const goalMetrics = filterMetrics(experiment.goalMetrics);
+  const secondaryMetrics = filterMetrics(experiment.secondaryMetrics);
+  const guardrailMetrics = filterMetrics(experiment.guardrailMetrics);
 
   return (
     <>
@@ -233,6 +335,60 @@ const Results: FC<{
             </button>
           )}
         </div>
+      )}
+
+      {hasMetrics && (
+        <DynamicTabs
+          currentTabId={currentTab}
+          setCurrentTabId={setCurrentTab}
+          ids={tabs}
+          getTabTrigger={(id) => {
+            if (id === "all") {
+              return (
+                <Flex gap="2" key={id} align="center">
+                  <Text>All Metrics</Text>
+                  <Text size="1">({numMetrics})</Text>
+                </Flex>
+              );
+            } else if (id.startsWith("group:")) {
+              const groupId = id.substring(6);
+              const group = getMetricGroupById(groupId);
+              if (group) {
+                return (
+                  <Flex gap="2" key={id} align="center">
+                    <PiFolder />
+                    <Text>{group.name}</Text>
+                    <Text size="1">({group.metrics.length})</Text>
+                  </Flex>
+                );
+              }
+            } else if (id.startsWith("tag:")) {
+              const tagId = id.substring(4);
+              const tag = metricTagCounts.get(tagId);
+              if (tag) {
+                return (
+                  <Flex gap="2" key={id} align="center">
+                    <PiTag />
+                    <Text>{tagId}</Text>
+                    <Text size="1">({tag})</Text>
+                  </Flex>
+                );
+              }
+            } else if (id.startsWith("variant:")) {
+              const metricId = id.substring(8);
+              const metric = metricMap.get(metricId);
+              const count = metricVariants.get(metricId);
+              if (metric) {
+                return (
+                  <Flex gap="2" key={id} align="center">
+                    <Text>{metric.name}</Text>
+                    <Text size="1">({count})</Text>
+                  </Flex>
+                );
+              }
+            }
+          }}
+        />
       )}
 
       {!hasData &&
@@ -316,9 +472,9 @@ const Results: FC<{
 
       {showDateResults ? (
         <DateResults
-          goalMetrics={experiment.goalMetrics}
-          secondaryMetrics={experiment.secondaryMetrics}
-          guardrailMetrics={experiment.guardrailMetrics}
+          goalMetrics={goalMetrics}
+          secondaryMetrics={secondaryMetrics}
+          guardrailMetrics={guardrailMetrics}
           results={analysis?.results ?? []}
           seriestype={snapshot.dimension ?? ""}
           variations={variations}
@@ -333,9 +489,9 @@ const Results: FC<{
           variations={variations}
           variationFilter={variationFilter}
           baselineRow={baselineRow}
-          goalMetrics={experiment.goalMetrics}
-          secondaryMetrics={experiment.secondaryMetrics}
-          guardrailMetrics={experiment.guardrailMetrics}
+          goalMetrics={goalMetrics}
+          secondaryMetrics={secondaryMetrics}
+          guardrailMetrics={guardrailMetrics}
           metricOverrides={experiment.metricOverrides ?? []}
           dimensionId={snapshot.dimension ?? ""}
           isLatestPhase={phase === experiment.phases.length - 1}
@@ -378,9 +534,9 @@ const Results: FC<{
             endDate={phaseObj?.dateEnded ?? ""}
             isLatestPhase={phase === experiment.phases.length - 1}
             status={experiment.status}
-            goalMetrics={experiment.goalMetrics}
-            secondaryMetrics={experiment.secondaryMetrics}
-            guardrailMetrics={experiment.guardrailMetrics}
+            goalMetrics={goalMetrics}
+            secondaryMetrics={secondaryMetrics}
+            guardrailMetrics={guardrailMetrics}
             metricOverrides={experiment.metricOverrides ?? []}
             id={experiment.id}
             statsEngine={analysis.settings.statsEngine}

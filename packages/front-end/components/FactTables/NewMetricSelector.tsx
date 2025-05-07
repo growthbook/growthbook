@@ -76,7 +76,7 @@ function stringifyVariants(
     ids.push(id);
     metric.variants.forEach((variant) => {
       const variantString = JSON.stringify(variant);
-      ids.push(`${id}#${encodeURIComponent(variantString)}`);
+      ids.push(`${id}#${variantString}`);
     });
   });
   return ids;
@@ -234,11 +234,10 @@ export default function NewMetricSelector({
           if (value.startsWith("tag:")) {
             const num = tagToMetricMap.get(value.slice(4))?.length || 0;
             return (
-              <Flex align="center" gap="2">
+              <Flex align="center" gap="1">
                 <Tag tag={value.slice(4)} />
                 <Text size="1">
-                  ({num} metric
-                  {num === 1 ? "" : "s"})
+                  ({num} metric{num === 1 ? "" : "s"})
                 </Text>
               </Flex>
             );
@@ -247,8 +246,9 @@ export default function NewMetricSelector({
             const group = getMetricGroupById(value);
             const num = group?.metrics?.length || 0;
             return (
-              <Flex align="center" gap="2">
-                <PiFolder /> <Text>{label}</Text>
+              <Flex align="center" gap="1">
+                <PiFolder />
+                <Text>{label}</Text>
                 <Text size="1">
                   ({num} metric{num === 1 ? "" : "s"})
                 </Text>

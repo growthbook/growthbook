@@ -3,10 +3,12 @@ import ReactSelect, {
   components,
   InputProps,
   FormatOptionLabelMeta,
+  MenuProps,
 } from "react-select";
 import cloneDeep from "lodash/cloneDeep";
 import clsx from "clsx";
 import CreatableSelect from "react-select/creatable";
+import { RadixTheme } from "@/services/RadixTheme";
 import Field, { FieldProps } from "./Field";
 
 export type SingleValue = { label: string; value: string; tooltip?: string };
@@ -85,6 +87,14 @@ const Input = (props: InputProps) => {
   // @ts-expect-error will be passed down
   const { onPaste } = props.selectProps;
   return <components.Input onPaste={onPaste} {...props} />;
+};
+
+const MenuInPortal = (props: MenuProps) => {
+  return (
+    <RadixTheme>
+      <components.Menu {...props}>{props.children}</components.Menu>
+    </RadixTheme>
+  );
 };
 
 export const ReactSelectProps = {
@@ -303,10 +313,12 @@ const SelectField: FC<SelectFieldProps> = ({
                 onPaste={onPaste}
                 components={{
                   Input,
+                  Menu: MenuInPortal,
                 }}
                 isOptionDisabled={isOptionDisabled}
                 menuPortalTarget={document.body}
                 closeMenuOnSelect={closeMenuOnSelect}
+                hideSelectedOptions={true}
               />
             )}
             {required && (

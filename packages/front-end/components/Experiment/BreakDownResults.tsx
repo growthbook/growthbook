@@ -1,4 +1,4 @@
-import { FC, useMemo, useState } from "react";
+import { FC, useMemo } from "react";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
@@ -33,7 +33,6 @@ import {
   ResultsMetricFilters,
   sortAndFilterMetricsByTags,
 } from "@/components/Experiment/Results";
-import ResultsMetricFilter from "@/components/Experiment/ResultsMetricFilter";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import UsersTable from "./UsersTable";
@@ -110,13 +109,10 @@ const BreakDownResults: FC<{
   sequentialTestingEnabled,
   differenceType,
   metricFilter,
-  setMetricFilter,
   isBandit,
   ssrPolyfills,
   hideDetails,
 }) => {
-  const [showMetricFilter, setShowMetricFilter] = useState<boolean>(false);
-
   const { getDimensionById, metricMap, metricGroups, ready } = useDefinitions();
 
   const _pValueThreshold = usePValueThreshold();
@@ -165,26 +161,6 @@ const BreakDownResults: FC<{
     ssrPolyfills?.metricGroups,
     secondaryMetrics,
     guardrailMetrics,
-  ]);
-
-  const allMetricTags = useMemo(() => {
-    const allMetricTagsSet: Set<string> = new Set();
-    [...goalMetrics, ...secondaryMetrics, ...guardrailMetrics].forEach(
-      (metricId) => {
-        const metric =
-          ssrPolyfills?.metricMap?.get(metricId) || metricMap.get(metricId);
-        metric?.tags?.forEach((tag) => {
-          allMetricTagsSet.add(tag);
-        });
-      }
-    );
-    return [...allMetricTagsSet];
-  }, [
-    goalMetrics,
-    secondaryMetrics,
-    guardrailMetrics,
-    ssrPolyfills,
-    metricMap,
   ]);
 
   const tables = useMemo<TableDef[]>(() => {
@@ -308,18 +284,6 @@ const BreakDownResults: FC<{
             </Collapsible>
           </div>
         )}
-      </div>
-
-      <div className="d-flex mx-2">
-        {setMetricFilter ? (
-          <ResultsMetricFilter
-            metricTags={allMetricTags}
-            metricFilter={metricFilter}
-            setMetricFilter={setMetricFilter}
-            showMetricFilter={showMetricFilter}
-            setShowMetricFilter={setShowMetricFilter}
-          />
-        ) : null}
       </div>
       {tables.map((table, i) => {
         const metric = table.metric;

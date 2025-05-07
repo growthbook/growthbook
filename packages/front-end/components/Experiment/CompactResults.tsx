@@ -297,7 +297,7 @@ const CompactResults: FC<{
     <>
       {!mainTableOnly && (
         <>
-          {!isBandit && status !== "draft" && totalUsers > 0 && (
+          {!isBandit && status !== "draft" && totalUsers > 0 && false && (
             <div className="users">
               <Collapsible
                 trigger={
