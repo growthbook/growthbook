@@ -103,7 +103,7 @@ export interface GroupedMetrics {
 
 export function getFactMetricGroups(
   metrics: ExperimentMetricInterface[],
-  settings: ExperimentSnapshotSettings,
+  settings: Pick<ExperimentSnapshotSettings, "skipPartialData">,
   integration: SourceIntegrationInterface,
   organization: OrganizationInterface
 ): GroupedMetrics {

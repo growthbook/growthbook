@@ -58,13 +58,17 @@ import {
   updateVisualChangeset,
 } from "back-end/src/models/VisualChangesetModel";
 import {
+  createExperimentSnapshotModel,
   deleteSnapshotById,
   findSnapshotById,
   getLatestSnapshot,
   updateSnapshot,
   updateSnapshotsOnPhaseDelete,
 } from "back-end/src/models/ExperimentSnapshotModel";
-import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
+import {
+  getIntegrationFromDatasourceId,
+  getSourceIntegrationObject,
+} from "back-end/src/services/datasource";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import {
   getContextForAgendaJobByOrgId,
@@ -101,6 +105,7 @@ import {
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
+  ExperimentSnapshotSettings,
   SnapshotTriggeredBy,
   SnapshotType,
 } from "back-end/types/experiment-snapshot";
@@ -123,7 +128,16 @@ import { OrganizationSettings, ReqContext } from "back-end/types/organization";
 import { CreateURLRedirectProps } from "back-end/types/url-redirect";
 import { logger } from "back-end/src/util/logger";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
-import { generateExperimentReportSSRData } from "back-end/src/services/reports";
+import {
+  generateExperimentReportSSRData,
+  getMetricForSnapshot,
+} from "back-end/src/services/reports";
+import { ExperimentInteractionQueryRunner } from "back-end/src/queryRunners/ExperimentInteractionQueryRunner";
+import { InteractionSnapshotModel } from "back-end/src/models/InteractionSnapshotModel";
+import {
+  CreateInteractionSnapshotProps,
+  InteractionSnapshotInterface,
+} from "back-end/types/interaction-snapshot";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
 
@@ -511,6 +525,24 @@ export async function getSnapshot(
     status: 200,
     snapshot,
     latest,
+  });
+}
+
+export async function getInteractionSnapshot(
+  req: AuthRequest<null, { id1: string; id2: string }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const { id1, id2 } = req.params;
+  const latest = await context.models.interactionSnapshots.getLatestInteractionSnapshot(
+    context,
+    id1,
+    id2
+  );
+
+  res.status(200).json({
+    status: 200,
+    snapshot: latest,
   });
 }
 
@@ -2244,6 +2276,191 @@ function getSnapshotType({
   return "standard";
 }
 
+export async function createExperimentInteractionSnapshot({
+  context,
+  experiment1,
+  experiment2,
+  datasource,
+  metrics,
+}: {
+  context: ReqContext;
+  datasource: DataSourceInterface;
+  experiment1: ExperimentInterface;
+  experiment2: ExperimentInterface;
+  metrics: string[];
+}): Promise<{
+  snapshot: InteractionSnapshotInterface;
+  queryRunner: ExperimentInteractionQueryRunner;
+}> {
+  const project = null;
+  // if (experiment1.project) {
+  //   project = await context.models.projects.getById(experiment.project);
+  // }
+
+  const { org } = context;
+  const orgSettings: OrganizationSettings = org.settings as OrganizationSettings;
+  const { settings } = getScopedSettings({
+    organization: org,
+    project: project ?? undefined,
+    experiment: experiment1, // TODO
+  });
+  const statsEngine = settings.statsEngine.value;
+
+  const metricMap = await getMetricMap(context);
+  const metricIds = getAllMetricIdsFromExperiment(
+    { goalMetrics: metrics },
+    false
+  );
+
+  const allExperimentMetrics = metricIds.map((m) => metricMap.get(m) || null);
+  const denominatorMetricIds = uniq<string>(
+    allExperimentMetrics
+      .map((m) => m?.denominator)
+      .filter((d) => d && typeof d === "string") as string[]
+  );
+  const denominatorMetrics = denominatorMetricIds
+    .map((m) => metricMap.get(m) || null)
+    .filter(isDefined) as MetricInterface[];
+  const {
+    settingsForSnapshotMetrics,
+    regressionAdjustmentEnabled,
+  } = getAllMetricSettingsForSnapshot({
+    allExperimentMetrics,
+    denominatorMetrics,
+    orgSettings,
+    experimentRegressionAdjustmentEnabled: false, // TODO
+    experimentMetricOverrides: [], // TODO
+    datasourceType: datasource?.type,
+    hasRegressionAdjustmentFeature: true,
+  });
+
+  const analysisSettings = getDefaultExperimentAnalysisSettings(
+    statsEngine,
+    experiment1, // TODO
+    org,
+    regressionAdjustmentEnabled,
+    undefined // TODO
+  );
+
+  const factTableMap = await getFactTableMap(context);
+
+  const variationNames: string[] = [];
+  const e1Ids = [
+    ...experiment1.variations.map((v) => v.key),
+    "__GBNULLVARIATION__",
+  ];
+  const e2Ids = [
+    ...experiment2.variations.map((v) => v.key),
+    "__GBNULLVARIATION__",
+  ];
+
+  e1Ids.forEach((v1) => {
+    e2Ids.forEach((v2) => {
+      variationNames.push(`${v1}___GBINTERACTION___${v2}`);
+    });
+  });
+
+  const latestPhase1 = experiment1.phases[experiment1.phases.length - 1];
+  const latestPhase2 = experiment2.phases[experiment2.phases.length - 1];
+  const startDate =
+    latestPhase1.dateStarted < latestPhase2.dateStarted
+      ? latestPhase1.dateStarted
+      : latestPhase2.dateStarted;
+  const endDate =
+    !latestPhase1.dateEnded ||
+    (latestPhase2.dateEnded && latestPhase1.dateEnded > latestPhase2.dateEnded)
+      ? latestPhase1.dateEnded
+      : latestPhase2.dateEnded;
+
+  const metricSettings = settingsForSnapshotMetrics
+    .map((m) =>
+      getMetricForSnapshot(m.metric, metricMap, settingsForSnapshotMetrics)
+    )
+    .filter(isDefined);
+  const data: CreateInteractionSnapshotProps = {
+    experimentId1: experiment1.id,
+    experimentId2: experiment2.id,
+    datasourceId: datasource.id,
+    config: {
+      goalMetrics: metrics,
+      metricSettings,
+      startDate,
+      endDate: endDate || new Date(),
+      variationNames,
+      experiment1Params: {
+        activationMetricId: experiment1.activationMetric || null,
+        variations: experiment1.variations.map((v, i) => ({
+          id: v.key || i + "",
+          name: v.name || i + "",
+          weight: latestPhase1.variationWeights[i] || 0,
+        })),
+        exposureQueryId: experiment1.exposureQueryId,
+        trackingKey: experiment1.trackingKey,
+      },
+      experiment2Params: {
+        activationMetricId: experiment2.activationMetric || null,
+        variations: experiment2.variations.map((v, i) => ({
+          id: v.key || i + "",
+          name: v.name || i + "",
+          weight: latestPhase2.variationWeights[i] || 0,
+        })),
+        exposureQueryId: experiment2.exposureQueryId,
+        trackingKey: experiment2.trackingKey,
+      },
+    },
+
+    queries: [],
+    status: "running",
+    runStarted: new Date(),
+
+    unknownVariations: [],
+    multipleExposures: 0,
+    jointAnalyses: [
+      {
+        settings: analysisSettings,
+        dateCreated: new Date(),
+        status: "running",
+        results: [],
+      },
+    ],
+    mainAnalyses: [
+      {
+        settings: analysisSettings,
+        dateCreated: new Date(),
+        status: "running",
+        results: [],
+        experimentNumber: 1,
+      },
+      {
+        settings: analysisSettings,
+        dateCreated: new Date(),
+        status: "running",
+        results: [],
+        experimentNumber: 2,
+      },
+    ], // TODO
+  };
+  const snapshot = await context.models.interactionSnapshots.create(data);
+
+  const integration = getSourceIntegrationObject(context, datasource, true);
+
+  const queryRunner = new ExperimentInteractionQueryRunner(
+    context,
+    snapshot,
+    integration
+  );
+  await queryRunner.startAnalysis({
+    config: snapshot.config,
+    datasourceId: datasource.id,
+    variationNames,
+    metricMap,
+    factTableMap,
+    queryParentId: snapshot.id,
+  });
+
+  return { snapshot, queryRunner };
+}
+
 export async function createExperimentSnapshot({
   context,
   experiment,
@@ -2902,6 +3119,57 @@ export async function addScreenshot(
       path: url,
       description: description,
     },
+  });
+}
+
+export async function postExperimentInteraction(
+  req: AuthRequest<{ experiment1Id: string; experiment2Id: string }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const { experiment1Id, experiment2Id } = req.body;
+
+  // TODO phases
+  const experiment1 = await getExperimentById(context, experiment1Id);
+  const experiment2 = await getExperimentById(context, experiment2Id);
+
+  if (!experiment1) {
+    res.status(404).json({
+      status: 404,
+      message: "Experiment 1 not found",
+    });
+    return;
+  }
+
+  if (!experiment2) {
+    res.status(404).json({
+      status: 404,
+      message: "Experiment 2 not found",
+    });
+    return;
+  }
+
+  const datasource = await getDataSourceById(context, experiment1.datasource);
+  // validate same datasource
+  if (!datasource) {
+    throw new Error("Could not find datasource for this experiment");
+  }
+
+  // This is doing an expensive analytics SQL query, so may take a long time
+  // Set timeout to 30 minutes
+  req.setTimeout(SNAPSHOT_TIMEOUT);
+
+  const { snapshot } = await createExperimentInteractionSnapshot({
+    context,
+    experiment1,
+    experiment2,
+    datasource,
+    metrics: experiment1.goalMetrics, // TODO
+  });
+
+  res.status(200).json({
+    status: 200,
+    snapshot,
   });
 }
 

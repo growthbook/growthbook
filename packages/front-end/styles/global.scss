@@ -113,6 +113,10 @@ pre {
   }
 }
 
+.small-units-text {
+  font-size: 8px;
+}
+
 .power-analysis-params {
   background-color: var(--background-primary-light);
 }
@@ -827,6 +831,7 @@ main.main {
     margin-bottom: 0;
   }
 }
+
 
 .badge-red {
   @include badge-variant(colors.$red);
@@ -3558,5 +3563,45 @@ input:disabled {
     left: 0;
     right: 0;
     background-color: var(--accent-indicator);
+  }
+}
+
+
+.two-axis-table {
+  border-collapse: collapse;
+  
+  .axis-cell {
+    border: none;
+    box-shadow: none;
+    text-align: center;
+    vertical-align: middle;
+  }
+  .axis-cell-vertical {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    text-align: center;
+    vertical-align: middle;
+    border: none;
+    box-shadow: none;
+    height: 10px;
+    padding: 0 8px;
+    align-items: center;
+    white-space: nowrap;
+  }
+  .border-cell {
+    border: 1px solid var(--border-color-300);
+    box-shadow: none;
+    padding: 12px;
+    min-width: 80px;
+    min-height: 80px;
+    text-align: center;
+    align-items: center;
+    vertical-align: middle;
+    &.winning {
+      color: colors.$success;
+    }
+    &.losing {
+      color: colors.$danger;
+    }
   }
 }

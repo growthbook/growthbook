@@ -188,6 +188,12 @@ interface ExperimentBaseQueryParams {
 
 export interface ExperimentUnitsQueryParams extends ExperimentBaseQueryParams {
   includeIdJoins: boolean;
+  ctePrefix?: string;
+}
+
+export interface ExperimentJointUnitsQueryParams {
+  experiment1Params: ExperimentUnitsQueryParams & { ctePrefix: string };
+  experiment2Params: ExperimentUnitsQueryParams & { ctePrefix: string };
 }
 
 type UnitsSource = "exposureQuery" | "exposureTable" | "otherQuery";
@@ -640,6 +646,13 @@ export interface SourceIntegrationInterface {
     setExternalId: ExternalIdCallback
   ): Promise<ExperimentAggregateUnitsQueryResponse>;
   runExperimentUnitsQuery(
+    query: string,
+    setExternalId: ExternalIdCallback
+  ): Promise<ExperimentUnitsQueryResponse>;
+  getJointExperimentUnitsQuery?(
+    params: ExperimentJointUnitsQueryParams
+  ): string;
+  runJointExperimentUnitsQuery?(
     query: string,
     setExternalId: ExternalIdCallback
   ): Promise<ExperimentUnitsQueryResponse>;

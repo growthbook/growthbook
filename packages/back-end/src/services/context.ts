@@ -39,6 +39,7 @@ import { SafeRolloutModel } from "back-end/src/models/SafeRolloutModel";
 import { SafeRolloutSnapshotModel } from "back-end/src/models/SafeRolloutSnapshotModel";
 import { DecisionCriteriaModel } from "back-end/src/enterprise/models/DecisionCriteriaModel";
 import { MetricTimeSeriesModel } from "back-end/src/models/MetricTimeSeriesModel";
+import { InteractionSnapshotModel } from "back-end/src/models/InteractionSnapshotModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
@@ -63,6 +64,7 @@ export class ReqContextClass {
     safeRolloutSnapshots: SafeRolloutSnapshotModel;
     decisionCriteria: DecisionCriteriaModel;
     metricTimeSeries: MetricTimeSeriesModel;
+    interactionSnapshots: InteractionSnapshotModel;
   };
   private initModels() {
     this.models = {
@@ -79,6 +81,7 @@ export class ReqContextClass {
       safeRolloutSnapshots: new SafeRolloutSnapshotModel(this),
       decisionCriteria: new DecisionCriteriaModel(this),
       metricTimeSeries: new MetricTimeSeriesModel(this),
+      interactionSnapshots: new InteractionSnapshotModel(this),
     };
   }
 

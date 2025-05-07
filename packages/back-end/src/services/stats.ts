@@ -736,6 +736,7 @@ export async function analyzeExperimentResults({
     metrics: metricSettings,
     banditSettings: snapshotSettings.banditSettings,
   };
+
   const { results: analysis, banditResult } = await runSnapshotAnalysis(params);
 
   const results = parseStatsEngineResult({
@@ -746,6 +747,67 @@ export async function analyzeExperimentResults({
     result: analysis,
   });
   return { results, banditResult };
+}
+
+export async function analyzeMainResults({
+  queryData,
+  snapshotSettings,
+  analysisSettings,
+  variationNames,
+  experimentNumber,
+  metricMap,
+}: {
+  queryData: QueryMap;
+  snapshotSettings: ExperimentSnapshotSettings;
+  analysisSettings: ExperimentSnapshotAnalysisSettings[];
+  variationNames: string[];
+  experimentNumber: 1 | 2;
+  metricMap: Map<string, ExperimentMetricInterface>;
+}) {
+  const mdat = getMetricsAndQueryDataForStatsEngine(
+    queryData,
+    metricMap,
+    snapshotSettings
+  );
+  const { queryResults, metricSettings } = mdat;
+  const { unknownVariations } = mdat;
+
+  // mess with variation names and `variation` column
+  queryResults.forEach((q) => {
+    q.rows.forEach((r) => {
+      const expKey = r.variation.split("___GBINTERACTION___")[experimentNumber];
+      // TODO nulls
+      r.variation = expKey ?? r.variation;
+    });
+  });
+  const params: ExperimentMetricAnalysisParams = {
+    id: snapshotSettings.experimentId,
+    coverage: snapshotSettings.coverage ?? 1,
+    phaseLengthHours: Math.max(
+      hoursBetween(snapshotSettings.startDate, snapshotSettings.endDate),
+      1
+    ),
+    variations: variationNames.map((v, i) => ({
+      id: v,
+      name: v,
+      weight: 0.1, // TODO
+    })),
+    analyses: analysisSettings,
+    queryResults: queryResults,
+    metrics: metricSettings,
+    banditSettings: snapshotSettings.banditSettings,
+  };
+
+  const { results: analysis } = await runSnapshotAnalysis(params);
+
+  const results = parseStatsEngineResult({
+    analysisSettings,
+    snapshotSettings,
+    queryResults,
+    unknownVariations,
+    result: analysis,
+  });
+  return { results };
 }
 
 export function analyzeExperimentTraffic({

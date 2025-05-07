@@ -83,6 +83,7 @@ import {
   PopulationMetricQueryParams,
   PopulationFactMetricsQueryParams,
   VariationPeriodWeight,
+  ExperimentJointUnitsQueryParams,
 } from "back-end/src/types/Integration";
 import { DimensionInterface } from "back-end/types/dimension";
 import { SegmentInterface } from "back-end/types/segment";
@@ -1858,7 +1859,10 @@ export default abstract class SqlIntegration
       segment,
       activationMetric: activationMetricDoc,
       factTableMap,
+      ctePrefix,
     } = params;
+
+    const prefix = ctePrefix || "";
 
     const activationMetric = this.processActivationMetric(
       activationMetricDoc,
@@ -1899,14 +1903,14 @@ export default abstract class SqlIntegration
 
     return `
     ${params.includeIdJoins ? idJoinSQL : ""}
-    __rawExperiment AS (
+    __${prefix}rawExperiment AS (
       ${compileSqlTemplate(exposureQuery.query, {
         startDate: settings.startDate,
         endDate: settings.endDate,
         experimentId: settings.experimentId,
       })}
     ),
-    __experimentExposures AS (
+    __${prefix}experimentExposures AS (
       -- Viewed Experiment
       SELECT
         e.${baseIdType} as ${baseIdType}
@@ -1924,7 +1928,7 @@ export default abstract class SqlIntegration
           })
           .join("\n")}
       FROM
-          __rawExperiment e
+          __${prefix}rawExperiment e
       WHERE
           e.experiment_id = '${settings.experimentId}'
           AND ${timestampColumn} >= ${this.toTimestamp(startDate)}
@@ -1937,7 +1941,7 @@ export default abstract class SqlIntegration
     )
     ${
       activationMetric
-        ? `, __activationMetric as (${this.getMetricCTE({
+        ? `, __${prefix}activationMetric as (${this.getMetricCTE({
             metric: activationMetric,
             baseIdType,
             idJoinMap,
@@ -1959,7 +1963,7 @@ export default abstract class SqlIntegration
     }
     ${
       segment
-        ? `, __segment as (${this.getSegmentCTE(
+        ? `, __${prefix}segment as (${this.getSegmentCTE(
             segment,
             baseIdType,
             idJoinMap,
@@ -1975,14 +1979,14 @@ export default abstract class SqlIntegration
     ${unitDimensions
       .map(
         (d) =>
-          `, __dim_unit_${d.dimension.id} as (${this.getDimensionCTE(
+          `, __${prefix}dim_unit_${d.dimension.id} as (${this.getDimensionCTE(
             d.dimension,
             baseIdType,
             idJoinMap
           )})`
       )
       .join("\n")}
-    , __experimentUnits AS (
+    , __${prefix}experimentUnits AS (
       -- One row per user
       SELECT
         e.${baseIdType} AS ${baseIdType}
@@ -2024,30 +2028,77 @@ export default abstract class SqlIntegration
             : ""
         }
       FROM
-        __experimentExposures e
+        __${prefix}experimentExposures e
         ${
           segment
-            ? `JOIN __segment s ON (s.${baseIdType} = e.${baseIdType})`
+            ? `JOIN __${prefix}segment s ON (s.${baseIdType} = e.${baseIdType})`
             : ""
         }
         ${unitDimensions
           .map(
             (d) => `
-            LEFT JOIN __dim_unit_${d.dimension.id} __dim_unit_${d.dimension.id} ON (
-              __dim_unit_${d.dimension.id}.${baseIdType} = e.${baseIdType}
+            LEFT JOIN __${prefix}dim_unit_${d.dimension.id} __${prefix}dim_unit_${d.dimension.id} ON (
+              __${prefix}dim_unit_${d.dimension.id}.${baseIdType} = e.${baseIdType}
             )
           `
           )
           .join("\n")}
         ${
           activationMetric
-            ? `LEFT JOIN __activationMetric a ON (a.${baseIdType} = e.${baseIdType})`
+            ? `LEFT JOIN __${prefix}activationMetric a ON (a.${baseIdType} = e.${baseIdType})`
             : ""
         }
       ${segment ? `WHERE s.date <= e.timestamp` : ""}
       GROUP BY
         e.${baseIdType}
     )`;
+  }
+
+  getJointExperimentUnitsQuery(
+    params: ExperimentJointUnitsQueryParams
+  ): string {
+    const { experiment1Params, experiment2Params } = params;
+
+    const ctePrefix1 = experiment1Params.ctePrefix;
+    const ctePrefix2 = experiment2Params.ctePrefix;
+
+    // TODO simplify base ID type
+    const exposureQuery = this.getExposureQuery(
+      experiment1Params.settings.exposureQueryId || ""
+    );
+    const baseIdType = exposureQuery.userIdType;
+
+    // TODO full outer MySQL?
+    // TODO dimension is days apart of the timestamps
+    return `
+      ${this.getExperimentUnitsQuery(experiment1Params)}
+      , ${this.getExperimentUnitsQuery(experiment2Params)}
+      , __experimentUnits AS (
+        SELECT
+          COALESCE(e1.${baseIdType}, e2.${baseIdType}) AS ${baseIdType}
+          , e1.variation AS e1_variation
+          , e2.variation AS e2_variation
+          , CONCAT(COALESCE(e1.variation, '__GBNULLVARIATION__'), '___GBINTERACTION___', COALESCE(e2.variation, '__GBNULLVARIATION__')) AS variation
+          , e1.first_exposure_timestamp AS e1_first_exposure_timestamp
+          , e2.first_exposure_timestamp AS e2_first_exposure_timestamp
+          , LEAST(COALESCE(e1.first_exposure_timestamp, e2.first_exposure_timestamp), COALESCE(e2.first_exposure_timestamp, e1.first_exposure_timestamp)) AS first_exposure_timestamp
+          -- , e1.first_activation_timestamp AS e1_first_activation_timestamp
+          -- , e2.first_activation_timestamp AS e2_first_activation_timestamp
+          -- , LEAST(COALESCE(e1.first_activation_timestamp, e2.first_activation_timestamp), COALESCE(e2.first_activation_timestamp, e1.first_activation_timestamp)) AS first_activation_timestamp
+        FROM __${ctePrefix1}experimentUnits e1
+        FULL OUTER JOIN __${ctePrefix2}experimentUnits e2 ON (
+          e1.${baseIdType} = e2.${baseIdType}
+        )
+      ), 
+    `;
+  }
+
+  runJointExperimentUnitsQuery(
+    query: string,
+    setExternalId: ExternalIdCallback
+  ): Promise<ExperimentUnitsQueryResponse> {
+    // TODO
+    return this.runExperimentUnitsQuery(query, setExternalId);
   }
 
   getBanditVariationPeriodWeights(

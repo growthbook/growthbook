@@ -51,6 +51,7 @@ export const entityEvents = {
   experimentTemplate: ["create", "update", "delete"],
   safeRollout: ["create", "update", "delete"],
   decisionCriteria: ["create", "update", "delete"],
+  interactionSnapshot: ["create", "update", "delete"],
 } as const;
 
 export type EntityEvents = typeof entityEvents;

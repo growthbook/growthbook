@@ -514,6 +514,10 @@ app.get(
   "/experiment/:id/snapshot/:phase/:dimension",
   experimentsController.getSnapshotWithDimension
 );
+app.get(
+  "/experiment/:id1/experiment/:id2",
+  experimentsController.getInteractionSnapshot
+);
 app.post("/experiment/:id/snapshot", experimentsController.postSnapshot);
 app.post(
   "/experiment/:id/banditSnapshot",
@@ -524,6 +528,11 @@ app.get("/experiments/snapshots", experimentsController.getSnapshots);
 app.post(
   "/experiments/snapshots/scaled",
   experimentsController.postSnapshotsWithScaledImpactAnalysis
+);
+
+app.post(
+  "/experiments/interaction",
+  experimentsController.postExperimentInteraction
 );
 app.post("/experiment/:id", experimentsController.postExperiment);
 app.delete("/experiment/:id", experimentsController.deleteExperiment);

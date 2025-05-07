@@ -129,7 +129,11 @@ export interface ExperimentSnapshotAnalysisSettings {
   oneSidedIntervals?: boolean;
 }
 
-export type SnapshotType = "standard" | "exploratory" | "report";
+export type SnapshotType =
+  | "standard"
+  | "exploratory"
+  | "report"
+  | "interaction";
 export type SnapshotTriggeredBy = "schedule" | "manual";
 
 export interface ExperimentSnapshotAnalysis {
