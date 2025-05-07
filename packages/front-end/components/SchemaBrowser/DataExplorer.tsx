@@ -149,12 +149,10 @@ export default function DataExplorer({
     setTestingQuery(false);
   }, [runTestQuery, sql]);
 
-  function formatSql() {
-    const formattedSql = format(sql, {
+  function formatSql(sql: string): string {
+    return format(sql, {
       language: "sql",
     });
-
-    setSql(formattedSql);
   }
   return (
     <>
@@ -163,6 +161,7 @@ export default function DataExplorer({
           open={true}
           datasourceType={datasource.type}
           informationSchema={informationSchema}
+          format={(value) => formatSql(value)}
           setSql={(value: string) => {
             setSql(value);
             setShowGenerateQueryModal(false);
@@ -207,7 +206,11 @@ export default function DataExplorer({
                       </span>{" "}
                       Run
                     </Button>
-                    <Button variant="ghost" onClick={formatSql} disabled={!sql}>
+                    <Button
+                      variant="ghost"
+                      onClick={() => setSql(formatSql(sql))}
+                      disabled={!sql}
+                    >
                       Format
                     </Button>
                     <div className="pl-2">
@@ -237,7 +240,7 @@ export default function DataExplorer({
                     minLines={15}
                     setCursorData={setCursorData}
                     onCtrlEnter={handleQuery}
-                    onCtrlS={formatSql}
+                    onCtrlS={() => setSql(formatSql(sql))}
                     resizeDependency={!!testQueryResults}
                     completions={autoCompletions}
                   />

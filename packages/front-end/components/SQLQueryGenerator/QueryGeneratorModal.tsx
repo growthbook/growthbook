@@ -11,6 +11,7 @@ interface QueryGeneratorModalProps {
   informationSchema: InformationSchemaInterface | undefined;
   close: () => void;
   setSql: (value: string) => void;
+  format?: (value: string) => string;
 }
 
 interface GenerateSqlResponse {
@@ -23,11 +24,11 @@ const QueryGeneratorModal: FC<QueryGeneratorModalProps> = ({
   informationSchema,
   close,
   setSql,
+  format,
 }) => {
   const { apiCall } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
-  const [generatedQuery, setGeneratedQuery] = useState<string | null>(null);
 
   const { handleSubmit, register } = useForm({
     defaultValues: {
@@ -48,8 +49,11 @@ const QueryGeneratorModal: FC<QueryGeneratorModalProps> = ({
         }),
       });
 
-      setGeneratedQuery(response.sql);
-      setSql(response.sql);
+      if (format) {
+        setSql(format(response.sql));
+      } else {
+        setSql(response.sql);
+      }
     } catch (e) {
       setError(e.message || "Failed to generate SQL query");
     } finally {
@@ -83,15 +87,6 @@ const QueryGeneratorModal: FC<QueryGeneratorModalProps> = ({
         {...register("naturalLanguage", { required: true })}
         placeholder="Example: Show me the total revenue by product category for the last 30 days"
       />
-
-      {generatedQuery && (
-        <div className="mt-4">
-          <h5>Generated SQL Query:</h5>
-          <pre className="bg-light p-3 rounded">
-            <code>{generatedQuery}</code>
-          </pre>
-        </div>
-      )}
     </Modal>
   );
 };

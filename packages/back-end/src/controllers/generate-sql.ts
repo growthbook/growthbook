@@ -137,20 +137,50 @@ export async function generateSql(
     schemaInfo
       ? `\n\nHere is the available schema information:\n${schemaInfo}`
       : ""
-  }\n\nGenerate ONLY the SQL query, without any explanations or comments. Do not include a semicolon at the end of the query.`;
+  }
+
+Follow these guidelines when generating the SQL:
+1. For intraday tables, prefer using wildcards (e.g., 'events_*') instead of multiple joins
+2. Write efficient queries while maintaining readability
+3. Use appropriate indexes and table structures when available
+4. Avoid unnecessary subqueries or CTEs unless they significantly improve readability
+5. Use table aliases for better readability
+6. Format the query with proper indentation and line breaks
+7. Do not include any markdown formatting or backticks around the entire query
+8. Do not include a semicolon at the end of the query
+9. For table names:
+   - For BigQuery: ALWAYS use backticks (\`) around table names and ALWAYS close them (e.g., \`project.dataset.table\`, \`project.dataset.events_*\`)
+   - Use backticks for table names in MySQL/MariaDB if they contain special characters
+   - Use double quotes for table names in PostgreSQL if they contain special characters
+   - Use square brackets for table names in SQL Server if they contain special characters
+   - For other databases, follow their specific identifier quoting rules
+
+IMPORTANT: For BigQuery, ensure that every table name is properly enclosed in backticks, including wildcard patterns. For example:
+- Correct: FROM \`project.dataset.events_*\`
+- Incorrect: FROM \`project.dataset.events_*
+
+Generate ONLY the SQL query, without any explanations, comments, or markdown formatting.`;
 
   try {
     const completion = await simpleCompletion({
-      behavior:
-        "You are a SQL query generator. Be precise and follow the database schema if provided.",
+      behavior: `You are a SQL query generator specialized in ${datasourceType}. Your task is to generate clean, efficient SQL queries that follow best practices for the specific database type. For BigQuery, you MUST ensure that every table name is properly enclosed in backticks, including wildcard patterns. Never include markdown formatting or backticks around the entire query.`,
       prompt,
       maxTokens: 500,
       temperature: 0,
       organization: req.organization,
     });
 
+    // Clean up any potential markdown formatting
+    const cleanSql = completion
+      .trim()
+      .replace(/^```sql\s*/i, "") // Remove opening ```sql
+      .replace(/```\s*$/i, "") // Remove closing ```
+      .replace(/^`/g, "") // Remove any remaining backticks at start
+      // .replace(/`$/g, "") // Remove any remaining backticks at end
+      .trim();
+
     return res.json({
-      sql: completion.trim(),
+      sql: cleanSql,
     });
   } catch (error) {
     return res.status(500).json({
