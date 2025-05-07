@@ -5,7 +5,15 @@ required:
   - controlValue
   - variationValue
   - hashAttribute
+  - exposureQueryId
+  - guardrailMetricIds
+  - maxDuration
+  - featureId
 properties:
+  id:
+    type: string
+  description:
+    type: string
   condition:
     type: string
   savedGroupTargeting:
@@ -50,6 +58,8 @@ properties:
     type: string
   seed:
     type: string
+  trackingKey:
+    type: string
   hashAttribute:
     type: string
   status:
@@ -59,3 +69,20 @@ properties:
       - "released"
       - "rolled-back"
       - "stopped"
+  datasourceId:
+    type: string
+  exposureQueryId:
+    type: string
+  guardrailMetricIds:
+    type: array
+    items:
+      type: string
+  maxDuration:
+    type: integer
+    description: "Max duration in days"
+  featureId:
+    type: string
+    description: "Feature ID"
+  safeRolloutId:
+    type: string
+    description: "Safe rollout ID"

@@ -2602,6 +2602,8 @@ export interface operations {
                   coverage: number;
                   hashAttribute: string;
                 }) | ({
+                  id?: string;
+                  description?: string;
                   condition?: string;
                   savedGroupTargeting?: ({
                       /** @enum {string} */
@@ -2619,9 +2621,19 @@ export interface operations {
                   controlValue: string;
                   variationValue: string;
                   seed?: string;
+                  trackingKey?: string;
                   hashAttribute: string;
                   /** @enum {string} */
                   status?: "running" | "released" | "rolled-back" | "stopped";
+                  datasourceId?: string;
+                  exposureQueryId: string;
+                  guardrailMetricIds: (string)[];
+                  /** @description Max duration in days */
+                  maxDuration: number;
+                  /** @description Feature ID */
+                  featureId: string;
+                  /** @description Safe rollout ID */
+                  safeRolloutId?: string;
                 }) | ({
                   description?: string;
                   id?: string;
@@ -2724,6 +2736,8 @@ export interface operations {
                     coverage: number;
                     hashAttribute: string;
                   }) | ({
+                    id?: string;
+                    description?: string;
                     condition?: string;
                     savedGroupTargeting?: ({
                         /** @enum {string} */
@@ -2741,9 +2755,19 @@ export interface operations {
                     controlValue: string;
                     variationValue: string;
                     seed?: string;
+                    trackingKey?: string;
                     hashAttribute: string;
                     /** @enum {string} */
                     status?: "running" | "released" | "rolled-back" | "stopped";
+                    datasourceId?: string;
+                    exposureQueryId: string;
+                    guardrailMetricIds: (string)[];
+                    /** @description Max duration in days */
+                    maxDuration: number;
+                    /** @description Feature ID */
+                    featureId: string;
+                    /** @description Safe rollout ID */
+                    safeRolloutId?: string;
                   }) | ({
                     description?: string;
                     id?: string;
@@ -3467,6 +3491,8 @@ export interface operations {
                   coverage: number;
                   hashAttribute: string;
                 }) | ({
+                  id?: string;
+                  description?: string;
                   condition?: string;
                   savedGroupTargeting?: ({
                       /** @enum {string} */
@@ -3484,9 +3510,19 @@ export interface operations {
                   controlValue: string;
                   variationValue: string;
                   seed?: string;
+                  trackingKey?: string;
                   hashAttribute: string;
                   /** @enum {string} */
                   status?: "running" | "released" | "rolled-back" | "stopped";
+                  datasourceId?: string;
+                  exposureQueryId: string;
+                  guardrailMetricIds: (string)[];
+                  /** @description Max duration in days */
+                  maxDuration: number;
+                  /** @description Feature ID */
+                  featureId: string;
+                  /** @description Safe rollout ID */
+                  safeRolloutId?: string;
                 }) | ({
                   description?: string;
                   id?: string;
@@ -3589,6 +3625,8 @@ export interface operations {
                     coverage: number;
                     hashAttribute: string;
                   }) | ({
+                    id?: string;
+                    description?: string;
                     condition?: string;
                     savedGroupTargeting?: ({
                         /** @enum {string} */
@@ -3606,9 +3644,19 @@ export interface operations {
                     controlValue: string;
                     variationValue: string;
                     seed?: string;
+                    trackingKey?: string;
                     hashAttribute: string;
                     /** @enum {string} */
                     status?: "running" | "released" | "rolled-back" | "stopped";
+                    datasourceId?: string;
+                    exposureQueryId: string;
+                    guardrailMetricIds: (string)[];
+                    /** @description Max duration in days */
+                    maxDuration: number;
+                    /** @description Feature ID */
+                    featureId: string;
+                    /** @description Safe rollout ID */
+                    safeRolloutId?: string;
                   }) | ({
                     description?: string;
                     id?: string;

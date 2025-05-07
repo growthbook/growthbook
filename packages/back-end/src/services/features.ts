@@ -35,6 +35,8 @@ import {
   SavedGroupInterface,
 } from "shared/src/types";
 import { clone } from "lodash";
+import { v4 as uuidv4 } from "uuid";
+import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import {
   ApiReqContext,
   AutoExperimentWithProject,
@@ -100,6 +102,7 @@ import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { triggerWebhookJobs } from "back-end/src/jobs/updateAllJobs";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
+import { SafeRolloutRule } from "back-end/src/validators/features";
 import {
   getContextForAgendaJobByOrgObject,
   getEnvironmentIdsFromOrg,
@@ -1587,23 +1590,45 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
         enabled: r.enabled != null ? r.enabled : true,
       };
       return forceRule;
+    } else if (r.type === "rollout") {
+      const rolloutRule: RolloutRule = {
+        // missing id will be filled in by addIdsToRules
+        id: r.id ?? "",
+        type: r.type,
+        coverage: r.coverage,
+        description: r.description ?? "",
+        hashAttribute: r.hashAttribute,
+        value: validateFeatureValue(feature, r.value),
+        condition: r.condition,
+        savedGroups: (r.savedGroupTargeting || []).map((s) => ({
+          ids: s.savedGroups,
+          match: s.matchType,
+        })),
+        enabled: r.enabled != null ? r.enabled : true,
+      };
+      return rolloutRule;
     }
-    const rolloutRule: RolloutRule = {
+    const safeRolloutRule: SafeRolloutRule = {
       // missing id will be filled in by addIdsToRules
       id: r.id ?? "",
       type: r.type,
-      coverage: r.coverage,
       description: r.description ?? "",
       hashAttribute: r.hashAttribute,
-      value: validateFeatureValue(feature, r.value),
+      controlValue: validateFeatureValue(feature, r.controlValue),
+      variationValue: validateFeatureValue(feature, r.variationValue),
+      status: r.status ?? "running",
+      seed: r.seed || uuidv4(),
+      trackingKey:
+        r.trackingKey || `${SAFE_ROLLOUT_TRACKING_KEY_PREFIX}${uuidv4()}`,
       condition: r.condition,
       savedGroups: (r.savedGroupTargeting || []).map((s) => ({
         ids: s.savedGroups,
         match: s.matchType,
       })),
       enabled: r.enabled != null ? r.enabled : true,
+      safeRolloutId: r.safeRolloutId ?? "", // What's the best way to correct the type to know that safeRolloutId should be defined when we call this function?
     };
-    return rolloutRule;
+    return safeRolloutRule;
   });
 
 export const createInterfaceEnvSettingsFromApiEnvSettings = (
