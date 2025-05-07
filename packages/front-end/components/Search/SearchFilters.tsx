@@ -86,9 +86,10 @@ export const FilterMetricSearchModal: FC<{
       const term = filterToString(filter);
       // set the search input value:
       setSearchValue(
-        searchInputProps.value.length > 0
+        (searchInputProps.value.length > 0
           ? searchInputProps.value + " " + term
           : term
+        ).trim()
       );
     },
     [filterToString, searchInputProps.value, setSearchValue]
@@ -104,7 +105,7 @@ export const FilterMetricSearchModal: FC<{
         new RegExp(`${startsWith}(?:"[^"]*"|[^\\s])*`, "g"),
         term
       );
-      setSearchValue(newValue);
+      setSearchValue(newValue.trim());
     },
     [filterToString, searchInputProps, setSearchValue]
   );
@@ -117,7 +118,7 @@ export const FilterMetricSearchModal: FC<{
         new RegExp(`${startsWith}(?:"[^"]*"|[^\\s])*`, "g"),
         ""
       );
-      setSearchValue(newValue);
+      setSearchValue(newValue.trim());
     },
     [searchInputProps.value, setSearchValue]
   );
