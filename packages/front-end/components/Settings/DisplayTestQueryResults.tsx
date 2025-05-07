@@ -46,7 +46,6 @@ export default function DisplayTestQueryResults({
     : undefined;
 
   function convertToCSV(rows: TestQueryRow[]): string {
-    console.log("rows.length", rows.length);
     if (!rows.length) return "";
 
     const headers = Object.keys(rows[0]);
@@ -57,6 +56,49 @@ export default function DisplayTestQueryResults({
           .map((field) => {
             const value = row[field];
             if (value == null) return ""; // null or undefined
+
+            // Handle arrays
+            if (Array.isArray(value)) {
+              const arrayStr = value
+                .map((item) => {
+                  if (typeof item === "object" && item !== null) {
+                    return JSON.stringify(item);
+                  }
+                  return String(item);
+                })
+                .join(";");
+              return `"${arrayStr}"`;
+            }
+
+            // Handle objects (including JSON/JSONB, nested objects, and geographic data)
+            if (typeof value === "object" && value !== null) {
+              return `"${JSON.stringify(value).replace(/"/g, '""')}"`;
+            }
+
+            // Handle dates and timestamps
+            if (value instanceof Date) {
+              return `"${value.toISOString()}"`;
+            }
+
+            // Handle booleans
+            if (typeof value === "boolean") {
+              return `"${value}"`;
+            }
+
+            // Handle numbers (including BigInt)
+            if (typeof value === "number" || typeof value === "bigint") {
+              return `"${value}"`;
+            }
+
+            // Handle binary data (convert to base64)
+            if (value instanceof Uint8Array || value instanceof ArrayBuffer) {
+              const binaryStr = btoa(
+                String.fromCharCode.apply(null, new Uint8Array(value))
+              );
+              return `"${binaryStr}"`;
+            }
+
+            // Default case: handle as string
             const escaped = String(value).replace(/"/g, '""'); // escape double quotes
             return `"${escaped}"`; // quote everything
           })

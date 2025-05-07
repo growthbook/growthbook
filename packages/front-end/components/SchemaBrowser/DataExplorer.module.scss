@@ -2,9 +2,13 @@
   width: calc(100% - 5px);
   max-width: calc(100% - 5px);
   flex: 1;
+  min-height: 100%;
+  overflow: auto;
 }
 .right {
   display: none;
+  min-height: 100%;
+  overflow: auto;
 }
 
 @media (min-width: 997px) {
