@@ -429,14 +429,21 @@ export type QueryResponse<Rows = Record<string, any>[]> = {
   statistics?: QueryStatistics;
 };
 
-export type MetricValueQueryResponse = QueryResponse<MetricValueQueryResponseRows>;
-export type MetricAnalysisQueryResponse = QueryResponse<MetricAnalysisQueryResponseRows>;
-export type PastExperimentQueryResponse = QueryResponse<PastExperimentResponseRows>;
-export type ExperimentMetricQueryResponse = QueryResponse<ExperimentMetricQueryResponseRows>;
-export type ExperimentFactMetricsQueryResponse = QueryResponse<ExperimentFactMetricsQueryResponseRows>;
+export type MetricValueQueryResponse =
+  QueryResponse<MetricValueQueryResponseRows>;
+export type MetricAnalysisQueryResponse =
+  QueryResponse<MetricAnalysisQueryResponseRows>;
+export type PastExperimentQueryResponse =
+  QueryResponse<PastExperimentResponseRows>;
+export type ExperimentMetricQueryResponse =
+  QueryResponse<ExperimentMetricQueryResponseRows>;
+export type ExperimentFactMetricsQueryResponse =
+  QueryResponse<ExperimentFactMetricsQueryResponseRows>;
 export type ExperimentUnitsQueryResponse = QueryResponse;
-export type ExperimentAggregateUnitsQueryResponse = QueryResponse<ExperimentAggregateUnitsQueryResponseRows>;
-export type DimensionSlicesQueryResponse = QueryResponse<DimensionSlicesQueryResponseRows>;
+export type ExperimentAggregateUnitsQueryResponse =
+  QueryResponse<ExperimentAggregateUnitsQueryResponseRows>;
+export type DimensionSlicesQueryResponse =
+  QueryResponse<DimensionSlicesQueryResponseRows>;
 export type DropTableQueryResponse = QueryResponse;
 export type ColumnTopValuesResponse = QueryResponse<
   ColumnTopValuesResponseRow[]
@@ -582,6 +589,7 @@ export interface SourceIntegrationInterface {
     templateVariables?: TemplateVariables
   ): string;
   getTestQuery?(params: TestQueryParams): string;
+  getFreeFormQuery?(query: string, limit?: number): string;
   runTestQuery?(
     sql: string,
     timestampCols?: string[]

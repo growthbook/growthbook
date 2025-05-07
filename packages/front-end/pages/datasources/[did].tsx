@@ -33,6 +33,7 @@ import Badge from "@/components/Radix/Badge";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Callout from "@/components/Radix/Callout";
 import Frame from "@/components/Radix/Frame";
+import DataExplorerModal from "@/components/SchemaBrowser/DataExplorerModal";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -45,14 +46,11 @@ const DataSourcePage: FC = () => {
   const permissionsUtil = usePermissionsUtil();
   const [editConn, setEditConn] = useState(false);
   const [viewSchema, setViewSchema] = useState(false);
+  const [viewDataExplorer, setViewDataExplorer] = useState(false);
   const router = useRouter();
 
-  const {
-    getDatasourceById,
-    mutateDefinitions,
-    ready,
-    error,
-  } = useDefinitions();
+  const { getDatasourceById, mutateDefinitions, ready, error } =
+    useDefinitions();
   const { did } = router.query as { did: string };
   const d = getDatasourceById(did);
   const { apiCall } = useAuth();
@@ -200,6 +198,18 @@ const DataSourcePage: FC = () => {
                   }}
                 >
                   View Schema Browser
+                </a>
+              )}
+              {d?.properties?.supportsInformationSchema && (
+                <a
+                  href="#"
+                  className="dropdown-item"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setViewDataExplorer(true);
+                  }}
+                >
+                  View Data Explorer
                 </a>
               )}
               <Link
@@ -398,6 +408,12 @@ mixpanel.init('YOUR PROJECT TOKEN', {
           onCancel={() => {
             setEditConn(false);
           }}
+        />
+      )}
+      {viewDataExplorer && (
+        <DataExplorerModal
+          datasource={d}
+          close={() => setViewDataExplorer(false)}
         />
       )}
       {viewSchema && (

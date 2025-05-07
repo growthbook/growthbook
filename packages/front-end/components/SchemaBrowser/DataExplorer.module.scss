@@ -1,0 +1,23 @@
+.left {
+  width: calc(100% - 5px);
+  max-width: calc(100% - 5px);
+  flex: 1;
+}
+.right {
+  display: none;
+}
+
+@media (min-width: 997px) {
+  .with-schema-browser {
+    .left {
+      width: calc(100% - 350px);
+      max-width: calc(100% - 350px);
+    }
+    .right {
+      width: 350px;
+      min-width: 350px;
+      max-width: 350px;
+      display: block;
+    }
+  }
+}

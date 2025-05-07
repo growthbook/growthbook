@@ -1,4 +1,6 @@
 import { FaCheck, FaExclamationTriangle } from "react-icons/fa";
+import { TestQueryRow } from "back-end/src/types/Integration";
+import { Flex } from "@radix-ui/themes";
 import Code from "@/components/SyntaxHighlighting/Code";
 import {
   Tabs,
@@ -6,6 +8,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/Radix/Tabs";
+import Button from "../Radix/Button";
 
 export type Props = {
   results: Record<string, unknown>[];
@@ -14,6 +17,9 @@ export type Props = {
   error: string;
   close: () => void;
   expandable?: boolean;
+  allowDownloads?: boolean;
+  header?: string;
+  dismissable?: boolean;
 };
 
 export default function DisplayTestQueryResults({
@@ -23,6 +29,9 @@ export default function DisplayTestQueryResults({
   error,
   close,
   expandable,
+  allowDownloads = false,
+  header,
+  dismissable = true,
 }: Props) {
   const cols = Object.keys(results?.[0] || {});
 
@@ -36,6 +45,49 @@ export default function DisplayTestQueryResults({
     ? Number(errorLineMatch[1] || errorLineMatch[2])
     : undefined;
 
+  function convertToCSV(rows: TestQueryRow[]): string {
+    console.log("rows.length", rows.length);
+    if (!rows.length) return "";
+
+    const headers = Object.keys(rows[0]);
+    const csv = [
+      headers.join(","), // header row
+      ...rows.map((row) =>
+        headers
+          .map((field) => {
+            const value = row[field];
+            if (value == null) return ""; // null or undefined
+            const escaped = String(value).replace(/"/g, '""'); // escape double quotes
+            return `"${escaped}"`; // quote everything
+          })
+          .join(",")
+      ),
+    ].join("\n");
+
+    return csv;
+  }
+
+  function downloadCSVFile(csv: string, filename: string = "results.csv") {
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  function handleDownload() {
+    const csv = convertToCSV(results);
+    if (!csv) {
+      alert("No data to export.");
+      return;
+    }
+    downloadCSVFile(csv);
+  }
+
   return (
     <Tabs
       defaultValue={forceShowSql ? "sql" : "results"}
@@ -44,20 +96,22 @@ export default function DisplayTestQueryResults({
       <TabsList>
         {!forceShowSql && <TabsTrigger value="results">Results</TabsTrigger>}
         <TabsTrigger value="sql">Rendered SQL</TabsTrigger>
-        <div className="flex-grow-1">
-          <button
-            type="button"
-            className="close"
-            style={{ padding: "0.3rem 1rem" }}
-            onClick={(e) => {
-              e.preventDefault();
-              close();
-            }}
-            aria-label="Close"
-          >
-            <span aria-hidden="true">×</span>
-          </button>
-        </div>
+        {dismissable ? (
+          <div className="flex-grow-1">
+            <button
+              type="button"
+              className="close"
+              style={{ padding: "0.3rem 1rem" }}
+              onClick={(e) => {
+                e.preventDefault();
+                close();
+              }}
+              aria-label="Close"
+            >
+              <span aria-hidden="true">×</span>
+            </button>
+          </div>
+        ) : null}
       </TabsList>
 
       {!forceShowSql && (
@@ -65,10 +119,16 @@ export default function DisplayTestQueryResults({
           value="results"
           style={{ display: "flex", flexDirection: "column", height: "100%" }}
         >
+          {allowDownloads ? (
+            <Flex className="pt-2" justify="end">
+              <Button onClick={() => handleDownload()}>Download CSV</Button>
+            </Flex>
+          ) : null}
+
           <div className="border mt-2 rounded p-2 bg-light">
             <div className="row">
               <div className="col-auto">
-                <strong>Sample {results?.length} Rows</strong>
+                <strong>{header || `Sample ${results?.length} Rows`}</strong>
               </div>
               <div className="col-auto ml-auto">
                 <div className="text-success">

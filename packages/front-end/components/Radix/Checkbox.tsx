@@ -66,7 +66,7 @@ export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
     <TooltipWrapper>
       <Text
         ref={ref}
-        as="label"
+        as="span"
         size="2"
         className={clsx("rt-CheckboxItem", {
           "rt-TextDisabled": disabled,
