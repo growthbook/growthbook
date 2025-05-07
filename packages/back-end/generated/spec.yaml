@@ -357,7 +357,7 @@ paths:
                                     - force
                                 value:
                                   type: string
-                            - title: Safe Rollout Rule
+                            - title: Rollout Rule
                               type: object
                               required:
                                 - type
@@ -417,7 +417,7 @@ paths:
                                   description: Percent of traffic included in this experiment. Users not included in the experiment will skip this rule.
                                 hashAttribute:
                                   type: string
-                            - title: Rollout Rule
+                            - title: Safe Rollout Rule
                               type: object
                               required:
                                 - enabled
