@@ -276,7 +276,7 @@ export const FilterMetricSearchModal: FC<{
             }}
           >
             <Box className="position-relative">
-              {doesFilterExist("project", p.name, "=") ? (
+              {doesFilterExist("project", p.name, "") ? (
                 <Box
                   className="position-absolute"
                   style={{ left: "-2px", fontSize: "0.8rem" }}
@@ -325,7 +325,7 @@ export const FilterMetricSearchModal: FC<{
             }}
           >
             <Box className="position-relative">
-              {doesFilterExist("owner", o, "=") ? (
+              {doesFilterExist("owner", o, "") ? (
                 <Box
                   className="position-absolute"
                   style={{ left: "-2px", fontSize: "0.8rem" }}
