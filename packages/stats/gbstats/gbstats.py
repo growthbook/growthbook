@@ -700,12 +700,38 @@ def process_analysis(
         keep_other=keep_other,
     )
 
+
     # Run the analysis for each variation and dimension
     result = analyze_metric_df(
         df=reduced,
         metric=metric,
         analysis=analysis,
     )
+    if analysis.interaction_dimensions:
+        keepers = []
+        for s in analysis.var_names:
+            starts_with_int = s[0].isdigit() if s else False
+        ends_with_int = s[-1].isdigit() if s else False
+        keepers.append(starts_with_int and ends_with_int)
+        num_tests = np.min(1, sum(keepers) - 1)
+        from scipy.stats import norm
+        multiplier_current = norm.ppf(1 - analysis.alpha / 2)
+        multiplier_updated = norm.ppf(1 - analysis.alpha / (2 * num_tests))
+
+        for col in result.columns:
+            if col.endswith("_ci"):
+                ci = result[col][0]
+                lower = ci[0]
+                upper = ci[1]
+                point = 0.5 * (lower + upper)
+                width_current = upper - lower
+                width_updated = width_current * multiplier_updated / multiplier_current
+                lower_updated = point - width_updated
+                upper_updated = point + width_updated
+                result.at[0, col] = [lower_updated, upper_updated]
+                #result[col] = [lower_updated, upper_updated]
+        #         result[col] = str([lower_updated, upper_updated])
+        # result.to_csv("/Users/lukesmith/Desktop/result_updated.csv")
 
     return result
 

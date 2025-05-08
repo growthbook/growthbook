@@ -72,6 +72,11 @@ export interface AnalysisSettingsForStatsEngine {
   traffic_percentage: number;
   num_goal_metrics: number;
   one_sided_intervals?: boolean;
+  interaction_dimensions?: {
+    dimension: string;
+    variation_names: string[];
+    variation_weights: number[];
+  }[];
 }
 
 export interface BanditSettingsForStatsEngine {
@@ -194,6 +199,11 @@ export function getAnalysisSettingsForStatsEngine(
     traffic_percentage: coverage,
     num_goal_metrics: settings.numGoalMetrics,
     one_sided_intervals: !!settings.oneSidedIntervals,
+    interaction_dimensions: settings.interactionDimensions?.map((d) => ({
+      dimension: d.dimension,
+      variation_names: d.variationNames,
+      variation_weights: d.varationWeights,
+    })),
   };
 
   return analysisData;
@@ -290,6 +300,8 @@ function createStatsEngineData(
     queryResults,
     banditSettings,
   } = params;
+
+  
 
   const phaseLengthDays = Number(phaseLengthHours / 24);
 

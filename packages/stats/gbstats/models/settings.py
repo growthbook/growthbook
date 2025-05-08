@@ -12,6 +12,12 @@ BusinessMetricType = Literal["goal", "guardrail", "secondary"]
 
 
 @dataclass
+class InteractionDimension:
+    dimension: str
+    variation_names: List[str]
+    variation_weights: List[float]
+
+@dataclass
 class AnalysisSettingsForStatsEngine:
     var_names: List[str]
     var_ids: List[str]
@@ -29,6 +35,7 @@ class AnalysisSettingsForStatsEngine:
     traffic_percentage: float = 1
     num_goal_metrics: int = 1
     one_sided_intervals: bool = False
+    interaction_dimensions: Optional[List[InteractionDimension]] = None
 
 
 @dataclass
