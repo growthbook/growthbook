@@ -35,6 +35,7 @@ import {
   removeMongooseFields,
   ToInterface,
 } from "back-end/src/util/mongo.util";
+import { experimentReportSchema } from "back-end/src/enterprise/models/ExperimentReportModel";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";
@@ -287,6 +288,7 @@ const experimentSchema = new mongoose.Schema({
     },
   },
   dismissedWarnings: [String],
+  reports: [experimentReportSchema],
 });
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;

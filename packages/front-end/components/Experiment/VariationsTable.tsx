@@ -71,6 +71,7 @@ const ScreenshotCarousel: FC<{
 
 interface Props {
   experiment: ExperimentInterfaceStringDates;
+  variationsList?: string[];
   canEditExperiment: boolean;
   // for some experiments, screenshots don't make sense - this is for a future state where you can mark exp as such.
   allowImages?: boolean;
@@ -79,6 +80,7 @@ interface Props {
 
 const VariationsTable: FC<Props> = ({
   experiment,
+  variationsList,
   canEditExperiment,
   allowImages = true,
   mutate,
@@ -136,109 +138,112 @@ const VariationsTable: FC<Props> = ({
           md: cols.toString(),
         }}
       >
-        {variations.map((v, i) => (
-          <Box
-            key={i}
-            p="5"
-            pb="3"
-            className={`appbox mb-0 position-relative variation variation${i} with-variation-label`}
-          >
+        {variations.map((v, i) =>
+          // TODO: more readable logic
+          (variationsList || variations.map((v) => v.id)).includes(v.id) ? (
             <Box
-              className={`variation variation${i} with-variation-color`}
-              style={{
-                position: "absolute",
-                left: 0,
-                top: 0,
-                right: 0,
-                height: "6px",
-              }}
-            />
-            <Flex gap="2" direction="column" justify="between" height="100%">
-              <Box>
-                <Box mb="3">
-                  <Flex gap="0">
-                    <Box className="">
-                      <span className="circle-label label">{i}</span>
+              key={i}
+              p="5"
+              pb="3"
+              className={`appbox mb-0 position-relative variation variation${i} with-variation-label`}
+            >
+              <Box
+                className={`variation variation${i} with-variation-color`}
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  top: 0,
+                  right: 0,
+                  height: "6px",
+                }}
+              />
+              <Flex gap="2" direction="column" justify="between" height="100%">
+                <Box>
+                  <Box mb="3">
+                    <Flex gap="0">
+                      <Box className="">
+                        <span className="circle-label label">{i}</span>
+                      </Box>
+                      <Heading as="h4" size="3" mb="0">
+                        {v.name}
+                      </Heading>
+                    </Flex>
+                  </Box>
+                  {allowImages && (
+                    <Box>
+                      {v.screenshots.length > 0 ? (
+                        <ScreenshotCarousel
+                          key={i}
+                          variation={v}
+                          maxChildHeight={maxImageHeight}
+                          onClick={(j) => {
+                            setOpenCarousel({ variationId: v.id, index: j });
+                          }}
+                        />
+                      ) : (
+                        <>
+                          {canEditExperiment ? (
+                            <>
+                              <ScreenshotUpload
+                                variation={i}
+                                experiment={experiment.id}
+                                onSuccess={() => mutate?.()}
+                              >
+                                {noImageBox()}
+                              </ScreenshotUpload>
+                            </>
+                          ) : (
+                            <>{noImageBox()}</>
+                          )}
+                        </>
+                      )}
                     </Box>
-                    <Heading as="h4" size="3" mb="0">
-                      {v.name}
-                    </Heading>
-                  </Flex>
+                  )}
                 </Box>
-                {allowImages && (
-                  <Box>
-                    {v.screenshots.length > 0 ? (
-                      <ScreenshotCarousel
-                        key={i}
-                        variation={v}
-                        maxChildHeight={maxImageHeight}
-                        onClick={(j) => {
-                          setOpenCarousel({ variationId: v.id, index: j });
-                        }}
-                      />
-                    ) : (
-                      <>
-                        {canEditExperiment ? (
-                          <>
+                <Box>
+                  {hasDescriptions ? <Box>{v.description}</Box> : null}
+                  {hasUniqueIDs ? (
+                    <code className="small">ID: {v.key}</code>
+                  ) : null}
+                  <Flex align="center" justify="between">
+                    <Box>
+                      {experiment.type !== "multi-armed-bandit" &&
+                      percentages?.[i] !== undefined ? (
+                        <Box>Split: {percentages[i].toFixed(0)}%</Box>
+                      ) : null}
+                    </Box>
+                    {allowImages && (
+                      <Flex align="center" justify="end" gap="2">
+                        {v.screenshots.length > 0 ? (
+                          <Text className="text-muted">
+                            {v.screenshots.length} image
+                            {v.screenshots.length > 1 ? "s" : ""}
+                          </Text>
+                        ) : null}
+                        {canEditExperiment && (
+                          <div>
                             <ScreenshotUpload
                               variation={i}
                               experiment={experiment.id}
                               onSuccess={() => mutate?.()}
                             >
-                              {noImageBox()}
+                              <Button
+                                variant="ghost"
+                                style={{ padding: 0, margin: 0 }}
+                              >
+                                Add{v.screenshots.length > 0 ? "" : " image"}
+                              </Button>
                             </ScreenshotUpload>
-                          </>
-                        ) : (
-                          <>{noImageBox()}</>
+                          </div>
                         )}
-                      </>
+                      </Flex>
                     )}
-                  </Box>
-                )}
-              </Box>
-              <Box>
-                {hasDescriptions ? <Box>{v.description}</Box> : null}
-                {hasUniqueIDs ? (
-                  <code className="small">ID: {v.key}</code>
-                ) : null}
-                <Flex align="center" justify="between">
-                  <Box>
-                    {experiment.type !== "multi-armed-bandit" &&
-                    percentages?.[i] !== undefined ? (
-                      <Box>Split: {percentages[i].toFixed(0)}%</Box>
-                    ) : null}
-                  </Box>
-                  {allowImages && (
-                    <Flex align="center" justify="end" gap="2">
-                      {v.screenshots.length > 0 ? (
-                        <Text className="text-muted">
-                          {v.screenshots.length} image
-                          {v.screenshots.length > 1 ? "s" : ""}
-                        </Text>
-                      ) : null}
-                      {canEditExperiment && (
-                        <div>
-                          <ScreenshotUpload
-                            variation={i}
-                            experiment={experiment.id}
-                            onSuccess={() => mutate?.()}
-                          >
-                            <Button
-                              variant="ghost"
-                              style={{ padding: 0, margin: 0 }}
-                            >
-                              Add{v.screenshots.length > 0 ? "" : " image"}
-                            </Button>
-                          </ScreenshotUpload>
-                        </div>
-                      )}
-                    </Flex>
-                  )}
-                </Flex>
-              </Box>
-            </Flex>
-          </Box>
-        ))}
+                  </Flex>
+                </Box>
+              </Flex>
+            </Box>
+          ) : null
+        )}
       </Grid>
       {openCarousel && (
         <ExperimentCarouselModal
