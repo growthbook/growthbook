@@ -111,7 +111,7 @@ Triggered when a feature is created
                         }[];
                         experimentId: string;
                     } | {
-                        condition: string;
+                        condition?: string | undefined;
                         savedGroupTargeting?: {
                             matchType: "all" | "any" | "none";
                             savedGroups: string[];
@@ -122,15 +122,15 @@ Triggered when a feature is created
                             condition: string;
                         }[] | undefined;
                         id: string;
-                        trackingKey?: string | undefined;
+                        trackingKey: string;
                         enabled: boolean;
                         type: "safe-rollout";
                         controlValue: string;
                         variationValue: string;
-                        seed?: string | undefined;
-                        hashAttribute?: string | undefined;
-                        safeRolloutId?: string | undefined;
-                        status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
+                        seed: string;
+                        hashAttribute: string;
+                        safeRolloutId: string;
+                        status: "running" | "released" | "rolled-back" | "stopped";
                     })[];
                     /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string | undefined;
@@ -201,7 +201,7 @@ Triggered when a feature is created
                             }[];
                             experimentId: string;
                         } | {
-                            condition: string;
+                            condition?: string | undefined;
                             savedGroupTargeting?: {
                                 matchType: "all" | "any" | "none";
                                 savedGroups: string[];
@@ -212,15 +212,15 @@ Triggered when a feature is created
                                 condition: string;
                             }[] | undefined;
                             id: string;
-                            trackingKey?: string | undefined;
+                            trackingKey: string;
                             enabled: boolean;
                             type: "safe-rollout";
                             controlValue: string;
                             variationValue: string;
-                            seed?: string | undefined;
-                            hashAttribute?: string | undefined;
-                            safeRolloutId?: string | undefined;
-                            status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
+                            seed: string;
+                            hashAttribute: string;
+                            safeRolloutId: string;
+                            status: "running" | "released" | "rolled-back" | "stopped";
                         })[];
                         /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                         definition?: string | undefined;
@@ -347,7 +347,7 @@ Triggered when a feature is updated
                         }[];
                         experimentId: string;
                     } | {
-                        condition: string;
+                        condition?: string | undefined;
                         savedGroupTargeting?: {
                             matchType: "all" | "any" | "none";
                             savedGroups: string[];
@@ -358,15 +358,15 @@ Triggered when a feature is updated
                             condition: string;
                         }[] | undefined;
                         id: string;
-                        trackingKey?: string | undefined;
+                        trackingKey: string;
                         enabled: boolean;
                         type: "safe-rollout";
                         controlValue: string;
                         variationValue: string;
-                        seed?: string | undefined;
-                        hashAttribute?: string | undefined;
-                        safeRolloutId?: string | undefined;
-                        status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
+                        seed: string;
+                        hashAttribute: string;
+                        safeRolloutId: string;
+                        status: "running" | "released" | "rolled-back" | "stopped";
                     })[];
                     /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string | undefined;
@@ -437,7 +437,7 @@ Triggered when a feature is updated
                             }[];
                             experimentId: string;
                         } | {
-                            condition: string;
+                            condition?: string | undefined;
                             savedGroupTargeting?: {
                                 matchType: "all" | "any" | "none";
                                 savedGroups: string[];
@@ -448,15 +448,15 @@ Triggered when a feature is updated
                                 condition: string;
                             }[] | undefined;
                             id: string;
-                            trackingKey?: string | undefined;
+                            trackingKey: string;
                             enabled: boolean;
                             type: "safe-rollout";
                             controlValue: string;
                             variationValue: string;
-                            seed?: string | undefined;
-                            hashAttribute?: string | undefined;
-                            safeRolloutId?: string | undefined;
-                            status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
+                            seed: string;
+                            hashAttribute: string;
+                            safeRolloutId: string;
+                            status: "running" | "released" | "rolled-back" | "stopped";
                         })[];
                         /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                         definition?: string | undefined;
@@ -551,7 +551,7 @@ Triggered when a feature is updated
                         }[];
                         experimentId: string;
                     } | {
-                        condition: string;
+                        condition?: string | undefined;
                         savedGroupTargeting?: {
                             matchType: "all" | "any" | "none";
                             savedGroups: string[];
@@ -562,15 +562,15 @@ Triggered when a feature is updated
                             condition: string;
                         }[] | undefined;
                         id: string;
-                        trackingKey?: string | undefined;
+                        trackingKey: string;
                         enabled: boolean;
                         type: "safe-rollout";
                         controlValue: string;
                         variationValue: string;
-                        seed?: string | undefined;
-                        hashAttribute?: string | undefined;
-                        safeRolloutId?: string | undefined;
-                        status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
+                        seed: string;
+                        hashAttribute: string;
+                        safeRolloutId: string;
+                        status: "running" | "released" | "rolled-back" | "stopped";
                     })[];
                     /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string | undefined;
@@ -641,7 +641,7 @@ Triggered when a feature is updated
                             }[];
                             experimentId: string;
                         } | {
-                            condition: string;
+                            condition?: string | undefined;
                             savedGroupTargeting?: {
                                 matchType: "all" | "any" | "none";
                                 savedGroups: string[];
@@ -652,15 +652,15 @@ Triggered when a feature is updated
                                 condition: string;
                             }[] | undefined;
                             id: string;
-                            trackingKey?: string | undefined;
+                            trackingKey: string;
                             enabled: boolean;
                             type: "safe-rollout";
                             controlValue: string;
                             variationValue: string;
-                            seed?: string | undefined;
-                            hashAttribute?: string | undefined;
-                            safeRolloutId?: string | undefined;
-                            status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
+                            seed: string;
+                            hashAttribute: string;
+                            safeRolloutId: string;
+                            status: "running" | "released" | "rolled-back" | "stopped";
                         })[];
                         /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                         definition?: string | undefined;
@@ -787,7 +787,7 @@ Triggered when a feature is deleted
                         }[];
                         experimentId: string;
                     } | {
-                        condition: string;
+                        condition?: string | undefined;
                         savedGroupTargeting?: {
                             matchType: "all" | "any" | "none";
                             savedGroups: string[];
@@ -798,15 +798,15 @@ Triggered when a feature is deleted
                             condition: string;
                         }[] | undefined;
                         id: string;
-                        trackingKey?: string | undefined;
+                        trackingKey: string;
                         enabled: boolean;
                         type: "safe-rollout";
                         controlValue: string;
                         variationValue: string;
-                        seed?: string | undefined;
-                        hashAttribute?: string | undefined;
-                        safeRolloutId?: string | undefined;
-                        status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
+                        seed: string;
+                        hashAttribute: string;
+                        safeRolloutId: string;
+                        status: "running" | "released" | "rolled-back" | "stopped";
                     })[];
                     /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string | undefined;
@@ -877,7 +877,7 @@ Triggered when a feature is deleted
                             }[];
                             experimentId: string;
                         } | {
-                            condition: string;
+                            condition?: string | undefined;
                             savedGroupTargeting?: {
                                 matchType: "all" | "any" | "none";
                                 savedGroups: string[];
@@ -888,15 +888,15 @@ Triggered when a feature is deleted
                                 condition: string;
                             }[] | undefined;
                             id: string;
-                            trackingKey?: string | undefined;
+                            trackingKey: string;
                             enabled: boolean;
                             type: "safe-rollout";
                             controlValue: string;
                             variationValue: string;
-                            seed?: string | undefined;
-                            hashAttribute?: string | undefined;
-                            safeRolloutId?: string | undefined;
-                            status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
+                            seed: string;
+                            hashAttribute: string;
+                            safeRolloutId: string;
+                            status: "running" | "released" | "rolled-back" | "stopped";
                         })[];
                         /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                         definition?: string | undefined;

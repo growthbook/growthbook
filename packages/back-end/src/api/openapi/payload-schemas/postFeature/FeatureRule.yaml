@@ -3,6 +3,8 @@ anyOf:
     title: "Force Rule"
   - $ref: "./FeatureRolloutRule.yaml"
     title: "Rollout Rule"
+  - $ref: "./FeatureSafeRolloutRule.yaml"
+    title: "Safe Rollout Rule"
   - $ref: "./FeatureExperimentRefRule.yaml"
     title: "Experiment Rule"
   - $ref: "./FeatureExperimentRule.yaml"
