@@ -438,21 +438,19 @@ export class ExperimentInteractionQueryRunner extends QueryRunner<
     });
 
     if (mainResultsExp1 && mainResultsExp2) {
-      const analysis = result.mainAnalyses[0];
+      const analysis1 = result.mainAnalyses[0];
       const mainResult1 = mainResultsExp1[0];
-      if (analysis) {
-        analysis.results = mainResult1.dimensions || [];
-        analysis.status = "success";
-        analysis.error = "";
+      if (analysis1) {
+        analysis1.results = mainResult1.dimensions || [];
+        analysis1.status = "success";
+        analysis1.error = "";
       }
-    }
-    if (mainResultsExp2) {
-      const analysis = result.mainAnalyses[1];
+      const analysis2 = result.mainAnalyses[1];
       const mainResult2 = mainResultsExp2[0];
-      if (analysis) {
-        analysis.results = mainResult2.dimensions || [];
-        analysis.status = "success";
-        analysis.error = "";
+      if (analysis2) {
+        analysis2.results = mainResult2.dimensions || [];
+        analysis2.status = "success";
+        analysis2.error = "";
       }
     }
 

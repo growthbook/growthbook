@@ -3576,6 +3576,21 @@ input:disabled {
     text-align: center;
     vertical-align: middle;
   }
+  .axis-cell-data {
+    box-shadow: none;
+    padding: 12px;
+    min-width: 80px;
+    min-height: 80px;
+    text-align: center;
+    align-items: center;
+    vertical-align: middle;
+    &.winning {
+      color: colors.$success;
+    }
+    &.losing {
+      color: colors.$danger;
+    }
+  }
   .axis-cell-vertical {
     writing-mode: vertical-rl;
     transform: rotate(180deg);

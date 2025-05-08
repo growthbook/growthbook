@@ -9,7 +9,7 @@ import {
   DEFAULT_TARGET_MDE,
   EXPOSURE_DATE_DIMENSION_NAME,
 } from "shared/constants";
-import { putBaselineVariationFirst } from "shared/util";
+import { isDefined, putBaselineVariationFirst } from "shared/util";
 import {
   ExperimentMetricInterface,
   isBinomialMetric,
@@ -313,6 +313,7 @@ function createStatsEngineData(
 export async function runSnapshotAnalysis(
   params: ExperimentMetricAnalysisParams
 ): Promise<{ results: ExperimentMetricAnalysis; banditResult?: BanditResult }> {
+  console.dir(createStatsEngineData(params), { depth: null });
   const analysis: MultipleExperimentMetricAnalysis | undefined = (
     await runStatsEngine([
       { id: params.id, data: createStatsEngineData(params) },
@@ -769,17 +770,45 @@ export async function analyzeMainResults({
     metricMap,
     snapshotSettings
   );
-  const { queryResults, metricSettings } = mdat;
+  const { queryResults: _queryResults, metricSettings } = mdat;
   const { unknownVariations } = mdat;
 
   // mess with variation names and `variation` column
-  queryResults.forEach((q) => {
-    q.rows.forEach((r) => {
-      const expKey = r.variation.split("___GBINTERACTION___")[experimentNumber];
-      // TODO nulls
-      r.variation = expKey ?? r.variation;
-    });
+  const cleanedQueryResults: QueryResultsForStatsEngine[] = _queryResults.map((q) => {
+    return {
+      ...q,
+      rows: q.rows.map((r) => {
+      const expKey = r.variation.split("___GBINTERACTION___")[experimentNumber - 1];
+      const otherExpKey = r.variation.split("___GBINTERACTION___")[(experimentNumber === 1 ? 2 : 1) - 1];
+      if (otherExpKey !== "__GBNULLVARIATION__") {
+        return {
+          ...r,
+            variation: expKey ?? r.variation,
+          }
+        }
+      }).filter(isDefined),
+    }
   });
+
+  const variations: ExperimentReportVariation[] = []
+
+  variationNames.forEach((v) => {
+    const variation = {
+      id: v.split("___GBINTERACTION___")[experimentNumber - 1],
+      name: v.split("___GBINTERACTION___")[experimentNumber - 1],
+      weight: 0.1, // TODO
+    }
+    if (variation.id === "__GBNULLVARIATION__") {
+      return;
+    }
+    if (!variations.find(v => v.id === variation.id)) {
+      console.log("VARIATIONHELLO");
+      console.log(variations);
+      console.log(variation);
+      variations.push(variation);
+    }
+  });
+
   const params: ExperimentMetricAnalysisParams = {
     id: snapshotSettings.experimentId,
     coverage: snapshotSettings.coverage ?? 1,
@@ -787,13 +816,9 @@ export async function analyzeMainResults({
       hoursBetween(snapshotSettings.startDate, snapshotSettings.endDate),
       1
     ),
-    variations: variationNames.map((v, i) => ({
-      id: v,
-      name: v,
-      weight: 0.1, // TODO
-    })),
+    variations,
     analyses: analysisSettings,
-    queryResults: queryResults,
+    queryResults: cleanedQueryResults,
     metrics: metricSettings,
     banditSettings: snapshotSettings.banditSettings,
   };
@@ -803,7 +828,7 @@ export async function analyzeMainResults({
   const results = parseStatsEngineResult({
     analysisSettings,
     snapshotSettings,
-    queryResults,
+    queryResults: cleanedQueryResults,
     unknownVariations,
     result: analysis,
   });

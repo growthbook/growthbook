@@ -537,7 +537,8 @@ export async function getInteractionSnapshot(
   const latest = await context.models.interactionSnapshots.getLatestInteractionSnapshot(
     context,
     id1,
-    id2
+    id2,
+    false
   );
 
   res.status(200).json({
@@ -2341,6 +2342,7 @@ export async function createExperimentInteractionSnapshot({
     regressionAdjustmentEnabled,
     undefined // TODO
   );
+  console.log(analysisSettings);
 
   const factTableMap = await getFactTableMap(context);
 

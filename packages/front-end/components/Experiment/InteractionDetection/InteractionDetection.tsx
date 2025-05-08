@@ -35,6 +35,10 @@ import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefa
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import { InteractionSnapshotAnalysis, InteractionSnapshotInterface } from "back-end/types/interaction-snapshot";
+import VennDiagram, { Segment } from "@/components/VennDiagram/VennDiagram";
+
+// Define a list of colors for the segments
+const SEGMENT_COLORS = ["#8884d8", "#82ca9d", "#ffc658", "#ff8042", "#0088FE", "#00C49F"];
 
 function getVariationData({
   statistic,
@@ -87,6 +91,146 @@ function getVariationData({
       </div>
     );
   };
+
+  // Helper function to generate overall cell values for an axis
+  const generateAxisOverallCellValues = (
+    currentMainAnalysis: ExperimentSnapshotAnalysis | undefined,
+    statsEngineForThisAnalysis: StatsEngine
+  ): (JSX.Element | undefined)[] => {
+    const analysisVariations = currentMainAnalysis?.results?.[0]?.variations;
+    if (!analysisVariations) {
+      return []; // Return empty array if no data, caller should handle missing indices
+    }
+
+    const baselineMetricData = analysisVariations[0]?.metrics[metric.id];
+
+    return analysisVariations.map((analysisVariationData, index) => {
+      const metricResults = analysisVariationData.metrics[metric.id];
+
+      if (!metricResults || !baselineMetricData) {
+        return undefined;
+      }
+
+      const resultsStatus = getMetricResultStatus({
+        metric,
+        metricDefaults,
+        baseline: baselineMetricData,
+        stats: metricResults,
+        ciLower,
+        ciUpper,
+        pValueThreshold,
+        statsEngine: statsEngineForThisAnalysis, // Use the specific stats engine for this main analysis
+      });
+      const value =
+        statistic === "expected" ? metricResults.expected : metricResults.cr;
+      const formatter =
+        statistic === "expected"
+          ? formatPercent
+          : getExperimentMetricFormatter(metric, getFactTableById, "percentage");
+
+      if (value !== undefined || index === 0) {
+        return (
+          <Flex direction={"column"}>
+            <Text
+              className={clsx("results-change", {
+                [resultsStatus.directionalStatus]:
+                  resultsStatus.significant && metricResults.expected !== undefined,
+              })}
+            >
+              {index === 0 && statistic === "expected" || value === undefined
+                ? formatter(0)
+                : formatter(value)}
+            </Text>
+            <Text className="text-muted small-units-text">
+              {metricResults.users} units
+            </Text>
+          </Flex>
+        );
+      }
+      return undefined;
+    });
+  };
+
+  // Helper function to generate data cells for the table body
+  const generateTableDataCells = (
+    jointAnalysisResults: InteractionSnapshotAnalysis['results'],
+    interactionVariationNames: string[]
+  ): TwoAxisTableProps['data'] => {
+    const cells: TwoAxisTableProps['data'] = [];
+    const jointMainAnalysisDimension = jointAnalysisResults?.[0];
+
+    if (jointMainAnalysisDimension && jointMainAnalysisDimension.variations) {
+      const baselineMetricData = jointMainAnalysisDimension.variations[0]?.metrics[metric.id];
+
+      jointMainAnalysisDimension.variations.forEach((analysisVariationData, index) => {
+        const metricResults = analysisVariationData.metrics[metric.id];
+        if (!metricResults || !baselineMetricData) return;
+
+        const interactionVariationName = interactionVariationNames[index];
+        if (!interactionVariationName) return;
+
+        const exp1VariationKey = interactionVariationName.split("___GBINTERACTION___")[0];
+        const exp2VariationKey = interactionVariationName.split("___GBINTERACTION___")[1];
+
+        const exp1Variation = experiment1.variations.find(
+          (vExp) => vExp.key === exp1VariationKey
+        );
+        const exp2Variation = experiment2.variations.find(
+          (vExp) => vExp.key === exp2VariationKey
+        );
+
+        const resultsStatus = getMetricResultStatus({
+          metric,
+          metricDefaults,
+          baseline: baselineMetricData,
+          stats: metricResults,
+          ciLower,
+          ciUpper,
+          pValueThreshold,
+          statsEngine, // Use the joint statsEngine passed to getVariationData
+        });
+        const value =
+          statistic === "expected" ? metricResults.expected : metricResults.cr;
+        const formatter =
+          statistic === "expected"
+            ? formatPercent
+            : getExperimentMetricFormatter(metric, getFactTableById, "percentage");
+
+        cells.push({
+          id: `${index}`,
+          rowAxisValueId: exp1Variation?.id ?? "",
+          columnAxisValueId: exp2Variation?.id ?? "",
+          value: (
+            <Flex direction={"column"}>
+              {value !== undefined ? (
+                <Text>{formatter(value)}</Text>
+              ) : (
+                <Text>0%</Text>
+              )}
+              <Text className="text-muted small-units-text">
+                {metricResults.users} units
+              </Text>
+            </Flex>
+          ),
+          className: clsx("results-change", {
+            [resultsStatus.directionalStatus]:
+              resultsStatus.significant && metricResults.expected !== undefined,
+          }),
+        });
+      });
+    }
+    return cells;
+  };
+
+  const overallCellValues1 = generateAxisOverallCellValues(
+    mainAnalysis1,
+    statsEngine // Fallback to joint if specific not found
+  );
+  const overallCellValues2 = generateAxisOverallCellValues(
+    mainAnalysis2,
+    statsEngine // Fallback to joint if specific not found
+  );
+
   const table: TwoAxisTableProps = {
     axis1: {
       id: "experiment1",
@@ -94,7 +238,7 @@ function getVariationData({
       values: experiment1.variations.map((v, i) => ({
         id: v.id,
         value: variationName(i, v.name),
-        overallCellValue: <Text>{v.name}</Text>,
+        overallCellValue: overallCellValues1[i],
         sortOrder: i,
       })),
       sortOrder: 0,
@@ -102,117 +246,17 @@ function getVariationData({
     axis2: {
       id: "experiment2",
       name: <Text>{experiment2.name}</Text>,
-      values: experiment2.variations.map((v, i) => {
-        const mainAnalysis2Variations = mainAnalysis2?.results?.[0];
-        let overallCellValue: JSX.Element | undefined = undefined;
-        if (mainAnalysis2Variations) {
-          console.log(mainAnalysis2Variations);
-          mainAnalysis2Variations.variations.forEach(
-            (v) => {
-              const metricResults = v.metrics[metric.id];
-              const baseline = mainAnalysis2Variations.variations[0].metrics[metric.id];
-              if (!metricResults || !baseline) return;
-              const resultsStatus = getMetricResultStatus({
-                metric,
-                metricDefaults,
-                baseline,
-                stats: metricResults,
-                ciLower,
-                ciUpper,
-                pValueThreshold,
-                statsEngine,
-              });
-              const value =
-                statistic === "expected" ? metricResults.expected : metricResults.cr;
-              const formatter =
-                statistic === "expected"
-                  ? formatPercent
-                  : getExperimentMetricFormatter(metric, getFactTableById, "percentage");
-              if (value) {
-                overallCellValue = <Flex direction={"column"}>
-                  <Text>{formatter(value)}</Text>
-                  <Text className="text-muted small-units-text">
-                    {metricResults.users} units
-                  </Text>
-                </Flex>
-              }
-            }
-          )
-        }
-        return {
+      values: experiment2.variations.map((v, i) => ({
         id: v.id,
         value: variationName(i, v.name),
-        overallCellValue,
+        overallCellValue: overallCellValues2[i],
         sortOrder: i,
-      }}),
+      })),
       sortOrder: 1,
     },
-    data: [],
+    data: generateTableDataCells(analysis.results, variations),
   };
 
-  const mainAnalysis = analysis.results?.[0];
-  if (mainAnalysis) {
-    mainAnalysis.variations.forEach((v, i) => {
-      const metricResults = v.metrics[metric.id];
-      const baseline = mainAnalysis.variations[0].metrics[metric.id];
-      if (!metricResults) return;
-
-      const variation = variations[i];
-      if (!variation) return;
-
-      // extract component of variation string that is before
-      // the separator of ___GBINTERACTION___
-      const exp1VariationKey = variation.split("___GBINTERACTION___")[0];
-      const exp2VariationKey = variation.split("___GBINTERACTION___")[1];
-
-      const exp1Variation = experiment1.variations.find(
-        (v) => v.key === exp1VariationKey
-      );
-      const exp2Variation = experiment2.variations.find(
-        (v) => v.key === exp2VariationKey
-      );
-
-      // significance logic
-      const resultsStatus = getMetricResultStatus({
-        metric,
-        metricDefaults,
-        baseline,
-        stats: metricResults,
-        ciLower,
-        ciUpper,
-        pValueThreshold,
-        statsEngine,
-      });
-      const differenceType = "relative";
-      const value =
-        statistic === "expected" ? metricResults.expected : metricResults.cr;
-      const formatter =
-        statistic === "expected"
-          ? formatPercent
-          : getExperimentMetricFormatter(metric, getFactTableById, "percentage");
-      table.data.push({
-        id: `${i}`,
-        rowAxisValueId: exp1Variation?.id ?? "",
-        columnAxisValueId: exp2Variation?.id ?? "",
-        value: (
-          <Flex direction={"column"}>
-            {value !== undefined ? (
-              <Text>{formatter(value)}</Text>
-            ) : (
-              <Text>0%</Text>
-            )}
-            <Text className="text-muted small-units-text">
-              {metricResults.users} units
-            </Text>
-          </Flex>
-        ),
-        className: clsx("results-change", {
-          [resultsStatus.directionalStatus]:
-            resultsStatus.significant && metricResults.expected !== undefined,
-        }),
-      });
-    });
-  }
   return table;
 }
 
@@ -245,6 +289,10 @@ export default function InteractionDetection() {
   ] = useState<InteractionSnapshotInterface | null>(null);
   const [metricId, setMetricId] = useState<string>("");
   const [tableData, setTableData] = useState<TwoAxisTableProps | null>(null);
+  const [
+    barChartData,
+    setBarChartData,
+  ] = useState<Segment[] | null>(null);
   const [desiredStatistic, setDesiredStatistic] = useState<
     "expected" | "variationMean"
   >("expected");
@@ -253,7 +301,6 @@ export default function InteractionDetection() {
   }>(`/experiment/${experiment1?.id}/experiment/${experiment2?.id}`, {
     shouldRun: () => !!experiment1 && !!experiment2,
   });
-  console.log(data);
 
   // overlap in phase dates
   const experimentOptions: ExperimentWithPhaseDates[] = experiments
@@ -272,6 +319,37 @@ export default function InteractionDetection() {
       setInteractionData(data.snapshot);
     }
   }, [data]);
+
+  useEffect(() => {
+    if (experiment1 && experiment2 && interactionData && interactionData.jointAnalyses?.[0]?.results?.[0]) {
+      const analysis = interactionData.jointAnalyses[0];
+      const values: Segment[] = [
+        { label: "Both", value: 0, color: SEGMENT_COLORS[0] },
+        { label: `${experiment1.name} only`, value: 0, color: SEGMENT_COLORS[1] },
+        { label: `${experiment2.name} only`, value: 0, color: SEGMENT_COLORS[2] }
+      ];
+      if (analysis?.results?.[0]?.variations) {
+        analysis.results[0].variations.forEach((_, index) => {
+          const analysisVariationData = analysis.results[0].variations[index];
+          const exp1VariationKey = interactionData.config.variationNames[index].split("___GBINTERACTION___")[0];
+          const exp2VariationKey = interactionData.config.variationNames[index].split("___GBINTERACTION___")[1];
+          
+          if (exp1VariationKey === "__GBNULLVARIATION__" || exp1VariationKey === "__multiple__") {
+            values[2].value += analysisVariationData?.users ?? 0;
+          } else if (exp2VariationKey === "__GBNULLVARIATION__" || exp2VariationKey === "__multiple__") {
+            values[1].value += analysisVariationData?.users ?? 0;
+          } else {
+            values[0].value += analysisVariationData?.users ?? 0;
+          }
+        });
+        setBarChartData(values);
+      } else {
+        setBarChartData(null);
+      }
+    } else {
+      setBarChartData(null);
+    }
+  }, [experiment1, experiment2, interactionData]);
 
   const handleAnalyze = async () => {
     if (!experiment1 || !experiment2) return;
@@ -323,7 +401,7 @@ export default function InteractionDetection() {
 
   return (
     <Modal
-      size="lg"
+      size="max"
       open={true}
       close={() => {}}
       trackingEventModalType="experiment-interaction-analysis"
@@ -340,7 +418,7 @@ export default function InteractionDetection() {
           </Text>
         </Flex>
 
-        <Flex gap="4" className="mb-6">
+        <Flex gap="4" className="mb-6" align="center">
           <Box className="flex-1">
             <SelectField
               label="Experiment 1"
@@ -385,7 +463,6 @@ export default function InteractionDetection() {
                 }))}
             />
           </Box>
-        </Flex>
 
         <div className="col-auto">
           <form
@@ -409,16 +486,42 @@ export default function InteractionDetection() {
           </form>
         </div>
 
+
         <ViewAsyncQueriesButton
           queries={data?.snapshot?.queries.map((q) => q.query) ?? []}
           error={data?.snapshot?.error}
           condensed={true}
           status={undefined}
+          display={null}
         />
+        </Flex>
 
-        {interactionData && (
-          <Flex direction="row" gap="4" mt="6">
+        {interactionData && interactionData?.status === "success" && (
+        <Flex gap="4" direction="column">
+        
+          <Box className="mt-6">
+            <Text size="3" weight="bold" className="mb-4">
+              Interaction Results
+            </Text>
+          </Box>
+          
+          {barChartData && (<Box className="appbox appbox-light p-2"><Text size="3" weight="bold" className="mb-4">
+              Unit overlap
+            </Text>
+            <VennDiagram
+              data={barChartData}
+              formatter={(value) => value.toLocaleString()}
+              height={250}
+            />
+            </Box>)}
+            <Box className="appbox appbox-light p-2">
+            <Text size="3" weight="bold" className="mb-4">
+              Metric Impact
+            </Text>
+            <Flex direction="row" gap="4" mt="6">
+           
             <Box>
+            
               {/* TODO: fix metric selection */}
               <SelectField
                 label="Metric"
@@ -444,14 +547,11 @@ export default function InteractionDetection() {
               />
             </Box>
           </Flex>
-        )}
-        {tableData && (
-          <Box className="mt-6">
-            <Text size="3" weight="bold" className="mb-4">
-              Interaction Results
-            </Text>
+          {tableData &&  <Box className="mt-6">
             <TwoAxisTable {...tableData} />
+          </Box>}
           </Box>
+          </Flex>
         )}
       </Box>
     </Modal>

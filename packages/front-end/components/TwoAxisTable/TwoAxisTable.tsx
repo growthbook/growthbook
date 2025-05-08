@@ -65,10 +65,15 @@ export default function TwoAxisTable({
     : [];
 
   // Define grid columns
-  // 1st column: axis2 name (optional, vertical)
-  // 2nd column: axis1 values (row headers)
-  // Remaining columns: axis2 values (column headers/data)
-  const templateColumns = `${axis2 ? "auto" : ""} auto repeat(${axis2 ? sortedColumnValues.length : 1}, 1fr)`;
+  // 1st column: axis2 name (optional, vertical) - 'auto' width if present
+  // Subsequent columns: axis1 values, axis1 overallCellValue, axis2 data values - all '1fr'
+  const numAxis2DataColumns = axis2 ? sortedColumnValues.length : 0;
+  // frColumnCount includes: 1 for axis1.values, 1 for axis1.overallCellValue, and numAxis2DataColumns
+  const frColumnCount = 1 + 1 + numAxis2DataColumns;
+
+  const prefix = axis2 ? "auto " : "";
+  // Ensure repeat count is at least 1, though frColumnCount should be >= 2
+  const templateColumns = `${prefix}repeat(${frColumnCount > 0 ? frColumnCount : 1}, 1fr)`;
 
   const cellBaseStyle: React.CSSProperties = {
     padding: "var(--space-2)",
@@ -76,6 +81,7 @@ export default function TwoAxisTable({
     alignItems: "center",
     justifyContent: "center", // Center content by default
   };
+
 
   return (
     <Grid
@@ -85,13 +91,13 @@ export default function TwoAxisTable({
       }}
     >
       {/* Row 1: Empty cell (if axis2 exists for vertical header), axis1.name */}
-      {axis2 && <Box style={{...cellBaseStyle, gridColumn: "1", gridRow: "1 / span 2", backgroundColor: "transparent"}}></Box> /* Top-left spacer for vertical header column */}
-      <Box style={{...cellBaseStyle, gridRow: "1", gridColumn: axis2? "2" : "1", backgroundColor: "transparent" }}></Box> {/* Spacer above axis1 values / or first part of axis1 name header*/}
+      {axis2 && <Box style={{...cellBaseStyle, gridColumn: "2", gridRow: "1 / span 2", backgroundColor: "transparent"}}></Box> /* Top-left spacer for vertical header column */}
+      <Box style={{...cellBaseStyle, gridRow: "1", gridColumn: axis2? "3" : "2", backgroundColor: "transparent" }}></Box> {/* Spacer above axis1 values / or first part of axis1 name header*/}
       <Box
         style={{ 
           ...cellBaseStyle, 
           gridRow: "1",
-          gridColumn: `${axis2 ? "3" : "2"} / span ${axis2?.values.length ?? 1}`,
+          gridColumn: `${axis2 ? "4" : "3"} / span ${axis2?.values.length ?? 1}`,
           justifyContent: "center", // Explicitly center axis name
         }}
         className="axis-cell"
@@ -105,7 +111,7 @@ export default function TwoAxisTable({
         style={{
             ...cellBaseStyle,
             gridRow: "2",
-            gridColumn: axis2 ? "2" : "1",
+            gridColumn: axis2 ? "3" : "2",
         }}
         className="axis-cell"
       >
@@ -122,7 +128,7 @@ export default function TwoAxisTable({
             style={{
                 ...cellBaseStyle,
                 gridRow: "2",
-                gridColumn: (index + 3).toString(), // Start from column 3
+                gridColumn: (index + 4).toString(), // Start from column 3
             }}
             className="axis-cell"
           >
@@ -134,7 +140,7 @@ export default function TwoAxisTable({
             style={{
                 ...cellBaseStyle,
                 gridRow: "2",
-                gridColumn: "2", // Value is in the second column if no axis2
+                gridColumn: "3", // Value is in the second column if no axis2
             }}
             className="axis-cell"
         >
@@ -143,7 +149,7 @@ export default function TwoAxisTable({
       )}
 
       {sortedColumnCellValues ? sortedColumnCellValues.map((colValue, index) => (
-        <Box key={colValue.id} style={{...cellBaseStyle, gridRow: "3", gridColumn: (index + 3).toString()}}>
+        <Box key={colValue.id} style={{...cellBaseStyle, gridRow: "3", gridColumn: (index + 4).toString()}} className="axis-cell-data">
           {colValue.overallCellValue}
         </Box>
       )) : null}
@@ -184,6 +190,11 @@ export default function TwoAxisTable({
             {rowValue.value}
           </Box>
 
+          {/* Row header overall cell */}
+          <Box style={{...cellBaseStyle, gridRow: (rowIndex + 4).toString(), gridColumn: axis2 ? "3" : "2"}} className="axis-cell-data">
+            {rowValue.overallCellValue}
+          </Box>
+
           {/* Data cells */}
           {axis2 ? (
             sortedColumnValues.map((colValue, colIndex) => {
@@ -199,7 +210,7 @@ export default function TwoAxisTable({
                   style={{ 
                       ...cellBaseStyle,
                       gridRow: (rowIndex + 4).toString(),
-                      gridColumn: (colIndex + 3).toString(), // Start from column 3
+                      gridColumn: (colIndex + 4).toString(), // Start from column 3
                   }}
                 >
                   {cell?.value ?? ""}
@@ -212,7 +223,7 @@ export default function TwoAxisTable({
               style={{
                 ...cellBaseStyle,
                 gridRow: (rowIndex + 3).toString(),
-                gridColumn: "2", // Data is in the second column if no axis2
+                gridColumn: "3", // Data is in the second column if no axis2
               }}
             >
               {data.find((c) => c.rowAxisValueId === rowValue.id)?.value ?? ""}
