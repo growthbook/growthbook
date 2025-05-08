@@ -18,6 +18,7 @@ import {
   GBDatabase,
   GBExperiment,
   GBSettings,
+  GBLibrary,
 } from "@/components/Icons";
 import { inferDocUrl } from "@/components/DocLink";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
@@ -55,6 +56,13 @@ const navlinks: SidebarLinkProps[] = [
     Icon: GBBandit,
     path: /^bandit/,
     filter: ({ gb }) => !!gb?.isOn("bandits"),
+  },
+  {
+    name: "Learnings",
+    href: "/learnings",
+    Icon: GBLibrary,
+    path: /^library/,
+    //filter: ({ gb }) => !!gb?.isOn("library"),
   },
   {
     name: "Metrics and Data",
