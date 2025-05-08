@@ -127,6 +127,11 @@ export interface ExperimentSnapshotAnalysisSettings {
   baselineVariationIndex?: number;
   numGoalMetrics: number;
   oneSidedIntervals?: boolean;
+  interactionDimensions?: {
+    dimension: string;
+    variationNames: string[];
+    varationWeights: number[];
+  }[]; // Presence of this indicates that this is an interaction analysis
 }
 
 export type SnapshotType =

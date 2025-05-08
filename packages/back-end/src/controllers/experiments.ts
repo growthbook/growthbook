@@ -2335,14 +2335,14 @@ export async function createExperimentInteractionSnapshot({
     hasRegressionAdjustmentFeature: true,
   });
 
-  const analysisSettings = getDefaultExperimentAnalysisSettings(
+  const analysisSettings: ExperimentSnapshotAnalysisSettings = getDefaultExperimentAnalysisSettings(
     statsEngine,
     experiment1, // TODO
     org,
     regressionAdjustmentEnabled,
     undefined // TODO
   );
-  console.log(analysisSettings);
+
 
   const factTableMap = await getFactTableMap(context);
 
@@ -2374,6 +2374,21 @@ export async function createExperimentInteractionSnapshot({
       ? latestPhase1.dateEnded
       : latestPhase2.dateEnded;
 
+  const pooledAnalysisSettings: ExperimentSnapshotAnalysisSettings = {
+    ...analysisSettings,
+    interactionDimensions: [
+      {
+        dimension: experiment1.id,
+        variationNames: experiment1.variations.map((v) => v.key),
+        varationWeights: latestPhase1.variationWeights,
+      },
+      {
+        dimension: experiment2.id,
+        variationNames: experiment2.variations.map((v) => v.key),
+        varationWeights: latestPhase2.variationWeights,
+      }
+    ]
+  }
   const metricSettings = settingsForSnapshotMetrics
     .map((m) =>
       getMetricForSnapshot(m.metric, metricMap, settingsForSnapshotMetrics)
@@ -2424,6 +2439,12 @@ export async function createExperimentInteractionSnapshot({
         status: "running",
         results: [],
       },
+      {
+        settings: pooledAnalysisSettings,
+        dateCreated: new Date(),
+        status: "running",
+        results: [],
+      }
     ],
     mainAnalyses: [
       {
