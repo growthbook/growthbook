@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { windowTypeValidator } from "back-end/src/routers/fact-table/fact-table.validators";
 import { statsEngines } from "back-end/src/util/constants";
+import { dashboardInstanceInterface } from "back-end/src/enterprise/validators/dashboard-instance";
 import {
   namespaceValue,
   featurePrerequisite,
@@ -316,6 +317,7 @@ export const experimentInterface = z
     shareLevel: z.enum(["public", "organization"]).optional(),
     analysisSummary: experimentAnalysisSummary.optional(),
     dismissedWarnings: z.array(z.enum(["low-power"])).optional(),
+    dashboards: z.array(dashboardInstanceInterface).optional(),
   })
   .strict()
   .merge(experimentAnalysisSettings);
