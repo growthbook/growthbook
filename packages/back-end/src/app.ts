@@ -588,6 +588,14 @@ app.post(
   experimentsController.postSnapshotNotebook
 );
 app.post(
+  "/experiments/:id/reports/",
+  experimentsController.postExperimentReport
+);
+app.put(
+  "/experiments/:id/reports/:reportId",
+  experimentsController.putExperimentReport
+);
+app.post(
   "/experiments/report/:snapshot",
   reportsController.postReportFromSnapshot
 );

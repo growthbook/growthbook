@@ -1,0 +1,96 @@
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentReportInterface } from "back-end/src/enterprise/validators/experiment-report";
+import SnapshotProvider from "@/components/Experiment/SnapshotProvider";
+import MarkdownBlock from "./MarkdownBlock";
+import MetadataBlock from "./MetadataBlock";
+import MetricBlock from "./MetricBlock";
+import VariationImageBlock from "./VariationImageBlock";
+import DimensionBlock from "./DimensionBlock";
+import TimeSeriesBlock from "./TimeSeriesBlock";
+
+export type Block = ExperimentReportInterface["content"][number];
+
+interface Props {
+  block: Block;
+  isEditing: boolean;
+  setBlock: (block: Block) => void;
+  experiment: ExperimentInterfaceStringDates;
+  mutate: () => void;
+}
+
+export default function ReportBlock({
+  block,
+  isEditing,
+  setBlock,
+  experiment,
+  mutate,
+}: Props) {
+  switch (block.type) {
+    case "markdown":
+      return (
+        <MarkdownBlock
+          content={block.content}
+          isEditing={isEditing}
+          setBlock={setBlock}
+        />
+      );
+    case "metadata":
+      return (
+        <MetadataBlock
+          subtype={block.subtype}
+          isEditing={isEditing}
+          setBlock={setBlock}
+          experiment={experiment}
+          mutate={mutate}
+        />
+      );
+    case "variation-image":
+      return (
+        <VariationImageBlock
+          variationIds={block.variationIds}
+          experiment={experiment}
+          isEditing={isEditing}
+          setBlock={setBlock}
+        />
+      );
+    case "metric":
+      return (
+        <MetricBlock
+          metricId={block.metricId}
+          isEditing={isEditing}
+          setBlock={setBlock}
+          experiment={experiment}
+          variationIds={block.variationIds}
+          baselineRow={block.baselineRow}
+        />
+      );
+    case "dimension":
+      return (
+        <SnapshotProvider experiment={experiment}>
+          <DimensionBlock
+            dimensionId={block.dimensionId}
+            dimensionValues={block.dimensionValues}
+            variationIds={block.variationIds}
+            metricId={block.metricId}
+            isEditing={isEditing}
+            setBlock={setBlock}
+            experiment={experiment}
+            differenceType={block.differenceType}
+            baselineRow={block.baselineRow}
+          />
+        </SnapshotProvider>
+      );
+    case "time-series":
+      return (
+        <TimeSeriesBlock
+          experiment={experiment}
+          metricId={block.metricId}
+          variationIds={block.variationIds}
+          dateStart={block.dateStart}
+          dateEnd={block.dateEnd}
+          isEditing={isEditing}
+          setBlock={setBlock}
+        />
+      );
+  }
+}
