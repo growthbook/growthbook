@@ -37,6 +37,7 @@
     "@visx/shape": "^2.1.0",
     "@visx/stats": "^2.1.0",
     "@visx/tooltip": "^2.1.0",
+    "@visx/glyph": "^2.1.0",
     "@webscopeio/react-textarea-autocomplete": "^4.7.3",
     "ace-builds": "^1.8.1",
     "ajv": "^8.12.0",
