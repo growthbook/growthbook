@@ -311,6 +311,16 @@ export abstract class BaseModel<
   ): Promise<z.infer<T>> {
     return this._updateOne(existing, updates, { writeOptions });
   }
+  public dangerousUpdateBypassPermission(
+    existing: z.infer<T>,
+    updates: UpdateProps<z.infer<T>>,
+    writeOptions?: WriteOptions
+  ): Promise<z.infer<T>> {
+    return this._updateOne(existing, updates, {
+      writeOptions,
+      forceCanUpdate: true,
+    });
+  }
   public async updateById(
     id: string,
     updates: UpdateProps<z.infer<T>>,
@@ -523,6 +533,7 @@ export abstract class BaseModel<
     options?: {
       auditEvent?: EventType;
       writeOptions?: WriteOptions;
+      forceCanUpdate?: boolean;
     }
   ) {
     updates = this.updateValidator.parse(updates);
@@ -572,7 +583,7 @@ export abstract class BaseModel<
 
     await this.populateForeignRefs([newDoc]);
 
-    if (!this.canUpdate(doc, updates, newDoc)) {
+    if (!options?.forceCanUpdate && !this.canUpdate(doc, updates, newDoc)) {
       throw new Error("You do not have access to update this resource");
     }
 
