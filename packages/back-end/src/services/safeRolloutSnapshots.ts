@@ -22,6 +22,7 @@ import {
   getHealthSettings,
   getSafeRolloutDaysLeft,
   getSafeRolloutResultStatus,
+  autoMerge,
 } from "shared/enterprise";
 import {
   MetricForSafeRolloutSnapshot,
@@ -51,7 +52,11 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { CreateProps } from "back-end/src/models/BaseModel";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ExperimentAnalysisSummary } from "back-end/src/validators/experiments";
-import { getFeature } from "back-end/src/models/FeatureModel";
+import {
+  editFeatureRule,
+  getFeature,
+  publishRevision,
+} from "back-end/src/models/FeatureModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import {
   FeatureInterface,
@@ -61,6 +66,10 @@ import { ResourceEvents } from "back-end/src/events/base-types";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { SafeRolloutInterface } from "back-end/types/safe-rollout";
 import { SafeRolloutNotification } from "back-end/src/validators/safe-rollout";
+import {
+  createRevision,
+  getRevision,
+} from "back-end/src/models/FeatureRevisionModel";
 import { getSourceIntegrationObject } from "./datasource";
 import {
   computeResultsStatus,
@@ -522,6 +531,96 @@ export async function getSafeRolloutAnalysisSummary({
 
   return analysisSummary;
 }
+export async function checkAndRollbackSafeRollout({
+  context,
+  updatedSafeRollout,
+  safeRolloutSnapshot,
+  ruleIndex,
+  feature,
+}: {
+  context: ReqContext;
+  updatedSafeRollout: SafeRolloutInterface;
+  safeRolloutSnapshot: SafeRolloutSnapshotInterface;
+  ruleIndex: number;
+  feature: FeatureInterface;
+}) {
+  if (updatedSafeRollout.status !== "running") return;
+  const daysLeft = getSafeRolloutDaysLeft({
+    safeRollout: updatedSafeRollout,
+    snapshotWithResults: safeRolloutSnapshot,
+  });
+  const healthSettings = getHealthSettings(
+    context.org.settings,
+    orgHasPremiumFeature(context.org, "decision-framework")
+  );
+  const safeRolloutStatus = getSafeRolloutResultStatus({
+    safeRollout: updatedSafeRollout,
+    healthSettings,
+    daysLeft,
+  });
+  if (
+    safeRolloutStatus?.status &&
+    ["unhealthy", "rollback-now"].includes(safeRolloutStatus.status)
+  ) {
+    const revision = await createRevision({
+      context,
+      feature,
+      user: context.auditUser,
+      environments: [updatedSafeRollout.environment],
+      baseVersion: feature.version,
+      org: context.org,
+    });
+    await editFeatureRule(
+      revision,
+      updatedSafeRollout.environment,
+      ruleIndex,
+      { status: "rolled-back" },
+      context.auditUser,
+      false
+    );
+    const live = await getRevision({
+      context,
+      organization: updatedSafeRollout.organization,
+      featureId: feature.id,
+      version: feature.version,
+    });
+    if (!live) {
+      throw new Error("Could not lookup feature history");
+    }
+
+    const base =
+      revision.baseVersion === live.version
+        ? live
+        : await getRevision({
+            context,
+            organization: updatedSafeRollout.organization,
+            featureId: feature.id,
+            version: revision.baseVersion,
+          });
+    if (!base) {
+      throw new Error("Could not lookup feature history");
+    }
+
+    const mergeResult = autoMerge(
+      live,
+      base,
+      revision,
+      [updatedSafeRollout.environment],
+      {}
+    );
+    if (!mergeResult.success) {
+      throw new Error("could not merge the status");
+    }
+    //publish the revision
+    await publishRevision(
+      context,
+      feature,
+      revision,
+      mergeResult.result,
+      "auto-publish status change"
+    );
+  }
+}
 
 const dispatchSafeRolloutEvent = async <T extends ResourceEvents<"feature">>({
   context,
@@ -592,7 +691,6 @@ export async function notifySafeRolloutChange({
     healthSettings,
     daysLeft,
   });
-
   const feature = await getFeature(context, updatedSafeRollout.featureId);
   if (!feature) {
     throw new Error("Could not find feature to fire event");
@@ -652,7 +750,6 @@ export async function notifySafeRolloutChange({
         }),
     });
   }
-
   if (safeRolloutStatus?.status === "ship-now") {
     await memoizeSafeRolloutNotification({
       context,

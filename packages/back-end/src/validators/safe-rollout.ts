@@ -24,6 +24,7 @@ export const createSafeRolloutValidator = z.object({
   exposureQueryId: z.string(),
   guardrailMetricIds: z.array(z.string()),
   maxDuration: MaxDuration,
+  autoRevert: z.boolean(),
 });
 export type CreateSafeRolloutInterface = z.infer<
   typeof createSafeRolloutValidator

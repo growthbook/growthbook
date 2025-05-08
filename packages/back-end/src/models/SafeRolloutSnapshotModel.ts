@@ -4,9 +4,11 @@ import {
   safeRolloutSnapshotInterface,
 } from "back-end/src/validators/safe-rollout-snapshot";
 import {
+  checkAndRollbackSafeRollout,
   getSafeRolloutAnalysisSummary,
   notifySafeRolloutChange,
 } from "back-end/src/services/safeRolloutSnapshots";
+import { getFeature } from "back-end/src/models/FeatureModel";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -112,6 +114,32 @@ export class SafeRolloutSnapshotModel extends BaseClass {
           analysisSummary: safeRolloutAnalysisSummary,
         },
         safeRolloutSnapshot: updatedDoc,
+      });
+
+      const feature = await getFeature(this.context, safeRollout.featureId);
+      if (!feature) {
+        throw new Error("Feature not found");
+      }
+      const environment = feature.environmentSettings[safeRollout.environment];
+      if (!environment) {
+        throw new Error("Environment not found");
+      }
+      const ruleIndex = environment.rules.findIndex(
+        (r) => r.type === "safe-rollout" && r.safeRolloutId === safeRollout.id
+      );
+      if (ruleIndex === -1) {
+        throw new Error("Rule not found");
+      }
+
+      await checkAndRollbackSafeRollout({
+        context: this.context,
+        updatedSafeRollout: {
+          ...safeRollout,
+          analysisSummary: safeRolloutAnalysisSummary,
+        },
+        safeRolloutSnapshot: updatedDoc,
+        ruleIndex,
+        feature,
       });
     }
   }

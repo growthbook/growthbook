@@ -22,6 +22,7 @@ import Checkbox from "@/components/Radix/Checkbox";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import HelperText from "@/components/Radix/HelperText";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import Toggle from "@/components/Forms/Toggle";
 
 export default function SafeRolloutFields({
   feature,
@@ -396,6 +397,19 @@ export default function SafeRolloutFields({
       />
       {renderVariationFieldSelector()}
       {renderDataAndMetrics()}
+      <Text as="div" weight="medium" size="2" mb="2">
+        Auto Revert
+        <Tooltip
+          className="ml-1"
+          body="Automatically revert the feature if a guardrail metric is failing"
+        />
+      </Text>
+      <Toggle
+        id="autoRevert"
+        value={form.watch("autoRevert")}
+        setValue={(v) => form.setValue("autoRevert", v)}
+        className="mb-4"
+      />
       {renderTargeting()}
     </>
   );
