@@ -129,6 +129,11 @@ const experimentSnapshotAnalysisSettingsSchema = z.object({
   baselineVariationIndex: z.number().optional(),
   numGoalMetrics: z.number(),
   oneSidedIntervals: z.boolean().optional(),
+  interactionDimensions: z.array(z.object({
+    dimension: z.string(),
+    variationNames: z.array(z.string()),
+    varationWeights: z.array(z.number()),
+  })).optional(),
 });
 
 // Zod schema for ExperimentSnapshotAnalysis
