@@ -56,7 +56,8 @@ export type CommercialFeature =
   | "decision-framework"
   | "unlimited-cdn-usage"
   | "safe-rollout"
-  | "require-project-for-features-setting";
+  | "require-project-for-features-setting"
+  | "experiment-reports";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
@@ -271,6 +272,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "decision-framework",
     "safe-rollout",
     "require-project-for-features-setting",
+    "experiment-reports",
   ]),
 };
 
