@@ -195,6 +195,9 @@ const CompactResults: FC<{
       const metric =
         ssrPolyfills?.metricMap?.get(metricId) || metricMap.get(metricId);
       if (!metric) return null;
+
+      console.log(metricId, metric);
+
       const { newMetric, overrideFields } = applyMetricOverrides(
         metric,
         metricOverrides

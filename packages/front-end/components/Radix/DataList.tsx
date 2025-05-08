@@ -14,6 +14,7 @@ export type Props = {
   data: DataListItem[];
   columns?: 1 | 2 | 3 | 4 | 5;
   maxColumns?: 1 | 2 | 3 | 4 | 5;
+  horizontal?: boolean;
   header?: string;
 } & MarginProps;
 
@@ -21,6 +22,7 @@ export default function DataList({
   data,
   columns,
   maxColumns = 4,
+  horizontal = false,
   header,
   ...componentProps
 }: Props) {
@@ -47,8 +49,8 @@ export default function DataList({
         {...componentProps}
       >
         {data.map(({ label, value, tooltip }, index) => (
-          <Flex direction="column" key={index}>
-            <Text weight="bold" mb="2">
+          <Flex direction={horizontal ? "row" : "column"} key={index} gap="2">
+            <Text weight="bold">
               {label}
               {tooltip ? (
                 <Tooltip body={tooltip}>

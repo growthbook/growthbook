@@ -30,7 +30,7 @@ const ExpandableQuery: FC<{
     }
   }
 
-  const { getFactMetricById } = useDefinitions();
+  const { metricMap } = useDefinitions();
 
   return (
     <div className="mb-4">
@@ -114,7 +114,7 @@ const ExpandableQuery: FC<{
                         {Object.keys(query.rawResult[0]).map((k) => {
                           const val = row[k];
                           if (typeof val === "string" && isFactMetricId(val)) {
-                            const factMetric = getFactMetricById(val);
+                            const factMetric = metricMap.get(val);
                             if (factMetric) {
                               return (
                                 <td key={k}>

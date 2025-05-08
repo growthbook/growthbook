@@ -98,6 +98,10 @@ export function getMetricMapWithVariants(
 
           // Apply variant settings on top of base metric definition
           const newMetric = cloneDeep(metric);
+
+          newMetric.name = variantSettings.name || newMetric.name;
+          newMetric.id = id;
+
           newMetric.windowSettings = {
             ...newMetric.windowSettings,
             ...variantSettings.windowSettings,

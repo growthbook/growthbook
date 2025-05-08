@@ -691,7 +691,8 @@ export default function FactMetricPage() {
                       </td>
                       <td>
                         <DataList
-                          data={[{ label: "Saved Filter", value: filter.name }]}
+                          data={[{ label: "Filter:", value: filter.name }]}
+                          horizontal={true}
                         />
                       </td>
                       <td></td>
@@ -717,7 +718,7 @@ export default function FactMetricPage() {
                     <tr key={variant.id || i}>
                       <td>{variant.name}</td>
                       <td>
-                        <DataList data={data} />
+                        <DataList data={data} horizontal={true} />
                       </td>
                       <td>
                         <MoreMenu useRadix={true}>
