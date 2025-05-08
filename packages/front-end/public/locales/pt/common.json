@@ -1,0 +1,29 @@
+{
+    "topNav": {
+        "language": "Idioma",
+        "english": "Inglês",
+        "portuguese": "Português",
+        "theme": "Tema",
+        "signOut": "Sair",
+        "editProfile": "Editar Perfil",
+        "personalAccessTokens": "Tokens de Acesso Pessoal",
+        "myReports": "Meus Relatórios",
+        "activityFeed": "Feed de Atividades",
+        "systemDefault": "Padrão do Sistema",
+        "lightTheme": "Claro",
+        "darkTheme": "Escuro",
+        "organization": "Organização",
+        "addOrganization": "Adicionar Organização",
+        "changePassword": "Mudar Senha",
+        "pageTitle": "GrowthBook > {{pageTitle}}",
+        "editProfileModal": {
+            "header": "Editar Perfil",
+            "nameLabel": "Nome",
+            "allowCelebrationsLabel": "Permitir Comemorações",
+            "allowCelebrationsTooltip": "O GrowthBook adiciona comemorações de confetes na tela aleatoriamente quando você completa certas ações, como lançar um experimento. Você pode desativar isso se achar que distrai.",
+            "allowCelebrationsToggle": "Permitir comemoração"
+        },
+        "openMainMenu": "Abrir menu principal",
+        "growthbookLogoAlt": "GrowthBook"
+    }
+}

@@ -4,6 +4,9 @@ import "@/styles/radix-config.css";
 import "@/styles/global-radix-overrides.scss";
 import "@/styles/global.scss";
 
+import { use } from "i18next";
+import { initReactI18next } from "react-i18next";
+import LanguageDetector from "i18next-browser-languagedetector";
 import { AppProps } from "next/app";
 import Head from "next/head";
 import React, { useEffect, useState } from "react";
@@ -36,6 +39,7 @@ import GuidedGetStartedBar from "@/components/Layout/GuidedGetStartedBar";
 import LayoutLite from "@/components/Layout/LayoutLite";
 import { growthbook } from "@/services/utils";
 import { UserContextProvider } from "@/services/UserContext";
+import { getTranslations } from "@/i18n";
 
 // Make useLayoutEffect isomorphic (for SSR)
 if (typeof window === "undefined") React.useLayoutEffect = React.useEffect;
@@ -83,7 +87,21 @@ function App({
   useEffect(() => {
     initEnv()
       .then(() => {
-        setReady(true);
+        getTranslations().then((translation) => {
+          use(initReactI18next) // passes i18n down to react-i18next
+            .use(LanguageDetector)
+            .init({
+              resources: translation,
+              supportedLngs: ["en", "pt"],
+              fallbackLng: "en",
+
+              interpolation: {
+                escapeValue: false, // react already safes from xss => https://www.i18next.com/translation-function/interpolation#unescape
+              },
+            });
+
+          setReady(true);
+        });
       })
       .catch((e) => {
         setError(e.message);

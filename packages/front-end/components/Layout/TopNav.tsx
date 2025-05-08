@@ -1,6 +1,7 @@
 import { FC, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FaAngleRight, FaBars } from "react-icons/fa";
+import { useTranslation } from "react-i18next";
 import {
   PiPlusBold,
   PiCaretDownFill,
@@ -55,6 +56,7 @@ const TopNav: FC<{
   showNotices?: boolean;
   showLogo?: boolean;
 }> = ({ toggleLeftMenu, pageTitle, showNotices, showLogo = true }) => {
+  const { t, i18n } = useTranslation();
   const [editUserOpen, setEditUserOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [
@@ -108,7 +110,7 @@ const TopNav: FC<{
         return (
           <div className="align-middle">
             <PiMoon size="16" className="mr-1 " />
-            Theme
+            {t("topNav.theme")}
           </div>
         );
 
@@ -116,7 +118,7 @@ const TopNav: FC<{
         return (
           <div className="align-middle">
             <PiSunDim size="16" className="mr-1" />
-            Theme
+            {t("topNav.theme")}
           </div>
         );
 
@@ -124,11 +126,11 @@ const TopNav: FC<{
         return (
           <div className="align-middle">
             <PiCircleHalf size="16" className="mr-1" />
-            Theme
+            {t("topNav.theme")}
           </div>
         );
     }
-  }, [preferredTheme]);
+  }, [t, preferredTheme]);
 
   let orgName = orgId || "";
   if (organizations && organizations.length) {
@@ -146,7 +148,7 @@ const TopNav: FC<{
           logout();
         }}
       >
-        Sign Out
+        {t("topNav.signOut")}
       </DropdownMenuItem>
     );
   };
@@ -159,7 +161,7 @@ const TopNav: FC<{
           setEditUserOpen(true);
         }}
       >
-        Edit Profile
+        {t("topNav.editProfile")}
       </DropdownMenuItem>
     );
   };
@@ -192,7 +194,7 @@ const TopNav: FC<{
       >
         <div className="align-middle">
           <PiKey size="16" className="mr-1" />
-          Personal Access Tokens
+          {t("topNav.personalAccessTokens")}
         </div>
       </DropdownMenuItem>
     );
@@ -208,7 +210,7 @@ const TopNav: FC<{
       >
         <div className="align-middle">
           <PiFiles size="16" className="mr-1" />
-          My Reports
+          {t("topNav.myReports")}
         </div>
       </DropdownMenuItem>
     );
@@ -224,7 +226,7 @@ const TopNav: FC<{
       >
         <div className="align-middle">
           <PiListChecks size="16" className="mr-1" />
-          Activity Feed
+          {t("topNav.activityFeed")}
         </div>
       </DropdownMenuItem>
     );
@@ -233,47 +235,28 @@ const TopNav: FC<{
   const renderThemeSubDropDown = () => {
     return (
       <DropdownSubMenu
-        trigger={activeIcon}
+        trigger={t("topNav.language")}
         triggerClassName={styles.dropdownItemIconColor}
       >
         <DropdownMenuItem
           className={styles.dropdownItemIconColor}
-          key="system"
+          key="en"
           onClick={() => {
             setDropdownOpen(false);
-            setTheme("system");
+            i18n.changeLanguage("en");
           }}
         >
-          <span>
-            <PiCircleHalf size="16" className="mr-1" />
-            System Default
-          </span>
+          <span>🇺🇸 {t("topNav.english")}</span>
         </DropdownMenuItem>
         <DropdownMenuItem
           className={styles.dropdownItemIconColor}
-          key="light"
+          key="pt"
           onClick={() => {
             setDropdownOpen(false);
-            setTheme("light");
+            i18n.changeLanguage("pt");
           }}
         >
-          <span>
-            <PiSunDim size="16" className="mr-1" />
-            Light
-          </span>
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          className={styles.dropdownItemIconColor}
-          key="dark"
-          onClick={() => {
-            setDropdownOpen(false);
-            setTheme("dark");
-          }}
-        >
-          <span>
-            <PiMoon size="16" className="mr-1" />
-            Dark
-          </span>
+          <span>🇧🇷 {t("topNav.portuguese")}</span>
         </DropdownMenuItem>
       </DropdownSubMenu>
     );
@@ -309,7 +292,7 @@ const TopNav: FC<{
               show: orgDropdownOpen,
             })}
           >
-            <div className="dropdown-header">Organization</div>
+            <div className="dropdown-header">{t("topNav.organization")}</div>
             {organizations.map((o) => (
               <a
                 className={clsx("dropdown-item", {
@@ -350,7 +333,7 @@ const TopNav: FC<{
                       }}
                     >
                       <PiPlusBold />
-                      Add Organization
+                      {t("topNav.addOrganization")}
                     </Link>
                   </div>
                 </div>
@@ -395,7 +378,7 @@ const TopNav: FC<{
             setChangePasswordOpen(true);
           }}
         >
-          Change Password
+          {t("topNav.changePassword")}
         </DropdownMenuItem>
       );
     }
@@ -404,28 +387,29 @@ const TopNav: FC<{
   return (
     <>
       <Head>
-        <title>GrowthBook &gt; {pageTitle}</title>
+        <title>{t("topNav.pageTitle", { pageTitle })}</title>
       </Head>
       {editUserOpen && (
         <Modal
           trackingEventModalType=""
           close={() => setEditUserOpen(false)}
           submit={onSubmitEditProfile}
-          header="Edit Profile"
+          header={t("topNav.editProfileModal.header")}
           open={true}
         >
-          <Field label="Name" {...form.register("name")} />
+          <Field
+            label={t("topNav.editProfileModal.nameLabel")}
+            {...form.register("name")}
+          />
           <label className="mr-3">
-            Allow Celebrations{" "}
+            {t("topNav.editProfileModal.allowCelebrationsLabel")}{" "}
             <Tooltip
-              body={
-                "GrowthBook adds on-screen confetti celebrations randomly when you complete certain actions like launching an experiment. You can disable this if you find it distracting."
-              }
+              body={t("topNav.editProfileModal.allowCelebrationsTooltip")}
             />
           </label>
           <Toggle
             id="allowCelebration"
-            label="Allow celebration"
+            label={t("topNav.editProfileModal.allowCelebrationsToggle")}
             value={form.watch("enableCelebrations")}
             setValue={(v) => form.setValue("enableCelebrations", v)}
           />
@@ -446,19 +430,19 @@ const TopNav: FC<{
               href="#main-menu"
               id="main-menu-toggle"
               className={styles.mobilemenu}
-              aria-label="Open main menu"
+              aria-label={t("topNav.openMainMenu")}
               onClick={(e) => {
                 e.preventDefault();
                 toggleLeftMenu();
               }}
             >
-              <span className="sr-only">Open main menu</span>
+              <span className="sr-only">{t("topNav.openMainMenu")}</span>
               <FaBars />
             </a>
           ) : showLogo ? (
             <div>
               <img
-                alt="GrowthBook"
+                alt={t("topNav.growthbookLogoAlt")}
                 src="/logo/growthbook-logo.png"
                 style={{ height: 40 }}
               />
@@ -504,6 +488,50 @@ const TopNav: FC<{
             {renderNameAndEmailDropdownLabel()}
             {renderEditProfileDropDown()}
             {renderThemeSubDropDown()}
+            <DropdownSubMenu
+              trigger={activeIcon}
+              triggerClassName={styles.dropdownItemIconColor}
+            >
+              <DropdownMenuItem
+                className={styles.dropdownItemIconColor}
+                key="system"
+                onClick={() => {
+                  setDropdownOpen(false);
+                  setTheme("system");
+                }}
+              >
+                <span>
+                  <PiCircleHalf size="16" className="mr-1" />
+                  {t("topNav.systemDefault")}
+                </span>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className={styles.dropdownItemIconColor}
+                key="light"
+                onClick={() => {
+                  setDropdownOpen(false);
+                  setTheme("light");
+                }}
+              >
+                <span>
+                  <PiSunDim size="16" className="mr-1" />
+                  {t("topNav.lightTheme")}
+                </span>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className={styles.dropdownItemIconColor}
+                key="dark"
+                onClick={() => {
+                  setDropdownOpen(false);
+                  setTheme("dark");
+                }}
+              >
+                <span>
+                  <PiMoon size="16" className="mr-1" />
+                  {t("topNav.darkTheme")}
+                </span>
+              </DropdownMenuItem>
+            </DropdownSubMenu>
             {renderMyActivityFeedsDropDown()}
             {renderMyReportsDropDown()}
             {renderPersonalAccessTokensDropDown()}

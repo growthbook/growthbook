@@ -1,0 +1,29 @@
+{
+    "topNav": {
+        "language": "Language",
+        "english": "English",
+        "portuguese": "Portuguese",
+        "theme": "Theme",
+        "signOut": "Sign Out",
+        "editProfile": "Edit Profile",
+        "personalAccessTokens": "Personal Access Tokens",
+        "myReports": "My Reports",
+        "activityFeed": "Activity Feed",
+        "systemDefault": "System Default",
+        "lightTheme": "Light",
+        "darkTheme": "Dark",
+        "organization": "Organization",
+        "addOrganization": "Add Organization",
+        "changePassword": "Change Password",
+        "pageTitle": "GrowthBook > {{pageTitle}}",
+        "editProfileModal": {
+            "header": "Edit Profile",
+            "nameLabel": "Name",
+            "allowCelebrationsLabel": "Allow Celebrations",
+            "allowCelebrationsTooltip": "GrowthBook adds on-screen confetti celebrations randomly when you complete certain actions like launching an experiment. You can disable this if you find it distracting.",
+            "allowCelebrationsToggle": "Allow celebration"
+        },
+        "openMainMenu": "Open main menu",
+        "growthbookLogoAlt": "GrowthBook"
+    }
+}
