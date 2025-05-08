@@ -1,69 +1,25 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { RxDesktop } from "react-icons/rx";
-import { date, datetime } from "shared/dates";
+import React, { useCallback } from "react";
 import Link from "next/link";
-import { useRouter } from "next/router";
-import { BsFlag } from "react-icons/bs";
-import clsx from "clsx";
-import { PiCaretDown, PiShuffle } from "react-icons/pi";
-import {
-  getAllMetricIdsFromExperiment,
-  ExperimentMetricInterface,
-  isFactMetricId,
-  quantileMetricType,
-} from "shared/experiments";
-import {
-  ExperimentInterfaceStringDates,
-  ExperimentTemplateInterface,
-} from "back-end/types/experiment";
-import { Box, Flex, Heading, Switch, Text } from "@radix-ui/themes";
-import { isEmpty } from "lodash";
+import { getAllMetricIdsFromExperiment } from "shared/experiments";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { Box } from "@radix-ui/themes";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAddComputedFields, useSearch } from "@/services/search";
-import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Pagination from "@/components/Pagination";
 import { useUser } from "@/services/UserContext";
-import SortedTags from "@/components/Tags/SortedTags";
 import Field from "@/components/Forms/Field";
-import ImportExperimentModal from "@/components/Experiment/ImportExperimentModal";
 import { useExperiments } from "@/hooks/useExperiments";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import TagsFilter, {
-  filterByTags,
-  useTagsFilter,
-} from "@/components/Tags/TagsFilter";
-import { useWatching } from "@/services/WatchProvider";
-import { ExperimentStatusDetailsWithDot } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
-import LinkButton from "@/components/Radix/LinkButton";
-import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
-import {
-  DropdownMenu,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from "@/components/Radix/DropdownMenu";
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
 } from "@/components/Radix/Tabs";
-import Button from "@/components/Radix/Button";
-import TemplateForm from "@/components/Experiment/Templates/TemplateForm";
-import { TemplatesPage } from "@/components/Experiment/Templates/TemplatesPage";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import ViewSampleDataButton from "@/components/GetStarted/ViewSampleDataButton";
-import EmptyState from "@/components/EmptyState";
-import Callout from "@/components/Radix/Callout";
 import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
-import ExperimentTemplatePromoCard from "@/enterprise/components/feature-promos/ExperimentTemplatePromoCard";
-import { useTemplates } from "@/hooks/useTemplates";
-
-const NUM_PER_PAGE = 20;
+import CompletedExperimentList from "@/components/Experiment/CompletedExperimentList";
+import ExperimentTimeline from "@/components/Experiment/ExperimentTimeline";
 
 export function experimentDate(exp: ExperimentInterfaceStringDates): string {
   return (
@@ -85,22 +41,16 @@ const LearningsPage = (): React.ReactElement => {
     getProjectById,
     getDatasourceById,
     getSavedGroupById,
-    getMetricById,
-    getFactMetricById,
   } = useDefinitions();
 
-  const {
-    experiments: allExperiments,
-    error,
-    loading,
-    hasArchived,
-  } = useExperiments(project, false, "standard");
+  const { experiments: allExperiments, error, loading } = useExperiments(
+    project,
+    false,
+    "standard"
+  );
 
-  const { getUserDisplay, hasCommercialFeature } = useUser();
-  const permissionsUtil = usePermissionsUtil();
+  const { getUserDisplay } = useUser();
   const getExperimentStatusIndicator = useExperimentStatusIndicator();
-
-  const [currentPage, setCurrentPage] = useState(1);
 
   const filterResults = useCallback((items: typeof experiments) => {
     // only show experiments that are not archived and stopped.
@@ -145,7 +95,7 @@ const LearningsPage = (): React.ReactElement => {
     [getExperimentMetricById, getProjectById, getUserDisplay]
   );
 
-  const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
+  const { items, searchInputProps } = useSearch({
     items: experiments,
     localStorageKey: "experiments",
     defaultSortField: "date",
@@ -288,12 +238,6 @@ const LearningsPage = (): React.ReactElement => {
     return <LoadingOverlay />;
   }
 
-  const hasExperiments = experiments.length > 0;
-
-  const start = (currentPage - 1) * NUM_PER_PAGE;
-  const end = start + NUM_PER_PAGE;
-
-  console.log("experiments: ", items);
   return (
     <>
       <div className="contents experiments container-fluid pagecontents">
@@ -304,13 +248,32 @@ const LearningsPage = (): React.ReactElement => {
             </div>
             <div style={{ flex: 1 }} />
           </div>
+          <Box>
+            <div className="row align-items-center mb-3">
+              <div className="col-5">
+                <Field
+                  placeholder="Search..."
+                  type="search"
+                  {...searchInputProps}
+                />
+              </div>
+              <div className="col-auto">
+                <Link
+                  href="https://docs.growthbook.io/using/growthbook-best-practices#syntax-search"
+                  target="_blank"
+                >
+                  <Tooltip body={searchTermFilterExplainations}></Tooltip>
+                </Link>
+              </div>
+            </div>
+          </Box>
           <Tabs defaultValue="experiments" persistInURL>
             <Box mb="5">
               <TabsList>
                 <TabsTrigger value="experiments">
                   Completed Experiments
                 </TabsTrigger>
-                <TabsTrigger value="templates">
+                <TabsTrigger value="timeline">
                   Experiment Timeline{" "}
                   <PaidFeatureBadge commercialFeature="templates" mx="2" />
                 </TabsTrigger>
@@ -318,158 +281,10 @@ const LearningsPage = (): React.ReactElement => {
             </Box>
 
             <TabsContent value="experiments">
-              <CustomMarkdown page={"experimentList"} />
-              {!hasExperiments ? (
-                <EmptyState
-                  title="Learning Library"
-                  description="Learn from completed experiments"
-                  leftButton={
-                    <LinkButton
-                      href="https://docs.growthbook.io/experiments"
-                      variant="outline"
-                      external
-                    >
-                      View docs
-                    </LinkButton>
-                  }
-                  rightButton={<></>}
-                />
-              ) : (
-                hasExperiments && (
-                  <>
-                    <div className="row align-items-center mb-3">
-                      <div className="col-5">
-                        <Field
-                          placeholder="Search..."
-                          type="search"
-                          {...searchInputProps}
-                        />
-                      </div>
-                      <div className="col-auto">
-                        <Link
-                          href="https://docs.growthbook.io/using/growthbook-best-practices#syntax-search"
-                          target="_blank"
-                        >
-                          <Tooltip
-                            body={searchTermFilterExplainations}
-                          ></Tooltip>
-                        </Link>
-                      </div>
-                    </div>
-
-                    <Box>
-                      {items.slice(start, end).map((e) => {
-                        const goalMetrics = e.goalMetrics.map((m) => {
-                          const metric = isFactMetricId(m)
-                            ? getFactMetricById(m)
-                            : getMetricById(m);
-                          if (metric) {
-                            return (
-                              <Link
-                                key={m}
-                                href={`/metrics/${m}`}
-                                className="text-decoration-none mr-3"
-                              >
-                                {metric.name}
-                              </Link>
-                            );
-                          }
-                          return null;
-                        });
-                        const moreGoalMetrics = e.goalMetrics.length > 2;
-
-                        return (
-                          <Box
-                            key={e.trackingKey}
-                            className="appbox"
-                            mb="4"
-                            p="3"
-                          >
-                            <Heading as="h2" size="2">
-                              {e.name}
-                            </Heading>
-                            <Flex align="start" justify="start" gap="6">
-                              <Box>
-                                <Box>
-                                  <Text
-                                    weight="medium"
-                                    size="1"
-                                    color="gray"
-                                    style={{ textTransform: "uppercase" }}
-                                  >
-                                    Duration
-                                  </Text>
-                                </Box>
-                                <Box>
-                                  {(e.phases?.[0]?.dateStarted
-                                    ? date(e.phases?.[0]?.dateStarted)
-                                    : "") +
-                                    " - " +
-                                    (e.date ? date(e.date) : "")}
-                                </Box>
-                              </Box>
-                              <Box>
-                                <Box>
-                                  <Text
-                                    weight="medium"
-                                    color="gray"
-                                    size="1"
-                                    style={{ textTransform: "uppercase" }}
-                                  >
-                                    Owner
-                                  </Text>
-                                </Box>
-                                <Box>
-                                  {getUserDisplay(e.owner, false) || ""}
-                                </Box>
-                              </Box>
-                              <Box>
-                                <Box>
-                                  <Text
-                                    weight="medium"
-                                    color="gray"
-                                    size="1"
-                                    style={{ textTransform: "uppercase" }}
-                                  >
-                                    Goal Metrics
-                                  </Text>
-                                </Box>
-                                <Box>
-                                  {goalMetrics.slice(0, 2)}{" "}
-                                  {moreGoalMetrics
-                                    ? `and ${goalMetrics.length - 2} more`
-                                    : ""}
-                                </Box>
-                              </Box>
-                              <Box>
-                                <Box>
-                                  <Text
-                                    weight="medium"
-                                    color="gray"
-                                    size="1"
-                                    style={{ textTransform: "uppercase" }}
-                                  >
-                                    Status
-                                  </Text>
-                                </Box>
-                                <Box>{e.result} </Box>
-                              </Box>
-                            </Flex>
-                          </Box>
-                        );
-                      })}
-                    </Box>
-                    {items.length > NUM_PER_PAGE && (
-                      <Pagination
-                        numItemsTotal={items.length}
-                        currentPage={currentPage}
-                        perPage={NUM_PER_PAGE}
-                        onPageChange={setCurrentPage}
-                      />
-                    )}
-                  </>
-                )
-              )}
+              <CompletedExperimentList experiments={items} />
+            </TabsContent>
+            <TabsContent value="timeline">
+              <ExperimentTimeline experiments={items} />
             </TabsContent>
           </Tabs>
         </div>
