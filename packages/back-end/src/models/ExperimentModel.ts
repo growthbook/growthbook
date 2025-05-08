@@ -5,6 +5,7 @@ import cloneDeep from "lodash/cloneDeep";
 import { includeExperimentInPayload, hasVisualChanges } from "shared/util";
 import { generateTrackingKey } from "shared/experiments";
 import { v4 as uuidv4 } from "uuid";
+import { experimentReportSchema } from "back-end/src/enterprise/models/ExperimentReportModel";
 import {
   Changeset,
   ExperimentInterface,

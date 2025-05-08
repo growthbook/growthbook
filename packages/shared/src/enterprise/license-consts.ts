@@ -58,7 +58,8 @@ export type CommercialFeature =
   | "safe-rollout"
   | "require-project-for-features-setting"
   | "metric-effects"
-  | "metric-correlations";
+  | "metric-correlations"
+  | "dashboards";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
@@ -277,6 +278,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "require-project-for-features-setting",
     "metric-effects",
     "metric-correlations",
+    "dashboards",
   ]),
 };
 
