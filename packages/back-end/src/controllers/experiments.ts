@@ -16,6 +16,10 @@ import {
 import { getScopedSettings } from "shared/settings";
 import { v4 as uuidv4 } from "uuid";
 import uniq from "lodash/uniq";
+import {
+  createExperimentReport,
+  updateExperimentReport,
+} from "back-end/src/enterprise/models/ExperimentReportModel";
 import { DataSourceInterface } from "back-end/types/datasource";
 import {
   AuthRequest,
@@ -124,6 +128,8 @@ import { CreateURLRedirectProps } from "back-end/types/url-redirect";
 import { logger } from "back-end/src/util/logger";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { generateExperimentReportSSRData } from "back-end/src/services/reports";
+import { ExperimentReportInterface } from "back-end/src/enterprise/validators/experiment-report";
+import { orgHasPremiumFeature } from "back-end/src/enterprise/licenseUtil";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
 
@@ -3260,5 +3266,163 @@ export async function getExperimentTimeSeries(
   res.status(200).json({
     status: 200,
     timeSeries,
+  });
+}
+
+export async function postExperimentReport(
+  req: AuthRequest<Partial<ExperimentReportInterface>, { id: string }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  if (!orgHasPremiumFeature(context.org, "experiment-reports")) {
+    throw new Error(
+      "Must have a commercial License Key to create Experiment Reports"
+    );
+  }
+
+  const { id } = req.params;
+  const { title, content } = req.body;
+
+  const experiment = await getExperimentById(context, id);
+  if (!experiment) {
+    res.status(404).json({
+      status: 404,
+      message: "Experiment not found",
+    });
+    return;
+  }
+
+  if (!context.permissions.canUpdateExperiment(experiment, experiment)) {
+    context.permissions.throwPermissionError();
+  }
+
+  if (!title) {
+    res.status(400).json({
+      status: 400,
+      message: "Title is required",
+    });
+    return;
+  }
+
+  if (!content) {
+    res.status(400).json({
+      status: 400,
+      message: "Content is required",
+    });
+    return;
+  }
+
+  const report = await createExperimentReport({
+    context,
+    experiment,
+    data: {
+      title,
+      content,
+    },
+  });
+
+  // Add the report to the experiment
+  experiment.reports = experiment.reports || [];
+  experiment.reports.push(report);
+
+  // Save the experiment
+  await updateExperiment({
+    context,
+    experiment,
+    changes: { reports: experiment.reports },
+  });
+
+  await req.audit({
+    event: "experiment.report.create",
+    entity: {
+      object: "experiment",
+      id: experiment.id,
+    },
+    details: auditDetailsCreate({
+      reportId: report.id,
+      title,
+    }),
+  });
+
+  res.status(200).json({
+    status: 200,
+    report,
+  });
+}
+
+export async function putExperimentReport(
+  req: AuthRequest<
+    Partial<ExperimentReportInterface>,
+    { id: string; reportId: string }
+  >,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  if (!orgHasPremiumFeature(context.org, "experiment-reports")) {
+    throw new Error(
+      "Must have a commercial License Key to modify Experiment Reports"
+    );
+  }
+
+  const { id, reportId } = req.params;
+  const { title, content } = req.body;
+
+  const experiment = await getExperimentById(context, id);
+  if (!experiment) {
+    res.status(404).json({
+      status: 404,
+      message: "Experiment not found",
+    });
+    return;
+  }
+
+  if (!context.permissions.canUpdateExperiment(experiment, experiment)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const reportIndex = experiment.reports?.findIndex((r) => r.id === reportId);
+  if (reportIndex === -1 || reportIndex === undefined) {
+    res.status(404).json({
+      status: 404,
+      message: "Report not found",
+    });
+    return;
+  }
+
+  const oldReport = experiment.reports![reportIndex];
+
+  const updatedReport = await updateExperimentReport({
+    context,
+    report: oldReport,
+    changes: { title, content },
+  });
+
+  // Add the report to the experiment
+  experiment.reports = (experiment.reports || []).map((r) =>
+    r.id === reportId ? updatedReport : r
+  );
+
+  // Save the experiment
+  await updateExperiment({
+    context,
+    experiment,
+    changes: { reports: experiment.reports },
+  });
+
+  await req.audit({
+    event: "experiment.report.update",
+    entity: {
+      object: "experiment",
+      id: experiment.id,
+    },
+    details: auditDetailsUpdate(oldReport, updatedReport, {
+      reportId,
+      title,
+    }),
+  });
+
+  res.status(200).json({
+    status: 200,
+    report: updatedReport,
   });
 }
