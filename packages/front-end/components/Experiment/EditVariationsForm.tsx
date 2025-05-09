@@ -139,6 +139,7 @@ const EditVariationsForm: FC<{
           );
         }}
         showPreview={false}
+        coverage={lastPhase.coverage}
         disableCoverage
         onlySafeToEditVariationMetadata={onlySafeToEditVariationMetadata}
       />
