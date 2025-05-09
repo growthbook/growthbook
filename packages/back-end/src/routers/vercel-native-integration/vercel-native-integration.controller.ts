@@ -18,6 +18,7 @@ import { ReqContextClass } from "back-end/src/services/context";
 import { setResponseCookies } from "back-end/src/controllers/auth";
 import { OrganizationInterface } from "back-end/types/organization";
 import { getVercelSSOToken } from "back-end/src/services/vercel-native-integration.service";
+import { createSDKConnection } from "back-end/src/models/SdkConnectionModel";
 import {
   userAuthenticationValidator,
   systemAuthenticationValidator,
@@ -348,12 +349,36 @@ export async function provisionResource(req: Request, res: Response) {
     return org.id;
   })();
 
+  const sdkConnection = await createSDKConnection({
+    organization: organizationId,
+    name: payload.name,
+    languages: ["react"],
+    environment: "dev",
+    includeVisualExperiments: true,
+    includeDraftExperiments: true,
+    includeRuleIds: true,
+    includeRedirectExperiments: false,
+    includeExperimentNames: true,
+    hashSecureAttributes: false,
+    projects: [],
+    encryptPayload: false,
+  });
+
   const resource: Resource = {
     ...payload,
     id: uuidv4(),
     organizationId,
     billingPlan,
-    secrets: [{ name: "token", value: uuidv4() }],
+    secrets: [
+      { name: "GROWTHBOOK_CLIENT_KEY", value: sdkConnection.key },
+      { name: "EDGE_CONFIG_KEY", value: "gb_payload" },
+      { name: "GROWTHBOOK_DOMAIN", value: "https://app.growthbook.io" },
+    ],
+    protocolSettings: {
+      experimentation: {
+        edgeConfigSyncingEnabled: true,
+      },
+    },
     status: "ready",
   };
 
