@@ -99,7 +99,7 @@
     "python-shell": "^3.0.0",
     "saslprep": "^1.0.0",
     "shared": "0.0.1",
-    "snowflake-sdk": "1.10.1",
+    "snowflake-sdk": "2.0.4",
     "sql-formatter": "^11.0.2",
     "ssrf-req-filter": "^1.1.1",
     "string-env-interpolation": "^1.0.1",
