@@ -1019,12 +1019,14 @@ export async function evaluateAllFeatures({
   attributeValues,
   environments,
   groupMap,
+  safeRolloutMap,
 }: {
   features: FeatureInterface[];
   context: ReqContext | ApiReqContext;
   attributeValues: ArchetypeAttributeValues;
   groupMap: GroupMap;
   environments?: (Environment | undefined)[];
+  safeRolloutMap: Map<string, SafeRolloutInterface>;
 }) {
   const results: { [key: string]: FeatureTestResult }[] = [];
   const savedGroups = getSavedGroupsValuesFromGroupMap(groupMap);
@@ -1068,6 +1070,7 @@ export async function evaluateAllFeatures({
       experimentMap,
       groupMap,
       prereqStateCache: {},
+      safeRolloutMap,
     });
 
     // now we have all the definitions, lets evaluate them
@@ -1303,6 +1306,7 @@ export function getApiFeatureObj({
         groupMap,
         experimentMap,
         environment: env,
+        safeRolloutMap,
       });
 
       environmentRules[env] = rules;

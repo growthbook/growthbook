@@ -2317,12 +2317,16 @@ export async function postFeaturesEvaluate(
     environment !== ""
       ? [allEnvironments.find((obj) => obj.id === environment)]
       : getEnvironments(context.org);
+  const safeRolloutMap = await context.models.safeRollout.getAllPayloadSafeRollouts(
+    featureIds
+  );
   const featureResults = await evaluateAllFeatures({
     features,
     context,
     attributeValues: attributes,
     groupMap: await getSavedGroupMap(context.org),
     environments: environments,
+    safeRolloutMap,
   });
   res.status(200).json({
     status: 200,

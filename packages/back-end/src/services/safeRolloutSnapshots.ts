@@ -8,7 +8,11 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
 } from "shared/constants";
-import { getSafeRolloutSnapshotAnalysis, isDefined } from "shared/util";
+import {
+  autoMerge,
+  getSafeRolloutSnapshotAnalysis,
+  isDefined,
+} from "shared/util";
 import {
   expandMetricGroups,
   ExperimentMetricInterface,
@@ -22,7 +26,6 @@ import {
   getHealthSettings,
   getSafeRolloutDaysLeft,
   getSafeRolloutResultStatus,
-  autoMerge,
 } from "shared/enterprise";
 import {
   MetricForSafeRolloutSnapshot,
