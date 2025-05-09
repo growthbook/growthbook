@@ -1,33 +1,18 @@
 import React from "react";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { useFormContext, UseFormReturn } from "react-hook-form";
+import { AIPromptDefaults, AIPromptInterface } from "shared/ai";
 import Frame from "@/components/Radix/Frame";
 import Field from "@/components/Forms/Field";
 import Checkbox from "@/components/Radix/Checkbox";
 import SelectField from "@/components/Forms/SelectField";
 import { isCloud } from "@/services/env";
-
-export const AIPrompts = [
-  {
-    promptType: "something",
-    promptName: "Example Prompt 1",
-    promptDescription: "This is a description for prompt 1.",
-    promptValue: "Value for prompt 1",
-    promptDefaultValue: "Value for prompt 1",
-    promptHelpText: "Prompt help text",
-  },
-  {
-    promptType: "2",
-    promptName: "Example Prompt 2",
-    promptDescription: "This is a description for prompt 2.",
-    promptValue: "Value for prompt 2",
-    promptDefaultValue: "Value for prompt 1",
-    promptHelpText: "Prompt help text",
-  },
-];
+import useApi from "@/hooks/useApi";
 
 // create a temp function which is passed a project and returns an array of prompts (promptId, promptName, promptDescription, promptValue)
-function getPrompts(): Array<{
+function getPrompts(data: {
+  prompts: AIPromptInterface[];
+}): Array<{
   promptType: string;
   promptName: string;
   promptDescription: string;
@@ -37,23 +22,31 @@ function getPrompts(): Array<{
 }> {
   return [
     {
-      promptType: "something",
-      promptName: "Example Prompt 1",
-      promptDescription: "This is a description for prompt 1.",
-      promptValue: "Value for prompt 1",
-      promptDefaultValue: "Value for prompt 1",
-      promptHelpText: "Prompt help text",
+      promptType: "experiment-analysis",
+      promptName: "Experiment Analysis",
+      promptDescription:
+        "When an experiment is stopped, this prompt creates an analysis of the results.",
+      promptValue:
+        data.prompts.find((p) => p.type === "experiment-analysis")?.prompt ||
+        "",
+      promptDefaultValue: AIPromptDefaults["experiment-analysis"],
+      promptHelpText:
+        "Make sure to explain the format of the results you would like to see.",
     },
     {
-      promptType: "2",
-      promptName: "Example Prompt 2",
-      promptDescription: "This is a description for prompt 2.",
-      promptValue: "Value for prompt 2",
-      promptDefaultValue: "Value for prompt 1",
-      promptHelpText: "Prompt help text",
+      promptType: "metric-description",
+      promptName: "Metric Description",
+      promptDescription:
+        "When a metric is created, this prompt creates a description of the metric.",
+      promptValue:
+        data.prompts.find((p) => p.type === "metric-description")?.prompt || "",
+      promptDefaultValue: AIPromptDefaults["metric-description"],
+      promptHelpText:
+        "Make sure to explain the format of the results you would like to see.",
     },
   ];
 }
+
 const openAIModels = [
   { value: "gpt-4o-mini", label: "gpt-4o-mini" },
   { value: "gpt-4o", label: "gpt-4o" },
@@ -71,8 +64,15 @@ export default function AISettings({
 }) {
   const form = useFormContext();
 
-  const prompts = getPrompts();
+  const { data, isLoading } = useApi<{
+    prompts: AIPromptInterface[];
+  }>(`/ai/prompts`);
 
+  if (isLoading || !data) return null;
+
+  const prompts = getPrompts(data);
+
+  console.log("prompts", prompts);
   return (
     <>
       <Frame>

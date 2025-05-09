@@ -862,7 +862,7 @@ app.get("/meta/ai", (req, res) => {
   });
 });
 
-app.use("/user", aiRouter);
+app.use("/ai", aiRouter);
 
 // Fallback 404 route if nothing else matches
 app.use(function (req, res) {

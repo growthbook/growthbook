@@ -38,7 +38,7 @@ import FeaturesSettings from "@/components/GeneralSettings/FeaturesSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import DatasourceSettings from "@/components/GeneralSettings/DatasourceSettings";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
-import AISettings, { AIPrompts } from "@/components/GeneralSettings/AISettings";
+import AISettings from "@/components/GeneralSettings/AISettings";
 import HelperText from "@/components/Radix/HelperText";
 import { AppFeatures } from "@/types/app-features";
 import {
@@ -84,13 +84,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
 
   const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
 
-  const promptDefaultFormValues = AIPrompts.reduce((acc, p) => {
-    acc[p.promptType] = p.promptDefaultValue;
-    return acc;
-  }, {});
-  const promptForm = useForm({
-    defaultValues: promptDefaultFormValues,
-  });
+  const promptForm = useForm();
 
   const { metricDefaults } = useOrganizationMetricDefaults();
   const form = useForm<OrganizationSettingsWithMetricDefaults>({
@@ -318,6 +312,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     hasChanges(value, originalValue) || promptForm.formState.isDirty;
 
   const savePrompts = promptForm.handleSubmit(async (promptValues) => {
+    console.log("Before formatting prompts: ", promptValues);
     const formattedPrompts = Object.entries(promptValues).map(
       ([key, value]) => ({
         type: key,
@@ -325,13 +320,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
       })
     );
     console.log("Formatted Prompts: ", formattedPrompts);
-    // save the prompts:
-    // await apiCall(`/ai something`, {
-    //   method: "PUT",
-    //   body: JSON.stringify({
-    //     settings: transformedOrgSettings,
-    //   }),
-    // });
+
+    await apiCall(`/ai/prompts`, {
+      method: "POST",
+      body: JSON.stringify({ prompts: formattedPrompts }),
+    });
   });
 
   const saveSettings = form.handleSubmit(async (value) => {

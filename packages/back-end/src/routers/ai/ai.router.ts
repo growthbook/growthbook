@@ -17,12 +17,14 @@ router.get(
 router.post(
   "/prompts",
   validateRequestMiddleware({
-    body: z.array(
-      z.object({
-        type: z.string(),
-        prompt: z.string(),
-      })
-    ),
+    body: z.object({
+      prompts: z.array(
+        z.object({
+          type: z.string(),
+          prompt: z.string(),
+        })
+      ),
+    }),
   }),
 
   AIController.postAIPrompts
