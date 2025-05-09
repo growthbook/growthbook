@@ -829,6 +829,37 @@ export default function FeaturesOverview({
             )}
           </Box>
         </Frame>
+
+        {feature.holdout ? (
+          <>
+            <Heading size="4" as="h3" mt="4">
+              Global Holdout
+            </Heading>
+            <Frame mb="4">
+              <Box>
+                <div className="mb-2">
+                  This feature is associated with a global holdout experiment.
+                </div>
+                <div className="appbox p-3">
+                  <div className="d-flex align-items-center">
+                    <div className="flex-grow-1">
+                      <div className="font-weight-bold mb-1">Holdout Experiment</div>
+                      <div className="text-muted">
+                        {experimentsMap.get(feature.holdout)?.name || `Holdout ${feature.holdout}`}
+                      </div>
+                    </div>
+                    <div>
+                      <Link href={`/experiment/${feature.holdout}`}>
+                        <Button variant="outline">View Experiment</Button>
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              </Box>
+            </Frame>
+          </>
+        ) : null}
+
         {dependents > 0 && (
           <Frame mb="4">
             <Box>

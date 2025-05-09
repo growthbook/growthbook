@@ -583,6 +583,9 @@ paths:
                   description: Feature IDs. Each feature must evaluate to `true`
                   items:
                     type: string
+                holdout:
+                  type: string
+                  description: ID of the global holdout experiment associated with this feature
                 jsonSchema:
                   type: string
                   description: Use JSON schema to validate the payload of a JSON-type feature value (enterprise only).
@@ -678,6 +681,9 @@ paths:
                   description: Feature IDs. Each feature must evaluate to `true`
                   items:
                     type: string
+                holdout:
+                  type: string
+                  description: ID of the global holdout experiment associated with this feature
                 jsonSchema:
                   type: string
                   description: Use JSON schema to validate the payload of a JSON-type feature value (enterprise only).
@@ -5590,6 +5596,9 @@ components:
           description: Feature IDs. Each feature must evaluate to `true`
           items:
             type: string
+        holdout:
+          type: string
+          description: ID of the global holdout experiment associated with this feature
         revision:
           type: object
           required:

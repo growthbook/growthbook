@@ -66,4 +66,30 @@ export class GlobalHoldoutModel extends BaseClass {
   async getAll(): Promise<GlobalHoldoutInterface[]> {
     return this._find({});
   }
+
+  async addLinkedFeature(holdoutId: string, featureId: string): Promise<void> {
+    const holdout = await this.getById(holdoutId);
+    if (!holdout) {
+      throw new Error("Global holdout not found");
+    }
+
+    if (!holdout.linkedFeatures.includes(featureId)) {
+      await this.update(holdout, {
+        linkedFeatures: [...holdout.linkedFeatures, featureId],
+      });
+    }
+  }
+
+  async removeLinkedFeature(holdoutId: string, featureId: string): Promise<void> {
+    const holdout = await this.getById(holdoutId);
+    if (!holdout) {
+      throw new Error("Global holdout not found");
+    }
+
+    if (holdout.linkedFeatures.includes(featureId)) {
+      await this.update(holdout, {
+        linkedFeatures: holdout.linkedFeatures.filter((id) => id !== featureId),
+      });
+    }
+  }
 }

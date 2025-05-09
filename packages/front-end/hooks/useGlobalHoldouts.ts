@@ -8,8 +8,6 @@ export function useGlobalHoldouts() {
     globalHoldouts: GlobalHoldoutInterface[];
   }>("/global-holdout");
 
-  console.log("hook", {data, error})
-
   const holdouts = useMemo(() => data?.globalHoldouts || [], [data]);
 
   const holdoutsMap = useMemo(

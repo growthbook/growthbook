@@ -131,6 +131,7 @@ import {
 } from "back-end/types/feature-rule";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { SafeRolloutRule } from "back-end/src/validators/features";
+import { GlobalHoldoutModel } from "../models/GlobalHoldoutModel";
 
 class UnrecoverableApiError extends Error {
   constructor(message: string) {
@@ -428,7 +429,7 @@ export async function postFeatures(
 ) {
   const context = getContextFromReq(req);
   const { org, userId, userName } = context;
-  const { id, environmentSettings, ...otherProps } = req.body;
+  const { id, environmentSettings, holdout, ...otherProps } = req.body;
 
   if (
     !context.permissions.canCreateFeature(req.body) ||
@@ -473,6 +474,7 @@ export async function postFeatures(
     description: "",
     project: "",
     environmentSettings: {},
+    holdout: holdout || "",
     ...otherProps,
     dateCreated: new Date(),
     dateUpdated: new Date(),
@@ -531,6 +533,12 @@ export async function postFeatures(
     },
     details: auditDetailsCreate(feature),
   });
+
+  // If the feature has a holdout field, add it to the global holdout's linked features
+  if (feature.holdout && feature.holdout !== "") {
+    const globalHoldoutModel = new GlobalHoldoutModel(context);
+    await globalHoldoutModel.addLinkedFeature(feature.holdout, feature.id);
+  }
 
   res.status(200).json({
     status: 200,
@@ -1297,6 +1305,7 @@ export async function postFeatureSync(
     description: data.description ?? feature.description,
     owner: data.owner ?? feature.owner,
     tags: data.tags ?? feature.tags,
+    holdout: data.holdout ?? feature.holdout,
   };
   const changes: Pick<FeatureRevisionInterface, "rules" | "defaultValue"> = {
     rules: {},
@@ -2137,6 +2146,7 @@ export async function putFeature(
     "project",
     "owner",
     "customFields",
+    "holdout",
   ];
 
   if (
@@ -2160,6 +2170,21 @@ export async function putFeature(
     },
     details: auditDetailsUpdate(feature, updatedFeature),
   });
+
+  // If the holdout field is being updated, update the global holdout's linked features
+  if (updates.holdout !== undefined && updates.holdout !== feature.holdout) {
+    const globalHoldoutModel = new GlobalHoldoutModel(context);
+    
+    // Remove from old holdout if it exists
+    if (feature.holdout) {
+      await globalHoldoutModel.removeLinkedFeature(feature.holdout, feature.id);
+    }
+    
+    // Add to new holdout if it exists and is not empty
+    if (updates.holdout && updates.holdout !== "") {
+      await globalHoldoutModel.addLinkedFeature(updates.holdout, feature.id);
+    }
+  }
 
   res.status(200).json({
     feature: updatedFeature,

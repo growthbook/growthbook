@@ -36,6 +36,7 @@ import FeatureKeyField from "./FeatureKeyField";
 import EnvironmentSelect from "./EnvironmentSelect";
 import TagsField from "./TagsField";
 import ValueTypeField from "./ValueTypeField";
+import { useGlobalHoldouts } from "@/hooks/useGlobalHoldouts";
 
 export type Props = {
   close?: () => void;
@@ -117,6 +118,7 @@ const genFormDefaultValues = ({
   | "id"
   | "environmentSettings"
   | "customFields"
+  | "holdout"
 > => {
   const environmentSettings = genEnvironmentSettings({
     environments,
@@ -143,6 +145,7 @@ const genFormDefaultValues = ({
         tags: featureToDuplicate.tags,
         environmentSettings,
         customFields: customFieldValues,
+        holdout: featureToDuplicate.holdout || "",
       }
     : {
         valueType: "" as FeatureValueType,
@@ -153,6 +156,7 @@ const genFormDefaultValues = ({
         tags: [],
         environmentSettings,
         customFields: customFieldValues,
+        holdout: "",
       };
 };
 
@@ -169,6 +173,7 @@ export default function FeatureModal({
   const permissionsUtil = usePermissionsUtil();
   const { refreshWatching } = useWatching();
   const { hasCommercialFeature } = useUser();
+  const { holdouts } = useGlobalHoldouts();
 
   const customFields = filterCustomFieldsForSectionAndProject(
     useCustomFields(),
@@ -226,6 +231,11 @@ export default function FeatureModal({
 
   // We want to show a warning when someone tries to create a feature under the demo project
   const { currentProjectIsDemo } = useDemoDataSourceProject();
+
+  const holdoutOptions = holdouts.map((h) => ({
+    label: h.experiment?.name || h.id,
+    value: h.id,
+  }));
 
   return (
     <Modal
@@ -362,6 +372,17 @@ export default function FeatureModal({
           />
         </>
       )}
+
+      <SelectField
+        label="Global Holdout"
+        value={form.watch("holdout") || ""}
+        onChange={(v) => {
+          form.setValue("holdout", v);
+        }}
+        initialOption="None"
+        options={holdoutOptions}
+        helpText="Optional: Associate this feature with a global holdout experiment"
+      />
 
       {hasCommercialFeature("custom-metadata") &&
         customFields &&

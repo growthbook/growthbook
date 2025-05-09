@@ -78,6 +78,7 @@ const featureSchema = new mongoose.Schema({
   defaultValue: String,
   environments: [String],
   tags: [String],
+  holdout: String,
   rules: [
     {
       _id: false,

@@ -51,6 +51,9 @@ properties:
     description: "Feature IDs. Each feature must evaluate to `true`"
     items:
       type: string
+  holdout:
+    type: string
+    description: "ID of the global holdout experiment associated with this feature"
   revision:
     type: object
     required:

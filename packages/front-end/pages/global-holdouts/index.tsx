@@ -35,8 +35,6 @@ const GlobalHoldoutsPage = (): React.ReactElement => {
     error,
   } = useGlobalHoldouts();
 
-  console.log({holdouts})
-
   const processedHoldouts = useAddComputedFields(
     holdouts,
     (holdout) => {

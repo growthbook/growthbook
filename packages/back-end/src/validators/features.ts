@@ -251,6 +251,7 @@ export const featureInterface = z
     linkedExperiments: z.array(z.string()).optional(),
     jsonSchema: JSONSchemaDef.optional(),
     customFields: z.record(z.any()).optional(),
+    holdout: z.string().optional(),
 
     /** @deprecated */
     legacyDraft: z.union([featureRevisionInterface, z.null()]).optional(),

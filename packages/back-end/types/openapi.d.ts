@@ -721,6 +721,8 @@ export interface components {
       };
       /** @description Feature IDs. Each feature must evaluate to `true` */
       prerequisites?: (string)[];
+      /** @description ID of the global holdout experiment associated with this feature */
+      holdout?: string;
       revision: {
         version: number;
         comment: string;
@@ -947,6 +949,8 @@ export interface components {
       };
       /** @description Feature IDs. Each feature must evaluate to `true` */
       prerequisites?: (string)[];
+      /** @description ID of the global holdout experiment associated with this feature */
+      holdout?: string;
       revision: {
         version: number;
         comment: string;
@@ -2516,6 +2520,8 @@ export interface operations {
                 };
                 /** @description Feature IDs. Each feature must evaluate to `true` */
                 prerequisites?: (string)[];
+                /** @description ID of the global holdout experiment associated with this feature */
+                holdout?: string;
                 revision: {
                   version: number;
                   comment: string;
@@ -2767,6 +2773,8 @@ export interface operations {
           };
           /** @description Feature IDs. Each feature must evaluate to `true` */
           prerequisites?: (string)[];
+          /** @description ID of the global holdout experiment associated with this feature */
+          holdout?: string;
           /** @description Use JSON schema to validate the payload of a JSON-type feature value (enterprise only). */
           jsonSchema?: string;
         };
@@ -2994,6 +3002,8 @@ export interface operations {
               };
               /** @description Feature IDs. Each feature must evaluate to `true` */
               prerequisites?: (string)[];
+              /** @description ID of the global holdout experiment associated with this feature */
+              holdout?: string;
               revision: {
                 version: number;
                 comment: string;
@@ -3241,6 +3251,8 @@ export interface operations {
               };
               /** @description Feature IDs. Each feature must evaluate to `true` */
               prerequisites?: (string)[];
+              /** @description ID of the global holdout experiment associated with this feature */
+              holdout?: string;
               revision: {
                 version: number;
                 comment: string;
@@ -3590,6 +3602,8 @@ export interface operations {
           };
           /** @description Feature IDs. Each feature must evaluate to `true` */
           prerequisites?: (string)[];
+          /** @description ID of the global holdout experiment associated with this feature */
+          holdout?: string;
           /** @description Use JSON schema to validate the payload of a JSON-type feature value (enterprise only). */
           jsonSchema?: string;
         };
@@ -3817,6 +3831,8 @@ export interface operations {
               };
               /** @description Feature IDs. Each feature must evaluate to `true` */
               prerequisites?: (string)[];
+              /** @description ID of the global holdout experiment associated with this feature */
+              holdout?: string;
               revision: {
                 version: number;
                 comment: string;
@@ -4086,6 +4102,8 @@ export interface operations {
               };
               /** @description Feature IDs. Each feature must evaluate to `true` */
               prerequisites?: (string)[];
+              /** @description ID of the global holdout experiment associated with this feature */
+              holdout?: string;
               revision: {
                 version: number;
                 comment: string;
