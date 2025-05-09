@@ -9,6 +9,7 @@ export interface AITokenUsageInterface {
 export const AI_PROMPT_TYPES = [
   "experiment.analysis",
   "metric.description",
+  "experiment.hypothesis",
 ] as const;
 export type AIPromptType = typeof AI_PROMPT_TYPES[number];
 
@@ -33,4 +34,6 @@ export const AIPromptDefaults: Record<AIPromptType, string> = {
     "\nThere is no need to provide metric ids in your answer",
   "metric.description":
     "Write a concise description in markdown of the metric that will be helpful for other users who may want to use this metric in their AB tests. Paraphrase what this metric is used to show or measure.",
+  "experiment.hypothesis":
+    "A hypothesis is a statement that can be tested. It should be clear, concise, specific, and falsifiable. It should include how the user or product behaviour is expected to change, and what metrics we're trying to move with this experiment.",
 };
