@@ -7,26 +7,37 @@ slug: google-tag-manager-gtm-troubleshooting
 
 # GrowthBook and Google Tag Manager (GTM)
 
-Google Tag Manager (GTM) is commonly configured by GrowthBook users to work alongside their Google Analytics (GA4) instance. This article helps troubleshoot common issues encountered when integrating GTM directly with GrowthBook, and when integrating GTM indirectly with GrowthBook through its connection to GA4.
+Google Tag Manager (GTM) is commonly configured by GrowthBook users to work alongside their Google Analytics (GA4) instance. This article helps troubleshoot common issues encountered when integrating GTM directly with GrowthBook, and when integrating GTM indirectly with GrowthBook through its connection to GA4. It can be used in combination with our [Google Tag Manager Setup Guide](https://docs.growthbook.io/guide/google-tag-manager-and-growthbook) and our guide on [A/B Testing with Google Analytics 4 (GA4) and GrowthBook](https://docs.growthbook.io/guide/GA4-google-analytics).
+
+Please watch the [How GrowthBook Works with Your Data](https://youtu.be/hboLeUbpdus) (4 minutes) overview video to better understand the issues and solutions in this troubleshooting guide.
 
 ## Common issues when integrating GTM with GrowthBook
 
 The issues described below are commonly reported and can lead to missing or incomplete experiment data in GA4 when using GTM with GrowthBook.
 
+### No `experiment_viewed` events in GTM
+Ensure the `trackingCallback` is correctly implemented and that the required dataLayer variables and triggers in GTM have been configured properly by reviewing [Using GrowthBook with Google Tag Manager (GTM)](https://docs.growthbook.io/guide/google-tag-manager-and-growthbook#4-tracking-via-datalayer-and-gtm).
+
+If you are using the HTML Script SDK, the `experiment_viewed` event is pushed to the dataLayer automatically. For other SDKs, the `trackingCallback` needs to be implemented manually to ensure the `experiment_viewed` event is pushed to the dataLayer.
+
 ### GTM variables, triggers, or tags are not properly configured
 Users often miss creating the necessary dataLayer variables for `experiment_id` and `variation_id`, or do not set up the Custom Event Trigger for `experiment_viewed` correctly. If the GA4 Event Tag is not configured to use these variables, the event will not be sent to GA4 from GTM.
 
+Even if the event is in the dataLayer and the trigger fires, if the GA4 Event Tag is not configured with the correct parameters (`experiment_id`, `variation_id`), the data may not be sent or may be sent incorrectly.
+
+If the GA4 Event Tag in GTM is not set to fire on the `experiment_viewed` event, or if the trigger conditions are not met, the event will not be sent to GA4. Double-check the trigger configuration and ensure it matches the event name and parameters.
+
 ### Missing or incorrect `dataLayer` push
 If the GrowthBook SDK’s `trackingCallback` does not push the `experiment_viewed` event to the dataLayer, or if the event structure is incorrect, GTM will not detect or forward the event to GA4. The event must be pushed in the correct format, such as:
-  ```js
-  // JavaScript
-  window.dataLayer = window.dataLayer || [];
-  window.dataLayer.push({
-    event: "experiment_viewed",
-    experiment_id: experiment.key,
-    variation_id: result.key,
-  });
-  ```
+```js
+// JavaScript
+window.dataLayer = window.dataLayer || [];
+window.dataLayer.push({
+  event: "experiment_viewed",
+  experiment_id: experiment.key,
+  variation_id: result.key,
+});
+```
 
 See the [Tracking via dataLayer and GTM](https://docs.growthbook.io/guide/google-tag-manager-and-growthbook#4-tracking-via-datalayer-and-gtm) documentation for more information.
 
@@ -34,7 +45,7 @@ See the [Tracking via dataLayer and GTM](https://docs.growthbook.io/guide/google
 
 The [hash attribute](https://docs.growthbook.io/faq#do-users-always-get-assigned-the-same-experiment-variation) is a unique identifier for a user, such as a `user_id` or a `device_id`. It's a crucial part of the GrowthBook SDK because it is used to determine which users are included in an experiment. If the hash attribute is missing, it can prevent the `trackingCallback` from firing.
 
-Ensure that the hash attribute is correctly set when initializing the GrowthBook instance. The [GrowthBook DevTools Chrome Extension](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) can help debug issues with the hash attribute.
+Ensure that the hash attribute is correctly set when initializing the GrowthBook instance. GrowthBook's [DevTools Browser Extension](https://docs.growthbook.io/tools/chrome-extension) (available for [Chrome](https://chromewebstore.google.com/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) and [Firefox](https://addons.mozilla.org/en-US/firefox/addon/growthbook-devtools/)) can help debug issues with the hash attribute.
 
 ### Sequencing and timing issues
 GrowthBook's [DevTools Browser Extension](https://docs.growthbook.io/tools/chrome-extension) (available for [Chrome](https://chromewebstore.google.com/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) and [Firefox](https://addons.mozilla.org/en-US/firefox/addon/growthbook-devtools/)) is especially helpful for troubleshooting timing and sequencing issues common with GTM setups because it lets you confirm whether GrowthBook is running and receiving the correct data on your site.
@@ -52,14 +63,14 @@ Ensure that the GrowthBook SDK is loaded and initialized only after GTM has fini
 Additionally, you can use GTM’s preview mode to verify the order in which tags are firing and adjust your triggers or tag sequencing to ensure GTM is ready before GrowthBook’s `trackingCallback` executes. This helps ensure that the `experiment_viewed` event is captured reliably by GTM and forwarded to GA4.
 
 ### Consent and cookie banner blocking
-If a cookie consent banner blocks analytics until consent is given, the `experiment_viewed` event may be sent before consent, causing it to be dropped or not sent at all.
+If a cookie consent banner blocks analytics until consent is given, the `experiment_viewed` event may be sent before consent, causing it to be dropped.
 
 Delay initializing the GrowthBook SDK and firing the `trackingCallback` (which will send the `experiment_viewed` event) until after the user has granted consent. This ensures that analytics and experiment exposure events are only sent when it is legally and technically permitted. 
 
 #### Special instructions if using the HTML Script Tag SDK or the Edge SDK
-If you are using GrowthBook’s script tag or Edge SDK, you can also use the `data-no-auto-cookies` attribute or the `NO_AUTO_COOKIES="true"` environment variable to prevent the SDK from setting cookies or persisting user assignments until consent is granted.
+Read more about cookies and GDPR compliance in the docs for the [HTML Script Tag SDK](https://docs.growthbook.io/lib/script-tag#cookie-policy-and-gdpr) and [Edge SDK](https://docs.growthbook.io/lib/edge/lambda#cookie-policy-and-gdpr).
 
-### Persist the cookie after consent
+#### Persist the cookie after consent
 Once consent is given, you can manually persist the cookie by dispatching the following event:
 
 ```js
@@ -72,87 +83,34 @@ Read more about cookies and GDPR compliance in the docs for the [HTML Script Tag
 ### Ad Blockers or Privacy Extensions
 Some users may have ad blockers or privacy browser extensions that block analytics scripts or dataLayer pushes, ultimately leading to missing events in GA4. In these cases, the GTM container may not load at all, no tags fire, and/or GA4 events may never be sent, even if GTM loads. Thus conversion tracking, user behavior data, and pageviews are underreported
 
-#### Troubleshoot using GTM's preview mode
-You can use GTM’s preview mode to verify that the `experiment_viewed` event appears in the dataLayer and that the GA4 Event Tag is firing as expected. View our [GTM testing documentation](https://docs.growthbook.io/guide/google-tag-manager-and-growthbook#testing-your-setup) for more info.
-
-## Why are there no `experiment_viewed` events showing in GTM?
-The `experiment_viewed` events should show in Google Tag Manager (GTM) if the GrowthBook implementation is set up to push these events to the dataLayer. This is a standard approach when integrating GrowthBook experiments with GTM and Google Analytics 4 (GA4).
-
-When a user is exposed to an experiment, GrowthBook (via a `trackingCallback` or the HTML SDK) will push an event like this to the dataLayer:
-
-```js
-{
-  event: "experiment_viewed",
-  experiment_id: "...",
-  variation_id: "..."
-}
-```
-
-GTM will listen for this event and forward it to GA4 or other analytics tools.
-
-### If you do not see `experiment_viewed` events in GTM
-- Ensure the `trackingCallback` is correctly implemented
-- Ensure the required dataLayer variables and triggers in GTM have been configured properly by reviewing [Using GrowthBook with Google Tag Manager (GTM)](https://docs.growthbook.io/guide/google-tag-manager-and-growthbook#4-tracking-via-datalayer-and-gtm).
-
-If you are using the HTML Script SDK, the `experiment_viewed` event is pushed to the dataLayer automatically. For other SDKs, the `trackingCallback` needs to be implemented manually to ensure the `experiment_viewed` event is pushed to the dataLayer.
-
-## Why is GTM not passing my `experiment_viewed` events along to GA4?
-
-Many of the troubleshooting strategies outlined above will also help debug situations where GTM is not passing `experiment_viewed` events to GA4.
-
-### The dataLayer event is not configured or triggered properly**  
-If the experiment_viewed event is not being pushed to the dataLayer in the expected format, GTM will not detect it. For example, if the event is pushed as an array instead of an object, the GTM trigger may not fire as documented. You should ensure the event is pushed in the format shown below. If the format is incorrect, the trigger will not activate.
-
-```js
-
-// JavaScript
-window.dataLayer.push({
-  event: "experiment_viewed",
-  experiment_id: "...",
-  variation_id: "..."
-});
-```
-
-### Missing or Incorrect GTM Variables and Triggers
-GTM requires you to set up Data Layer Variables for `experiment_id` and `variation_id` and a Custom Event Trigger for `experiment_viewed`. If these are not set up or are misconfigured, the event will not be passed to GA4.
-
-### GTM Tag Not Firing  
-If the GA4 Event Tag in GTM is not set to fire on the `experiment_viewed` event, or if the trigger conditions are not met, the event will not be sent to GA4. Double-check the trigger configuration and ensure it matches the event name and parameters.
-
-### Timing Issues
-Sometimes, the event may be pushed to the dataLayer before GTM is fully loaded, or before the relevant tags and triggers are ready. This can result in GTM missing the event.
+### Slow web page loading times and latency
+If the site loads slowly, users may navigate away before the `experiment_viewed` event is pushed to the dataLayer and picked up by GTM, resulting in lost events.
 
 ### GTM Security Restrictions
 If you are injecting the GrowthBook script via GTM (not recommended), GTM may strip out data attributes (like `data-client-key`), causing the SDK to not initialize properly and thus not push events to the dataLayer.
 
-### GA4 Tag Configuration Issues 
-Even if the event is in the dataLayer and the trigger fires, if the GA4 Event Tag is not configured with the correct parameters (`experiment_id`, `variation_id`), the data may not be sent or may be sent incorrectly.
-
 ### Data Propagation Delay 
-Sometimes, there is a delay between when the event is sent and when it appears in GA4. This is normal, but if you never see the event, it’s likely a configuration issue [Hello! I'm trying to setup Growthbook with google analytics](https://linen.growthbook.io/t/16092348/hello-i-m-trying-to-setup-growthbook-with-google-analytics-i).
+Sometimes, there is a delay between when the event is sent and when it appears in GA4. This is normal, but if you never see the event, it’s likely a configuration issue.
 
-## Use GrowthBook's Chrome Developer Tools extension to debug GTM issues
+## Use GTM's Preview Mode to debug
+If you have verified your GTM setup and still see discrepancies, use GTM's Preview mode to ensure the `experiment_viewed` event is being pushed to the dataLayer and that your GA4 Event Tag is firing as expected.
 
-Use the [GrowthBook DevTools Browser Extension](https://docs.growthbook.io/tools/chrome-extension) (available for [Chrome](https://chromewebstore.google.com/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) and [Firefox](https://addons.mozilla.org/en-US/firefox/addon/growthbook-devtools/)) to debug issues with GTM by:
+Also, check GA4's real-time reports to confirm event receipt ([more details in our GTM setup guide](https://docs.growthbook.io/guide/google-tag-manager-and-growthbook#testing-your-setup)).
 
-- Inspecting whether the GrowthBook SDK is properly loaded
+## Use GrowthBook's Developer Tools extension to debug
+GrowthBook's [DevTools Browser Extension](https://docs.growthbook.io/tools/chrome-extension) (available for [Chrome](https://chromewebstore.google.com/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) and [Firefox](https://addons.mozilla.org/en-US/firefox/addon/growthbook-devtools/)) is very helpful for debugging issues with GTM (and GA4) by:
+
+- Inspecting whether the GrowthBook SDK is properly loaded on the web site
 - Checking which feature flags and experiments are active
-- Verifying if user attributes are set as expected
+- Verifying that user attributes are set as expected
 
-The extension allows you to see real-time information about feature flags and experiments directly in your browser, making it easier to identify if the SDK is initialized correctly and if experiments are being evaluated as intended.
+The extension allows you to see real-time information about feature flags and experiments, which helps to confirm if the SDK is initialized correctly and if experiments are being evaluated as intended. This is especially useful when troubleshooting why experiment exposure events (like `experiment_viewed`) might not be appearing in GTM/GA4.
 
-To use the DevTools extension for debugging:
+### Initial debugging steps
+- Check if the SDK is detected (look for a green dot on the extension icon).
+- Inspect which experiments and feature flags are active and their current values.
+- Verify that user attributes (such as IDs used for bucketing) are set correctly.
+- If you’re not seeing expected experiments or flags, this may indicate issues with SDK initialization, attribute configuration, or experiment targeting, which could explain missing events in GTM/GA4.
 
-1. **Enable Dev Mode:** Make sure your GrowthBook SDK is initialized with `enableDevMode: true`. This is required for the extension to connect and display information about your feature flags and experiments ([Dev Mode Docs](https://docs.growthbook.io/lib/js#dev-mode), [DevTools Docs](https://docs.growthbook.io/tools/chrome-extension)).
-
-2. **Open the Extension:**  
-   - Use the popup from your browser toolbar for a quick overview.
-   - Or, open your browser’s Developer Tools and select the **GrowthBook** tab for a more detailed view.
-
-3. **Debugging with GTM:**  
-   - Check if the SDK is detected (look for a green dot on the extension icon).
-   - Inspect which experiments and feature flags are active and their current values.
-   - Verify that user attributes (such as IDs used for bucketing) are set correctly.
-   - If you’re not seeing expected experiments or flags, this may indicate issues with the GTM tag firing order, SDK initialization, or attribute configuration.
-
-If the extension cannot detect the SDK, double-check that your GTM tags are firing in the correct order and that `enableDevMode` is enabled. This can help you quickly pinpoint where the integration might be failing.
+## Use your browser's Developer Tools Console to debug GTM/GA4 issues
+If you've confirmed that the `trackingCallback` is implemented and firing, GA4 is loaded, and you are still not seeing `experiment_viewed` events, we recommend logging the trackingCallback execution to check for errors. Add logging statements through the GrowthBook-related code in your application, then check in your browser's Developer Tools Console to further debug the issue.
