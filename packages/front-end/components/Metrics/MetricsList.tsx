@@ -1,21 +1,17 @@
-import React, { ReactElement, useCallback, useState } from "react";
+import React, { ReactElement, useState } from "react";
 import { FaArchive } from "react-icons/fa";
 import Link from "next/link";
 import { date, datetime } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
 import { getMetricLink, isFactMetricId } from "shared/experiments";
 import { useRouter } from "next/router";
+import { Box, Flex } from "@radix-ui/themes";
 import SortedTags from "@/components/Tags/SortedTags";
 import ProjectBadges from "@/components/ProjectBadges";
-import TagsFilter, {
-  filterByTags,
-  useTagsFilter,
-} from "@/components/Tags/TagsFilter";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
-import Toggle from "@/components/Forms/Toggle";
 import { DocLink } from "@/components/DocLink";
 import { useUser } from "@/services/UserContext";
 import { envAllowsCreatingMetrics } from "@/services/env";
@@ -29,16 +25,18 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import Button from "@/components/Radix/Button";
 import {
-  MetricModalState,
   MetricModal,
+  MetricModalState,
 } from "@/components/FactTables/NewMetricModal";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import { FilterMetricSearchModal } from "@/components/Search/SearchFilters";
 import PremiumCallout from "../Radix/PremiumCallout";
 
 export interface MetricTableItem {
   id: string;
   managedBy: "" | "api" | "config";
   name: string;
+  description?: string;
   type: string;
   tags: string[];
   projects: string[];
@@ -155,6 +153,7 @@ export function useCombinedMetrics({
         dateUpdated: m.dateUpdated,
         dateCreated: m.dateCreated,
         name: m.name,
+        description: m.description,
         owner: m.owner,
         projects: m.projects || [],
         tags: m.tags || [],
@@ -228,6 +227,7 @@ const MetricsList = (): React.ReactElement => {
     getProjectById,
     metricGroups,
     project,
+    projects,
     ready,
   } = useDefinitions();
   const { getUserDisplay } = useUser();
@@ -235,22 +235,8 @@ const MetricsList = (): React.ReactElement => {
   const router = useRouter();
   const permissionsUtil = usePermissionsUtil();
 
-  const tagsFilter = useTagsFilter("metrics");
-
-  const [showArchived, setShowArchived] = useState(false);
-  const [recentlyArchived, setRecentlyArchived] = useState<Set<string>>(
-    new Set()
-  );
-
   const combinedMetrics = useCombinedMetrics({
     setMetricModalProps: setModalData,
-    afterArchive: (id, archived) => {
-      if (archived) {
-        setRecentlyArchived((set) => new Set([...set, id]));
-      } else {
-        setRecentlyArchived((set) => new Set([...set].filter((i) => i !== id)));
-      }
-    },
   });
 
   const metrics = useAddComputedFields(
@@ -271,25 +257,13 @@ const MetricsList = (): React.ReactElement => {
     ? metrics.filter((m) => isProjectListValidForProject(m.projects, project))
     : metrics;
 
-  // Searching
-  const filterResults = useCallback(
-    (items: typeof filteredMetrics) => {
-      if (!showArchived) {
-        items = items.filter((m) => {
-          return !m.archived || recentlyArchived.has(m.id);
-        });
-      }
-      items = filterByTags(items, tagsFilter.tags);
-      return items;
-    },
-    [showArchived, recentlyArchived, tagsFilter.tags]
-  );
-
+  //searching:
   const {
     items,
-    unpaginatedItems,
     searchInputProps,
     isFiltered,
+    syntaxFilters,
+    setSearchValue,
     SortableTH,
     pagination,
   } = useSearch({
@@ -315,6 +289,7 @@ const MetricsList = (): React.ReactElement => {
       created: (item) => (item.dateCreated ? new Date(item.dateCreated) : null),
       updated: (item) => (item.dateUpdated ? new Date(item.dateUpdated) : null),
       name: (item) => item.name,
+      description: (item) => item.description,
       id: (item) => item.id,
       owner: (item) => [item.owner, item.ownerName],
       type: (item) => {
@@ -330,7 +305,6 @@ const MetricsList = (): React.ReactElement => {
       project: (item) => [...item.projectNames, ...item.projects],
       datasource: (item) => [item.datasource, item.datasourceName],
     },
-    filterResults,
     pageSize: 20,
   });
 
@@ -342,8 +316,7 @@ const MetricsList = (): React.ReactElement => {
     setModalData(null);
   };
 
-  const hasArchivedMetrics = filteredMetrics.some((m) => m.archived);
-
+  console.log("projects: ", projects);
   return (
     <div className="container-fluid pagecontents p-0">
       {modalData ? (
@@ -383,25 +356,17 @@ const MetricsList = (): React.ReactElement => {
       <div className="mt-4">
         <CustomMarkdown page={"metricList"} />
       </div>
-      <div className="row mb-2 align-items-center">
-        <div className="col-lg-3 col-md-4 col-6">
+      <Flex justify="between" mb="3" gap="3" align="center">
+        <Box className="relative" width="40%">
           <Field placeholder="Search..." type="search" {...searchInputProps} />
-        </div>
-        {hasArchivedMetrics && (
-          <div className="col-auto text-muted">
-            <Toggle
-              value={showArchived}
-              setValue={setShowArchived}
-              id="show-archived"
-              label="show archived"
-            />
-            Show archived
-          </div>
-        )}
-        <div className="col-auto">
-          <TagsFilter filter={tagsFilter} items={unpaginatedItems} />
-        </div>
-      </div>
+        </Box>
+        <FilterMetricSearchModal
+          combinedMetrics={combinedMetrics}
+          searchInputProps={searchInputProps}
+          setSearchValue={setSearchValue}
+          syntaxFilters={syntaxFilters}
+        />
+      </Flex>
       {metrics.length > 4 && !metricGroups.length ? (
         <PremiumCallout
           commercialFeature="metric-groups"
@@ -592,7 +557,7 @@ const MetricsList = (): React.ReactElement => {
             );
           })}
 
-          {!items.length && (isFiltered || tagsFilter.tags.length > 0) && (
+          {!items.length && isFiltered && (
             <tr>
               <td colSpan={9} align={"center"}>
                 No matching metrics
