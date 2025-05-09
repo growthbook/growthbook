@@ -2,6 +2,7 @@ import type { Response } from "express";
 import { AIPromptInterface, AIPromptType } from "shared/ai";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { simpleCompletion } from "back-end/src/services/openai";
 
 type GetAIPromptResponse = {
   status: 200;
@@ -47,5 +48,29 @@ export async function postAIPrompts(
 
   return res.status(200).json({
     status: 200,
+  });
+}
+
+export async function postReformat(
+  req: AuthRequest<{ type: string; text: string }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+
+  const prompt = await context.models.aiPrompts.getAIPrompt(
+    "experiment-analysis"
+  );
+
+  const aiResults = await simpleCompletion({
+    context,
+    prompt: prompt,
+    temperature: 0.1,
+  });
+
+  res.status(200).json({
+    status: 200,
+    data: {
+      output: aiResults,
+    },
   });
 }

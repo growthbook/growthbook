@@ -26,8 +26,15 @@ router.post(
       ),
     }),
   }),
-
   AIController.postAIPrompts
+);
+
+router.post(
+  "/reformat",
+  validateRequestMiddleware({
+    body: z.object({ type: z.string(), text: z.string() }),
+  }),
+  AIController.postReformat
 );
 
 export { router as aiRouter };
