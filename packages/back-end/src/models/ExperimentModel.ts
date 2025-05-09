@@ -594,6 +594,25 @@ export async function getExperimentByIdea(
     : null;
 }
 
+export async function getExperimentsUpdatedBetween(
+  context: ReqContext | ApiReqContext,
+  startDate: Date,
+  endDate?: Date
+): Promise<ExperimentInterface[]> {
+  const experiments = await getCollection(COLLECTION)
+    .find({
+      organization: context.org.id,
+      lastSnapshotAttempt: {
+        $exists: true,
+        $gte: startDate,
+        $lte: endDate,
+      },
+    })
+    .toArray();
+
+  return experiments.map(toInterface);
+}
+
 export async function getExperimentsToUpdate(
   ids: string[]
 ): Promise<Pick<ExperimentInterface, "id" | "organization">[]> {

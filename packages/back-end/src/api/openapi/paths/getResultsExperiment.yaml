@@ -1,14 +1,15 @@
 parameters:
   - $ref: "../parameters.yaml#/id"
 get:
-  summary: Get results for an experiment
+  summary: Get results for an experiment in dataset format
   tags:
     - experiments
-  operationId: getExperimentResults
+    - results
+  operationId: getResultsExperiment
   x-codeSamples:
     - lang: 'cURL'
       source: |
-        curl https://api.growthbook.io/api/v1/experiments/exp_123abc/results \
+        curl https://api.growthbook.io/api/v1/results/experiment/exp_123abc \
           -u secret_abc123DEF456:
   parameters:
     - name: phase
@@ -29,4 +30,8 @@ get:
               - experiment
             properties:
               result:
-                $ref: "../schemas/ExperimentResults.yaml"
+                type: array
+                description: "The latest results for the experiment de-normalized with no nesting. One row per variation, metric, dimension value, and difference type."
+                items:
+                  $ref: "../schemas/ExperimentResultsRow.yaml"
+
