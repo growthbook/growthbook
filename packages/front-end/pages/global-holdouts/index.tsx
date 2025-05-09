@@ -13,6 +13,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/components/Radix/Button";
 import EmptyState from "@/components/EmptyState";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
+import { useGlobalHoldouts } from "@/hooks/useGlobalHoldouts";
 
 const NUM_PER_PAGE = 20;
 
@@ -28,23 +29,22 @@ const GlobalHoldoutsPage = (): React.ReactElement => {
   const [currentPage, setCurrentPage] = useState(1);
   const router = useRouter();
 
-  // TODO: Replace with actual API call
-  const [holdouts, setHoldouts] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  const {
+    holdouts,
+    loading,
+    error,
+  } = useGlobalHoldouts();
 
-  useEffect(() => {
-    // TODO: Replace with actual API call
-    setLoading(false);
-  }, []);
+  console.log({holdouts})
 
   const processedHoldouts = useAddComputedFields(
     holdouts,
     (holdout) => {
       return {
-        ownerName: getUserDisplay(holdout.owner, false) || "",
+        ownerName: getUserDisplay(holdout.experiment?.owner, false) || "",
         date: holdoutDate(holdout),
-        status: holdout.status,
+        status: holdout.experiment?.status || "unknown",
+        key: holdout.experiment?.name || holdout.id,
       };
     },
     [getUserDisplay]
@@ -60,7 +60,6 @@ const GlobalHoldoutsPage = (): React.ReactElement => {
       "key^3",
       "id",
       "description",
-      "tags",
       "status",
       "ownerName",
     ],
@@ -208,7 +207,12 @@ const GlobalHoldoutsPage = (): React.ReactElement => {
               type: "holdout",
               phases: [
                 {
+                  name: "Main",
+                  dateStarted: new Date().toISOString(),
+                  reason: "",
                   coverage: 0.2,
+                  condition: "{}",
+                  variationWeights: [0.5, 0.5],
                 }
               ]
             }}

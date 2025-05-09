@@ -15,6 +15,7 @@ properties:
     enum:
       - "standard"
       - "multi-armed-bandit"
+      - "holdout"
   project:
     type: string
     description: Project ID which the experiment belongs to

@@ -41,7 +41,6 @@ import { DecisionCriteriaModel } from "back-end/src/enterprise/models/DecisionCr
 import { MetricTimeSeriesModel } from "back-end/src/models/MetricTimeSeriesModel";
 import { getExperimentMetricsByIds } from "./experiments";
 import { GlobalHoldoutModel } from "back-end/src/models/GlobalHoldoutModel";
-import { ExperimentModel } from "back-end/src/models/ExperimentModel";
 
 export type ForeignRefTypes = {
   experiment: ExperimentInterface;
@@ -66,7 +65,6 @@ export class ReqContextClass {
     decisionCriteria: DecisionCriteriaModel;
     metricTimeSeries: MetricTimeSeriesModel;
     globalHoldout: GlobalHoldoutModel;
-    experiments: ExperimentModel;
   };
   private initModels() {
     this.models = {
@@ -84,7 +82,6 @@ export class ReqContextClass {
       decisionCriteria: new DecisionCriteriaModel(this),
       metricTimeSeries: new MetricTimeSeriesModel(this),
       globalHoldout: new GlobalHoldoutModel(this),
-      experiments: new ExperimentModel(this),
     };
   }
 

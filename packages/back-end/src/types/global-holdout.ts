@@ -1,0 +1,1 @@
+export { GlobalHoldoutInterface } from "../validators/global-holdout"; 
