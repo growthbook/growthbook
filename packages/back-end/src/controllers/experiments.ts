@@ -358,7 +358,7 @@ export async function postAIExperimentAnalysis(
     context,
     instructions,
     prompt: prompt,
-    temperature: 0.5,
+    temperature: 0.1,
   });
 
   res.status(200).json({
