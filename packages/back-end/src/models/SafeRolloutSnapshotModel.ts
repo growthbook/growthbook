@@ -131,7 +131,7 @@ export class SafeRolloutSnapshotModel extends BaseClass {
         throw new Error("Rule not found");
       }
 
-      await checkAndRollbackSafeRollout({
+      const status = await checkAndRollbackSafeRollout({
         context: this.context,
         updatedSafeRollout: {
           ...safeRollout,
@@ -141,6 +141,28 @@ export class SafeRolloutSnapshotModel extends BaseClass {
         ruleIndex,
         feature,
       });
+      // update the ramp up Schedule if the status is running and the ramp up is enabled and not completed
+      if (
+        status === "running" &&
+        safeRollout.rampUpSchedule.enabled &&
+        !safeRollout.rampUpSchedule.rampUpCompleted
+      ) {
+        const rampUpSchedule = safeRollout.rampUpSchedule;
+        const rampUpCompleted =
+          rampUpSchedule.step === rampUpSchedule.steps.length - 1;
+
+        const step = rampUpCompleted
+          ? rampUpSchedule.step // keep the step the same if it is completed
+          : rampUpSchedule.step + 1;
+
+        await this.context.models.safeRollout.update(safeRollout, {
+          rampUpSchedule: {
+            ...rampUpSchedule,
+            step,
+            rampUpCompleted,
+          },
+        });
+      }
     }
   }
 }

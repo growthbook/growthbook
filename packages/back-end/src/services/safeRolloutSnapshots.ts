@@ -65,7 +65,11 @@ import {
 import { ResourceEvents } from "back-end/src/events/base-types";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { SafeRolloutInterface } from "back-end/types/safe-rollout";
-import { SafeRolloutNotification } from "back-end/src/validators/safe-rollout";
+import {
+  RampUpSchedule,
+  SafeRolloutNotification,
+  SafeRolloutStatus,
+} from "back-end/src/validators/safe-rollout";
 import {
   createRevision,
   getRevision,
@@ -414,13 +418,13 @@ export async function _createSafeRolloutSnapshot({
     status: "running",
   };
 
-  const nextUpdate = determineNextDate(
-    organization.settings?.updateSchedule || null
+  const nextSnapshotAttempt = determineNextSnapshotAttempt(
+    safeRollout.rampUpSchedule,
+    safeRollout,
+    organization
   );
-
   await context.models.safeRollout.update(safeRollout, {
-    nextSnapshotAttempt:
-      nextUpdate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    nextSnapshotAttempt,
   });
 
   const snapshot = await context.models.safeRolloutSnapshots.create(data);
@@ -440,6 +444,39 @@ export async function _createSafeRolloutSnapshot({
   });
 
   return queryRunner;
+}
+
+export function determineNextSnapshotAttempt(
+  rampUpSchedule: RampUpSchedule,
+  safeRollout: SafeRolloutInterface,
+  organization: OrganizationInterface
+) {
+  // return standard ramp up time if ramp up is completed
+  if (safeRollout.rampUpSchedule.rampUpCompleted) {
+    const nextUpdate = determineNextDate(
+      organization.settings?.updateSchedule || null
+    );
+    return nextUpdate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+  }
+
+  let maxDurationInSeconds: number; // in seconds
+  switch (safeRollout.maxDuration.unit) {
+    case "days":
+      maxDurationInSeconds = safeRollout.maxDuration.amount * 86400;
+      break;
+    case "weeks":
+      maxDurationInSeconds = safeRollout.maxDuration.amount * 604800;
+      break;
+    case "hours":
+      maxDurationInSeconds = safeRollout.maxDuration.amount * 3600;
+      break;
+    default:
+      throw new Error("Invalid max duration unit");
+  }
+  const fullRampUpTimeInSeconds = maxDurationInSeconds * 0.25;
+  const rampUpTimeBetweenStepsInSeconds =
+    fullRampUpTimeInSeconds / rampUpSchedule.steps.length;
+  return new Date(Date.now() + rampUpTimeBetweenStepsInSeconds * 1000);
 }
 
 export async function createSafeRolloutSnapshot({
@@ -543,8 +580,8 @@ export async function checkAndRollbackSafeRollout({
   safeRolloutSnapshot: SafeRolloutSnapshotInterface;
   ruleIndex: number;
   feature: FeatureInterface;
-}) {
-  if (updatedSafeRollout.status !== "running") return;
+}): Promise<SafeRolloutStatus> {
+  if (updatedSafeRollout.status !== "running") return updatedSafeRollout.status;
   const daysLeft = getSafeRolloutDaysLeft({
     safeRollout: updatedSafeRollout,
     snapshotWithResults: safeRolloutSnapshot,
@@ -558,10 +595,12 @@ export async function checkAndRollbackSafeRollout({
     healthSettings,
     daysLeft,
   });
+  let status: SafeRolloutStatus = updatedSafeRollout.status;
   if (
     safeRolloutStatus?.status &&
     ["unhealthy", "rollback-now"].includes(safeRolloutStatus.status)
   ) {
+    status = "rolled-back";
     const revision = await createRevision({
       context,
       feature,
@@ -574,7 +613,7 @@ export async function checkAndRollbackSafeRollout({
       revision,
       updatedSafeRollout.environment,
       ruleIndex,
-      { status: "rolled-back" },
+      { status },
       context.auditUser,
       false
     );
@@ -620,6 +659,7 @@ export async function checkAndRollbackSafeRollout({
       "auto-publish status change"
     );
   }
+  return status;
 }
 
 const dispatchSafeRolloutEvent = async <T extends ResourceEvents<"feature">>({

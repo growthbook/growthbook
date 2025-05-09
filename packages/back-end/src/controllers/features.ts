@@ -1203,6 +1203,12 @@ export async function postFeatureRule(
       featureId: feature.id,
       status: rule.status,
       autoSnapshots: true,
+      rampUpSchedule: {
+        enabled: true,
+        step: 0,
+        steps: [0.1, 0.25, 0.5],
+        rampUpCompleted: false,
+      },
     });
 
     if (!safeRollout) {
@@ -2252,6 +2258,9 @@ export async function postFeatureEvaluate(
   const experimentMap = await getAllPayloadExperiments(context);
   const allEnvironments = getEnvironments(org);
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
+  const safeRolloutMap = await context.models.safeRollout.getAllPayloadSafeRollouts(
+    [feature.id]
+  );
   const results = evaluateFeature({
     feature,
     revision,
@@ -2262,6 +2271,7 @@ export async function postFeatureEvaluate(
     scrubPrerequisites,
     skipRulesWithPrerequisites,
     date,
+    safeRolloutMap,
   });
 
   res.status(200).json({
