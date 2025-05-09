@@ -545,7 +545,9 @@ export async function getFeatureRevisionsByFeatureIds(
     const revisions = await FeatureRevisionModel.find({
       organization,
       featureId: { $in: featureIds },
-    });
+    })
+      .sort({ version: -1 })
+      .limit(10);
     revisions.forEach((revision) => {
       const featureId = revision.featureId;
       revisionsByFeatureId[featureId] = revisionsByFeatureId[featureId] || [];
