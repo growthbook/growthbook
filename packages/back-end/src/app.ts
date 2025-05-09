@@ -484,6 +484,10 @@ app.get(
   metricsController.getMetricExperimentResults
 );
 app.get("/metrics/:id/northstar", metricsController.getMetricNorthstarData);
+app.get(
+  "/metrics/:id/gen-description",
+  metricsController.getGeneratedDescription
+);
 
 // Metric Analyses
 app.use(metricAnalysisRouter);

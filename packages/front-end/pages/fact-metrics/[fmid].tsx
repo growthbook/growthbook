@@ -553,6 +553,20 @@ export default function FactMetricPage() {
               canCreate={canEdit}
               canEdit={canEdit}
               value={factMetric.description}
+              aiSuggestFunction={async () => {
+                const res = await apiCall<{
+                  status: number;
+                  data: {
+                    description: string;
+                  };
+                }>(`/metrics/${factMetric.id}/gen-description`, {
+                  method: "GET",
+                });
+                if (res?.status !== 200) {
+                  throw new Error("Could not load AI suggestions");
+                }
+                return res.data.description;
+              }}
               save={async (description) => {
                 await apiCall(`/fact-metrics/${factMetric.id}`, {
                   method: "PUT",

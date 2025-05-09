@@ -15,11 +15,10 @@ import { Box, Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { uploadFile } from "@/services/files";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import Button from "@/components/Radix/Button";
+import { useAISettings } from "@/hooks/useOrgSettings";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../Radix/Tabs";
 import Markdown from "./Markdown";
-import Button from "@/components/Radix/Button";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import { useUser } from "@/services/UserContext";
 
 const Item = ({ entity: { name, char } }) => <div>{`${name}: ${char}`}</div>;
 const Loading = () => <div>Loading</div>;
@@ -45,13 +44,15 @@ const MarkdownInput: FC<{
   placeholder,
   aiSuggestFunction,
 }) => {
-  const { hasCommercialFeature } = useUser();
+  const { aiEnabled } = useAISettings();
   const [activeControlledTab, setActiveControlledTab] = useState<
     "write" | "preview"
   >("write");
   const { apiCall } = useAuth();
   const textareaRef = useRef<null | HTMLTextAreaElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [aiSuggestionText, setAiSuggestionText] = useState("");
+  const [loading, setLoading] = useState(false);
   useEffect(() => {
     if (autofocus && textareaRef.current) {
       textareaRef.current.focus();
@@ -96,7 +97,8 @@ const MarkdownInput: FC<{
   >;
 
   return (
-    <div className="">
+    <Box className="">
+      {loading && <LoadingOverlay text="Generating..." />}
       <Tabs
         value={activeControlledTab}
         onValueChange={(tab) =>
@@ -112,22 +114,27 @@ const MarkdownInput: FC<{
           </TabsList>
 
           {aiSuggestFunction && (
-            <PremiumTooltip
-              commercialFeature="ai-suggestions"
-              premiumText="AI Suggestions is an enterprise feature"
-            >
+            <Flex justify="end" width="100%">
               <Button
-                variant="outline"
-                size="sm"
+                variant="ghost"
+                disabled={!aiEnabled || !aiSuggestFunction || loading}
                 onClick={async () => {
-                  const suggestion = await aiSuggestFunction();
-                  setValue(value ? value + suggestion : suggestion);
+                  if (aiEnabled) {
+                    setLoading(true);
+                    // make sure it's on the right tab:
+                    setActiveControlledTab("write");
+                    const suggestedText = await aiSuggestFunction();
+                    if (suggestedText) {
+                      setAiSuggestionText(suggestedText);
+                      setLoading(false);
+                    }
+                  }
                 }}
-                disabled={!hasCommercialFeature("ai-suggestions")}
               >
-                Suggest <BsStars />
+                {loading ? "Generating..." : "Get AI Suggestion "}
+                <BsStars />
               </Button>
-            </PremiumTooltip>
+            </Flex>
           )}
         </Flex>
 
@@ -218,13 +225,29 @@ const MarkdownInput: FC<{
                 )}
               </div>
             </div>
+            {aiSuggestionText && (
+              <div className="mt-2">
+                <hr />
+                <h4>AI Suggestion</h4>
+                <div className="card-text mb-3">{aiSuggestionText}</div>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setValue(aiSuggestionText);
+                    setAiSuggestionText("");
+                  }}
+                >
+                  Use this suggestion
+                </Button>
+              </div>
+            )}
           </TabsContent>
           <TabsContent value="preview">
             <Markdown className="card-text px-2">{value}</Markdown>
           </TabsContent>
         </Box>
       </Tabs>
-    </div>
+    </Box>
   );
 };
 export default MarkdownInput;

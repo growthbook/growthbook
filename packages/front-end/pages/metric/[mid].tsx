@@ -555,6 +555,20 @@ const MetricPage: FC = () => {
                           await mutate();
                           mutateDefinitions({});
                         }}
+                        aiSuggestFunction={async () => {
+                          const res = await apiCall<{
+                            status: number;
+                            data: {
+                              description: string;
+                            };
+                          }>(`/metrics/${metric.id}/gen-description`, {
+                            method: "GET",
+                          });
+                          if (res?.status !== 200) {
+                            throw new Error("Could not load AI suggestions");
+                          }
+                          return res.data.description;
+                        }}
                         value={metric.description}
                         canCreate={canEditMetric}
                         canEdit={canEditMetric}

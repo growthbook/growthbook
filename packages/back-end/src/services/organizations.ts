@@ -164,6 +164,24 @@ export function getConfidenceLevelsForOrg(context: ReqContext) {
   };
 }
 
+export function getAISettingsForOrg(
+  context: ReqContext,
+  includeKey: boolean = false
+) {
+  const aiEnabled = IS_CLOUD
+    ? context.org.settings?.aiEnabled !== false
+    : !!(context.org.settings?.aiEnabled && context.org.settings?.openAIAPIKey);
+
+  return {
+    aiEnabled,
+    openAIAPIKey: includeKey
+      ? context.org.settings?.openAIAPIKey || process.env.OPENAI_API_KEY || ""
+      : "",
+    openAIDefaultModel:
+      context.org.settings?.openAIDefaultModel || "gpt-4o-mini",
+  };
+}
+
 export function getMetricDefaultsForOrg(context: ReqContext): MetricDefaults {
   const defaultMetricWindowSettings: MetricWindowSettings = {
     type: DEFAULT_METRIC_WINDOW,
