@@ -9112,6 +9112,18 @@
     "@types/react" "*"
     "@visx/point" "2.6.0"
 
+"@visx/glyph@^2.1.0":
+  version "2.17.0"
+  resolved "https://registry.yarnpkg.com/@visx/glyph/-/glyph-2.17.0.tgz#1e10c2223db45d106b1526f744981431f895a2c4"
+  integrity sha512-/EnygQrlgxqH/dOV2jIAgis7mb18GOvnF2ZF/nPWvSKCetObqeQnQZFmjzYS3S2leW/nNpOFXj5dSWBU07LhjA==
+  dependencies:
+    "@types/d3-shape" "^1.3.1"
+    "@types/react" "*"
+    "@visx/group" "2.17.0"
+    classnames "^2.3.1"
+    d3-shape "^1.2.0"
+    prop-types "^15.6.2"
+
 "@visx/grid@^2.1.0":
   version "2.1.0"
   resolved "https://registry.npmjs.org/@visx/grid/-/grid-2.1.0.tgz"
@@ -9130,6 +9142,15 @@
   version "2.1.0"
   resolved "https://registry.npmjs.org/@visx/group/-/group-2.1.0.tgz"
   integrity sha512-bZKa54yVjGYPZZhzYHLz4AVlidSr4ET9B/xmSa7nnictMJWr7e/IuZThB/bMfDQlgdtvhcfTgs+ZluySc5SBUg==
+  dependencies:
+    "@types/react" "*"
+    classnames "^2.3.1"
+    prop-types "^15.6.2"
+
+"@visx/group@2.17.0":
+  version "2.17.0"
+  resolved "https://registry.yarnpkg.com/@visx/group/-/group-2.17.0.tgz#b349fd6507e56fcb43d0b067d728df4ab329ca2e"
+  integrity sha512-60Y2dIKRh3cp/Drpq//wM067ZNrnCcvFCXufPgIihv0Ix8O7oMsYxu3ch4XUMjks+U2IAZQr5Dnc+C9sTQFkhw==
   dependencies:
     "@types/react" "*"
     classnames "^2.3.1"
