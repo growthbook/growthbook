@@ -102,6 +102,11 @@ Read more about cookies and GDPR compliance in the docs for the [HTML Script Tag
 ## Prerequisite Configurations
 There are a few things that need to be set up properly in GrowthBook in order to troubleshoot GA4 issues, regardless of whether you are using Google Tag Manager (GTM) with GA4 or not.
 
+### Ensure the GA4 Measurement ID is correct
+The GA4 Measurement ID is a unique identifier for your GA4 property that's used to send data from your website or app to the correct GA4 account. It looks like "G-XXXXXXXXXX" and is required when configuring GA4 tags in Google Tag Manager or when sending events directly to GA4.
+
+You can see how the Measurement ID is used in the [GrowthBook and GTM integration](https://docs.growthbook.io/guide/google-tag-manager-and-growthbook#4-tracking-via-datalayer-and-gtm) documentation, where it is entered as a configuration value for sending experiment events to GA4.
+
 ### Ensure the GrowthBook SDK is properly configured
 Make sure you have created an SDK Connection in the GrowthBook app under Left navigation menu > SDK Configuration > SDK Connections, and that you are using the correct `apiHost` and `clientKey` values in your SDK initialization code. View [the example initialization code](https://docs.growthbook.io/lib/js#step-1-configure-your-app) (JavaScript) for more information.
 
@@ -174,6 +179,9 @@ GrowthBook may exclude some conversions if they fall outside the metric conversi
 
 If you have checked your implementation and still see fewer events, we recommended logging the execution of the `trackingCallback` and verifying that `window.gtag` is indeed available and being called as expected. Also, check for any consent or ad blocker issues that might prevent events from reaching GA4.
 
+## Use GA4's built-in debugging tools
+Check the Real-Time reports in GA4 for event validation.
+
 ## Use GrowthBook's Developer Tools extension to debug GA4 issues
 GrowthBook's [DevTools Browser Extension](https://docs.growthbook.io/tools/chrome-extension) (available for [Chrome](https://chromewebstore.google.com/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) and [Firefox](https://addons.mozilla.org/en-US/firefox/addon/growthbook-devtools/)) is very helpful for debugging issues with GA4 by:
 
@@ -189,5 +197,10 @@ The extension allows you to see real-time information about feature flags and ex
 - Verify that user attributes (such as IDs used for bucketing) are set correctly.
 - If you’re not seeing expected experiments or flags, this may indicate issues with SDK initialization, attribute configuration, or experiment targeting, which could explain missing events in GA4.
 
-## Use your browser's Developer Tools Console to debug GA4 issues
-If you've confirmed that the `trackingCallback` is implemented and firing, GA4 is loaded, and you are still not seeing `experiment_viewed` events, we recommend logging the trackingCallback execution to check for errors. Add logging statements through the GrowthBook-related code in your application, then check in your browser's Developer Tools Console to further debug the issue.
+## Use your browser's Developer Tools Console to debug GTM/GA4 issues
+If you've confirmed that the `trackingCallback` is implemented and firing, GA4 is loaded, and you are still not seeing `experiment_viewed` events, we recommend:
+
+- Check for JavaScript errors in the browser's Console that are related to your feature flags.
+- Add logging statements throughout the GrowthBook-related code in your application, particularly in and around the SDK's trackingCallback, then check in your browser's Developer Tools Console to further debug the issue.
+- Monitor the dataLayer object in the browser console by typing in `dataLayer` and pressing Enter. Verify the feature flag names match what is shown in the GrowthBook dashboard.
+

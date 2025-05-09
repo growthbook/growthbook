@@ -27,6 +27,11 @@ Even if the event is in the dataLayer and the trigger fires, if the GA4 Event Ta
 
 If the GA4 Event Tag in GTM is not set to fire on the `experiment_viewed` event, or if the trigger conditions are not met, the event will not be sent to GA4. Double-check the trigger configuration and ensure it matches the event name and parameters.
 
+### The GA4 Measurement ID is incorrect
+The GA4 Measurement ID is a unique identifier for your GA4 property that's used to send data from your website or app to the correct GA4 account. It looks like "G-XXXXXXXXXX" and is required when configuring GA4 tags in Google Tag Manager or when sending events directly to GA4.
+
+You can see how the Measurement ID is used in the [GrowthBook and GTM integration](https://docs.growthbook.io/guide/google-tag-manager-and-growthbook#4-tracking-via-datalayer-and-gtm) documentation, where it is entered as a configuration value for sending experiment events to GA4.
+
 ### Missing or incorrect `dataLayer` push
 If the GrowthBook SDK’s `trackingCallback` does not push the `experiment_viewed` event to the dataLayer, or if the event structure is incorrect, GTM will not detect or forward the event to GA4. The event must be pushed in the correct format, such as:
 ```js
@@ -93,9 +98,12 @@ If you are injecting the GrowthBook script via GTM (not recommended), GTM may st
 Sometimes, there is a delay between when the event is sent and when it appears in GA4. This is normal, but if you never see the event, it’s likely a configuration issue.
 
 ## Use GTM's Preview Mode to debug
-If you have verified your GTM setup and still see discrepancies, use GTM's Preview mode to ensure the `experiment_viewed` event is being pushed to the dataLayer and that your GA4 Event Tag is firing as expected.
+If you have verified your GTM setup and still see discrepancies, use GTM's Preview mode to ensure the `experiment_viewed` event is being pushed to the dataLayer and that your GA4 Event Tag is firing as expected, including in the correct tag firing sequence.
 
 Also, check GA4's real-time reports to confirm event receipt ([more details in our GTM setup guide](https://docs.growthbook.io/guide/google-tag-manager-and-growthbook#testing-your-setup)).
+
+## Use GA4's DebugView (if applicable)
+Use GA4's DebugView for real-time event validation if you are using GA4 in combination with GTM.
 
 ## Use GrowthBook's Developer Tools extension to debug
 GrowthBook's [DevTools Browser Extension](https://docs.growthbook.io/tools/chrome-extension) (available for [Chrome](https://chromewebstore.google.com/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) and [Firefox](https://addons.mozilla.org/en-US/firefox/addon/growthbook-devtools/)) is very helpful for debugging issues with GTM (and GA4) by:
@@ -113,4 +121,8 @@ The extension allows you to see real-time information about feature flags and ex
 - If you’re not seeing expected experiments or flags, this may indicate issues with SDK initialization, attribute configuration, or experiment targeting, which could explain missing events in GTM/GA4.
 
 ## Use your browser's Developer Tools Console to debug GTM/GA4 issues
-If you've confirmed that the `trackingCallback` is implemented and firing, GA4 is loaded, and you are still not seeing `experiment_viewed` events, we recommend logging the trackingCallback execution to check for errors. Add logging statements through the GrowthBook-related code in your application, then check in your browser's Developer Tools Console to further debug the issue.
+If you've confirmed that the `trackingCallback` is implemented and firing, GA4 is loaded, and you are still not seeing `experiment_viewed` events, we recommend:
+
+- Check for JavaScript errors in the browser's Console that are related to your feature flags.
+- Add logging statements throughout the GrowthBook-related code in your application, particularly in and around the SDK's trackingCallback, then check in your browser's Developer Tools Console to further debug the issue.
+- Monitor the dataLayer object in the browser console by typing in `dataLayer` and pressing Enter. Verify the feature flag names match what is shown in the GrowthBook dashboard.
