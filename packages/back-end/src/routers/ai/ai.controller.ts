@@ -52,18 +52,24 @@ export async function postAIPrompts(
 }
 
 export async function postReformat(
-  req: AuthRequest<{ type: string; text: string }>,
+  req: AuthRequest<{ type: AIPromptType; text: string }>,
   res: Response
 ) {
   const context = getContextFromReq(req);
 
-  const prompt = await context.models.aiPrompts.getAIPrompt(
-    "experiment-analysis"
-  );
+  const prompt = await context.models.aiPrompts.getAIPrompt(req.body.type);
+  if (!prompt) {
+    return res.status(400).json({
+      status: 400,
+      error: "Prompt not found",
+    });
+  }
 
+  const { text } = req.body;
+  const reformatPrompt = `Given the text: \n"${text}"\n\nReformat it according to the following format: ${prompt}`;
   const aiResults = await simpleCompletion({
     context,
-    prompt: prompt,
+    prompt: reformatPrompt,
     temperature: 0.1,
   });
 
