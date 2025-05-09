@@ -66,7 +66,9 @@ export default function EditHypothesisModal({
       <Box>
         <Flex align="start" justify="end">
           <Button
-            disabled={!aiEnabled || loading}
+            disabled={
+              !aiEnabled || loading || form.watch("hypothesis").trim() === ""
+            }
             variant="ghost"
             onClick={() => {
               if (aiEnabled) {
@@ -79,8 +81,8 @@ export default function EditHypothesisModal({
                     text: form.watch("hypothesis"),
                   }),
                 })
-                  .then((res: { hypothesis: string }) => {
-                    setAiResponse(res.hypothesis);
+                  .then((res: { data: { output: string } }) => {
+                    setAiResponse(res.data.output);
                   })
                   .catch(() => {
                     // handle error

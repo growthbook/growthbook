@@ -715,7 +715,7 @@ export const getGeneratedDescription = async (
   }
 
   const prompt = await context.models.aiPrompts.getAIPrompt(
-    "metric.description"
+    "metric-description"
   );
 
   // try to see if this id is a fact metric id:

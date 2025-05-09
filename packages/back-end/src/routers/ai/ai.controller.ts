@@ -22,7 +22,7 @@ export async function getAIPrompts(
 
 export async function postAIPrompts(
   req: AuthRequest<{
-    prompts: [{ type: AIPromptType; prompt: string }];
+    prompts: { type: AIPromptType; prompt: string }[];
   }>,
   res: Response
 ) {
@@ -31,17 +31,19 @@ export async function postAIPrompts(
 
   const currentPrompts = await context.models.aiPrompts.getAll();
 
-  prompts.map(({ type, prompt }) => {
-    const existingPrompt = currentPrompts.find((p) => p.type === type);
-    if (existingPrompt) {
-      return context.models.aiPrompts.update(existingPrompt, { prompt });
-    } else {
-      return context.models.aiPrompts.create({
-        type,
-        prompt,
-      });
-    }
-  });
+  await Promise.all(
+    prompts.map(async ({ type, prompt }) => {
+      const existingPrompt = currentPrompts.find((p) => p.type === type);
+      if (existingPrompt) {
+        return context.models.aiPrompts.update(existingPrompt, { prompt });
+      } else {
+        return context.models.aiPrompts.create({
+          type,
+          prompt,
+        });
+      }
+    })
+  );
 
   return res.status(200).json({
     status: 200,

@@ -351,7 +351,7 @@ export async function postAIExperimentAnalysis(
     releasedVariationName;
 
   const prompt = await context.models.aiPrompts.getAIPrompt(
-    "experiment.analysis"
+    "experiment-analysis"
   );
 
   const aiResults = await simpleCompletion({

@@ -7,9 +7,9 @@ export interface AITokenUsageInterface {
 }
 
 export const AI_PROMPT_TYPES = [
-  "experiment.analysis",
-  "metric.description",
-  "experiment.hypothesis",
+  "experiment-analysis",
+  "metric-description",
+  "experiment-hypothesis",
 ] as const;
 export type AIPromptType = typeof AI_PROMPT_TYPES[number];
 
@@ -21,7 +21,7 @@ export interface AIPromptInterface {
 }
 
 export const AIPromptDefaults: Record<AIPromptType, string> = {
-  "experiment.analysis":
+  "experiment-analysis":
     "Provide a justification for the chosen outcome of the experiment based on the snapshot data" +
     "\nIf the chosen outcome is 'dnf' your output should be in the form 'We are not finishing the experiment because ...' and provide a reason such as that the experiment was underpowered and would take too long to complete.  It needs no sections at all." +
     "\nOtherwise your output should be in the form of two sections '### Key Findings' and '### Conclusions'." +
@@ -32,8 +32,8 @@ export const AIPromptDefaults: Record<AIPromptType, string> = {
     "\nYour output should be in the form of a markdown text, and should be no longer than 2000 characters." +
     "\nIt should not be wrapped in triple backticks." +
     "\nThere is no need to provide metric ids in your answer",
-  "metric.description":
+  "metric-description":
     "Write a concise description in markdown of the metric that will be helpful for other users who may want to use this metric in their AB tests. Paraphrase what this metric is used to show or measure.",
-  "experiment.hypothesis":
+  "experiment-hypothesis":
     "A hypothesis is a statement that can be tested. It should be clear, concise, specific, and falsifiable. It should include how the user or product behaviour is expected to change, and what metrics we're trying to move with this experiment.",
 };
