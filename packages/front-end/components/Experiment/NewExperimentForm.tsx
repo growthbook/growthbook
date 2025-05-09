@@ -448,10 +448,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const status = form.watch("status");
   const type = form.watch("type");
   const isBandit = type === "multi-armed-bandit";
+  const isHoldout = type === "holdout";
 
   // If a template id is provided as an initial value, load the template and convert it to an experiment
   useEffect(() => {
-    if (initialValue?.templateId && isNewExperiment && !isImport && !isBandit) {
+    if (initialValue?.templateId && isNewExperiment && !isImport && !isBandit && !isHoldout) {
       const template = templatesMap.get(initialValue.templateId);
       if (!template) return;
       const templateAsExperiment = convertTemplateToExperiment(template);
@@ -474,6 +475,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const templateRequired =
     hasCommercialFeature("templates") &&
     !isBandit &&
+    !isHoldout &&
     !isImport &&
     settings.requireExperimentTemplates &&
     availableTemplates.length >= 1;
@@ -489,10 +491,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const [linkNameWithTrackingKey, setLinkNameWithTrackingKey] = useState(true);
 
   let header = isNewExperiment
-    ? `Add new ${isBandit ? "Bandit" : "Experiment"}`
+    ? `Add new ${isBandit ? "Bandit" : isHoldout ? "Global Holdout" : "Experiment"}`
     : "Add new Experiment Analysis";
   if (duplicate) {
-    header = `Duplicate ${isBandit ? "Bandit" : "Experiment"}`;
+    header = `Duplicate ${isBandit ? "Bandit" : isHoldout ? "Global Holdout" : "Experiment"}`;
   }
   const trackingEventModalType = kebabCase(header);
 
@@ -532,6 +534,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             )}
             {availableTemplates.length >= 1 &&
               !isBandit &&
+              !isHoldout &&
               !isImport &&
               !duplicate && (
                 <div className="form-group">
@@ -585,7 +588,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               )}
 
             <Field
-              label={isBandit ? "Bandit Name" : "Experiment Name"}
+              label={isBandit ? "Bandit Name" : isHoldout ? "Holdout Name" : "Experiment Name"}
               required
               minLength={2}
               {...nameFieldHandlers}
@@ -614,7 +617,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             <Field
               label="Tracking Key"
               helpText={`Unique identifier for this ${
-                isBandit ? "Bandit" : "Experiment"
+                isBandit ? "Bandit" : isHoldout ? "Holdout" : "Experiment"
               }, used to track impressions and analyze results`}
               {...trackingKeyFieldHandlers}
               onChange={(e) => {
@@ -637,7 +640,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 />
               </div>
             )}
-            {!isBandit && (
+            {!isBandit && !isHoldout && (
               <Field
                 label="Hypothesis"
                 textarea
@@ -653,7 +656,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 minRows={1}
                 {...form.register("description")}
                 placeholder={`Short human-readable description of the ${
-                  isBandit ? "Bandit" : "Experiment"
+                  isBandit ? "Bandit" : isHoldout ? "Holdout" : "Experiment"
                 }`}
               />
             )}
@@ -723,7 +726,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           </div>
         </Page>
 
-        {!isBandit && (isNewExperiment || duplicate)
+        {!isBandit && !isHoldout && (isNewExperiment || duplicate)
           ? ["Overview", "Traffic", "Targeting", "Metrics"].map((p, i) => {
               // skip, custom overview page above
               if (i === 0) return null;
@@ -867,6 +870,83 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                         v.map((v) => v.weight)
                       );
                     }}
+                  />
+                </Page>
+              );
+            })
+          : null}
+
+        {isHoldout && (isNewExperiment || duplicate)
+          ? ["Overview", "Traffic", "Metrics"].map((p, i) => {
+              // skip, custom overview page above
+              if (i === 0) return null;
+              return (
+                <Page display={p} key={i}>
+                  <ExperimentRefNewFields
+                    step={i}
+                    source="experiment"
+                    project={project}
+                    environments={envs}
+                    noSchedule={true}
+                    prerequisiteValue={
+                      form.watch("phases.0.prerequisites") || []
+                    }
+                    setPrerequisiteValue={(prerequisites) =>
+                      form.setValue("phases.0.prerequisites", prerequisites)
+                    }
+                    setPrerequisiteTargetingSdkIssues={
+                      setPrerequisiteTargetingSdkIssues
+                    }
+                    savedGroupValue={form.watch("phases.0.savedGroups") || []}
+                    setSavedGroupValue={(savedGroups) =>
+                      form.setValue("phases.0.savedGroups", savedGroups)
+                    }
+                    defaultConditionValue={
+                      form.watch("phases.0.condition") || ""
+                    }
+                    setConditionValue={(value) =>
+                      form.setValue("phases.0.condition", value)
+                    }
+                    conditionKey={conditionKey}
+                    namespaceFormPrefix={"phases.0."}
+                    coverage={form.watch("phases.0.coverage")}
+                    setCoverage={(coverage) =>
+                      form.setValue("phases.0.coverage", coverage)
+                    }
+                    setWeight={(i, weight) =>
+                      form.setValue(`phases.0.variationWeights.${i}`, weight)
+                    }
+                    variations={
+                      form.watch("variations")?.map((v, i) => {
+                        return {
+                          value: v.key || "",
+                          name: v.name,
+                          weight: form.watch(`phases.0.variationWeights.${i}`),
+                          id: v.id,
+                        };
+                      }) ?? []
+                    }
+                    setVariations={(v) => {
+                      form.setValue(
+                        "variations",
+                        v.map((data, i) => {
+                          return {
+                            // default values
+                            name: "",
+                            screenshots: [],
+                            ...data,
+                            key: data.value || `${i}` || "",
+                          };
+                        })
+                      );
+                      form.setValue(
+                        "phases.0.variationWeights",
+                        v.map((v) => v.weight)
+                      );
+                    }}
+                    variationValuesAsIds={true}
+                    hideVariationIds={!isImport}
+                    orgStickyBucketing={orgStickyBucketing}
                   />
                 </Page>
               );

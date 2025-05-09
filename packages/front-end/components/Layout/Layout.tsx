@@ -28,6 +28,7 @@ import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
 import TopNav from "./TopNav";
 import styles from "./Layout.module.scss";
 import { usePageHead } from "./PageHead";
+import {GrDocumentTest} from "react-icons/gr";
 
 const navlinks: SidebarLinkProps[] = [
   {
@@ -55,6 +56,12 @@ const navlinks: SidebarLinkProps[] = [
     Icon: GBBandit,
     path: /^bandit/,
     filter: ({ gb }) => !!gb?.isOn("bandits"),
+  },
+  {
+    name: "Global Holdouts",
+    href: "/global-holdouts",
+    path: /^global-holdouts/,
+    Icon: GrDocumentTest,
   },
   {
     name: "Metrics and Data",
