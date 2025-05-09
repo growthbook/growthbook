@@ -58,11 +58,11 @@ const navlinks: SidebarLinkProps[] = [
     filter: ({ gb }) => !!gb?.isOn("bandits"),
   },
   {
-    name: "Learnings",
-    href: "/learnings",
+    name: "Insights",
+    href: "/insights",
     Icon: GBLibrary,
-    path: /^library/,
-    //filter: ({ gb }) => !!gb?.isOn("library"),
+    path: /^insights/,
+    //filter: ({ gb }) => !!gb?.isOn("insights"),
   },
   {
     name: "Metrics and Data",
