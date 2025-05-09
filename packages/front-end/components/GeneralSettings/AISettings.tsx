@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { useFormContext, UseFormReturn } from "react-hook-form";
 import { AIPromptDefaults, AIPromptInterface } from "shared/ai";
@@ -28,7 +28,7 @@ function getPrompts(data: {
         "When an experiment is stopped, this prompt creates an analysis of the results.",
       promptValue:
         data.prompts.find((p) => p.type === "experiment-analysis")?.prompt ||
-        "",
+        AIPromptDefaults["experiment-analysis"],
       promptDefaultValue: AIPromptDefaults["experiment-analysis"],
       promptHelpText:
         "Make sure to explain the format of the results you would like to see.",
@@ -39,7 +39,8 @@ function getPrompts(data: {
       promptDescription:
         "When a metric is created, this prompt creates a description of the metric.",
       promptValue:
-        data.prompts.find((p) => p.type === "metric-description")?.prompt || "",
+        data.prompts.find((p) => p.type === "metric-description")?.prompt ||
+        AIPromptDefaults["metric-description"],
       promptDefaultValue: AIPromptDefaults["metric-description"],
       promptHelpText:
         "Make sure to explain the format of the results you would like to see.",
@@ -67,6 +68,16 @@ export default function AISettings({
   const { data, isLoading } = useApi<{
     prompts: AIPromptInterface[];
   }>(`/ai/prompts`);
+
+  // Run the logic only once when `data` is loaded
+  useEffect(() => {
+    if (data) {
+      const prompts = getPrompts(data);
+      prompts.forEach((prompt) => {
+        promptForm.setValue(prompt.promptType, prompt.promptValue);
+      });
+    }
+  }, [data, promptForm]);
 
   if (isLoading || !data) return null;
 
