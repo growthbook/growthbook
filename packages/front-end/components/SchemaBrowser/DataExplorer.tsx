@@ -236,7 +236,7 @@ export default function DataExplorer({
                     language="sql"
                     value={sql}
                     setValue={setSql}
-                    placeholder="This is a sample placeholder"
+                    placeholder="Type a query to get started"
                     minLines={15}
                     setCursorData={setCursorData}
                     onCtrlEnter={handleQuery}
@@ -253,18 +253,20 @@ export default function DataExplorer({
                   paddingTop: "5px",
                 }}
               >
-                <DisplayTestQueryResults
-                  duration={parseInt(testQueryResults?.duration || "0")}
-                  results={testQueryResults?.results || []}
-                  sql={testQueryResults?.sql || ""}
-                  error={testQueryResults?.error || ""}
-                  close={() => setTestQueryResults(null)}
-                  allowDownloads={true}
-                  dismissable={false}
-                  header={`Query Results (${
-                    testQueryResults?.results?.length || 0
-                  } Rows)`}
-                />
+                {testQueryResults ? (
+                  <DisplayTestQueryResults
+                    duration={parseInt(testQueryResults?.duration || "0")}
+                    results={testQueryResults?.results || []}
+                    sql={testQueryResults?.sql || ""}
+                    error={testQueryResults?.error || ""}
+                    close={() => setTestQueryResults(null)}
+                    allowDownloads={true}
+                    dismissable={false}
+                    header={`Query Results (${
+                      testQueryResults?.results?.length || 0
+                    } Rows)`}
+                  />
+                ) : null}
               </div>
             </Split>
           </div>

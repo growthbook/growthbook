@@ -54,9 +54,11 @@ const QueryGeneratorModal: FC<QueryGeneratorModalProps> = ({
       } else {
         setSql(response.sql);
       }
+      close();
     } catch (e) {
-      setError(e.message || "Failed to generate SQL query");
-    } finally {
+      const errorMessage =
+        e.response?.message || e.message || "Failed to generate SQL query";
+      setError(errorMessage);
       setLoading(false);
     }
   };

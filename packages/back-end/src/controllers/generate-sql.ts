@@ -1,12 +1,11 @@
 import { Request, Response } from "express";
 import { z } from "zod";
-import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { getInformationSchemaTableById } from "back-end/src/models/InformationSchemaTablesModel";
 import {
   hasExceededUsageQuota,
   simpleCompletion,
 } from "back-end/src/services/openai";
 import { ApiRequestLocals } from "back-end/types/api";
-import { InformationSchemaInterface } from "back-end/src/types/Integration";
 
 const informationSchemaSchema = z.object({
   databases: z.array(
@@ -65,9 +64,7 @@ export async function generateSql(
   req: Request & ApiRequestLocals,
   res: Response
 ) {
-  console.log("made it to the generateSql function");
-  const { naturalLanguage, datasourceId, datasourceType, informationSchema } =
-    req.body;
+  const { naturalLanguage, datasourceType, informationSchema } = req.body;
 
   // Check if OpenAI integration is enabled
   if (!process.env.OPENAI_API_KEY) {
@@ -83,89 +80,146 @@ export async function generateSql(
     });
   }
 
-  // If datasourceId is provided, get the schema
-  let schema = "";
-  if (datasourceId) {
-    const datasource = await getDataSourceById(
-      datasourceId,
-      req.organization.id
-    );
-    if (!datasource) {
-      return res.status(404).json({
-        message: "Data source not found",
-      });
-    }
-    if (datasource.settings.informationSchemaId) {
-      schema = datasource.settings.informationSchemaId;
-    }
-  }
+  // Step 1: Identify relevant tables for the query
+  const tableIdentificationPrompt = `Based on this request, identify which tables are needed: ${naturalLanguage}
 
-  // Construct schema information from informationSchema if provided
-  let schemaInfo = "";
-  if (informationSchema) {
-    schemaInfo = "Available databases and tables:\n";
-    informationSchema.databases.forEach(
-      (database: InformationSchema["databases"][0]) => {
-        schemaInfo += `Database: ${database.databaseName}\n`;
-        database.schemas.forEach(
-          (schema: InformationSchema["databases"][0]["schemas"][0]) => {
-            schemaInfo += `  Schema: ${schema.schemaName}\n`;
-            schema.tables.forEach(
-              (
-                table: InformationSchema["databases"][0]["schemas"][0]["tables"][0]
-              ) => {
-                schemaInfo += `    Table: ${table.tableName}\n`;
-                if (table.columns) {
-                  table.columns.forEach(
-                    (column: { columnName: string; dataType: string }) => {
-                      schemaInfo += `      Column: ${column.columnName} (${column.dataType})\n`;
-                    }
-                  );
-                }
-              }
-            );
-          }
-        );
-      }
-    );
-  }
-
-  // Generate the SQL query
-  const prompt = `You are a SQL query generator. Generate a SQL query for ${datasourceType} based on the following request: ${naturalLanguage}${
-    schema ? `\n\nHere is the database schema:\n${schema}` : ""
-  }${
-    schemaInfo
-      ? `\n\nHere is the available schema information:\n${schemaInfo}`
+Tables: ${
+    informationSchema
+      ? informationSchema.databases
+          .map((db: InformationSchema["databases"][0]) =>
+            db.schemas
+              .map((schema: InformationSchema["databases"][0]["schemas"][0]) =>
+                schema.tables
+                  .map(
+                    (
+                      table: InformationSchema["databases"][0]["schemas"][0]["tables"][0]
+                    ) =>
+                      `${db.databaseName}.${schema.schemaName}.${table.tableName}`
+                  )
+                  .join(",")
+              )
+              .join(",")
+          )
+          .join(",")
       : ""
   }
 
-Follow these guidelines when generating the SQL:
-1. For intraday tables, prefer using wildcards (e.g., 'events_*') instead of multiple joins
-2. Write efficient queries while maintaining readability
-3. Use appropriate indexes and table structures when available
-4. Avoid unnecessary subqueries or CTEs unless they significantly improve readability
-5. Use table aliases for better readability
-6. Format the query with proper indentation and line breaks
-7. Do not include any markdown formatting or backticks around the entire query
-8. Do not include a semicolon at the end of the query
-9. For table names:
-   - For BigQuery: ALWAYS use backticks (\`) around table names and ALWAYS close them (e.g., \`project.dataset.table\`, \`project.dataset.events_*\`)
-   - Use backticks for table names in MySQL/MariaDB if they contain special characters
-   - Use double quotes for table names in PostgreSQL if they contain special characters
-   - Use square brackets for table names in SQL Server if they contain special characters
-   - For other databases, follow their specific identifier quoting rules
-
-IMPORTANT: For BigQuery, ensure that every table name is properly enclosed in backticks, including wildcard patterns. For example:
-- Correct: FROM \`project.dataset.events_*\`
-- Incorrect: FROM \`project.dataset.events_*
-
-Generate ONLY the SQL query, without any explanations, comments, or markdown formatting.`;
+For intraday tables, use wildcard patterns (e.g., 'events_*').
+Return a raw JSON array of table names, without any markdown formatting or backticks.`;
 
   try {
+    // First completion to identify relevant tables
+    const tableIdentification = await simpleCompletion({
+      behavior: `Return a raw JSON array of table names. Do not include any markdown formatting, backticks, or code blocks.`,
+      prompt: tableIdentificationPrompt,
+      maxTokens: 200,
+      temperature: 0,
+      organization: req.organization,
+    });
+
+    // Clean up any potential markdown formatting before parsing
+    const cleanJson = tableIdentification
+      .trim()
+      .replace(/^```json\s*/i, "")
+      .replace(/```\s*$/i, "")
+      .replace(/^`/g, "")
+      .trim();
+
+    // Parse the identified tables
+    const relevantTables = JSON.parse(cleanJson) as string[];
+
+    // Step 2: Get schema information only for the relevant tables
+    let schemaInfo = "";
+    if (informationSchema) {
+      for (const database of informationSchema.databases) {
+        for (const schema of database.schemas) {
+          for (const table of schema.tables) {
+            const fullTableName = `${database.databaseName}.${schema.schemaName}.${table.tableName}`;
+
+            // Check if this table is in our relevant tables list
+            const isRelevant = relevantTables.some((relevantTable) => {
+              if (relevantTable.includes("*")) {
+                const pattern = new RegExp(
+                  "^" + relevantTable.replace("*", ".*") + "$"
+                );
+                return pattern.test(fullTableName);
+              }
+              return relevantTable === fullTableName;
+            });
+
+            if (isRelevant) {
+              const tableInfo = await getInformationSchemaTableById(
+                req.organization.id,
+                table.id
+              );
+              if (tableInfo && tableInfo.columns) {
+                // Group columns by data type
+                const columnsByType = tableInfo.columns.reduce((acc, col) => {
+                  const type = col.dataType.toLowerCase();
+                  if (!acc[type]) acc[type] = [];
+                  acc[type].push(col.columnName);
+                  return acc;
+                }, {} as Record<string, string[]>);
+
+                // Only include the most relevant column types (string, number, timestamp)
+                const relevantTypes = [
+                  "string",
+                  "varchar",
+                  "text",
+                  "int",
+                  "integer",
+                  "number",
+                  "float",
+                  "double",
+                  "decimal",
+                  "timestamp",
+                  "datetime",
+                  "date",
+                ];
+                const filteredColumnsByType = Object.entries(columnsByType)
+                  .filter(([type]) =>
+                    relevantTypes.some((t) => type.includes(t))
+                  )
+                  .reduce((acc, [type, cols]) => {
+                    acc[type] = cols;
+                    return acc;
+                  }, {} as Record<string, string[]>);
+
+                // Format columns by type in a more concise way
+                const columnsInfo = Object.entries(filteredColumnsByType)
+                  .map(([type, columns]) => `${type}:${columns.join(",")}`)
+                  .join("|");
+
+                schemaInfo += `${fullTableName}(${columnsInfo})\n`;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Step 3: Generate the final SQL query with only the relevant schema information
+    const sqlGenerationPrompt = `Generate ${datasourceType} SQL for: ${naturalLanguage}
+
+Schema: ${schemaInfo}
+
+Guidelines:
+1. Use wildcards for intraday tables
+2. Write efficient, readable queries
+3. Use table aliases
+4. Format with proper indentation
+5. No markdown/backticks around query
+6. For BigQuery: use backticks for ALL table names (e.g., \`project.dataset.table\`)
+7. For MySQL: use backticks if needed
+8. For PostgreSQL: use double quotes if needed
+9. For SQL Server: use square brackets if needed
+
+Generate ONLY the SQL query.`;
+
     const completion = await simpleCompletion({
-      behavior: `You are a SQL query generator specialized in ${datasourceType}. Your task is to generate clean, efficient SQL queries that follow best practices for the specific database type. For BigQuery, you MUST ensure that every table name is properly enclosed in backticks, including wildcard patterns. Never include markdown formatting or backticks around the entire query.`,
-      prompt,
-      maxTokens: 500,
+      behavior: `Generate clean SQL for ${datasourceType}. Use exact column names. For BigQuery, use backticks for ALL table names.`,
+      prompt: sqlGenerationPrompt,
+      maxTokens: 200,
       temperature: 0,
       organization: req.organization,
     });
@@ -173,10 +227,9 @@ Generate ONLY the SQL query, without any explanations, comments, or markdown for
     // Clean up any potential markdown formatting
     const cleanSql = completion
       .trim()
-      .replace(/^```sql\s*/i, "") // Remove opening ```sql
-      .replace(/```\s*$/i, "") // Remove closing ```
-      .replace(/^`/g, "") // Remove any remaining backticks at start
-      // .replace(/`$/g, "") // Remove any remaining backticks at end
+      .replace(/^```sql\s*/i, "")
+      .replace(/```\s*$/i, "")
+      .replace(/^`/g, "")
       .trim();
 
     return res.json({
