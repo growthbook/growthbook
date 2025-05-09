@@ -93,7 +93,7 @@ export const simpleCompletion = async ({
   temperature,
 }: {
   context: ReqContext | ApiReqContext;
-  instructions: string;
+  instructions?: string;
   prompt: string;
   maxTokens?: number;
   temperature?: number;
@@ -109,16 +109,15 @@ export const simpleCompletion = async ({
     throw new Error("Prompt was flagged by OpenAI moderation");
   }
 
-  const messages: ChatCompletionRequestMessage[] = [
-    {
+  const messages: ChatCompletionRequestMessage[] = [];
+
+  if (instructions) {
+    messages.push({
       role: "system",
       content: instructions,
-    },
-    {
-      role: "user",
-      content: prompt,
-    },
-  ];
+    });
+  }
+  messages.push({ role: "user", content: prompt });
 
   const numTokens = numTokensFromMessages(messages);
   if (maxTokens != null && numTokens > maxTokens) {
