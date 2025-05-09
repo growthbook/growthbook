@@ -217,28 +217,4 @@ You've successfully integrated GrowthBook with Google Tag Manager to run A/B tes
 
 ### Troubleshooting
 
-#### Events Not Firing
-
-- Verify GrowthBook SDK tag is loading (check browser console)
-- Confirm trigger conditions match your event setup
-- Check DataLayer variable names are exact matches (`experiment_id`, `variation_id`)
-- Validate experiment is running in GrowthBook dashboard
-
-#### Missing or Incorrect Data in GA4
-
-- Ensure GA4 Measurement ID is correct
-- Verify event parameters are properly mapped
-- Check Real-Time reports for event validation
-
-#### Feature Flag Changes Not Applying
-
-- Check browser console for JavaScript errors related to your feature flags. (Get to the console by right-clicking on the page, choosing **Inspect**, and going to the **Console** tab.)
-- Verify feature flag names match GrowthBook dashboard
-- Confirm trigger timing and page targeting
-
-#### Debug Tools
-
-- Use GTM Preview mode to inspect tag firing sequence
-- Check browser console for GrowthBook SDK logs
-- Use GA4 DebugView for real-time event validation
-- Monitor DataLayer in browser console using `dataLayer`
+Please see our [Google Tag Manager (GTM) Troubleshooting Guide](https://docs.growthbook.io/kb/google-analytics/google-tag-manager-gtm-troubleshooting) and our [GA4 Troubleshooting Guide](https://docs.growthbook.io/kb/google-analytics/google-analytics-ga4-troubleshooting) (if relevant) for help debugging GTM and GA4 integrations with GrowthBook.
