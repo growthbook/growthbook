@@ -14,6 +14,7 @@ Please watch the [How GrowthBook Works with Your Data](https://youtu.be/hboLeUbp
 If you are using Google Tag Manager (GTM) in combination with GA4, please review our [Google Tag Manager Setup Guide](https://docs.growthbook.io/guide/google-tag-manager-and-growthbook) and accompanying [Google Tag Manager (GTM) Troubleshooting Guide](https://docs.growthbook.io/kb/google-analytics/google-tag-manager-gtm-troubleshooting).
 
 ## Common issues when integrating GA4 with GrowthBook
+The issues described below are commonly reported and can lead to missing or incomplete experiment data in GA4.
 
 ### Data propagation delays
 There is a known 24-48 hour delay between when events are sent to GA4 and when they appear in your BigQuery instance, which can cause temporary gaps in reporting. Read more about this initial sync delay in our [Google BigQuery (BQ) Troubleshooting Guide](https://docs.growthbook.io/kb/google-analytics/google-big-query-bq-troubleshooting#initial-sync-delay-for-new-ga4-properties).
@@ -174,7 +175,6 @@ GrowthBook may exclude some conversions if they fall outside the metric conversi
 If you have checked your implementation and still see fewer events, we recommended logging the execution of the `trackingCallback` and verifying that `window.gtag` is indeed available and being called as expected. Also, check for any consent or ad blocker issues that might prevent events from reaching GA4.
 
 ## Use GrowthBook's Developer Tools extension to debug GA4 issues
-
 GrowthBook's [DevTools Browser Extension](https://docs.growthbook.io/tools/chrome-extension) (available for [Chrome](https://chromewebstore.google.com/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) and [Firefox](https://addons.mozilla.org/en-US/firefox/addon/growthbook-devtools/)) is very helpful for debugging issues with GA4 by:
 
 - Inspecting whether the GrowthBook SDK is properly loaded on the web site
