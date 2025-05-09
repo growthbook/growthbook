@@ -14,12 +14,12 @@ on:
         Rollback to SHA,
       ]
     types: [completed]
-    branches: [main, av/test-notify]
+    branches: [main]
 
 jobs:
   notify-not-success:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion != 'success' }}
+    if: ${{ github.event.workflow_run.conclusion == 'failure' || github.event.workflow_run.conclusion == 'timed_out' }}
     steps:
       - name: Send GitHub Action data to a Slack workflow
         uses: slackapi/slack-github-action@v2.1.0
@@ -29,3 +29,4 @@ jobs:
           webhook-type: webhook-trigger
           payload: |
             workflow_name: "${{ github.event.workflow_run.name }}"
+            workflow_url: "${{ github.event.workflow_run.url }}"
