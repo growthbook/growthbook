@@ -34,6 +34,17 @@ function getPrompts(data: {
         "Make sure to explain the format of the results you would like to see.",
     },
     {
+      promptType: "experiment-hypothesis",
+      promptName: "Hypothesis Format",
+      promptDescription:
+        "Specify a style for your hypothesis so that it is consistent across experiments.",
+      promptValue:
+        data.prompts.find((p) => p.type === "experiment-hypothesis")?.prompt ||
+        AIPromptDefaults["experiment-hypothesis"],
+      promptDefaultValue: AIPromptDefaults["experiment-hypothesis"],
+      promptHelpText: "",
+    },
+    {
       promptType: "metric-description",
       promptName: "Metric Description",
       promptDescription:
