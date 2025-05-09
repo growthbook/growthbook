@@ -82,7 +82,7 @@ function MetricExperimentResultTab({
   metric,
   bandits,
   numPerPage = NUM_PER_PAGE,
-  differenceType = "relative"
+  differenceType = "relative",
 }: Props) {
   const [currentPage, setCurrentPage] = useState(1);
   const start = (currentPage - 1) * numPerPage;
@@ -280,17 +280,22 @@ const MetricExperiments: FC<MetricAnalysisProps> = ({
   includeOnlyResults = false,
   dataWithSnapshot,
   numPerPage = NUM_PER_PAGE,
-  differenceType = "relative"
+  differenceType = "relative",
 }) => {
   const { data } = useApi<{
     data: ExperimentWithSnapshot[];
-  }>(`/metrics/${metric.id}/experiments`,
-    {shouldRun: !!dataWithSnapshot ? () => false : undefined}
-  );
+  }>(`/metrics/${metric.id}/experiments`, {
+    shouldRun: dataWithSnapshot ? () => false : undefined,
+  });
 
-  const metricExperiments = (dataWithSnapshot ?? data?.data ?? []).filter((e) =>
-    (bandits ? e.type === "multi-armed-bandit" : e.type !== "multi-armed-bandit") &&
-    (includeOnlyResults ? e.status !== "draft" && e.snapshot?.status === "success" : true)
+  const metricExperiments = (dataWithSnapshot ?? data?.data ?? []).filter(
+    (e) =>
+      (bandits
+        ? e.type === "multi-armed-bandit"
+        : e.type !== "multi-armed-bandit") &&
+      (includeOnlyResults
+        ? e.status !== "draft" && e.snapshot?.status === "success"
+        : true)
   );
 
   const body = !metricExperiments?.length ? (

@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useMemo, useState } from "react";
+import React, { FC, useCallback, useEffect, useMemo, useState } from "react";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
 import { scaleLinear } from "@visx/scale";
@@ -90,7 +90,7 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
   const outerWidth = (containerBounds?.width || 0) + marginRight + marginLeft;
   const yMax = height - marginTop - marginBottom;
   const xMaxResponsive = containerBounds?.width || 0; // xMax for responsive calculations based on containerBounds
-  
+
   const binWidth = data.length > 0 ? xMaxResponsive / data.length : 0;
 
   const numYTicks = 5;
@@ -109,26 +109,17 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
     ) {
       return { min: 0, max: 0, defined: false };
     }
-    
+
     // Calculate domain padding (about 1% of the domain range on each side)
     const domainRange = maxVal - minVal;
     const padding = domainRange * 0.01;
-    
-    return { 
-      min: minVal - padding, 
-      max: maxVal + padding, 
-      defined: true 
+
+    return {
+      min: minVal - padding,
+      max: maxVal + padding,
+      defined: true,
     };
   }, [data]);
-
-  const xScale = useMemo(
-    () =>
-      scaleLinear({
-        domain: [0, data.length], // Domain is number of bins
-        range: [0, xMaxResponsive],
-      }),
-    [data, xMaxResponsive]
-  );
 
   const yScale = useMemo(() => {
     const units = data.map((d) => d.units);
@@ -183,50 +174,70 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
       });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [hoverBin, data, marginLeft, marginRight, outerWidth, showTooltip, hideTooltip, yScale]
+    [
+      hoverBin,
+      data,
+      marginLeft,
+      marginRight,
+      outerWidth,
+      showTooltip,
+      hideTooltip,
+      yScale,
+    ]
+  );
+
+  const getContentXScale = useCallback(
+    (currentXMax: number) => {
+      if (!valueDomain.defined) {
+        return scaleLinear({ domain: [0, 1], range: [0, currentXMax] }); // Fallback
+      }
+      return scaleLinear({
+        domain: [valueDomain.min, valueDomain.max],
+        range: [0, currentXMax],
+      });
+    },
+    [valueDomain]
+  );
+
+  const getGeneratedTickValues = useCallback(
+    (contentXScale: ScaleLinear<number, number, never>) => {
+      if (!valueDomain.defined) {
+        return [];
+      }
+      if (valueDomain.min === valueDomain.max) {
+        return [valueDomain.min];
+      }
+
+      const ticks = contentXScale.ticks(10); // Aim for ~10 ticks
+
+      // Ensure 0 is included if it's within the domain and not already present
+      if (valueDomain.min <= 0 && valueDomain.max >= 0 && !ticks.includes(0)) {
+        ticks.push(0);
+        ticks.sort((a, b) => a - b);
+      }
+
+      // Cap the number of ticks to avoid overcrowding, e.g., max 20.
+      // d3.ticks(10) usually gives less than 20, but adding 0 might increase it.
+      if (ticks.length > 20) {
+        // This is a simple way to reduce; more sophisticated methods exist if needed.
+        // For now, let's assume .ticks() and adding 0 won't lead to extreme excess.
+        // If it does, one might filter/resample `ticks` here.
+      }
+
+      return ticks;
+    },
+    [valueDomain]
   );
 
   return (
     <ParentSizeModern style={{ position: "relative" }}>
-      {({ width: parentWidth }) => { // parentWidth is the width from ParentSizeModern
+      {({ width: parentWidth }) => {
+        // parentWidth is the width from ParentSizeModern
         const currentXMax = parentWidth - marginRight - marginLeft; // This is the actual drawable xMax
 
-        const contentXScale = useMemo(() => {
-          if (!valueDomain.defined) {
-            return scaleLinear({ domain: [0, 1], range: [0, currentXMax] }); // Fallback
-          }
-          return scaleLinear({
-            domain: [valueDomain.min, valueDomain.max],
-            range: [0, currentXMax],
-          });
-        }, [valueDomain, currentXMax]);
+        const contentXScale = getContentXScale(currentXMax);
 
-        const generatedTickValues = useMemo(() => {
-          if (!valueDomain.defined) {
-            return [];
-          }
-          if (valueDomain.min === valueDomain.max) {
-            return [valueDomain.min];
-          }
-
-          let ticks = contentXScale.ticks(10); // Aim for ~10 ticks
-
-          // Ensure 0 is included if it's within the domain and not already present
-          if (valueDomain.min <= 0 && valueDomain.max >= 0 && !ticks.includes(0)) {
-            ticks.push(0);
-            ticks.sort((a, b) => a - b);
-          }
-          
-          // Cap the number of ticks to avoid overcrowding, e.g., max 20. 
-          // d3.ticks(10) usually gives less than 20, but adding 0 might increase it.
-          if (ticks.length > 20) {
-            // This is a simple way to reduce; more sophisticated methods exist if needed.
-            // For now, let's assume .ticks() and adding 0 won't lead to extreme excess.
-            // If it does, one might filter/resample `ticks` here.
-          }
-
-          return ticks;
-        }, [contentXScale, valueDomain]);
+        const generatedTickValues = getGeneratedTickValues(contentXScale);
 
         const handlePointerMove = (
           event: React.PointerEvent<HTMLDivElement>
@@ -318,8 +329,9 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
                       }
 
                       // Use contentXScale for positioning the bars (with equal distribution)
-                      const barX = contentXScale(d.start); 
-                      const barWidth = contentXScale(d.end) - contentXScale(d.start);
+                      const barX = contentXScale(d.start);
+                      const barWidth =
+                        contentXScale(d.end) - contentXScale(d.start);
                       const barY = yScale(d.units);
                       const barHeight = yMax - barY;
 
@@ -347,7 +359,9 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
                     fontSize: 10,
                     textAnchor: "middle",
                   })}
-                  tickFormat={(value) => formatter(value as number, formatterOptions)}
+                  tickFormat={(value) =>
+                    formatter(value as number, formatterOptions)
+                  }
                 />
                 <AxisLeft
                   scale={yScale}

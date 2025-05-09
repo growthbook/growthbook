@@ -1,11 +1,15 @@
-import React from 'react';
-import { AxisLeft, AxisBottom } from '@visx/axis';
-import { GridRows, GridColumns } from '@visx/grid';
-import { Group } from '@visx/group';
-import { scaleLinear, scaleLog } from '@visx/scale';
-import { Line } from '@visx/shape';
-import { useTooltip, TooltipWithBounds, defaultStyles as tooltipDefaultStyles } from '@visx/tooltip';
-import { GlyphCircle } from '@visx/glyph';
+import React from "react";
+import { AxisLeft, AxisBottom } from "@visx/axis";
+import { GridRows, GridColumns } from "@visx/grid";
+import { Group } from "@visx/group";
+import { scaleLinear, scaleLog } from "@visx/scale";
+import { Line } from "@visx/shape";
+import {
+  useTooltip,
+  TooltipWithBounds,
+  defaultStyles as tooltipDefaultStyles,
+} from "@visx/tooltip";
+import { GlyphCircle } from "@visx/glyph";
 // ParentSize can be useful for responsive charts, but not strictly needed for the component logic itself.
 // import { ParentSize } from '@visx/responsive';
 
@@ -55,9 +59,9 @@ const ScatterPlotGraph: React.FC<ScatterPlotGraphProps> = ({
   const yMax = height - margin.top - margin.bottom;
 
   // Scales
-  const allXValues = data.flatMap(d => [d.x, d.xmin, d.xmax]);
-  const allYValues = data.flatMap(d => [d.y, d.ymin, d.ymax]);
-  const allUnits = data.map(d => d.units).filter(u => isFinite(u));
+  const allXValues = data.flatMap((d) => [d.x, d.xmin, d.xmax]);
+  const allYValues = data.flatMap((d) => [d.y, d.ymin, d.ymax]);
+  const allUnits = data.map((d) => d.units).filter((u) => isFinite(u));
 
   const xScale = scaleLinear<number>({
     domain: [Math.min(...allXValues), Math.max(...allXValues)],
@@ -72,7 +76,10 @@ const ScatterPlotGraph: React.FC<ScatterPlotGraphProps> = ({
   });
 
   const sizeScale = scaleLog<number>({
-    domain: allUnits.length > 0 ? [Math.min(...allUnits), Math.max(...allUnits)] : [0,1], // Handle empty or single-value units
+    domain:
+      allUnits.length > 0
+        ? [Math.min(...allUnits), Math.max(...allUnits)]
+        : [0, 1], // Handle empty or single-value units
     range: [5, 15], // Min and max radius for points
   });
 
@@ -81,13 +88,32 @@ const ScatterPlotGraph: React.FC<ScatterPlotGraphProps> = ({
   const getY = (d: ScatterPointData) => d.y;
 
   return (
-    <div style={{ position: 'relative' }}>
+    <div style={{ position: "relative" }}>
       <svg width={width} height={height}>
-        <rect x={0} y={0} width={width} height={height} fill="transparent" rx={14} />
+        <rect
+          x={0}
+          y={0}
+          width={width}
+          height={height}
+          fill="transparent"
+          rx={14}
+        />
         <Group left={margin.left} top={margin.top}>
-          <GridRows scale={yScale} width={xMax} height={yMax} stroke="#e0e0e0" strokeDasharray="2,2" />
-          <GridColumns scale={xScale} width={xMax} height={yMax} stroke="#e0e0e0" strokeDasharray="2,2" />
-          
+          <GridRows
+            scale={yScale}
+            width={xMax}
+            height={yMax}
+            stroke="#e0e0e0"
+            strokeDasharray="2,2"
+          />
+          <GridColumns
+            scale={xScale}
+            width={xMax}
+            height={yMax}
+            stroke="#e0e0e0"
+            strokeDasharray="2,2"
+          />
+
           {/* Zero line for Y-axis (horizontal) */}
           {yScale.domain()[0] <= 0 && yScale.domain()[1] >= 0 && (
             <Line
@@ -107,17 +133,29 @@ const ScatterPlotGraph: React.FC<ScatterPlotGraphProps> = ({
               strokeWidth={1.5}
             />
           )}
-          
-          <AxisLeft scale={yScale} label={data[0]?.yMetricName || 'Y Value'} labelClassName="h4" tickLabelProps={() => ({
-            fill: "var(--text-color-table)",
-            fontSize: 14,
-            textAnchor: "end",
-            verticalAnchor: "middle",
-          })} />
-          <AxisBottom scale={xScale} top={yMax} label={data[0]?.xMetricName || 'X Value'} labelClassName="h4" tickLabelProps={() => ({
-            fill: "var(--text-color-table)",
-            fontSize: 14,
-            textAnchor: "middle",})} />
+
+          <AxisLeft
+            scale={yScale}
+            label={data[0]?.yMetricName || "Y Value"}
+            labelClassName="h4"
+            tickLabelProps={() => ({
+              fill: "var(--text-color-table)",
+              fontSize: 14,
+              textAnchor: "end",
+              verticalAnchor: "middle",
+            })}
+          />
+          <AxisBottom
+            scale={xScale}
+            top={yMax}
+            label={data[0]?.xMetricName || "X Value"}
+            labelClassName="h4"
+            tickLabelProps={() => ({
+              fill: "var(--text-color-table)",
+              fontSize: 14,
+              textAnchor: "middle",
+            })}
+          />
 
           {data.map((point) => {
             const cx = xScale(getX(point));
@@ -155,18 +193,15 @@ const ScatterPlotGraph: React.FC<ScatterPlotGraphProps> = ({
                   fill="#1f77b4" // A common blue color
                   stroke="#fff" // White border for better visibility
                   strokeWidth={1}
-                  onPointerMove={(event) => {
-                    // clientX/Y are viewport coords, adjust if SVG is offset in page
-                    // For TooltipInPortal, often direct clientX/Y is fine.
-                    // For TooltipWithBounds, we want coordinates relative to the graph's plottable area (cx, cy)
+                  onPointerMove={(_) => {
                     showTooltip({
                       tooltipData: point,
                       tooltipLeft: cx, // Use cx (relative to Group)
-                      tooltipTop: cy,  // Use cy (relative to Group)
+                      tooltipTop: cy, // Use cy (relative to Group)
                     });
                   }}
                   onPointerLeave={hideTooltip}
-                  style={{ cursor: 'pointer' }}
+                  style={{ cursor: "pointer" }}
                 />
               </React.Fragment>
             );
@@ -176,34 +211,40 @@ const ScatterPlotGraph: React.FC<ScatterPlotGraphProps> = ({
       {tooltipOpen && tooltipData && tooltipLeft != null && tooltipTop != null && (
         <TooltipWithBounds
           // key={Math.random()} // Removed, usually not needed if props change correctly
-          top={tooltipTop + margin.top}   // Add margin.top for correct positioning relative to the outer div
+          top={tooltipTop + margin.top} // Add margin.top for correct positioning relative to the outer div
           left={tooltipLeft + margin.left} // Add margin.left for correct positioning relative to the outer div
           style={{
             ...tooltipDefaultStyles,
-            backgroundColor: 'rgba(50,50,50,0.9)',
-            color: 'white',
-            padding: '10px',
-            borderRadius: '5px',
-            fontSize: '13px',
-            lineHeight: '1.5',
-            boxShadow: '0px 2px 10px rgba(0,0,0,0.2)',
-            pointerEvents: 'none', 
+            backgroundColor: "rgba(50,50,50,0.9)",
+            color: "white",
+            padding: "10px",
+            borderRadius: "5px",
+            fontSize: "13px",
+            lineHeight: "1.5",
+            boxShadow: "0px 2px 10px rgba(0,0,0,0.2)",
+            pointerEvents: "none",
           }}
         >
-          <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>{tooltipData.experimentName} - {tooltipData.variationName}</div>
-          <div>
-            <strong>{tooltipData.yMetricName}:</strong> {tooltipData.y.toFixed(2)}
+          <div style={{ fontWeight: "bold", marginBottom: "5px" }}>
+            {tooltipData.experimentName} - {tooltipData.variationName}
           </div>
-           <div style={{fontSize: '11px', color: '#ccc'}}>
+          <div>
+            <strong>{tooltipData.yMetricName}:</strong>{" "}
+            {tooltipData.y.toFixed(2)}
+          </div>
+          <div style={{ fontSize: "11px", color: "#ccc" }}>
             (CI: {tooltipData.ymin.toFixed(2)} - {tooltipData.ymax.toFixed(2)})
           </div>
-          <div style={{marginTop: '4px'}}>
-            <strong>{tooltipData.xMetricName}:</strong> {tooltipData.x.toFixed(2)}
+          <div style={{ marginTop: "4px" }}>
+            <strong>{tooltipData.xMetricName}:</strong>{" "}
+            {tooltipData.x.toFixed(2)}
           </div>
-          <div style={{fontSize: '11px', color: '#ccc'}}>
+          <div style={{ fontSize: "11px", color: "#ccc" }}>
             (CI: {tooltipData.xmin.toFixed(2)} - {tooltipData.xmax.toFixed(2)})
           </div>
-          <div style={{marginTop: '4px'}}><strong>Units:</strong> {tooltipData.units.toLocaleString()}</div>
+          <div style={{ marginTop: "4px" }}>
+            <strong>Units:</strong> {tooltipData.units.toLocaleString()}
+          </div>
         </TooltipWithBounds>
       )}
     </div>
@@ -234,4 +275,4 @@ const App = () => (
 );
 
 // You would render <App /> in your main application file.
-*/ 
+*/
