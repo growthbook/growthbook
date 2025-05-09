@@ -211,6 +211,9 @@ export interface OrganizationSettings {
   regressionAdjustmentDays?: number;
   runHealthTrafficQuery?: boolean;
   srmThreshold?: number;
+  aiEnabled?: boolean;
+  openAIAPIKey?: string;
+  openAIModel?: string;
   /** @deprecated */
   implementationTypes?: ImplementationType[];
   attributionModel?: AttributionModel;

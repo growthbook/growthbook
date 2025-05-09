@@ -47,6 +47,7 @@ import {
   TabsTrigger,
 } from "@/components/Radix/Tabs";
 import Frame from "@/components/Radix/Frame";
+import AISettings, { AIPrompts } from "@/components/GeneralSettings/AISettings";
 
 export const ConnectSettingsForm = ({ children }) => {
   const methods = useFormContext();
@@ -84,6 +85,13 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
 
   const { metricDefaults } = useOrganizationMetricDefaults();
+  const promptDefaultFormValues = AIPrompts.reduce((acc, p) => {
+    acc[p.promptType] = p.promptDefaultValue;
+    return acc;
+  }, {});
+  const promptForm = useForm({
+    defaultValues: promptDefaultFormValues,
+  });
   const form = useForm<OrganizationSettingsWithMetricDefaults>({
     defaultValues: {
       visualEditorEnabled: false,
@@ -166,6 +174,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
         settings.decisionFrameworkEnabled ?? DEFAULT_DECISION_FRAMEWORK_ENABLED,
       defaultDecisionCriteriaId:
         settings.defaultDecisionCriteriaId ?? PRESET_DECISION_CRITERIA.id,
+      aiEnabled: settings.aiEnabled ?? true,
+      openAIAPIKey: settings.openAIAPIKey || "",
+      openAIModel: settings.openAIModel || "gpt-4o-mini",
     },
   });
   const { apiCall } = useAuth();
@@ -210,7 +221,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
     codeReferencesEnabled: form.watch("codeReferencesEnabled"),
     codeRefsBranchesToFilter: form.watch("codeRefsBranchesToFilter"),
     codeRefsPlatformUrl: form.watch("codeRefsPlatformUrl"),
+    aiEnabled: form.watch("aiEnabled"),
+    openAIAPIKey: form.watch("openAIAPIKey"),
+    openAIModel: form.watch("openAIModel"),
   };
+
   function updateCronString(cron?: string) {
     cron = cron || value.updateSchedule?.cron || "";
 
@@ -298,8 +313,19 @@ const GeneralSettingsPage = (): React.ReactElement => {
     );
   }, [codeRefsBranchesToFilterStr]);
 
-  const ctaEnabled = hasChanges(value, originalValue);
+  // I Don't think this works as intended - the hasChanges(value, originalValue) always seems to return true.
+  const ctaEnabled =
+    hasChanges(value, originalValue) || promptForm.formState.isDirty;
 
+  const savePrompts = promptForm.handleSubmit(async (promptValues) => {
+    const formattedPrompts = Object.entries(promptValues).map(
+      ([key, value]) => ({
+        type: key,
+        prompt: value,
+      })
+    );
+    console.log("Formatted Prompts: ", formattedPrompts);
+  });
   const saveSettings = form.handleSubmit(async (value) => {
     const transformedOrgSettings = {
       ...value,
@@ -347,6 +373,15 @@ const GeneralSettingsPage = (): React.ReactElement => {
       }
     }
 
+    // save the prompts:
+    // await apiCall(`/ai something`, {
+    //   method: "PUT",
+    //   body: JSON.stringify({
+    //     settings: transformedOrgSettings,
+    //   }),
+    // });
+
+    // save org settings
     await apiCall(`/organization`, {
       method: "PUT",
       body: JSON.stringify({
@@ -383,6 +418,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 Custom Markdown
               </PremiumTooltip>
             </TabsTrigger>
+            <TabsTrigger value="ai">AI Settings</TabsTrigger>
           </StickyTabsList>
           <Box mt="4">
             <TabsContent value="experiment">
@@ -440,6 +476,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 </Flex>
               </Frame>
             </TabsContent>
+            <TabsContent value="ai">
+              <AISettings promptForm={promptForm} />
+            </TabsContent>
           </Box>
         </Tabs>
       </Box>
@@ -473,6 +512,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 setSubmitError(null);
                 if (!ctaEnabled) return;
                 await saveSettings();
+                await savePrompts();
               }}
               setError={setSubmitError}
             >
