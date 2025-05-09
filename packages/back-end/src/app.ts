@@ -120,6 +120,7 @@ import { findOrCreateGeneratedHypothesis } from "./models/GeneratedHypothesis";
 import { getContextFromReq } from "./services/organizations";
 import { templateRouter } from "./routers/experiment-template/template.router";
 import { safeRolloutRouter } from "./routers/safe-rollout/safe-rollout.router";
+import { globalHoldoutRouter } from "./routers/global-holdout/global-holdout.router";
 
 const app = express();
 
@@ -627,6 +628,9 @@ app.use("/url-redirects", urlRedirectRouter);
 
 // Safe Rollouts
 app.use("/safe-rollout", safeRolloutRouter);
+
+// Global Holdout
+app.use("/global-holdout", globalHoldoutRouter);
 
 // Reports
 app.get("/report/:id", reportsController.getReport);

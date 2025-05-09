@@ -50,6 +50,7 @@ export const entityEvents = {
   customField: ["create", "update", "delete"],
   experimentTemplate: ["create", "update", "delete"],
   safeRollout: ["create", "update", "delete"],
+  globalHoldout: ["create", "update", "delete"],
   decisionCriteria: ["create", "update", "delete"],
 } as const;
 
