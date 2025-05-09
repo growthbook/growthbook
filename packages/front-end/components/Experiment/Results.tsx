@@ -377,7 +377,8 @@ const Results: FC<{
             } else if (id.startsWith("variant:")) {
               const metricId = id.substring(8);
               const metric = metricMap.get(metricId);
-              const count = metricVariants.get(metricId);
+              // Need to add 1 for the parent metric itself
+              const count = (metricVariants.get(metricId) || 0) + 1;
               if (metric) {
                 return (
                   <Flex gap="2" key={id} align="center">
