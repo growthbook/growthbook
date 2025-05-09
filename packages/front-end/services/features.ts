@@ -725,6 +725,7 @@ export function getDefaultRuleValue({
         datasourceId: defaultDataSource || "",
         exposureQueryId: "",
         guardrailMetricIds: [],
+        autoRollback: true,
       },
     };
   }

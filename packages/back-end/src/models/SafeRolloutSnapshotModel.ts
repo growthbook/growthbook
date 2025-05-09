@@ -4,9 +4,11 @@ import {
   safeRolloutSnapshotInterface,
 } from "back-end/src/validators/safe-rollout-snapshot";
 import {
+  checkAndRollbackSafeRollout,
   getSafeRolloutAnalysisSummary,
   notifySafeRolloutChange,
 } from "back-end/src/services/safeRolloutSnapshots";
+import { getFeature } from "back-end/src/models/FeatureModel";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -113,6 +115,57 @@ export class SafeRolloutSnapshotModel extends BaseClass {
         },
         safeRolloutSnapshot: updatedDoc,
       });
+
+      const feature = await getFeature(this.context, safeRollout.featureId);
+      if (!feature) {
+        throw new Error("Feature not found");
+      }
+      const environment = feature.environmentSettings[safeRollout.environment];
+      if (!environment) {
+        throw new Error("Environment not found");
+      }
+      const ruleIndex = environment.rules.findIndex(
+        (r) => r.type === "safe-rollout" && r.safeRolloutId === safeRollout.id
+      );
+      if (ruleIndex === -1) {
+        throw new Error("Rule not found");
+      }
+
+      const status = await checkAndRollbackSafeRollout({
+        context: this.context,
+        updatedSafeRollout: {
+          ...safeRollout,
+          analysisSummary: safeRolloutAnalysisSummary,
+        },
+        safeRolloutSnapshot: updatedDoc,
+        ruleIndex,
+        feature,
+      });
+      // update the ramp up Schedule if the status is running and the ramp up is enabled and not completed
+      if (
+        status === "running" &&
+        safeRollout.rampUpSchedule.enabled &&
+        !safeRollout.rampUpSchedule.rampUpCompleted &&
+        safeRollout.rampUpSchedule?.nextUpdate &&
+        safeRollout.rampUpSchedule.nextUpdate < new Date()
+      ) {
+        const rampUpSchedule = safeRollout.rampUpSchedule;
+        const rampUpCompleted =
+          rampUpSchedule.step === rampUpSchedule.steps.length - 1;
+
+        const step = rampUpCompleted
+          ? rampUpSchedule.step // keep the step the same if it is completed
+          : rampUpSchedule.step + 1;
+
+        await this.context.models.safeRollout.update(safeRollout, {
+          rampUpSchedule: {
+            ...rampUpSchedule,
+            step,
+            rampUpCompleted,
+            lastUpdate: new Date(),
+          },
+        });
+      }
     }
   }
 }

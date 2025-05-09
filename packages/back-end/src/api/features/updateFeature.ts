@@ -235,6 +235,9 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       featureId: updatedFeature.id,
       version: updatedFeature.version,
     });
+    const safeRolloutMap = await req.context.models.safeRollout.getAllPayloadSafeRollouts(
+      [updatedFeature.id]
+    );
     return {
       feature: getApiFeatureObj({
         feature: updatedFeature,
@@ -242,6 +245,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         groupMap,
         experimentMap,
         revision,
+        safeRolloutMap,
       }),
     };
   }

@@ -14,6 +14,7 @@ interface Props {
   onChange: (value: ScheduleRule[]) => void;
   scheduleToggleEnabled: boolean;
   setScheduleToggleEnabled: (value: boolean) => void;
+  disabled?: boolean;
 }
 
 export default function ScheduleInputs(props: Props) {
@@ -76,7 +77,7 @@ export default function ScheduleInputs(props: Props) {
             ]);
           }
         }}
-        disabled={!canScheduleFeatureFlags}
+        disabled={!canScheduleFeatureFlags || props.disabled}
       />
       {rules.length > 0 && props.scheduleToggleEnabled && (
         <div className="box mb-3 bg-light pt-2 px-3">
