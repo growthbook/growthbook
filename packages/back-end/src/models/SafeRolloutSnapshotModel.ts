@@ -145,7 +145,9 @@ export class SafeRolloutSnapshotModel extends BaseClass {
       if (
         status === "running" &&
         safeRollout.rampUpSchedule.enabled &&
-        !safeRollout.rampUpSchedule.rampUpCompleted
+        !safeRollout.rampUpSchedule.rampUpCompleted &&
+        safeRollout.rampUpSchedule?.nextUpdate &&
+        safeRollout.rampUpSchedule.nextUpdate < new Date()
       ) {
         const rampUpSchedule = safeRollout.rampUpSchedule;
         const rampUpCompleted =
@@ -160,6 +162,7 @@ export class SafeRolloutSnapshotModel extends BaseClass {
             ...rampUpSchedule,
             step,
             rampUpCompleted,
+            lastUpdate: new Date(),
           },
         });
       }

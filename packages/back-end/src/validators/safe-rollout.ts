@@ -41,6 +41,8 @@ const rampUpSchedule = z.object({
   enabled: z.boolean(),
   step: z.number(),
   steps: z.array(z.number()), // percentage of traffic to release each step
+  nextUpdate: z.date().optional(),
+  lastUpdate: z.date().optional(),
   rampUpCompleted: z.boolean(),
 });
 export type RampUpSchedule = z.infer<typeof rampUpSchedule>;
@@ -57,12 +59,7 @@ const safeRollout = createSafeRolloutValidator.extend({
   nextSnapshotAttempt: z.date().optional(),
   analysisSummary: experimentAnalysisSummary.optional(),
   pastNotifications: z.array(z.enum(safeRolloutNotification)).optional(),
-  rampUpSchedule: rampUpSchedule.optional().default({
-    enabled: true,
-    rampUpCompleted: false,
-    step: 0,
-    steps: [0.1, 0.25, 0.5], // 10%, 25%, 50% ramp up of traffic then it will be released to 100% of the traffic
-  }),
+  rampUpSchedule: rampUpSchedule,
 });
 export const safeRolloutValidator = baseSchema
   .extend(safeRollout.shape)

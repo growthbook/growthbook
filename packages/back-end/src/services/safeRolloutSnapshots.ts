@@ -69,7 +69,6 @@ import { ResourceEvents } from "back-end/src/events/base-types";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { SafeRolloutInterface } from "back-end/types/safe-rollout";
 import {
-  RampUpSchedule,
   SafeRolloutNotification,
   SafeRolloutStatus,
 } from "back-end/src/validators/safe-rollout";
@@ -422,7 +421,6 @@ export async function _createSafeRolloutSnapshot({
   };
 
   const nextSnapshotAttempt = determineNextSnapshotAttempt(
-    safeRollout.rampUpSchedule,
     safeRollout,
     organization
   );
@@ -450,12 +448,12 @@ export async function _createSafeRolloutSnapshot({
 }
 
 export function determineNextSnapshotAttempt(
-  rampUpSchedule: RampUpSchedule,
   safeRollout: SafeRolloutInterface,
   organization: OrganizationInterface
 ) {
+  const rampUpSchedule = safeRollout.rampUpSchedule;
   // return standard ramp up time if ramp up is completed
-  if (safeRollout.rampUpSchedule.rampUpCompleted) {
+  if (rampUpSchedule.rampUpCompleted) {
     const nextUpdate = determineNextDate(
       organization.settings?.updateSchedule || null
     );
