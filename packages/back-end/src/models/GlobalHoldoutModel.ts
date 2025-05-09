@@ -62,4 +62,8 @@ export class GlobalHoldoutModel extends BaseClass {
       }
     }
   }
+
+  async getAll(): Promise<GlobalHoldoutInterface[]> {
+    return this._find({});
+  }
 }

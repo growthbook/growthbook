@@ -6,12 +6,11 @@ export const globalHoldoutStatusArray = ["running", "stopped"] as const;
 export type GlobalHoldoutStatus = typeof globalHoldoutStatusArray[number];
 
 const globalHoldout = z.object({
-  key: z.string(),
-  status: z.enum(globalHoldoutStatusArray),
   startedAt: z.date().optional(),
   linkedFeatures: z.array(z.string()),
   linkedExperiments: z.array(z.string()),
   description: z.string().optional(),
+  experimentId: z.string(),
 });
 
 export const globalHoldoutValidator = baseSchema

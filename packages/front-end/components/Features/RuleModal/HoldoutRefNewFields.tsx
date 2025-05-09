@@ -193,6 +193,7 @@ export default function HoldoutRefNewFields({
             disableCustomSplit={true}
             showSplitPercentages={true}
             hideUnlockButton={true}
+            disableDragAndRemove={true}
           />
         </>
       ) : null}

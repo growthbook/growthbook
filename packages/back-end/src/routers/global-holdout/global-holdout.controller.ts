@@ -1,8 +1,8 @@
 import type { Response } from "express";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { createExperiment } from "back-end/src/models/ExperimentModel";
-import { GlobalHoldoutStatus } from "back-end/src/validators/global-holdout";
+import { createExperiment, getExperimentById } from "back-end/src/models/ExperimentModel";
+import { GlobalHoldoutInterface } from "back-end/src/validators/global-holdout";
 import { ExperimentInterface } from "back-end/src/validators/experiments";
 
 // region POST /global-holdout
@@ -21,8 +21,7 @@ export async function postGlobalHoldout(
   }>,
   res: Response<{
     status: 200;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    globalHoldout: any;
+    globalHoldout: GlobalHoldoutInterface;
     experiment: ExperimentInterface;
   }>
 ) {
@@ -107,8 +106,7 @@ export async function postGlobalHoldout(
 
   // Create the global holdout
   const globalHoldout = await context.models.globalHoldout.create({
-    key,
-    status: "running",
+    experimentId: createdExperiment.id,
     startedAt: new Date(),
     linkedFeatures: linkedFeatures || [],
     linkedExperiments: linkedExperiments || [],
@@ -121,12 +119,11 @@ export async function postGlobalHoldout(
       object: "globalHoldout",
       id: globalHoldout.id,
     },
-    details: {
-      key,
+    details: JSON.stringify({
       description,
       linkedFeatures,
       linkedExperiments,
-    },
+    }),
   });
 
   res.status(200).json({
@@ -137,42 +134,39 @@ export async function postGlobalHoldout(
 }
 // endregion POST /global-holdout
 
-// region PUT /global-holdout/:id/status
+// region GET /global-holdout
 /**
- * PUT /global-holdout/:id/status
- * Update the status of a global holdout
+ * GET /global-holdout
+ * List all global holdouts with their associated experiments
  * @param req
  * @param res
  */
-export async function putGlobalHoldoutStatus(
-  req: AuthRequest<{ status: GlobalHoldoutStatus }, { id: string }>,
-  res: Response<{ status: 200 }>
+export async function getGlobalHoldouts(
+  req: AuthRequest,
+  res: Response<{
+    status: 200;
+    globalHoldouts: Array<GlobalHoldoutInterface & {
+      experiment: ExperimentInterface | null;
+    }>;
+  }>
 ) {
-  const { id } = req.params;
-  const { status } = req.body;
   const context = getContextFromReq(req);
-  const globalHoldout = await context.models.globalHoldout.getById(id);
-  if (!globalHoldout) {
-    throw new Error("Could not find global holdout");
-  }
+  const globalHoldouts = await context.models.globalHoldout.getAll();
 
-  await context.models.globalHoldout.update(globalHoldout, {
-    status,
-  });
-
-  await req.audit({
-    event: "globalHoldout.update",
-    entity: {
-      object: "globalHoldout",
-      id: globalHoldout.id,
-    },
-    details: {
-      status,
-    },
-  });
+  // Get associated experiments for each holdout
+  const holdoutsWithExperiments = await Promise.all(
+    globalHoldouts.map(async (holdout: GlobalHoldoutInterface) => {
+      const experiment = await getExperimentById(context, holdout.experimentId);
+      return {
+        ...holdout,
+        experiment,
+      };
+    })
+  );
 
   res.status(200).json({
     status: 200,
+    globalHoldouts: holdoutsWithExperiments,
   });
 }
-// endregion PUT /global-holdout/:id/status
+// endregion GET /global-holdout

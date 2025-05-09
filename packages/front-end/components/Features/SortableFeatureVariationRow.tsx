@@ -192,7 +192,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
         )}
         <td
           key={`${variation.id}__${i}__4`}
-          style={{ width: !hideSplit ? 180 : 60 }}
+          style={{ width: !hideSplit ? (onlySafeToEditVariationMetadata ? 120 : 180) : 60 }}
         >
           <div className="row align-items-center">
             {!hideSplit && (

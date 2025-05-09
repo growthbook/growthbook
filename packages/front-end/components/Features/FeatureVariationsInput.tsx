@@ -53,6 +53,9 @@ export interface Props {
   simple?: boolean;
   sortableClassName?: string;
   onlySafeToEditVariationMetadata?: boolean;
+  disableDragAndRemove?: boolean;
+  showSplitPercentages?: boolean;
+  hideUnlockButton?: boolean;
 }
 
 export default function FeatureVariationsInput({
@@ -83,6 +86,9 @@ export default function FeatureVariationsInput({
   simple,
   sortableClassName,
   onlySafeToEditVariationMetadata,
+  disableDragAndRemove = false,
+  showSplitPercentages,
+  hideUnlockButton,
 }: Props) {
   const weights = variations?.map((v) => v.weight) || [];
   const isEqualWeights = weights?.every(
@@ -297,7 +303,8 @@ export default function FeatureVariationsInput({
                       {!disableVariations &&
                         !disableCustomSplit &&
                         !editingSplits &&
-                        !onlySafeToEditVariationMetadata && (
+                        !onlySafeToEditVariationMetadata &&
+                        !hideUnlockButton && (
                           <Tooltip
                             body="Customize split"
                             usePortal={true}
@@ -363,7 +370,7 @@ export default function FeatureVariationsInput({
                         }
                         setWeight={!disableVariations ? setWeight : undefined}
                         onlySafeToEditVariationMetadata={
-                          onlySafeToEditVariationMetadata
+                          onlySafeToEditVariationMetadata || disableDragAndRemove
                         }
                         customSplit={editingSplits}
                         valueType={valueType}

@@ -793,6 +793,18 @@ export async function postExperiments(
       context,
     });
 
+    // Create global holdout record if this is a holdout experiment
+    if (experimentType === "holdout") {
+      console.log("Creating global holdout record", experiment.id);
+      await context.models.globalHoldout.create({
+        experimentId: experiment.id,
+        startedAt: new Date(),
+        linkedFeatures: [],
+        linkedExperiments: [],
+        description: experiment.description,
+      });
+    }
+
     if (req.query.originalId) {
       const visualChangesets = await findVisualChangesetsByExperiment(
         req.query.originalId,
