@@ -793,6 +793,28 @@ const sidebars = {
         },
         {
           type: "category",
+          label: "Google Analytics",
+          collapsed: true,
+          items: [
+            {
+              type: "doc",
+              id: "kb/google-analytics/google-bigquery-bq-troubleshooting",
+              label: "BigQuery Troubleshooting",
+            },
+            {
+              type: "doc",
+              id: "kb/google-analytics/google-analytics-ga4-troubleshooting",
+              label: "GA4 Troubleshooting",
+            },
+            {
+              type: "doc",
+              id: "kb/google-analytics/google-tag-manager-gtm-troubleshooting",
+              label: "GTM Troubleshooting",
+            },
+          ],
+        },
+        {
+          type: "category",
           label: "Metrics",
           collapsed: false,
           items: [
