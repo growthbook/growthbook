@@ -20,6 +20,8 @@ import DatePicker from "@/components/DatePicker";
 import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
 import Callout from "@/components/Radix/Callout";
 import { Results } from "./ResultsIndicator";
+import { useGrowthBook } from "@growthbook/growthbook-react";
+import { AppFeatures } from "@/types/app-features";
 
 const StopExperimentForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -40,6 +42,28 @@ const StopExperimentForm: FC<{
   const isStopped = experiment.status === "stopped";
 
   const hasLinkedChanges = experimentHasLinkedChanges(experiment);
+
+  const gb = useGrowthBook<AppFeatures>();
+  const aiSuggestFunction = gb.isOn(
+    "ai-suggestions-for-experiment-analysis-input"
+  )
+    ? async () => {
+        const response = await apiCall<{
+          status: number;
+          data: {
+            description: string;
+          };
+        }>(`/experiment/${experiment.id}/analysis/ai-suggest`, {
+          method: "POST",
+          body: JSON.stringify({
+            results: form.watch("results"),
+            winner: form.watch("winner"),
+            releasedVariationId: form.watch("releasedVariationId"),
+          }),
+        });
+        return response.data.description;
+      }
+    : undefined;
 
   const phases = experiment.phases || [];
   const lastPhaseIndex = phases.length - 1;
@@ -349,6 +373,7 @@ const StopExperimentForm: FC<{
             <MarkdownInput
               value={form.watch("analysis")}
               setValue={(val) => form.setValue("analysis", val)}
+              aiSuggestFunction={aiSuggestFunction}
             />
           </div>
         </div>

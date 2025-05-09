@@ -6,16 +6,20 @@ import {
   useRef,
   useState,
 } from "react";
+import { BsStars } from "react-icons/bs";
 import { FaMarkdown } from "react-icons/fa";
 import ReactTextareaAutocomplete from "@webscopeio/react-textarea-autocomplete";
 import emoji from "@jukben/emoji-search";
 import { useDropzone } from "react-dropzone";
-import { Box } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { uploadFile } from "@/services/files";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../Radix/Tabs";
 import Markdown from "./Markdown";
+import Button from "@/components/Radix/Button";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { useUser } from "@/services/UserContext";
 
 const Item = ({ entity: { name, char } }) => <div>{`${name}: ${char}`}</div>;
 const Loading = () => <div>Loading</div>;
@@ -28,6 +32,7 @@ const MarkdownInput: FC<{
   cta?: string;
   id?: string;
   placeholder?: string;
+  aiSuggestFunction?: () => Promise<string>;
   onCancel?: () => void;
 }> = ({
   value,
@@ -38,7 +43,9 @@ const MarkdownInput: FC<{
   id,
   onCancel,
   placeholder,
+  aiSuggestFunction,
 }) => {
+  const { hasCommercialFeature } = useUser();
   const [activeControlledTab, setActiveControlledTab] = useState<
     "write" | "preview"
   >("write");
@@ -96,12 +103,34 @@ const MarkdownInput: FC<{
           setActiveControlledTab(tab === "write" ? "write" : "preview")
         }
       >
-        <TabsList>
-          <TabsTrigger value="write">Write</TabsTrigger>
-          <TabsTrigger value="preview" disabled={!value}>
-            Preview
-          </TabsTrigger>
-        </TabsList>
+        <Flex align="center" justify="between">
+          <TabsList>
+            <TabsTrigger value="write">Write</TabsTrigger>
+            <TabsTrigger value="preview" disabled={!value}>
+              Preview
+            </TabsTrigger>
+          </TabsList>
+
+          {aiSuggestFunction && (
+            <PremiumTooltip
+              commercialFeature="ai-suggestions"
+              premiumText="AI Suggestions is an enterprise feature"
+            >
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  const suggestion = await aiSuggestFunction();
+                  setValue(value ? value + suggestion : suggestion);
+                }}
+                disabled={!hasCommercialFeature("ai-suggestions")}
+              >
+                Suggest <BsStars />
+              </Button>
+            </PremiumTooltip>
+          )}
+        </Flex>
+
         <Box pt="2">
           <TabsContent value="write">
             <div className="position-relative" {...typedRootProps}>

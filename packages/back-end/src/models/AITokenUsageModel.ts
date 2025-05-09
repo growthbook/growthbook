@@ -1,6 +1,6 @@
 import { omit } from "lodash";
 import mongoose from "mongoose";
-import { AITokenUsageInterface } from "back-end/types/ai";
+import { AITokenUsageInterface } from "shared/ai";
 import { OrganizationInterface } from "back-end/types/organization";
 
 type AITokenUsageDocument = mongoose.Document & AITokenUsageInterface;

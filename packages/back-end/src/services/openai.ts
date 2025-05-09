@@ -14,7 +14,7 @@ const MODEL = "gpt-4o-mini";
  * the OpenAI API in a single request. This limit is imposed by OpenAI.
  *
  */
-const MODEL_TOKEN_LIMIT = 4096;
+const MODEL_TOKEN_LIMIT = 128000;
 // Require a minimum of 30 tokens for responses.
 const MESSAGE_TOKEN_LIMIT = MODEL_TOKEN_LIMIT - 30;
 
@@ -74,16 +74,14 @@ export const hasExceededUsageQuota = async (
 };
 
 export const simpleCompletion = async ({
-  behavior,
+  instructions,
   prompt,
   maxTokens,
   organization,
   temperature,
-  priorKnowledge,
 }: {
-  behavior: string;
+  instructions: string;
   prompt: string;
-  priorKnowledge?: string[];
   maxTokens?: number;
   temperature?: number;
   organization: OrganizationInterface;
@@ -98,17 +96,13 @@ export const simpleCompletion = async ({
 
   const messages: ChatCompletionRequestMessage[] = [
     {
-      role: "user",
-      content: behavior,
+      role: "system",
+      content: instructions,
     },
     {
       role: "user",
       content: prompt,
     },
-    ...(priorKnowledge || []).map<ChatCompletionRequestMessage>((message) => ({
-      role: "assistant",
-      content: message,
-    })),
   ];
 
   const numTokens = numTokensFromMessages(messages);

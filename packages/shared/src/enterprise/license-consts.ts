@@ -10,6 +10,7 @@ export const accountPlans: Set<AccountPlan> = new Set([
 ]);
 
 export type CommercialFeature =
+  | "ai-suggestions"
   | "scim"
   | "sso"
   | "advanced-permissions"
@@ -224,6 +225,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "safe-rollout",
   ]),
   enterprise: new Set<CommercialFeature>([
+    "ai-suggestions",
     "scim",
     "sso",
     "advanced-permissions",

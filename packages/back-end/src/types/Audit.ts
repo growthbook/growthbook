@@ -1,4 +1,5 @@
 export const entityEvents = {
+  aiPrompt: ["create", "update", "delete"],
   attribute: ["create", "update", "delete"],
   experiment: [
     "create",

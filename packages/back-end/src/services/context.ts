@@ -40,6 +40,7 @@ import { SafeRolloutSnapshotModel } from "back-end/src/models/SafeRolloutSnapsho
 import { DecisionCriteriaModel } from "back-end/src/enterprise/models/DecisionCriteriaModel";
 import { MetricTimeSeriesModel } from "back-end/src/models/MetricTimeSeriesModel";
 import { getExperimentMetricsByIds } from "./experiments";
+import { AiPromptModel } from "back-end/src/models/AIPromptModel";
 
 export type ForeignRefTypes = {
   experiment: ExperimentInterface;
@@ -50,6 +51,7 @@ export type ForeignRefTypes = {
 export class ReqContextClass {
   // Models
   public models!: {
+    aiPrompts: AiPromptModel;
     customFields: CustomFieldModel;
     factMetrics: FactMetricModel;
     projects: ProjectModel;
@@ -66,6 +68,7 @@ export class ReqContextClass {
   };
   private initModels() {
     this.models = {
+      aiPrompts: new AiPromptModel(this),
       customFields: new CustomFieldModel(this),
       factMetrics: new FactMetricModel(this),
       projects: new ProjectModel(this),

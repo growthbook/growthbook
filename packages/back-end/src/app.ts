@@ -91,6 +91,7 @@ const informationSchemasController = wrapController(
 
 import { isEmailEnabled } from "./services/email";
 import { init } from "./init";
+import { aiRouter } from "./routers/ai/ai.router";
 import { getCustomLogProps, httpLogger } from "./util/logger";
 import { usersRouter } from "./routers/users/users.router";
 import { organizationsRouter } from "./routers/organizations/organizations.router";
@@ -573,6 +574,10 @@ app.post(
   experimentsController.postSnapshotNotebook
 );
 app.post(
+  "/experiment/:id/analysis/ai-suggest",
+  experimentsController.postAIExperimentAnalysis
+);
+app.post(
   "/experiments/report/:snapshot",
   reportsController.postReportFromSnapshot
 );
@@ -852,6 +857,8 @@ app.get("/meta/ai", (req, res) => {
     enabled: !!process.env.OPENAI_API_KEY,
   });
 });
+
+app.use("/user", aiRouter);
 
 // Fallback 404 route if nothing else matches
 app.use(function (req, res) {
