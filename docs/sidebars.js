@@ -798,7 +798,7 @@ const sidebars = {
           items: [
             {
               type: "doc",
-              id: "kb/google-analytics/google-bigquery-bq-troubleshooting",
+              id: "kb/google-analytics/google-big-query-bq-troubleshooting",
               label: "BigQuery Troubleshooting",
             },
             {
