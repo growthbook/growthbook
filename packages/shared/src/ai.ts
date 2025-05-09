@@ -6,7 +6,10 @@ export interface AITokenUsageInterface {
   dailyLimit: number;
 }
 
-export const AI_PROMPT_TYPES = ["experiment.analysis"] as const;
+export const AI_PROMPT_TYPES = [
+  "experiment.analysis",
+  "metric.description",
+] as const;
 export type AIPromptType = typeof AI_PROMPT_TYPES[number];
 
 export interface AIPromptInterface {
@@ -19,7 +22,7 @@ export interface AIPromptInterface {
 export const AIPromptDefaults: Record<AIPromptType, string> = {
   "experiment.analysis":
     "Provide a justification for the chosen outcome of the experiment based on the snapshot data" +
-    "\nIf the chosen outcome is 'dnf' your output should be in the form 'We are not finisihing the experiment because ...' and provide a reason such as that the experiment was underpowered and would take too long to complete.  It needs no sections at all." +
+    "\nIf the chosen outcome is 'dnf' your output should be in the form 'We are not finishing the experiment because ...' and provide a reason such as that the experiment was underpowered and would take too long to complete.  It needs no sections at all." +
     "\nOtherwise your output should be in the form of two sections '### Key Findings' and '### Conclusions'." +
     "\nFor the Key Findings you should list which metrics had statistically significant winners and by how much, and name the metrics that are unchanged." +
     "\nWhen listing CRs please make sure to use the correct format given the metric type." +
@@ -28,4 +31,6 @@ export const AIPromptDefaults: Record<AIPromptType, string> = {
     "\nYour output should be in the form of a markdown text, and should be no longer than 2000 characters." +
     "\nIt should not be wrapped in triple backticks." +
     "\nThere is no need to provide metric ids in your answer",
+  "metric.description":
+    "Write a concise description in markdown of the metric that will be helpful for other users who may want to use this metric in their AB tests. Paraphrase what this metric is used to show or measure.",
 };

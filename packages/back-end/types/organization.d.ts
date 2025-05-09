@@ -13,6 +13,7 @@ import {
   LicenseInterface,
   SubscriptionInfo,
 } from "shared/enterprise";
+import { TiktokenModel } from "@dqbd/tiktoken";
 import { environment } from "back-end/src/routers/environment/environment.validators";
 import type { ReqContextClass } from "back-end/src/services/context";
 import { attributeDataTypes } from "back-end/src/util/organization.util";
@@ -213,7 +214,7 @@ export interface OrganizationSettings {
   srmThreshold?: number;
   aiEnabled?: boolean;
   openAIAPIKey?: string;
-  openAIDefaultModel?: string;
+  openAIDefaultModel?: TiktokenModel;
   /** @deprecated */
   implementationTypes?: ImplementationType[];
   attributionModel?: AttributionModel;

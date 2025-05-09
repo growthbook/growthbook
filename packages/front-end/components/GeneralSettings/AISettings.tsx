@@ -114,6 +114,7 @@ export default function AISettings({
                     Open AI Key
                   </Text>
                   <Field
+                    type="password"
                     id="openaiAPIKey"
                     {...form.register("openAIAPIKey")}
                     placeholder=""

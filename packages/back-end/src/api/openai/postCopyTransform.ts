@@ -50,6 +50,7 @@ export const postCopyTransform = createApiRequestHandler(validation)(
 
     const { copy, mode, visualChangesetId } = req.body;
 
+    const context = req.context;
     const visualChangeset = await findVisualChangesetById(
       visualChangesetId,
       req.organization.id
@@ -67,9 +68,9 @@ export const postCopyTransform = createApiRequestHandler(validation)(
     }
 
     const transformed = await simpleCompletion({
+      context,
       instructions,
       prompt: getPrompt(copy, mode),
-      organization: req.organization,
       temperature: 0.8,
     });
 

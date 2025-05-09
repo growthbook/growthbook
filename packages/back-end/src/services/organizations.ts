@@ -20,6 +20,7 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_TARGET_MDE,
 } from "shared/constants";
+import { TiktokenModel } from "@dqbd/tiktoken";
 import {
   MetricCappingSettings,
   MetricPriorSettings,
@@ -167,7 +168,11 @@ export function getConfidenceLevelsForOrg(context: ReqContext) {
 export function getAISettingsForOrg(
   context: ReqContext,
   includeKey: boolean = false
-) {
+): {
+  aiEnabled: boolean;
+  openAIAPIKey: string;
+  openAIDefaultModel: TiktokenModel;
+} {
   const aiEnabled = IS_CLOUD
     ? context.org.settings?.aiEnabled !== false
     : !!(context.org.settings?.aiEnabled && context.org.settings?.openAIAPIKey);

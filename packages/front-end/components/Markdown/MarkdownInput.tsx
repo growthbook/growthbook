@@ -53,6 +53,7 @@ const MarkdownInput: FC<{
   const [uploading, setUploading] = useState(false);
   const [aiSuggestionText, setAiSuggestionText] = useState("");
   const [loading, setLoading] = useState(false);
+  const [aiError, setAiError] = useState("");
   useEffect(() => {
     if (autofocus && textareaRef.current) {
       textareaRef.current.focus();
@@ -114,19 +115,35 @@ const MarkdownInput: FC<{
           </TabsList>
 
           {aiSuggestFunction && (
-            <Flex justify="end" width="100%">
+            <Flex justify="end">
               <Button
                 variant="ghost"
+                title={
+                  !aiEnabled
+                    ? "AI is disabled for your organization. Adjust in settings."
+                    : ""
+                }
                 disabled={!aiEnabled || !aiSuggestFunction || loading}
                 onClick={async () => {
                   if (aiEnabled) {
-                    setLoading(true);
-                    // make sure it's on the right tab:
-                    setActiveControlledTab("write");
-                    const suggestedText = await aiSuggestFunction();
-                    if (suggestedText) {
-                      setAiSuggestionText(suggestedText);
+                    setAiError("");
+                    try {
+                      setLoading(true);
+                      // make sure it's on the right tab:
+                      setActiveControlledTab("write");
+                      const suggestedText = await aiSuggestFunction();
+                      if (suggestedText) {
+                        setAiSuggestionText(suggestedText);
+                        setLoading(false);
+                      } else {
+                        setLoading(false);
+                        setAiError("Failed to get AI suggestion");
+                      }
+                    } catch (e) {
                       setLoading(false);
+                      setAiError(
+                        "Failed to get AI suggestion. API request error"
+                      );
                     }
                   }
                 }}
@@ -229,7 +246,11 @@ const MarkdownInput: FC<{
               <div className="mt-2">
                 <hr />
                 <h4>AI Suggestion</h4>
-                <div className="card-text mb-3">{aiSuggestionText}</div>
+                <Box className="appbox" p="3">
+                  <Markdown className="card-text mb-2">
+                    {aiSuggestionText}
+                  </Markdown>
+                </Box>
                 <Button
                   variant="outline"
                   onClick={() => {
@@ -240,6 +261,9 @@ const MarkdownInput: FC<{
                   Use this suggestion
                 </Button>
               </div>
+            )}
+            {aiError && (
+              <div className="alert alert-danger mt-2">{aiError}</div>
             )}
           </TabsContent>
           <TabsContent value="preview">

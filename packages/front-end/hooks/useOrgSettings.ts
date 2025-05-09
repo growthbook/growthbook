@@ -17,7 +17,7 @@ export const useAISettings = (
   const aiEnabled = isCloud()
     ? settings?.aiEnabled !== false
     : !!(settings?.aiEnabled && settings?.openAIAPIKey);
-  const openAIModel = settings?.openAIDefaultModel || "gpt-4o-mini";
+  const openAIDefaultModel = settings?.openAIDefaultModel || "gpt-4o-mini";
   const openAIKey = includeKey ? settings?.openAIAPIKey || "" : "";
-  return { aiEnabled, openAIModel, openAIKey };
+  return { aiEnabled, openAIDefaultModel, openAIKey };
 };

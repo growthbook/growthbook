@@ -247,8 +247,8 @@ export async function postAIExperimentAnalysis(
     "\nYou are an expert data analyst whose colleague has chosen a particular outcome for an A/B test. " +
     "\nYou are fully aware of the experiment framework consisting of:" +
     // Arguments
-    "\nThe choosen outcome can be 'dnf' which means 'did not finish', 'won' which means the experiment was successful, 'lost' which means none of the variations were as successful as the control, or 'inconclusive' which means no statistically significant result was detected." +
-    "\nIf the choosen outcome is 'dnf', 'inconclusive', or 'lost' then we stick with the control." +
+    "\nThe chosen outcome can be 'dnf' which means 'did not finish', 'won' which means the experiment was successful, 'lost' which means none of the variations were as successful as the control, or 'inconclusive' which means no statistically significant result was detected." +
+    "\nIf the chosen outcome is 'dnf', 'inconclusive', or 'lost' then we stick with the control." +
     "\nThe releasedVariationId is the variation that was released as a temporary rollout until the test can be removed from the codebase." +
     "\nUsually the releasedVariationId is the same as the winning variation, but not always perhaps because the difference is not big enough to warrant the cost of maintaining the winning variant, or other external factors not measured by the metrics" +
     // General context
@@ -338,7 +338,7 @@ export async function postAIExperimentAnalysis(
     "\nThe keys in the `experimentMetrics` map refer to the ids mentioned in the `goalMetrics`, `guardrailMetrics`, and `secondaryMetrics` fields of the experiment." +
     "\n- the experiment data is: " +
     JSON.stringify(experiment) +
-    "\n- the lastest snapshot is: " +
+    "\n- the latest snapshot is: " +
     JSON.stringify(snapshot) +
     "\n- the experiment metrics are: " +
     JSON.stringify(experimentMetrics) +
@@ -355,9 +355,9 @@ export async function postAIExperimentAnalysis(
   );
 
   const aiResults = await simpleCompletion({
+    context,
     instructions,
     prompt: prompt,
-    organization: req.organization,
     temperature: 0.5,
   });
 

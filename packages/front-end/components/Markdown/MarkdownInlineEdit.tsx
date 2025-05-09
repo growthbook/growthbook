@@ -118,6 +118,7 @@ export default function MarkdownInlineEdit({
                       className="link-purple"
                       onClick={async (e) => {
                         e.preventDefault();
+                        setError(null);
                         setLoading(true);
                         try {
                           const suggestion = await aiSuggestFunction();

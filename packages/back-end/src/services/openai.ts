@@ -1,13 +1,17 @@
 import { OpenAI } from "openai";
-import { encoding_for_model, get_encoding } from "@dqbd/tiktoken";
+import {
+  encoding_for_model,
+  get_encoding,
+  TiktokenModel,
+} from "@dqbd/tiktoken";
 import { logger } from "back-end/src/util/logger";
-import { OrganizationInterface } from "back-end/types/organization";
+import { OrganizationInterface, ReqContext } from "back-end/types/organization";
 import {
   getTokensUsedByOrganization,
   updateTokenUsage,
 } from "back-end/src/models/AITokenUsageModel";
-
-const MODEL = "gpt-4o-mini";
+import { ApiReqContext } from "back-end/types/api";
+import { getAISettingsForOrg } from "back-end/src/services/organizations";
 
 /**
  * The MODEL_TOKEN_LIMIT is the maximum number of tokens that can be sent to
@@ -19,11 +23,19 @@ const MODEL_TOKEN_LIMIT = 128000;
 const MESSAGE_TOKEN_LIMIT = MODEL_TOKEN_LIMIT - 30;
 
 let _openai: OpenAI | null = null;
-export const getOpenAI = () => {
+let _openAIModel: TiktokenModel = "gpt-4o-mini";
+export const getOpenAI = (context: ReqContext | ApiReqContext) => {
   if (_openai == null) {
-    _openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY || "",
-    });
+    const { aiEnabled, openAIAPIKey, openAIDefaultModel } = getAISettingsForOrg(
+      context,
+      true
+    );
+    _openAIModel = openAIDefaultModel;
+    if (openAIAPIKey && aiEnabled) {
+      _openai = new OpenAI({
+        apiKey: openAIAPIKey || "",
+      });
+    }
   }
   return _openai;
 };
@@ -42,10 +54,10 @@ type ChatCompletionRequestMessage = {
 const numTokensFromMessages = (messages: ChatCompletionRequestMessage[]) => {
   let encoding;
   try {
-    encoding = encoding_for_model(MODEL);
+    encoding = encoding_for_model(_openAIModel);
   } catch (e) {
     logger.warn(
-      `services/openai - Could not find encoding for model "${MODEL}"`
+      `services/openai - Could not find encoding for model "${_openAIModel}"`
     );
     encoding = get_encoding("cl100k_base");
   }
@@ -74,20 +86,23 @@ export const hasExceededUsageQuota = async (
 };
 
 export const simpleCompletion = async ({
+  context,
   instructions,
   prompt,
   maxTokens,
-  organization,
   temperature,
 }: {
+  context: ReqContext | ApiReqContext;
   instructions: string;
   prompt: string;
   maxTokens?: number;
   temperature?: number;
-  organization: OrganizationInterface;
 }) => {
-  const openai = getOpenAI();
+  const openai = getOpenAI(context);
 
+  if (openai == null) {
+    throw new Error("OpenAI not enabled or key not set");
+  }
   // Content moderation check
   const moderationResponse = await openai.moderations.create({ input: prompt });
   if (moderationResponse.results.some((r) => r.flagged)) {
@@ -118,13 +133,13 @@ export const simpleCompletion = async ({
   }
 
   const response = await openai.chat.completions.create({
-    model: MODEL,
+    model: _openAIModel,
     messages,
     ...(temperature != null ? { temperature } : {}),
   });
 
   const numTokensUsed = response.usage?.total_tokens ?? numTokens;
-  await updateTokenUsage({ numTokensUsed, organization });
+  await updateTokenUsage({ numTokensUsed, organization: context.org });
 
   return response.choices[0].message?.content || "";
 };
