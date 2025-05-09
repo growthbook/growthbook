@@ -16,8 +16,7 @@ import {
   StatsEngine,
 } from "back-end/types/stats";
 import Link from "next/link";
-import { FaAngleRight, FaTimes, FaUsers } from "react-icons/fa";
-import Collapsible from "react-collapsible";
+import { FaTimes } from "react-icons/fa";
 import {
   expandMetricGroups,
   ExperimentMetricInterface,
@@ -47,10 +46,7 @@ import ConditionalWrapper from "@/components/ConditionalWrapper";
 import DataQualityWarning from "./DataQualityWarning";
 import ResultsTable from "./ResultsTable";
 import MultipleExposureWarning from "./MultipleExposureWarning";
-import VariationUsersTable from "./TabbedPage/VariationUsersTable";
 import { ExperimentTab } from "./TabbedPage";
-
-const numberFormatter = Intl.NumberFormat();
 
 const CompactResults: FC<{
   editMetrics?: () => void;
@@ -129,15 +125,12 @@ const CompactResults: FC<{
   const pValueThreshold =
     ssrPolyfills?.usePValueThreshold() || _pValueThreshold;
 
-  const [totalUsers, variationUsers] = useMemo(() => {
+  const totalUsers = useMemo(() => {
     let totalUsers = 0;
-    const variationUsers: number[] = [];
-    results?.variations?.forEach((v, i) => {
+    results?.variations?.forEach((v) => {
       totalUsers += v.users;
-      variationUsers[i] = variationUsers[i] || 0;
-      variationUsers[i] += v.users;
     });
-    return [totalUsers, variationUsers];
+    return totalUsers;
   }, [results]);
 
   const {
@@ -299,46 +292,21 @@ const CompactResults: FC<{
   return (
     <>
       {!mainTableOnly && (
-        <>
-          {!isBandit && status !== "draft" && totalUsers > 0 && false && (
-            <div className="users">
-              <Collapsible
-                trigger={
-                  <div className="d-inline-flex mx-3 align-items-center">
-                    <FaUsers size={16} className="mr-1" />
-                    {numberFormatter.format(totalUsers)} total users
-                    <FaAngleRight className="chevron ml-1" />
-                  </div>
-                }
-                transitionTime={100}
-              >
-                <div style={{ maxWidth: "800px" }}>
-                  <VariationUsersTable
-                    variations={variations}
-                    users={variationUsers}
-                    srm={results.srm}
-                  />
-                </div>
-              </Collapsible>
-            </div>
-          )}
-
-          <div className="mx-3">
-            {experimentType !== "multi-armed-bandit" && (
-              <DataQualityWarning
-                results={results}
-                variations={variations}
-                linkToHealthTab
-                setTab={setTab}
-                isBandit={isBandit}
-              />
-            )}
-            <MultipleExposureWarning
-              totalUsers={totalUsers}
-              multipleExposures={multipleExposures}
+        <div className="mx-3">
+          {experimentType !== "multi-armed-bandit" && (
+            <DataQualityWarning
+              results={results}
+              variations={variations}
+              linkToHealthTab
+              setTab={setTab}
+              isBandit={isBandit}
             />
-          </div>
-        </>
+          )}
+          <MultipleExposureWarning
+            totalUsers={totalUsers}
+            multipleExposures={multipleExposures}
+          />
+        </div>
       )}
 
       {expandedGoals.length ? (

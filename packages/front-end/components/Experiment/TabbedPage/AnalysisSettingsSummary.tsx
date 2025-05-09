@@ -1,10 +1,10 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import {
-  FaChartBar,
   FaDatabase,
   FaExclamationTriangle,
   FaFlask,
   FaTable,
+  FaUser,
 } from "react-icons/fa";
 import React, { ReactElement, useMemo, useState } from "react";
 import { GiPieChart } from "react-icons/gi";
@@ -19,6 +19,7 @@ import {
   isMetricJoinable,
 } from "shared/experiments";
 import { ExperimentSnapshotReportArgs } from "back-end/types/report";
+import { Popover, Text } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBEdit } from "@/components/Icons";
@@ -40,7 +41,13 @@ import MetricName from "@/components/Metrics/MetricName";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
 import Link from "@/components/Radix/Link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import VariationUsersTable from "@/components/Experiment/TabbedPage/VariationUsersTable";
 import OverflowText from "./OverflowText";
+
+const numberFormatter = new Intl.NumberFormat("en", {
+  notation: "compact",
+  compactDisplay: "short",
+});
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -137,6 +144,18 @@ export default function AnalysisSettingsSummary({
       )
     )
   );
+
+  const results = analysis?.results?.[0];
+  const [totalUsers, variationUsers] = useMemo(() => {
+    let totalUsers = 0;
+    const variationUsers: number[] = [];
+    results?.variations?.forEach((v, i) => {
+      totalUsers += v.users;
+      variationUsers[i] = variationUsers[i] || 0;
+      variationUsers[i] += v.users;
+    });
+    return [totalUsers, variationUsers];
+  }, [results]);
 
   const unjoinableMetrics = useMemo(() => {
     const unjoinables = new Set<string>();
@@ -250,62 +269,6 @@ export default function AnalysisSettingsSummary({
     });
   }
 
-  items.push({
-    value: numMetrics + (numMetrics === 1 ? " metric" : " metrics"),
-    icon: <FaChartBar className="mr-1" />,
-    noTransform: true,
-    tooltip:
-      numMetrics > 0 ? (
-        <>
-          <div className="mb-2 text-left">
-            <strong>Goals:</strong>
-            {goals.length > 0 ? (
-              <ul className=" ml-0 pl-3 mb-0">
-                {goals.map((m, i) => (
-                  <li key={i}>{m}</li>
-                ))}
-              </ul>
-            ) : (
-              <>
-                {" "}
-                <em>none</em>
-              </>
-            )}
-          </div>
-          <div className="mb-2 text-left">
-            <strong>Secondary Metrics:</strong>
-            {secondary.length > 0 ? (
-              <ul className=" ml-0 pl-3 mb-0">
-                {secondary.map((m, i) => (
-                  <li key={i}>{m}</li>
-                ))}
-              </ul>
-            ) : (
-              <>
-                {" "}
-                <em>none</em>
-              </>
-            )}
-          </div>
-          <div className="text-left">
-            <strong>Guardrails:</strong>
-            {guardrails.length > 0 ? (
-              <ul className="ml-0 pl-3 mb-0">
-                {guardrails.map((m, i) => (
-                  <li key={i}>{m}</li>
-                ))}
-              </ul>
-            ) : (
-              <>
-                {" "}
-                <em>none</em>
-              </>
-            )}
-          </div>
-        </>
-      ) : undefined,
-  });
-
   return (
     <div className="px-3 py-2 analysis-settings-top border-bottom">
       {analysisModal && (
@@ -378,6 +341,27 @@ export default function AnalysisSettingsSummary({
         <div className="col flex-1" />
         <div className="col-auto">
           <div className="row align-items-center justify-content-end">
+            {results && totalUsers > 0 ? (
+              <div className="col-auto py-1">
+                <Popover.Root>
+                  <Popover.Trigger>
+                    <Text className="text-muted">
+                      <FaUser className="mr-1" />{" "}
+                      {numberFormatter.format(totalUsers)} units
+                    </Text>
+                  </Popover.Trigger>
+                  <Popover.Content width="600px">
+                    <div className="w-full">
+                      <VariationUsersTable
+                        variations={variations}
+                        users={variationUsers}
+                        srm={results.srm}
+                      />
+                    </div>
+                  </Popover.Content>
+                </Popover.Root>
+              </div>
+            ) : null}
             <div className="col-auto">
               {hasData &&
                 (outdated && status !== "running" ? (
