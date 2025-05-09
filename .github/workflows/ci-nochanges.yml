@@ -1,4 +1,4 @@
-name: CI No Changes
+name: CI
 on:
   push:
     branches: [main]

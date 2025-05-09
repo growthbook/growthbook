@@ -5,7 +5,6 @@ on:
     workflows:
       [
         CI,
-        CI No Changes,
         Find feature flag code references,
         Deploy Branch to Docker Hub,
         Deploy,
