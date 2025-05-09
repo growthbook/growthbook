@@ -86,7 +86,7 @@ export interface Props {
   datasource?: string;
 }
 
-function QuantileSelector({
+export function QuantileSelector({
   value,
   setValue,
 }: {

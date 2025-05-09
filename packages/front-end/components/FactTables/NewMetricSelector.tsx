@@ -25,6 +25,8 @@ import {
 import Link from "@/components/Radix/Link";
 import MetricName from "@/components/Metrics/MetricName";
 import Tag from "@/components/Tags/Tag";
+import { QuantileSelector } from "@/components/FactTables/FactMetricModal";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
 
 function parseVariants(
   ids: string[]
@@ -167,7 +169,7 @@ export default function NewMetricSelector({
 
         newMetrics.push({
           id,
-          variants: getMaterializedVariantOptions(factTable, factMetric),
+          variants: getMaterializedVariantOptions(factTable, factMetric, true),
         });
       } else {
         newMetrics.push({
@@ -316,7 +318,8 @@ function SelectedMetric({
       if (factTable) {
         materializedVariantOptions = getMaterializedVariantOptions(
           factTable,
-          metric
+          metric,
+          false
         );
       }
     }
@@ -633,9 +636,11 @@ export function AdhocVariantForm({
     additionalFilters: form.watch("additionalFilters"),
   };
 
+  const overrideWindow = value.windowSettings !== undefined;
   const overrideDelay = value.windowDelaySettings !== undefined;
-
   const overrideCapping = value.cappingSettings !== undefined;
+  const overrideQuantile = value.quantileSettings !== undefined;
+  const overrideFilters = value.additionalFilters !== undefined;
 
   const defaultName = getDefaultName(
     metric,
@@ -700,9 +705,22 @@ export function AdhocVariantForm({
                   {value.cappingSettings?.type ? (
                     <Field
                       type="number"
-                      {...form.register("cappingSettings.value")}
+                      {...form.register("cappingSettings.value", {
+                        valueAsNumber: true,
+                      })}
                       required
                       style={{ width: 70 }}
+                      min={0}
+                      max={
+                        value.cappingSettings.type === "percentile"
+                          ? 1
+                          : undefined
+                      }
+                      step={
+                        value.cappingSettings.type === "percentile"
+                          ? 0.001
+                          : undefined
+                      }
                     />
                   ) : null}
                   {value.cappingSettings?.type === "percentile" ? (
@@ -753,7 +771,9 @@ export function AdhocVariantForm({
                 <Flex gap="2" wrap="wrap" align="center">
                   <Field
                     type="number"
-                    {...form.register("windowDelaySettings.delayValue")}
+                    {...form.register("windowDelaySettings.delayValue", {
+                      valueAsNumber: true,
+                    })}
                     required
                     style={{ width: 70 }}
                   />
@@ -781,7 +801,158 @@ export function AdhocVariantForm({
               )}
             </td>
           </tr>
-          {/* TODO: More properties */}
+          <tr>
+            <td>Conversion Window</td>
+            <td>
+              <Checkbox
+                value={overrideWindow}
+                setValue={(override) => {
+                  form.setValue(
+                    "windowSettings",
+                    override
+                      ? {
+                          type: metric.windowSettings.type || "conversion",
+                          windowUnit:
+                            metric.windowSettings.windowUnit || "days",
+                          windowValue: metric.windowSettings.windowValue || 0,
+                        }
+                      : undefined
+                  );
+                }}
+              />
+            </td>
+            <td>
+              {overrideWindow ? (
+                <Flex gap="2" wrap="wrap" align="center">
+                  <SelectField
+                    value={value.windowSettings?.type || ""}
+                    onChange={(v: "" | "conversion" | "lookback") =>
+                      form.setValue("windowSettings.type", v)
+                    }
+                    options={[
+                      { value: "", label: "None" },
+                      { value: "conversion", label: "Conversion" },
+                      { value: "lookback", label: "Lookback" },
+                    ]}
+                    required
+                    sort={false}
+                  />
+                  {value.windowSettings?.type ? (
+                    <>
+                      <Field
+                        type="number"
+                        {...form.register("windowSettings.windowValue", {
+                          valueAsNumber: true,
+                        })}
+                        required
+                        style={{ width: 70 }}
+                      />
+                      <SelectField
+                        value={value.windowSettings?.windowUnit || ""}
+                        onChange={(v: "weeks" | "days" | "hours" | "minutes") =>
+                          form.setValue("windowSettings.windowUnit", v)
+                        }
+                        options={[
+                          { value: "weeks", label: "Weeks" },
+                          { value: "days", label: "Days" },
+                          { value: "hours", label: "Hours" },
+                          { value: "minutes", label: "Minutes" },
+                        ]}
+                        required
+                        sort={false}
+                      />
+                    </>
+                  ) : null}
+                </Flex>
+              ) : (
+                <>
+                  {metric.windowSettings.type === ""
+                    ? "None"
+                    : `${metric.windowSettings.type}: ${metric.windowSettings.windowValue} ${metric.windowSettings.windowUnit}`}
+                </>
+              )}
+            </td>
+          </tr>
+          {metric.metricType === "quantile" && metric.quantileSettings ? (
+            <tr>
+              <td>Quantile Level</td>
+              <td>
+                <Checkbox
+                  value={overrideQuantile}
+                  setValue={(override) => {
+                    form.setValue(
+                      "quantileSettings",
+                      override
+                        ? {
+                            quantile: metric.quantileSettings?.quantile || 0,
+                            ignoreZeros:
+                              metric.quantileSettings?.ignoreZeros || false,
+                          }
+                        : undefined
+                    );
+                  }}
+                />
+              </td>
+              <td>
+                {overrideQuantile ? (
+                  <QuantileSelector
+                    value={{
+                      ...metric.quantileSettings,
+                      ...value.quantileSettings,
+                    }}
+                    setValue={(v) => {
+                      form.setValue("quantileSettings", {
+                        quantile: v.quantile,
+                        ignoreZeros: v.ignoreZeros,
+                      });
+                    }}
+                  />
+                ) : (
+                  <>
+                    P{(metric.quantileSettings.quantile || 0) * 100}
+                    {metric.quantileSettings.ignoreZeros
+                      ? " (Ignore zeros)"
+                      : ""}
+                  </>
+                )}
+              </td>
+            </tr>
+          ) : null}
+          {factTable.filters.length > 0 ? (
+            <tr>
+              <td>Additional Filters</td>
+              <td>
+                <Checkbox
+                  value={overrideFilters}
+                  setValue={(override) => {
+                    form.setValue(
+                      "additionalFilters",
+                      override ? [] : undefined
+                    );
+                  }}
+                />
+              </td>
+              <td>
+                {overrideFilters ? (
+                  <Flex gap="2" wrap="wrap">
+                    <MultiSelectField
+                      options={factTable.filters.map((filter) => ({
+                        value: filter.id,
+                        label: filter.name,
+                      }))}
+                      value={value.additionalFilters || []}
+                      onChange={(selected) => {
+                        form.setValue("additionalFilters", selected);
+                      }}
+                      placeholder="Select filters..."
+                    />
+                  </Flex>
+                ) : (
+                  "None"
+                )}
+              </td>
+            </tr>
+          ) : null}
         </tbody>
       </table>
 
@@ -798,15 +969,26 @@ export function AdhocVariantForm({
 
 function getMaterializedVariantOptions(
   factTable: FactTableInterface,
-  metric: FactMetricInterface
+  metric: FactMetricInterface,
+  autoAddOnly: boolean
 ): VariantSettings[] {
   const variants: VariantSettings[] = [];
 
-  // Only create these variants if the metric doesn't have any filters yet
+  // Explicitly added variants
+  if (metric.variants) {
+    metric.variants.forEach((v) => {
+      // TODO: setting for variants to auto-add
+      if (autoAddOnly) return;
+      variants.push(v);
+    });
+  }
+
+  // Automatic filter variants
+  // Only create these if the metric doesn't have any filters yet
   if (!metric.numerator.filters?.length) {
     factTable.filters.forEach((filter) => {
-      // TODO: mark official variants
-      // TODO: add description
+      if (!filter.createVariant) return;
+      if (autoAddOnly && !filter.autoAddVariant) return;
       variants.push({
         name: `${metric.name} ${filter.name}`,
         id: `filter:${filter.id}`,

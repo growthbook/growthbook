@@ -2,7 +2,6 @@ import { useState } from "react";
 import { FaPlusCircle } from "react-icons/fa";
 import { Text } from "@radix-ui/themes";
 import NewMetricSelector from "@/components/FactTables/NewMetricSelector";
-import MetricsSelector from "./MetricsSelector";
 
 export interface Props {
   datasource?: string;
@@ -25,19 +24,13 @@ export interface Props {
 
 export default function ExperimentMetricsSelector({
   datasource,
-  exposureQueryId,
-  project,
   goalMetrics,
   secondaryMetrics,
   guardrailMetrics,
   setGoalMetrics,
   setSecondaryMetrics,
   setGuardrailMetrics,
-  autoFocus = false,
   forceSingleGoalMetric = false,
-  noPercentileGoalMetrics = false,
-  disabled,
-  goalDisabled,
   collapseSecondary,
   collapseGuardrail,
 }: Props) {
@@ -112,6 +105,7 @@ export default function ExperimentMetricsSelector({
                   ? "Additional metrics to learn about experiment impacts, but not primary objectives."
                   : "Additional metrics to learn about experiment impacts. "}
               </Text>
+              {/*
               <MetricsSelector
                 selected={secondaryMetrics}
                 onChange={setSecondaryMetrics}
@@ -120,6 +114,11 @@ export default function ExperimentMetricsSelector({
                 project={project}
                 includeFacts={true}
                 disabled={disabled}
+              />*/}{" "}
+              <NewMetricSelector
+                value={secondaryMetrics}
+                setValue={setSecondaryMetrics}
+                datasource={datasource}
               />
             </>
           )}
@@ -149,6 +148,7 @@ export default function ExperimentMetricsSelector({
                 Metrics you want to monitor, but are NOT specifically trying to
                 improve.
               </Text>
+              {/*
               <MetricsSelector
                 selected={guardrailMetrics}
                 onChange={setGuardrailMetrics}
@@ -157,6 +157,12 @@ export default function ExperimentMetricsSelector({
                 project={project}
                 includeFacts={true}
                 disabled={disabled}
+              />
+              */}
+              <NewMetricSelector
+                value={guardrailMetrics}
+                setValue={setGuardrailMetrics}
+                datasource={datasource}
               />
             </>
           )}

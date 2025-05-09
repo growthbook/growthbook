@@ -89,7 +89,7 @@ const Input = (props: InputProps) => {
   return <components.Input onPaste={onPaste} {...props} />;
 };
 
-const MenuInPortal = (props: MenuProps) => {
+export const MenuInPortal = (props: MenuProps) => {
   return (
     <RadixTheme>
       <components.Menu {...props}>{props.children}</components.Menu>

@@ -25,6 +25,7 @@ import {
   SingleValue,
   Option,
   useSelectOptions,
+  MenuInPortal,
 } from "@/components/Forms/SelectField";
 import Field, { FieldProps } from "@/components/Forms/Field";
 import { ColorOption } from "@/components/Tags/TagsInput";
@@ -173,6 +174,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
             onChange={(selected) => {
               onChange(selected?.map((s) => s.value) ?? []);
             }}
+            menuPortalTarget={document.body}
             components={{
               MultiValue: SortableMultiValue,
               MultiValueLabel: SortableMultiValueLabel,
@@ -186,6 +188,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
                   }
                 : creatable
                 ? {
+                    Menu: MenuInPortal,
                     MenuList: (props) => {
                       return (
                         <>

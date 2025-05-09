@@ -16,10 +16,9 @@ import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import Modal from "@/components/Modal";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import track from "@/services/track";
+import Callout from "@/components/Radix/Callout";
 import PremiumCallout from "../Radix/PremiumCallout";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import { MetricsSelectorTooltip } from "./MetricsSelector";
@@ -155,6 +154,11 @@ const EditMetricsForm: FC<{
       metricOverrides: defaultMetricOverrides,
     },
   });
+
+  const [showOverrides, setShowOverrides] = useState(
+    !!defaultMetricOverrides?.length
+  );
+
   const { apiCall } = useAuth();
   useEffect(() => {
     track("edit-metric-form-open");
@@ -245,34 +249,36 @@ const EditMetricsForm: FC<{
             />
           </div>
 
-          <div className="form-group mb-2">
-            <PremiumTooltip commercialFeature="override-metrics">
-              Metric Overrides (optional)
-            </PremiumTooltip>
-            <div className="mb-2 font-italic" style={{ fontSize: 12 }}>
-              <p className="mb-0">
-                Override metric behaviors within this experiment.
-              </p>
-              <p className="mb-0">
-                Leave any fields empty that you do not want to override.
-              </p>
+          {hasOverrideMetricsFeature ? (
+            <div>
+              {showOverrides ? (
+                <div className="form-group mb-2">
+                  <label>Metric Overrides</label>
+                  <Callout status="warning" mb="2">
+                    <strong>Deprecated</strong>: Use Metric Variants instead.
+                  </Callout>
+                  <MetricsOverridesSelector
+                    experiment={experiment}
+                    form={form}
+                    disabled={!hasOverrideMetricsFeature}
+                    setHasMetricOverrideRiskError={(v: boolean) =>
+                      setHasMetricOverrideRiskError(v)
+                    }
+                  />
+                </div>
+              ) : (
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setShowOverrides(true);
+                  }}
+                >
+                  Show metric overrides (deprecated)
+                </a>
+              )}
             </div>
-            <MetricsOverridesSelector
-              experiment={experiment}
-              form={form}
-              disabled={!hasOverrideMetricsFeature}
-              setHasMetricOverrideRiskError={(v: boolean) =>
-                setHasMetricOverrideRiskError(v)
-              }
-            />
-            {!hasOverrideMetricsFeature && (
-              <UpgradeMessage
-                showUpgradeModal={() => setUpgradeModal(true)}
-                commercialFeature="override-metrics"
-                upgradeMessage="override metrics"
-              />
-            )}
-          </div>
+          ) : null}
         </>
       )}
     </Modal>
