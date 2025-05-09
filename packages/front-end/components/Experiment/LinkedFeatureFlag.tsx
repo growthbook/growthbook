@@ -130,7 +130,7 @@ export default function LinkedFeatureFlag({ info, experiment, open }: Props) {
         </Flex>
 
         {info.state === "discarded" && (
-          <Callout status="info" mt="4">
+          <Callout status="info">
             This experiment was linked to this feature in the past, but is no
             longer live.
           </Callout>
