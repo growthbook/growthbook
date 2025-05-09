@@ -721,11 +721,11 @@ export function getDefaultRuleValue({
       trackingKey: "",
       seed: "",
       status: "running",
-      autoRevert: true,
       safeRolloutFields: {
         datasourceId: defaultDataSource || "",
         exposureQueryId: "",
         guardrailMetricIds: [],
+        autoRollback: true,
       },
     };
   }

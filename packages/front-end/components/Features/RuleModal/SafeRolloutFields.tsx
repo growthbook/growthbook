@@ -22,6 +22,7 @@ import Checkbox from "@/components/Radix/Checkbox";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import HelperText from "@/components/Radix/HelperText";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import ScheduleInputs from "@/components/Features/ScheduleInputs";
 import Toggle from "@/components/Forms/Toggle";
 
 export default function SafeRolloutFields({
@@ -36,6 +37,9 @@ export default function SafeRolloutFields({
   isNewRule,
   isDraft,
   duplicate,
+  defaultValues,
+  setScheduleToggleEnabled,
+  scheduleToggleEnabled,
 }: {
   feature: FeatureInterface;
   environment: string;
@@ -59,6 +63,8 @@ export default function SafeRolloutFields({
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
   const { datasources } = useDefinitions();
   const [controlValueDisabled, setControlValueDisabled] = useState(true);
+
+  const disableFields = !isDraft && !isNewRule;
   const dataSourceOptions =
     datasources?.map((ds) => ({
       label: ds.name,
@@ -69,7 +75,6 @@ export default function SafeRolloutFields({
   );
   const settings = useOrgSettings();
   const exposureQueries = dataSource?.settings?.queries?.exposure || [];
-  const disableFields = !isDraft && !isNewRule;
 
   const durationValue = form.watch("safeRolloutFields.maxDuration.amount");
   const unit = form.watch("safeRolloutFields.maxDuration.unit") || "days";
@@ -397,17 +402,25 @@ export default function SafeRolloutFields({
       />
       {renderVariationFieldSelector()}
       {renderDataAndMetrics()}
+      <ScheduleInputs
+        defaultValue={defaultValues.scheduleRules || []}
+        onChange={(value) => form.setValue("scheduleRules", value)}
+        disabled={disableFields}
+        scheduleToggleEnabled={scheduleToggleEnabled}
+        setScheduleToggleEnabled={setScheduleToggleEnabled}
+      />
       <Text as="div" weight="medium" size="2" mb="2">
-        Auto Revert
+        Auto Rollback
         <Tooltip
           className="ml-1"
-          body="Automatically revert the feature if a guardrail metric is failing"
+          body="Automatically reverts the feature if a guardrail metric is failing"
         />
       </Text>
       <Toggle
-        id="autoRevert"
-        value={form.watch("autoRevert")}
-        setValue={(v) => form.setValue("autoRevert", v)}
+        id="autoRollback"
+        value={form.watch("safeRolloutFields.autoRollback")}
+        setValue={(v) => form.setValue("safeRolloutFields.autoRollback", v)}
+        disabled={disableFields}
         className="mb-4"
       />
       {renderTargeting()}

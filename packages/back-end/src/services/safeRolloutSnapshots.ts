@@ -451,13 +451,17 @@ export function determineNextSnapshotAttempt(
   safeRollout: SafeRolloutInterface,
   organization: OrganizationInterface
 ) {
-  const rampUpSchedule = safeRollout.rampUpSchedule;
+  const rampUpSchedule = safeRollout?.rampUpSchedule;
   // return standard ramp up time if ramp up is completed
-  if (rampUpSchedule.rampUpCompleted) {
+  if (
+    !rampUpSchedule ||
+    rampUpSchedule?.rampUpCompleted ||
+    !rampUpSchedule?.enabled
+  ) {
     const nextUpdate = determineNextDate(
       organization.settings?.updateSchedule || null
     );
-    return nextUpdate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    return nextUpdate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 1 hour
   }
 
   let maxDurationInSeconds: number; // in seconds
@@ -471,10 +475,13 @@ export function determineNextSnapshotAttempt(
     case "hours":
       maxDurationInSeconds = safeRollout.maxDuration.amount * 3600;
       break;
+    case "minutes":
+      maxDurationInSeconds = safeRollout.maxDuration.amount * 60;
+      break;
     default:
       throw new Error("Invalid max duration unit");
   }
-  const fullRampUpTimeInSeconds = maxDurationInSeconds * 0.25;
+  const fullRampUpTimeInSeconds = maxDurationInSeconds * 0.25; // hard coded for now this is the ramp up time
   const rampUpTimeBetweenStepsInSeconds =
     fullRampUpTimeInSeconds / rampUpSchedule.steps.length;
   return new Date(Date.now() + rampUpTimeBetweenStepsInSeconds * 1000);

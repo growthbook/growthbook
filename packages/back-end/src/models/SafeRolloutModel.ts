@@ -33,6 +33,21 @@ export class SafeRolloutModel extends BaseClass {
   protected canDelete() {
     return true;
   }
+  protected migrate(
+    legacyDoc: Partial<SafeRolloutInterface>
+  ): SafeRolloutInterface {
+    if (!("rampUpSchedule" in legacyDoc)) {
+      legacyDoc["rampUpSchedule"] = {
+        enabled: false,
+        step: 0,
+        steps: [],
+        nextUpdate: undefined,
+        lastUpdate: undefined,
+        rampUpCompleted: false,
+      };
+    }
+    return legacyDoc as SafeRolloutInterface;
+  }
 
   public async getAllByFeatureId(featureId: string) {
     return await this._find({ featureId });
