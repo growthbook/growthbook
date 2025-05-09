@@ -61,6 +61,7 @@ import Toggle from "@/components/Forms/Toggle";
 import { useExperiments } from "@/hooks/useExperiments";
 import BanditRefNewFields from "@/components/Features/RuleModal/BanditRefNewFields";
 import ExperimentRefNewFields from "@/components/Features/RuleModal/ExperimentRefNewFields";
+import HoldoutRefNewFields from "@/components/Features/RuleModal/HoldoutRefNewFields";
 import Callout from "@/components/Radix/Callout";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import DatePicker from "@/components/DatePicker";
@@ -882,12 +883,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               if (i === 0) return null;
               return (
                 <Page display={p} key={i}>
-                  <ExperimentRefNewFields
+                  <HoldoutRefNewFields
                     step={i}
                     source="experiment"
                     project={project}
                     environments={envs}
-                    noSchedule={true}
                     prerequisiteValue={
                       form.watch("phases.0.prerequisites") || []
                     }
@@ -931,7 +931,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                         "variations",
                         v.map((data, i) => {
                           return {
-                            // default values
                             name: "",
                             screenshots: [],
                             ...data,
@@ -944,9 +943,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                         v.map((v) => v.weight)
                       );
                     }}
-                    variationValuesAsIds={true}
-                    hideVariationIds={!isImport}
-                    orgStickyBucketing={orgStickyBucketing}
                   />
                 </Page>
               );
@@ -969,124 +965,124 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                           label: s.property,
                           value: s.property,
                         }))}
-                      sort={false}
-                      value={form.watch("hashAttribute") || ""}
-                      onChange={(v) => {
-                        form.setValue("hashAttribute", v);
-                      }}
-                      helpText={
-                        "Will be hashed together with the seed (UUID) to determine which variation to assign"
-                      }
-                    />
-                    <FallbackAttributeSelector
-                      form={form}
-                      attributeSchema={attributeSchema}
-                    />
-                  </div>
+                        sort={false}
+                        value={form.watch("hashAttribute") || ""}
+                        onChange={(v) => {
+                          form.setValue("hashAttribute", v);
+                        }}
+                        helpText={
+                          "Will be hashed together with the seed (UUID) to determine which variation to assign"
+                        }
+                      />
+                      <FallbackAttributeSelector
+                        form={form}
+                        attributeSchema={attributeSchema}
+                      />
+                    </div>
 
-                  {hasSDKWithNoBucketingV2 && (
-                    <HashVersionSelector
-                      value={(form.watch("hashVersion") || 1) as 1 | 2}
-                      onChange={(v) => form.setValue("hashVersion", v)}
+                    {hasSDKWithNoBucketingV2 && (
+                      <HashVersionSelector
+                        value={(form.watch("hashVersion") || 1) as 1 | 2}
+                        onChange={(v) => form.setValue("hashVersion", v)}
+                        project={project}
+                      />
+                    )}
+
+                    <hr />
+                    <SavedGroupTargetingField
+                      value={form.watch("phases.0.savedGroups") || []}
+                      setValue={(savedGroups) =>
+                        form.setValue("phases.0.savedGroups", savedGroups)
+                      }
                       project={project}
                     />
-                  )}
+                    <hr />
+                    <ConditionInput
+                      defaultValue={form.watch("phases.0.condition") || ""}
+                      onChange={(value) =>
+                        form.setValue("phases.0.condition", value)
+                      }
+                      key={conditionKey}
+                      project={project}
+                    />
+                    <hr />
+                    <PrerequisiteTargetingField
+                      value={form.watch("phases.0.prerequisites") || []}
+                      setValue={(prerequisites) =>
+                        form.setValue("phases.0.prerequisites", prerequisites)
+                      }
+                      environments={envs}
+                      project={form.watch("project")}
+                      setPrerequisiteTargetingSdkIssues={
+                        setPrerequisiteTargetingSdkIssues
+                      }
+                    />
+                    <hr />
+                    <NamespaceSelector
+                      formPrefix="phases.0."
+                      form={form}
+                      featureId={""}
+                      trackingKey={""}
+                    />
+                  </>
+                )}
 
-                  <hr />
-                  <SavedGroupTargetingField
-                    value={form.watch("phases.0.savedGroups") || []}
-                    setValue={(savedGroups) =>
-                      form.setValue("phases.0.savedGroups", savedGroups)
-                    }
-                    project={project}
-                  />
-                  <hr />
-                  <ConditionInput
-                    defaultValue={form.watch("phases.0.condition") || ""}
-                    onChange={(value) =>
-                      form.setValue("phases.0.condition", value)
-                    }
-                    key={conditionKey}
-                    project={project}
-                  />
-                  <hr />
-                  <PrerequisiteTargetingField
-                    value={form.watch("phases.0.prerequisites") || []}
-                    setValue={(prerequisites) =>
-                      form.setValue("phases.0.prerequisites", prerequisites)
-                    }
-                    environments={envs}
-                    project={form.watch("project")}
-                    setPrerequisiteTargetingSdkIssues={
-                      setPrerequisiteTargetingSdkIssues
-                    }
-                  />
-                  <hr />
-                  <NamespaceSelector
-                    formPrefix="phases.0."
-                    form={form}
-                    featureId={""}
-                    trackingKey={""}
-                  />
-                </>
-              )}
-
-              <hr />
-              {isImport && (
-                <Callout status="info" mb="3">
-                  We&apos;ve guessed the variation weights below based on the
-                  data we&apos;ve seen. They may need to be adjusted.
-                </Callout>
-              )}
-              <FeatureVariationsInput
-                valueType="string"
-                coverage={form.watch("phases.0.coverage")}
-                setCoverage={(coverage) =>
-                  form.setValue("phases.0.coverage", coverage)
-                }
-                coverageTooltip={
-                  isNewExperiment
-                    ? "This can be changed later"
-                    : "This is just for documentation purposes and has no effect on the analysis."
-                }
-                setWeight={(i, weight) =>
-                  form.setValue(`phases.0.variationWeights.${i}`, weight)
-                }
-                valueAsId={false}
-                startEditingIndexes={true}
-                variations={
-                  form.watch("variations")?.map((v, i) => {
-                    return {
-                      value: v.key || "",
-                      name: v.name,
-                      weight: form.watch(`phases.0.variationWeights.${i}`),
-                      id: v.id,
-                    };
-                  }) ?? []
-                }
-                setVariations={(v) => {
-                  form.setValue(
-                    "variations",
-                    v.map((data, i) => {
+                <hr />
+                {isImport && (
+                  <Callout status="info" mb="3">
+                    We&apos;ve guessed the variation weights below based on the
+                    data we&apos;ve seen. They may need to be adjusted.
+                  </Callout>
+                )}
+                <FeatureVariationsInput
+                  valueType="string"
+                  coverage={form.watch("phases.0.coverage")}
+                  setCoverage={(coverage) =>
+                    form.setValue("phases.0.coverage", coverage)
+                  }
+                  coverageTooltip={
+                    isNewExperiment
+                      ? "This can be changed later"
+                      : "This is just for documentation purposes and has no effect on the analysis."
+                  }
+                  setWeight={(i, weight) =>
+                    form.setValue(`phases.0.variationWeights.${i}`, weight)
+                  }
+                  valueAsId={false}
+                  startEditingIndexes={true}
+                  variations={
+                    form.watch("variations")?.map((v, i) => {
                       return {
-                        name: "",
-                        screenshots: [],
-                        ...data,
-                        // use value as key if provided to maintain backwards compatibility
-                        key: data.value || `${i}` || "",
+                        value: v.key || "",
+                        name: v.name,
+                        weight: form.watch(`phases.0.variationWeights.${i}`),
+                        id: v.id,
                       };
-                    })
-                  );
-                  form.setValue(
-                    "phases.0.variationWeights",
-                    v.map((v) => v.weight)
-                  );
-                }}
-                hideVariationIds={false}
-                showPreview={!!isNewExperiment}
-                disableCustomSplit={type === "multi-armed-bandit"}
-              />
-            </div>
+                    }) ?? []
+                  }
+                  setVariations={(v) => {
+                    form.setValue(
+                      "variations",
+                      v.map((data, i) => {
+                        return {
+                          name: "",
+                          screenshots: [],
+                          ...data,
+                          // use value as key if provided to maintain backwards compatibility
+                          key: data.value || `${i}` || "",
+                        };
+                      })
+                    );
+                    form.setValue(
+                      "phases.0.variationWeights",
+                      v.map((v) => v.weight)
+                    );
+                  }}
+                  hideVariationIds={false}
+                  showPreview={!!isNewExperiment}
+                  disableCustomSplit={type === "multi-armed-bandit"}
+                />
+              </div>
           </Page>
         ) : null}
 
