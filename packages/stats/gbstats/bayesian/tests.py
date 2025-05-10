@@ -1,9 +1,10 @@
 from abc import abstractmethod
 from dataclasses import field
 from typing import List, Literal, Optional
-
+import copy
 import numpy as np
 from pydantic.dataclasses import dataclass
+from pydantic.config import ConfigDict
 from scipy.stats import norm
 
 from gbstats.messages import (
@@ -263,3 +264,240 @@ class EffectBayesianABTest(BayesianABTest):
         risk_ctrl = float((1.0 - prob_ctrl_is_better) * mn_pos)
         risk_trt = -float(prob_ctrl_is_better * mn_neg)
         return [risk_ctrl, risk_trt]
+
+
+@dataclass
+class MCMCParams:
+    num_burn: int
+    num_keep: int
+    seed: int
+
+
+@dataclass
+class Hyperparams:
+    mu_delta: float
+    sigma_2_delta: float
+    a: float
+    b: float
+    sigma_2_alpha: float
+    sigma_2_beta: float
+    num_levels_alpha: Optional[int] = None
+    num_levels_beta: Optional[int] = None
+
+
+@dataclass(config=ConfigDict(arbitrary_types_allowed=True))
+class CellData:
+    tau_hat: np.ndarray
+    s2: np.ndarray
+
+
+@dataclass(config=ConfigDict(arbitrary_types_allowed=True))
+class ModelParams:
+    tau: np.ndarray
+    mu: np.ndarray
+    alpha: np.ndarray
+    beta: np.ndarray
+    sigma_2: float
+    tau_overall: float
+
+
+class TwoFactorPooling:
+    def __init__(
+        self,
+        hyperparams: Hyperparams,
+        cell_data: CellData,
+        mcmc_params: MCMCParams,
+        params: Optional[ModelParams],
+    ):
+        self.tau_hat_init = copy.deepcopy(cell_data.tau_hat)
+        self.cell_data = copy.deepcopy(cell_data)
+        self.hyperparams = hyperparams
+        # raise ValueError('jill')
+        self.num_levels_alpha = self.cell_data.tau_hat.shape[0]
+        self.num_levels_beta = self.cell_data.tau_hat.shape[1]
+        self.seed = mcmc_params.seed
+        self.num_burn = mcmc_params.num_burn
+        self.num_keep = mcmc_params.num_keep
+        self.num_iters = self.num_burn + self.num_keep
+        self.params = self.initialize_parameters(params)
+        self.update_missing_tau_hat(self.seed + self.num_seeds_per_iter - 1)
+
+    def update_missing_tau_hat(self, seed):
+        rng_tau_hat = np.random.default_rng(seed)
+        z_tau_hat = rng_tau_hat.normal(
+            0, 1, size=(self.num_levels_alpha, self.num_levels_beta)
+        )
+        for a in range(self.num_levels_alpha):
+            for b in range(self.num_levels_beta):
+                if self.tau_hat_init[a, b] is None or np.isnan(self.tau_hat_init[a, b]):
+                    self.cell_data.tau_hat[a, b] = (
+                        np.sqrt(self.cell_data.s2[a, b]) * z_tau_hat[a, b]
+                        + self.params.tau[a, b]
+                    )
+
+    def initialize_parameters(self, params) -> ModelParams:
+        if params is None:
+            # use mean imputation for stability
+            tau = copy.deepcopy(self.tau_hat_init)
+            tau[np.isnan(tau)] = np.nanmean(tau)
+            tau_overall = float(np.mean(tau))
+            alpha = np.mean(tau, axis=1)
+            beta = np.mean(tau, axis=0)
+            alpha -= np.mean(alpha)
+            beta -= np.mean(beta)
+            mu = self.create_mu_matrix(tau_overall, alpha, beta)
+            sigma_2 = float(min(0.1, np.var(tau - mu, ddof=1)))
+            return ModelParams(tau, mu, alpha, beta, sigma_2, tau_overall)
+        else:
+            return params
+
+    @property
+    def tau_shape(self) -> tuple[int, int]:
+        return (self.num_levels_alpha, self.num_levels_beta)
+
+    @property
+    def num_seeds_per_iter(self) -> int:
+        return 6
+
+    def run_mcmc(self):
+        self.create_storage_arrays()
+        self.params = self.initialize_parameters(self.params)
+        for i in range(self.num_iters):
+            self.update_params(i)
+            if i >= self.num_burn:
+                self.store_params(i)
+
+    def create_mu_matrix(self, tau_overall, alpha, beta) -> np.ndarray:
+        mu = np.zeros((self.num_levels_alpha, self.num_levels_beta))
+        for a in range(self.num_levels_alpha):
+            for b in range(self.num_levels_beta):
+                mu[a, b] = tau_overall + alpha[a] + beta[b]
+        return mu
+
+    def create_storage_arrays(self):
+        self.tau_hat = np.zeros(
+            (self.num_keep, self.num_levels_alpha, self.num_levels_beta)
+        )
+        self.tau = np.zeros(
+            (self.num_keep, self.num_levels_alpha, self.num_levels_beta)
+        )
+        self.mu = np.zeros((self.num_keep, self.num_levels_alpha, self.num_levels_beta))
+        self.alpha = np.zeros((self.num_keep, self.num_levels_alpha))
+        self.beta = np.zeros((self.num_keep, self.num_levels_beta))
+        self.sigma_2 = np.zeros((self.num_keep, 1))
+        self.tau_overall = np.zeros((self.num_keep, 1))
+
+    def store_params(self, iteration):
+        k = iteration - self.num_burn
+        self.tau_hat[k, :, :] = self.cell_data.tau_hat
+        self.tau[k, :, :] = self.params.tau
+        self.mu[k, :, :] = self.params.mu
+        self.alpha[k, :] = self.params.alpha
+        self.beta[k, :] = self.params.beta
+        self.sigma_2[k] = self.params.sigma_2
+        self.tau_overall[k] = self.params.tau_overall
+
+    def update_params(self, iteration):
+        # i used the first seed to initialize the parameters
+        this_seed = self.seed + (iteration + 1) * self.num_seeds_per_iter
+        self.update_tau_individual(this_seed)
+        self.update_alpha(this_seed + 1)
+        self.update_beta(this_seed + 2)
+        self.update_tau_overall(this_seed + 3)
+        self.update_sigma_2(this_seed + 4)
+        self.update_missing_tau_hat(this_seed + 5)
+
+    @staticmethod
+    def update_univariate_normal(prec, weighted_mean, seed):
+        var = 0 if prec == 0 else 1 / prec
+        mean = var * weighted_mean
+        rng = np.random.default_rng(seed)
+        return np.sqrt(var) * rng.normal(size=1) + mean
+
+    def update_tau_individual(self, seed):
+        prec = 1 / self.cell_data.s2 + 1 / self.params.sigma_2
+        omega = (
+            self.cell_data.tau_hat / self.cell_data.s2
+            + self.params.mu / self.params.sigma_2
+        )
+        var = 1 / prec
+        mean = var * omega
+        rng = np.random.default_rng(seed)
+        self.params.tau = mean + np.sqrt(var) * rng.normal(0, 1, size=self.tau_shape)
+
+    def update_alpha(self, seed):
+        alpha = np.zeros((self.num_levels_alpha,))
+        prec = (
+            self.num_levels_beta / self.params.sigma_2
+            + 1 / self.hyperparams.sigma_2_alpha
+        )
+        var = 1 / prec
+        rng = np.random.default_rng(seed)
+        z = rng.normal(0, 1, size=(self.num_levels_alpha))
+        for a in range(self.num_levels_alpha):
+            omega = 0
+            for b in range(self.num_levels_beta):
+                omega += (
+                    self.params.tau[a, b]
+                    - self.params.tau_overall
+                    - self.params.beta[b]
+                ) / self.num_levels_beta
+            omega /= self.params.sigma_2 / self.num_levels_beta
+            mean = var * omega
+            alpha[a] = np.sqrt(var) * z[a] + mean
+        alpha -= np.mean(alpha)
+        self.params.alpha = alpha
+        self.params.mu = self.create_mu_matrix(
+            self.params.tau_overall, self.params.alpha, self.params.beta
+        )
+
+    def update_beta(self, seed):
+        beta = np.zeros((self.num_levels_beta,))
+        prec = (
+            self.num_levels_alpha / self.params.sigma_2
+            + 1 / self.hyperparams.sigma_2_beta
+        )
+        var = 1 / prec
+        rng = np.random.default_rng(seed)
+        z = rng.normal(0, 1, size=(self.num_levels_beta))
+        for b in range(self.num_levels_beta):
+            omega = 0
+            for a in range(self.num_levels_alpha):
+                omega += (
+                    self.params.tau[a, b]
+                    - self.params.tau_overall
+                    - self.params.alpha[a]
+                ) / self.num_levels_alpha
+            omega /= self.params.sigma_2 / self.num_levels_alpha
+            mean = var * omega
+            beta[b] = np.sqrt(var) * z[b] + mean
+        beta -= np.mean(beta)
+        self.params.beta = beta
+        self.params.mu = self.create_mu_matrix(
+            self.params.tau_overall, self.params.alpha, self.params.beta
+        )
+
+    def update_tau_overall(self, seed):
+        prec = (
+            self.num_levels_alpha * self.num_levels_beta
+        ) / self.params.sigma_2 + 1 / self.hyperparams.sigma_2_delta
+        omega = (
+            np.sum(self.params.tau) / self.params.sigma_2
+            + self.hyperparams.mu_delta / self.hyperparams.sigma_2_delta
+        )
+        self.params.tau_overall = self.update_univariate_normal(prec, omega, seed)
+        self.params.mu = self.create_mu_matrix(
+            self.params.tau_overall, self.params.alpha, self.params.beta
+        )
+
+    def update_sigma_2(self, seed):
+        a_prime = (
+            self.hyperparams.a + 0.5 * self.num_levels_alpha * self.num_levels_beta
+        )
+        b_prime = self.hyperparams.b + 0.5 * np.sum(
+            (self.params.tau - self.params.mu) ** 2
+        )
+        rng = np.random.default_rng(seed)
+        self.params.sigma_2 = 1 / float(
+            rng.gamma(shape=a_prime, scale=1 / b_prime, size=1)[0]
+        )

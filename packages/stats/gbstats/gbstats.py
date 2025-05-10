@@ -374,25 +374,25 @@ def analyze_metric_df(
                     test.stat_a, test.stat_b, res, config, power_config
                 )
 
-                s[f"v{i}_first_period_pairwise_users"] = (
-                    mid_experiment_power.pairwise_sample_size
-                )
+                s[
+                    f"v{i}_first_period_pairwise_users"
+                ] = mid_experiment_power.pairwise_sample_size
                 s[f"v{i}_target_mde"] = metric.target_mde
                 s[f"v{i}_sigmahat_2_delta"] = mid_experiment_power.sigmahat_2_delta
                 if mid_experiment_power.prior_effect:
                     s[f"v{i}_prior_proper"] = mid_experiment_power.prior_effect.proper
                     s[f"v{i}_prior_lift_mean"] = mid_experiment_power.prior_effect.mean
-                    s[f"v{i}_prior_lift_variance"] = (
-                        mid_experiment_power.prior_effect.variance
-                    )
+                    s[
+                        f"v{i}_prior_lift_variance"
+                    ] = mid_experiment_power.prior_effect.variance
                 mid_experiment_power_result = (
                     mid_experiment_power.calculate_sample_size()
                 )
                 s[f"v{i}_power_status"] = mid_experiment_power_result.update_message
                 s[f"v{i}_power_error_message"] = mid_experiment_power_result.error
-                s[f"v{i}_power_upper_bound_achieved"] = (
-                    mid_experiment_power_result.upper_bound_achieved
-                )
+                s[
+                    f"v{i}_power_upper_bound_achieved"
+                ] = mid_experiment_power_result.upper_bound_achieved
                 s[f"v{i}_scaling_factor"] = mid_experiment_power_result.scaling_factor
 
             s["baseline_cr"] = test.stat_a.unadjusted_mean
@@ -700,39 +700,108 @@ def process_analysis(
         keep_other=keep_other,
     )
 
-
     # Run the analysis for each variation and dimension
     result = analyze_metric_df(
         df=reduced,
         metric=metric,
         analysis=analysis,
     )
-    if analysis.interaction_dimensions:
+    if analysis.interaction_dimensions is not None:
+        from gbstats.frequentist.tests import Uplift
+
         keepers = []
         for s in analysis.var_names:
             starts_with_int = s[0].isdigit() if s else False
-        ends_with_int = s[-1].isdigit() if s else False
-        keepers.append(starts_with_int and ends_with_int)
-        num_tests = np.min(1, sum(keepers) - 1)
-        from scipy.stats import norm
-        multiplier_current = norm.ppf(1 - analysis.alpha / 2)
-        multiplier_updated = norm.ppf(1 - analysis.alpha / (2 * num_tests))
+            ends_with_int = s[-1].isdigit() if s else False
+            keepers.append(starts_with_int and ends_with_int)
 
-        for col in result.columns:
-            if col.endswith("_ci"):
-                ci = result[col][0]
-                lower = ci[0]
-                upper = ci[1]
-                point = 0.5 * (lower + upper)
-                width_current = upper - lower
-                width_updated = width_current * multiplier_updated / multiplier_current
-                lower_updated = point - width_updated
-                upper_updated = point + width_updated
-                result.at[0, col] = [lower_updated, upper_updated]
-                #result[col] = [lower_updated, upper_updated]
-        #         result[col] = str([lower_updated, upper_updated])
-        # result.to_csv("/Users/lukesmith/Desktop/result_updated.csv")
+        if analysis.stats_engine == "frequentist":
+            # bonferroni correction
+            num_tests = np.min(1, sum(keepers) - 1)
+            from scipy.stats import norm
 
+            multiplier_current = norm.ppf(1 - analysis.alpha / 2)
+            multiplier_updated = norm.ppf(1 - analysis.alpha / (2 * num_tests))
+            for col in result.columns:
+                if col.endswith("_ci"):
+                    ci = result[col][0]
+                    lower = ci[0]
+                    upper = ci[1]
+                    point = 0.5 * (lower + upper)
+                    width_current = upper - lower
+                    width_updated = (
+                        width_current * multiplier_updated / multiplier_current
+                    )
+                    lower_updated = point - width_updated
+                    upper_updated = point + width_updated
+                    result.at[0, col] = [lower_updated, upper_updated]
+        else:
+            from gbstats.bayesian.tests import (
+                TwoFactorPooling,
+                Hyperparams,
+                CellData,
+                MCMCParams,
+            )
+
+            num_variations_alpha = len(
+                analysis.interaction_dimensions[0].variation_weights
+            )
+            num_variations_beta = len(
+                analysis.interaction_dimensions[1].variation_weights
+            )
+            array_shape = (num_variations_alpha, num_variations_beta)
+            tau_hat = np.zeros(array_shape)
+            s2 = np.ones(array_shape) * 0.01
+            s2[0, 0] = 10
+            tau_index = 0
+            for index, keeper in enumerate(keepers):
+                if keeper:
+                    if tau_index > 0:
+                        a = int(np.floor(tau_index / num_variations_beta))
+                        b = int(tau_index % num_variations_beta)
+                        uplift = result[f"v{index}_uplift"]
+                        tau_hat[a, b] = float(uplift[0]["mean"])
+                        s2[a, b] = uplift[0]["stddev"] ** 2
+                    tau_index += 1
+            tau_hat[0, 0] = np.nan
+            cell_data = CellData(tau_hat=tau_hat, s2=s2)
+            mcmc_params = MCMCParams(num_burn=1000, num_keep=1000, seed=int(20250509))
+            hyperparms = Hyperparams(
+                mu_delta=metric.prior_mean,
+                sigma_2_delta=metric.prior_stddev**2,
+                a=0.1,
+                b=10,
+                sigma_2_alpha=0.1,
+                sigma_2_beta=0.1,
+            )
+            mcmc = TwoFactorPooling(
+                hyperparams=hyperparms,
+                cell_data=cell_data,
+                mcmc_params=mcmc_params,
+                params=None,
+            )
+            mcmc.run_mcmc()
+            tau_means = np.mean(mcmc.tau, axis=0)
+            tau_variances = np.var(mcmc.tau, axis=0)
+            tau_lower = np.quantile(mcmc.tau, axis=0, q=0.5 * analysis.alpha)
+            tau_upper = np.quantile(mcmc.tau, axis=0, q=1 - 0.5 * analysis.alpha)
+            tau_index = 0
+            for index, keeper in enumerate(keepers):
+                if keeper:
+                    if tau_index > 0:
+                        a = int(np.floor(tau_index / num_variations_beta))
+                        b = int(tau_index % num_variations_beta)
+                        uplift = Uplift(
+                            dist="normal",
+                            mean=tau_means[a, b],
+                            stddev=np.sqrt(tau_variances[a, b]),
+                        )
+                        result.at[0, f"v{index}_uplift"] = asdict(uplift)
+                        result[f"v{index}_ci"][0] = [tau_lower[a, b], tau_upper[a, b]]
+                        result[f"v{index}_expected"] = tau_means[a, b]
+                        result[f"v{index}_cr"] = tau_means[a, b]
+                        # raise ValueError([result.at[0, f"v1_uplift"], result.at[0, f"v1_expected"], result.at[0, f"v1_cr"]])
+                    tau_index += 1
     return result
 
 
