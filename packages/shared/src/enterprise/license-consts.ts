@@ -69,6 +69,7 @@ export type SubscriptionInfo = {
   dateToBeCanceled: string;
   cancelationDate: string;
   pendingCancelation: boolean;
+  isVercelIntegration: boolean;
 };
 
 export interface LicenseInterface {
@@ -120,6 +121,7 @@ export interface LicenseInterface {
     cancel_at_period_end: boolean;
     planId: string;
     hasPaymentMethod: boolean;
+    isVercelIntegration?: boolean;
   };
   freeTrialDate?: Date; // Date the free trial was started
   installationUsers: {

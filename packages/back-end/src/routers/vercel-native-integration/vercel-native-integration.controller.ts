@@ -18,6 +18,8 @@ import { ReqContextClass } from "back-end/src/services/context";
 import { setResponseCookies } from "back-end/src/controllers/auth";
 import { OrganizationInterface } from "back-end/types/organization";
 import { getVercelSSOToken } from "back-end/src/services/vercel-native-integration.service";
+import { postNewVercelSubscriptionToLicenseServer } from "back-end/src/enterprise";
+import { getOrganizationById } from "back-end/src/services/organizations";
 import {
   userAuthenticationValidator,
   systemAuthenticationValidator,
@@ -26,21 +28,23 @@ import {
   BillingPlan,
 } from "./vercel-native-integration.validators";
 
-const FREE_BILLING_PLAN: BillingPlan = {
-  description: "Free Billing Plan",
-  id: "free-billing-plan",
-  name: "Free",
+const STARTER_BILLING_PLAN: BillingPlan = {
+  description:
+    "Growthbook's free plan. Add up to 3 users. Enjoy unlimited feature flag evaluations, community support, up to 1M CDN requests/month, and up to 5GB of CDN Bandwidth/month.",
+  id: "starter-billing-plan",
+  name: "Starter (Free) Plan",
   type: "subscription",
 };
 
-const NON_FREE_BILLING_PLAN: BillingPlan = {
-  description: "Non Free Billing Plan",
-  id: "non-free",
-  name: "Non free",
+const PRO_BILLING_PLAN: BillingPlan = {
+  description:
+    "Enjoy all the benefits of our starter plan, plus add up to 100 members (each member incurs a cost of $20/month), get in-app chat support, up to 2M CDN requests/month, and up to 20GB of CDN Bandwidth/month.",
+  id: "pro-billing-plan",
+  name: "Pro Plan",
   type: "subscription",
 };
 
-const billingPlans = [FREE_BILLING_PLAN, NON_FREE_BILLING_PLAN] as const;
+const billingPlans = [STARTER_BILLING_PLAN, PRO_BILLING_PLAN] as const;
 
 const VERCEL_JKWS_URL = "https://marketplace.vercel.com/.well-known/jwks";
 
@@ -210,10 +214,8 @@ const authContext = async (
     },
   } = checkedAuth;
 
-  const {
-    organization,
-    resources,
-  } = await findVercelInstallationByInstallationId(installationId);
+  const { organization, resources } =
+    await findVercelInstallationByInstallationId(installationId);
 
   const organizationId = resourceId
     ? resources.find(({ id }) => id === resourceId)?.organizationId
@@ -325,10 +327,10 @@ export async function provisionResource(req: Request, res: Response) {
   if (nativeIntegration.installationId !== req.params.installation_id)
     return res.status(400).send("Invalid request!");
 
-  const {
-    externalId: _externalId,
-    ...payload
-  } = req.body as ProvisitionResource;
+  const { externalId: _externalId, ...payload } =
+    req.body as ProvisitionResource;
+
+  //MKTODO: Figure out different between billingPlanId and productId
 
   const organizationId = await (async () => {
     if (nativeIntegration.resources.length === 0) {
@@ -347,6 +349,23 @@ export async function provisionResource(req: Request, res: Response) {
     return org.id;
   })();
 
+  const organization = await getOrganizationById(organizationId);
+
+  if (!organization) {
+    throw new Error(`Unable to locate org by id: ${organizationId}`);
+  }
+
+  try {
+    await postNewVercelSubscriptionToLicenseServer(
+      organization,
+      user.name || ""
+    );
+  } catch (e) {
+    throw new Error(
+      `Unable to create new subscription. Reason: ${e.message} || "Unknown`
+    );
+  }
+
   const resource: Resource = {
     ...payload,
     id: uuidv4(),
@@ -358,6 +377,8 @@ export async function provisionResource(req: Request, res: Response) {
   await nativeIntegrationModel.update(nativeIntegration, {
     resources: [...nativeIntegration.resources, resource],
   });
+
+  //MKTODO: Identify which plan the org has selected and if it's the paid plan, make call to license server to create license
 
   return res.json(resource);
 }
