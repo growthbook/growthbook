@@ -420,12 +420,12 @@ export async function _createSafeRolloutSnapshot({
     status: "running",
   };
 
-  const nextSnapshotAttempt = determineNextSnapshotAttempt(
+  const { nextSnapshot } = determineNextSnapshotAttempt(
     safeRollout,
     organization
   );
   await context.models.safeRollout.update(safeRollout, {
-    nextSnapshotAttempt,
+    nextSnapshotAttempt: nextSnapshot,
   });
 
   const snapshot = await context.models.safeRolloutSnapshots.create(data);
@@ -450,18 +450,20 @@ export async function _createSafeRolloutSnapshot({
 export function determineNextSnapshotAttempt(
   safeRollout: SafeRolloutInterface,
   organization: OrganizationInterface
-) {
+): { nextSnapshot: Date; nextRampUp: Date } {
   const rampUpSchedule = safeRollout?.rampUpSchedule;
-  // return standard ramp up time if ramp up is completed
+  const nextUpdate =
+    determineNextDate(organization.settings?.updateSchedule || null) ||
+    new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 1 hour ;
   if (
     !rampUpSchedule ||
     rampUpSchedule?.rampUpCompleted ||
     !rampUpSchedule?.enabled
   ) {
-    const nextUpdate = determineNextDate(
-      organization.settings?.updateSchedule || null
-    );
-    return nextUpdate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 1 hour
+    return {
+      nextSnapshot: nextUpdate,
+      nextRampUp: rampUpSchedule?.nextUpdate || nextUpdate,
+    };
   }
 
   let maxDurationInSeconds: number; // in seconds
@@ -484,7 +486,19 @@ export function determineNextSnapshotAttempt(
   const fullRampUpTimeInSeconds = maxDurationInSeconds * 0.25; // hard coded for now this is the ramp up time
   const rampUpTimeBetweenStepsInSeconds =
     fullRampUpTimeInSeconds / rampUpSchedule.steps.length;
-  return new Date(Date.now() + rampUpTimeBetweenStepsInSeconds * 1000);
+  return {
+    nextSnapshot: new Date(
+      Math.min(
+        (rampUpSchedule.lastUpdate?.getTime() ?? Date.now()) +
+          rampUpTimeBetweenStepsInSeconds * 1000,
+        rampUpSchedule.nextUpdate?.getTime() ?? Infinity
+      )
+    ),
+    nextRampUp: new Date(
+      rampUpSchedule.lastUpdate?.getTime() ??
+        Date.now() + rampUpTimeBetweenStepsInSeconds * 1000
+    ),
+  };
 }
 
 export async function createSafeRolloutSnapshot({

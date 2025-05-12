@@ -961,11 +961,14 @@ const updateSafeRolloutStatuses = async (
     };
     if (!safeRollout.startedAt && safeRolloutUpdates.status === "running") {
       safeRolloutUpdates["startedAt"] = new Date();
-      const nextUpdate = determineNextSnapshotAttempt(safeRollout, context.org);
-      safeRolloutUpdates["nextSnapshotAttempt"] = nextUpdate;
+      const { nextSnapshot, nextRampUp } = determineNextSnapshotAttempt(
+        safeRollout,
+        context.org
+      );
+      safeRolloutUpdates["nextSnapshotAttempt"] = nextSnapshot;
       safeRolloutUpdates["rampUpSchedule"] = {
         ...safeRollout.rampUpSchedule,
-        nextUpdate,
+        nextUpdate: nextRampUp,
       };
     }
 

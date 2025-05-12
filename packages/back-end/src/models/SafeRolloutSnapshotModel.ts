@@ -4,11 +4,14 @@ import {
   safeRolloutSnapshotInterface,
 } from "back-end/src/validators/safe-rollout-snapshot";
 import {
-  checkAndRollbackSafeRollout,
   getSafeRolloutAnalysisSummary,
   notifySafeRolloutChange,
 } from "back-end/src/services/safeRolloutSnapshots";
 import { getFeature } from "back-end/src/models/FeatureModel";
+import {
+  checkAndRollbackSafeRollout,
+  updateRampUpSchedule,
+} from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -142,30 +145,11 @@ export class SafeRolloutSnapshotModel extends BaseClass {
         feature,
       });
       // update the ramp up Schedule if the status is running and the ramp up is enabled and not completed
-      if (
-        status === "running" &&
-        safeRollout.rampUpSchedule.enabled &&
-        !safeRollout.rampUpSchedule.rampUpCompleted &&
-        safeRollout.rampUpSchedule?.nextUpdate &&
-        safeRollout.rampUpSchedule.nextUpdate < new Date()
-      ) {
-        const rampUpSchedule = safeRollout.rampUpSchedule;
-        const rampUpCompleted =
-          rampUpSchedule.step === rampUpSchedule.steps.length - 1;
-
-        const step = rampUpCompleted
-          ? rampUpSchedule.step // keep the step the same if it is completed
-          : rampUpSchedule.step + 1;
-
-        await this.context.models.safeRollout.update(safeRollout, {
-          rampUpSchedule: {
-            ...rampUpSchedule,
-            step,
-            rampUpCompleted,
-            lastUpdate: new Date(),
-          },
-        });
-      }
+      await updateRampUpSchedule({
+        context: this.context,
+        safeRollout,
+        status,
+      });
     }
   }
 }

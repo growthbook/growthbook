@@ -23,7 +23,6 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import HelperText from "@/components/Radix/HelperText";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ScheduleInputs from "@/components/Features/ScheduleInputs";
-import Toggle from "@/components/Forms/Toggle";
 
 export default function SafeRolloutFields({
   feature,
@@ -409,19 +408,15 @@ export default function SafeRolloutFields({
         scheduleToggleEnabled={scheduleToggleEnabled}
         setScheduleToggleEnabled={setScheduleToggleEnabled}
       />
-      <Text as="div" weight="medium" size="2" mb="2">
-        Auto Rollback
-        <Tooltip
-          className="ml-1"
-          body="Automatically reverts the feature if a guardrail metric is failing"
-        />
-      </Text>
-      <Toggle
+      <Checkbox
         id="autoRollback"
         value={form.watch("safeRolloutFields.autoRollback")}
         setValue={(v) => form.setValue("safeRolloutFields.autoRollback", v)}
         disabled={disableFields}
-        className="mb-4"
+        label="Auto Rollback"
+        weight="bold"
+        description="Automatically rollback when unhealthy or a guardrail fails"
+        mb="4"
       />
       {renderTargeting()}
     </>
