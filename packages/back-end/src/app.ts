@@ -7,8 +7,6 @@ import cors from "cors";
 import asyncHandler from "express-async-handler";
 import compression from "compression";
 import * as Sentry from "@sentry/node";
-import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
-import authenticateApiRequestMiddleware from "back-end/src/middleware/authenticateApiRequestMiddleware";
 import { populationDataRouter } from "back-end/src/routers/population-data/population-data.router";
 import decisionCriteriaRouter from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.router";
 import { usingFileConfig } from "./init/config";
@@ -62,6 +60,9 @@ const reportsController = wrapController(reportsControllerRaw);
 
 import * as generateSqlControllerRaw from "./controllers/generate-sql";
 const generateSqlController = wrapController(generateSqlControllerRaw);
+
+import * as savedQueryControllerRaw from "./controllers/savedQueries";
+const savedQueryController = wrapController(savedQueryControllerRaw);
 
 import * as ideasControllerRaw from "./controllers/ideas";
 const ideasController = wrapController(ideasControllerRaw);
@@ -840,8 +841,9 @@ app.post(
 );
 app.post("/license/verify-email", licenseController.postVerifyEmail);
 
-// Add generate-sql route
-app.post("/api/generate-sql", generateSqlController.generateSql);
+app.post("/generate-sql", generateSqlController.generateSql);
+
+app.post("/saved-queries", savedQueryController.postSavedQuery);
 
 app.get(
   "/generated-hypothesis/:uuid",

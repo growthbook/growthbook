@@ -1,5 +1,5 @@
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { format } from "sql-formatter";
 import { InformationSchemaInterface } from "back-end/src/types/Integration";
 import clsx from "clsx";
@@ -32,6 +32,9 @@ export default function DataExplorer({
   const [limitQuery, setLimitQuery] = useState(true);
   const [cursorData, setCursorData] = useState<null | CursorData>(null);
   const [showGenerateQueryModal, setShowGenerateQueryModal] = useState(false);
+  const [autoCompletions, setAutoCompletions] = useState<
+    null | AceCompletion[]
+  >(null);
   const [testingQuery, setTestingQuery] = useState(false);
   const [testQueryResults, setTestQueryResults] =
     useState<TestQueryResults | null>(null);
@@ -46,7 +49,6 @@ export default function DataExplorer({
     informationSchema: InformationSchemaInterface;
   }>(`/datasource/${datasource.id}/schema`);
   const informationSchema = data?.informationSchema;
-  const autoCompletions: AceCompletion[] = [];
 
   type MetaLabel =
     | "PROJECT"
@@ -56,71 +58,37 @@ export default function DataExplorer({
     | "TABLE"
     | null;
 
-  function getMetaLabel(
-    entityType: "top-level" | "schema",
-    warehouse: string
-  ): MetaLabel {
-    const w = warehouse.toLowerCase();
+  const getMetaLabel = useCallback(
+    (entityType: "top-level" | "schema", warehouse: string): MetaLabel => {
+      const w = warehouse.toLowerCase();
 
-    if (entityType === "top-level") {
-      switch (w) {
-        case "bigquery":
-          return "PROJECT";
-        case "trino":
-        case "presto":
-        case "databricks":
-          return "CATALOG";
-        default:
-          return "DATABASE";
-      }
-    }
-
-    if (entityType === "schema") {
-      switch (w) {
-        case "mysql":
-        case "mariadb":
-        case "clickhouse":
-          return "DATABASE"; // or null to skip
-        default:
-          return "SCHEMA";
-      }
-    }
-    return null;
-  }
-
-  // Get schema info for auto-completions
-  if (informationSchema) {
-    informationSchema.databases.forEach((database) => {
-      if (database.path) {
-        autoCompletions.push({
-          value: database.databaseName,
-          meta: getMetaLabel("top-level", datasource.type) || "DATABASE",
-          score: 900,
-          caption: database.databaseName,
-        });
-      }
-      database.schemas.forEach((schema) => {
-        if (schema.path) {
-          autoCompletions.push({
-            value: schema.schemaName,
-            meta: getMetaLabel("schema", datasource.type) || "SCHEMA",
-            score: 900,
-            caption: schema.schemaName,
-          });
+      if (entityType === "top-level") {
+        switch (w) {
+          case "bigquery":
+            return "PROJECT";
+          case "trino":
+          case "presto":
+          case "databricks":
+            return "CATALOG";
+          default:
+            return "DATABASE";
         }
-        schema.tables.forEach((table) => {
-          if (table.path) {
-            autoCompletions.push({
-              value: table.path,
-              meta: "TABLE",
-              score: 900,
-              caption: table.tableName,
-            });
-          }
-        });
-      });
-    });
-  }
+      }
+
+      if (entityType === "schema") {
+        switch (w) {
+          case "mysql":
+          case "mariadb":
+          case "clickhouse":
+            return "DATABASE"; // or null to skip
+          default:
+            return "SCHEMA";
+        }
+      }
+      return null;
+    },
+    []
+  );
 
   const runTestQuery = useCallback(
     async (sql: string) => {
@@ -154,6 +122,95 @@ export default function DataExplorer({
       language: "sql",
     });
   }
+
+  const getAutoCompletions = useCallback(() => {
+    setAutoCompletions([]);
+    const autoCompletions: AceCompletion[] | null = [];
+
+    // Get schema info for auto-completions
+    if (informationSchema) {
+      informationSchema.databases.forEach((database) => {
+        if (database.path) {
+          autoCompletions.push({
+            value: database.databaseName,
+            meta: getMetaLabel("top-level", datasource.type) || "DATABASE",
+            score: 900,
+            caption: database.databaseName,
+          });
+        }
+        database.schemas.forEach((schema) => {
+          if (schema.path) {
+            autoCompletions.push({
+              value: schema.schemaName,
+              meta: getMetaLabel("schema", datasource.type) || "SCHEMA",
+              score: 900,
+              caption: schema.schemaName,
+            });
+          }
+          schema.tables.forEach((table) => {
+            if (table.path) {
+              autoCompletions.push({
+                value: table.path,
+                meta: "TABLE",
+                score: 900,
+                caption: table.tableName,
+              });
+            }
+          });
+        });
+      });
+    }
+
+    setAutoCompletions(autoCompletions);
+  }, [datasource.type, getMetaLabel, informationSchema]);
+
+  useEffect(() => {
+    // Reset the sql on datasource change
+    setSql("");
+    setTestQueryResults(null);
+
+    // Reset the autocompletions
+    getAutoCompletions();
+  }, [datasource, getAutoCompletions]);
+  //   const autoCompletions: AceCompletion[] | null = [];
+
+  //   // Get schema info for auto-completions
+  //   if (informationSchema) {
+  //     informationSchema.databases.forEach((database) => {
+  //       if (database.path) {
+  //         autoCompletions.push({
+  //           value: database.databaseName,
+  //           meta: getMetaLabel("top-level", datasource.type) || "DATABASE",
+  //           score: 900,
+  //           caption: database.databaseName,
+  //         });
+  //       }
+  //       database.schemas.forEach((schema) => {
+  //         if (schema.path) {
+  //           autoCompletions.push({
+  //             value: schema.schemaName,
+  //             meta: getMetaLabel("schema", datasource.type) || "SCHEMA",
+  //             score: 900,
+  //             caption: schema.schemaName,
+  //           });
+  //         }
+  //         schema.tables.forEach((table) => {
+  //           if (table.path) {
+  //             autoCompletions.push({
+  //               value: table.path,
+  //               meta: "TABLE",
+  //               score: 900,
+  //               caption: table.tableName,
+  //             });
+  //           }
+  //         });
+  //       });
+  //     });
+  //   }
+
+  //   setAutoCompletions(autoCompletions);
+  // }, [datasource, getMetaLabel, informationSchema]);
+
   return (
     <>
       {showGenerateQueryModal ? (
@@ -242,7 +299,7 @@ export default function DataExplorer({
                     onCtrlEnter={handleQuery}
                     onCtrlS={() => setSql(formatSql(sql))}
                     resizeDependency={!!testQueryResults}
-                    completions={autoCompletions}
+                    completions={autoCompletions || []}
                   />
                 </div>
               </div>
@@ -261,6 +318,7 @@ export default function DataExplorer({
                     error={testQueryResults?.error || ""}
                     close={() => setTestQueryResults(null)}
                     allowDownloads={true}
+                    allowSavingQuery={true}
                     dismissable={false}
                     header={`Query Results (${
                       testQueryResults?.results?.length || 0

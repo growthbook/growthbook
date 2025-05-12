@@ -1,6 +1,7 @@
 import { FaCheck, FaExclamationTriangle } from "react-icons/fa";
 import { TestQueryRow } from "back-end/src/types/Integration";
 import { Flex } from "@radix-ui/themes";
+import { useState } from "react";
 import Code from "@/components/SyntaxHighlighting/Code";
 import {
   Tabs,
@@ -8,7 +9,10 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/Radix/Tabs";
+import { useAuth } from "@/services/auth";
 import Button from "../Radix/Button";
+import Modal from "../Modal";
+import Field from "../Forms/Field";
 
 export type Props = {
   results: Record<string, unknown>[];
@@ -18,6 +22,7 @@ export type Props = {
   close: () => void;
   expandable?: boolean;
   allowDownloads?: boolean;
+  allowSavingQuery?: boolean;
   header?: string;
   dismissable?: boolean;
 };
@@ -30,9 +35,15 @@ export default function DisplayTestQueryResults({
   close,
   expandable,
   allowDownloads = false,
+  allowSavingQuery = false,
   header,
   dismissable = true,
 }: Props) {
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  //MKTODO: Should we change this to use a form to handle query name, sql, and results, etc?
+  const [savedQueryName, setSavedQueryName] = useState("");
+  const { apiCall } = useAuth();
   const cols = Object.keys(results?.[0] || {});
 
   const forceShowSql = error || !results.length;
@@ -131,114 +142,166 @@ export default function DisplayTestQueryResults({
   }
 
   return (
-    <Tabs
-      defaultValue={forceShowSql ? "sql" : "results"}
-      style={{ maxHeight: "50%", overflow: "hidden" }}
-    >
-      <TabsList>
-        {!forceShowSql && <TabsTrigger value="results">Results</TabsTrigger>}
-        <TabsTrigger value="sql">Rendered SQL</TabsTrigger>
-        {dismissable ? (
-          <div className="flex-grow-1">
-            <button
-              type="button"
-              className="close"
-              style={{ padding: "0.3rem 1rem" }}
-              onClick={(e) => {
-                e.preventDefault();
-                close();
-              }}
-              aria-label="Close"
-            >
-              <span aria-hidden="true">×</span>
-            </button>
-          </div>
-        ) : null}
-      </TabsList>
-
-      {!forceShowSql && (
-        <TabsContent
-          value="results"
-          style={{ display: "flex", flexDirection: "column", height: "100%" }}
+    <>
+      {showSaveModal ? (
+        <Modal
+          open={true}
+          cta="Save"
+          header="Save Query"
+          loading={saving}
+          close={() => setShowSaveModal(false)}
+          trackingEventModalType=""
+          trackingEventModalSource="save-query-form"
+          submit={async () => {
+            if (!savedQueryName) {
+              throw new Error("Must specific a name for the saved query");
+            }
+            try {
+              setSaving(true);
+              await apiCall("/saved-queries", {
+                method: "POST",
+                body: JSON.stringify({
+                  query: sql,
+                  results,
+                  name: savedQueryName,
+                }),
+              });
+              setSavedQueryName("");
+            } catch (e) {
+              console.log("error:", e.message);
+            }
+            setSaving(false);
+          }}
+          // autoCloseOnSubmit={true}
         >
-          {allowDownloads ? (
-            <Flex className="pt-2" justify="end">
-              <Button onClick={() => handleDownload()}>Download CSV</Button>
-            </Flex>
+          <Field
+            className=""
+            label="Saved Query Name"
+            placeholder="Enter name for query"
+            value={savedQueryName}
+            onChange={(e) => {
+              setSavedQueryName(e.target.value);
+            }}
+          />
+        </Modal>
+      ) : null}
+      <Tabs
+        defaultValue={forceShowSql ? "sql" : "results"}
+        style={{ maxHeight: "50%", overflow: "hidden" }}
+      >
+        <TabsList>
+          {!forceShowSql && <TabsTrigger value="results">Results</TabsTrigger>}
+          <TabsTrigger value="sql">Rendered SQL</TabsTrigger>
+          {dismissable ? (
+            <div className="flex-grow-1">
+              <button
+                type="button"
+                className="close"
+                style={{ padding: "0.3rem 1rem" }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  close();
+                }}
+                aria-label="Close"
+              >
+                <span aria-hidden="true">×</span>
+              </button>
+            </div>
           ) : null}
+        </TabsList>
 
-          <div className="border mt-2 rounded p-2 bg-light">
-            <div className="row">
-              <div className="col-auto">
-                <strong>{header || `Sample ${results?.length} Rows`}</strong>
-              </div>
-              <div className="col-auto ml-auto">
-                <div className="text-success">
-                  <FaCheck />
-                  <span className="pl-2">Succeeded in {duration}ms</span>
+        {!forceShowSql && (
+          <TabsContent
+            value="results"
+            style={{ display: "flex", flexDirection: "column", height: "100%" }}
+          >
+            <Flex justify="end" align="center" pt="2">
+              {allowSavingQuery ? (
+                <Button
+                  onClick={() => setShowSaveModal(true)}
+                  style={{ marginRight: "5px" }}
+                >
+                  Save
+                </Button>
+              ) : null}
+              {allowDownloads ? (
+                <Button onClick={() => handleDownload()}>Download CSV</Button>
+              ) : null}
+            </Flex>
+
+            <div className="border mt-2 rounded p-2 bg-light">
+              <div className="row">
+                <div className="col-auto">
+                  <strong>{header || `Sample ${results?.length} Rows`}</strong>
+                </div>
+                <div className="col-auto ml-auto">
+                  <div className="text-success">
+                    <FaCheck />
+                    <span className="pl-2">Succeeded in {duration}ms</span>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-          <div
-            style={{ width: "100%", overflow: "auto", flexGrow: 1 }}
-            className="mb-3"
-          >
-            <table
-              className="table table-bordered table-sm appbox w-100 mb-0"
-              style={{ position: "relative" }}
+            <div
+              style={{ width: "100%", overflow: "auto", flexGrow: 1 }}
+              className="mb-3"
             >
-              <thead
-                style={{
-                  position: "sticky",
-                  top: 0,
-                  zIndex: 2,
-                  background: "white",
-                }}
+              <table
+                className="table table-bordered table-sm appbox w-100 mb-0"
+                style={{ position: "relative" }}
               >
-                <tr>
-                  {cols.map((col) => (
-                    <th key={col}>{col}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {results.map((result, i) => (
-                  <tr key={i}>
-                    {Object.values(result).map((val, j) => (
-                      <td key={j}>{JSON.stringify(val)}</td>
+                <thead
+                  style={{
+                    position: "sticky",
+                    top: 0,
+                    zIndex: 2,
+                    background: "white",
+                  }}
+                >
+                  <tr>
+                    {cols.map((col) => (
+                      <th key={col}>{col}</th>
                     ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {results.map((result, i) => (
+                    <tr key={i}>
+                      {Object.values(result).map((val, j) => (
+                        <td key={j}>{JSON.stringify(val)}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </TabsContent>
+        )}
+
+        <TabsContent
+          value="sql"
+          style={{ display: "flex", flexDirection: "column", height: "100%" }}
+        >
+          <div style={{ overflowY: "auto", height: "100%" }}>
+            {error ? (
+              <div className="alert alert-danger mr-auto">{error}</div>
+            ) : (
+              !results.length && (
+                <div className="alert alert-warning mr-auto">
+                  <FaExclamationTriangle /> No rows returned, could not verify
+                  result
+                </div>
+              )
+            )}
+            <Code
+              code={sql}
+              language="sql"
+              errorLine={errorLine}
+              expandable={expandable}
+            />
           </div>
         </TabsContent>
-      )}
-
-      <TabsContent
-        value="sql"
-        style={{ display: "flex", flexDirection: "column", height: "100%" }}
-      >
-        <div style={{ overflowY: "auto", height: "100%" }}>
-          {error ? (
-            <div className="alert alert-danger mr-auto">{error}</div>
-          ) : (
-            !results.length && (
-              <div className="alert alert-warning mr-auto">
-                <FaExclamationTriangle /> No rows returned, could not verify
-                result
-              </div>
-            )
-          )}
-          <Code
-            code={sql}
-            language="sql"
-            errorLine={errorLine}
-            expandable={expandable}
-          />
-        </div>
-      </TabsContent>
-    </Tabs>
+      </Tabs>
+    </>
   );
 }

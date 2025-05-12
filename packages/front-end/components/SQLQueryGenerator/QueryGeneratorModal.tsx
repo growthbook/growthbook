@@ -40,7 +40,7 @@ const QueryGeneratorModal: FC<QueryGeneratorModalProps> = ({
     setLoading(true);
     setError(undefined);
     try {
-      const response = await apiCall<GenerateSqlResponse>("/api/generate-sql", {
+      const response = await apiCall<GenerateSqlResponse>("/generate-sql", {
         method: "POST",
         body: JSON.stringify({
           naturalLanguage: data.naturalLanguage,
