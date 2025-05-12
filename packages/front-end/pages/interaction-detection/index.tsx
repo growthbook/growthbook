@@ -36,6 +36,7 @@ import usePValueThreshold from "@/hooks/usePValueThreshold";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import { InteractionSnapshotAnalysis, InteractionSnapshotInterface } from "back-end/types/interaction-snapshot";
 import VennDiagram, { Segment } from "@/components/VennDiagram/VennDiagram";
+import Checkbox from "@/components/Radix/Checkbox";
 
 // Define a list of colors for the segments
 const SEGMENT_COLORS = ["#8884d8", "#82ca9d", "#ffc658", "#ff8042", "#0088FE", "#00C49F"];
@@ -283,6 +284,7 @@ export default function InteractionDetection() {
     setExperiment2,
   ] = useState<ExperimentWithPhaseDates | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [showPooledResults, setShowPooledResults] = useState(false);
   const [
     interactionData,
     setInteractionData,
@@ -382,7 +384,7 @@ export default function InteractionDetection() {
     if (!metric) return;
     const tableData = getVariationData({
       statistic: desiredStatistic,
-      analysis: interactionData.jointAnalyses[0],
+      analysis: interactionData.jointAnalyses[showPooledResults ? 1 : 0],
       mainAnalysis1: interactionData.mainAnalyses[0],
       mainAnalysis2: interactionData.mainAnalyses[1],
       variations: interactionData.config.variationNames,
@@ -397,7 +399,7 @@ export default function InteractionDetection() {
       getFactTableById,
     });
     setTableData(tableData);
-  }, [experiment1, experiment2, metricId, interactionData, desiredStatistic]);
+  }, [experiment1, experiment2, metricId, interactionData, desiredStatistic, showPooledResults]);
 
   return (
     <div className="contents experiments container-fluid pagecontents">
@@ -540,6 +542,13 @@ export default function InteractionDetection() {
                   { value: "expected", label: "Lift" },
                   { value: "variationMean", label: "Variation Means" },
                 ]}
+              />
+            </Box>
+            <Box>
+              <Checkbox
+                label="Show pooled results"
+                value={showPooledResults}
+                setValue={(e) => setShowPooledResults(e)}
               />
             </Box>
           </Flex>

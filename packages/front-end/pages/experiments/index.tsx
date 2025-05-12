@@ -57,7 +57,6 @@ import Callout from "@/components/Radix/Callout";
 import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
 import ExperimentTemplatePromoCard from "@/enterprise/components/feature-promos/ExperimentTemplatePromoCard";
 import { useTemplates } from "@/hooks/useTemplates";
-import InteractionDetection from "@/components/Experiment/InteractionDetection/InteractionDetection";
 
 const NUM_PER_PAGE = 20;
 
@@ -398,7 +397,6 @@ const ExperimentsPage = (): React.ReactElement => {
 
   return (
     <>
-      <InteractionDetection />
       <div className="contents experiments container-fluid pagecontents">
         <div className="my-3">
           <div className="filters md-form row align-items-center">
