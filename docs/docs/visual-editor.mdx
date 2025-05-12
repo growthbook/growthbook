@@ -24,7 +24,19 @@ All you need to get started is the [GrowthBook DevTools browser extension](/tool
 
 The application you want to experiment on **must be a front-end web application viewed in a browser**. Our Visual Editor does not work for mobile apps (Native or ReactNative) or desktop apps (e.g. Electron). For unsupported platforms, we recommend using [Feature Flags](/app/features) instead to implement your changes in code.
 
-Once you've create your first experiment and are ready to deploy to production, there are some additional steps required (see **Deploying to Production** below).
+### Allow Visual Experiments on the SDK Connection
+Ensure that the "Include Visual Experiments" toggle is enabled in the SDK Connection's settings, otherwise visual experiments will not be sent to your application.
+
+To check if visual experiments are enabled for your SDK connection in GrowthBook:
+
+1. Go to the Left navigation menu > SDK Configuration > SDK Connections page in the GrowthBook UI.
+2. Select the SDK connection in question.
+3. Click the purple "Edit" button in the upper right corner.
+4. Scroll down and look for the "Include Visual Experiments" toggle.
+   - If this toggle is enabled, visual experiments are included in the SDK payload and are enabled for the SDK.
+   - If it is disabled, visual experiments will not run and will not be sent to the application.
+
+If you have enabled the toggle and still do not see visual experiments, double-check that you are using the correct client key and SDK connection in your application.
 
 ## Creating a Visual Experiment
 
@@ -32,7 +44,7 @@ To use the visual editor, first add a new Experiment. This can be done under **E
 
 Select the option to design a new experiment. Then, you'll have a series of fields to fill out (hypothesis, variation names, goal metrics, etc.). Don't worry, these can all be changed later.
 
-Once you created an experiment, you should be prompted to open the Visual Editor.
+Once you created an experiment, you should be prompted to open the Visual Editor. Make the desired visual changes using the editor. Once you've created your first experiment and are ready to deploy to production, there are some additional steps required (see **Deploying to Production** below).
 
 ### URL Targeting
 
