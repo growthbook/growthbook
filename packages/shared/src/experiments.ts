@@ -628,13 +628,13 @@ export function isSuspiciousUplift(
   metricDefaults: MetricDefaults,
   differenceType: DifferenceType
 ): boolean {
-  if (!baseline?.cr || !stats?.cr) return false;
+  if (!baseline?.cr || !stats?.cr || !stats?.expected) return false;
 
   const maxPercentChange =
     metric.maxPercentChange ?? metricDefaults?.maxPercentageChange ?? 0;
 
   if (differenceType === "relative") {
-    return (stats.expected ?? 0) >= maxPercentChange;
+    return Math.abs(stats.expected) >= maxPercentChange;
   } else if (differenceType === "absolute") {
     return (
       Math.abs(stats.expected ?? 0) / Math.abs(baseline.cr) >= maxPercentChange
@@ -663,7 +663,7 @@ export function isBelowMinChange(
     metric.minPercentChange ?? metricDefaults.minPercentageChange ?? 0;
 
   if (differenceType === "relative") {
-    return stats.expected < minPercentChange;
+    return Math.abs(stats.expected) < minPercentChange;
   } else if (differenceType === "absolute") {
     return Math.abs(stats.expected) / Math.abs(baseline.cr) < minPercentChange;
   } else {
