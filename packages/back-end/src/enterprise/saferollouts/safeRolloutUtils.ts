@@ -164,7 +164,7 @@ export function determineNextSnapshotAttempt(
   const rampUpSchedule = safeRollout?.rampUpSchedule;
   const nextUpdate =
     determineNextDate(organization.settings?.updateSchedule || null) ||
-    new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 1 hour ;
+    new Date(Date.now() + 1 * 24 * 60 * 60 * 1000); // 1 day ;
   if (
     !rampUpSchedule ||
     rampUpSchedule?.rampUpCompleted ||
@@ -205,8 +205,8 @@ export function determineNextSnapshotAttempt(
       )
     ),
     nextRampUp: new Date(
-      rampUpSchedule.lastUpdate?.getTime() ??
-        Date.now() + rampUpTimeBetweenStepsInSeconds * 1000
+      (rampUpSchedule.lastUpdate?.getTime() ?? Date.now()) +
+        rampUpTimeBetweenStepsInSeconds * 1000
     ),
   };
 }
