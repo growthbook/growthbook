@@ -72,7 +72,6 @@ describe("features API", () => {
       .post("/api/v1/features")
       .send(feature)
       .set("Authorization", "Bearer foo");
-    console.log(response);
     expect(response.status).toBe(200);
     expect(getApiFeatureObj).toHaveBeenCalled();
     expect(addTags).toHaveBeenCalledWith("org", ["tag"]);
