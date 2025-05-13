@@ -86,7 +86,7 @@ const EditFeatureInfoModal: FC<{
             value={form.watch("project")}
             onChange={(v) => {
               form.setValue("project", v);
-              setShowProjectWarningMsg(true);
+              setShowProjectWarningMsg(v !== feature.project);
             }}
             options={useProjectOptions(
               permissionRequired,
