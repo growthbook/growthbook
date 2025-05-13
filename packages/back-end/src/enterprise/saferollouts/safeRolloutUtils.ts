@@ -9,7 +9,7 @@ import {
   SafeRolloutSnapshotInterface,
 } from "back-end/types/safe-rollout";
 import { SafeRolloutStatus } from "back-end/src/validators/safe-rollout";
-import { ReqContext } from "back-end/types/organization";
+import { OrganizationInterface, ReqContext } from "back-end/types/organization";
 import { ApiReqContext } from "back-end/types/api";
 import { orgHasPremiumFeature } from "back-end/src/enterprise/licenseUtil";
 import {
@@ -21,6 +21,7 @@ import {
   getRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import { FeatureInterface } from "back-end/types/feature";
+import { determineNextDate } from "back-end/src/services/experiments";
 
 export interface UpdateRampUpScheduleParams {
   context: ReqContext | ApiReqContext;
@@ -46,13 +47,17 @@ export async function updateRampUpSchedule({
     const step = rampUpCompleted
       ? rampUpSchedule.step // keep the step the same if it is completed
       : rampUpSchedule.step + 1;
-
+    const { nextRampUp } = determineNextSnapshotAttempt(
+      safeRollout,
+      context.org
+    );
     await context.models.safeRollout.update(safeRollout, {
       rampUpSchedule: {
         ...rampUpSchedule,
         step,
         rampUpCompleted,
         lastUpdate: new Date(),
+        nextUpdate: nextRampUp,
       },
     });
   }
@@ -151,6 +156,7 @@ export async function checkAndRollbackSafeRollout({
   }
   return status;
 }
+
 export function determineNextSnapshotAttempt(
   safeRollout: SafeRolloutInterface,
   organization: OrganizationInterface
