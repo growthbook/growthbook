@@ -195,7 +195,6 @@ const authContext = async (
   res: Response,
   { resourceId }: { resourceId?: string } = {}
 ) => {
-  console.log("authContext hit");
   const failed = (status: number, reason?: string) => {
     if (reason) res.status(status).send(reason);
     else res.sendStatus(status);
@@ -203,10 +202,7 @@ const authContext = async (
     throw new Error("Authentication failed");
   };
 
-  console.log("about to get token from req");
   const token = getBearerToken(req);
-
-  console.log("token", token);
 
   if (!token) return failed(401, "Invalid credentials");
 
@@ -214,8 +210,6 @@ const authContext = async (
     token,
     type: String(req.headers["x-vercel-auth"]),
   });
-
-  console.log("checkedAuth", checkedAuth);
 
   if (checkedAuth.status === "error") return failed(401, checkedAuth.message);
 
@@ -227,10 +221,6 @@ const authContext = async (
 
   const { organization, resources } =
     await findVercelInstallationByInstallationId(installationId);
-
-  console.log("organization", organization);
-
-  console.log("resources", resources);
 
   const organizationId = resourceId
     ? resources.find(({ id }) => id === resourceId)?.organizationId
@@ -345,8 +335,6 @@ export async function provisionResource(req: Request, res: Response) {
     ...payload
   } = req.body as ProvisitionResource;
 
-  console.log("payload", payload);
-
   const organizationId = await (async () => {
     if (nativeIntegration.resources.length === 0) {
       await updateOrganization(contextOrg.id, { name: payload.name });
@@ -374,7 +362,6 @@ export async function provisionResource(req: Request, res: Response) {
     try {
       await postNewVercelSubscriptionToLicenseServer(
         organization,
-        // payload.name,
         req.params.installation_id,
         user.name || ""
       );
