@@ -287,6 +287,7 @@ export function getRowResults({
   isGuardrail,
   minSampleSize,
   statsEngine,
+  differenceType,
   ciUpper,
   ciLower,
   pValueThreshold,
@@ -300,6 +301,7 @@ export function getRowResults({
   stats: SnapshotMetric;
   baseline: SnapshotMetric;
   statsEngine: StatsEngine;
+  differenceType: DifferenceType;
   metric: ExperimentMetricInterface;
   denominator?: ExperimentMetricInterface;
   metricDefaults: MetricDefaults;
@@ -408,7 +410,8 @@ export function getRowResults({
     baseline,
     stats,
     metric,
-    metricDefaults
+    metricDefaults,
+    differenceType
   );
   const suspiciousChangeReason = suspiciousChange
     ? `A suspicious result occurs when the percent change exceeds your maximum percent change (${percentFormatter.format(

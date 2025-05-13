@@ -30,6 +30,7 @@ import {
 } from "back-end/types/datasource";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import {
+  DifferenceType,
   IndexedPValue,
   PValueCorrection,
   StatsEngine,
@@ -624,14 +625,24 @@ export function isSuspiciousUplift(
   baseline: SnapshotMetric,
   stats: SnapshotMetric,
   metric: { maxPercentChange?: number },
-  metricDefaults: MetricDefaults
+  metricDefaults: MetricDefaults,
+  differenceType: DifferenceType
 ): boolean {
   if (!baseline?.cr || !stats?.cr) return false;
 
   const maxPercentChange =
     metric.maxPercentChange ?? metricDefaults?.maxPercentageChange ?? 0;
 
-  return Math.abs(baseline.cr - stats.cr) / baseline.cr >= maxPercentChange;
+  if (differenceType === "relative") {
+    return (stats.expected ?? 0) >= maxPercentChange;
+  } else if (differenceType === "absolute") {
+    return (Math.abs(stats.expected ?? 0) / baseline.cr) >= maxPercentChange;
+  } else {
+    // This means scaled impact could show up as suspicious even when
+    // it doesn't show up for other difference types if CUPED is applied
+    // and CUPED causes the value to cross the threshold
+    return Math.abs(stats.cr - baseline.cr) / baseline.cr >= maxPercentChange;
+  }
 }
 
 export function isBelowMinChange(
