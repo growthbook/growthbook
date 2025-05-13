@@ -584,11 +584,9 @@ export function getFeatureDefinition({
               rule.coverage = 1; // Always 100% right now
             } else {
               rule.coverage =
-                (1 *
-                  safeRollout?.rampUpSchedule?.steps[
-                    safeRollout?.rampUpSchedule.step
-                  ]) |
-                1;
+                safeRollout?.rampUpSchedule?.steps[
+                  safeRollout?.rampUpSchedule.step
+                ] ?? 1;
             }
 
             rule.hashAttribute = r.hashAttribute;
