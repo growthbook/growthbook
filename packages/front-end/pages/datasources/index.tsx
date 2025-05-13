@@ -5,6 +5,7 @@ import { isProjectListValidForProject } from "shared/util";
 import { useRouter } from "next/router";
 import { PiCursor, PiCursorClick } from "react-icons/pi";
 import { Flex } from "@radix-ui/themes";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { DocLink } from "@/components/DocLink";
 import DataSources from "@/components/Settings/DataSources";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
@@ -28,6 +29,10 @@ import Modal from "@/components/Modal";
 import SelectField from "@/components/Forms/SelectField";
 
 function ManagedClickhouseForm({ close }: { close: () => void }) {
+  const { apiCall } = useAuth();
+  const { mutateDefinitions } = useDefinitions();
+  const router = useRouter();
+
   return (
     <Modal
       open={true}
@@ -40,7 +45,17 @@ function ManagedClickhouseForm({ close }: { close: () => void }) {
       trackingEventModalType="managed-clickhouse"
       close={close}
       submit={async () => {
-        console.log("Creating");
+        const res = await apiCall<{
+          status: number;
+          id: string;
+        }>("/datasources/managed-clickhouse", {
+          method: "POST",
+        });
+
+        if (res.id) {
+          await mutateDefinitions({});
+          await router.push(`/datasources/${res.id}`);
+        }
       }}
       cta="Create"
     >
@@ -202,6 +217,8 @@ const DataSourcesPage: FC = () => {
     datasources,
   } = useDefinitions();
 
+  const gb = useGrowthBook();
+
   const router = useRouter();
 
   const filteredDatasources = (project
@@ -224,7 +241,9 @@ const DataSourcesPage: FC = () => {
     isCloud() &&
     filteredDatasources.length === 0 &&
     permissionsUtil.canViewCreateDataSourceModal(project) &&
-    (!hasCommercialFeature("managed-clickhouse") || !!license?.orbSubscription);
+    (!hasCommercialFeature("managed-clickhouse") ||
+      !!license?.orbSubscription) &&
+    gb.isOn("inbuilt-data-warehouse");
 
   return (
     <div className="container-fluid pagecontents">

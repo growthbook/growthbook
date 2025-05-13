@@ -133,7 +133,7 @@ function OrganizationRow({
   }, [expanded, apiCall, orgMembers, organization]);
 
   const createClickhouseDatasource = async () => {
-    await apiCall(`/datasource/create-inbuilt`, {
+    await apiCall(`/datasources/managed-clickhouse`, {
       method: "POST",
       headers: { "X-Organization": organization.id },
     });
@@ -161,7 +161,7 @@ function OrganizationRow({
           cta="Yes"
           trackingEventModalType=""
         >
-          Are you sure you want to create an inbuilt Clickhouse data source for
+          Are you sure you want to create a Managed Clickhouse data source for
           this organization?
         </Modal>
       )}
