@@ -1410,6 +1410,7 @@ describe("SDK Payloads", () => {
 
     // Includes the running safe rollout as an experiment with the right preset coverage
     // and weights
+
     expect(
       getFeatureDefinition({
         feature,
@@ -1471,6 +1472,7 @@ describe("SDK Payloads", () => {
         environment: "production",
         groupMap: groupMap,
         experimentMap: experimentMap,
+        safeRolloutMap: safeRolloutMap,
       })
     ).toEqual({
       defaultValue: true,
