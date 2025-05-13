@@ -5,6 +5,8 @@ import { date, datetime } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
 import { getMetricLink, isFactMetricId } from "shared/experiments";
 import { useRouter } from "next/router";
+import { Flex } from "@radix-ui/themes";
+import { PiArrowSquareOut } from "react-icons/pi";
 import SortedTags from "@/components/Tags/SortedTags";
 import ProjectBadges from "@/components/ProjectBadges";
 import TagsFilter, {
@@ -33,7 +35,9 @@ import {
   MetricModal,
 } from "@/components/FactTables/NewMetricModal";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import PremiumCallout from "../Radix/PremiumCallout";
+import DismissableCallout from "../Radix/DismissableCallout";
 
 export interface MetricTableItem {
   id: string;
@@ -229,8 +233,13 @@ const MetricsList = (): React.ReactElement => {
     metricGroups,
     project,
     ready,
+    factTables,
   } = useDefinitions();
   const { getUserDisplay } = useUser();
+  const [factTablePromoDismissed] = useLocalStorage(
+    "dismissable-callout:metrics-list-fact-table-promo",
+    false
+  );
 
   const router = useRouter();
   const permissionsUtil = usePermissionsUtil();
@@ -402,7 +411,30 @@ const MetricsList = (): React.ReactElement => {
           <TagsFilter filter={tagsFilter} items={unpaginatedItems} />
         </div>
       </div>
-      {metrics.length > 4 && !metricGroups.length ? (
+      {!factTables.length && !factTablePromoDismissed ? (
+        <DismissableCallout
+          id="metrics-list-fact-table-promo"
+          mb="2"
+          status="info"
+        >
+          <Flex>
+            <strong className="pr-1">Fact Tables</strong> are the new way to
+            create metrics in GrowthBook. Enjoy huge SQL performance gains and
+            faster setup.
+            <Link
+              href="/fact-tables"
+              className="pl-1"
+              style={{ color: "var(--violet-11)" }}
+            >
+              <strong>Take me there</strong>
+              <PiArrowSquareOut
+                className="ml-1"
+                style={{ position: "relative", top: "-2px" }}
+              />
+            </Link>
+          </Flex>
+        </DismissableCallout>
+      ) : metrics.length > 4 && !metricGroups.length ? (
         <PremiumCallout
           commercialFeature="metric-groups"
           dismissable={true}
