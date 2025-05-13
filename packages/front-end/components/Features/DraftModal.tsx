@@ -1,4 +1,5 @@
 import { FeatureInterface } from "back-end/types/feature";
+import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import { useState, useMemo } from "react";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
@@ -7,13 +8,13 @@ import {
   filterEnvironmentsByFeature,
   mergeResultHasChanges,
 } from "shared/util";
-import dynamic from "next/dynamic";
 import { getAffectedRevisionEnvs, useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Button from "@/components/Button";
 import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { toDiffableJSON } from "@/services/json";
 
 export interface Props {
   feature: FeatureInterface;
@@ -38,10 +39,6 @@ export function ExpandableDiff({
 
   if (a === b) return null;
 
-  const JsonDiff = dynamic(() => import("../Features/JsonDiff"), {
-    ssr: false,
-  });
-
   return (
     <div className="diff-wrapper">
       <div
@@ -59,7 +56,11 @@ export function ExpandableDiff({
       </div>
       {open && (
         <div className="list-group-item list-group-item-light">
-          <JsonDiff defaultVal={a} value={b} />
+          <ReactDiffViewer
+            oldValue={toDiffableJSON(a)}
+            newValue={toDiffableJSON(b)}
+            compareMethod={DiffMethod.WORDS}
+          />
         </div>
       )}
     </div>

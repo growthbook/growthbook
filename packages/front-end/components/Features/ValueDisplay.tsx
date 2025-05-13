@@ -3,6 +3,7 @@ import { CSSProperties, useMemo } from "react";
 import stringify from "json-stringify-pretty-compact";
 import dynamic from "next/dynamic";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
+import { toDiffableJSON } from "@/services/json";
 
 export default function ValueDisplay({
   value,
@@ -72,7 +73,12 @@ export default function ValueDisplay({
       ssr: false,
     });
 
-    return <JsonDiff value={value} defaultVal={defaultVal} />;
+    return (
+      <JsonDiff
+        value={toDiffableJSON(value)}
+        defaultVal={toDiffableJSON(defaultVal)}
+      />
+    );
   }
 
   return (

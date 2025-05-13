@@ -4,8 +4,9 @@ import Link from "next/link";
 import { BsArrowRepeat } from "react-icons/bs";
 import { FaAngleDown, FaAngleUp } from "react-icons/fa";
 import { ago, datetime } from "shared/dates";
-import dynamic from "next/dynamic";
+import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { toDiffableJSON } from "@/services/json";
 import useApi from "@/hooks/useApi";
 import Button from "./Button";
 import Code from "./SyntaxHighlighting/Code";
@@ -35,23 +36,6 @@ function EventDetails({
     return <Link href={`/report/${json.report}`}>View Report</Link>;
   }
 
-  const JsonDiff = dynamic(() => import("./Features/JsonDiff"), {
-    ssr: false,
-  });
-
-  const nestedJSONReplacer = (key: string, value: unknown): unknown => {
-    if (key === "value" || key === "defaultValue") {
-      let ret = value;
-      try {
-        ret = JSON.parse(value as string);
-      } catch (e) {
-        // not valid json, parse as normal
-      }
-      return ret;
-    }
-    return value;
-  };
-
   // Diff (create, update, delete)
   if (json.pre || json.post) {
     return (
@@ -72,10 +56,10 @@ function EventDetails({
             ))}
           </div>
         )}
-        <JsonDiff
-          defaultVal={JSON.stringify(json.pre, nestedJSONReplacer)}
-          value={JSON.stringify(json.post, nestedJSONReplacer)}
-          fullStyle={{ maxHeight: 400, overflowY: "auto", maxWidth: "100%" }}
+        <ReactDiffViewer
+          oldValue={toDiffableJSON(json.pre || {})}
+          newValue={toDiffableJSON(json.post || {})}
+          compareMethod={DiffMethod.WORDS}
         />
       </div>
     );

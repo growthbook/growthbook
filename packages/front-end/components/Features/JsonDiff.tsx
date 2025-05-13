@@ -1,26 +1,6 @@
 import React, { CSSProperties, useEffect, useRef } from "react";
 import ReactJsonViewCompare from "react-json-view-compare";
 
-function fixJsonRecursive(obj) {
-  if (typeof obj != "string" && typeof obj != "object") {
-    return obj;
-  }
-  if (typeof obj == "string") {
-    let jsonObj;
-    try {
-      jsonObj = JSON.parse(obj);
-    } catch (e) {
-      return obj;
-    }
-    obj = jsonObj;
-  }
-
-  for (const key in obj) {
-    obj[key] = fixJsonRecursive(obj[key]);
-  }
-  return obj;
-}
-
 export default function JsonDiff({
   value,
   defaultVal = "{}",
@@ -30,10 +10,8 @@ export default function JsonDiff({
   defaultVal?: string;
   fullStyle?: CSSProperties;
 }) {
-  let oldData = JSON.parse(defaultVal);
-  oldData = fixJsonRecursive(oldData);
-  let newData = JSON.parse(value);
-  newData = fixJsonRecursive(newData);
+  const oldData = JSON.parse(defaultVal);
+  const newData = JSON.parse(value);
 
   const viewerRef = useRef<HTMLDivElement>(null);
 
