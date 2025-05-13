@@ -63,7 +63,7 @@ export function getSubscriptionFromLicense(
     dateToBeCanceled: new Date((sub.cancel_at || 0) * 1000).toDateString(),
     cancelationDate: new Date((sub.canceled_at || 0) * 1000).toDateString(),
     pendingCancelation: sub.status !== "canceled" && !!sub.cancel_at_period_end,
-    isVercelIntegration: license.orbSubscription?.isVercelIntegration || false,
+    isVercelIntegration: !!license.vercelInstallationId,
   };
 }
 
@@ -422,7 +422,8 @@ export async function postNewInlineSubscriptionToLicenseServer(
 
 export async function postNewVercelSubscriptionToLicenseServer(
   organization: OrganizationInterface,
-  userName: string
+  userName: string,
+  installationId: string
 ) {
   const url = `${LICENSE_SERVER_URL}subscription/new-vercel-native-subscription`;
   const license = await callLicenseServer({
@@ -434,6 +435,7 @@ export async function postNewVercelSubscriptionToLicenseServer(
       ownerEmail: organization.ownerEmail,
       name: userName,
       nonInviteSeatQty: organization.members.length,
+      installationId,
     }),
   });
 

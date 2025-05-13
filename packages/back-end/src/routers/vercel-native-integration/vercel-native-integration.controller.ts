@@ -42,6 +42,11 @@ const PRO_BILLING_PLAN: BillingPlan = {
   id: "pro-billing-plan",
   name: "Pro Plan",
   type: "subscription",
+  cost: "20.00/month per user + usage",
+  details: [{ label: "label", value: "value" }],
+  highlightedDetails: [
+    { label: "highlighted label", value: "highlighted value" },
+  ],
 };
 
 const billingPlans = [STARTER_BILLING_PLAN, PRO_BILLING_PLAN] as const;
@@ -190,6 +195,7 @@ const authContext = async (
   res: Response,
   { resourceId }: { resourceId?: string } = {}
 ) => {
+  console.log("authContext hit");
   const failed = (status: number, reason?: string) => {
     if (reason) res.status(status).send(reason);
     else res.sendStatus(status);
@@ -197,7 +203,10 @@ const authContext = async (
     throw new Error("Authentication failed");
   };
 
+  console.log("about to get token from req");
   const token = getBearerToken(req);
+
+  console.log("token", token);
 
   if (!token) return failed(401, "Invalid credentials");
 
@@ -205,6 +214,8 @@ const authContext = async (
     token,
     type: String(req.headers["x-vercel-auth"]),
   });
+
+  console.log("checkedAuth", checkedAuth);
 
   if (checkedAuth.status === "error") return failed(401, checkedAuth.message);
 
@@ -216,6 +227,10 @@ const authContext = async (
 
   const { organization, resources } =
     await findVercelInstallationByInstallationId(installationId);
+
+  console.log("organization", organization);
+
+  console.log("resources", resources);
 
   const organizationId = resourceId
     ? resources.find(({ id }) => id === resourceId)?.organizationId
@@ -324,13 +339,13 @@ export async function provisionResource(req: Request, res: Response) {
     nativeIntegration,
   } = await authContext(req, res);
 
-  if (nativeIntegration.installationId !== req.params.installation_id)
-    return res.status(400).send("Invalid request!");
+  const {
+    externalId: _externalId,
+    billingPlanId,
+    ...payload
+  } = req.body as ProvisitionResource;
 
-  const { externalId: _externalId, ...payload } =
-    req.body as ProvisitionResource;
-
-  //MKTODO: Figure out different between billingPlanId and productId
+  console.log("payload", payload);
 
   const organizationId = await (async () => {
     if (nativeIntegration.resources.length === 0) {
@@ -355,15 +370,19 @@ export async function provisionResource(req: Request, res: Response) {
     throw new Error(`Unable to locate org by id: ${organizationId}`);
   }
 
-  try {
-    await postNewVercelSubscriptionToLicenseServer(
-      organization,
-      user.name || ""
-    );
-  } catch (e) {
-    throw new Error(
-      `Unable to create new subscription. Reason: ${e.message} || "Unknown`
-    );
+  if (billingPlanId === "pro-billing-plan") {
+    try {
+      await postNewVercelSubscriptionToLicenseServer(
+        organization,
+        // payload.name,
+        req.params.installation_id,
+        user.name || ""
+      );
+    } catch (e) {
+      throw new Error(
+        `Unable to create new subscription. Reason: ${e.message} || "Unknown`
+      );
+    }
   }
 
   const resource: Resource = {
@@ -372,13 +391,15 @@ export async function provisionResource(req: Request, res: Response) {
     organizationId,
     secrets: [{ name: "token", value: uuidv4() }],
     status: "ready",
+    billingPlan:
+      billingPlanId === "pro-billing-plan"
+        ? PRO_BILLING_PLAN
+        : STARTER_BILLING_PLAN,
   };
 
   await nativeIntegrationModel.update(nativeIntegration, {
     resources: [...nativeIntegration.resources, resource],
   });
-
-  //MKTODO: Identify which plan the org has selected and if it's the paid plan, make call to license server to create license
 
   return res.json(resource);
 }
