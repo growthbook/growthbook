@@ -17,8 +17,12 @@ import { createUser, getUserByEmail } from "back-end/src/models/UserModel";
 import { ReqContextClass } from "back-end/src/services/context";
 import { setResponseCookies } from "back-end/src/controllers/auth";
 import { OrganizationInterface } from "back-end/types/organization";
-import { getVercelSSOToken } from "back-end/src/services/vercel-native-integration.service";
+import {
+  getVercelSSOToken,
+  VERCEL_URL,
+} from "back-end/src/services/vercel-native-integration.service";
 import { createSDKConnection } from "back-end/src/models/SdkConnectionModel";
+import { createSdkWebhook } from "back-end/src/models/WebhookModel";
 import {
   userAuthenticationValidator,
   systemAuthenticationValidator,
@@ -313,6 +317,7 @@ export async function deleteInstallation(req: Request, res: Response) {
 
 export async function provisionResource(req: Request, res: Response) {
   const {
+    context,
     user,
     org: contextOrg,
     nativeIntegrationModel,
@@ -384,6 +389,17 @@ export async function provisionResource(req: Request, res: Response) {
 
   await nativeIntegrationModel.update(nativeIntegration, {
     resources: [...nativeIntegration.resources, resource],
+  });
+
+  await createSdkWebhook(context, sdkConnection.id, {
+    name: "Sync vercel integration edge config",
+    endpoint: `${VERCEL_URL}/v1/installations/${nativeIntegration.installationId}/resources/{resource.id}/experimentation/edge-config`,
+    payloadFormat: "edgeConfig",
+    payloadKey: "gb_payload",
+    httpMethod: "PUT",
+    headers: JSON.stringify({
+      Authorization: `Bearer ${nativeIntegration.upsertData.payload.credentials.access_token}`,
+    }),
   });
 
   return res.json(resource);

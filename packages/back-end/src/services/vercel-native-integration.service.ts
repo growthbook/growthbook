@@ -5,7 +5,7 @@ import { findVercelInstallationByOrganization } from "back-end/src/models/Vercel
 import { APP_ORIGIN } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
 
-const VERCEL_URL = "https://api.vercel.com";
+export const VERCEL_URL = "https://api.vercel.com";
 
 const VERCEL_CLIENT_ID = process.env.VERCEL_CLIENT_ID || "";
 const VERCEL_CLIENT_SECRET = process.env.VERCEL_CLIENT_SECRET || "";
