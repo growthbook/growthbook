@@ -55,6 +55,7 @@ export type CommercialFeature =
   | "historical-power"
   | "decision-framework"
   | "unlimited-cdn-usage"
+  | "managed-clickhouse"
   | "safe-rollout";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
@@ -194,6 +195,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "historical-power",
     "decision-framework",
     "safe-rollout",
+    "managed-clickhouse",
   ]),
   pro_sso: new Set<CommercialFeature>([
     "sso",
@@ -222,6 +224,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "historical-power",
     "decision-framework",
     "safe-rollout",
+    "managed-clickhouse",
   ]),
   enterprise: new Set<CommercialFeature>([
     "scim",
@@ -269,6 +272,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "historical-power",
     "decision-framework",
     "safe-rollout",
+    "managed-clickhouse",
   ]),
 };
 
