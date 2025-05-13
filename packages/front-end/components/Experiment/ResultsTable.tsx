@@ -252,7 +252,7 @@ export default function ResultsTable({
   );
   const compactResults = filteredVariations.length <= 2;
 
-  const domain = useDomain(filteredVariations, rows);
+  const domain = useDomain(filteredVariations, rows, differenceType);
 
   const rowsResults: (RowResults | "query error" | null)[][] = useMemo(() => {
     const rr: (RowResults | "query error" | null)[][] = [];

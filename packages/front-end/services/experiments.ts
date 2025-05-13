@@ -53,6 +53,7 @@ export function getRisk(
   baseline: SnapshotMetric,
   metric: ExperimentMetricInterface,
   metricDefaults: MetricDefaults,
+  differenceType: DifferenceType,
   // separate CR because sometimes "baseline" above is the variation
   baselineCR: number
 ): { risk: number; relativeRisk: number; showRisk: boolean } {
@@ -71,20 +72,34 @@ export function getRisk(
   const showRisk =
     baseline.cr > 0 &&
     hasEnoughData(baseline, stats, metric, metricDefaults) &&
-    !isSuspiciousUplift(baseline, stats, metric, metricDefaults);
+    !isSuspiciousUplift(
+      baseline,
+      stats,
+      metric,
+      metricDefaults,
+      differenceType
+    );
   return { risk, relativeRisk, showRisk };
 }
 
 export function getRiskByVariation(
   riskVariation: number,
   row: ExperimentTableRow,
-  metricDefaults: MetricDefaults
+  metricDefaults: MetricDefaults,
+  differenceType: DifferenceType
 ) {
   const baseline = row.variations[0];
 
   if (riskVariation > 0) {
     const stats = row.variations[riskVariation];
-    return getRisk(stats, baseline, row.metric, metricDefaults, baseline.cr);
+    return getRisk(
+      stats,
+      baseline,
+      row.metric,
+      metricDefaults,
+      differenceType,
+      baseline.cr
+    );
   } else {
     let risk = -1;
     let relativeRisk = 0;
@@ -100,7 +115,14 @@ export function getRiskByVariation(
         risk: vRisk,
         relativeRisk: vRelativeRisk,
         showRisk: vShowRisk,
-      } = getRisk(baseline, stats, row.metric, metricDefaults, baseline.cr);
+      } = getRisk(
+        baseline,
+        stats,
+        row.metric,
+        metricDefaults,
+        differenceType,
+        baseline.cr
+      );
       if (vRisk > risk) {
         risk = vRisk;
         relativeRisk = vRelativeRisk;
@@ -121,7 +143,8 @@ export function hasRisk(rows: ExperimentTableRow[]) {
 
 export function useDomain(
   variations: ExperimentReportVariationWithIndex[], // must be ordered, baseline first
-  rows: ExperimentTableRow[]
+  rows: ExperimentTableRow[],
+  differenceType: DifferenceType
 ): [number, number] {
   const { metricDefaults } = useOrganizationMetricDefaults();
 
@@ -140,7 +163,15 @@ export function useDomain(
       if (!hasEnoughData(baseline, stats, row.metric, metricDefaults)) {
         return;
       }
-      if (isSuspiciousUplift(baseline, stats, row.metric, metricDefaults)) {
+      if (
+        isSuspiciousUplift(
+          baseline,
+          stats,
+          row.metric,
+          metricDefaults,
+          differenceType
+        )
+      ) {
         return;
       }
 
@@ -424,6 +455,7 @@ export function getRowResults({
     baseline,
     metric,
     metricDefaults,
+    differenceType,
     baseline.cr
   );
   const winRiskThreshold = metric.winRisk ?? DEFAULT_WIN_RISK_THRESHOLD;
@@ -479,6 +511,7 @@ export function getRowResults({
     ciUpper,
     pValueThreshold,
     statsEngine,
+    differenceType,
   });
 
   let significantReason = "";

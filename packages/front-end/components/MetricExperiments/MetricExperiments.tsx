@@ -131,6 +131,7 @@ function MetricExperimentResultTab({
           ciUpper,
           pValueThreshold,
           statsEngine,
+          differenceType: "relative",
         });
         expVariationData = {
           ...expVariationData,
