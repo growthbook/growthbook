@@ -25,7 +25,7 @@ import {
   FeatureTestResult,
   JSONSchemaDef,
   FeatureUsageData,
-  FeatureUsageTimeSeries,
+  FeatureUsageDataPoint,
 } from "back-end/types/feature";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
@@ -2628,7 +2628,9 @@ export async function getFeatureUsage(
     throw new Error("Could not find feature");
   }
 
-  const environments = getEnvironments(org);
+  const allEnvironments = getEnvironments(org);
+
+  const environments = filterEnvironmentsByFeature(allEnvironments, feature);
 
   //TODO: handle multiple datasources with feature tracking
   const ds = await getGrowthbookDatasource(context);
@@ -2644,15 +2646,6 @@ export async function getFeatureUsage(
   const lookback = req.query.lookback || "15minute";
 
   const { buckets, width } = getLookbackNumBuckets(lookback);
-  const createEmptyRecord = () => {
-    return {
-      total: 0,
-      ts: new Array(buckets).fill(0).map((_, i) => ({
-        t: i,
-        v: 0,
-      })),
-    };
-  };
 
   const { start, rows } = await integration.getFeatureUsage(
     feature.id,
@@ -2668,74 +2661,45 @@ export async function getFeatureUsage(
   };
 
   const usage: FeatureUsageData = {
-    overall: createEmptyRecord(),
-    sources: {},
-    values: {},
-    defaultValue: createEmptyRecord(),
-    environments: {},
+    byRuleId: [],
+    bySource: [],
+    byValue: [],
+    total: 0,
   };
 
   const validEnvs = new Set(environments.map((e) => e.id));
 
-  const updateRecord = (
-    record: FeatureUsageTimeSeries,
-    data: { timestamp: Date; evaluations: number }
-  ) => {
-    const i = getTSIndex(data.timestamp);
-    const v = data.evaluations;
-
-    record.total += v;
-    record.ts[i].v += v;
-  };
+  function updateRecord(
+    data: FeatureUsageDataPoint[],
+    key: string,
+    ts: Date,
+    evaluations: number
+  ) {
+    const idx = getTSIndex(ts);
+    if (!data[idx]) {
+      data[idx] = {
+        t: ts.getTime(),
+        v: {},
+      };
+    }
+    data[idx].v[key] = (data[idx].v[key] || 0) + evaluations;
+  }
 
   rows.forEach((d) => {
     // Skip invalid environments (sanity check)
     if (!d.environment || !validEnvs.has(d.environment)) return;
 
-    // Overall evaluation counts
-    updateRecord(usage.overall, d);
+    // Overall
+    usage.total += d.evaluations;
 
     // Sources
-    usage.sources[d.source] = usage.sources[d.source] || 0;
-    usage.sources[d.source] += d.evaluations;
+    updateRecord(usage.bySource, d.source, d.timestamp, d.evaluations);
 
     // Values
-    usage.values[d.value] = usage.values[d.value] || 0;
-    usage.values[d.value] += d.evaluations;
+    updateRecord(usage.byValue, d.value, d.timestamp, d.evaluations);
 
-    if (!usage.environments[d.environment]) {
-      usage.environments[d.environment] = { ...createEmptyRecord(), rules: {} };
-    }
-    updateRecord(usage.environments[d.environment], d);
-
-    if (d.source === "defaultValue") {
-      updateRecord(usage.defaultValue, d);
-    } else if (d.ruleId) {
-      if (!usage.environments[d.environment].rules[d.ruleId]) {
-        usage.environments[d.environment].rules[d.ruleId] = {
-          ...createEmptyRecord(),
-          variations: {},
-        };
-      }
-      updateRecord(usage.environments[d.environment].rules[d.ruleId], d);
-
-      if (d.variationId) {
-        if (
-          !usage.environments[d.environment].rules[d.ruleId].variations[
-            d.variationId
-          ]
-        ) {
-          usage.environments[d.environment].rules[d.ruleId].variations[
-            d.variationId
-          ] = createEmptyRecord();
-        }
-        updateRecord(
-          usage.environments[d.environment].rules[d.ruleId].variations[
-            d.variationId
-          ],
-          d
-        );
-      }
+    if (d.ruleId) {
+      updateRecord(usage.byRuleId, d.ruleId, d.timestamp, d.evaluations);
     }
   });
 
