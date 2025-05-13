@@ -1,5 +1,6 @@
 import {
   ExperimentMetricInterface,
+  ExperimentMetricMap,
   isBinomialMetric,
   isFactMetric,
   isRatioMetric,

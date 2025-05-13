@@ -92,6 +92,7 @@ export async function getCreateMetricPropsFromBody(
 
   const data: CreateFactMetricProps = {
     datasource: factTable.datasource,
+    variants: [],
     loseRisk:
       riskThresholdDanger ||
       scopedSettings.loseRisk.value ||
