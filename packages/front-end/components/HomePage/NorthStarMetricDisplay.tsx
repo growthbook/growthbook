@@ -25,8 +25,7 @@ import Link from "@/components/Radix/Link";
 
 const NorthStarMetricDisplay = ({
   metricId,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  window,
+  window: _window,
   smoothBy,
   hoverDate,
   onHoverCallback,
