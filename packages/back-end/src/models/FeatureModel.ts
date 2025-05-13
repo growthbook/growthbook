@@ -40,7 +40,7 @@ import {
 import { getChangedApiFeatureEnvironments } from "back-end/src/events/handlers/utils";
 import { ResourceEvents } from "back-end/src/events/base-types";
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
-import { determineNextSnapshotAttempt } from "back-end/src/services/safeRolloutSnapshots";
+import { determineNextSnapshotAttempt } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
 import {
   createEvent,
   hasPreviousObject,

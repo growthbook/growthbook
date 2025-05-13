@@ -8,11 +8,7 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
 } from "shared/constants";
-import {
-  autoMerge,
-  getSafeRolloutSnapshotAnalysis,
-  isDefined,
-} from "shared/util";
+import { getSafeRolloutSnapshotAnalysis, isDefined } from "shared/util";
 import {
   expandMetricGroups,
   ExperimentMetricInterface,
@@ -55,11 +51,7 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { CreateProps } from "back-end/src/models/BaseModel";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ExperimentAnalysisSummary } from "back-end/src/validators/experiments";
-import {
-  editFeatureRule,
-  getFeature,
-  publishRevision,
-} from "back-end/src/models/FeatureModel";
+import { getFeature } from "back-end/src/models/FeatureModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import {
   FeatureInterface,
@@ -68,20 +60,10 @@ import {
 import { ResourceEvents } from "back-end/src/events/base-types";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { SafeRolloutInterface } from "back-end/types/safe-rollout";
-import {
-  SafeRolloutNotification,
-  SafeRolloutStatus,
-} from "back-end/src/validators/safe-rollout";
-import {
-  createRevision,
-  getRevision,
-} from "back-end/src/models/FeatureRevisionModel";
+import { SafeRolloutNotification } from "back-end/src/validators/safe-rollout";
+import { determineNextSnapshotAttempt } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
 import { getSourceIntegrationObject } from "./datasource";
-import {
-  computeResultsStatus,
-  determineNextDate,
-  isJoinableMetric,
-} from "./experiments";
+import { computeResultsStatus, isJoinableMetric } from "./experiments";
 
 export function getMetricForSafeRolloutSnapshot(
   id: string | null | undefined,
@@ -447,60 +429,6 @@ export async function _createSafeRolloutSnapshot({
   return queryRunner;
 }
 
-export function determineNextSnapshotAttempt(
-  safeRollout: SafeRolloutInterface,
-  organization: OrganizationInterface
-): { nextSnapshot: Date; nextRampUp: Date } {
-  const rampUpSchedule = safeRollout?.rampUpSchedule;
-  const nextUpdate =
-    determineNextDate(organization.settings?.updateSchedule || null) ||
-    new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 1 hour ;
-  if (
-    !rampUpSchedule ||
-    rampUpSchedule?.rampUpCompleted ||
-    !rampUpSchedule?.enabled
-  ) {
-    return {
-      nextSnapshot: nextUpdate,
-      nextRampUp: rampUpSchedule?.nextUpdate || nextUpdate,
-    };
-  }
-
-  let maxDurationInSeconds: number; // in seconds
-  switch (safeRollout.maxDuration.unit) {
-    case "days":
-      maxDurationInSeconds = safeRollout.maxDuration.amount * 86400;
-      break;
-    case "weeks":
-      maxDurationInSeconds = safeRollout.maxDuration.amount * 604800;
-      break;
-    case "hours":
-      maxDurationInSeconds = safeRollout.maxDuration.amount * 3600;
-      break;
-    case "minutes":
-      maxDurationInSeconds = safeRollout.maxDuration.amount * 60;
-      break;
-    default:
-      throw new Error("Invalid max duration unit");
-  }
-  const fullRampUpTimeInSeconds = maxDurationInSeconds * 0.25; // hard coded for now this is the ramp up time
-  const rampUpTimeBetweenStepsInSeconds =
-    fullRampUpTimeInSeconds / rampUpSchedule.steps.length;
-  return {
-    nextSnapshot: new Date(
-      Math.min(
-        (rampUpSchedule.lastUpdate?.getTime() ?? Date.now()) +
-          rampUpTimeBetweenStepsInSeconds * 1000,
-        rampUpSchedule.nextUpdate?.getTime() ?? Infinity
-      )
-    ),
-    nextRampUp: new Date(
-      rampUpSchedule.lastUpdate?.getTime() ??
-        Date.now() + rampUpTimeBetweenStepsInSeconds * 1000
-    ),
-  };
-}
-
 export async function createSafeRolloutSnapshot({
   context,
   safeRollout,
@@ -589,99 +517,6 @@ export async function getSafeRolloutAnalysisSummary({
   }
 
   return analysisSummary;
-}
-export async function checkAndRollbackSafeRollout({
-  context,
-  updatedSafeRollout,
-  safeRolloutSnapshot,
-  ruleIndex,
-  feature,
-}: {
-  context: ReqContext;
-  updatedSafeRollout: SafeRolloutInterface;
-  safeRolloutSnapshot: SafeRolloutSnapshotInterface;
-  ruleIndex: number;
-  feature: FeatureInterface;
-}): Promise<SafeRolloutStatus> {
-  if (updatedSafeRollout.status !== "running") return updatedSafeRollout.status;
-  const daysLeft = getSafeRolloutDaysLeft({
-    safeRollout: updatedSafeRollout,
-    snapshotWithResults: safeRolloutSnapshot,
-  });
-  const healthSettings = getHealthSettings(
-    context.org.settings,
-    orgHasPremiumFeature(context.org, "decision-framework")
-  );
-  const safeRolloutStatus = getSafeRolloutResultStatus({
-    safeRollout: updatedSafeRollout,
-    healthSettings,
-    daysLeft,
-  });
-  let status: SafeRolloutStatus = updatedSafeRollout.status;
-  if (
-    safeRolloutStatus?.status &&
-    ["unhealthy", "rollback-now"].includes(safeRolloutStatus.status)
-  ) {
-    status = "rolled-back";
-    const revision = await createRevision({
-      context,
-      feature,
-      user: context.auditUser,
-      environments: [updatedSafeRollout.environment],
-      baseVersion: feature.version,
-      org: context.org,
-    });
-    await editFeatureRule(
-      revision,
-      updatedSafeRollout.environment,
-      ruleIndex,
-      { status },
-      context.auditUser,
-      false
-    );
-    const live = await getRevision({
-      context,
-      organization: updatedSafeRollout.organization,
-      featureId: feature.id,
-      version: feature.version,
-    });
-    if (!live) {
-      throw new Error("Could not lookup feature history");
-    }
-
-    const base =
-      revision.baseVersion === live.version
-        ? live
-        : await getRevision({
-            context,
-            organization: updatedSafeRollout.organization,
-            featureId: feature.id,
-            version: revision.baseVersion,
-          });
-    if (!base) {
-      throw new Error("Could not lookup feature history");
-    }
-
-    const mergeResult = autoMerge(
-      live,
-      base,
-      revision,
-      [updatedSafeRollout.environment],
-      {}
-    );
-    if (!mergeResult.success) {
-      throw new Error("could not merge the status");
-    }
-    //publish the revision
-    await publishRevision(
-      context,
-      feature,
-      revision,
-      mergeResult.result,
-      "auto-publish status change"
-    );
-  }
-  return status;
 }
 
 const dispatchSafeRolloutEvent = async <T extends ResourceEvents<"feature">>({

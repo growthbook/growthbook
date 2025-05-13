@@ -151,3 +151,56 @@ export async function checkAndRollbackSafeRollout({
   }
   return status;
 }
+export function determineNextSnapshotAttempt(
+  safeRollout: SafeRolloutInterface,
+  organization: OrganizationInterface
+): { nextSnapshot: Date; nextRampUp: Date } {
+  const rampUpSchedule = safeRollout?.rampUpSchedule;
+  const nextUpdate =
+    determineNextDate(organization.settings?.updateSchedule || null) ||
+    new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 1 hour ;
+  if (
+    !rampUpSchedule ||
+    rampUpSchedule?.rampUpCompleted ||
+    !rampUpSchedule?.enabled
+  ) {
+    return {
+      nextSnapshot: nextUpdate,
+      nextRampUp: rampUpSchedule?.nextUpdate || nextUpdate,
+    };
+  }
+
+  let maxDurationInSeconds: number; // in seconds
+  switch (safeRollout.maxDuration.unit) {
+    case "days":
+      maxDurationInSeconds = safeRollout.maxDuration.amount * 86400;
+      break;
+    case "weeks":
+      maxDurationInSeconds = safeRollout.maxDuration.amount * 604800;
+      break;
+    case "hours":
+      maxDurationInSeconds = safeRollout.maxDuration.amount * 3600;
+      break;
+    case "minutes":
+      maxDurationInSeconds = safeRollout.maxDuration.amount * 60;
+      break;
+    default:
+      throw new Error("Invalid max duration unit");
+  }
+  const fullRampUpTimeInSeconds = maxDurationInSeconds * 0.25; // hard coded for now this is the ramp up time
+  const rampUpTimeBetweenStepsInSeconds =
+    fullRampUpTimeInSeconds / rampUpSchedule.steps.length;
+  return {
+    nextSnapshot: new Date(
+      Math.min(
+        (rampUpSchedule.lastUpdate?.getTime() ?? Date.now()) +
+          rampUpTimeBetweenStepsInSeconds * 1000,
+        rampUpSchedule.nextUpdate?.getTime() ?? Infinity
+      )
+    ),
+    nextRampUp: new Date(
+      rampUpSchedule.lastUpdate?.getTime() ??
+        Date.now() + rampUpTimeBetweenStepsInSeconds * 1000
+    ),
+  };
+}
