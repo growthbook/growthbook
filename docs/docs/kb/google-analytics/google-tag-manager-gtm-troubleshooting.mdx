@@ -16,7 +16,7 @@ Please watch the [How GrowthBook Works with Your Data](https://youtu.be/hboLeUbp
 The issues described below are commonly reported and can lead to missing or incomplete experiment data in GA4 when using GTM with GrowthBook.
 
 ### No `experiment_viewed` events in GTM
-Ensure the `trackingCallback` is correctly implemented and that the required `dataLayer` variables and triggers in GTM have been configured properly by reviewing [Using GrowthBook with Google Tag Manager (GTM)](/guide/google-tag-manager-and-growthbook#4-tracking-via-`dataLayer`-and-gtm).
+Ensure the `trackingCallback` is correctly implemented and that the required `dataLayer` variables and triggers in GTM have been configured properly by reviewing [Using GrowthBook with Google Tag Manager (GTM)](/guide/google-tag-manager-and-growthbook#4-tracking-via-dataLayer-and-gtm).
 
 If you are using the HTML Script SDK, the `experiment_viewed` event is pushed to the `dataLayer` automatically. For other SDKs, the `trackingCallback` needs to be implemented manually to ensure the `experiment_viewed` event is pushed to the `dataLayer`.
 
@@ -30,21 +30,21 @@ If the GA4 Event Tag in GTM is not set to fire on the `experiment_viewed` event,
 ### The GA4 Measurement ID is incorrect
 The GA4 Measurement ID is a unique identifier for your GA4 property that's used to send data from your website or app to the correct GA4 account. It looks like "G-XXXXXXXXXX" and is required when configuring GA4 tags in Google Tag Manager or when sending events directly to GA4.
 
-You can see how the Measurement ID is used in the [GrowthBook and GTM integration](/guide/google-tag-manager-and-growthbook#4-tracking-via-`dataLayer`-and-gtm) documentation, where it is entered as a configuration value for sending experiment events to GA4.
+You can see how the Measurement ID is used in the [GrowthBook and GTM integration](/guide/google-tag-manager-and-growthbook#4-tracking-via-dataLayer-and-gtm) documentation, where it is entered as a configuration value for sending experiment events to GA4.
 
 ### Missing or incorrect `dataLayer` push
 If the GrowthBook SDK’s `trackingCallback` does not push the `experiment_viewed` event to the `dataLayer`, or if the event structure is incorrect, GTM will not detect or forward the event to GA4. The event must be pushed in the correct format, such as:
 ```js
 // JavaScript
-window.`dataLayer` = window.`dataLayer` || [];
-window.`dataLayer`.push({
-  event: "`experiment_viewed`",
+window.dataLayer = window.dataLayer || [];
+window.dataLayer.push({
+  event: "experiment_viewed",
   experiment_id: experiment.key,
   variation_id: result.key,
 });
 ```
 
-See the [Tracking via `dataLayer` and GTM](/guide/google-tag-manager-and-growthbook#4-tracking-via-`dataLayer`-and-gtm) documentation for more information.
+See the [Tracking via `dataLayer` and GTM](/guide/google-tag-manager-and-growthbook#4-tracking-via-dataLayer-and-gtm) documentation for more information.
 
 ### Missing hash attribute
 

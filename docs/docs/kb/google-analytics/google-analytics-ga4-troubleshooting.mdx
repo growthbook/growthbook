@@ -50,12 +50,12 @@ If the GrowthBook SDK’s `trackingCallback` is not implemented correctly, or if
 The HTML Script Tag SDK handles this automatically and no adjustment should be necessary. Usage of other SDKs requires manually configuring the `trackingCallback` to send `experiment_viewed` events to GA4. Read on for more information.
 
 #### Format for `trackingCallback` for pure GA4 integrations (no GTM)
-Use `gtag` in the `trackingCallback` if Google Analytics 4 (GA4) is loaded directly on your page **and** the `window.`gtag`` function is available on the web page:
+Use `gtag` in the `trackingCallback` if Google Analytics 4 (GA4) is loaded directly on your page **and** the `window.gtag` function is available on the web page:
 
 ```javascript
-`trackingCallback`: (experiment, result) => {
-  if (window.`gtag`) {
-    window.`gtag`("event", "`experiment_viewed`", {
+trackingCallback: (experiment, result) => {
+  if (window.gtag) {
+    window.gtag("event", "experiment_viewed", {
       event_category: "experiment",
       experiment_id: experiment.key,
       variation_id: result.variationId // or result.key depending on SDK version
@@ -69,22 +69,22 @@ Use `dataLayer` in the `trackingCallback` if you are using Google Tag Manager (G
 This approach is recommended when GA4 is loaded via GTM because:
 
 - Sometimes `gtag` may not be defined in this type of setup.
-- If GA4 is not properly loaded on the page, the `window.`gtag`` function will not exist, and attempts to send events to `gtag` via GrowthBook's `trackingCallback` will fail silently.
+- If GA4 is not properly loaded on the page, the `window.gtag` function will not exist, and attempts to send events to `gtag` via GrowthBook's `trackingCallback` will fail silently.
 - When GA4 is loaded through GTM, there can be timing issues because GTM loads asynchronously. This creates a potential race condition where GrowthBook might initialize before GA4 is fully loaded, which can affect experiment tracking.
 
 ```javascript
 // JavaScript
-`trackingCallback`: (experiment, result) => {
-  window.`dataLayer` = window.`dataLayer` || [];
-  window.`dataLayer`.push({
-    event: "`experiment_viewed`",
+trackingCallback: (experiment, result) => {
+  window.dataLayer = window.dataLayer || [];
+  window.dataLayer.push({
+    event: "experiment_viewed",
     experiment_id: experiment.key,
     variation_id: result.variationId // or result.key depending on SDK version
   });
 }
 ```
 
-See the [Tracking via `dataLayer` and GTM](/guide/google-tag-manager-and-growthbook#4-tracking-via-`dataLayer`-and-gtm) documentation for more information.
+See the [Tracking via `dataLayer` and GTM](/guide/google-tag-manager-and-growthbook#4-tracking-via-dataLayer-and-gtm) documentation for more information.
 
 ### Date range mismatches
 If the date ranges selected in GA4 and GrowthBook are not identical, reported metrics and user counts will differ.
@@ -105,7 +105,7 @@ There are a few things that need to be set up properly in GrowthBook in order to
 ### Ensure the GA4 Measurement ID is correct
 The GA4 Measurement ID is a unique identifier for your GA4 property that's used to send data from your website or app to the correct GA4 account. It looks like "G-XXXXXXXXXX" and is required when configuring GA4 tags in Google Tag Manager or when sending events directly to GA4.
 
-You can see how the Measurement ID is used in the [GrowthBook and GTM integration](/guide/google-tag-manager-and-growthbook#4-tracking-via-`dataLayer`-and-gtm) documentation, where it is entered as a configuration value for sending experiment events to GA4.
+You can see how the Measurement ID is used in the [GrowthBook and GTM integration](/guide/google-tag-manager-and-growthbook#4-tracking-via-dataLayer-and-gtm) documentation, where it is entered as a configuration value for sending experiment events to GA4.
 
 ### Ensure the GrowthBook SDK is properly configured
 Make sure you have created an SDK Connection in the GrowthBook app under Left navigation menu > SDK Configuration > SDK Connections, and that you are using the correct `apiHost` and `clientKey` values in your SDK initialization code. View [the example initialization code](/lib/js#step-1-configure-your-app) (JavaScript) for more information.
@@ -130,7 +130,7 @@ For example, in a React or Next.js app, ensure that the GrowthBook SDK has been 
 Of course, make sure that the experiment in question is located on the page that is initializing GrowthBook.
 
 ### Ensure the `trackingCallback` is called unconditionally
-Try not to bury the `trackingCallback` within conditional application logic. Conditionally calling the `trackingCallback` can cause fewer users to be assigned to the experiment than you are expecting. Refer to [this section](/kb/experiments/troubleshooting-experiments#solution-1-ensure-the-`trackingCallback`-is-triggered-unconditionally) in our Knowledge Base for more information.
+Try not to bury the `trackingCallback` within conditional application logic. Conditionally calling the `trackingCallback` can cause fewer users to be assigned to the experiment than you are expecting. Refer to [this section](/kb/experiments/troubleshooting-experiments#solution-1-ensure-the-trackingCallback-is-triggered-unconditionally) in our Knowledge Base for more information.
 
 #### Experiment Rule Precedence
 
@@ -161,10 +161,10 @@ If you **are** using GTM with GA4 and GrowthBook, please review our [Google Tag 
 
 ### Why are there no `experiment_viewed` events showing in GA4?
 
-#### Possible Answer #1: GA4 is not loaded or `window.`gtag`` is unavailable
-If GA4 is not properly loaded on the page the `window.`gtag`` function will not exist, and any attempt to send events to it will silently fail.
+#### Possible Answer #1: GA4 is not loaded or `window.gtag` is unavailable
+If GA4 is not properly loaded on the page the `window.gtag` function will not exist, and any attempt to send events to it will silently fail.
 
-You can check this by opening your browser's developer console and typing `window.`gtag``. If the response is `undefined`, you'll need to make some changes to where or how GA4 is loaded in your application to ensure it's available before GrowthBook tries to send events to it.
+You can check this by opening your browser's developer console and typing `window.gtag`. If the response is `undefined`, you'll need to make some changes to where or how GA4 is loaded in your application to ensure it's available before GrowthBook tries to send events to it.
 
 #### Possible Answer #2: No users are being bucketed into the experiment
 If the GrowthBook SDK is not assigning users to variations (for example, due to missing or incorrect user attributes), the `trackingCallback` will not fire, and no events will be sent.
@@ -177,7 +177,7 @@ If users are not being assigned to the experiment due to targeting rules, missin
 #### Possible Answer #2: Conversion windows and data sync
 GrowthBook may exclude some conversions if they fall outside the metric conversion window, or there may be delays or issues with data synchronization between GA4 and GrowthBook.
 
-If you have checked your implementation and still see fewer events, we recommended logging the execution of the `trackingCallback` and verifying that `window.`gtag`` is indeed available and being called as expected. Also, check for any consent or ad blocker issues that might prevent events from reaching GA4.
+If you have checked your implementation and still see fewer events, we recommended logging the execution of the `trackingCallback` and verifying that `window.gtag` is indeed available and being called as expected. Also, check for any consent or ad blocker issues that might prevent events from reaching GA4.
 
 ## Use GA4's built-in debugging tools
 Check the Real-Time reports in GA4 for event validation.
