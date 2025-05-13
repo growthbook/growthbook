@@ -80,28 +80,9 @@ function ManagedClickhouseForm({ close }: { close: () => void }) {
 }
 
 function ManagedClickhouseDriver() {
-  const permissionsUtil = usePermissionsUtil();
-  const { hasCommercialFeature, license } = useUser();
-
-  const { project } = useDefinitions();
-
+  const { hasCommercialFeature } = useUser();
   const [open, setOpen] = useState(false);
-
   const hasAccess = hasCommercialFeature("managed-clickhouse");
-
-  if (!isCloud()) {
-    return null;
-  }
-
-  if (!permissionsUtil.canViewCreateDataSourceModal(project)) {
-    return null;
-  }
-
-  // Must have an orb subscription (with usage-based billing)
-  // TODO: provide an upgrade path for stripe subscriptions
-  if (hasAccess && !license?.orbSubscription) {
-    return null;
-  }
 
   const cursors: {
     top: number;
@@ -147,6 +128,7 @@ function ManagedClickhouseDriver() {
           maxWidth: 800,
           margin: "auto",
           overflow: "hidden",
+          background: "linear-gradient(var(--violet-2), var(--violet-4))",
         }}
         className="border rounded"
         align="center"
@@ -235,6 +217,14 @@ const DataSourcesPage: FC = () => {
   ] = useState<null | Partial<DataSourceInterfaceWithParams>>(null);
 
   const permissionsUtil = usePermissionsUtil();
+  const { hasCommercialFeature, license } = useUser();
+
+  // Cloud, no data sources yet, has permissions, and is either free OR on a usage-based paid plan
+  const showManagedClickhouse =
+    isCloud() &&
+    filteredDatasources.length === 0 &&
+    permissionsUtil.canViewCreateDataSourceModal(project) &&
+    (!hasCommercialFeature("managed-clickhouse") || !!license?.orbSubscription);
 
   return (
     <div className="container-fluid pagecontents">
@@ -314,12 +304,15 @@ const DataSourcesPage: FC = () => {
               This approach is cheaper, more secure, and more flexible.
             </p>
           </div>
-          <ManagedClickhouseDriver />
+          {showManagedClickhouse ? <ManagedClickhouseDriver /> : null}
 
           <hr className="my-4" />
           <div className="mb-3 d-flex flex-column align-items-center justify-content-center w-100">
             <div className="mb-3">
-              <h3>Or connect to your existing data warehouse:</h3>
+              <h3>
+                {showManagedClickhouse ? "Or connect" : "Connect"} to your
+                existing data warehouse:
+              </h3>
             </div>
 
             <DataSourceTypeSelector
@@ -342,13 +335,15 @@ const DataSourcesPage: FC = () => {
               }}
             />
 
-            <Callout status="info" mt="5">
-              Don&apos;t have a data warehouse yet? We recommend using BigQuery
-              with Google Analytics.{" "}
-              <DocLink docSection="ga4BigQuery">
-                Learn more <FaExternalLinkAlt />
-              </DocLink>
-            </Callout>
+            {!showManagedClickhouse ? (
+              <Callout status="info" mt="5">
+                Don&apos;t have a data warehouse yet? We recommend using
+                BigQuery with Google Analytics.{" "}
+                <DocLink docSection="ga4BigQuery">
+                  Learn more <FaExternalLinkAlt />
+                </DocLink>
+              </Callout>
+            ) : null}
           </div>
           <hr className="my-5" />
           <div className="d-flex align-items-center justify-content-center w-100">
