@@ -139,7 +139,7 @@ const EditVariationsForm: FC<{
           );
         }}
         showPreview={false}
-        disableCoverage
+        hideCoverage
         onlySafeToEditVariationMetadata={onlySafeToEditVariationMetadata}
       />
     </Modal>
