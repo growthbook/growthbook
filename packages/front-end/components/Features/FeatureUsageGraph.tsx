@@ -6,6 +6,7 @@ import { LegendItem, LegendLabel, LegendOrdinal } from "@visx/legend";
 import { AxisBottom, AxisLeft } from "@visx/axis";
 import React, {
   createContext,
+  Fragment,
   ReactNode,
   useContext,
   useEffect,
@@ -278,9 +279,6 @@ export function FeatureUsageContainer({
           showLegend={true}
           showAxes={true}
           formatLabel={(value) => {
-            if (valueType === "boolean") {
-              return value === "true" ? "true" : "false";
-            }
             if (valueType === "string") {
               return `"${value}"`;
             }
@@ -579,31 +577,33 @@ export default function FeatureUsageGraph({
                         {datetime(new Date(tooltipData.bar.data.t))}
                       </Box>
                       <Grid columns={"1fr 50px"} gap="3">
-                        {Object.entries(tooltipData.bar.data.v).map(
-                          ([key, value]) => (
-                            <>
-                              <Flex gap="1">
-                                <div
-                                  style={{
-                                    width: 15,
-                                    height: 15,
-                                    background: colorScale(key),
-                                  }}
-                                ></div>
+                        {activeKeys.map((key) => (
+                          <Fragment key={key}>
+                            <Flex gap="1">
+                              <div
+                                style={{
+                                  width: 15,
+                                  height: 15,
+                                  background: colorScale(key),
+                                }}
+                              ></div>
 
-                                <OverflowText
-                                  maxWidth={150}
-                                  title={formatLabel ? formatLabel(key) : key}
-                                >
-                                  {formatLabel ? formatLabel(key) : key}
-                                </OverflowText>
-                              </Flex>
-                              <div>
-                                <strong>{formatter.format(value)}</strong>
-                              </div>
-                            </>
-                          )
-                        )}
+                              <OverflowText
+                                maxWidth={150}
+                                title={formatLabel ? formatLabel(key) : key}
+                              >
+                                {formatLabel ? formatLabel(key) : key}
+                              </OverflowText>
+                            </Flex>
+                            <div>
+                              <strong>
+                                {formatter.format(
+                                  tooltipData.bar?.data?.v?.[key] || 0
+                                )}
+                              </strong>
+                            </div>
+                          </Fragment>
+                        ))}
                       </Grid>
                     </Flex>
                   </TooltipWithBounds>
