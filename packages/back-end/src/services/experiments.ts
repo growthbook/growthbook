@@ -3092,6 +3092,7 @@ export async function computeResultsStatus({
     "guardrailMetrics" in experiment
       ? expandMetricGroups(experiment.guardrailMetrics, metricGroups)
       : expandMetricGroups(experiment.guardrailMetricIds, metricGroups);
+  const numGuardrailMetrics = expandedGuardrailMetrics.length;
 
   const results = cloneDeep(analysis.results);
 
@@ -3123,17 +3124,17 @@ export async function computeResultsStatus({
         const baselineMetric = baselineVariation.metrics?.[m];
         const currentMetric = currentVariation.metrics?.[m];
         if (!currentMetric || !baselineMetric) continue;
-
         const metric = metricMap.get(m);
         if (!metric) continue;
-
         const resultsStatus = getMetricResultStatus({
           metric,
           metricDefaults,
           baseline: baselineMetric,
           stats: currentMetric,
           ciLower,
-          ciUpper,
+          ciUpper: guardrailMetric
+            ? 0.95 ** (1 / numGuardrailMetrics)
+            : ciUpper,
           pValueThreshold,
           statsEngine: statsEngine,
         });
@@ -3164,9 +3165,16 @@ export async function computeResultsStatus({
           if (!variationStatus.guardrailMetrics) {
             variationStatus.guardrailMetrics = {};
           }
-          variationStatus.guardrailMetrics[metric.id] = {
-            status: resultsStatus.resultsStatus === "lost" ? "lost" : "neutral",
-          };
+          if (resultsStatus.guardrailSafeStatus) {
+            variationStatus.guardrailMetrics[metric.id] = {
+              status: "safe",
+            };
+          } else {
+            variationStatus.guardrailMetrics[metric.id] = {
+              status:
+                resultsStatus.resultsStatus === "lost" ? "lost" : "neutral",
+            };
+          }
         }
       }
     }

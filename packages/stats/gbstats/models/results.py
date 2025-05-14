@@ -69,11 +69,11 @@ class BaseVariationResponse(BaselineResponse):
     ci: ResponseCI
     errorMessage: Optional[str]
     power: Optional[PowerResponse]
+    chanceToWin: float
 
 
 @dataclass
 class BayesianVariationResponse(BaseVariationResponse):
-    chanceToWin: float
     risk: Tuple[float, float]
     riskType: RiskType
 

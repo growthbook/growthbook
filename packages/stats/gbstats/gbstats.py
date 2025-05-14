@@ -374,25 +374,25 @@ def analyze_metric_df(
                     test.stat_a, test.stat_b, res, config, power_config
                 )
 
-                s[f"v{i}_first_period_pairwise_users"] = (
-                    mid_experiment_power.pairwise_sample_size
-                )
+                s[
+                    f"v{i}_first_period_pairwise_users"
+                ] = mid_experiment_power.pairwise_sample_size
                 s[f"v{i}_target_mde"] = metric.target_mde
                 s[f"v{i}_sigmahat_2_delta"] = mid_experiment_power.sigmahat_2_delta
                 if mid_experiment_power.prior_effect:
                     s[f"v{i}_prior_proper"] = mid_experiment_power.prior_effect.proper
                     s[f"v{i}_prior_lift_mean"] = mid_experiment_power.prior_effect.mean
-                    s[f"v{i}_prior_lift_variance"] = (
-                        mid_experiment_power.prior_effect.variance
-                    )
+                    s[
+                        f"v{i}_prior_lift_variance"
+                    ] = mid_experiment_power.prior_effect.variance
                 mid_experiment_power_result = (
                     mid_experiment_power.calculate_sample_size()
                 )
                 s[f"v{i}_power_status"] = mid_experiment_power_result.update_message
                 s[f"v{i}_power_error_message"] = mid_experiment_power_result.error
-                s[f"v{i}_power_upper_bound_achieved"] = (
-                    mid_experiment_power_result.upper_bound_achieved
-                )
+                s[
+                    f"v{i}_power_upper_bound_achieved"
+                ] = mid_experiment_power_result.upper_bound_achieved
                 s[f"v{i}_scaling_factor"] = mid_experiment_power_result.scaling_factor
 
             s["baseline_cr"] = test.stat_a.unadjusted_mean
@@ -402,12 +402,11 @@ def analyze_metric_df(
             s[f"v{i}_cr"] = test.stat_b.unadjusted_mean
             s[f"v{i}_mean"] = test.stat_b.unadjusted_mean
             s[f"v{i}_stddev"] = test.stat_b.stddev
-
+            s[f"v{i}_prob_beat_baseline"] = res.chance_to_win
             # Unpack result in Pandas row
             if isinstance(res, BayesianTestResult):
                 s.at[f"v{i}_risk"] = res.risk
                 s[f"v{i}_risk_type"] = res.risk_type
-                s[f"v{i}_prob_beat_baseline"] = res.chance_to_win
             elif isinstance(res, FrequentistTestResult):
                 if res.p_value is not None:
                     s[f"v{i}_p_value"] = res.p_value
@@ -524,6 +523,7 @@ def format_variation_result(
                 **metricResult,
                 **testResult,
                 power=power_response,
+                chanceToWin=row[f"{prefix}_prob_beat_baseline"],
                 pValue=row[f"{prefix}_p_value"],
                 pValueErrorMessage=row[f"{prefix}_p_value_error_message"],
             )

@@ -766,6 +766,7 @@ export function getMetricResultStatus({
       clearSignalResultsStatus = "lost";
     }
   }
+  const guardrailSafeStatus = (stats.chanceToWin ?? -1.0) > ciUpper;
   return {
     shouldHighlight: _shouldHighlight,
     belowMinChange,
@@ -774,6 +775,7 @@ export function getMetricResultStatus({
     directionalStatus,
     resultsStatus,
     clearSignalResultsStatus,
+    guardrailSafeStatus,
   };
 }
 
