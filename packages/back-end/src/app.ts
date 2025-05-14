@@ -740,8 +740,8 @@ app.post(
 
 if (IS_CLOUD) {
   app.post(
-    "/datasource/create-inbuilt",
-    datasourcesController.postInbuiltDataSource
+    "/datasources/managed-clickhouse",
+    datasourcesController.postManagedClickHouse
   );
 }
 
