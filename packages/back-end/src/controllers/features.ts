@@ -2597,23 +2597,6 @@ export async function getFeatureById(
   });
 }
 
-function getLookbackNumBuckets(
-  lookback: FeatureUsageLookback
-): { width: number; buckets: number } {
-  switch (lookback) {
-    case "15minute":
-      return { width: 60 * 1000, buckets: 15 };
-    case "hour":
-      return { width: 5 * 60 * 1000, buckets: 12 };
-    case "day":
-      return { width: 60 * 60 * 1000, buckets: 24 };
-    case "week":
-      return { width: 6 * 60 * 60 * 1000, buckets: 28 };
-    default:
-      throw new Error(`Invalid lookback: ${lookback}`);
-  }
-}
-
 export async function getFeatureUsage(
   req: AuthRequest<null, { id: string }, { lookback?: FeatureUsageLookback }>,
   res: Response<{ status: 200; usage: FeatureUsageData }>
@@ -2645,25 +2628,53 @@ export async function getFeatureUsage(
 
   const lookback = req.query.lookback || "15minute";
 
-  const { buckets, width } = getLookbackNumBuckets(lookback);
-
   const { start, rows } = await integration.getFeatureUsage(
     feature.id,
     lookback
   );
 
-  const getTSIndex = (timestamp: Date) => {
-    const ts = timestamp.getTime();
-    const diff = ts - start;
-    const bucket = Math.floor(diff / width);
+  function createTimeseries() {
+    const datapoints: FeatureUsageDataPoint[] = [];
+    for (let i = 0; i < 50; i++) {
+      const ts = new Date(start);
+      if (lookback === "15minute") {
+        ts.setMinutes(ts.getMinutes() + i);
+      } else if (lookback === "hour") {
+        ts.setMinutes(ts.getMinutes() + 5 * i);
+      } else if (lookback === "day") {
+        ts.setHours(ts.getHours() + i);
+      } else {
+        ts.setHours(ts.getHours() + 6 * i);
+      }
 
-    return Math.min(buckets - 1, Math.max(bucket, 0));
+      if (ts > new Date()) {
+        break;
+      }
+
+      datapoints.push({
+        t: ts.getTime(),
+        v: {},
+      });
+    }
+    return datapoints;
+  }
+
+  const getTSIndex = (timestamp: Date, data: FeatureUsageDataPoint[]) => {
+    const t = timestamp.getTime();
+
+    for (let i = 0; i < data.length; i++) {
+      if (data[i].t > t) {
+        return i - 1;
+      }
+    }
+    // If we get here, the timestamp is in the future
+    return data.length - 1;
   };
 
   const usage: FeatureUsageData = {
-    byRuleId: [],
-    bySource: [],
-    byValue: [],
+    byRuleId: createTimeseries(),
+    bySource: createTimeseries(),
+    byValue: createTimeseries(),
     total: 0,
   };
 
@@ -2675,13 +2686,8 @@ export async function getFeatureUsage(
     ts: Date,
     evaluations: number
   ) {
-    const idx = getTSIndex(ts);
-    if (!data[idx]) {
-      data[idx] = {
-        t: ts.getTime(),
-        v: {},
-      };
-    }
+    const idx = getTSIndex(ts, data);
+    if (!data[idx]) return;
     data[idx].v[key] = (data[idx].v[key] || 0) + evaluations;
   }
 
@@ -2691,13 +2697,8 @@ export async function getFeatureUsage(
 
     // Overall
     usage.total += d.evaluations;
-
-    // Sources
     updateRecord(usage.bySource, d.source, d.timestamp, d.evaluations);
-
-    // Values
     updateRecord(usage.byValue, d.value, d.timestamp, d.evaluations);
-
     if (d.ruleId) {
       updateRecord(usage.byRuleId, d.ruleId, d.timestamp, d.evaluations);
     }

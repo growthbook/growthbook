@@ -15,6 +15,7 @@ import {
   FeatureInterface,
   FeatureUsageData,
   FeatureUsageDataPoint,
+  FeatureValueType,
 } from "back-end/types/feature";
 import { FeatureUsageLookback } from "back-end/src/types/Integration";
 import { useRouter } from "next/router";
@@ -24,6 +25,7 @@ import { defaultStyles, TooltipWithBounds, useTooltip } from "@visx/tooltip";
 import { localPoint } from "@visx/event";
 import { SeriesPoint } from "@visx/shape/lib/types";
 import { datetime } from "shared/dates";
+import stringify from "json-stringify-pretty-compact";
 import useApi from "@/hooks/useApi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { growthbook } from "@/services/utils";
@@ -143,8 +145,10 @@ const categoricalColors = [
   "var(--pink-8)",
   "var(--orange-11)",
 ];
-const booleanColors = ["var(--slate-8)", "var(--teal-11)", "var(--slate-11)"];
-const singleColor = ["var(--violet-9)"];
+const booleanColors = {
+  false: "var(--slate-8)",
+  true: "var(--teal-11)",
+};
 
 export function FeatureUsageProvider({
   feature,
@@ -236,9 +240,11 @@ export function useFeatureUsage() {
 }
 
 export function FeatureUsageContainer({
+  valueType,
   revision,
   environments,
 }: {
+  valueType: FeatureValueType;
   revision?: FeatureRevisionInterface;
   environments?: string[];
 }) {
@@ -271,6 +277,28 @@ export function FeatureUsageContainer({
           height={150}
           showLegend={true}
           showAxes={true}
+          formatLabel={(value) => {
+            if (valueType === "boolean") {
+              return value === "true" ? "true" : "false";
+            }
+            if (valueType === "string") {
+              return `"${value}"`;
+            }
+            if (valueType === "json") {
+              try {
+                return stringify(JSON.parse(value));
+              } catch (e) {
+                // Do nothing
+              }
+            }
+
+            return value;
+          }}
+          filterKeys={(key) => {
+            if (valueType === "boolean" && !["false", "true"].includes(key))
+              return false;
+            return true;
+          }}
         />
       </TabsContent>
       <TabsContent value="source">
@@ -329,7 +357,20 @@ export default function FeatureUsageGraph({
   formatLabel?: (label: string) => string;
   filterKeys?: (key: string) => boolean;
 }) {
-  //if (singleKey) return null;
+  data = data?.filter(Boolean);
+
+  const [disabledKeys, setDisabledKeys] = useState<Set<string>>(new Set());
+
+  const {
+    tooltipOpen,
+    tooltipLeft,
+    tooltipTop,
+    tooltipData,
+    hideTooltip,
+    showTooltip,
+  } = useTooltip<TooltipData>();
+
+  if (!data) return null;
 
   const margin = showAxes ? [10, 10, 28, 35] : [0, 0, 0, 0];
 
@@ -346,10 +387,17 @@ export default function FeatureUsageGraph({
     keys = keys.filter(filterKeys);
   }
 
+  let colors = categoricalColors;
+  if (keys.every((k) => ["true", "false"].includes(k))) {
+    colors = keys.map((k) => booleanColors[k]);
+  }
+
+  const activeKeys = keys.filter((key) => !disabledKeys.has(key));
+
   const maxValue =
     data?.reduce((max, p) => {
       let total = 0;
-      keys.forEach((key) => {
+      activeKeys.forEach((key) => {
         total += p.v[key] || 0;
       });
       return Math.max(max, total);
@@ -358,8 +406,12 @@ export default function FeatureUsageGraph({
   const yDomain = maxValue ? [0, maxValue] : [];
   const xDomain = data?.map((d) => d.t) || [];
 
-  const msRange = Math.max(...xDomain) - Math.min(...xDomain);
+  const colorScale = scaleOrdinal({
+    domain: keys,
+    range: colors,
+  });
 
+  const msRange = Math.max(...xDomain) - Math.min(...xDomain);
   function formatDate(d: number) {
     const date = new Date(d);
     if (msRange < 1000 * 60 * 60 * 24) {
@@ -380,240 +432,246 @@ export default function FeatureUsageGraph({
     }
   }
 
-  let colorScale = scaleOrdinal({
-    domain: keys,
-    range: categoricalColors,
-  });
-
-  if (keys.every((k) => ["true", "false"].includes(k))) {
-    keys = ["false", "true"];
-    colorScale = scaleOrdinal({
-      domain: keys,
-      range: booleanColors,
-    });
-  } else if (keys.length === 1) {
-    colorScale = scaleOrdinal({
-      domain: keys,
-      range: singleColor,
-    });
-  }
-
-  const {
-    tooltipOpen,
-    tooltipLeft,
-    tooltipTop,
-    tooltipData,
-    hideTooltip,
-    showTooltip,
-  } = useTooltip<TooltipData>();
-
   let tooltipTimeout: number;
 
   return (
     <div style={{ marginBottom: -10, position: "relative" }}>
-      {data && maxValue > 0 && (
-        <div style={{ width: width }}>
-          <ParentSizeModern style={{ position: "relative" }}>
-            {({ width }) => {
-              const yMax = height - margin[0] - margin[2];
-              const xMax = width - margin[1] - margin[3];
-              const graphHeight = yMax;
+      <div style={{ width: width }}>
+        <ParentSizeModern style={{ position: "relative" }}>
+          {({ width }) => {
+            const yMax = height - margin[0] - margin[2];
+            const xMax = width - margin[1] - margin[3];
+            const graphHeight = yMax;
 
-              const xScale = scaleBand({
-                domain: xDomain,
-                range: [0, xMax],
-                round: true,
-                padding: 0.1,
-              });
-              const yScale = scaleLinear<number>({
-                domain: yDomain,
-                range: [graphHeight, 0],
-                round: true,
-              });
+            const xScale = scaleBand({
+              domain: xDomain,
+              range: [0, xMax],
+              round: true,
+              padding: 0.1,
+            });
+            const yScale = scaleLinear<number>({
+              domain: yDomain,
+              range: [graphHeight, 0],
+              round: true,
+            });
 
-              return (
-                <div
-                  className="border rounded mt-2"
-                  style={{ width, height, position: "relative" }}
-                >
-                  <svg width={width} height={height}>
-                    <Group left={margin[3]} top={margin[0]}>
-                      <BarStack
-                        data={data}
-                        keys={keys}
-                        x={(d) => d.t}
-                        value={(d, key) => d.v[key] || 0}
-                        xScale={xScale}
-                        yScale={yScale}
-                        color={colorScale}
-                      >
-                        {(barStacks) =>
-                          barStacks.map((barStack) =>
-                            barStack.bars.map((bar) => (
-                              <rect
-                                key={`bar-stack-${barStack.index}-${bar.index}`}
-                                x={bar.x}
-                                y={bar.y}
-                                height={bar.height}
-                                width={bar.width}
-                                fill={bar.color}
-                                data-test={bar.key}
-                                onMouseLeave={() => {
-                                  tooltipTimeout = window.setTimeout(() => {
-                                    hideTooltip();
-                                  }, 800);
-                                }}
-                                onMouseMove={(event) => {
-                                  if (tooltipTimeout)
-                                    clearTimeout(tooltipTimeout);
-                                  const eventSvgCoords = localPoint(event);
-                                  const left = bar.x + bar.width / 2;
-                                  showTooltip({
-                                    tooltipData: bar,
-                                    tooltipTop: eventSvgCoords?.y,
-                                    tooltipLeft: left,
-                                  });
-                                }}
-                              />
-                            ))
-                          )
-                        }
-                      </BarStack>
-                    </Group>
-                    {showAxes && (
-                      <>
-                        <AxisLeft
-                          top={margin[0]}
-                          left={margin[3] + 5}
-                          scale={yScale}
-                          tickFormat={(v) => formatter.format(v as number)}
-                          stroke={"var(--violet-a4)"}
-                          numTicks={4}
-                          tickStroke={"var(--violet-a4)"}
-                          tickLabelProps={() => {
-                            return {
-                              fill: "var(--violet-11)",
-                              fontSize: 11,
-                              textAnchor: "end",
-                            };
-                          }}
-                        />
-                        <AxisBottom
-                          top={yMax + margin[0]}
-                          left={margin[3]}
-                          scale={xScale}
-                          tickFormat={formatDate}
-                          stroke={"var(--violet-a4)"}
-                          numTicks={4}
-                          tickStroke={"var(--violet-a4)"}
-                          tickLabelProps={() => {
-                            return {
-                              fill: "var(--violet-11)",
-                              fontSize: 11,
-                              textAnchor: "middle",
-                            };
-                          }}
-                        />
-                      </>
-                    )}
-                  </svg>
-                  {tooltipOpen && tooltipData && (
-                    <TooltipWithBounds
-                      top={tooltipTop}
-                      left={tooltipLeft}
+            return (
+              <div
+                className="border rounded mt-2"
+                style={{ width, height, position: "relative" }}
+              >
+                <svg width={width} height={height}>
+                  {!maxValue && (
+                    <text
+                      x={width / 2}
+                      y={height / 2}
+                      textAnchor="middle"
                       style={{
-                        ...defaultStyles,
-                        backgroundColor: "var(--slate-1)",
-                        color: "var(--slate-12)",
-                        borderRadius: 4,
-                        padding: "10px",
-                        zIndex: 1000,
+                        fontSize: 16,
+                        fill: "var(--slate-11)",
+                        opacity: 0.5,
                       }}
                     >
-                      <Flex gap="2" direction="column">
-                        <Flex gap="2" align="center">
+                      No data available
+                    </text>
+                  )}
+
+                  <Group left={margin[3]} top={margin[0]}>
+                    <BarStack
+                      data={data}
+                      keys={activeKeys}
+                      x={(d) => d.t}
+                      value={(d, key) => d.v[key] || 0}
+                      xScale={xScale}
+                      yScale={yScale}
+                      color={colorScale}
+                    >
+                      {(barStacks) =>
+                        barStacks.map((barStack) =>
+                          barStack.bars.map((bar) => (
+                            <rect
+                              key={`bar-stack-${barStack.index}-${bar.index}`}
+                              x={bar.x}
+                              y={bar.y}
+                              height={bar.height}
+                              width={bar.width}
+                              fill={bar.color}
+                              data-test={bar.key}
+                              onMouseLeave={() => {
+                                tooltipTimeout = window.setTimeout(() => {
+                                  hideTooltip();
+                                }, 800);
+                              }}
+                              onMouseMove={(event) => {
+                                if (tooltipTimeout)
+                                  clearTimeout(tooltipTimeout);
+                                const eventSvgCoords = localPoint(event);
+                                const left = bar.x + bar.width / 2;
+                                showTooltip({
+                                  tooltipData: bar,
+                                  tooltipTop: eventSvgCoords?.y,
+                                  tooltipLeft: left,
+                                });
+                              }}
+                            />
+                          ))
+                        )
+                      }
+                    </BarStack>
+                  </Group>
+                  {showAxes && (
+                    <>
+                      <AxisLeft
+                        top={margin[0]}
+                        left={margin[3] + 5}
+                        scale={yScale}
+                        tickFormat={(v) => formatter.format(v as number)}
+                        stroke={"var(--violet-a4)"}
+                        numTicks={4}
+                        tickStroke={"var(--violet-a4)"}
+                        tickLabelProps={() => {
+                          return {
+                            fill: "var(--violet-11)",
+                            fontSize: 11,
+                            textAnchor: "end",
+                          };
+                        }}
+                      />
+                      <AxisBottom
+                        top={yMax + margin[0]}
+                        left={margin[3]}
+                        scale={xScale}
+                        tickFormat={formatDate}
+                        stroke={"var(--violet-a4)"}
+                        numTicks={4}
+                        tickStroke={"var(--violet-a4)"}
+                        tickLabelProps={() => {
+                          return {
+                            fill: "var(--violet-11)",
+                            fontSize: 11,
+                            textAnchor: "middle",
+                          };
+                        }}
+                      />
+                    </>
+                  )}
+                </svg>
+                {tooltipOpen && tooltipData && (
+                  <TooltipWithBounds
+                    top={tooltipTop}
+                    left={tooltipLeft}
+                    style={{
+                      ...defaultStyles,
+                      backgroundColor: "var(--slate-1)",
+                      color: "var(--slate-12)",
+                      borderRadius: 4,
+                      padding: "10px",
+                      zIndex: 1000,
+                    }}
+                  >
+                    <Flex gap="2" direction="column">
+                      <Flex gap="2" align="center">
+                        <div
+                          style={{
+                            width: 15,
+                            height: 15,
+                            background: colorScale(tooltipData.key),
+                          }}
+                        ></div>
+
+                        <OverflowText
+                          maxWidth={150}
+                          title={
+                            formatLabel
+                              ? formatLabel(tooltipData.key)
+                              : tooltipData.key
+                          }
+                        >
+                          {formatLabel
+                            ? formatLabel(tooltipData.key)
+                            : tooltipData.key}
+                        </OverflowText>
+                      </Flex>
+                      <div>
+                        <strong>
+                          {formatter.format(
+                            tooltipData.bar.data.v[tooltipData.key]
+                          )}
+                        </strong>{" "}
+                        feature evals
+                      </div>
+                      <div className="text-muted">
+                        {datetime(new Date(tooltipData.bar.data.t))}
+                      </div>
+                    </Flex>
+                  </TooltipWithBounds>
+                )}
+              </div>
+            );
+          }}
+        </ParentSizeModern>
+        {showLegend && (
+          <div className="mt-2">
+            <LegendOrdinal
+              scale={colorScale}
+              labelFormat={(label) => `${label}`}
+            >
+              {(labels) => (
+                <Flex gap="3" wrap={"wrap"}>
+                  {labels.map((label, i) => (
+                    <LegendItem key={`legend-${i}`} margin="0 5px">
+                      <LegendLabel align="left" margin="0 0 0 4px">
+                        <Flex
+                          gap="1"
+                          align="center"
+                          onClick={() => {
+                            const newDisabledKeys = new Set(disabledKeys);
+                            if (newDisabledKeys.has(label.text)) {
+                              newDisabledKeys.delete(label.text);
+                            } else {
+                              newDisabledKeys.add(label.text);
+                            }
+
+                            if (newDisabledKeys.size === keys.length) {
+                              return;
+                            }
+
+                            setDisabledKeys(newDisabledKeys);
+                          }}
+                          style={{ cursor: "pointer" }}
+                        >
                           <div
                             style={{
+                              background: label.value,
                               width: 15,
                               height: 15,
-                              background: colorScale(tooltipData.key),
+                              marginRight: 5,
+                              opacity: disabledKeys.has(label.text) ? 0.4 : 1,
                             }}
                           ></div>
-
                           <OverflowText
                             maxWidth={150}
+                            className={
+                              disabledKeys.has(label.text) ? "text-muted" : ""
+                            }
                             title={
-                              formatLabel
-                                ? formatLabel(tooltipData.key)
-                                : tooltipData.key
+                              formatLabel ? formatLabel(label.text) : label.text
                             }
                           >
                             {formatLabel
-                              ? formatLabel(tooltipData.key)
-                              : tooltipData.key}
+                              ? formatLabel(label.text)
+                              : label.text || '""'}
                           </OverflowText>
                         </Flex>
-                        <div>
-                          <strong>
-                            {formatter.format(
-                              tooltipData.bar.data.v[tooltipData.key]
-                            )}
-                          </strong>{" "}
-                          feature evals
-                        </div>
-                        <div className="text-muted">
-                          {datetime(new Date(tooltipData.bar.data.t))}
-                        </div>
-                      </Flex>
-                    </TooltipWithBounds>
-                  )}
-                </div>
-              );
-            }}
-          </ParentSizeModern>
-          {showLegend && (
-            <div className="mt-2">
-              <LegendOrdinal
-                scale={colorScale}
-                labelFormat={(label) => `${label}`}
-              >
-                {(labels) => (
-                  <Flex gap="3" wrap={"wrap"}>
-                    {labels.map((label, i) => (
-                      <LegendItem key={`legend-${i}`} margin="0 5px">
-                        <LegendLabel align="left" margin="0 0 0 4px">
-                          <Flex gap="1" align="center">
-                            <div
-                              style={{
-                                background: label.value,
-                                width: 15,
-                                height: 15,
-                                marginRight: 5,
-                              }}
-                            ></div>
-                            <OverflowText
-                              maxWidth={150}
-                              title={
-                                formatLabel
-                                  ? formatLabel(label.text)
-                                  : label.text
-                              }
-                            >
-                              {formatLabel
-                                ? formatLabel(label.text)
-                                : label.text}
-                            </OverflowText>
-                          </Flex>
-                        </LegendLabel>
-                      </LegendItem>
-                    ))}
-                  </Flex>
-                )}
-              </LegendOrdinal>
-            </div>
-          )}
-        </div>
-      )}
+                      </LegendLabel>
+                    </LegendItem>
+                  ))}
+                </Flex>
+              )}
+            </LegendOrdinal>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

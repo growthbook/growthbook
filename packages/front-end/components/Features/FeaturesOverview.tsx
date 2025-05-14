@@ -623,6 +623,7 @@ export default function FeaturesOverview({
                 <FeatureUsageContainer
                   revision={revision}
                   environments={envs}
+                  valueType={feature.valueType}
                 />
               )}
             </div>
