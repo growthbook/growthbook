@@ -602,7 +602,11 @@ export default function RuleModal({
         safeRolloutFields.autoRollback = isSafeRolloutAutoRollbackEnabled
           ? safeRolloutFields.autoRollback
           : false;
-        safeRolloutFields.rampUpSchedule.enabled = isSafeRolloutRampUpEnabled;
+        safeRolloutFields["rampUpSchedule"] =
+          safeRolloutFields["rampUpSchedule"] || {};
+        safeRolloutFields["rampUpSchedule"][
+          "enabled"
+        ] = isSafeRolloutRampUpEnabled;
         // eslint-disable-next-line
         delete (values as any).safeRolloutFields;
         // eslint-disable-next-line
