@@ -1,4 +1,5 @@
 import { useForm } from "react-hook-form";
+import { UpdateWebhookSecretProps } from "back-end/src/validators/webhook-secrets";
 import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
@@ -35,13 +36,18 @@ export default function WebhookSecretModal({
       header={existingId ? "Edit Secret" : "Add Secret"}
       submit={form.handleSubmit(async (data) => {
         if (existingId) {
+          const body: UpdateWebhookSecretProps = {
+            description: data.description,
+          };
+          // Don't update the value if it's empty
+          if (data.value) {
+            body.value = data.value;
+          }
+
           await apiCall(`/webhook-secrets/${existingId}`, {
             method: "PUT",
             // Cannot change the key
-            body: JSON.stringify({
-              description: data.description,
-              value: data.value,
-            }),
+            body: JSON.stringify(body),
           });
         } else {
           await apiCall("/webhook-secrets", {
