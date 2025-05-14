@@ -19,7 +19,7 @@ import {
 } from "back-end/types/feature";
 import { FeatureUsageLookback } from "back-end/src/types/Integration";
 import { useRouter } from "next/router";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex, Grid } from "@radix-ui/themes";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { defaultStyles, TooltipWithBounds, useTooltip } from "@visx/tooltip";
 import { localPoint } from "@visx/event";
@@ -569,40 +569,42 @@ export default function FeatureUsageGraph({
                       zIndex: 1000,
                     }}
                   >
-                    <Flex gap="2" direction="column">
-                      <Flex gap="2" align="center">
-                        <div
-                          style={{
-                            width: 15,
-                            height: 15,
-                            background: colorScale(tooltipData.key),
-                          }}
-                        ></div>
-
-                        <OverflowText
-                          maxWidth={150}
-                          title={
-                            formatLabel
-                              ? formatLabel(tooltipData.key)
-                              : tooltipData.key
-                          }
-                        >
-                          {formatLabel
-                            ? formatLabel(tooltipData.key)
-                            : tooltipData.key}
-                        </OverflowText>
-                      </Flex>
-                      <div>
-                        <strong>
-                          {formatter.format(
-                            tooltipData.bar.data.v[tooltipData.key]
-                          )}
-                        </strong>{" "}
-                        feature evals
-                      </div>
-                      <div className="text-muted">
+                    <Flex direction="column">
+                      <Box
+                        className="text-muted"
+                        style={{ borderBottom: "1px solid var(--slate-6)" }}
+                        pb="3"
+                        mb="3"
+                      >
                         {datetime(new Date(tooltipData.bar.data.t))}
-                      </div>
+                      </Box>
+                      <Grid columns={"1fr 50px"} gap="3">
+                        {Object.entries(tooltipData.bar.data.v).map(
+                          ([key, value]) => (
+                            <>
+                              <Flex gap="1">
+                                <div
+                                  style={{
+                                    width: 15,
+                                    height: 15,
+                                    background: colorScale(key),
+                                  }}
+                                ></div>
+
+                                <OverflowText
+                                  maxWidth={150}
+                                  title={formatLabel ? formatLabel(key) : key}
+                                >
+                                  {formatLabel ? formatLabel(key) : key}
+                                </OverflowText>
+                              </Flex>
+                              <div>
+                                <strong>{formatter.format(value)}</strong>
+                              </div>
+                            </>
+                          )
+                        )}
+                      </Grid>
                     </Flex>
                   </TooltipWithBounds>
                 )}
