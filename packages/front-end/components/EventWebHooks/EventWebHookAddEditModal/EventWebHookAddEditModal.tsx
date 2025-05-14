@@ -237,7 +237,8 @@ const EventWebHookAddEditSettings = ({
           helpText={
             isDetailedWebhook && (
               <>
-                Must accept <code>{form.watch("method")}</code> requests
+                Must accept <code>{form.watch("method")}</code> requests.
+                Supports <strong>Webhook Secrets</strong>.
               </>
             )
           }
@@ -270,7 +271,10 @@ const EventWebHookAddEditSettings = ({
                 {!validHeaders ? (
                   <div className="alert alert-danger mr-auto">Invalid JSON</div>
                 ) : (
-                  <div>JSON format for headers.</div>
+                  <div>
+                    JSON format for headers. Supports{" "}
+                    <strong>Webhook Secrets</strong>.
+                  </div>
                 )}
               </>
             }

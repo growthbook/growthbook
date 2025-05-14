@@ -2,6 +2,7 @@ import { useForm } from "react-hook-form";
 import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
+import { useAuth } from "@/services/auth";
 
 export default function WebhookSecretModal({
   existingId,
@@ -11,6 +12,8 @@ export default function WebhookSecretModal({
   close: () => void;
 }) {
   const { webhookSecrets, mutateDefinitions } = useDefinitions();
+
+  const { apiCall } = useAuth();
 
   const existing = existingId
     ? webhookSecrets.find((secret) => secret.id === existingId)
@@ -32,7 +35,7 @@ export default function WebhookSecretModal({
       header={existingId ? "Edit Secret" : "Add Secret"}
       submit={form.handleSubmit(async (data) => {
         if (existingId) {
-          await fetch(`/webhook-secrets/${existingId}`, {
+          await apiCall(`/webhook-secrets/${existingId}`, {
             method: "PUT",
             // Cannot change the key
             body: JSON.stringify({
@@ -41,7 +44,7 @@ export default function WebhookSecretModal({
             }),
           });
         } else {
-          await fetch("/webhook-secrets", {
+          await apiCall("/webhook-secrets", {
             method: "POST",
             body: JSON.stringify(data),
           });
@@ -50,6 +53,7 @@ export default function WebhookSecretModal({
       })}
     >
       <Field
+        autoComplete="off"
         {...form.register("key")}
         label="Key"
         required
@@ -57,8 +61,8 @@ export default function WebhookSecretModal({
         helpText="This is what you reference within your webhook endpoint or headers"
       />
       <Field
+        autoComplete="off"
         {...form.register("value")}
-        type="password"
         label="Value"
         required={!existingId}
         placeholder={existingId ? "(keep existing)" : ""}

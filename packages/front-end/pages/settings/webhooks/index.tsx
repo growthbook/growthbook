@@ -40,7 +40,7 @@ const WebhooksPage: FC = () => {
       <div className="pagecontents">
         <EventWebHookListContainer />
 
-        <div className="mt-3">
+        <div className="mt-5">
           <h2>Webhook Secrets</h2>
           <p>
             Define secret variables that can be used within your webhook

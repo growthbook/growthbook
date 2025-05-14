@@ -308,7 +308,7 @@ export function CreateSDKWebhookModal({
                 ) : (
                   ""
                 )}
-                .
+                . Supports <strong>Webhook Secrets</strong>.
               </>
             }
             key="http_endpoint_url"
@@ -356,7 +356,10 @@ export function CreateSDKWebhookModal({
                 {!validHeaders ? (
                   <div className="alert alert-danger mr-auto">Invalid JSON</div>
                 ) : (
-                  <div>JSON format for headers.</div>
+                  <div>
+                    JSON format for headers. Supports{" "}
+                    <strong>Webhook Secrets</strong>.
+                  </div>
                 )}
               </>
             }
