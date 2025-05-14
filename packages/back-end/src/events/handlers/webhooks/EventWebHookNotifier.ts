@@ -20,6 +20,7 @@ import {
 import { getLegacyMessageForNotificationEvent } from "back-end/src/events/handlers/legacy";
 import { LegacyNotificationEvent } from "back-end/src/events/notification-events";
 import { NotificationEventName } from "back-end/types/event";
+import { getDatadogEventForNotificationEvent } from "back-end/src/events/handlers/datadogEvents";
 import {
   EventWebHookErrorResult,
   EventWebHookResult,
@@ -149,6 +150,13 @@ export class EventWebHookNotifier implements Notifier {
 
           return { content: data.text };
         }
+
+        case "datadogEvent":
+          if (!event.version) {
+            throw new Error("Invalid DataDog Event webhook configuration");
+          }
+
+          return getDatadogEventForNotificationEvent(event.data, eventId);
 
         default:
           invalidPayloadType = payloadType;
