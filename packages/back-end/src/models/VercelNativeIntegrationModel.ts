@@ -90,7 +90,9 @@ export const findVercelInstallationByOrganization = async (
 ): Promise<VercelNativeIntegration> => {
   const model = await mongoose.connection.db
     .collection(COLLECTION_NAME)
-    .findOne({ organization });
+    .findOne({
+      resources: { $elemMatch: { organizationId: organization } },
+    });
 
   if (!model) throw "Installation not found!";
 

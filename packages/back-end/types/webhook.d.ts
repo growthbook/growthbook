@@ -33,6 +33,7 @@ export type WebhookPayloadFormat =
   | "standard-no-payload"
   | "sdkPayload"
   | "edgeConfig"
+  | "vercelNativeIntegration"
   | "none";
 
 export type {

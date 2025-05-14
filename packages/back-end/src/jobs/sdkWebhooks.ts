@@ -31,6 +31,7 @@ import {
 import { ReqContext } from "back-end/types/organization";
 import { ApiReqContext } from "back-end/types/api";
 import { trackJob } from "back-end/src/services/tracing";
+import { EDGE_PAYLOAD_KEY } from "back-end/src/routers/vercel-native-integration/vercel-native-integration.validators";
 
 const SDK_WEBHOOKS_JOB_NAME = "fireWebhooks";
 type SDKWebhookJob = Job<{
@@ -41,6 +42,7 @@ const sendPayloadFormats: WebhookPayloadFormat[] = [
   "standard",
   "sdkPayload",
   "edgeConfig",
+  "vercelNativeIntegration",
 ];
 
 const fireWebhooks = trackJob(
@@ -221,6 +223,11 @@ async function runWebhookFetch({
               value: payload,
             },
           ],
+        });
+        break;
+      case "vercelNativeIntegration":
+        body = JSON.stringify({
+          data: { [EDGE_PAYLOAD_KEY]: payload },
         });
         break;
       default:

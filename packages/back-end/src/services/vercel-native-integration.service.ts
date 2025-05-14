@@ -140,7 +140,7 @@ const createVercelExperimentationItem = async ({
     if (!ret.ok)
       throw new Error(`Error creating vercel resource: ${await ret.text()}`);
   } catch (err) {
-    logger.error("Error while creating vercel experimentation item:", err);
+    logger.error(`Error while creating vercel experimentation item: ${err}`);
   }
 };
 

@@ -30,6 +30,7 @@ import {
   ProvisitionResource,
   UpdateResource,
   BillingPlan,
+  EDGE_PAYLOAD_KEY,
 } from "./vercel-native-integration.validators";
 
 const FREE_BILLING_PLAN: BillingPlan = {
@@ -317,7 +318,6 @@ export async function deleteInstallation(req: Request, res: Response) {
 
 export async function provisionResource(req: Request, res: Response) {
   const {
-    context,
     user,
     org: contextOrg,
     nativeIntegrationModel,
@@ -337,25 +337,23 @@ export async function provisionResource(req: Request, res: Response) {
 
   if (!billingPlan) return res.status(400).send("Invalid billing plan!");
 
-  const organizationId = await (async () => {
+  const org = await (async () => {
     if (nativeIntegration.resources.length === 0) {
       await updateOrganization(contextOrg.id, { name: payload.name });
-      return contextOrg.id;
+      return contextOrg;
     }
 
-    const org = await createOrganization({
+    return createOrganization({
       email: user.email,
       userId: user.id,
       name: payload.name,
       isVercelIntegration: true,
       restrictLoginMethod: "vercel",
     });
-
-    return org.id;
   })();
 
   const sdkConnection = await createSDKConnection({
-    organization: organizationId,
+    organization: org.id,
     name: payload.name,
     languages: ["react"],
     environment: "dev",
@@ -372,11 +370,11 @@ export async function provisionResource(req: Request, res: Response) {
   const resource: Resource = {
     ...payload,
     id: uuidv4(),
-    organizationId,
+    organizationId: org.id,
     billingPlan,
     secrets: [
       { name: "GROWTHBOOK_CLIENT_KEY", value: sdkConnection.key },
-      { name: "EDGE_CONFIG_KEY", value: "gb_payload" },
+      { name: "EDGE_CONFIG_KEY", value: EDGE_PAYLOAD_KEY },
       { name: "GROWTHBOOK_DOMAIN", value: "https://app.growthbook.io" },
     ],
     protocolSettings: {
@@ -391,10 +389,16 @@ export async function provisionResource(req: Request, res: Response) {
     resources: [...nativeIntegration.resources, resource],
   });
 
+  const context = new ReqContextClass({
+    org,
+    auditUser: null,
+    user,
+  });
+
   await createSdkWebhook(context, sdkConnection.id, {
     name: "Sync vercel integration edge config",
-    endpoint: `${VERCEL_URL}/v1/installations/${nativeIntegration.installationId}/resources/{resource.id}/experimentation/edge-config`,
-    payloadFormat: "edgeConfig",
+    endpoint: `${VERCEL_URL}/v1/installations/${nativeIntegration.installationId}/resources/${resource.id}/experimentation/edge-config`,
+    payloadFormat: "vercelNativeIntegration",
     payloadKey: "gb_payload",
     httpMethod: "PUT",
     headers: JSON.stringify({

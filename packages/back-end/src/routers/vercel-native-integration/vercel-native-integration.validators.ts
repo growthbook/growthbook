@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+export const EDGE_PAYLOAD_KEY = "gb_payload";
+
 // This is only the things that look interesting.
 export const userAuthenticationValidator = z.object({
   payload: z.object({

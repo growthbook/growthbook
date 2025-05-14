@@ -132,6 +132,7 @@ export const updateSdkWebhookValidator = z
         "standard-no-payload",
         "sdkPayload",
         "edgeConfig",
+        "vercelNativeIntegration",
         "none",
       ])
       .optional(),
@@ -180,6 +181,7 @@ const createSdkWebhookValidator = z
         "standard-no-payload",
         "sdkPayload",
         "edgeConfig",
+        "vercelNativeIntegration",
         "none",
       ])
       .optional(),
