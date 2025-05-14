@@ -19,7 +19,7 @@ from gbstats.models.statistics import (
     RegressionAdjustedRatioStatistic,
 )
 from gbstats.models.tests import BaseABTest, BaseConfig, TestResult, Uplift
-from gbstats.utils import variance_of_ratios, isinstance_union
+from gbstats.utils import variance_of_ratios, isinstance_union, chance_to_win
 from typing import Literal
 
 
@@ -86,7 +86,9 @@ def frequentist_variance_relative_cuped(
     )
     v_trt = num_trt / den_trt
     const = -stat_b.post_statistic.mean
-    num_a = stat_a.post_statistic.variance * const**2 / (stat_a.post_statistic.mean**2)
+    num_a = (
+        stat_a.post_statistic.variance * const**2 / (stat_a.post_statistic.mean**2)
+    )
     num_b = 2 * theta * stat_a.covariance * const / stat_a.post_statistic.mean
     num_c = theta**2 * stat_a.pre_statistic.variance
     v_ctrl = (num_a + num_b + num_c) / den_ctrl
@@ -148,6 +150,7 @@ class TTest(BaseABTest):
         self.traffic_percentage = config.traffic_percentage
         self.total_users = config.total_users
         self.phase_length_days = config.phase_length_days
+        self.inverse = config.inverse
 
     @property
     def variance(self) -> float:
@@ -226,6 +229,7 @@ class TTest(BaseABTest):
                 mean=0,
                 stddev=0,
             ),
+            chance_to_win=0,
             error_message=error_message,
             p_value_error_message=p_value_error_message,
         )
@@ -272,6 +276,9 @@ class TTest(BaseABTest):
                 mean=self.point_estimate,
                 stddev=np.sqrt(self.variance),
             ),
+            chance_to_win=chance_to_win(
+                self.point_estimate, np.sqrt(self.variance), self.inverse
+            ),
             error_message=None,
             p_value_error_message=p_value_result.p_value_error_message,
         )
@@ -298,6 +305,7 @@ class TTest(BaseABTest):
                         mean=result.uplift.mean * adjustment,
                         stddev=result.uplift.stddev * adjustment,
                     ),
+                    chance_to_win=result.chance_to_win,
                     error_message=None,
                     p_value_error_message=result.p_value_error_message,
                 )
