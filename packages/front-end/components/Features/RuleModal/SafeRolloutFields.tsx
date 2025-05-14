@@ -10,6 +10,7 @@ import {
   PiLockOpenBold,
 } from "react-icons/pi";
 import { useState } from "react";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import SelectField from "@/components/Forms/SelectField";
 import { NewExperimentRefRule, useAttributeSchema } from "@/services/features";
@@ -23,7 +24,6 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import HelperText from "@/components/Radix/HelperText";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ScheduleInputs from "@/components/Features/ScheduleInputs";
-
 export default function SafeRolloutFields({
   feature,
   environment,
@@ -77,7 +77,10 @@ export default function SafeRolloutFields({
 
   const durationValue = form.watch("safeRolloutFields.maxDuration.amount");
   const unit = form.watch("safeRolloutFields.maxDuration.unit") || "days";
-
+  const growthbook = useGrowthBook<AppFeatures>();
+  const isSafeRolloutAutoRollbackEnabled = growthbook.isOn(
+    "safe-rollout-auto-rollback"
+  );
   const unitMultipliers = {
     days: 24 * 60 * 60 * 1000,
     hours: 60 * 60 * 1000,
@@ -408,16 +411,19 @@ export default function SafeRolloutFields({
         scheduleToggleEnabled={scheduleToggleEnabled}
         setScheduleToggleEnabled={setScheduleToggleEnabled}
       />
-      <Checkbox
-        id="autoRollback"
-        value={form.watch("safeRolloutFields.autoRollback")}
-        setValue={(v) => form.setValue("safeRolloutFields.autoRollback", v)}
-        disabled={disableFields}
-        label="Auto Rollback"
-        weight="bold"
-        description="Automatically rollback when unhealthy or a guardrail fails"
-        mb="4"
-      />
+      {isSafeRolloutAutoRollbackEnabled && (
+        <Checkbox
+          id="autoRollback"
+          value={form.watch("safeRolloutFields.autoRollback")}
+          setValue={(v) => form.setValue("safeRolloutFields.autoRollback", v)}
+          disabled={disableFields}
+          label="Auto Rollback"
+          weight="bold"
+          description="Automatically rollback when unhealthy or a guardrail fails"
+          mb="4"
+        />
+      )}
+
       {renderTargeting()}
     </>
   );

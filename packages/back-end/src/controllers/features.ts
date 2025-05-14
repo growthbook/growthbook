@@ -1204,10 +1204,11 @@ export async function postFeatureRule(
       status: rule.status,
       autoSnapshots: true,
       rampUpSchedule: {
-        enabled: true,
+        enabled: safeRolloutFields.rampUpSchedule.enabled, // this is used so that we can disable the ramp up schedule using feature Flag
         step: 0,
         steps: [0.1, 0.25, 0.5],
         rampUpCompleted: false,
+        nextUpdate: undefined, // this is set with the rule is enabled
       },
     });
 
