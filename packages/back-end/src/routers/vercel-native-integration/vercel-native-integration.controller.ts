@@ -18,8 +18,12 @@ import { ReqContextClass } from "back-end/src/services/context";
 import { setResponseCookies } from "back-end/src/controllers/auth";
 import { OrganizationInterface } from "back-end/types/organization";
 import { getVercelSSOToken } from "back-end/src/services/vercel-native-integration.service";
-import { postNewVercelSubscriptionToLicenseServer } from "back-end/src/enterprise";
+import {
+  postCancelSubscriptionToLicenseServer,
+  postNewVercelSubscriptionToLicenseServer,
+} from "back-end/src/enterprise";
 import { getOrganizationById } from "back-end/src/services/organizations";
+import { getLicenseByKey } from "back-end/src/enterprise/models/licenseModel";
 import {
   userAuthenticationValidator,
   systemAuthenticationValidator,
@@ -307,7 +311,7 @@ export async function updateInstallation(req: Request, res: Response) {
 }
 
 export async function deleteInstallation(req: Request, res: Response) {
-  const { nativeIntegrationModel, nativeIntegration } = await authContext(
+  const { nativeIntegrationModel, nativeIntegration, org } = await authContext(
     req,
     res
   );
@@ -315,10 +319,23 @@ export async function deleteInstallation(req: Request, res: Response) {
   if (nativeIntegration.installationId !== req.params.installation_id)
     return res.status(400).send("Invalid request!");
 
+  if (!org.licenseKey) {
+    return res.status(404).send(`Unable to locate license for org: ${org.id}`);
+  }
+
+  const license = await getLicenseByKey(org.licenseKey);
+
+  if (!license) {
+    return res.status(404).send(`Unable to locate license for org: ${org.id}`);
+  }
+
+  // Cancel their subscription
+  await postCancelSubscriptionToLicenseServer(license.id);
+
   // TODO: cascade delete
   await nativeIntegrationModel.deleteById(nativeIntegration.id);
 
-  return res.sendStatus(204);
+  return res.sendStatus(204).json({ finalized: true }); //MKTODO: Remove the .json() call - this is just for testing
 }
 
 export async function provisionResource(req: Request, res: Response) {
