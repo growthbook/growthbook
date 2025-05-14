@@ -24,6 +24,8 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import HelperText from "@/components/Radix/HelperText";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ScheduleInputs from "@/components/Features/ScheduleInputs";
+import { AppFeatures } from "@/types/app-features";
+
 export default function SafeRolloutFields({
   feature,
   environment,
