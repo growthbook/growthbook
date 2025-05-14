@@ -1,7 +1,14 @@
-import Link from "next/link";
-import React, { FC } from "react";
+import React, { FC, useState } from "react";
+import { datetime } from "shared/dates";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { EventWebHookListContainer } from "@/components/EventWebHooks/EventWebHookList/EventWebHookList";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import Button from "@/components/Radix/Button";
+import ClickToCopy from "@/components/Settings/ClickToCopy";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import { useAuth } from "@/services/auth";
+import WebhookSecretModal from "@/components/EventWebHooks/WebhookSecretModal";
 
 const WebhooksPage: FC = () => {
   const permissionsUtil = usePermissionsUtil();
@@ -10,6 +17,13 @@ const WebhooksPage: FC = () => {
     permissionsUtil.canCreateEventWebhook() ||
     permissionsUtil.canUpdateEventWebhook() ||
     permissionsUtil.canDeleteEventWebhook();
+
+  const { apiCall } = useAuth();
+
+  const { webhookSecrets, mutateDefinitions } = useDefinitions();
+
+  const [editSecretId, setEditSecretId] = useState<string | null>(null);
+  const [newSecretOpen, setNewSecretOpen] = useState(false);
 
   if (!canManageWebhooks) {
     return (
@@ -25,11 +39,82 @@ const WebhooksPage: FC = () => {
     <div className="container-fluid pagecontents">
       <div className="pagecontents">
         <EventWebHookListContainer />
-        <div className="alert alert-info mt-5">
-          Looking for SDK Endpoints? They have moved to the{" "}
-          <Link href="/sdks">SDK Connections</Link> page.
+
+        <div className="mt-3">
+          <h2>Webhook Secrets</h2>
+          <p>
+            Define secret variables that can be used within your webhook
+            endpoints or headers. Simply reference them using Handlebars syntax.
+            For example, <code>{"{{ MY_SECRET }}"}</code>.
+          </p>
+          <table className="table gbtable appbox">
+            <thead>
+              <tr>
+                <th>Key</th>
+                <th>Description</th>
+                <th>Created</th>
+                <th>Updated</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {webhookSecrets.map((secret) => (
+                <tr key={secret.id}>
+                  <td>
+                    <ClickToCopy>{secret.key}</ClickToCopy>
+                  </td>
+                  <td>{secret.description}</td>
+                  <td>{datetime(secret.dateCreated)}</td>
+                  <td>{datetime(secret.dateUpdated)}</td>
+                  <td>
+                    <MoreMenu>
+                      <a
+                        href="#"
+                        className="dropdown-item"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setEditSecretId(secret.id);
+                        }}
+                      >
+                        Edit
+                      </a>
+                      <DeleteButton
+                        onClick={async () => {
+                          await apiCall<void>(`/webhook-secrets/${secret.id}`, {
+                            method: "DELETE",
+                          });
+                          await mutateDefinitions();
+                        }}
+                        className="dropdown-item"
+                        displayName="Webhook Secret"
+                        text="Delete Secret"
+                      />
+                    </MoreMenu>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <Button variant="solid" onClick={() => setNewSecretOpen(true)}>
+            Add Webhook Secret
+          </Button>
         </div>
       </div>
+      {newSecretOpen && (
+        <WebhookSecretModal
+          close={() => {
+            setNewSecretOpen(false);
+          }}
+        />
+      )}
+      {editSecretId && (
+        <WebhookSecretModal
+          existingId={editSecretId}
+          close={() => {
+            setEditSecretId(null);
+          }}
+        />
+      )}
     </div>
   );
 };
