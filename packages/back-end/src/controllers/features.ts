@@ -2132,7 +2132,7 @@ export async function putFeature(
     throw new Error("Must specify a project");
   }
   // Validate projects - We can remove this validation when FeatureModel is migrated to BaseModel
-  if (updates.project) {
+  if (updates.project && feature.project !== updates.project) {
     await context.models.projects.ensureProjectsExist([updates.project]);
   }
 
