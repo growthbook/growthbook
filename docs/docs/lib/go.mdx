@@ -92,6 +92,20 @@ Additional options, such as `WithLogger`, `WithUrl`, and `WithAttributesOverride
 
 To stop background updates, call `client.Close()` on the main client instance when it is no longer needed.
 
+#### Additional options for sticky bucketing:
+
+- `WithStickyBucketService`: Provides a service implementation for storing and retrieving sticky bucket assignments
+- `WithStickyBucketAttributes`: Sets specific attributes to use for sticky bucketing (if different from regular attributes)
+
+```go
+// Configure a client with sticky bucketing
+client, err := gb.NewClient(
+    context.Background(),
+    gb.WithClientKey("sdk-XXXX"),
+    gb.WithStickyBucketService(NewInMemoryStickyBucketService()),
+)
+```
+
 ---
 
 ## Loading Features and Experiments
@@ -212,6 +226,88 @@ client := gb.NewClient(ctx, gb.WithFeatureUsageCallback(cb), /* other options */
 
 The `result` argument is the same as what is returned from `EvalFeature`.
 
+### Sticky Bucketing
+
+Sticky Bucketing ensures users see consistent experiment variations across sessions and devices. This is particularly useful when:
+
+- You need to slow down experiment enrollment without affecting existing users
+- You want to fix bugs in an experiment without including users who saw the buggy version
+- You need consistent experiences across different devices or sessions
+
+#### Implementation
+
+The SDK provides a built-in thread-safe in-memory implementation that you can use right away:
+
+```go
+// Create an in-memory sticky bucket service
+service := gb.NewInMemoryStickyBucketService()
+
+// Create a client with sticky bucketing
+client, err := gb.NewClient(
+    context.Background(),
+    gb.WithClientKey("sdk-XXXX"),
+    gb.WithStickyBucketService(service),
+)
+```
+
+To use sticky bucketing in an experiment, set the `BucketVersion` and optionally `MinBucketVersion` properties:
+
+```go
+exp := &gb.Experiment{
+    Key:             "my-experiment",
+    Variations:      []gb.FeatureValue{"control", "treatment"},
+    Meta: []gb.VariationMeta{
+        {Key: "0"}, // Use numeric keys to match variation IDs
+        {Key: "1"},
+    },
+    BucketVersion:    1,       // Current version of the experiment
+    MinBucketVersion: 0,       // Minimum version users must have seen
+    HashAttribute:    "userId", // Primary attribute for bucketing
+    FallbackAttribute: "deviceId", // Used when primary is missing
+}
+
+result := client.RunExperiment(context.Background(), exp)
+```
+
+#### Custom Storage Implementation
+
+Implement your own persistent storage by implementing the `StickyBucketService` interface:
+
+```go
+type StickyBucketService interface {
+    GetAssignments(attributeName string, attributeValue string) (*StickyBucketAssignmentDoc, error)
+    SaveAssignments(doc *StickyBucketAssignmentDoc) error
+    GetAllAssignments(attributes map[string]string) (StickyBucketAssignments, error)
+}
+```
+
+#### Key Features
+
+1. **Version Control**:
+
+   - `BucketVersion`: Controls which version of the experiment a user is assigned to
+   - `MinBucketVersion`: Blocks users from versions below this number
+
+2. **Attribute-Based Bucketing**:
+
+   - `HashAttribute`: Primary attribute for bucketing (usually userId)
+   - `FallbackAttribute`: Secondary attribute when primary is missing
+
+3. **Thread Safety**:
+   - The in-memory implementation uses `sync.RWMutex` for concurrent access
+   - Caching reduces database/service calls in high-traffic environments
+
+#### Experiment Result Changes
+
+The `ExperimentResult` returned by `RunExperiment` now includes a `StickyBucketUsed` boolean field that indicates if the variation was assigned from a sticky bucket:
+
+```go
+result := client.RunExperiment(context.Background(), experiment)
+if result.StickyBucketUsed {
+    // The user was assigned based on a previously stored assignment
+}
+```
+
 ### Using Features
 
 The primary method, `client.EvalFeature(ctx, key)`, accepts a feature key and uses the stored feature definitions and attributes to evaluate the feature value. It returns a `FeatureResult` value that includes detailed information about why the value was assigned to the user:
@@ -262,6 +358,20 @@ result := client.RunExperiment(context.TODO(), experiment)
 
 A full list of experiment fields can be found in the [documentation <ExternalLink/>](https://pkg.go.dev/github.com/growthbook/growthbook-golang#Experiment).
 
+When defining experiments, you can now use additional parameters for sticky bucketing:
+
+```go
+experiment := &gb.Experiment{
+    Key: "my-experiment",
+    Variations: []gb.FeatureValue{"red", "blue", "green"},
+    // Sticky bucket parameters
+    BucketVersion: 1,
+    MinBucketVersion: 0,
+    HashAttribute: "userId",
+    FallbackAttribute: "deviceId",
+}
+```
+
 ### Inline Experiment Return Value
 
 A call to `RunExperiment` returns a value of type `*ExperimentResult`:
@@ -283,6 +393,9 @@ fmt.Println(result.HashAttribute) // "id"
 
 // The value of that attribute.
 fmt.Println(result.HashValue) // e.g., "123"
+
+// Whether a sticky bucket assignment was used
+fmt.Println(result.StickyBucketUsed) // true or false
 ```
 
 The `InExperiment` flag is set to true only if the user was randomly assigned a variation. If the user fails any targeting rules or is forced into a specific variation, this flag will be false.

@@ -59,6 +59,12 @@ const sidebars = {
         },
         {
           type: "doc",
+          id: "features/safe-rollouts",
+          label: "Safe Rollouts",
+          className: "pill-new",
+        },
+        {
+          type: "doc",
           id: "features/prerequisites",
           label: "Prerequisites",
         },
@@ -81,7 +87,6 @@ const sidebars = {
           type: "doc",
           id: "features/approval-flows",
           label: "Approval Flows",
-          className: "pill-new",
         },
       ],
     },
@@ -335,6 +340,11 @@ const sidebars = {
         },
         {
           type: "doc",
+          id: "experimentation-analysis/experiment-time-series",
+          label: "Experiment Time Series",
+        },
+        {
+          type: "doc",
           id: "experimentation-analysis/decision-framework",
           label: "Experiment Decision Framework",
         },
@@ -583,15 +593,19 @@ const sidebars = {
       items: [
         {
           type: "doc",
+          id: "integrations/framer",
+          label: "Framer",
+          className: "pill-new",
+        },
+        {
+          type: "doc",
           id: "integrations/slack",
           label: "Slack alerts",
-          className: "pill-new",
         },
         {
           type: "doc",
           id: "integrations/discord",
           label: "Discord alerts",
-          className: "pill-new",
         },
         {
           type: "doc",
@@ -616,13 +630,18 @@ const sidebars = {
         {
           type: "doc",
           id: "tools/cli",
-          className: "pill-new",
           label: "GrowthBook CLI",
         },
         {
           type: "doc",
           id: "integrations/clarity",
           label: "Microsoft Clarity (Heatmaps)",
+          className: "pill-new",
+        },
+        {
+          type: "doc",
+          id: "integrations/jira",
+          label: "Jira",
           className: "pill-new",
         },
       ],
@@ -670,7 +689,6 @@ const sidebars = {
           type: "doc",
           id: "guide/strapi",
           label: "Strapi CMS",
-          className: "pill-new",
         },
         {
           type: "doc",

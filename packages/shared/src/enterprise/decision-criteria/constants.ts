@@ -51,7 +51,7 @@ export const PRESET_DECISION_CRITERIA: DecisionCriteriaData = {
   defaultAction: "review",
 };
 
-const secondaryDecisionCriteria: DecisionCriteriaData = {
+export const DO_NO_HARM_DECISION_CRITERIA: DecisionCriteriaData = {
   id: "gbdeccrit_donoharm",
   name: "Do No Harm",
   description:
@@ -78,5 +78,5 @@ const secondaryDecisionCriteria: DecisionCriteriaData = {
 
 export const PRESET_DECISION_CRITERIAS: DecisionCriteriaData[] = [
   PRESET_DECISION_CRITERIA,
-  secondaryDecisionCriteria,
+  DO_NO_HARM_DECISION_CRITERIA,
 ];

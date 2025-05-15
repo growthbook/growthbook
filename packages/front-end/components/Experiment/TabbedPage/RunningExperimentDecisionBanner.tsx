@@ -34,8 +34,6 @@ export default function RunningExperimentDecisionBanner({
     index: i,
   }));
 
-  if (!runningExperimentStatus) return null;
-
   if (
     runningExperimentStatus.status !== "ship-now" &&
     runningExperimentStatus.status !== "ready-for-review" &&

@@ -5,6 +5,7 @@ import {
 import React, { useCallback, useMemo } from "react";
 import { FaFileExport } from "react-icons/fa";
 import { Parser } from "json2csv";
+import { DifferenceType } from "back-end/types/stats";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { ExperimentTableRow, getRiskByVariation } from "@/services/experiments";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
@@ -31,6 +32,7 @@ type CsvRow = {
 
 export default function ResultsDownloadButton({
   results,
+  differenceType,
   metrics,
   variations,
   trackingKey,
@@ -38,6 +40,7 @@ export default function ResultsDownloadButton({
   noIcon,
 }: {
   results: ExperimentReportResultDimension[];
+  differenceType: DifferenceType;
   metrics?: string[];
   variations?: ExperimentReportVariation[];
   trackingKey?: string;
@@ -86,7 +89,8 @@ export default function ResultsDownloadButton({
           const { relativeRisk } = getRiskByVariation(
             index,
             row,
-            metricDefaults
+            metricDefaults,
+            differenceType
           );
           csvRows.push({
             ...(dimensionName && { [dimensionName]: result.name }),
@@ -119,6 +123,7 @@ export default function ResultsDownloadButton({
     ready,
     results,
     variations,
+    differenceType,
   ]);
 
   const href = useMemo(() => {

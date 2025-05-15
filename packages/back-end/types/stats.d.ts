@@ -5,6 +5,11 @@ import type { MetricStats } from "./metric";
 
 export type PValueCorrection = null | "benjamini-hochberg" | "holm-bonferroni";
 
+export type IndexedPValue = {
+  pValue: number;
+  index: [number, number, string];
+};
+
 export type DifferenceType = "relative" | "absolute" | "scaled";
 
 export type RiskType = "relative" | "absolute";
@@ -25,7 +30,7 @@ interface BaseVariationResponse {
     mean?: number;
     stddev?: number;
   };
-  ci?: [number, number];
+  ci?: [number | null, number | null];
   errorMessage?: string;
   power?: MetricPowerResponseFromStatsEngine;
 }

@@ -5,7 +5,7 @@ import {
   namespaceValue,
   featurePrerequisite,
   savedGroupTargeting,
-} from "./features";
+} from "./shared";
 
 export const experimentResultsType = [
   "dnf",
@@ -233,8 +233,7 @@ export const experimentAnalysisSummary = z
     health: experimentAnalysisSummaryHealth.optional(),
     resultsStatus: experimentAnalysisSummaryResultsStatus.optional(),
   })
-  .strict()
-  .optional();
+  .strict();
 
 export type ExperimentAnalysisSummary = z.infer<
   typeof experimentAnalysisSummary
@@ -304,7 +303,7 @@ export const experimentInterface = z
     customFields: z.record(z.any()).optional(),
     templateId: z.string().optional(),
     shareLevel: z.enum(["public", "organization"]).optional(),
-    analysisSummary: experimentAnalysisSummary,
+    analysisSummary: experimentAnalysisSummary.optional(),
     dismissedWarnings: z.array(z.enum(["low-power"])).optional(),
   })
   .strict()

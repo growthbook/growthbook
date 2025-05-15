@@ -127,6 +127,7 @@ export interface ExperimentSnapshotAnalysisSettings {
   pValueThreshold?: number;
   baselineVariationIndex?: number;
   numGoalMetrics: number;
+  oneSidedIntervals?: boolean;
 }
 
 export type SnapshotType = "standard" | "exploratory" | "report";

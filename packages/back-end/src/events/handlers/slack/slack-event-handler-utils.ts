@@ -17,6 +17,10 @@ import {
 import { ExperimentWarningNotificationPayload } from "back-end/src/validators/experiment-warnings";
 import { ExperimentInfoSignificancePayload } from "back-end/src/validators/experiment-info";
 import { ExperimentDecisionNotificationPayload } from "back-end/src/validators/experiment-decision";
+import {
+  SafeRolloutDecisionNotificationPayload,
+  SafeRolloutUnhealthyNotificationPayload,
+} from "back-end/src/validators/safe-rollout-notifications";
 
 // region Filtering
 
@@ -50,6 +54,24 @@ export const getSlackMessageForNotificationEvent = async (
     case "feature.deleted":
       return buildSlackMessageForFeatureDeletedEvent(
         event.data.object.id,
+        eventId
+      );
+
+    case "feature.saferollout.ship":
+      return buildSlackMessageForSafeRolloutShipEvent(
+        event.data.object,
+        eventId
+      );
+
+    case "feature.saferollout.rollback":
+      return buildSlackMessageForSafeRolloutRollbackEvent(
+        event.data.object,
+        eventId
+      );
+
+    case "feature.saferollout.unhealthy":
+      return buildSlackMessageForSafeRolloutUnhealthyEvent(
+        event.data.object,
         eventId
       );
 
@@ -290,6 +312,72 @@ const buildSlackMessageForFeatureDeletedEvent = async (
           type: "mrkdwn",
           text:
             `The feature *${featureId}* has been deleted by ${eventUser}.` +
+            getEventUrlFormatted(eventId),
+        },
+      },
+    ],
+  };
+};
+
+const buildSlackMessageForSafeRolloutShipEvent = (
+  data: SafeRolloutDecisionNotificationPayload,
+  eventId: string
+): SlackMessage => {
+  const text = `A Safe Rollout on feature ${data.featureId} in environment ${data.environment} is ready to ship to 100% of traffic.`;
+  return {
+    text,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text:
+            text +
+            getFeatureUrlFormatted(data.featureId) +
+            getEventUrlFormatted(eventId),
+        },
+      },
+    ],
+  };
+};
+
+const buildSlackMessageForSafeRolloutRollbackEvent = (
+  data: SafeRolloutDecisionNotificationPayload,
+  eventId: string
+): SlackMessage => {
+  const text = `A Safe Rollout on feature ${data.featureId} in environment ${data.environment} has a failing guardrail and should be rolled back.`;
+  return {
+    text,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text:
+            text +
+            getFeatureUrlFormatted(data.featureId) +
+            getEventUrlFormatted(eventId),
+        },
+      },
+    ],
+  };
+};
+
+const buildSlackMessageForSafeRolloutUnhealthyEvent = (
+  data: SafeRolloutUnhealthyNotificationPayload,
+  eventId: string
+): SlackMessage => {
+  const text = `A Safe Rollout on feature ${data.featureId} in environment ${data.environment} is failing a health check and may not be working as expected.`;
+  return {
+    text,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text:
+            text +
+            getFeatureUrlFormatted(data.featureId) +
             getEventUrlFormatted(eventId),
         },
       },

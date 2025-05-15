@@ -1,3 +1,4 @@
+import normal from "@stdlib/stats/base/dists/normal";
 import { MetricInterface } from "back-end/types/metric";
 import {
   ColumnRef,
@@ -18,14 +19,22 @@ import {
   ExperimentInterfaceStringDates,
   MetricOverride,
 } from "back-end/types/experiment";
-import { MetricSnapshotSettings } from "back-end/types/report";
+import {
+  ExperimentReportResultDimension,
+  MetricSnapshotSettings,
+} from "back-end/types/report";
 import cloneDeep from "lodash/cloneDeep";
 import {
   DataSourceInterfaceWithParams,
   DataSourceSettings,
 } from "back-end/types/datasource";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
-import { StatsEngine } from "back-end/types/stats";
+import {
+  DifferenceType,
+  IndexedPValue,
+  PValueCorrection,
+  StatsEngine,
+} from "back-end/types/stats";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import uniqid from "uniqid";
 import {
@@ -616,28 +625,56 @@ export function isSuspiciousUplift(
   baseline: SnapshotMetric,
   stats: SnapshotMetric,
   metric: { maxPercentChange?: number },
-  metricDefaults: MetricDefaults
+  metricDefaults: MetricDefaults,
+  differenceType: DifferenceType
 ): boolean {
-  if (!baseline?.cr || !stats?.cr) return false;
+  if (!baseline?.cr || !stats?.cr || !stats?.expected) return false;
 
   const maxPercentChange =
     metric.maxPercentChange ?? metricDefaults?.maxPercentageChange ?? 0;
 
-  return Math.abs(baseline.cr - stats.cr) / baseline.cr >= maxPercentChange;
+  if (differenceType === "relative") {
+    return Math.abs(stats.expected) >= maxPercentChange;
+  } else if (differenceType === "absolute") {
+    return (
+      Math.abs(stats.expected ?? 0) / Math.abs(baseline.cr) >= maxPercentChange
+    );
+  } else {
+    // This means scaled impact could show up as suspicious even when
+    // it doesn't show up for other difference types if CUPED is applied
+    // and CUPED causes the value to cross the threshold
+    return (
+      Math.abs(stats.cr - baseline.cr) / Math.abs(baseline.cr) >=
+      maxPercentChange
+    );
+  }
 }
 
 export function isBelowMinChange(
   baseline: SnapshotMetric,
   stats: SnapshotMetric,
   metric: { minPercentChange?: number },
-  metricDefaults: MetricDefaults
+  metricDefaults: MetricDefaults,
+  differenceType: DifferenceType
 ): boolean {
-  if (!baseline?.cr || !stats?.cr) return false;
+  if (!baseline?.cr || !stats?.cr || !stats?.expected) return false;
 
   const minPercentChange =
     metric.minPercentChange ?? metricDefaults.minPercentageChange ?? 0;
 
-  return Math.abs(baseline.cr - stats.cr) / baseline.cr < minPercentChange;
+  if (differenceType === "relative") {
+    return Math.abs(stats.expected) < minPercentChange;
+  } else if (differenceType === "absolute") {
+    return Math.abs(stats.expected) / Math.abs(baseline.cr) < minPercentChange;
+  } else {
+    // This means scaled impact could show up as too small even it is
+    // large enough for other difference types if CUPED is applied
+    // and CUPED causes the value to cross the threshold
+    return (
+      Math.abs(stats.cr - baseline.cr) / Math.abs(baseline.cr) <
+      minPercentChange
+    );
+  }
 }
 
 export function getMetricResultStatus({
@@ -649,6 +686,7 @@ export function getMetricResultStatus({
   ciUpper,
   pValueThreshold,
   statsEngine,
+  differenceType,
 }: {
   metric: ExperimentMetricInterface;
   metricDefaults: MetricDefaults;
@@ -658,6 +696,7 @@ export function getMetricResultStatus({
   ciUpper: number;
   pValueThreshold: number;
   statsEngine: StatsEngine;
+  differenceType: DifferenceType;
 }) {
   const directionalStatus: "winning" | "losing" =
     (stats.expected ?? 0) * (metric.inverse ? -1 : 1) > 0
@@ -669,7 +708,8 @@ export function getMetricResultStatus({
     baseline,
     stats,
     metric,
-    metricDefaults
+    metricDefaults,
+    differenceType
   );
   const _shouldHighlight = shouldHighlight({
     metric,
@@ -917,4 +957,163 @@ export function isMetricJoinable(
   }
 
   return false;
+}
+
+export function adjustPValuesBenjaminiHochberg(
+  indexedPValues: IndexedPValue[]
+): IndexedPValue[] {
+  const newIndexedPValues = cloneDeep<IndexedPValue[]>(indexedPValues);
+  const m = newIndexedPValues.length;
+
+  newIndexedPValues.sort((a, b) => {
+    return b.pValue - a.pValue;
+  });
+  newIndexedPValues.forEach((p, i) => {
+    newIndexedPValues[i].pValue = Math.min((p.pValue * m) / (m - i), 1);
+  });
+
+  let tempval = newIndexedPValues[0].pValue;
+  for (let i = 1; i < m; i++) {
+    if (newIndexedPValues[i].pValue < tempval) {
+      tempval = newIndexedPValues[i].pValue;
+    } else {
+      newIndexedPValues[i].pValue = tempval;
+    }
+  }
+  return newIndexedPValues;
+}
+
+export function adjustPValuesHolmBonferroni(
+  indexedPValues: IndexedPValue[]
+): IndexedPValue[] {
+  const newIndexedPValues = cloneDeep<IndexedPValue[]>(indexedPValues);
+  const m = newIndexedPValues.length;
+  newIndexedPValues.sort((a, b) => {
+    return a.pValue - b.pValue;
+  });
+  newIndexedPValues.forEach((p, i) => {
+    newIndexedPValues[i].pValue = Math.min(p.pValue * (m - i), 1);
+  });
+
+  let tempval = newIndexedPValues[0].pValue;
+  for (let i = 1; i < m; i++) {
+    if (newIndexedPValues[i].pValue > tempval) {
+      tempval = newIndexedPValues[i].pValue;
+    } else {
+      newIndexedPValues[i].pValue = tempval;
+    }
+  }
+  return newIndexedPValues;
+}
+
+export function setAdjustedPValuesOnResults(
+  results: ExperimentReportResultDimension[],
+  nonGuardrailMetrics: string[],
+  adjustment: PValueCorrection
+): void {
+  if (!adjustment) {
+    return;
+  }
+
+  let indexedPValues: IndexedPValue[] = [];
+  results.forEach((r, i) => {
+    r.variations.forEach((v, j) => {
+      nonGuardrailMetrics.forEach((m) => {
+        const pValue = v.metrics[m]?.pValue;
+        if (pValue !== undefined) {
+          indexedPValues.push({
+            pValue: pValue,
+            index: [i, j, m],
+          });
+        }
+      });
+    });
+  });
+
+  if (indexedPValues.length === 0) {
+    return;
+  }
+
+  if (adjustment === "benjamini-hochberg") {
+    indexedPValues = adjustPValuesBenjaminiHochberg(indexedPValues);
+  } else if (adjustment === "holm-bonferroni") {
+    indexedPValues = adjustPValuesHolmBonferroni(indexedPValues);
+  }
+
+  // modify results in place
+  indexedPValues.forEach((ip) => {
+    const ijk = ip.index;
+    results[ijk[0]].variations[ijk[1]].metrics[ijk[2]].pValueAdjusted =
+      ip.pValue;
+  });
+  return;
+}
+
+export function adjustedCI(
+  adjustedPValue: number,
+  lift: number | undefined,
+  pValueThreshold: number
+): [number, number] {
+  if (!lift) return [0, 0];
+  const zScore = normal.quantile(1 - pValueThreshold / 2, 0, 1);
+  const adjStdDev = Math.abs(
+    lift / normal.quantile(1 - adjustedPValue / 2, 0, 1)
+  );
+  const width = zScore * adjStdDev;
+  return [lift - width, lift + width];
+}
+
+export function setAdjustedCIs(
+  results: ExperimentReportResultDimension[],
+  pValueThreshold: number
+): void {
+  results.forEach((r) => {
+    r.variations.forEach((v) => {
+      for (const key in v.metrics) {
+        const pValueAdjusted = v.metrics[key].pValueAdjusted;
+        const uplift = v.metrics[key].uplift;
+        const ci = v.metrics[key].ci;
+        if (
+          pValueAdjusted === undefined ||
+          uplift === undefined ||
+          ci === undefined
+        ) {
+          continue;
+        }
+
+        const adjCI = getAdjustedCI(
+          pValueAdjusted,
+          uplift.mean,
+          pValueThreshold,
+          ci
+        );
+        if (adjCI) {
+          v.metrics[key].ciAdjusted = adjCI;
+        } else {
+          v.metrics[key].ciAdjusted = ci;
+        }
+      }
+    });
+  });
+  return;
+}
+
+export function getAdjustedCI(
+  pValueAdjusted: number,
+  lift: number | undefined,
+  pValueThreshold: number,
+  ci: [number, number]
+): [number, number] | undefined {
+  // set to Inf if adjusted pValue is 1
+  if (pValueAdjusted > 0.999999) {
+    return [-Infinity, Infinity];
+  }
+
+  const adjCI = adjustedCI(pValueAdjusted, lift, pValueThreshold);
+  // only update if CI got wider, should never get more narrow
+  if (adjCI[0] < ci[0] && adjCI[1] > ci[1]) {
+    return adjCI;
+  } else {
+    return ci;
+  }
 }

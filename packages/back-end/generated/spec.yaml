@@ -177,6 +177,9 @@ tags:
   - name: FeatureRule_model
     x-displayName: FeatureRule
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureRule" />
+  - name: FeatureSafeRolloutRule_model
+    x-displayName: FeatureSafeRolloutRule
+    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureSafeRolloutRule" />
   - name: FeatureWithRevisions_model
     x-displayName: FeatureWithRevisions
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureWithRevisions" />
@@ -4513,6 +4516,9 @@ paths:
                   type: number
                   description: 'Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.'
                   minimum: 0
+                displayAsPercentage:
+                  type: boolean
+                  description: 'If true and the metric is a ratio metric, variation means will be displayed as a percentage'
                 minPercentChange:
                   type: number
                   description: 'Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%)'
@@ -4790,6 +4796,9 @@ paths:
                   type: number
                   description: 'Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.'
                   minimum: 0
+                displayAsPercentage:
+                  type: boolean
+                  description: 'If true and the metric is a ratio metric, variation means will be displayed as a percentage'
                 minPercentChange:
                   type: number
                   description: 'Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%)'
@@ -5679,6 +5688,7 @@ components:
         - $ref: '#/components/schemas/FeatureRolloutRule'
         - $ref: '#/components/schemas/FeatureExperimentRule'
         - $ref: '#/components/schemas/FeatureExperimentRefRule'
+        - $ref: '#/components/schemas/FeatureSafeRolloutRule'
       discriminator:
         propertyName: type
         mapping:
@@ -5686,6 +5696,7 @@ components:
           rollout: '#/components/schemas/FeatureRolloutRule'
           experiment: '#/components/schemas/FeatureExperimentRule'
           experiment-ref: '#/components/schemas/FeatureExperimentRefRule'
+          safe-rollout: '#/components/schemas/FeatureSafeRolloutRule'
     FeatureDefinition:
       type: object
       required:
@@ -5712,7 +5723,8 @@ components:
                   - 'null'
               weights:
                 type: array
-                items: number
+                items:
+                  type: number
               variations:
                 type: array
                 items:
@@ -5842,6 +5854,76 @@ components:
           type: number
         hashAttribute:
           type: string
+    FeatureSafeRolloutRule:
+      type: object
+      required:
+        - condition
+        - id
+        - enabled
+        - type
+        - controlValue
+        - variationValue
+      properties:
+        condition:
+          type: string
+        savedGroupTargeting:
+          type: array
+          items:
+            type: object
+            required:
+              - matchType
+              - savedGroups
+            properties:
+              matchType:
+                type: string
+                enum:
+                  - all
+                  - any
+                  - none
+              savedGroups:
+                type: array
+                items:
+                  type: string
+        prerequisites:
+          type: array
+          items:
+            type: object
+            required:
+              - id
+              - condition
+            properties:
+              id:
+                type: string
+                description: Feature ID
+              condition:
+                type: string
+        id:
+          type: string
+        trackingKey:
+          type: string
+        enabled:
+          type: boolean
+        type:
+          type: string
+          enum:
+            - safe-rollout
+        controlValue:
+          type: string
+        variationValue:
+          type: string
+        seed:
+          type: string
+        hashAttribute:
+          type: string
+        safeRolloutId:
+          type: string
+        status:
+          type: string
+          enum:
+            - running
+            - released
+            - rolled-back
+            - stopped
     FeatureExperimentRule:
       type: object
       required:
@@ -7058,6 +7140,9 @@ components:
           type: number
         riskThresholdDanger:
           type: number
+        displayAsPercentage:
+          type: boolean
+          description: 'If true and the metric is a ratio metric, variation means will be displayed as a percentage'
         minPercentChange:
           type: number
         maxPercentChange:
@@ -7244,6 +7329,7 @@ x-tagGroups:
       - FeatureForceRule_model
       - FeatureRolloutRule_model
       - FeatureRule_model
+      - FeatureSafeRolloutRule_model
       - FeatureWithRevisions_model
       - Member_model
       - Metric_model

@@ -26,6 +26,8 @@ FeatureForceRule:
   $ref: "./FeatureForceRule.yaml"
 FeatureRolloutRule:
   $ref: "./FeatureRolloutRule.yaml"
+FeatureSafeRolloutRule:
+  $ref: "./FeatureSafeRolloutRule.yaml"
 FeatureExperimentRule:
   $ref: "./FeatureExperimentRule.yaml"
 FeatureExperimentRefRule:

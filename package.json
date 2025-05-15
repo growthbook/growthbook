@@ -2,7 +2,7 @@
   "name": "growthbook-app",
   "repository": "https://github.com/growthbook/growthbook-app.git",
   "private": true,
-  "version": "3.5.0",
+  "version": "3.6.0",
   "scripts": {
     "lint": "eslint './**/*.{ts,tsx,js,jsx}' --fix --max-warnings 0 --cache --cache-strategy content",
     "lint:ci": "eslint './**/*.{ts,tsx,js,jsx}' --max-warnings 0 --cache --cache-strategy content",
@@ -66,11 +66,11 @@
       "yarn eslint  --fix --max-warnings 0 --cache --cache-strategy content"
     ],
     "./packages/stats/{gbstats,tests}/**/*.py": [
-      "bash -c \"yarn workspace stats lint\" && :"
+      "yarn workspace stats lint"
     ]
   },
   "resolutions": {
-    "@growthbook/growthbook": "1.4.1"
+    "@growthbook/growthbook": "1.5.1"
   },
   "prettier": {
     "overrides": [

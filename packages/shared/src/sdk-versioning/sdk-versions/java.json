@@ -1,6 +1,15 @@
 {
   "versions": [
     {
+      "version": "0.10.1"
+    },
+    {
+      "version": "v0.10.0"
+    },
+    {
+      "version": "0.9.96"
+    },
+    {
       "version": "0.9.95"
     },
     {

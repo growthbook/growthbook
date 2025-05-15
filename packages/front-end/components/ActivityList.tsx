@@ -64,7 +64,8 @@ const ActivityList: FC<{
                     <div className="mb-1">
                       <strong>
                         {("name" in event.user && event.user.name) ||
-                          ("apiKey" in event.user && "API Key")}
+                          ("apiKey" in event.user && "API Key") ||
+                          ("system" in event.user && "System")}
                       </strong>{" "}
                       {eventActionMapping[event.event] || "modified"}{" "}
                       <strong>
