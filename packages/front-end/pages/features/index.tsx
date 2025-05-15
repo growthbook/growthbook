@@ -402,6 +402,7 @@ export default function FeaturesPage() {
   } = useFeatureSearch({
     allFeatures,
     environments,
+    staleFeatures,
   });
 
   const start = (currentPage - 1) * NUM_PER_PAGE;

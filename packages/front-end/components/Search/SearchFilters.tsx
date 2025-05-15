@@ -106,13 +106,17 @@ const SearchFilterMenu: FC<{
 }) => {
   const [filterSearch, setFilterSearch] = useState<string>("");
   const showSearchFilter = useMemo(() => items.length > 10, [items]);
-  const filteredItems = filterSearch
-    ? items.filter(
-        (i) =>
-          i.name.toLowerCase().startsWith(filterSearch.toLowerCase()) ||
-          i.name.toLowerCase().includes(filterSearch.toLowerCase())
-      )
-    : items;
+  const filteredItems = useMemo(
+    () =>
+      filterSearch
+        ? items.filter(
+            (i) =>
+              i.name.toLowerCase().startsWith(filterSearch.toLowerCase()) ||
+              i.name.toLowerCase().includes(filterSearch.toLowerCase())
+          )
+        : items,
+    [items, filterSearch]
+  );
 
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -138,6 +142,13 @@ const SearchFilterMenu: FC<{
             onChange={(e) => setFilterSearch(e.target.value)}
             type="search"
             className="mt-2"
+            // Prevent events from propagating to parent which might close the dropdown
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              if (e.key !== "ArrowUp" && e.key !== "ArrowDown") {
+                e.stopPropagation();
+              }
+            }}
           />
         )}
       </Box>

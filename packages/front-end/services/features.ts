@@ -27,6 +27,7 @@ import {
   featuresReferencingSavedGroups,
   generateVariationId,
   getMatchingRules,
+  StaleFeatureReason,
   validateAndFixCondition,
   validateFeatureValue,
 } from "shared/util";
@@ -116,6 +117,7 @@ export function useFeatureSearch({
   filterResults,
   environments,
   localStorageKey = "features",
+  staleFeatures,
 }: {
   allFeatures: FeatureInterface[];
   defaultSortField?:
@@ -128,6 +130,10 @@ export function useFeatureSearch({
   filterResults?: (items: FeatureInterface[]) => FeatureInterface[];
   environments: Environment[];
   localStorageKey?: string;
+  staleFeatures?: Record<
+    string,
+    { stale: boolean; reason?: StaleFeatureReason }
+  >;
 }) {
   const { getUserDisplay } = useUser();
   const { getProjectById, getSavedGroupById, savedGroups } = useDefinitions();
@@ -182,8 +188,10 @@ export function useFeatureSearch({
     searchTermFilters: {
       is: (item) => {
         const is: string[] = [item.valueType];
+        console.log(item, staleFeatures);
         if (item.archived) is.push("archived");
         if (item.hasDrafts) is.push("draft");
+        if (staleFeatures?.[item.id]?.stale) is.push("stale");
         return is;
       },
       has: (item) => {

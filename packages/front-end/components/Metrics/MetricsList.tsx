@@ -270,6 +270,7 @@ const MetricsList = (): React.ReactElement => {
     defaultSortField: "name",
     localStorageKey: "metrics",
     searchFields: ["name^3", "datasourceName", "ownerName", "tags", "type"],
+    updateSearchQueryOnChange: true,
     searchTermFilters: {
       is: (item) => {
         const is: string[] = [item.type];
