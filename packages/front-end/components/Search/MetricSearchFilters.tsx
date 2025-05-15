@@ -145,7 +145,7 @@ const MetricSearchFilters: FC<
           }}
         >
           <FilterItem
-            item="Official metric"
+            item="Official metrics"
             exists={doesFilterExist("is", "official", "")}
           />
         </DropdownMenuItem>
@@ -161,7 +161,7 @@ const MetricSearchFilters: FC<
           }}
         >
           <FilterItem
-            item="Archived metric"
+            item="Archived metrics"
             exists={doesFilterExist("is", "archived", "")}
           />
         </DropdownMenuItem>

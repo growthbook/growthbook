@@ -139,7 +139,6 @@ export default function FeaturesPage() {
                 setSearchValue={setSearchValue}
                 syntaxFilters={syntaxFilters}
                 hasArchived={hasArchived}
-                setShowArchived={setShowArchived}
               />
             </Flex>
           </Box>
@@ -419,6 +418,16 @@ export default function FeaturesPage() {
     if (modalOpen) return;
     setFeatureToDuplicate(null);
   }, [modalOpen]);
+  // watch to see if we should include archived features or not:
+  useEffect(() => {
+    const isArchivedFilter = syntaxFilters.some(
+      (filter) =>
+        filter.field === "is" &&
+        !filter.negated &&
+        filter.values.includes("archived")
+    );
+    setShowArchived(isArchivedFilter);
+  }, [syntaxFilters]);
 
   if (error) {
     return (

@@ -1,4 +1,4 @@
-import React, { ReactElement, useState } from "react";
+import React, { ReactElement, useCallback, useEffect, useState } from "react";
 import { FaArchive } from "react-icons/fa";
 import Link from "next/link";
 import { date, datetime } from "shared/dates";
@@ -234,6 +234,7 @@ const MetricsList = (): React.ReactElement => {
   const router = useRouter();
   const permissionsUtil = usePermissionsUtil();
 
+  const [showArchived, setShowArchived] = useState(false);
   const combinedMetrics = useCombinedMetrics({
     setMetricModalProps: setModalData,
   });
@@ -257,6 +258,17 @@ const MetricsList = (): React.ReactElement => {
     : metrics;
 
   //searching:
+  const filterResults = useCallback(
+    (items: typeof filteredMetrics) => {
+      if (!showArchived) {
+        items = items.filter((m) => {
+          return !m.archived;
+        });
+      }
+      return items;
+    },
+    [showArchived]
+  );
   const {
     items,
     searchInputProps,
@@ -305,8 +317,19 @@ const MetricsList = (): React.ReactElement => {
       project: (item) => [...item.projectNames, ...item.projects],
       datasource: (item) => [item.datasource, item.datasourceName],
     },
+    filterResults,
     pageSize: 20,
   });
+  // watch to see if we should include archived features or not:
+  useEffect(() => {
+    const isArchivedFilter = syntaxFilters.some(
+      (filter) =>
+        filter.field === "is" &&
+        !filter.negated &&
+        filter.values.includes("archived")
+    );
+    setShowArchived(isArchivedFilter);
+  }, [syntaxFilters]);
 
   if (!ready) {
     return <LoadingOverlay />;

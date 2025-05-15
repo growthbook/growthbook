@@ -1,4 +1,3 @@
-// Feature specific component
 import React, { FC, useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
 import { FeatureInterface } from "back-end/types/feature";
@@ -21,7 +20,6 @@ const FeatureSearchFilters: FC<
   BaseSearchFiltersProps & {
     features: FeatureInterface[];
     hasArchived: boolean;
-    setShowArchived: (value: boolean) => void;
   }
 > = ({
   searchInputProps,
@@ -29,7 +27,6 @@ const FeatureSearchFilters: FC<
   features,
   setSearchValue,
   hasArchived,
-  setShowArchived,
 }) => {
   const {
     dropdownFilterOpen,
@@ -223,7 +220,6 @@ const FeatureSearchFilters: FC<
               operator: "",
               negated: false,
             });
-            setShowArchived(!doesFilterExist("is", "archived"));
           }}
         >
           <FilterItem

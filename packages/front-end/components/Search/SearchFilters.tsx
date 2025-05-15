@@ -17,6 +17,8 @@ import {
 import { SearchTermFilterOperator, SyntaxFilter } from "@/services/search";
 import Field from "@/components/Forms/Field";
 
+const USE_SEARCH_BOX = false;
+
 // Common interfaces
 export interface SearchFiltersItem {
   id: string;
@@ -101,7 +103,9 @@ export const FilterDropdown: FC<{
   heading,
 }) => {
   const [filterSearch, setFilterSearch] = useState<string>("");
-  const showSearchFilter = useMemo(() => items.length > 10, [items]);
+  const showSearchFilter = useMemo(() => USE_SEARCH_BOX && items.length > 10, [
+    items,
+  ]);
   const filteredItems = useMemo(
     () =>
       filterSearch
@@ -154,7 +158,7 @@ export const FilterDropdown: FC<{
           />
         )}
       </Box>
-      <Box overflowY="auto">
+      <Box overflow="auto" style={{ maxHeight: "300px", maxWidth: "250px" }}>
         {filteredItems.map((i) => (
           <Fragment key={i.id}>
             {i.hr && <Box my="2" style={{ borderBottom: "1px solid #ccc" }} />}
