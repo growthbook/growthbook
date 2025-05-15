@@ -422,8 +422,8 @@ export async function postNewInlineSubscriptionToLicenseServer(
 
 export async function postNewVercelSubscriptionToLicenseServer(
   organization: OrganizationInterface,
-  userName: string,
-  installationId: string
+  installationId: string,
+  userName: string
 ) {
   const url = `${LICENSE_SERVER_URL}subscription/new-vercel-native-subscription`;
   const license = await callLicenseServer({
