@@ -188,7 +188,6 @@ export function useFeatureSearch({
     searchTermFilters: {
       is: (item) => {
         const is: string[] = [item.valueType];
-        console.log(item, staleFeatures);
         if (item.archived) is.push("archived");
         if (item.hasDrafts) is.push("draft");
         if (item.valueType === "json") is.push("json");
