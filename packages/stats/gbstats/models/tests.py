@@ -21,7 +21,6 @@ class BaseConfig:
     phase_length_days: float = 1
     total_users: Optional[int] = None
     alpha: float = 0.05
-    inverse: bool = False
 
 
 # Results
@@ -37,7 +36,6 @@ class TestResult:
     expected: float
     ci: List[float]
     uplift: Uplift
-    chance_to_win: float
     error_message: Optional[str]
 
 

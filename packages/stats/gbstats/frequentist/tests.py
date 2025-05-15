@@ -19,7 +19,7 @@ from gbstats.models.statistics import (
     RegressionAdjustedRatioStatistic,
 )
 from gbstats.models.tests import BaseABTest, BaseConfig, TestResult, Uplift
-from gbstats.utils import variance_of_ratios, isinstance_union, chance_to_win
+from gbstats.utils import variance_of_ratios, isinstance_union
 from typing import Literal
 
 
@@ -150,7 +150,6 @@ class TTest(BaseABTest):
         self.traffic_percentage = config.traffic_percentage
         self.total_users = config.total_users
         self.phase_length_days = config.phase_length_days
-        self.inverse = config.inverse
 
     @property
     def variance(self) -> float:
@@ -229,7 +228,6 @@ class TTest(BaseABTest):
                 mean=0,
                 stddev=0,
             ),
-            chance_to_win=0,
             error_message=error_message,
             p_value_error_message=p_value_error_message,
         )
@@ -276,9 +274,6 @@ class TTest(BaseABTest):
                 mean=self.point_estimate,
                 stddev=np.sqrt(self.variance),
             ),
-            chance_to_win=chance_to_win(
-                self.point_estimate, np.sqrt(self.variance), self.inverse
-            ),
             error_message=None,
             p_value_error_message=p_value_result.p_value_error_message,
         )
@@ -305,7 +300,6 @@ class TTest(BaseABTest):
                         mean=result.uplift.mean * adjustment,
                         stddev=result.uplift.stddev * adjustment,
                     ),
-                    chance_to_win=result.chance_to_win,
                     error_message=None,
                     p_value_error_message=result.p_value_error_message,
                 )

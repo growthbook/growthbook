@@ -4,7 +4,7 @@ from typing import Optional
 from unittest import TestCase, main as unittest_main
 
 import numpy as np
-from gbstats.utils import chance_to_win
+
 from gbstats.messages import ZERO_NEGATIVE_VARIANCE_MESSAGE
 from gbstats.frequentist.tests import (
     FrequentistConfig,
@@ -54,16 +54,12 @@ class TestTwoSidedTTest(TestCase):
         stat_a = SampleMeanStatistic(sum=1396.87, sum_squares=52377.9767, n=3407)
         stat_b = SampleMeanStatistic(sum=2422.7, sum_squares=134698.29, n=3461)
         result_dict = asdict(TwoSidedTTest(stat_a, stat_b).compute_result())
-        ctw = np.round(
-            chance_to_win(0.7073170731707317, 0.3787943616681428, False), DECIMALS
-        )
         expected_rounded_dict = asdict(
             FrequentistTestResult(
                 expected=0.70732,
                 ci=[-0.03526, 1.44989],
                 uplift=Uplift("normal", 0.70732, 0.37879),
                 p_value=0.06191,
-                chance_to_win=ctw,
                 error_message=None,
             )
         )
@@ -82,14 +78,12 @@ class TestTwoSidedTTest(TestCase):
                 FrequentistConfig(difference_type="absolute"),
             ).compute_result()
         )
-        ctw = np.round(chance_to_win(0.29, 0.12478363158758794, False), DECIMALS)
         expected_rounded_dict = asdict(
             FrequentistTestResult(
                 expected=0.7 - 0.41,
                 ci=[0.04538, 0.53462],
                 uplift=Uplift("normal", 0.29, 0.12478),
                 p_value=0.02016,
-                chance_to_win=ctw,
                 error_message=None,
             )
         )
@@ -100,17 +94,16 @@ class TestTwoSidedTTest(TestCase):
         stat_a = ProportionStatistic(sum=14, n=28)
         stat_b = ProportionStatistic(sum=16, n=30)
         result_dict = asdict(TwoSidedTTest(stat_a, stat_b).compute_result())
-        ctw = np.round(chance_to_win(0.06667, 0.2717, False), DECIMALS)
         expected_rounded_dict = asdict(
             FrequentistTestResult(
                 expected=np.round((16 / 30 - 0.5) / 0.5, DECIMALS),
                 ci=[-0.47767, 0.61101],
                 uplift=Uplift("normal", 0.06667, 0.2717),
                 p_value=0.80707,
-                chance_to_win=ctw,
                 error_message=None,
             )
         )
+
         self.assertDictEqual(_round_result_dict(result_dict), expected_rounded_dict)
 
     def test_two_sided_ttest_missing_variance(self):
@@ -169,15 +162,11 @@ class TestTwoSidedTTest(TestCase):
             theta=None,
         )
         result_dict = asdict(TwoSidedTTest(stat_a, stat_b).compute_result())
-        ctw = np.round(
-            chance_to_win(-0.0007014833343349333, 0.003907384079294627, False), DECIMALS
-        )
         expected_dict = asdict(
             FrequentistTestResult(
                 expected=-0.0007,
                 ci=[-0.00841, 0.00700],
                 uplift=Uplift(dist="normal", mean=-0.0007, stddev=0.00391),
-                chance_to_win=ctw,
                 error_message=None,
                 p_value=0.85771,
             )
@@ -193,15 +182,11 @@ class TestSequentialTTest(TestCase):
         result_dict = asdict(
             SequentialTwoSidedTTest(stat_a, stat_b, config).compute_result()
         )
-        ctw = np.round(
-            chance_to_win(0.5033610858562358, 0.3334122146400735, False), DECIMALS
-        )
         expected_dict = asdict(
             FrequentistTestResult(
                 expected=0.50336,
                 ci=[-0.55844, 1.56516],
                 uplift=Uplift("normal", 0.50336, 0.33341),
-                chance_to_win=ctw,
                 p_value=1,
                 error_message=None,
             )
@@ -218,7 +203,6 @@ class TestSequentialTTest(TestCase):
                 expected=0.50386,
                 ci=[0.40098, 0.60675],
                 uplift=Uplift("normal", 0.50386, 0.03386),
-                chance_to_win=chance_to_win(0.50386, 0.03386, False),
                 p_value=0.0,
                 error_message=None,
             )
@@ -247,15 +231,11 @@ class TestSequentialTTest(TestCase):
         result_dict = asdict(
             SequentialTwoSidedTTest(stat_a_ra, stat_b_ra).compute_result()
         )
-        ctw = np.round(
-            chance_to_win(0.503383995601997, 0.33341199182116854, False), DECIMALS
-        )
         expected_dict = asdict(
             FrequentistTestResult(
                 expected=0.50338,
                 ci=[-0.50969, 1.51646],
                 uplift=Uplift("normal", 0.50338, 0.33341),
-                chance_to_win=ctw,
                 p_value=1,
                 error_message=None,
             )
@@ -310,22 +290,16 @@ class TestSequentialTTest(TestCase):
         )
 
         result_dict = asdict(SequentialTwoSidedTTest(stat_a, stat_b).compute_result())
-        ctw = np.round(
-            chance_to_win(-0.0007014833343349333, 0.003907384079294627, False), DECIMALS
-        )
         expected_dict = asdict(
             FrequentistTestResult(
                 expected=-0.0007,
                 ci=[-0.02063, 0.01923],
                 uplift=Uplift(dist="normal", mean=-0.0007, stddev=0.00391),
-                chance_to_win=ctw,
                 error_message=None,
                 p_value=1.0,
             )
         )
-        self.assertEqual(
-            _round_result_dict(result_dict), _round_result_dict(expected_dict)
-        )
+        self.assertEqual(_round_result_dict(result_dict), expected_dict)
 
     def test_sequential_test_tuning_as_expected(self):
         stat_a = SampleMeanStatistic(sum=1396.87, sum_squares=52377.9767, n=3000)
@@ -379,9 +353,6 @@ class TestOneSidedGreaterTTest(TestCase):
                 ),
                 error_message=None,
                 p_value=0.06558262868467746,
-                chance_to_win=chance_to_win(
-                    0.5033610858562358, 0.3334122146400735, False
-                ),
                 p_value_error_message=None,
             )
         )
@@ -406,9 +377,6 @@ class TestOneSidedGreaterTTest(TestCase):
                 ),
                 error_message=None,
                 p_value=0.03554272489873023,
-                chance_to_win=chance_to_win(
-                    0.23437666666666668, 0.12983081254184736, False
-                ),
                 p_value_error_message=None,
             )
         )
@@ -435,9 +403,6 @@ class TestOneSidedLesserTTest(TestCase):
                 ),
                 error_message=None,
                 p_value=0.9344173713153225,
-                chance_to_win=chance_to_win(
-                    0.5033610858562358, 0.3334122146400735, False
-                ),
                 p_value_error_message=None,
             )
         )
@@ -462,9 +427,6 @@ class TestOneSidedLesserTTest(TestCase):
                 ),
                 error_message=None,
                 p_value=0.9644572751012698,
-                chance_to_win=chance_to_win(
-                    0.23437666666666668, 0.12983081254184736, False
-                ),
                 p_value_error_message=None,
             )
         )
@@ -490,9 +452,6 @@ class TestSequentialOneSidedGreaterTTest(TestCase):
                 ci=[-0.42356454602790883, np.inf],
                 uplift=Uplift(
                     dist="normal", mean=0.5033610858562358, stddev=0.3334122146400735
-                ),
-                chance_to_win=chance_to_win(
-                    0.5033610858562358, 0.3334122146400735, False
                 ),
                 error_message=None,
                 p_value=0.4999,
@@ -520,9 +479,6 @@ class TestSequentialOneSidedGreaterTTest(TestCase):
                 ),
                 error_message=None,
                 p_value=0.46316491943359384,
-                chance_to_win=chance_to_win(
-                    0.23437666666666668, 0.12983081254184736, False
-                ),
                 p_value_error_message=None,
             )
         )
@@ -549,9 +505,6 @@ class TestSequentialOneSidedLesserTTest(TestCase):
                 uplift=Uplift(
                     dist="normal", mean=0.5033610858562358, stddev=0.3334122146400735
                 ),
-                chance_to_win=chance_to_win(
-                    0.5033610858562358, 0.3334122146400735, False
-                ),
                 error_message=None,
                 p_value=0.4999,
                 p_value_error_message=None,
@@ -575,9 +528,6 @@ class TestSequentialOneSidedLesserTTest(TestCase):
                 ci=[-np.inf, 0.5953217750613832],
                 uplift=Uplift(
                     dist="normal", mean=0.23437666666666668, stddev=0.12983081254184736
-                ),
-                chance_to_win=chance_to_win(
-                    0.23437666666666668, 0.12983081254184736, False
                 ),
                 error_message=None,
                 p_value=0.4999,

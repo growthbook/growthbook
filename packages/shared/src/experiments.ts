@@ -657,6 +657,7 @@ export function getMetricResultStatus({
   ciUpper,
   pValueThreshold,
   statsEngine,
+  guardrailCorrectionData,
 }: {
   metric: ExperimentMetricInterface;
   metricDefaults: MetricDefaults;
@@ -666,6 +667,7 @@ export function getMetricResultStatus({
   ciUpper: number;
   pValueThreshold: number;
   statsEngine: StatsEngine;
+  guardrailCorrectionData?: { numGuardrails: number; epsilon: number };
 }) {
   const directionalStatus: "winning" | "losing" =
     (stats.expected ?? 0) * (metric.inverse ? -1 : 1) > 0
@@ -766,7 +768,24 @@ export function getMetricResultStatus({
       clearSignalResultsStatus = "lost";
     }
   }
-  const guardrailSafeStatus = (stats.chanceToWin ?? -1.0) > ciUpper;
+  const { numGuardrails, epsilon } = guardrailCorrectionData ?? {
+    numGuardrails: 0,
+    epsilon: 0.05,
+  };
+  const guardrailAlpha = numGuardrails > 0 ? epsilon ** (1 / numGuardrails) : 0;
+
+  const ciLowerGuardrail = stats.ci ? stats.ci[0] : Number.NEGATIVE_INFINITY;
+  const ciUpperGuardrail = stats.ci ? stats.ci[1] : Number.POSITIVE_INFINITY;
+  const guardrailChanceToWin =
+    stats.chanceToWin ??
+    chanceToWinFlatPrior(
+      stats.expected ?? 0,
+      ciLowerGuardrail,
+      ciUpperGuardrail,
+      pValueThreshold,
+      metric.inverse
+    );
+  const guardrailSafeStatus = guardrailChanceToWin > 1 - guardrailAlpha;
   return {
     shouldHighlight: _shouldHighlight,
     belowMinChange,
@@ -777,6 +796,48 @@ export function getMetricResultStatus({
     clearSignalResultsStatus,
     guardrailSafeStatus,
   };
+}
+
+export function chanceToWinFlatPrior(
+  expected: number,
+  lower: number,
+  upper: number,
+  pValueThreshold: number,
+  inverse: boolean = false
+): number {
+  if (
+    lower === Number.NEGATIVE_INFINITY &&
+    upper === Number.POSITIVE_INFINITY
+  ) {
+    return 0;
+  }
+  const confidenceIntervalType =
+    lower === Number.NEGATIVE_INFINITY
+      ? "oneSidedLesser"
+      : upper === Number.POSITIVE_INFINITY
+      ? "oneSidedGreater"
+      : "twoSided";
+  const halfwidth =
+    confidenceIntervalType === "twoSided"
+      ? 0.5 * (upper - lower)
+      : confidenceIntervalType === "oneSidedGreater"
+      ? expected - lower
+      : upper - expected;
+  const numTails = confidenceIntervalType === "twoSided" ? 2 : 1;
+  const zScore = normal.quantile(1 - pValueThreshold / numTails, 0, 1);
+  const s = halfwidth / zScore;
+  if (s === 0) {
+    if (expected === 0) {
+      return 0;
+    }
+    const chanceToWin = expected > 0;
+    return inverse ? 1 - +chanceToWin : +chanceToWin;
+  }
+  const ctwInverse = normal.cdf(-expected / s, 0, 1);
+  if (inverse) {
+    return ctwInverse;
+  }
+  return 1 - ctwInverse;
 }
 
 export function getAllMetricIdsFromExperiment(

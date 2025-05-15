@@ -29,7 +29,6 @@ from gbstats.frequentist.tests import (
 from gbstats.utils import (
     truncated_normal_mean,
     gaussian_credible_interval,
-    chance_to_win,
 )
 
 
@@ -43,6 +42,7 @@ class GaussianPrior:
 
 @dataclass
 class BayesianConfig(BaseConfig):
+    inverse: bool = False
     prior_type: Literal["relative", "absolute"] = "relative"
 
 
@@ -57,6 +57,7 @@ RiskType = Literal["absolute", "relative"]
 
 @dataclass
 class BayesianTestResult(TestResult):
+    chance_to_win: float
     risk: List[float]
     risk_type: RiskType
 
@@ -99,6 +100,12 @@ class BayesianABTest(BaseABTest):
 
     def has_empty_input(self):
         return self.stat_a.n == 0 or self.stat_b.n == 0
+
+    def chance_to_win(self, mean_diff: float, std_diff: float) -> float:
+        if self.inverse:
+            return 1 - norm.sf(0, mean_diff, std_diff)  # type: ignore
+        else:
+            return norm.sf(0, mean_diff, std_diff)  # type: ignore
 
     def scale_result(self, result: BayesianTestResult) -> BayesianTestResult:
         if result.uplift.dist != "normal":
@@ -225,7 +232,7 @@ class EffectBayesianABTest(BayesianABTest):
             return self._default_output(BASELINE_VARIATION_ZERO_MESSAGE)
         self.std_diff = np.sqrt(1 / post_prec)
 
-        ctw = chance_to_win(self.mean_diff, self.std_diff, self.inverse)
+        ctw = self.chance_to_win(self.mean_diff, self.std_diff)
         ci = gaussian_credible_interval(self.mean_diff, self.std_diff, self.alpha)
         risk = self.get_risk(self.mean_diff, self.std_diff)
         # flip risk for inverse metrics

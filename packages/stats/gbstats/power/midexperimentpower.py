@@ -197,7 +197,7 @@ class MidExperimentPower:
             mu_prior: The prior mean.
             sigma_2_prior: The prior variance.
             proper: A boolean indicating whether the prior is proper.
-            target_mde: The effect size (difference in means).
+            delta: The effect size (difference in means).
             sigma_hat_2: The estimated variance.
             n_t: The sample size of the treatment group.
             scaling_factor: The scaling factor for the control group sample size.

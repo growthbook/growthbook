@@ -83,10 +83,3 @@ def isinstance_union(obj, union):
 
 def is_statistically_significant(ci: List[float]) -> bool:
     return ci[0] > 0 or ci[1] < 0
-
-
-def chance_to_win(mean_diff: float, std_diff: float, inverse: bool) -> float:
-    if inverse:
-        return 1 - norm.sf(0, mean_diff, std_diff)  # type: ignore
-    else:
-        return norm.sf(0, mean_diff, std_diff)  # type: ignore

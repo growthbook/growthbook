@@ -10,8 +10,30 @@ import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
 } from "shared/constants";
 import { MetricPowerResponseFromStatsEngine } from "back-end/types/stats";
-import { sequentialDiscriminant, sequentialRho } from "shared/power";
 import { eachDayOfInterval, formatISO, subDays } from "date-fns";
+
+export function sequentialRho(
+  alpha: number,
+  sequentialTuningParameter: number
+): number {
+  return Math.sqrt(
+    (-2 * Math.log(alpha) + Math.log(-2 * Math.log(alpha) + 1)) /
+      sequentialTuningParameter
+  );
+}
+
+export function sequentialDiscriminant(
+  n: number,
+  rho: number,
+  alpha: number
+): number {
+  return (
+    (2 *
+      (n * Math.pow(rho, 2) + 1) *
+      Math.log(Math.sqrt(n * Math.pow(rho, 2) + 1) / alpha)) /
+    Math.pow(n * rho, 2)
+  );
+}
 
 export interface MidExperimentPowerParams {
   alpha: number;
