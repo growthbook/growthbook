@@ -19,10 +19,9 @@ import { setResponseCookies } from "back-end/src/controllers/auth";
 import { OrganizationInterface } from "back-end/types/organization";
 import {
   getVercelSSOToken,
-  VERCEL_URL,
+  syncVercelSdkWebhook,
 } from "back-end/src/services/vercel-native-integration.service";
 import { createSDKConnection } from "back-end/src/models/SdkConnectionModel";
-import { createSdkWebhook } from "back-end/src/models/WebhookModel";
 import {
   userAuthenticationValidator,
   systemAuthenticationValidator,
@@ -313,7 +312,7 @@ export async function deleteInstallation(req: Request, res: Response) {
   // TODO: cascade delete
   await nativeIntegrationModel.deleteById(nativeIntegration.id);
 
-  return res.sendStatus(204);
+  return res.status(200).send({ finalized: true });
 }
 
 export async function provisionResource(req: Request, res: Response) {
@@ -377,11 +376,6 @@ export async function provisionResource(req: Request, res: Response) {
       { name: "EDGE_CONFIG_KEY", value: EDGE_PAYLOAD_KEY },
       { name: "GROWTHBOOK_DOMAIN", value: "https://app.growthbook.io" },
     ],
-    protocolSettings: {
-      experimentation: {
-        edgeConfigSyncingEnabled: true,
-      },
-    },
     status: "ready",
   };
 
@@ -389,22 +383,7 @@ export async function provisionResource(req: Request, res: Response) {
     resources: [...nativeIntegration.resources, resource],
   });
 
-  const context = new ReqContextClass({
-    org,
-    auditUser: null,
-    user,
-  });
-
-  await createSdkWebhook(context, sdkConnection.id, {
-    name: "Sync vercel integration edge config",
-    endpoint: `${VERCEL_URL}/v1/installations/${nativeIntegration.installationId}/resources/${resource.id}/experimentation/edge-config`,
-    payloadFormat: "vercelNativeIntegration",
-    payloadKey: "gb_payload",
-    httpMethod: "PUT",
-    headers: JSON.stringify({
-      Authorization: `Bearer ${nativeIntegration.upsertData.payload.credentials.access_token}`,
-    }),
-  });
+  await syncVercelSdkWebhook(org.id);
 
   return res.json(resource);
 }
@@ -425,7 +404,7 @@ export async function getResource(req: Request, res: Response) {
 }
 
 export async function updateResource(req: Request, res: Response) {
-  const { nativeIntegrationModel, nativeIntegration } = await authContext(
+  const { org, nativeIntegrationModel, nativeIntegration } = await authContext(
     req,
     res
   );
@@ -459,6 +438,8 @@ export async function updateResource(req: Request, res: Response) {
       r.id === resource.id ? updatedResource : r
     ),
   });
+
+  await syncVercelSdkWebhook(org.id);
 
   return res.json(updatedResource);
 }

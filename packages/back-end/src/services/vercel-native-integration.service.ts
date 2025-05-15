@@ -4,6 +4,16 @@ import { ExperimentInterface } from "back-end/types/experiment";
 import { findVercelInstallationByOrganization } from "back-end/src/models/VercelNativeIntegrationModel";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
+import { getUserByEmail } from "back-end/src/models/UserModel";
+import {
+  createSdkWebhook,
+  updateSdkWebhook,
+  findSdkWebhook,
+  deleteSdkWebhookById,
+} from "back-end/src/models/WebhookModel";
+import { ReqContextClass } from "back-end/src/services/context";
+import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
+import { findOrganizationById } from "back-end/src/models/OrganizationModel";
 
 export const VERCEL_URL = "https://api.vercel.com";
 
@@ -282,3 +292,70 @@ export const deleteVercelExperimentationItemFromExperiment = ({
     experimentationItem: vercelExperimentExperimentationItem(experiment),
     organization,
   });
+
+export const syncVercelSdkWebhook = async (organization: string) => {
+  const org = await findOrganizationById(organization);
+
+  if (!org) throw "Internal error";
+
+  if (!org.isVercelIntegration) return;
+
+  const nativeIntegration = await findVercelInstallationByOrganization(org.id);
+
+  if (!nativeIntegration)
+    throw new Error(`Could not find a vercel installation for org ${org.id}`);
+
+  const user = await getUserByEmail(
+    nativeIntegration.upsertData.authentication.user_email
+  );
+
+  if (!user) throw "Internal error";
+
+  const resource = nativeIntegration.resources.find(
+    (r) => (r.organizationId = org.id)
+  );
+
+  if (!resource) throw "Internal error";
+
+  const context = new ReqContextClass({
+    org,
+    auditUser: null,
+    user,
+  });
+
+  const sdkConnections = await findSDKConnectionsByOrganization(context);
+
+  const endpoint = `${VERCEL_URL}/v1/installations/${nativeIntegration.installationId}/resources/${resource.id}/experimentation/edge-config`;
+  const webhook = await findSdkWebhook(context, { endpoint });
+
+  if (
+    !resource.protocolSettings?.experimentation?.edgeConfigId ||
+    !sdkConnections.length
+  ) {
+    if (!webhook) return;
+
+    await deleteSdkWebhookById(context, webhook.id);
+
+    return;
+  }
+
+  const sdks = sdkConnections.map(({ id }) => id);
+
+  const webhookParams = {
+    name: "Sync vercel integration edge config",
+    endpoint,
+    payloadFormat: "vercelNativeIntegration",
+    payloadKey: "gb_payload",
+    httpMethod: "PUT",
+    headers: JSON.stringify({
+      Authorization: `Bearer ${nativeIntegration.upsertData.payload.credentials.access_token}`,
+    }),
+  } as const;
+
+  if (webhook) {
+    await updateSdkWebhook(context, webhook, { ...webhookParams, sdks });
+    return;
+  }
+
+  await createSdkWebhook(context, sdks, webhookParams);
+};

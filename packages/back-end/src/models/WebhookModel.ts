@@ -137,12 +137,14 @@ export const updateSdkWebhookValidator = z
       ])
       .optional(),
     payloadKey: z.string().optional(),
+    sdks: z.array(z.string()).optional(),
     httpMethod: z
       .enum(["GET", "POST", "PUT", "DELETE", "PATCH", "PURGE"])
       .optional(),
     headers: z.string().optional(),
   })
   .strict();
+
 export type UpdateSdkWebhookProps = z.infer<typeof updateSdkWebhookValidator>;
 
 export async function updateSdkWebhook(
@@ -194,7 +196,7 @@ export type CreateSdkWebhookProps = z.infer<typeof createSdkWebhookValidator>;
 
 export async function createSdkWebhook(
   context: ReqContext,
-  sdkConnectionId: string,
+  sdkConnectionIds: string | string[],
   data: CreateSdkWebhookProps
 ) {
   data = createSdkWebhookValidator.parse(data);
@@ -213,7 +215,10 @@ export async function createSdkWebhook(
     error: "",
     lastSuccess: null,
     useSdkMode: true,
-    sdks: [sdkConnectionId],
+    sdks:
+      typeof sdkConnectionIds === "string"
+        ? [sdkConnectionIds]
+        : sdkConnectionIds,
   };
   const res = await WebhookModel.create(doc);
 
@@ -223,6 +228,18 @@ export async function createSdkWebhook(
 export async function findSdkWebhookByIdAcrossOrgs(id: string) {
   const doc = await WebhookModel.findOne({
     id,
+  });
+  return doc ? toInterface(doc) : null;
+}
+
+export async function findSdkWebhook(
+  context: ReqContext,
+  params: Partial<WebhookInterface>
+) {
+  const doc = await WebhookModel.findOne({
+    ...params,
+    organization: context.org.id,
+    useSdkMode: true,
   });
   return doc ? toInterface(doc) : null;
 }
