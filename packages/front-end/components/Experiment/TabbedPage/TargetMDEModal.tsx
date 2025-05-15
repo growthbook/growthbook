@@ -1,6 +1,5 @@
 import { FC, useState } from "react";
 import { Box, Flex, Text } from "@radix-ui/themes";
-import { DEFAULT_TARGET_MDE } from "shared/constants";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Modal from "@/components/Modal";
 import { ExperimentMetricInterfaceWithComputedTargetMDE } from "@/components/Experiment/TabbedPage/AnalysisSettings";
@@ -30,33 +29,22 @@ const TargetMDEModal: FC<TargetMDEModalProps> = ({
       return acc;
     }, {}) ?? {}
   );
-  const [values, setValues] = useState<Record<string, number>>(
-    goalsWithTargetMDE.reduce((acc, metric) => {
-      const override = overrides[metric.id];
-      acc[metric.id] = override ?? metric.metricTargetMDE;
-      return acc;
-    }, {})
-  );
-
   const { apiCall } = useAuth();
 
-  const handleOverrideChange = (metricId: string, checked: boolean) => {
+  const handleOverrideChange = (
+    metricId: string,
+    checked: boolean,
+    targetMDE: number
+  ) => {
     setOverrides((prev) => {
       if (checked) {
-        return { ...prev, [metricId]: values[metricId] ?? DEFAULT_TARGET_MDE };
+        return { ...prev, [metricId]: targetMDE };
       } else {
         const newOverrides = { ...prev };
         delete newOverrides[metricId];
         return newOverrides;
       }
     });
-  };
-
-  const handleValueChange = (metricId: string, value: string) => {
-    const numValue = parseFloat(value);
-    if (!isNaN(numValue)) {
-      setValues((prev) => ({ ...prev, [metricId]: numValue / 100 }));
-    }
   };
 
   return (
@@ -91,7 +79,11 @@ const TargetMDEModal: FC<TargetMDEModalProps> = ({
                     <Checkbox
                       value={isOverridden}
                       setValue={(checked) =>
-                        handleOverrideChange(metric.id, checked as boolean)
+                        handleOverrideChange(
+                          metric.id,
+                          checked,
+                          metric.computedTargetMDE
+                        )
                       }
                       label={`Override metric default`}
                       weight="regular"
@@ -100,11 +92,16 @@ const TargetMDEModal: FC<TargetMDEModalProps> = ({
                 </Flex>
                 <Field
                   type="number"
-                  value={((values[metric.id] ?? currentValue) * 100).toFixed(2)}
-                  onChange={(e) => handleValueChange(metric.id, e.target.value)}
+                  value={(overrides[metric.id] ?? currentValue) * 100}
+                  onChange={(e) =>
+                    handleOverrideChange(
+                      metric.id,
+                      isOverridden,
+                      parseFloat(e.target.value) / 100
+                    )
+                  }
                   append="%"
                   min={0}
-                  step={0.000001}
                   disabled={!isOverridden}
                 />
               </Flex>

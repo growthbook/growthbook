@@ -1012,6 +1012,7 @@ export async function postExperiment(
     "secondaryMetrics",
     "guardrailMetrics",
     "metricOverrides",
+    "metricTargetMDEOverrides",
     "variations",
     "status",
     "results",

@@ -15,6 +15,7 @@ import {
 import { SnapshotVariation } from "./experiment-snapshot";
 import { Queries } from "./query";
 import { DifferenceType, StatsEngine } from "./stats";
+import { MetricTargetMDEOverride } from "back-end/src/validators/experiments";
 
 export interface ReportInterfaceBase {
   id: string;
@@ -117,6 +118,7 @@ export interface ExperimentReportArgs {
   goalMetrics: string[];
   secondaryMetrics: string[];
   metricOverrides?: MetricOverride[];
+  metricTargetMDEOverrides?: MetricTargetMDEOverride[];
   guardrailMetrics: string[];
   activationMetric?: string;
   queryFilter?: string;

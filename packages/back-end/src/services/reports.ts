@@ -183,7 +183,7 @@ export function getSnapshotSettingsFromReportArgs(
           metricMap,
           args.settingsForSnapshotMetrics,
           args.metricOverrides,
-          [] // TODO: add targetMDE overrides
+          args.metricTargetMDEOverrides,
         )
       )
       .filter(isDefined),
@@ -385,6 +385,7 @@ export async function createReportSnapshot({
       report.experimentAnalysisSettings.differenceType ?? "relative",
   };
 
+  // TODO add metric overrides
   const snapshotSettings = getReportSnapshotSettings({
     report,
     analysisSettings,
@@ -539,7 +540,8 @@ export function getReportSnapshotSettings({
         m,
         metricMap,
         settingsForSnapshotMetrics,
-        report.experimentAnalysisSettings.metricOverrides
+        report.experimentAnalysisSettings.metricOverrides,
+        report.experimentAnalysisSettings.metricTargetMDEOverrides
       )
     )
     .filter(isDefined);

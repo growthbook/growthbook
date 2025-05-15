@@ -159,27 +159,29 @@ export default function AnalysisSettings({
         />
       ) : null}
 
-      {decisionCriteriaModal && (
+      {decisionCriteriaModal && mutate ? (
         <DecisionCriteriaSelectorModal
           initialCriteria={decisionCriteria}
           experimentId={experiment.id}
           onSubmit={() => {
             setDecisionCriteriaModal(false);
+            mutate();
           }}
           onClose={() => setDecisionCriteriaModal(false)}
           canEdit={canEditAnalysisSettings}
         />
-      )}
-      {targetMDEModal && (
+      ) : null}
+      {targetMDEModal && mutate ? (
         <TargetMDEModal
           goalsWithTargetMDE={goalsWithTargetMDE}
           experiment={experiment}
           onSubmit={() => {
             setTargetMDEModal(false);
+            mutate();
           }}
           onClose={() => setTargetMDEModal(false)}
         />
-      )}
+      ) : null}
 
       <div className="box p-4 my-4">
         <div className="d-flex flex-row align-items-center justify-content-between text-dark mb-4">
