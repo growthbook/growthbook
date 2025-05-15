@@ -203,6 +203,9 @@ const revisionLog = z
 
 export type RevisionLog = z.infer<typeof revisionLog>;
 
+const revisionRulesSchema = z.record(z.string(), z.array(featureRule));
+export type RevisionRules = z.infer<typeof revisionRulesSchema>;
+
 const featureRevisionInterface = z
   .object({
     featureId: z.string(),
@@ -224,7 +227,7 @@ const featureRevisionInterface = z
       "pending-review",
     ]),
     defaultValue: z.string(),
-    rules: z.record(z.string(), z.array(featureRule)),
+    rules: revisionRulesSchema,
     log: z.array(revisionLog).optional(),
   })
   .strict();
