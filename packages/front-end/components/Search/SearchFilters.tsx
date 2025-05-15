@@ -1,10 +1,11 @@
 import React, {
   ChangeEvent,
-  FC, Fragment,
+  FC,
+  Fragment,
   useCallback,
   useMemo,
   useRef,
-  useState
+  useState,
 } from "react";
 import { Box, Flex, Heading, IconButton } from "@radix-ui/themes";
 import { FaAngleDown, FaAngleUp, FaCheck } from "react-icons/fa";
@@ -136,6 +137,7 @@ const SearchFilterMenu: FC<{
             value={filterSearch}
             onChange={(e) => setFilterSearch(e.target.value)}
             type="search"
+            className="mt-2"
           />
         )}
       </Box>
