@@ -379,11 +379,14 @@ export function transformQuery(
   searchTerm: string,
   searchTermFilterKeys: string[]
 ) {
-  // TODO: Support comma-separated quoted values (e.g. `foo:"bar","baz"`)
+  // split up the string into the search term and the filters, and support OR'ing
+  // multiple search terms, even if they are in quotes
   const regex = new RegExp(
     `(^|\\s)(${searchTermFilterKeys.join(
       "|"
-    )}):(\\!?)([${searchTermOperators.join("")}]?)([^\\s"]+|"[^"]*"?)`,
+    )}):(\\!?)([${searchTermOperators.join(
+      ""
+    )}]?)((?:"[^"]*"|[^\\s,]+)(?:,(?:"[^"]*"|[^\\s,]+))*)`,
     "gi"
   );
   return parseQuery(searchTerm, regex);
