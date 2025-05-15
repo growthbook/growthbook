@@ -62,6 +62,7 @@ export default function AnalysisSettings({
   const growthbook = useGrowthBook<AppFeatures>();
   const hasDecisionFramework =
     growthbook.isOn("decision-framework-criteria") &&
+    organization?.settings?.decisionFrameworkEnabled &&
     hasCommercialFeature("decision-framework");
 
   const { getDecisionCriteria } = useRunningExperimentStatus();
