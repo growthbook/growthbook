@@ -103,7 +103,7 @@ export interface MetricForSnapshot {
     properPriorMean: number;
     properPriorStdDev: number;
     windowSettings: MetricWindowSettings;
-    targetMDE: number;
+    targetMDE?: number;
   };
 }
 
