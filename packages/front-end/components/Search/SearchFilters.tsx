@@ -19,16 +19,18 @@ import { MetricTableItem } from "@/components/Metrics/MetricsList";
 import { SearchTermFilterOperator, SyntaxFilter } from "@/services/search";
 import Field from "@/components/Forms/Field";
 import { useEnvironments } from "@/services/features";
+import Tag from "@/components/Tags/Tag";
 
 // Common interfaces
 interface SearchFiltersItem {
   id: string;
-  name: string;
+  name: string | JSX.Element;
   searchValue: string;
   operator?: SearchTermFilterOperator;
   negated?: boolean;
   filter?: string;
   hr?: boolean;
+  disabled?: boolean;
 }
 
 interface BaseSearchFiltersProps {
@@ -63,7 +65,7 @@ const FilterHeading: FC<{
   );
 };
 
-const FilterItem: FC<{ item: string; exists: boolean }> = ({
+const FilterItem: FC<{ item: string | JSX.Element; exists: boolean }> = ({
   item,
   exists,
 }) => {
@@ -111,8 +113,14 @@ const SearchFilterMenu: FC<{
       filterSearch
         ? items.filter(
             (i) =>
-              i.name.toLowerCase().startsWith(filterSearch.toLowerCase()) ||
-              i.name.toLowerCase().includes(filterSearch.toLowerCase())
+              (typeof i.name === "string"
+                ? i.name.toLowerCase()
+                : i.searchValue.toLowerCase()
+              ).startsWith(filterSearch.toLowerCase()) ||
+              (typeof i.name === "string"
+                ? i.name.toLowerCase()
+                : i.searchValue.toLowerCase()
+              ).includes(filterSearch.toLowerCase())
           )
         : items,
     [items, filterSearch]
@@ -158,6 +166,7 @@ const SearchFilterMenu: FC<{
             {i.hr && <Box my="2" style={{ borderBottom: "1px solid #ccc" }} />}
             <DropdownMenuItem
               key={i.id}
+              disabled={i.disabled}
               onClick={() => {
                 const f: SyntaxFilter = {
                   field: i?.filter ?? filter,
@@ -229,7 +238,7 @@ const useSearchFiltersBase = ({
   setSearchValue,
 }: BaseSearchFiltersProps) => {
   const [dropdownFilterOpen, setDropdownFilterOpen] = useState("");
-  const { projects } = useDefinitions();
+  const { projects, project } = useDefinitions();
 
   const filterToString = useCallback((filter: SyntaxFilter) => {
     return (
@@ -328,6 +337,7 @@ const useSearchFiltersBase = ({
   return {
     dropdownFilterOpen,
     setDropdownFilterOpen,
+    project,
     projects,
     updateQuery,
     doesFilterExist: useCallback(
@@ -435,7 +445,11 @@ export const MetricSearchFilters: FC<
         open={dropdownFilterOpen}
         setOpen={setDropdownFilterOpen}
         items={availableTags.map((t) => {
-          return { name: t, id: t, searchValue: t };
+          return {
+            name: <Tag tag={t} key={t} skipMargin={true} />,
+            id: t,
+            searchValue: t,
+          };
         })}
         updateQuery={updateQuery}
       />
@@ -544,6 +558,7 @@ export const FeatureSearchFilters: FC<
   const {
     dropdownFilterOpen,
     setDropdownFilterOpen,
+    project,
     projects,
     updateQuery,
     doesFilterExist,
@@ -580,10 +595,44 @@ export const FeatureSearchFilters: FC<
     return Array.from(owners);
   }, [features]);
 
+  const availableFeatureTypes = useMemo(() => {
+    const featureTypes = new Set<string>();
+    features.forEach((f) => {
+      featureTypes.add(f.valueType);
+    });
+    return Array.from(featureTypes);
+  }, [features]);
+  const allFeatureTypes: SearchFiltersItem[] = [
+    {
+      name: "Boolean (true/false)",
+      id: "feature-type-boolean",
+      searchValue: "boolean",
+      disabled: !availableFeatureTypes.includes("boolean"),
+    },
+    {
+      name: "Number",
+      id: "feature-type-number",
+      searchValue: "number",
+      disabled: !availableFeatureTypes.includes("number"),
+    },
+    {
+      name: "String",
+      id: "feature-type-string",
+      searchValue: "string",
+      disabled: !availableFeatureTypes.includes("string"),
+    },
+    {
+      name: "JSON",
+      id: "feature-type-json",
+      searchValue: "json",
+      disabled: !availableFeatureTypes.includes("json"),
+    },
+  ];
+
   const onEnv = environments.map((e) => {
     return {
       searchValue: e.id,
-      id: e.id,
+      id: "on-env-" + e.id,
       name: "On on " + e.id,
     };
   });
@@ -591,7 +640,7 @@ export const FeatureSearchFilters: FC<
     return {
       filter: "off",
       searchValue: e.id,
-      id: e.id,
+      id: "off-env-" + e.id,
       name: "Off on " + e.id,
       hr: i === 0,
     };
@@ -601,16 +650,18 @@ export const FeatureSearchFilters: FC<
 
   return (
     <Flex gap="5" align="center">
-      <SearchFilterMenu
-        filter="project"
-        syntaxFilters={syntaxFilters}
-        open={dropdownFilterOpen}
-        setOpen={setDropdownFilterOpen}
-        items={projects.map((p) => {
-          return { name: p.name, id: p.id, searchValue: p.name };
-        })}
-        updateQuery={updateQuery}
-      />
+      {!project && (
+        <SearchFilterMenu
+          filter="project"
+          syntaxFilters={syntaxFilters}
+          open={dropdownFilterOpen}
+          setOpen={setDropdownFilterOpen}
+          items={projects.map((p) => {
+            return { name: p.name, id: p.id, searchValue: p.name };
+          })}
+          updateQuery={updateQuery}
+        />
+      )}
       <SearchFilterMenu
         filter="owner"
         syntaxFilters={syntaxFilters}
@@ -627,8 +678,20 @@ export const FeatureSearchFilters: FC<
         open={dropdownFilterOpen}
         setOpen={setDropdownFilterOpen}
         items={availableTags.map((t) => {
-          return { name: t, id: t, searchValue: t };
+          return {
+            name: <Tag tag={t} key={t} skipMargin={true} />,
+            id: t,
+            searchValue: t,
+          };
         })}
+        updateQuery={updateQuery}
+      />
+      <SearchFilterMenu
+        filter="type"
+        syntaxFilters={syntaxFilters}
+        open={dropdownFilterOpen}
+        setOpen={setDropdownFilterOpen}
+        items={allFeatureTypes}
         updateQuery={updateQuery}
       />
       <SearchFilterMenu

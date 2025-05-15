@@ -191,6 +191,10 @@ export function useFeatureSearch({
         console.log(item, staleFeatures);
         if (item.archived) is.push("archived");
         if (item.hasDrafts) is.push("draft");
+        if (item.valueType === "json") is.push("json");
+        if (item.valueType === "string") is.push("string");
+        if (item.valueType === "number") is.push("number");
+        if (item.valueType === "boolean") is.push("boolean");
         if (staleFeatures?.[item.id]?.stale) is.push("stale");
         return is;
       },
@@ -240,6 +244,7 @@ export function useFeatureSearch({
       revision: (item) => item.version,
       owner: (item) => item.owner,
       tag: (item) => item.tags,
+      type: (item) => item.valueType,
       rules: (item) => {
         const rules = getMatchingRules(
           item,
