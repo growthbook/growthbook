@@ -41,7 +41,8 @@ jobs:
           yarn
           cd ../../docs
           yarn
-          yarn gen
+          yarn gen 
+          yarn gen-sdk-resources
 
       - name: Deploy to Vercel
         if: ${{ github.repository == 'growthbook/growthbook' }}
