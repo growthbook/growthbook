@@ -29,7 +29,7 @@ import {
   MetricModalState,
 } from "@/components/FactTables/NewMetricModal";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import { FilterMetricSearchModal } from "@/components/Search/SearchFilters";
+import { MetricSearchFilters } from "@/components/Search/SearchFilters";
 import PremiumCallout from "../Radix/PremiumCallout";
 
 export interface MetricTableItem {
@@ -227,7 +227,6 @@ const MetricsList = (): React.ReactElement => {
     getProjectById,
     metricGroups,
     project,
-    projects,
     ready,
   } = useDefinitions();
   const { getUserDisplay } = useUser();
@@ -316,7 +315,6 @@ const MetricsList = (): React.ReactElement => {
     setModalData(null);
   };
 
-  console.log("projects: ", projects);
   return (
     <div className="container-fluid pagecontents p-0">
       {modalData ? (
@@ -360,7 +358,7 @@ const MetricsList = (): React.ReactElement => {
         <Box className="relative" width="40%">
           <Field placeholder="Search..." type="search" {...searchInputProps} />
         </Box>
-        <FilterMetricSearchModal
+        <MetricSearchFilters
           combinedMetrics={combinedMetrics}
           searchInputProps={searchInputProps}
           setSearchValue={setSearchValue}
