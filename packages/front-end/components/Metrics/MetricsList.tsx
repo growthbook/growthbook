@@ -29,7 +29,7 @@ import {
   MetricModalState,
 } from "@/components/FactTables/NewMetricModal";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import { MetricSearchFilters } from "@/components/Search/SearchFilters";
+import MetricSearchFilters from "@/components/Search/MetricSearchFilters";
 import PremiumCallout from "../Radix/PremiumCallout";
 
 export interface MetricTableItem {

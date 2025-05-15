@@ -56,7 +56,7 @@ import { useUser } from "@/services/UserContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import EmptyState from "@/components/EmptyState";
 import ProjectBadges from "@/components/ProjectBadges";
-import { FeatureSearchFilters } from "@/components/Search/SearchFilters";
+import FeatureSearchFilters from "@/components/Search/FeatureSearchFilters";
 import FeaturesDraftTable from "./FeaturesDraftTable";
 
 const NUM_PER_PAGE = 20;

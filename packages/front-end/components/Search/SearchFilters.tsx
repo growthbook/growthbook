@@ -9,20 +9,16 @@ import React, {
 } from "react";
 import { Box, Flex, Heading, IconButton } from "@radix-ui/themes";
 import { FaAngleDown, FaAngleUp, FaCheck } from "react-icons/fa";
-import { FeatureInterface } from "back-end/types/feature";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   DropdownMenu,
   DropdownMenuItem,
 } from "@/components/Radix/DropdownMenu";
-import { MetricTableItem } from "@/components/Metrics/MetricsList";
 import { SearchTermFilterOperator, SyntaxFilter } from "@/services/search";
 import Field from "@/components/Forms/Field";
-import { useEnvironments } from "@/services/features";
-import Tag from "@/components/Tags/Tag";
 
 // Common interfaces
-interface SearchFiltersItem {
+export interface SearchFiltersItem {
   id: string;
   name: string | JSX.Element;
   searchValue: string;
@@ -33,7 +29,7 @@ interface SearchFiltersItem {
   disabled?: boolean;
 }
 
-interface BaseSearchFiltersProps {
+export interface BaseSearchFiltersProps {
   searchInputProps: {
     value: string;
     onChange: (e: ChangeEvent<HTMLInputElement>) => void;
@@ -42,8 +38,7 @@ interface BaseSearchFiltersProps {
   setSearchValue: (value: string) => void;
 }
 
-// Common FilterItem and FilterHeading components remain unchanged
-const FilterHeading: FC<{
+export const FilterHeading: FC<{
   heading: string;
   open: boolean;
 }> = ({ heading, open }) => {
@@ -65,10 +60,10 @@ const FilterHeading: FC<{
   );
 };
 
-const FilterItem: FC<{ item: string | JSX.Element; exists: boolean }> = ({
-  item,
-  exists,
-}) => {
+export const FilterItem: FC<{
+  item: string | JSX.Element;
+  exists: boolean;
+}> = ({ item, exists }) => {
   return (
     <Box className="position-relative">
       {exists ? (
@@ -86,8 +81,7 @@ const FilterItem: FC<{ item: string | JSX.Element; exists: boolean }> = ({
   );
 };
 
-// SearchFilterMenu component remains unchanged
-const SearchFilterMenu: FC<{
+export const FilterDropdown: FC<{
   filter: string;
   items: SearchFiltersItem[];
   syntaxFilters: SyntaxFilter[];
@@ -194,7 +188,7 @@ const SearchFilterMenu: FC<{
   );
 };
 
-// Helper function for checking if a filter exists
+// Helper function for checking if a filter exists in the syntax filters
 function doesFilterExistInSearch({
   syntaxFilters,
   field,
@@ -231,8 +225,8 @@ function doesFilterExistInSearch({
   }
 }
 
-// Base hooks factory - creates common hooks for both components
-const useSearchFiltersBase = ({
+// Base hook
+export const useSearchFiltersBase = ({
   searchInputProps,
   syntaxFilters,
   setSearchValue,
@@ -352,455 +346,4 @@ const useSearchFiltersBase = ({
       [syntaxFilters]
     ),
   };
-};
-
-// Metric specific component
-export const MetricSearchFilters: FC<
-  BaseSearchFiltersProps & { combinedMetrics: MetricTableItem[] }
-> = ({ searchInputProps, syntaxFilters, combinedMetrics, setSearchValue }) => {
-  const {
-    dropdownFilterOpen,
-    setDropdownFilterOpen,
-    projects,
-    updateQuery,
-    doesFilterExist,
-  } = useSearchFiltersBase({
-    searchInputProps,
-    syntaxFilters,
-    setSearchValue,
-  });
-  const { datasources } = useDefinitions();
-
-  // Metric specific state
-  const availableTags = useMemo(() => {
-    const availableTags: string[] = [];
-    combinedMetrics.forEach((item) => {
-      if (item.tags) {
-        item.tags.forEach((tag) => {
-          if (!availableTags.includes(tag)) {
-            availableTags.push(tag);
-          }
-        });
-      }
-    });
-    return availableTags;
-  }, [combinedMetrics]);
-
-  const owners = useMemo(() => {
-    const owners = new Set<string>();
-    combinedMetrics.forEach((m) => {
-      if (m.owner) {
-        owners.add(m.owner);
-      }
-    });
-    return Array.from(owners);
-  }, [combinedMetrics]);
-
-  const hasArchivedMetrics = combinedMetrics.some((m) => m.archived);
-  const metricTypes = [
-    "ratio",
-    "binomial",
-    "proportion",
-    "mean",
-    "duration",
-    "revenue",
-    "count",
-  ];
-
-  return (
-    <Flex gap="5" align="center">
-      <SearchFilterMenu
-        filter="datasource"
-        syntaxFilters={syntaxFilters}
-        open={dropdownFilterOpen}
-        setOpen={setDropdownFilterOpen}
-        items={datasources.map((d) => {
-          return { name: d.name, id: d.id, searchValue: d.name };
-        })}
-        updateQuery={updateQuery}
-      />
-      <SearchFilterMenu
-        filter="project"
-        syntaxFilters={syntaxFilters}
-        open={dropdownFilterOpen}
-        setOpen={setDropdownFilterOpen}
-        items={projects.map((p) => {
-          return { name: p.name, id: p.id, searchValue: p.name };
-        })}
-        updateQuery={updateQuery}
-      />
-      <SearchFilterMenu
-        filter="owner"
-        syntaxFilters={syntaxFilters}
-        open={dropdownFilterOpen}
-        setOpen={setDropdownFilterOpen}
-        items={owners.map((o) => {
-          return { name: o, id: o, searchValue: o };
-        })}
-        updateQuery={updateQuery}
-      />
-      <SearchFilterMenu
-        filter="tag"
-        syntaxFilters={syntaxFilters}
-        open={dropdownFilterOpen}
-        setOpen={setDropdownFilterOpen}
-        items={availableTags.map((t) => {
-          return {
-            name: <Tag tag={t} key={t} skipMargin={true} />,
-            id: t,
-            searchValue: t,
-          };
-        })}
-        updateQuery={updateQuery}
-      />
-      <SearchFilterMenu
-        filter="type"
-        syntaxFilters={syntaxFilters}
-        open={dropdownFilterOpen}
-        setOpen={setDropdownFilterOpen}
-        items={metricTypes.map((t) => {
-          return { name: t, id: t, searchValue: t };
-        })}
-        updateQuery={updateQuery}
-      />
-
-      <DropdownMenu
-        trigger={FilterHeading({
-          heading: "more",
-          open: dropdownFilterOpen === "more",
-        })}
-        open={dropdownFilterOpen === "more"}
-        onOpenChange={(o) => {
-          setDropdownFilterOpen(o ? "more" : "");
-        }}
-      >
-        <DropdownMenuItem
-          onClick={() => {
-            updateQuery({
-              field: "is",
-              values: ["official"],
-              operator: "",
-              negated: false,
-            });
-          }}
-        >
-          <FilterItem
-            item="Official metric"
-            exists={doesFilterExist("is", "official", "")}
-          />
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          disabled={!hasArchivedMetrics}
-          onClick={() => {
-            updateQuery({
-              field: "is",
-              values: ["archived"],
-              operator: "",
-              negated: false,
-            });
-          }}
-        >
-          <FilterItem
-            item="Archived metric"
-            exists={doesFilterExist("is", "archived", "")}
-          />
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() => {
-            updateQuery({
-              field: "is",
-              values: ["fact"],
-              operator: "",
-              negated: false,
-            });
-          }}
-        >
-          <FilterItem
-            item="Fact metric"
-            exists={doesFilterExist("is", "fact", "", false)}
-          />
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() => {
-            updateQuery({
-              field: "is",
-              values: ["fact"],
-              operator: "",
-              negated: true,
-            });
-          }}
-        >
-          <FilterItem
-            item="Non-fact metric"
-            exists={doesFilterExist("is", "fact", "", true)}
-          />
-        </DropdownMenuItem>
-      </DropdownMenu>
-    </Flex>
-  );
-};
-
-// Feature specific component
-export const FeatureSearchFilters: FC<
-  BaseSearchFiltersProps & {
-    features: FeatureInterface[];
-    hasArchived: boolean;
-    setShowArchived: (value: boolean) => void;
-  }
-> = ({
-  searchInputProps,
-  syntaxFilters,
-  features,
-  setSearchValue,
-  hasArchived,
-  setShowArchived,
-}) => {
-  const {
-    dropdownFilterOpen,
-    setDropdownFilterOpen,
-    project,
-    projects,
-    updateQuery,
-    doesFilterExist,
-  } = useSearchFiltersBase({
-    searchInputProps,
-    syntaxFilters,
-    setSearchValue,
-  });
-  // get the environments:
-  const environments = useEnvironments();
-
-  // Feature specific state
-  const availableTags = useMemo(() => {
-    const availableTags: string[] = [];
-    features.forEach((item) => {
-      if (item.tags) {
-        item.tags.forEach((tag) => {
-          if (!availableTags.includes(tag)) {
-            availableTags.push(tag);
-          }
-        });
-      }
-    });
-    return availableTags;
-  }, [features]);
-
-  const owners = useMemo(() => {
-    const owners = new Set<string>();
-    features.forEach((f) => {
-      if (f.owner) {
-        owners.add(f.owner);
-      }
-    });
-    return Array.from(owners);
-  }, [features]);
-
-  const availableFeatureTypes = useMemo(() => {
-    const featureTypes = new Set<string>();
-    features.forEach((f) => {
-      featureTypes.add(f.valueType);
-    });
-    return Array.from(featureTypes);
-  }, [features]);
-  const allFeatureTypes: SearchFiltersItem[] = [
-    {
-      name: "Boolean (true/false)",
-      id: "feature-type-boolean",
-      searchValue: "boolean",
-      disabled: !availableFeatureTypes.includes("boolean"),
-    },
-    {
-      name: "Number",
-      id: "feature-type-number",
-      searchValue: "number",
-      disabled: !availableFeatureTypes.includes("number"),
-    },
-    {
-      name: "String",
-      id: "feature-type-string",
-      searchValue: "string",
-      disabled: !availableFeatureTypes.includes("string"),
-    },
-    {
-      name: "JSON",
-      id: "feature-type-json",
-      searchValue: "json",
-      disabled: !availableFeatureTypes.includes("json"),
-    },
-  ];
-
-  const onEnv = environments.map((e) => {
-    return {
-      searchValue: e.id,
-      id: "on-env-" + e.id,
-      name: "On on " + e.id,
-    };
-  });
-  const offEnv = environments.map((e, i) => {
-    return {
-      filter: "off",
-      searchValue: e.id,
-      id: "off-env-" + e.id,
-      name: "Off on " + e.id,
-      hr: i === 0,
-    };
-  });
-  // merge onEnv and offEnv:
-  const allEnv = [...onEnv, ...offEnv];
-
-  return (
-    <Flex gap="5" align="center">
-      {!project && (
-        <SearchFilterMenu
-          filter="project"
-          syntaxFilters={syntaxFilters}
-          open={dropdownFilterOpen}
-          setOpen={setDropdownFilterOpen}
-          items={projects.map((p) => {
-            return { name: p.name, id: p.id, searchValue: p.name };
-          })}
-          updateQuery={updateQuery}
-        />
-      )}
-      <SearchFilterMenu
-        filter="owner"
-        syntaxFilters={syntaxFilters}
-        open={dropdownFilterOpen}
-        setOpen={setDropdownFilterOpen}
-        items={owners.map((o) => {
-          return { name: o, id: o, searchValue: o };
-        })}
-        updateQuery={updateQuery}
-      />
-      <SearchFilterMenu
-        filter="tag"
-        syntaxFilters={syntaxFilters}
-        open={dropdownFilterOpen}
-        setOpen={setDropdownFilterOpen}
-        items={availableTags.map((t) => {
-          return {
-            name: <Tag tag={t} key={t} skipMargin={true} />,
-            id: t,
-            searchValue: t,
-          };
-        })}
-        updateQuery={updateQuery}
-      />
-      <SearchFilterMenu
-        filter="type"
-        syntaxFilters={syntaxFilters}
-        open={dropdownFilterOpen}
-        setOpen={setDropdownFilterOpen}
-        items={allFeatureTypes}
-        updateQuery={updateQuery}
-      />
-      <SearchFilterMenu
-        filter="has"
-        heading="rules"
-        syntaxFilters={syntaxFilters}
-        open={dropdownFilterOpen}
-        setOpen={setDropdownFilterOpen}
-        items={[
-          {
-            searchValue: "experiment",
-            id: "hasExperiment",
-            name: "has an experiment",
-          },
-          {
-            searchValue: "rollout",
-            id: "hasRollout",
-            name: "has a rollout rule",
-          },
-          {
-            searchValue: "force",
-            id: "hasForce",
-            name: "has an force rule",
-          },
-        ]}
-        updateQuery={updateQuery}
-      />
-      <SearchFilterMenu
-        filter="on"
-        heading="environment"
-        syntaxFilters={syntaxFilters}
-        open={dropdownFilterOpen}
-        setOpen={setDropdownFilterOpen}
-        items={allEnv}
-        updateQuery={updateQuery}
-      />
-      <DropdownMenu
-        trigger={FilterHeading({
-          heading: "more",
-          open: dropdownFilterOpen === "more",
-        })}
-        open={dropdownFilterOpen === "more"}
-        onOpenChange={(o) => {
-          setDropdownFilterOpen(o ? "more" : "");
-        }}
-      >
-        <DropdownMenuItem
-          disabled={!hasArchived}
-          onClick={() => {
-            updateQuery({
-              field: "is",
-              values: ["archived"],
-              operator: "",
-              negated: false,
-            });
-            setShowArchived(!doesFilterExist("is", "archived"));
-          }}
-        >
-          <FilterItem
-            item="Archived features"
-            exists={doesFilterExist("is", "archived", "")}
-          />
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() => {
-            updateQuery({
-              field: "has",
-              values: ["draft"],
-              operator: "",
-              negated: false,
-            });
-          }}
-        >
-          <FilterItem
-            item="Has rule(s) in draft"
-            exists={doesFilterExist("has", "draft", "")}
-          />
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() => {
-            updateQuery({
-              field: "has",
-              values: ["prereqs"],
-              operator: "",
-              negated: false,
-            });
-          }}
-        >
-          <FilterItem
-            item="Has prerequisites"
-            exists={doesFilterExist("has", "prereqs", "")}
-          />
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() => {
-            updateQuery({
-              field: "is",
-              values: ["stale"],
-              operator: "",
-              negated: false,
-            });
-          }}
-        >
-          <FilterItem
-            item="Is stale"
-            exists={doesFilterExist("is", "stale", "")}
-          />
-        </DropdownMenuItem>
-      </DropdownMenu>
-    </Flex>
-  );
 };
