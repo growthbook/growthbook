@@ -183,7 +183,7 @@ export function getSnapshotSettingsFromReportArgs(
           metricMap,
           args.settingsForSnapshotMetrics,
           args.metricOverrides,
-          args.metricTargetMDEOverrides,
+          args.metricTargetMDEOverrides
         )
       )
       .filter(isDefined),

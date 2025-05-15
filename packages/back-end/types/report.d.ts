@@ -3,6 +3,7 @@ import { OrganizationSettings } from "back-end/types/organization";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { DimensionInterface } from "back-end/types/dimension";
 import { ProjectInterface } from "back-end/src/models/ProjectModel";
+import { MetricTargetMDEOverride } from "back-end/src/validators/experiments";
 import { FactTableInterface, MetricPriorSettings } from "./fact-table";
 import {
   AttributionModel,
@@ -15,7 +16,6 @@ import {
 import { SnapshotVariation } from "./experiment-snapshot";
 import { Queries } from "./query";
 import { DifferenceType, StatsEngine } from "./stats";
-import { MetricTargetMDEOverride } from "back-end/src/validators/experiments";
 
 export interface ReportInterfaceBase {
   id: string;
