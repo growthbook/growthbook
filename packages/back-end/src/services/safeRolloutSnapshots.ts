@@ -578,6 +578,7 @@ export async function notifySafeRolloutChange({
   updatedSafeRollout: SafeRolloutInterface;
   safeRolloutSnapshot: SafeRolloutSnapshotInterface;
 }): Promise<void> {
+  if (updatedSafeRollout.status !== "running") return;
   const daysLeft = getSafeRolloutDaysLeft({
     safeRollout: updatedSafeRollout,
     snapshotWithResults: safeRolloutSnapshot,
