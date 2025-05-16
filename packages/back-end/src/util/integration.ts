@@ -20,6 +20,8 @@ export function applyMetricOverrides(
   metric.priorSettings.mean = computed.properPriorMean;
   metric.priorSettings.stddev = computed.properPriorStdDev;
 
+  metric.targetMDE = computed.targetMDE ?? undefined;
+
   // TODO: move this to the form validation when saving this settings
   if (metric.regressionAdjustmentDays < 0) {
     metric.regressionAdjustmentDays = 0;

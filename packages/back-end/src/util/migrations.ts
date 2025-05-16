@@ -812,6 +812,7 @@ export function migrateSnapshot(
           ),
           regressionAdjustmentAvailable: !!regressionSettings?.regressionAdjustmentAvailable,
           regressionAdjustmentReason: regressionSettings?.reason || "",
+          targetMDE: undefined,
         },
       };
     });

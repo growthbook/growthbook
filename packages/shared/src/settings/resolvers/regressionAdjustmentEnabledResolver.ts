@@ -1,4 +1,4 @@
-import { isBinomialMetric } from "../../experiments";
+import { isBinomialMetric, isFactMetric } from "../../experiments";
 import { Settings, SettingsContext, SettingsResolver } from "../types";
 
 const regressionAdjustmentResolver = (
@@ -55,7 +55,11 @@ const regressionAdjustmentResolver = (
     }
 
     // metrics with custom aggregation
-    if (ctx.scopes?.metric?.aggregation) {
+    if (
+      ctx.scopes?.metric &&
+      !isFactMetric(ctx.scopes.metric) &&
+      ctx.scopes.metric.aggregation
+    ) {
       regressionAdjustmentEnabled = false;
       reason = "custom aggregation";
     }

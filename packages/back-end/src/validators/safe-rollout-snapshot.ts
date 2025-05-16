@@ -127,6 +127,7 @@ const metricForSnapshotObject = z.object({
       properPriorMean: z.number(),
       properPriorStdDev: z.number(),
       windowSettings: windowSettingsValidator,
+      targetMDE: z.number().optional(),
     })
     .optional(),
 });

@@ -246,9 +246,12 @@ export default function ExperimentHeader({
   const hasResults = !!analysis?.results?.[0];
 
   const {
-    decisionCriteria,
+    getDecisionCriteria,
     getRunningExperimentResultStatus,
   } = useRunningExperimentStatus();
+
+  const decisionCriteria = getDecisionCriteria(experiment.decisionCriteriaId);
+
   const runningExperimentStatus = getRunningExperimentResultStatus(experiment);
   const shouldHideTabs =
     experiment.status === "draft" && !hasResults && phases.length === 1;
