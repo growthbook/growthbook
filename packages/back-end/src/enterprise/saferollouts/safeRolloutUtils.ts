@@ -26,21 +26,19 @@ import { determineNextDate } from "back-end/src/services/experiments";
 export interface UpdateRampUpScheduleParams {
   context: ReqContext | ApiReqContext;
   safeRollout: SafeRolloutInterface;
-  status: SafeRolloutStatus;
 }
 export async function updateRampUpSchedule({
   context,
   safeRollout,
-  status,
 }: UpdateRampUpScheduleParams): Promise<void> {
+  const { status, rampUpSchedule } = safeRollout;
   if (
     status === "running" &&
-    safeRollout.rampUpSchedule.enabled &&
-    !safeRollout.rampUpSchedule.rampUpCompleted &&
-    safeRollout.rampUpSchedule?.nextUpdate &&
-    safeRollout.rampUpSchedule.nextUpdate < new Date()
+    rampUpSchedule.enabled &&
+    !rampUpSchedule.rampUpCompleted &&
+    rampUpSchedule?.nextUpdate &&
+    rampUpSchedule.nextUpdate < new Date()
   ) {
-    const rampUpSchedule = safeRollout.rampUpSchedule;
     const rampUpCompleted =
       rampUpSchedule.step === rampUpSchedule.steps.length - 1;
 

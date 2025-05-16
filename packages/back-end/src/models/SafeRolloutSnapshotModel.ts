@@ -145,11 +145,12 @@ export class SafeRolloutSnapshotModel extends BaseClass {
         feature,
       });
       // update the ramp up Schedule if the status is running and the ramp up is enabled and not completed
-      await updateRampUpSchedule({
-        context: this.context,
-        safeRollout,
-        status,
-      });
+      if (status === "running") {
+        await updateRampUpSchedule({
+          context: this.context,
+          safeRollout,
+        });
+      }
     }
   }
 }
