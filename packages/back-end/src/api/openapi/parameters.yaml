@@ -65,7 +65,7 @@ branch:
 platform:
   name: platform
   in: query
-  description: Name of versino control platform like GitHub or Gitlab.
+  description: Name of version control platform like GitHub or Gitlab.
   schema:
     type: string
     enum:
@@ -93,6 +93,6 @@ globalRole:
 clientKey:
   name: clientKey
   in: query
-  description: Optionally filter features by a SDK connection's client key
+  description: Filter by a SDK connection's client key
   schema:
     type: string
