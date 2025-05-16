@@ -414,8 +414,9 @@ export const createFeatureEvent = async <
       version: eventData.data.object.version,
     });
 
-    const currentApiFeature = getApiFeatureObj({
+    const currentApiFeature = await getApiFeatureObj({
       feature: eventData.data.object,
+      context: eventData.context,
       organization: eventData.context.org,
       groupMap,
       experimentMap,
@@ -442,8 +443,9 @@ export const createFeatureEvent = async <
       version: eventData.data.previous_object.version,
     });
 
-    const previousApiFeature = getApiFeatureObj({
+    const previousApiFeature = await getApiFeatureObj({
       feature: eventData.data.previous_object,
+      context: eventData.context,
       organization: eventData.context.org,
       groupMap,
       experimentMap,
@@ -456,8 +458,9 @@ export const createFeatureEvent = async <
       objectId: eventData.data.object.id,
       data: {
         object: currentApiFeature,
-        previous_object: getApiFeatureObj({
+        previous_object: await getApiFeatureObj({
           feature: eventData.data.previous_object,
+          context: eventData.context,
           organization: eventData.context.org,
           groupMap,
           experimentMap,

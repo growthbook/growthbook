@@ -51,12 +51,28 @@ export class CustomFieldModel extends BaseClass {
     if (!customFields) {
       return null;
     }
-    customFields.fields.forEach((field) => {
+    return customFields.fields.find((field) => {
       if (field.id === customFieldId) {
         return field;
       }
     });
-    return null;
+  }
+
+  public async customFieldsToApiInterface(
+    customFields: Record<string, unknown>
+  ): Promise<Record<string, unknown>> {
+    const customFieldDefinitions = await this.getCustomFields();
+    if (!customFieldDefinitions) {
+      return {};
+    }
+    return Object.fromEntries(
+      Object.entries(customFields).map(([k, v]) => {
+        const customField = customFieldDefinitions.fields.find(
+          (f) => f.id === k
+        );
+        return [customField?.name, v];
+      })
+    );
   }
 
   /**

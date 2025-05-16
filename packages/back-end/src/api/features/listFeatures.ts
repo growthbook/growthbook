@@ -38,19 +38,23 @@ export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
     );
 
     return {
-      features: filtered.map((feature) => {
-        const revision =
-          revisions?.find(
-            (r) => r.featureId === feature.id && r.version === feature.version
-          ) || null;
-        return getApiFeatureObj({
-          feature,
-          organization: req.organization,
-          groupMap,
-          experimentMap,
-          revision,
-        });
-      }),
+      features: await Promise.all(
+        filtered.map(async (feature) => {
+          const revision =
+            revisions?.find(
+              (r) => r.featureId === feature.id && r.version === feature.version
+            ) || null;
+          const apiFeature = await getApiFeatureObj({
+            feature,
+            context: req.context,
+            organization: req.organization,
+            groupMap,
+            experimentMap,
+            revision,
+          });
+          return apiFeature;
+        })
+      ),
       ...returnFields,
     };
   }
