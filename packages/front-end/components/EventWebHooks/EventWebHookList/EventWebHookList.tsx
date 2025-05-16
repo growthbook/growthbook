@@ -41,11 +41,8 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
 
       <div className="mb-4">
         <div className="d-flex align-items-center">
-          <h1>Event Webhooks</h1>
-          <span className="mr-auto badge badge-purple text-uppercase ml-2">
-            Beta
-          </span>
-          <div>
+          <h2>Event Webhooks</h2>
+          <div className="ml-auto">
             <Button onClick={onCreateModalOpen}>New Event Webhook</Button>
           </div>
         </div>
@@ -57,13 +54,6 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
             </DocLink>
           </span>
         </p>
-        <div className="alert alert-premium">
-          <h4>Free while in Beta</h4>
-          <p className="mb-0">
-            This feature will be free while we build it out and work out the
-            bugs.
-          </p>
-        </div>
       </div>
 
       {/* Feedback messages */}

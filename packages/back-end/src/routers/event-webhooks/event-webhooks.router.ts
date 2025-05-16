@@ -160,4 +160,11 @@ router.post(
   eventWebHooksController.toggleEventWebHook
 );
 
+router.post(`/webhook-secrets`, eventWebHooksController.createWebhookSecret);
+router.put(`/webhook-secrets/:id`, eventWebHooksController.updateWebhookSecret);
+router.delete(
+  `/webhook-secrets/:id`,
+  eventWebHooksController.deleteWebhookSecret
+);
+
 export { router as eventWebHooksRouter };
