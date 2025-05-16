@@ -97,8 +97,8 @@ const vercelFeatureExperimentationItem = ({
   category: "flag",
   isArchived,
   description,
-  createdAt: Math.floor(dateCreated.getTime() / 1000),
-  updatedAt: Math.floor(dateUpdated.getTime() / 1000),
+  createdAt: dateCreated.getTime(),
+  updatedAt: dateUpdated.getTime(),
 });
 
 const vercelExperimentExperimentationItem = ({
@@ -115,8 +115,8 @@ const vercelExperimentExperimentationItem = ({
   category: "experiment",
   isArchived,
   description,
-  createdAt: Math.floor(dateCreated.getTime() / 1000),
-  updatedAt: Math.floor(dateUpdated.getTime() / 1000),
+  createdAt: dateCreated.getTime(),
+  updatedAt: dateUpdated.getTime(),
 });
 
 const createVercelExperimentationItem = async ({

@@ -29,7 +29,6 @@ import {
   ProvisitionResource,
   UpdateResource,
   BillingPlan,
-  EDGE_PAYLOAD_KEY,
 } from "./vercel-native-integration.validators";
 
 const FREE_BILLING_PLAN: BillingPlan = {
@@ -373,7 +372,6 @@ export async function provisionResource(req: Request, res: Response) {
     billingPlan,
     secrets: [
       { name: "GROWTHBOOK_CLIENT_KEY", value: sdkConnection.key },
-      { name: "EDGE_CONFIG_KEY", value: EDGE_PAYLOAD_KEY },
       { name: "GROWTHBOOK_DOMAIN", value: "https://app.growthbook.io" },
     ],
     status: "ready",
