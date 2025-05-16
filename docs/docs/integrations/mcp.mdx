@@ -45,8 +45,9 @@ GrowthBook Cloud users only need to configure `GB_API_KEY` and `GB_USER`.
 2. Click **Add new global MCP server**
 3. Add an entry for the GrowthBook MCP, following the pattern below:
 
-<Tabs>
-<TabItem value="macos" label="macOS" default>
+<Tabs groupId="operating-systems">
+  <TabItem value="macos" label="macOS">
+
 ```json
 {
   "mcpServers": {
@@ -63,8 +64,10 @@ GrowthBook Cloud users only need to configure `GB_API_KEY` and `GB_USER`.
   }
 }
 ```
-</TabItem>
-<TabItem value="windows" label="Windows">
+
+  </TabItem>
+  <TabItem value="windows" label="Windows">
+
 ```json
 {
   "mcpServers": {
@@ -81,8 +84,10 @@ GrowthBook Cloud users only need to configure `GB_API_KEY` and `GB_USER`.
   }
 }
 ```
-</TabItem>
-<TabItem value="wsl" label="WSL">
+
+  </TabItem>
+  <TabItem value="wsl" label="WSL">
+
 ```json
 {
   "mcpServers": {
@@ -99,8 +104,10 @@ GrowthBook Cloud users only need to configure `GB_API_KEY` and `GB_USER`.
   }
 }
 ```
-</TabItem>
-<TabItem value="linux" label="Linux">
+
+  </TabItem>
+  <TabItem value="linux" label="Linux">
+
 ```json
 {
   "mcpServers": {
@@ -117,7 +124,8 @@ GrowthBook Cloud users only need to configure `GB_API_KEY` and `GB_USER`.
   }
 }
 ```
-</TabItem>
+
+  </TabItem>
 </Tabs>
 
 3. Save the settings.
@@ -131,8 +139,9 @@ You should now see a green active status after the server successfully connects!
 1. Open **User Settings (JSON)**
 2. Add an MCP entry:
 
-<Tabs>
-<TabItem value="macos" label="macOS" default>
+<Tabs groupId="operating-systems">
+<TabItem value="macos" label="macOS">
+
 ```json
 {
   "servers": {
@@ -149,8 +158,10 @@ You should now see a green active status after the server successfully connects!
   }
 }
 ```
+
 </TabItem>
 <TabItem value="windows" label="Windows">
+
 ```json
 {
   "servers": {
@@ -167,8 +178,10 @@ You should now see a green active status after the server successfully connects!
   }
 }
 ```
+
 </TabItem>
 <TabItem value="wsl" label="WSL">
+
 ```json
 {
   "servers": {
@@ -185,8 +198,10 @@ You should now see a green active status after the server successfully connects!
   }
 }
 ```
+
 </TabItem>
 <TabItem value="linux" label="Linux">
+
 ```json
 {
   "servers": {
@@ -203,6 +218,7 @@ You should now see a green active status after the server successfully connects!
   }
 }
 ```
+
 </TabItem>
 </Tabs>
 
@@ -219,8 +235,9 @@ In CoPilot Chat, you'll see a tool icon, indicating the server is connected succ
 3. Open `claude_desktop_config.json`
 4. Add the following configuration:
 
-<Tabs>
-<TabItem value="macos" label="macOS" default>
+<Tabs groupId="operating-systems">
+  <TabItem value="macos" label="macOS">
+
 ```json
 {
   "mcpServers": {
@@ -237,26 +254,30 @@ In CoPilot Chat, you'll see a tool icon, indicating the server is connected succ
   }
 }
 ```
-</TabItem>
-<TabItem value="windows" label="Windows">
-```json
-{
-  "mcpServers": {
-    "growthbook": {
-      "command": "cmd",
-      "args": ["/c", "npx", "-y", "@growthbook/mcp@latest"],
-      "env": {
-        "GB_API_KEY": "YOUR_API_KEY",
-        "GB_API_URL": "YOUR_API_URL",
-        "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
-        "GB_USER": "YOUR_NAME"
+
+  </TabItem>
+  <TabItem value="windows" label="Windows">
+  
+  ```json
+  {
+    "mcpServers": {
+      "growthbook": {
+        "command": "cmd",
+        "args": ["/c", "npx", "-y", "@growthbook/mcp@latest"],
+        "env": {
+          "GB_API_KEY": "YOUR_API_KEY",
+          "GB_API_URL": "YOUR_API_URL",
+          "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
+          "GB_USER": "YOUR_NAME"
+        }
       }
     }
   }
-}
-```
-</TabItem>
-<TabItem value="wsl" label="WSL">
+  ```
+
+  </TabItem>
+  <TabItem value="wsl" label="WSL">
+
 ```json
 {
   "mcpServers": {
@@ -273,8 +294,10 @@ In CoPilot Chat, you'll see a tool icon, indicating the server is connected succ
   }
 }
 ```
-</TabItem>
-<TabItem value="linux" label="Linux">
+
+  </TabItem>
+  <TabItem value="linux" label="Linux">
+
 ```json
 {
   "mcpServers": {
@@ -291,7 +314,8 @@ In CoPilot Chat, you'll see a tool icon, indicating the server is connected succ
   }
 }
 ```
-</TabItem>
+
+  </TabItem>
 </Tabs>
 
 5. Save the config and restart Claude
