@@ -65,4 +65,13 @@ router.put(
   safeRolloutController.putSafeRollout
 );
 
+// Get the latest snapshot for a safe rollout rule
+router.get(
+  "/:id/time-series",
+  validateRequestMiddleware({
+    params: snapshotParams,
+  }),
+  safeRolloutController.getSafeRolloutTimeSeries
+);
+
 export { router as safeRolloutRouter };

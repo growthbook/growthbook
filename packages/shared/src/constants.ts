@@ -77,3 +77,17 @@ export const FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS = 180;
 export const SAFE_ROLLOUT_TRACKING_KEY_PREFIX = "srk_";
 
 export const DEFAULT_REQUIRE_PROJECT_FOR_FEATURES = false;
+
+// Default configuration for Safe Rollout
+export const SAFE_ROLLOUT_VARIATIONS = [
+  {
+    id: "0",
+    name: "Control",
+    weight: 0.5,
+  },
+  {
+    id: "1",
+    name: "Rollout Value",
+    weight: 0.5,
+  },
+];

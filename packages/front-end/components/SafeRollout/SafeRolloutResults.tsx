@@ -2,7 +2,10 @@ import React, { FC, useState } from "react";
 import dynamic from "next/dynamic";
 import { Box } from "@radix-ui/themes";
 import { getValidDate, ago, relativeDate } from "shared/dates";
-import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
+import {
+  DEFAULT_PROPER_PRIOR_STDDEV,
+  SAFE_ROLLOUT_VARIATIONS,
+} from "shared/constants";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { MetricSnapshotSettings } from "back-end/types/report";
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
@@ -28,19 +31,6 @@ import SafeRolloutAnalysisSettingsSummary from "./AnalysisSettingsSummary";
 const CompactResults = dynamic(
   () => import("@/components/SafeRollout/Results/CompactResults")
 );
-
-const SAFE_ROLLOUT_VARIATIONS = [
-  {
-    id: "0",
-    name: "Control",
-    weight: 0.5,
-  },
-  {
-    id: "1",
-    name: "Rollout Value",
-    weight: 0.5,
-  },
-];
 
 const WarningIcon = () => (
   <PiWarningFill style={{ color: "var(--amber-11)" }} />

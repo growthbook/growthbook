@@ -58,7 +58,7 @@ export const metricTimeSeriesSchema = z
     dateUpdated: z.date(),
 
     metricId: z.string(),
-    source: z.enum(["experiment"]),
+    source: z.enum(["experiment", "safe-rollout"]),
     sourceId: z.string(),
     sourcePhase: z.number().optional(),
 
