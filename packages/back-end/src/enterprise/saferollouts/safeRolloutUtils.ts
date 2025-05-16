@@ -47,7 +47,7 @@ export async function updateRampUpSchedule({
     const step = rampUpCompleted
       ? rampUpSchedule.step // keep the step the same if it is completed
       : rampUpSchedule.step + 1;
-    const { nextRampUp } = determineNextSnapshotAttempt(
+    const { nextRampUp } = determineNextSafeRolloutSnapshotAttempt(
       safeRollout,
       context.org
     );
@@ -55,6 +55,9 @@ export async function updateRampUpSchedule({
       rampUpSchedule: {
         ...rampUpSchedule,
         step,
+        steps: rampUpSchedule.steps.map((stepObj, index) =>
+          index === step ? { ...stepObj, dateRampedUp: new Date() } : stepObj
+        ),
         rampUpCompleted,
         lastUpdate: new Date(),
         nextUpdate: nextRampUp,
@@ -93,7 +96,7 @@ export async function checkAndRollbackSafeRollout({
   let status: SafeRolloutStatus = updatedSafeRollout.status;
   if (
     safeRolloutStatus?.status &&
-    ["unhealthy", "rollback-now"].includes(safeRolloutStatus.status)
+    "rollback-now" === safeRolloutStatus.status
   ) {
     status = "rolled-back";
     const revision = await createRevision({
@@ -157,7 +160,7 @@ export async function checkAndRollbackSafeRollout({
   return status;
 }
 
-export function determineNextSnapshotAttempt(
+export function determineNextSafeRolloutSnapshotAttempt(
   safeRollout: SafeRolloutInterface,
   organization: OrganizationInterface
 ): { nextSnapshot: Date; nextRampUp: Date } {
@@ -193,7 +196,7 @@ export function determineNextSnapshotAttempt(
     default:
       throw new Error("Invalid max duration unit");
   }
-  const fullRampUpTimeInSeconds = maxDurationInSeconds * 0.25; // hard coded for now this is the ramp up time
+  const fullRampUpTimeInSeconds = maxDurationInSeconds * 0.25; // hard coded to 25% of the max duration that is the ramp up time
   const rampUpTimeBetweenStepsInSeconds =
     fullRampUpTimeInSeconds / rampUpSchedule.steps.length;
   return {

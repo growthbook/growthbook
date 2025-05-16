@@ -61,7 +61,7 @@ import { ResourceEvents } from "back-end/src/events/base-types";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { SafeRolloutInterface } from "back-end/types/safe-rollout";
 import { SafeRolloutNotification } from "back-end/src/validators/safe-rollout";
-import { determineNextSnapshotAttempt } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
+import { determineNextSafeRolloutSnapshotAttempt } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
 import { getSourceIntegrationObject } from "./datasource";
 import { computeResultsStatus, isJoinableMetric } from "./experiments";
 
@@ -402,7 +402,7 @@ export async function _createSafeRolloutSnapshot({
     status: "running",
   };
 
-  const { nextSnapshot } = determineNextSnapshotAttempt(
+  const { nextSnapshot } = determineNextSafeRolloutSnapshotAttempt(
     safeRollout,
     organization
   );

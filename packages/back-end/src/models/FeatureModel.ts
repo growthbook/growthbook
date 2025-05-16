@@ -40,7 +40,7 @@ import {
 import { getChangedApiFeatureEnvironments } from "back-end/src/events/handlers/utils";
 import { ResourceEvents } from "back-end/src/events/base-types";
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
-import { determineNextSnapshotAttempt } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
+import { determineNextSafeRolloutSnapshotAttempt } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
 import {
   createEvent,
   hasPreviousObject,
@@ -961,10 +961,10 @@ const updateSafeRolloutStatuses = async (
     };
     if (!safeRollout.startedAt && safeRolloutUpdates.status === "running") {
       safeRolloutUpdates["startedAt"] = new Date();
-      const { nextSnapshot, nextRampUp } = determineNextSnapshotAttempt(
-        safeRollout,
-        context.org
-      );
+      const {
+        nextSnapshot,
+        nextRampUp,
+      } = determineNextSafeRolloutSnapshotAttempt(safeRollout, context.org);
       safeRolloutUpdates["nextSnapshotAttempt"] = nextSnapshot;
       safeRolloutUpdates["rampUpSchedule"] = {
         ...safeRollout.rampUpSchedule,

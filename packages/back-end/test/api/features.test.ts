@@ -54,8 +54,8 @@ describe("features API", () => {
     (createInterfaceEnvSettingsFromApiEnvSettings as jest.Mock).mockReturnValue(
       "createInterfaceEnvSettingsFromApiEnvSettings"
     );
-    getSavedGroupMap.mockReturnValue("savedGroupMap");
-    getApiFeatureObj.mockImplementation((v) => v);
+    (getSavedGroupMap as jest.Mock).mockResolvedValue("savedGroupMap");
+    (getApiFeatureObj as jest.Mock).mockImplementation((v) => v);
 
     const feature = {
       defaultValue: "defaultValue",

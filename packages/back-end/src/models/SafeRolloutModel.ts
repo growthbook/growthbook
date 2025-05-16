@@ -46,6 +46,9 @@ export class SafeRolloutModel extends BaseClass {
         rampUpCompleted: false,
       };
     }
+    if (!("autoRollback" in legacyDoc)) {
+      legacyDoc["autoRollback"] = false;
+    }
     return legacyDoc as SafeRolloutInterface;
   }
 

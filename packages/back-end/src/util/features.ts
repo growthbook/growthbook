@@ -586,7 +586,7 @@ export function getFeatureDefinition({
               rule.coverage =
                 safeRollout?.rampUpSchedule?.steps[
                   safeRollout?.rampUpSchedule.step
-                ] ?? 1;
+                ]?.percent ?? 1;
             }
 
             rule.hashAttribute = r.hashAttribute;
