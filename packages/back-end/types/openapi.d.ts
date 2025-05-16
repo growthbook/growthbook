@@ -2272,6 +2272,8 @@ export interface components {
     userEmail: string;
     /** @description Name of the global role */
     globalRole: string;
+    /** @description Optionally filter features by a SDK connection's client key */
+    clientKey: string;
   };
   requestBodies: never;
   headers: never;
@@ -2288,10 +2290,12 @@ export interface operations {
         /** @description The number of items to return */
         /** @description How many items to skip (use in conjunction with limit for pagination) */
         /** @description Filter by project id */
+        /** @description Optionally filter features by a SDK connection's client key */
       query: {
         limit?: number;
         offset?: number;
         projectId?: string;
+        clientKey?: string;
       };
     };
     responses: {

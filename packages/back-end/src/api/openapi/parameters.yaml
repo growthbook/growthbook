@@ -90,3 +90,9 @@ globalRole:
   description: Name of the global role
   schema:
     type: string
+clientKey:
+  name: clientKey
+  in: query
+  description: Optionally filter features by a SDK connection's client key
+  schema:
+    type: string
