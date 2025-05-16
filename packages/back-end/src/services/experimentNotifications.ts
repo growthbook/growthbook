@@ -34,7 +34,6 @@ import {
   getPValueThresholdForOrg,
 } from "./organizations";
 import { isEmailEnabled, sendExperimentChangesEmail } from "./email";
-import { DEFAULT_GUARDRAIL_ALPHA } from "shared/constants";
 
 // This ensures that the two types remain equal.
 const dispatchEvent = async <T extends ResourceEvents<"experiment">>({
@@ -325,7 +324,6 @@ export const computeExperimentChanges = async ({
         ciUpper,
         pValueThreshold,
         statsEngine: statsEngine,
-        guardrailAlpha: DEFAULT_GUARDRAIL_ALPHA,
       });
 
       const { resultsStatus: lastResultsStatus } =
@@ -339,7 +337,6 @@ export const computeExperimentChanges = async ({
               ciUpper,
               pValueThreshold,
               statsEngine: lastAnalysis.settings.statsEngine,
-              guardrailAlpha: DEFAULT_GUARDRAIL_ALPHA
             })
           : { resultsStatus: "" };
 

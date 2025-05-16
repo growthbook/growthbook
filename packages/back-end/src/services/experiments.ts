@@ -4,7 +4,6 @@ import { z } from "zod";
 import { isEqual } from "lodash";
 import cloneDeep from "lodash/cloneDeep";
 import {
-  DEFAULT_GUARDRAIL_ALPHA,
   DEFAULT_METRIC_CAPPING,
   DEFAULT_METRIC_CAPPING_VALUE,
   DEFAULT_METRIC_WINDOW,
@@ -3135,7 +3134,6 @@ export async function computeResultsStatus({
           ciUpper,
           pValueThreshold,
           statsEngine: statsEngine,
-          guardrailAlpha: DEFAULT_GUARDRAIL_ALPHA,
         });
 
         if (goalMetric) {

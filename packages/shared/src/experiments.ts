@@ -23,6 +23,7 @@ import {
   ExperimentReportResultDimension,
   MetricSnapshotSettings,
 } from "back-end/types/report";
+import { DEFAULT_GUARDRAIL_ALPHA } from "shared/constants";
 import cloneDeep from "lodash/cloneDeep";
 import {
   DataSourceInterfaceWithParams,
@@ -657,7 +658,6 @@ export function getMetricResultStatus({
   ciUpper,
   pValueThreshold,
   statsEngine,
-  guardrailAlpha,
 }: {
   metric: ExperimentMetricInterface;
   metricDefaults: MetricDefaults;
@@ -667,7 +667,6 @@ export function getMetricResultStatus({
   ciUpper: number;
   pValueThreshold: number;
   statsEngine: StatsEngine;
-  guardrailAlpha: number;
 }) {
   const directionalStatus: "winning" | "losing" =
     (stats.expected ?? 0) * (metric.inverse ? -1 : 1) > 0
@@ -768,8 +767,8 @@ export function getMetricResultStatus({
       clearSignalResultsStatus = "lost";
     }
   }
-  const ciLowerGuardrail = stats.ci ? stats.ci[0] : Number.NEGATIVE_INFINITY;
-  const ciUpperGuardrail = stats.ci ? stats.ci[1] : Number.POSITIVE_INFINITY;
+  const ciLowerGuardrail = stats.ci?.[0] ?? Number.NEGATIVE_INFINITY;
+  const ciUpperGuardrail = stats.ci?.[1] ?? Number.POSITIVE_INFINITY;
   const guardrailChanceToWin =
     stats.chanceToWin ??
     chanceToWinFlatPrior(
@@ -779,7 +778,8 @@ export function getMetricResultStatus({
       pValueThreshold,
       metric.inverse
     );
-  const guardrailSafeStatus = guardrailChanceToWin > 1 - guardrailAlpha;
+  const guardrailSafeStatus =
+    guardrailChanceToWin > 1 - DEFAULT_GUARDRAIL_ALPHA;
   return {
     shouldHighlight: _shouldHighlight,
     belowMinChange,
