@@ -115,17 +115,17 @@ export async function postOAuthCallback(req: Request, res: Response) {
   }
 }
 
-async function sendLocalSuccessResponse(
+export async function setResponseCookies(
   req: Request,
   res: Response,
-  user: UserInterface,
-  projectId?: string
+  user: UserInterface
 ) {
   const { idToken, refreshToken, expiresIn } = await auth.processCallback(
     req,
     res,
     user
   );
+
   if (!idToken) {
     return res.status(400).json({
       status: 400,
@@ -135,6 +135,17 @@ async function sendLocalSuccessResponse(
 
   IdTokenCookie.setValue(idToken, req, res, Math.max(600, expiresIn));
   RefreshTokenCookie.setValue(refreshToken, req, res);
+
+  return idToken;
+}
+
+export async function sendLocalSuccessResponse(
+  req: Request,
+  res: Response,
+  user: UserInterface,
+  projectId?: string
+) {
+  const idToken = await setResponseCookies(req, res, user);
 
   res.status(200).json({
     status: 200,

@@ -42,6 +42,11 @@ import { getChangedApiFeatureEnvironments } from "back-end/src/events/handlers/u
 import { ResourceEvents } from "back-end/src/events/base-types";
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import {
+  createVercelExperimentationItemFromFeature,
+  updateVercelExperimentationItemFromFeature,
+  deleteVercelExperimentationItemFromFeature,
+} from "back-end/src/services/vercel-native-integration.service";
+import {
   createEvent,
   hasPreviousObject,
   CreateEventData,
@@ -545,6 +550,12 @@ async function onFeatureCreate(
   );
 
   await logFeatureCreatedEvent(context, feature);
+
+  if (context.org.isVercelIntegration)
+    await createVercelExperimentationItemFromFeature({
+      feature,
+      organization: context.org,
+    });
 }
 
 async function onFeatureDelete(
@@ -557,6 +568,12 @@ async function onFeatureDelete(
   );
 
   await logFeatureDeletedEvent(context, feature);
+
+  if (context.org.isVercelIntegration)
+    await deleteVercelExperimentationItemFromFeature({
+      feature,
+      organization: context.org,
+    });
 }
 
 export async function onFeatureUpdate(
@@ -579,6 +596,12 @@ export async function onFeatureUpdate(
 
   // New event-based webhooks
   await logFeatureUpdatedEvent(context, feature, updatedFeature);
+
+  if (context.org.isVercelIntegration)
+    await updateVercelExperimentationItemFromFeature({
+      feature: updatedFeature,
+      organization: context.org,
+    });
 }
 
 export async function updateFeature(
@@ -631,6 +654,7 @@ export async function updateFeature(
   onFeatureUpdate(context, feature, updatedFeature).catch((e) => {
     logger.error(e, "Error refreshing SDK Payload on feature update");
   });
+
   return updatedFeature;
 }
 
