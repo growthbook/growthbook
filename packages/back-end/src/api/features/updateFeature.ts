@@ -24,6 +24,7 @@ import {
 } from "back-end/src/models/FeatureRevisionModel";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
+import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
 import { parseJsonSchemaForEnterprise, validateEnvKeys } from "./postFeature";
 
 export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
@@ -85,6 +86,67 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     let defaultValue;
     if (req.body.defaultValue != null) {
       defaultValue = validateFeatureValue(feature, req.body.defaultValue);
+    }
+
+    // Check if the user has any safe rollout rules and if they have the premium feature if they do
+    const hasSafeRollout = Object.values(
+      req.body.environments ?? {}
+    ).some((env) =>
+      Object.values(env.rules ?? {}).some(
+        (rule) => rule.type === "safe-rollout"
+      )
+    );
+
+    if (hasSafeRollout && !req.context.hasPremiumFeature("safe-rollout")) {
+      throw new Error("Safe Rollout rules are a premium feature.");
+    } else if (hasSafeRollout && req.body.environments) {
+      // loop through the environments and rules and validate safe-rollout rules
+      const envKeys = Object.keys(req.body.environments);
+      for (const envKey of envKeys) {
+        const env = req.body.environments[envKey];
+        if (env.rules) {
+          for (const rule of env.rules) {
+            if (
+              rule.type === "safe-rollout" &&
+              !rule.safeRolloutId &&
+              !rule.id
+            ) {
+              const safeRolloutFields = {
+                maxDuration: {
+                  amount: rule.maxDuration,
+                  unit: "days" as const, // Change to passed in unit once we supports units other than days
+                },
+                exposureQueryId: rule.exposureQueryId,
+                datasourceId: rule.datasourceId,
+                guardrailMetricIds: rule.guardrailMetricIds,
+              };
+              // validate the safe rollout fields
+              const validatedFields = await validateCreateSafeRolloutFields(
+                safeRolloutFields,
+                req.context
+              );
+
+              const safeRollout = await req.context.models.safeRollout.create({
+                ...validatedFields,
+                environment: envKey,
+                featureId: rule.featureId,
+                status: rule.status ?? "running",
+                autoSnapshots: true,
+              });
+
+              if (!safeRollout) {
+                throw new Error("Failed to create safe rollout");
+              }
+
+              rule.safeRolloutId = safeRollout.id;
+            } else if (rule.type === "safe-rollout" && rule.id) {
+              throw new Error(
+                "Safe Rollout rules cannot be updated via the API."
+              );
+            }
+          }
+        }
+      }
     }
 
     const environmentSettings =

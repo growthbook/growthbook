@@ -111,6 +111,9 @@ tags:
   - name: archetypes
     x-displayName: Archetypes
     description: Archetypes allow you to simulate the result of targeting rules on pre-set user attributes
+  - name: attributes
+    x-displayName: Attributes
+    description: Attributes are used to target users in experiments and feature flags.
   - name: Archetype_model
     x-displayName: Archetype
     description: <SchemaDefinition schemaRef="#/components/schemas/Archetype" />
@@ -414,6 +417,96 @@ paths:
                                   description: Percent of traffic included in this experiment. Users not included in the experiment will skip this rule.
                                 hashAttribute:
                                   type: string
+                            - title: Safe Rollout Rule
+                              type: object
+                              required:
+                                - enabled
+                                - type
+                                - controlValue
+                                - variationValue
+                                - hashAttribute
+                                - exposureQueryId
+                                - guardrailMetricIds
+                                - maxDuration
+                                - featureId
+                              properties:
+                                id:
+                                  type: string
+                                description:
+                                  type: string
+                                condition:
+                                  type: string
+                                savedGroupTargeting:
+                                  type: array
+                                  items:
+                                    type: object
+                                    required:
+                                      - matchType
+                                      - savedGroups
+                                    properties:
+                                      matchType:
+                                        type: string
+                                        enum:
+                                          - all
+                                          - any
+                                          - none
+                                      savedGroups:
+                                        type: array
+                                        items:
+                                          type: string
+                                prerequisites:
+                                  type: array
+                                  items:
+                                    type: object
+                                    required:
+                                      - id
+                                      - condition
+                                    properties:
+                                      id:
+                                        type: string
+                                        description: Feature ID
+                                      condition:
+                                        type: string
+                                enabled:
+                                  type: boolean
+                                type:
+                                  type: string
+                                  enum:
+                                    - safe-rollout
+                                controlValue:
+                                  type: string
+                                variationValue:
+                                  type: string
+                                seed:
+                                  type: string
+                                trackingKey:
+                                  type: string
+                                hashAttribute:
+                                  type: string
+                                status:
+                                  type: string
+                                  enum:
+                                    - running
+                                    - released
+                                    - rolled-back
+                                    - stopped
+                                datasourceId:
+                                  type: string
+                                exposureQueryId:
+                                  type: string
+                                guardrailMetricIds:
+                                  type: array
+                                  items:
+                                    type: string
+                                maxDuration:
+                                  type: integer
+                                  description: Max duration in days
+                                featureId:
+                                  type: string
+                                  description: Feature ID
+                                safeRolloutId:
+                                  type: string
+                                  description: Safe rollout ID
                             - title: Experiment Rule
                               type: object
                               required:
@@ -5857,12 +5950,17 @@ components:
     FeatureSafeRolloutRule:
       type: object
       required:
-        - condition
         - id
         - enabled
         - type
         - controlValue
         - variationValue
+        - status
+        - trackingKey
+        - type
+        - seed
+        - hashAttribute
+        - safeRolloutId
       properties:
         condition:
           type: string
@@ -7305,6 +7403,7 @@ x-tagGroups:
       - fact-metrics
       - code-references
       - archetypes
+      - attributes
   - name: Models
     tags:
       - Archetype_model

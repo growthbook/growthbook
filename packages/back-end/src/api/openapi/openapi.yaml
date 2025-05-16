@@ -114,6 +114,9 @@ tags:
   - name: archetypes
     x-displayName: Archetypes
     description: Archetypes allow you to simulate the result of targeting rules on pre-set user attributes
+  - name: attributes
+    x-displayName: Attributes
+    description: Attributes are used to target users in experiments and feature flags.
 paths:
   /features:
     get:
