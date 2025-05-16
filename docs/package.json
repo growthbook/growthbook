@@ -28,8 +28,8 @@
     "@mdx-js/react": "^3.0.0",
     "clsx": "^2.0.0",
     "docusaurus-plugin-sass": "^0.2.2",
-    "hast-util-is-element": "1.1.0",
-    "modern-normalize": "^1.1.0",
+    "hast-util-is-element": "3",
+    "modern-normalize": "3",
     "prism-react-renderer": "^2.3.0",
     "react": "18",
     "react-dom": "18",
@@ -37,7 +37,7 @@
     "rehype-katex": "7.0.0",
     "remark-math": "6.0.0",
     "sass": "^1.55.0",
-    "sass-loader": "^13.1.0"
+    "sass-loader": "16"
   },
   "devDependencies": {
     "@docusaurus/module-type-aliases": "^3.7.0",
