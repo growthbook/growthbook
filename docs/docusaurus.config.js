@@ -3,6 +3,9 @@
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
+  future: {
+    experimental_faster: true,
+  },
   title: "GrowthBook Docs",
   tagline: "Open source feature flagging and A/B testing platform.",
   url: "https://docs.growthbook.io",
