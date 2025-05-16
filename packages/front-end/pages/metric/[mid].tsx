@@ -1254,6 +1254,22 @@ const MetricPage: FC = () => {
                 <ul className="right-rail-subsection list-unstyled mb-4">
                   <li className="mt-3 mb-1">
                     <span className="uppercase-title lg">
+                      Experiment Decision Framework
+                    </span>
+                  </li>
+                  <li className="mb-2">
+                    <span className="text-gray">Target MDE:</span>{" "}
+                    <span className="font-weight-bold">
+                      {getTargetMDEForMetric(metric) * 100}%
+                    </span>
+                  </li>
+                </ul>
+              </RightRailSectionGroup>
+
+              <RightRailSectionGroup type="custom" empty="">
+                <ul className="right-rail-subsection list-unstyled mb-4">
+                  <li className="mt-3 mb-1">
+                    <span className="uppercase-title lg">
                       Display Thresholds
                     </span>
                   </li>
@@ -1278,12 +1294,6 @@ const MetricPage: FC = () => {
                     <span className="text-gray">Min percent change:</span>{" "}
                     <span className="font-weight-bold">
                       {getMinPercentageChangeForMetric(metric) * 100}%
-                    </span>
-                  </li>
-                  <li className="mb-2">
-                    <span className="text-gray">Target MDE:</span>{" "}
-                    <span className="font-weight-bold">
-                      {getTargetMDEForMetric(metric) * 100}%
                     </span>
                   </li>
                 </ul>

@@ -51,6 +51,7 @@ export interface Props {
   setVariationFilter?: (variationFilter: number[]) => void;
   baselineRow?: number;
   setBaselineRow?: (baselineRow: number) => void;
+  differenceType: DifferenceType;
   setDifferenceType: (differenceType: DifferenceType) => void;
   reportArgs?: ExperimentSnapshotReportArgs;
 }
@@ -64,6 +65,7 @@ export default function AnalysisSettingsSummary({
   setVariationFilter,
   baselineRow,
   setBaselineRow,
+  differenceType,
   setDifferenceType,
   reportArgs,
 }: Props) {
@@ -516,6 +518,7 @@ export default function AnalysisSettingsSummary({
             <div className="col-auto px-0">
               <ResultMoreMenu
                 experiment={experiment}
+                differenceType={differenceType}
                 snapshotId={snapshot?.id || ""}
                 datasource={datasource}
                 forceRefresh={
