@@ -385,7 +385,6 @@ export async function createReportSnapshot({
       report.experimentAnalysisSettings.differenceType ?? "relative",
   };
 
-  // TODO add metric overrides
   const snapshotSettings = getReportSnapshotSettings({
     report,
     analysisSettings,
