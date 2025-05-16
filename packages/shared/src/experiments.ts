@@ -31,6 +31,7 @@ import {
 } from "back-end/types/datasource";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import {
+  DifferenceType,
   IndexedPValue,
   PValueCorrection,
   StatsEngine,
@@ -625,28 +626,56 @@ export function isSuspiciousUplift(
   baseline: SnapshotMetric,
   stats: SnapshotMetric,
   metric: { maxPercentChange?: number },
-  metricDefaults: MetricDefaults
+  metricDefaults: MetricDefaults,
+  differenceType: DifferenceType
 ): boolean {
-  if (!baseline?.cr || !stats?.cr) return false;
+  if (!baseline?.cr || !stats?.cr || !stats?.expected) return false;
 
   const maxPercentChange =
     metric.maxPercentChange ?? metricDefaults?.maxPercentageChange ?? 0;
 
-  return Math.abs(baseline.cr - stats.cr) / baseline.cr >= maxPercentChange;
+  if (differenceType === "relative") {
+    return Math.abs(stats.expected) >= maxPercentChange;
+  } else if (differenceType === "absolute") {
+    return (
+      Math.abs(stats.expected ?? 0) / Math.abs(baseline.cr) >= maxPercentChange
+    );
+  } else {
+    // This means scaled impact could show up as suspicious even when
+    // it doesn't show up for other difference types if CUPED is applied
+    // and CUPED causes the value to cross the threshold
+    return (
+      Math.abs(stats.cr - baseline.cr) / Math.abs(baseline.cr) >=
+      maxPercentChange
+    );
+  }
 }
 
 export function isBelowMinChange(
   baseline: SnapshotMetric,
   stats: SnapshotMetric,
   metric: { minPercentChange?: number },
-  metricDefaults: MetricDefaults
+  metricDefaults: MetricDefaults,
+  differenceType: DifferenceType
 ): boolean {
-  if (!baseline?.cr || !stats?.cr) return false;
+  if (!baseline?.cr || !stats?.cr || !stats?.expected) return false;
 
   const minPercentChange =
     metric.minPercentChange ?? metricDefaults.minPercentageChange ?? 0;
 
-  return Math.abs(baseline.cr - stats.cr) / baseline.cr < minPercentChange;
+  if (differenceType === "relative") {
+    return Math.abs(stats.expected) < minPercentChange;
+  } else if (differenceType === "absolute") {
+    return Math.abs(stats.expected) / Math.abs(baseline.cr) < minPercentChange;
+  } else {
+    // This means scaled impact could show up as too small even it is
+    // large enough for other difference types if CUPED is applied
+    // and CUPED causes the value to cross the threshold
+    return (
+      Math.abs(stats.cr - baseline.cr) / Math.abs(baseline.cr) <
+      minPercentChange
+    );
+  }
 }
 
 export function getMetricResultStatus({
@@ -658,6 +687,7 @@ export function getMetricResultStatus({
   ciUpper,
   pValueThreshold,
   statsEngine,
+  differenceType,
 }: {
   metric: ExperimentMetricInterface;
   metricDefaults: MetricDefaults;
@@ -667,6 +697,7 @@ export function getMetricResultStatus({
   ciUpper: number;
   pValueThreshold: number;
   statsEngine: StatsEngine;
+  differenceType: DifferenceType;
 }) {
   const directionalStatus: "winning" | "losing" =
     (stats.expected ?? 0) * (metric.inverse ? -1 : 1) > 0
@@ -678,7 +709,8 @@ export function getMetricResultStatus({
     baseline,
     stats,
     metric,
-    metricDefaults
+    metricDefaults,
+    differenceType
   );
   const _shouldHighlight = shouldHighlight({
     metric,
