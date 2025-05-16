@@ -3093,7 +3093,6 @@ export async function computeResultsStatus({
     "guardrailMetrics" in experiment
       ? expandMetricGroups(experiment.guardrailMetrics, metricGroups)
       : expandMetricGroups(experiment.guardrailMetricIds, metricGroups);
-  const numGuardrailMetrics = expandedGuardrailMetrics.length;
 
   const results = cloneDeep(analysis.results);
 
@@ -3136,10 +3135,7 @@ export async function computeResultsStatus({
           ciUpper,
           pValueThreshold,
           statsEngine: statsEngine,
-          guardrailCorrectionData: {
-            numGuardrails: numGuardrailMetrics,
-            epsilon: DEFAULT_GUARDRAIL_ALPHA,
-          },
+          guardrailAlpha: DEFAULT_GUARDRAIL_ALPHA,
         });
 
         if (goalMetric) {

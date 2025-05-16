@@ -657,7 +657,7 @@ export function getMetricResultStatus({
   ciUpper,
   pValueThreshold,
   statsEngine,
-  guardrailCorrectionData,
+  guardrailAlpha,
 }: {
   metric: ExperimentMetricInterface;
   metricDefaults: MetricDefaults;
@@ -667,7 +667,7 @@ export function getMetricResultStatus({
   ciUpper: number;
   pValueThreshold: number;
   statsEngine: StatsEngine;
-  guardrailCorrectionData?: { numGuardrails: number; epsilon: number };
+  guardrailAlpha: number;
 }) {
   const directionalStatus: "winning" | "losing" =
     (stats.expected ?? 0) * (metric.inverse ? -1 : 1) > 0
@@ -768,12 +768,6 @@ export function getMetricResultStatus({
       clearSignalResultsStatus = "lost";
     }
   }
-  const { numGuardrails, epsilon } = guardrailCorrectionData ?? {
-    numGuardrails: 0,
-    epsilon: 0.05,
-  };
-  const guardrailAlpha = numGuardrails > 0 ? epsilon ** (1 / numGuardrails) : 0;
-
   const ciLowerGuardrail = stats.ci ? stats.ci[0] : Number.NEGATIVE_INFINITY;
   const ciUpperGuardrail = stats.ci ? stats.ci[1] : Number.POSITIVE_INFINITY;
   const guardrailChanceToWin =

@@ -31,6 +31,7 @@ import { experimentDate } from "@/pages/experiments";
 import { useSearch } from "@/services/search";
 import { formatNumber } from "@/services/metrics";
 import track from "@/services/track";
+import { DEFAULT_GUARDRAIL_ALPHA } from "shared/constants";
 
 interface MetricAnalysisProps {
   metric: ExperimentMetricInterface;
@@ -131,6 +132,7 @@ function MetricExperimentResultTab({
           ciUpper,
           pValueThreshold,
           statsEngine,
+          guardrailAlpha: DEFAULT_GUARDRAIL_ALPHA,
         });
         expVariationData = {
           ...expVariationData,
