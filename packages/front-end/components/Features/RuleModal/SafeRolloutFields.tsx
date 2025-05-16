@@ -10,6 +10,7 @@ import {
   PiLockOpenBold,
 } from "react-icons/pi";
 import { useState } from "react";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import SelectField from "@/components/Forms/SelectField";
 import { NewExperimentRefRule, useAttributeSchema } from "@/services/features";
@@ -22,6 +23,8 @@ import Checkbox from "@/components/Radix/Checkbox";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import HelperText from "@/components/Radix/HelperText";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import ScheduleInputs from "@/components/Features/ScheduleInputs";
+import { AppFeatures } from "@/types/app-features";
 
 export default function SafeRolloutFields({
   feature,
@@ -35,6 +38,9 @@ export default function SafeRolloutFields({
   isNewRule,
   isDraft,
   duplicate,
+  defaultValues,
+  setScheduleToggleEnabled,
+  scheduleToggleEnabled,
 }: {
   feature: FeatureInterface;
   environment: string;
@@ -58,6 +64,8 @@ export default function SafeRolloutFields({
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
   const { datasources } = useDefinitions();
   const [controlValueDisabled, setControlValueDisabled] = useState(true);
+
+  const disableFields = !isDraft && !isNewRule;
   const dataSourceOptions =
     datasources?.map((ds) => ({
       label: ds.name,
@@ -68,11 +76,13 @@ export default function SafeRolloutFields({
   );
   const settings = useOrgSettings();
   const exposureQueries = dataSource?.settings?.queries?.exposure || [];
-  const disableFields = !isDraft && !isNewRule;
 
   const durationValue = form.watch("safeRolloutFields.maxDuration.amount");
   const unit = form.watch("safeRolloutFields.maxDuration.unit") || "days";
-
+  const growthbook = useGrowthBook<AppFeatures>();
+  const isSafeRolloutAutoRollbackEnabled = growthbook.isOn(
+    "safe-rollout-auto-rollback"
+  );
   const unitMultipliers = {
     days: 24 * 60 * 60 * 1000,
     hours: 60 * 60 * 1000,
@@ -396,6 +406,26 @@ export default function SafeRolloutFields({
       />
       {renderVariationFieldSelector()}
       {renderDataAndMetrics()}
+      <ScheduleInputs
+        defaultValue={defaultValues.scheduleRules || []}
+        onChange={(value) => form.setValue("scheduleRules", value)}
+        disabled={disableFields}
+        scheduleToggleEnabled={scheduleToggleEnabled}
+        setScheduleToggleEnabled={setScheduleToggleEnabled}
+      />
+      {isSafeRolloutAutoRollbackEnabled && (
+        <Checkbox
+          id="autoRollback"
+          value={form.watch("safeRolloutFields.autoRollback")}
+          setValue={(v) => form.setValue("safeRolloutFields.autoRollback", v)}
+          disabled={disableFields}
+          label="Auto Rollback"
+          weight="bold"
+          description="Automatically rollback when unhealthy or a guardrail fails"
+          mb="4"
+        />
+      )}
+
       {renderTargeting()}
     </>
   );

@@ -33,9 +33,36 @@ export class SafeRolloutModel extends BaseClass {
   protected canDelete() {
     return true;
   }
+  protected migrate(
+    legacyDoc: Partial<SafeRolloutInterface>
+  ): SafeRolloutInterface {
+    if (!("rampUpSchedule" in legacyDoc)) {
+      legacyDoc["rampUpSchedule"] = {
+        enabled: false,
+        step: 0,
+        steps: [],
+        nextUpdate: undefined,
+        lastUpdate: undefined,
+        rampUpCompleted: false,
+      };
+    }
+    if (!("autoRollback" in legacyDoc)) {
+      legacyDoc["autoRollback"] = false;
+    }
+    return legacyDoc as SafeRolloutInterface;
+  }
 
   public async getAllByFeatureId(featureId: string) {
     return await this._find({ featureId });
+  }
+  public async getAllByFeatureIds(featureIds: string[]) {
+    return await this._find({ featureId: { $in: featureIds } });
+  }
+  public async getAllPayloadSafeRollouts(
+    featureIds: string[]
+  ): Promise<Map<string, SafeRolloutInterface>> {
+    const safeRollouts = await this._find({ featureId: { $in: featureIds } });
+    return new Map(safeRollouts.map((r) => [r.id, r]));
   }
 
   protected async beforeUpdate(

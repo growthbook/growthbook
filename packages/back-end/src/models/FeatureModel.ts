@@ -18,7 +18,6 @@ import {
   getSavedGroupMap,
   refreshSDKPayloadCache,
 } from "back-end/src/services/features";
-import { determineNextDate } from "back-end/src/services/experiments";
 import { upgradeFeatureInterface } from "back-end/src/util/migrations";
 import { ReqContext } from "back-end/types/organization";
 import {
@@ -41,6 +40,7 @@ import {
 import { getChangedApiFeatureEnvironments } from "back-end/src/events/handlers/utils";
 import { ResourceEvents } from "back-end/src/events/base-types";
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
+import { determineNextSafeRolloutSnapshotAttempt } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
 import {
   createEvent,
   hasPreviousObject,
@@ -414,12 +414,17 @@ export const createFeatureEvent = async <
       version: eventData.data.object.version,
     });
 
+    const safeRolloutMap = await eventData.context.models.safeRollout.getAllPayloadSafeRollouts(
+      [eventData.data.object.id]
+    );
+
     const currentApiFeature = getApiFeatureObj({
       feature: eventData.data.object,
       organization: eventData.context.org,
       groupMap,
       experimentMap,
       revision: currentRevision,
+      safeRolloutMap,
     });
 
     if (!hasPreviousObject<"feature", Event, FeatureInterface>(eventData.data))
@@ -448,6 +453,7 @@ export const createFeatureEvent = async <
       groupMap,
       experimentMap,
       revision: previousRevision,
+      safeRolloutMap,
     });
 
     return {
@@ -462,6 +468,7 @@ export const createFeatureEvent = async <
           groupMap,
           experimentMap,
           revision: previousRevision,
+          safeRolloutMap,
         }),
       },
       projects: Array.from(
@@ -565,6 +572,9 @@ export async function onFeatureUpdate(
   updatedFeature: FeatureInterface,
   skipRefreshForProject?: string
 ) {
+  const safeRolloutMap = await context.models.safeRollout.getAllPayloadSafeRollouts(
+    [feature.id]
+  );
   await refreshSDKPayloadCache(
     context,
     getSDKPayloadKeysByDiff(
@@ -574,6 +584,7 @@ export async function onFeatureUpdate(
     ),
     null,
     undefined,
+    safeRolloutMap,
     skipRefreshForProject
   );
 
@@ -950,9 +961,15 @@ const updateSafeRolloutStatuses = async (
     };
     if (!safeRollout.startedAt && safeRolloutUpdates.status === "running") {
       safeRolloutUpdates["startedAt"] = new Date();
-      safeRolloutUpdates["nextSnapshotAttempt"] =
-        determineNextDate(context.org.settings?.updateSchedule || null) ??
-        new Date(); // TODO: `null` should not be possible here because we need to update
+      const {
+        nextSnapshot,
+        nextRampUp,
+      } = determineNextSafeRolloutSnapshotAttempt(safeRollout, context.org);
+      safeRolloutUpdates["nextSnapshotAttempt"] = nextSnapshot;
+      safeRolloutUpdates["rampUpSchedule"] = {
+        ...safeRollout.rampUpSchedule,
+        nextUpdate: nextRampUp,
+      };
     }
 
     context.models.safeRollout.update(safeRollout, safeRolloutUpdates);
