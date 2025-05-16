@@ -1,5 +1,6 @@
 import md5 from "md5";
 import { isFactMetricId, expandMetricGroups } from "shared/experiments";
+import { SAFE_ROLLOUT_VARIATIONS } from "shared/constants";
 import { ReqContext } from "back-end/types/organization";
 import {
   FactMetricInterface,
@@ -30,9 +31,8 @@ export async function updateSafeRolloutTimeSeries({
   safeRollout: SafeRolloutInterface;
   safeRolloutSnapshot: SafeRolloutSnapshotInterface;
 }) {
-  // TODO: Confirm if we want the same behavior here initially
   if (
-    // Dimensioned safe rollouts are not supported
+    // Dimensioned safe rollouts are not supported at the moment
     (safeRolloutSnapshot.dimension !== "" &&
       safeRolloutSnapshot.dimension !== undefined) ||
     // And no way of generating a data point if there are no metrics monitored, but shouldn't happen
@@ -47,7 +47,6 @@ export async function updateSafeRolloutTimeSeries({
     metricGroups
   );
 
-  // TODO: Do we have more than one analysis type for safeRollout?
   const analysis = safeRolloutSnapshot.analyses?.[0];
   const analysisResults = analysis?.results?.[0];
   const variations = analysisResults?.variations;
@@ -74,7 +73,7 @@ export async function updateSafeRolloutTimeSeries({
   const timeSeriesVariationsPerMetricId = metricsIds.reduce((acc, metricId) => {
     acc[metricId] = variations.map((_, variationIndex) => ({
       id: safeRolloutSnapshot.settings.variations[variationIndex].id,
-      name: variationIndex === 0 ? "control" : "variation",
+      name: SAFE_ROLLOUT_VARIATIONS[variationIndex].name,
       stats:
         analysisResults?.variations[variationIndex]?.metrics[metricId]?.stats,
       absolute: convertMetricToMetricValue(
