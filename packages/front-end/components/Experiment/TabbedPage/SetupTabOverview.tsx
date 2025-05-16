@@ -159,7 +159,6 @@ export default function SetupTabOverview({
                 commercialFeature="custom-metadata"
                 dismissable={true}
                 id="exp-description-custom-metadata"
-                docSection="customMetadata"
               >
                 <strong>Custom Fields</strong> add structured metadata to
                 experiments and feature flags, like Jira links, categories and
