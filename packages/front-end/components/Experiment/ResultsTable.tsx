@@ -8,7 +8,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { CSSTransition } from "react-transition-group";
 import { RxInfoCircled } from "react-icons/rx";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import {
@@ -45,9 +44,7 @@ import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefa
 import { useCurrency } from "@/hooks/useCurrency";
 import PValueColumn from "@/components/Experiment/PValueColumn";
 import ChangeColumn from "@/components/Experiment/ChangeColumn";
-import ResultsTableTooltip, {
-  TooltipHoverSettings,
-} from "@/components/Experiment/ResultsTableTooltip/ResultsTableTooltip";
+import { TooltipHoverSettings } from "@/components/Experiment/ResultsTableTooltip/ResultsTableTooltip";
 import TimeSeriesButton from "@/components/TimeSeriesButton";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -55,6 +52,7 @@ import ResultsMetricFilter from "@/components/Experiment/ResultsMetricFilter";
 import { ResultsMetricFilters } from "@/components/Experiment/Results";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useResultsTableTooltip } from "@/components/Experiment/ResultsTableTooltip/useResultsTableTooltip";
+import { AnalysisResultPopover } from "@/components/AnalysisResultPopover/AnalysisResultPopover";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { AppFeatures } from "@/types/app-features";
 import AlignedGraph from "./AlignedGraph";
@@ -347,14 +345,12 @@ export default function ResultsTable({
     containerRef,
     tooltipOpen,
     tooltipData,
-    hoveredX,
-    hoveredY,
     hoverRow,
     leaveRow,
     closeTooltip,
     hoveredMetricRow,
     hoveredVariationRow,
-    resetTimeout,
+    targetElement,
   } = useResultsTableTooltip({
     orderedVariations,
     rows,
@@ -377,34 +373,30 @@ export default function ResultsTable({
 
   return (
     <div className="position-relative" ref={containerRef}>
-      <CSSTransition
-        key={`${hoveredMetricRow}-${hoveredVariationRow}`}
-        in={
-          tooltipOpen &&
-          tooltipData &&
-          hoveredX !== null &&
-          hoveredY !== null &&
-          hoveredMetricRow !== null &&
-          hoveredVariationRow !== null
-        }
-        timeout={200}
-        classNames="tooltip-animate"
-        appear={true}
-      >
-        <ResultsTableTooltip
-          left={hoveredX ?? 0}
-          top={hoveredY ?? 0}
-          data={tooltipData}
-          tooltipOpen={tooltipOpen}
-          close={closeTooltip}
+      {tooltipOpen && tooltipData && targetElement && (
+        <AnalysisResultPopover
+          data={{
+            metricRow: tooltipData.metricRow,
+            metric: tooltipData.metric,
+            metricSnapshotSettings: tooltipData.metricSnapshotSettings,
+            dimensionName: tooltipData.dimensionName,
+            dimensionValue: tooltipData.dimensionValue,
+            variation: tooltipData.variation,
+            stats: tooltipData.stats,
+            baseline: tooltipData.baseline,
+            baselineVariation: tooltipData.baselineVariation,
+            rowResults: tooltipData.rowResults,
+            statsEngine: tooltipData.statsEngine,
+            pValueCorrection: tooltipData.pValueCorrection,
+            isGuardrail: tooltipData.isGuardrail,
+          }}
           differenceType={differenceType}
-          onPointerMove={resetTimeout}
-          onClick={resetTimeout}
-          onPointerLeave={leaveRow}
           isBandit={isBandit}
           ssrPolyfills={ssrPolyfills}
+          targetElement={targetElement}
+          onClose={closeTooltip}
         />
-      </CSSTransition>
+      )}
 
       <div ref={tableContainerRef} className="experiment-results-wrapper">
         <div className="w-100" style={{ minWidth: 700 }}>

@@ -63,6 +63,8 @@ interface AnalysisResultPopoverProps {
   differenceType: DifferenceType;
   isBandit?: boolean;
   ssrPolyfills?: SSRPolyfills;
+  targetElement?: HTMLElement | null;
+  onClose?: () => void;
 }
 
 const numberFormatter = Intl.NumberFormat();
@@ -72,34 +74,76 @@ export default function AnalysisResultPopover({
   differenceType,
   isBandit,
   ssrPolyfills,
+  targetElement,
+  onClose,
 }: AnalysisResultPopoverProps) {
+  // Add click outside handler
+  React.useEffect(() => {
+    if (!onClose) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!targetElement?.contains(event.target as Node)) {
+        onClose();
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [onClose, targetElement]);
+
+  // Add positioning styles based on target element
+  const [position, setPosition] = React.useState({ top: 0, left: 0 });
+  const popoverRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (!targetElement || !popoverRef.current) return;
+
+    const targetRect = targetElement.getBoundingClientRect();
+    const popoverRect = popoverRef.current.getBoundingClientRect();
+    
+    // Position below the target element with some offset
+    const top = targetRect.bottom + window.scrollY + 5;
+    let left = targetRect.left + window.scrollX + (targetRect.width / 2) - (popoverRect.width / 2);
+    
+    // Adjust if popover would go off screen
+    if (left < 10) left = 10;
+    if (left + popoverRect.width > window.innerWidth - 10) {
+      left = window.innerWidth - popoverRect.width - 10;
+    }
+    
+    setPosition({ top, left });
+  }, [targetElement]);
+
+  if (!data || !targetElement) return null;
+  
+  // Initialize hooks and utilities
   const _currency = useCurrency();
   const displayCurrency = ssrPolyfills?.useCurrency?.() || _currency;
-
   const { getExperimentMetricById, getFactTableById } = useDefinitions();
-
   const _pValueThreshold = usePValueThreshold();
-  const pValueThreshold =
-    ssrPolyfills?.usePValueThreshold?.() || _pValueThreshold;
+  const pValueThreshold = ssrPolyfills?.usePValueThreshold?.() || _pValueThreshold;
 
-  if (!data) return null;
+  // Formatters and derived values
+  const deltaFormatter = differenceType === "relative"
+    ? formatPercent
+    : getExperimentMetricFormatter(
+        data.metric,
+        ssrPolyfills?.getFactTableById || getFactTableById,
+        differenceType === "absolute" ? "percentagePoints" : "number"
+      );
 
-  const deltaFormatter =
-    differenceType === "relative"
-      ? formatPercent
-      : getExperimentMetricFormatter(
-          data.metric,
-          ssrPolyfills?.getFactTableById || getFactTableById,
-          differenceType === "absolute" ? "percentagePoints" : "number"
-        );
   const deltaFormatterOptions = {
     currency: displayCurrency,
     ...(differenceType === "relative" ? { maximumFractionDigits: 2 } : {}),
   };
+  
   const effectLabel = getEffectLabel(differenceType);
-
   const rows = [data.baseline, data.stats];
+  const variationColor = getVariationColor(data.variation.index, true);
 
+  // Handle metric display and formatting
   const metricInverseIconDisplay = data.metric.inverse ? (
     <Tooltip content="Metric is inverse, lower is better">
       <span>
@@ -108,29 +152,27 @@ export default function AnalysisResultPopover({
     </Tooltip>
   ) : null;
 
-  let denomFormatter = formatNumber;
-  const hasCustomDenominator =
-    ((isFactMetric(data.metric) && data.metric.metricType === "ratio") ||
-      !!data.metric.denominator) &&
-    !quantileMetricType(data.metric);
-  if (
-    hasCustomDenominator &&
-    isFactMetric(data.metric) &&
-    !!data.metric.denominator
-  ) {
-    denomFormatter = getColumnRefFormatter(
-      data.metric.denominator,
-      getFactTableById
-    );
+  // Handle quantile metrics if they exist on the metric
+  let quantileMetric = false;
+  let quantileIgnoreZeros = false;
+  let quantileValue = 0.5;
+  
+  if (isFactMetric(data.metric)) {
+    quantileMetric = data.metric.quantileSettings ? quantileMetricType(data.metric.metricType) : false;
+    quantileIgnoreZeros = data.metric.quantileSettings?.ignoreZeros ?? false;
+    quantileValue = data.metric.quantileSettings?.quantile ?? 0.5;
   }
-  const quantileMetric = quantileMetricType(data.metric);
-  const quantileIgnoreZeros =
-    isFactMetric(data.metric) && data.metric.quantileSettings?.ignoreZeros;
-  const quantileValue = isFactMetric(data.metric)
-    ? data.metric.quantileSettings?.quantile
-    : undefined;
-
-  const variationColor = getVariationColor(data.variation.index, true);
+  
+  // Handle denominator formatting
+  let hasCustomDenominator = false;
+  let denomFormatter = formatNumber;
+  
+  if (isFactMetric(data.metric)) {
+    hasCustomDenominator = !!data.metric.denominator && data.metric.denominator !== "count";
+    if (hasCustomDenominator && data.metric.denominator) {
+      denomFormatter = getColumnRefFormatter(data.metric.denominator, getFactTableById);
+    }
+  }
 
   const maybeRenderLiftWarning = () => {
     const cupedUsed = data.metricSnapshotSettings?.regressionAdjustmentEnabled;
@@ -204,39 +246,41 @@ export default function AnalysisResultPopover({
     );
   };
 
+
+
   return (
-    <Box p="1">
-      <Flex direction="column" gap="2" mb="3">
-        <Flex gap="1" align="center">
-          <Text weight="medium" size="2">
-            {data.metric.name}
-          </Text>
-          <PercentileLabel metric={data.metric} />
-          <Text weight="regular">
-            (
-            {isFactMetric(data.metric)
-              ? data.metric.metricType
-              : data.metric.type}
-            )
-          </Text>
-          {metricInverseIconDisplay}
-        </Flex>
-        {data.dimensionName ? (
-          <Flex ml="1" gap="1" mt="-2" align="center">
-            <BsArrowReturnRight size={12} />
-            <Flex gap="1">
-              <span className="text-ellipsis" style={{ maxWidth: 150 }}>
-                {data.dimensionName}:
-              </span>
-              <span
-                className="font-weight-bold text-ellipsis"
-                style={{ maxWidth: 250 }}
-              >
-                {data.dimensionValue}
-              </span>
-            </Flex>
+    <div
+      ref={popoverRef}
+      className="analysis-result-popover"
+      style={{
+        position: 'absolute',
+        top: `${position.top}px`,
+        left: `${position.left}px`,
+        zIndex: 1000,
+        backgroundColor: 'white',
+        borderRadius: '4px',
+        boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)',
+        maxWidth: '500px',
+        minWidth: '300px',
+        padding: '16px',
+      }}
+    >
+      <Box p="1">
+        <Flex direction="column" gap="2" mb="3">
+          <Flex gap="1" align="center">
+            <Text weight="medium" size="2">
+              {data.metric.name}
+            </Text>
+            <PercentileLabel metric={data.metric} />
+            <Text weight="regular">
+              ({isFactMetric(data.metric) ? data.metric.metricType : data.metric.type})
+            </Text>
+            {metricInverseIconDisplay}
+            {data.dimensionValue && (
+              <Text>{data.dimensionValue}</Text>
+            )}
           </Flex>
-        ) : null}
+        </Flex>
 
         <Flex align="center" gap="2">
           <span
@@ -407,5 +451,6 @@ export default function AnalysisResultPopover({
         {maybeRenderSuspiciousChange()}
       </Flex>
     </Box>
-  );
+  </div>
+);
 }

@@ -1,5 +1,4 @@
-import { useState, useEffect } from "react";
-import { useTooltip, useTooltipInPortal } from "@visx/tooltip";
+import { useState, useEffect, useRef } from "react";
 import { ExperimentReportVariationWithIndex } from "back-end/types/report";
 import {
   StatsEngine,
@@ -7,15 +6,42 @@ import {
   DifferenceType,
 } from "back-end/types/stats";
 import { ExperimentTableRow, RowResults } from "@/services/experiments";
-import {
-  LayoutX,
-  TOOLTIP_HEIGHT,
-  TOOLTIP_TIMEOUT,
-  TOOLTIP_WIDTH,
-  TooltipData,
-  TooltipHoverSettings,
-  YAlign,
-} from "./ResultsTableTooltip";
+import { SnapshotMetric } from "back-end/types/experiment-snapshot";
+import { ExperimentMetricInterface } from "shared/experiments";
+import { MetricSnapshotSettings } from "back-end/types/report";
+
+// Types from the original ResultsTableTooltip
+type LayoutX = "element-center" | "element-left" | "element-right";
+type YAlign = "top" | "bottom";
+
+export interface TooltipData {
+  metricRow: number;
+  metric: ExperimentMetricInterface;
+  metricSnapshotSettings?: MetricSnapshotSettings;
+  dimensionName?: string;
+  dimensionValue?: string;
+  variation: ExperimentReportVariationWithIndex;
+  stats: SnapshotMetric;
+  baseline: SnapshotMetric;
+  baselineVariation: ExperimentReportVariationWithIndex;
+  rowResults: RowResults;
+  statsEngine: StatsEngine;
+  pValueCorrection?: PValueCorrection;
+  isGuardrail: boolean;
+  layoutX: LayoutX;
+  yAlign: YAlign;
+}
+
+interface TooltipHoverSettings {
+  x: LayoutX;
+  offsetX?: number;
+  offsetY?: number;
+  targetClassName?: string;
+}
+
+const TOOLTIP_TIMEOUT = 250; // Mouse-out delay before closing
+const TOOLTIP_WIDTH = 400;
+const TOOLTIP_HEIGHT = 400;
 
 export function useResultsTableTooltip({
   orderedVariations,
@@ -36,19 +62,10 @@ export function useResultsTableTooltip({
   pValueCorrection?: PValueCorrection;
   noTooltip?: boolean;
 }) {
-  const {
-    showTooltip,
-    hideTooltip,
-    tooltipOpen,
-    tooltipData,
-  } = useTooltip<TooltipData>();
-
-  const { containerRef, containerBounds, TooltipInPortal } = useTooltipInPortal(
-    {
-      scroll: true,
-      detectBounds: false,
-    }
-  );
+  const [tooltipOpen, setTooltipOpen] = useState(false);
+  const [tooltipData, setTooltipData] = useState<TooltipData | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const targetElementRef = useRef<HTMLElement | null>(null);
 
   const [hoveredMetricRow, setHoveredMetricRow] = useState<number | null>(null);
   const [hoveredVariationRow, setHoveredVariationRow] = useState<number | null>(
@@ -59,11 +76,13 @@ export function useResultsTableTooltip({
   const [hoverTimeout, setHoverTimeout] = useState<number | null>(null);
 
   const clearHover = () => {
-    hideTooltip();
+    setTooltipOpen(false);
+    setTooltipData(null);
     setHoveredX(null);
     setHoveredY(null);
     setHoveredMetricRow(null);
     setHoveredVariationRow(null);
+    targetElementRef.current = null;
   };
 
   const resetTimeout = () => {
@@ -107,13 +126,12 @@ export function useResultsTableTooltip({
           : el.closest(`.${settings.targetClassName}`)) ?? el
       : (el.tagName === "td" ? el : el.closest("td")) ?? el;
 
-    let yAlign: YAlign = "top";
+    // Calculate tooltip position
     let targetTop: number =
       (target.getBoundingClientRect()?.bottom ?? 0) - offsetY;
     if (targetTop > TOOLTIP_HEIGHT + 80) {
       targetTop =
         (target.getBoundingClientRect()?.top ?? 0) - TOOLTIP_HEIGHT + offsetY;
-      yAlign = "bottom";
     }
 
     let targetLeft: number =
@@ -141,11 +159,13 @@ export function useResultsTableTooltip({
     }
 
     if (hoveredX === null && hoveredY === null) {
-      setHoveredX(targetLeft - containerBounds.left);
-      setHoveredY(targetTop - containerBounds.top);
+      // For the new popover, we'll use the target element directly
+      // and let the popover handle its own positioning
+      setHoveredX(targetLeft);
+      setHoveredY(targetTop);
     }
 
-    // Show tooltip logic
+    // Set tooltip data and show popover
     const row = rows[metricRow];
     const baseline = row.variations[orderedVariations[0].index] || {
       value: 0,
@@ -161,29 +181,37 @@ export function useResultsTableTooltip({
     const variation = orderedVariations[variationRow];
     const baselineVariation = orderedVariations[0];
     const rowResults = rowsResults[metricRow][variationRow];
+    
     if (!rowResults) return;
     if (rowResults === "query error") return;
     if (!rowResults.hasScaledImpact && differenceType === "scaled") return;
 
-    showTooltip({
-      tooltipData: {
-        metricRow,
-        metric,
-        metricSnapshotSettings: row.metricSnapshotSettings,
-        dimensionName: dimension,
-        dimensionValue: dimension ? row.label : undefined,
-        variation,
-        stats,
-        baseline,
-        baselineVariation,
-        rowResults,
-        statsEngine,
-        pValueCorrection,
-        isGuardrail: row.resultGroup === "guardrail",
-        layoutX,
-        yAlign,
-      } as TooltipData,
+    // Set the target element for positioning - ensure it's an HTMLElement
+    const targetElement = target instanceof HTMLElement ? target : null;
+    if (targetElement) {
+      targetElementRef.current = targetElement;
+    }
+    
+    // Update tooltip data and open state
+    setTooltipData({
+      metricRow,
+      metric,
+      metricSnapshotSettings: row.metricSnapshotSettings,
+      dimensionName: dimension,
+      dimensionValue: dimension ? row.label : undefined,
+      variation,
+      stats,
+      baseline,
+      baselineVariation,
+      rowResults,
+      statsEngine,
+      pValueCorrection,
+      isGuardrail: row.resultGroup === "guardrail",
+      layoutX,
+      yAlign: 'top',
     });
+    
+    setTooltipOpen(true);
     setHoveredMetricRow(metricRow);
     setHoveredVariationRow(variationRow);
   };
@@ -216,6 +244,6 @@ export function useResultsTableTooltip({
     hoveredMetricRow,
     hoveredVariationRow,
     resetTimeout,
-    TooltipInPortal,
+    targetElement: targetElementRef.current,
   };
 }
