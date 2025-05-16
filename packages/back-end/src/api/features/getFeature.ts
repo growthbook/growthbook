@@ -48,8 +48,9 @@ export const getFeature = createApiRequestHandler(getFeatureValidator)(
         })
       : undefined;
     return {
-      feature: getApiFeatureObj({
+      feature: await getApiFeatureObj({
         feature,
+        context: req.context,
         organization: req.organization,
         groupMap,
         experimentMap,

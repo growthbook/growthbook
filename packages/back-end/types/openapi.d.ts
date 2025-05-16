@@ -728,6 +728,9 @@ export interface components {
         date: string;
         publishedBy: string;
       };
+      customFields?: {
+        [key: string]: unknown | undefined;
+      };
     };
     FeatureWithRevisions: ({
       id: string;
@@ -953,6 +956,9 @@ export interface components {
         /** Format: date-time */
         date: string;
         publishedBy: string;
+      };
+      customFields?: {
+        [key: string]: unknown | undefined;
       };
     }) & ({
       revisions?: ({
@@ -1641,6 +1647,9 @@ export interface components {
       linkedFeatures?: (string)[];
       hasVisualChangesets?: boolean;
       hasURLRedirects?: boolean;
+      customFields?: {
+        [key: string]: unknown | undefined;
+      };
     };
     ExperimentSnapshot: {
       id: string;
@@ -1965,6 +1974,9 @@ export interface components {
       linkedFeatures?: (string)[];
       hasVisualChangesets?: boolean;
       hasURLRedirects?: boolean;
+      customFields?: {
+        [key: string]: unknown | undefined;
+      };
     }) & ({
       enhancedStatus?: {
         /** @enum {string} */
@@ -2523,6 +2535,9 @@ export interface operations {
                   date: string;
                   publishedBy: string;
                 };
+                customFields?: {
+                  [key: string]: unknown | undefined;
+                };
               })[];
           }) & {
             limit: number;
@@ -3001,6 +3016,9 @@ export interface operations {
                 date: string;
                 publishedBy: string;
               };
+              customFields?: {
+                [key: string]: unknown | undefined;
+              };
             };
           };
         };
@@ -3247,6 +3265,9 @@ export interface operations {
                 /** Format: date-time */
                 date: string;
                 publishedBy: string;
+              };
+              customFields?: {
+                [key: string]: unknown | undefined;
               };
             }) & ({
               revisions?: ({
@@ -3824,6 +3845,9 @@ export interface operations {
                 date: string;
                 publishedBy: string;
               };
+              customFields?: {
+                [key: string]: unknown | undefined;
+              };
             };
           };
         };
@@ -4092,6 +4116,9 @@ export interface operations {
                 /** Format: date-time */
                 date: string;
                 publishedBy: string;
+              };
+              customFields?: {
+                [key: string]: unknown | undefined;
               };
             };
           };
@@ -4983,6 +5010,9 @@ export interface operations {
                 linkedFeatures?: (string)[];
                 hasVisualChangesets?: boolean;
                 hasURLRedirects?: boolean;
+                customFields?: {
+                  [key: string]: unknown | undefined;
+                };
               })[];
           }) & {
             limit: number;
@@ -5255,6 +5285,9 @@ export interface operations {
               linkedFeatures?: (string)[];
               hasVisualChangesets?: boolean;
               hasURLRedirects?: boolean;
+              customFields?: {
+                [key: string]: unknown | undefined;
+              };
             };
           };
         };
@@ -5434,6 +5467,9 @@ export interface operations {
               linkedFeatures?: (string)[];
               hasVisualChangesets?: boolean;
               hasURLRedirects?: boolean;
+              customFields?: {
+                [key: string]: unknown | undefined;
+              };
             }) & ({
               enhancedStatus?: {
                 /** @enum {string} */
@@ -5710,6 +5746,9 @@ export interface operations {
               linkedFeatures?: (string)[];
               hasVisualChangesets?: boolean;
               hasURLRedirects?: boolean;
+              customFields?: {
+                [key: string]: unknown | undefined;
+              };
             };
           };
         };
@@ -6799,6 +6838,9 @@ export interface operations {
               linkedFeatures?: (string)[];
               hasVisualChangesets?: boolean;
               hasURLRedirects?: boolean;
+              customFields?: {
+                [key: string]: unknown | undefined;
+              };
             };
           };
         };
