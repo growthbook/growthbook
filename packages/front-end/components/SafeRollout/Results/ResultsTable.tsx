@@ -40,6 +40,7 @@ import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ResultsMetricFilter from "@/components/Experiment/ResultsMetricFilter";
 import { ResultsMetricFilters } from "@/components/Experiment/Results";
+import SparklineGraph from "@/components/Experiment/SparklineGraph";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import ChangeColumn from "./ChangeColumn";
@@ -80,7 +81,7 @@ export type ResultsTableProps = {
 };
 
 export default function ResultsTable({
-  id: _,
+  id,
   isLatestPhase,
   status,
   queryStatusData,
@@ -333,6 +334,12 @@ export default function ResultsTable({
                 {!noMetrics ? (
                   <>
                     <th
+                      style={{ width: 130 * tableCellScale }}
+                      className={clsx("axis-col label", { noStickyHeader })}
+                    >
+                      Graph
+                    </th>
+                    <th
                       style={{ width: 120 * tableCellScale }}
                       className={clsx("axis-col label", { noStickyHeader })}
                     >
@@ -508,6 +515,13 @@ export default function ResultsTable({
                               renderLabelColumn(row.label, row.metric, row, 3)
                             )}
                           </td>
+                          {j > 0 ? (
+                            <td>
+                              <SparklineGraph id={id} metric={row.metric} />
+                            </td>
+                          ) : (
+                            <td />
+                          )}
                           {j > 0 ? (
                             <td
                               className="variation chance align-middle"
