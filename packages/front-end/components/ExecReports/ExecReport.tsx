@@ -76,7 +76,7 @@ export default function ExecReport() {
     searchParams.get("show") || "won"
   );
 
-  const { name, hasCommercialFeature } = useUser();
+  const { hasCommercialFeature } = useUser();
   //const permissionsUtil = usePermissionsUtil();
 
   const disallowedProjects = getDisallowedProjects(
@@ -242,13 +242,10 @@ export default function ExecReport() {
   return (
     <Box>
       <Heading as="h1" size="5" mb="4">
-        Hello {name}
+        Program Overview
       </Heading>
       <Flex justify="between" mb="4" gap="3">
         <Box>
-          <Heading as="h2" size="2" mb="2">
-            Overview
-          </Heading>
           <Box>Use filters to adjust data displayed in this section.</Box>
         </Box>
         <Flex gap="5">
