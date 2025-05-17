@@ -12,6 +12,7 @@ import {
 import { FeatureInterface } from "back-end/types/feature";
 import Link from "next/link";
 import { getLatestSDKVersion } from "shared/sdk-versioning";
+import { PiPackage } from "react-icons/pi";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { getApiHost, getCdnHost } from "@/services/env";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -44,6 +45,27 @@ export function getApiBaseUrl(connection?: SDKConnectionInterface): string {
   }
 
   return trimTrailingSlash(getCdnHost() || getApiHost());
+}
+
+function getPackageRepositoryName(url: string): string {
+  const repositoryMap: Record<string, string> = {
+    "npmjs.com": "NPM",
+    "pypi.org": "PyPI",
+    "rubygems.org": "RubyGems",
+    "packagist.org": "Packagist",
+    "jitpack.io": "JitPack",
+    "nuget.org": "NuGet",
+    "pkg.go.dev": "Go Modules",
+    "hex.pm": "Hex",
+    "swiftpackageindex.com": "Swift Package Index",
+    "mvnrepository.com": "Maven",
+    "pub.dev": "pub.dev",
+  };
+
+  for (const [domain, name] of Object.entries(repositoryMap)) {
+    if (url.includes(domain)) return name;
+  }
+  return "Package Repository";
 }
 
 export default function CodeSnippetModal({
@@ -355,6 +377,25 @@ export default function CodeSnippetModal({
                     encryptionKey={encryptionKey}
                     remoteEvalEnabled={remoteEvalEnabled}
                   />
+                  {languageMapping[language]?.packageUrl && (
+                    <div className="mt-3">
+                      <a
+                        href={languageMapping[language].packageUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-sm"
+                      >
+                        <PiPackage
+                          className="mr-1"
+                          style={{ fontSize: "1.2em", verticalAlign: "-0.2em" }}
+                        />
+                        View on{" "}
+                        {getPackageRepositoryName(
+                          languageMapping[language].packageUrl
+                        )}
+                      </a>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

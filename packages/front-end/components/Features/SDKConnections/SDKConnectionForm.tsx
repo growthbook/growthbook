@@ -1,6 +1,7 @@
 import {
   CreateSDKConnectionParams,
   SDKConnectionInterface,
+  SDKLanguage,
 } from "back-end/types/sdk-connection";
 import { useForm } from "react-hook-form";
 import React, { useEffect, useMemo, useState } from "react";
@@ -70,6 +71,19 @@ function getPackageRepositoryName(url: string): string {
     if (url.includes(domain)) return name;
   }
   return "Package Repository";
+}
+
+function shouldShowPayloadSecurity(
+  languageType: LanguageType,
+  languages: SDKLanguage[]
+): boolean {
+  // Next.js should always use plain text
+  if (languages.includes("nextjs")) return false;
+
+  // Only show for frontend, mobile, nocode, edge, and other types
+  return ["frontend", "mobile", "nocode", "edge", "other"].includes(
+    languageType
+  );
 }
 
 function getSecurityTabState(
@@ -281,10 +295,10 @@ export default function SDKConnectionForm({
   }
 
   useEffect(() => {
-    if (languageType === "backend") {
+    if (!shouldShowPayloadSecurity(languageType, languages)) {
       setSelectedSecurityTab("none");
     }
-  }, [languageType, setSelectedSecurityTab]);
+  }, [languageType, languages, setSelectedSecurityTab]);
 
   useEffect(() => {
     if (!edit) {
@@ -630,7 +644,7 @@ export default function SDKConnectionForm({
           )}
         </div>
 
-        {languageType !== "backend" && (
+        {shouldShowPayloadSecurity(languageType, languages) && (
           <>
             <label>SDK Payload Security</label>
             <div className="bg-highlight rounded pt-4 pb-2 px-4 mb-4">
@@ -682,9 +696,7 @@ export default function SDKConnectionForm({
                   <></>
                 </Tab>
 
-                {["frontend", "mobile", "nocode", "edge", "other"].includes(
-                  languageType
-                ) && (
+                {shouldShowPayloadSecurity(languageType, languages) && (
                   <Tab
                     id="ciphered"
                     padding={false}
