@@ -24,6 +24,7 @@ import {
   filterProjectsByEnvironment,
   getDisallowedProjects,
 } from "shared/util";
+import { PiPackage } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
 import Modal from "@/components/Modal";
@@ -49,6 +50,27 @@ import {
   LanguageFilter,
   getConnectionLanguageFilter,
 } from "./SDKLanguageLogo";
+
+function getPackageRepositoryName(url: string): string {
+  const repositoryMap: Record<string, string> = {
+    "npmjs.com": "NPM",
+    "pypi.org": "PyPI",
+    "rubygems.org": "RubyGems",
+    "packagist.org": "Packagist",
+    "jitpack.io": "JitPack",
+    "nuget.org": "NuGet",
+    "pkg.go.dev": "Go Modules",
+    "hex.pm": "Hex",
+    "swiftpackageindex.com": "Swift Package Index",
+    "mvnrepository.com": "Maven",
+    "pub.dev": "pub.dev",
+  };
+
+  for (const [domain, name] of Object.entries(repositoryMap)) {
+    if (url.includes(domain)) return name;
+  }
+  return "Package Repository";
+}
 
 function getSecurityTabState(
   value: Partial<SDKConnectionInterface>
@@ -438,49 +460,81 @@ export default function SDKConnectionForm({
               <div className="form-group" style={{ marginTop: -10 }}>
                 <label>SDK version</label>
                 <div className="d-flex align-items-center">
-                  <SelectField
-                    style={{ width: 180 }}
-                    className="mr-4"
-                    placeholder="0.0.0"
-                    autoComplete="off"
-                    sort={false}
-                    options={getSDKVersions(
-                      form.watch("languages")[0]
-                    ).map((ver) => ({ label: ver, value: ver }))}
-                    createable={true}
-                    isClearable={false}
-                    value={
-                      form.watch("sdkVersion") ||
-                      getDefaultSDKVersion(languages[0])
-                    }
-                    onChange={(v) => form.setValue("sdkVersion", v)}
-                    formatOptionLabel={({ value, label }) => {
-                      const latest = getLatestSDKVersion(
+                  <div>
+                    <SelectField
+                      style={{ width: 180 }}
+                      className="mr-4"
+                      placeholder="0.0.0"
+                      autoComplete="off"
+                      sort={false}
+                      options={getSDKVersions(
                         form.watch("languages")[0]
-                      );
-                      return (
-                        <span>
-                          {label}
-                          {value === latest && (
-                            <span
-                              className="text-muted uppercase-title float-right position-relative"
-                              style={{ top: 3 }}
-                            >
-                              latest
-                            </span>
-                          )}
-                        </span>
-                      );
-                    }}
-                  />
-                  {!usingLatestVersion && (
-                    <a
-                      role="button"
-                      className="small"
-                      onClick={useLatestSdkVersion}
-                    >
-                      Use latest
-                    </a>
+                      ).map((ver) => ({ label: ver, value: ver }))}
+                      createable={true}
+                      isClearable={false}
+                      value={
+                        form.watch("sdkVersion") ||
+                        getDefaultSDKVersion(languages[0])
+                      }
+                      onChange={(v) => form.setValue("sdkVersion", v)}
+                      formatOptionLabel={({ value, label }) => {
+                        const latest = getLatestSDKVersion(
+                          form.watch("languages")[0]
+                        );
+                        return (
+                          <span>
+                            {label}
+                            {value === latest && (
+                              <span
+                                className="text-muted uppercase-title float-right position-relative"
+                                style={{ top: 3 }}
+                              >
+                                latest
+                              </span>
+                            )}
+                          </span>
+                        );
+                      }}
+                    />
+                    {!usingLatestVersion && (
+                      <a
+                        role="button"
+                        className="small"
+                        onClick={useLatestSdkVersion}
+                      >
+                        Use latest
+                      </a>
+                    )}
+                  </div>
+                  {languageMapping[form.watch("languages")[0]]?.packageUrl && (
+                    <div className="ml-3">
+                      <a
+                        href={
+                          languageMapping[form.watch("languages")[0]].packageUrl
+                        }
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-sm"
+                      >
+                        <PiPackage
+                          className="mr-1"
+                          style={{ fontSize: "1.2em", verticalAlign: "-0.2em" }}
+                        />
+                        {getPackageRepositoryName(
+                          languageMapping[form.watch("languages")[0]]
+                            .packageUrl || ""
+                        )}
+                      </a>
+                      <code
+                        className="d-block text-muted"
+                        style={{ fontSize: "0.7rem" }}
+                      >
+                        {
+                          languageMapping[form.watch("languages")[0]]
+                            .packageName
+                        }
+                      </code>
+                    </div>
                   )}
                 </div>
               </div>
