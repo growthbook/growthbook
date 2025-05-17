@@ -52,7 +52,7 @@ export default function ExecReport() {
     searchParams.get("selectedProjects")?.split(",") || []
   );
   const [dateRange, setDateRange] = useState(
-    searchParams.get("dateRange") || "30"
+    searchParams.get("dateRange") || "90"
   );
   const defaultStartDate = new Date();
   defaultStartDate.setDate(defaultStartDate.getDate() - 30);

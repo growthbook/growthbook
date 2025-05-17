@@ -73,7 +73,7 @@ const ExperimentWinRate: React.FC<ExperimentWinRateProps> = ({
             {showProjectWinRate ? (
               <>
                 <Flex justify="between" gap="4" width="100%">
-                  <Box flexBasis="50%" flexGrow="0" flexShrink="1">
+                  <Box flexBasis="40%" flexGrow="0" flexShrink="1">
                     <Tooltip
                       body={`A win percentage between ${goodPercentLow}% and ${goodPercentHigh}% is expected and standard.`}
                     >
@@ -96,7 +96,7 @@ const ExperimentWinRate: React.FC<ExperimentWinRateProps> = ({
                       </span>
                     </Box>
                   </Box>
-                  <Box flexBasis="50%" flexGrow="1" flexShrink="0">
+                  <Box flexBasis="60%" flexGrow="1" flexShrink="0">
                     <ExperimentWinRateByProject
                       selectedProjects={selectedProjects}
                       experiments={experiments}

@@ -76,7 +76,7 @@ export default function ExecExperimentImpact({
 
   const metricInterface = metrics.find((m) => m.id === metric);
   const formatter = metricInterface
-    ? getExperimentMetricFormatter(metricInterface, getFactTableById, true)
+    ? getExperimentMetricFormatter(metricInterface, getFactTableById, "number")
     : formatNumber;
 
   const formatterOptions: Intl.NumberFormatOptions = {
