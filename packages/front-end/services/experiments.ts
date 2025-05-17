@@ -275,12 +275,12 @@ export function pValueFormatter(pValue: number, digits: number = 3): string {
 }
 
 export function useExperimentSearch({
-                                      allExperiments,
-                                      defaultSortField = "date",
-                                      defaultSortDir = -1,
-                                      filterResults,
-                                      localStorageKey = "experiments",
-                                    }: {
+  allExperiments,
+  defaultSortField = "date",
+  defaultSortDir = -1,
+  filterResults,
+  localStorageKey = "experiments",
+}: {
   allExperiments: ExperimentInterfaceStringDates[];
   defaultSortField?: keyof ComputedExperimentInterface;
   defaultSortDir?: -1 | 1;
@@ -325,8 +325,8 @@ export function useExperimentSearch({
         tab: exp.archived
           ? "archived"
           : exp.status === "draft"
-            ? "drafts"
-            : exp.status,
+          ? "drafts"
+          : exp.status,
         date: experimentDate(exp),
         statusIndicator,
         statusSortOrder,

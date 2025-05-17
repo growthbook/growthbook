@@ -39,7 +39,7 @@ export default function Analysis(): React.ReactElement {
 
       <div className="container pagecontents position-relative">
         {hasExperiments ? (
-          <Dashboard experiments={experiments} />
+          <Dashboard />
         ) : (
           <div className="getstarted">
             <ExperimentsGetStarted />
