@@ -10,8 +10,8 @@ import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
 } from "shared/constants";
 import { MetricPowerResponseFromStatsEngine } from "back-end/types/stats";
-import { sequentialDiscriminant, sequentialRho } from "shared/power";
 import { eachDayOfInterval, formatISO, subDays } from "date-fns";
+import { sequentialDiscriminant, sequentialRho } from "shared/power";
 
 export interface MidExperimentPowerParams {
   alpha: number;
