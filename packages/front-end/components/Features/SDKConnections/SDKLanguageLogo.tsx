@@ -97,7 +97,7 @@ export const languageMapping: Record<SDKLanguage, LanguageLogo> = {
     Icon: SiNextdotjs,
     color: "#000000",
     label: "Next.js",
-    docs: "javascript",
+    docs: "nextjsFlags",
     type: "backend",
     filters: ["browser", "server", "popular"],
     packageName: "@flags-sdk/growthbook",

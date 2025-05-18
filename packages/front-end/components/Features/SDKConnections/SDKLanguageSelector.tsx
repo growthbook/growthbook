@@ -116,6 +116,7 @@ export default function SDKLanguageSelector({
   const frontEnd = filterLanguages(["javascript", "react", "nocode-other"]);
   const backEnd = filterLanguages([
     "nodejs",
+    "nextjs",
     "php",
     "ruby",
     "python",

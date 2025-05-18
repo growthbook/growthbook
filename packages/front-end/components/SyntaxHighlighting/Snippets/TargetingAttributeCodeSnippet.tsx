@@ -349,6 +349,25 @@ app.use(function(req, res, next) {
       );
     }
   }
+  if (language === "nextjs") {
+    attributesSnippets.push(
+      <>
+        <Code
+          language="javascript"
+          code={`
+import { dedupe } from 'flags/next';
+
+export const identify = dedupe(async () => {
+  // Your own logic to identify the user
+  const user = await getUser(headers, cookies);
+
+  return ${indentLines(stringify(exampleAttributes), 2)};
+});
+`.trim()}
+        />
+      </>
+    );
+  }
   if (language === "android") {
     attributesSnippets.push(
       <>

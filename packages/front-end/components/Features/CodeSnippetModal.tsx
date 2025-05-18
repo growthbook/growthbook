@@ -210,10 +210,7 @@ export default function CodeSnippetModal({
         }
         cta={cta}
       >
-        <div
-          className="border-bottom mb-3 px-3 py-2 position-sticky shadow-sm"
-          style={{ top: 0, zIndex: 999 }}
-        >
+        <div className="border-bottom mb-3 px-3 py-2">
           <div className="row">
             {connections?.length > 1 && allowChangingConnection && (
               <div className="col-auto">
