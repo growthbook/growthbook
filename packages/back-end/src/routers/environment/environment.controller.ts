@@ -48,7 +48,7 @@ export const putEnvironmentOrder = async (
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
-  const { envId, direction } = req.body;
+  const { envId, newIndex } = req.body;
   const existingEnvs = org.settings?.environments;
 
   if (!existingEnvs) {
@@ -77,16 +77,15 @@ export const putEnvironmentOrder = async (
   }
 
   const updatedEnvs = [...existingEnvs];
-  const newEnvIndex = envIndex + direction;
 
-  if (newEnvIndex < 0 || newEnvIndex >= existingEnvs.length) {
+  if (newIndex < 0 || newIndex >= existingEnvs.length) {
     return res.status(400).json({
       status: 400,
-      message: `Invalid direction: ${direction}`,
+      message: `Invalid new index: ${newIndex}`,
     });
   }
   updatedEnvs.splice(envIndex, 1);
-  updatedEnvs.splice(newEnvIndex, 0, updatedEnvs[envIndex]);
+  updatedEnvs.splice(newIndex, 0, updatedEnvs[envIndex]);
 
   try {
     await updateOrganization(org.id, {

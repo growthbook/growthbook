@@ -3,7 +3,7 @@ import z from "zod";
 export const updateEnvOrderValidator = z
   .object({
     envId: z.string(),
-    direction: z.number(),
+    newIndex: z.number(),
   })
   .strict();
 
