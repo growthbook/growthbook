@@ -197,7 +197,22 @@ const getContext = async ({
     user,
   });
 
-  const nativeIntegrationModel = new VercelNativeIntegrationModel(context);
+  // The model is attached to the top-level org so we
+  // need a different contect here!
+  const topLevelOrg = await findOrganizationById(
+    nativeIntegration.organization
+  );
+  if (!topLevelOrg) return failed(400, "Invalid installation!");
+
+  const topLevelContext = new ReqContextClass({
+    org: topLevelOrg,
+    auditUser: null,
+    user,
+  });
+
+  const nativeIntegrationModel = new VercelNativeIntegrationModel(
+    topLevelContext
+  );
 
   return {
     context,
