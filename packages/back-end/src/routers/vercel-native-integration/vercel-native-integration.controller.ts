@@ -449,6 +449,7 @@ export async function getResourceProducts(req: Request, res: Response) {
 export async function deleteResource(req: Request, res: Response) {
   const {
     context,
+    org,
     nativeIntegrationModel,
     nativeIntegration,
   } = await authContext(req, res);
@@ -473,6 +474,8 @@ export async function deleteResource(req: Request, res: Response) {
     installationId: nativeIntegration.installationId,
     resourceId: resource.id,
   });
+
+  await updateOrganization(org.id, { isVercelIntegration: false });
 
   return res.sendStatus(204);
 }
