@@ -2876,7 +2876,7 @@ export async function getLinkedFeatureInfo(
     return info;
   });
 
-  return linkedFeatureInfo.filter((info) => info.state !== "discarded");
+  return linkedFeatureInfo;
 }
 
 export async function getChangesToStartExperiment(
@@ -3136,6 +3136,10 @@ export async function computeResultsStatus({
           ciUpper,
           pValueThreshold,
           statsEngine: statsEngine,
+          differenceType:
+            "differenceType" in analysis.settings
+              ? analysis.settings.differenceType
+              : "relative",
         });
 
         if (goalMetric) {

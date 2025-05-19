@@ -91,6 +91,13 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
       Object.keys(req.body.environments ?? {})
     );
 
+    if (
+      req.context.org.settings?.requireProjectForFeatures &&
+      !req.body.project
+    ) {
+      throw new Error("Must specify a project for new features");
+    }
+
     // Validate projects - We can remove this validation when FeatureModel is migrated to BaseModel
     if (req.body.project) {
       const projects = await req.context.getProjects();

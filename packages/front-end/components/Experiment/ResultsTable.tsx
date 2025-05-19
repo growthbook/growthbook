@@ -252,7 +252,7 @@ export default function ResultsTable({
   );
   const compactResults = filteredVariations.length <= 2;
 
-  const domain = useDomain(filteredVariations, rows);
+  const domain = useDomain(filteredVariations, rows, differenceType);
 
   const rowsResults: (RowResults | "query error" | null)[][] = useMemo(() => {
     const rr: (RowResults | "query error" | null)[][] = [];
@@ -305,6 +305,7 @@ export default function ResultsTable({
           isGuardrail: row.resultGroup === "guardrail",
           minSampleSize: getMinSampleSizeForMetric(row.metric),
           statsEngine,
+          differenceType,
           ciUpper,
           ciLower,
           pValueThreshold,
@@ -327,6 +328,7 @@ export default function ResultsTable({
     metricDefaults,
     getMinSampleSizeForMetric,
     statsEngine,
+    differenceType,
     ciUpper,
     ciLower,
     pValueThreshold,

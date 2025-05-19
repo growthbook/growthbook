@@ -593,6 +593,12 @@ const sidebars = {
       items: [
         {
           type: "doc",
+          id: "integrations/mcp",
+          label: "MCP Server",
+          className: "pill-new",
+        },
+        {
+          type: "doc",
           id: "integrations/framer",
           label: "Framer",
           className: "pill-new",
