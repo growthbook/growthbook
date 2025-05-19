@@ -207,14 +207,11 @@ const EnvironmentsPage: FC = () => {
                               color=""
                               className="dropdown-item"
                               onClick={async () => {
-                                const newIndex = environments.findIndex(
-                                  (env) => env.id === e.id
-                                );
                                 await apiCall(`/environment/order`, {
                                   method: "PUT",
                                   body: JSON.stringify({
                                     envId: e.id,
-                                    newIndex: newIndex - 1,
+                                    newIndex: i - 1, // this is the filteredEnvironments index  we are moving it on
                                   }),
                                 });
                                 refreshOrganization();
@@ -228,14 +225,11 @@ const EnvironmentsPage: FC = () => {
                               color=""
                               className="dropdown-item"
                               onClick={async () => {
-                                const index = environments.findIndex(
-                                  (env) => env.id === e.id
-                                );
                                 await apiCall(`/environment/order`, {
                                   method: "PUT",
                                   body: JSON.stringify({
                                     envId: e.id,
-                                    newIndex: index + 1,
+                                    newIndex: i + 1, // this is the filteredEnvironments index  we are moving it on
                                   }),
                                 });
                                 refreshOrganization();

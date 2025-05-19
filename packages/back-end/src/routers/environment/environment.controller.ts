@@ -85,7 +85,7 @@ export const putEnvironmentOrder = async (
     });
   }
   updatedEnvs.splice(envIndex, 1);
-  updatedEnvs.splice(newIndex, 0, updatedEnvs[envIndex]);
+  updatedEnvs.splice(newIndex, 0, existingEnvs[envIndex]);
 
   try {
     await updateOrganization(org.id, {
