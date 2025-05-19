@@ -27,6 +27,7 @@ import {
   postNewVercelSubscriptionToLicenseServer,
 } from "back-end/src/enterprise";
 import { getLicenseByKey } from "back-end/src/enterprise/models/licenseModel";
+import { getOrganizationById } from "back-end/src/services/organizations";
 import {
   userAuthenticationValidator,
   systemAuthenticationValidator,
@@ -320,19 +321,6 @@ export async function deleteInstallation(req: Request, res: Response) {
   if (nativeIntegration.installationId !== req.params.installation_id)
     return res.status(400).send("Invalid request!");
 
-  if (!org.licenseKey) {
-    return res.status(404).send(`Unable to locate license for org: ${org.id}`);
-  }
-
-  const license = await getLicenseByKey(org.licenseKey);
-
-  if (!license) {
-    return res.status(404).send(`Unable to locate license for org: ${org.id}`);
-  }
-
-  // Cancel their subscription
-  await postCancelSubscriptionToLicenseServer(license.id);
-
   // TODO: cascade delete
   await nativeIntegrationModel.deleteById(nativeIntegration.id);
 
@@ -374,8 +362,14 @@ export async function provisionResource(req: Request, res: Response) {
 
   if (billingPlanId === "pro-billing-plan") {
     try {
+      // Get fresh org with updated name
+      const updatedOrg = await getOrganizationById(contextOrg.id);
+
+      if (!updatedOrg) {
+        throw new Error("Organization not found");
+      }
       await postNewVercelSubscriptionToLicenseServer(
-        org,
+        updatedOrg,
         req.params.installation_id,
         user.name || ""
       );
@@ -484,7 +478,7 @@ export async function getResourceProducts(req: Request, res: Response) {
 }
 
 export async function deleteResource(req: Request, res: Response) {
-  const { nativeIntegrationModel, nativeIntegration } = await authContext(
+  const { nativeIntegrationModel, nativeIntegration, org } = await authContext(
     req,
     res
   );
@@ -497,6 +491,13 @@ export async function deleteResource(req: Request, res: Response) {
   );
 
   if (!resource) return res.status(400).send("Resource not found!");
+
+  const license = await getLicenseByKey(org.licenseKey || "");
+  if (!license) {
+    return res.status(404).send(`Unable to locate license for org: ${org.id}`);
+  }
+
+  await postCancelSubscriptionToLicenseServer(license.id);
 
   await nativeIntegrationModel.update(nativeIntegration, {
     resources: nativeIntegration.resources.map((r) =>
