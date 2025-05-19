@@ -737,9 +737,9 @@ def process_analysis(
                     result.at[0, col] = [lower_updated, upper_updated]
         else:
             from gbstats.bayesian.tests import (
-                TwoFactorPooling,
-                Hyperparams,
-                CellData,
+                TwoFactorPoolingUnivariate,
+                HyperparamsUnivariate,
+                CellDataUnivariate,
                 MCMCParams,
             )
 
@@ -764,9 +764,9 @@ def process_analysis(
                         s2[a, b] = uplift[0]["stddev"] ** 2
                     tau_index += 1
             tau_hat[0, 0] = np.nan
-            cell_data = CellData(tau_hat=tau_hat, s2=s2)
+            cell_data = CellDataUnivariate(tau_hat=tau_hat, s2=s2)
             mcmc_params = MCMCParams(num_burn=1000, num_keep=1000, seed=int(20250509))
-            hyperparms = Hyperparams(
+            hyperparms = HyperparamsUnivariate(
                 mu_delta=metric.prior_mean,
                 sigma_2_delta=metric.prior_stddev**2,
                 a=0.1,
@@ -774,7 +774,7 @@ def process_analysis(
                 sigma_2_alpha=0.1,
                 sigma_2_beta=0.1,
             )
-            mcmc = TwoFactorPooling(
+            mcmc = TwoFactorPoolingUnivariate(
                 hyperparams=hyperparms,
                 cell_data=cell_data,
                 mcmc_params=mcmc_params,
