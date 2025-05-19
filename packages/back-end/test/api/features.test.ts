@@ -129,6 +129,11 @@ describe("features API", () => {
             requireProjectForFeatures: true,
           },
         },
+        models: {
+          safeRollout: {
+            getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
+          },
+        },
         permissions: {
           canPublishFeature: () => true,
           canCreateFeature: () => true,
@@ -163,6 +168,11 @@ describe("features API", () => {
           ...org,
           settings: {
             requireProjectForFeatures: true,
+          },
+        },
+        models: {
+          safeRollout: {
+            getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
           },
         },
         permissions: {
@@ -224,6 +234,11 @@ describe("features API", () => {
           ...org,
           settings: {
             requireProjectForFeatures: true,
+          },
+        },
+        models: {
+          safeRollout: {
+            getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
           },
         },
         permissions: {
