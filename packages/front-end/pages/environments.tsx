@@ -220,7 +220,7 @@ const EnvironmentsPage: FC = () => {
                               Move up
                             </OldButton>
                           )}
-                          {i < environments.length - 1 && (
+                          {i < filteredEnvironments.length - 1 && (
                             <OldButton
                               color=""
                               className="dropdown-item"
