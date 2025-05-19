@@ -272,7 +272,8 @@ export async function findOrganizationById(id: string) {
 
 export async function updateOrganization(
   id: string,
-  update: Partial<OrganizationInterface>
+  update: Partial<OrganizationInterface>,
+  unset?: Partial<Record<keyof OrganizationInterface, number>>
 ) {
   await OrganizationModel.updateOne(
     {
@@ -280,6 +281,7 @@ export async function updateOrganization(
     },
     {
       $set: update,
+      ...(unset ? { $unset: unset } : {}),
     }
   );
 }

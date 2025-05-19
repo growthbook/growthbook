@@ -293,17 +293,10 @@ export const deleteVercelExperimentationItemFromExperiment = ({
     organization,
   });
 
-export const deleteVercelSdkWebhook = async ({
-  context,
-  installationId,
-  resourceId,
-}: {
-  context: ReqContextClass;
-  installationId: string;
-  resourceId: string;
-}) => {
-  const endpoint = `${VERCEL_URL}/v1/installations/${installationId}/resources/${resourceId}/experimentation/edge-config`;
-  const webhook = await findSdkWebhook(context, { endpoint });
+export const deleteVercelSdkWebhook = async (context: ReqContextClass) => {
+  const webhook = await findSdkWebhook(context, {
+    payloadFormat: "vercelNativeIntegration",
+  });
 
   if (!webhook) return;
 
@@ -342,8 +335,9 @@ export const syncVercelSdkWebhook = async (organization: string) => {
 
   const sdkConnections = await findSDKConnectionsByOrganization(context);
 
-  const endpoint = `${VERCEL_URL}/v1/installations/${nativeIntegration.installationId}/resources/${resource.id}/experimentation/edge-config`;
-  const webhook = await findSdkWebhook(context, { endpoint });
+  const webhook = await findSdkWebhook(context, {
+    payloadFormat: "vercelNativeIntegration",
+  });
 
   if (
     !resource.protocolSettings?.experimentation?.edgeConfigId ||
@@ -360,7 +354,7 @@ export const syncVercelSdkWebhook = async (organization: string) => {
 
   const webhookParams = {
     name: "Sync vercel integration edge config",
-    endpoint,
+    endpoint: `${VERCEL_URL}/v1/installations/${nativeIntegration.installationId}/resources/${resource.id}/experimentation/edge-config`,
     payloadFormat: "vercelNativeIntegration",
     payloadKey: "gb_payload",
     httpMethod: "PUT",
