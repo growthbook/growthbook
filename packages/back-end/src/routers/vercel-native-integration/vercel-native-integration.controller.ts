@@ -20,6 +20,7 @@ import { OrganizationInterface } from "back-end/types/organization";
 import {
   getVercelSSOToken,
   syncVercelSdkWebhook,
+  deleteVercelSdkWebhook,
 } from "back-end/src/services/vercel-native-integration.service";
 import { createSDKConnection } from "back-end/src/models/SdkConnectionModel";
 import {
@@ -446,10 +447,11 @@ export async function getResourceProducts(req: Request, res: Response) {
 }
 
 export async function deleteResource(req: Request, res: Response) {
-  const { nativeIntegrationModel, nativeIntegration } = await authContext(
-    req,
-    res
-  );
+  const {
+    context,
+    nativeIntegrationModel,
+    nativeIntegration,
+  } = await authContext(req, res);
 
   if (nativeIntegration.installationId !== req.params.installation_id)
     return res.status(400).send("Invalid request!");
@@ -464,6 +466,12 @@ export async function deleteResource(req: Request, res: Response) {
     resources: nativeIntegration.resources.map((r) =>
       r.id === resource.id ? { ...resource, status: "uninstalled" } : r
     ),
+  });
+
+  await deleteVercelSdkWebhook({
+    context,
+    installationId: nativeIntegration.installationId,
+    resourceId: resource.id,
   });
 
   return res.sendStatus(204);

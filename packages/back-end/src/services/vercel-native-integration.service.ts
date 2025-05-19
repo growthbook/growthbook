@@ -293,6 +293,23 @@ export const deleteVercelExperimentationItemFromExperiment = ({
     organization,
   });
 
+export const deleteVercelSdkWebhook = async ({
+  context,
+  installationId,
+  resourceId,
+}: {
+  context: ReqContextClass;
+  installationId: string;
+  resourceId: string;
+}) => {
+  const endpoint = `${VERCEL_URL}/v1/installations/${installationId}/resources/${resourceId}/experimentation/edge-config`;
+  const webhook = await findSdkWebhook(context, { endpoint });
+
+  if (!webhook) return;
+
+  await deleteSdkWebhookById(context, webhook.id);
+};
+
 export const syncVercelSdkWebhook = async (organization: string) => {
   const org = await findOrganizationById(organization);
 
