@@ -207,11 +207,15 @@ const EnvironmentsPage: FC = () => {
                               color=""
                               className="dropdown-item"
                               onClick={async () => {
+                                const targetEnv = filteredEnvironments[i - 1];
+                                const newIndex = environments.findIndex(
+                                  (env) => targetEnv.id === env.id
+                                );
                                 await apiCall(`/environment/order`, {
                                   method: "PUT",
                                   body: JSON.stringify({
                                     envId: e.id,
-                                    newIndex: i - 1, // this is the filteredEnvironments index  we are moving it on
+                                    newIndex, // this is the filteredEnvironments index  we are moving it on
                                   }),
                                 });
                                 refreshOrganization();
@@ -225,11 +229,15 @@ const EnvironmentsPage: FC = () => {
                               color=""
                               className="dropdown-item"
                               onClick={async () => {
+                                const targetEnv = filteredEnvironments[i + 1];
+                                const newIndex = environments.findIndex(
+                                  (env) => targetEnv.id === env.id
+                                );
                                 await apiCall(`/environment/order`, {
                                   method: "PUT",
                                   body: JSON.stringify({
                                     envId: e.id,
-                                    newIndex: i + 1, // this is the filteredEnvironments index  we are moving it on
+                                    newIndex, // this is the filteredEnvironments index  we are moving it on
                                   }),
                                 });
                                 refreshOrganization();
