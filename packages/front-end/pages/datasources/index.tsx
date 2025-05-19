@@ -39,7 +39,7 @@ function ManagedClickhouseForm({ close }: { close: () => void }) {
       header={
         <>
           Managed ClickHouse{" "}
-          <Badge label="New!" color="violet" variant="solid" />
+          <Badge label="New!" color="violet" variant="soft" />
         </>
       }
       trackingEventModalType="managed-clickhouse"
@@ -66,15 +66,22 @@ function ManagedClickhouseForm({ close }: { close: () => void }) {
 
       <div className="mb-3">
         <h3>How it Works</h3>
-        <p>
-          You will receive a dedicated API endpoint where you can send analytics
-          events (page views, button clicks, etc). You can then define metrics
-          from these events and use them in experiments.
-        </p>
+        <ol>
+          <li className="mb-2">
+            You send analytics events to our scalable ingestion API.
+          </li>
+          <li className="mb-2">
+            We enrich and store them in ClickHouse within seconds.
+          </li>
+          <li>
+            You can query the data with SQL, define metrics, and analyze
+            experiment results with our powerful stats engine.
+          </li>
+        </ol>
       </div>
 
       <SelectField
-        label="Region"
+        label="Data Region"
         value="us-east-1"
         onChange={() => {}}
         options={[{ label: "AWS us-east-1", value: "us-east-1" }]}
@@ -87,7 +94,8 @@ function ManagedClickhouseForm({ close }: { close: () => void }) {
           <strong>Pricing</strong>
         </div>
         <p>
-          2 million events included, then <strong>$0.025</strong> per 1K events
+          2 million events included per month, then <strong>$0.03</strong> per
+          1K events
         </p>
       </div>
     </Modal>
@@ -181,20 +189,16 @@ function ManagedClickhouseDriver() {
         </div>
         <div className="text-center">
           {hasAccess ? (
-            <Badge label="New!" color="violet" variant="solid" />
+            <Badge label="New!" color="violet" variant="soft" />
           ) : (
             <PaidFeatureBadge commercialFeature="managed-clickhouse" />
           )}
           <h3 className="mb-3 mt-2">
-            Use GrowthBook&apos;s fully-managed warehouse to get started quickly
+            Use GrowthBook Cloud&apos;s fully-managed warehouse to get started
+            quickly
           </h3>
-          <Button variant="outline" onClick={() => setOpen(true)}>
-            <img
-              src="/logo/Logo-mark.png"
-              width={20}
-              style={{ verticalAlign: "middle" }}
-            />{" "}
-            Managed ClickHouse
+          <Button variant="solid" onClick={() => setOpen(true)}>
+            Try Now
           </Button>
         </div>
       </Flex>

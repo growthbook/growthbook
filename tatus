@@ -1,0 +1,94 @@
+[1mdiff --git a/packages/front-end/pages/datasources/index.tsx b/packages/front-end/pages/datasources/index.tsx[m
+[1mindex 67350afc0..15e436af5 100644[m
+[1m--- a/packages/front-end/pages/datasources/index.tsx[m
+[1m+++ b/packages/front-end/pages/datasources/index.tsx[m
+[36m@@ -39,7 +39,7 @@[m [mfunction ManagedClickhouseForm({ close }: { close: () => void }) {[m
+       header={[m
+         <>[m
+           Managed ClickHouse{" "}[m
+[31m-          <Badge label="New!" color="violet" variant="solid" />[m
+[32m+[m[32m          <Badge label="New!" color="violet" variant="soft" />[m
+         </>[m
+       }[m
+       trackingEventModalType="managed-clickhouse"[m
+[36m@@ -66,15 +66,22 @@[m [mfunction ManagedClickhouseForm({ close }: { close: () => void }) {[m
+ [m
+       <div className="mb-3">[m
+         <h3>How it Works</h3>[m
+[31m-        <p>[m
+[31m-          You will receive a dedicated API endpoint where you can send analytics[m
+[31m-          events (page views, button clicks, etc). You can then define metrics[m
+[31m-          from these events and use them in experiments.[m
+[31m-        </p>[m
+[32m+[m[32m        <ol>[m
+[32m+[m[32m          <li className="mb-2">[m
+[32m+[m[32m            You send analytics events to our scalable ingestion API.[m
+[32m+[m[32m          </li>[m
+[32m+[m[32m          <li className="mb-2">[m
+[32m+[m[32m            We enrich and store them in ClickHouse within seconds.[m
+[32m+[m[32m          </li>[m
+[32m+[m[32m          <li>[m
+[32m+[m[32m            You can query the data with SQL, define metrics, and analyze[m
+[32m+[m[32m            experiment results with our powerful stats engine.[m
+[32m+[m[32m          </li>[m
+[32m+[m[32m        </ol>[m
+       </div>[m
+ [m
+       <SelectField[m
+[31m-        label="Region"[m
+[32m+[m[32m        label="Data Region"[m
+         value="us-east-1"[m
+         onChange={() => {}}[m
+         options={[{ label: "AWS us-east-1", value: "us-east-1" }]}[m
+[36m@@ -87,7 +94,8 @@[m [mfunction ManagedClickhouseForm({ close }: { close: () => void }) {[m
+           <strong>Pricing</strong>[m
+         </div>[m
+         <p>[m
+[31m-          2 million events included, then <strong>$0.025</strong> per 1K events[m
+[32m+[m[32m          2 million events included per month, then <strong>$0.03</strong> per[m
+[32m+[m[32m          1K events[m
+         </p>[m
+       </div>[m
+     </Modal>[m
+[36m@@ -181,20 +189,16 @@[m [mfunction ManagedClickhouseDriver() {[m
+         </div>[m
+         <div className="text-center">[m
+           {hasAccess ? ([m
+[31m-            <Badge label="New!" color="violet" variant="solid" />[m
+[32m+[m[32m            <Badge label="New!" color="violet" variant="soft" />[m
+           ) : ([m
+             <PaidFeatureBadge commercialFeature="managed-clickhouse" />[m
+           )}[m
+           <h3 className="mb-3 mt-2">[m
+[31m-            Use GrowthBook&apos;s fully-managed warehouse to get started quickly[m
+[32m+[m[32m            Use GrowthBook Cloud&apos;s fully-managed warehouse to get started[m
+[32m+[m[32m            quickly[m
+           </h3>[m
+[31m-          <Button variant="outline" onClick={() => setOpen(true)}>[m
+[31m-            <img[m
+[31m-              src="/logo/Logo-mark.png"[m
+[31m-              width={20}[m
+[31m-              style={{ verticalAlign: "middle" }}[m
+[31m-            />{" "}[m
+[31m-            Managed ClickHouse[m
+[32m+[m[32m          <Button variant="solid" onClick={() => setOpen(true)}>[m
+[32m+[m[32m            Try Now[m
+           </Button>[m
+         </div>[m
+       </Flex>[m
+[36m@@ -237,13 +241,14 @@[m [mconst DataSourcesPage: FC = () => {[m
+   const { hasCommercialFeature, license } = useUser();[m
+ [m
+   // Cloud, no data sources yet, has permissions, and is either free OR on a usage-based paid plan[m
+[31m-  const showManagedClickhouse =[m
+[32m+[m[32m  let showManagedClickhouse =[m
+     isCloud() &&[m
+     filteredDatasources.length === 0 &&[m
+     permissionsUtil.canViewCreateDataSourceModal(project) &&[m
+     (!hasCommercialFeature("managed-clickhouse") ||[m
+       !!license?.orbSubscription) &&[m
+     gb.isOn("inbuilt-data-warehouse");[m
+[32m+[m[32m  showManagedClickhouse = true;[m
+ [m
+   return ([m
+     <div className="container-fluid pagecontents">[m
