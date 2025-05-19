@@ -48,8 +48,7 @@ export const putEnvironmentOrder = async (
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
-  const envIds = req.body.environments;
-
+  const { envId, direction } = req.body;
   const existingEnvs = org.settings?.environments;
 
   if (!existingEnvs) {
@@ -68,21 +67,26 @@ export const putEnvironmentOrder = async (
     context.permissions.throwPermissionError();
   }
 
-  const updatedEnvs: Environment[] = [];
+  const envIndex = existingEnvs.findIndex((env) => env.id === envId);
 
-  // Loop through env ids, to get the full env object and add it to the updatedEnvs arr
-  envIds.forEach((envId) => {
-    const env = existingEnvs.find((existing) => existing.id === envId);
+  if (envIndex < 0) {
+    return res.status(400).json({
+      status: 400,
+      message: `Unable to find environment: ${envId}`,
+    });
+  }
 
-    if (!env) {
-      return res.status(400).json({
-        status: 400,
-        message: `Unable to find environment: ${envId}`,
-      });
-    }
+  const updatedEnvs = [...existingEnvs];
+  const newEnvIndex = envIndex + direction;
 
-    updatedEnvs.push(env);
-  });
+  if (newEnvIndex < 0 || newEnvIndex >= existingEnvs.length) {
+    return res.status(400).json({
+      status: 400,
+      message: `Invalid direction: ${direction}`,
+    });
+  }
+  updatedEnvs.splice(envIndex, 1);
+  updatedEnvs.splice(newEnvIndex, 0, updatedEnvs[envIndex]);
 
   try {
     await updateOrganization(org.id, {

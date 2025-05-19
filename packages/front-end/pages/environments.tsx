@@ -207,13 +207,11 @@ const EnvironmentsPage: FC = () => {
                               color=""
                               className="dropdown-item"
                               onClick={async () => {
-                                const newEnvs = [...environments];
-                                newEnvs.splice(i, 1);
-                                newEnvs.splice(i - 1, 0, e);
                                 await apiCall(`/environment/order`, {
                                   method: "PUT",
                                   body: JSON.stringify({
-                                    environments: newEnvs.map((env) => env.id),
+                                    envId: e.id,
+                                    direction: 1,
                                   }),
                                 });
                                 refreshOrganization();
@@ -227,13 +225,11 @@ const EnvironmentsPage: FC = () => {
                               color=""
                               className="dropdown-item"
                               onClick={async () => {
-                                const newEnvs = [...environments];
-                                newEnvs.splice(i, 1);
-                                newEnvs.splice(i + 1, 0, e);
                                 await apiCall(`/environment/order`, {
                                   method: "PUT",
                                   body: JSON.stringify({
-                                    environments: newEnvs.map((env) => env.id),
+                                    envId: e.id,
+                                    direction: -1,
                                   }),
                                 });
                                 refreshOrganization();
