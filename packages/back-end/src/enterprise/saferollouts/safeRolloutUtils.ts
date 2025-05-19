@@ -78,6 +78,8 @@ export async function checkAndRollbackSafeRollout({
   feature: FeatureInterface;
 }): Promise<SafeRolloutStatus> {
   if (updatedSafeRollout.status !== "running") return updatedSafeRollout.status;
+  if (!updatedSafeRollout.autoRollback) return updatedSafeRollout.status;
+
   const daysLeft = getSafeRolloutDaysLeft({
     safeRollout: updatedSafeRollout,
     snapshotWithResults: safeRolloutSnapshot,

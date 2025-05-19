@@ -25,9 +25,9 @@ const rampUpSchedule = z.object({
   steps: z.array(
     z.object({
       percent: z.number(),
-      dateRampedUp: z.date(),
+      dateRampedUp: z.date().optional(),
     })
-  ), // percentage of traffic to release each step
+  ),
   nextUpdate: z.date().optional(),
   lastUpdate: z.date().optional(),
   rampUpCompleted: z.boolean(),
@@ -40,7 +40,11 @@ export const createSafeRolloutValidator = z.object({
   guardrailMetricIds: z.array(z.string()),
   maxDuration: MaxDuration,
   autoRollback: z.boolean(),
-  rampUpSchedule: rampUpSchedule.partial().optional(),
+  rampUpSchedule: rampUpSchedule
+    .pick({
+      enabled: true,
+    })
+    .optional(),
 });
 export type CreateSafeRolloutInterface = z.infer<
   typeof createSafeRolloutValidator
