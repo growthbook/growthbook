@@ -17,18 +17,22 @@ import { createUser, getUserByEmail } from "back-end/src/models/UserModel";
 import { ReqContextClass } from "back-end/src/services/context";
 import { setResponseCookies } from "back-end/src/controllers/auth";
 import { OrganizationInterface } from "back-end/types/organization";
-import { getVercelSSOToken } from "back-end/src/services/vercel-native-integration.service";
+import {
+  getVercelSSOToken,
+  syncVercelSdkWebhook,
+} from "back-end/src/services/vercel-native-integration.service";
+import { createSDKConnection } from "back-end/src/models/SdkConnectionModel";
 import {
   postCancelSubscriptionToLicenseServer,
   postNewVercelSubscriptionToLicenseServer,
 } from "back-end/src/enterprise";
-import { getOrganizationById } from "back-end/src/services/organizations";
 import { getLicenseByKey } from "back-end/src/enterprise/models/licenseModel";
 import {
   userAuthenticationValidator,
   systemAuthenticationValidator,
   UpsertInstallationPayload,
   ProvisitionResource,
+  UpdateResource,
   BillingPlan,
 } from "./vercel-native-integration.validators";
 
@@ -191,14 +195,16 @@ const getContext = async ({
 
   if (!nativeIntegration) return failed(400, "Invalid installation!");
 
-  return { context, org, user, nativeIntegrationModel, nativeIntegration };
+  return {
+    context,
+    org,
+    user,
+    nativeIntegrationModel,
+    nativeIntegration,
+  };
 };
 
-const authContext = async (
-  req: Request,
-  res: Response,
-  { resourceId }: { resourceId?: string } = {}
-) => {
+const authContext = async (req: Request, res: Response) => {
   const failed = (status: number, reason?: string) => {
     if (reason) res.status(status).send(reason);
     else res.sendStatus(status);
@@ -223,17 +229,12 @@ const authContext = async (
     },
   } = checkedAuth;
 
-  const { organization, resources } =
-    await findVercelInstallationByInstallationId(installationId);
-
-  const organizationId = resourceId
-    ? resources.find(({ id }) => id === resourceId)?.organizationId
-    : organization;
-
-  if (!organizationId) return failed(401, "Invalid resourceId");
+  const { organization } = await findVercelInstallationByInstallationId(
+    installationId
+  );
 
   return getContext({
-    organizationId,
+    organizationId: organization,
     installationId,
     userEmail:
       "user_email" in checkedAuth.authentication.payload &&
@@ -276,7 +277,7 @@ export async function upsertInstallation(req: Request, res: Response) {
     userId: user.id,
     name: installationName,
     isVercelIntegration: true,
-    //restrictLoginMethod: "vercel",
+    restrictLoginMethod: "vercel",
   });
 
   const context = new ReqContextClass({
@@ -335,7 +336,7 @@ export async function deleteInstallation(req: Request, res: Response) {
   // TODO: cascade delete
   await nativeIntegrationModel.deleteById(nativeIntegration.id);
 
-  return res.sendStatus(204).json({ finalized: true }); //MKTODO: Remove the .json() call - this is just for testing
+  return res.status(200).send({ finalized: true });
 }
 
 export async function provisionResource(req: Request, res: Response) {
@@ -352,33 +353,29 @@ export async function provisionResource(req: Request, res: Response) {
     ...payload
   } = req.body as ProvisitionResource;
 
-  const organizationId = await (async () => {
+  const billingPlan = billingPlans.find(({ id }) => id === billingPlanId);
+
+  if (!billingPlan) return res.status(400).send("Invalid billing plan!");
+
+  const org = await (async () => {
     if (nativeIntegration.resources.length === 0) {
       await updateOrganization(contextOrg.id, { name: payload.name });
-      return contextOrg.id;
+      return contextOrg;
     }
 
-    const org = await createOrganization({
+    return createOrganization({
       email: user.email,
       userId: user.id,
       name: payload.name,
       isVercelIntegration: true,
-      //restrictLoginMethod: "vercel",
+      restrictLoginMethod: "vercel",
     });
-
-    return org.id;
   })();
-
-  const organization = await getOrganizationById(organizationId);
-
-  if (!organization) {
-    throw new Error(`Unable to locate org by id: ${organizationId}`);
-  }
 
   if (billingPlanId === "pro-billing-plan") {
     try {
       await postNewVercelSubscriptionToLicenseServer(
-        organization,
+        org,
         req.params.installation_id,
         user.name || ""
       );
@@ -388,30 +385,44 @@ export async function provisionResource(req: Request, res: Response) {
       );
     }
   }
+  const sdkConnection = await createSDKConnection({
+    organization: org.id,
+    name: payload.name,
+    languages: ["react"],
+    environment: "dev",
+    includeVisualExperiments: true,
+    includeDraftExperiments: true,
+    includeRuleIds: true,
+    includeRedirectExperiments: false,
+    includeExperimentNames: true,
+    hashSecureAttributes: false,
+    projects: [],
+    encryptPayload: false,
+  });
 
   const resource: Resource = {
     ...payload,
     id: uuidv4(),
-    organizationId,
-    secrets: [{ name: "token", value: uuidv4() }],
+    organizationId: org.id,
+    billingPlan,
+    secrets: [
+      { name: "GROWTHBOOK_CLIENT_KEY", value: sdkConnection.key },
+      { name: "GROWTHBOOK_DOMAIN", value: "https://app.growthbook.io" },
+    ],
     status: "ready",
-    billingPlan:
-      billingPlanId === "pro-billing-plan"
-        ? PRO_BILLING_PLAN
-        : STARTER_BILLING_PLAN,
   };
 
   await nativeIntegrationModel.update(nativeIntegration, {
     resources: [...nativeIntegration.resources, resource],
   });
 
+  await syncVercelSdkWebhook(org.id);
+
   return res.json(resource);
 }
 
 export async function getResource(req: Request, res: Response) {
-  const { nativeIntegration } = await authContext(req, res, {
-    resourceId: req.params.resource_id,
-  });
+  const { nativeIntegration } = await authContext(req, res);
 
   if (nativeIntegration.installationId !== req.params.installation_id)
     return res.status(400).send("Installation not found!");
@@ -425,11 +436,57 @@ export async function getResource(req: Request, res: Response) {
   return res.json(resource);
 }
 
+export async function updateResource(req: Request, res: Response) {
+  const { org, nativeIntegrationModel, nativeIntegration } = await authContext(
+    req,
+    res
+  );
+
+  if (nativeIntegration.installationId !== req.params.installation_id)
+    return res.status(400).send("Installation not found!");
+
+  const resource = nativeIntegration.resources.find(
+    ({ id }) => id === req.params.resource_id
+  );
+
+  if (!resource) return res.status(400).send("Resource not found!");
+
+  const { billingPlanId, ...payload } = req.body as UpdateResource;
+
+  const updatedBillingPlan = billingPlanId
+    ? billingPlans.find(({ id }) => id === billingPlanId)
+    : undefined;
+
+  if (billingPlanId && !updatedBillingPlan)
+    return res.status(400).send("Invalid billing plan!");
+
+  const updatedResource = {
+    ...resource,
+    ...payload,
+    ...(updatedBillingPlan ? { billingPlan: updatedBillingPlan } : {}),
+  };
+
+  await nativeIntegrationModel.update(nativeIntegration, {
+    resources: nativeIntegration.resources.map((r) =>
+      r.id === resource.id ? updatedResource : r
+    ),
+  });
+
+  await syncVercelSdkWebhook(org.id);
+
+  return res.json(updatedResource);
+}
+
+export async function getResourceProducts(req: Request, res: Response) {
+  await authContext(req, res);
+
+  return res.json({ plans: billingPlans });
+}
+
 export async function deleteResource(req: Request, res: Response) {
   const { nativeIntegrationModel, nativeIntegration } = await authContext(
     req,
-    res,
-    { resourceId: req.params.resource_id }
+    res
   );
 
   if (nativeIntegration.installationId !== req.params.installation_id)
@@ -442,8 +499,8 @@ export async function deleteResource(req: Request, res: Response) {
   if (!resource) return res.status(400).send("Resource not found!");
 
   await nativeIntegrationModel.update(nativeIntegration, {
-    resources: nativeIntegration.resources.filter(
-      ({ id }) => id !== resource.id
+    resources: nativeIntegration.resources.map((r) =>
+      r.id === resource.id ? { ...resource, status: "uninstalled" } : r
     ),
   });
 

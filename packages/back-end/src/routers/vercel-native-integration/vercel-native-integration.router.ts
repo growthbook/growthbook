@@ -6,6 +6,7 @@ import {
   upsertInstallationPayloadValidator,
   updateInstallationValidator,
   deleteInstallationPayloadValidator,
+  updateResourceValidator,
   provisitionResourceValidator,
 } from "./vercel-native-integration.validators";
 
@@ -47,6 +48,18 @@ router.get(
   "/v1/installations/:installation_id/resources/:resource_id",
   validateRequestMiddleware({}),
   vercelController.getResource
+);
+
+router.patch(
+  "/v1/installations/:installation_id/resources/:resource_id",
+  validateRequestMiddleware({ body: updateResourceValidator }),
+  vercelController.updateResource
+);
+
+router.get(
+  "/v1/installations/:installation_id/resources/:resource_id/plans",
+  validateRequestMiddleware({}),
+  vercelController.getResourceProducts
 );
 
 router.delete(
