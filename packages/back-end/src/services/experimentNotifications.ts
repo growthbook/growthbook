@@ -324,6 +324,7 @@ export const computeExperimentChanges = async ({
         ciUpper,
         pValueThreshold,
         statsEngine: statsEngine,
+        differenceType: currentAnalysis.settings.differenceType,
       });
 
       const { resultsStatus: lastResultsStatus } =
@@ -337,6 +338,7 @@ export const computeExperimentChanges = async ({
               ciUpper,
               pValueThreshold,
               statsEngine: lastAnalysis.settings.statsEngine,
+              differenceType: lastAnalysis.settings.differenceType,
             })
           : { resultsStatus: "" };
 

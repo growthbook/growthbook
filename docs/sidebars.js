@@ -593,6 +593,18 @@ const sidebars = {
       items: [
         {
           type: "doc",
+          id: "integrations/mcp",
+          label: "MCP Server",
+          className: "pill-new",
+        },
+        {
+          type: "doc",
+          id: "integrations/framer",
+          label: "Framer",
+          className: "pill-new",
+        },
+        {
+          type: "doc",
           id: "integrations/slack",
           label: "Slack alerts",
         },
@@ -683,7 +695,6 @@ const sidebars = {
           type: "doc",
           id: "guide/strapi",
           label: "Strapi CMS",
-          className: "pill-new",
         },
         {
           type: "doc",

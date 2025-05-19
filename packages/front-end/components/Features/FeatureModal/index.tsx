@@ -31,6 +31,7 @@ import { useUser } from "@/services/UserContext";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import SelectField from "@/components/Forms/SelectField";
 import FeatureKeyField from "./FeatureKeyField";
 import EnvironmentSelect from "./EnvironmentSelect";
@@ -169,6 +170,7 @@ export default function FeatureModal({
   const permissionsUtil = usePermissionsUtil();
   const { refreshWatching } = useWatching();
   const { hasCommercialFeature } = useUser();
+  const { requireProjectForFeatures } = useOrgSettings();
 
   const customFields = filterCustomFieldsForSectionAndProject(
     useCustomFields(),
@@ -357,8 +359,9 @@ export default function FeatureModal({
             onChange={(v) => {
               form.setValue("project", v);
             }}
-            initialOption="None"
+            initialOption={requireProjectForFeatures ? undefined : "None"}
             options={projectOptions}
+            required={requireProjectForFeatures}
           />
         </>
       )}

@@ -1,8 +1,8 @@
 import Link from "next/link";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { useFeature } from "@growthbook/growthbook-react";
-import { Box, Switch, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import {
   ComputedFeatureInterface,
   FeatureInterface,
@@ -35,10 +35,6 @@ import {
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Pagination from "@/components/Pagination";
-import TagsFilter, {
-  filterByTags,
-  useTagsFilter,
-} from "@/components/Tags/TagsFilter";
 import SortedTags from "@/components/Tags/SortedTags";
 import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -60,6 +56,7 @@ import { useUser } from "@/services/UserContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import EmptyState from "@/components/EmptyState";
 import ProjectBadges from "@/components/ProjectBadges";
+import FeatureSearchFilters from "@/components/Search/FeatureSearchFilters";
 import FeaturesDraftTable from "./FeaturesDraftTable";
 
 const NUM_PER_PAGE = 20;
@@ -123,60 +120,28 @@ export default function FeaturesPage() {
     return staleFeatures;
   }, [allFeatures, experiments, environments]);
 
-  // Searching
-  const tagsFilter = useTagsFilter("features");
-  const filterResults = useCallback(
-    (items: typeof allFeatures) => {
-      if (!showArchived) {
-        items = items.filter((f) => !f.archived);
-      }
-
-      items = filterByTags(items, tagsFilter.tags);
-      return items;
-    },
-    [showArchived, tagsFilter.tags]
-  );
-
   const renderFeaturesTable = () => {
     return (
       allFeatures.length > 0 && (
-        <div>
-          <div className="row mb-2 align-items-center">
-            <div className="col-auto">
-              <Field
-                placeholder="Search..."
-                type="search"
-                {...searchInputProps}
+        <Box>
+          <Box className="mb-2 align-items-center">
+            <Flex justify="between" mb="3" gap="3" align="center">
+              <Box className="relative" width="40%">
+                <Field
+                  placeholder="Search..."
+                  type="search"
+                  {...searchInputProps}
+                />
+              </Box>
+              <FeatureSearchFilters
+                features={allFeatures}
+                searchInputProps={searchInputProps}
+                setSearchValue={setSearchValue}
+                syntaxFilters={syntaxFilters}
+                hasArchived={hasArchived}
               />
-            </div>
-            <div className="col-auto">
-              <Link
-                href="https://docs.growthbook.io/using/growthbook-best-practices#syntax-search"
-                target="_blank"
-              >
-                <Tooltip body={searchTermFilterExplanations}></Tooltip>
-              </Link>
-            </div>
-            <div className="col-auto">
-              <TagsFilter filter={tagsFilter} items={items} />
-            </div>
-            {showArchivedToggle && (
-              <>
-                <div className="flex-1" />
-                <div className="col-auto">
-                  <Text as="label" mb="0">
-                    <Switch
-                      checked={showArchived}
-                      id="archived"
-                      onCheckedChange={setShowArchived}
-                      mr="2"
-                    />
-                    Show Archived
-                  </Text>
-                </div>
-              </>
-            )}
-          </div>
+            </Flex>
+          </Box>
 
           <table className="table gbtable appbox">
             <thead
@@ -422,60 +387,22 @@ export default function FeaturesPage() {
               }}
             />
           )}
-        </div>
+        </Box>
       )
     );
   };
 
-  const { searchInputProps, items, SortableTH } = useFeatureSearch({
+  const {
+    searchInputProps,
+    items,
+    SortableTH,
+    setSearchValue,
+    syntaxFilters,
+  } = useFeatureSearch({
     allFeatures,
-    filterResults,
     environments,
+    staleFeatures,
   });
-
-  const searchTermFilterExplanations = (
-    <>
-      <p>This search field supports advanced syntax search, including:</p>
-      <ul>
-        <li>
-          <strong>key</strong>: The feature&apos;s key (name)
-        </li>
-        <li>
-          <strong>owner</strong>: The creator of the feature (eg: owner:abby)
-        </li>
-        <li>
-          <strong>rules</strong>: Matches based on the number of rules (eg:
-          rules:&gt;2)
-        </li>
-        <li>
-          <strong>tag</strong>: Features tagged with this tag
-        </li>
-        <li>
-          <strong>project</strong>: The feature&apos;s project
-        </li>
-        <li>
-          <strong>version</strong>: The feature&apos;s revision number
-        </li>
-        <li>
-          <strong>experiment</strong>: The feature is linked to the specified
-          experiment
-        </li>
-        <li>
-          <strong>created</strong>:The feature&apos;s creation date, in UTC.
-          Date entered is parsed so supports most formats.
-        </li>
-        <li>
-          <strong>on</strong>: Shows features that are on for a specific
-          environment (on:production)
-        </li>
-        <li>
-          <strong>off</strong>: Shows features that are off for a specific
-          environment (off:dev)
-        </li>
-      </ul>
-      <p>Click to see all syntax fields supported in our docs.</p>
-    </>
-  );
 
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
@@ -491,6 +418,16 @@ export default function FeaturesPage() {
     if (modalOpen) return;
     setFeatureToDuplicate(null);
   }, [modalOpen]);
+  // watch to see if we should include archived features or not:
+  useEffect(() => {
+    const isArchivedFilter = syntaxFilters.some(
+      (filter) =>
+        filter.field === "is" &&
+        !filter.negated &&
+        filter.values.includes("archived")
+    );
+    setShowArchived(isArchivedFilter);
+  }, [syntaxFilters]);
 
   if (error) {
     return (
@@ -530,7 +467,6 @@ export default function FeaturesPage() {
     !sdkConnectionData.connections.length;
 
   const toggleEnvs = environments.filter((en) => en.toggleOnList);
-  const showArchivedToggle = hasArchived;
 
   const canCreateFeatures = permissionsUtil.canManageFeatureDrafts({
     project,

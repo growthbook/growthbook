@@ -39,10 +39,17 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     const effectiveProject =
       typeof project === "undefined" ? feature.project : project;
 
-    const orgEnvs = getEnvironmentIdsFromOrg(req.organization);
+    const orgEnvs = getEnvironmentIdsFromOrg(req.context.org);
 
     if (!req.context.permissions.canUpdateFeature(feature, req.body)) {
       req.context.permissions.throwPermissionError();
+    }
+    if (
+      req.context.org.settings?.requireProjectForFeatures &&
+      feature.project &&
+      (effectiveProject == null || effectiveProject === "")
+    ) {
+      throw new Error("Must specify a project");
     }
 
     if (project != null) {
@@ -218,7 +225,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     );
 
     await addTagsDiff(
-      req.organization.id,
+      req.context.org.id,
       feature.tags || [],
       updates.tags || []
     );

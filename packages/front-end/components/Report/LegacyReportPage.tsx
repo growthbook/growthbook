@@ -440,6 +440,7 @@ export default function LegacyReportPage({
                         report.args,
                         false
                       )}
+                      differenceType={report.args.differenceType ?? "relative"}
                       trackingKey={report.title}
                       dimension={report.args.dimension ?? undefined}
                       project={experimentData?.experiment.project || ""}
