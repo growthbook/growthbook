@@ -40,11 +40,7 @@ export const createSafeRolloutValidator = z.object({
   guardrailMetricIds: z.array(z.string()),
   maxDuration: MaxDuration,
   autoRollback: z.boolean(),
-  rampUpSchedule: rampUpSchedule
-    .pick({
-      enabled: true,
-    })
-    .optional(),
+  rampUpSchedule: rampUpSchedule.partial().optional(),
 });
 export type CreateSafeRolloutInterface = z.infer<
   typeof createSafeRolloutValidator

@@ -210,6 +210,15 @@ export async function putSafeRollout(
 
   await context.models.safeRollout.update(safeRollout, {
     ...validatedSafeRolloutFields,
+    rampUpSchedule: {
+      enabled: !!validatedSafeRolloutFields?.rampUpSchedule?.enabled,
+      step: validatedSafeRolloutFields?.rampUpSchedule?.step ?? 0,
+      steps: validatedSafeRolloutFields?.rampUpSchedule?.steps ?? [],
+      rampUpCompleted: !!validatedSafeRolloutFields?.rampUpSchedule
+        ?.rampUpCompleted,
+      nextUpdate: validatedSafeRolloutFields?.rampUpSchedule?.nextUpdate,
+      lastUpdate: validatedSafeRolloutFields?.rampUpSchedule?.lastUpdate,
+    },
   });
 
   res.status(200).json({
