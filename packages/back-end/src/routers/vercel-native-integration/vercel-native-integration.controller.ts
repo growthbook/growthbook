@@ -354,7 +354,7 @@ export async function provisionResource(req: Request, res: Response) {
     organization: org.id,
     name: payload.name,
     languages: ["react"],
-    environment: "dev",
+    environment: "production",
     includeVisualExperiments: true,
     includeDraftExperiments: true,
     includeRuleIds: true,
@@ -370,10 +370,7 @@ export async function provisionResource(req: Request, res: Response) {
     id: uuidv4(),
     organizationId: org.id,
     billingPlan,
-    secrets: [
-      { name: "GROWTHBOOK_CLIENT_KEY", value: sdkConnection.key },
-      { name: "GROWTHBOOK_DOMAIN", value: "https://app.growthbook.io" },
-    ],
+    secrets: [{ name: "GROWTHBOOK_CLIENT_KEY", value: sdkConnection.key }],
     status: "ready",
   };
 
