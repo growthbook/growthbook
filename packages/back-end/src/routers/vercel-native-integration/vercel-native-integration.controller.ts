@@ -20,6 +20,7 @@ import { OrganizationInterface } from "back-end/types/organization";
 import {
   getVercelSSOToken,
   syncVercelSdkWebhook,
+  deleteVercelSdkWebhook,
 } from "back-end/src/services/vercel-native-integration.service";
 import { createSDKConnection } from "back-end/src/models/SdkConnectionModel";
 import {
@@ -156,13 +157,13 @@ const findOrCreateUser = async ({
 };
 
 const getContext = async ({
-  organizationId,
   installationId,
+  resourceId,
   userEmail,
   res,
 }: {
-  organizationId: string;
   installationId: string;
+  resourceId?: string;
   userEmail?: string;
   res: Response;
 }) => {
@@ -172,6 +173,27 @@ const getContext = async ({
 
     throw new Error("Authentication failed");
   };
+
+  const nativeIntegration = await findVercelInstallationByInstallationId(
+    installationId
+  );
+
+  if (!nativeIntegration) return failed(400, "Invalid installation!");
+
+  const organizationId = (() => {
+    if (!resourceId) return nativeIntegration.organization;
+
+    const resource = nativeIntegration.resources.find(
+      ({ id }) => id === resourceId
+    );
+
+    if (!resource) {
+      res.status(400).send("Invalid request!");
+      throw new Error(`Invalid resourceId: ${resourceId}`);
+    }
+
+    return resource.organizationId;
+  })();
 
   const org = await findOrganizationById(organizationId);
 
@@ -189,12 +211,6 @@ const getContext = async ({
   });
 
   const nativeIntegrationModel = new VercelNativeIntegrationModel(context);
-
-  const nativeIntegration = await findVercelInstallationByInstallationId(
-    installationId
-  );
-
-  if (!nativeIntegration) return failed(400, "Invalid installation!");
 
   return {
     context,
@@ -230,13 +246,9 @@ const authContext = async (req: Request, res: Response) => {
     },
   } = checkedAuth;
 
-  const { organization } = await findVercelInstallationByInstallationId(
-    installationId
-  );
-
   return getContext({
-    organizationId: organization,
     installationId,
+    resourceId: req.params.resource_id,
     userEmail:
       "user_email" in checkedAuth.authentication.payload &&
       typeof checkedAuth.authentication.payload.user_email === "string"
@@ -347,7 +359,11 @@ export async function provisionResource(req: Request, res: Response) {
 
   const org = await (async () => {
     if (nativeIntegration.resources.length === 0) {
-      await updateOrganization(contextOrg.id, { name: payload.name });
+      await updateOrganization(contextOrg.id, {
+        name: payload.name,
+        isVercelIntegration: true,
+        restrictLoginMethod: "vercel",
+      });
       return contextOrg;
     }
 
@@ -383,7 +399,7 @@ export async function provisionResource(req: Request, res: Response) {
     organization: org.id,
     name: payload.name,
     languages: ["react"],
-    environment: "dev",
+    environment: "production",
     includeVisualExperiments: true,
     includeDraftExperiments: true,
     includeRuleIds: true,
@@ -399,10 +415,7 @@ export async function provisionResource(req: Request, res: Response) {
     id: uuidv4(),
     organizationId: org.id,
     billingPlan,
-    secrets: [
-      { name: "GROWTHBOOK_CLIENT_KEY", value: sdkConnection.key },
-      { name: "GROWTHBOOK_DOMAIN", value: "https://app.growthbook.io" },
-    ],
+    secrets: [{ name: "GROWTHBOOK_CLIENT_KEY", value: sdkConnection.key }],
     status: "ready",
   };
 
@@ -478,10 +491,12 @@ export async function getResourceProducts(req: Request, res: Response) {
 }
 
 export async function deleteResource(req: Request, res: Response) {
-  const { nativeIntegrationModel, nativeIntegration, org } = await authContext(
-    req,
-    res
-  );
+  const {
+    context,
+    org,
+    nativeIntegrationModel,
+    nativeIntegration,
+  } = await authContext(req, res);
 
   if (nativeIntegration.installationId !== req.params.installation_id)
     return res.status(400).send("Invalid request!");
@@ -500,10 +515,18 @@ export async function deleteResource(req: Request, res: Response) {
   await postCancelSubscriptionToLicenseServer(license.id);
 
   await nativeIntegrationModel.update(nativeIntegration, {
-    resources: nativeIntegration.resources.map((r) =>
-      r.id === resource.id ? { ...resource, status: "uninstalled" } : r
-    ),
+    resources: nativeIntegration.resources.filter((r) => r.id !== resource.id),
   });
+
+  await deleteVercelSdkWebhook(context);
+
+  await updateOrganization(
+    org.id,
+    {
+      isVercelIntegration: false,
+    },
+    { restrictLoginMethod: 1 }
+  );
 
   return res.sendStatus(204);
 }
@@ -548,29 +571,14 @@ export async function postVercelIntegrationSSO(req: Request, res: Response) {
         `Could not find installation for installationId: ${installationId}`
       );
 
-  const organizationId = (() => {
-    if (!resourceId) return vercelInstallation.organization;
-
-    const resource = vercelInstallation.resources.find(
-      ({ id }) => id === resourceId
-    );
-
-    if (!resource) {
-      res.status(400).send("Invalid request!");
-      throw new Error(`Invalid resourceId: ${resourceId}`);
-    }
-
-    return resource.organizationId;
-  })();
-
-  const { user } = await getContext({
-    organizationId,
+  const { user, org } = await getContext({
     installationId,
+    resourceId,
     userEmail,
     res,
   });
 
   await setResponseCookies(req, res, user);
 
-  res.send({ organizationId });
+  res.send({ organizationId: org.id });
 }

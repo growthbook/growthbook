@@ -311,7 +311,7 @@ if (CORS_ORIGIN_REGEX) {
   origins.push(CORS_ORIGIN_REGEX);
 }
 
-if (IS_CLOUD) {
+if (process.env.NODE_ENV === "development" || IS_CLOUD) {
   app.use(
     "/vercel",
     cors({
