@@ -270,3 +270,23 @@ export const CLICKHOUSE_ADMIN_PASSWORD =
   process.env.CLICKHOUSE_ADMIN_PASSWORD || "";
 export const CLICKHOUSE_DATABASE = process.env.CLICKHOUSE_DATABASE || "";
 export const CLICKHOUSE_MAIN_TABLE = process.env.CLICKHOUSE_MAIN_TABLE || "";
+
+export type SecretsReplacer = <T extends string | Record<string, string>>(
+  s: T
+) => T;
+
+export const secretsReplacer = (
+  stringReplacer: (_: string) => string
+): SecretsReplacer => {
+  return <T extends string | Record<string, string>>(s: T): T => {
+    if (typeof s === "string") return stringReplacer(s) as T;
+
+    return Object.keys(s).reduce<Record<string, string>>(
+      (obj, key) => ({
+        ...obj,
+        [stringReplacer(key)]: stringReplacer(s[key]),
+      }),
+      {}
+    ) as T;
+  };
+};

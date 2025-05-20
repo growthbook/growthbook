@@ -247,7 +247,7 @@ async function runWebhookFetch({
     let customHeaders: Record<string, string> | undefined;
     if (headers) {
       try {
-        customHeaders = JSON.parse(applySecrets(headers));
+        customHeaders = applySecrets(JSON.parse(headers));
       } catch (error) {
         throw new Error("Failed to parse custom headers: " + error.message);
       }
