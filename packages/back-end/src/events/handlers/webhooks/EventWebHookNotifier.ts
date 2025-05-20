@@ -20,7 +20,6 @@ import {
 import { getLegacyMessageForNotificationEvent } from "back-end/src/events/handlers/legacy";
 import { LegacyNotificationEvent } from "back-end/src/events/notification-events";
 import { NotificationEventName } from "back-end/types/event";
-import { ReqContext } from "back-end/types/organization";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 import {
   EventWebHookErrorResult,
@@ -166,11 +165,13 @@ export class EventWebHookNotifier implements Notifier {
 
     const context = getContextForAgendaJobByOrgObject(organization);
 
+    const applySecrets = await context.models.webhookSecrets.getBackEndSecretsReplacer();
+
     const webHookResult = await EventWebHookNotifier.sendDataToWebHook({
       payload,
       eventWebHook,
       method,
-      context,
+      applySecrets,
     });
 
     switch (webHookResult.result) {
@@ -208,12 +209,12 @@ export class EventWebHookNotifier implements Notifier {
     payload,
     eventWebHook,
     method,
-    context,
+    applySecrets,
   }: {
     payload: DataType;
     eventWebHook: EventWebHookInterface;
     method: EventWebHookMethod;
-    context: ReqContext;
+    applySecrets: (s: string) => string;
   }): Promise<EventWebHookResult> {
     const requestTimeout = 30000;
     const maxContentSize = 1000;
@@ -225,8 +226,6 @@ export class EventWebHookNotifier implements Notifier {
         signingKey,
         payload,
       });
-
-      const applySecrets = await context.models.webhookSecrets.getBackEndSecretsReplacer();
 
       const result = await cancellableFetch(
         applySecrets(url),

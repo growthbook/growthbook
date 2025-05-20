@@ -25,6 +25,7 @@ import {
 import { useEnvironments } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import TagsInput from "@/components/Tags/TagsInput";
+import { DocLink } from "@/components/DocLink";
 
 type EventWebHookAddEditModalProps = {
   isOpen: boolean;
@@ -238,7 +239,8 @@ const EventWebHookAddEditSettings = ({
             isDetailedWebhook && (
               <>
                 Must accept <code>{form.watch("method")}</code> requests.
-                Supports <strong>Webhook Secrets</strong>.
+                Supports{" "}
+                <DocLink docSection="webhookSecrets">Webhook Secrets</DocLink>.
               </>
             )
           }
@@ -273,7 +275,10 @@ const EventWebHookAddEditSettings = ({
                 ) : (
                   <div>
                     JSON format for headers. Supports{" "}
-                    <strong>Webhook Secrets</strong>.
+                    <DocLink docSection="webhookSecrets">
+                      Webhook Secrets
+                    </DocLink>
+                    .
                   </div>
                 )}
               </>
