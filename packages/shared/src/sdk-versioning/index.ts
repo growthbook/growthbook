@@ -9,6 +9,7 @@ import { CapabilityStrategy, SDKCapability } from "./types";
 import * as nocode_json from "./sdk-versions/nocode.json";
 import * as javascript_json from "./sdk-versions/javascript.json";
 import * as nodejs_json from "./sdk-versions/nodejs.json";
+import * as nextjs_json from "./sdk-versions/nextjs.json";
 import * as react_json from "./sdk-versions/react.json";
 import * as php_json from "./sdk-versions/php.json";
 import * as python_json from "./sdk-versions/python.json";
@@ -42,6 +43,7 @@ export const sdks: SDKRecords = {
   "nocode-wordpress": nocode_json,
   javascript: javascript_json,
   nodejs: nodejs_json,
+  nextjs: nextjs_json,
   react: react_json,
   php: php_json,
   python: python_json,
@@ -69,6 +71,7 @@ const defaultSdkVersions: Record<SDKLanguage, string> = {
   "nocode-wordpress": "0.0.0",
   javascript: "0.31.0",
   nodejs: "0.31.0",
+  nextjs: "1.0.0",
   react: "0.21.0",
   php: "1.2.0",
   python: "1.0.0",

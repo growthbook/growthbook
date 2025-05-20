@@ -276,6 +276,20 @@ app.use(function(req, res, next) {
       </>
     );
   }
+  if (language === "nextjs") {
+    return (
+      <>
+        Import the default adapter instance, which is configured by your
+        environment variables
+        <Code
+          language="javascript"
+          code={`
+import { growthbookAdapter } from "@flags-sdk/growthbook";
+  `.trim()}
+        />
+      </>
+    );
+  }
   if (language === "android") {
     return (
       <>

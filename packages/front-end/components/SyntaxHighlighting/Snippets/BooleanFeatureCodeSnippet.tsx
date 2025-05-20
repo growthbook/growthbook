@@ -75,6 +75,31 @@ app.get("/", (req, res) => {
       />
     );
   }
+  if (language === "nextjs") {
+    return (
+      <Code
+        language="javascript"
+        code={`
+import { growthbookAdapter } from '@flags-sdk/growthbook';
+import { flag } from 'flags/next';
+import { identify } from './lib/identify';
+
+export const myFeatureFlag = flag({
+  key: ${JSON.stringify(featureId)},
+  adapter: growthbookAdapter.feature(),
+  defaultValue: false,
+  identify,
+});
+
+// Usage
+const value = await myFeatureFlag();
+if (value) {
+  // Feature is enabled!
+}
+`.trim()}
+      />
+    );
+  }
   if (language === "android") {
     return (
       <Code

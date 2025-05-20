@@ -12,6 +12,7 @@ import {
 import { FeatureInterface } from "back-end/types/feature";
 import Link from "next/link";
 import { getLatestSDKVersion } from "shared/sdk-versioning";
+import { PiPackage } from "react-icons/pi";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { getApiHost, getCdnHost } from "@/services/env";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -28,7 +29,10 @@ import SelectField from "@/components/Forms/SelectField";
 import CheckSDKConnectionModal from "@/components/GuidedGetStarted/CheckSDKConnectionModal";
 import MultivariateFeatureCodeSnippet from "@/components/SyntaxHighlighting/Snippets/MultivariateFeatureCodeSnippet";
 import SDKLanguageSelector from "./SDKConnections/SDKLanguageSelector";
-import { languageMapping } from "./SDKConnections/SDKLanguageLogo";
+import {
+  getPackageRepositoryName,
+  languageMapping,
+} from "./SDKConnections/SDKLanguageLogo";
 
 function trimTrailingSlash(str: string): string {
   return str.replace(/\/*$/, "");
@@ -188,10 +192,7 @@ export default function CodeSnippetModal({
         }
         cta={cta}
       >
-        <div
-          className="border-bottom mb-3 px-3 py-2 position-sticky shadow-sm"
-          style={{ top: 0, zIndex: 999 }}
-        >
+        <div className="border-bottom mb-3 px-3 py-2">
           <div className="row">
             {connections?.length > 1 && allowChangingConnection && (
               <div className="col-auto">
@@ -355,6 +356,25 @@ export default function CodeSnippetModal({
                     encryptionKey={encryptionKey}
                     remoteEvalEnabled={remoteEvalEnabled}
                   />
+                  {languageMapping[language]?.packageUrl && (
+                    <div className="mt-3">
+                      <a
+                        href={languageMapping[language].packageUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-sm"
+                      >
+                        <PiPackage
+                          className="mr-1"
+                          style={{ fontSize: "1.2em", verticalAlign: "-0.2em" }}
+                        />
+                        View on{" "}
+                        {getPackageRepositoryName(
+                          languageMapping[language].packageUrl
+                        )}
+                      </a>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
