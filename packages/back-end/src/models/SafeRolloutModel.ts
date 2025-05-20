@@ -62,6 +62,9 @@ export class SafeRolloutModel extends BaseClass {
     featureIds: string[]
   ): Promise<Map<string, SafeRolloutInterface>> {
     const safeRollouts = await this._find({ featureId: { $in: featureIds } });
+    if (!safeRollouts || safeRollouts.length === 0) {
+      return new Map();
+    }
     return new Map(safeRollouts.map((r) => [r.id, r]));
   }
 
