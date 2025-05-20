@@ -197,7 +197,7 @@ const getContext = async ({
   });
 
   // The model is attached to the top-level org so we
-  // need a different contect here!
+  // need a different context here!
   const topLevelOrg = await findOrganizationById(integration.organization);
   if (!topLevelOrg) return failed(400, "Invalid installation!");
 
@@ -327,7 +327,6 @@ export async function updateInstallation(req: Request, res: Response) {
 export async function deleteInstallation(req: Request, res: Response) {
   const { integrationModel, integration } = await authContext(req, res);
 
-  // TODO: cascade delete
   await integrationModel.deleteById(integration.id);
 
   return res.status(200).send({ finalized: true });
