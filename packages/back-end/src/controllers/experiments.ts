@@ -3253,10 +3253,12 @@ export async function getExperimentTimeSeries(
   }
 
   const timeSeries = await context.models.metricTimeSeries.getBySourceAndMetricIds(
-    "experiment",
-    id,
-    phaseIndex,
-    metricIds
+    {
+      source: "experiment",
+      sourceId: id,
+      sourcePhase: phaseIndex,
+      metricIds,
+    }
   );
 
   res.status(200).json({

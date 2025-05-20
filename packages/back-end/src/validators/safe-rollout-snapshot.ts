@@ -29,7 +29,7 @@ const metricPowerResponseFromStatsEngineObject = z.object({
   scalingFactor: z.number().optional(),
 });
 
-const safeRolloutSnapshotMetricObject = z.object({
+export const safeRolloutSnapshotMetricObject = z.object({
   value: z.number(),
   cr: z.number(),
   users: z.number(),
@@ -61,6 +61,9 @@ const safeRolloutSnapshotMetricObject = z.object({
   errorMessage: z.string().optional(),
   power: metricPowerResponseFromStatsEngineObject.optional(),
 });
+export type SafeRolloutSnapshotMetricInterface = z.infer<
+  typeof safeRolloutSnapshotMetricObject
+>;
 
 const safeRolloutSnapshotTrafficDimensionObject = z.object({
   name: z.string(),

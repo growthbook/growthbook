@@ -22,6 +22,7 @@ import { SavedGroupInterface } from "shared/src/types";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { CustomField } from "back-end/types/custom-fields";
 import { DecisionCriteriaInterface } from "back-end/types/experiment";
+import { WebhookSecretFrontEndInterface } from "back-end/src/validators/webhook-secrets";
 import useApi from "@/hooks/useApi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -43,6 +44,7 @@ type Definitions = {
   factMetrics: FactMetricInterface[];
   _factMetricsIncludingArchived: FactMetricInterface[];
   decisionCriteria: DecisionCriteriaInterface[];
+  webhookSecrets: WebhookSecretFrontEndInterface[];
 };
 
 type DefinitionContextValue = Definitions & {
@@ -93,6 +95,7 @@ const defaultValue: DefinitionContextValue = {
   factMetrics: [],
   _factMetricsIncludingArchived: [],
   decisionCriteria: [],
+  webhookSecrets: [],
   getMetricById: () => null,
   getDatasourceById: () => null,
   getDimensionById: () => null,
@@ -283,6 +286,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       factMetrics: activeFactMetrics,
       _factMetricsIncludingArchived: allFactMetrics,
       decisionCriteria: decisionCriteria,
+      webhookSecrets: data.webhookSecrets,
       setProject,
       getMetricById,
       getDatasourceById,

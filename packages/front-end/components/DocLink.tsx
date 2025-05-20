@@ -19,6 +19,7 @@ const docSections = {
   eventWebhooks: "/app/webhooks/event-webhooks",
   sdkWebhooks: "/app/webhooks/sdk-webhooks",
   "sdkWebhooks#payload-format": "/app/webhooks/sdk-webhooks#payload-format",
+  webhookSecrets: "/app/webhooks#webhook-secrets",
   bandits: "/bandits/overview",
   targeting: "/features/targeting",
   namespaces: "/features/rules#namespaces",
