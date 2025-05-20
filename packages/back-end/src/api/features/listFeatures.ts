@@ -31,7 +31,7 @@ export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
     let filteredFeatures = features;
     if (req.query.clientKey) {
       const sdkConnection = await findSDKConnectionByKey(req.query.clientKey);
-      if (!sdkConnection) {
+      if (!sdkConnection || sdkConnection.organization !== req.organization) {
         throw new Error("Invalid SDK connection key");
       }
 
@@ -40,15 +40,10 @@ export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
         capabilities: getConnectionSDKCapabilities(sdkConnection),
         environment: sdkConnection.environment,
         projects: sdkConnection.projects,
-        encryptionKey: sdkConnection.encryptPayload
-          ? sdkConnection.encryptionKey
-          : "",
         includeVisualExperiments: sdkConnection.includeVisualExperiments,
         includeDraftExperiments: sdkConnection.includeDraftExperiments,
         includeExperimentNames: sdkConnection.includeExperimentNames,
         includeRedirectExperiments: sdkConnection.includeRedirectExperiments,
-        includeRuleIds: sdkConnection.includeRuleIds,
-        hashSecureAttributes: sdkConnection.hashSecureAttributes,
         savedGroupReferencesEnabled: sdkConnection.savedGroupReferencesEnabled,
       });
 
