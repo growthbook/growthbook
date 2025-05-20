@@ -254,7 +254,7 @@ async function runWebhookFetch({
     }
 
     res = await cancellableFetch(
-      applySecrets(url),
+      applySecrets(url, { encode: encodeURIComponent }),
       {
         headers: {
           ...customHeaders,

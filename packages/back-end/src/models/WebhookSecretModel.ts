@@ -1,5 +1,4 @@
 import { omit } from "lodash";
-import Handlebars from "handlebars";
 import {
   WebhookSecretFrontEndInterface,
   webhookSecretSchema,
@@ -55,14 +54,6 @@ export class WebhookSecretDataModel extends BaseClass {
       replacements[secret.key] = secret.value;
     }
 
-    const stringReplacer = (s: string) => {
-      const template = Handlebars.compile(s, {
-        noEscape: true,
-        strict: true,
-      });
-      return template(replacements);
-    };
-
-    return secretsReplacer(stringReplacer);
+    return secretsReplacer(replacements);
   }
 }

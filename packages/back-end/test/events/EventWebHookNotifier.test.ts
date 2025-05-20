@@ -11,7 +11,7 @@ jest.mock("back-end/src/util/http.util", () => ({
   cancellableFetch: jest.fn(),
 }));
 
-const applySecrets = secretsReplacer((s: string) => s);
+const applySecrets = secretsReplacer({});
 
 describe("EventWebHookNotifier", () => {
   beforeEach(() => {
@@ -187,9 +187,7 @@ describe("EventWebHookNotifier", () => {
         signingKey: "the signing key",
       },
       method: "POST",
-      applySecrets: secretsReplacer((s) =>
-        s.replace("{{secret}}", "my-secret")
-      ),
+      applySecrets: secretsReplacer({ secret: "my-secret" }),
     });
     expect(result).toEqual({
       responseBody: "the response body",
@@ -227,9 +225,7 @@ describe("EventWebHookNotifier", () => {
         signingKey: "the signing key",
       },
       method: "POST",
-      applySecrets: secretsReplacer((s) =>
-        s.replace("{{secret}}", 'my "secret"')
-      ),
+      applySecrets: secretsReplacer({ secret: 'my "secret"' }),
     });
     expect(result).toEqual({
       responseBody: "the response body",
@@ -237,7 +233,7 @@ describe("EventWebHookNotifier", () => {
       statusCode: "all's good",
     });
     expect(cancellableFetch).toHaveBeenCalledWith(
-      'http://foo.com/bla?secret=my "secret"',
+      "http://foo.com/bla?secret=my%20%22secret%22",
       {
         body: '"the payload"',
         headers: {

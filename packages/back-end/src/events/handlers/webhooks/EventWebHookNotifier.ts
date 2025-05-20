@@ -229,7 +229,7 @@ export class EventWebHookNotifier implements Notifier {
       });
 
       const result = await cancellableFetch(
-        applySecrets(url),
+        applySecrets(url, { encode: encodeURIComponent }),
         {
           headers: {
             ...applySecrets(headers),
