@@ -72,6 +72,8 @@ export const postCopyTransform = createApiRequestHandler(validation)(
       instructions,
       prompt: getPrompt(copy, mode),
       temperature: 0.8,
+      type: `visual-changeset-copy-transform-${mode}`,
+      isDefaultPrompt: true,
     });
 
     return {

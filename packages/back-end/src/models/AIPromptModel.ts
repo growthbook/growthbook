@@ -19,6 +19,7 @@ const BaseClass = MakeModelClass({
         organization: 1,
         type: 1,
       },
+      unique: true,
     },
   ],
 });
@@ -43,6 +44,8 @@ export class AiPromptModel extends BaseClass {
     const existing = await this._findOne({
       type,
     });
-    return existing ? existing.prompt : AIPromptDefaults[type];
+    return existing
+      ? { isDefaultPrompt: false, prompt: existing.prompt }
+      : { isDefaultPrompt: true, prompt: AIPromptDefaults[type] };
   };
 }

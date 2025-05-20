@@ -350,14 +350,18 @@ export async function postAIExperimentAnalysis(
     "\n- the released variation name is: " +
     releasedVariationName;
 
-  const prompt = await context.models.aiPrompts.getAIPrompt(
-    "experiment-analysis"
-  );
+  const type = "experiment-analysis";
+  const {
+    isDefaultPrompt,
+    prompt,
+  } = await context.models.aiPrompts.getAIPrompt(type);
 
   const aiResults = await simpleCompletion({
     context,
     instructions,
     prompt: prompt,
+    type,
+    isDefaultPrompt,
     temperature: 0.1,
   });
 

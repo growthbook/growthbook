@@ -714,9 +714,11 @@ export const getGeneratedDescription = async (
     });
   }
 
-  const prompt = await context.models.aiPrompts.getAIPrompt(
-    "metric-description"
-  );
+  const type = "metric-description";
+  const {
+    isDefaultPrompt,
+    prompt,
+  } = await context.models.aiPrompts.getAIPrompt(type);
 
   // try to see if this id is a fact metric id:
   if (isFactMetricId(id)) {
@@ -814,11 +816,14 @@ export const getGeneratedDescription = async (
       "Fact metrics of type 'quantile' fact metrics are used to measure the quantile of values after aggregating per user",
       "Projects are a way to isolate or organize teams or products within a single organization",
     ];
+
     const aiResults = await simpleCompletion({
       context,
       prompt: prompt,
       instructions: priorKnowledge.join(".\n"),
       temperature: 0.1,
+      type,
+      isDefaultPrompt,
     });
 
     res.status(200).json({
@@ -887,6 +892,8 @@ export const getGeneratedDescription = async (
       prompt: prompt,
       instructions: priorKnowledge.join(".\n"),
       temperature: 0.1,
+      type,
+      isDefaultPrompt,
     });
 
     res.status(200).json({

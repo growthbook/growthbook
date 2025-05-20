@@ -57,7 +57,10 @@ export async function postReformat(
 ) {
   const context = getContextFromReq(req);
 
-  const prompt = await context.models.aiPrompts.getAIPrompt(req.body.type);
+  const {
+    prompt,
+    isDefaultPrompt,
+  } = await context.models.aiPrompts.getAIPrompt(req.body.type);
   if (!prompt) {
     return res.status(400).json({
       status: 400,
@@ -71,6 +74,8 @@ export async function postReformat(
     context,
     prompt: reformatPrompt,
     temperature: 0.1,
+    type: req.body.type,
+    isDefaultPrompt,
   });
 
   res.status(200).json({

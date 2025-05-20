@@ -4,6 +4,7 @@ import {
   get_encoding,
   TiktokenModel,
 } from "@dqbd/tiktoken";
+import { AIPromptType } from "shared/ai";
 import { logger } from "back-end/src/util/logger";
 import { OrganizationInterface, ReqContext } from "back-end/types/organization";
 import {
@@ -12,6 +13,7 @@ import {
 } from "back-end/src/models/AITokenUsageModel";
 import { ApiReqContext } from "back-end/types/api";
 import { getAISettingsForOrg } from "back-end/src/services/organizations";
+import { logCloudAIUsage } from "back-end/src/services/clickhouse";
 
 /**
  * The MODEL_TOKEN_LIMIT is the maximum number of tokens that can be sent to
@@ -91,12 +93,16 @@ export const simpleCompletion = async ({
   prompt,
   maxTokens,
   temperature,
+  type,
+  isDefaultPrompt,
 }: {
   context: ReqContext | ApiReqContext;
   instructions?: string;
   prompt: string;
   maxTokens?: number;
   temperature?: number;
+  type: AIPromptType;
+  isDefaultPrompt: boolean;
 }) => {
   const openai = getOpenAI(context);
 
@@ -138,6 +144,21 @@ export const simpleCompletion = async ({
   });
 
   const numTokensUsed = response.usage?.total_tokens ?? numTokens;
+  try {
+    // Fire and forget
+    logCloudAIUsage({
+      organization: context.org.id,
+      type,
+      model: _openAIModel,
+      numPromptTokensUsed: response.usage?.prompt_tokens ?? 0,
+      numCompletionTokensUsed: response.usage?.completion_tokens ?? 0,
+      temperature,
+      usedDefaultPrompt: isDefaultPrompt,
+    });
+  } catch (e) {
+    logger.error(e, "Failed to log AI usage to Clickhouse");
+  }
+
   await updateTokenUsage({ numTokensUsed, organization: context.org });
 
   return response.choices[0].message?.content || "";
