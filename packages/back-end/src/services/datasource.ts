@@ -18,6 +18,7 @@ import {
 import {
   DataSourceInterface,
   DataSourceParams,
+  DataSourceType,
   ExposureQuery,
 } from "back-end/types/datasource";
 import Mysql from "back-end/src/integrations/Mysql";
@@ -229,4 +230,31 @@ export async function testQueryValidity(
   } catch (e) {
     return e.message;
   }
+}
+
+export function isDataSourceType<T extends DataSourceInterface>(
+  datasource: DataSourceInterface,
+  type: T["type"]
+): datasource is T {
+  return datasource.type === type;
+}
+
+export function createDataSourceObject<T extends DataSourceType>(
+  type: T,
+  data: Omit<DataSourceInterface, "type">
+): Extract<DataSourceInterface, { type: T }> {
+  return {
+    ...data,
+    type,
+  } as Extract<DataSourceInterface, { type: T }>;
+}
+
+export function mergeDataSourceUpdates<T extends DataSourceType>(
+  original: Extract<DataSourceInterface, { type: T }>,
+  updates: Partial<Extract<DataSourceInterface, { type: T }>>
+): Extract<DataSourceInterface, { type: T }> {
+  return {
+    ...original,
+    ...updates,
+  };
 }

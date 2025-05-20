@@ -1,17 +1,22 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { cloneDeep, isEqual } from "lodash";
+import SqlString from "sqlstring";
 import {
   DataSourceInterface,
   DataSourceParams,
   DataSourceSettings,
   DataSourceType,
+  GrowthbookClickhouseDataSource,
+  MaterializedColumn,
 } from "back-end/types/datasource";
 import { GoogleAnalyticsParams } from "back-end/types/integrations/googleanalytics";
 import { getOauth2Client } from "back-end/src/integrations/GoogleAnalytics";
 import {
+  createDataSourceObject,
   encryptParams,
   getSourceIntegrationObject,
+  isDataSourceType,
   testDataSourceConnection,
   testQueryValidity,
 } from "back-end/src/services/datasource";
@@ -26,7 +31,10 @@ import { IS_CLOUD } from "back-end/src/util/secrets";
 import { ReqContext } from "back-end/types/organization";
 import { ApiReqContext } from "back-end/types/api";
 import { logger } from "back-end/src/util/logger";
-import { deleteClickhouseUser } from "back-end/src/services/clickhouse";
+import {
+  deleteClickhouseUser,
+  updateMaterializedColumns,
+} from "back-end/src/services/clickhouse";
 
 const dataSourceSchema = new mongoose.Schema<DataSourceDocument>({
   id: String,
@@ -224,18 +232,17 @@ export async function createDataSource(
     (params as GoogleAnalyticsParams).refreshToken = tokens.refresh_token || "";
   }
 
-  const datasource: DataSourceInterface = {
+  const datasource = createDataSourceObject(type, {
     id,
     name,
     description,
     organization: context.org.id,
-    type,
     settings,
     dateCreated: new Date(),
     dateUpdated: new Date(),
     params: encryptParams(params),
     projects,
-  };
+  });
 
   await testDataSourceConnection(context, datasource);
 
@@ -334,6 +341,64 @@ export async function updateDataSource(
   }
   if (!hasActualChanges(datasource, updates)) {
     return;
+  }
+
+  if (
+    isDataSourceType<GrowthbookClickhouseDataSource>(
+      datasource,
+      "growthbook_clickhouse"
+    ) &&
+    (updates as Partial<GrowthbookClickhouseDataSource>).settings
+      ?.materializedColumns
+  ) {
+    const sanitizedColumns: MaterializedColumn[] = (updates as Partial<GrowthbookClickhouseDataSource>).settings!.materializedColumns.map(
+      (col) => ({
+        columnName: SqlString.escape(col.columnName),
+        sourceField: SqlString.escape(col.sourceField),
+        datatype: SqlString.escape(
+          col.datatype
+        ) as MaterializedColumn["datatype"],
+      })
+    );
+    const newMatColumns = Object.fromEntries(
+      sanitizedColumns.map((col) => [col.sourceField, col])
+    );
+    const currMatColumns = Object.fromEntries(
+      datasource.settings.materializedColumns.map((col) => [
+        col.sourceField,
+        col,
+      ])
+    );
+    const sanitizedToDelete: MaterializedColumn[] = [],
+      sanitizedToRename: { from: string; to: string }[] = [];
+
+    datasource.settings.materializedColumns.forEach((col) => {
+      if (
+        !Object.prototype.hasOwnProperty.call(newMatColumns, col.sourceField)
+      ) {
+        sanitizedToDelete.push(col);
+        return;
+      }
+      if (newMatColumns[col.sourceField].columnName !== col.columnName) {
+        sanitizedToRename.push({
+          from: col.columnName,
+          to: newMatColumns[col.sourceField].columnName,
+        });
+        return;
+      }
+      // TODO: datatype mismatch
+    });
+    const sanitizedToAdd = Object.values(newMatColumns).filter(
+      (col) =>
+        !Object.prototype.hasOwnProperty.call(currMatColumns, col.sourceField)
+    );
+    await updateMaterializedColumns({
+      datasource,
+      sanitizedToAdd,
+      sanitizedToDelete,
+      sanitizedToRename,
+      sanitizedAllColumns: sanitizedColumns,
+    });
   }
 
   await DataSourceModel.updateOne(

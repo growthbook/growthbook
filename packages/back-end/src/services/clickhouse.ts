@@ -9,10 +9,47 @@ import {
   CLICKHOUSE_MAIN_TABLE,
   ENVIRONMENT,
 } from "back-end/src/util/secrets";
-import { DataSourceParams } from "back-end/types/datasource";
+import {
+  GrowthbookClickhouseDataSource,
+  DataSourceParams,
+  MaterializedColumn,
+} from "back-end/types/datasource";
 import { DailyUsage, ReqContext } from "back-end/types/organization";
 import { logger } from "back-end/src/util/logger";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
+import { FactTableColumnType } from "back-end/types/fact-table";
+
+const REMAINING_COLUMNS_SCHEMA = {
+  environment: "String",
+  user_id: "String",
+  context_json: "String",
+  url: "String",
+  url_path: "String",
+  url_host: "String",
+  url_query: "String",
+  url_fragment: "String",
+  device_id: "String",
+  page_id: "String",
+  session_id: "String",
+  sdk_language: "String",
+  sdk_version: "String",
+  page_title: "String",
+  utm_source: "String",
+  utm_medium: "String",
+  utm_campaign: "String",
+  utm_term: "String",
+  utm_content: "String",
+  event_uuid: "String",
+  ip: "String",
+  geo_country: "String",
+  geo_city: "String",
+  geo_lat: "Float64",
+  geo_lon: "Float64",
+  ua: "String",
+  ua_browser: "LowCardinality(String)",
+  ua_os: "LowCardinality(String)",
+  ua_device_type: "LowCardinality(String)",
+};
 
 function clickhouseUserId(orgId: string, datasourceId: string) {
   return ENVIRONMENT === "production"
@@ -49,6 +86,30 @@ function createAdminClickhouseClient() {
   });
 }
 
+function getClickhouseDatatype(columnType: FactTableColumnType) {
+  switch (columnType) {
+    case "date":
+      return "DateTime";
+    case "number":
+      return "Float64";
+    case "boolean":
+      return "Boolean";
+    default:
+      return "String";
+  }
+}
+
+function getClickhouseExtractFn(columnType: FactTableColumnType) {
+  switch (columnType) {
+    case "number":
+      return "JSONExtractFloat";
+    case "boolean":
+      return "JSONExtractBool";
+    default:
+      return "JSONExtractString";
+  }
+}
+
 export async function createClickhouseUser(
   context: ReqContext,
   datasourceId: string
@@ -67,8 +128,10 @@ export async function createClickhouseUser(
     .digest("hex");
 
   const database = user;
-  const eventsViewName = `${database}.events`;
-  const featureUsageViewName = `${database}.feature_usage`;
+  const eventsTableName = `${database}.events`;
+  const eventsViewName = `${database}.events_mv`;
+  const featureUsageTableName = `${database}.feature_usage`;
+  const featureUsageViewName = `${database}.feature_usage_mv`;
 
   logger.info(`creating Clickhouse database ${database}`);
   await client.command({
@@ -80,53 +143,33 @@ export async function createClickhouseUser(
     query: `CREATE USER ${user} IDENTIFIED WITH sha256_hash BY '${hashedPassword}' DEFAULT DATABASE ${database}`,
   });
 
-  const remainingColumns = `
-    environment,
-    user_id,
-    context_json,
-    url,
-    url_path,
-    url_host,
-    url_query,
-    url_fragment,
-    device_id,
-    page_id,
-    session_id,
-    sdk_language,
-    sdk_version,
-    page_title,
-    utm_source,
-    utm_medium,
-    utm_campaign,
-    utm_term,
-    utm_content,
-    event_uuid,
-    ip,
-    geo_country,
-    geo_city,
-    geo_lat,
-    geo_lon,
-    ua,
-    ua_browser,
-    ua_os,
-    ua_device_type
-  `;
+  logger.info(`Creating Clickhouse table ${eventsTableName}`);
+  await client.command({
+    query: `CREATE TABLE ${eventsTableName} (
+timestamp DateTime,
+client_key String,
+event_name String,
+properties_json String,
+${Object.entries(REMAINING_COLUMNS_SCHEMA)
+  .map(([colName, colType]) => `${colName} ${colType}`)
+  .join(",")}
+) ENGINE = MergeTree()
+PARTITION BY toYYYYMM(timestamp) 
+ORDER BY (timestamp)`,
+  });
 
   const eventsMaterializedViewSql = `SELECT 
     timestamp,
     client_key,
     event_name,
     properties_json,
-    ${remainingColumns}
+    ${Object.keys(REMAINING_COLUMNS_SCHEMA).join(",")}
 FROM ${CLICKHOUSE_MAIN_TABLE} 
 WHERE (organization = '${orgId}') AND (event_name != 'Feature Evaluated')`;
 
   logger.info(`Creating Clickhouse events materialized view ${eventsViewName}`);
   await client.command({
-    query: `CREATE MATERIALIZED VIEW ${eventsViewName} 
-ENGINE = MergeTree
-PARTITION BY toYYYYMM(timestamp) 
-ORDER BY timestamp
+    query: `CREATE MATERIALIZED VIEW ${eventsViewName} TO ${eventsTableName} 
 DEFINER=CURRENT_USER SQL SECURITY DEFINER
 AS ${eventsMaterializedViewSql}`,
   });
@@ -134,6 +177,27 @@ AS ${eventsMaterializedViewSql}`,
   logger.info(`Copying existing data to the events materialized view`);
   await client.command({
     query: `INSERT INTO ${eventsViewName} ${eventsMaterializedViewSql}`,
+  });
+
+  logger.info(`Creating ${featureUsageTableName} table`);
+  await client.command({
+    query: `CREATE TABLE ${featureUsageTableName} (
+timestamp DateTime,
+client_key String,
+feature String,
+revision String,
+source String,
+value String,
+ruleId String,
+variationId String,
+ ${Object.entries(REMAINING_COLUMNS_SCHEMA)
+   .map(([colName, colType]) => `${colName} ${colType}`)
+   .join(",")}
+      )
+  ENGINE = MergeTree
+PARTITION BY toYYYYMM(timestamp)
+ORDER BY timestamp
+    `,
   });
 
   const featureUsageMaterializedViewSql = `SELECT
@@ -145,16 +209,13 @@ AS ${eventsMaterializedViewSql}`,
     JSONExtractString(properties_json, 'value') as value,
     JSONExtractString(properties_json, 'ruleId') as ruleId,
     JSONExtractString(properties_json, 'variationId') as variationId,
-    ${remainingColumns}
+    ${Object.keys(REMAINING_COLUMNS_SCHEMA).join(",")}
 FROM ${CLICKHOUSE_MAIN_TABLE}
 WHERE (organization = '${orgId}') AND (event_name = 'Feature Evaluated')`;
 
   logger.info(`Creating ${featureUsageViewName} materialized view`);
   await client.command({
-    query: `CREATE MATERIALIZED VIEW ${featureUsageViewName}
-ENGINE = MergeTree
-PARTITION BY toYYYYMM(timestamp)
-ORDER BY timestamp
+    query: `CREATE MATERIALIZED VIEW ${featureUsageViewName} TO ${featureUsageTableName}
 DEFINER=CURRENT_USER SQL SECURITY DEFINER
 AS ${featureUsageMaterializedViewSql}`,
   });
@@ -287,4 +348,78 @@ WITH FILL
     requests: parseInt(d.requests) || 0,
     bandwidth: parseInt(d.bandwidth) || 0,
   }));
+}
+
+export async function updateMaterializedColumns({
+  datasource,
+  sanitizedToAdd,
+  sanitizedToDelete,
+  sanitizedToRename,
+  sanitizedAllColumns,
+}: {
+  datasource: GrowthbookClickhouseDataSource;
+  sanitizedToAdd: MaterializedColumn[];
+  sanitizedToDelete: MaterializedColumn[];
+  sanitizedToRename: { from: string; to: string }[];
+  sanitizedAllColumns: MaterializedColumn[];
+}) {
+  const client = createAdminClickhouseClient();
+
+  const orgId = datasource.organization;
+  const database = clickhouseUserId(orgId, datasource.id);
+  const eventsTableName = `${database}.events`;
+  const eventsViewName = `${database}.events_mv`;
+
+  logger.info(`Updating materialized columns; dropping view ${eventsViewName}`);
+  await client.command({ query: `DROP VIEW ${eventsViewName}` });
+  const addClauses = sanitizedToAdd
+    .map(
+      ({ columnName, datatype }) =>
+        `ADD COLUMN IF NOT EXISTS ${columnName} ${getClickhouseDatatype(
+          datatype
+        )}`
+    )
+    .join(", ");
+  const dropClauses = sanitizedToDelete
+    .map(({ columnName }) => `DROP COLUMN IF EXISTS ${columnName}`)
+    .join(", ");
+  const renameClauses = sanitizedToRename
+    .map(({ from, to }) => `RENAME COLUMN ${from} to ${to}`)
+    .join(", ");
+  const clauses = `${addClauses}${
+    sanitizedToAdd.length > 0 &&
+    sanitizedToDelete.length + sanitizedToRename.length > 0
+      ? ", "
+      : ""
+  }${dropClauses}${
+    sanitizedToDelete.length > 0 && sanitizedToRename.length > 0 ? ", " : ""
+  }${renameClauses}`;
+  logger.info(`Updating table schema for ${eventsTableName}`);
+  await client.command({
+    query: `ALTER TABLE ${eventsTableName} ${clauses}`,
+  });
+
+  logger.info(`Recreating materialized view ${eventsViewName}`);
+  await client.command({
+    query: `CREATE MATERIALIZED VIEW ${eventsViewName} TO ${eventsTableName} 
+DEFINER=CURRENT_USER SQL SECURITY DEFINER
+AS SELECT 
+    timestamp,
+    client_key,
+    event_name,
+    properties_json,
+    ${
+      sanitizedAllColumns
+        .map(
+          ({ columnName, datatype, sourceField }) =>
+            `${getClickhouseExtractFn(
+              datatype
+            )}(context_json, '${sourceField}') as ${columnName}`
+        )
+        .join(", ") + (sanitizedAllColumns.length > 0 ? "," : "")
+    }
+${Object.keys(REMAINING_COLUMNS_SCHEMA).join(",")}
+FROM ${CLICKHOUSE_MAIN_TABLE} 
+WHERE (organization = '${orgId}') AND (event_name != 'Feature Evaluated')`,
+  });
 }

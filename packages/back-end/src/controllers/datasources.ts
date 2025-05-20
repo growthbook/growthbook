@@ -19,6 +19,7 @@ import {
   encryptParams,
   testQuery,
   getIntegrationFromDatasourceId,
+  mergeDataSourceUpdates,
 } from "back-end/src/services/datasource";
 import { getOauth2Client } from "back-end/src/integrations/GoogleAnalytics";
 import {
@@ -519,10 +520,10 @@ export async function putDataSource(
 
     await updateDataSource(context, datasource, updates);
 
-    const integration = getSourceIntegrationObject(context, {
-      ...datasource,
-      ...updates,
-    });
+    const integration = getSourceIntegrationObject(
+      context,
+      mergeDataSourceUpdates(datasource, updates)
+    );
 
     res.status(200).json({
       status: 200,

@@ -1,5 +1,6 @@
 import { z } from "zod";
-export const factTableColumnTypeValidator = z.enum([
+
+export const factTableColumnTypes = [
   "number",
   "string",
   "date",
@@ -7,7 +8,8 @@ export const factTableColumnTypeValidator = z.enum([
   "json",
   "other",
   "",
-]);
+] as const;
+export const factTableColumnTypeValidator = z.enum(factTableColumnTypes);
 
 export const numberFormatValidator = z.enum(["", "currency", "time:seconds"]);
 
