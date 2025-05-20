@@ -7,6 +7,7 @@ import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource
 import { SafeRolloutResultsQueryRunner } from "back-end/src/queryRunners/SafeRolloutResultsQueryRunner";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { SNAPSHOT_TIMEOUT } from "back-end/src/controllers/experiments";
+import { MetricTimeSeries } from "back-end/src/validators/metric-time-series";
 import {
   CreateSafeRolloutInterface,
   validateCreateSafeRolloutFields,
@@ -226,3 +227,43 @@ export async function putSafeRollout(
   });
 }
 // endregion PUT /safe-rollout/:id
+
+// region GET /safe-rollout/:id/time-series
+/**
+ * GET /safe-rollout/:id/time-series
+ * Get the time series data for a safe rollout rule
+ * @param req
+ * @param res
+ */
+export const getSafeRolloutTimeSeries = async (
+  req: AuthRequest<null, { id: string }, { metricIds: string[] }>,
+  res: Response<{ status: 200; timeSeries: MetricTimeSeries[] }>
+) => {
+  const context = getContextFromReq(req);
+
+  const { metricIds } = req.query;
+  if (metricIds.length === 0) {
+    throw new Error("metricIds is required");
+  }
+
+  const { id } = req.params;
+  const safeRollout = await context.models.safeRollout.getById(id);
+  if (!safeRollout) {
+    throw new Error("Safe rollout not found");
+  }
+
+  const timeSeries = await context.models.metricTimeSeries.getBySourceAndMetricIds(
+    {
+      source: "safe-rollout",
+      sourceId: id,
+      sourcePhase: undefined, // Safe rollouts don't have phases at the moment
+      metricIds,
+    }
+  );
+
+  res.status(200).json({
+    status: 200,
+    timeSeries,
+  });
+};
+// endregion GET /safe-rollout/:id/time-series
