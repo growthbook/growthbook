@@ -31,7 +31,10 @@ export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
     let filteredFeatures = features;
     if (req.query.clientKey) {
       const sdkConnection = await findSDKConnectionByKey(req.query.clientKey);
-      if (!sdkConnection || sdkConnection.organization !== req.organization) {
+      if (
+        !sdkConnection ||
+        sdkConnection.organization !== req.organization.id
+      ) {
         throw new Error("Invalid SDK connection key");
       }
 
