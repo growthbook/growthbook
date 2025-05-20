@@ -308,7 +308,8 @@ export function CreateSDKWebhookModal({
                 ) : (
                   ""
                 )}
-                . Supports <strong>Webhook Secrets</strong>.
+                . Supports{" "}
+                <DocLink docSection="webhookSecrets">Webhook Secrets</DocLink>.
               </>
             }
             key="http_endpoint_url"
@@ -358,7 +359,10 @@ export function CreateSDKWebhookModal({
                 ) : (
                   <div>
                     JSON format for headers. Supports{" "}
-                    <strong>Webhook Secrets</strong>.
+                    <DocLink docSection="webhookSecrets">
+                      Webhook Secrets
+                    </DocLink>
+                    .
                   </div>
                 )}
               </>
