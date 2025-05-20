@@ -415,7 +415,7 @@ export default function FeatureFromExperimentModal({
 
       {existing && (
         <div className="alert alert-info">
-          A rule will be added to the bottom of every environment in a new draft
+          A rule will be added to the top of every environment in a new draft
           revision. For more control over placement, you can add Experiment
           rules directly from the{" "}
           <Link href={`/features/${existing}`}>
