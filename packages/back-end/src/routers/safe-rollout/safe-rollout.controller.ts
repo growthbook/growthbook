@@ -244,10 +244,12 @@ export const getSafeRolloutTimeSeries = async (
   }
 
   const timeSeries = await context.models.metricTimeSeries.getBySourceAndMetricIds(
-    "safe-rollout",
-    id,
-    undefined,
-    metricIds
+    {
+      source: "safe-rollout",
+      sourceId: id,
+      sourcePhase: undefined, // Safe rollouts don't have phases at the moment
+      metricIds,
+    }
   );
 
   res.status(200).json({
