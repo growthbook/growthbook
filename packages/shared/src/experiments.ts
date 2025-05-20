@@ -799,19 +799,21 @@ export function getMetricResultStatus({
       clearSignalResultsStatus = "lost";
     }
   }
-  const ciLowerGuardrail = stats.ci?.[0] ?? Number.NEGATIVE_INFINITY;
-  const ciUpperGuardrail = stats.ci?.[1] ?? Number.POSITIVE_INFINITY;
-  const guardrailChanceToWin =
-    stats.chanceToWin ??
-    chanceToWinFlatPrior(
-      stats.expected ?? 0,
-      ciLowerGuardrail,
-      ciUpperGuardrail,
-      pValueThreshold,
-      metric.inverse
-    );
-  const guardrailSafeStatus =
-    guardrailChanceToWin > 1 - DEFAULT_GUARDRAIL_ALPHA;
+  let guardrailSafeStatus = false;
+  if (stats.ci) {
+    const ciLowerGuardrail = stats.ci?.[0] ?? Number.NEGATIVE_INFINITY;
+    const ciUpperGuardrail = stats.ci?.[1] ?? Number.POSITIVE_INFINITY;
+    const guardrailChanceToWin =
+      stats.chanceToWin ??
+      chanceToWinFlatPrior(
+        stats.expected ?? 0,
+        ciLowerGuardrail,
+        ciUpperGuardrail,
+        pValueThreshold,
+        metric.inverse
+      );
+    guardrailSafeStatus = guardrailChanceToWin > 1 - DEFAULT_GUARDRAIL_ALPHA;
+  }
   return {
     shouldHighlight: _shouldHighlight,
     belowMinChange,

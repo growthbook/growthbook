@@ -76,26 +76,6 @@ export const DO_NO_HARM_DECISION_CRITERIA: DecisionCriteriaData = {
   defaultAction: "rollback",
 };
 
-export const EARLY_SAFE_ROLLOUT_DECISION_CRITERIA: DecisionCriteriaData = {
-  id: "gbdeccrit_safeearlyrollout",
-  name: "Early Safe Rollout",
-  description:
-    "Ship if all guardrails are showing high probability of success.",
-  rules: [
-    {
-      conditions: [
-        {
-          match: "all",
-          metrics: "guardrails",
-          direction: "statsigWinner",
-        },
-      ],
-      action: "ship",
-    },
-  ],
-  defaultAction: "review",
-};
-
 export const PRESET_DECISION_CRITERIAS: DecisionCriteriaData[] = [
   PRESET_DECISION_CRITERIA,
   DO_NO_HARM_DECISION_CRITERIA,
