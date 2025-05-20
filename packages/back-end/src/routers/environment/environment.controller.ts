@@ -61,7 +61,7 @@ export const putEnvironmentOrder = async (
 
   // If the user doesn't have permission to update any envs, don't allow this action
   if (
-    existingEnvs.every(
+    existingEnvs.some(
       (env) => !context.permissions.canUpdateEnvironment(env, {})
     )
   ) {

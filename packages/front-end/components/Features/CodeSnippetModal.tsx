@@ -29,7 +29,10 @@ import SelectField from "@/components/Forms/SelectField";
 import CheckSDKConnectionModal from "@/components/GuidedGetStarted/CheckSDKConnectionModal";
 import MultivariateFeatureCodeSnippet from "@/components/SyntaxHighlighting/Snippets/MultivariateFeatureCodeSnippet";
 import SDKLanguageSelector from "./SDKConnections/SDKLanguageSelector";
-import { languageMapping } from "./SDKConnections/SDKLanguageLogo";
+import {
+  getPackageRepositoryName,
+  languageMapping,
+} from "./SDKConnections/SDKLanguageLogo";
 
 function trimTrailingSlash(str: string): string {
   return str.replace(/\/*$/, "");
@@ -45,27 +48,6 @@ export function getApiBaseUrl(connection?: SDKConnectionInterface): string {
   }
 
   return trimTrailingSlash(getCdnHost() || getApiHost());
-}
-
-function getPackageRepositoryName(url: string): string {
-  const repositoryMap: Record<string, string> = {
-    "npmjs.com": "NPM",
-    "pypi.org": "PyPI",
-    "rubygems.org": "RubyGems",
-    "packagist.org": "Packagist",
-    "jitpack.io": "JitPack",
-    "nuget.org": "NuGet",
-    "pkg.go.dev": "Go Modules",
-    "hex.pm": "Hex",
-    "swiftpackageindex.com": "Swift Package Index",
-    "mvnrepository.com": "Maven",
-    "pub.dev": "pub.dev",
-  };
-
-  for (const [domain, name] of Object.entries(repositoryMap)) {
-    if (url.includes(domain)) return name;
-  }
-  return "Package Repository";
 }
 
 export default function CodeSnippetModal({
