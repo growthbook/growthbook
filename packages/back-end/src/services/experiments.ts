@@ -1469,6 +1469,11 @@ export async function toExperimentApiInterface(
     linkedFeatures: experiment.linkedFeatures || [],
     hasVisualChangesets: experiment.hasVisualChangesets || false,
     hasURLRedirects: experiment.hasURLRedirects || false,
+    customFields: experiment.customFields
+      ? await context.models.customFields.customFieldsToApiInterface(
+          experiment.customFields
+        )
+      : {},
   };
 }
 
