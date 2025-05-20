@@ -129,7 +129,7 @@ const experimentSchema = new mongoose.Schema({
   ],
   decisionFrameworkSettings: {
     decisionCriteriaId: String,
-    goalMetricTargetMDEOverrides: [
+    decisionFrameworkMetricOverrides: [
       {
         _id: false,
         id: String,

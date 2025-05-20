@@ -20,6 +20,7 @@ export {
   ExperimentPhase,
   BanditStageType,
   ExperimentDecisionFrameworkSettings,
+  DecisionFrameworkMetricOverrides,
   ExperimentAnalysisSettings,
   ExperimentAnalysisSummaryResultsStatus,
   ExperimentAnalysisSummaryVariationStatus,

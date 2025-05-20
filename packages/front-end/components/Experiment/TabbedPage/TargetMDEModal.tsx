@@ -1,6 +1,9 @@
 import { FC, useState } from "react";
 import { Box, Flex, Text } from "@radix-ui/themes";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import {
+  DecisionFrameworkMetricOverrides,
+  ExperimentInterfaceStringDates,
+} from "back-end/types/experiment";
 import Modal from "@/components/Modal";
 import { ExperimentMetricInterfaceWithComputedTargetMDE } from "@/components/Experiment/TabbedPage/AnalysisSettings";
 import Field from "@/components/Forms/Field";
@@ -23,14 +26,15 @@ const TargetMDEModal: FC<TargetMDEModalProps> = ({
   onClose,
   experiment,
 }) => {
-  const [overrides, setOverrides] = useState<Record<string, number>>(
-    experiment.decisionFrameworkSettings?.goalMetricTargetMDEOverrides?.reduce(
-      (acc, metric) => {
-        acc[metric.id] = metric.targetMDE;
-        return acc;
-      },
-      {}
-    ) ?? {}
+  const decisionFrameworkMetricOverrides =
+    experiment.decisionFrameworkSettings?.decisionFrameworkMetricOverrides;
+  const [overrides, setOverrides] = useState<
+    Record<string, DecisionFrameworkMetricOverrides>
+  >(
+    decisionFrameworkMetricOverrides?.reduce((acc, metric) => {
+      acc[metric.id] = metric;
+      return acc;
+    }, {}) ?? {}
   );
   const { apiCall } = useAuth();
 
@@ -41,11 +45,18 @@ const TargetMDEModal: FC<TargetMDEModalProps> = ({
   ) => {
     setOverrides((prev) => {
       if (checked) {
-        return { ...prev, [metricId]: targetMDE };
+        return { ...prev, [metricId]: { ...prev[metricId], targetMDE } };
       } else {
-        const newOverrides = { ...prev };
-        delete newOverrides[metricId];
-        return newOverrides;
+        const newOverride = { ...prev[metricId] };
+        delete newOverride.targetMDE;
+        // if only `id` is left, remove the override
+        const remainingKeys = Object.keys(newOverride);
+        if (remainingKeys.length === 1 && remainingKeys[0] === "id") {
+          const newOverrides = { ...prev };
+          delete newOverrides[metricId];
+          return newOverrides;
+        }
+        return { ...prev, [metricId]: newOverride };
       }
     });
   };
@@ -55,15 +66,15 @@ const TargetMDEModal: FC<TargetMDEModalProps> = ({
       open={true}
       header="Edit Target MDEs"
       submit={() => {
-        const newOverrides = Object.entries(
+        const newOverrides: DecisionFrameworkMetricOverrides[] = Object.values(
           overrides
-        ).map(([id, targetMDE]) => ({ id, targetMDE }));
+        );
         apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
           body: JSON.stringify({
             decisionFrameworkSettings: {
               ...experiment.decisionFrameworkSettings,
-              goalMetricTargetMDEOverrides: newOverrides,
+              decisionFrameworkMetricOverrides: newOverrides,
             },
           }),
         }).then(() => {
@@ -108,7 +119,9 @@ const TargetMDEModal: FC<TargetMDEModalProps> = ({
                 </Flex>
                 <Field
                   type="number"
-                  value={(overrides[metric.id] ?? currentValue) * 100}
+                  value={
+                    (overrides[metric.id]?.targetMDE ?? currentValue) * 100
+                  }
                   onChange={(e) =>
                     handleOverrideChange(
                       metric.id,

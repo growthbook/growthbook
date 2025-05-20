@@ -233,7 +233,7 @@ export function getMetricForSnapshot({
   const metric = metricMap.get(id);
   if (!metric) return null;
   const overrides = metricOverrides?.find((o) => o.id === id);
-  const targetMDEOverride = decisionFrameworkSettings?.goalMetricTargetMDEOverrides?.find(
+  const decisionFrameworkMetricOverride = decisionFrameworkSettings?.decisionFrameworkMetricOverrides?.find(
     (o) => o.id === id
   );
   const metricSnapshotSettings = settingsForSnapshotMetrics?.find(
@@ -287,7 +287,9 @@ export function getMetricForSnapshot({
       regressionAdjustmentReason:
         metricSnapshotSettings?.regressionAdjustmentReason ?? "",
       targetMDE:
-        targetMDEOverride?.targetMDE ?? metric.targetMDE ?? DEFAULT_TARGET_MDE,
+        decisionFrameworkMetricOverride?.targetMDE ??
+        metric.targetMDE ??
+        DEFAULT_TARGET_MDE,
     },
   };
 }
