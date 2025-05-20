@@ -77,7 +77,8 @@ export function useRunningExperimentStatus() {
         healthSettings,
         decisionCriteria: getExperimentDecisionCriteria({
           orgCustomDecisionCriterias: decisionCriteria,
-          experimentDecisionCriteriaId: experimentData.decisionCriteriaId,
+          experimentDecisionCriteriaId:
+            experimentData.decisionFrameworkSettings?.decisionCriteriaId,
           defaultDecisionCriteriaId: settings?.defaultDecisionCriteriaId,
         }),
       }),
@@ -103,7 +104,8 @@ export function useExperimentStatusIndicator() {
       healthSettings,
       getExperimentDecisionCriteria({
         orgCustomDecisionCriterias: decisionCriteria,
-        experimentDecisionCriteriaId: experimentData.decisionCriteriaId,
+        experimentDecisionCriteriaId:
+          experimentData.decisionFrameworkSettings?.decisionCriteriaId,
         defaultDecisionCriteriaId: settings?.defaultDecisionCriteriaId,
       })
     );

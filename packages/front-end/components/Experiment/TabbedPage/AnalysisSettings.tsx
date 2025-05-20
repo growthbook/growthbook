@@ -66,7 +66,9 @@ export default function AnalysisSettings({
     hasCommercialFeature("decision-framework");
 
   const { getDecisionCriteria } = useRunningExperimentStatus();
-  const decisionCriteria = getDecisionCriteria(experiment.decisionCriteriaId);
+  const decisionCriteria = getDecisionCriteria(
+    experiment.decisionFrameworkSettings?.decisionCriteriaId
+  );
 
   const [analysisModal, setAnalysisModal] = useState(false);
   const [targetMDEModal, setTargetMDEModal] = useState(false);
@@ -163,7 +165,7 @@ export default function AnalysisSettings({
       {decisionCriteriaModal && mutate ? (
         <DecisionCriteriaSelectorModal
           initialCriteria={decisionCriteria}
-          experimentId={experiment.id}
+          experiment={experiment}
           onSubmit={() => {
             setDecisionCriteriaModal(false);
             mutate();

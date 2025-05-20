@@ -60,7 +60,7 @@ const ExperimentPage = (): ReactElement => {
   } = useRunningExperimentStatus();
 
   const decisionCriteria = getDecisionCriteria(
-    data?.experiment?.decisionCriteriaId
+    data?.experiment?.decisionFrameworkSettings?.decisionCriteriaId
   );
 
   useSwitchOrg(data?.experiment?.organization ?? null);

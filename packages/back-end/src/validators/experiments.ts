@@ -146,18 +146,25 @@ export const metricTargetMDEOverride = z.object({
 });
 export type MetricTargetMDEOverride = z.infer<typeof metricTargetMDEOverride>;
 
+export const experimentDecisionFrameworkSettings = z.object({
+  decisionCriteriaId: z.string().optional(),
+  goalMetricTargetMDEOverrides: z.array(metricTargetMDEOverride).optional(),
+});
+export type ExperimentDecisionFrameworkSettings = z.infer<
+  typeof experimentDecisionFrameworkSettings
+>;
+
 export const experimentAnalysisSettings = z
   .object({
     trackingKey: z.string(),
     datasource: z.string(),
     exposureQueryId: z.string(),
     goalMetrics: z.array(z.string()),
-    metricTargetMDEOverrides: z.array(metricTargetMDEOverride).optional(),
     secondaryMetrics: z.array(z.string()),
     guardrailMetrics: z.array(z.string()),
     activationMetric: z.string().optional(),
     metricOverrides: z.array(metricOverride).optional(),
-    decisionCriteriaId: z.string().optional(),
+    decisionFrameworkSettings: experimentDecisionFrameworkSettings,
     segment: z.string().optional(),
     queryFilter: z.string().optional(),
     skipPartialData: z.boolean().optional(),

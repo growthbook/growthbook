@@ -754,6 +754,7 @@ export async function postExperiments(
     customFields: data.customFields || undefined,
     templateId: data.templateId || undefined,
     shareLevel: data.shareLevel || "organization",
+    decisionFrameworkSettings: data.decisionFrameworkSettings || {},
   };
 
   const { settings } = getScopedSettings({
@@ -1012,7 +1013,7 @@ export async function postExperiment(
     "secondaryMetrics",
     "guardrailMetrics",
     "metricOverrides",
-    "metricTargetMDEOverrides",
+    "decisionFrameworkSettings",
     "variations",
     "status",
     "results",

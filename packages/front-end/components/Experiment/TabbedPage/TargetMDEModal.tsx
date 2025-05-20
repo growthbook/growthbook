@@ -13,7 +13,7 @@ interface TargetMDEModalProps {
   onClose: () => void;
   experiment: Pick<
     ExperimentInterfaceStringDates,
-    "id" | "metricTargetMDEOverrides"
+    "id" | "decisionFrameworkSettings"
   >;
 }
 
@@ -24,10 +24,13 @@ const TargetMDEModal: FC<TargetMDEModalProps> = ({
   experiment,
 }) => {
   const [overrides, setOverrides] = useState<Record<string, number>>(
-    experiment.metricTargetMDEOverrides?.reduce((acc, metric) => {
-      acc[metric.id] = metric.targetMDE;
-      return acc;
-    }, {}) ?? {}
+    experiment.decisionFrameworkSettings?.goalMetricTargetMDEOverrides?.reduce(
+      (acc, metric) => {
+        acc[metric.id] = metric.targetMDE;
+        return acc;
+      },
+      {}
+    ) ?? {}
   );
   const { apiCall } = useAuth();
 
@@ -57,7 +60,12 @@ const TargetMDEModal: FC<TargetMDEModalProps> = ({
         ).map(([id, targetMDE]) => ({ id, targetMDE }));
         apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
-          body: JSON.stringify({ metricTargetMDEOverrides: newOverrides }),
+          body: JSON.stringify({
+            decisionFrameworkSettings: {
+              ...experiment.decisionFrameworkSettings,
+              goalMetricTargetMDEOverrides: newOverrides,
+            },
+          }),
         }).then(() => {
           onSubmit();
         });
@@ -66,6 +74,14 @@ const TargetMDEModal: FC<TargetMDEModalProps> = ({
       size="md"
       trackingEventModalType="target-mde"
     >
+      <Box mb="4">
+        <Text>
+          The Target Minimum Detectable Effect (MDE) is the smallest lift that
+          you would like to reliably detect in the experiment. Smaller values
+          require more data and longer run times, but the results will be more
+          precise.
+        </Text>
+      </Box>
       <Flex direction="column" gap="3">
         {goalsWithTargetMDE.map((metric) => {
           const currentValue = metric.computedTargetMDE;

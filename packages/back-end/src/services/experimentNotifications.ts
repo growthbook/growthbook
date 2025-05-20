@@ -516,7 +516,7 @@ export const notifyExperimentChange = async ({
 
   const decisionCriteria = await getDecisionCriteria(
     context,
-    experiment.decisionCriteriaId ??
+    experiment.decisionFrameworkSettings?.decisionCriteriaId ??
       context.org.settings?.defaultDecisionCriteriaId
   );
 

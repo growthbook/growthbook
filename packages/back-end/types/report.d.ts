@@ -3,7 +3,7 @@ import { OrganizationSettings } from "back-end/types/organization";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { DimensionInterface } from "back-end/types/dimension";
 import { ProjectInterface } from "back-end/src/models/ProjectModel";
-import { MetricTargetMDEOverride } from "back-end/src/validators/experiments";
+import { ExperimentDecisionFrameworkSettings } from "back-end/src/validators/experiments";
 import { FactTableInterface, MetricPriorSettings } from "./fact-table";
 import {
   AttributionModel,
@@ -118,7 +118,7 @@ export interface ExperimentReportArgs {
   goalMetrics: string[];
   secondaryMetrics: string[];
   metricOverrides?: MetricOverride[];
-  metricTargetMDEOverrides?: MetricTargetMDEOverride[];
+  decisionFrameworkSettings: ExperimentDecisionFrameworkSettings;
   guardrailMetrics: string[];
   activationMetric?: string;
   queryFilter?: string;
@@ -153,7 +153,10 @@ export type ReportInterface =
 export type LegacyReportInterface = Omit<ExperimentReportInterface, "args"> & {
   args: Omit<
     ExperimentReportArgs,
-    "goalMetrics" | "guardrailMetrics" | "secondaryMetrics"
+    | "goalMetrics"
+    | "guardrailMetrics"
+    | "secondaryMetrics"
+    | "decisionFrameworkSettings"
   > & {
     metricRegressionAdjustmentStatuses?: LegacyMetricRegressionAdjustmentStatus[];
     metrics?: string[];
@@ -161,6 +164,7 @@ export type LegacyReportInterface = Omit<ExperimentReportInterface, "args"> & {
     goalMetrics?: string[];
     guardrailMetrics?: string[];
     secondaryMetrics?: string[];
+    decisionFrameworkSettings?: ExperimentDecisionFrameworkSettings;
   };
 };
 

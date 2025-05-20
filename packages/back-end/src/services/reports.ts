@@ -28,6 +28,7 @@ import {
   ExperimentReportSSRData,
 } from "back-end/types/report";
 import {
+  ExperimentDecisionFrameworkSettings,
   ExperimentInterface,
   ExperimentPhase,
   MetricOverride,
@@ -64,7 +65,6 @@ import { ReqContextClass } from "back-end/src/services/context";
 import { getMetricsByIds } from "back-end/src/models/MetricModel";
 import { findDimensionsByOrganization } from "back-end/src/models/DimensionModel";
 import { ProjectInterface } from "back-end/types/project";
-import { MetricTargetMDEOverride } from "back-end/src/validators/experiments";
 
 export function getReportVariations(
   experiment: ExperimentInterface,
@@ -143,6 +143,7 @@ export function reportArgsFromSnapshot(
     sequentialTestingTuningParameter:
       analysisSettings.sequentialTestingTuningParameter,
     pValueThreshold: analysisSettings.pValueThreshold,
+    decisionFrameworkSettings: experiment.decisionFrameworkSettings,
   };
 }
 
@@ -178,13 +179,13 @@ export function getSnapshotSettingsFromReportArgs(
   const snapshotSettings: ExperimentSnapshotSettings = {
     metricSettings: getAllMetricIdsFromExperiment(args)
       .map((m) =>
-        getMetricForSnapshot(
-          m,
+        getMetricForSnapshot({
+          id: m,
           metricMap,
-          args.settingsForSnapshotMetrics,
-          args.metricOverrides,
-          args.metricTargetMDEOverrides
-        )
+          settingsForSnapshotMetrics: args.settingsForSnapshotMetrics,
+          metricOverrides: args.metricOverrides,
+          decisionFrameworkSettings: args.decisionFrameworkSettings,
+        })
       )
       .filter(isDefined),
     activationMetric: args.activationMetric || null,
@@ -215,18 +216,26 @@ export function getSnapshotSettingsFromReportArgs(
   return { snapshotSettings, analysisSettings };
 }
 
-export function getMetricForSnapshot(
-  id: string | null | undefined,
-  metricMap: Map<string, ExperimentMetricInterface>,
-  settingsForSnapshotMetrics?: MetricSnapshotSettings[],
-  metricOverrides?: MetricOverride[],
-  metricTargetMDEOverrides?: MetricTargetMDEOverride[]
-): MetricForSnapshot | null {
+export function getMetricForSnapshot({
+  id,
+  metricMap,
+  settingsForSnapshotMetrics,
+  metricOverrides,
+  decisionFrameworkSettings,
+}: {
+  id: string | null | undefined;
+  metricMap: Map<string, ExperimentMetricInterface>;
+  settingsForSnapshotMetrics?: MetricSnapshotSettings[];
+  metricOverrides?: MetricOverride[];
+  decisionFrameworkSettings: ExperimentDecisionFrameworkSettings;
+}): MetricForSnapshot | null {
   if (!id) return null;
   const metric = metricMap.get(id);
   if (!metric) return null;
   const overrides = metricOverrides?.find((o) => o.id === id);
-  const targetMDEOverride = metricTargetMDEOverrides?.find((o) => o.id === id);
+  const targetMDEOverride = decisionFrameworkSettings?.goalMetricTargetMDEOverrides?.find(
+    (o) => o.id === id
+  );
   const metricSnapshotSettings = settingsForSnapshotMetrics?.find(
     (s) => s.metric === id
   );
@@ -535,13 +544,14 @@ export function getReportSnapshotSettings({
     metricGroups
   )
     .map((m) =>
-      getMetricForSnapshot(
-        m,
+      getMetricForSnapshot({
+        id: m,
         metricMap,
         settingsForSnapshotMetrics,
-        report.experimentAnalysisSettings.metricOverrides,
-        report.experimentAnalysisSettings.metricTargetMDEOverrides
-      )
+        metricOverrides: report.experimentAnalysisSettings.metricOverrides,
+        decisionFrameworkSettings:
+          report.experimentAnalysisSettings.decisionFrameworkSettings,
+      })
     )
     .filter(isDefined);
 

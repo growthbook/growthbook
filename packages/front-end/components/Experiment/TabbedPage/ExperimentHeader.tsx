@@ -250,7 +250,9 @@ export default function ExperimentHeader({
     getRunningExperimentResultStatus,
   } = useRunningExperimentStatus();
 
-  const decisionCriteria = getDecisionCriteria(experiment.decisionCriteriaId);
+  const decisionCriteria = getDecisionCriteria(
+    experiment.decisionFrameworkSettings?.decisionCriteriaId
+  );
 
   const runningExperimentStatus = getRunningExperimentResultStatus(experiment);
   const shouldHideTabs =

@@ -127,13 +127,16 @@ const experimentSchema = new mongoose.Schema({
       conversionDelayHours: Number,
     },
   ],
-  metricTargetMDEOverrides: [
-    {
-      _id: false,
-      id: String,
-      targetMDE: Number,
-    },
-  ],
+  decisionFrameworkSettings: {
+    decisionCriteriaId: String,
+    goalMetricTargetMDEOverrides: [
+      {
+        _id: false,
+        id: String,
+        targetMDE: Number,
+      },
+    ],
+  },
   // These are using {} instead of [String] so Mongoose doesn't prefill them with empty arrays
   // This is necessary for migrations to work properly
   metrics: {},

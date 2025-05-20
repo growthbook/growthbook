@@ -1,6 +1,9 @@
 import { FC, useState } from "react";
 import { Box, Flex, Text } from "@radix-ui/themes";
-import { DecisionCriteriaData } from "back-end/types/experiment";
+import {
+  DecisionCriteriaData,
+  ExperimentInterfaceStringDates,
+} from "back-end/types/experiment";
 import { PRESET_DECISION_CRITERIAS } from "shared/enterprise";
 import { useForm } from "react-hook-form";
 import Modal from "@/components/Modal";
@@ -15,15 +18,15 @@ interface DecisionCriteriaSelectorModalProps {
   onSubmit: () => void;
   onClose: () => void;
   initialCriteria?: DecisionCriteriaData;
-  experimentId: string;
+  experiment: ExperimentInterfaceStringDates;
   canEdit: boolean;
 }
 
 const DecisionCriteriaSelectorModal: FC<DecisionCriteriaSelectorModalProps> = ({
   onSubmit,
   onClose,
+  experiment,
   initialCriteria,
-  experimentId,
   canEdit,
 }) => {
   const { data } = useApi<{
@@ -59,10 +62,13 @@ const DecisionCriteriaSelectorModal: FC<DecisionCriteriaSelectorModalProps> = ({
       submit={
         canEdit
           ? form.handleSubmit(async (value) => {
-              apiCall(`/experiment/${experimentId}`, {
+              apiCall(`/experiment/${experiment.id}`, {
                 method: "POST",
                 body: JSON.stringify({
-                  decisionCriteriaId: value.decisionCriteriaId,
+                  decisionFrameworkSettings: {
+                    ...experiment.decisionFrameworkSettings,
+                    decisionCriteriaId: value.decisionCriteriaId,
+                  },
                 }),
               }).then(() => {
                 onSubmit();
