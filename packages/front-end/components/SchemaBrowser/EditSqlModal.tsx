@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FaPlay } from "react-icons/fa";
-import { TestQueryRow } from "back-end/src/types/Integration";
+import {
+  InformationSchemaInterface,
+  TestQueryRow,
+} from "back-end/src/types/Integration";
 import clsx from "clsx";
 import { TemplateVariables } from "back-end/types/sql";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { validateSQL } from "@/services/datasources";
-import CodeTextArea from "@/components/Forms/CodeTextArea";
+import CodeTextArea, { AceCompletion } from "@/components/Forms/CodeTextArea";
 import Modal from "@/components/Modal";
 import { CursorData } from "@/components/Segments/SegmentForm";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
@@ -19,6 +22,8 @@ import {
 import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import useApi from "@/hooks/useApi";
+import { getAutoCompletions } from "@/services/sql";
 import SchemaBrowser from "./SchemaBrowser";
 import styles from "./EditSqlModal.module.scss";
 
@@ -60,6 +65,7 @@ export default function EditSqlModal({
     setTestQueryResults,
   ] = useState<TestQueryResults | null>(null);
   const [testQueryBeforeSaving, setTestQueryBeforeSaving] = useState(true);
+  const [autoCompletions, setAutoCompletions] = useState<AceCompletion[]>([]);
   const form = useForm({
     defaultValues: {
       sql: value,
@@ -148,6 +154,24 @@ export default function EditSqlModal({
 
   const hasEventName = usesEventName(form.watch("sql"));
   const hasValueCol = usesValueColumn(form.watch("sql"));
+
+  const { data } = useApi<{
+    informationSchema: InformationSchemaInterface;
+  }>(`/datasource/${datasourceId}/schema`);
+
+  const informationSchema = data?.informationSchema;
+
+  // Update autocompletions when cursor or schema changes
+  useEffect(() => {
+    if (!cursorData || !informationSchema) {
+      setAutoCompletions([]);
+      return;
+    }
+
+    getAutoCompletions(cursorData, informationSchema).then((completions) => {
+      setAutoCompletions(completions);
+    });
+  }, [cursorData, informationSchema]);
 
   useEffect(() => {
     if (!canRunQueries) setTestQueryBeforeSaving(false);
@@ -309,6 +333,7 @@ export default function EditSqlModal({
                 setCursorData={setCursorData}
                 onCtrlEnter={handleTestQuery}
                 resizeDependency={!!testQueryResults}
+                completions={autoCompletions}
               />
             </div>
             {testQueryResults && (
