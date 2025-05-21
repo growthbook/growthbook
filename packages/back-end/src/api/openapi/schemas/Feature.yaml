@@ -75,3 +75,21 @@ properties:
         format: date-time
       publishedBy:
         type: string
+  draftRevision:
+    type: object
+    nullable: true
+    required:
+      - version
+      - date
+      - createdBy
+      - createdByEmail
+    properties:
+      version:
+        type: integer
+      date:
+        type: string
+        format: date-time
+      createdBy:
+        type: string
+      createdByEmail:
+        type: string

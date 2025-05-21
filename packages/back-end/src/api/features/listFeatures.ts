@@ -1,4 +1,7 @@
-import { getFeatureRevisionsByFeaturesCurrentVersion } from "../../models/FeatureRevisionModel";
+import {
+  getFeatureRevisionsByFeaturesCurrentVersion,
+  getFeatureRevisionsByFeaturesDraftVersion,
+} from "../../models/FeatureRevisionModel";
 import { ListFeaturesResponse } from "../../../types/openapi";
 import { getAllPayloadExperiments } from "../../models/ExperimentModel";
 import { getAllFeatures } from "../../models/FeatureModel";
@@ -29,6 +32,9 @@ export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
     const revisions = await getFeatureRevisionsByFeaturesCurrentVersion(
       filtered
     );
+    const draftRevisions = await getFeatureRevisionsByFeaturesDraftVersion(
+      filtered
+    );
 
     return {
       features: filtered.map((feature) => {
@@ -36,12 +42,17 @@ export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
           revisions?.find(
             (r) => r.featureId === feature.id && r.version === feature.version
           ) || null;
+        const draftRevision =
+          draftRevisions?.find(
+            (r) => r.featureId === feature.id && r.status === "draft"
+          ) || null;
         return getApiFeatureObj({
           feature,
           organization: req.organization,
           groupMap,
           experimentMap,
           revision,
+          draftRevision,
         });
       }),
       ...returnFields,

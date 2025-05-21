@@ -600,6 +600,13 @@ export interface components {
         date: string;
         publishedBy: string;
       };
+      draftRevision?: {
+        version: number;
+        /** Format: date-time */
+        date: string;
+        createdBy: string;
+        createdByEmail: string;
+      } | null;
     };
     FeatureEnvironment: {
       enabled: boolean;
@@ -1678,6 +1685,13 @@ export interface operations {
                   date: string;
                   publishedBy: string;
                 };
+                draftRevision?: {
+                  version: number;
+                  /** Format: date-time */
+                  date: string;
+                  createdBy: string;
+                  createdByEmail: string;
+                } | null;
               })[];
           }) & {
             limit: number;
@@ -2000,6 +2014,13 @@ export interface operations {
                 date: string;
                 publishedBy: string;
               };
+              draftRevision?: {
+                version: number;
+                /** Format: date-time */
+                date: string;
+                createdBy: string;
+                createdByEmail: string;
+              } | null;
             };
           };
         };
@@ -2187,6 +2208,13 @@ export interface operations {
                 date: string;
                 publishedBy: string;
               };
+              draftRevision?: {
+                version: number;
+                /** Format: date-time */
+                date: string;
+                createdBy: string;
+                createdByEmail: string;
+              } | null;
             };
           };
         };
@@ -2498,6 +2526,13 @@ export interface operations {
                 date: string;
                 publishedBy: string;
               };
+              draftRevision?: {
+                version: number;
+                /** Format: date-time */
+                date: string;
+                createdBy: string;
+                createdByEmail: string;
+              } | null;
             };
           };
         };
@@ -2689,6 +2724,13 @@ export interface operations {
                 date: string;
                 publishedBy: string;
               };
+              draftRevision?: {
+                version: number;
+                /** Format: date-time */
+                date: string;
+                createdBy: string;
+                createdByEmail: string;
+              } | null;
             };
           };
         };

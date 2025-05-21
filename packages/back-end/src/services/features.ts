@@ -1065,12 +1065,14 @@ export function getApiFeatureObj({
   groupMap,
   experimentMap,
   revision,
+  draftRevision,
 }: {
   feature: FeatureInterface;
   organization: OrganizationInterface;
   groupMap: GroupMap;
   experimentMap: Map<string, ExperimentInterface>;
   revision: FeatureRevisionInterface | null;
+  draftRevision?: FeatureRevisionInterface | null;
 }): ApiFeature {
   const defaultValue = feature.defaultValue;
   const featureEnvironments: Record<string, ApiFeatureEnvironment> = {};
@@ -1111,6 +1113,10 @@ export function getApiFeatureObj({
     revision?.publishedBy?.type === "api_key"
       ? "API"
       : revision?.publishedBy?.name;
+  const draftCreatedByUser =
+    draftRevision?.createdBy?.type === "dashboard"
+      ? draftRevision?.createdBy
+      : undefined;
   const featureRecord: ApiFeature = {
     id: feature.id,
     description: feature.description || "",
@@ -1129,6 +1135,12 @@ export function getApiFeatureObj({
       publishedBy: publishedBy || "",
       version: feature.version,
     },
+    draftRevision: mapNullable(draftRevision, (draftRevision) => ({
+      date: draftRevision?.dateCreated.toISOString() || "",
+      createdBy: draftCreatedByUser?.name || "",
+      createdByEmail: draftCreatedByUser?.email || "",
+      version: draftRevision.version,
+    })),
   };
 
   return featureRecord;
@@ -1640,3 +1652,12 @@ const getInlinePrerequisitesReductionInfo = (
     newPrerequisites,
   };
 };
+
+function mapNullable<T, R>(
+  value: T | null | undefined,
+  fn: (v: T) => R
+): R | null | undefined {
+  if (value === null) return null;
+  if (value === undefined) return undefined;
+  return fn(value);
+}

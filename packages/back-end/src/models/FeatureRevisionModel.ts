@@ -540,3 +540,18 @@ export async function getFeatureRevisionsByFeaturesCurrentVersion(
 
   return docs.map(toInterface);
 }
+
+export async function getFeatureRevisionsByFeaturesDraftVersion(
+  features: FeatureInterface[]
+): Promise<FeatureRevisionInterface[] | null> {
+  if (features.length === 0) return null;
+  const docs = await FeatureRevisionModel.find({
+    $or: features.map((f) => ({
+      featureId: f.id,
+      organization: f.organization,
+      state: "draft",
+    })),
+  });
+
+  return docs.map(toInterface);
+}
