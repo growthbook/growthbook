@@ -1,4 +1,5 @@
 import fs from "fs";
+import Handlebars from "handlebars";
 import dotenv from "dotenv";
 import trimEnd from "lodash/trimEnd";
 import { stringToBoolean } from "shared/util";
@@ -270,3 +271,44 @@ export const CLICKHOUSE_ADMIN_PASSWORD =
   process.env.CLICKHOUSE_ADMIN_PASSWORD || "";
 export const CLICKHOUSE_DATABASE = process.env.CLICKHOUSE_DATABASE || "";
 export const CLICKHOUSE_MAIN_TABLE = process.env.CLICKHOUSE_MAIN_TABLE || "";
+
+export type SecretsReplacer = <T extends string | Record<string, string>>(
+  s: T,
+  options?: {
+    encode?: (s: string) => string;
+  }
+) => T;
+
+export const secretsReplacer = (
+  secrets: Record<string, string>
+): SecretsReplacer => {
+  return ((s, options) => {
+    const encode = options?.encode || ((s: string) => s);
+
+    const encodedSecrets = Object.keys(secrets).reduce<Record<string, string>>(
+      (encoded, key) => ({
+        ...encoded,
+        [key]: encode(secrets[key]),
+      }),
+      {}
+    );
+
+    const stringReplacer = (s: string) => {
+      const template = Handlebars.compile(s, {
+        noEscape: true,
+        strict: true,
+      });
+      return template(encodedSecrets);
+    };
+
+    if (typeof s === "string") return stringReplacer(s);
+
+    return Object.keys(s).reduce<Record<string, string>>(
+      (obj, key) => ({
+        ...obj,
+        [stringReplacer(key)]: stringReplacer(s[key]),
+      }),
+      {}
+    );
+  }) as SecretsReplacer;
+};

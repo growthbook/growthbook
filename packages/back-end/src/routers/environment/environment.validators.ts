@@ -2,7 +2,8 @@ import z from "zod";
 
 export const updateEnvOrderValidator = z
   .object({
-    environments: z.array(z.string()),
+    envId: z.string(),
+    newIndex: z.number(),
   })
   .strict();
 
