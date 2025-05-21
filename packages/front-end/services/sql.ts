@@ -250,23 +250,19 @@ function analyzeFromClause(
   };
 }
 
-function needsLeadingBacktick(path: string): boolean {
+function pathContainsBackticks(path: string): boolean {
   return path.startsWith("`");
 }
 
-function needsTrailingBacktick(path: string): boolean {
-  return path.endsWith("`");
-}
-
 function formatDatabaseCompletion(path: string): string {
-  return needsLeadingBacktick(path) ? `\`${path.replace(/`/g, "")}` : path;
+  return pathContainsBackticks(path) ? `\`${path.replace(/`/g, "")}` : path;
 }
 
 function formatSchemaCompletion(path: string, hasDatabase: boolean): string {
   if (hasDatabase) {
     return path.replace(/`/g, "");
   }
-  return needsLeadingBacktick(path) ? path : `\`${path.replace(/`/g, "")}`;
+  return pathContainsBackticks(path) ? path : `\`${path.replace(/`/g, "")}`;
 }
 
 function formatTableCompletion(
@@ -278,11 +274,8 @@ function formatTableCompletion(
   if (!hasDatabase && !hasSchema) {
     return tablePath;
   }
-  if (hasDatabase && hasSchema) {
-    return needsTrailingBacktick(tablePath) ? `${tableName}\`` : tableName;
-  }
-  // If we have database but no schema, we're showing schema.table
-  return needsTrailingBacktick(tablePath) ? `${tableName}\`` : tableName;
+
+  return pathContainsBackticks(tablePath) ? `${tableName}\`` : tableName;
 }
 
 function getTableCompletions(
