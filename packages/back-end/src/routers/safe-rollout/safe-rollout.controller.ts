@@ -1,4 +1,5 @@
 import type { Response } from "express";
+import { omit } from "lodash";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { SafeRolloutSnapshotInterface } from "back-end/src/validators/safe-rollout-snapshot";
@@ -210,7 +211,7 @@ export async function putSafeRollout(
   );
 
   await context.models.safeRollout.update(safeRollout, {
-    ...validatedSafeRolloutFields,
+    ...omit(validatedSafeRolloutFields, "rampUpSchedule"),
   });
 
   res.status(200).json({

@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { evaluateFeatures } from "@growthbook/proxy-eval";
-import { isEqual } from "lodash";
+import { isEqual, omit } from "lodash";
 import { v4 as uuidv4 } from "uuid";
 import {
   autoMerge,
@@ -1196,7 +1196,7 @@ export async function postFeatureRule(
     }
 
     const validatedSafeRolloutFields = await validateCreateSafeRolloutFields(
-      safeRolloutFields,
+      omit(safeRolloutFields, "rampUpSchedule"),
       context
     );
 
@@ -1212,6 +1212,19 @@ export async function postFeatureRule(
       featureId: feature.id,
       status: rule.status,
       autoSnapshots: true,
+      rampUpSchedule: {
+        enabled: safeRolloutFields?.rampUpSchedule?.enabled ?? false, // this is used so that we can disable the ramp up schedule using feature Flag
+        step: 0,
+        steps: [
+          { percent: 0.1 },
+          { percent: 0.25 },
+          { percent: 0.5 },
+          { percent: 0.75 },
+          { percent: 1 },
+        ],
+        rampUpCompleted: false,
+        nextUpdate: undefined, // this is set with the rule is enabled
+      },
     });
 
     if (!safeRollout) {
@@ -2274,6 +2287,7 @@ export async function postFeatureEvaluate(
   const experimentMap = await getAllPayloadExperiments(context);
   const allEnvironments = getEnvironments(org);
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
+  const safeRolloutMap = await context.models.safeRollout.getAllPayloadSafeRollouts();
   const results = evaluateFeature({
     feature,
     revision,
@@ -2284,6 +2298,7 @@ export async function postFeatureEvaluate(
     scrubPrerequisites,
     skipRulesWithPrerequisites,
     date,
+    safeRolloutMap,
   });
 
   res.status(200).json({
@@ -2329,12 +2344,14 @@ export async function postFeaturesEvaluate(
     environment !== ""
       ? [allEnvironments.find((obj) => obj.id === environment)]
       : getEnvironments(context.org);
+  const safeRolloutMap = await context.models.safeRollout.getAllPayloadSafeRollouts();
   const featureResults = await evaluateAllFeatures({
     features,
     context,
     attributeValues: attributes,
     groupMap: await getSavedGroupMap(context.org),
     environments: environments,
+    safeRolloutMap,
   });
   res.status(200).json({
     status: 200,
