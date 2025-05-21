@@ -96,16 +96,11 @@ export async function getRevisions(
     organization,
     featureId,
   })
+    .select("-log") // Remove the log when fetching all revisions since it can be large to send over the network
     .sort({ version: -1 })
     .limit(25);
 
-  // Remove the log when fetching all revisions since it can be large to send over the network
-  return docs
-    .map((m) => toInterface(m, context))
-    .map((d) => {
-      delete d.log;
-      return d;
-    });
+  return docs.map((m) => toInterface(m, context));
 }
 
 export async function hasDraft(
@@ -118,7 +113,7 @@ export async function hasDraft(
     featureId: feature.id,
     status: "draft",
     version: { $nin: excludeVersions },
-  });
+  }).select("_id");
 
   return doc ? true : false;
 }
@@ -141,6 +136,7 @@ export async function getFeatureRevisionsByStatus({
     featureId,
     ...(status ? { status } : {}),
   })
+    .select("-log") // Remove the log when fetching all revisions since it can be large to send over the network
     .sort({ version: -1 })
     .limit(limit);
   return docs.map((m) => toInterface(m, context));
@@ -151,17 +147,19 @@ export async function getRevision({
   organization,
   featureId,
   version,
+  includeLog = false,
 }: {
   context: ReqContext | ApiReqContext;
   organization: string;
   featureId: string;
   version: number;
+  includeLog?: boolean;
 }) {
   const doc = await FeatureRevisionModel.findOne({
     organization,
     featureId,
     version,
-  });
+  }).select(includeLog ? undefined : "-log");
 
   return doc ? toInterface(doc, context) : null;
 }
@@ -173,7 +171,8 @@ export async function getRevisionsByStatus(
   const revisions = await FeatureRevisionModel.find({
     organization: context.org.id,
     status: { $in: statuses },
-  });
+  }).select("-log"); // Remove the log when fetching all revisions since it can be large to send over the network
+
   const docs = revisions
     .filter((r) => !!r)
     .map((r) => {
@@ -254,6 +253,7 @@ export async function createRevision({
       organization: feature.organization,
       featureId: feature.id,
     })
+      .select("version")
       .sort({ version: -1 })
       .limit(1)
   )[0];
@@ -547,6 +547,7 @@ export async function getFeatureRevisionsByFeatureIds(
       status: "draft",
       featureId: { $in: featureIds },
     })
+      .select("-log") // Remove the log when fetching all revisions since it can be large to send over the network
       .sort({ version: -1 })
       .limit(10);
     revisions.forEach((revision) => {
@@ -594,6 +595,7 @@ export async function getFeatureRevisionsByFeaturesCurrentVersion(
       organization: f.organization,
       version: f.version,
     })),
-  });
+  }).select("-log"); // Remove the log when fetching all revisions since it can be large to send over the network
+
   return docs.map((m) => toInterface(m, context));
 }
