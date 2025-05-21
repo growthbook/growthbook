@@ -386,7 +386,15 @@ export async function updateDataSource(
         });
         return;
       }
-      // TODO: datatype mismatch
+      // Prevent changing column type for existing columns
+      if (newMatColumns[col.sourceField].datatype !== col.datatype) {
+        const updateColumn = (updates as Partial<GrowthbookClickhouseDataSource>).settings!.materializedColumns.find(
+          (c) => c.sourceField === col.sourceField
+        );
+        if (updateColumn) {
+          updateColumn.datatype = col.datatype;
+        }
+      }
     });
     const sanitizedToAdd = Object.values(newMatColumns).filter(
       (col) =>
