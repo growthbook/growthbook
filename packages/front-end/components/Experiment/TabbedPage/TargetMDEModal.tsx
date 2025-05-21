@@ -45,7 +45,10 @@ const TargetMDEModal: FC<TargetMDEModalProps> = ({
   ) => {
     setOverrides((prev) => {
       if (checked) {
-        return { ...prev, [metricId]: { ...prev[metricId], targetMDE } };
+        return {
+          ...prev,
+          [metricId]: { ...prev[metricId], id: metricId, targetMDE },
+        };
       } else {
         const newOverride = { ...prev[metricId] };
         delete newOverride.targetMDE;

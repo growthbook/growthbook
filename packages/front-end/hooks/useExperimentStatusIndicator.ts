@@ -15,7 +15,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
-export function getExperimentDecisionCriteria({
+function getExperimentDecisionCriteria({
   orgCustomDecisionCriterias,
   experimentDecisionCriteriaId,
   defaultDecisionCriteriaId,
