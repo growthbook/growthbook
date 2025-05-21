@@ -1,3 +1,4 @@
+import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
 import { getFeatureRevisionsByFeaturesCurrentVersion } from "back-end/src/models/FeatureRevisionModel";
 import { ListFeaturesResponse } from "back-end/types/openapi";
 import { getAllPayloadExperiments } from "back-end/src/models/ExperimentModel";
@@ -5,12 +6,14 @@ import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import {
   getApiFeatureObj,
   getSavedGroupMap,
+  getFeatureDefinitions,
 } from "back-end/src/services/features";
 import {
   applyPagination,
   createApiRequestHandler,
 } from "back-end/src/util/handler";
 import { listFeaturesValidator } from "back-end/src/validators/openapi";
+import { findSDKConnectionByKey } from "back-end/src/models/SdkConnectionModel";
 
 export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
   async (req): Promise<ListFeaturesResponse> => {
@@ -24,13 +27,42 @@ export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
       req.query.projectId
     );
 
+    // If SDK clientKey is provided, get the SDK connection and use its projects/environment
+    let filteredFeatures = features;
+    if (req.query.clientKey) {
+      const sdkConnection = await findSDKConnectionByKey(req.query.clientKey);
+      if (
+        !sdkConnection ||
+        sdkConnection.organization !== req.organization.id
+      ) {
+        throw new Error("Invalid SDK connection key");
+      }
+
+      const payload = await getFeatureDefinitions({
+        context: req.context,
+        capabilities: getConnectionSDKCapabilities(sdkConnection),
+        environment: sdkConnection.environment,
+        projects: sdkConnection.projects,
+        includeVisualExperiments: sdkConnection.includeVisualExperiments,
+        includeDraftExperiments: sdkConnection.includeDraftExperiments,
+        includeExperimentNames: sdkConnection.includeExperimentNames,
+        includeRedirectExperiments: sdkConnection.includeRedirectExperiments,
+        savedGroupReferencesEnabled: sdkConnection.savedGroupReferencesEnabled,
+      });
+
+      filteredFeatures = features.filter(
+        (feature) => feature.id in payload.features
+      );
+    }
+
     // TODO: Move sorting/limiting to the database query for better performance
     const { filtered, returnFields } = applyPagination(
-      features.sort(
+      filteredFeatures.sort(
         (a, b) => a.dateCreated.getTime() - b.dateCreated.getTime()
       ),
       req.query
     );
+
     //get all feature ids and there version
     const revisions = await getFeatureRevisionsByFeaturesCurrentVersion(
       req.context,

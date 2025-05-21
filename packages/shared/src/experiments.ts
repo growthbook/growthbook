@@ -23,6 +23,7 @@ import {
   ExperimentReportResultDimension,
   MetricSnapshotSettings,
 } from "back-end/types/report";
+import { DEFAULT_GUARDRAIL_ALPHA } from "shared/constants";
 import cloneDeep from "lodash/cloneDeep";
 import {
   DataSourceInterfaceWithParams,
@@ -798,6 +799,21 @@ export function getMetricResultStatus({
       clearSignalResultsStatus = "lost";
     }
   }
+  let guardrailSafeStatus = false;
+  if (stats.ci) {
+    const ciLowerGuardrail = stats.ci?.[0] ?? Number.NEGATIVE_INFINITY;
+    const ciUpperGuardrail = stats.ci?.[1] ?? Number.POSITIVE_INFINITY;
+    const guardrailChanceToWin =
+      stats.chanceToWin ??
+      chanceToWinFlatPrior(
+        stats.expected ?? 0,
+        ciLowerGuardrail,
+        ciUpperGuardrail,
+        pValueThreshold,
+        metric.inverse
+      );
+    guardrailSafeStatus = guardrailChanceToWin > 1 - DEFAULT_GUARDRAIL_ALPHA;
+  }
   return {
     shouldHighlight: _shouldHighlight,
     belowMinChange,
@@ -806,7 +822,50 @@ export function getMetricResultStatus({
     directionalStatus,
     resultsStatus,
     clearSignalResultsStatus,
+    guardrailSafeStatus,
   };
+}
+
+export function chanceToWinFlatPrior(
+  expected: number,
+  lower: number,
+  upper: number,
+  pValueThreshold: number,
+  inverse: boolean = false
+): number {
+  if (
+    lower === Number.NEGATIVE_INFINITY &&
+    upper === Number.POSITIVE_INFINITY
+  ) {
+    return 0;
+  }
+  const confidenceIntervalType =
+    lower === Number.NEGATIVE_INFINITY
+      ? "oneSidedLesser"
+      : upper === Number.POSITIVE_INFINITY
+      ? "oneSidedGreater"
+      : "twoSided";
+  const halfwidth =
+    confidenceIntervalType === "twoSided"
+      ? 0.5 * (upper - lower)
+      : confidenceIntervalType === "oneSidedGreater"
+      ? expected - lower
+      : upper - expected;
+  const numTails = confidenceIntervalType === "twoSided" ? 2 : 1;
+  const zScore = normal.quantile(1 - pValueThreshold / numTails, 0, 1);
+  const s = halfwidth / zScore;
+  if (s === 0) {
+    if (expected === 0) {
+      return 0;
+    }
+    const chanceToWin = expected > 0;
+    return inverse ? 1 - +chanceToWin : +chanceToWin;
+  }
+  const ctwInverse = normal.cdf(-expected / s, 0, 1);
+  if (inverse) {
+    return ctwInverse;
+  }
+  return 1 - ctwInverse;
 }
 
 export function getAllMetricIdsFromExperiment(

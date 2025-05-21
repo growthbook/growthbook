@@ -1,15 +1,24 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React, { useMemo, useState } from "react";
+import { Text } from "@radix-ui/themes";
 import { getScopedSettings } from "shared/settings";
-import { upperFirst } from "lodash";
-import { expandMetricGroups, getMetricLink } from "shared/experiments";
+import {
+  expandMetricGroups,
+  ExperimentMetricInterface,
+  getMetricLink,
+} from "shared/experiments";
+import { DEFAULT_TARGET_MDE } from "shared/constants";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import Link from "@/components/Radix/Link";
+import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
+import DecisionCriteriaSelectorModal from "@/components/DecisionCriteria/DecisionCriteriaSelectorModal";
+import TargetMDEModal from "@/components/Experiment/TabbedPage/TargetMDEModal";
+import { AppFeatures } from "@/types/app-features";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -19,6 +28,19 @@ export interface Props {
   ssrPolyfills?: SSRPolyfills;
   isPublic?: boolean;
 }
+
+const percentFormatter = new Intl.NumberFormat(undefined, {
+  style: "percent",
+  maximumFractionDigits: 2,
+});
+
+export type ExperimentMetricInterfaceWithComputedTargetMDE = Omit<
+  ExperimentMetricInterface,
+  "targetMDE"
+> & {
+  computedTargetMDE: number;
+  metricTargetMDE: number;
+};
 
 export default function AnalysisSettings({
   experiment,
@@ -30,32 +52,30 @@ export default function AnalysisSettings({
 }: Props) {
   const {
     getDatasourceById,
-    getProjectById,
     getExperimentMetricById,
     getSegmentById,
     metricGroups,
   } = useDefinitions();
-  const { organization } = useUser();
-  const _settings = useOrgSettings();
-  const settings = ssrPolyfills?.useOrgSettings() || _settings;
+  const { organization, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
 
-  const [analysisModal, setAnalysisModal] = useState(false);
+  const growthbook = useGrowthBook<AppFeatures>();
+  const hasDecisionFramework =
+    growthbook.isOn("decision-framework-criteria") &&
+    organization?.settings?.decisionFrameworkEnabled &&
+    hasCommercialFeature("decision-framework");
 
-  const project =
-    ssrPolyfills?.getProjectById(experiment.project || "") ||
-    getProjectById(experiment.project || "");
+  const { getDecisionCriteria } = useRunningExperimentStatus();
+  const decisionCriteria = getDecisionCriteria(
+    experiment.decisionFrameworkSettings?.decisionCriteriaId
+  );
+
+  const [analysisModal, setAnalysisModal] = useState(false);
+  const [targetMDEModal, setTargetMDEModal] = useState(false);
+  const [decisionCriteriaModal, setDecisionCriteriaModal] = useState(false);
 
   const canEditAnalysisSettings =
     canEdit && permissionsUtil.canUpdateExperiment(experiment, {});
-
-  const { settings: scopedSettings } = getScopedSettings({
-    organization: organization?.settings
-      ? organization
-      : { settings: settings },
-    project: project ?? undefined,
-    experiment: experiment,
-  });
 
   const datasource = experiment
     ? getDatasourceById(experiment.datasource)
@@ -64,8 +84,6 @@ export default function AnalysisSettings({
   const assignmentQuery = datasource?.settings?.queries?.exposure?.find(
     (e) => e.id === experiment.exposureQueryId
   );
-
-  const statsEngine = scopedSettings.statsEngine.value;
 
   const {
     expandedGoals,
@@ -94,12 +112,22 @@ export default function AnalysisSettings({
     ssrPolyfills?.metricGroups,
   ]);
 
-  const goals: { name: string; id: string }[] = [];
+  const goalsWithTargetMDE: ExperimentMetricInterfaceWithComputedTargetMDE[] = [];
   expandedGoals.forEach((m) => {
-    const name =
-      ssrPolyfills?.getExperimentMetricById?.(m)?.name ||
-      getExperimentMetricById(m)?.name;
-    if (name) goals.push({ name, id: m });
+    const metric =
+      ssrPolyfills?.getExperimentMetricById?.(m) || getExperimentMetricById(m);
+    if (metric) {
+      const { settings: scopedSettings } = getScopedSettings({
+        organization,
+        experiment,
+        metric,
+      });
+      goalsWithTargetMDE.push({
+        ...metric,
+        computedTargetMDE: scopedSettings.targetMDE.value ?? DEFAULT_TARGET_MDE,
+        metricTargetMDE: metric.targetMDE ?? DEFAULT_TARGET_MDE,
+      });
+    }
   });
   const secondary: { name: string; id: string }[] = [];
   expandedSecondaries.forEach((m) => {
@@ -131,6 +159,30 @@ export default function AnalysisSettings({
           editMetrics={true}
           source={"analysis-settings"}
           envs={envs}
+        />
+      ) : null}
+
+      {decisionCriteriaModal && mutate ? (
+        <DecisionCriteriaSelectorModal
+          initialCriteria={decisionCriteria}
+          experiment={experiment}
+          onSubmit={() => {
+            setDecisionCriteriaModal(false);
+            mutate();
+          }}
+          onClose={() => setDecisionCriteriaModal(false)}
+          canEdit={canEditAnalysisSettings}
+        />
+      ) : null}
+      {targetMDEModal && mutate ? (
+        <TargetMDEModal
+          goalsWithTargetMDE={goalsWithTargetMDE}
+          experiment={experiment}
+          onSubmit={() => {
+            setTargetMDEModal(false);
+            mutate();
+          }}
+          onClose={() => setTargetMDEModal(false)}
         />
       ) : null}
 
@@ -183,35 +235,18 @@ export default function AnalysisSettings({
                 )}
               </div>
             </div>
-
-            {!isBandit && (
-              <div className="col-4 mb-4">
-                <div className="h5">Stats Engine</div>
-                <div>{upperFirst(statsEngine)}</div>
-              </div>
-            )}
-            {isBandit && (
-              <div className="col-4 mb-4">
-                <div className="h5">CUPED</div>
-                <div>
-                  {experiment.regressionAdjustmentEnabled
-                    ? "Enabled"
-                    : "Disabled"}
-                </div>
-              </div>
-            )}
           </div>
         )}
 
         <div className="row mt-4">
-          <div className="col-4">
+          <div className="col-4 mb-4">
             <div className="h5">
               {!isBandit ? "Goal Metrics" : "Decision Metric"}
             </div>
             <div>
-              {goals.length ? (
+              {goalsWithTargetMDE.length ? (
                 <ul className="list-unstyled mb-0">
-                  {goals.map((metric, i) => {
+                  {goalsWithTargetMDE.map((metric, i) => {
                     if (isBandit && i > 0) return null;
                     return (
                       <li key={`goal-${i}`}>
@@ -262,7 +297,56 @@ export default function AnalysisSettings({
             </div>
           </div>
         </div>
-
+        {!isBandit && hasDecisionFramework && (
+          <div className="row mt-4">
+            <div className="col-4">
+              <div className="h5">Target MDE</div>
+              <div>
+                {goalsWithTargetMDE.length ? (
+                  <ul className="list-unstyled mb-0">
+                    {goalsWithTargetMDE.map((metric, i) => {
+                      return (
+                        <li key={`goal-mde-${i}`}>
+                          {metric.name} (
+                          {percentFormatter.format(metric.computedTargetMDE)})
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : (
+                  <em>none</em>
+                )}
+              </div>
+              {canEditAnalysisSettings ? (
+                <div className="mt-1">
+                  <Link
+                    onClick={() => {
+                      setTargetMDEModal(true);
+                    }}
+                  >
+                    View/Edit
+                  </Link>
+                </div>
+              ) : null}
+            </div>
+            <div className="col-4">
+              <div className="h5">Decision Criteria</div>
+              <div>
+                <Text weight="regular">{decisionCriteria.name}</Text>
+                <Text color="gray">{`: ${decisionCriteria.description}`}</Text>
+              </div>
+              <div className="mt-1">
+                <Link
+                  onClick={() => {
+                    setDecisionCriteriaModal(true);
+                  }}
+                >
+                  {canEditAnalysisSettings ? "View/Edit" : "View"}
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
         {isBandit && (
           <div className="row mt-4">
             <div className="col-4">

@@ -13,57 +13,87 @@ import {
 } from "back-end/types/experiment";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
-import useApi from "@/hooks/useApi";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
-export function useExperimentDecisionCriteria() {
-  const settings = useOrgSettings();
-  const decisionCriteria = !settings?.defaultDecisionCriteriaId
-    ? PRESET_DECISION_CRITERIA
-    : PRESET_DECISION_CRITERIAS.find(
-        (dc) => dc.id === settings.defaultDecisionCriteriaId
-      );
-  const { data } = useApi<{ decisionCriteria: DecisionCriteriaInterface }>(
-    `/decision-criteria/${settings?.defaultDecisionCriteriaId}`,
-    {
-      shouldRun: () =>
-        !!settings?.defaultDecisionCriteriaId && !decisionCriteria,
-    }
+function getExperimentDecisionCriteria({
+  orgCustomDecisionCriterias,
+  experimentDecisionCriteriaId,
+  defaultDecisionCriteriaId,
+}: {
+  orgCustomDecisionCriterias: DecisionCriteriaInterface[];
+  experimentDecisionCriteriaId?: string;
+  defaultDecisionCriteriaId?: string;
+}): DecisionCriteriaData {
+  // If the experiment has a decision criteria id, use that. Otherwise, use the org's default
+  const decisionCriteriaToGet =
+    experimentDecisionCriteriaId ?? defaultDecisionCriteriaId;
+
+  // return default if no decision criteria id is provided
+  if (!decisionCriteriaToGet) {
+    return PRESET_DECISION_CRITERIA;
+  }
+
+  const presetDecisionCriteria = PRESET_DECISION_CRITERIAS.find(
+    (dc) => dc.id === decisionCriteriaToGet
   );
-  return data?.decisionCriteria ?? decisionCriteria ?? PRESET_DECISION_CRITERIA;
+  // if decision criteria is one of the presets, use that
+  if (presetDecisionCriteria) {
+    return presetDecisionCriteria;
+  }
+
+  // if the decision criteria is a custom one, use that
+  const customDecisionCriteria = orgCustomDecisionCriterias.find(
+    (dc) => dc.id === decisionCriteriaToGet
+  );
+  if (customDecisionCriteria) {
+    return customDecisionCriteria;
+  }
+
+  // Always fall back to main preset
+  return PRESET_DECISION_CRITERIA;
 }
 
 export function useRunningExperimentStatus() {
   const { hasCommercialFeature } = useUser();
+  const { decisionCriteria } = useDefinitions();
   const settings = useOrgSettings();
   const healthSettings = getHealthSettings(
     settings,
     hasCommercialFeature("decision-framework")
   );
 
-  const decisionCriteria = useExperimentDecisionCriteria();
-
   return {
-    decisionCriteria,
+    getDecisionCriteria: (experimentDecisionCriteriaId?: string) =>
+      getExperimentDecisionCriteria({
+        orgCustomDecisionCriterias: decisionCriteria,
+        experimentDecisionCriteriaId,
+        defaultDecisionCriteriaId: settings?.defaultDecisionCriteriaId,
+      }),
     getRunningExperimentResultStatus: (
       experimentData: ExperimentDataForStatusStringDates
     ) =>
       getRunningExperimentResultStatus({
         experimentData,
         healthSettings,
-        decisionCriteria,
+        decisionCriteria: getExperimentDecisionCriteria({
+          orgCustomDecisionCriterias: decisionCriteria,
+          experimentDecisionCriteriaId:
+            experimentData.decisionFrameworkSettings?.decisionCriteriaId,
+          defaultDecisionCriteriaId: settings?.defaultDecisionCriteriaId,
+        }),
       }),
   };
 }
 
 export function useExperimentStatusIndicator() {
   const { hasCommercialFeature } = useUser();
+  const { decisionCriteria } = useDefinitions();
   const settings = useOrgSettings();
   const healthSettings = getHealthSettings(
     settings,
     hasCommercialFeature("decision-framework")
   );
 
-  const decisionCriteria = useExperimentDecisionCriteria();
   return (
     experimentData: ExperimentDataForStatusStringDates,
     skipArchived: boolean = false
@@ -72,7 +102,12 @@ export function useExperimentStatusIndicator() {
       experimentData,
       skipArchived,
       healthSettings,
-      decisionCriteria
+      getExperimentDecisionCriteria({
+        orgCustomDecisionCriterias: decisionCriteria,
+        experimentDecisionCriteriaId:
+          experimentData.decisionFrameworkSettings?.decisionCriteriaId,
+        defaultDecisionCriteriaId: settings?.defaultDecisionCriteriaId,
+      })
     );
 }
 

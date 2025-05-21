@@ -140,6 +140,24 @@ export type ExperimentType = typeof experimentType[number];
 export const banditStageType = ["explore", "exploit", "paused"] as const;
 export type BanditStageType = typeof banditStageType[number];
 
+export const decisionFrameworkMetricOverrides = z.object({
+  id: z.string(),
+  targetMDE: z.number().optional(),
+});
+export type DecisionFrameworkMetricOverrides = z.infer<
+  typeof decisionFrameworkMetricOverrides
+>;
+
+export const experimentDecisionFrameworkSettings = z.object({
+  decisionCriteriaId: z.string().optional(),
+  decisionFrameworkMetricOverrides: z
+    .array(decisionFrameworkMetricOverrides)
+    .optional(),
+});
+export type ExperimentDecisionFrameworkSettings = z.infer<
+  typeof experimentDecisionFrameworkSettings
+>;
+
 export const experimentAnalysisSettings = z
   .object({
     trackingKey: z.string(),
@@ -150,6 +168,7 @@ export const experimentAnalysisSettings = z
     guardrailMetrics: z.array(z.string()),
     activationMetric: z.string().optional(),
     metricOverrides: z.array(metricOverride).optional(),
+    decisionFrameworkSettings: experimentDecisionFrameworkSettings,
     segment: z.string().optional(),
     queryFilter: z.string().optional(),
     skipPartialData: z.boolean().optional(),
@@ -189,7 +208,7 @@ export type ExperimentAnalysisSummaryHealth = z.infer<
 export const goalMetricStatus = ["won", "lost", "neutral"] as const;
 export type GoalMetricStatus = typeof goalMetricStatus[number];
 
-export const guardrailMetricStatus = ["lost", "neutral"] as const;
+export const guardrailMetricStatus = ["safe", "lost", "neutral"] as const;
 export type GuardrailMetricStatus = typeof guardrailMetricStatus[number];
 
 export const goalMetricResult = z.object({
