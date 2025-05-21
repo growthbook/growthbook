@@ -68,6 +68,7 @@ export default function CodeTextArea({
   completions,
   ...otherProps
 }: Props) {
+  // eslint-disable-next-line
   const fieldProps = otherProps as any;
   const { theme } = useAppearanceUITheme();
   const [editor, setEditor] = useState<null | Ace.Editor>(null);
