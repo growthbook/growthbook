@@ -3123,10 +3123,8 @@ export async function computeResultsStatus({
         const baselineMetric = baselineVariation.metrics?.[m];
         const currentMetric = currentVariation.metrics?.[m];
         if (!currentMetric || !baselineMetric) continue;
-
         const metric = metricMap.get(m);
         if (!metric) continue;
-
         const resultsStatus = getMetricResultStatus({
           metric,
           metricDefaults,
@@ -3168,9 +3166,16 @@ export async function computeResultsStatus({
           if (!variationStatus.guardrailMetrics) {
             variationStatus.guardrailMetrics = {};
           }
-          variationStatus.guardrailMetrics[metric.id] = {
-            status: resultsStatus.resultsStatus === "lost" ? "lost" : "neutral",
-          };
+          if (resultsStatus.guardrailSafeStatus) {
+            variationStatus.guardrailMetrics[metric.id] = {
+              status: "safe",
+            };
+          } else {
+            variationStatus.guardrailMetrics[metric.id] = {
+              status:
+                resultsStatus.resultsStatus === "lost" ? "lost" : "neutral",
+            };
+          }
         }
       }
     }

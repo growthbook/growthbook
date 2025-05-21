@@ -3,6 +3,7 @@ import {
   SafeRolloutSnapshotInterface,
   safeRolloutSnapshotInterface,
 } from "back-end/src/validators/safe-rollout-snapshot";
+import { updateSafeRolloutTimeSeries } from "back-end/src/services/safeRolloutTimeSeries";
 import {
   getSafeRolloutAnalysisSummary,
   notifySafeRolloutChange,
@@ -101,18 +102,35 @@ export class SafeRolloutSnapshotModel extends BaseClass {
         safeRolloutSnapshot: updatedDoc,
       });
 
-      await this.context.models.safeRollout.updateById(safeRollout.id, {
-        analysisSummary: safeRolloutAnalysisSummary,
-      });
+      const updatedSafeRollout = await this.context.models.safeRollout.updateById(
+        safeRollout.id,
+        {
+          analysisSummary: safeRolloutAnalysisSummary,
+        }
+      );
 
       await notifySafeRolloutChange({
         context: this.context,
-        updatedSafeRollout: {
-          ...safeRollout,
-          analysisSummary: safeRolloutAnalysisSummary,
-        },
+        updatedSafeRollout,
         safeRolloutSnapshot: updatedDoc,
       });
+
+      try {
+        await updateSafeRolloutTimeSeries({
+          context: this.context,
+          safeRollout: updatedSafeRollout,
+          safeRolloutSnapshot: updatedDoc,
+        });
+      } catch (e) {
+        this.context.logger.error(
+          e,
+          "Failed to update Safe Rollout time series data",
+          {
+            safeRolloutId: safeRollout.id,
+            snapshotId: updatedDoc.id,
+          }
+        );
+      }
     }
   }
 }
