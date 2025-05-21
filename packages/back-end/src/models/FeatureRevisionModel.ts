@@ -113,7 +113,7 @@ export async function hasDraft(
     featureId: feature.id,
     status: "draft",
     version: { $nin: excludeVersions },
-  });
+  }).select("_id");
 
   return doc ? true : false;
 }
@@ -253,6 +253,7 @@ export async function createRevision({
       organization: feature.organization,
       featureId: feature.id,
     })
+      .select("version")
       .sort({ version: -1 })
       .limit(1)
   )[0];
