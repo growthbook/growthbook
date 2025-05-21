@@ -168,10 +168,12 @@ export default function EditSqlModal({
       return;
     }
 
-    getAutoCompletions(cursorData, informationSchema).then((completions) => {
-      setAutoCompletions(completions);
-    });
-  }, [cursorData, informationSchema]);
+    getAutoCompletions(cursorData, informationSchema, apiCall).then(
+      (completions) => {
+        setAutoCompletions(completions);
+      }
+    );
+  }, [cursorData, informationSchema, apiCall]);
 
   useEffect(() => {
     if (!canRunQueries) setTestQueryBeforeSaving(false);

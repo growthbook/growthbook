@@ -18,7 +18,11 @@ const tableDataCache: Record<string, InformationSchemaTablesInterface> = {};
 // Function to fetch table data
 async function fetchTableData(
   tableId: string,
-  datasourceId: string
+  datasourceId: string,
+  apiCall: (
+    url: string,
+    options?: RequestInit
+  ) => Promise<{ table: InformationSchemaTablesInterface }>
 ): Promise<InformationSchemaTablesInterface | null> {
   // Check cache first
   if (tableDataCache[tableId]) {
@@ -26,18 +30,9 @@ async function fetchTableData(
   }
 
   try {
-    const response = await fetch(
-      `/api/datasource/${datasourceId}/schema/table/${tableId}`,
-      {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-      }
+    const data = await apiCall(
+      `/datasource/${datasourceId}/schema/table/${tableId}`
     );
-    if (!response.ok) return null;
-    const data = await response.json();
     if (data.table) {
       tableDataCache[tableId] = data.table;
       return data.table;
@@ -52,14 +47,18 @@ async function fetchTableData(
 // Function to get all table data for selected tables
 async function getTableDataForAutocomplete(
   selectedTables: string[],
-  datasourceId: string
+  datasourceId: string,
+  apiCall: (
+    url: string,
+    options?: RequestInit
+  ) => Promise<{ table: InformationSchemaTablesInterface }>
 ): Promise<Record<string, InformationSchemaTablesInterface>> {
   const tableDataMap: Record<string, InformationSchemaTablesInterface> = {};
 
   // Fetch data for each table in parallel
   await Promise.all(
     selectedTables.map(async (tableId) => {
-      const tableData = await fetchTableData(tableId, datasourceId);
+      const tableData = await fetchTableData(tableId, datasourceId, apiCall);
       if (tableData) {
         tableDataMap[tableId] = tableData;
       }
@@ -211,7 +210,11 @@ export function getSelectedTables(
 
 export async function getAutoCompletions(
   cursorData: CursorData | null,
-  informationSchema: InformationSchemaInterface | undefined
+  informationSchema: InformationSchemaInterface | undefined,
+  apiCall: (
+    url: string,
+    options?: RequestInit
+  ) => Promise<{ table: InformationSchemaTablesInterface }>
 ): Promise<AceCompletion[]> {
   if (!cursorData || !informationSchema) return [];
 
@@ -222,7 +225,8 @@ export async function getAutoCompletions(
   const selectedTables = getSelectedTables(cursorData, informationSchema);
   const tableDataMap = await getTableDataForAutocomplete(
     selectedTables,
-    informationSchema.datasourceId
+    informationSchema.datasourceId,
+    apiCall
   );
 
   // Generate suggestions based on context
