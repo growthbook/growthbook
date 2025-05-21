@@ -356,7 +356,6 @@ export const syncVercelSdkWebhook = async (organization: string) => {
     name: "Sync vercel integration edge config",
     endpoint: `${VERCEL_URL}/v1/installations/${nativeIntegration.installationId}/resources/${resource.id}/experimentation/edge-config`,
     payloadFormat: "vercelNativeIntegration",
-    payloadKey: "gb_payload",
     httpMethod: "PUT",
     headers: JSON.stringify({
       Authorization: `Bearer ${nativeIntegration.upsertData.payload.credentials.access_token}`,
