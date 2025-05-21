@@ -369,7 +369,6 @@ export async function getAutoCompletions(
     options?: RequestInit
   ) => Promise<{ table: InformationSchemaTablesInterface }>
 ): Promise<AceCompletion[]> {
-  console.log("informationSchema", informationSchema);
   if (!cursorData || !informationSchema) return [];
 
   const context = getCurrentContext(cursorData);

@@ -168,11 +168,16 @@ export default function EditSqlModal({
       return;
     }
 
-    getAutoCompletions(cursorData, informationSchema, apiCall).then(
-      (completions) => {
-        setAutoCompletions(completions);
-      }
-    );
+    const updateCompletions = async () => {
+      const completions = await getAutoCompletions(
+        cursorData,
+        informationSchema,
+        apiCall
+      );
+      setAutoCompletions(completions);
+    };
+
+    updateCompletions();
   }, [cursorData, informationSchema, apiCall]);
 
   useEffect(() => {
