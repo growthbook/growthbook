@@ -103,7 +103,7 @@ export function validateLoginMethod(
   org: OrganizationInterface,
   req: AuthRequest
 ) {
-  // If organization is vercel intergration and no loginMethod is provided, at it.
+  // If organization is vercel intergration and no loginMethod is provided, add it.
   if (org.isVercelIntegration && !req.loginMethod)
     req.loginMethod = { id: "vercel" };
 
