@@ -23,7 +23,7 @@ import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import useApi from "@/hooks/useApi";
-import { getAutoCompletions } from "@/services/sql";
+import { getAutoCompletions } from "@/services/sqlAutoComplete";
 import SchemaBrowser from "./SchemaBrowser";
 import styles from "./EditSqlModal.module.scss";
 
