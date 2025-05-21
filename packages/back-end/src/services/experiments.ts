@@ -521,12 +521,13 @@ export function getSnapshotSettings({
     metricGroups
   )
     .map((m) =>
-      getMetricForSnapshot(
-        m,
+      getMetricForSnapshot({
+        id: m,
         metricMap,
         settingsForSnapshotMetrics,
-        experiment.metricOverrides
-      )
+        metricOverrides: experiment.metricOverrides,
+        decisionFrameworkSettings: experiment.decisionFrameworkSettings,
+      })
     )
     .filter(isDefined);
 
@@ -2470,6 +2471,7 @@ export function postExperimentApiPayloadToInterface(
     guardrailMetrics: payload.guardrailMetrics || [],
     activationMetric: payload.activationMetric || "",
     metricOverrides: [],
+    decisionFrameworkSettings: {},
     segment: payload.segmentId || "",
     queryFilter: payload.queryFilter || "",
     skipPartialData: payload.inProgressConversions === "strict",
