@@ -45,9 +45,7 @@ describe("features API", () => {
       org,
       models: {
         safeRollout: {
-          getAllPayloadSafeRolloutsByFeatureId: jest
-            .fn()
-            .mockResolvedValue(new Map()),
+          getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
         },
       },
       permissions: {
@@ -133,9 +131,7 @@ describe("features API", () => {
         },
         models: {
           safeRollout: {
-            getAllPayloadSafeRolloutsByFeatureId: jest
-              .fn()
-              .mockResolvedValue(new Map()),
+            getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
           },
         },
         permissions: {
@@ -176,9 +172,7 @@ describe("features API", () => {
         },
         models: {
           safeRollout: {
-            getAllPayloadSafeRolloutsByFeatureId: jest
-              .fn()
-              .mockResolvedValue(new Map()),
+            getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
           },
         },
         permissions: {
@@ -244,9 +238,7 @@ describe("features API", () => {
         },
         models: {
           safeRollout: {
-            getAllPayloadSafeRolloutsByFeatureId: jest
-              .fn()
-              .mockResolvedValue(new Map()),
+            getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
           },
         },
         permissions: {

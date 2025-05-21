@@ -72,9 +72,7 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
       featureId: updatedFeature.id,
       version: updatedFeature.version,
     });
-    const safeRolloutMap = await req.context.models.safeRollout.getAllPayloadSafeRolloutsByFeatureId(
-      [updatedFeature.id]
-    );
+    const safeRolloutMap = await req.context.models.safeRollout.getAllPayloadSafeRollouts();
     return {
       feature: getApiFeatureObj({
         feature: updatedFeature,

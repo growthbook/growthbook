@@ -2287,9 +2287,7 @@ export async function postFeatureEvaluate(
   const experimentMap = await getAllPayloadExperiments(context);
   const allEnvironments = getEnvironments(org);
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
-  const safeRolloutMap = await context.models.safeRollout.getAllPayloadSafeRolloutsByFeatureId(
-    [feature.id]
-  );
+  const safeRolloutMap = await context.models.safeRollout.getAllPayloadSafeRollouts();
   const results = evaluateFeature({
     feature,
     revision,
@@ -2346,9 +2344,7 @@ export async function postFeaturesEvaluate(
     environment !== ""
       ? [allEnvironments.find((obj) => obj.id === environment)]
       : getEnvironments(context.org);
-  const safeRolloutMap = await context.models.safeRollout.getAllPayloadSafeRolloutsByFeatureId(
-    featureIds
-  );
+  const safeRolloutMap = await context.models.safeRollout.getAllPayloadSafeRollouts();
   const featureResults = await evaluateAllFeatures({
     features,
     context,

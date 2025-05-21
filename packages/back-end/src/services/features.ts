@@ -804,9 +804,7 @@ export async function getFeatureDefinitions({
   const features = await getAllFeatures(context);
   const groupMap = await getSavedGroupMap(context.org, savedGroups);
   const experimentMap = await getAllPayloadExperiments(context);
-  const safeRolloutMap = await context.models.safeRollout.getAllPayloadSafeRolloutsByFeatureId(
-    features.map((f) => f.id)
-  );
+  const safeRolloutMap = await context.models.safeRollout.getAllPayloadSafeRollouts();
 
   const prereqStateCache: Record<
     string,
