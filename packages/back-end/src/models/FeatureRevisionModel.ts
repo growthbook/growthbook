@@ -253,7 +253,6 @@ export async function createRevision({
       organization: feature.organization,
       featureId: feature.id,
     })
-      .select("version")
       .sort({ version: -1 })
       .limit(1)
   )[0];
