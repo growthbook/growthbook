@@ -24,6 +24,7 @@ import {
 } from "back-end/src/models/FeatureRevisionModel";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
+import { RevisionRules } from "back-end/src/validators/features";
 import { parseJsonSchemaForEnterprise, validateEnvKeys } from "./postFeature";
 
 export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
@@ -38,10 +39,17 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     const effectiveProject =
       typeof project === "undefined" ? feature.project : project;
 
-    const orgEnvs = getEnvironmentIdsFromOrg(req.organization);
+    const orgEnvs = getEnvironmentIdsFromOrg(req.context.org);
 
     if (!req.context.permissions.canUpdateFeature(feature, req.body)) {
       req.context.permissions.throwPermissionError();
+    }
+    if (
+      req.context.org.settings?.requireProjectForFeatures &&
+      feature.project &&
+      (effectiveProject == null || effectiveProject === "")
+    ) {
+      throw new Error("Must specify a project");
     }
 
     if (project != null) {
@@ -143,6 +151,12 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     const changedEnvironments: string[] = [];
     if ("defaultValue" in updates || "environmentSettings" in updates) {
       const revisionChanges: Partial<FeatureRevisionInterface> = {};
+      const revisedRules: RevisionRules = {};
+
+      // Copy over current envSettings to revision as this endpoint support partial updates
+      Object.entries(feature.environmentSettings).forEach(([env, settings]) => {
+        revisedRules[env] = settings.rules;
+      });
 
       let hasChanges = false;
       if (
@@ -164,12 +178,14 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
             ) {
               hasChanges = true;
               changedEnvironments.push(env);
-              revisionChanges.rules = revisionChanges.rules || {};
-              revisionChanges.rules[env] = settings.rules;
+              // if the rule is different from the current feature value, update revisionChanges
+              revisedRules[env] = settings.rules;
             }
           }
         );
       }
+
+      revisionChanges.rules = revisedRules;
 
       if (hasChanges) {
         const reviewRequired = featureRequiresReview(
@@ -209,7 +225,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     );
 
     await addTagsDiff(
-      req.organization.id,
+      req.context.org.id,
       feature.tags || [],
       updates.tags || []
     );

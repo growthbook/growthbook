@@ -19,6 +19,7 @@ const docSections = {
   eventWebhooks: "/app/webhooks/event-webhooks",
   sdkWebhooks: "/app/webhooks/sdk-webhooks",
   "sdkWebhooks#payload-format": "/app/webhooks/sdk-webhooks#payload-format",
+  webhookSecrets: "/app/webhooks#webhook-secrets",
   bandits: "/bandits/overview",
   targeting: "/features/targeting",
   namespaces: "/features/rules#namespaces",
@@ -81,6 +82,7 @@ const docSections = {
   prerequisites: "/features/prerequisites",
   statisticsSequential: "/statistics/sequential",
   customMarkdown: "/using/growthbook-best-practices#custom-markdown",
+  customMetadata: "/using/growthbook-best-practices#custom-fields",
   savedGroups: "/features/targeting#saved-groups",
   ga4BigQuery: "/guide/GA4-google-analytics",
   gtmSetup: "/guide/google-tag-manager-and-growthbook",
@@ -89,6 +91,7 @@ const docSections = {
   apiPostEnvironment: "/api#tag/environments/operation/postEnvironment",
   idLists: "/features/targeting#id-lists",
   queryOptimization: "/app/query-optimization",
+  metricGroups: "/app/metrics#metric-groups",
 };
 
 export type DocSection = keyof typeof docSections;

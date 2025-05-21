@@ -53,6 +53,7 @@ export function getRisk(
   baseline: SnapshotMetric,
   metric: ExperimentMetricInterface,
   metricDefaults: MetricDefaults,
+  differenceType: DifferenceType,
   // separate CR because sometimes "baseline" above is the variation
   baselineCR: number
 ): { risk: number; relativeRisk: number; showRisk: boolean } {
@@ -71,20 +72,34 @@ export function getRisk(
   const showRisk =
     baseline.cr > 0 &&
     hasEnoughData(baseline, stats, metric, metricDefaults) &&
-    !isSuspiciousUplift(baseline, stats, metric, metricDefaults);
+    !isSuspiciousUplift(
+      baseline,
+      stats,
+      metric,
+      metricDefaults,
+      differenceType
+    );
   return { risk, relativeRisk, showRisk };
 }
 
 export function getRiskByVariation(
   riskVariation: number,
   row: ExperimentTableRow,
-  metricDefaults: MetricDefaults
+  metricDefaults: MetricDefaults,
+  differenceType: DifferenceType
 ) {
   const baseline = row.variations[0];
 
   if (riskVariation > 0) {
     const stats = row.variations[riskVariation];
-    return getRisk(stats, baseline, row.metric, metricDefaults, baseline.cr);
+    return getRisk(
+      stats,
+      baseline,
+      row.metric,
+      metricDefaults,
+      differenceType,
+      baseline.cr
+    );
   } else {
     let risk = -1;
     let relativeRisk = 0;
@@ -100,7 +115,14 @@ export function getRiskByVariation(
         risk: vRisk,
         relativeRisk: vRelativeRisk,
         showRisk: vShowRisk,
-      } = getRisk(baseline, stats, row.metric, metricDefaults, baseline.cr);
+      } = getRisk(
+        baseline,
+        stats,
+        row.metric,
+        metricDefaults,
+        differenceType,
+        baseline.cr
+      );
       if (vRisk > risk) {
         risk = vRisk;
         relativeRisk = vRelativeRisk;
@@ -121,7 +143,8 @@ export function hasRisk(rows: ExperimentTableRow[]) {
 
 export function useDomain(
   variations: ExperimentReportVariationWithIndex[], // must be ordered, baseline first
-  rows: ExperimentTableRow[]
+  rows: ExperimentTableRow[],
+  differenceType: DifferenceType
 ): [number, number] {
   const { metricDefaults } = useOrganizationMetricDefaults();
 
@@ -140,7 +163,15 @@ export function useDomain(
       if (!hasEnoughData(baseline, stats, row.metric, metricDefaults)) {
         return;
       }
-      if (isSuspiciousUplift(baseline, stats, row.metric, metricDefaults)) {
+      if (
+        isSuspiciousUplift(
+          baseline,
+          stats,
+          row.metric,
+          metricDefaults,
+          differenceType
+        )
+      ) {
         return;
       }
 
@@ -262,14 +293,22 @@ export type RiskMeta = {
   relativeRiskFormatted: string;
   riskReason: string;
 };
-export type EnoughDataMeta = {
+export type EnoughDataMetaZeroValues = {
+  reason: "baselineZero" | "variationZero";
+  reasonText: string;
+};
+export type EnoughDataMetaNotEnoughData = {
+  reason: "notEnoughData";
+  reasonText: string;
   percentComplete: number;
   percentCompleteNumerator: number;
   percentCompleteDenominator: number;
   timeRemainingMs: number | null;
   showTimeRemaining: boolean;
-  reason: string;
 };
+export type EnoughDataMeta =
+  | EnoughDataMetaZeroValues
+  | EnoughDataMetaNotEnoughData;
 export function getRowResults({
   stats,
   baseline,
@@ -279,6 +318,7 @@ export function getRowResults({
   isGuardrail,
   minSampleSize,
   statsEngine,
+  differenceType,
   ciUpper,
   ciLower,
   pValueThreshold,
@@ -292,6 +332,7 @@ export function getRowResults({
   stats: SnapshotMetric;
   baseline: SnapshotMetric;
   statsEngine: StatsEngine;
+  differenceType: DifferenceType;
   metric: ExperimentMetricInterface;
   denominator?: ExperimentMetricInterface;
   metricDefaults: MetricDefaults;
@@ -327,44 +368,81 @@ export function getRowResults({
   const baselineSampleSize = metricSampleSize.baselineValue ?? baseline.value;
   const variationSampleSize = metricSampleSize.variationValue ?? stats.value;
   const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
-  const enoughDataReason =
-    `This metric has a minimum ${
-      quantileMetricType(metric) ? "sample size" : "total"
-    } of ${minSampleSize}; this value must be reached in one variation before results are displayed. ` +
-    `The total ${
-      quantileMetricType(metric) ? "sample size" : "metric value"
-    } of the variation is ${compactNumberFormatter.format(
-      variationSampleSize
-    )} and the baseline total is ${compactNumberFormatter.format(
-      baselineSampleSize
-    )}.`;
-  const percentComplete =
-    minSampleSize > 0
-      ? Math.max(baselineSampleSize, variationSampleSize) / minSampleSize
-      : 1;
-  const timeRemainingMs =
-    percentComplete > 0.1
-      ? ((snapshotDate.getTime() - getValidDate(phaseStartDate).getTime()) *
-          (1 - percentComplete)) /
-          percentComplete -
-        (Date.now() - snapshotDate.getTime())
-      : null;
-  const showTimeRemaining =
-    timeRemainingMs !== null && isLatestPhase && experimentStatus === "running";
-  const enoughDataMeta: EnoughDataMeta = {
-    percentComplete,
-    percentCompleteNumerator: Math.max(baselineSampleSize, variationSampleSize),
-    percentCompleteDenominator: minSampleSize,
-    timeRemainingMs,
-    showTimeRemaining,
-    reason: enoughDataReason,
-  };
 
+  const reason: EnoughDataMeta["reason"] =
+    baseline.value === 0
+      ? "baselineZero"
+      : stats.value === 0
+      ? "variationZero"
+      : "notEnoughData";
+
+  const enoughDataMeta: EnoughDataMeta = (() => {
+    switch (reason) {
+      case "notEnoughData": {
+        const reasonText =
+          `This metric has a minimum ${
+            quantileMetricType(metric) ? "sample size" : "total"
+          } of ${minSampleSize}; this value must be reached in one variation before results are displayed. ` +
+          `The total ${
+            quantileMetricType(metric) ? "sample size" : "metric value"
+          } of the variation is ${compactNumberFormatter.format(
+            variationSampleSize
+          )} and the baseline total is ${compactNumberFormatter.format(
+            baselineSampleSize
+          )}.`;
+        const percentComplete =
+          minSampleSize > 0
+            ? Math.max(baselineSampleSize, variationSampleSize) / minSampleSize
+            : 1;
+        const timeRemainingMs =
+          percentComplete !== null && percentComplete > 0.1
+            ? ((snapshotDate.getTime() -
+                getValidDate(phaseStartDate).getTime()) *
+                (1 - percentComplete)) /
+                percentComplete -
+              (Date.now() - snapshotDate.getTime())
+            : null;
+        const showTimeRemaining =
+          timeRemainingMs !== null &&
+          isLatestPhase &&
+          experimentStatus === "running";
+        return {
+          percentComplete,
+          percentCompleteNumerator: Math.max(
+            baselineSampleSize,
+            variationSampleSize
+          ),
+          percentCompleteDenominator: minSampleSize,
+          timeRemainingMs,
+          showTimeRemaining,
+          reason,
+          reasonText,
+        };
+        break;
+      }
+      case "baselineZero": {
+        const reasonText = `Statistics can only be displayed once the baseline has a non-zero value.`;
+        return {
+          reason,
+          reasonText,
+        };
+        break;
+      }
+      case "variationZero": {
+        const reasonText = `Statistics can only be displayed once the variation has a non-zero value.`;
+        return {
+          reason,
+          reasonText,
+        };
+      }
+    }
+  })();
   const suspiciousChange = isSuspiciousUplift(
     baseline,
     stats,
     metric,
-    metricDefaults
+    metricDefaults,
+    differenceType
   );
   const suspiciousChangeReason = suspiciousChange
     ? `A suspicious result occurs when the percent change exceeds your maximum percent change (${percentFormatter.format(
@@ -377,6 +455,7 @@ export function getRowResults({
     baseline,
     metric,
     metricDefaults,
+    differenceType,
     baseline.cr
   );
   const winRiskThreshold = metric.winRisk ?? DEFAULT_WIN_RISK_THRESHOLD;
@@ -432,6 +511,7 @@ export function getRowResults({
     ciUpper,
     pValueThreshold,
     statsEngine,
+    differenceType,
   });
 
   let significantReason = "";

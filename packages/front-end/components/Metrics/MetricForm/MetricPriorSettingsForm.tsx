@@ -2,8 +2,10 @@ import { MetricPriorSettings } from "back-end/types/fact-table";
 import { MetricDefaults } from "back-end/types/organization";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { useState } from "react";
+import { Box } from "@radix-ui/themes";
 import Toggle from "@/components/Forms/Toggle";
 import Field from "@/components/Forms/Field";
+import Checkbox from "@/components/Radix/Checkbox";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -29,28 +31,15 @@ export function MetricPriorSettingsForm({
         Only applicable to Bayesian analyses
       </small>
       <div className="px-3 py-2 pb-0 mb-2 border rounded">
-        <div className="form-group mb-0 mr-0 form-inline">
-          <div className="form-inline my-1">
-            <input
-              type="checkbox"
-              className="form-check-input"
-              id={"toggle-properPriorOverride"}
-              checked={priorSettings.override}
-              onChange={(v) =>
-                setPriorSettings({
-                  ...priorSettings,
-                  override: v.target.checked,
-                })
-              }
-            />
-            <label
-              className="mr-1 cursor-pointer"
-              htmlFor="toggle-properPriorOverride"
-            >
-              Override organization-level settings
-            </label>
-          </div>
-        </div>
+        <Box mt="1">
+          <Checkbox
+            label="Override organization-level settings"
+            value={priorSettings.override}
+            setValue={(v) =>
+              setPriorSettings({ ...priorSettings, override: v })
+            }
+          />
+        </Box>
         <div
           style={{
             display: priorSettings.override ? "block" : "none",

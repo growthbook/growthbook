@@ -459,6 +459,15 @@ export async function postFeatures(
       "Feature keys can only include letters, numbers, hyphens, and underscores."
     );
   }
+
+  if (org.settings?.requireProjectForFeatures && !otherProps.project) {
+    throw new Error("Must specify a project for new features");
+  }
+  // Validate projects - We can remove this validation when FeatureModel is migrated to BaseModel
+  if (otherProps.project) {
+    await context.models.projects.ensureProjectsExist([otherProps.project]);
+  }
+
   const existing = await getFeature(context, id);
   if (existing) {
     throw new Error(
@@ -1804,7 +1813,7 @@ export async function putFeatureRule(
   const context = getContextFromReq(req);
   const { org } = context;
   const { id, version } = req.params;
-  const { environment, rule, safeRolloutFields, i } = req.body;
+  const { environment, rule, i } = req.body;
 
   const feature = await getFeature(context, id);
   if (!feature) {
@@ -1872,18 +1881,6 @@ export async function putFeatureRule(
           `Cannot update the following fields after a Safe Rollout has started: ${fieldNames}`
         );
       }
-    }
-
-    if (safeRolloutFields) {
-      const validatedSafeRolloutFields = await validateCreateSafeRolloutFields(
-        safeRolloutFields,
-        context
-      );
-
-      await context.models.safeRollout.update(existingSafeRollout, {
-        ...validatedSafeRolloutFields,
-        ...(rule.status && { status: rule.status }),
-      });
     }
   }
 
@@ -2124,6 +2121,19 @@ export async function putFeature(
   const updates = req.body;
   if (!context.permissions.canUpdateFeature(feature, updates)) {
     context.permissions.throwPermissionError();
+  }
+
+  // For a feature created before requireProjectForFeatures was enabled, allow updates to happen until the feature is associated with a project
+  if (
+    org.settings?.requireProjectForFeatures &&
+    feature.project &&
+    updates.project === ""
+  ) {
+    throw new Error("Must specify a project");
+  }
+  // Validate projects - We can remove this validation when FeatureModel is migrated to BaseModel
+  if (updates.project && feature.project !== updates.project) {
+    await context.models.projects.ensureProjectsExist([updates.project]);
   }
 
   // Changing the project can affect whether or not it's published if using project-scoped api keys
