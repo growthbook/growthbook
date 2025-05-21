@@ -414,7 +414,7 @@ export const createFeatureEvent = async <
       version: eventData.data.object.version,
     });
 
-    const safeRolloutMap = await eventData.context.models.safeRollout.getAllPayloadSafeRollouts(
+    const safeRolloutMap = await eventData.context.models.safeRollout.getAllPayloadSafeRolloutsByFeatureId(
       [eventData.data.object.id]
     );
 
@@ -572,7 +572,7 @@ export async function onFeatureUpdate(
   updatedFeature: FeatureInterface,
   skipRefreshForProject?: string
 ) {
-  const safeRolloutMap = await context.models.safeRollout.getAllPayloadSafeRollouts(
+  const safeRolloutMap = await context.models.safeRollout.getAllPayloadSafeRolloutsByFeatureId(
     [feature.id]
   );
   await refreshSDKPayloadCache(

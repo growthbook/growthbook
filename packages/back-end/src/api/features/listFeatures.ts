@@ -68,7 +68,7 @@ export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
       req.context,
       filtered
     );
-    const safeRolloutMap = await req.context.models.safeRollout.getAllPayloadSafeRollouts(
+    const safeRolloutMap = await req.context.models.safeRollout.getAllPayloadSafeRolloutsByFeatureId(
       filtered.map((f) => f.id)
     );
 

@@ -1,7 +1,11 @@
+import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import {
   SafeRolloutInterface,
   safeRolloutValidator,
 } from "back-end/src/validators/safe-rollout";
+import { refreshSDKPayloadCache } from "back-end/src/services/features";
+import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";
+import { getFeature } from "back-end/src/models/FeatureModel";
 import { MakeModelClass, UpdateProps } from "./BaseModel";
 
 export const COLLECTION_NAME = "saferollout";
@@ -58,7 +62,14 @@ export class SafeRolloutModel extends BaseClass {
   public async getAllByFeatureIds(featureIds: string[]) {
     return await this._find({ featureId: { $in: featureIds } });
   }
-  public async getAllPayloadSafeRollouts(
+  public async getAllPayloadSafeRollouts() {
+    const safeRollouts = await this._find({});
+    if (!safeRollouts || safeRollouts.length === 0) {
+      return new Map();
+    }
+    return new Map(safeRollouts.map((r) => [r.id, r]));
+  }
+  public async getAllPayloadSafeRolloutsByFeatureId(
     featureIds: string[]
   ): Promise<Map<string, SafeRolloutInterface>> {
     const safeRollouts = await this._find({ featureId: { $in: featureIds } });
@@ -66,6 +77,26 @@ export class SafeRolloutModel extends BaseClass {
       return new Map();
     }
     return new Map(safeRollouts.map((r) => [r.id, r]));
+  }
+  protected async afterUpdate(
+    existing: SafeRolloutInterface,
+    updates: UpdateProps<SafeRolloutInterface>
+  ) {
+    if (
+      updates.rampUpSchedule &&
+      existing.rampUpSchedule.step !== updates.rampUpSchedule.step
+    ) {
+      const feature = await getFeature(this.context, existing.featureId);
+      if (!feature) return;
+
+      await refreshSDKPayloadCache(
+        this.context,
+        getAffectedSDKPayloadKeys(
+          [feature],
+          getEnvironmentIdsFromOrg(this.context.org)
+        )
+      );
+    }
   }
 
   protected async beforeUpdate(

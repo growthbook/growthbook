@@ -251,7 +251,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       featureId: updatedFeature.id,
       version: updatedFeature.version,
     });
-    const safeRolloutMap = await req.context.models.safeRollout.getAllPayloadSafeRollouts(
+    const safeRolloutMap = await req.context.models.safeRollout.getAllPayloadSafeRolloutsByFeatureId(
       [updatedFeature.id]
     );
     return {

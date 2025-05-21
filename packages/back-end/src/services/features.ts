@@ -431,11 +431,7 @@ export async function refreshSDKPayloadCache(
   experimentMap = experimentMap || (await getAllPayloadExperiments(context));
   safeRolloutMap =
     safeRolloutMap ||
-    (allFeatures
-      ? await context.models.safeRollout.getAllPayloadSafeRollouts(
-          allFeatures?.map((f) => f.id)
-        )
-      : new Map());
+    (await context.models.safeRollout.getAllPayloadSafeRollouts());
   const groupMap = await getSavedGroupMap(context.org);
   allFeatures = allFeatures || (await getAllFeatures(context));
   const allVisualExperiments = await getAllVisualExperiments(
@@ -808,7 +804,7 @@ export async function getFeatureDefinitions({
   const features = await getAllFeatures(context);
   const groupMap = await getSavedGroupMap(context.org, savedGroups);
   const experimentMap = await getAllPayloadExperiments(context);
-  const safeRolloutMap = await context.models.safeRollout.getAllPayloadSafeRollouts(
+  const safeRolloutMap = await context.models.safeRollout.getAllPayloadSafeRolloutsByFeatureId(
     features.map((f) => f.id)
   );
 
