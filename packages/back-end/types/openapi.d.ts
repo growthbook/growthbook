@@ -2264,7 +2264,7 @@ export interface components {
     repo: string;
     /** @description Name of branch for git repo. */
     branch: string;
-    /** @description Name of versino control platform like GitHub or Gitlab. */
+    /** @description Name of version control platform like GitHub or Gitlab. */
     platform: "github" | "gitlab" | "bitbucket";
     /** @description Name of the user. */
     userName: string;
@@ -2272,6 +2272,8 @@ export interface components {
     userEmail: string;
     /** @description Name of the global role */
     globalRole: string;
+    /** @description Filter by a SDK connection's client key */
+    clientKey: string;
   };
   requestBodies: never;
   headers: never;
@@ -2288,10 +2290,12 @@ export interface operations {
         /** @description The number of items to return */
         /** @description How many items to skip (use in conjunction with limit for pagination) */
         /** @description Filter by project id */
+        /** @description Filter by a SDK connection's client key */
       query: {
         limit?: number;
         offset?: number;
         projectId?: string;
+        clientKey?: string;
       };
     };
     responses: {

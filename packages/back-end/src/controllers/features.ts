@@ -2444,6 +2444,7 @@ export async function getRevisionLog(
     organization: context.org.id,
     featureId: feature.id,
     version: parseInt(version),
+    includeLog: true,
   });
   if (!revision) {
     throw new Error("Could not find feature revision");
