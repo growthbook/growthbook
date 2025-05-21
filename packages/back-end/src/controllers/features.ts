@@ -1232,7 +1232,6 @@ export async function postFeatureRule(
     }
     rule.safeRolloutId = safeRollout.id;
   }
-
   const revision = await getDraftRevision(context, feature, parseInt(version));
   const resetReview = resetReviewOnChange({
     feature,
@@ -1896,7 +1895,37 @@ export async function putFeatureRule(
       }
     }
   }
+  let hasChanges = false;
+  const currentRevision = await getRevision({
+    context,
+    organization: feature.organization,
+    featureId: feature.id,
+    version: parseInt(version),
+  });
+  if (!currentRevision) {
+    throw new Error("Could not find the current revision");
+  }
+  const currentRule = currentRevision.rules[environment].find(
+    (r) => r.id === rule.id
+  );
 
+  Object.keys(rule).forEach((key) => {
+    if (
+      currentRule &&
+      !isEqual(
+        rule[key as keyof FeatureRule],
+        currentRule[key as keyof FeatureRule]
+      )
+    ) {
+      hasChanges = true;
+    }
+  });
+  if (!hasChanges) {
+    return res.status(200).json({
+      status: 200,
+      version: currentRevision.version,
+    });
+  }
   const revision = await getDraftRevision(context, feature, parseInt(version));
   const resetReview = resetReviewOnChange({
     feature,
