@@ -35,6 +35,11 @@ import {
   removeMongooseFields,
   ToInterface,
 } from "back-end/src/util/mongo.util";
+import {
+  createVercelExperimentationItemFromExperiment,
+  updateVercelExperimentationItemFromExperiment,
+  deleteVercelExperimentationItemFromExperiment,
+} from "back-end/src/services/vercel-native-integration.service";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";
@@ -509,16 +514,18 @@ export async function createExperiment({
     nextSnapshotAttempt: nextUpdate,
   });
 
+  const experiment = toInterface(exp);
+
   await onExperimentCreate({
     context,
-    experiment: toInterface(exp),
+    experiment,
   });
 
   if (data.tags) {
     await addTags(data.organization, data.tags);
   }
 
-  return toInterface(exp);
+  return experiment;
 }
 
 export async function updateExperiment({
@@ -1534,6 +1541,12 @@ const onExperimentCreate = async ({
   experiment: ExperimentInterface;
 }) => {
   await logExperimentCreated(context, experiment);
+
+  if (context.org.isVercelIntegration)
+    await createVercelExperimentationItemFromExperiment({
+      experiment,
+      organization: context.org,
+    });
 };
 
 const onExperimentUpdate = async ({
@@ -1584,6 +1597,12 @@ const onExperimentUpdate = async ({
       logger.error(e, "Error refreshing SDK payload cache");
     });
   }
+
+  if (context.org.isVercelIntegration)
+    await updateVercelExperimentationItemFromExperiment({
+      experiment: newExperiment,
+      organization: context.org,
+    });
 };
 
 const onExperimentDelete = async (
@@ -1602,4 +1621,10 @@ const onExperimentDelete = async (
   refreshSDKPayloadCache(context, payloadKeys).catch((e) => {
     logger.error(e, "Error refreshing SDK payload cache");
   });
+
+  if (context.org.isVercelIntegration)
+    await deleteVercelExperimentationItemFromExperiment({
+      experiment,
+      organization: context.org,
+    });
 };
