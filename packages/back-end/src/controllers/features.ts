@@ -1251,7 +1251,9 @@ export async function postFeatureExperimentRefRule(
 
     // Revision changes
     changes.rules[env] = [...(feature.environmentSettings?.[env]?.rules || [])];
-    changes.rules[env].unshift(envRule);
+    if (env == "production") {
+      changes.rules[env].unshift(envRule);
+    }
 
     // Feature updates
     updates.environmentSettings = updates.environmentSettings || {};
@@ -1261,7 +1263,9 @@ export async function postFeatureExperimentRefRule(
     };
     updates.environmentSettings[env].rules =
       updates.environmentSettings[env].rules || [];
-    updates.environmentSettings[env].rules.unshift(envRule);
+    if (env == "production") {
+      updates.environmentSettings[env].rules.unshift(envRule);
+    }
   });
 
   const revision = await createRevision({
