@@ -208,6 +208,166 @@ export function getSelectedTables(
   return Array.from(foundTables);
 }
 
+function analyzeFromClause(
+  textAfterFrom: string,
+  informationSchema: InformationSchemaInterface
+): {
+  hasDatabase: boolean;
+  hasSchema: boolean;
+  databaseName?: string;
+  schemaName?: string;
+} {
+  const parts = textAfterFrom.split(".").map((p) => p.trim().replace(/`/g, ""));
+
+  // Check if the first part matches any database name
+  const databasePart = parts[0] || "";
+  const hasDatabase =
+    databasePart !== "" &&
+    informationSchema.databases.some(
+      (db) => db.databaseName === databasePart || db.path === databasePart
+    );
+
+  // If we have a valid database, check if the second part matches any schema in that database
+  const schemaPart = parts[1] || "";
+  const hasSchema =
+    (hasDatabase &&
+      schemaPart !== "" &&
+      informationSchema.databases
+        .find(
+          (db) => db.databaseName === databasePart || db.path === databasePart
+        )
+        ?.schemas.some(
+          (schema) =>
+            schema.schemaName === schemaPart || schema.path === schemaPart
+        )) ||
+    false;
+
+  return {
+    hasDatabase,
+    hasSchema,
+    databaseName: hasDatabase ? databasePart : undefined,
+    schemaName: hasSchema ? schemaPart : undefined,
+  };
+}
+
+function needsLeadingBacktick(path: string): boolean {
+  return path.startsWith("`");
+}
+
+function needsTrailingBacktick(path: string): boolean {
+  return path.endsWith("`");
+}
+
+function formatDatabaseCompletion(path: string): string {
+  return needsLeadingBacktick(path) ? `\`${path.replace(/`/g, "")}` : path;
+}
+
+function formatSchemaCompletion(path: string, hasDatabase: boolean): string {
+  if (hasDatabase) {
+    return path.replace(/`/g, "");
+  }
+  return needsLeadingBacktick(path) ? path : `\`${path.replace(/`/g, "")}`;
+}
+
+function formatTableCompletion(
+  tablePath: string,
+  tableName: string,
+  hasDatabase: boolean,
+  hasSchema: boolean
+): string {
+  if (!hasDatabase && !hasSchema) {
+    return tablePath;
+  }
+  if (hasDatabase && hasSchema) {
+    return needsTrailingBacktick(tablePath) ? `${tableName}\`` : tableName;
+  }
+  // If we have database but no schema, we're showing schema.table
+  return needsTrailingBacktick(tablePath) ? `${tableName}\`` : tableName;
+}
+
+function getTableCompletions(
+  textAfterFrom: string,
+  informationSchema: InformationSchemaInterface
+): AceCompletion[] {
+  const { hasDatabase, hasSchema } = analyzeFromClause(
+    textAfterFrom,
+    informationSchema
+  );
+
+  return informationSchema.databases.flatMap((db) =>
+    db.schemas.flatMap((schema) =>
+      schema.tables.map((table) => {
+        // If we have both database and schema, just show table name
+        if (hasDatabase && hasSchema) {
+          return {
+            value: formatTableCompletion(
+              table.path,
+              table.tableName,
+              hasDatabase,
+              hasSchema
+            ),
+            meta: "TABLE",
+            score: 900,
+            caption: table.tableName,
+          };
+        }
+        // If we have database but no schema, show schema.table
+        if (hasDatabase) {
+          return {
+            value: `${schema.schemaName}.${formatTableCompletion(
+              table.path,
+              table.tableName,
+              hasDatabase,
+              hasSchema
+            )}`,
+            meta: "TABLE",
+            score: 900,
+            caption: table.tableName,
+          };
+        }
+        // Otherwise show full path
+        return {
+          value: table.path,
+          meta: "TABLE",
+          score: 900,
+          caption: table.tableName,
+        };
+      })
+    )
+  );
+}
+
+function getSchemaCompletions(
+  textAfterFrom: string,
+  informationSchema: InformationSchemaInterface
+): AceCompletion[] {
+  const { hasDatabase } = analyzeFromClause(textAfterFrom, informationSchema);
+
+  return informationSchema.databases.flatMap((db) =>
+    db.schemas.map((schema) => {
+      // If we have a database, just show schema name
+      if (hasDatabase) {
+        return {
+          value: schema.schemaName,
+          meta: "SCHEMA",
+          score: 950,
+          caption: schema.schemaName,
+        };
+      }
+      // Otherwise show database.schema
+      return {
+        value: formatSchemaCompletion(
+          schema.path || `${db.databaseName}.${schema.schemaName}`,
+          hasDatabase
+        ),
+        meta: "SCHEMA",
+        score: 950,
+        caption: `${db.databaseName}.${schema.schemaName}`,
+      };
+    })
+  );
+}
+
 export async function getAutoCompletions(
   cursorData: CursorData | null,
   informationSchema: InformationSchemaInterface | undefined,
@@ -216,6 +376,7 @@ export async function getAutoCompletions(
     options?: RequestInit
   ) => Promise<{ table: InformationSchemaTablesInterface }>
 ): Promise<AceCompletion[]> {
+  console.log("informationSchema", informationSchema);
   if (!cursorData || !informationSchema) return [];
 
   const context = getCurrentContext(cursorData);
@@ -230,6 +391,9 @@ export async function getAutoCompletions(
   );
 
   // Generate suggestions based on context
+  let textAfterFrom: string;
+  let parts: string[];
+
   switch (context.type) {
     case "SELECT":
       if (Object.keys(tableDataMap).length > 0) {
@@ -246,16 +410,67 @@ export async function getAutoCompletions(
       }
       return [];
     case "FROM":
-      return informationSchema.databases.flatMap((db) =>
-        db.schemas.flatMap((schema) =>
-          schema.tables.map((table) => ({
-            value: table.path,
-            meta: "TABLE",
-            score: 900,
-            caption: table.tableName,
+      // Get the text after FROM up to the cursor
+      textAfterFrom =
+        cursorData.input
+          .slice(0, cursorData.row)
+          .concat(
+            cursorData.input[cursorData.row].substring(0, cursorData.column)
+          )
+          .join("\n")
+          .split("FROM")[1]
+          ?.trim() || "";
+
+      // If we're at the start of the FROM clause (no text after FROM), show databases, schemas, and tables
+      if (!textAfterFrom) {
+        const databaseCompletions = informationSchema.databases.map((db) => ({
+          value: formatDatabaseCompletion(db.path || db.databaseName),
+          meta: "DATABASE",
+          score: 1000,
+          caption: db.databaseName,
+        }));
+
+        const schemaCompletions = informationSchema.databases.flatMap((db) =>
+          db.schemas.map((schema) => ({
+            value: formatSchemaCompletion(
+              `${db.databaseName}.${schema.schemaName}`,
+              false
+            ),
+            meta: "SCHEMA",
+            score: 950,
+            caption: `${db.databaseName}.${schema.schemaName}`,
           }))
-        )
-      );
+        );
+
+        const tableCompletions = informationSchema.databases.flatMap((db) =>
+          db.schemas.flatMap((schema) =>
+            schema.tables.map((table) => ({
+              value: table.path,
+              meta: "TABLE",
+              score: 900,
+              caption: table.tableName,
+            }))
+          )
+        );
+
+        return [
+          ...databaseCompletions,
+          ...schemaCompletions,
+          ...tableCompletions,
+        ];
+      }
+
+      // If we have a database selected but no schema, show schemas
+      parts = textAfterFrom.split(".");
+      if (parts.length === 1 && parts[0].trim()) {
+        return getSchemaCompletions(textAfterFrom, informationSchema);
+      } else if (parts.length === 2 && parts[0].trim()) {
+        // Handle case where database is followed by a dot
+        return getSchemaCompletions(textAfterFrom, informationSchema);
+      }
+
+      // If we have a database and schema selected, or no selection yet, show tables
+      return getTableCompletions(textAfterFrom, informationSchema);
     case "WHERE":
       if (Object.keys(tableDataMap).length > 0) {
         // Combine columns from all tables
