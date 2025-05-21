@@ -12,13 +12,14 @@ Google BigQuery (BQ) is a popular data warehouse chosen by GrowthBook users beca
 Please watch the [How GrowthBook Works with Your Data](https://youtu.be/hboLeUbpdus) (4 minutes) overview video to better understand the issues and solutions in this troubleshooting guide.
 
 ## Why do I not see any experiment data in BigQuery?
+
 The most common issue reported by GrowthBook users in relation to BigQuery is not seeing any data being pulled into BigQuery from GA4.
 
 ### Initial sync delay for new GA4 properties
 
 When you first link your GA4 property to BigQuery, there is typically a 24–48 hour delay before the first daily export starts showing up in your BigQuery dataset. This is a one-time setup delay imposed by Google, not GrowthBook, and is expected behavior.
 
-If 48 hours have passed since a new experiment was started and there is still no experiment data in BigQuery, you'll need to ensure the connection between GA4 and BigQuery was configured properly. 
+If 48 hours have passed since a new experiment was started and there is still no experiment data in BigQuery, you'll need to ensure the connection between GA4 and BigQuery was configured properly.
 
 Notably, GrowthBook does not send experiment data directly to BigQuery. GrowthBook first sends the experiment data to your Data Source (usually GA4 if you're using BigQuery) via the `trackingCallback`, and from there the data is synced to BigQuery from GA4 every 24 hours (see below).
 
