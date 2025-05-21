@@ -388,6 +388,9 @@ export async function getAutoCompletions(
 
   switch (context.type) {
     case "SELECT":
+    case "WHERE":
+    case "GROUP BY":
+    case "ORDER BY":
       if (Object.keys(tableDataMap).length > 0) {
         // Combine columns from all tables
         const allColumns = Object.values(tableDataMap).flatMap((table) =>
@@ -463,20 +466,6 @@ export async function getAutoCompletions(
 
       // If we have a database and schema selected, or no selection yet, show tables
       return getTableCompletions(textAfterFrom, informationSchema);
-    case "WHERE":
-      if (Object.keys(tableDataMap).length > 0) {
-        // Combine columns from all tables
-        const allColumns = Object.values(tableDataMap).flatMap((table) =>
-          table.columns.map((col) => ({
-            value: col.columnName,
-            meta: col.dataType,
-            score: 900,
-            caption: col.columnName,
-          }))
-        );
-        return allColumns;
-      }
-      return [];
     default:
       return [];
   }
