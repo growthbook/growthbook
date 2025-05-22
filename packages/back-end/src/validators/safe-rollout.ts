@@ -137,6 +137,8 @@ export async function validateCreateSafeRolloutFields(
       }
     }
   }
-
+  if (safeRolloutFields.autoRollback === undefined) {
+    safeRolloutFields.autoRollback = false;
+  }
   return createSafeRolloutValidator.strip().parse(safeRolloutFields);
 }
