@@ -29,6 +29,7 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
   // must be set for tracking event to fire on hover
   trackingEventTooltipType?: string;
   trackingEventTooltipSource?: string;
+  delay?: number; // Delay in milliseconds before showing the tooltip
 }
 const Tooltip: FC<Props> = ({
   body,
@@ -44,20 +45,28 @@ const Tooltip: FC<Props> = ({
   state,
   trackingEventTooltipType,
   trackingEventTooltipSource,
+  delay = 300, // Default delay of 200ms
   ...otherProps
 }) => {
   const [trigger, setTrigger] = useState(null);
   const [tooltip, setTooltip] = useState(null);
   const [arrow, setArrow] = useState(null);
   const [open, setOpen] = useState(state ?? false);
+  const [fadeIn, setFadeIn] = useState(false);
   const [alreadyHovered, setAlreadyHovered] = useState(false);
+  // we have to split the open state from the fade in state as if we set it all at once,
+  // the fade won't work as the opacity is not technically changing. By delaying slightly
+  // when we set the opacity to 1 (`tooltip-visible`) it lets the CSS transition work.
+  const openTimeout = useRef<NodeJS.Timeout | null>(null);
+  const fadeInTimeout = useRef<NodeJS.Timeout | null>(null);
+  const fadeOutTimeout = useRef<NodeJS.Timeout | null>(null);
   const closeTimeout = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (state !== undefined) {
       setOpen(state);
     }
-  }, [state, setOpen]);
+  }, [state]);
 
   useEffect(() => {
     if (open && !alreadyHovered && trackingEventTooltipType) {
@@ -67,8 +76,12 @@ const Tooltip: FC<Props> = ({
         source: trackingEventTooltipSource,
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, alreadyHovered, trackingEventTooltipType]);
+  }, [
+    open,
+    alreadyHovered,
+    trackingEventTooltipType,
+    trackingEventTooltipSource,
+  ]);
 
   const { styles, attributes } = usePopper(trigger, tooltip, {
     modifiers: [
@@ -88,19 +101,32 @@ const Tooltip: FC<Props> = ({
     if (closeTimeout.current) {
       clearTimeout(closeTimeout.current);
     }
-    setOpen(true);
+    if (fadeOutTimeout.current) {
+      clearTimeout(fadeOutTimeout.current);
+    }
+    openTimeout.current = setTimeout(() => {
+      setOpen(true);
+      fadeInTimeout.current = setTimeout(() => setFadeIn(true), 50);
+    }, delay);
   };
 
   const handleMouseLeave = () => {
+    if (openTimeout.current) {
+      clearTimeout(openTimeout.current);
+    }
+    if (fadeInTimeout.current) {
+      clearTimeout(fadeInTimeout.current);
+    }
     closeTimeout.current = setTimeout(() => {
-      setOpen(false);
-    }, 200);
+      setFadeIn(false);
+      fadeOutTimeout.current = setTimeout(() => setOpen(false), 300);
+    }, 200); // Optional: Keep a small delay for closing
   };
 
   if (!children && children !== 0) children = <GBInfo />;
   const el = (
     <span
-      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'Dispatch<SetStateAction<null>>' is not assig... Remove this comment to see the full error message
+      // @ts-expect-error TS(2322) If you come across this, please fix it!
       ref={setTrigger}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -129,7 +155,11 @@ const Tooltip: FC<Props> = ({
                 ...popperStyle,
               }}
               {...attributes.popper}
-              className={clsx("shadow-lg gb-tooltip", popperClassName)}
+              className={clsx(
+                "shadow-lg gb-tooltip",
+                fadeIn ? "tooltip-visible" : "tooltip-hidden",
+                popperClassName
+              )}
               role="tooltip"
             >
               <div className={`body ${innerClassName}`}>{body}</div>
