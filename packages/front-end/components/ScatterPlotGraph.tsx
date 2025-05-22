@@ -33,6 +33,8 @@ export interface ScatterPlotGraphProps {
   width: number;
   height: number;
   margin?: { top: number; right: number; bottom: number; left: number };
+  xFormatter?: (value: number) => string;
+  yFormatter?: (value: number) => string;
 }
 
 const defaultMargin = { top: 40, right: 50, bottom: 50, left: 60 };
@@ -42,6 +44,8 @@ const ScatterPlotGraph: React.FC<ScatterPlotGraphProps> = ({
   width,
   height,
   margin = defaultMargin,
+  xFormatter,
+  yFormatter,
 }) => {
   const {
     tooltipData,
@@ -53,6 +57,8 @@ const ScatterPlotGraph: React.FC<ScatterPlotGraphProps> = ({
   } = useTooltip<ScatterPointData>();
 
   if (width < 10 || height < 10 || data.length === 0) return null;
+
+  // TODO word wrap
 
   // Inner dimensions
   const xMax = width - margin.left - margin.right;
@@ -230,14 +236,14 @@ const ScatterPlotGraph: React.FC<ScatterPlotGraphProps> = ({
           </div>
           <div>
             <strong>{tooltipData.yMetricName}:</strong>{" "}
-            {tooltipData.y.toFixed(2)}
+            {yFormatter ? yFormatter(tooltipData.y) : tooltipData.y.toFixed(2)}
           </div>
           <div style={{ fontSize: "11px", color: "#ccc" }}>
             (CI: {tooltipData.ymin.toFixed(2)} - {tooltipData.ymax.toFixed(2)})
           </div>
           <div style={{ marginTop: "4px" }}>
             <strong>{tooltipData.xMetricName}:</strong>{" "}
-            {tooltipData.x.toFixed(2)}
+            {xFormatter ? xFormatter(tooltipData.x) : tooltipData.x.toFixed(2)}
           </div>
           <div style={{ fontSize: "11px", color: "#ccc" }}>
             (CI: {tooltipData.xmin.toFixed(2)} - {tooltipData.xmax.toFixed(2)})
