@@ -326,7 +326,7 @@ export const syncVercelSdkWebhook = async (organization: string) => {
     (r) => (r.organizationId = org.id)
   );
 
-  if (!resource) throw "Internal error";
+  if (!resource) return;
 
   const context = new ReqContextClass({
     org,
