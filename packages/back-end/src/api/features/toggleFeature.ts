@@ -72,6 +72,7 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
       featureId: updatedFeature.id,
       version: updatedFeature.version,
     });
+    const safeRolloutMap = await req.context.models.safeRollout.getAllPayloadSafeRollouts();
     return {
       feature: getApiFeatureObj({
         feature: updatedFeature,
@@ -79,6 +80,7 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
         groupMap,
         experimentMap,
         revision,
+        safeRolloutMap,
       }),
     };
   }

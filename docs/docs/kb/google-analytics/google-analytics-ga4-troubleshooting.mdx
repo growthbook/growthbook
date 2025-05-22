@@ -120,7 +120,7 @@ trackingCallback: (experiment, result) => {
 }
 ```
 
-See the [Tracking via `dataLayer` and GTM](/guide/google-tag-manager-and-growthbook#4-tracking-via-dataLayer-and-gtm) documentation for more information.
+See the [Tracking via `dataLayer` and GTM](/guide/google-tag-manager-and-growthbook#4-tracking-via-datalayer-and-gtm) documentation for more information.
 
 ### Date range mismatches
 
@@ -146,7 +146,7 @@ There are a few things that need to be set up properly in GrowthBook in order to
 
 The GA4 Measurement ID is a unique identifier for your GA4 property that's used to send data from your website or app to the correct GA4 account. It looks like "G-XXXXXXXXXX" and is required when configuring GA4 tags in Google Tag Manager or when sending events directly to GA4.
 
-You can see how the Measurement ID is used in the [GrowthBook and GTM integration](/guide/google-tag-manager-and-growthbook#4-tracking-via-dataLayer-and-gtm) documentation, where it is entered as a configuration value for sending experiment events to GA4.
+You can see how the Measurement ID is used in the [GrowthBook and GTM integration](/guide/google-tag-manager-and-growthbook#4-tracking-via-datalayer-and-gtm) documentation, where it is entered as a configuration value for sending experiment events to GA4.
 
 ### Ensure the GrowthBook SDK is properly configured
 
@@ -176,7 +176,7 @@ Of course, make sure that the experiment in question is located on the page that
 
 ### Ensure the `trackingCallback` is called unconditionally
 
-Try not to bury the `trackingCallback` within conditional application logic. Conditionally calling the `trackingCallback` can cause fewer users to be assigned to the experiment than you are expecting. Refer to [this section](/kb/experiments/troubleshooting-experiments#solution-1-ensure-the-trackingCallback-is-triggered-unconditionally) in our Knowledge Base for more information.
+Try not to bury the `trackingCallback` within conditional application logic. Conditionally calling the `trackingCallback` can cause fewer users to be assigned to the experiment than you are expecting. Refer to [this section](/kb/experiments/troubleshooting-experiments#solution-1-ensure-the-trackingcallback-is-triggered-unconditionally) in our Knowledge Base for more information.
 
 #### Experiment Rule Precedence
 
