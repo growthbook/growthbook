@@ -62,12 +62,39 @@ const navlinks: SidebarLinkProps[] = [
     href: "/insights",
     Icon: GBLibrary,
     path: /^insights/,
+    subLinks: [
+      {
+        name: "Dashboard",
+        href: "/dashboard",
+        path: /^dashboard/,
+      },
+      {
+        name: "Experimentation Library",
+        href: "/library",
+        path: /^(library$|learning|learnings)/,
+      },
+      {
+        name: "Interaction Effects",
+        href: "/interactions",
+        path: /^(interaction)/,
+      },
+      {
+        name: "Metric Effects",
+        href: "/metric-effects",
+        path: /^(metric-effect)/,
+      },
+      {
+        name: "Metric Correlations",
+        href: "/correlations",
+        path: /^(correlations)/,
+      },
+    ],
     //filter: ({ gb }) => !!gb?.isOn("insights"),
   },
   {
     name: "Metrics and Data",
     href: "/metrics",
-    path: /^(metric|segment|dimension|datasources|fact-|metric-group)/,
+    path: /^(metric$|metrics|segment|dimension|datasources|fact-|metric-group)/,
     autoClose: true,
     Icon: GBDatabase,
     subLinks: [
