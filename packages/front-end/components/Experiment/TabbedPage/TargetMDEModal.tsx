@@ -132,6 +132,7 @@ const TargetMDEModal: FC<TargetMDEModalProps> = ({
                       parseFloat(e.target.value) / 100
                     )
                   }
+                  step={0.00000001}
                   append="%"
                   min={0}
                   disabled={!isOverridden}
