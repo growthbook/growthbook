@@ -106,6 +106,7 @@ const navlinks: SidebarLinkProps[] = [
         name: "Ideas",
         href: "/ideas",
         path: /^idea/,
+        filter: ({ gb }) => !!gb?.isOn("rollback-ideas"),
       },
       {
         name: "Presentations",
