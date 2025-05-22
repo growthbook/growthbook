@@ -6,6 +6,7 @@ import numpy as np
 from pydantic.dataclasses import dataclass
 from pydantic.config import ConfigDict
 from scipy.stats import norm
+import time
 
 from gbstats.messages import (
     BASELINE_VARIATION_ZERO_MESSAGE,
@@ -30,6 +31,7 @@ from gbstats.frequentist.tests import (
 from gbstats.utils import (
     truncated_normal_mean,
     gaussian_credible_interval,
+    random_inverse_wishart,
 )
 
 
@@ -293,6 +295,8 @@ class HyperparamsTwoFactor:
     lambda_alpha: np.ndarray  # prior scale matrix for sigma_alpha
     nu_beta: float  # prior degrees of freedom for sigma_beta
     lambda_beta: np.ndarray  # prior scale matrix for sigma_beta
+    num_levels_alpha: int
+    num_levels_beta: int
 
 
 @dataclass(config=ConfigDict(arbitrary_types_allowed=True))
@@ -336,15 +340,77 @@ class TwoFactorPooling:
         params: Optional[ModelParamsTwoFactor],
     ):
         self.cell_data = copy.deepcopy(cell_data)
-        self.hyperparams = hyperparams
-        self.num_levels_alpha = self.cell_data[0].mu_hat.shape[0]
-        self.num_levels_beta = self.cell_data[0].mu_hat.shape[1]
-        self.num_outcomes = self.cell_data[0].mu_hat.shape[2]
+        self.hyperparams = copy.deepcopy(hyperparams)
+        self.num_levels_alpha = self.hyperparams.num_levels_alpha
+        self.num_levels_beta = self.hyperparams.num_levels_beta
+        assert (
+            len(self.cell_data) == self.num_levels_alpha * self.num_levels_beta
+        ), "Number of cell data must match number of levels in alpha and beta."
+        self.num_outcomes = self.hyperparams.mu_0.shape[0]
+        assert (
+            self.cell_data[0].mu_hat.shape[0] == self.num_outcomes
+        ), "Number of outcomes must be the same in data and hyperparams."
         self.seed = mcmc_params.seed
         self.num_burn = mcmc_params.num_burn
         self.num_keep = mcmc_params.num_keep
         self.num_iters = self.num_burn + self.num_keep
         self.params = self.initialize_parameters(params)
+
+        self.sigma_hat_shape = (
+            self.num_levels_alpha,
+            self.num_levels_beta,
+            self.num_outcomes,
+            self.num_outcomes,
+        )
+        self.sigma_hat = np.zeros(self.sigma_hat_shape)
+        self.sigma_hat_inv = np.zeros(self.sigma_hat_shape)
+        self.sigma_hat_inv_sum = np.zeros((self.num_outcomes, self.num_outcomes))
+        for i in range(self.num_levels_alpha):
+            for j in range(self.num_levels_beta):
+                index = i + self.num_levels_alpha * j
+                self.sigma_hat[i, j, :, :] = self.cell_data[index].sigma_hat
+                self.sigma_hat_inv[i, j, :, :] = np.linalg.inv(
+                    self.sigma_hat[i, j, :, :]
+                )
+                self.sigma_hat_inv_sum += self.sigma_hat_inv[i, j, :, :]
+
+    def initialize_parameters(self, params) -> ModelParamsTwoFactor:
+        if params is None:
+            mu = self.mu_hat_init
+            mu[np.isnan(mu)] = np.nanmean(mu)
+            mu_overall = np.mean(mu, axis=(0, 1))
+            alpha = np.mean(mu, axis=1)
+            beta = np.mean(mu, axis=0)
+            alpha -= np.mean(alpha, axis=0)
+            beta -= np.mean(beta, axis=0)
+            sigma_alpha = np.cov(alpha.T, ddof=1)
+            sigma_beta = np.cov(beta.T, ddof=1)
+            return ModelParamsTwoFactor(
+                mu_overall=mu_overall,
+                mu=mu,
+                alpha=alpha,
+                beta=beta,
+                sigma_alpha=sigma_alpha,
+                sigma_beta=sigma_beta,
+            )
+        else:
+            return copy.deepcopy(params)
+
+    def run_mcmc(self):
+        start_time = time.time()
+        self.create_storage_arrays()
+        end_time = time.time()
+        print(f"Time taken to create storage arrays: {end_time - start_time} seconds")
+        self.params = self.initialize_parameters(self.params)
+        end_time = time.time()
+        print(f"Time taken to initialize parameters: {end_time - start_time} seconds")
+        start_time = time.time()
+        for i in range(self.num_iters):
+            self.update_params(i)
+            if i >= self.num_burn:
+                self.store_params(i)
+        end_time = time.time()
+        print(f"Time taken to run MCMC: {end_time - start_time} seconds")
 
     @property
     def mu_hat_shape(self) -> tuple[int, int, int]:
@@ -364,115 +430,220 @@ class TwoFactorPooling:
         return self.mu_hat_init
 
     @property
-    def sigma_hat_shape(self) -> tuple[int, int, int, int]:
+    def prec_mu(self) -> np.ndarray:
+        return np.linalg.inv(self.hyperparams.sigma_0) + self.sigma_hat_inv_sum
+
+    @staticmethod
+    def draw_multivariate_normal(m: np.ndarray, v: np.ndarray, seed: int):
+        rng = np.random.default_rng(seed)
+        return rng.multivariate_normal(m, v)
+
+    @staticmethod
+    def transform_moments(
+        weighted_sum: np.ndarray, prec: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray, bool]:
+        matrix_inversion_success = True
+        n_row = prec.shape[0]
+        mean = np.zeros((n_row,))
+        variance = np.eye(n_row)
+        try:
+            prec_chol = np.linalg.cholesky(prec)
+            prec_chol_inv = np.linalg.inv(prec_chol)
+            variance = prec_chol_inv.T @ prec_chol_inv + 1e-6 * np.eye(prec.shape[0])
+            mean = variance @ weighted_sum
+        except np.linalg.LinAlgError:
+            # If cholesky or inv fails, a LinAlgError is raised
+            matrix_inversion_success = False
+            # 'mean' and 'variance' will retain their initialized (e.g., zero) values
+            # or you could assign specific error values if preferred.
+        return mean, variance, matrix_inversion_success
+
+    @property
+    def num_seeds_mu_overall(self) -> int:
+        return 1
+
+    @property
+    def num_seeds_mu_individual(self) -> int:
+        return 0
+
+    @property
+    def num_seeds_alpha(self) -> int:
+        return self.num_levels_alpha
+
+    @property
+    def num_seeds_beta(self) -> int:
+        return self.num_levels_beta
+
+    @property
+    def num_seeds_sigma_alpha(self) -> int:
+        return 2
+
+    @property
+    def num_seeds_sigma_beta(self) -> int:
+        return 2
+
+    @property
+    def num_seeds_per_iter(self) -> int:
         return (
-            self.num_levels_alpha,
-            self.num_levels_beta,
-            self.num_outcomes,
-            self.num_outcomes,
+            self.num_seeds_mu_overall
+            + self.num_seeds_mu_individual
+            + self.num_seeds_alpha
+            + self.num_seeds_beta
+            + self.num_seeds_sigma_alpha
+            + self.num_seeds_sigma_beta
         )
 
-    @property
-    def sigma_hat(self) -> np.ndarray:
-        sigma_hat = np.zeros(self.sigma_hat_shape)
+    def update_mu_overall(self, seed: int):
+        weighted_sum_mu = np.linalg.inv(self.hyperparams.sigma_0).dot(
+            self.hyperparams.mu_0
+        )
         for i in range(self.num_levels_alpha):
             for j in range(self.num_levels_beta):
-                index = i + self.num_levels_alpha * j
-                sigma_hat[i, j, :, :] = self.cell_data[index].sigma_hat
-        return sigma_hat
+                weighted_sum_mu += self.sigma_hat_inv[i, j, :, :].dot(
+                    self.mu_hat[i, j, :]
+                    - self.params.alpha[i, :]
+                    - self.params.beta[j, :]
+                )
+        mean, variance, matrix_inversion_success = TwoFactorPooling.transform_moments(
+            weighted_sum_mu, self.prec_mu
+        )
+        if not matrix_inversion_success:
+            raise ValueError("Matrix inversion failed in update_mu_overall")
+        self.params.mu_overall = TwoFactorPooling.draw_multivariate_normal(
+            mean, variance, seed
+        )
+        self.update_mu_individual()
 
-    @property
-    def sigma_hat_inv(self) -> np.ndarray:
-        sigma_hat_inv = np.zeros(self.sigma_hat_shape)
+    def update_mu_individual(self):
         for i in range(self.num_levels_alpha):
             for j in range(self.num_levels_beta):
-                sigma_hat_inv[i, j, :, :] = np.linalg.inv(self.sigma_hat[i, j, :, :])
-        return sigma_hat_inv
+                self.params.mu[i, j, :] = (
+                    self.params.mu_overall
+                    + self.params.alpha[i, :]
+                    + self.params.beta[j, :]
+                )
 
-    @property
-    def sigma_hat_inv_sum(self) -> np.ndarray:
-        sigma_hat_inv_sum = np.zeros((self.num_outcomes, self.num_outcomes))
+    def update_alpha(self, seed: int):
         for i in range(self.num_levels_alpha):
+            weighted_sum = np.zeros((self.num_outcomes,))
+            prec = copy.deepcopy(np.linalg.inv(self.params.sigma_alpha))
             for j in range(self.num_levels_beta):
-                sigma_hat_inv_sum += self.sigma_hat_inv[i, j, :, :]
-        return sigma_hat_inv_sum
-
-    @property
-    def prec_mu(self) -> np.ndarray:
-        return self.hyperparams.sigma_0 + self.sigma_hat_inv_sum
-
-    @property
-    def weighted_sum_mu(self) -> np.ndarray:
-        omega = self.hyperparams.sigma_0.dot(self.hyperparams.mu_0)
-        for i in range(self.num_levels_alpha):
-            for j in range(self.num_levels_beta):
-                omega += self.sigma_hat_inv_sum[i, j, :, :].dot(self.mu_hat[i, j, :])
-        return omega
-
-    def cov_mu(self) -> np.ndarray:
-        return np.linalg.inv(self.prec_mu)
-
-    def initialize_parameters(self, params) -> ModelParamsTwoFactor:
-        if params is None:
-            mu = self.mu_hat_init
-            mu[np.isnan(mu)] = np.nanmean(mu)
-            mu_overall = np.mean(mu, axis=(0, 1))
-            alpha = np.mean(mu, axis=(1, 2))
-            beta = np.mean(mu, axis=(0, 2))
-            alpha -= np.mean(alpha)
-            beta -= np.mean(beta)
-            sigma_alpha = np.var(mu, axis=(1, 2), ddof=1)
-            sigma_beta = np.var(mu, axis=(0, 2), ddof=1)
-            return ModelParamsTwoFactor(
-                mu_overall=mu_overall,
-                mu=mu,
-                alpha=alpha,
-                beta=beta,
-                sigma_alpha=sigma_alpha,
-                sigma_beta=sigma_beta,
+                weighted_sum += self.sigma_hat_inv[i, j, :, :].dot(
+                    self.mu_hat[i, j, :]
+                    - self.params.mu_overall
+                    - self.params.beta[j, :]
+                )
+                prec += self.sigma_hat_inv[i, j, :, :]
+            (
+                mean,
+                variance,
+                matrix_inversion_success,
+            ) = TwoFactorPooling.transform_moments(weighted_sum, prec)
+            if not matrix_inversion_success:
+                raise ValueError("Matrix inversion failed in update_alpha")
+            self.params.alpha[i, :] = TwoFactorPooling.draw_multivariate_normal(
+                mean, variance, seed + i
             )
-        else:
-            return params
+        self.params.alpha -= np.mean(self.params.alpha, axis=0)
+        self.update_mu_individual()
 
-    def update_missing_mu_hat(self, seed):
+    def update_beta(self, seed: int):
+        for j in range(self.num_levels_beta):
+            weighted_sum = np.zeros((self.num_outcomes,))
+            prec = copy.deepcopy(np.linalg.inv(self.params.sigma_beta))
+            for i in range(self.num_levels_alpha):
+                weighted_sum += self.sigma_hat_inv[i, j, :, :].dot(
+                    self.mu_hat[i, j, :]
+                    - self.params.mu_overall
+                    - self.params.alpha[i, :]
+                )
+                prec += self.sigma_hat_inv[i, j, :, :]
+            (
+                mean,
+                variance,
+                matrix_inversion_success,
+            ) = TwoFactorPooling.transform_moments(weighted_sum, prec)
+            if not matrix_inversion_success:
+                raise ValueError("Matrix inversion failed in update_beta")
+            self.params.beta[j, :] = TwoFactorPooling.draw_multivariate_normal(
+                mean, variance, seed + j
+            )
+        self.params.beta -= np.mean(self.params.beta, axis=0)
+        self.update_mu_individual()
+
+    def update_sigma_alpha(self, seed: int):
+        nu_post = self.hyperparams.nu_alpha + self.num_levels_alpha
+        lambda_post = self.hyperparams.lambda_alpha + (
+            self.num_levels_alpha - 1
+        ) * np.cov(self.params.alpha.T)
+        self.params.sigma_alpha = random_inverse_wishart(nu_post, lambda_post, seed)
+
+    def update_sigma_beta(self, seed: int):
+        nu_post = self.hyperparams.nu_beta + self.num_levels_beta
+        lambda_post = self.hyperparams.lambda_beta + (
+            self.num_levels_beta - 1
+        ) * np.cov(self.params.beta.T)
+        self.params.sigma_beta = random_inverse_wishart(nu_post, lambda_post, seed)
+
+    def update_missing_mu_hat(self, seed: int):
         pass
-        # rng_mu_hat = np.random.default_rng(seed)
-        # z_mu_hat = rng_mu_hat.normal(
-        #     0, 1, size=(self.num_levels_alpha, self.num_levels_beta, self.num_outcomes)
-        # )
-        # for a in range(self.num_levels_alpha):
-        #     for b in range(self.num_levels_beta):
-        #         if any(np.isnan(self.cell_data.mu_hat[a, b, :])):
-        #             sigma_hat_chol = np.linalg.cholesky(self.cell_data.sigma_hat[a, b, :, :]).T
-        #             self.cell_data.mu_hat[a, b, :] = (
-        #                 sigma_hat_chol @ z_mu_hat[a, b, :]
-        #                 + self.params.mu[a, b, :]
-        #             )
 
+    def create_storage_arrays(self):
+        self.mu_overall_keep = np.zeros((self.num_keep, self.num_outcomes))
+        self.mu_keep = np.zeros(
+            (
+                self.num_keep,
+                self.num_levels_alpha,
+                self.num_levels_beta,
+                self.num_outcomes,
+            )
+        )
+        self.alpha_keep = np.zeros(
+            (self.num_keep, self.num_levels_alpha, self.num_outcomes)
+        )
+        self.beta_keep = np.zeros(
+            (self.num_keep, self.num_levels_beta, self.num_outcomes)
+        )
+        self.sigma_alpha_keep = np.zeros(
+            (self.num_keep, self.num_outcomes, self.num_outcomes)
+        )
+        self.sigma_beta_keep = np.zeros(
+            (self.num_keep, self.num_outcomes, self.num_outcomes)
+        )
+        self.mu_hat_keep = np.zeros(
+            (
+                self.num_keep,
+                self.num_levels_alpha,
+                self.num_levels_beta,
+                self.num_outcomes,
+            )
+        )
 
-def draw_multivariate_normal(m: np.ndarray, v: np.ndarray, seed: int):
-    rng = np.random.default_rng(seed)
-    return m + np.linalg.cholesky(v) @ rng.normal(size=v.shape[0])
+    def store_params(self, iteration):
+        k = iteration - self.num_burn
+        self.mu_overall_keep[k, :] = self.params.mu_overall
+        self.mu_keep[k, :, :] = self.params.mu
+        self.alpha_keep[k, :, :] = self.params.alpha
+        self.beta_keep[k, :, :] = self.params.beta
+        self.sigma_alpha_keep[k, :, :] = self.params.sigma_alpha
+        self.sigma_beta_keep[k, :, :] = self.params.sigma_beta
+        self.mu_hat_keep[k, :, :] = self.mu_hat
 
-
-def transform_moments(
-    weighted_sum: np.ndarray, prec: np.ndarray
-) -> tuple[np.ndarray, np.ndarray]:
-    prec_chol = np.linalg.cholesky(prec)
-    prec_chol_inv = np.linalg.inv(prec_chol)
-    variance = prec_chol_inv.T @ prec_chol_inv
-    mean = prec_chol_inv @ weighted_sum
-    return mean, variance
-
-
-def update_mu_individual(self, seed: int):
-    pass
-    # for i in range(self.num_levels_alpha):
-    #     for j in range(self.num_levels_beta):
-    #         var = 1 / prec
-    #         mean = var * omega
-    #         rng = np.random.default_rng(seed)
-    #      d    self.params.tau = mean + np.sqrt(var) * rng.normal(0, 1, size=self.tau_shape)
+    def update_params(self, iteration):
+        # i used the first seed to initialize the parameters
+        this_seed = self.seed + (iteration + 1) * self.num_seeds_per_iter
+        this_seed_mu_overall = this_seed
+        this_seed_alpha = this_seed_mu_overall + self.num_seeds_alpha
+        this_seed_beta = this_seed_alpha + self.num_seeds_beta
+        this_seed_sigma_alpha = this_seed_beta + self.num_seeds_sigma_alpha
+        this_seed_sigma_beta = this_seed_sigma_alpha + self.num_seeds_sigma_beta
+        this_seed_missing_mu_hat = this_seed_sigma_beta + self.num_seeds_mu_individual
+        self.update_mu_overall(this_seed_mu_overall)
+        self.update_alpha(this_seed_alpha)
+        self.update_beta(this_seed_beta)
+        self.update_sigma_alpha(this_seed_sigma_alpha)
+        self.update_sigma_beta(this_seed_sigma_beta)
+        self.update_missing_mu_hat(this_seed_missing_mu_hat)
 
 
 class TwoFactorPoolingUnivariate:

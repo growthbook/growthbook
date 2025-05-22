@@ -83,3 +83,65 @@ def isinstance_union(obj, union):
 
 def is_statistically_significant(ci: List[float]) -> bool:
     return ci[0] > 0 or ci[1] < 0
+
+
+def random_inverse_wishart(df: float, sai: np.ndarray, seed: int) -> np.ndarray:
+    """
+    Draw an Inverse Wishart sample.  Uses 2 seeds.
+
+    Args:
+        n_row: The dimension of the random variable (e.g., if it's a 3x3 matrix, n_row is 3).
+        df: Degrees of freedom (scalar).
+        sai: The scale matrix (n_row x n_row, must be symmetric positive-definite).
+
+    Returns:
+        w: The random draw (n_row x n_row Inverse Wishart matrix).
+    """
+    n_row = sai.shape[0]
+    if not isinstance(sai, np.ndarray) or sai.shape != (n_row, n_row):
+        raise ValueError("sai must be an n_row x n_row numpy array.")
+    if df <= n_row - 1:
+        raise ValueError("Degrees of freedom (df) must be greater than n_row - 1.")
+    if not np.allclose(sai, sai.T):
+        raise ValueError("Scale matrix (sai) must be symmetric.")
+    # Check for positive definiteness (using Cholesky decomposition as a check)
+    try:
+        np.linalg.cholesky(sai)
+    except np.linalg.LinAlgError:
+        raise ValueError("Scale matrix (sai) must be positive-definite.")
+
+    # Invert sai
+    sai_inv = np.linalg.inv(sai)
+
+    # Cholesky decomposition of inverse sai
+    # numpy.linalg.cholesky returns the lower-triangular Cholesky factor by default.
+    sai_inv_chol = np.linalg.cholesky(sai_inv)
+
+    # Construct Z matrix
+    z_mat = np.zeros((n_row, n_row))
+    gamma_shape = (df - np.arange(n_row)) / 2.0
+    gamma_scale = 2.0
+    rng = np.random.default_rng(seed)
+    rows, cols = np.diag_indices(n_row)
+    z_mat[rows, cols] = np.sqrt(rng.gamma(shape=gamma_shape, scale=gamma_scale))
+    if n_row > 1:
+        rng = np.random.default_rng(seed + 1)
+        z_vec = rng.standard_normal(n_row * n_row)
+        for i in range(1, n_row):
+            for j in range(i):
+                z_mat[i, j] = z_vec[i + n_row * j]
+
+    # Matrix multiplication: w_temp = L_inv * Z
+    # Where L_inv is sai_inv_chol
+    w_temp = sai_inv_chol @ z_mat
+
+    # The C code's `dpotri` inverts a symmetric positive-definite matrix
+    # given its Cholesky factorization.
+    # Here, `w_temp` is the Cholesky factor of the Wishart sample.
+    # So, we need to compute inv(w_temp @ w_temp.T)
+    w_wishart = w_temp @ w_temp.T
+
+    # Invert W_wishart to get the Inverse Wishart sample
+    w = np.linalg.inv(w_wishart)
+
+    return w
