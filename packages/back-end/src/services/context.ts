@@ -39,6 +39,7 @@ import { SafeRolloutModel } from "back-end/src/models/SafeRolloutModel";
 import { SafeRolloutSnapshotModel } from "back-end/src/models/SafeRolloutSnapshotModel";
 import { DecisionCriteriaModel } from "back-end/src/enterprise/models/DecisionCriteriaModel";
 import { MetricTimeSeriesModel } from "back-end/src/models/MetricTimeSeriesModel";
+import { WebhookSecretDataModel } from "back-end/src/models/WebhookSecretModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
@@ -63,6 +64,7 @@ export class ReqContextClass {
     safeRolloutSnapshots: SafeRolloutSnapshotModel;
     decisionCriteria: DecisionCriteriaModel;
     metricTimeSeries: MetricTimeSeriesModel;
+    webhookSecrets: WebhookSecretDataModel;
   };
   private initModels() {
     this.models = {
@@ -79,6 +81,7 @@ export class ReqContextClass {
       safeRolloutSnapshots: new SafeRolloutSnapshotModel(this),
       decisionCriteria: new DecisionCriteriaModel(this),
       metricTimeSeries: new MetricTimeSeriesModel(this),
+      webhookSecrets: new WebhookSecretDataModel(this),
     };
   }
 

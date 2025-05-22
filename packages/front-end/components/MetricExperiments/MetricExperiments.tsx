@@ -14,6 +14,7 @@ import {
   SnapshotMetric,
 } from "back-end/types/experiment-snapshot";
 import {
+  ExperimentDecisionFrameworkSettings,
   ExperimentPhaseStringDates,
   ExperimentResultsType,
   ExperimentStatus,
@@ -67,6 +68,7 @@ export interface MetricExperimentData {
   goalMetrics: string[];
   secondaryMetrics: string[];
   datasource: string;
+  decisionFrameworkSettings: ExperimentDecisionFrameworkSettings;
 }
 
 const NUM_PER_PAGE = 50;
@@ -118,6 +120,7 @@ function MetricExperimentResultTab({
         guardrailMetrics: e.guardrailMetrics,
         secondaryMetrics: e.secondaryMetrics,
         datasource: e.datasource,
+        decisionFrameworkSettings: e.decisionFrameworkSettings,
       };
       if (!bandits && baseline && variationResults[i]) {
         const {

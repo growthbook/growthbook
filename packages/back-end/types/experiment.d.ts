@@ -6,6 +6,7 @@ import {
   ExperimentInterface,
   BanditResult,
   BanditEvent,
+  ExperimentDecisionFrameworkSettings,
 } from "back-end/src/validators/experiments";
 import { DecisionCriteriaRule } from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.validators";
 import { ExperimentRefVariation, FeatureInterface } from "./feature";
@@ -19,6 +20,8 @@ export {
   ExperimentType,
   ExperimentPhase,
   BanditStageType,
+  ExperimentDecisionFrameworkSettings,
+  DecisionFrameworkMetricOverrides,
   ExperimentAnalysisSettings,
   ExperimentAnalysisSummaryResultsStatus,
   ExperimentAnalysisSummaryVariationStatus,
@@ -149,6 +152,7 @@ export interface LegacyExperimentInterface
     | "goalMetrics"
     | "secondaryMetrics"
     | "guardrailMetrics"
+    | "decisionFrameworkSettings"
   > {
   /**
    * @deprecated
@@ -164,6 +168,7 @@ export interface LegacyExperimentInterface
   goalMetrics?: string[];
   secondaryMetrics?: string[];
   guardrailMetrics?: string[];
+  decisionFrameworkSettings?: ExperimentDecisionFrameworkSettings;
 }
 
 export type ExperimentInterfaceStringDates = Omit<
@@ -254,6 +259,7 @@ export type ExperimentDataForStatusStringDates = Pick<
   | "secondaryMetrics"
   | "guardrailMetrics"
   | "datasource"
+  | "decisionFrameworkSettings"
 >;
 
 export type ExperimentDataForStatus = Pick<
@@ -270,4 +276,5 @@ export type ExperimentDataForStatus = Pick<
   | "secondaryMetrics"
   | "guardrailMetrics"
   | "datasource"
+  | "decisionFrameworkSettings"
 >;
