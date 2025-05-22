@@ -69,4 +69,5 @@ export type AppFeatures = {
   "decision-framework-criteria": boolean;
   "safe-rollout": boolean;
   "safe-rollout-promo": boolean;
+  "new-exec-reports": boolean;
 };
