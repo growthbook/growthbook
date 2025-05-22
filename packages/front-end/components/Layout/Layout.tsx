@@ -73,11 +73,11 @@ const navlinks: SidebarLinkProps[] = [
         href: "/library",
         path: /^(library$|learning|learnings)/,
       },
-      {
-        name: "Interaction Effects",
-        href: "/interactions",
-        path: /^(interaction)/,
-      },
+      // {
+      //   name: "Interaction Effects",
+      //   href: "/interactions",
+      //   path: /^(interaction)/,
+      // },
       {
         name: "Metric Effects",
         href: "/metric-effects",
@@ -89,7 +89,7 @@ const navlinks: SidebarLinkProps[] = [
         path: /^(correlations)/,
       },
     ],
-    //filter: ({ gb }) => !!gb?.isOn("insights"),
+    filter: ({ gb }) => !!gb?.isOn("insights"),
   },
   {
     name: "Metrics and Data",
