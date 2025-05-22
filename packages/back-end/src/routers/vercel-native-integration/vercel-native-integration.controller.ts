@@ -48,15 +48,11 @@ const STARTER_BILLING_PLAN: BillingPlan = {
 
 const PRO_BILLING_PLAN: BillingPlan = {
   description:
-    "Enjoy all the benefits of our starter plan, plus add up to 100 members (each member incurs a cost of $20/month), get in-app chat support, up to 2M CDN requests/month, and up to 20GB of CDN Bandwidth/month.",
+    "Enjoy all the benefits of our starter plan, plus add up to 100 members (each member incurs a cost of $20/month), get in-app chat support, advanced experimentation features, up to 2M CDN requests/month, and up to 20GB of CDN Bandwidth/month.",
   id: "pro-billing-plan",
   name: "Pro Plan",
   type: "subscription",
   cost: "20.00/month per user + usage",
-  details: [{ label: "label", value: "value" }],
-  highlightedDetails: [
-    { label: "highlighted label", value: "highlighted value" },
-  ],
 };
 
 const billingPlans = [STARTER_BILLING_PLAN, PRO_BILLING_PLAN] as const;
