@@ -351,7 +351,7 @@ export async function updateDataSource(
     (updates as Partial<GrowthbookClickhouseDataSource>).settings
       ?.materializedColumns
   ) {
-    const sanitizedColumns: MaterializedColumn[] = (updates as Partial<GrowthbookClickhouseDataSource>).settings!.materializedColumns.map(
+    const sanitizedColumns: MaterializedColumn[] = (updates as Partial<GrowthbookClickhouseDataSource>).settings!.materializedColumns!.map(
       (col) => ({
         columnName: SqlString.escape(col.columnName),
         sourceField: SqlString.escape(col.sourceField),
@@ -360,35 +360,33 @@ export async function updateDataSource(
         ) as MaterializedColumn["datatype"],
       })
     );
-    const newMatColumns = Object.fromEntries(
+    const originalColumns = datasource.settings.materializedColumns || [];
+    const newColumnMap = Object.fromEntries(
       sanitizedColumns.map((col) => [col.sourceField, col])
     );
-    const currMatColumns = Object.fromEntries(
-      datasource.settings.materializedColumns.map((col) => [
-        col.sourceField,
-        col,
-      ])
+    const originalColumnMap = Object.fromEntries(
+      originalColumns.map((col) => [col.sourceField, col])
     );
     const sanitizedToDelete: MaterializedColumn[] = [],
       sanitizedToRename: { from: string; to: string }[] = [];
 
-    datasource.settings.materializedColumns.forEach((col) => {
+    originalColumns.forEach((col) => {
       if (
-        !Object.prototype.hasOwnProperty.call(newMatColumns, col.sourceField)
+        !Object.prototype.hasOwnProperty.call(newColumnMap, col.sourceField)
       ) {
         sanitizedToDelete.push(col);
         return;
       }
-      if (newMatColumns[col.sourceField].columnName !== col.columnName) {
+      if (newColumnMap[col.sourceField].columnName !== col.columnName) {
         sanitizedToRename.push({
           from: col.columnName,
-          to: newMatColumns[col.sourceField].columnName,
+          to: newColumnMap[col.sourceField].columnName,
         });
         return;
       }
       // Prevent changing column type for existing columns
-      if (newMatColumns[col.sourceField].datatype !== col.datatype) {
-        const updateColumn = (updates as Partial<GrowthbookClickhouseDataSource>).settings!.materializedColumns.find(
+      if (newColumnMap[col.sourceField].datatype !== col.datatype) {
+        const updateColumn = (updates as Partial<GrowthbookClickhouseDataSource>).settings!.materializedColumns!.find(
           (c) => c.sourceField === col.sourceField
         );
         if (updateColumn) {
@@ -396,9 +394,12 @@ export async function updateDataSource(
         }
       }
     });
-    const sanitizedToAdd = Object.values(newMatColumns).filter(
+    const sanitizedToAdd = Object.values(newColumnMap).filter(
       (col) =>
-        !Object.prototype.hasOwnProperty.call(currMatColumns, col.sourceField)
+        !Object.prototype.hasOwnProperty.call(
+          originalColumnMap,
+          col.sourceField
+        )
     );
     await updateMaterializedColumns({
       datasource,

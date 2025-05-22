@@ -239,7 +239,7 @@ export type DataSourceSettings = {
 };
 
 export interface GrowthbookClickhouseSettings extends DataSourceSettings {
-  materializedColumns: MaterializedColumn[];
+  materializedColumns?: MaterializedColumn[];
 }
 
 interface DataSourceBase {
