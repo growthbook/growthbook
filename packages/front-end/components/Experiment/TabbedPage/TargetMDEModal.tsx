@@ -123,9 +123,11 @@ const TargetMDEModal: FC<TargetMDEModalProps> = ({
                 </Flex>
                 <Field
                   type="number"
-                  value={
-                    (overrides[metric.id]?.targetMDE ?? currentValue) * 100
-                  }
+                  value={parseFloat(
+                    (
+                      (overrides[metric.id]?.targetMDE ?? currentValue) * 100
+                    ).toFixed(9)
+                  )}
                   onChange={(e) =>
                     handleOverrideChange(
                       metric.id,
