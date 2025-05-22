@@ -268,16 +268,3 @@ export function mergeDataSourceUpdates<T extends DataSourceType>(
     ...updates,
   };
 }
-
-export function sanitizeMatColumnString(
-  userInput: string,
-  replaceSpaces: boolean
-) {
-  if (!/^[a-zA-Z_][a-zA-Z0-9 _-]*$/.test(userInput)) {
-    throw new Error(
-      "Invalid input. Field names must start with a letter or underscore and only use alphanumeric characters or ' ', '_', or '-'"
-    );
-  }
-  if (replaceSpaces) return userInput.replace(/[ -]/g, "_");
-  return userInput;
-}
