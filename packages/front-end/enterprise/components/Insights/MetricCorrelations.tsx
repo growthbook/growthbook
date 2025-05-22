@@ -93,7 +93,7 @@ const MetricCorrelations = (): React.ReactElement => {
   const params = parseQueryParams(qParams);
 
   const [correlationCards, setCorrelationCards] = useState<number[]>(
-    params.map((p) => p.idx) ?? [0]
+    params.length > 0 ? params.map((p) => p.idx) : [0]
   );
 
   const deleteCard = useCallback(

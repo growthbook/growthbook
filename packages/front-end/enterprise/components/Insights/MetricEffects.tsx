@@ -1,6 +1,9 @@
 import React, { useEffect, useCallback, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { ExperimentSnapshotInterface, ExperimentWithSnapshot } from "back-end/types/experiment-snapshot";
+import {
+  ExperimentSnapshotInterface,
+  ExperimentWithSnapshot,
+} from "back-end/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { DifferenceType } from "back-end/types/stats";
@@ -24,82 +27,80 @@ import {
 } from "@/enterprise/components/Insights/MetricCorrelations";
 import HistogramGraph from "@/components/MetricAnalysis/HistogramGraph";
 import MetricExperiments from "@/components/MetricExperiments/MetricExperiments";
-
+import { useCurrency } from "@/hooks/useCurrency";
 
 interface HistogramDatapoint {
-    start: number;
-import { useCurrency } from "@/hooks/useCurrency";
-    end: number;
-    units: number;
+  start: number;
+  end: number;
+  units: number;
+}
+
+function createHistogramData(
+  values: number[],
+  numBins: number = 10
+): HistogramDatapoint[] {
+  if (values.length === 0 || numBins <= 0) return [];
+
+  let minVal = Math.min(...values);
+  let maxVal = Math.max(...values);
+
+  if (minVal === maxVal) {
+    const center = minVal;
+    const spread = Math.abs(center * 0.05) || 0.5; // 5% spread or 0.5 absolute
+    minVal = center - spread;
+    maxVal = center + spread;
   }
-  
-  function createHistogramData(
-    values: number[],
-    numBins: number = 10
-  ): HistogramDatapoint[] {
-    if (values.length === 0 || numBins <= 0) return [];
-  
-    let minVal = Math.min(...values);
-    let maxVal = Math.max(...values);
-  
-    if (minVal === maxVal) {
-      const center = minVal;
-      const spread = Math.abs(center * 0.05) || 0.5; // 5% spread or 0.5 absolute
-      minVal = center - spread;
-      maxVal = center + spread;
-    }
-  
-    // Ensure minVal and maxVal are different to prevent division by zero for binSize
-    if (minVal === maxVal) {
-      minVal = minVal - 0.5; // Create a minimal range
-      maxVal = maxVal + 0.5;
-    }
-  
-    const binSize = (maxVal - minVal) / numBins;
-    let bins: HistogramDatapoint[] = [];
-  
-    // Adjustment to make bins cut at 0
-    let binAdjustment = 0;
-    for (let i = 0; i < numBins; i++) {
-      const binStart = minVal + i * binSize;
-      const binEnd = minVal + (i + 1) * binSize;
-      if (binStart < 0 && binEnd > 0) {
-        binAdjustment = binEnd;
-      }
-      bins.push({ start: binStart, end: binEnd, units: 0 });
-    }
-    bins = bins.map((bin) => {
-      bin.start = bin.start - binAdjustment;
-      bin.end = bin.end - binAdjustment;
-      return bin;
-    });
-    bins.push({
-      start: bins[bins.length - 1].end,
-      end: bins[bins.length - 1].end + binSize,
-      units: 0,
-    });
-  
-    for (const value of values) {
-      // Clamp value to the range [minVal, maxVal] for bin assignment
-      const clampedValue = Math.max(minVal, Math.min(value, maxVal));
-  
-      let binIndex;
-      if (clampedValue === maxVal) {
-        binIndex = numBins - 1; // Max value goes into the last bin
-      } else {
-        // Subtract a tiny epsilon to handle floating point inaccuracies for values equal to bin boundaries
-        binIndex = Math.floor((clampedValue - minVal - 1e-9) / binSize);
-      }
-  
-      binIndex = Math.max(0, Math.min(binIndex, numBins - 1));
-  
-      if (bins[binIndex]) {
-        bins[binIndex].units++;
-      }
-    }
-    return bins;
+
+  // Ensure minVal and maxVal are different to prevent division by zero for binSize
+  if (minVal === maxVal) {
+    minVal = minVal - 0.5; // Create a minimal range
+    maxVal = maxVal + 0.5;
   }
-  
+
+  const binSize = (maxVal - minVal) / numBins;
+  let bins: HistogramDatapoint[] = [];
+
+  // Adjustment to make bins cut at 0
+  let binAdjustment = 0;
+  for (let i = 0; i < numBins; i++) {
+    const binStart = minVal + i * binSize;
+    const binEnd = minVal + (i + 1) * binSize;
+    if (binStart < 0 && binEnd > 0) {
+      binAdjustment = binEnd;
+    }
+    bins.push({ start: binStart, end: binEnd, units: 0 });
+  }
+  bins = bins.map((bin) => {
+    bin.start = bin.start - binAdjustment;
+    bin.end = bin.end - binAdjustment;
+    return bin;
+  });
+  bins.push({
+    start: bins[bins.length - 1].end,
+    end: bins[bins.length - 1].end + binSize,
+    units: 0,
+  });
+
+  for (const value of values) {
+    // Clamp value to the range [minVal, maxVal] for bin assignment
+    const clampedValue = Math.max(minVal, Math.min(value, maxVal));
+
+    let binIndex;
+    if (clampedValue === maxVal) {
+      binIndex = numBins - 1; // Max value goes into the last bin
+    } else {
+      // Subtract a tiny epsilon to handle floating point inaccuracies for values equal to bin boundaries
+      binIndex = Math.floor((clampedValue - minVal - 1e-9) / binSize);
+    }
+
+    binIndex = Math.max(0, Math.min(binIndex, numBins - 1));
+
+    if (bins[binIndex]) {
+      bins[binIndex].units++;
+    }
+  }
+  return bins;
+}
 
 type MetricEffectParams = {
   idx: number;
@@ -154,7 +155,7 @@ const MetricEffects = (): React.ReactElement => {
   const params = parseQueryParams(qParams);
 
   const [metricCards, setMetricCards] = useState<number[]>(
-    params.map((p) => p.idx) ?? [0]
+    params.length > 0 ? params.map((p) => p.idx) : [0]
   );
 
   const deleteCard = useCallback(
@@ -223,10 +224,12 @@ const MetricEffectCard = ({
   );
   const [metricData, setMetricData] = useState<{
     histogramData: HistogramDatapoint[];
-    stats: {
-      mean: number;
-      standardDeviation: number;
-    } | undefined;
+    stats:
+      | {
+          mean: number;
+          standardDeviation: number;
+        }
+      | undefined;
   }>({
     histogramData: [],
     stats: undefined,
@@ -247,11 +250,11 @@ const MetricEffectCard = ({
         getFactTableById,
         differenceType === "absolute" ? "percentagePoints" : "number"
       );
-      const formatterOptions: Intl.NumberFormatOptions = {
-        currency: displayCurrency,
-        ...(differenceType === "relative" ? { maximumFractionDigits: 1 } : {}),
-        ...(differenceType === "scaled" ? { notation: "compact" } : {}),
-      };
+  const formatterOptions: Intl.NumberFormatOptions = {
+    currency: displayCurrency,
+    ...(differenceType === "relative" ? { maximumFractionDigits: 1 } : {}),
+    ...(differenceType === "scaled" ? { notation: "compact" } : {}),
+  };
 
   const handleFetchMetric = useCallback(async () => {
     if (!metric) {
@@ -260,10 +263,7 @@ const MetricEffectCard = ({
 
     setLoading(true);
 
-    const filteredExperiments = filterExperimentsByMetrics(
-      experiments,
-      metric
-    );
+    const filteredExperiments = filterExperimentsByMetrics(experiments, metric);
 
     setSearchParams({
       [`metric_${index}`]: metric,
@@ -281,13 +281,12 @@ const MetricEffectCard = ({
       });
 
       if (snapshots && snapshots.length > 0) {
-        const metricName = getExperimentMetricById(metric)?.name || metric;
         setExperimentsWithSnapshot(
-            filteredExperiments.map((e) => ({
-              ...e,
-              snapshot: snapshots.find((s) => s.experiment === e.id) ?? undefined,
-            }))
-          );
+          filteredExperiments.map((e) => ({
+            ...e,
+            snapshot: snapshots.find((s) => s.experiment === e.id) ?? undefined,
+          }))
+        );
 
         const histogramValues: number[] = [];
 
@@ -316,21 +315,17 @@ const MetricEffectCard = ({
 
             const metricData = variation.metrics[metric];
 
-            const multiplier = differenceType === "relative" ? 100 : 1;
-            const title =
-              differenceType === "relative"
-                ? "(Lift %)"
-                : differenceType === "absolute"
-                ? "(Absolute Change)"
-                : "(Scaled Impact)";
-
             if (metricData) {
               histogramValues.push(metricData.uplift?.mean || 0);
             }
           });
         });
-        const metricMean = histogramValues.reduce((a, b) => a + b, 0) / histogramValues.length;
-        const metricStandardDeviation = Math.sqrt(histogramValues.reduce((a, b) => a + Math.pow(b - metricMean, 2), 0) / histogramValues.length);
+        const metricMean =
+          histogramValues.reduce((a, b) => a + b, 0) / histogramValues.length;
+        const metricStandardDeviation = Math.sqrt(
+          histogramValues.reduce((a, b) => a + Math.pow(b - metricMean, 2), 0) /
+            histogramValues.length
+        );
         setMetricData({
           histogramData: createHistogramData(histogramValues),
           stats: {
@@ -353,15 +348,7 @@ const MetricEffectCard = ({
     } finally {
       setLoading(false);
     }
-  }, [
-    metric,
-    experiments,
-    differenceType,
-    setSearchParams,
-    index,
-    apiCall,
-    getExperimentMetricById,
-  ]);
+  }, [metric, experiments, differenceType, setSearchParams, index, apiCall]);
 
   useEffect(() => {
     handleFetchMetric();
@@ -417,72 +404,72 @@ const MetricEffectCard = ({
         </Flex>
         {metricObj && metricData.histogramData.length > 0 ? (
           <Box mt="4">
-  <Heading as="h3" size="5" my="3">
-            {metricObj.name} - Lift Distribution
-          </Heading>
-          <Flex
-            direction="row"
-            justify="center"
-            mt="2"
-            className="appbox appbox-light"
-            align="baseline"
-          >
-            {metricData.histogramData.length > 0 ? (
-              <Flex direction="column" gap="2">
-                <Flex
-                  direction="row"
-                  gap="5"
-                  p="3"
-                  align="center"
-                  justify="center"
-                >
-                  <Box style={{ width: "50%" }}>
-                    <HistogramGraph
-                      data={metricData.histogramData}
-                      formatter={(value) =>
-                        formatterM1(value, formatterOptions)
-                      }
-                      height={300}
-                      highlightPositiveNegative={true}
-                      invertHighlightColors={metricObj.inverse}
+            <Heading as="h3" size="5" my="3">
+              {metricObj.name} - Lift Distribution
+            </Heading>
+            <Flex
+              direction="row"
+              justify="center"
+              mt="2"
+              className="appbox appbox-light"
+              align="baseline"
+            >
+              {metricData.histogramData.length > 0 ? (
+                <Flex direction="column" gap="2">
+                  <Flex
+                    direction="row"
+                    gap="5"
+                    p="3"
+                    align="center"
+                    justify="center"
+                  >
+                    <Box style={{ width: "50%" }}>
+                      <HistogramGraph
+                        data={metricData.histogramData}
+                        formatter={(value) =>
+                          formatterM1(value, formatterOptions)
+                        }
+                        height={300}
+                        highlightPositiveNegative={true}
+                        invertHighlightColors={metricObj.inverse}
+                      />
+                    </Box>
+                    <Flex direction="column" align="center">
+                      <Text as="p" color="gray">
+                        Mean:{" "}
+                        {differenceType === "relative"
+                          ? formatPercent(metricData.stats?.mean || 0)
+                          : formatNumber(metricData.stats?.mean || 0)}
+                      </Text>
+                      <Text as="p" color="gray">
+                        Standard Deviation:{" "}
+                        {differenceType === "relative"
+                          ? formatPercent(
+                              metricData.stats?.standardDeviation || 0
+                            )
+                          : formatNumber(
+                              metricData.stats?.standardDeviation || 0
+                            )}
+                      </Text>
+                    </Flex>
+                  </Flex>
+                  <Box p="2">
+                    <MetricExperiments
+                      metric={metricObj}
+                      dataWithSnapshot={experimentsWithSnapshot}
+                      includeOnlyResults={true}
+                      numPerPage={10}
+                      differenceType={differenceType}
+                      outerClassName=""
                     />
                   </Box>
-                  <Flex direction="column" align="center">
-                    <Text as="p" color="gray">
-                      Mean:{" "}
-                      {differenceType === "relative"
-                        ? formatPercent(metricData.stats?.mean || 0)
-                        : formatNumber(metricData.stats?.mean || 0)}
-                    </Text>
-                    <Text as="p" color="gray">
-                      Standard Deviation:{" "}
-                      {differenceType === "relative"
-                        ? formatPercent(
-                            metricData.stats?.standardDeviation || 0
-                          )
-                        : formatNumber(
-                            metricData.stats?.standardDeviation || 0
-                          )}
-                    </Text>
-                  </Flex>
                 </Flex>
-                <Box p="2">
-                  <MetricExperiments
-                    metric={metricObj}
-                    dataWithSnapshot={experimentsWithSnapshot}
-                    includeOnlyResults={true}
-                    numPerPage={10}
-                    differenceType={differenceType}
-                    outerClassName=""
-                  />
-                </Box>
-              </Flex>
-            ) : (
-              <Text as="p" color="gray">
-                No lift data to display for histogram.
-              </Text>
-            )}
-          </Flex>
+              ) : (
+                <Text as="p" color="gray">
+                  No lift data to display for histogram.
+                </Text>
+              )}
+            </Flex>
           </Box>
         ) : metric ? (
           <Box mt="4">
