@@ -155,7 +155,7 @@ const filterExperimentsByMetrics = (
   });
 };
 
-const MetricCorrelationsPage = (): React.ReactElement => {
+const MetricCorrelations = (): React.ReactElement => {
   const { apiCall } = useAuth();
 
   const { experiments } = useExperiments();
@@ -380,233 +380,231 @@ const MetricCorrelationsPage = (): React.ReactElement => {
   };
   return (
     <>
-      <div className="contents experiments container-fluid pagecontents">
-        <Flex direction="row" align="center" justify="between" mb="4">
-          <Flex direction="row" gap="2">
-            <Box>
-              <label htmlFor="metric1-selector" className="form-label">
-                Metric
-              </label>
-              <MetricSelector
-                value={metric1}
-                onChange={setMetric1}
-                project={project}
-                includeFacts={true}
-                id="metric1-selector"
-              />
-            </Box>
-            <Box>
-              <label htmlFor="metric2-selector" className="form-label">
-                Metric 2 (optional)
-              </label>
-              <MetricSelector
-                value={metric2}
-                onChange={setMetric2}
-                project={project}
-                includeFacts={true}
-                id="metric2-selector"
-              />
-            </Box>
-            <Box>
-              <label htmlFor="start-date-selector" className="form-label">
-                Experiment Date Range
-              </label>
-              <DatePicker
-                id="start-date-selector"
-                date={startDate ? new Date(startDate) : undefined}
-                setDate={(d) =>
-                  setStartDate(d ? d.toISOString().split("T")[0] : "")
-                }
-                date2={endDate ? new Date(endDate) : undefined}
-                setDate2={(d) =>
-                  setEndDate(d ? d.toISOString().split("T")[0] : "")
-                }
-                precision="date"
-                containerClassName=""
-              />
-            </Box>
-            <Box>
-              <SelectField
-                label="Difference Type"
-                value={differenceType}
-                onChange={(value) => setDifferenceType(value as DifferenceType)}
-                sort={false}
-                options={[
-                  { label: "Relative", value: "relative" },
-                  { label: "Absolute", value: "absolute" },
-                  { label: "Scaled Impact", value: "scaled" },
-                ]}
-              />
-            </Box>
-          </Flex>
+      <Flex direction="row" align="center" justify="between" mb="4">
+        <Flex direction="row" gap="2">
+          <Box>
+            <label htmlFor="metric1-selector" className="form-label">
+              Metric
+            </label>
+            <MetricSelector
+              value={metric1}
+              onChange={setMetric1}
+              project={project}
+              includeFacts={true}
+              id="metric1-selector"
+            />
+          </Box>
+          <Box>
+            <label htmlFor="metric2-selector" className="form-label">
+              Metric 2 (optional)
+            </label>
+            <MetricSelector
+              value={metric2}
+              onChange={setMetric2}
+              project={project}
+              includeFacts={true}
+              id="metric2-selector"
+            />
+          </Box>
+          <Box>
+            <label htmlFor="start-date-selector" className="form-label">
+              Experiment Date Range
+            </label>
+            <DatePicker
+              id="start-date-selector"
+              date={startDate ? new Date(startDate) : undefined}
+              setDate={(d) =>
+                setStartDate(d ? d.toISOString().split("T")[0] : "")
+              }
+              date2={endDate ? new Date(endDate) : undefined}
+              setDate2={(d) =>
+                setEndDate(d ? d.toISOString().split("T")[0] : "")
+              }
+              precision="date"
+              containerClassName=""
+            />
+          </Box>
+          <Box>
+            <SelectField
+              label="Difference Type"
+              value={differenceType}
+              onChange={(value) => setDifferenceType(value as DifferenceType)}
+              sort={false}
+              options={[
+                { label: "Relative", value: "relative" },
+                { label: "Absolute", value: "absolute" },
+                { label: "Scaled Impact", value: "scaled" },
+              ]}
+            />
+          </Box>
         </Flex>
+      </Flex>
 
-        {loading && <p>Loading chart data...</p>}
-        {!loading && metricData.histogramDataM1.length > 0 && metric1Obj && (
-          <Box mt="5">
-            <Heading as="h3" size="5" my="3">
-              {metric1Obj.name} - Lift Distribution
-            </Heading>
-            <Flex
-              direction="row"
-              justify="center"
-              mt="2"
-              className="appbox appbox-light"
-              align="baseline"
-            >
-              {metricData.histogramDataM1.length > 0 ? (
-                <Flex direction="column" gap="2">
-                  <Flex
-                    direction="row"
-                    gap="5"
-                    p="3"
-                    align="center"
-                    justify="center"
-                  >
-                    <Box style={{ width: "50%" }}>
-                      <HistogramGraph
-                        data={metricData.histogramDataM1}
-                        formatter={(value) =>
-                          formatterM1(value, formatterOptions)
-                        }
-                        height={300}
-                        highlightPositiveNegative={true}
-                        invertHighlightColors={metric1Obj.inverse}
-                      />
-                    </Box>
-                    <Flex direction="column" align="center">
-                      <Text as="p" color="gray">
-                        Mean:{" "}
-                        {differenceType === "relative"
-                          ? formatPercent(metricData.statsM1?.mean || 0)
-                          : formatNumber(metricData.statsM1?.mean || 0)}
-                      </Text>
-                      <Text as="p" color="gray">
-                        Standard Deviation:{" "}
-                        {differenceType === "relative"
-                          ? formatPercent(
-                              metricData.statsM1?.standardDeviation || 0
-                            )
-                          : formatNumber(
-                              metricData.statsM1?.standardDeviation || 0
-                            )}
-                      </Text>
-                    </Flex>
-                  </Flex>
-                  <Box p="2">
-                    <MetricExperiments
-                      metric={metric1Obj}
-                      dataWithSnapshot={experimentsWithSnapshot}
-                      includeOnlyResults={true}
-                      numPerPage={10}
-                      differenceType={differenceType}
-                      outerClassName=""
+      {loading && <p>Loading chart data...</p>}
+      {!loading && metricData.histogramDataM1.length > 0 && metric1Obj && (
+        <Box mt="5">
+          <Heading as="h3" size="5" my="3">
+            {metric1Obj.name} - Lift Distribution
+          </Heading>
+          <Flex
+            direction="row"
+            justify="center"
+            mt="2"
+            className="appbox appbox-light"
+            align="baseline"
+          >
+            {metricData.histogramDataM1.length > 0 ? (
+              <Flex direction="column" gap="2">
+                <Flex
+                  direction="row"
+                  gap="5"
+                  p="3"
+                  align="center"
+                  justify="center"
+                >
+                  <Box style={{ width: "50%" }}>
+                    <HistogramGraph
+                      data={metricData.histogramDataM1}
+                      formatter={(value) =>
+                        formatterM1(value, formatterOptions)
+                      }
+                      height={300}
+                      highlightPositiveNegative={true}
+                      invertHighlightColors={metric1Obj.inverse}
                     />
                   </Box>
-                </Flex>
-              ) : (
-                <Text as="p" color="gray">
-                  No lift data to display for histogram.
-                </Text>
-              )}
-            </Flex>
-          </Box>
-        )}
-
-        {!loading && metricData.histogramDataM2.length > 0 && metric2Obj && (
-          <Box mt="5">
-            <Heading as="h3" size="5" my="3">
-              {metric2Obj.name} - Lift Distribution
-            </Heading>
-            <Flex
-              direction="row"
-              justify="center"
-              mt="2"
-              className="appbox appbox-light"
-              align="baseline"
-            >
-              {metricData.histogramDataM2.length > 0 ? (
-                <Flex direction="column" gap="2">
-                  <Flex
-                    direction="row"
-                    gap="5"
-                    p="3"
-                    align="center"
-                    justify="center"
-                  >
-                    <Box style={{ width: "50%" }}>
-                      <HistogramGraph
-                        data={metricData.histogramDataM2}
-                        formatter={(value) =>
-                          formatterM2(value, formatterOptions)
-                        }
-                        height={300}
-                        highlightPositiveNegative={true}
-                        invertHighlightColors={metric2Obj.inverse}
-                      />
-                    </Box>
-                    <Flex direction="column" align="center">
-                      <Text as="p" color="gray">
-                        Mean:{" "}
-                        {differenceType === "relative"
-                          ? formatPercent(metricData.statsM2?.mean || 0)
-                          : formatNumber(metricData.statsM2?.mean || 0)}
-                      </Text>
-                      <Text as="p" color="gray">
-                        Standard Deviation:{" "}
-                        {differenceType === "relative"
-                          ? formatPercent(
-                              metricData.statsM2?.standardDeviation || 0
-                            )
-                          : formatNumber(
-                              metricData.statsM2?.standardDeviation || 0
-                            )}
-                      </Text>
-                    </Flex>
+                  <Flex direction="column" align="center">
+                    <Text as="p" color="gray">
+                      Mean:{" "}
+                      {differenceType === "relative"
+                        ? formatPercent(metricData.statsM1?.mean || 0)
+                        : formatNumber(metricData.statsM1?.mean || 0)}
+                    </Text>
+                    <Text as="p" color="gray">
+                      Standard Deviation:{" "}
+                      {differenceType === "relative"
+                        ? formatPercent(
+                            metricData.statsM1?.standardDeviation || 0
+                          )
+                        : formatNumber(
+                            metricData.statsM1?.standardDeviation || 0
+                          )}
+                    </Text>
                   </Flex>
-                  <Box p="2">
-                    <MetricExperiments
-                      metric={metric2Obj}
-                      dataWithSnapshot={experimentsWithSnapshot}
-                      includeOnlyResults={true}
-                      numPerPage={10}
-                      differenceType={differenceType}
-                      outerClassName=""
+                </Flex>
+                <Box p="2">
+                  <MetricExperiments
+                    metric={metric1Obj}
+                    dataWithSnapshot={experimentsWithSnapshot}
+                    includeOnlyResults={true}
+                    numPerPage={10}
+                    differenceType={differenceType}
+                    outerClassName=""
+                  />
+                </Box>
+              </Flex>
+            ) : (
+              <Text as="p" color="gray">
+                No lift data to display for histogram.
+              </Text>
+            )}
+          </Flex>
+        </Box>
+      )}
+
+      {!loading && metricData.histogramDataM2.length > 0 && metric2Obj && (
+        <Box mt="5">
+          <Heading as="h3" size="5" my="3">
+            {metric2Obj.name} - Lift Distribution
+          </Heading>
+          <Flex
+            direction="row"
+            justify="center"
+            mt="2"
+            className="appbox appbox-light"
+            align="baseline"
+          >
+            {metricData.histogramDataM2.length > 0 ? (
+              <Flex direction="column" gap="2">
+                <Flex
+                  direction="row"
+                  gap="5"
+                  p="3"
+                  align="center"
+                  justify="center"
+                >
+                  <Box style={{ width: "50%" }}>
+                    <HistogramGraph
+                      data={metricData.histogramDataM2}
+                      formatter={(value) =>
+                        formatterM2(value, formatterOptions)
+                      }
+                      height={300}
+                      highlightPositiveNegative={true}
+                      invertHighlightColors={metric2Obj.inverse}
                     />
                   </Box>
+                  <Flex direction="column" align="center">
+                    <Text as="p" color="gray">
+                      Mean:{" "}
+                      {differenceType === "relative"
+                        ? formatPercent(metricData.statsM2?.mean || 0)
+                        : formatNumber(metricData.statsM2?.mean || 0)}
+                    </Text>
+                    <Text as="p" color="gray">
+                      Standard Deviation:{" "}
+                      {differenceType === "relative"
+                        ? formatPercent(
+                            metricData.statsM2?.standardDeviation || 0
+                          )
+                        : formatNumber(
+                            metricData.statsM2?.standardDeviation || 0
+                          )}
+                    </Text>
+                  </Flex>
                 </Flex>
-              ) : (
-                <Text as="p" color="gray">
-                  No lift data to display for histogram.
-                </Text>
-              )}
-            </Flex>
-          </Box>
-        )}
+                <Box p="2">
+                  <MetricExperiments
+                    metric={metric2Obj}
+                    dataWithSnapshot={experimentsWithSnapshot}
+                    includeOnlyResults={true}
+                    numPerPage={10}
+                    differenceType={differenceType}
+                    outerClassName=""
+                  />
+                </Box>
+              </Flex>
+            ) : (
+              <Text as="p" color="gray">
+                No lift data to display for histogram.
+              </Text>
+            )}
+          </Flex>
+        </Box>
+      )}
 
-        {!loading && metricData.correlationData.length > 0 && (
-          <Box mt="5">
-            <Heading as="h3" size="5" my="3">
-              Correlation of Metric Lift
-            </Heading>
-            <Flex
-              mt="2"
-              className="appbox appbox-light"
-              align="center"
-              justify="center"
-              p="3"
-            >
-              <ScatterPlotGraph
-                data={metricData.correlationData}
-                width={800}
-                height={600}
-              />
-            </Flex>
-          </Box>
-        )}
-      </div>
+      {!loading && metricData.correlationData.length > 0 && (
+        <Box mt="5">
+          <Heading as="h3" size="5" my="3">
+            Correlation of Metric Lift
+          </Heading>
+          <Flex
+            mt="2"
+            className="appbox appbox-light"
+            align="center"
+            justify="center"
+            p="3"
+          >
+            <ScatterPlotGraph
+              data={metricData.correlationData}
+              width={800}
+              height={600}
+            />
+          </Flex>
+        </Box>
+      )}
     </>
   );
 };
 
-export default MetricCorrelationsPage;
+export default MetricCorrelations;

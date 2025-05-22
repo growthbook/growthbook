@@ -19,7 +19,8 @@ import {
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
 import CompletedExperimentList from "@/components/Experiment/CompletedExperimentList";
-import ExperimentTimeline from "@/components/Experiment/ExperimentTimeline";
+import ExperimentTimeline from "@/enterprise/components/Insights/ExperimentTimeline";
+import MetricCorrelations from "@/enterprise/components/Insights/MetricCorrelations";
 
 export function experimentDate(exp: ExperimentInterfaceStringDates): string {
   return (
@@ -277,6 +278,10 @@ const LearningsPage = (): React.ReactElement => {
                   Experiment Timeline{" "}
                   <PaidFeatureBadge commercialFeature="templates" mx="2" />
                 </TabsTrigger>
+                <TabsTrigger value="correlations">
+                  Metric Effect Explorer
+                  <PaidFeatureBadge commercialFeature="templates" mx="2" />
+                </TabsTrigger>
               </TabsList>
             </Box>
 
@@ -285,6 +290,9 @@ const LearningsPage = (): React.ReactElement => {
             </TabsContent>
             <TabsContent value="timeline">
               <ExperimentTimeline experiments={items} />
+            </TabsContent>
+            <TabsContent value="correlations">
+              <MetricCorrelations />
             </TabsContent>
           </Tabs>
         </div>

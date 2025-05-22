@@ -1,10 +1,10 @@
-import React, { useState } from "react";
 import { scaleBand, scaleTime } from "@visx/scale";
 import { Brush } from "@visx/brush";
 import { Group } from "@visx/group";
 import { AxisTop } from "@visx/axis";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { getValidDate } from "shared/dates";
+import { useState } from "react";
 
 const margin = { top: 50, right: 20, bottom: 50, left: 250 }; // Increased left margin for experiment names
 const height = 400;
