@@ -26,7 +26,7 @@ import Button from "@/components/Radix/Button";
 export const filterExperimentsByMetrics = (
   experiments: ExperimentInterfaceStringDates[],
   metric1: string,
-  metric2: string
+  metric2?: string
 ): ExperimentInterfaceStringDates[] => {
   if (!experiments || experiments.length === 0) {
     return [];
@@ -34,7 +34,7 @@ export const filterExperimentsByMetrics = (
   return experiments.filter((experiment) => {
     const metricIds = getAllMetricIdsFromExperiment(experiment);
     const hasMetric1 = metricIds.includes(metric1);
-    const hasMetric2 = metricIds.includes(metric2);
+    const hasMetric2 = metric2 ? metricIds.includes(metric2) : true;
 
     return hasMetric1 && hasMetric2;
   });
@@ -62,7 +62,6 @@ const parseQueryParams = (
 
     const [, paramType, id] = match;
     const idx = Number(id);
-    console.log(idx);
     if (!Number.isInteger(idx)) return;
     const groupId = idx.toString();
 
@@ -75,7 +74,6 @@ const parseQueryParams = (
     else if (paramType === "m2") group.m2 = value;
     else if (paramType === "diff") group.diff = value as DifferenceType;
   });
-  console.log(paramGroups);
 
   // Convert groups to array and filter out incomplete groups
   paramGroups.forEach((group) => {
@@ -119,7 +117,6 @@ const MetricCorrelations = (): React.ReactElement => {
       ))}
       <Button
         variant="ghost"
-        size="1"
         mt="4"
         onClick={() => {
           const id = Math.max(...correlationCards) + 1;
@@ -132,7 +129,7 @@ const MetricCorrelations = (): React.ReactElement => {
   );
 };
 
-const updateSearchParams = (
+export const updateSearchParams = (
   params: Record<string, string>,
   deleteAll: boolean = false
 ) => {
