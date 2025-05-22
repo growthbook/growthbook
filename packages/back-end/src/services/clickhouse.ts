@@ -352,16 +352,18 @@ WITH FILL
 
 export async function updateMaterializedColumns({
   datasource,
-  sanitizedToAdd,
-  sanitizedToDelete,
-  sanitizedToRename,
-  sanitizedAllColumns,
+  columnsToAdd,
+  columnsToDelete,
+  columnsToRename,
+  finalColumns,
+  originalColumns,
 }: {
   datasource: GrowthbookClickhouseDataSource;
-  sanitizedToAdd: MaterializedColumn[];
-  sanitizedToDelete: MaterializedColumn[];
-  sanitizedToRename: { from: string; to: string }[];
-  sanitizedAllColumns: MaterializedColumn[];
+  columnsToAdd: MaterializedColumn[];
+  columnsToDelete: MaterializedColumn[];
+  columnsToRename: { from: string; to: string }[];
+  finalColumns: MaterializedColumn[];
+  originalColumns: MaterializedColumn[];
 }) {
   const client = createAdminClickhouseClient();
 
@@ -370,38 +372,50 @@ export async function updateMaterializedColumns({
   const eventsTableName = `${database}.events`;
   const eventsViewName = `${database}.events_mv`;
 
-  logger.info(`Updating materialized columns; dropping view ${eventsViewName}`);
-  await client.command({ query: `DROP VIEW ${eventsViewName}` });
-  const addClauses = sanitizedToAdd
-    .map(
-      ({ columnName, datatype }) =>
-        `ADD COLUMN IF NOT EXISTS ${columnName} ${getClickhouseDatatype(
-          datatype
-        )}`
-    )
-    .join(", ");
-  const dropClauses = sanitizedToDelete
-    .map(({ columnName }) => `DROP COLUMN IF EXISTS ${columnName}`)
-    .join(", ");
-  const renameClauses = sanitizedToRename
-    .map(({ from, to }) => `RENAME COLUMN ${from} to ${to}`)
-    .join(", ");
-  const clauses = `${addClauses}${
-    sanitizedToAdd.length > 0 &&
-    sanitizedToDelete.length + sanitizedToRename.length > 0
-      ? ", "
-      : ""
-  }${dropClauses}${
-    sanitizedToDelete.length > 0 && sanitizedToRename.length > 0 ? ", " : ""
-  }${renameClauses}`;
-  logger.info(`Updating table schema for ${eventsTableName}`);
-  await client.command({
-    query: `ALTER TABLE ${eventsTableName} ${clauses}`,
-  });
+  // Track which columns the view should be recreated with in case of an error
+  let viewColumns = originalColumns;
 
-  logger.info(`Recreating materialized view ${eventsViewName}`);
-  await client.command({
-    query: `CREATE MATERIALIZED VIEW ${eventsViewName} TO ${eventsTableName} 
+  logger.info(`Updating materialized columns; dropping view ${eventsViewName}`);
+  await client.command({ query: `DROP VIEW IF EXISTS ${eventsViewName}` });
+
+  let err = undefined;
+  logger.info(columnsToAdd);
+  try {
+    const addClauses = columnsToAdd
+      .map(
+        ({ columnName, datatype }) =>
+          `ADD COLUMN IF NOT EXISTS ${columnName} ${getClickhouseDatatype(
+            datatype
+          )}`
+      )
+      .join(", ");
+    const dropClauses = columnsToDelete
+      .map(({ columnName }) => `DROP COLUMN IF EXISTS ${columnName}`)
+      .join(", ");
+    const renameClauses = columnsToRename
+      .map(({ from, to }) => `RENAME COLUMN ${from} to ${to}`)
+      .join(", ");
+    const clauses = `${addClauses}${
+      columnsToAdd.length > 0 &&
+      columnsToDelete.length + columnsToRename.length > 0
+        ? ", "
+        : ""
+    }${dropClauses}${
+      columnsToDelete.length > 0 && columnsToRename.length > 0 ? ", " : ""
+    }${renameClauses}`;
+    logger.info(`Updating table schema for ${eventsTableName}`);
+    logger.info(`Command is ALTER TABLE ${eventsTableName} ${clauses}`);
+    await client.command({
+      query: `ALTER TABLE ${eventsTableName} ${clauses}`,
+    });
+    viewColumns = finalColumns;
+  } catch (e) {
+    logger.error(e);
+    err = e;
+  } finally {
+    logger.info(`Recreating materialized view ${eventsViewName}`);
+    await client.command({
+      query: `CREATE MATERIALIZED VIEW ${eventsViewName} TO ${eventsTableName}
 DEFINER=CURRENT_USER SQL SECURITY DEFINER
 AS SELECT 
     timestamp,
@@ -409,17 +423,21 @@ AS SELECT
     event_name,
     properties_json,
     ${
-      sanitizedAllColumns
+      viewColumns
         .map(
           ({ columnName, datatype, sourceField }) =>
             `${getClickhouseExtractFn(
               datatype
             )}(context_json, '${sourceField}') as ${columnName}`
         )
-        .join(", ") + (sanitizedAllColumns.length > 0 ? "," : "")
+        .join(", ") + (viewColumns.length > 0 ? "," : "")
     }
 ${Object.keys(REMAINING_COLUMNS_SCHEMA).join(",")}
 FROM ${CLICKHOUSE_MAIN_TABLE} 
 WHERE (organization = '${orgId}') AND (event_name != 'Feature Evaluated')`,
-  });
+    });
+  }
+  if (err) {
+    throw err;
+  }
 }

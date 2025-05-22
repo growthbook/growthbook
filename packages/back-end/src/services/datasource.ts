@@ -20,6 +20,7 @@ import {
   DataSourceParams,
   DataSourceType,
   ExposureQuery,
+  GrowthbookClickhouseDataSource,
 } from "back-end/types/datasource";
 import Mysql from "back-end/src/integrations/Mysql";
 import Mssql from "back-end/src/integrations/Mssql";
@@ -239,6 +240,15 @@ export function isDataSourceType<T extends DataSourceInterface>(
   return datasource.type === type;
 }
 
+export function isPartialWithMaterializedColumns(
+  updates: Partial<DataSourceInterface>
+): updates is Partial<GrowthbookClickhouseDataSource> {
+  return Array.isArray(
+    (updates as Partial<GrowthbookClickhouseDataSource>).settings
+      ?.materializedColumns
+  );
+}
+
 export function createDataSourceObject<T extends DataSourceType>(
   type: T,
   data: Omit<DataSourceInterface, "type">
@@ -257,4 +267,17 @@ export function mergeDataSourceUpdates<T extends DataSourceType>(
     ...original,
     ...updates,
   };
+}
+
+export function sanitizeMatColumnString(
+  userInput: string,
+  replaceSpaces: boolean
+) {
+  if (!/^[a-zA-Z_][a-zA-Z0-9 _-]*$/.test(userInput)) {
+    throw new Error(
+      "Invalid input. Field names must start with a letter or underscore and only use alphanumeric characters or ' ', '_', or '-'"
+    );
+  }
+  if (replaceSpaces) return userInput.replace(/[ -]/g, "_");
+  return userInput;
 }

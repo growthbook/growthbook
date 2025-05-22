@@ -1,7 +1,6 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { cloneDeep, isEqual } from "lodash";
-import SqlString from "sqlstring";
 import {
   DataSourceInterface,
   DataSourceParams,
@@ -17,6 +16,8 @@ import {
   encryptParams,
   getSourceIntegrationObject,
   isDataSourceType,
+  isPartialWithMaterializedColumns,
+  sanitizeMatColumnString,
   testDataSourceConnection,
   testQueryValidity,
 } from "back-end/src/services/datasource";
@@ -348,37 +349,34 @@ export async function updateDataSource(
       datasource,
       "growthbook_clickhouse"
     ) &&
-    (updates as Partial<GrowthbookClickhouseDataSource>).settings
-      ?.materializedColumns
+    isPartialWithMaterializedColumns(updates)
   ) {
-    const sanitizedColumns: MaterializedColumn[] = (updates as Partial<GrowthbookClickhouseDataSource>).settings!.materializedColumns!.map(
-      (col) => ({
-        columnName: SqlString.escape(col.columnName),
-        sourceField: SqlString.escape(col.sourceField),
-        datatype: SqlString.escape(
-          col.datatype
-        ) as MaterializedColumn["datatype"],
-      })
+    updates.settings!.materializedColumns = sanitizeMaterializedColumns(
+      updates.settings!.materializedColumns!
     );
-    const originalColumns = datasource.settings.materializedColumns || [];
+    const finalColumns = updates.settings!.materializedColumns!;
+
+    const originalColumns = sanitizeMaterializedColumns(
+      datasource.settings.materializedColumns || []
+    );
     const newColumnMap = Object.fromEntries(
-      sanitizedColumns.map((col) => [col.sourceField, col])
+      finalColumns.map((col) => [col.sourceField, col])
     );
     const originalColumnMap = Object.fromEntries(
       originalColumns.map((col) => [col.sourceField, col])
     );
-    const sanitizedToDelete: MaterializedColumn[] = [],
-      sanitizedToRename: { from: string; to: string }[] = [];
+    const columnsToDelete: MaterializedColumn[] = [],
+      columnsToRename: { from: string; to: string }[] = [];
 
     originalColumns.forEach((col) => {
       if (
         !Object.prototype.hasOwnProperty.call(newColumnMap, col.sourceField)
       ) {
-        sanitizedToDelete.push(col);
+        columnsToDelete.push(col);
         return;
       }
       if (newColumnMap[col.sourceField].columnName !== col.columnName) {
-        sanitizedToRename.push({
+        columnsToRename.push({
           from: col.columnName,
           to: newColumnMap[col.sourceField].columnName,
         });
@@ -386,7 +384,7 @@ export async function updateDataSource(
       }
       // Prevent changing column type for existing columns
       if (newColumnMap[col.sourceField].datatype !== col.datatype) {
-        const updateColumn = (updates as Partial<GrowthbookClickhouseDataSource>).settings!.materializedColumns!.find(
+        const updateColumn = updates.settings!.materializedColumns!.find(
           (c) => c.sourceField === col.sourceField
         );
         if (updateColumn) {
@@ -394,7 +392,7 @@ export async function updateDataSource(
         }
       }
     });
-    const sanitizedToAdd = Object.values(newColumnMap).filter(
+    const columnsToAdd = Object.values(newColumnMap).filter(
       (col) =>
         !Object.prototype.hasOwnProperty.call(
           originalColumnMap,
@@ -403,10 +401,11 @@ export async function updateDataSource(
     );
     await updateMaterializedColumns({
       datasource,
-      sanitizedToAdd,
-      sanitizedToDelete,
-      sanitizedToRename,
-      sanitizedAllColumns: sanitizedColumns,
+      columnsToAdd,
+      columnsToDelete,
+      columnsToRename,
+      finalColumns,
+      originalColumns,
     });
   }
 
@@ -419,6 +418,14 @@ export async function updateDataSource(
       $set: updates,
     }
   );
+}
+
+function sanitizeMaterializedColumns(unsafeColumns: MaterializedColumn[]) {
+  return unsafeColumns.map(({ columnName, datatype, sourceField }) => ({
+    columnName: sanitizeMatColumnString(columnName, true),
+    datatype,
+    sourceField: sanitizeMatColumnString(sourceField, false),
+  }));
 }
 
 // WARNING: This does not restrict by organization
