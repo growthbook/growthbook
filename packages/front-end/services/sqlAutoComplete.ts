@@ -278,86 +278,96 @@ function formatTableCompletion(
   return pathContainsBackticks(tablePath) ? `${tableName}\`` : tableName;
 }
 
-function getTableCompletions(
-  textAfterFrom: string,
-  informationSchema: InformationSchemaInterface
-): AceCompletion[] {
-  const { hasDatabase, hasSchema } = analyzeFromClause(
-    textAfterFrom,
-    informationSchema
-  );
-
-  return informationSchema.databases.flatMap((db) =>
-    db.schemas.flatMap((schema) =>
-      schema.tables.map((table) => {
-        // If we have both database and schema, just show table name
-        if (hasDatabase && hasSchema) {
-          return {
-            value: formatTableCompletion(
-              table.path,
-              table.tableName,
-              hasDatabase,
-              hasSchema
-            ),
-            meta: "TABLE",
-            score: 900,
-            caption: table.tableName,
-          };
-        }
-        // If we have database but no schema, show schema.table
-        if (hasDatabase) {
-          return {
-            value: `${schema.schemaName}.${formatTableCompletion(
-              table.path,
-              table.tableName,
-              hasDatabase,
-              hasSchema
-            )}`,
-            meta: "TABLE",
-            score: 900,
-            caption: table.tableName,
-          };
-        }
-        // Otherwise show full path
-        return {
-          value: table.path,
-          meta: "TABLE",
-          score: 900,
-          caption: table.tableName,
-        };
-      })
-    )
-  );
-}
-
 function getSchemaCompletions(
   textAfterFrom: string,
   informationSchema: InformationSchemaInterface
 ): AceCompletion[] {
-  const { hasDatabase } = analyzeFromClause(textAfterFrom, informationSchema);
+  const { hasDatabase, databaseName } = analyzeFromClause(
+    textAfterFrom,
+    informationSchema
+  );
 
-  return informationSchema.databases.flatMap((db) =>
-    db.schemas.map((schema) => {
-      // If we have a database, just show schema name
-      if (hasDatabase) {
-        return {
-          value: schema.schemaName,
-          meta: "SCHEMA",
-          score: 950,
-          caption: schema.schemaName,
-        };
-      }
-      // Otherwise show database.schema
-      return {
-        value: formatSchemaCompletion(
-          schema.path || `${db.databaseName}.${schema.schemaName}`,
-          hasDatabase
-        ),
+  // If we have a database selected, only show schemas from that database
+  if (hasDatabase && databaseName) {
+    const selectedDatabase = informationSchema.databases.find(
+      (db) => db.databaseName === databaseName || db.path === databaseName
+    );
+
+    if (selectedDatabase) {
+      return selectedDatabase.schemas.map((schema) => ({
+        value: schema.schemaName,
         meta: "SCHEMA",
         score: 950,
-        caption: `${db.databaseName}.${schema.schemaName}`,
-      };
-    })
+        caption: schema.schemaName,
+      }));
+    }
+    return [];
+  }
+
+  // If no database selected, show all schemas with their database prefix
+  return informationSchema.databases.flatMap((db) =>
+    db.schemas.map((schema) => ({
+      value: formatSchemaCompletion(
+        schema.path || `${db.databaseName}.${schema.schemaName}`,
+        hasDatabase
+      ),
+      meta: "SCHEMA",
+      score: 950,
+      caption: `${db.databaseName}.${schema.schemaName}`,
+    }))
+  );
+}
+
+function getTableCompletions(
+  textAfterFrom: string,
+  informationSchema: InformationSchemaInterface
+): AceCompletion[] {
+  const { hasDatabase, hasSchema, schemaName } = analyzeFromClause(
+    textAfterFrom,
+    informationSchema
+  );
+
+  // If we have a schema selected, only show tables from that schema
+  if (hasSchema && schemaName) {
+    // Find the schema across all databases
+    for (const db of informationSchema.databases) {
+      const selectedSchema = db.schemas.find(
+        (schema) =>
+          schema.schemaName === schemaName || schema.path === schemaName
+      );
+
+      if (selectedSchema) {
+        return selectedSchema.tables.map((table) => ({
+          value: formatTableCompletion(
+            table.path,
+            table.tableName,
+            hasDatabase,
+            hasSchema
+          ),
+          meta: "TABLE",
+          score: 900,
+          caption: table.tableName,
+        }));
+      }
+    }
+    return [];
+  }
+
+  // If only database is selected, don't show any table suggestions
+  if (hasDatabase) {
+    return [];
+  }
+
+  // If no database or schema selected, show all tables with their full path
+  return informationSchema.databases.flatMap((db) =>
+    db.schemas.flatMap((schema) =>
+      schema.tables.map((table) => ({
+        value: table.path,
+        meta: "TABLE",
+        score: 900,
+        caption: table.tableName,
+      }))
+    )
   );
 }
 
