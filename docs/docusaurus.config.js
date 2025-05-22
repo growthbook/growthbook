@@ -3,6 +3,7 @@
 
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
+import { themes } from "prism-react-renderer";
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
@@ -26,6 +27,10 @@ const config = {
   i18n: {
     defaultLocale: "en",
     locales: ["en"],
+  },
+
+  future: {
+    experimental_faster: true,
   },
 
   // Kapa.ai chat bot on Docs page
@@ -187,8 +192,8 @@ const config = {
         },
       ],
       prism: {
-        theme: require("prism-react-renderer").themes.github,
-        darkTheme: require("prism-react-renderer").themes.dracula,
+        theme: themes.github,
+        darkTheme: themes.dracula,
         additionalLanguages: [
           "csharp",
           "ruby",
