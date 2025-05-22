@@ -63,7 +63,6 @@ const TargetMDEModal: FC<TargetMDEModalProps> = ({
       }
     });
   };
-  console.log(overrides);
 
   return (
     <Modal
