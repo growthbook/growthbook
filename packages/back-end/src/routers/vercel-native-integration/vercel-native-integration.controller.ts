@@ -24,6 +24,12 @@ import {
 } from "back-end/src/services/vercel-native-integration.service";
 import { createSDKConnection } from "back-end/src/models/SdkConnectionModel";
 import {
+  postCancelSubscriptionToLicenseServer,
+  postNewVercelSubscriptionToLicenseServer,
+} from "back-end/src/enterprise";
+import { getLicenseByKey } from "back-end/src/enterprise/models/licenseModel";
+import { getOrganizationById } from "back-end/src/services/organizations";
+import {
   userAuthenticationValidator,
   systemAuthenticationValidator,
   UpsertInstallationPayload,
@@ -32,21 +38,24 @@ import {
   BillingPlan,
 } from "./vercel-native-integration.validators";
 
-const FREE_BILLING_PLAN: BillingPlan = {
-  description: "Free Billing Plan",
-  id: "free-billing-plan",
-  name: "Free",
+const STARTER_BILLING_PLAN: BillingPlan = {
+  description:
+    "Growthbook's free plan. Add up to 3 users. Enjoy unlimited feature flag evaluations, community support, up to 1M CDN requests/month, and up to 5GB of CDN Bandwidth/month.",
+  id: "starter-billing-plan",
+  name: "Starter (Free) Plan",
   type: "subscription",
 };
 
-const NON_FREE_BILLING_PLAN: BillingPlan = {
-  description: "Non Free Billing Plan",
-  id: "non-free",
-  name: "Non free",
+const PRO_BILLING_PLAN: BillingPlan = {
+  description:
+    "Enjoy all the benefits of our starter plan, plus add up to 100 members (each member incurs a cost of $20/month), get in-app chat support, advanced experimentation features, up to 2M CDN requests/month, and up to 20GB of CDN Bandwidth/month.",
+  id: "pro-billing-plan",
+  name: "Pro Plan",
   type: "subscription",
+  cost: "20.00/month per user + usage",
 };
 
-const billingPlans = [FREE_BILLING_PLAN, NON_FREE_BILLING_PLAN] as const;
+const billingPlans = [STARTER_BILLING_PLAN, PRO_BILLING_PLAN] as const;
 
 const VERCEL_JKWS_URL = "https://marketplace.vercel.com/.well-known/jwks";
 
@@ -369,6 +378,25 @@ export async function provisionResource(req: Request, res: Response) {
     });
   })();
 
+  if (billingPlanId === "pro-billing-plan") {
+    try {
+      // Get fresh org with updated name
+      const updatedOrg = await getOrganizationById(contextOrg.id);
+
+      if (!updatedOrg) {
+        throw new Error("Organization not found");
+      }
+      await postNewVercelSubscriptionToLicenseServer(
+        updatedOrg,
+        req.params.installation_id,
+        user.name || ""
+      );
+    } catch (e) {
+      throw new Error(
+        `Unable to create new subscription. Reason: ${e.message} || "Unknown`
+      );
+    }
+  }
   const sdkConnection = await createSDKConnection({
     organization: org.id,
     name: payload.name,
@@ -460,6 +488,13 @@ export async function deleteResource(req: Request, res: Response) {
   } = await authContext(req, res);
 
   if (!resource) return res.status(400).send("Resource not found!");
+
+  const license = await getLicenseByKey(org.licenseKey || "");
+  if (!license) {
+    return res.status(404).send(`Unable to locate license for org: ${org.id}`);
+  }
+
+  await postCancelSubscriptionToLicenseServer(license.id);
 
   await integrationModel.update(integration, {
     resources: integration.resources.filter((r) => r.id !== resource.id),
