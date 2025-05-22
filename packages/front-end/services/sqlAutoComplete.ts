@@ -173,7 +173,7 @@ export function getSelectedTables(
 
   // Find all FROM clauses in the query
   const fromClauses = (sql.match(
-    /FROM\s+([^;]+?)(?=\s+(?:WHERE|GROUP BY|ORDER BY|$))/gi
+    /FROM\s+([^;]+?)(?=\s+(?:WHERE|GROUP BY|ORDER BY|$)|$)/gi
   ) || []) as string[];
 
   // Extract tables from FROM clauses
@@ -262,7 +262,7 @@ function formatSchemaCompletion(path: string, hasDatabase: boolean): string {
   if (hasDatabase) {
     return path.replace(/`/g, "");
   }
-  return pathContainsBackticks(path) ? path : `\`${path.replace(/`/g, "")}`;
+  return pathContainsBackticks(path) ? `\`${path.replace(/`/g, "")}` : path;
 }
 
 function formatTableCompletion(
