@@ -63,6 +63,7 @@ const TargetMDEModal: FC<TargetMDEModalProps> = ({
       }
     });
   };
+  console.log(overrides);
 
   return (
     <Modal
@@ -132,7 +133,7 @@ const TargetMDEModal: FC<TargetMDEModalProps> = ({
                       parseFloat(e.target.value) / 100
                     )
                   }
-                  step={0.00000001}
+                  step={"any"}
                   append="%"
                   min={0}
                   disabled={!isOverridden}
