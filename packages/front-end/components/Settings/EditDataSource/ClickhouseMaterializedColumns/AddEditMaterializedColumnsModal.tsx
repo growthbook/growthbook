@@ -3,21 +3,11 @@ import { cloneDeep } from "lodash";
 import { useForm } from "react-hook-form";
 import { useEffect, useMemo } from "react";
 import { JSONColumnFields } from "back-end/types/fact-table";
+import { factTableColumnTypes } from "back-end/src/routers/fact-table/fact-table.validators";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
-
-// TODO: currently duplicated from back-end code because the import fails
-const factTableColumnTypes = [
-  "number",
-  "string",
-  "date",
-  "boolean",
-  "json",
-  "other",
-  "",
-];
 
 interface BaseProps {
   existingColumnNames: string[];
@@ -110,6 +100,8 @@ export default function AddMaterializedColumnsModal({
     }
   }, [contextJsonFields, localColumn.sourceField, form]);
 
+  const selectableColumnTypes = factTableColumnTypes.filter((t) => t !== "");
+
   return (
     <Modal
       trackingEventModalType="clickhouse-add-materialized-columns"
@@ -158,7 +150,7 @@ export default function AddMaterializedColumnsModal({
         }
         label="Column type"
         value={form.watch("datatype")}
-        options={factTableColumnTypes.map((opt) => ({
+        options={selectableColumnTypes.map((opt) => ({
           label: opt,
           value: opt,
         }))}
