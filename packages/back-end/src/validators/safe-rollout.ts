@@ -39,7 +39,7 @@ export const createSafeRolloutValidator = z.object({
   exposureQueryId: z.string(),
   guardrailMetricIds: z.array(z.string()),
   maxDuration: MaxDuration,
-  autoRollback: z.boolean(),
+  autoRollback: z.boolean().default(false),
   rampUpSchedule: rampUpSchedule.partial().optional(),
 });
 export type CreateSafeRolloutInterface = z.infer<
@@ -136,9 +136,6 @@ export async function validateCreateSafeRolloutFields(
         }
       }
     }
-  }
-  if (safeRolloutFields.autoRollback === undefined) {
-    safeRolloutFields.autoRollback = false;
   }
   return createSafeRolloutValidator.strip().parse(safeRolloutFields);
 }
