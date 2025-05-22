@@ -10,7 +10,13 @@ jest.mock("back-end/src/util/http.util", () => ({
   cancellableFetch: jest.fn(),
 }));
 
+const applySecrets = (s: string) => s;
+
 describe("EventWebHookNotifier", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   it("sends data to webhook", async () => {
     getEventWebHookSignatureForPayload.mockReturnValueOnce("some-signature");
     cancellableFetch.mockReturnValueOnce({
@@ -25,6 +31,7 @@ describe("EventWebHookNotifier", () => {
         signingKey: "the signing key",
       },
       method: "POST",
+      applySecrets,
     });
 
     expect(result).toEqual({
@@ -65,6 +72,7 @@ describe("EventWebHookNotifier", () => {
         signingKey: "the signing key",
       },
       method: "POST",
+      applySecrets,
     });
 
     expect(result).toEqual({
@@ -101,6 +109,7 @@ describe("EventWebHookNotifier", () => {
         signingKey: "the signing key",
       },
       method: "PATCH",
+      applySecrets,
     });
 
     expect(result).toEqual({
@@ -138,6 +147,7 @@ describe("EventWebHookNotifier", () => {
         signingKey: "the signing key",
       },
       method: "POST",
+      applySecrets,
     });
 
     expect(result).toEqual({
@@ -154,6 +164,44 @@ describe("EventWebHookNotifier", () => {
           "User-Agent": "GrowthBook Webhook",
           "X-GrowthBook-Signature": "some-signature",
           foo: "bar",
+        },
+        method: "POST",
+      },
+      { maxContentSize: 1000, maxTimeMs: 30000 }
+    );
+  });
+
+  it("supports custom headers with secrets", async () => {
+    getEventWebHookSignatureForPayload.mockReturnValueOnce("some-signature");
+    cancellableFetch.mockReturnValueOnce({
+      responseWithoutBody: { ok: true, status: "all's good" },
+      stringBody: "the response body",
+    });
+
+    const result = await EventWebHookNotifier.sendDataToWebHook({
+      payload: "the payload",
+      eventWebHook: {
+        url: "http://foo.com/bla?secret={{secret}}",
+        headers: { foo: "bar{{secret}}" },
+        signingKey: "the signing key",
+      },
+      method: "POST",
+      applySecrets: (s) => s.replace("{{secret}}", "my-secret"),
+    });
+    expect(result).toEqual({
+      responseBody: "the response body",
+      result: "success",
+      statusCode: "all's good",
+    });
+    expect(cancellableFetch).toHaveBeenCalledWith(
+      "http://foo.com/bla?secret=my-secret",
+      {
+        body: '"the payload"',
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "GrowthBook Webhook",
+          "X-GrowthBook-Signature": "some-signature",
+          foo: "barmy-secret",
         },
         method: "POST",
       },
