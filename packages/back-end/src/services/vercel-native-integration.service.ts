@@ -17,8 +17,8 @@ import { findOrganizationById } from "back-end/src/models/OrganizationModel";
 
 export const VERCEL_URL = "https://api.vercel.com";
 
-const VERCEL_CLIENT_ID = process.env.VERCEL_CLIENT_ID || "";
-const VERCEL_CLIENT_SECRET = process.env.VERCEL_CLIENT_SECRET || "";
+export const VERCEL_CLIENT_ID = process.env.VERCEL_CLIENT_ID || "";
+export const VERCEL_CLIENT_SECRET = process.env.VERCEL_CLIENT_SECRET || "";
 
 export type VercelExperimentationItem = {
   id: string;

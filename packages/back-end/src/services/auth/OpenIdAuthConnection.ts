@@ -28,6 +28,10 @@ import {
   trackLoginForUser,
 } from "back-end/src/services/users";
 import { getHttpOptions } from "back-end/src/util/http.util";
+import {
+  VERCEL_CLIENT_ID,
+  VERCEL_CLIENT_SECRET,
+} from "back-end/src/services/vercel-native-integration.service";
 import { AuthConnection, TokensResponse } from "./AuthConnection";
 
 type AuthChecks = {
@@ -274,7 +278,18 @@ async function getConnectionFromRequest(req: Request, res: Response) {
   }
 
   let connection: SSOConnectionInterface;
-  if (IS_CLOUD && ssoConnectionId) {
+  if (IS_CLOUD && ssoConnectionId === "vercel") {
+    connection = {
+      id: "vercel",
+      clientId: VERCEL_CLIENT_ID,
+      clientSecret: VERCEL_CLIENT_SECRET,
+      metadata: {
+        issuer: "https://marketplace.vercel.com",
+        jwks_uri: "https://marketplace.vercel.com/.well-known/jwks",
+        id_token_signing_alg_values_supported: ["RS256"],
+      },
+    };
+  } else if (IS_CLOUD && ssoConnectionId) {
     connection = await ssoConnectionCache.get(ssoConnectionId);
   } else if (SSO_CONFIG) {
     connection = SSO_CONFIG;
