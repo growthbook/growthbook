@@ -53,6 +53,7 @@ const BaseClass = MakeModelClass({
     deleteEvent: "vercelNativeIntegration.delete",
   },
   globallyUniqueIds: true,
+  additionalIndexes: [{ fields: { installationId: 1 }, unique: true }],
 });
 
 export class VercelNativeIntegrationModel extends BaseClass {

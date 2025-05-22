@@ -270,10 +270,15 @@ export async function findOrganizationById(id: string) {
   return doc ? toInterface(doc) : null;
 }
 
+type UpdatableKeys = Exclude<
+  keyof OrganizationInterface,
+  "id" | "dateCreated" | "dateUpdated"
+>;
+
 export async function updateOrganization(
   id: string,
   update: Partial<OrganizationInterface>,
-  unset?: Partial<Record<keyof OrganizationInterface, number>>
+  unset?: Partial<Record<UpdatableKeys, 1>>
 ) {
   await OrganizationModel.updateOne(
     {

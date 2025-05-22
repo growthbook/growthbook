@@ -8,7 +8,7 @@ import { getUserByEmail } from "back-end/src/models/UserModel";
 import {
   createSdkWebhook,
   updateSdkWebhook,
-  findSdkWebhook,
+  findSdkWebhookByPayloadFormat,
   deleteSdkWebhookById,
 } from "back-end/src/models/WebhookModel";
 import { ReqContextClass } from "back-end/src/services/context";
@@ -294,9 +294,10 @@ export const deleteVercelExperimentationItemFromExperiment = ({
   });
 
 export const deleteVercelSdkWebhook = async (context: ReqContextClass) => {
-  const webhook = await findSdkWebhook(context, {
-    payloadFormat: "vercelNativeIntegration",
-  });
+  const webhook = await findSdkWebhookByPayloadFormat(
+    context,
+    "vercelNativeIntegration"
+  );
 
   if (!webhook) return;
 
@@ -335,9 +336,10 @@ export const syncVercelSdkWebhook = async (organization: string) => {
 
   const sdkConnections = await findSDKConnectionsByOrganization(context);
 
-  const webhook = await findSdkWebhook(context, {
-    payloadFormat: "vercelNativeIntegration",
-  });
+  const webhook = await findSdkWebhookByPayloadFormat(
+    context,
+    "vercelNativeIntegration"
+  );
 
   if (
     !resource.protocolSettings?.experimentation?.edgeConfigId ||

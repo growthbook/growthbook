@@ -99,13 +99,19 @@ export async function getOrganizationById(id: string) {
   return findOrganizationById(id);
 }
 
+const VERCEL_NATIVE_INTEGRATION_LOGIN_METHOD = {
+  id: "@vercel-native-integration",
+  clientId: "dummyId",
+  metadata: { issuer: "@vercel-native-integration" },
+} as const;
+
 export function validateLoginMethod(
   org: OrganizationInterface,
   req: AuthRequest
 ) {
   // If organization is vercel intergration and no loginMethod is provided, add it.
   if (org.isVercelIntegration && !req.loginMethod)
-    req.loginMethod = { id: "vercel" };
+    req.loginMethod = VERCEL_NATIVE_INTEGRATION_LOGIN_METHOD;
 
   if (
     org.restrictLoginMethod &&

@@ -13,6 +13,7 @@ import {
   updateOrganization,
   findOrganizationById,
 } from "back-end/src/models/OrganizationModel";
+import { addMemberToOrg } from "back-end/src/services/organizations";
 import { createUser, getUserByEmail } from "back-end/src/models/UserModel";
 import { ReqContextClass } from "back-end/src/services/context";
 import { setResponseCookies } from "back-end/src/controllers/auth";
@@ -103,18 +104,16 @@ const checkAuth = async <T extends string | "user">({
   }
 };
 
-const addOrganizationUser = (id: string, organization: OrganizationInterface) =>
-  updateOrganization(organization.id, {
-    members: [
-      ...organization.members,
-      {
-        id,
-        role: "admin",
-        dateCreated: new Date(),
-        limitAccessByEnvironment: false,
-        environments: [],
-      },
-    ],
+const addOrganizationUser = (
+  userId: string,
+  organization: OrganizationInterface
+) =>
+  addMemberToOrg({
+    organization,
+    userId,
+    role: "admin",
+    environments: [],
+    limitAccessByEnvironment: false,
   });
 
 const findOrCreateUser = async ({
@@ -191,7 +190,8 @@ const getContext = async ({
   });
 
   const context = new ReqContextClass({
-    org,
+    // Reload org to account for new member.
+    org: await findOrganizationById(organizationId),
     auditUser: null,
     user,
   });

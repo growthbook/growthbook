@@ -7,6 +7,17 @@ import { ReqContext } from "back-end/types/organization";
 import { migrateWebhookModel } from "back-end/src/util/migrations";
 import { WebhookInterface } from "back-end/types/webhook";
 
+const payloadFormatValidator = z.enum([
+  "standard",
+  "standard-no-payload",
+  "sdkPayload",
+  "edgeConfig",
+  "vercelNativeIntegration",
+  "none",
+]);
+
+type PayloadFormat = z.infer<typeof payloadFormatValidator>;
+
 const webhookSchema = new mongoose.Schema({
   id: {
     type: String,
@@ -126,16 +137,7 @@ export const updateSdkWebhookValidator = z
   .object({
     name: z.string().optional(),
     endpoint: z.string().optional(),
-    payloadFormat: z
-      .enum([
-        "standard",
-        "standard-no-payload",
-        "sdkPayload",
-        "edgeConfig",
-        "vercelNativeIntegration",
-        "none",
-      ])
-      .optional(),
+    payloadFormat: payloadFormatValidator.optional(),
     payloadKey: z.string().optional(),
     sdks: z.array(z.string()).optional(),
     httpMethod: z
@@ -177,16 +179,7 @@ const createSdkWebhookValidator = z
   .object({
     name: z.string(),
     endpoint: z.string(),
-    payloadFormat: z
-      .enum([
-        "standard",
-        "standard-no-payload",
-        "sdkPayload",
-        "edgeConfig",
-        "vercelNativeIntegration",
-        "none",
-      ])
-      .optional(),
+    payloadFormat: payloadFormatValidator.optional(),
     payloadKey: z.string().optional(),
     httpMethod: z.enum(["GET", "POST", "PUT", "DELETE", "PATCH", "PURGE"]),
     headers: z.string(),
@@ -232,14 +225,14 @@ export async function findSdkWebhookByIdAcrossOrgs(id: string) {
   return doc ? toInterface(doc) : null;
 }
 
-export async function findSdkWebhook(
+export async function findSdkWebhookByPayloadFormat(
   context: ReqContext,
-  params: Partial<WebhookInterface>
+  payloadFormat: PayloadFormat
 ) {
   const doc = await WebhookModel.findOne({
-    ...params,
     organization: context.org.id,
     useSdkMode: true,
+    payloadFormat,
   });
   return doc ? toInterface(doc) : null;
 }

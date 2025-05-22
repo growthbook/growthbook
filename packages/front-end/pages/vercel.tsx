@@ -12,17 +12,14 @@ const VercelPage = () => {
 
     const fn = async () => {
       try {
-        const ret = await fetch(
-          `${getApiHost()}/auth/sso/vercel?code=${code}&state=${state}&resourceId=${resourceId}`,
-          {
-            method: "POST",
-            credentials: "include",
-            body: JSON.stringify({ code, state, resourceId }),
-            headers: {
-              "Content-Type": "application/json",
-            },
-          }
-        );
+        const ret = await fetch(`${getApiHost()}/auth/sso/vercel`, {
+          method: "POST",
+          credentials: "include",
+          body: JSON.stringify({ code, state, resourceId }),
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
 
         if (!ret.ok) throw new Error(`Request failed: ${await ret.text()}`);
 
