@@ -226,6 +226,7 @@ const MetricEffectCard = ({
     histogramData: HistogramDatapoint[];
     stats:
       | {
+          numExperiments: number;
           mean: number;
           standardDeviation: number;
         }
@@ -289,6 +290,8 @@ const MetricEffectCard = ({
         );
 
         const histogramValues: number[] = [];
+        let numExperiments = 0;
+        const multiplier = differenceType === "relative" ? 100 : 1;
 
         snapshots.forEach((snapshot) => {
           const experiment = filteredExperiments.find(
@@ -310,25 +313,31 @@ const MetricEffectCard = ({
           const result = analysis.results[0];
           if (!result) return;
 
+          numExperiments++;
+
           result.variations.forEach((variation, variationIndex) => {
             if (variationIndex === 0) return; // Skip baseline
 
             const metricData = variation.metrics[metric];
 
-            if (metricData) {
-              histogramValues.push(metricData.uplift?.mean || 0);
+            if (metricData && !metricData.errorMessage) {
+              histogramValues.push(multiplier * (metricData.uplift?.mean || 0));
             }
           });
         });
         const metricMean =
-          histogramValues.reduce((a, b) => a + b, 0) / histogramValues.length;
+          histogramValues.reduce((a, b) => a + b / multiplier, 0) /
+          histogramValues.length;
         const metricStandardDeviation = Math.sqrt(
-          histogramValues.reduce((a, b) => a + Math.pow(b - metricMean, 2), 0) /
-            histogramValues.length
+          histogramValues.reduce(
+            (a, b) => a + Math.pow(b / multiplier - metricMean, 2),
+            0
+          ) / histogramValues.length
         );
         setMetricData({
           histogramData: createHistogramData(histogramValues),
           stats: {
+            numExperiments: numExperiments,
             mean: metricMean,
             standardDeviation: metricStandardDeviation,
           },
@@ -435,6 +444,10 @@ const MetricEffectCard = ({
                       />
                     </Box>
                     <Flex direction="column" align="center">
+                      <Text as="p" color="gray">
+                        Number of Experiments with Results:{" "}
+                        {metricData.stats?.numExperiments}
+                      </Text>
                       <Text as="p" color="gray">
                         Mean:{" "}
                         {differenceType === "relative"
