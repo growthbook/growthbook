@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { format, FormatOptionsWithLanguage } from "sql-formatter";
 import { useForm } from "react-hook-form";
-import { FaPlay } from "react-icons/fa";
+import { FaPlay, FaExclamationTriangle } from "react-icons/fa";
 import { TestQueryRow } from "back-end/src/types/Integration";
 import { DataSourceType } from "back-end/types/datasource";
 import clsx from "clsx";
 import { TemplateVariables } from "back-end/types/sql";
+import { Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { validateSQL } from "@/services/datasources";
@@ -68,6 +69,8 @@ export default function EditSqlModal({
       sql: value,
     },
   });
+
+  const sql = form.watch("sql");
   const { getDatasourceById } = useDefinitions();
 
   const { apiCall } = useAuth();
@@ -76,6 +79,8 @@ export default function EditSqlModal({
   const [testingQuery, setTestingQuery] = useState(false);
 
   const permissionsUtil = usePermissionsUtil();
+
+  const [formatError, setFormatError] = useState<string | null>(null);
 
   const validateRequiredColumns = useCallback(
     (result: TestQueryRow) => {
@@ -149,8 +154,8 @@ export default function EditSqlModal({
   const supportsSchemaBrowser =
     datasource?.properties?.supportsInformationSchema;
 
-  const hasEventName = usesEventName(form.watch("sql"));
-  const hasValueCol = usesValueColumn(form.watch("sql"));
+  const hasEventName = usesEventName(sql);
+  const hasValueCol = usesValueColumn(sql);
 
   function getSqlFormatterLanguage(
     datasourceType?: DataSourceType
@@ -178,7 +183,7 @@ export default function EditSqlModal({
     return datasourceType ? typeMap[datasourceType] : "sql";
   }
 
-  function formatSql(sql: string): string {
+  function formatSql(sql: string): void {
     try {
       // Replace template variables with placeholders
       const templateRegex = /{{[^}]+}}/g;
@@ -194,18 +199,27 @@ export default function EditSqlModal({
       });
 
       // Restore template variables
-      return formatted.replace(
+      const result = formatted.replace(
         /__TEMPLATE_(\d+)__/g,
         (_, index) => placeholders[parseInt(index)]
       );
+      setFormatError(null);
+      form.setValue("sql", result);
     } catch (error) {
-      return sql; // Return original SQL if formatting fails
+      setFormatError(
+        error instanceof Error ? error.message : "Failed to format SQL"
+      );
     }
   }
 
   useEffect(() => {
     if (!canRunQueries) setTestQueryBeforeSaving(false);
   }, [canRunQueries]);
+
+  // Clear format error when SQL changes
+  useEffect(() => {
+    setFormatError(null);
+  }, [sql]);
 
   return (
     <Modal
@@ -271,33 +285,40 @@ export default function EditSqlModal({
             <div className="bg-light p-1">
               <div className="row align-items-center">
                 <div className="col-auto">
-                  <Tooltip
-                    body="You do not have permission to run test queries"
-                    shouldDisplay={!canRunQueries}
-                  >
-                    <Button
-                      color="primary"
-                      className="btn-sm"
-                      onClick={handleTestQuery}
-                      loading={testingQuery}
-                      disabled={!canRunQueries}
-                      type="button"
+                  <Flex align="center">
+                    <Tooltip
+                      body="You do not have permission to run test queries"
+                      shouldDisplay={!canRunQueries}
                     >
-                      <span className="pr-2">
-                        <FaPlay />
-                      </span>
-                      Test Query
-                    </Button>
-                  </Tooltip>
-                  <RadixButton
-                    variant="ghost"
-                    onClick={() => {
-                      form.setValue("sql", formatSql(form.watch("sql")));
-                    }}
-                    disabled={!form.watch("sql")}
-                  >
-                    Format
-                  </RadixButton>
+                      <Button
+                        color="primary"
+                        className="btn-sm"
+                        onClick={handleTestQuery}
+                        loading={testingQuery}
+                        disabled={!canRunQueries}
+                        type="button"
+                      >
+                        <span className="pr-2">
+                          <FaPlay />
+                        </span>
+                        Test Query
+                      </Button>
+                    </Tooltip>
+                    <RadixButton
+                      variant="ghost"
+                      onClick={() => {
+                        formatSql(sql);
+                      }}
+                      disabled={!sql}
+                    >
+                      Format
+                    </RadixButton>
+                    {formatError && (
+                      <Tooltip body={formatError}>
+                        <FaExclamationTriangle className="text-danger" />
+                      </Tooltip>
+                    )}
+                  </Flex>
                 </div>
                 {Array.from(requiredColumns).length > 0 && (
                   <div className="col-auto ml-auto pr-3">
@@ -364,7 +385,7 @@ export default function EditSqlModal({
               <CodeTextArea
                 required
                 language="sql"
-                value={form.watch("sql")}
+                value={sql}
                 setValue={(sql) => form.setValue("sql", sql)}
                 placeholder={placeholder}
                 helpText={""}
@@ -372,9 +393,7 @@ export default function EditSqlModal({
                 setCursorData={setCursorData}
                 onCtrlEnter={handleTestQuery}
                 resizeDependency={!!testQueryResults}
-                onCtrlS={() =>
-                  form.setValue("sql", formatSql(form.watch("sql")))
-                }
+                onCtrlS={() => formatSql(sql)}
               />
             </div>
             {testQueryResults && (
