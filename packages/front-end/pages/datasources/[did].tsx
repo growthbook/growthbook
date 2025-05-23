@@ -33,6 +33,7 @@ import Badge from "@/components/Radix/Badge";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Callout from "@/components/Radix/Callout";
 import Frame from "@/components/Radix/Frame";
+import ClickhouseMaterializedColumns from "@/components/Settings/EditDataSource/ClickhouseMaterializedColumns";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -353,6 +354,17 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                 canEdit={canUpdateDataSourceSettings}
               />
             </Frame>
+
+            {d.type === "growthbook_clickhouse" && (
+              <Frame>
+                <ClickhouseMaterializedColumns
+                  dataSource={d}
+                  onSave={updateDataSourceSettings}
+                  onCancel={() => undefined}
+                  canEdit={canUpdateDataSourceSettings}
+                />
+              </Frame>
+            )}
 
             <Frame>
               <DataSourceMetrics
