@@ -486,7 +486,7 @@ export async function getAutoCompletions(
         const schemaCompletions = informationSchema.databases.flatMap((db) =>
           db.schemas.map((schema) => ({
             value: formatSchemaCompletion(
-              `${db.databaseName}.${schema.schemaName}`,
+              schema.path || schema.schemaName,
               false
             ),
             meta: "SCHEMA",
