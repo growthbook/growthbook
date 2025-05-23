@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { format, FormatOptionsWithLanguage } from "sql-formatter";
 import { useForm } from "react-hook-form";
 import { FaPlay, FaExclamationTriangle } from "react-icons/fa";
 import { TestQueryRow } from "back-end/src/types/Integration";
-import { DataSourceType } from "back-end/types/datasource";
 import clsx from "clsx";
 import { TemplateVariables } from "back-end/types/sql";
 import { Flex } from "@radix-ui/themes";
@@ -23,6 +21,7 @@ import {
 import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { useFormatter } from "@/hooks/useFormatter";
 import SchemaBrowser from "./SchemaBrowser";
 import styles from "./EditSqlModal.module.scss";
 
@@ -72,15 +71,19 @@ export default function EditSqlModal({
 
   const sql = form.watch("sql");
   const { getDatasourceById } = useDefinitions();
-
   const { apiCall } = useAuth();
-
   const [cursorData, setCursorData] = useState<null | CursorData>(null);
   const [testingQuery, setTestingQuery] = useState(false);
-
   const permissionsUtil = usePermissionsUtil();
 
-  const [formatError, setFormatError] = useState<string | null>(null);
+  const datasource = getDatasourceById(datasourceId);
+  const {
+    formatSql,
+    handleSqlChange,
+    clearError,
+    isFormatted,
+    error: formatError,
+  } = useFormatter(datasource?.type);
 
   const validateRequiredColumns = useCallback(
     (result: TestQueryRow) => {
@@ -147,7 +150,6 @@ export default function EditSqlModal({
     setTestingQuery(false);
   }, [form, runTestQuery]);
 
-  const datasource = getDatasourceById(datasourceId);
   const canRunQueries = datasource
     ? permissionsUtil.canRunTestQueries(datasource)
     : null;
@@ -157,60 +159,18 @@ export default function EditSqlModal({
   const hasEventName = usesEventName(sql);
   const hasValueCol = usesValueColumn(sql);
 
-  function getSqlFormatterLanguage(
-    datasourceType?: DataSourceType
-  ): FormatOptionsWithLanguage["language"] {
-    const typeMap: Record<
-      DataSourceType,
-      FormatOptionsWithLanguage["language"]
-    > = {
-      redshift: "redshift",
-      snowflake: "snowflake",
-      mysql: "mysql",
-      bigquery: "bigquery",
-      postgres: "postgresql",
-      mssql: "transactsql",
-      clickhouse: "sql",
-      growthbook_clickhouse: "sql",
-      athena: "sql",
-      presto: "trino",
-      databricks: "spark",
-      vertica: "sql",
-      mixpanel: "sql",
-      google_analytics: "sql",
-    };
+  const handleFormatClick = useCallback(() => {
+    const newSql = formatSql(sql);
+    form.setValue("sql", newSql);
+  }, [formatSql, sql, form]);
 
-    return datasourceType ? typeMap[datasourceType] : "sql";
-  }
-
-  function formatSql(sql: string): void {
-    try {
-      // Replace template variables with placeholders
-      const templateRegex = /{{[^}]+}}/g;
-      const placeholders: string[] = [];
-      const sqlWithoutTemplates = sql.replace(templateRegex, (match) => {
-        placeholders.push(match);
-        return `__TEMPLATE_${placeholders.length - 1}__`;
-      });
-
-      // Format the SQL without templates
-      const formatted = format(sqlWithoutTemplates, {
-        language: getSqlFormatterLanguage(datasource?.type),
-      });
-
-      // Restore template variables
-      const result = formatted.replace(
-        /__TEMPLATE_(\d+)__/g,
-        (_, index) => placeholders[parseInt(index)]
-      );
-      setFormatError(null);
-      form.setValue("sql", result);
-    } catch (error) {
-      setFormatError(
-        error instanceof Error ? error.message : "Failed to format SQL"
-      );
-    }
-  }
+  const handleSqlUpdate = useCallback(
+    (newSql: string) => {
+      handleSqlChange(newSql);
+      form.setValue("sql", newSql);
+    },
+    [handleSqlChange, form]
+  );
 
   useEffect(() => {
     if (!canRunQueries) setTestQueryBeforeSaving(false);
@@ -218,8 +178,8 @@ export default function EditSqlModal({
 
   // Clear format error when SQL changes
   useEffect(() => {
-    setFormatError(null);
-  }, [sql]);
+    clearError();
+  }, [sql, clearError]);
 
   return (
     <Modal
@@ -306,12 +266,10 @@ export default function EditSqlModal({
                     </Tooltip>
                     <RadixButton
                       variant="ghost"
-                      onClick={() => {
-                        formatSql(sql);
-                      }}
+                      onClick={handleFormatClick}
                       disabled={!sql}
                     >
-                      Format
+                      {isFormatted ? "Clear Format" : "Format"}
                     </RadixButton>
                     {formatError && (
                       <Tooltip body={formatError}>
@@ -386,14 +344,14 @@ export default function EditSqlModal({
                 required
                 language="sql"
                 value={sql}
-                setValue={(sql) => form.setValue("sql", sql)}
+                setValue={handleSqlUpdate}
                 placeholder={placeholder}
                 helpText={""}
                 fullHeight
                 setCursorData={setCursorData}
                 onCtrlEnter={handleTestQuery}
                 resizeDependency={!!testQueryResults}
-                onCtrlS={() => formatSql(sql)}
+                onCtrlS={handleFormatClick}
               />
             </div>
             {testQueryResults && (
