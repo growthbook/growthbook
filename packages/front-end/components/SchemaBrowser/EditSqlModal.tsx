@@ -180,10 +180,24 @@ export default function EditSqlModal({
 
   function formatSql(sql: string): string {
     try {
-      const formatted = format(sql, {
+      // Replace template variables with placeholders
+      const templateRegex = /{{[^}]+}}/g;
+      const placeholders: string[] = [];
+      const sqlWithoutTemplates = sql.replace(templateRegex, (match) => {
+        placeholders.push(match);
+        return `__TEMPLATE_${placeholders.length - 1}__`;
+      });
+
+      // Format the SQL without templates
+      const formatted = format(sqlWithoutTemplates, {
         language: getSqlFormatterLanguage(datasource?.type),
       });
-      return formatted;
+
+      // Restore template variables
+      return formatted.replace(
+        /__TEMPLATE_(\d+)__/g,
+        (_, index) => placeholders[parseInt(index)]
+      );
     } catch (error) {
       return sql; // Return original SQL if formatting fails
     }
