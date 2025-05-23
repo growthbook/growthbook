@@ -43,3 +43,5 @@ packages/back-end/src/api/openapi/openapi.tmp.yaml
 
 # package lock files
 package-lock.json
+
+charts/**/*.tgz
