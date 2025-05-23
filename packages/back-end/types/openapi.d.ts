@@ -329,6 +329,10 @@ export interface paths {
     /** Submit list of code references */
     post: operations["postCodeRefs"];
   };
+  "/queries/{id}": {
+    /** Get a single query */
+    get: operations["getQuery"];
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -2240,6 +2244,21 @@ export interface components {
       /** @description The attributes to set when using this Archetype */
       attributes: any;
       projects?: (string)[];
+    };
+    Query: {
+      id: string;
+      organization: string;
+      datasource: string;
+      language: string;
+      query: string;
+      queryType: string;
+      createdAt: string;
+      startedAt: string;
+      /** @enum {string} */
+      status: "running" | "queued" | "failed" | "partially-succeeded" | "succeeded";
+      externalId: string;
+      dependencies: (string)[];
+      runAtEnd: boolean;
     };
   };
   responses: {
@@ -9071,6 +9090,38 @@ export interface operations {
       };
     };
   };
+  getQuery: {
+    /** Get a single query */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            query: {
+              id: string;
+              organization: string;
+              datasource: string;
+              language: string;
+              query: string;
+              queryType: string;
+              createdAt: string;
+              startedAt: string;
+              /** @enum {string} */
+              status: "running" | "queued" | "failed" | "partially-succeeded" | "succeeded";
+              externalId: string;
+              dependencies: (string)[];
+              runAtEnd: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
 }
 import { z } from "zod";
 import * as openApiValidators from "back-end/src/validators/openapi";
@@ -9110,6 +9161,7 @@ export type ApiFactTableFilter = z.infer<typeof openApiValidators.apiFactTableFi
 export type ApiFactMetric = z.infer<typeof openApiValidators.apiFactMetricValidator>;
 export type ApiMember = z.infer<typeof openApiValidators.apiMemberValidator>;
 export type ApiArchetype = z.infer<typeof openApiValidators.apiArchetypeValidator>;
+export type ApiQuery = z.infer<typeof openApiValidators.apiQueryValidator>;
 
 // Operations
 export type ListFeaturesResponse = operations["listFeatures"]["responses"]["200"]["content"]["application/json"];
@@ -9195,3 +9247,4 @@ export type UpdateFactMetricResponse = operations["updateFactMetric"]["responses
 export type DeleteFactMetricResponse = operations["deleteFactMetric"]["responses"]["200"]["content"]["application/json"];
 export type PostBulkImportFactsResponse = operations["postBulkImportFacts"]["responses"]["200"]["content"]["application/json"];
 export type PostCodeRefsResponse = operations["postCodeRefs"]["responses"]["200"]["content"]["application/json"];
+export type GetQueryResponse = operations["getQuery"]["responses"]["200"]["content"]["application/json"];
