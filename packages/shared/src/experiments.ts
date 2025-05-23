@@ -553,6 +553,22 @@ export function getAllMetricSettingsForSnapshot({
   };
 }
 
+export function computeRiskValues(stats: SnapshotMetric, baselineCR: number) {
+  const statsRisk = stats.risk?.[1] ?? 0;
+  let risk: number;
+  let relativeRisk: number;
+  if (stats.riskType === "relative") {
+    risk = statsRisk * baselineCR;
+    relativeRisk = statsRisk;
+  } else {
+    // otherwise it is absolute, including legacy snapshots
+    // that were missing `riskType` field
+    risk = statsRisk;
+    relativeRisk = baselineCR ? statsRisk / baselineCR : 0;
+  }
+  return { risk, relativeRisk };
+}
+
 export function isExpectedDirection(
   stats: SnapshotMetric,
   metric: { inverse?: boolean }
