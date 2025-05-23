@@ -172,13 +172,14 @@ export default function EditSqlModal({
       const completions = await getAutoCompletions(
         cursorData,
         informationSchema,
-        apiCall
+        apiCall,
+        templateVariables?.eventName
       );
       setAutoCompletions(completions);
     };
 
     updateCompletions();
-  }, [cursorData, informationSchema, apiCall]);
+  }, [cursorData, informationSchema, apiCall, templateVariables?.eventName]);
 
   useEffect(() => {
     if (!canRunQueries) setTestQueryBeforeSaving(false);

@@ -377,15 +377,63 @@ export async function getAutoCompletions(
   apiCall: (
     url: string,
     options?: RequestInit
-  ) => Promise<{ table: InformationSchemaTablesInterface }>
+  ) => Promise<{ table: InformationSchemaTablesInterface }>,
+  eventName?: string
 ): Promise<AceCompletion[]> {
   if (!cursorData || !informationSchema) return [];
 
   const context = getCurrentContext(cursorData);
   if (!context?.type) return [];
 
+  const templateCompletions: AceCompletion[] = [
+    {
+      value: `'{{ startDate }}'`,
+      meta: "TEMPLATE VARIABLE",
+      score: 1100,
+      caption: `{{ startDate }}`,
+    },
+    {
+      value: `'{{ startDateISO }}'`,
+      meta: "TEMPLATE VARIABLE",
+      score: 1100,
+      caption: `{{ startDateISO }}`,
+    },
+    {
+      value: `'{{ endDate }}'`,
+      meta: "TEMPLATE VARIABLE",
+      score: 1100,
+      caption: `{{ endDate }}`,
+    },
+    {
+      value: `'{{ endDateISO }}'`,
+      meta: "TEMPLATE VARIABLE",
+      score: 1100,
+      caption: `{{ endDateISO }}`,
+    },
+  ];
+
   // Get selected tables and their data
   const selectedTables = getSelectedTables(cursorData, informationSchema);
+
+  // If we have an eventName and it's a valid table, add it to selected tables
+  if (eventName) {
+    const sql = cursorData.input.join("\n");
+    if (sql.includes("eventName")) {
+      // Find the table that matches the eventName
+      const matchingTable = informationSchema.databases
+        .flatMap((db) =>
+          db.schemas.flatMap((schema) =>
+            schema.tables.find((table) => table.tableName === eventName)
+          )
+        )
+        .find(Boolean);
+
+      if (matchingTable) {
+        selectedTables.push(matchingTable.id);
+      }
+    }
+  }
+
   const tableDataMap = await getTableDataForAutocomplete(
     selectedTables,
     informationSchema.datasourceId,
@@ -411,9 +459,9 @@ export async function getAutoCompletions(
             caption: col.columnName,
           }))
         );
-        return allColumns;
+        return allColumns.concat(templateCompletions);
       }
-      return [];
+      return templateCompletions;
     case "FROM":
       // Get the text after FROM up to the cursor
       textAfterFrom =
@@ -459,6 +507,7 @@ export async function getAutoCompletions(
         );
 
         return [
+          ...templateCompletions,
           ...databaseCompletions,
           ...schemaCompletions,
           ...tableCompletions,

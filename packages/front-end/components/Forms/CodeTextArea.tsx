@@ -106,10 +106,19 @@ export default function CodeTextArea({
       import("ace-builds").then((ace) => {
         const langTools = ace.require("ace/ext/language_tools");
 
-        // Remove any existing completers
-        langTools.setCompleters([]);
-
         if (completions && Array.isArray(completions)) {
+          // Store the default completers before clearing
+          const defaultCompleters = langTools.completers || [];
+
+          // Clear existing completers
+          langTools.setCompleters([]);
+
+          // Add back the default completers
+          defaultCompleters.forEach((completer) => {
+            langTools.addCompleter(completer);
+          });
+
+          // Add our custom completer for templates
           const customCompleter = {
             getCompletions: (
               editor: Ace.Editor,
@@ -118,8 +127,11 @@ export default function CodeTextArea({
               prefix: string,
               callback: (err: unknown, results: AceCompletion[]) => void
             ) => {
+              // Always return our template completions
               callback(null, completions);
             },
+            // Add identifier regex that includes { to trigger on curly braces
+            identifierRegexps: [/[a-zA-Z_0-9{]/],
           };
 
           langTools.addCompleter(customCompleter);
