@@ -269,7 +269,7 @@ export async function upsertInstallation(req: Request, res: Response) {
     userId: user.id,
     name: installationName,
     isVercelIntegration: true,
-    restrictLoginMethod: "vercel",
+    restrictLoginMethod: `vercel:${req.params.installation_id}`,
   });
 
   const context = new ReqContextClass({
@@ -328,7 +328,7 @@ export async function provisionResource(req: Request, res: Response) {
       await updateOrganization(contextOrg.id, {
         name: payload.name,
         isVercelIntegration: true,
-        restrictLoginMethod: "vercel",
+        restrictLoginMethod: `vercel:${req.params.installation_id}`,
       });
       return contextOrg;
     }
@@ -339,7 +339,7 @@ export async function provisionResource(req: Request, res: Response) {
       userId: contextOrg.members.find((m) => m.role === "admin")?.id || "",
       name: payload.name,
       isVercelIntegration: true,
-      restrictLoginMethod: "vercel",
+      restrictLoginMethod: `vercel:${req.params.installation_id}`,
     });
   })();
 
@@ -503,7 +503,7 @@ export async function postVercelIntegrationSSO(req: Request, res: Response) {
     email: userEmail,
   });
 
-  SSOConnectionIdCookie.setValue("vercel", req, res);
+  SSOConnectionIdCookie.setValue(`vercel:${installationId}`, req, res);
   IdTokenCookie.setValue(token, req, res);
 
   res.send({ organizationId: org.id });

@@ -133,7 +133,12 @@ export async function setResponseCookies(
     });
   }
 
-  IdTokenCookie.setValue(idToken, req, res, Math.max(600, expiresIn));
+  IdTokenCookie.setValue(
+    idToken,
+    req,
+    res,
+    Math.max(10 * 60 * 1000, expiresIn)
+  );
   RefreshTokenCookie.setValue(refreshToken, req, res);
 
   return idToken;
