@@ -5,10 +5,17 @@ import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { CursorData } from "@/components/Segments/SegmentForm";
 import Field, { FieldProps } from "./Field";
 
+export type AceCompletion = {
+  caption: string;
+  value: string;
+  meta: string;
+  score: number;
+};
+
 const AceEditor = dynamic(
   async () => {
     const reactAce = await import("react-ace");
-    await import("ace-builds/src-min-noconflict/ext-language_tools");
+    await import("ace-builds/src-noconflict/ext-language_tools");
     await import("ace-builds/src-noconflict/mode-sql");
     await import("ace-builds/src-noconflict/mode-javascript");
     await import("ace-builds/src-noconflict/mode-python");
@@ -17,6 +24,7 @@ const AceEditor = dynamic(
     await import("ace-builds/src-noconflict/theme-textmate");
     await import("ace-builds/src-noconflict/theme-tomorrow_night");
     await import("ace-builds/src-noconflict/ext-searchbox");
+    await import("ace-builds/src-noconflict/ext-language_tools");
 
     return reactAce;
   },
@@ -39,6 +47,7 @@ export type Props = Omit<
   maxLines?: number;
   fullHeight?: boolean;
   onCtrlEnter?: () => void;
+  completions?: AceCompletion[];
   resizeDependency?: boolean;
 };
 
@@ -56,13 +65,12 @@ export default function CodeTextArea({
   fullHeight,
   onCtrlEnter,
   resizeDependency,
+  completions,
   ...otherProps
 }: Props) {
   // eslint-disable-next-line
   const fieldProps = otherProps as any;
-
   const { theme } = useAppearanceUITheme();
-
   const [editor, setEditor] = useState<null | Ace.Editor>(null);
 
   // HACK: AceEditor doesn't automatically resize when the parent div resizes
@@ -78,53 +86,97 @@ export default function CodeTextArea({
 
   useEffect(() => {
     if (!editor) return;
-    if (!onCtrlEnter) return;
 
-    editor.commands.bindKey(
-      {
-        win: "Ctrl-enter",
-        mac: "Command-enter",
-      },
-      {
-        exec: onCtrlEnter,
-        name: "ctrl-enter",
-      }
-    );
+    if (onCtrlEnter) {
+      editor.commands.bindKey(
+        {
+          win: "Ctrl-enter",
+          mac: "Command-enter",
+        },
+        {
+          exec: onCtrlEnter,
+          name: "ctrl-enter",
+        }
+      );
+    }
   }, [editor, onCtrlEnter]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && editor) {
+      import("ace-builds").then((ace) => {
+        const langTools = ace.require("ace/ext/language_tools");
+
+        if (completions && Array.isArray(completions)) {
+          // Store the default completers before clearing
+          const defaultCompleters = langTools.completers || [];
+
+          // Clear existing completers
+          langTools.setCompleters([]);
+
+          // Add back the default completers
+          defaultCompleters.forEach((completer) => {
+            langTools.addCompleter(completer);
+          });
+
+          // Add our custom completer for templates
+          const customCompleter = {
+            getCompletions: (
+              editor: Ace.Editor,
+              session: Ace.EditSession,
+              pos: Ace.Position,
+              prefix: string,
+              callback: (err: unknown, results: AceCompletion[]) => void
+            ) => {
+              // Always return our template completions
+              callback(null, completions);
+            },
+            // Add identifier regex that includes { to trigger on curly braces
+            identifierRegexps: [/[a-zA-Z_0-9{]/],
+          };
+
+          langTools.addCompleter(customCompleter);
+        }
+      });
+    }
+  }, [completions, editor, language]);
 
   return (
     <Field
       {...fieldProps}
       containerClassName={fullHeight ? "h-100" : ""}
-      render={(id) => {
-        return (
-          <>
-            <div className={`border rounded ${fullHeight ? "h-100" : ""}`}>
-              <AceEditor
-                name={id}
-                onLoad={(e) => setEditor(e)}
-                mode={language}
-                theme={theme === "light" ? LIGHT_THEME : DARK_THEME}
-                width="inherit"
-                value={value}
-                onChange={(newValue) => setValue(newValue)}
-                placeholder={placeholder}
-                fontSize="1em"
-                {...heightProps}
-                readOnly={fieldProps.disabled}
-                onCursorChange={(e) =>
-                  setCursorData &&
-                  setCursorData({
-                    row: e.cursor.row,
-                    column: e.cursor.column,
-                    input: e.cursor.document.$lines,
-                  })
-                }
-              />
-            </div>
-          </>
-        );
-      }}
+      render={(id) => (
+        <div className={`border rounded ${fullHeight ? "h-100" : ""}`}>
+          <AceEditor
+            name={id}
+            onLoad={(e) => setEditor(e)}
+            mode={language}
+            theme={theme === "light" ? LIGHT_THEME : DARK_THEME}
+            width="inherit"
+            value={value}
+            onChange={(newValue) => setValue(newValue)}
+            placeholder={placeholder}
+            fontSize="1em"
+            {...heightProps}
+            setOptions={
+              language === "sql"
+                ? {
+                    enableBasicAutocompletion: true,
+                    enableLiveAutocompletion: true,
+                  }
+                : undefined
+            }
+            readOnly={fieldProps.disabled}
+            onCursorChange={(e) =>
+              setCursorData &&
+              setCursorData({
+                row: e.cursor.row,
+                column: e.cursor.column,
+                input: e.cursor.document.$lines,
+              })
+            }
+          />
+        </div>
+      )}
     />
   );
 }
