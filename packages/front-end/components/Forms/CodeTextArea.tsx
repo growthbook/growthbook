@@ -39,6 +39,7 @@ export type Props = Omit<
   maxLines?: number;
   fullHeight?: boolean;
   onCtrlEnter?: () => void;
+  onCtrlS?: () => void;
   resizeDependency?: boolean;
 };
 
@@ -55,6 +56,7 @@ export default function CodeTextArea({
   setCursorData,
   fullHeight,
   onCtrlEnter,
+  onCtrlS,
   resizeDependency,
   ...otherProps
 }: Props) {
@@ -78,19 +80,36 @@ export default function CodeTextArea({
 
   useEffect(() => {
     if (!editor) return;
-    if (!onCtrlEnter) return;
 
-    editor.commands.bindKey(
-      {
-        win: "Ctrl-enter",
-        mac: "Command-enter",
-      },
-      {
-        exec: onCtrlEnter,
-        name: "ctrl-enter",
-      }
-    );
-  }, [editor, onCtrlEnter]);
+    if (onCtrlEnter) {
+      editor.commands.bindKey(
+        {
+          win: "Ctrl-enter",
+          mac: "Command-enter",
+        },
+        {
+          exec: onCtrlEnter,
+          name: "ctrl-enter",
+        }
+      );
+    }
+
+    if (onCtrlS) {
+      editor.commands.bindKey(
+        {
+          win: "Ctrl-s",
+          mac: "Command-s",
+        },
+        {
+          exec: () => {
+            onCtrlS();
+            window.event?.preventDefault?.(); // Ensure this only runs in browser
+          },
+          name: "ctrl-s",
+        }
+      );
+    }
+  }, [editor, onCtrlEnter, onCtrlS]);
 
   return (
     <Field

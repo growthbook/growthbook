@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import { FaPlay } from "react-icons/fa";
+import { FaPlay, FaExclamationTriangle } from "react-icons/fa";
 import { TestQueryRow } from "back-end/src/types/Integration";
 import clsx from "clsx";
 import { TemplateVariables } from "back-end/types/sql";
+import { Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { validateSQL } from "@/services/datasources";
@@ -12,6 +13,7 @@ import Modal from "@/components/Modal";
 import { CursorData } from "@/components/Segments/SegmentForm";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import Button from "@/components/Button";
+import RadixButton from "@/components/Radix/Button";
 import {
   usesEventName,
   usesValueColumn,
@@ -19,6 +21,7 @@ import {
 import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { useFormatter } from "@/hooks/useFormatter";
 import SchemaBrowser from "./SchemaBrowser";
 import styles from "./EditSqlModal.module.scss";
 
@@ -65,14 +68,22 @@ export default function EditSqlModal({
       sql: value,
     },
   });
+
+  const sql = form.watch("sql");
   const { getDatasourceById } = useDefinitions();
-
   const { apiCall } = useAuth();
-
   const [cursorData, setCursorData] = useState<null | CursorData>(null);
   const [testingQuery, setTestingQuery] = useState(false);
-
   const permissionsUtil = usePermissionsUtil();
+
+  const datasource = getDatasourceById(datasourceId);
+  const {
+    formatSql,
+    handleSqlChange,
+    clearError,
+    isFormatted,
+    error: formatError,
+  } = useFormatter(datasource?.type);
 
   const validateRequiredColumns = useCallback(
     (result: TestQueryRow) => {
@@ -139,19 +150,36 @@ export default function EditSqlModal({
     setTestingQuery(false);
   }, [form, runTestQuery]);
 
-  const datasource = getDatasourceById(datasourceId);
   const canRunQueries = datasource
     ? permissionsUtil.canRunTestQueries(datasource)
     : null;
   const supportsSchemaBrowser =
     datasource?.properties?.supportsInformationSchema;
 
-  const hasEventName = usesEventName(form.watch("sql"));
-  const hasValueCol = usesValueColumn(form.watch("sql"));
+  const hasEventName = usesEventName(sql);
+  const hasValueCol = usesValueColumn(sql);
+
+  const handleFormatClick = useCallback(() => {
+    const newSql = formatSql(sql);
+    form.setValue("sql", newSql);
+  }, [formatSql, sql, form]);
+
+  const handleSqlUpdate = useCallback(
+    (newSql: string) => {
+      handleSqlChange(newSql);
+      form.setValue("sql", newSql);
+    },
+    [handleSqlChange, form]
+  );
 
   useEffect(() => {
     if (!canRunQueries) setTestQueryBeforeSaving(false);
   }, [canRunQueries]);
+
+  // Clear format error when SQL changes
+  useEffect(() => {
+    clearError();
+  }, [sql, clearError]);
 
   return (
     <Modal
@@ -217,24 +245,38 @@ export default function EditSqlModal({
             <div className="bg-light p-1">
               <div className="row align-items-center">
                 <div className="col-auto">
-                  <Tooltip
-                    body="You do not have permission to run test queries"
-                    shouldDisplay={!canRunQueries}
-                  >
-                    <Button
-                      color="primary"
-                      className="btn-sm"
-                      onClick={handleTestQuery}
-                      loading={testingQuery}
-                      disabled={!canRunQueries}
-                      type="button"
+                  <Flex align="center">
+                    <Tooltip
+                      body="You do not have permission to run test queries"
+                      shouldDisplay={!canRunQueries}
                     >
-                      <span className="pr-2">
-                        <FaPlay />
-                      </span>
-                      Test Query
-                    </Button>
-                  </Tooltip>
+                      <Button
+                        color="primary"
+                        className="btn-sm"
+                        onClick={handleTestQuery}
+                        loading={testingQuery}
+                        disabled={!canRunQueries}
+                        type="button"
+                      >
+                        <span className="pr-2">
+                          <FaPlay />
+                        </span>
+                        Test Query
+                      </Button>
+                    </Tooltip>
+                    <RadixButton
+                      variant="ghost"
+                      onClick={handleFormatClick}
+                      disabled={!sql}
+                    >
+                      {isFormatted ? "Clear Format" : "Format"}
+                    </RadixButton>
+                    {formatError && (
+                      <Tooltip body={formatError}>
+                        <FaExclamationTriangle className="text-danger" />
+                      </Tooltip>
+                    )}
+                  </Flex>
                 </div>
                 {Array.from(requiredColumns).length > 0 && (
                   <div className="col-auto ml-auto pr-3">
@@ -301,14 +343,15 @@ export default function EditSqlModal({
               <CodeTextArea
                 required
                 language="sql"
-                value={form.watch("sql")}
-                setValue={(sql) => form.setValue("sql", sql)}
+                value={sql}
+                setValue={handleSqlUpdate}
                 placeholder={placeholder}
                 helpText={""}
                 fullHeight
                 setCursorData={setCursorData}
                 onCtrlEnter={handleTestQuery}
                 resizeDependency={!!testQueryResults}
+                onCtrlS={handleFormatClick}
               />
             </div>
             {testQueryResults && (

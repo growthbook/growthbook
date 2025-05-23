@@ -20800,6 +20800,14 @@ sql-formatter@^11.0.2:
     argparse "^2.0.1"
     nearley "^2.20.1"
 
+sql-formatter@^15.6.2:
+  version "15.6.2"
+  resolved "https://registry.yarnpkg.com/sql-formatter/-/sql-formatter-15.6.2.tgz#d217a9ab4749c1a1791ce954dd224e283b054edc"
+  integrity sha512-ZjqOfJGuB97UeHzTJoTbadlM0h9ynehtSTHNUbGfXR4HZ4rCIoD2oIW91W+A5oE76k8hl0Uz5GD8Sx3Pt9Xa3w==
+  dependencies:
+    argparse "^2.0.1"
+    nearley "^2.20.1"
+
 sqlstring@^2.3.2:
   version "2.3.3"
   resolved "https://registry.npmjs.org/sqlstring/-/sqlstring-2.3.3.tgz"
