@@ -496,6 +496,18 @@ export function getSafeRolloutDaysLeft({
 
   return daysLeft;
 }
+// checks to see if each guardrail metric has the status of "safe"
+function canSafeRolloutStopEarly(safeRollout: SafeRolloutInterface) {
+  const guardrailMetricsResults = safeRollout.analysisSummary?.resultsStatus?.variations?.map(
+    (variation) => variation.guardrailMetrics
+  );
+  if (!guardrailMetricsResults) {
+    return false;
+  }
+  return guardrailMetricsResults.every((results) =>
+    Object.values(results ?? {}).every((metric) => metric?.status === "safe")
+  );
+}
 
 export function getSafeRolloutResultStatus({
   safeRollout,
@@ -509,6 +521,7 @@ export function getSafeRolloutResultStatus({
   const unhealthyData: ExperimentUnhealthyData = {};
   const healthSummary = safeRollout.analysisSummary?.health;
   const resultsStatus = safeRollout.analysisSummary?.resultsStatus;
+  const canStopEarly = canSafeRolloutStopEarly(safeRollout);
   const hoursRunning = differenceInHours(
     Date.now(),
     safeRollout.startedAt ? new Date(safeRollout.startedAt) : Date.now()
@@ -602,11 +615,13 @@ export function getSafeRolloutResultStatus({
       daysLeft,
     };
   }
-
-  if (daysLeft <= 0 && resultsStatus) {
+  const showCanShip = canStopEarly && daysLeft <= 0;
+  // check and see if the guardrail metrics are passing
+  if (showCanShip && resultsStatus) {
     // If no days left, return ship decision
     return {
       status: "ship-now",
+      shippingEarly: daysLeft > 0,
       variations: [
         {
           variationId: "1",
