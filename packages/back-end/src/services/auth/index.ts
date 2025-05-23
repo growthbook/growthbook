@@ -62,10 +62,12 @@ export function getAuthConnection(): AuthConnection {
 }
 
 async function getUserFromJWT(token: IdToken): Promise<null | UserInterface> {
-  if (!token.email) {
+  const email = token.email || token.user_email;
+
+  if (!email) {
     throw new Error("Id token does not contain email address");
   }
-  const user = await getUserByEmail(String(token.email));
+  const user = await getUserByEmail(String(email));
   if (!user) return null;
 
   if (!usingOpenId() && user.minTokenDate && token.iat) {

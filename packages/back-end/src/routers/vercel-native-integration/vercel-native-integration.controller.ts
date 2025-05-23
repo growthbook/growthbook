@@ -503,10 +503,8 @@ export async function postVercelIntegrationSSO(req: Request, res: Response) {
     email: userEmail,
   });
 
-  // TODO: How long do Vercel tokens last? Is 600 (10 minutes) correct?
-  const maxAge = 600;
-  SSOConnectionIdCookie.setValue("vercel", req, res, maxAge);
-  IdTokenCookie.setValue(token, req, res, maxAge);
+  SSOConnectionIdCookie.setValue("vercel", req, res);
+  IdTokenCookie.setValue(token, req, res);
 
   res.send({ organizationId: org.id });
 }
