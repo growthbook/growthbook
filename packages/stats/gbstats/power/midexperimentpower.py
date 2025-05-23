@@ -245,15 +245,19 @@ class MidExperimentPower:
         Returns:
             The MDE.
         """
-        mu_a = self.stat_a.unadjusted_mean
-        variance = self.stat_a.variance
         k = norm.cdf(1 - self.alpha / 2) - norm.cdf(1 - power)  # numtests?
-        mde_numerator = mu_a + (
-            (k**2 * variance / self.pairwise_sample_size) * 
-            (1 - variance / self.pairwise_sample_size * k**2 / mu_a**2)
-        )**0.5  # - solution
-        mde_denominator = 1 - variance / self.pairwise_sample_size * k**2 / mu_a**2
-        return float(mde_numerator / mde_denominator)
+
+        if self.relative:
+            mu_a = self.stat_a.unadjusted_mean
+            variance = self.stat_a.variance
+            mde_numerator = mu_a + (
+                (k**2 * variance / self.pairwise_sample_size) * 
+                (1 - variance / self.pairwise_sample_size * k**2 / mu_a**2)
+            )**0.5  # - solution
+            mde_denominator = 1 - variance / self.pairwise_sample_size * k**2 / mu_a**2
+            return float(mde_numerator / mde_denominator)
+        else:
+            return float(k * self.sigmahat_2_delta**0.5) + self.stat_a.unadjusted_mean
 
     def calculate_scaling_factor(self) -> ScalingFactorResult:
         """Calculates the scaling factor for the control group sample size.
