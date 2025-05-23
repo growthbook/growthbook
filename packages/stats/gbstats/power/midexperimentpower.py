@@ -255,9 +255,9 @@ class MidExperimentPower:
                 (1 - variance / self.pairwise_sample_size * k**2 / mu_a**2)
             )**0.5  # - solution
             mde_denominator = 1 - variance / self.pairwise_sample_size * k**2 / mu_a**2
-            return float(mde_numerator / mde_denominator)
+            return (float(mde_numerator / mde_denominator) - self.stat_a.unadjusted_mean) / self.stat_a.unadjusted_mean
         else:
-            return float(k * self.sigmahat_2_delta**0.5) + self.stat_a.unadjusted_mean
+            return float(k * self.sigmahat_2_delta**0.5)
 
     def calculate_scaling_factor(self) -> ScalingFactorResult:
         """Calculates the scaling factor for the control group sample size.
