@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
+import { format, FormatOptionsWithLanguage } from "sql-formatter";
 import { useForm } from "react-hook-form";
 import { FaPlay } from "react-icons/fa";
 import { TestQueryRow } from "back-end/src/types/Integration";
+import { DataSourceType } from "back-end/types/datasource";
 import clsx from "clsx";
 import { TemplateVariables } from "back-end/types/sql";
 import { useAuth } from "@/services/auth";
@@ -12,6 +14,7 @@ import Modal from "@/components/Modal";
 import { CursorData } from "@/components/Segments/SegmentForm";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import Button from "@/components/Button";
+import RadixButton from "@/components/Radix/Button";
 import {
   usesEventName,
   usesValueColumn,
@@ -149,6 +152,43 @@ export default function EditSqlModal({
   const hasEventName = usesEventName(form.watch("sql"));
   const hasValueCol = usesValueColumn(form.watch("sql"));
 
+  function getSqlFormatterLanguage(
+    datasourceType?: DataSourceType
+  ): FormatOptionsWithLanguage["language"] {
+    const typeMap: Record<
+      DataSourceType,
+      FormatOptionsWithLanguage["language"]
+    > = {
+      redshift: "redshift",
+      snowflake: "snowflake",
+      mysql: "mysql",
+      bigquery: "bigquery",
+      postgres: "postgresql",
+      mssql: "transactsql",
+      clickhouse: "sql",
+      growthbook_clickhouse: "sql",
+      athena: "sql",
+      presto: "trino",
+      databricks: "spark",
+      vertica: "sql",
+      mixpanel: "sql",
+      google_analytics: "sql",
+    };
+
+    return datasourceType ? typeMap[datasourceType] : "sql";
+  }
+
+  function formatSql(sql: string): string {
+    try {
+      const formatted = format(sql, {
+        language: getSqlFormatterLanguage(datasource?.type),
+      });
+      return formatted;
+    } catch (error) {
+      return sql; // Return original SQL if formatting fails
+    }
+  }
+
   useEffect(() => {
     if (!canRunQueries) setTestQueryBeforeSaving(false);
   }, [canRunQueries]);
@@ -235,6 +275,15 @@ export default function EditSqlModal({
                       Test Query
                     </Button>
                   </Tooltip>
+                  <RadixButton
+                    variant="ghost"
+                    onClick={() => {
+                      form.setValue("sql", formatSql(form.watch("sql")));
+                    }}
+                    disabled={!form.watch("sql")}
+                  >
+                    Format
+                  </RadixButton>
                 </div>
                 {Array.from(requiredColumns).length > 0 && (
                   <div className="col-auto ml-auto pr-3">
@@ -309,6 +358,9 @@ export default function EditSqlModal({
                 setCursorData={setCursorData}
                 onCtrlEnter={handleTestQuery}
                 resizeDependency={!!testQueryResults}
+                onCtrlS={() =>
+                  form.setValue("sql", formatSql(form.watch("sql")))
+                }
               />
             </div>
             {testQueryResults && (
