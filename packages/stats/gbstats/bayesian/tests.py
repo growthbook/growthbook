@@ -6,7 +6,6 @@ import numpy as np
 from pydantic.dataclasses import dataclass
 from pydantic.config import ConfigDict
 from scipy.stats import norm
-import time
 
 from gbstats.messages import (
     BASELINE_VARIATION_ZERO_MESSAGE,
@@ -276,7 +275,7 @@ class MCMCParams:
 
 
 @dataclass
-class HyperparamsUnivariate:
+class HyperparmsUnivariate:
     mu_delta: float
     sigma_2_delta: float
     a: float
@@ -288,7 +287,7 @@ class HyperparamsUnivariate:
 
 
 @dataclass(config=ConfigDict(arbitrary_types_allowed=True))
-class HyperparamsTwoFactor:
+class HyperparmsTwoFactor:
     mu_0: np.ndarray  # prior mean for mu
     sigma_0: np.ndarray  # prior variance for mu
     nu_alpha: float  # prior degrees of freedom for sigma_alpha
@@ -334,22 +333,22 @@ class ModelParamsUnivariate:
 class TwoFactorPooling:
     def __init__(
         self,
-        hyperparams: HyperparamsTwoFactor,
+        hyperparms: HyperparmsTwoFactor,
         cell_data: List[CellDataTwoFactor],
         mcmc_params: MCMCParams,
         params: Optional[ModelParamsTwoFactor],
     ):
         self.cell_data = copy.deepcopy(cell_data)
-        self.hyperparams = copy.deepcopy(hyperparams)
-        self.num_levels_alpha = self.hyperparams.num_levels_alpha
-        self.num_levels_beta = self.hyperparams.num_levels_beta
+        self.hyperparms = copy.deepcopy(hyperparms)
+        self.num_levels_alpha = self.hyperparms.num_levels_alpha
+        self.num_levels_beta = self.hyperparms.num_levels_beta
         assert (
             len(self.cell_data) == self.num_levels_alpha * self.num_levels_beta
         ), "Number of cell data must match number of levels in alpha and beta."
-        self.num_outcomes = self.hyperparams.mu_0.shape[0]
+        self.num_outcomes = self.hyperparms.mu_0.shape[0]
         assert (
             self.cell_data[0].mu_hat.shape[0] == self.num_outcomes
-        ), "Number of outcomes must be the same in data and hyperparams."
+        ), "Number of outcomes must be the same in data and hyperparms."
         self.seed = mcmc_params.seed
         self.num_burn = mcmc_params.num_burn
         self.num_keep = mcmc_params.num_keep
@@ -383,8 +382,8 @@ class TwoFactorPooling:
             beta = np.mean(mu, axis=0)
             alpha -= np.mean(alpha, axis=0)
             beta -= np.mean(beta, axis=0)
-            sigma_alpha = np.cov(alpha.T, ddof=1)
-            sigma_beta = np.cov(beta.T, ddof=1)
+            sigma_alpha = np.cov(alpha.T, ddof=1) + 1e-5 * np.eye(self.num_outcomes)
+            sigma_beta = np.cov(beta.T, ddof=1) + 1e-5 * np.eye(self.num_outcomes)
             return ModelParamsTwoFactor(
                 mu_overall=mu_overall,
                 mu=mu,
@@ -397,20 +396,12 @@ class TwoFactorPooling:
             return copy.deepcopy(params)
 
     def run_mcmc(self):
-        start_time = time.time()
         self.create_storage_arrays()
-        end_time = time.time()
-        print(f"Time taken to create storage arrays: {end_time - start_time} seconds")
         self.params = self.initialize_parameters(self.params)
-        end_time = time.time()
-        print(f"Time taken to initialize parameters: {end_time - start_time} seconds")
-        start_time = time.time()
         for i in range(self.num_iters):
             self.update_params(i)
             if i >= self.num_burn:
                 self.store_params(i)
-        end_time = time.time()
-        print(f"Time taken to run MCMC: {end_time - start_time} seconds")
 
     @property
     def mu_hat_shape(self) -> tuple[int, int, int]:
@@ -431,7 +422,7 @@ class TwoFactorPooling:
 
     @property
     def prec_mu(self) -> np.ndarray:
-        return np.linalg.inv(self.hyperparams.sigma_0) + self.sigma_hat_inv_sum
+        return np.linalg.inv(self.hyperparms.sigma_0) + self.sigma_hat_inv_sum
 
     @staticmethod
     def draw_multivariate_normal(m: np.ndarray, v: np.ndarray, seed: int):
@@ -494,8 +485,8 @@ class TwoFactorPooling:
         )
 
     def update_mu_overall(self, seed: int):
-        weighted_sum_mu = np.linalg.inv(self.hyperparams.sigma_0).dot(
-            self.hyperparams.mu_0
+        weighted_sum_mu = np.linalg.inv(self.hyperparms.sigma_0).dot(
+            self.hyperparms.mu_0
         )
         for i in range(self.num_levels_alpha):
             for j in range(self.num_levels_beta):
@@ -572,18 +563,22 @@ class TwoFactorPooling:
         self.update_mu_individual()
 
     def update_sigma_alpha(self, seed: int):
-        nu_post = self.hyperparams.nu_alpha + self.num_levels_alpha
-        lambda_post = self.hyperparams.lambda_alpha + (
+        nu_post = self.hyperparms.nu_alpha + self.num_levels_alpha
+        lambda_post = self.hyperparms.lambda_alpha + (
             self.num_levels_alpha - 1
         ) * np.cov(self.params.alpha.T)
-        self.params.sigma_alpha = random_inverse_wishart(nu_post, lambda_post, seed)
+        self.params.sigma_alpha = random_inverse_wishart(
+            nu_post, lambda_post, seed
+        ) + 1e-5 * np.eye(self.num_outcomes)
 
     def update_sigma_beta(self, seed: int):
-        nu_post = self.hyperparams.nu_beta + self.num_levels_beta
-        lambda_post = self.hyperparams.lambda_beta + (
-            self.num_levels_beta - 1
-        ) * np.cov(self.params.beta.T)
-        self.params.sigma_beta = random_inverse_wishart(nu_post, lambda_post, seed)
+        nu_post = self.hyperparms.nu_beta + self.num_levels_beta
+        lambda_post = self.hyperparms.lambda_beta + (self.num_levels_beta - 1) * np.cov(
+            self.params.beta.T
+        )
+        self.params.sigma_beta = random_inverse_wishart(
+            nu_post, lambda_post, seed
+        ) + 1e-5 * np.eye(self.num_outcomes)
 
     def update_missing_mu_hat(self, seed: int):
         pass
@@ -646,17 +641,70 @@ class TwoFactorPooling:
         self.update_missing_mu_hat(this_seed_missing_mu_hat)
 
 
+class TwoFactorPooling2(TwoFactorPooling):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        lambda_alpha = np.zeros_like(self.hyperparms.lambda_alpha)
+        lambda_beta = np.zeros_like(self.hyperparms.lambda_beta)
+        sigma_alpha = np.zeros_like(self.params.sigma_alpha)
+        sigma_beta = np.zeros_like(self.params.sigma_beta)
+        np.fill_diagonal(lambda_alpha, np.diag(self.hyperparms.lambda_alpha))
+        np.fill_diagonal(lambda_beta, np.diag(self.hyperparms.lambda_beta))
+        np.fill_diagonal(sigma_alpha, np.diag(self.params.sigma_alpha))
+        np.fill_diagonal(sigma_beta, np.diag(self.params.sigma_beta))
+        self.hyperparms.lambda_alpha = lambda_alpha
+        self.hyperparms.lambda_beta = lambda_beta
+        self.params.sigma_alpha = sigma_alpha
+        self.params.sigma_beta = sigma_beta
+
+    def update_sigma_alpha(self, seed: int):
+        nu_post = self.hyperparms.nu_alpha + self.num_levels_alpha
+        sum_squares = (self.num_levels_alpha - 1) * np.cov(self.params.alpha.T)
+        diag_cov_matrix = np.zeros_like(sum_squares)
+        np.fill_diagonal(diag_cov_matrix, np.diag(sum_squares))
+        lambda_post = self.hyperparms.lambda_alpha + diag_cov_matrix
+        for i in range(self.num_levels_alpha):
+            self.params.sigma_alpha[i, i] = (
+                random_inverse_wishart(
+                    nu_post, np.array(lambda_post[i, i]).reshape(1, 1), seed
+                )
+                + 1e-5
+            )
+
+    def update_sigma_beta(self, seed: int):
+        nu_post = self.hyperparms.nu_beta + self.num_levels_beta
+        sum_squares = (self.num_levels_beta - 1) * np.cov(self.params.beta.T)
+        diag_cov_matrix = np.zeros_like(sum_squares)
+        np.fill_diagonal(diag_cov_matrix, np.diag(sum_squares))
+        lambda_post = self.hyperparms.lambda_alpha + diag_cov_matrix
+        for i in range(self.num_levels_beta):
+            self.params.sigma_beta[i, i] = (
+                random_inverse_wishart(
+                    nu_post, np.array(lambda_post[i, i]).reshape(1, 1), seed
+                )
+                + 1e-5
+            )
+
+    @property
+    def num_seeds_sigma_alpha(self) -> int:
+        return self.num_levels_alpha
+
+    @property
+    def num_seeds_sigma_beta(self) -> int:
+        return self.num_levels_beta
+
+
 class TwoFactorPoolingUnivariate:
     def __init__(
         self,
-        hyperparams: HyperparamsUnivariate,
+        hyperparms: HyperparmsUnivariate,
         cell_data: CellDataUnivariate,
         mcmc_params: MCMCParams,
         params: Optional[ModelParamsUnivariate],
     ):
         self.tau_hat_init = copy.deepcopy(cell_data.tau_hat)
         self.cell_data = copy.deepcopy(cell_data)
-        self.hyperparams = hyperparams
+        self.hyperparms = hyperparms
         self.num_levels_alpha = self.cell_data.tau_hat.shape[0]
         self.num_levels_beta = self.cell_data.tau_hat.shape[1]
         self.seed = mcmc_params.seed
@@ -773,7 +821,7 @@ class TwoFactorPoolingUnivariate:
         alpha = np.zeros((self.num_levels_alpha,))
         prec = (
             self.num_levels_beta / self.params.sigma_2
-            + 1 / self.hyperparams.sigma_2_alpha
+            + 1 / self.hyperparms.sigma_2_alpha
         )
         var = 1 / prec
         rng = np.random.default_rng(seed)
@@ -799,7 +847,7 @@ class TwoFactorPoolingUnivariate:
         beta = np.zeros((self.num_levels_beta,))
         prec = (
             self.num_levels_alpha / self.params.sigma_2
-            + 1 / self.hyperparams.sigma_2_beta
+            + 1 / self.hyperparms.sigma_2_beta
         )
         var = 1 / prec
         rng = np.random.default_rng(seed)
@@ -824,10 +872,10 @@ class TwoFactorPoolingUnivariate:
     def update_tau_overall(self, seed):
         prec = (
             self.num_levels_alpha * self.num_levels_beta
-        ) / self.params.sigma_2 + 1 / self.hyperparams.sigma_2_delta
+        ) / self.params.sigma_2 + 1 / self.hyperparms.sigma_2_delta
         omega = (
             np.sum(self.params.tau) / self.params.sigma_2
-            + self.hyperparams.mu_delta / self.hyperparams.sigma_2_delta
+            + self.hyperparms.mu_delta / self.hyperparms.sigma_2_delta
         )
         self.params.tau_overall = self.update_univariate_normal(prec, omega, seed)
         self.params.mu = self.create_mu_matrix(
@@ -835,10 +883,8 @@ class TwoFactorPoolingUnivariate:
         )
 
     def update_sigma_2(self, seed):
-        a_prime = (
-            self.hyperparams.a + 0.5 * self.num_levels_alpha * self.num_levels_beta
-        )
-        b_prime = self.hyperparams.b + 0.5 * np.sum(
+        a_prime = self.hyperparms.a + 0.5 * self.num_levels_alpha * self.num_levels_beta
+        b_prime = self.hyperparms.b + 0.5 * np.sum(
             (self.params.tau - self.params.mu) ** 2
         )
         rng = np.random.default_rng(seed)
