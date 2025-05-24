@@ -1,0 +1,23 @@
+tags:
+  - DataSources
+summary: Create data source
+operationId: postDataSource
+parameters: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "../payload-schemas/PostDataSourcePayload.yaml"
+responses:
+  "200":
+    description: Successful response
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - dataSource
+          properties:
+            dataSource:
+              $ref: "../schemas/DataSource.yaml"

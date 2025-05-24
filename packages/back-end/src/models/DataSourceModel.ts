@@ -2,10 +2,15 @@ import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { cloneDeep, isEqual } from "lodash";
 import {
+  DataSourceEvents,
   DataSourceInterface,
   DataSourceParams,
   DataSourceSettings,
   DataSourceType,
+  ExposureQuery,
+  IdentityJoinQuery,
+  SchemaFormat,
+  UserIdType,
 } from "back-end/types/datasource";
 import { GoogleAnalyticsParams } from "back-end/types/integrations/googleanalytics";
 import { getOauth2Client } from "back-end/src/integrations/GoogleAnalytics";
@@ -404,4 +409,188 @@ export function toDataSourceApiInterface(
   }
 
   return obj;
+}
+
+// Type definitions for API payloads
+interface PostDataSourcePayload {
+  name: string;
+  type: DataSourceType;
+  description?: string;
+  projectIds?: string[];
+  params?: DataSourceParams;
+  settings?: {
+    schemaFormat?: SchemaFormat;
+    userIdTypes?: UserIdType[];
+    queries?: {
+      exposure?: Omit<ExposureQuery, "id">[];
+      identityJoins?: IdentityJoinQuery[];
+    };
+    events?: DataSourceEvents;
+  };
+}
+
+interface UpdateDataSourcePayload {
+  name?: string;
+  description?: string;
+  projectIds?: string[];
+  params?: DataSourceParams;
+  settings?: {
+    schemaFormat?: SchemaFormat;
+    userIdTypes?: UserIdType[];
+    queries?: {
+      exposure?: ExposureQuery[];
+      identityJoins?: IdentityJoinQuery[];
+    };
+    events?: DataSourceEvents;
+  };
+}
+
+export function fromPostDataSourcePayload(payload: PostDataSourcePayload): {
+  name: string;
+  type: DataSourceType;
+  description: string;
+  params: DataSourceParams;
+  settings: DataSourceSettings;
+  projects?: string[];
+} {
+  const settings: DataSourceSettings = {};
+
+  if (payload.settings?.schemaFormat) {
+    settings.schemaFormat = payload.settings.schemaFormat;
+  }
+
+  if (payload.settings?.userIdTypes) {
+    settings.userIdTypes = payload.settings.userIdTypes.map(
+      (uid: UserIdType) => ({
+        userIdType: uid.userIdType,
+        description: uid.description,
+      })
+    );
+  }
+
+  if (payload.settings?.queries) {
+    settings.queries = {};
+
+    if (payload.settings.queries.exposure) {
+      settings.queries.exposure = payload.settings.queries.exposure.map(
+        (exp: ExposureQuery) => ({
+          id: "", // Will be generated in createDataSource
+          name: exp.name,
+          description: exp.description || "",
+          userIdType: exp.userIdType,
+          query: exp.query,
+          hasNameCol: exp.hasNameCol || false,
+          dimensions: exp.dimensions || [],
+        })
+      );
+    }
+
+    if (payload.settings.queries.identityJoins) {
+      settings.queries.identityJoins =
+        payload.settings.queries.identityJoins.map((ij: IdentityJoinQuery) => ({
+          ids: ij.ids,
+          query: ij.query,
+        }));
+    }
+  }
+
+  if (payload.settings?.events) {
+    settings.events = {
+      experimentEvent: payload.settings.events.experimentEvent,
+      experimentIdProperty: payload.settings.events.experimentIdProperty,
+      variationIdProperty: payload.settings.events.variationIdProperty,
+      extraUserIdProperty: payload.settings.events.extraUserIdProperty,
+    };
+  }
+
+  return {
+    name: payload.name,
+    type: payload.type,
+    description: payload.description || "",
+    params: payload.params || ({} as DataSourceParams),
+    settings,
+    projects: payload.projectIds,
+  };
+}
+
+export function fromUpdateDataSourcePayload(
+  payload: UpdateDataSourcePayload
+): Partial<DataSourceInterface> {
+  const updates: Partial<DataSourceInterface> = {
+    dateUpdated: new Date(),
+  };
+
+  if (payload.name !== undefined) {
+    updates.name = payload.name;
+  }
+
+  if (payload.description !== undefined) {
+    updates.description = payload.description;
+  }
+
+  if (payload.projectIds !== undefined) {
+    updates.projects = payload.projectIds;
+  }
+
+  if (payload.params !== undefined) {
+    updates.params = encryptParams(payload.params);
+  }
+
+  if (payload.settings !== undefined) {
+    const settings: DataSourceSettings = {};
+
+    if (payload.settings.schemaFormat !== undefined) {
+      settings.schemaFormat = payload.settings.schemaFormat;
+    }
+
+    if (payload.settings.userIdTypes !== undefined) {
+      settings.userIdTypes = payload.settings.userIdTypes.map(
+        (uid: UserIdType) => ({
+          userIdType: uid.userIdType,
+          description: uid.description,
+        })
+      );
+    }
+
+    if (payload.settings.queries !== undefined) {
+      settings.queries = {};
+
+      if (payload.settings.queries.exposure !== undefined) {
+        settings.queries.exposure = payload.settings.queries.exposure.map(
+          (exposure: ExposureQuery) => ({
+            id: exposure.id || "", // Will be generated in updateDataSource if empty
+            name: exposure.name,
+            description: exposure.description || "",
+            userIdType: exposure.userIdType,
+            query: exposure.query,
+            hasNameCol: exposure.hasNameCol || false,
+            dimensions: exposure.dimensions || [],
+          })
+        );
+      }
+
+      if (payload.settings.queries.identityJoins !== undefined) {
+        settings.queries.identityJoins =
+          payload.settings.queries.identityJoins.map(
+            (ij: IdentityJoinQuery) => ({
+              ids: ij.ids,
+              query: ij.query,
+            })
+          );
+      }
+    }
+
+    if (payload.settings.events !== undefined) {
+      settings.events = {
+        experimentEvent: payload.settings.events.experimentEvent,
+        experimentIdProperty: payload.settings.events.experimentIdProperty,
+        variationIdProperty: payload.settings.events.variationIdProperty,
+        extraUserIdProperty: payload.settings.events.extraUserIdProperty,
+      };
+    }
+
+    updates.settings = settings;
+  }
+
+  return updates;
 }
