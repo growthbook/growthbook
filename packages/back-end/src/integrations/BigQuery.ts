@@ -16,12 +16,10 @@ import { logger } from "back-end/src/util/logger";
 import SqlIntegration from "./SqlIntegration";
 
 export default class BigQuery extends SqlIntegration {
-  params!: BigQueryConnectionParams;
   requiresEscapingPath = true;
   setParams(encryptedParams: string) {
-    this.params = decryptDataSourceParams<BigQueryConnectionParams>(
-      encryptedParams
-    );
+    this.params =
+      decryptDataSourceParams<BigQueryConnectionParams>(encryptedParams);
   }
   isWritingTablesSupported(): boolean {
     return true;
@@ -40,10 +38,10 @@ export default class BigQuery extends SqlIntegration {
     }
 
     return new bq.BigQuery({
-      projectId: this.params.projectId,
+      projectId: this.params.projectId || this.params.project_id,
       credentials: {
-        client_email: this.params.clientEmail,
-        private_key: this.params.privateKey,
+        client_email: this.params.clientEmail || this.params.client_email,
+        private_key: this.params.privateKey || this.params.private_key,
       },
     });
   }
@@ -177,7 +175,7 @@ export default class BigQuery extends SqlIntegration {
     return isNumeric ? `CAST(${raw} AS FLOAT64)` : raw;
   }
   getDefaultDatabase() {
-    return this.params.projectId || "";
+    return this.params.projectId || this.params.project_id || "";
   }
   getInformationSchemaTable(schema?: string, database?: string): string {
     return this.generateTablePath(

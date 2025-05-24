@@ -1,0 +1,29 @@
+tags:
+  - DataSources
+summary: Update data source
+operationId: updateDataSource
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+    description: The ID of the data source
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "../payload-schemas/UpdateDataSourcePayload.yaml"
+responses:
+  "200":
+    description: Successful response
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - dataSource
+          properties:
+            dataSource:
+              $ref: "../schemas/DataSource.yaml"
