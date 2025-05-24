@@ -87,7 +87,7 @@ type ExperimentImpactSummary = {
   others: ExperimentImpactData;
 };
 
-function scaleImpactAndSetMissingExperiments({
+export function scaleImpactAndSetMissingExperiments({
   experiments,
   snapshots,
   metric,

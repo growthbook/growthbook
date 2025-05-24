@@ -620,6 +620,13 @@ export class Permissions {
     );
   };
 
+  public canManageExecReports = (): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: [] },
+      "manageExecReports"
+    );
+  };
+
   public canAddComment = (projects: string[]): boolean => {
     return this.checkProjectFilterPermission({ projects }, "addComments");
   };

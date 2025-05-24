@@ -1457,6 +1457,8 @@ main.main {
   font-size: 13px;
   text-transform: initial;
   font-weight: normal;
+  opacity: 0;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
 
   .arrow {
     position: absolute;
@@ -1498,6 +1500,14 @@ main.main {
     color: var(--text-color-premium);
   }
 
+  &.tooltip-visible {
+    opacity: 1;
+    visibility: visible;
+  }
+  &.tooltip-hidden {
+    opacity: 0;
+    visibility: hidden;
+  }
   &[data-popper-placement^="top"] > .arrow {
     bottom: -4px;
     margin-left: -4px;

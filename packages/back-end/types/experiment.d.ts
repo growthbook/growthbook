@@ -1,3 +1,4 @@
+import { StatusIndicatorData } from "shared/enterprise";
 import {
   ExperimentPhase,
   Variation,
@@ -177,6 +178,20 @@ export type ExperimentInterfaceStringDates = Omit<
   dateCreated: string;
   dateUpdated: string;
   phases: ExperimentPhaseStringDates[];
+};
+
+export type ComputedExperimentInterface = ExperimentInterfaceStringDates & {
+  ownerName: string;
+  metricNames?: (string | undefined)[];
+  datasource: string;
+  savedGroups?: (string | undefined)[];
+  projectId?: string;
+  projectName?: string;
+  projectIsDeReferenced?: string | boolean;
+  tab: string;
+  date: string;
+  statusSortOrder: number;
+  statusIndicator: StatusIndicatorData;
 };
 
 export type Changeset = Partial<ExperimentInterface>;
