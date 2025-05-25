@@ -61,15 +61,15 @@ const navlinks: SidebarLinkProps[] = [
     name: "Insights",
     href: "/insights",
     Icon: GBLibrary,
-    path: /^insights/,
+    path: /^(insights|library|metric-effect|correlations)/,
     subLinks: [
       {
-        name: "Dashboard",
+        name: "Impact",
         href: "/dashboard",
         path: /^dashboard/,
       },
       {
-        name: "Results",
+        name: "Learnings",
         href: "/library",
         path: /^(library$|learning|learnings)/,
       },

@@ -7,11 +7,16 @@ import {
   ExperimentStatus,
 } from "back-end/types/experiment";
 import { getValidDate, date } from "shared/dates";
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Box, Flex } from "@radix-ui/themes";
-import { TooltipWithBounds, useTooltip } from "@visx/tooltip";
+import { Box, Flex, Text } from "@radix-ui/themes";
+import {
+  TooltipWithBounds,
+  useTooltip,
+  defaultStyles as tooltipDefaultStyles,
+} from "@visx/tooltip";
 import { format } from "date-fns";
+import { GridColumns } from "@visx/grid";
 import styles from "@/components/Metrics/DateGraph.module.scss";
 import { formatPercent } from "@/services/metrics";
 
@@ -127,7 +132,7 @@ const ExperimentTimeline: React.FC<{
         tooltipTop,
         tooltipData: { experimentName, status, result, phase, estimate },
       });
-    }, 200); // 300ms delay
+    }, 150); // 150ms delay
   };
 
   const handleBarMouseLeave = () => {
@@ -161,6 +166,8 @@ const ExperimentTimeline: React.FC<{
     padding: 0.2,
   });
 
+  // Todo: pagination?
+
   const currentDateX = xScale(today);
   return (
     <Box>
@@ -179,17 +186,17 @@ const ExperimentTimeline: React.FC<{
             flexDirection: "column",
             justifyContent: "space-around",
             backgroundColor: "var(--indigo-2)",
-            boxShadow: "10px 0 10px -5px rgba(0, 0, 0, 0.08)",
+            boxShadow: "10px 0 10px -5px rgba(0, 0, 0, 0.05)",
           }}
         >
           {filteredExperiments.map((experiment) => (
             <Box
               key={`name-${experiment.id}`}
               style={{
-                padding: "0",
-                overflow: "hidden",
+                padding: "0 4px",
                 position: "absolute",
-                left: 4,
+                left: 0,
+                right: 0,
                 top: (yScale(experiment.name) ?? 0) - margin.top,
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap",
@@ -199,6 +206,7 @@ const ExperimentTimeline: React.FC<{
                 lineHeight: yScale.bandwidth() + "px",
                 alignItems: "center",
                 fontSize: "0.8rem",
+                borderBottom: "1px solid var(--slate-a3)",
               }}
             >
               <Link
@@ -215,6 +223,7 @@ const ExperimentTimeline: React.FC<{
             left={tooltipLeft}
             top={tooltipTop}
             className={styles.tooltip}
+            style={tooltipDefaultStyles}
           >
             <Box mb="2">
               <strong>Experiment:</strong> {tooltipData.experimentName}
@@ -250,7 +259,11 @@ const ExperimentTimeline: React.FC<{
                 </Box>
               )}
               {tooltipData.estimate && (
-                <Box>This is an estimate and not based on actual data.</Box>
+                <Box>
+                  <Text size="1">
+                    This experiment is running and the end date is unknown.
+                  </Text>
+                </Box>
               )}
             </Flex>
           </TooltipWithBounds>
@@ -258,6 +271,15 @@ const ExperimentTimeline: React.FC<{
         <svg width={width} height={height}>
           <rect width={width} height={height} fill="none" />
           <Group>
+            <GridColumns
+              top={margin.top}
+              scale={xScale}
+              width={width}
+              height={height - margin.top - margin.bottom}
+              stroke="var(--slate-a5)"
+              strokeDasharray="2,2"
+              strokeWidth={1}
+            />
             {/* X-Axis at the top */}
             <AxisTop
               top={margin.top}
@@ -271,6 +293,14 @@ const ExperimentTimeline: React.FC<{
                 }
                 return "-";
               }}
+              numTicks={Math.floor(width / 160)} // Adjust number of ticks based on width
+              tickLabelProps={() => ({
+                fill: "var(--text-color-table)",
+                fontSize: 11,
+                textAnchor: "middle",
+                dy: -4, // Adjust vertical alignment
+              })}
+              stroke="var(--slate-8)"
             />
 
             {/* Experiment Row Backgrounds */}
@@ -278,9 +308,15 @@ const ExperimentTimeline: React.FC<{
               <rect
                 key={`bg-${experiment.id}`}
                 x={margin.left}
-                y={experiment.name ? yScale(experiment.name) - 1 : 0}
+                y={
+                  (yScale(experiment.name || "") ?? 0) -
+                  (yScale.paddingOuter() * yScale.bandwidth()) / 2
+                }
                 width={width - margin.left - margin.right}
-                height={yScale.bandwidth() + 2}
+                height={
+                  yScale.bandwidth() +
+                  yScale.paddingOuter() * yScale.bandwidth()
+                }
                 fill={i % 2 === 0 ? "var(--gray-4)" : "var(--gray-1)"}
                 opacity={0.3}
               />

@@ -10,6 +10,7 @@ import {
   defaultStyles as tooltipDefaultStyles,
 } from "@visx/tooltip";
 import { GlyphCircle } from "@visx/glyph";
+import styles from "@/components/GraphStyles.module.scss";
 // ParentSize can be useful for responsive charts, but not strictly needed for the component logic itself.
 // import { ParentSize } from '@visx/responsive';
 
@@ -109,15 +110,17 @@ const ScatterPlotGraph: React.FC<ScatterPlotGraphProps> = ({
             scale={yScale}
             width={xMax}
             height={yMax}
-            stroke="#e0e0e0"
+            stroke="var(--slate-a8)"
             strokeDasharray="2,2"
+            strokeWidth={1}
           />
           <GridColumns
             scale={xScale}
             width={xMax}
             height={yMax}
-            stroke="#e0e0e0"
+            stroke="var(--slate-a8)"
             strokeDasharray="2,2"
+            strokeWidth={1}
           />
 
           {/* Zero line for Y-axis (horizontal) */}
@@ -125,7 +128,7 @@ const ScatterPlotGraph: React.FC<ScatterPlotGraphProps> = ({
             <Line
               from={{ x: 0, y: yScale(0) }}
               to={{ x: xMax, y: yScale(0) }}
-              stroke="#d0d0d0" // Darker than grid lines
+              stroke="var(--slate-11)"
               strokeWidth={1.5}
             />
           )}
@@ -135,7 +138,7 @@ const ScatterPlotGraph: React.FC<ScatterPlotGraphProps> = ({
             <Line
               from={{ x: xScale(0), y: 0 }}
               to={{ x: xScale(0), y: yMax }}
-              stroke="#d0d0d0" // Darker than grid lines
+              stroke="var(--slate-11)" // Darker than grid lines
               strokeWidth={1.5}
             />
           )}
@@ -143,7 +146,7 @@ const ScatterPlotGraph: React.FC<ScatterPlotGraphProps> = ({
           <AxisLeft
             scale={yScale}
             label={data[0]?.yMetricName || "Y Value"}
-            labelClassName="h4"
+            labelClassName={styles.label}
             tickLabelProps={() => ({
               fill: "var(--text-color-table)",
               fontSize: 14,
@@ -155,7 +158,7 @@ const ScatterPlotGraph: React.FC<ScatterPlotGraphProps> = ({
             scale={xScale}
             top={yMax}
             label={data[0]?.xMetricName || "X Value"}
-            labelClassName="h4"
+            labelClassName={styles.label}
             tickLabelProps={() => ({
               fill: "var(--text-color-table)",
               fontSize: 14,
@@ -182,21 +185,21 @@ const ScatterPlotGraph: React.FC<ScatterPlotGraphProps> = ({
                 <Line
                   from={{ x: xMinCoord, y: cy }}
                   to={{ x: xMaxCoord, y: cy }}
-                  stroke="#777"
+                  stroke="var(--blue-10)"
                   strokeWidth={1.5}
                 />
                 {/* Y Error Bar */}
                 <Line
                   from={{ x: cx, y: yMinCoord }}
                   to={{ x: cx, y: yMaxCoord }}
-                  stroke="#777"
+                  stroke="var(--blue-10)"
                   strokeWidth={1.5}
                 />
                 <GlyphCircle
                   left={cx}
                   top={cy}
                   size={radius * radius * Math.PI} // GlyphCircle size is area
-                  fill="#1f77b4" // A common blue color
+                  fill="var(--blue-10)" // A common blue color
                   stroke="#fff" // White border for better visibility
                   strokeWidth={1}
                   onPointerMove={(_) => {
