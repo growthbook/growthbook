@@ -69,7 +69,7 @@ const navlinks: SidebarLinkProps[] = [
         path: /^dashboard/,
       },
       {
-        name: "Experimentation Library",
+        name: "Results",
         href: "/library",
         path: /^(library$|learning|learnings)/,
       },

@@ -1,15 +1,14 @@
-import React, { useCallback } from "react";
-import Link from "next/link";
+import React, { useCallback, useState } from "react";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { Box } from "@radix-ui/themes";
+import { getValidDate } from "shared/dates";
+import { Box, Flex } from "@radix-ui/themes";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import Field from "@/components/Forms/Field";
 import { useExperiments } from "@/hooks/useExperiments";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import { experimentDate } from "@/pages/experiments";
 import {
   Tabs,
   TabsContent,
@@ -20,19 +19,8 @@ import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
 import CompletedExperimentList from "@/components/Experiment/CompletedExperimentList";
 import ExperimentTimeline from "@/enterprise/components/Insights/ExperimentTimeline";
-import MetricCorrelations from "@/enterprise/components/Insights/MetricCorrelations";
-
-export function experimentDate(exp: ExperimentInterfaceStringDates): string {
-  return (
-    (exp.archived
-      ? exp.dateUpdated
-      : exp.status === "running"
-      ? exp.phases?.[exp.phases?.length - 1]?.dateStarted
-      : exp.status === "stopped"
-      ? exp.phases?.[exp.phases?.length - 1]?.dateEnded
-      : exp.dateCreated) ?? ""
-  );
-}
+import ExperimentSearchFilters from "@/components/Search/ExperimentSearchFilters";
+import DatePicker from "@/components/DatePicker";
 
 const LearningsPage = (): React.ReactElement => {
   const {
@@ -43,6 +31,18 @@ const LearningsPage = (): React.ReactElement => {
     getDatasourceById,
     getSavedGroupById,
   } = useDefinitions();
+  const searchParams = new URLSearchParams(window.location.search);
+  const today = new Date();
+  const [startDate, setStartDate] = useState<Date>(
+    searchParams.get("startDate")
+      ? new Date(searchParams.get("startDate")!)
+      : new Date(today.getTime() - 180 * 24 * 60 * 60 * 1000) // 180 days ago
+  );
+  const [endDate, setEndDate] = useState<Date>(
+    searchParams.get("endDate")
+      ? new Date(searchParams.get("endDate")!)
+      : new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000) // 7 days in the future
+  );
 
   const { experiments: allExperiments, error, loading } = useExperiments(
     project,
@@ -53,11 +53,21 @@ const LearningsPage = (): React.ReactElement => {
   const { getUserDisplay } = useUser();
   const getExperimentStatusIndicator = useExperimentStatusIndicator();
 
-  const filterResults = useCallback((items: typeof experiments) => {
-    // only show experiments that are not archived and stopped.
-    items = items.filter((item) => !item.archived && item.status === "stopped");
-    return items;
-  }, []);
+  const filterResults = useCallback(
+    (items: typeof experiments) => {
+      // only show experiments that are not archived and within the date range
+      items = items.filter((item) => {
+        if (item.archived) return false;
+        const expDate = experimentDate(item);
+        if (!expDate) return false;
+        return (
+          getValidDate(expDate) >= startDate && getValidDate(expDate) <= endDate
+        );
+      });
+      return items;
+    },
+    [endDate, startDate]
+  );
 
   const experiments = useAddComputedFields(
     allExperiments,
@@ -96,7 +106,7 @@ const LearningsPage = (): React.ReactElement => {
     [getExperimentMetricById, getProjectById, getUserDisplay]
   );
 
-  const { items, searchInputProps } = useSearch({
+  const { items, searchInputProps, syntaxFilters, setSearchValue } = useSearch({
     items: experiments,
     localStorageKey: "experiments",
     defaultSortField: "date",
@@ -122,9 +132,13 @@ const LearningsPage = (): React.ReactElement => {
         if (item.status === "draft") is.push("draft");
         if (item.status === "running") is.push("running");
         if (item.status === "stopped") is.push("stopped");
-        if (item.results === "won") is.push("winner");
+        if (item.results === "won") {
+          is.push("winner");
+          is.push("won");
+        }
         if (item.results === "lost") is.push("loser");
         if (item.results === "inconclusive") is.push("inconclusive");
+        if (item.results === "dnf") is.push("dnf");
         if (item.hasVisualChangesets) is.push("visual");
         if (item.hasURLRedirects) is.push("redirect");
         return is;
@@ -179,55 +193,6 @@ const LearningsPage = (): React.ReactElement => {
     filterResults,
   });
 
-  const searchTermFilterExplainations = (
-    <>
-      <p>This search field supports advanced syntax search, including:</p>
-      <ul>
-        <li>
-          <strong>name</strong>: The experiment name (eg: name:~homepage)
-        </li>
-        <li>
-          <strong>id</strong>: The experiment id (eg: name:^exp)
-        </li>
-        <li>
-          <strong>status</strong>: Experiment status, can be one of
-          &apos;stopped&apos;, &apos;running&apos;, &apos;draft&apos;,
-          &apos;archived&apos;
-        </li>
-        <li>
-          <strong>datasource</strong>: Experiment datasource
-        </li>
-        <li>
-          <strong>metric</strong>: Experiment uses the specified metric (eg:
-          metric:~revenue)
-        </li>
-        <li>
-          <strong>owner</strong>: The creator of the experiment (eg: owner:abby)
-        </li>
-        <li>
-          <strong>tag</strong>: Experiments tagged with this tag
-        </li>
-        <li>
-          <strong>project</strong>: The experiment&apos;s project
-        </li>
-        <li>
-          <strong>feature</strong>: The experiment is linked to the specified
-          feature
-        </li>
-        <li>
-          <strong>created</strong>:The experiment&apos;s creation date, in UTC.
-          Date entered is parsed so supports most formats.
-        </li>
-      </ul>
-      <p>Click to see all syntax fields supported in our docs.</p>
-    </>
-  );
-
-  // // Reset to page 1 when a filter is applied or tabs change
-  // useEffect(() => {
-  //   setCurrentPage(1);
-  // }, [filtered.length]);
-
   if (error) {
     return (
       <div className="alert alert-danger">
@@ -245,32 +210,32 @@ const LearningsPage = (): React.ReactElement => {
         <div className="my-3">
           <div className="filters md-form row align-items-center">
             <div className="col-auto">
-              <h1>Learnings</h1>
+              <h1>Experiment Results</h1>
             </div>
             <div style={{ flex: 1 }} />
           </div>
           <Box>
-            <div className="row align-items-center mb-3">
-              <div className="col-5">
+            <Flex align="center" gap="2" className="mb-3" justify="between">
+              <Box flexBasis="40%" flexShrink="1" flexGrow="0">
                 <Field
                   placeholder="Search..."
                   type="search"
                   {...searchInputProps}
                 />
-              </div>
-              <div className="col-auto">
-                <Link
-                  href="https://docs.growthbook.io/using/growthbook-best-practices#syntax-search"
-                  target="_blank"
-                >
-                  <Tooltip body={searchTermFilterExplainations}></Tooltip>
-                </Link>
-              </div>
-            </div>
+              </Box>
+              <Box>
+                <ExperimentSearchFilters
+                  experiments={experiments}
+                  syntaxFilters={syntaxFilters}
+                  searchInputProps={searchInputProps}
+                  setSearchValue={setSearchValue}
+                />
+              </Box>
+            </Flex>
           </Box>
           <Tabs defaultValue="experiments" persistInURL>
             <Box mb="5">
-              <TabsList>
+              <TabsList style={{ paddingTop: "5px" }}>
                 <TabsTrigger value="experiments">
                   Completed Experiments
                 </TabsTrigger>
@@ -278,10 +243,45 @@ const LearningsPage = (): React.ReactElement => {
                   Experiment Timeline{" "}
                   <PaidFeatureBadge commercialFeature="templates" mx="2" />
                 </TabsTrigger>
-                <TabsTrigger value="correlations">
-                  Metric Effect Explorer
-                  <PaidFeatureBadge commercialFeature="templates" mx="2" />
-                </TabsTrigger>
+
+                <Flex
+                  align="center"
+                  gap="4"
+                  justify="end"
+                  flexBasis="100%"
+                  style={{
+                    fontSize: "0.8rem",
+                    position: "relative",
+                    top: "-4px",
+                  }}
+                >
+                  <Flex align="center">
+                    <label className="mb-0 mr-2">From</label>
+                    <DatePicker
+                      date={startDate}
+                      setDate={(sd) => {
+                        if (sd) {
+                          setStartDate(sd);
+                        }
+                      }}
+                      scheduleEndDate={endDate}
+                      precision="date"
+                      containerClassName=""
+                    />
+                  </Flex>
+                  <Flex align="center">
+                    <label className="mb-0 mr-2">To</label>
+                    <DatePicker
+                      date={endDate}
+                      setDate={(ed) => {
+                        if (ed) setEndDate(ed);
+                      }}
+                      scheduleStartDate={startDate}
+                      precision="date"
+                      containerClassName=""
+                    />
+                  </Flex>
+                </Flex>
               </TabsList>
             </Box>
 
@@ -289,10 +289,11 @@ const LearningsPage = (): React.ReactElement => {
               <CompletedExperimentList experiments={items} />
             </TabsContent>
             <TabsContent value="timeline">
-              <ExperimentTimeline experiments={items} />
-            </TabsContent>
-            <TabsContent value="correlations">
-              <MetricCorrelations />
+              <ExperimentTimeline
+                experiments={items}
+                startDate={startDate}
+                endDate={endDate}
+              />
             </TabsContent>
           </Tabs>
         </div>

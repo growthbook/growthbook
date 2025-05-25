@@ -6,6 +6,7 @@ import { PiCameraLight, PiShuffle } from "react-icons/pi";
 import React, { useState } from "react";
 import { isFactMetricId } from "shared/experiments";
 import { date } from "shared/dates";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import EmptyState from "@/components/EmptyState";
 import LinkButton from "@/components/Radix/LinkButton";
@@ -15,13 +16,23 @@ import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/Experi
 import Pagination from "@/components/Pagination";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
+import Markdown from "@/components/Markdown/Markdown";
+import { experimentDate } from "@/pages/experiments";
 
 const NUM_PER_PAGE = 20;
 const imageCache = {};
 
-const CompletedExperimentList = ({ experiments }: { experiments: any[] }) => {
+const CompletedExperimentList = ({
+  experiments,
+}: {
+  experiments: ExperimentInterfaceStringDates[];
+}) => {
   const [currentPage, setCurrentPage] = useState(1);
-  const hasExperiments = experiments.length > 0;
+  const stoppedExperiments = React.useMemo(
+    () => experiments.filter((e) => e.status === "stopped"),
+    [experiments]
+  );
+  const hasExperiments = stoppedExperiments.length > 0;
 
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
@@ -51,7 +62,7 @@ const CompletedExperimentList = ({ experiments }: { experiments: any[] }) => {
         hasExperiments && (
           <>
             <Box>
-              {experiments.slice(start, end).map((e) => {
+              {stoppedExperiments.slice(start, end).map((e) => {
                 const result = e.results;
 
                 const winningVariation = (result === "lost"
@@ -133,6 +144,7 @@ const CompletedExperimentList = ({ experiments }: { experiments: any[] }) => {
                         width: maxImageWidth + "px",
                         height: maxImageHeight + "px",
                         objectFit: "contain",
+                        border: "1px solid var(--slate-a6)",
                       }}
                       onErrorMsg={(msg) => {
                         return (
@@ -240,7 +252,9 @@ const CompletedExperimentList = ({ experiments }: { experiments: any[] }) => {
                                 ? date(e.phases?.[0]?.dateStarted)
                                 : "") +
                                 " - " +
-                                (e.date ? date(e.date) : "")}
+                                (experimentDate(e)
+                                  ? date(experimentDate(e))
+                                  : "")}
                             </Box>
                           </Box>
                           <Box>
@@ -284,8 +298,8 @@ const CompletedExperimentList = ({ experiments }: { experiments: any[] }) => {
                             </Box>
                             <Box>
                               <Flex direction="column">
-                                {goalMetrics.slice(0, 2).map((g) => (
-                                  <Box key={e.id + "-" + g}>{g}</Box>
+                                {goalMetrics.slice(0, 2).map((g, ind) => (
+                                  <Box key={e.id + "-metric-" + ind}>{g}</Box>
                                 ))}
                                 {moreGoalMetrics
                                   ? `and ${goalMetrics.length - 2} more`
@@ -323,7 +337,9 @@ const CompletedExperimentList = ({ experiments }: { experiments: any[] }) => {
                               Summary
                             </Text>
                           </Box>
-                          <Box>{e.analysis}</Box>
+                          <Box>
+                            <Markdown>{e.analysis}</Markdown>
+                          </Box>
                         </Flex>
                       </Flex>
                       <Box>
@@ -354,9 +370,9 @@ const CompletedExperimentList = ({ experiments }: { experiments: any[] }) => {
                 );
               })}
             </Box>
-            {experiments.length > NUM_PER_PAGE && (
+            {stoppedExperiments.length > NUM_PER_PAGE && (
               <Pagination
-                numItemsTotal={experiments.length}
+                numItemsTotal={stoppedExperiments.length}
                 currentPage={currentPage}
                 perPage={NUM_PER_PAGE}
                 onPageChange={setCurrentPage}
