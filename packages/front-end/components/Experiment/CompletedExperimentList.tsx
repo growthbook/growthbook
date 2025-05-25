@@ -101,6 +101,7 @@ const CompletedExperimentList = ({
                 if (e.hasVisualChangesets) {
                   expTypes.push(
                     <Tooltip
+                      key={e.id + "-visual"}
                       className="d-flex align-items-center ml-2"
                       body="Visual experiment"
                     >
@@ -111,6 +112,7 @@ const CompletedExperimentList = ({
                 if ((e.linkedFeatures || []).length > 0) {
                   expTypes.push(
                     <Tooltip
+                      key={e.id + "-feature-flag"}
                       className="d-flex align-items-center ml-2"
                       body="Linked Feature Flag"
                     >
@@ -121,6 +123,7 @@ const CompletedExperimentList = ({
                 if (e.hasURLRedirects) {
                   expTypes.push(
                     <Tooltip
+                      key={e.id + "-url-redirect"}
                       className="d-flex align-items-center ml-2"
                       body="URL Redirect experiment"
                     >
@@ -139,7 +142,7 @@ const CompletedExperimentList = ({
                       imageCache={imageCache}
                       className="experiment-image"
                       src={winningVariation?.screenshots?.[0]?.path}
-                      key={winningVariation?.screenshots?.[0]?.path}
+                      key={e.id + winningVariation?.screenshots?.[0]?.path}
                       style={{
                         width: maxImageWidth + "px",
                         height: maxImageHeight + "px",
@@ -195,7 +198,7 @@ const CompletedExperimentList = ({
                   if (metric) {
                     return (
                       <Link
-                        key={m}
+                        key={e.id + m}
                         href={`/metrics/${m}`}
                         className="text-decoration-none mr-3"
                       >

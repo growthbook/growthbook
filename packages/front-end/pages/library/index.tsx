@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useState, useEffect } from "react";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { getValidDate } from "shared/dates";
 import { Box, Flex } from "@radix-ui/themes";
@@ -43,6 +43,13 @@ const LearningsPage = (): React.ReactElement => {
       ? new Date(searchParams.get("endDate")!)
       : new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000) // 7 days in the future
   );
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    params.set("startDate", startDate.toISOString().slice(0, 10)); // Keep only YYYY-MM-DD
+    params.set("endDate", endDate.toISOString().slice(0, 10)); // Keep only YYYY-MM-DD
+    const newUrl = `${window.location.pathname}?${params.toString()}`;
+    window.history.pushState({}, "", newUrl);
+  }, [startDate, endDate]);
 
   const { experiments: allExperiments, error, loading } = useExperiments(
     project,
@@ -210,7 +217,7 @@ const LearningsPage = (): React.ReactElement => {
         <div className="my-3">
           <div className="filters md-form row align-items-center">
             <div className="col-auto">
-              <h1>Experiment Results</h1>
+              <h1>Experiment Learnings</h1>
             </div>
             <div style={{ flex: 1 }} />
           </div>

@@ -4,11 +4,16 @@ import { AxisTop } from "@visx/axis";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
+  ExperimentStatus,
 } from "back-end/types/experiment";
-import { getValidDate } from "shared/dates";
+import { getValidDate, date } from "shared/dates";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Box } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
+import { TooltipWithBounds, useTooltip } from "@visx/tooltip";
+import { format } from "date-fns";
+import styles from "@/components/Metrics/DateGraph.module.scss";
+import { formatPercent } from "@/services/metrics";
 
 const margin = { top: 50, right: 20, bottom: 50, left: 250 }; // Increased left margin for experiment names
 
@@ -53,8 +58,10 @@ const ExperimentTimeline: React.FC<{
   startDate: Date;
   endDate: Date;
 }> = ({ experiments, startDate, endDate }) => {
+  const showPhase = false;
   const today = new Date();
   const containerRef = useRef<HTMLDivElement>(null);
+  const tooltipTimeout = useRef<NodeJS.Timeout | null>(null);
 
   // we need to filter the experiments to only those that have phases within the selected date range:
   const filteredExperiments = useMemo(() => {
@@ -77,6 +84,59 @@ const ExperimentTimeline: React.FC<{
   const rowHeight = 30;
   const height =
     margin.top + margin.bottom + filteredExperiments.length * rowHeight;
+
+  const {
+    showTooltip,
+    hideTooltip,
+    tooltipOpen,
+    tooltipData,
+    tooltipLeft = 0,
+    tooltipTop = 0,
+  } = useTooltip<{
+    experimentName: string;
+    status: ExperimentStatus;
+    result: string;
+    phase: ExperimentPhaseStringDates;
+    estimate?: boolean;
+  }>();
+
+  const handleBarMouseMove = (
+    event: React.MouseEvent<SVGRectElement>,
+    experimentName: string,
+    status: ExperimentStatus,
+    result: string,
+    phase: ExperimentPhaseStringDates,
+    estimate: boolean = false
+  ) => {
+    if (!containerRef.current) return;
+
+    const containerRect = containerRef.current.getBoundingClientRect();
+    const rect = event.currentTarget.getBoundingClientRect();
+
+    const tooltipLeft = event.clientX - containerRect.left; //- rect.left + containerRect.left; // + rect.width / 2; // Center of the rectangle
+    const tooltipTop = rect.top - containerRect.top - 10; // Just below the rectangle
+
+    // Clear any existing timeout
+    if (tooltipTimeout.current) {
+      clearTimeout(tooltipTimeout.current);
+    }
+    // Set a timeout to show the tooltip
+    tooltipTimeout.current = setTimeout(() => {
+      showTooltip({
+        tooltipLeft,
+        tooltipTop,
+        tooltipData: { experimentName, status, result, phase, estimate },
+      });
+    }, 200); // 300ms delay
+  };
+
+  const handleBarMouseLeave = () => {
+    // Clear the timeout and hide the tooltip
+    if (tooltipTimeout.current) {
+      clearTimeout(tooltipTimeout.current);
+    }
+    hideTooltip();
+  };
 
   useEffect(() => {
     const handleResize = () => {
@@ -110,15 +170,16 @@ const ExperimentTimeline: React.FC<{
           style={{
             position: "absolute",
             left: 0,
-            top: 0,
+            top: margin.top,
             overflow: "hidden",
             width: margin.left - 10,
-            height: height,
+            height: height - margin.top - margin.bottom,
             display: "flex",
             gap: yScale.paddingOuter() * yScale.bandwidth() + "px",
             flexDirection: "column",
             justifyContent: "space-around",
             backgroundColor: "var(--indigo-2)",
+            boxShadow: "10px 0 10px -5px rgba(0, 0, 0, 0.08)",
           }}
         >
           {filteredExperiments.map((experiment) => (
@@ -129,7 +190,7 @@ const ExperimentTimeline: React.FC<{
                 overflow: "hidden",
                 position: "absolute",
                 left: 4,
-                top: yScale(experiment.name),
+                top: (yScale(experiment.name) ?? 0) - margin.top,
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap",
                 fontWeight: 500,
@@ -140,13 +201,60 @@ const ExperimentTimeline: React.FC<{
                 fontSize: "0.8rem",
               }}
             >
-              <Link href={`/experiment/${experiment.id}`}>
+              <Link
+                href={`/experiment/${experiment.id}`}
+                title={experiment.name}
+              >
                 {experiment.name}
               </Link>
             </Box>
           ))}
         </Box>
-
+        {tooltipOpen && tooltipData && (
+          <TooltipWithBounds
+            left={tooltipLeft}
+            top={tooltipTop}
+            className={styles.tooltip}
+          >
+            <Box mb="2">
+              <strong>Experiment:</strong> {tooltipData.experimentName}
+            </Box>
+            <Flex direction="column" gap="1" style={{ fontSize: "0.8rem" }}>
+              <Box>
+                <strong>Status:</strong> {tooltipData.status}
+              </Box>
+              {tooltipData.result && (
+                <Box>
+                  <strong>Result:</strong> {tooltipData.result}
+                </Box>
+              )}
+              <Box>
+                <strong>Phase:</strong> {tooltipData.phase.name}
+              </Box>
+              <Box>
+                <strong>Coverage:</strong>{" "}
+                {formatPercent(tooltipData.phase.coverage)}
+              </Box>
+              <Box>
+                <strong>Started:</strong>{" "}
+                {tooltipData.phase.dateStarted
+                  ? date(tooltipData.phase.dateStarted)
+                  : "-"}
+              </Box>
+              {tooltipData.status === "stopped" && (
+                <Box>
+                  <strong>Ended:</strong>{" "}
+                  {tooltipData.phase.dateEnded
+                    ? date(tooltipData.phase.dateEnded)
+                    : "-"}
+                </Box>
+              )}
+              {tooltipData.estimate && (
+                <Box>This is an estimate and not based on actual data.</Box>
+              )}
+            </Flex>
+          </TooltipWithBounds>
+        )}
         <svg width={width} height={height}>
           <rect width={width} height={height} fill="none" />
           <Group>
@@ -154,9 +262,15 @@ const ExperimentTimeline: React.FC<{
             <AxisTop
               top={margin.top}
               scale={xScale}
-              tickFormat={(d) =>
-                d instanceof Date ? getValidDate(d).toLocaleDateString() : "-"
-              }
+              tickFormat={(d) => {
+                if (d instanceof Date) {
+                  const day = d.getDate();
+                  return day === 1
+                    ? format(d, "yyyy MMM") // Show "YYYY MMM" for the first day of the month
+                    : format(d, "yyyy MMM dd"); // Show "YYYY MMM DD" otherwise
+                }
+                return "-";
+              }}
             />
 
             {/* Experiment Row Backgrounds */}
@@ -164,9 +278,9 @@ const ExperimentTimeline: React.FC<{
               <rect
                 key={`bg-${experiment.id}`}
                 x={margin.left}
-                y={yScale(experiment.name)}
+                y={experiment.name ? yScale(experiment.name) - 1 : 0}
                 width={width - margin.left - margin.right}
-                height={yScale.bandwidth()}
+                height={yScale.bandwidth() + 2}
                 fill={i % 2 === 0 ? "var(--gray-4)" : "var(--gray-1)"}
                 opacity={0.3}
               />
@@ -184,6 +298,12 @@ const ExperimentTimeline: React.FC<{
                   const colors = getPhaseColor(experiment, phase);
                   const xStart = xScale(start);
                   const xEnd = xScale(end);
+                  const runningEnd =
+                    typeof endDate === "number" &&
+                    typeof today.getTime() === "number" &&
+                    endDate - today.getTime() > 14 * 24 * 60 * 60 * 1000
+                      ? today.getTime() + 14 * 24 * 60 * 60 * 1000
+                      : endDate;
                   const rectWidth = Math.max(xEnd - xStart, 2); // Ensure minimal visibility
                   const rectHeight = yScale.bandwidth();
                   const yPosition = yScale(experiment.name);
@@ -200,34 +320,83 @@ const ExperimentTimeline: React.FC<{
                         stroke={colors.borderColor}
                         strokeWidth={1}
                         rx={2}
+                        onMouseMove={(e) =>
+                          handleBarMouseMove(
+                            e,
+                            experiment.name,
+                            experiment.status,
+                            experiment.results || "",
+                            phase
+                          )
+                        }
+                        onMouseLeave={handleBarMouseLeave}
                       />
-                      <text
-                        x={xStart + 4} // Add padding inside the rectangle
-                        y={yPosition + rectHeight / 2 + 4} // Center the text vertically
-                        fill={colors.text}
-                        fontSize="11"
-                        fontWeight="bold"
-                        style={{ pointerEvents: "none" }} // Prevent text from interfering with interactions
-                        //dominantBaseline="middle" // Vertically center the text
-                        //clipPath={`inset(0 ${Math.max(0, rectWidth - 4)}px 0 0)`} // Ensure text doesn't overflow
-                      >
-                        {phase.name}
-                        {experiment.status === "stopped"
-                          ? ` (${experiment.results})`
-                          : ` (${experiment.status})`}
-                      </text>
+                      {showPhase && (
+                        <>
+                          <text
+                            x={xStart + 4} // Add padding inside the rectangle
+                            y={yPosition + rectHeight / 2 + 4} // Center the text vertically
+                            fill={colors.text}
+                            fontSize="11"
+                            fontWeight="bold"
+                            style={{ pointerEvents: "none" }} // Prevent text from interfering with interactions
+                            //dominantBaseline="middle" // Vertically center the text
+                            //clipPath={`inset(0 ${Math.max(0, rectWidth - 4)}px 0 0)`} // Ensure text doesn't overflow
+                          >
+                            {phase.name}
+                            {experiment.status === "stopped"
+                              ? ` (${experiment.results})`
+                              : ` (${experiment.status})`}
+                          </text>
+                        </>
+                      )}
                       {experiment.status === "running" && (
-                        <rect
-                          x={xEnd}
-                          y={yPosition}
-                          width={Math.max(xScale(endDate) - xEnd, 2)}
-                          height={rectHeight}
-                          fill={colors.background}
-                          stroke={colors.borderColor}
-                          strokeWidth={1}
-                          strokeDasharray={4}
-                          rx={2}
-                        />
+                        <>
+                          <defs>
+                            <linearGradient
+                              id={"fadeGradient" + experiment.id}
+                              x1="0%"
+                              y1="0%"
+                              x2="100%"
+                              y2="0%"
+                            >
+                              <stop
+                                offset="0%"
+                                stopColor={colors.background}
+                                stopOpacity={1}
+                              />
+                              <stop
+                                offset="100%"
+                                stopColor={colors.background}
+                                stopOpacity={0}
+                              />
+                            </linearGradient>
+                          </defs>
+
+                          <rect
+                            x={xEnd}
+                            y={yPosition}
+                            // estimate how long it will take to finish?
+                            width={Math.max(xScale(runningEnd) - xEnd, 2)}
+                            height={rectHeight}
+                            fill={"url(#fadeGradient" + experiment.id + ")"}
+                            stroke={colors.borderColor}
+                            strokeWidth={1}
+                            strokeDasharray={4}
+                            rx={2}
+                            onMouseMove={(e) =>
+                              handleBarMouseMove(
+                                e,
+                                experiment.name,
+                                experiment.status,
+                                experiment.results || "",
+                                phase,
+                                true
+                              )
+                            }
+                            onMouseLeave={handleBarMouseLeave}
+                          />
+                        </>
                       )}
                     </g>
                   );

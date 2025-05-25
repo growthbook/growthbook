@@ -315,11 +315,11 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
                         // If start is < 0, then end must be 0 (or < 0 if original was fully negative).
                         const isPositive = d.start >= 0;
                         const positiveColor = invertHighlightColors
-                          ? "#dc3545"
-                          : "#28a745";
+                          ? "var(--red-11)"
+                          : "var(--jade-11)";
                         const negativeColor = invertHighlightColors
-                          ? "#28a745"
-                          : "#dc3545";
+                          ? "var(--jade-11)"
+                          : "var(--red-11)";
 
                         fill = isPositive ? positiveColor : negativeColor;
                       }
@@ -375,8 +375,19 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
                     dx: -5,
                   })}
                   label="Count"
+                  labelProps={{
+                    style: { fill: "var(--slate-11)", translate: "0 15px" },
+                  }}
                   labelClassName="h5"
                   labelOffset={55}
+                />
+                <line
+                  x1={contentXScale(0)}
+                  y1={marginTop}
+                  x2={contentXScale(0)}
+                  y2={height - marginBottom - marginTop}
+                  stroke="var(--slate-a5)"
+                  strokeWidth={1}
                 />
               </Group>
             </svg>
