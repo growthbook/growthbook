@@ -91,6 +91,13 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
       Object.keys(req.body.environments ?? {})
     );
 
+    if (
+      req.context.org.settings?.requireProjectForFeatures &&
+      !req.body.project
+    ) {
+      throw new Error("Must specify a project for new features");
+    }
+
     // Validate projects - We can remove this validation when FeatureModel is migrated to BaseModel
     if (req.body.project) {
       const projects = await req.context.getProjects();
@@ -178,6 +185,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
       req.context,
       feature.id
     );
+    const safeRolloutMap = await req.context.models.safeRollout.getAllPayloadSafeRollouts();
     const revision = await getRevision({
       context: req.context,
       organization: feature.organization,
@@ -192,6 +200,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
         groupMap,
         experimentMap,
         revision,
+        safeRolloutMap,
       }),
     };
   }

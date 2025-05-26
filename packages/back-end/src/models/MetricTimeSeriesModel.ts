@@ -43,12 +43,17 @@ export class MetricTimeSeriesModel extends BaseClass {
     return true;
   }
 
-  public async getBySourceAndMetricIds(
-    source: MetricTimeSeries["source"],
-    sourceId: MetricTimeSeries["sourceId"],
-    sourcePhase: MetricTimeSeries["sourcePhase"],
-    metricIds: Array<MetricTimeSeries["metricId"]>
-  ) {
+  public async getBySourceAndMetricIds({
+    source,
+    sourceId,
+    sourcePhase,
+    metricIds,
+  }: {
+    source: MetricTimeSeries["source"];
+    sourceId: MetricTimeSeries["sourceId"];
+    sourcePhase: MetricTimeSeries["sourcePhase"];
+    metricIds: Array<MetricTimeSeries["metricId"]>;
+  }) {
     const query: FilterQuery<MetricTimeSeries> = {
       source,
       sourceId,
@@ -112,10 +117,14 @@ export class MetricTimeSeriesModel extends BaseClass {
       }
     });
 
-    const allPromises = Array.from(
-      metricTimeSeriesPerSource.values()
-    ).map(({ source, sourceId, sourcePhase, metricIds }) =>
-      this.getBySourceAndMetricIds(source, sourceId, sourcePhase, metricIds)
+    const allPromises = Array.from(metricTimeSeriesPerSource.values()).map(
+      ({ source, sourceId, sourcePhase, metricIds }) =>
+        this.getBySourceAndMetricIds({
+          source,
+          sourceId,
+          sourcePhase,
+          metricIds,
+        })
     );
 
     const allResults = await Promise.all(allPromises);

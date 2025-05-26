@@ -8,12 +8,13 @@ import {
   getMetricResultStatus,
   isFactMetric,
 } from "shared/experiments";
-import { StatsEngine } from "back-end/types/stats";
+import { DifferenceType, StatsEngine } from "back-end/types/stats";
 import {
   ExperimentWithSnapshot,
   SnapshotMetric,
 } from "back-end/types/experiment-snapshot";
 import {
+  ExperimentDecisionFrameworkSettings,
   ExperimentPhaseStringDates,
   ExperimentResultsType,
   ExperimentStatus,
@@ -67,6 +68,7 @@ interface MetricExperimentData {
   goalMetrics: string[];
   secondaryMetrics: string[];
   datasource: string;
+  decisionFrameworkSettings: ExperimentDecisionFrameworkSettings;
 }
 
 const NUM_PER_PAGE = 50;
@@ -88,10 +90,12 @@ function MetricExperimentResultTab({
   experimentsWithSnapshot.forEach((e) => {
     let variationResults: SnapshotMetric[] = [];
     let statsEngine: StatsEngine = "bayesian";
+    let differenceType: DifferenceType = "relative";
     if (e.snapshot) {
       const snapshot = e.snapshot.analyses?.[0];
       if (snapshot) {
         statsEngine = snapshot.settings.statsEngine;
+        differenceType = snapshot.settings.differenceType;
         variationResults = snapshot.results?.[0]?.variations.map((v) => {
           return v.metrics?.[metric.id];
         });
@@ -116,6 +120,7 @@ function MetricExperimentResultTab({
         guardrailMetrics: e.guardrailMetrics,
         secondaryMetrics: e.secondaryMetrics,
         datasource: e.datasource,
+        decisionFrameworkSettings: e.decisionFrameworkSettings,
       };
       if (!bandits && baseline && variationResults[i]) {
         const {
@@ -131,6 +136,7 @@ function MetricExperimentResultTab({
           ciUpper,
           pValueThreshold,
           statsEngine,
+          differenceType,
         });
         expVariationData = {
           ...expVariationData,
