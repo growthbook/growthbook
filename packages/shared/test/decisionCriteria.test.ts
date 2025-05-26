@@ -119,6 +119,30 @@ describe("default decision tree is correct", () => {
       tooltip: "The test variation(s) should be rolled back.",
     });
 
+    // super stat sig triggers rec with guardrail failure
+    const guardrailSafeDecision = getDecisionFrameworkStatus({
+      resultsStatus: setMetricsOnResultsStatus({
+        resultsStatus,
+        goalMetrics: {},
+        guardrailMetrics: {
+          "01": { status: "safe" },
+        },
+      }),
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+      goalMetrics: [],
+      guardrailMetrics: ["01"],
+      daysNeeded: undefined,
+    });
+    expect(guardrailSafeDecision).toEqual({
+      status: "ship-now",
+      variations: [
+        { variationId: "1", decidingRule: PRESET_DECISION_CRITERIA.rules[0] },
+      ],
+      sequentialUsed: false,
+      powerReached: false,
+      tooltip: "A test variation is ready to ship.",
+    });
+
     // losing super stat sig triggers rec
     const negDecision = getDecisionFrameworkStatus({
       resultsStatus: setMetricsOnResultsStatus({

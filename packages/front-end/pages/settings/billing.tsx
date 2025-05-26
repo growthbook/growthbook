@@ -1,4 +1,5 @@
 import { FC, useEffect, useState } from "react";
+import { useRouter } from "next/router";
 import { LicenseInterface } from "shared/enterprise";
 import SubscriptionInfo from "@/components/Settings/SubscriptionInfo";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
@@ -18,6 +19,8 @@ const BillingPage: FC = () => {
 
   const { apiCall } = useAuth();
   const { refreshOrganization } = useUser();
+
+  const router = useRouter();
 
   useEffect(() => {
     const refreshLicense = async () => {
@@ -40,8 +43,15 @@ const BillingPage: FC = () => {
       if (urlParams.get("refreshLicense") || urlParams.get("org")) {
         refreshLicense();
       }
+
+      if (urlParams.get("openUpgradeModal")) {
+        setUpgradeModal(true);
+
+        // Remove the query param from the URL
+        router.replace(router.pathname, undefined, { shallow: true });
+      }
     }
-  }, [apiCall, refreshOrganization]);
+  }, [apiCall, refreshOrganization, router]);
 
   if (accountPlan === "enterprise") {
     return (
