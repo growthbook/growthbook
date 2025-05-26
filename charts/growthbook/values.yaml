@@ -79,7 +79,7 @@ backend:
 
     # ===== E-Mail configuration =====
     - name: EMAIL_ENABLED
-      value: false
+      value: "false"
     # - name: EMAIL_HOST
     #   value: ""
     # - name: EMAIL_PORT
@@ -97,7 +97,7 @@ backend:
       value: local
     # set this to true for access to uploads to proxy through your self hosted server allowing you to keep the bucket private
     - name: USE_FILE_PROXY
-      value: true
+      value: "true"
 
     # ===== S3 uploads configuration =====
     # - name: S3_BUCKET
