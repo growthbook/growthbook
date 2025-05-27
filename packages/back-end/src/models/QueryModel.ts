@@ -63,9 +63,9 @@ export async function getQueriesByIds(organization: string, ids: string[]) {
   return docs.map((doc) => toInterface(doc));
 }
 
-export async function getQueryById(organization: string, id: string) {
-  const doc = await QueryModel.find({ organization, id: id }).limit(1);
-  return doc[0] ? toInterface(doc[0]) : null;
+export async function getQueryById(context: ReqContext | ApiReqContext, id: string) {
+  const doc = await QueryModel.findOne({ organization: context.org.id, id: id });
+  return doc? toInterface(doc) : null;
 }
 
 export async function getQueriesByDatasource(
@@ -245,7 +245,7 @@ export function toQueryApiInterface(query: QueryInterface): ApiQuery {
     datasource: query.datasource,
     language: query.language,
     query: query.query,
-    queryType: query.queryType?.toString() || "",
+    queryType: query.queryType || "",
     createdAt: query.createdAt?.toISOString() || "",
     startedAt: query.startedAt?.toISOString() || "",
     status: query.status,

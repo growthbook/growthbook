@@ -9,8 +9,7 @@ import {
 export const getQuery = createApiRequestHandler(getQueryValidator)(
   async (req): Promise<GetQueryResponse> => {
     const { id } = req.params;
-    const orgId = req.organization.id;
-    const query = await getQueryById(orgId, id);
+    const query = await getQueryById(req.context, id);
     if (!query) {
       throw new Error(`A query with id ${id} does not exist`);
     }
