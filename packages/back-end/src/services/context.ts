@@ -41,12 +41,15 @@ import { DecisionCriteriaModel } from "back-end/src/enterprise/models/DecisionCr
 import { MetricTimeSeriesModel } from "back-end/src/models/MetricTimeSeriesModel";
 import { WebhookSecretDataModel } from "back-end/src/models/WebhookSecretModel";
 import { FeatureRevisionLogModel } from "back-end/src/models/FeatureRevisionLogModel";
+import { FeatureInterface } from "back-end/types/feature";
+import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
   experiment: ExperimentInterface;
   datasource: DataSourceInterface;
   metric: ExperimentMetricInterface;
+  feature: FeatureInterface;
 };
 
 export class ReqContextClass {
@@ -233,11 +236,13 @@ export class ReqContextClass {
     experiment: new Map(),
     datasource: new Map(),
     metric: new Map(),
+    feature: new Map(),
   };
   public async populateForeignRefs({
     experiment,
     datasource,
     metric,
+    feature,
   }: ForeignRefsCacheKeys) {
     await this.addMissingForeignRefs("experiment", experiment, (ids) =>
       getExperimentsByIds(this, ids)
@@ -248,6 +253,9 @@ export class ReqContextClass {
     );
     await this.addMissingForeignRefs("metric", metric, (ids) =>
       getExperimentMetricsByIds(this, ids)
+    );
+    await this.addMissingForeignRefs("feature", feature, (ids) =>
+      getFeaturesByIds(this, ids)
     );
   }
   private async addMissingForeignRefs<K extends keyof ForeignRefsCache>(

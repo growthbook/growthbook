@@ -1,4 +1,7 @@
-import { featureRevisionLogValidator } from "back-end/src/validators/feature-revision-log";
+import {
+  FeatureRevisionLogInterface,
+  featureRevisionLogValidator,
+} from "back-end/src/validators/feature-revision-log";
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "featurerevisionlog";
@@ -25,18 +28,43 @@ const BaseClass = MakeModelClass({
 });
 
 export class FeatureRevisionLogModel extends BaseClass {
-  // TODO: fix permissions
-  protected canRead() {
-    return true;
+  protected canRead(doc: FeatureRevisionLogInterface): boolean {
+    const { feature } = this.getForeignRefs(doc);
+
+    return this.context.permissions.canReadSingleProjectResource(
+      feature?.project
+    );
   }
-  protected canCreate() {
-    return true;
+  protected canCreate(doc: FeatureRevisionLogInterface): boolean {
+    const { feature } = this.getForeignRefs(doc);
+    if (!feature) {
+      throw new Error("Feature not found for FeatureRevisionLog");
+    }
+    return (
+      this.context.permissions.canCreateFeature(feature) ||
+      this.context.permissions.canManageFeatureDrafts(feature)
+    );
   }
-  protected canUpdate() {
-    return true;
+  protected canUpdate(existing: FeatureRevisionLogInterface): boolean {
+    const { feature } = this.getForeignRefs(existing);
+    if (!feature) {
+      throw new Error("Feature not found for FeatureRevisionLog");
+    }
+    return (
+      this.context.permissions.canUpdateFeature(feature, {}) ||
+      this.context.permissions.canManageFeatureDrafts(feature)
+    );
   }
-  protected canDelete() {
-    return true;
+
+  protected canDelete(doc: FeatureRevisionLogInterface): boolean {
+    const { feature } = this.getForeignRefs(doc);
+    if (!feature) {
+      throw new Error("Feature not found for FeatureRevisionLog");
+    }
+    return (
+      this.context.permissions.canDeleteFeature(feature) ||
+      this.context.permissions.canManageFeatureDrafts(feature)
+    );
   }
 
   public async getAllByFeatureIdAndVersion({
