@@ -5,6 +5,8 @@ import { QueryInterface, QueryType } from "back-end/types/query";
 import { QUERY_CACHE_TTL_MINS } from "back-end/src/util/secrets";
 import { QueryLanguage } from "back-end/types/datasource";
 import { ApiQuery } from "back-end/types/openapi";
+import type { ReqContext } from "back-end/types/organization";
+import type { ApiReqContext } from "back-end/types/api";
 
 export const queriesSchema = [
   {
@@ -63,9 +65,15 @@ export async function getQueriesByIds(organization: string, ids: string[]) {
   return docs.map((doc) => toInterface(doc));
 }
 
-export async function getQueryById(context: ReqContext | ApiReqContext, id: string) {
-  const doc = await QueryModel.findOne({ organization: context.org.id, id: id });
-  return doc? toInterface(doc) : null;
+export async function getQueryById(
+  context: ReqContext | ApiReqContext,
+  id: string
+) {
+  const doc = await QueryModel.findOne({
+    organization: context.org.id,
+    id: id,
+  });
+  return doc ? toInterface(doc) : null;
 }
 
 export async function getQueriesByDatasource(
