@@ -10,7 +10,6 @@ import {
 import { GoogleAnalyticsParams } from "back-end/types/integrations/googleanalytics";
 import { getOauth2Client } from "back-end/src/integrations/GoogleAnalytics";
 import {
-  createDataSourceObject,
   encryptParams,
   getSourceIntegrationObject,
   testDataSourceConnection,
@@ -225,17 +224,18 @@ export async function createDataSource(
     (params as GoogleAnalyticsParams).refreshToken = tokens.refresh_token || "";
   }
 
-  const datasource = createDataSourceObject(type, {
+  const datasource = {
     id,
     name,
     description,
     organization: context.org.id,
+    type,
     settings,
     dateCreated: new Date(),
     dateUpdated: new Date(),
     params: encryptParams(params),
     projects,
-  });
+  };
 
   await testDataSourceConnection(context, datasource);
 

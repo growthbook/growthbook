@@ -18,9 +18,7 @@ import {
 import {
   DataSourceInterface,
   DataSourceParams,
-  DataSourceType,
   ExposureQuery,
-  GrowthbookClickhouseDataSource,
 } from "back-end/types/datasource";
 import Mysql from "back-end/src/integrations/Mysql";
 import Mssql from "back-end/src/integrations/Mssql";
@@ -238,33 +236,4 @@ export function isDataSourceType<T extends DataSourceInterface>(
   type: T["type"]
 ): datasource is T {
   return datasource.type === type;
-}
-
-export function isPartialWithMaterializedColumns(
-  updates: Partial<DataSourceInterface>
-): updates is Partial<GrowthbookClickhouseDataSource> {
-  return Array.isArray(
-    (updates as Partial<GrowthbookClickhouseDataSource>).settings
-      ?.materializedColumns
-  );
-}
-
-export function createDataSourceObject<T extends DataSourceType>(
-  type: T,
-  data: Omit<DataSourceInterface, "type">
-): Extract<DataSourceInterface, { type: T }> {
-  return {
-    ...data,
-    type,
-  } as Extract<DataSourceInterface, { type: T }>;
-}
-
-export function mergeDataSourceUpdates<T extends DataSourceType>(
-  original: Extract<DataSourceInterface, { type: T }>,
-  updates: Partial<Extract<DataSourceInterface, { type: T }>>
-): Extract<DataSourceInterface, { type: T }> {
-  return {
-    ...original,
-    ...updates,
-  };
 }

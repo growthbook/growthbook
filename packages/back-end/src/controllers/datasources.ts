@@ -21,7 +21,6 @@ import {
   encryptParams,
   testQuery,
   getIntegrationFromDatasourceId,
-  mergeDataSourceUpdates,
   isDataSourceType,
 } from "back-end/src/services/datasource";
 import { getOauth2Client } from "back-end/src/integrations/GoogleAnalytics";
@@ -528,10 +527,10 @@ export async function putDataSource(
 
     await updateDataSource(context, datasource, updates);
 
-    const integration = getSourceIntegrationObject(
-      context,
-      mergeDataSourceUpdates(datasource, updates)
-    );
+    const integration = getSourceIntegrationObject(context, {
+      ...datasource,
+      ...updates,
+    });
 
     res.status(200).json({
       status: 200,
@@ -922,10 +921,10 @@ export async function postMaterializedColumn(
 
     await updateDataSource(context, datasource, updates);
 
-    const integration = getSourceIntegrationObject(
-      context,
-      mergeDataSourceUpdates(datasource, updates)
-    );
+    const integration = getSourceIntegrationObject(context, {
+      ...datasource,
+      ...updates,
+    });
 
     res.status(200).json({
       status: 200,
@@ -1028,10 +1027,10 @@ export async function updateMaterializedColumn(
     }
     await updateDataSource(context, datasource, updates);
 
-    const integration = getSourceIntegrationObject(
-      context,
-      mergeDataSourceUpdates(datasource, updates)
-    );
+    const integration = getSourceIntegrationObject(context, {
+      ...datasource,
+      ...updates,
+    });
 
     res.status(200).json({
       status: 200,
@@ -1105,10 +1104,10 @@ export async function deleteMaterializedColumn(
     });
     await updateDataSource(context, datasource, updates);
 
-    const integration = getSourceIntegrationObject(
-      context,
-      mergeDataSourceUpdates(datasource, updates)
-    );
+    const integration = getSourceIntegrationObject(context, {
+      ...datasource,
+      ...updates,
+    });
 
     res.status(200).json({
       status: 200,
