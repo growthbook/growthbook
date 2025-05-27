@@ -112,14 +112,21 @@ const SafeRolloutTimeSeriesGraphContent = ({
   };
 
   const dataPointsToRender: DataPoint[] = useMemo(() => {
-    return data.dataPoints.map((dp) => ({
-      date: getValidDate(dp.date),
-      variations: dp.variations.map((v) => ({
-        name: v.name,
-        ci: v.absolute?.ci ?? [null, null],
-      })),
-      tags: dp.tags,
-    }));
+    return data.dataPoints
+      .filter((dp) => {
+        // Remove data points where the CI is 0,0 which is invalid
+        const variation = dp.variations[1];
+        const ci = variation.absolute?.ci ?? [null, null];
+        return !(ci[0] === 0 && ci[1] === 0);
+      })
+      .map((dp) => ({
+        date: getValidDate(dp.date),
+        variations: dp.variations.map((v) => ({
+          name: v.name,
+          ci: v.absolute?.ci ?? [null, null],
+        })),
+        tags: dp.tags,
+      }));
   }, [data.dataPoints]);
 
   // Calculate y scale based only on the non-null CI values being rendered
