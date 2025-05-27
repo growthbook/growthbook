@@ -236,6 +236,7 @@ const LearningsPage = (): React.ReactElement => {
                   syntaxFilters={syntaxFilters}
                   searchInputProps={searchInputProps}
                   setSearchValue={setSearchValue}
+                  allowDrafts={false}
                 />
               </Box>
             </Flex>

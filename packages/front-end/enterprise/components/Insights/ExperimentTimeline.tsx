@@ -71,6 +71,7 @@ const ExperimentTimeline: React.FC<{
   // we need to filter the experiments to only those that have phases within the selected date range:
   const filteredExperiments = useMemo(() => {
     return experiments.filter((experiment) => {
+      if (experiment.status === "draft") return false; // drafts don't have dates/phases (or shouldn't)
       if (!experiment.phases || experiment.phases.length === 0) return false;
       return experiment.phases.some((phase) => {
         const start = getValidDate(phase.dateStarted);

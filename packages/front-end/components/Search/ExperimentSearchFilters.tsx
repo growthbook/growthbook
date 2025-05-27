@@ -14,8 +14,15 @@ import { useUser } from "@/services/UserContext";
 const ExperimentSearchFilters: FC<
   BaseSearchFiltersProps & {
     experiments: ExperimentInterfaceStringDates[];
+    allowDrafts?: boolean;
   }
-> = ({ searchInputProps, syntaxFilters, experiments, setSearchValue }) => {
+> = ({
+  searchInputProps,
+  syntaxFilters,
+  experiments,
+  setSearchValue,
+  allowDrafts = true,
+}) => {
   const {
     dropdownFilterOpen,
     setDropdownFilterOpen,
@@ -203,6 +210,7 @@ const ExperimentSearchFilters: FC<
             searchValue: "draft",
             id: "draft",
             name: "Draft",
+            disabled: allowDrafts,
           },
           {
             searchValue: "archived",
