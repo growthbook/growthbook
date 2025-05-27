@@ -224,7 +224,7 @@ export async function createDataSource(
     (params as GoogleAnalyticsParams).refreshToken = tokens.refresh_token || "";
   }
 
-  const datasource = {
+  const datasource: DataSourceInterface = {
     id,
     name,
     description,
