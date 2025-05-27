@@ -636,6 +636,7 @@ export async function postFeatureRebase(
     newRules[env] = mergeResult.result.rules?.[env] || live.rules[env] || [];
   });
   await updateRevision(
+    context,
     revision,
     {
       baseVersion: live.version,
@@ -687,7 +688,12 @@ export async function postFeatureRequestReview(
   if (revision.status !== "draft") {
     throw new Error("Can only request review if is a draft");
   }
-  await markRevisionAsReviewRequested(revision, res.locals.eventAudit, comment);
+  await markRevisionAsReviewRequested(
+    context,
+    revision,
+    res.locals.eventAudit,
+    comment
+  );
   res.status(200).json({
     status: 200,
   });
@@ -741,6 +747,7 @@ export async function postFeatureReviewOrComment(
     throw new Error("Can only review if review is requested");
   }
   await submitReviewAndComments(
+    context,
     revision,
     res.locals.eventAudit,
     review,
@@ -1042,7 +1049,12 @@ export async function postFeatureRevert(
     changes
   );
 
-  await markRevisionAsPublished(revision, res.locals.eventAudit, comment);
+  await markRevisionAsPublished(
+    context,
+    revision,
+    res.locals.eventAudit,
+    comment
+  );
 
   await req.audit({
     event: "feature.revert",
@@ -1146,7 +1158,7 @@ export async function postFeatureDiscard(
     context.permissions.throwPermissionError();
   }
 
-  await discardRevision(revision, res.locals.eventAudit);
+  await discardRevision(context, revision, res.locals.eventAudit);
 
   const hasDrafts = await hasDraft(org.id, feature, [revision.version]);
 
@@ -1241,6 +1253,7 @@ export async function postFeatureRule(
     settings: org?.settings,
   });
   await addFeatureRule(
+    context,
     revision,
     environment,
     rule,
@@ -1593,6 +1606,7 @@ export async function putRevisionComment(
   }
 
   await updateRevision(
+    context,
     revision,
     {},
     {
@@ -1638,6 +1652,7 @@ export async function postFeatureDefaultValue(
     settings: org?.settings,
   });
   await setDefaultValue(
+    context,
     revision,
     defaultValue,
     res.locals.eventAudit,
@@ -1718,6 +1733,7 @@ export async function putSafeRolloutStatus(
   });
 
   await editFeatureRule(
+    context,
     revision,
     environment,
     i,
@@ -1906,6 +1922,7 @@ export async function putFeatureRule(
   });
 
   await editFeatureRule(
+    context,
     revision,
     environment,
     i,
@@ -2019,6 +2036,7 @@ export async function postFeatureMoveRule(
     settings: org?.settings,
   });
   await updateRevision(
+    context,
     revision,
     changes,
     {
@@ -2098,6 +2116,7 @@ export async function deleteFeatureRule(
     settings: org?.settings,
   });
   await updateRevision(
+    context,
     revision,
     changes,
     {
@@ -2456,6 +2475,7 @@ export async function getRevisionLog(
     throw new Error("Could not find feature");
   }
 
+  // In the past logs were stored on the revisions.
   const revision = await getRevision({
     context,
     organization: context.org.id,
@@ -2467,9 +2487,20 @@ export async function getRevisionLog(
     throw new Error("Could not find feature revision");
   }
 
+  // But now we store logs in a separate table as they are too large
+  const revisionLogs = await context.models.featureRevisionLogs.getAllByFeatureIdAndVersion(
+    {
+      featureId: id,
+      version: parseInt(version),
+    }
+  );
+
+  // Then we merge them.  The front end will sort them as needed
+  const log = [...(revision.log || []), ...revisionLogs];
+
   res.json({
     status: 200,
-    log: revision.log || [],
+    log: log,
   });
 }
 
@@ -3032,6 +3063,7 @@ export async function postCopyEnvironmentRules(
   });
 
   await copyFeatureEnvironmentRules(
+    context,
     revision,
     sourceEnv,
     targetEnv,

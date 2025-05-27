@@ -40,6 +40,7 @@ import { SafeRolloutSnapshotModel } from "back-end/src/models/SafeRolloutSnapsho
 import { DecisionCriteriaModel } from "back-end/src/enterprise/models/DecisionCriteriaModel";
 import { MetricTimeSeriesModel } from "back-end/src/models/MetricTimeSeriesModel";
 import { WebhookSecretDataModel } from "back-end/src/models/WebhookSecretModel";
+import { FeatureRevisionLogModel } from "back-end/src/models/FeatureRevisionLogModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
@@ -53,6 +54,7 @@ export class ReqContextClass {
   public models!: {
     customFields: CustomFieldModel;
     factMetrics: FactMetricModel;
+    featureRevisionLogs: FeatureRevisionLogModel;
     projects: ProjectModel;
     urlRedirects: UrlRedirectModel;
     metricAnalysis: MetricAnalysisModel;
@@ -70,6 +72,7 @@ export class ReqContextClass {
     this.models = {
       customFields: new CustomFieldModel(this),
       factMetrics: new FactMetricModel(this),
+      featureRevisionLogs: new FeatureRevisionLogModel(this),
       projects: new ProjectModel(this),
       urlRedirects: new UrlRedirectModel(this),
       metricAnalysis: new MetricAnalysisModel(this),
