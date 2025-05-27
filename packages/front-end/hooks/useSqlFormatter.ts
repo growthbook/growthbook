@@ -62,20 +62,17 @@ export function useSqlFormatter(datasourceType?: DataSourceType) {
 
   const formatSql = useCallback(
     (sql: string): string => {
+      // If we're in formatted state, return to original
+      if (state.originalSql) {
+        setState({
+          error: null,
+          originalSql: null,
+          formattedSql: null,
+        });
+        return state.originalSql;
+      }
+
       try {
-        // Clear any previous errors
-        setState((prev) => ({ ...prev, error: null }));
-
-        // If we're in formatted state, return to original
-        if (state.originalSql) {
-          setState({
-            error: null,
-            originalSql: null,
-            formattedSql: null,
-          });
-          return state.originalSql;
-        }
-
         // Format the SQL
         const {
           sql: sqlWithoutTemplates,

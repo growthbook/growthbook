@@ -351,7 +351,6 @@ export default function EditSqlModal({
                 setCursorData={setCursorData}
                 onCtrlEnter={handleTestQuery}
                 resizeDependency={!!testQueryResults}
-                onCtrlS={handleFormatClick}
               />
             </div>
             {testQueryResults && (
