@@ -2495,7 +2495,7 @@ export async function getRevisionLog(
     }
   );
 
-  // Then we merge them.  The front end will sort them as needed
+  // We merge old logs on revisions with revisionLogs. The front end will sort them as needed
   const log = [...(revision.log || []), ...revisionLogs];
 
   res.json({
