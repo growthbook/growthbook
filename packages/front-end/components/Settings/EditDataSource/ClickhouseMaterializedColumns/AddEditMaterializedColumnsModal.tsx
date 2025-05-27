@@ -110,9 +110,6 @@ export default function AddMaterializedColumnsModal({
   }, []);
 
   const selectableColumnTypes = factTableColumnTypes.filter((t) => t !== "");
-  // Disable changing the datatype if the source field isn't also changing (which requires a drop anyway)
-  const datatypeDisabled =
-    mode === "edit" && localSourceField === column.sourceField;
 
   return (
     <Modal
@@ -138,7 +135,7 @@ export default function AddMaterializedColumnsModal({
             ? `Use field \`${fieldName}\``
             : "...or enter a field not listed here"
         }
-        helpText="The field (key) in the event json to materialize as its own column"
+        helpText="The field (key) in the event json to materialize as its own column. Must use only alphanumeric characters and ' ', '_', or '-'"
         value={localSourceField}
         createable
         isClearable
@@ -149,16 +146,12 @@ export default function AddMaterializedColumnsModal({
         onChange={(value) => {
           form.setValue("sourceField", value);
         }}
+        pattern="^[a-zA-Z0-9 _-]*$"
+        forceUndefinedValueToNull
       />
       {localSourceField && (
         <>
           <SelectField
-            disabled={datatypeDisabled}
-            helpText={
-              datatypeDisabled
-                ? "To change the type of a field, delete it and re-create it with the new type"
-                : ""
-            }
             label="Column type"
             value={form.watch("datatype")}
             options={selectableColumnTypes.map((opt) => ({
@@ -174,8 +167,9 @@ export default function AddMaterializedColumnsModal({
           />
           <Field
             label="Column Name"
-            helpText="This named column will be available in metric queries"
+            helpText="This named column will be available in metric queries. Must start with a letter or underscore and use only alphanumeric characters and '_'"
             {...form.register("columnName")}
+            pattern="^[a-zA-Z_][a-zA-Z0-9_]*"
           />
         </>
       )}

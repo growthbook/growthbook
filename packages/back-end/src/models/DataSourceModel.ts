@@ -6,8 +6,6 @@ import {
   DataSourceParams,
   DataSourceSettings,
   DataSourceType,
-  GrowthbookClickhouseDataSource,
-  MaterializedColumn,
 } from "back-end/types/datasource";
 import { GoogleAnalyticsParams } from "back-end/types/integrations/googleanalytics";
 import { getOauth2Client } from "back-end/src/integrations/GoogleAnalytics";
@@ -15,8 +13,6 @@ import {
   createDataSourceObject,
   encryptParams,
   getSourceIntegrationObject,
-  isDataSourceType,
-  isPartialWithMaterializedColumns,
   testDataSourceConnection,
   testQueryValidity,
 } from "back-end/src/services/datasource";
@@ -31,10 +27,7 @@ import { IS_CLOUD } from "back-end/src/util/secrets";
 import { ReqContext } from "back-end/types/organization";
 import { ApiReqContext } from "back-end/types/api";
 import { logger } from "back-end/src/util/logger";
-import {
-  deleteClickhouseUser,
-  updateMaterializedColumns,
-} from "back-end/src/services/clickhouse";
+import { deleteClickhouseUser } from "back-end/src/services/clickhouse";
 
 const dataSourceSchema = new mongoose.Schema<DataSourceDocument>({
   id: String,
@@ -343,71 +336,6 @@ export async function updateDataSource(
     return;
   }
 
-  if (
-    isDataSourceType<GrowthbookClickhouseDataSource>(
-      datasource,
-      "growthbook_clickhouse"
-    ) &&
-    isPartialWithMaterializedColumns(updates)
-  ) {
-    updates.settings!.materializedColumns = sanitizeMaterializedColumns(
-      updates.settings!.materializedColumns!
-    );
-    const finalColumns = updates.settings!.materializedColumns!;
-
-    const originalColumns = sanitizeMaterializedColumns(
-      datasource.settings.materializedColumns || []
-    );
-    const newColumnMap = Object.fromEntries(
-      finalColumns.map((col) => [col.sourceField, col])
-    );
-    const originalColumnMap = Object.fromEntries(
-      originalColumns.map((col) => [col.sourceField, col])
-    );
-    const columnsToDelete: MaterializedColumn[] = [],
-      columnsToRename: { from: string; to: string }[] = [];
-
-    originalColumns.forEach((col) => {
-      if (
-        !Object.prototype.hasOwnProperty.call(newColumnMap, col.sourceField)
-      ) {
-        columnsToDelete.push(col);
-        return;
-      }
-      if (newColumnMap[col.sourceField].columnName !== col.columnName) {
-        columnsToRename.push({
-          from: col.columnName,
-          to: newColumnMap[col.sourceField].columnName,
-        });
-        return;
-      }
-      // Prevent changing column type for existing columns
-      if (newColumnMap[col.sourceField].datatype !== col.datatype) {
-        const updateColumn = updates.settings!.materializedColumns!.find(
-          (c) => c.sourceField === col.sourceField
-        );
-        if (updateColumn) {
-          updateColumn.datatype = col.datatype;
-        }
-      }
-    });
-    const columnsToAdd = Object.values(newColumnMap).filter(
-      (col) =>
-        !Object.prototype.hasOwnProperty.call(
-          originalColumnMap,
-          col.sourceField
-        )
-    );
-    await updateMaterializedColumns({
-      datasource,
-      columnsToAdd,
-      columnsToDelete,
-      columnsToRename,
-      finalColumns,
-      originalColumns,
-    });
-  }
-
   await DataSourceModel.updateOne(
     {
       id: datasource.id,
@@ -417,24 +345,6 @@ export async function updateDataSource(
       $set: updates,
     }
   );
-}
-
-function sanitizeMaterializedColumns(unsafeColumns: MaterializedColumn[]) {
-  return unsafeColumns.map(({ columnName, datatype, sourceField }) => ({
-    columnName: sanitizeMatColumnString(columnName, true),
-    datatype,
-    sourceField: sanitizeMatColumnString(sourceField, false),
-  }));
-}
-
-function sanitizeMatColumnString(userInput: string, replaceSpaces: boolean) {
-  if (!/^[a-zA-Z_][a-zA-Z0-9 _-]*$/.test(userInput)) {
-    throw new Error(
-      "Invalid input. Field names must start with a letter or underscore and only use alphanumeric characters or ' ', '_', or '-'"
-    );
-  }
-  if (replaceSpaces) return userInput.replace(/[ -]/g, "_");
-  return userInput;
 }
 
 // WARNING: This does not restrict by organization

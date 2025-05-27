@@ -360,7 +360,7 @@ export async function updateMaterializedColumns({
 }: {
   datasource: GrowthbookClickhouseDataSource;
   columnsToAdd: MaterializedColumn[];
-  columnsToDelete: MaterializedColumn[];
+  columnsToDelete: string[];
   columnsToRename: { from: string; to: string }[];
   finalColumns: MaterializedColumn[];
   originalColumns: MaterializedColumn[];
@@ -379,7 +379,6 @@ export async function updateMaterializedColumns({
   await client.command({ query: `DROP VIEW IF EXISTS ${eventsViewName}` });
 
   let err = undefined;
-  logger.info(columnsToAdd);
   try {
     const addClauses = columnsToAdd
       .map(
@@ -390,7 +389,7 @@ export async function updateMaterializedColumns({
       )
       .join(", ");
     const dropClauses = columnsToDelete
-      .map(({ columnName }) => `DROP COLUMN IF EXISTS ${columnName}`)
+      .map((columnName) => `DROP COLUMN IF EXISTS ${columnName}`)
       .join(", ");
     const renameClauses = columnsToRename
       .map(({ from, to }) => `RENAME COLUMN ${from} to ${to}`)
@@ -404,7 +403,6 @@ export async function updateMaterializedColumns({
       columnsToDelete.length > 0 && columnsToRename.length > 0 ? ", " : ""
     }${renameClauses}`;
     logger.info(`Updating table schema for ${eventsTableName}`);
-    logger.info(`Command is ALTER TABLE ${eventsTableName} ${clauses}`);
     await client.command({
       query: `ALTER TABLE ${eventsTableName} ${clauses}`,
     });

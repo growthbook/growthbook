@@ -5,7 +5,6 @@ import {
 } from "back-end/types/datasource";
 import { useMemo, useState } from "react";
 import { FaPlus } from "react-icons/fa";
-import { cloneDeep } from "lodash";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Badge from "@/components/Radix/Badge";
@@ -18,20 +17,22 @@ import Table, {
   TableHeader,
   TableRow,
 } from "@/components/Radix/Table";
+import { useAuth } from "@/services/auth";
 import { DataSourceQueryEditingModalBaseProps } from "../types";
 import AddEditMaterializedColumnsModal from "./AddEditMaterializedColumnsModal";
 
 type ClickhouseMaterializedColumnsProps = Omit<
   DataSourceQueryEditingModalBaseProps,
-  "dataSource"
+  "dataSource" | "onSave"
 > & {
   dataSource: GrowthbookClickhouseDataSourceWithParams;
+  mutate: () => Promise<void>;
 };
 
 export default function ClickhouseMaterializedColumns({
   dataSource,
-  onSave,
   canEdit,
+  mutate,
 }: ClickhouseMaterializedColumnsProps) {
   const materializedColumns = useMemo(
     () => dataSource.settings.materializedColumns || [],
@@ -41,24 +42,36 @@ export default function ClickhouseMaterializedColumns({
   const [editColumnIdx, setEditColumnIdx] = useState<number | undefined>(
     undefined
   );
+  const { apiCall } = useAuth();
 
-  const deleteColumn = async (idx: number) => {
-    const copy = cloneDeep(dataSource);
-    copy.settings.materializedColumns = (
-      copy.settings.materializedColumns || []
-    ).filter((_col, i) => i !== idx);
-    await onSave(copy);
+  const deleteColumn = async (columnName: string) => {
+    await apiCall(
+      `/datasource/${dataSource.id}/materializedColumn/${columnName}`,
+      { method: "DELETE" }
+    );
+    await mutate();
   };
 
-  const saveColumn = async (column: MaterializedColumn, idx?: number) => {
-    const copy = cloneDeep(dataSource);
-    copy.settings.materializedColumns ||= [];
-    if (typeof idx !== "undefined") {
-      copy.settings.materializedColumns[idx] = column;
-    } else {
-      copy.settings.materializedColumns.push(column);
-    }
-    await onSave(copy);
+  const createColumn = async (column: MaterializedColumn) => {
+    await apiCall(`/datasource/${dataSource.id}/materializedColumn`, {
+      method: "POST",
+      body: JSON.stringify(column),
+    });
+    await mutate();
+  };
+
+  const updateColumn = async (
+    columnName: string,
+    column: MaterializedColumn
+  ) => {
+    await apiCall(
+      `/datasource/${dataSource.id}/materializedColumn/${columnName}`,
+      {
+        method: "PUT",
+        body: JSON.stringify(column),
+      }
+    );
+    await mutate();
   };
 
   return (
@@ -69,7 +82,7 @@ export default function ClickhouseMaterializedColumns({
           column={undefined}
           existingColumnNames={materializedColumns.map((c) => c.columnName)}
           existingSourceFields={materializedColumns.map((c) => c.sourceField)}
-          onSave={saveColumn}
+          onSave={createColumn}
           onCancel={() => {
             setAddModal(false);
           }}
@@ -85,7 +98,9 @@ export default function ClickhouseMaterializedColumns({
           existingSourceFields={materializedColumns.map((c, idx) =>
             idx === editColumnIdx ? "" : c.sourceField
           )}
-          onSave={(column) => saveColumn(column, editColumnIdx)}
+          onSave={(column) =>
+            updateColumn(materializedColumns[editColumnIdx].columnName, column)
+          }
           onCancel={() => {
             setEditColumnIdx(undefined);
           }}
@@ -148,7 +163,7 @@ export default function ClickhouseMaterializedColumns({
                           Edit Materialized Column
                         </button>
                         <DeleteButton
-                          onClick={() => deleteColumn(idx)}
+                          onClick={() => deleteColumn(col.columnName)}
                           className="dropdown-item text-danger py-2"
                           iconClassName="mr-2"
                           style={{ borderRadius: 0 }}

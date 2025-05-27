@@ -359,9 +359,9 @@ mixpanel.init('YOUR PROJECT TOKEN', {
               <Frame>
                 <ClickhouseMaterializedColumns
                   dataSource={d}
-                  onSave={updateDataSourceSettings}
                   onCancel={() => undefined}
                   canEdit={canUpdateDataSourceSettings}
+                  mutate={mutateDefinitions}
                 />
               </Frame>
             )}
