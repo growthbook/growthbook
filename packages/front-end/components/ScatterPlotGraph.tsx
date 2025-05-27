@@ -11,43 +11,45 @@ import {
 } from "@visx/tooltip";
 import { GlyphCircle } from "@visx/glyph";
 import styles from "@/components/GraphStyles.module.scss";
-// ParentSize can be useful for responsive charts, but not strictly needed for the component logic itself.
-// import { ParentSize } from '@visx/responsive';
 
-export interface ScatterPointData {
+export interface ScatterPointData<T> {
   y: number;
   x: number;
+  // TODO make these optional to hide error bars
   ymin: number;
   ymax: number;
   xmin: number;
   xmax: number;
   units: number;
-  experimentName: string;
-  variationName: string;
-  xMetricName: string;
-  yMetricName: string;
+  otherData: T;
   id: string; // For unique key, e.g., index or a unique identifier from data source
 }
 
-export interface ScatterPlotGraphProps {
-  data: ScatterPointData[];
+export interface ScatterPlotGraphProps<T> {
+  data: ScatterPointData<T>[];
   width: number;
   height: number;
   margin?: { top: number; right: number; bottom: number; left: number };
   xFormatter?: (value: number) => string;
   yFormatter?: (value: number) => string;
+  xLabel?: string;
+  yLabel?: string;
+  generateTooltipContent?: (data: ScatterPointData<T>) => React.ReactNode;
 }
 
 const defaultMargin = { top: 40, right: 50, bottom: 50, left: 60 };
 
-const ScatterPlotGraph: React.FC<ScatterPlotGraphProps> = ({
+const ScatterPlotGraph = <T,>({
   data,
   width,
   height,
   margin = defaultMargin,
   xFormatter,
   yFormatter,
-}) => {
+  yLabel,
+  xLabel,
+  generateTooltipContent,
+}: ScatterPlotGraphProps<T>) => {
   const {
     tooltipData,
     tooltipLeft,
@@ -55,7 +57,7 @@ const ScatterPlotGraph: React.FC<ScatterPlotGraphProps> = ({
     tooltipOpen,
     showTooltip,
     hideTooltip,
-  } = useTooltip<ScatterPointData>();
+  } = useTooltip<ScatterPointData<T>>();
 
   if (width < 10 || height < 10 || data.length === 0) return null;
 
@@ -91,8 +93,8 @@ const ScatterPlotGraph: React.FC<ScatterPlotGraphProps> = ({
   });
 
   // Accessors
-  const getX = (d: ScatterPointData) => d.x;
-  const getY = (d: ScatterPointData) => d.y;
+  const getX = (d: ScatterPointData<T>) => d.x;
+  const getY = (d: ScatterPointData<T>) => d.y;
 
   return (
     <div style={{ position: "relative" }}>
@@ -145,8 +147,9 @@ const ScatterPlotGraph: React.FC<ScatterPlotGraphProps> = ({
 
           <AxisLeft
             scale={yScale}
-            label={data[0]?.yMetricName || "Y Value"}
+            label={yLabel || "Y Value"}
             labelClassName={styles.label}
+            tickFormat={yFormatter}
             tickLabelProps={() => ({
               fill: "var(--text-color-table)",
               fontSize: 14,
@@ -157,8 +160,9 @@ const ScatterPlotGraph: React.FC<ScatterPlotGraphProps> = ({
           <AxisBottom
             scale={xScale}
             top={yMax}
-            label={data[0]?.xMetricName || "X Value"}
+            label={xLabel || "X Value"}
             labelClassName={styles.label}
+            tickFormat={xFormatter}
             tickLabelProps={() => ({
               fill: "var(--text-color-table)",
               fontSize: 14,
@@ -187,6 +191,7 @@ const ScatterPlotGraph: React.FC<ScatterPlotGraphProps> = ({
                   to={{ x: xMaxCoord, y: cy }}
                   stroke="var(--blue-10)"
                   strokeWidth={1.5}
+                  strokeOpacity={0.75}
                 />
                 {/* Y Error Bar */}
                 <Line
@@ -194,14 +199,17 @@ const ScatterPlotGraph: React.FC<ScatterPlotGraphProps> = ({
                   to={{ x: cx, y: yMaxCoord }}
                   stroke="var(--blue-10)"
                   strokeWidth={1.5}
+                  strokeOpacity={0.75}
                 />
                 <GlyphCircle
                   left={cx}
                   top={cy}
                   size={radius * radius * Math.PI} // GlyphCircle size is area
                   fill="var(--blue-10)" // A common blue color
+                  fillOpacity={0.75}
                   stroke="#fff" // White border for better visibility
                   strokeWidth={1}
+                  strokeOpacity={0.75}
                   onPointerMove={(_) => {
                     showTooltip({
                       tooltipData: point,
@@ -217,71 +225,32 @@ const ScatterPlotGraph: React.FC<ScatterPlotGraphProps> = ({
           })}
         </Group>
       </svg>
-      {tooltipOpen && tooltipData && tooltipLeft != null && tooltipTop != null && (
-        <TooltipWithBounds
-          // key={Math.random()} // Removed, usually not needed if props change correctly
-          top={tooltipTop + margin.top} // Add margin.top for correct positioning relative to the outer div
-          left={tooltipLeft + margin.left} // Add margin.left for correct positioning relative to the outer div
-          style={{
-            ...tooltipDefaultStyles,
-            backgroundColor: "rgba(50,50,50,0.9)",
-            color: "white",
-            padding: "10px",
-            borderRadius: "5px",
-            fontSize: "13px",
-            lineHeight: "1.5",
-            boxShadow: "0px 2px 10px rgba(0,0,0,0.2)",
-            pointerEvents: "none",
-          }}
-        >
-          <div style={{ fontWeight: "bold", marginBottom: "5px" }}>
-            {tooltipData.experimentName} - {tooltipData.variationName}
-          </div>
-          <div>
-            <strong>{tooltipData.yMetricName}:</strong>{" "}
-            {yFormatter ? yFormatter(tooltipData.y) : tooltipData.y.toFixed(2)}
-          </div>
-          <div style={{ fontSize: "11px", color: "#ccc" }}>
-            (CI: {tooltipData.ymin.toFixed(2)} - {tooltipData.ymax.toFixed(2)})
-          </div>
-          <div style={{ marginTop: "4px" }}>
-            <strong>{tooltipData.xMetricName}:</strong>{" "}
-            {xFormatter ? xFormatter(tooltipData.x) : tooltipData.x.toFixed(2)}
-          </div>
-          <div style={{ fontSize: "11px", color: "#ccc" }}>
-            (CI: {tooltipData.xmin.toFixed(2)} - {tooltipData.xmax.toFixed(2)})
-          </div>
-          <div style={{ marginTop: "4px" }}>
-            <strong>Units:</strong> {tooltipData.units.toLocaleString()}
-          </div>
-        </TooltipWithBounds>
-      )}
+      {generateTooltipContent &&
+        tooltipOpen &&
+        tooltipData &&
+        tooltipLeft != null &&
+        tooltipTop != null && (
+          <TooltipWithBounds
+            // key={Math.random()} // Removed, usually not needed if props change correctly
+            top={tooltipTop + margin.top} // Add margin.top for correct positioning relative to the outer div
+            left={tooltipLeft + margin.left} // Add margin.left for correct positioning relative to the outer div
+            style={{
+              ...tooltipDefaultStyles,
+              backgroundColor: "rgba(50,50,50,0.9)",
+              color: "white",
+              padding: "10px",
+              borderRadius: "5px",
+              fontSize: "13px",
+              lineHeight: "1.5",
+              boxShadow: "0px 2px 10px rgba(0,0,0,0.2)",
+              pointerEvents: "none",
+            }}
+          >
+            {generateTooltipContent(tooltipData)}
+          </TooltipWithBounds>
+        )}
     </div>
   );
 };
 
 export default ScatterPlotGraph;
-
-// Example usage (remove or keep for testing, typically used with ParentSize for responsiveness):
-/*
-import { ParentSize } from '@visx/responsive';
-
-const SampleScatterData: ScatterPointData[] = [
-  { id: 'exp1', y: 25, x: 100, ymin: 22, ymax: 28, xmin: 90, xmax: 110, units: 1500, experimentName: 'Experiment Alpha', yMetricName: 'Avg. Order Value', xMetricName: 'Ad Spend' },
-  { id: 'exp2', y: 30, x: 120, ymin: 27, ymax: 33, xmin: 110, xmax: 130, units: 2200, experimentName: 'Experiment Beta', yMetricName: 'Avg. Order Value', xMetricName: 'Ad Spend' },
-  { id: 'exp3', y: 20, x: 80, ymin: 18, ymax: 22, xmin: 75, xmax: 85, units: 900, experimentName: 'Experiment Gamma', yMetricName: 'Avg. Order Value', xMetricName: 'Ad Spend' },
-  { id: 'exp4', y: 35, x: 150, ymin: 32, ymax: 38, xmin: 140, xmax: 160, units: 3000, experimentName: 'Experiment Delta', yMetricName: 'Avg. Order Value', xMetricName: 'Ad Spend' },
-];
-
-const App = () => (
-  <div style={{ width: '100%', height: '500px', border: '1px solid #ccc' }}>
-    <ParentSize>
-      {({ width, height }) => (
-        <ScatterPlotGraph data={SampleScatterData} width={width} height={height} />
-      )}
-    </ParentSize>
-  </div>
-);
-
-// You would render <App /> in your main application file.
-*/

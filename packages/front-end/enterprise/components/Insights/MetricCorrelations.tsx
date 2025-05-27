@@ -15,7 +15,6 @@ import MetricSelector from "@/components/Experiment/MetricSelector";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import {
-  formatNumber,
   formatPercent,
   getExperimentMetricFormatter,
 } from "@/services/metrics";
@@ -45,6 +44,13 @@ type MetricCorrelationParams = {
   m1: string;
   m2: string;
   diff: DifferenceType;
+};
+
+type MetricCorrelationTooltipData = {
+  experimentName: string;
+  variationName: string;
+  xMetricName: string;
+  yMetricName: string;
 };
 
 const parseQueryParams = (
@@ -193,12 +199,14 @@ const MetricCorrelationCard = ({
 
   const [metric1, setMetric1] = useState<string>(params?.m1 || "");
   const [metric2, setMetric2] = useState<string>(params?.m2 || "");
+  const [metric1Name, setMetric1Name] = useState<string>("");
+  const [metric2Name, setMetric2Name] = useState<string>("");
   const [searchParams, setSearchParams] = useState<Record<string, string>>({});
   const [differenceType, setDifferenceType] = useState<DifferenceType>(
     params?.diff || "relative"
   );
   const [metricData, setMetricData] = useState<{
-    correlationData: ScatterPointData[];
+    correlationData: ScatterPointData<MetricCorrelationTooltipData>[];
   }>({
     correlationData: [],
   });
@@ -210,10 +218,26 @@ const MetricCorrelationCard = ({
   const metric1Obj = getExperimentMetricById(metric1);
   const metric2Obj = getExperimentMetricById(metric2);
 
+  useEffect(() => {
+    const title =
+      differenceType === "relative"
+        ? "(Lift %)"
+        : differenceType === "absolute"
+        ? "(Absolute Change)"
+        : "(Scaled Impact)";
+
+    if (metric1Obj) {
+      setMetric1Name(`${metric1Obj.name} ${title}`);
+    }
+    if (metric2Obj) {
+      setMetric2Name(`${metric2Obj.name} ${title}`);
+    }
+  }, [metric1Obj, metric2Obj, differenceType]);
+
   const formatterM1 = !metric1Obj
     ? formatPercent
     : differenceType === "relative"
-    ? formatNumber
+    ? formatPercent
     : getExperimentMetricFormatter(
         metric1Obj,
         getFactTableById,
@@ -222,7 +246,7 @@ const MetricCorrelationCard = ({
   const formatterM2 = !metric2Obj
     ? formatPercent
     : differenceType === "relative"
-    ? formatNumber
+    ? formatPercent
     : getExperimentMetricFormatter(
         metric2Obj,
         getFactTableById,
@@ -258,10 +282,7 @@ const MetricCorrelationCard = ({
       });
 
       if (snapshots && snapshots.length > 0) {
-        const metric1Name = getExperimentMetricById(metric1)?.name || metric1;
-        const metric2Name = getExperimentMetricById(metric2)?.name || metric2;
-
-        const newCorrelationData: ScatterPointData[] = [];
+        const newCorrelationData: ScatterPointData<MetricCorrelationTooltipData>[] = [];
         snapshots.forEach((snapshot) => {
           const experiment = filteredExperiments.find(
             (exp) => exp.id === snapshot.experiment
@@ -288,28 +309,27 @@ const MetricCorrelationCard = ({
             const metric1Data = variation.metrics[metric1];
             const metric2Data = variation.metrics[metric2];
 
-            const multiplier = differenceType === "relative" ? 100 : 1;
-            const title =
-              differenceType === "relative"
-                ? "(Lift %)"
-                : differenceType === "absolute"
-                ? "(Absolute Change)"
-                : "(Scaled Impact)";
+            if (metric1Data?.errorMessage || metric2Data?.errorMessage) {
+              return;
+            }
+
             if (metric1Data && metric2Data) {
               newCorrelationData.push({
                 id: `${experiment.id}_var_${variationIndex}`,
-                x: multiplier * (metric1Data.uplift?.mean || 0),
-                y: multiplier * (metric2Data.uplift?.mean || 0),
-                xmin: multiplier * (metric1Data?.ci?.[0] || 0),
-                xmax: multiplier * (metric1Data?.ci?.[1] || 0),
-                ymin: multiplier * (metric2Data?.ci?.[0] || 0),
-                ymax: multiplier * (metric2Data?.ci?.[1] || 0),
+                x: metric1Data.uplift?.mean || 0,
+                y: metric2Data.uplift?.mean || 0,
+                xmin: metric1Data?.ci?.[0] || 0,
+                xmax: metric1Data?.ci?.[1] || 0,
+                ymin: metric2Data?.ci?.[0] || 0,
+                ymax: metric2Data?.ci?.[1] || 0,
                 units: variation.users,
-                experimentName: experiment.name || experiment.id,
-                variationName:
-                  experiment.variations[variationIndex]?.name || "",
-                xMetricName: `${metric1Name} ${title}`,
-                yMetricName: `${metric2Name} ${title}`,
+                otherData: {
+                  experimentName: experiment.name || experiment.id,
+                  variationName:
+                    experiment.variations[variationIndex]?.name || "",
+                  xMetricName: metric1Name,
+                  yMetricName: metric2Name,
+                },
               });
             }
           });
@@ -333,12 +353,13 @@ const MetricCorrelationCard = ({
   }, [
     metric1,
     metric2,
+    metric1Name,
+    metric2Name,
     experiments,
     differenceType,
     setSearchParams,
     index,
     apiCall,
-    getExperimentMetricById,
   ]);
 
   useEffect(() => {
@@ -414,6 +435,38 @@ const MetricCorrelationCard = ({
                 height={500}
                 xFormatter={formatterM1}
                 yFormatter={formatterM2}
+                xLabel={metric1Name}
+                yLabel={metric2Name}
+                generateTooltipContent={(data) => (
+                  <Flex direction="column" gap="2">
+                    <Flex justify="between" gapX="2">
+                      <Text weight="bold">Experiment:</Text>
+                      <Text>{data.otherData.experimentName}</Text>
+                    </Flex>
+                    <Flex justify="between" gapX="2">
+                      <Text weight="bold">Variation:</Text>
+                      <Text>{data.otherData.variationName}</Text>
+                    </Flex>
+                    <Flex justify="between" gapX="2">
+                      <Text weight="bold">{data.otherData.xMetricName}</Text>
+                      <Text>
+                        {formatterM1(data.x)} ({formatterM1(data.xmin)} -{" "}
+                        {formatterM1(data.xmax)})
+                      </Text>
+                    </Flex>
+                    <Flex justify="between" gapX="2">
+                      <Text weight="bold">{data.otherData.yMetricName}</Text>
+                      <Text>
+                        {formatterM2(data.y)} ({formatterM2(data.ymin)} -{" "}
+                        {formatterM2(data.ymax)})
+                      </Text>
+                    </Flex>
+                    <Flex justify="between" gapX="2">
+                      <Text weight="bold">Units:</Text>
+                      <Text>{data.units.toLocaleString()}</Text>
+                    </Flex>
+                  </Flex>
+                )}
               />
             </Flex>
           </Box>
