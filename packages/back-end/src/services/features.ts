@@ -100,6 +100,7 @@ import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { triggerWebhookJobs } from "back-end/src/jobs/updateAllJobs";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
+import { SafeRolloutInterface } from "back-end/types/safe-rollout";
 import {
   getContextForAgendaJobByOrgObject,
   getEnvironmentIdsFromOrg,
@@ -113,12 +114,14 @@ export function generateFeaturesPayload({
   environment,
   groupMap,
   prereqStateCache = {},
+  safeRolloutMap,
 }: {
   features: FeatureInterface[];
   experimentMap: Map<string, ExperimentInterface>;
   environment: string;
   groupMap: GroupMap;
   prereqStateCache?: Record<string, Record<string, PrerequisiteStateResult>>;
+  safeRolloutMap: Map<string, SafeRolloutInterface>;
 }): Record<string, FeatureDefinition> {
   prereqStateCache[environment] = prereqStateCache[environment] || {};
 
@@ -134,6 +137,7 @@ export function generateFeaturesPayload({
       environment,
       groupMap,
       experimentMap,
+      safeRolloutMap,
     });
     if (def) {
       defs[feature.id] = def;
@@ -394,6 +398,7 @@ export async function refreshSDKPayloadCache(
   payloadKeys: SDKPayloadKey[],
   allFeatures: FeatureInterface[] | null = null,
   experimentMap?: Map<string, ExperimentInterface>,
+  safeRolloutMap?: Map<string, SafeRolloutInterface>,
   skipRefreshForProject?: string
 ) {
   // This is a background job, so switch to using a background context
@@ -424,6 +429,9 @@ export async function refreshSDKPayloadCache(
   }
 
   experimentMap = experimentMap || (await getAllPayloadExperiments(context));
+  safeRolloutMap =
+    safeRolloutMap ||
+    (await context.models.safeRollout.getAllPayloadSafeRollouts());
   const groupMap = await getSavedGroupMap(context.org);
   allFeatures = allFeatures || (await getAllFeatures(context));
   const allVisualExperiments = await getAllVisualExperiments(
@@ -453,6 +461,7 @@ export async function refreshSDKPayloadCache(
       groupMap,
       experimentMap,
       prereqStateCache,
+      safeRolloutMap,
     });
 
     const experimentsDefinitions = generateAutoExperimentsPayload({
@@ -795,6 +804,7 @@ export async function getFeatureDefinitions({
   const features = await getAllFeatures(context);
   const groupMap = await getSavedGroupMap(context.org, savedGroups);
   const experimentMap = await getAllPayloadExperiments(context);
+  const safeRolloutMap = await context.models.safeRollout.getAllPayloadSafeRollouts();
 
   const prereqStateCache: Record<
     string,
@@ -807,6 +817,7 @@ export async function getFeatureDefinitions({
     groupMap,
     experimentMap,
     prereqStateCache,
+    safeRolloutMap,
   });
 
   const allVisualExperiments = await getAllVisualExperiments(
@@ -883,6 +894,7 @@ export function evaluateFeature({
   scrubPrerequisites = true,
   skipRulesWithPrerequisites = true,
   date = new Date(),
+  safeRolloutMap,
 }: {
   feature: FeatureInterface;
   attributes: ArchetypeAttributeValues;
@@ -893,6 +905,7 @@ export function evaluateFeature({
   scrubPrerequisites?: boolean;
   skipRulesWithPrerequisites?: boolean;
   date?: Date;
+  safeRolloutMap: Map<string, SafeRolloutInterface>;
 }) {
   const results: FeatureTestResult[] = [];
   const savedGroups = getSavedGroupsValuesFromGroupMap(groupMap);
@@ -925,6 +938,7 @@ export function evaluateFeature({
         environment: env.id,
         revision,
         date,
+        safeRolloutMap,
       });
 
       if (definition) {
@@ -999,12 +1013,14 @@ export async function evaluateAllFeatures({
   attributeValues,
   environments,
   groupMap,
+  safeRolloutMap,
 }: {
   features: FeatureInterface[];
   context: ReqContext | ApiReqContext;
   attributeValues: ArchetypeAttributeValues;
   groupMap: GroupMap;
   environments?: (Environment | undefined)[];
+  safeRolloutMap: Map<string, SafeRolloutInterface>;
 }) {
   const results: { [key: string]: FeatureTestResult }[] = [];
   const savedGroups = getSavedGroupsValuesFromGroupMap(groupMap);
@@ -1019,7 +1035,6 @@ export async function evaluateAllFeatures({
       };
     });
   }
-
   // get all features definitions
   const experimentMap = await getAllPayloadExperiments(context);
   // I could loop through the feature's defined environments, but if environments change in the org,
@@ -1049,6 +1064,7 @@ export async function evaluateAllFeatures({
       experimentMap,
       groupMap,
       prereqStateCache: {},
+      safeRolloutMap,
     });
 
     // now we have all the definitions, lets evaluate them
@@ -1207,6 +1223,7 @@ export async function getApiFeatureObj({
   experimentMap,
   revision,
   revisions,
+  safeRolloutMap,
 }: {
   feature: FeatureInterface;
   context: ReqContext | ApiReqContext;
@@ -1215,6 +1232,7 @@ export async function getApiFeatureObj({
   experimentMap: Map<string, ExperimentInterface>;
   revision: FeatureRevisionInterface | null;
   revisions?: FeatureRevisionInterface[];
+  safeRolloutMap: Map<string, SafeRolloutInterface>;
 }): Promise<ApiFeatureWithRevisions> {
   const defaultValue = feature.defaultValue;
   const featureEnvironments: Record<string, ApiFeatureEnvironment> = {};
@@ -1241,6 +1259,7 @@ export async function getApiFeatureObj({
       groupMap,
       experimentMap,
       environment: env,
+      safeRolloutMap,
     });
 
     featureEnvironments[env] = {
@@ -1283,6 +1302,7 @@ export async function getApiFeatureObj({
         groupMap,
         experimentMap,
         environment: env,
+        safeRolloutMap,
       });
 
       environmentRules[env] = rules;

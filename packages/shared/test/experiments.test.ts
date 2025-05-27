@@ -1,3 +1,4 @@
+import normal from "@stdlib/stats/base/dists/normal";
 import {
   FactTableInterface,
   ColumnInterface,
@@ -14,6 +15,7 @@ import {
   adjustPValuesHolmBonferroni,
   adjustedCI,
   setAdjustedPValuesOnResults,
+  chanceToWinFlatPrior,
 } from "../src/experiments";
 
 describe("Experiments", () => {
@@ -900,5 +902,106 @@ describe("pvalue correction on results", () => {
     expect(
       adjustedCI(0.0099999999, 0.1, 0.01).map((x) => +x.toFixed(8))
     ).toEqual([0, 0.2]);
+  });
+});
+
+function roundToSeventhDecimal(num: number): number {
+  return Number(num.toFixed(7));
+}
+
+describe("chanceToWinFlatPrior", () => {
+  it("chance to win flat prior correct", () => {
+    const alpha = Math.PI / 100;
+    const expected = Math.sqrt(Math.PI);
+    const s = Math.PI;
+    const multiplier_two_sided = normal.quantile(1 - alpha / 2, 0, 1);
+    const multiplier_one_sided = normal.quantile(1 - alpha, 0, 1);
+
+    const truth = 0.7136874;
+    const truthInverse = 1 - truth;
+    const lower_two_sided = expected - s * multiplier_two_sided;
+    const upper_two_sided = expected + s * multiplier_two_sided;
+    const lower_one_sided = expected - s * multiplier_one_sided;
+    const upper_one_sided = expected + s * multiplier_one_sided;
+
+    expect(
+      chanceToWinFlatPrior(
+        expected,
+        Number.NEGATIVE_INFINITY,
+        Number.POSITIVE_INFINITY,
+        alpha,
+        true
+      )
+    ).toEqual(0);
+    expect(chanceToWinFlatPrior(0, -1, 1, alpha, true)).toEqual(0.5); //sanity check that effect size of 0 results in 0.5
+    expect(chanceToWinFlatPrior(0, 0, 0, alpha, true)).toEqual(0); //sanity check that effect size of 0 and 0 uncertainty results in 0
+    expect(chanceToWinFlatPrior(1, 0, 0, alpha, true)).toEqual(0); //sanity check that effect size of 1 and 0 uncertainty results in 1 for inverse case
+    expect(chanceToWinFlatPrior(1, 0, 0, alpha, false)).toEqual(1); //sanity check that effect size of 1 and 0 uncertainty results in 1 for non-inverse case
+    expect(
+      roundToSeventhDecimal(
+        chanceToWinFlatPrior(
+          expected,
+          lower_two_sided,
+          upper_two_sided,
+          alpha,
+          false
+        )
+      )
+    ).toEqual(roundToSeventhDecimal(truth));
+    expect(
+      roundToSeventhDecimal(
+        chanceToWinFlatPrior(
+          expected,
+          lower_two_sided,
+          upper_two_sided,
+          alpha,
+          true
+        )
+      )
+    ).toEqual(roundToSeventhDecimal(truthInverse));
+    expect(
+      roundToSeventhDecimal(
+        chanceToWinFlatPrior(
+          expected,
+          Number.NEGATIVE_INFINITY,
+          upper_one_sided,
+          alpha,
+          false
+        )
+      )
+    ).toEqual(roundToSeventhDecimal(truth));
+    expect(
+      roundToSeventhDecimal(
+        chanceToWinFlatPrior(
+          expected,
+          Number.NEGATIVE_INFINITY,
+          upper_one_sided,
+          alpha,
+          true
+        )
+      )
+    ).toEqual(roundToSeventhDecimal(truthInverse));
+    expect(
+      roundToSeventhDecimal(
+        chanceToWinFlatPrior(
+          expected,
+          lower_one_sided,
+          Number.POSITIVE_INFINITY,
+          alpha,
+          false
+        )
+      )
+    ).toEqual(roundToSeventhDecimal(truth));
+    expect(
+      roundToSeventhDecimal(
+        chanceToWinFlatPrior(
+          expected,
+          lower_one_sided,
+          Number.POSITIVE_INFINITY,
+          alpha,
+          true
+        )
+      )
+    ).toEqual(roundToSeventhDecimal(truthInverse));
   });
 });

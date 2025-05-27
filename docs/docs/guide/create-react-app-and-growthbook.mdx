@@ -30,9 +30,7 @@ also use the open source version and host it yourself if you prefer.
 GrowthBook uses the concept of Feature Flagging to run A/B tests. Basically,
 you wrap the code you want to test in a conditional check
 
-<pre>if (feature.on) ...</pre>and then you run an A/B test within GrowthBook to turn the feature on for 50% of users and off for the other 50% (or whatever
-
-percentage you like).
+`if (feature.on) ...` and then you run an A/B test within GrowthBook to turn the feature on for 50% of users and off for the other 50% (or whatever percentage you like).
 :::
 
 To start, go to https://app.growthbook.io and register a new account. Then there are a couple steps required before you
@@ -95,7 +93,7 @@ Make sure to swap out the `FEATURES_ENDPOINT` constant above with your own dev A
 
 Lastly, you'll need to wrap the app in a GrowthBookProvider component which will let us run A/B tests from anywhere in the app.
 
-```html
+```tsx
 ReactDOM.render(
 <React.StrictMode>
   <GrowthBookProvider growthbook={growthbook}>
@@ -139,7 +137,7 @@ import { IfFeatureEnabled } from "@growthbook/growthbook-react";
 
 And wrap the img element in an IfFeatureEnabled component:
 
-```html
+```tsx
 <IfFeatureEnabled feature="show-logo">
   <img src={logo} className="App-logo" alt="logo" />
 </IfFeatureEnabled>

@@ -204,6 +204,38 @@ gb = GrowthBook(attributes = attributes)
 gb.set_attributes(attributes)
 ```
 
+#### Secure Attributes
+
+When _secure attribute hashing_ is enabled, all targeting conditions in the SDK payload referencing attributes with datatype `secureString` or `secureString[]` will be anonymized via SHA-256 hashing. This allows you to safely target users based on sensitive attributes. You must enable this feature in your SDK Connection for it to take effect.
+
+If your SDK Connection has secure attribute hashing enabled, you will need to manually hash any `secureString` or `secureString[]` attributes that you pass into the GrowthBook SDK.
+
+To hash an attribute, use the `hashlib` library with SHA-256 support, and compute the SHA-256 hashed value of your attribute _plus_ your organization's secure attribute salt.
+
+```python
+import hashlib
+
+# Your secure attribute salt (set in Organization Settings)
+salt = "f09jq3fij"
+
+# Hashing a secureString attribute
+user_email = user.email
+hashed_email = hashlib.sha256(f"{salt}{user_email}".encode()).hexdigest()
+
+# Hashing a secureString[] attribute
+user_tags = user.tags
+hashed_tags = [hashlib.sha256(f"{salt}{tag}".encode()).hexdigest() for tag in user_tags]
+
+gb = GrowthBook(
+  attributes = {
+    'id': "123",
+    'loggedIn': True,
+    'email': hashed_email,
+    'tags': hashed_tags
+  }
+)
+```
+
 ### Tracking Experiments
 
 Any time an experiment is run to determine the value of a feature, you want to track that event in your analytics system.
