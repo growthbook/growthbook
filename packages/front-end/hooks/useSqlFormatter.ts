@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { format, FormatOptionsWithLanguage } from "sql-formatter";
+import { FormatDialect, format } from "shared";
 import { DataSourceType } from "back-end/types/datasource";
 
 interface FormattingState {
@@ -9,29 +9,26 @@ interface FormattingState {
 }
 
 function getSqlFormatterLanguage(
-  datasourceType?: DataSourceType
-): FormatOptionsWithLanguage["language"] {
-  const typeMap: Record<
-    DataSourceType,
-    FormatOptionsWithLanguage["language"]
-  > = {
+  datasourceType: DataSourceType
+): FormatDialect | undefined {
+  const typeMap: Record<DataSourceType, FormatDialect | undefined> = {
     redshift: "redshift",
     snowflake: "snowflake",
     mysql: "mysql",
     bigquery: "bigquery",
     postgres: "postgresql",
-    mssql: "transactsql",
+    mssql: "tsql",
     clickhouse: "sql",
     growthbook_clickhouse: "sql",
-    athena: "sql",
+    athena: "trino",
     presto: "trino",
-    databricks: "spark",
-    vertica: "sql",
-    mixpanel: "sql",
-    google_analytics: "sql",
+    databricks: "sql",
+    vertica: "postgresql",
+    mixpanel: undefined, // no formatting for mixpanel
+    google_analytics: "bigquery",
   };
 
-  return datasourceType ? typeMap[datasourceType] : "sql";
+  return typeMap[datasourceType];
 }
 
 function replaceTemplateVariables(
@@ -72,15 +69,20 @@ export function useSqlFormatter(datasourceType?: DataSourceType) {
         return state.originalSql;
       }
 
+      if (!datasourceType) return sql;
+
+      const dialect = getSqlFormatterLanguage(datasourceType);
+      if (!dialect) return sql;
+
       try {
-        // Format the SQL
+        // Format the SQL - using shared format function
         const {
           sql: sqlWithoutTemplates,
           placeholders,
         } = replaceTemplateVariables(sql);
-        const formatted = format(sqlWithoutTemplates, {
-          language: getSqlFormatterLanguage(datasourceType),
-        });
+
+        const formatted = format(sqlWithoutTemplates, dialect);
+
         const result = restoreTemplateVariables(formatted, placeholders);
 
         // Update state to track formatting
