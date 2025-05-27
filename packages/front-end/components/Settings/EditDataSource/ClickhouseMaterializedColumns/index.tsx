@@ -85,9 +85,9 @@ export default function ClickhouseMaterializedColumns({
         />
       )}
       <Box>
-        <Flex align="start" gap="2" mb="0" justify="between">
+        <Flex align="center" gap="2" mb="3" justify="between">
           <Box>
-            <Flex align="center" gap="3" mb="3">
+            <Flex align="center" gap="3" mb="0">
               <Heading as="h3" size="4" mb="0">
                 Materialized Columns
               </Heading>
@@ -97,11 +97,6 @@ export default function ClickhouseMaterializedColumns({
                 radius="medium"
               />
             </Flex>
-            <p>
-              Fields in the event payload to be materialized as separate columns
-              to improve ease of use. This also improves query performance for
-              fields frequently used for filters or aggregation
-            </p>
           </Box>
 
           {canEdit && (
@@ -112,6 +107,11 @@ export default function ClickhouseMaterializedColumns({
             </Box>
           )}
         </Flex>
+        <p>
+          Fields in the event payload to be materialized as separate columns to
+          improve ease of use. This also improves query performance for fields
+          frequently used for filters or aggregation
+        </p>
 
         {materializedColumns.length === 0 ? (
           <Callout status="info">No materialized columns</Callout>
