@@ -78,19 +78,18 @@ export default function CodeTextArea({
 
   useEffect(() => {
     if (!editor) return;
+    if (!onCtrlEnter) return;
 
-    if (onCtrlEnter) {
-      editor.commands.bindKey(
-        {
-          win: "Ctrl-enter",
-          mac: "Command-enter",
-        },
-        {
-          exec: onCtrlEnter,
-          name: "ctrl-enter",
-        }
-      );
-    }
+    editor.commands.bindKey(
+      {
+        win: "Ctrl-enter",
+        mac: "Command-enter",
+      },
+      {
+        exec: onCtrlEnter,
+        name: "ctrl-enter",
+      }
+    );
   }, [editor, onCtrlEnter]);
 
   return (
