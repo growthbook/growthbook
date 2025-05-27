@@ -74,35 +74,36 @@ export function useSqlFormatter(datasourceType?: DataSourceType) {
       const dialect = getSqlFormatterLanguage(datasourceType);
       if (!dialect) return sql;
 
-      try {
-        // Format the SQL - using shared format function
-        const {
-          sql: sqlWithoutTemplates,
-          placeholders,
-        } = replaceTemplateVariables(sql);
+      // Format the SQL - using shared format function
+      const {
+        sql: sqlWithoutTemplates,
+        placeholders,
+      } = replaceTemplateVariables(sql);
 
-        const formatted = format(sqlWithoutTemplates, dialect);
-
-        const result = restoreTemplateVariables(formatted, placeholders);
-
-        // Update state to track formatting
+      let hasError = false;
+      const formatted = format(sqlWithoutTemplates, dialect, ({ error }) => {
+        hasError = true;
         setState({
-          error: null,
-          originalSql: sql,
-          formattedSql: result,
-        });
-
-        return result;
-      } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : "Failed to format SQL";
-        setState({
-          error: errorMessage,
+          error: error.message,
           originalSql: null,
           formattedSql: null,
         });
-        return sql; // Return original SQL if formatting fails
+      });
+
+      if (hasError || !formatted) {
+        return sql;
       }
+
+      const result = restoreTemplateVariables(formatted, placeholders);
+
+      // Update state to track formatting
+      setState({
+        error: null,
+        originalSql: sql,
+        formattedSql: result,
+      });
+
+      return result;
     },
     [state.originalSql, datasourceType]
   );
