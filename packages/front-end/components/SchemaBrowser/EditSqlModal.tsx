@@ -21,7 +21,7 @@ import {
 import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { useFormatter } from "@/hooks/useFormatter";
+import { useSqlFormatter } from "@/hooks/useSqlFormatter";
 import SchemaBrowser from "./SchemaBrowser";
 import styles from "./EditSqlModal.module.scss";
 
@@ -83,7 +83,7 @@ export default function EditSqlModal({
     clearError,
     isFormatted,
     error: formatError,
-  } = useFormatter(datasource?.type);
+  } = useSqlFormatter(datasource?.type);
 
   const validateRequiredColumns = useCallback(
     (result: TestQueryRow) => {

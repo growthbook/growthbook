@@ -53,7 +53,7 @@ function restoreTemplateVariables(sql: string, placeholders: string[]): string {
   );
 }
 
-export function useFormatter(datasourceType?: DataSourceType) {
+export function useSqlFormatter(datasourceType?: DataSourceType) {
   const [state, setState] = useState<FormattingState>({
     error: null,
     originalSql: null,
