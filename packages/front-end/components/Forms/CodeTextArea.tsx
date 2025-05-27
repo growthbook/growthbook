@@ -127,8 +127,24 @@ export default function CodeTextArea({
               prefix: string,
               callback: (err: unknown, results: AceCompletion[]) => void
             ) => {
-              // Always return our template completions
-              callback(null, completions);
+              // Filter completions based on the current prefix
+              const filteredCompletions = completions.filter((completion) => {
+                if (!prefix || prefix.trim() === "") {
+                  return true;
+                }
+
+                const lowerPrefix = prefix.toLowerCase();
+                const lowerValue = completion.value.toLowerCase();
+                const lowerCaption = completion.caption.toLowerCase();
+
+                // Match against both value and caption, prioritizing exact prefix matches
+                return (
+                  lowerValue.startsWith(lowerPrefix) ||
+                  lowerCaption.startsWith(lowerPrefix)
+                );
+              });
+
+              callback(null, filteredCompletions);
             },
             // Add identifier regex that includes { to trigger on curly braces
             identifierRegexps: [/[a-zA-Z_0-9{]/],
