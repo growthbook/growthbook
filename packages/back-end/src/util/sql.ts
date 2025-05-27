@@ -13,7 +13,8 @@ Object.keys(helpers).forEach((helperName) => {
 });
 
 // Re-export FormatDialect and format for backward compatibility
-export { FormatDialect, format };
+export type { FormatDialect };
+export { format };
 
 export function getBaseIdTypeAndJoins(
   objects: string[][],
