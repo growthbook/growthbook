@@ -932,8 +932,8 @@ export async function postMaterializedColumn(
     });
   } catch (e) {
     req.log.error(e, "Failed to update data source");
-    res.status(400).json({
-      status: 400,
+    res.status(500).json({
+      status: 500,
       message: e.message || "An error occurred",
     });
   }
@@ -1038,8 +1038,8 @@ export async function updateMaterializedColumn(
     });
   } catch (e) {
     req.log.error(e, "Failed to update data source");
-    res.status(400).json({
-      status: 400,
+    res.status(500).json({
+      status: 500,
       message: e.message || "An error occurred",
     });
   }
@@ -1080,7 +1080,6 @@ export async function deleteMaterializedColumn(
   if (originalIdx === -1) {
     throw new Error(`Cannot find materialized column ${matColumnName}`);
   }
-  const originalColumn = originalColumns[originalIdx];
   const finalColumns = [
     ...originalColumns.slice(0, originalIdx),
     ...originalColumns.slice(originalIdx + 1),
@@ -1097,7 +1096,7 @@ export async function deleteMaterializedColumn(
     await updateMaterializedColumns({
       datasource,
       columnsToAdd: [],
-      columnsToDelete: [originalColumn.columnName],
+      columnsToDelete: [matColumnName],
       columnsToRename: [],
       finalColumns,
       originalColumns,
@@ -1115,8 +1114,8 @@ export async function deleteMaterializedColumn(
     });
   } catch (e) {
     req.log.error(e, "Failed to update data source");
-    res.status(400).json({
-      status: 400,
+    res.status(500).json({
+      status: 500,
       message: e.message || "An error occurred",
     });
   }

@@ -69,13 +69,19 @@ export default function AddMaterializedColumnsModal({
     if (!localSourceField) return [false, "Must specify a source field"];
     if (existingSourceFields.includes(localSourceField))
       return [false, `The field '${localSourceField}' is already in use`];
-
+    if (localColumnName === column?.columnName) {
+      return [
+        false,
+        "Cannot modify a column while keeping the same name. Delete the original column and create a replacement",
+      ];
+    }
     return [true, ""];
   }, [
     localColumnName,
     localSourceField,
     existingColumnNames,
     existingSourceFields,
+    column,
   ]);
 
   const contextJsonFields: JSONColumnFields = useMemo(() => {
