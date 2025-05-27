@@ -46,9 +46,6 @@ export class FeatureRevisionLogModel extends BaseClass {
     featureId: string;
     version: number;
   }) {
-    return await this._find(
-      { featureId, version },
-      { sort: { timestamp: -1 } }
-    );
+    return await this._find({ featureId, version });
   }
 }
