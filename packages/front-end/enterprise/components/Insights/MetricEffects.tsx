@@ -108,7 +108,6 @@ type MetricEffectParams = {
   diff: DifferenceType;
 };
 
-// TODO reparameterize to use across both types of analyses
 const parseQueryParams = (
   query: Record<string, string | string[] | undefined>
 ): MetricEffectParams[] => {
@@ -119,12 +118,12 @@ const parseQueryParams = (
   Object.entries(query).forEach(([key, value]) => {
     if (typeof value !== "string") return;
 
-    const match = key.match(/^(m1|m2|diff)(?:_(.+))?$/);
+    const match = key.match(/^(metric|diff)(?:_(.+))?$/);
     if (!match) return;
 
     const [, paramType, id] = match;
     const idx = Number(id);
-    console.log(idx);
+
     if (!Number.isInteger(idx)) return;
     const groupId = idx.toString();
 
