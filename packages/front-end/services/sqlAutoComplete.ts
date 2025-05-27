@@ -72,7 +72,7 @@ export function getCurrentContext(
   cursorData: CursorData
 ): AutocompleteContext | null {
   const { row, column, input } = cursorData;
-  const currentLine = input[row];
+  const currentLine = input[row] || "";
   const textBeforeCursor = currentLine.substring(0, column);
 
   // Get all text up to the current cursor position
@@ -468,7 +468,10 @@ export async function getAutoCompletions(
         cursorData.input
           .slice(0, cursorData.row)
           .concat(
-            cursorData.input[cursorData.row].substring(0, cursorData.column)
+            (cursorData.input[cursorData.row] || "").substring(
+              0,
+              cursorData.column
+            )
           )
           .join("\n")
           .split("FROM")[1]
