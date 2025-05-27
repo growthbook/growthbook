@@ -4,6 +4,7 @@ import {
 } from "back-end/src/types/Integration";
 import { CursorData } from "@/components/Segments/SegmentForm";
 import { AceCompletion } from "@/components/Forms/CodeTextArea";
+import { getSqlKeywords } from "./sqlKeywords";
 
 type Keywords = "SELECT" | "FROM" | "WHERE" | "GROUP BY" | "ORDER BY";
 
@@ -380,10 +381,15 @@ export async function getAutoCompletions(
   ) => Promise<{ table: InformationSchemaTablesInterface }>,
   eventName?: string
 ): Promise<AceCompletion[]> {
-  if (!cursorData || !informationSchema) return [];
+  const sqlKeywords = getSqlKeywords();
+
+  // Always provide SQL keywords as a baseline
+  if (!cursorData || !informationSchema) return sqlKeywords;
 
   const context = getCurrentContext(cursorData);
-  if (!context?.type) return [];
+
+  // If no context is detected, still provide SQL keywords
+  if (!context?.type) return sqlKeywords;
 
   const templateCompletions: AceCompletion[] = [
     {
@@ -459,9 +465,9 @@ export async function getAutoCompletions(
             caption: col.columnName,
           }))
         );
-        return allColumns.concat(templateCompletions);
+        return [...templateCompletions, ...sqlKeywords, ...allColumns];
       }
-      return templateCompletions;
+      return [...templateCompletions, ...sqlKeywords];
     case "FROM":
       // Get the text after FROM up to the cursor
       textAfterFrom =
@@ -511,6 +517,7 @@ export async function getAutoCompletions(
 
         return [
           ...templateCompletions,
+          ...sqlKeywords,
           ...databaseCompletions,
           ...schemaCompletions,
           ...tableCompletions,
@@ -520,15 +527,24 @@ export async function getAutoCompletions(
       // If we have a database selected but no schema, show schemas
       parts = textAfterFrom.split(".");
       if (parts.length === 1 && parts[0].trim()) {
-        return getSchemaCompletions(textAfterFrom, informationSchema);
+        return [
+          ...sqlKeywords,
+          ...getSchemaCompletions(textAfterFrom, informationSchema),
+        ];
       } else if (parts.length === 2 && parts[0].trim()) {
         // Handle case where database is followed by a dot
-        return getSchemaCompletions(textAfterFrom, informationSchema);
+        return [
+          ...sqlKeywords,
+          ...getSchemaCompletions(textAfterFrom, informationSchema),
+        ];
       }
 
       // If we have a database and schema selected, or no selection yet, show tables
-      return getTableCompletions(textAfterFrom, informationSchema);
+      return [
+        ...sqlKeywords,
+        ...getTableCompletions(textAfterFrom, informationSchema),
+      ];
     default:
-      return [];
+      return sqlKeywords;
   }
 }

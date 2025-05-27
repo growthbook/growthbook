@@ -24,6 +24,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import useApi from "@/hooks/useApi";
 import { getAutoCompletions } from "@/services/sqlAutoComplete";
+import { getSqlKeywords } from "@/services/sqlKeywords";
 import SchemaBrowser from "./SchemaBrowser";
 import styles from "./EditSqlModal.module.scss";
 
@@ -164,7 +165,8 @@ export default function EditSqlModal({
   // Update autocompletions when cursor or schema changes
   useEffect(() => {
     if (!cursorData || !informationSchema) {
-      setAutoCompletions([]);
+      // Provide SQL keywords as fallback when schema is not available
+      setAutoCompletions(getSqlKeywords());
       return;
     }
 
