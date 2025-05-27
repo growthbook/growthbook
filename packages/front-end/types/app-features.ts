@@ -71,4 +71,5 @@ export type AppFeatures = {
   "safe-rollout-promo": boolean;
   "safe-rollout-ramp-up": boolean;
   "safe-rollout-auto-rollback": boolean;
+  insights: boolean;
 };
