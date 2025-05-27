@@ -561,6 +561,7 @@ export default function ResultsTable({
                               <SafeRolloutTimeSeriesGraph
                                 data={metricTimeSeries}
                                 xExtent={metricTimeSeriesDateExtent}
+                                ssrPolyfills={ssrPolyfills}
                               />
                             </td>
                           ) : j > 0 && showTimeSeries ? (

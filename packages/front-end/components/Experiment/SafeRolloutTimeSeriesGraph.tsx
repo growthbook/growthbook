@@ -10,22 +10,32 @@ import { curveLinear } from "@visx/curve";
 import { Flex, Text } from "@radix-ui/themes";
 import { MetricTimeSeries } from "back-end/src/validators/metric-time-series";
 import { datetime, getValidDate } from "shared/dates";
+import { isFactMetricId } from "shared/experiments";
 import { RadixTheme } from "@/services/RadixTheme";
 import Table, {
   TableBody,
   TableRow,
   TableRowHeaderCell,
 } from "@/components/Radix/Table";
+import {
+  getExperimentMetricFormatter,
+  getMetricFormatter,
+} from "@/services/metrics";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { useCurrency } from "@/hooks/useCurrency";
+import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import styles from "./SafeRolloutTimeSeriesGraph.module.scss";
 
 type SafeRolloutTimeSeriesGraphProps = {
   data: MetricTimeSeries;
   xExtent?: [undefined, undefined] | [Date, Date];
+  ssrPolyfills?: SSRPolyfills;
 };
 
 export default function SafeRolloutTimeSeriesGraph({
   data,
   xExtent,
+  ssrPolyfills,
 }: SafeRolloutTimeSeriesGraphProps) {
   return (
     <ParentSize>
@@ -35,6 +45,7 @@ export default function SafeRolloutTimeSeriesGraph({
           xExtent={xExtent}
           width={width}
           height={height}
+          ssrPolyfills={ssrPolyfills}
         />
       )}
     </ParentSize>
@@ -49,6 +60,7 @@ type VariationData = {
 type DataPoint = {
   date: Date;
   variations: VariationData[];
+  tags?: string[];
 };
 
 const SafeRolloutTimeSeriesGraphContent = ({
@@ -56,6 +68,7 @@ const SafeRolloutTimeSeriesGraphContent = ({
   xExtent,
   width,
   height,
+  ssrPolyfills,
 }: SafeRolloutTimeSeriesGraphProps & { width: number; height: number }) => {
   const {
     tooltipData,
@@ -74,6 +87,30 @@ const SafeRolloutTimeSeriesGraphContent = ({
     scroll: true,
   });
 
+  const _currency = useCurrency();
+  const displayCurrency = ssrPolyfills?.useCurrency?.() || _currency;
+  const {
+    getMetricById,
+    getFactMetricById,
+    getFactTableById,
+  } = useDefinitions();
+
+  // NB: Hard coded for absolute here as it is the only analysis we have for Safe Rollouts
+  const metric = isFactMetricId(data.metricId)
+    ? getFactMetricById(data.metricId)
+    : getMetricById(data.metricId);
+  const formatter =
+    metric === null
+      ? getMetricFormatter("count")
+      : getExperimentMetricFormatter(
+          metric,
+          getFactTableById,
+          "percentagePoints"
+        );
+  const formatterOptions = {
+    currency: displayCurrency,
+  };
+
   const dataPointsToRender: DataPoint[] = useMemo(() => {
     return data.dataPoints.map((dp) => ({
       date: getValidDate(dp.date),
@@ -81,6 +118,7 @@ const SafeRolloutTimeSeriesGraphContent = ({
         name: v.name,
         ci: v.absolute?.ci ?? [null, null],
       })),
+      tags: dp.tags,
     }));
   }, [data.dataPoints]);
 
@@ -343,7 +381,7 @@ const SafeRolloutTimeSeriesGraphContent = ({
         >
           <RadixTheme>
             <div className={styles.tooltipContent}>
-              {getTooltipContent(tooltipData)}
+              {getTooltipContent(tooltipData, formatter, formatterOptions)}
             </div>
           </RadixTheme>
         </TooltipInPortal>
@@ -352,7 +390,11 @@ const SafeRolloutTimeSeriesGraphContent = ({
   );
 };
 
-function getTooltipContent(tooltipData: { datum: DataPoint; index: number }) {
+function getTooltipContent(
+  tooltipData: { datum: DataPoint; index: number },
+  formatter: (value: number, options?: Intl.NumberFormatOptions) => string,
+  formatterOptions: Intl.NumberFormatOptions
+) {
   const rolloutVariation = tooltipData.datum.variations?.find(
     (v) =>
       v.name.toLowerCase().includes("variation") ||
@@ -373,15 +415,17 @@ function getTooltipContent(tooltipData: { datum: DataPoint; index: number }) {
       return {
         status: "Failing",
         color: "var(--red-11)",
-        description:
-          "The metric confidence interval crossed the boundary, meaning we are 97.5% confident this is a regression. Consider rolling back immediately.",
+        description: `The Metric Boundary ${
+          ci.isUpperBound ? "is below" : "is above"
+        } the Threshold, and we are confident this is a regression.`,
       };
     } else {
       return {
         status: "Within bounds",
         color: "var(--teal-11)",
-        description:
-          "No regression detected. If this metric crosses the confidence boundary we will consider it is failing.",
+        description: `No regression detected. If the Metric Boundary ${
+          ci.isUpperBound ? "goes below" : "goes above"
+        } the Threshold we will consider it as failing.`,
       };
     }
   };
@@ -418,15 +462,17 @@ function getTooltipContent(tooltipData: { datum: DataPoint; index: number }) {
           <TableRow
             style={{ color: "var(--color-text-high)", fontWeight: 500 }}
           >
-            <TableRowHeaderCell pl="0">Confidence</TableRowHeaderCell>
+            <TableRowHeaderCell pl="0">Metric Boundary</TableRowHeaderCell>
             <TableRowHeaderCell>
-              {ci.value !== null ? ci.value.toFixed(4) : "N/A"}
+              {ci.value !== null
+                ? formatter(ci.value, formatterOptions)
+                : "N/A"}
             </TableRowHeaderCell>
           </TableRow>
           <TableRow
             style={{ color: "var(--color-text-high)", fontWeight: 500 }}
           >
-            <TableRowHeaderCell pl="0">Confidence Boundary</TableRowHeaderCell>
+            <TableRowHeaderCell pl="0">Threshold</TableRowHeaderCell>
             <TableRowHeaderCell>0</TableRowHeaderCell>
           </TableRow>
         </TableBody>
