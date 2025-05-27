@@ -8,14 +8,16 @@ import {
   useRef,
   useState,
 } from "react";
-import { Box, Popover } from "@radix-ui/themes";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { RxInfoCircled } from "react-icons/rx";
 import { FaExclamationTriangle } from "react-icons/fa";
+import { Box, Popover } from "@radix-ui/themes";
 import {
   ExperimentReportVariation,
   ExperimentReportVariationWithIndex,
 } from "back-end/types/report";
 import { ExperimentStatus } from "back-end/types/experiment";
+import { MetricTimeSeries } from "back-end/src/validators/metric-time-series";
 import {
   DifferenceType,
   PValueCorrection,
@@ -40,7 +42,9 @@ import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ResultsMetricFilter from "@/components/Experiment/ResultsMetricFilter";
 import { ResultsMetricFilters } from "@/components/Experiment/Results";
+import SafeRolloutTimeSeriesGraph from "@/components/Experiment/SafeRolloutTimeSeriesGraph";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import useApi from "@/hooks/useApi";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import ChangeColumn from "./ChangeColumn";
 import StatusColumn from "./StatusColumn";
@@ -80,7 +84,7 @@ export type ResultsTableProps = {
 };
 
 export default function ResultsTable({
-  id: _,
+  id,
   isLatestPhase,
   status,
   queryStatusData,
@@ -127,6 +131,7 @@ export default function ResultsTable({
     ssrPolyfills?.usePValueThreshold?.() || _pValueThreshold;
   const displayCurrency = ssrPolyfills?.useCurrency?.() || _displayCurrency;
 
+  const showTimeSeries = useFeatureIsOn("safe-rollout-timeseries");
   const [showMetricFilter, setShowMetricFilter] = useState<boolean>(false);
 
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
@@ -279,6 +284,35 @@ export default function ResultsTable({
 
   const changeTitle = getEffectLabel(differenceType);
 
+  const urlFormattedMetricIds = rows
+    .map((row) => row.metric.id)
+    .join("&metricIds[]=");
+  const { data: metricTimeSeries } = useApi<{
+    status: number;
+    timeSeries: MetricTimeSeries[];
+  }>(`/safe-rollout/${id}/time-series?metricIds[]=${urlFormattedMetricIds}`, {
+    shouldRun: () => showTimeSeries,
+  });
+  const metricTimeSeriesMap = useMemo(() => {
+    return metricTimeSeries?.timeSeries?.reduce((acc, curr) => {
+      acc[curr.metricId] = curr;
+      return acc;
+    }, {} as Record<string, MetricTimeSeries>);
+  }, [metricTimeSeries]);
+
+  const firstDateToRenderTimeSeries = useMemo(() => {
+    return metricTimeSeries?.timeSeries?.reduce((earliest, curr) => {
+      const firstDataPoint = curr.dataPoints[0];
+      if (firstDataPoint) {
+        const currentDate = getValidDate(firstDataPoint.date);
+        return !earliest || currentDate < earliest
+          ? firstDataPoint.date
+          : earliest;
+      }
+      return earliest;
+    }, undefined as Date | undefined);
+  }, [metricTimeSeries]);
+
   return (
     <div className="position-relative">
       <div
@@ -334,6 +368,14 @@ export default function ResultsTable({
                 </th>
                 {!noMetrics ? (
                   <>
+                    {showTimeSeries ? (
+                      <th
+                        style={{ width: 100 * tableCellScale }}
+                        className={clsx("axis-col label", { noStickyHeader })}
+                      >
+                        Time series
+                      </th>
+                    ) : null}
                     <th
                       style={{ width: 120 * tableCellScale }}
                       className={clsx("axis-col label", { noStickyHeader })}
@@ -357,26 +399,28 @@ export default function ResultsTable({
                         <RxInfoCircled className="ml-1" />
                       </Tooltip>
                     </th>
-                    <th
-                      style={{ width: 150 * tableCellScale }}
-                      className={clsx("axis-col label text-right", {
-                        noStickyHeader,
-                      })}
-                    >
-                      <div style={{ lineHeight: "15px", marginBottom: 2 }}>
-                        <Tooltip
-                          usePortal={true}
-                          innerClassName={"text-left"}
-                          body={
-                            <div style={{ lineHeight: 1.5 }}>
-                              {getChangeTooltip(changeTitle, differenceType)}
-                            </div>
-                          }
-                        >
-                          {changeTitle} <RxInfoCircled />
-                        </Tooltip>
-                      </div>
-                    </th>
+                    {!showTimeSeries ? (
+                      <th
+                        style={{ width: 150 * tableCellScale }}
+                        className={clsx("axis-col label text-right", {
+                          noStickyHeader,
+                        })}
+                      >
+                        <div style={{ lineHeight: "15px", marginBottom: 2 }}>
+                          <Tooltip
+                            usePortal={true}
+                            innerClassName={"text-left"}
+                            body={
+                              <div style={{ lineHeight: 1.5 }}>
+                                {getChangeTooltip(changeTitle, differenceType)}
+                              </div>
+                            }
+                          >
+                            {changeTitle} <RxInfoCircled />
+                          </Tooltip>
+                        </div>
+                      </th>
+                    ) : null}
                   </>
                 ) : (
                   <th
@@ -456,6 +500,9 @@ export default function ResultsTable({
 
                     const tooltipData = getTooltipData(i, j);
 
+                    const metricTimeSeries =
+                      metricTimeSeriesMap?.[row.metric.id];
+
                     return (
                       <Popover.Root
                         key={`${i}-${j}`}
@@ -510,6 +557,19 @@ export default function ResultsTable({
                               renderLabelColumn(row.label, row.metric, row, 3)
                             )}
                           </td>
+                          {j > 0 &&
+                          showTimeSeries &&
+                          metricTimeSeries &&
+                          rowResults.enoughData ? (
+                            <td style={{ padding: 0, height: 1 }}>
+                              <SafeRolloutTimeSeriesGraph
+                                data={metricTimeSeries}
+                                firstDateToRender={firstDateToRenderTimeSeries}
+                              />
+                            </td>
+                          ) : j > 0 && showTimeSeries ? (
+                            <td></td>
+                          ) : null}
                           {j > 0 ? (
                             <td
                               className="variation chance align-middle"
@@ -542,7 +602,7 @@ export default function ResultsTable({
                           ) : (
                             <td></td>
                           )}
-                          {j > 0 ? (
+                          {j > 0 && !showTimeSeries ? (
                             <td
                               className="results-change"
                               // To allow us to have height 100% for the div inside the td
@@ -570,9 +630,7 @@ export default function ResultsTable({
                                 </Box>
                               </Popover.Trigger>
                             </td>
-                          ) : (
-                            <td></td>
-                          )}
+                          ) : null}
                         </tr>
                       </Popover.Root>
                     );
