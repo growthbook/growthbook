@@ -470,7 +470,7 @@ function getTooltipContent(
             style={{ color: "var(--color-text-high)", fontWeight: 500 }}
           >
             <TableRowHeaderCell pl="0">Metric Boundary</TableRowHeaderCell>
-            <TableRowHeaderCell>
+            <TableRowHeaderCell style={{ textAlign: "right" }}>
               {ci.value !== null
                 ? formatter(ci.value, formatterOptions)
                 : "N/A"}
@@ -480,7 +480,9 @@ function getTooltipContent(
             style={{ color: "var(--color-text-high)", fontWeight: 500 }}
           >
             <TableRowHeaderCell pl="0">Threshold</TableRowHeaderCell>
-            <TableRowHeaderCell>0</TableRowHeaderCell>
+            <TableRowHeaderCell style={{ textAlign: "right" }}>
+              0
+            </TableRowHeaderCell>
           </TableRow>
         </TableBody>
       </Table>
