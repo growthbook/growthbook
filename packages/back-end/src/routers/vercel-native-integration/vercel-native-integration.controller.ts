@@ -19,7 +19,7 @@ import { ReqContextClass } from "back-end/src/services/context";
 import { OrganizationInterface } from "back-end/types/organization";
 import {
   getVercelSSOToken,
-  syncVercelSdkWebhook,
+  syncVercelSdkConnection,
   deleteVercelSdkWebhook,
 } from "back-end/src/services/vercel-native-integration.service";
 import { createSDKConnection } from "back-end/src/models/SdkConnectionModel";
@@ -108,13 +108,13 @@ const checkAuth = async <T extends string | "user">({
   }
 };
 
-const getOrgFromInstallationResource = async (
+const getOrgFromInstallationResource = async <T>(
   installationId: string,
-  resourceId?: string
+  resourceId?: T
 ): Promise<{
   org: OrganizationInterface;
   integration: VercelNativeIntegration;
-  resource?: Resource;
+  resource: T extends string ? Resource : undefined;
 }> => {
   const integration = await findVercelInstallationByInstallationId(
     installationId
@@ -125,24 +125,21 @@ const getOrgFromInstallationResource = async (
   const resource = (() => {
     if (!resourceId) return;
 
-    const resource = integration.resources.find(({ id }) => id === resourceId);
-
-    if (!resource) {
-      throw new Error(`Invalid resourceId: ${resourceId}`);
-    }
-
-    return resource;
+    return integration.resources.find(({ id }) => id === resourceId);
   })();
 
-  const organizationId = resource?.organizationId || integration.organization;
-  const org = await findOrganizationById(organizationId);
+  if (resourceId && !resource) {
+    throw new Error(`Invalid resourceId: ${resourceId}`);
+  }
+
+  const org = await findOrganizationById(integration.organization);
 
   if (!org) throw new Error("Invalid installation!");
 
   return {
     org,
     integration,
-    resource,
+    resource: resource as T extends string ? Resource : undefined,
   };
 };
 
@@ -308,7 +305,7 @@ export async function deleteInstallation(req: Request, res: Response) {
 }
 
 export async function provisionResource(req: Request, res: Response) {
-  const { org: contextOrg, integrationModel, integration } = await authContext(
+  const { org, context, integrationModel, integration } = await authContext(
     req,
     res
   );
@@ -322,26 +319,6 @@ export async function provisionResource(req: Request, res: Response) {
   const billingPlan = billingPlans.find(({ id }) => id === billingPlanId);
 
   if (!billingPlan) return res.status(400).send("Invalid billing plan!");
-
-  const org = await (async () => {
-    if (integration.resources.length === 0) {
-      await updateOrganization(contextOrg.id, {
-        name: payload.name,
-        isVercelIntegration: true,
-        restrictLoginMethod: `vercel:${req.params.installation_id}`,
-      });
-      return contextOrg;
-    }
-
-    return createOrganization({
-      email: contextOrg.ownerEmail,
-      // TODO: Better way to get the userId
-      userId: contextOrg.members.find((m) => m.role === "admin")?.id || "",
-      name: payload.name,
-      isVercelIntegration: true,
-      restrictLoginMethod: `vercel:${req.params.installation_id}`,
-    });
-  })();
 
   const sdkConnection = await createSDKConnection({
     organization: org.id,
@@ -358,20 +335,23 @@ export async function provisionResource(req: Request, res: Response) {
     encryptPayload: false,
   });
 
+  const project = await context.models.projects.create({ name: payload.name });
+
   const resource: Resource = {
     ...payload,
     id: uuidv4(),
-    organizationId: org.id,
     billingPlan,
     secrets: [{ name: "GROWTHBOOK_CLIENT_KEY", value: sdkConnection.key }],
     status: "ready",
+    projectId: project.id,
+    sdkConnectionId: sdkConnection.id,
   };
 
   await integrationModel.update(integration, {
     resources: [...integration.resources, resource],
   });
 
-  await syncVercelSdkWebhook(org.id);
+  await syncVercelSdkConnection(org.id);
 
   return res.json(resource);
 }
@@ -413,7 +393,7 @@ export async function updateResource(req: Request, res: Response) {
     ),
   });
 
-  await syncVercelSdkWebhook(org.id);
+  await syncVercelSdkConnection(org.id);
 
   return res.json(updatedResource);
 }
@@ -465,6 +445,9 @@ export async function getProducts(req: Request, res: Response) {
 export async function postVercelIntegrationSSO(req: Request, res: Response) {
   const { code, state, resourceId } = req.body;
 
+  if (!resourceId || typeof resourceId !== "string")
+    throw new Error("Invalid request!");
+
   const token = await getVercelSSOToken({
     code: String(code),
     state: String(state),
@@ -492,7 +475,7 @@ export async function postVercelIntegrationSSO(req: Request, res: Response) {
         `Could not find installation for installationId: ${installationId}`
       );
 
-  const { org } = await getOrgFromInstallationResource(
+  const { resource } = await getOrgFromInstallationResource(
     installationId,
     resourceId
   );
@@ -506,5 +489,5 @@ export async function postVercelIntegrationSSO(req: Request, res: Response) {
   SSOConnectionIdCookie.setValue(`vercel:${installationId}`, req, res);
   IdTokenCookie.setValue(token, req, res);
 
-  res.send({ organizationId: org.id });
+  res.send({ projectId: resource.projectId });
 }

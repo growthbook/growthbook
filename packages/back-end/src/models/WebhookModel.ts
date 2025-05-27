@@ -16,7 +16,7 @@ const payloadFormatValidator = z.enum([
   "none",
 ]);
 
-type PayloadFormat = z.infer<typeof payloadFormatValidator>;
+export type PayloadFormat = z.infer<typeof payloadFormatValidator>;
 
 const webhookSchema = new mongoose.Schema({
   id: {
@@ -67,6 +67,19 @@ export async function findAllSdkWebhooksByConnectionIds(
     await WebhookModel.find({
       organization: context.org.id,
       sdks: { $in: sdkConnectionIds },
+      useSdkMode: true,
+    })
+  ).map((e) => toInterface(e));
+}
+
+export async function findAllSdkWebhooksByPayloadFormat(
+  context: ReqContext,
+  payloadFormat: string,
+): Promise<WebhookInterface[]> {
+  return (
+    await WebhookModel.find({
+      organization: context.org.id,
+      payloadFormat,
       useSdkMode: true,
     })
   ).map((e) => toInterface(e));
@@ -189,7 +202,7 @@ export type CreateSdkWebhookProps = z.infer<typeof createSdkWebhookValidator>;
 
 export async function createSdkWebhook(
   context: ReqContext,
-  sdkConnectionIds: string | string[],
+  sdkConnectionId: string,
   data: CreateSdkWebhookProps
 ) {
   data = createSdkWebhookValidator.parse(data);
@@ -208,10 +221,7 @@ export async function createSdkWebhook(
     error: "",
     lastSuccess: null,
     useSdkMode: true,
-    sdks:
-      typeof sdkConnectionIds === "string"
-        ? [sdkConnectionIds]
-        : sdkConnectionIds,
+    sdks: [sdkConnectionId],
   };
   const res = await WebhookModel.create(doc);
 
@@ -221,18 +231,6 @@ export async function createSdkWebhook(
 export async function findSdkWebhookByIdAcrossOrgs(id: string) {
   const doc = await WebhookModel.findOne({
     id,
-  });
-  return doc ? toInterface(doc) : null;
-}
-
-export async function findSdkWebhookByPayloadFormat(
-  context: ReqContext,
-  payloadFormat: PayloadFormat
-) {
-  const doc = await WebhookModel.findOne({
-    organization: context.org.id,
-    useSdkMode: true,
-    payloadFormat,
   });
   return doc ? toInterface(doc) : null;
 }
