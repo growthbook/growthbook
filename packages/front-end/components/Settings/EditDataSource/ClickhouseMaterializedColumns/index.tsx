@@ -1,4 +1,4 @@
-import { Flex, Card, Box, Heading } from "@radix-ui/themes";
+import { Flex, Box, Heading } from "@radix-ui/themes";
 import {
   GrowthbookClickhouseDataSourceWithParams,
   MaterializedColumn,
@@ -11,6 +11,13 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Badge from "@/components/Radix/Badge";
 import Button from "@/components/Radix/Button";
 import Callout from "@/components/Radix/Callout";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/components/Radix/Table";
 import { DataSourceQueryEditingModalBaseProps } from "../types";
 import AddEditMaterializedColumnsModal from "./AddEditMaterializedColumnsModal";
 
@@ -115,58 +122,51 @@ export default function ClickhouseMaterializedColumns({
 
         {materializedColumns.length === 0 ? (
           <Callout status="info">No materialized columns</Callout>
-        ) : null}
-
-        {materializedColumns.map((colInfo, idx) => {
-          return (
-            <Card mt="3" key={colInfo.columnName}>
-              <Flex align="start" justify="between" py="2" px="3" gap="3">
-                <Box width="100%">
-                  <Flex>
-                    <Heading as="h4" size="3" mb="1">
-                      {colInfo.columnName}
-                    </Heading>
-                    {colInfo.sourceField !== colInfo.columnName && (
-                      <p className="ml-3 text-muted">{colInfo.sourceField}</p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableColumnHeader>Source Field</TableColumnHeader>
+                <TableColumnHeader>Datatype</TableColumnHeader>
+                <TableColumnHeader>Destination Column</TableColumnHeader>
+                <TableColumnHeader />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {materializedColumns.map((col, idx) => (
+                <TableRow key={col.sourceField}>
+                  <TableCell>{col.sourceField}</TableCell>
+                  <TableCell>{col.datatype}</TableCell>
+                  <TableCell>{col.columnName}</TableCell>
+                  <TableCell>
+                    {canEdit && (
+                      <MoreMenu>
+                        <button
+                          className="dropdown-item py-2"
+                          onClick={() => setEditColumnIdx(idx)}
+                        >
+                          Edit Materialized Column
+                        </button>
+                        <DeleteButton
+                          onClick={() => deleteColumn(idx)}
+                          className="dropdown-item text-danger py-2"
+                          iconClassName="mr-2"
+                          style={{ borderRadius: 0 }}
+                          useIcon={false}
+                          displayName={col.columnName}
+                          deleteMessage={`Are you sure you want to delete materialized column ${col.columnName}?`}
+                          title="Delete"
+                          text="Delete"
+                          outline={false}
+                        />
+                      </MoreMenu>
                     )}
-                  </Flex>
-
-                  <Flex gap="4">
-                    <Box>
-                      <strong className="font-weight-semibold">
-                        Datatype:{" "}
-                      </strong>
-                      <code>{colInfo.datatype}</code>
-                    </Box>
-                  </Flex>
-                </Box>
-
-                {canEdit && (
-                  <MoreMenu>
-                    <button
-                      className="dropdown-item py-2"
-                      onClick={() => setEditColumnIdx(idx)}
-                    >
-                      Edit Materialized Column
-                    </button>
-                    <DeleteButton
-                      onClick={() => deleteColumn(idx)}
-                      className="dropdown-item text-danger py-2"
-                      iconClassName="mr-2"
-                      style={{ borderRadius: 0 }}
-                      useIcon={false}
-                      displayName={colInfo.columnName}
-                      deleteMessage={`Are you sure you want to delete materialized column ${colInfo.columnName}?`}
-                      title="Delete"
-                      text="Delete"
-                      outline={false}
-                    />
-                  </MoreMenu>
-                )}
-              </Flex>
-            </Card>
-          );
-        })}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
       </Box>
     </>
   );

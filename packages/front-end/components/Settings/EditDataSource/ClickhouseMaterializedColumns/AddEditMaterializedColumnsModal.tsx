@@ -1,7 +1,7 @@
 import { MaterializedColumn } from "back-end/types/datasource";
 import { cloneDeep } from "lodash";
 import { useForm } from "react-hook-form";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { JSONColumnFields } from "back-end/types/fact-table";
 import { factTableColumnTypes } from "back-end/src/routers/fact-table/fact-table.validators";
 import Modal from "@/components/Modal";
@@ -36,6 +36,7 @@ export default function AddMaterializedColumnsModal({
   onSave,
   onCancel,
 }: Props) {
+  const [mounted, setMounted] = useState(false);
   const { factTables, getDatasourceById } = useDefinitions();
   const form = useForm<MaterializedColumn>({
     defaultValues:
@@ -58,21 +59,24 @@ export default function AddMaterializedColumnsModal({
     });
   });
 
-  const localColumn = form.watch();
+  const localSourceField = form.watch("sourceField");
+  const localColumnName = form.watch("columnName");
 
   const [saveEnabled, disabledMessage] = useMemo(() => {
-    if (!localColumn.columnName) return [false, "Must specify a column name"];
-    if (existingColumnNames.includes(localColumn.columnName))
-      return [false, `The name '${localColumn.columnName}' is already in use`];
-    if (!localColumn.sourceField) return [false, "Must specify a source field"];
-    if (existingSourceFields.includes(localColumn.sourceField))
-      return [
-        false,
-        `The field '${localColumn.sourceField}' is already in use`,
-      ];
+    if (!localColumnName) return [false, "Must specify a column name"];
+    if (existingColumnNames.includes(localColumnName))
+      return [false, `The name '${localColumnName}' is already in use`];
+    if (!localSourceField) return [false, "Must specify a source field"];
+    if (existingSourceFields.includes(localSourceField))
+      return [false, `The field '${localSourceField}' is already in use`];
 
     return [true, ""];
-  }, [localColumn, existingColumnNames, existingSourceFields]);
+  }, [
+    localColumnName,
+    localSourceField,
+    existingColumnNames,
+    existingSourceFields,
+  ]);
 
   const contextJsonFields: JSONColumnFields = useMemo(() => {
     const clickhouseFactTables = factTables.filter(
@@ -88,40 +92,45 @@ export default function AddMaterializedColumnsModal({
 
   useEffect(() => {
     if (
-      Object.prototype.hasOwnProperty.call(
-        contextJsonFields,
-        localColumn.sourceField
-      )
+      Object.prototype.hasOwnProperty.call(contextJsonFields, localSourceField)
     ) {
-      form.setValue(
-        "datatype",
-        contextJsonFields[localColumn.sourceField].datatype
-      );
+      form.setValue("datatype", contextJsonFields[localSourceField].datatype);
     }
-  }, [contextJsonFields, localColumn.sourceField, form]);
+  }, [contextJsonFields, localSourceField, form]);
+
+  useEffect(() => {
+    if (mounted) {
+      form.setValue("columnName", localSourceField);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [localSourceField]);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const selectableColumnTypes = factTableColumnTypes.filter((t) => t !== "");
+  // Disable changing the datatype if the source field isn't also changing (which requires a drop anyway)
+  const datatypeDisabled =
+    mode === "edit" && localSourceField === column.sourceField;
 
   return (
     <Modal
-      trackingEventModalType="clickhouse-add-materialized-columns"
+      trackingEventModalType={`clickhouse-${mode}-materialized-columns`}
       open={true}
       submit={handleSubmit}
       close={onCancel}
       size="lg"
-      header="Add Materialized Columns"
+      header={`${
+        mode.charAt(0).toUpperCase() + mode.slice(1)
+      } Materialized Column`}
       cta="Save"
       ctaEnabled={saveEnabled}
-      autoFocusSelector="#materialized-column-name-input"
+      autoFocusSelector="#materialized-column-source-field-input"
       disabledMessage={disabledMessage}
     >
-      <Field
-        id="materialized-column-name-input"
-        label="Column Name"
-        helpText="This named column will be available in metric queries"
-        {...form.register("columnName")}
-      />
       <SelectField
+        id="materialized-column-source-field-input"
         label="Source field"
         placeholder={"Select or enter a key"}
         formatCreateLabel={(fieldName) =>
@@ -130,7 +139,7 @@ export default function AddMaterializedColumnsModal({
             : "...or enter a field not listed here"
         }
         helpText="The field (key) in the event json to materialize as its own column"
-        value={localColumn.sourceField}
+        value={localSourceField}
         createable
         isClearable
         options={Object.keys(contextJsonFields).map((opt) => ({
@@ -141,23 +150,35 @@ export default function AddMaterializedColumnsModal({
           form.setValue("sourceField", value);
         }}
       />
-      <SelectField
-        disabled={mode === "edit"}
-        helpText={
-          mode === "edit"
-            ? "To change the type of a field, delete it and re-create it with the new type"
-            : ""
-        }
-        label="Column type"
-        value={form.watch("datatype")}
-        options={selectableColumnTypes.map((opt) => ({
-          label: opt,
-          value: opt,
-        }))}
-        onChange={(value) => {
-          form.setValue("datatype", value as MaterializedColumn["datatype"]);
-        }}
-      />
+      {localSourceField && (
+        <>
+          <SelectField
+            disabled={datatypeDisabled}
+            helpText={
+              datatypeDisabled
+                ? "To change the type of a field, delete it and re-create it with the new type"
+                : ""
+            }
+            label="Column type"
+            value={form.watch("datatype")}
+            options={selectableColumnTypes.map((opt) => ({
+              label: opt,
+              value: opt,
+            }))}
+            onChange={(value) => {
+              form.setValue(
+                "datatype",
+                value as MaterializedColumn["datatype"]
+              );
+            }}
+          />
+          <Field
+            label="Column Name"
+            helpText="This named column will be available in metric queries"
+            {...form.register("columnName")}
+          />
+        </>
+      )}
     </Modal>
   );
 }
