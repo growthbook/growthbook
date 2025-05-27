@@ -106,7 +106,7 @@ const FeatureSearchFilters: FC<
     return {
       searchValue: e.id,
       id: "on-env-" + e.id,
-      name: "On on " + e.id,
+      name: "On - " + e.id,
     };
   });
   const offEnv = environments.map((e, i) => {
@@ -114,7 +114,7 @@ const FeatureSearchFilters: FC<
       filter: "off",
       searchValue: e.id,
       id: "off-env-" + e.id,
-      name: "Off on " + e.id,
+      name: "Off - " + e.id,
       hr: i === 0,
     };
   });
@@ -152,7 +152,7 @@ const FeatureSearchFilters: FC<
         setOpen={setDropdownFilterOpen}
         items={availableTags.map((t) => {
           return {
-            name: <Tag tag={t} key={t} skipMargin={true} />,
+            name: <Tag tag={t} key={t} skipMargin={true} variant="dot" />,
             id: t,
             searchValue: t,
           };
