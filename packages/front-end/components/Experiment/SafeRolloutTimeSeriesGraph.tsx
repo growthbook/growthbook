@@ -20,19 +20,19 @@ import styles from "./SafeRolloutTimeSeriesGraph.module.scss";
 
 type SafeRolloutTimeSeriesGraphProps = {
   data: MetricTimeSeries;
-  firstDateToRender?: Date;
+  xExtent?: [undefined, undefined] | [Date, Date];
 };
 
 export default function SafeRolloutTimeSeriesGraph({
   data,
-  firstDateToRender,
+  xExtent,
 }: SafeRolloutTimeSeriesGraphProps) {
   return (
     <ParentSize>
       {({ width, height }) => (
         <SafeRolloutTimeSeriesGraphContent
           data={data}
-          firstDateToRender={firstDateToRender}
+          xExtent={xExtent}
           width={width}
           height={height}
         />
@@ -53,7 +53,7 @@ type DataPoint = {
 
 const SafeRolloutTimeSeriesGraphContent = ({
   data,
-  firstDateToRender,
+  xExtent,
   width,
   height,
 }: SafeRolloutTimeSeriesGraphProps & { width: number; height: number }) => {
@@ -108,22 +108,16 @@ const SafeRolloutTimeSeriesGraphContent = ({
   });
 
   // Create x scale for time with horizontal padding
-  const xExtent = extent(
-    [
-      ...dataPointsToRender,
-      ...(firstDateToRender ? [{ date: firstDateToRender }] : []),
-    ],
-    (d) => d.date
-  );
-  if (!xExtent || xExtent[0] === undefined) return null;
+  const xExtentToUse = xExtent || extent(dataPointsToRender, (d) => d.date);
+  if (!xExtentToUse || xExtentToUse[0] === undefined) return null;
 
-  const timeRange = xExtent[1].getTime() - xExtent[0].getTime();
+  const timeRange = xExtentToUse[1].getTime() - xExtentToUse[0].getTime();
   const xPadding = timeRange * 0.05; // 5% padding on each side
 
   const xScale = scaleTime<number>({
     domain: [
-      new Date(xExtent[0].getTime() - xPadding),
-      new Date(xExtent[1].getTime() + xPadding),
+      new Date(xExtentToUse[0].getTime() - xPadding),
+      new Date(xExtentToUse[1].getTime() + xPadding),
     ],
     range: [0, innerWidth],
   });

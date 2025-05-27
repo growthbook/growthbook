@@ -12,6 +12,7 @@ import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { RxInfoCircled } from "react-icons/rx";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { Box, Popover } from "@radix-ui/themes";
+import { extent } from "@visx/vendor/d3-array";
 import {
   ExperimentReportVariation,
   ExperimentReportVariationWithIndex,
@@ -300,17 +301,12 @@ export default function ResultsTable({
     }, {} as Record<string, MetricTimeSeries>);
   }, [metricTimeSeries]);
 
-  const firstDateToRenderTimeSeries = useMemo(() => {
-    return metricTimeSeries?.timeSeries?.reduce((earliest, curr) => {
-      const firstDataPoint = curr.dataPoints[0];
-      if (firstDataPoint) {
-        const currentDate = getValidDate(firstDataPoint.date);
-        return !earliest || currentDate < earliest
-          ? firstDataPoint.date
-          : earliest;
-      }
-      return earliest;
-    }, undefined as Date | undefined);
+  const metricTimeSeriesDateExtent = useMemo(() => {
+    const dataPoints = metricTimeSeries?.timeSeries?.flatMap((t) =>
+      t.dataPoints.map((d) => getValidDate(d.date))
+    );
+    if (!dataPoints) return [undefined, undefined] as [undefined, undefined];
+    return extent(dataPoints);
   }, [metricTimeSeries]);
 
   return (
@@ -564,7 +560,7 @@ export default function ResultsTable({
                             <td style={{ padding: 0, height: 1 }}>
                               <SafeRolloutTimeSeriesGraph
                                 data={metricTimeSeries}
-                                firstDateToRender={firstDateToRenderTimeSeries}
+                                xExtent={metricTimeSeriesDateExtent}
                               />
                             </td>
                           ) : j > 0 && showTimeSeries ? (
