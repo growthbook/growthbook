@@ -56,7 +56,8 @@ export type CommercialFeature =
   | "decision-framework"
   | "unlimited-cdn-usage"
   | "managed-clickhouse"
-  | "safe-rollout";
+  | "safe-rollout"
+  | "require-project-for-features-setting";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
@@ -273,6 +274,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "decision-framework",
     "safe-rollout",
     "managed-clickhouse",
+    "require-project-for-features-setting",
   ]),
 };
 

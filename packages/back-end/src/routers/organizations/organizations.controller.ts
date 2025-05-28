@@ -163,6 +163,8 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     projects,
     factTables,
     factMetrics,
+    decisionCriteria,
+    webhookSecrets,
   ] = await Promise.all([
     getMetricsByOrganization(context),
     getDataSourcesByOrganization(context),
@@ -175,6 +177,8 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     context.models.projects.getAll(),
     getAllFactTablesForOrganization(context),
     context.models.factMetrics.getAll(),
+    context.models.decisionCriteria.getAll(),
+    context.models.webhookSecrets.getAllForFrontEnd(),
   ]);
 
   return res.status(200).json({
@@ -205,6 +209,8 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     projects,
     factTables,
     factMetrics,
+    decisionCriteria,
+    webhookSecrets,
   });
 }
 

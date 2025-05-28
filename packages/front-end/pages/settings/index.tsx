@@ -13,6 +13,7 @@ import {
   DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
   DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
   DEFAULT_DECISION_FRAMEWORK_ENABLED,
+  DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
 } from "shared/constants";
 import { OrganizationSettings } from "back-end/types/organization";
 import Link from "next/link";
@@ -166,6 +167,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
         settings.decisionFrameworkEnabled ?? DEFAULT_DECISION_FRAMEWORK_ENABLED,
       defaultDecisionCriteriaId:
         settings.defaultDecisionCriteriaId ?? PRESET_DECISION_CRITERIA.id,
+      requireProjectForFeatures:
+        settings.requireProjectForFeatures ??
+        DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
     },
   });
   const { apiCall } = useAuth();

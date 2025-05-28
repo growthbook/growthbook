@@ -1239,6 +1239,7 @@ describe("Experiment Migration", () => {
     sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
     uid: "1234",
     shareLevel: "organization",
+    decisionFrameworkSettings: {},
   };
 
   it("upgrades experiment objects", () => {
@@ -1869,6 +1870,7 @@ describe("Report Migration", () => {
         goalMetrics: [],
         secondaryMetrics: [],
         guardrailMetrics: [],
+        decisionFrameworkSettings: {},
       },
     });
   });
@@ -1890,6 +1892,7 @@ describe("Report Migration", () => {
         goalMetrics: ["met_123"],
         guardrailMetrics: ["met_456"],
         secondaryMetrics: [],
+        decisionFrameworkSettings: {},
       },
     });
   });
@@ -1904,6 +1907,7 @@ describe("Report Migration", () => {
         goalMetrics: ["met_abc"],
         secondaryMetrics: ["met_def"],
         guardrailMetrics: [],
+        decisionFrameworkSettings: {},
       },
     };
 
@@ -1914,6 +1918,7 @@ describe("Report Migration", () => {
         goalMetrics: ["met_abc"],
         secondaryMetrics: ["met_def"],
         guardrailMetrics: [],
+        decisionFrameworkSettings: {},
       },
     });
   });
@@ -1954,6 +1959,7 @@ describe("Report Migration", () => {
         goalMetrics: [],
         secondaryMetrics: [],
         guardrailMetrics: [],
+        decisionFrameworkSettings: {},
       },
     });
   });
