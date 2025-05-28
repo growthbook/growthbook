@@ -25,9 +25,10 @@ const VercelPage = () => {
 
         if (!ret.ok) throw new Error(`Request failed: ${await ret.text()}`);
 
-        const { projectId } = await ret.json();
+        const { organizationId, projectId } = await ret.json();
 
         setProject(projectId);
+        router.push(`/?org=${organizationId}`);
       } catch (err) {
         console.log("Ignored:", err);
         router.push("/");
