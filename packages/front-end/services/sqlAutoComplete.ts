@@ -6,6 +6,33 @@ import { CursorData } from "@/components/Segments/SegmentForm";
 import { AceCompletion } from "@/components/Forms/CodeTextArea";
 import { getSqlKeywords } from "./sqlKeywords";
 
+const templateCompletions: AceCompletion[] = [
+  {
+    value: `'{{ startDate }}'`,
+    meta: "TEMPLATE VARIABLE",
+    score: 1100,
+    caption: `{{ startDate }}`,
+  },
+  {
+    value: `'{{ startDateISO }}'`,
+    meta: "TEMPLATE VARIABLE",
+    score: 1100,
+    caption: `{{ startDateISO }}`,
+  },
+  {
+    value: `'{{ endDate }}'`,
+    meta: "TEMPLATE VARIABLE",
+    score: 1100,
+    caption: `{{ endDate }}`,
+  },
+  {
+    value: `'{{ endDateISO }}'`,
+    meta: "TEMPLATE VARIABLE",
+    score: 1100,
+    caption: `{{ endDateISO }}`,
+  },
+];
+
 type Keywords = "SELECT" | "FROM" | "WHERE" | "GROUP BY" | "ORDER BY";
 
 type AutocompleteContext = {
@@ -390,33 +417,6 @@ export async function getAutoCompletions(
 
   // If no context is detected, still provide SQL keywords
   if (!context?.type) return sqlKeywords;
-
-  const templateCompletions: AceCompletion[] = [
-    {
-      value: `'{{ startDate }}'`,
-      meta: "TEMPLATE VARIABLE",
-      score: 1100,
-      caption: `{{ startDate }}`,
-    },
-    {
-      value: `'{{ startDateISO }}'`,
-      meta: "TEMPLATE VARIABLE",
-      score: 1100,
-      caption: `{{ startDateISO }}`,
-    },
-    {
-      value: `'{{ endDate }}'`,
-      meta: "TEMPLATE VARIABLE",
-      score: 1100,
-      caption: `{{ endDate }}`,
-    },
-    {
-      value: `'{{ endDateISO }}'`,
-      meta: "TEMPLATE VARIABLE",
-      score: 1100,
-      caption: `{{ endDateISO }}`,
-    },
-  ];
 
   // Get selected tables and their data
   const selectedTables = getSelectedTables(cursorData, informationSchema);

@@ -125,6 +125,7 @@ export default function CodeTextArea({
 
                 const lowerPrefix = prefix.toLowerCase();
                 const lowerValue = completion.value.toLowerCase();
+                const lowerCaption = completion.caption.toLowerCase();
 
                 // Helper function to check if any part (split by dots) starts with prefix e.g. database.schema.table
                 const checkParts = (text: string) => {
@@ -136,7 +137,7 @@ export default function CodeTextArea({
                   return text.startsWith(lowerPrefix);
                 };
 
-                return checkParts(lowerValue);
+                return checkParts(lowerValue) || checkParts(lowerCaption);
               });
 
               callback(null, filteredCompletions);
