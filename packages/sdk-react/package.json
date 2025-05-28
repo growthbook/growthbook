@@ -24,7 +24,7 @@
     "directory": "packages/sdk-react"
   },
   "scripts": {
-    "build:bundles": "rollup -c",
+    "build:bundles": "node esbuild.mjs",
     "build:clean": "rimraf -rf dist",
     "build:types": "tsc --emitDeclarationOnly",
     "build": "yarn build:clean && npm-run-all --parallel build:types build:bundles",
