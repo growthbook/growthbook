@@ -465,7 +465,7 @@ export async function getAutoCompletions(
             caption: col.columnName,
           }))
         );
-        return [...templateCompletions, ...sqlKeywords, ...allColumns];
+        return [...allColumns, ...templateCompletions, ...sqlKeywords];
       }
       return [...templateCompletions, ...sqlKeywords];
     case "FROM":
@@ -510,17 +510,17 @@ export async function getAutoCompletions(
               value: table.path,
               meta: "TABLE",
               score: 900,
-              caption: table.tableName,
+              caption: `${db.databaseName}.${schema.schemaName}.${table.tableName}`,
             }))
           )
         );
 
         return [
-          ...templateCompletions,
-          ...sqlKeywords,
           ...databaseCompletions,
           ...schemaCompletions,
           ...tableCompletions,
+          ...templateCompletions,
+          ...sqlKeywords,
         ];
       }
 
@@ -528,21 +528,21 @@ export async function getAutoCompletions(
       parts = textAfterFrom.split(".");
       if (parts.length === 1 && parts[0].trim()) {
         return [
-          ...sqlKeywords,
           ...getSchemaCompletions(textAfterFrom, informationSchema),
+          ...sqlKeywords,
         ];
       } else if (parts.length === 2 && parts[0].trim()) {
         // Handle case where database is followed by a dot
         return [
-          ...sqlKeywords,
           ...getSchemaCompletions(textAfterFrom, informationSchema),
+          ...sqlKeywords,
         ];
       }
 
       // If we have a database and schema selected, or no selection yet, show tables
       return [
-        ...sqlKeywords,
         ...getTableCompletions(textAfterFrom, informationSchema),
+        ...sqlKeywords,
       ];
     default:
       return sqlKeywords;

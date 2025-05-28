@@ -105,16 +105,8 @@ export default function CodeTextArea({
         const langTools = ace.require("ace/ext/language_tools");
 
         if (completions && Array.isArray(completions)) {
-          // Store the default completers before clearing
-          const defaultCompleters = langTools.completers || [];
-
           // Clear existing completers
           langTools.setCompleters([]);
-
-          // Add back the default completers
-          defaultCompleters.forEach((completer) => {
-            langTools.addCompleter(completer);
-          });
 
           // Add our custom completer for templates
           const customCompleter = {
@@ -133,13 +125,18 @@ export default function CodeTextArea({
 
                 const lowerPrefix = prefix.toLowerCase();
                 const lowerValue = completion.value.toLowerCase();
-                const lowerCaption = completion.caption.toLowerCase();
 
-                // Match against both value and caption, prioritizing exact prefix matches
-                return (
-                  lowerValue.startsWith(lowerPrefix) ||
-                  lowerCaption.startsWith(lowerPrefix)
-                );
+                // Helper function to check if any part (split by dots) starts with prefix e.g. database.schema.table
+                const checkParts = (text: string) => {
+                  if (text.includes(".")) {
+                    return text
+                      .split(".")
+                      .some((part) => part.startsWith(lowerPrefix));
+                  }
+                  return text.startsWith(lowerPrefix);
+                };
+
+                return checkParts(lowerValue);
               });
 
               callback(null, filteredCompletions);
