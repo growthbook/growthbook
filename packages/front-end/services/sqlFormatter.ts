@@ -3,12 +3,10 @@ import { format } from "shared/sql";
 import { FormatDialect } from "shared/src/types";
 
 export function canFormatSql(datasourceType: DataSourceType): boolean {
-  return getSqlDialect(datasourceType) !== undefined;
+  return !!getSqlDialect(datasourceType);
 }
 
-function getSqlDialect(
-  datasourceType: DataSourceType
-): FormatDialect | undefined {
+function getSqlDialect(datasourceType: DataSourceType): FormatDialect | "" {
   const typeMap: Record<DataSourceType, FormatDialect | ""> = {
     redshift: "redshift",
     snowflake: "snowflake",
