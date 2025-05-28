@@ -137,6 +137,8 @@ export function useDefinitions() {
 
 export const LOCALSTORAGE_PROJECT_KEY = "gb_current_project" as const;
 
+export const useProject = () => useLocalStorage(LOCALSTORAGE_PROJECT_KEY, "");
+
 export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
   children,
 }) => {
@@ -144,7 +146,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
     "/organization/definitions"
   );
 
-  const [project, setProject] = useLocalStorage(LOCALSTORAGE_PROJECT_KEY, "");
+  const [project, setProject] = useProject();
 
   const activeMetrics = useMemo(() => {
     if (!data || !data.metrics) {

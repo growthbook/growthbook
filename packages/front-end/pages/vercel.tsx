@@ -1,9 +1,11 @@
 import { useEffect } from "react";
 import { useRouter } from "next/router";
 import { getApiHost } from "@/services/env";
+import { useProject } from "@/services/DefinitionsContext";
 
 const VercelPage = () => {
   const router = useRouter();
+  const [, setProject] = useProject();
 
   useEffect(() => {
     const { code, state, resource_id: resourceId } = router.query;
@@ -23,9 +25,9 @@ const VercelPage = () => {
 
         if (!ret.ok) throw new Error(`Request failed: ${await ret.text()}`);
 
-        const { organizationId } = await ret.json();
+        const { projectId } = await ret.json();
 
-        router.push(`/?org=${organizationId}`);
+        setProject(projectId);
       } catch (err) {
         console.log("Ignored:", err);
         router.push("/");
@@ -33,7 +35,7 @@ const VercelPage = () => {
     };
 
     fn();
-  }, [router]);
+  }, [setProject, router]);
 
   return null;
 };
