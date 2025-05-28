@@ -7,7 +7,6 @@ export const featureRevisionLog = z
     featureId: z.string(),
     version: z.number(),
     user: eventUser,
-    approvedBy: eventUser.optional(),
     action: z.string(),
     subject: z.string(),
     value: z.string(),

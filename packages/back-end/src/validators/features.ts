@@ -193,7 +193,6 @@ export const JSONSchemaDef = z
 const revisionLog = z
   .object({
     user: eventUser,
-    approvedBy: eventUser.optional(),
     timestamp: z.date(),
     action: z.string(),
     subject: z.string(),
