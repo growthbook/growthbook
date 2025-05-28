@@ -8,7 +8,6 @@ export const featureRevisionLog = z
     version: z.number(),
     user: eventUser,
     approvedBy: eventUser.optional(),
-    timestamp: z.date(),
     action: z.string(),
     subject: z.string(),
     value: z.string(),

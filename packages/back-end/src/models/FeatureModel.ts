@@ -357,6 +357,7 @@ export async function deleteFeature(
     id: feature.id,
   });
   await deleteAllRevisionsForFeature(context.org.id, feature.id);
+  await context.models.featureRevisionLogs.deleteAllByFeature(feature);
 
   if (feature.linkedExperiments) {
     await Promise.all(

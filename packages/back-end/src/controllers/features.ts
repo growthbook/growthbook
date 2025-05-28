@@ -104,7 +104,10 @@ import {
 } from "back-end/src/util/secrets";
 import { upsertWatch } from "back-end/src/models/WatchModel";
 import { getSurrogateKeysFromEnvironments } from "back-end/src/util/cdn.util";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import {
+  FeatureRevisionInterface,
+  RevisionLog,
+} from "back-end/types/feature-revision";
 import {
   addLinkedFeatureToExperiment,
   getAllPayloadExperiments,
@@ -2465,7 +2468,7 @@ export async function getFeatures(
 
 export async function getRevisionLog(
   req: AuthRequest<null, { id: string; version: string }>,
-  res: Response
+  res: Response<{ status: 200; log: RevisionLog[] }, EventUserForResponseLocals>
 ) {
   const context = getContextFromReq(req);
   const { id, version } = req.params;
@@ -2495,8 +2498,17 @@ export async function getRevisionLog(
     }
   );
 
+  // revisionLogs use dateCreated as the timestamp, so we need to convert it to a RevisionLog as that is what the front end expects
+  const revisionLogsFormatted: RevisionLog[] = revisionLogs.map((log) => ({
+    timestamp: log.dateCreated,
+    user: log.user,
+    action: log.action,
+    subject: log.subject,
+    value: log.value,
+  }));
+
   // We merge old logs on revisions with revisionLogs. The front end will sort them as needed
-  const log = [...(revision.log || []), ...revisionLogs];
+  const log = [...(revision.log || []), ...revisionLogsFormatted];
 
   res.json({
     status: 200,

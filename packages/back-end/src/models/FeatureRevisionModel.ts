@@ -273,18 +273,6 @@ export async function createRevision({
     }
   });
 
-  const log: RevisionLog = {
-    action: "new revision",
-    subject: `based on revision #${baseVersion || feature.version}`,
-    timestamp: new Date(),
-    user,
-    value: JSON.stringify({
-      status: publish ? "published" : "draft",
-      comment: comment || "",
-      defaultValue,
-      rules,
-    }),
-  };
   if (!baseVersion) baseVersion = lastRevision?.version;
   const baseRevision =
     lastRevision?.version === baseVersion
@@ -314,7 +302,6 @@ export async function createRevision({
     comment: comment || "",
     defaultValue,
     rules,
-    log: [log],
   } as FeatureRevisionInterface;
   const requiresReview = checkIfRevisionNeedsReview({
     feature,
@@ -332,6 +319,25 @@ export async function createRevision({
   }
 
   const doc = await FeatureRevisionModel.create(revision);
+
+  // Fire and forget - no route that creates the revision expects the log to be there immediately
+  context.models.featureRevisionLogs
+    .create({
+      featureId: revision.featureId,
+      version: revision.version,
+      action: "new revision",
+      subject: `based on revision #${baseVersion || feature.version}`,
+      user,
+      value: JSON.stringify({
+        status: publish ? "published" : "draft",
+        comment: comment || "",
+        defaultValue,
+        rules,
+      }),
+    })
+    .catch((e) => {
+      logger.error("Error creating revisionlog", e);
+    });
 
   return toInterface(doc, context);
 }
@@ -382,17 +388,16 @@ export async function updateRevision(
     }
   );
 
-  try {
-    // Fire and forget - no route that updates the revision expects the log to be there immediately
-    context.models.featureRevisionLogs.create({
+  // Fire and forget - no route that updates the revision expects the log to be there immediately
+  context.models.featureRevisionLogs
+    .create({
       ...log,
       featureId: revision.featureId,
       version: revision.version,
-      timestamp: new Date(),
+    })
+    .catch((e) => {
+      logger.error("Error creating revisionlog", e);
     });
-  } catch (e) {
-    logger.error("Error creating revisionlog", e);
-  }
 }
 
 export async function markRevisionAsPublished(
@@ -421,20 +426,19 @@ export async function markRevisionAsPublished(
     }
   );
 
-  try {
-    // Fire and forget - no route that marks the revision as published expects the log to be there immediately
-    context.models.featureRevisionLogs.create({
+  // Fire and forget - no route that marks the revision as published expects the log to be there immediately
+  context.models.featureRevisionLogs
+    .create({
       featureId: revision.featureId,
       version: revision.version,
       action,
       subject: "",
-      timestamp: new Date(),
       user,
       value: JSON.stringify(comment ? { comment } : {}),
+    })
+    .catch((e) => {
+      logger.error("Error creating revisionlog", e);
     });
-  } catch (e) {
-    logger.error("Error creating revisionlog", e);
-  }
 }
 
 export async function markRevisionAsReviewRequested(
@@ -461,20 +465,19 @@ export async function markRevisionAsReviewRequested(
     }
   );
 
-  try {
-    // Fire and forget - no route that marks the revision as Review Requested expects the log to be there immediately
-    context.models.featureRevisionLogs.create({
+  // Fire and forget - no route that marks the revision as Review Requested expects the log to be there immediately
+  context.models.featureRevisionLogs
+    .create({
       featureId: revision.featureId,
       version: revision.version,
       action,
       subject: "",
-      timestamp: new Date(),
       user,
       value: JSON.stringify(comment ? { comment } : {}),
+    })
+    .catch((e) => {
+      logger.error("Error creating revisionlog", e);
     });
-  } catch (e) {
-    logger.error("Error creating revisionlog", e);
-  }
 }
 
 export async function submitReviewAndComments(
@@ -513,20 +516,19 @@ export async function submitReviewAndComments(
     }
   );
 
-  try {
-    // Fire and forget - no route that submits the review and comments expects the log to be there immediately
-    context.models.featureRevisionLogs.create({
+  // Fire and forget - no route that submits the review and comments expects the log to be there immediately
+  context.models.featureRevisionLogs
+    .create({
       featureId: revision.featureId,
       version: revision.version,
       action,
       subject: "",
-      timestamp: new Date(),
       user,
       value: JSON.stringify(comment ? { comment } : {}),
+    })
+    .catch((e) => {
+      logger.error("Error creating revisionlog", e);
     });
-  } catch (e) {
-    logger.error("Error creating revisionlog", e);
-  }
 }
 
 export async function discardRevision(
@@ -549,20 +551,19 @@ export async function discardRevision(
     }
   );
 
-  try {
-    // Fire and forget - no route that discards the revision expects the log to be there immediately
-    context.models.featureRevisionLogs.create({
+  // Fire and forget - no route that discards the revision expects the log to be there immediately
+  context.models.featureRevisionLogs
+    .create({
       featureId: revision.featureId,
       version: revision.version,
       action: "discard",
       subject: "",
-      timestamp: new Date(),
       user,
       value: JSON.stringify({}),
+    })
+    .catch((e) => {
+      logger.error("Error creating revisionlog", e);
     });
-  } catch (e) {
-    logger.error("Error creating revisionlog", e);
-  }
 }
 
 export async function getFeatureRevisionsByFeatureIds(

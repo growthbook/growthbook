@@ -2,6 +2,7 @@ import {
   FeatureRevisionLogInterface,
   featureRevisionLogValidator,
 } from "back-end/src/validators/feature-revision-log";
+import { FeatureInterface } from "back-end/types/feature";
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "featurerevisionlog";
@@ -20,6 +21,7 @@ const BaseClass = MakeModelClass({
   additionalIndexes: [
     {
       fields: {
+        organization: 1,
         featureId: 1,
         version: 1,
       },
@@ -35,6 +37,7 @@ export class FeatureRevisionLogModel extends BaseClass {
       feature?.project
     );
   }
+
   protected canCreate(doc: FeatureRevisionLogInterface): boolean {
     const { feature } = this.getForeignRefs(doc);
     if (!feature) {
@@ -45,26 +48,17 @@ export class FeatureRevisionLogModel extends BaseClass {
       this.context.permissions.canManageFeatureDrafts(feature)
     );
   }
-  protected canUpdate(existing: FeatureRevisionLogInterface): boolean {
-    const { feature } = this.getForeignRefs(existing);
-    if (!feature) {
-      throw new Error("Feature not found for FeatureRevisionLog");
-    }
-    return (
-      this.context.permissions.canUpdateFeature(feature, {}) ||
-      this.context.permissions.canManageFeatureDrafts(feature)
-    );
+
+  protected canUpdate(): boolean {
+    // As an audit of log on the revision, we do not allow updates
+    return false;
   }
 
-  protected canDelete(doc: FeatureRevisionLogInterface): boolean {
-    const { feature } = this.getForeignRefs(doc);
-    if (!feature) {
-      throw new Error("Feature not found for FeatureRevisionLog");
-    }
-    return (
-      this.context.permissions.canDeleteFeature(feature) ||
-      this.context.permissions.canManageFeatureDrafts(feature)
-    );
+  protected canDelete(): boolean {
+    // As an audit of log on the revision, we do not allow deletion
+    // unless the entire feature is deleted, and that check is handled
+    // in the deleteAllByFeature method.
+    return false;
   }
 
   public async getAllByFeatureIdAndVersion({
@@ -75,5 +69,17 @@ export class FeatureRevisionLogModel extends BaseClass {
     version: number;
   }) {
     return await this._find({ featureId, version });
+  }
+
+  public async deleteAllByFeature(feature: FeatureInterface) {
+    // We should keep the log unless the feature itself is deleted.
+    if (!this.context.permissions.canDeleteFeature(feature)) {
+      throw new Error("You do not have access to delete this resource");
+    }
+
+    return await this._dangerousGetCollection().deleteMany({
+      organization: this.context.org.id,
+      featureId: feature.id,
+    });
   }
 }
