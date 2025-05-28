@@ -24,7 +24,6 @@ const AceEditor = dynamic(
     await import("ace-builds/src-noconflict/theme-textmate");
     await import("ace-builds/src-noconflict/theme-tomorrow_night");
     await import("ace-builds/src-noconflict/ext-searchbox");
-    await import("ace-builds/src-noconflict/ext-language_tools");
 
     return reactAce;
   },
