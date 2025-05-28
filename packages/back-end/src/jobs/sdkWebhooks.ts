@@ -230,7 +230,7 @@ async function runWebhookFetch({
         break;
       case "vercelNativeIntegration":
         body = JSON.stringify({
-          data: payload,
+          [payloadKey || "gb_payload"]: payload,
         });
         break;
       default:
@@ -376,32 +376,14 @@ export async function fireSdkWebhook(
     []
   );
 
-  if (webhook.payloadFormat === "vercelNativeIntegration") {
-    const payload: Record<string, unknown> = payloads.reduce(
-      (payload, [key, p]) => ({
-        [key]: p,
-        ...payload,
-      }),
-      {}
-    );
-
-    await runWebhookFetch({
+  await BluebirdPromise.each(payloads, ([key, payload]) =>
+    runWebhookFetch({
       webhook,
-      // Irrelevant.
-      key: "gb_payload",
+      key,
       payload,
       context: webhookContext,
-    });
-  } else {
-    await BluebirdPromise.each(payloads, ([key, payload]) =>
-      runWebhookFetch({
-        webhook,
-        key,
-        payload,
-        context: webhookContext,
-      })
-    );
-  }
+    })
+  );
 }
 
 export async function getSDKConnectionsByPayloadKeys(

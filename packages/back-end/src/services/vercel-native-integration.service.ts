@@ -69,7 +69,7 @@ export const getVercelSSOToken = async ({
 
 const getVercelInstallationData = async (
   organizationId: string,
-  projectId: string,
+  projectId: string
 ) => {
   const {
     installationId,
@@ -136,8 +136,11 @@ const createVercelExperimentationItem = async ({
   projectId: string;
 }) => {
   try {
-    const { installationId, resourceId, accessToken } =
-      await getVercelInstallationData(organization.id, projectId);
+    const {
+      installationId,
+      resourceId,
+      accessToken,
+    } = await getVercelInstallationData(organization.id, projectId);
 
     const ret = await fetch(
       `${VERCEL_URL}/v1/installations/${installationId}/resources/${resourceId}/experimentation/items`,
@@ -150,7 +153,7 @@ const createVercelExperimentationItem = async ({
           "Content-Type": "application/json",
           Authorization: `Bearer ${accessToken}`,
         },
-      },
+      }
     );
 
     if (!ret.ok)
@@ -201,8 +204,11 @@ const updateVercelExperimentationItem = async ({
   projectId: string;
 }) => {
   try {
-    const { installationId, resourceId, accessToken } =
-      await getVercelInstallationData(organization.id, projectId);
+    const {
+      installationId,
+      resourceId,
+      accessToken,
+    } = await getVercelInstallationData(organization.id, projectId);
 
     const { id: _id, ...updatedItem } = experimentationItem;
 
@@ -215,7 +221,7 @@ const updateVercelExperimentationItem = async ({
           "Content-Type": "application/json",
           Authorization: `Bearer ${accessToken}`,
         },
-      },
+      }
     );
 
     if (!ret.ok)
@@ -266,8 +272,11 @@ const deleteVercelExperimentationItem = async ({
   projectId: string;
 }) => {
   try {
-    const { installationId, resourceId, accessToken } =
-      await getVercelInstallationData(organization.id, projectId);
+    const {
+      installationId,
+      resourceId,
+      accessToken,
+    } = await getVercelInstallationData(organization.id, projectId);
 
     const ret = await fetch(
       `${VERCEL_URL}/v1/installations/${installationId}/resources/${resourceId}/experimentation/items/${experimentationItem.id}`,
@@ -281,7 +290,7 @@ const deleteVercelExperimentationItem = async ({
           "Content-Type": "application/json",
           Authorization: `Bearer ${accessToken}`,
         },
-      },
+      }
     );
 
     if (!ret.ok)
@@ -325,11 +334,11 @@ export const deleteVercelExperimentationItemFromExperiment = ({
 export const deleteVercelSdkWebhook = async (context: ReqContextClass) => {
   const webhooks = await findAllSdkWebhooksByPayloadFormat(
     context,
-    "vercelNativeIntegration",
+    "vercelNativeIntegration"
   );
 
   await BluebirdPromise.each(webhooks, (webhook) =>
-    deleteSdkWebhookById(context, webhook.id),
+    deleteSdkWebhookById(context, webhook.id)
   );
 };
 
@@ -343,7 +352,7 @@ export const syncVercelSdkConnection = async (organization: string) => {
   const nativeIntegration = await findVercelInstallationByOrganization(org.id);
 
   const user = await getUserByEmail(
-    nativeIntegration.upsertData.authentication.user_email,
+    nativeIntegration.upsertData.authentication.user_email
   );
 
   if (!user) throw new Error("Internal error: no user found");
@@ -357,7 +366,7 @@ export const syncVercelSdkConnection = async (organization: string) => {
   await BluebirdPromise.each(nativeIntegration.resources, async (resource) => {
     const sdkConnection = await findSDKConnectionsById(
       context,
-      resource.sdkConnectionId,
+      resource.sdkConnectionId
     );
 
     if (!sdkConnection)
@@ -368,7 +377,7 @@ export const syncVercelSdkConnection = async (organization: string) => {
     ]);
 
     const webhook = webhooks.find(
-      (w) => w.payloadFormat === "vercelNativeIntegration",
+      (w) => w.payloadFormat === "vercelNativeIntegration"
     );
 
     if (!resource.protocolSettings?.experimentation?.edgeConfigId) {
@@ -379,6 +388,7 @@ export const syncVercelSdkConnection = async (organization: string) => {
           name: "Sync vercel integration edge config",
           endpoint: `${VERCEL_URL}/v1/installations/${nativeIntegration.installationId}/resources/${resource.id}/experimentation/edge-config`,
           payloadFormat: "vercelNativeIntegration",
+          payloadKey: sdkConnection.key,
           httpMethod: "PUT",
           headers: JSON.stringify({
             Authorization: `Bearer ${nativeIntegration.upsertData.payload.credentials.access_token}`,
