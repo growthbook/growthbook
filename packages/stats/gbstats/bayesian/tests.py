@@ -382,7 +382,7 @@ class TwoFactorPooling:
         if params is None:
             mu = self.mu_hat_init
             mu[np.isnan(mu)] = np.nanmean(mu)
-            mu_overall = np.mean(mu, axis=(0, 1))
+            mu_overall = np.mean(mu, axis=(0, 1)).ravel()
             alpha = np.mean(mu, axis=1)
             beta = np.mean(mu, axis=0)
             alpha -= np.mean(alpha, axis=0)
@@ -433,7 +433,7 @@ class TwoFactorPooling:
     @staticmethod
     def draw_multivariate_normal(m: np.ndarray, v: np.ndarray, seed: int):
         rng = np.random.default_rng(seed)
-        return rng.multivariate_normal(m, v)
+        return rng.multivariate_normal(m, v, size=1)
 
     @staticmethod
     def transform_moments(
@@ -446,7 +446,7 @@ class TwoFactorPooling:
         try:
             prec_chol = np.linalg.cholesky(prec)
             prec_chol_inv = np.linalg.inv(prec_chol)
-            variance = prec_chol_inv.T @ prec_chol_inv + 1e-6 * np.eye(prec.shape[0])
+            variance = prec_chol_inv.T @ prec_chol_inv
             mean = variance @ weighted_sum
         except np.linalg.LinAlgError:
             # If cholesky or inv fails, a LinAlgError is raised
@@ -494,7 +494,7 @@ class TwoFactorPooling:
             + self.num_seeds_sigma_beta
         )
 
-    def update_mu_overall(self, seed: int):
+    def update_mu_overall(self, seed: int, iteration: int):
         weighted_sum_mu = np.linalg.inv(self.hyperparms.sigma_0).dot(
             self.hyperparms.mu_0
         )
@@ -512,7 +512,7 @@ class TwoFactorPooling:
             raise ValueError("Matrix inversion failed in update_mu_overall")
         self.params.mu_overall = TwoFactorPooling.draw_multivariate_normal(
             mean, variance, seed
-        )
+        ).ravel()
         self.update_mu_individual()
 
     def update_mu_individual(self):
@@ -641,7 +641,7 @@ class TwoFactorPooling:
         this_seed_sigma_alpha = this_seed_beta + self.num_seeds_sigma_alpha
         this_seed_sigma_beta = this_seed_sigma_alpha + self.num_seeds_sigma_beta
         this_seed_missing_mu_hat = this_seed_sigma_beta + self.num_seeds_mu_individual
-        self.update_mu_overall(this_seed_mu_overall)
+        self.update_mu_overall(this_seed_mu_overall, iteration)
         self.update_alpha(this_seed_alpha)
         self.update_beta(this_seed_beta)
         self.update_sigma_alpha(this_seed_sigma_alpha)
