@@ -11,7 +11,7 @@ import {
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { RxInfoCircled } from "react-icons/rx";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { Box, Popover } from "@radix-ui/themes";
+import { Box, Flex, Popover } from "@radix-ui/themes";
 import { extent } from "@visx/vendor/d3-array";
 import {
   ExperimentReportVariation,
@@ -556,7 +556,7 @@ export default function ResultsTable({
                           {j > 0 &&
                           showTimeSeries &&
                           metricTimeSeries &&
-                          rowResults.enoughData ? (
+                          metricTimeSeries.dataPoints.length > 0 ? (
                             <td style={{ padding: 0, height: 1 }}>
                               <SafeRolloutTimeSeriesGraph
                                 data={metricTimeSeries}
@@ -565,7 +565,11 @@ export default function ResultsTable({
                               />
                             </td>
                           ) : j > 0 && showTimeSeries ? (
-                            <td></td>
+                            <td>
+                              {!metricTimeSeries ? (
+                                <Message>No time series data</Message>
+                              ) : null}
+                            </td>
                           ) : null}
                           {j > 0 ? (
                             <td
@@ -692,4 +696,12 @@ function getChangeTooltip(changeTitle: string, differenceType: DifferenceType) {
     </>
   );
   return <>{changeElem}</>;
+}
+
+function Message({ children }: { children: React.ReactNode }) {
+  return (
+    <Flex align="center" justify="center" position="relative" width="100%">
+      {children}
+    </Flex>
+  );
 }
