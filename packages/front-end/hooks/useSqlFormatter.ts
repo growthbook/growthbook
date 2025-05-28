@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
-import { FormatDialect, format } from "shared";
 import { DataSourceType } from "back-end/types/datasource";
+import { format } from "shared/sql";
+import { FormatDialect } from "shared/src/types";
 
 interface FormattingState {
   error: string | null;

@@ -1,12 +1,5 @@
-import { format as sqlFormat, FormatOptions } from "sql-formatter";
-
-// SQL formatter dialect type that automatically stays in sync with sql-formatter
-export type FormatDialect = FormatOptions["language"] | "";
-
-export interface FormatError {
-  error: Error;
-  originalSql: string;
-}
+import { format as sqlFormat } from "sql-formatter";
+import { FormatDialect, FormatError } from "./types";
 
 export function format(
   sql: string,
