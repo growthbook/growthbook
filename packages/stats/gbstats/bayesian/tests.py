@@ -6,6 +6,7 @@ import numpy as np
 from pydantic.dataclasses import dataclass
 from pydantic.config import ConfigDict
 from scipy.stats import norm
+from arviz import ess
 
 from gbstats.messages import (
     BASELINE_VARIATION_ZERO_MESSAGE,
@@ -272,6 +273,7 @@ class MCMCParams:
     num_burn: int
     num_keep: int
     seed: int
+    false_positive_rate: float = 0.05
 
 
 @dataclass
@@ -350,6 +352,9 @@ class TwoFactorPooling:
             self.cell_data[0].mu_hat.shape[0] == self.num_outcomes
         ), "Number of outcomes must be the same in data and hyperparms."
         self.seed = mcmc_params.seed
+        self.false_positive_rate = mcmc_params.false_positive_rate
+        self.quantile_lower = 0.5 * self.false_positive_rate
+        self.quantile_upper = 0.5 * (1 - self.false_positive_rate)
         self.num_burn = mcmc_params.num_burn
         self.num_keep = mcmc_params.num_keep
         self.num_iters = self.num_burn + self.num_keep
@@ -402,6 +407,7 @@ class TwoFactorPooling:
             self.update_params(i)
             if i >= self.num_burn:
                 self.store_params(i)
+        self.create_summary()
 
     @property
     def mu_hat_shape(self) -> tuple[int, int, int]:
@@ -448,6 +454,10 @@ class TwoFactorPooling:
             # 'mean' and 'variance' will retain their initialized (e.g., zero) values
             # or you could assign specific error values if preferred.
         return mean, variance, matrix_inversion_success
+
+    @property
+    def minimum_mcmc_samples(self) -> int:
+        return 1000
 
     @property
     def num_seeds_mu_overall(self) -> int:
@@ -613,16 +623,14 @@ class TwoFactorPooling:
                 self.num_outcomes,
             )
         )
-
-    def store_params(self, iteration):
-        k = iteration - self.num_burn
-        self.mu_overall_keep[k, :] = self.params.mu_overall
-        self.mu_keep[k, :, :] = self.params.mu
-        self.alpha_keep[k, :, :] = self.params.alpha
-        self.beta_keep[k, :, :] = self.params.beta
-        self.sigma_alpha_keep[k, :, :] = self.params.sigma_alpha
-        self.sigma_beta_keep[k, :, :] = self.params.sigma_beta
-        self.mu_hat_keep[k, :, :] = self.mu_hat
+        self.ess_mu_overall = np.zeros((self.num_outcomes))
+        self.ess_mu = np.zeros(
+            (self.num_levels_alpha, self.num_levels_beta, self.num_outcomes)
+        )
+        self.ess_alpha = np.zeros((self.num_levels_alpha, self.num_outcomes))
+        self.ess_beta = np.zeros((self.num_levels_beta, self.num_outcomes))
+        self.ess_sigma_alpha = np.zeros((self.num_outcomes, self.num_outcomes))
+        self.ess_sigma_beta = np.zeros((self.num_outcomes, self.num_outcomes))
 
     def update_params(self, iteration):
         # i used the first seed to initialize the parameters
@@ -639,6 +647,78 @@ class TwoFactorPooling:
         self.update_sigma_alpha(this_seed_sigma_alpha)
         self.update_sigma_beta(this_seed_sigma_beta)
         self.update_missing_mu_hat(this_seed_missing_mu_hat)
+
+    def store_params(self, iteration):
+        k = iteration - self.num_burn
+        self.mu_overall_keep[k, :] = self.params.mu_overall
+        self.mu_keep[k, :, :] = self.params.mu
+        self.alpha_keep[k, :, :] = self.params.alpha
+        self.beta_keep[k, :, :] = self.params.beta
+        self.sigma_alpha_keep[k, :, :] = self.params.sigma_alpha
+        self.sigma_beta_keep[k, :, :] = self.params.sigma_beta
+        self.mu_hat_keep[k, :, :] = self.mu_hat
+
+    def create_summary(self):
+        enough_samples = True
+        self.mu_overall_mean = np.mean(self.mu_overall_keep, axis=0)
+        self.mu_mean = np.mean(self.mu_keep, axis=0)
+        self.alpha_mean = np.mean(self.alpha_keep, axis=0)
+        self.beta_mean = np.mean(self.beta_keep, axis=0)
+        self.sigma_alpha_mean = np.mean(self.sigma_alpha_keep, axis=0)
+        self.sigma_beta_mean = np.mean(self.sigma_beta_keep, axis=0)
+
+        self.mu_overall_lower = np.quantile(
+            self.mu_overall_keep, self.quantile_lower, axis=0
+        )
+        self.mu_lower = np.quantile(self.mu_keep, self.quantile_lower, axis=0)
+        self.alpha_lower = np.quantile(self.alpha_keep, self.quantile_lower, axis=0)
+        self.beta_lower = np.quantile(self.beta_keep, self.quantile_lower, axis=0)
+        self.sigma_alpha_lower = np.quantile(
+            self.sigma_alpha_keep, self.quantile_lower, axis=0
+        )
+        self.sigma_beta_lower = np.quantile(
+            self.sigma_beta_keep, self.quantile_lower, axis=0
+        )
+
+        self.mu_overall_upper = np.quantile(
+            self.mu_overall_keep, self.quantile_upper, axis=0
+        )
+        self.mu_upper = np.quantile(self.mu_keep, self.quantile_upper, axis=0)
+        self.alpha_upper = np.quantile(self.alpha_keep, self.quantile_upper, axis=0)
+        self.beta_upper = np.quantile(self.beta_keep, self.quantile_upper, axis=0)
+        self.sigma_alpha_upper = np.quantile(
+            self.sigma_alpha_keep, self.quantile_upper, axis=0
+        )
+        self.sigma_beta_upper = np.quantile(
+            self.sigma_beta_keep, self.quantile_upper, axis=0
+        )
+
+        for i in range(self.num_outcomes):
+            self.ess_mu_overall[i] = ess(self.mu_overall_keep[:, i])
+            if self.ess_mu_overall[i] < 100:
+                enough_samples = False
+            for j in range(self.num_levels_alpha):
+                for k in range(self.num_levels_beta):
+                    self.ess_mu[j, k, i] = ess(self.mu_keep[:, j, k, i])
+                    if self.ess_mu[j, k, i] < 100:
+                        enough_samples = False
+            for j in range(self.num_levels_alpha):
+                self.ess_alpha[j, i] = ess(self.alpha_keep[:, j, i])
+                if self.ess_alpha[j, i] < 100:
+                    enough_samples = False
+            for j in range(self.num_levels_beta):
+                self.ess_beta[j, i] = ess(self.beta_keep[:, j, i])
+                if self.ess_beta[j, i] < 100:
+                    enough_samples = False
+            for j in range(self.num_outcomes):
+                self.ess_sigma_alpha[i, j] = ess(self.sigma_alpha_keep[:, i, j])
+                if self.ess_sigma_alpha[i, j] < 100:
+                    enough_samples = False
+                self.ess_sigma_beta[i, j] = ess(self.sigma_beta_keep[:, i, j])
+                if self.ess_sigma_beta[i, j] < 100:
+                    enough_samples = False
+        if not enough_samples:
+            raise ValueError("Not enough samples to create summary")
 
 
 class TwoFactorPooling2(TwoFactorPooling):
@@ -663,7 +743,7 @@ class TwoFactorPooling2(TwoFactorPooling):
         diag_cov_matrix = np.zeros_like(sum_squares)
         np.fill_diagonal(diag_cov_matrix, np.diag(sum_squares))
         lambda_post = self.hyperparms.lambda_alpha + diag_cov_matrix
-        for i in range(self.num_levels_alpha):
+        for i in range(self.num_outcomes):
             self.params.sigma_alpha[i, i] = (
                 random_inverse_wishart(
                     nu_post, np.array(lambda_post[i, i]).reshape(1, 1), seed
@@ -677,7 +757,7 @@ class TwoFactorPooling2(TwoFactorPooling):
         diag_cov_matrix = np.zeros_like(sum_squares)
         np.fill_diagonal(diag_cov_matrix, np.diag(sum_squares))
         lambda_post = self.hyperparms.lambda_alpha + diag_cov_matrix
-        for i in range(self.num_levels_beta):
+        for i in range(self.num_outcomes):
             self.params.sigma_beta[i, i] = (
                 random_inverse_wishart(
                     nu_post, np.array(lambda_post[i, i]).reshape(1, 1), seed
