@@ -35,6 +35,7 @@ export default function CustomFieldModal({
 
   const form = useForm<Partial<CustomField>>({
     defaultValues: {
+      id: existing.id || "",
       name: existing.name || "",
       description: existing.description || "",
       values: existing.values || "",
@@ -124,6 +125,7 @@ export default function CustomFieldModal({
           });
         } else {
           const newCustomFields: Partial<CustomField> = {
+            id: value.id ?? "",
             name: value.name ?? "",
             values: value.values,
             description: value.description ?? "",
@@ -150,6 +152,22 @@ export default function CustomFieldModal({
         }
       })}
     >
+      <Field
+        label="Field Key"
+        {...form.register("id")}
+        pattern="^[a-z0-9_-]+$" // TODO: double check this pattern
+        placeholder=""
+        required={true}
+        title="Only lower case letters, numbers, and the characters '_-' allowed. No spaces."
+        helpText={
+          <>
+            Only lower case letters, numbers, and the characters <code>_</code>{" "}
+            , and <code>-</code> allowed. No spaces.{" "}
+            <strong>Cannot be changed later!</strong>
+          </>
+        }
+        disabled={!!existing.id}
+      />
       <Field
         label="Name"
         {...form.register("name")}

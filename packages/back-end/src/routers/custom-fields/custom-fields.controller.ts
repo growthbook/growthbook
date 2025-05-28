@@ -33,6 +33,7 @@ export const postCustomField = async (
   res: Response<CreateCustomFieldResponse>
 ) => {
   const {
+    id,
     name,
     description,
     placeholder,
@@ -49,6 +50,16 @@ export const postCustomField = async (
   if (!context.permissions.canManageCustomFields()) {
     context.permissions.throwPermissionError();
   }
+
+  if (!id) {
+    throw new Error("Must specify field key");
+  }
+
+  if (!id.match(/^[a-zA-Z0-9_.:|-]+$/)) {
+    throw new Error(
+      "Custom field keys can only include letters, numbers, hyphens, and underscores."
+    );
+  }
   const existingFields = await context.models.customFields.getCustomFields();
 
   // check if this name already exists:
@@ -62,6 +73,7 @@ export const postCustomField = async (
   }
 
   const updated = await context.models.customFields.addCustomField({
+    id,
     name,
     description,
     placeholder,

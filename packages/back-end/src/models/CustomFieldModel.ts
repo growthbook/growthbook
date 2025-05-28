@@ -1,5 +1,4 @@
 import { z } from "zod";
-import uniqid from "uniqid";
 import {
   customFieldsPropsValidator,
   customFieldsValidator,
@@ -85,14 +84,12 @@ export class CustomFieldModel extends BaseClass {
   public async addCustomField(
     customField: Omit<
       CustomField,
-      "id" | "dateCreated" | "dateUpdated" | "creator" | "active"
+      "dateCreated" | "dateUpdated" | "creator" | "active"
     >
   ) {
-    const customFieldId = uniqid("cfl_");
     const newCustomField = {
       active: true,
       ...customField,
-      id: customFieldId,
       creator: this.context.userId,
       dateCreated: new Date(),
       dateUpdated: new Date(),
