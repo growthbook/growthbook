@@ -364,11 +364,11 @@ const MetricEffectCard = ({
   }, [handleFetchMetric]);
 
   return (
-    <>
+    <Box className="">
       <Box className="appbox appbox-light p-3">
-        <Flex direction="row" align="center" justify="between">
-          <Flex direction="row" gap="2">
-            <Box>
+        <Flex direction="row" align="center" justify="between" width="100%">
+          <Flex direction="row" gap="4" flexBasis="100%">
+            <Box flexBasis="450px" flexGrow="0" flexShrink="1">
               <label htmlFor="metric-selector" className="form-label">
                 Metric
               </label>
@@ -378,9 +378,10 @@ const MetricEffectCard = ({
                 project={project}
                 includeFacts={true}
                 id="metric1-selector"
+                style={{ flexBasis: "100%" }}
               />
             </Box>
-            <Box>
+            <Box flexBasis="200px" flexGrow="0" flexShrink="1">
               <SelectField
                 label="Difference Type"
                 value={differenceType}
@@ -432,7 +433,7 @@ const MetricEffectCard = ({
                     align="center"
                     justify="center"
                   >
-                    <Box style={{ width: "50%" }}>
+                    <Box flexBasis="60%">
                       <HistogramGraph
                         data={metricData.histogramData}
                         formatter={(value) =>
@@ -490,7 +491,7 @@ const MetricEffectCard = ({
           </Box>
         ) : null}
       </Box>
-    </>
+    </Box>
   );
 };
 

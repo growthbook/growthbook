@@ -3,7 +3,7 @@ import MetricCorrelations from "@/enterprise/components/Insights/MetricCorrelati
 
 const MetricCorrelationsPage = (): React.ReactElement => {
   return (
-    <Box className="container-fluid">
+    <Box className="contents container-fluid pagecontents my-3">
       <Heading>Metric Correlations</Heading>
       <MetricCorrelations />
     </Box>

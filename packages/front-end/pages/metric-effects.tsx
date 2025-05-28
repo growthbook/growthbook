@@ -3,7 +3,7 @@ import MetricEffects from "@/enterprise/components/Insights/MetricEffects";
 
 const MetricEffectsPage = (): React.ReactElement => {
   return (
-    <Box className="container-fluid">
+    <Box className="contents container-fluid pagecontents my-3">
       <Heading>Metric Effects</Heading>
       <MetricEffects />
     </Box>

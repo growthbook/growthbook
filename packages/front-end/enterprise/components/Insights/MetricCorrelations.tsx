@@ -3,10 +3,11 @@ import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { DifferenceType } from "back-end/types/stats";
 import { FaPlus, FaTrash } from "react-icons/fa";
 import router, { useRouter } from "next/router";
+import Callout from "@/components/Radix/Callout";
 import ScatterPlotGraph, {
   ScatterPointData,
 } from "@/components/ScatterPlotGraph";
@@ -349,8 +350,8 @@ const MetricCorrelationCard = ({
     <>
       <Box className="appbox appbox-light p-3">
         <Flex direction="row" align="center" justify="between">
-          <Flex direction="row" gap="2">
-            <Box>
+          <Flex direction="row" gap="4" flexBasis="100%">
+            <Box flexBasis="400px" flexGrow="0" flexShrink="1">
               <label htmlFor="metric1-selector" className="form-label">
                 Metric
               </label>
@@ -362,7 +363,7 @@ const MetricCorrelationCard = ({
                 id="metric1-selector"
               />
             </Box>
-            <Box>
+            <Box flexBasis="400px" flexGrow="0" flexShrink="1">
               <label htmlFor="metric2-selector" className="form-label">
                 Metric 2
               </label>
@@ -374,7 +375,7 @@ const MetricCorrelationCard = ({
                 id="metric2-selector"
               />
             </Box>
-            <Box>
+            <Box flexBasis="200px" flexGrow="0" flexShrink="1">
               <SelectField
                 label="Difference Type"
                 value={differenceType}
@@ -419,7 +420,9 @@ const MetricCorrelationCard = ({
           </Box>
         ) : metric1 && metric2 ? (
           <Box mt="4">
-            <Text>No experiments found</Text>
+            <Callout status="info">
+              No experiments found that both have these two metrics
+            </Callout>
           </Box>
         ) : null}
       </Box>

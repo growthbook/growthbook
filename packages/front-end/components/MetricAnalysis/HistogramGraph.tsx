@@ -3,7 +3,7 @@ import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
 import { scaleLinear } from "@visx/scale";
 import { AxisBottom, AxisLeft } from "@visx/axis";
-import { Bar } from "@visx/shape";
+import { BarRounded } from "@visx/shape";
 import {
   TooltipWithBounds,
   useTooltip,
@@ -336,7 +336,7 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
                       const barHeight = yMax - barY;
 
                       return (
-                        <Bar
+                        <BarRounded
                           key={`bar-${i}-${d.start}-${d.end}`}
                           x={barX}
                           y={barY}
@@ -344,6 +344,9 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
                           width={barWidth > 1 ? barWidth - 0.5 : barWidth} // Small gap if possible
                           fill={fill}
                           style={{ transition: "150ms all" }}
+                          radius={6}
+                          top={true}
+                          bottom={false}
                         />
                       );
                     })

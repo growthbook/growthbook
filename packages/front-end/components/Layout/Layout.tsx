@@ -2,12 +2,7 @@ import Link from "next/link";
 import { useState } from "react";
 import clsx from "clsx";
 import { useRouter } from "next/router";
-import {
-  BsFlag,
-  BsClipboardCheck,
-  BsLightbulb,
-  BsCodeSlash,
-} from "react-icons/bs";
+import { BsFlag, BsLightbulb, BsCodeSlash } from "react-icons/bs";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Flex } from "@radix-ui/themes";
 import { getGrowthBookBuild } from "@/services/env";
@@ -58,40 +53,6 @@ const navlinks: SidebarLinkProps[] = [
     filter: ({ gb }) => !!gb?.isOn("bandits"),
   },
   {
-    name: "Insights",
-    href: "/insights",
-    Icon: GBLibrary,
-    path: /^(insights|library|metric-effect|correlations)/,
-    subLinks: [
-      {
-        name: "Impact",
-        href: "/dashboard",
-        path: /^dashboard/,
-      },
-      {
-        name: "Learnings",
-        href: "/library",
-        path: /^(library$|learning|learnings)/,
-      },
-      // {
-      //   name: "Interaction Effects",
-      //   href: "/interactions",
-      //   path: /^(interaction)/,
-      // },
-      {
-        name: "Metric Effects",
-        href: "/metric-effects",
-        path: /^(metric-effect)/,
-      },
-      {
-        name: "Metric Correlations",
-        href: "/correlations",
-        path: /^(correlations)/,
-      },
-    ],
-    filter: ({ gb }) => !!gb?.isOn("insights"),
-  },
-  {
     name: "Metrics and Data",
     href: "/metrics",
     path: /^(metric$|metrics|segment|dimension|datasources|fact-|metric-group)/,
@@ -126,6 +87,45 @@ const navlinks: SidebarLinkProps[] = [
     ],
   },
   {
+    name: "Insights",
+    href: "/insights",
+    Icon: GBLibrary,
+    path: /^(insights|library|metric-effect|correlations)/,
+    subLinks: [
+      {
+        name: "Impact",
+        href: "/dashboard",
+        path: /^dashboard/,
+      },
+      {
+        name: "Learnings",
+        href: "/library",
+        path: /^(library$|learning|learnings)/,
+      },
+      // {
+      //   name: "Interaction Effects",
+      //   href: "/interactions",
+      //   path: /^(interaction)/,
+      // },
+      {
+        name: "Metric Effects",
+        href: "/metric-effects",
+        path: /^(metric-effect)/,
+      },
+      {
+        name: "Metric Correlations",
+        href: "/correlations",
+        path: /^(correlations)/,
+      },
+      {
+        name: "Presentations",
+        href: "/presentations",
+        path: /^presentation/,
+      },
+    ],
+    filter: ({ gb }) => !!gb?.isOn("insights"),
+  },
+  /*{
     name: "Management",
     href: "/dashboard",
     Icon: BsClipboardCheck,
@@ -142,13 +142,8 @@ const navlinks: SidebarLinkProps[] = [
         href: "/ideas",
         path: /^idea/,
       },
-      {
-        name: "Presentations",
-        href: "/presentations",
-        path: /^presentation/,
-      },
     ],
-  },
+  },*/
   {
     name: "SDK Configuration",
     href: "/sdks",

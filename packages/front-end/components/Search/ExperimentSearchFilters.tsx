@@ -197,9 +197,10 @@ const ExperimentSearchFilters: FC<
         setOpen={setDropdownFilterOpen}
         items={[
           {
-            searchValue: "stopped",
-            id: "stopped",
-            name: "Stopped",
+            searchValue: "draft",
+            id: "draft",
+            name: "Draft",
+            disabled: !allowDrafts,
           },
           {
             searchValue: "running",
@@ -207,10 +208,9 @@ const ExperimentSearchFilters: FC<
             name: "Running",
           },
           {
-            searchValue: "draft",
-            id: "draft",
-            name: "Draft",
-            disabled: allowDrafts,
+            searchValue: "stopped",
+            id: "stopped",
+            name: "Stopped",
           },
           {
             searchValue: "archived",

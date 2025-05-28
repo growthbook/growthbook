@@ -143,7 +143,10 @@ const LearningsPage = (): React.ReactElement => {
           is.push("winner");
           is.push("won");
         }
-        if (item.results === "lost") is.push("loser");
+        if (item.results === "lost") {
+          is.push("loser");
+          is.push("lost");
+        }
         if (item.results === "inconclusive") is.push("inconclusive");
         if (item.results === "dnf") is.push("dnf");
         if (item.hasVisualChangesets) is.push("visual");
