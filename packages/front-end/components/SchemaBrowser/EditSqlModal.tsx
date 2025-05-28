@@ -153,7 +153,7 @@ export default function EditSqlModal({
   const hasEventName = usesEventName(sql);
   const hasValueCol = usesValueColumn(sql);
 
-  const handleFormatClick = useCallback(() => {
+  const handleFormatClick = () => {
     const result = formatSql(sql, datasource?.type);
     if (result.error) {
       setFormatError(result.error);
@@ -161,14 +161,7 @@ export default function EditSqlModal({
       form.setValue("sql", result.formattedSql);
       setFormatError(null);
     }
-  }, [sql, datasource?.type, form]);
-
-  const handleSqlUpdate = useCallback(
-    (newSql: string) => {
-      form.setValue("sql", newSql);
-    },
-    [form]
-  );
+  };
 
   useEffect(() => {
     if (!canRunQueries) setTestQueryBeforeSaving(false);
@@ -342,7 +335,7 @@ export default function EditSqlModal({
                 required
                 language="sql"
                 value={sql}
-                setValue={handleSqlUpdate}
+                setValue={(v) => form.setValue("sql", v)}
                 placeholder={placeholder}
                 helpText={""}
                 fullHeight
