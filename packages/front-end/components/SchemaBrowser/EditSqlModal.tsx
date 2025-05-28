@@ -21,7 +21,7 @@ import {
 import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { formatSql } from "@/services/sqlFormatter";
+import { formatSql, canFormatSql } from "@/services/sqlFormatter";
 import SchemaBrowser from "./SchemaBrowser";
 import styles from "./EditSqlModal.module.scss";
 
@@ -69,14 +69,11 @@ export default function EditSqlModal({
     },
   });
 
-  const sql = form.watch("sql");
   const { getDatasourceById } = useDefinitions();
   const { apiCall } = useAuth();
   const [cursorData, setCursorData] = useState<null | CursorData>(null);
   const [testingQuery, setTestingQuery] = useState(false);
   const permissionsUtil = usePermissionsUtil();
-
-  const datasource = getDatasourceById(datasourceId);
   const [formatError, setFormatError] = useState<string | null>(null);
 
   const validateRequiredColumns = useCallback(
@@ -144,17 +141,19 @@ export default function EditSqlModal({
     setTestingQuery(false);
   }, [form, runTestQuery]);
 
+  const datasource = getDatasourceById(datasourceId);
   const canRunQueries = datasource
     ? permissionsUtil.canRunTestQueries(datasource)
     : null;
   const supportsSchemaBrowser =
     datasource?.properties?.supportsInformationSchema;
+  const canFormat = datasource ? canFormatSql(datasource.type) : false;
 
-  const hasEventName = usesEventName(sql);
-  const hasValueCol = usesValueColumn(sql);
+  const hasEventName = usesEventName(form.watch("sql"));
+  const hasValueCol = usesValueColumn(form.watch("sql"));
 
   const handleFormatClick = () => {
-    const result = formatSql(sql, datasource?.type);
+    const result = formatSql(form.watch("sql"), datasource?.type);
     if (result.error) {
       setFormatError(result.error);
     } else if (result.formattedSql) {
@@ -166,11 +165,6 @@ export default function EditSqlModal({
   useEffect(() => {
     if (!canRunQueries) setTestQueryBeforeSaving(false);
   }, [canRunQueries]);
-
-  // Clear format error when SQL changes
-  useEffect(() => {
-    setFormatError(null);
-  }, [sql]);
 
   return (
     <Modal
@@ -255,13 +249,15 @@ export default function EditSqlModal({
                         Test Query
                       </Button>
                     </Tooltip>
-                    <RadixButton
-                      variant="ghost"
-                      onClick={handleFormatClick}
-                      disabled={!sql}
-                    >
-                      Format
-                    </RadixButton>
+                    {canFormat ? (
+                      <RadixButton
+                        variant="ghost"
+                        onClick={handleFormatClick}
+                        disabled={!form.watch("sql")}
+                      >
+                        Format
+                      </RadixButton>
+                    ) : null}
                     {formatError && (
                       <Tooltip body={formatError}>
                         <FaExclamationTriangle className="text-danger" />
@@ -334,8 +330,14 @@ export default function EditSqlModal({
               <CodeTextArea
                 required
                 language="sql"
-                value={sql}
-                setValue={(v) => form.setValue("sql", v)}
+                value={form.watch("sql")}
+                setValue={(v) => {
+                  if (formatError) {
+                    // If there is a format error, clear it when the user changes the SQL
+                    setFormatError(null);
+                  }
+                  form.setValue("sql", v);
+                }}
                 placeholder={placeholder}
                 helpText={""}
                 fullHeight

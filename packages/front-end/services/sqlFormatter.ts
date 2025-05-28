@@ -2,6 +2,10 @@ import { DataSourceType } from "back-end/types/datasource";
 import { format } from "shared/sql";
 import { FormatDialect } from "shared/src/types";
 
+export function canFormatSql(datasourceType: DataSourceType): boolean {
+  return getSqlDialect(datasourceType) !== undefined;
+}
+
 function getSqlDialect(
   datasourceType: DataSourceType
 ): FormatDialect | undefined {
@@ -12,14 +16,14 @@ function getSqlDialect(
     bigquery: "bigquery",
     postgres: "postgresql",
     mssql: "tsql",
-    clickhouse: "sql",
-    growthbook_clickhouse: "sql",
+    clickhouse: "",
+    growthbook_clickhouse: "",
     athena: "trino",
     presto: "trino",
     databricks: "sql",
     vertica: "postgresql",
-    mixpanel: "", // no formatting for mixpanel
-    google_analytics: "bigquery",
+    mixpanel: "",
+    google_analytics: "",
   };
 
   return typeMap[datasourceType];
