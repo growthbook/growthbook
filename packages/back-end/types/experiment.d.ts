@@ -54,6 +54,7 @@ export type DecisionFrameworkExperimentRecommendationStatus =
   | { status: "days-left"; daysLeft: number }
   | {
       status: "ship-now";
+      shippingEarly?: boolean;
       variations: DecisionFrameworkVariation[];
       powerReached: boolean;
       sequentialUsed: boolean;
