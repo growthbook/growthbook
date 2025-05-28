@@ -1,0 +1,45 @@
+parameters:
+  - $ref: "../parameters.yaml#/id"
+get:
+  summary: Get results for all experiments updated since a given date
+  tags:
+    - experiments
+    - results
+  operationId: getResultsExperiments
+  x-codeSamples:
+    - lang: 'cURL'
+      source: |
+        curl https://api.growthbook.io/api/v1/results/experiments?startDate=2025-01-01 \
+          -u secret_abc123DEF456:
+  parameters:
+    - name: startDate
+      in: query
+      required: true
+      schema:
+        type: string
+        format: date-time
+        description: "The date and time to start the search for experiments with a successful update. Results are returned for all experiments with a successful update since this date."
+    - name: endDate
+      in: query
+      schema:
+        type: string
+        format: date-time
+        description: "Optional.The date and time to end the search for experiments with a successful update. Results are returned for all experiments with a successful update between the start and end dates."
+  responses:
+    "200":
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              result:
+                type: array
+                description: "The latest results for the latest phase for all experiments with a successful update since the given startDate and before the given endDate, if provided. The results for the experiment de-normalized with no nesting. One row per experiment, variation, metric, dimension value, and difference type."
+                items:
+                  $ref: "../schemas/ExperimentResultsRow.yaml"
+              experimentIds:
+                type: array
+                description: "The list of experiment ids that were updated since the given startDate and before the given endDate, if provided."
+                items:
+                  type: string
+

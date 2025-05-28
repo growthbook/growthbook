@@ -163,6 +163,26 @@ export interface paths {
       };
     };
   };
+  "/results/experiment/{id}": {
+    /** Get results for an experiment in dataset format */
+    get: operations["getResultsExperiment"];
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+  };
+  "/results/experiments": {
+    /** Get results for all experiments updated since a given date */
+    get: operations["getResultsExperiments"];
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+  };
   "/metrics": {
     /** Get all metrics */
     get: operations["listMetrics"];
@@ -5946,6 +5966,186 @@ export interface operations {
       };
     };
   };
+  getResultsExperiment: {
+    /** Get results for an experiment in dataset format */
+    parameters: {
+      query: {
+        phase?: string;
+        dimension?: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            /** @description The latest results for the experiment de-normalized with no nesting. One row per variation, metric, dimension value, and difference type. */
+            result?: ({
+                /** @description The name of the experiment. */
+                experimentName: string;
+                /** @description The unique identifier of the experiment. */
+                experimentId: string;
+                /** @description The unique identifier of the experiment snapshot. */
+                snapshotId: string;
+                /** @description The date and time when the results were computed. */
+                snapshotDate?: string | null;
+                /** @description The dimension used in the experiment results. Null for the overall results. */
+                dimensionId: string | null;
+                /** @description The name of the dimension used in the analysis. */
+                dimensionName: string | null;
+                /** @description The specific value or level of the dimension for this set of results. */
+                dimensionValue: string | null;
+                /** @description The unique identifier of the metric being measured. */
+                metricId: string;
+                /** @description The name of the metric being measured. */
+                metricName: string | null;
+                /** @description The name of the baseline variation. */
+                baselineVariationName?: string | null;
+                /** @description The id of the variation that is the baseline for this set of results. */
+                baselineVariationId: string | null;
+                /** @description Number of units (e.g. users) in the baseline variation. This is the denominator for non-ratio metrics. */
+                baselineVariationUnits: number | null;
+                /** @description Metric numerator value for the baseline variation. */
+                baselineVariationNumerator: number | null;
+                /** @description Metric denominator value for the baseline variation, null if the metric is not a ratio. */
+                baselineVariationDenominator: number | null;
+                /** @description The metric mean value for the baseline variation. */
+                baselineVariationMean: number | null;
+                /** @description The metric standard deviation for the baseline variation. */
+                baselineVariationStdDev: number | null;
+                /** @description The name of the variation being compared to the baseline. */
+                variationName: string | null;
+                /** @description The unique identifier of the variation being compared to the baseline. */
+                variationId: string | null;
+                /** @description Number of units (e.g. users) in the variation being compared. This is the denominator for non-ratio metrics. */
+                variationUnits: number;
+                /** @description Metric numerator value for the variation being compared. */
+                variationNumerator: number;
+                /** @description Metric denominator value for the variation being compared, null if the metric is not a ratio. */
+                variationDenominator: number | null;
+                /** @description The metric mean value for the variation being compared. */
+                variationMean: number;
+                /** @description The metric standard deviation for the variation being compared. */
+                variationStdDev: number | null;
+                /**
+                 * @description The type of difference being measured between variations. 
+                 * @enum {string}
+                 */
+                differenceType: "relative" | "absolute" | "scaled";
+                /** @description The estimated effect size between the variations. */
+                effect: number | null;
+                /** @description The probability that this variation is better than the baseline variation. */
+                chanceToWin?: number | null;
+                /** @description The relative risk ratio between the variations. Only present if the Bayesian engine is being used. */
+                relativeRisk: number | null;
+                /** @description The p-value for the statistical test comparing the variations. Only present if the Frequentist engine is being used. */
+                pValue: number | null;
+                /** @description The p-value corrected for multiple comparisons. Only present if multiple comparisons corrections are turned on and the Frequentist engine is being used. */
+                pValueCorrected: number | null;
+                /** @description The lower bound of the confidence interval for the effect size. */
+                ciLower: number | null;
+                /** @description The upper bound of the confidence interval for the effect size. */
+                ciUpper: number | null;
+                /** @description The lower bound of the confidence interval for the effect size, corrected for multiple comparisons. Only present if multiple comparisons corrections are turned on and the Frequentist engine is being used. */
+                ciLowerCorrected: number | null;
+                /** @description The upper bound of the confidence interval for the effect size, corrected for multiple comparisons. Only present if multiple comparisons corrections are turned on and the Frequentist engine is being used. */
+                ciUpperCorrected: number | null;
+              })[];
+          };
+        };
+      };
+    };
+  };
+  getResultsExperiments: {
+    /** Get results for all experiments updated since a given date */
+    parameters: {
+      query: {
+        startDate: string;
+        endDate?: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            /** @description The latest results for the latest phase for all experiments with a successful update since the given startDate and before the given endDate, if provided. The results for the experiment de-normalized with no nesting. One row per experiment, variation, metric, dimension value, and difference type. */
+            result?: ({
+                /** @description The name of the experiment. */
+                experimentName: string;
+                /** @description The unique identifier of the experiment. */
+                experimentId: string;
+                /** @description The unique identifier of the experiment snapshot. */
+                snapshotId: string;
+                /** @description The date and time when the results were computed. */
+                snapshotDate?: string | null;
+                /** @description The dimension used in the experiment results. Null for the overall results. */
+                dimensionId: string | null;
+                /** @description The name of the dimension used in the analysis. */
+                dimensionName: string | null;
+                /** @description The specific value or level of the dimension for this set of results. */
+                dimensionValue: string | null;
+                /** @description The unique identifier of the metric being measured. */
+                metricId: string;
+                /** @description The name of the metric being measured. */
+                metricName: string | null;
+                /** @description The name of the baseline variation. */
+                baselineVariationName?: string | null;
+                /** @description The id of the variation that is the baseline for this set of results. */
+                baselineVariationId: string | null;
+                /** @description Number of units (e.g. users) in the baseline variation. This is the denominator for non-ratio metrics. */
+                baselineVariationUnits: number | null;
+                /** @description Metric numerator value for the baseline variation. */
+                baselineVariationNumerator: number | null;
+                /** @description Metric denominator value for the baseline variation, null if the metric is not a ratio. */
+                baselineVariationDenominator: number | null;
+                /** @description The metric mean value for the baseline variation. */
+                baselineVariationMean: number | null;
+                /** @description The metric standard deviation for the baseline variation. */
+                baselineVariationStdDev: number | null;
+                /** @description The name of the variation being compared to the baseline. */
+                variationName: string | null;
+                /** @description The unique identifier of the variation being compared to the baseline. */
+                variationId: string | null;
+                /** @description Number of units (e.g. users) in the variation being compared. This is the denominator for non-ratio metrics. */
+                variationUnits: number;
+                /** @description Metric numerator value for the variation being compared. */
+                variationNumerator: number;
+                /** @description Metric denominator value for the variation being compared, null if the metric is not a ratio. */
+                variationDenominator: number | null;
+                /** @description The metric mean value for the variation being compared. */
+                variationMean: number;
+                /** @description The metric standard deviation for the variation being compared. */
+                variationStdDev: number | null;
+                /**
+                 * @description The type of difference being measured between variations. 
+                 * @enum {string}
+                 */
+                differenceType: "relative" | "absolute" | "scaled";
+                /** @description The estimated effect size between the variations. */
+                effect: number | null;
+                /** @description The probability that this variation is better than the baseline variation. */
+                chanceToWin?: number | null;
+                /** @description The relative risk ratio between the variations. Only present if the Bayesian engine is being used. */
+                relativeRisk: number | null;
+                /** @description The p-value for the statistical test comparing the variations. Only present if the Frequentist engine is being used. */
+                pValue: number | null;
+                /** @description The p-value corrected for multiple comparisons. Only present if multiple comparisons corrections are turned on and the Frequentist engine is being used. */
+                pValueCorrected: number | null;
+                /** @description The lower bound of the confidence interval for the effect size. */
+                ciLower: number | null;
+                /** @description The upper bound of the confidence interval for the effect size. */
+                ciUpper: number | null;
+                /** @description The lower bound of the confidence interval for the effect size, corrected for multiple comparisons. Only present if multiple comparisons corrections are turned on and the Frequentist engine is being used. */
+                ciLowerCorrected: number | null;
+                /** @description The upper bound of the confidence interval for the effect size, corrected for multiple comparisons. Only present if multiple comparisons corrections are turned on and the Frequentist engine is being used. */
+                ciUpperCorrected: number | null;
+              })[];
+            /** @description The list of experiment ids that were updated since the given startDate and before the given endDate, if provided. */
+            experimentIds?: (string)[];
+          };
+        };
+      };
+    };
+  };
   listMetrics: {
     /** Get all metrics */
     parameters: {
@@ -9197,6 +9397,8 @@ export type PostExperimentSnapshotResponse = operations["postExperimentSnapshot"
 export type GetExperimentResultsResponse = operations["getExperimentResults"]["responses"]["200"]["content"]["application/json"];
 export type ListVisualChangesetsResponse = operations["listVisualChangesets"]["responses"]["200"]["content"]["application/json"];
 export type GetExperimentSnapshotResponse = operations["getExperimentSnapshot"]["responses"]["200"]["content"]["application/json"];
+export type GetResultsExperimentResponse = operations["getResultsExperiment"]["responses"]["200"]["content"]["application/json"];
+export type GetResultsExperimentsResponse = operations["getResultsExperiments"]["responses"]["200"]["content"]["application/json"];
 export type ListMetricsResponse = operations["listMetrics"]["responses"]["200"]["content"]["application/json"];
 export type PostMetricResponse = operations["postMetric"]["responses"]["200"]["content"]["application/json"];
 export type GetMetricResponse = operations["getMetric"]["responses"]["200"]["content"]["application/json"];

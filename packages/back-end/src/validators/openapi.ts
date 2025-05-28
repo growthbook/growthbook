@@ -274,6 +274,18 @@ export const getExperimentSnapshotValidator = {
   paramsSchema: z.object({ "id": z.string() }).strict(),
 };
 
+export const getResultsExperimentValidator = {
+  bodySchema: z.never(),
+  querySchema: z.object({ "phase": z.string().optional(), "dimension": z.string().optional() }).strict(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
+export const getResultsExperimentsValidator = {
+  bodySchema: z.never(),
+  querySchema: z.object({ "startDate": z.string().describe("The date and time to start the search for experiments with a successful update. Results are returned for all experiments with a successful update since this date."), "endDate": z.string().describe("Optional.The date and time to end the search for experiments with a successful update. Results are returned for all experiments with a successful update between the start and end dates.").optional() }).strict(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
 export const listMetricsValidator = {
   bodySchema: z.never(),
   querySchema: z.object({ "limit": z.coerce.number().int().default(10), "offset": z.coerce.number().int().default(0), "projectId": z.string().optional(), "datasourceId": z.string().optional() }).strict(),

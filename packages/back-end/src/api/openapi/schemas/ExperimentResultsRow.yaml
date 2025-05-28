@@ -1,0 +1,162 @@
+type: object
+required:
+  - experimentName
+  - experimentId
+  - snapshotId
+  - dimensionId
+  - dimensionName
+  - dimensionValue
+  - metricName
+  - metricId
+  - baselineVariationId
+  - baselineVariationUnits
+  - baselineVariationNumerator
+  - baselineVariationDenominator
+  - baselineVariationMean
+  - baselineVariationStdDev
+  - variationName
+  - variationId
+  - variationUnits
+  - variationNumerator
+  - variationDenominator
+  - variationMean
+  - variationStdDev
+  - differenceType
+  - effect
+  - chanceToBeatControl
+  - relativeRisk
+  - pValue
+  - pValueCorrected
+  - ciLower
+  - ciUpper
+  - ciLowerCorrected
+  - ciUpperCorrected
+properties:
+  experimentName:
+    type: string
+    description: "The name of the experiment."
+  experimentId:
+    type: string
+    description: "The unique identifier of the experiment."
+  snapshotId:
+    type: string
+    description: "The unique identifier of the experiment snapshot."
+  snapshotDate:
+    type: string
+    description: "The date and time when the results were computed."
+    nullable: true
+  dimensionId:
+    type: string
+    description: "The dimension used in the experiment results. Null for the overall results."
+    nullable: true
+  dimensionName:
+    type: string
+    description: "The name of the dimension used in the analysis."
+    nullable: true
+  dimensionValue:
+    type: string
+    description: "The specific value or level of the dimension for this set of results."
+    nullable: true
+  metricId:
+    type: string
+    description: "The unique identifier of the metric being measured."
+  metricName:
+    type: string
+    description: "The name of the metric being measured."
+    nullable: true
+  baselineVariationName:
+    type: string
+    description: "The name of the baseline variation."
+    nullable: true
+  baselineVariationId:
+    type: string
+    description: "The id of the variation that is the baseline for this set of results."
+    nullable: true
+  baselineVariationUnits:
+    type: number
+    description: "Number of units (e.g. users) in the baseline variation. This is the denominator for non-ratio metrics."
+    nullable: true
+  baselineVariationNumerator:
+    type: number
+    description: "Metric numerator value for the baseline variation."
+    nullable: true
+  baselineVariationDenominator:
+    type: number
+    description: "Metric denominator value for the baseline variation, null if the metric is not a ratio."
+    nullable: true
+  baselineVariationMean:
+    type: number
+    description: "The metric mean value for the baseline variation."
+    nullable: true
+  baselineVariationStdDev:
+    type: number
+    description: "The metric standard deviation for the baseline variation."
+    nullable: true
+  variationName:
+    type: string
+    description: "The name of the variation being compared to the baseline."
+    nullable: true
+  variationId:
+    type: string
+    description: "The unique identifier of the variation being compared to the baseline."
+    nullable: true
+  variationUnits:
+    type: number
+    description: "Number of units (e.g. users) in the variation being compared. This is the denominator for non-ratio metrics."
+  variationNumerator:
+    type: number
+    description: "Metric numerator value for the variation being compared."
+  variationDenominator:
+    type: number
+    description: "Metric denominator value for the variation being compared, null if the metric is not a ratio."
+    nullable: true
+  variationMean:
+    type: number
+    description: "The metric mean value for the variation being compared."
+  variationStdDev:
+    type: number
+    description: "The metric standard deviation for the variation being compared."
+    nullable: true
+  differenceType:
+    type: string
+    description: "The type of difference being measured between variations."
+    enum:
+      - relative
+      - absolute
+      - scaled
+  effect:
+    type: number
+    description: "The estimated effect size between the variations."
+    nullable: true
+  chanceToWin:
+    type: number
+    description: "The probability that this variation is better than the baseline variation."
+    nullable: true
+  relativeRisk:
+    type: number
+    description: "The relative risk ratio between the variations. Only present if the Bayesian engine is being used."
+    nullable: true
+  pValue:
+    type: number
+    description: "The p-value for the statistical test comparing the variations. Only present if the Frequentist engine is being used."
+    nullable: true
+  pValueCorrected:
+    type: number
+    description: "The p-value corrected for multiple comparisons. Only present if multiple comparisons corrections are turned on and the Frequentist engine is being used."
+    nullable: true
+  ciLower:
+    type: number
+    description: "The lower bound of the confidence interval for the effect size."
+    nullable: true
+  ciUpper:
+    type: number
+    description: "The upper bound of the confidence interval for the effect size."
+    nullable: true
+  ciLowerCorrected:
+    type: number
+    description: "The lower bound of the confidence interval for the effect size, corrected for multiple comparisons. Only present if multiple comparisons corrections are turned on and the Frequentist engine is being used."
+    nullable: true
+  ciUpperCorrected:
+    type: number
+    description: "The upper bound of the confidence interval for the effect size, corrected for multiple comparisons. Only present if multiple comparisons corrections are turned on and the Frequentist engine is being used."
+    nullable: true
