@@ -21,7 +21,7 @@ import {
 import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { useSqlFormatter } from "@/hooks/useSqlFormatter";
+import { formatSql } from "@/services/sqlFormatter";
 import SchemaBrowser from "./SchemaBrowser";
 import styles from "./EditSqlModal.module.scss";
 
@@ -77,13 +77,7 @@ export default function EditSqlModal({
   const permissionsUtil = usePermissionsUtil();
 
   const datasource = getDatasourceById(datasourceId);
-  const {
-    formatSql,
-    handleSqlChange,
-    clearError,
-    isFormatted,
-    error: formatError,
-  } = useSqlFormatter(datasource?.type);
+  const [formatError, setFormatError] = useState<string | null>(null);
 
   const validateRequiredColumns = useCallback(
     (result: TestQueryRow) => {
@@ -160,16 +154,20 @@ export default function EditSqlModal({
   const hasValueCol = usesValueColumn(sql);
 
   const handleFormatClick = useCallback(() => {
-    const newSql = formatSql(sql);
-    form.setValue("sql", newSql);
-  }, [formatSql, sql, form]);
+    const result = formatSql(sql, datasource?.type);
+    if (result.error) {
+      setFormatError(result.error);
+    } else if (result.formattedSql) {
+      form.setValue("sql", result.formattedSql);
+      setFormatError(null);
+    }
+  }, [sql, datasource?.type, form]);
 
   const handleSqlUpdate = useCallback(
     (newSql: string) => {
-      handleSqlChange(newSql);
       form.setValue("sql", newSql);
     },
-    [handleSqlChange, form]
+    [form]
   );
 
   useEffect(() => {
@@ -178,8 +176,8 @@ export default function EditSqlModal({
 
   // Clear format error when SQL changes
   useEffect(() => {
-    clearError();
-  }, [sql, clearError]);
+    setFormatError(null);
+  }, [sql]);
 
   return (
     <Modal
@@ -269,7 +267,7 @@ export default function EditSqlModal({
                       onClick={handleFormatClick}
                       disabled={!sql}
                     >
-                      {isFormatted ? "Clear Format" : "Format"}
+                      Format
                     </RadixButton>
                     {formatError && (
                       <Tooltip body={formatError}>
