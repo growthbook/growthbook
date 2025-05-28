@@ -20,7 +20,7 @@ from gbstats.models.statistics import (
 
 
 @dataclass
-class StrataResult:
+class CellResult:
     n: int
     mean: np.ndarray  # Expected shape: (2,) for count and (4,) for ratio
     covariance: np.ndarray  # Expected shape: (2, 2) for count and (4, 4) for ratio
@@ -134,8 +134,8 @@ class PostStratification(BasePostStratification):
     def contrast_matrix(self) -> np.ndarray:
         return np.array([[0, 1], [1, -1]])
 
-    def compute_result(self) -> StrataResult:
-        return StrataResult(self.n, self.mean, self.covariance)
+    def compute_result(self) -> CellResult:
+        return CellResult(self.n, self.mean, self.covariance)
 
 
 # Regression version of Algorithm 1 for count metrics
@@ -296,7 +296,7 @@ class PostStratificationRegressionAdjustedSharedTheta:
     def mean(self) -> np.ndarray:
         return self.contrast_matrix.dot(self.gammahat).ravel()
 
-    def compute_result(self) -> List[StrataResult]:
+    def compute_result(self) -> List[CellResult]:
         results = []
         for cell in range(self.num_cells):
             start = cell * 2
@@ -317,7 +317,7 @@ class PostStratificationRegressionAdjustedSharedTheta:
                     v_alpha[i, j] = sum_1 + sum_2
                     v_alpha[j, i] = v_alpha[i, j]
             this_covariance = float(self.n[cell]) * v_alpha
-            results.append(StrataResult(self.n[cell], this_mean, this_covariance))
+            results.append(CellResult(self.n[cell], this_mean, this_covariance))
         return results
 
 
@@ -461,8 +461,8 @@ class PostStratificationRegressionAdjusted:
                 v_alpha[j, i] = v_alpha[i, j]
         return float(self.n) * v_alpha
 
-    def compute_result(self) -> StrataResult:
-        return StrataResult(self.n, self.mean, self.covariance)
+    def compute_result(self) -> CellResult:
+        return CellResult(self.n, self.mean, self.covariance)
 
 
 # Regression version of Algorithm 1 for ratio metrics
@@ -745,8 +745,8 @@ class PostStratificationCupedAdjusted(BasePostStratification):
         )
         return np.array([[0, 0, 1, 0], [1, -theta, -1, theta]])
 
-    def compute_result(self) -> StrataResult:
-        return StrataResult(self.n, self.mean, self.covariance)
+    def compute_result(self) -> CellResult:
+        return CellResult(self.n, self.mean, self.covariance)
 
 
 # Algorithm 1 for ratio metrics
@@ -810,8 +810,8 @@ class PostStratificationRatio(BasePostStratification):
     def contrast_matrix(self) -> np.ndarray:
         return np.array([[0, 0, 1, 0], [1, 0, -1, 0], [0, 0, 0, 1], [0, 1, 0, -1]])
 
-    def compute_result(self) -> StrataResult:
-        return StrataResult(self.n, self.mean, self.covariance)
+    def compute_result(self) -> CellResult:
+        return CellResult(self.n, self.mean, self.covariance)
 
 
 # Algorithm 1 for CUPED adjusted ratio metrics
@@ -916,15 +916,15 @@ class PostStratificationCupedAdjustedRatio(BasePostStratification):
             ]
         )
 
-    def compute_result(self) -> StrataResult:
-        return StrataResult(self.n, self.mean, self.covariance)
+    def compute_result(self) -> CellResult:
+        return CellResult(self.n, self.mean, self.covariance)
 
 
 # Algorithm 4
 class PostStratificationSummary:
     def __init__(
         self,
-        stats: List[StrataResult],
+        stats: List[CellResult],
         nu_hat: Optional[np.ndarray] = None,
         relative: bool = True,
         alpha: float = 0.05,
@@ -1125,7 +1125,7 @@ class PostStratificationSummary:
 class PostStratificationSummaryRatio(PostStratificationSummary):
     def __init__(
         self,
-        stats: List[StrataResult],
+        stats: List[CellResult],
         nu_hat: np.ndarray,
         relative: bool = True,
         alpha: float = 0.05,
