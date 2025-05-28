@@ -15,7 +15,6 @@ await Promise.all([
     ...rawOptions,
     format: "esm",
     outdir: "dist/esm",
-    outExtension: { ".js": ".mjs" },
   }),
   esbuild.build({
     ...rawOptions,
