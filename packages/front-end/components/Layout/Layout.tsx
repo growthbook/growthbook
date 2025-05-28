@@ -335,9 +335,8 @@ const Layout = (): React.ReactElement => {
   const { accountPlan, license, subscription } = useUser();
   const growthbook = useGrowthBook<AppFeatures>();
 
-  // app wide a-a tests
-  growthbook?.isOn("gb-ax5-bandit");
-  growthbook?.isOn("gb-ax10-bandit");
+  // holdout aa-test, dogfooding
+  growthbook?.isOn("aa-test-holdout");
 
   const { breadcrumb } = usePageHead();
 

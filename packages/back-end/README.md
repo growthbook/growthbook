@@ -554,10 +554,10 @@ Next, you'll need to set up the connection to your DB from within GrowthBook.
 
 ```sql
 SELECT
-  userId as user_id,
-  anonymousId as anonymous_id
+  user_id,
+  anonymous_id
 FROM
-  experiment_viewed
+  viewed_experiment
 ```
 
 6. Then, define an assignment query for logged-in users:
@@ -565,14 +565,14 @@ FROM
    - SQL:
    ```sql
    SELECT
-     userId as user_id,
+     user_id,
      timestamp as timestamp,
-     experimentId as experiment_id,
-     variationId as variation_id,
+     experiment_id,
+     variation_id,
      browser,
      country
    FROM
-     experiment_viewed
+     viewed_experiment
    ```
    - Dimension columns: `browser`, `country`
 7. And another assignment query for anonymous visitors:
@@ -580,14 +580,14 @@ FROM
    - SQL:
    ```sql
    SELECT
-     anonymousId as anonymous_id,
+     anonymous_id,
      timestamp as timestamp,
      experimentId as experiment_id,
      variationId as variation_id,
      browser,
      country
    FROM
-     experiment_viewed
+     viewed_experiment
    ```
    - Dimension columns: `browser`, `country`
 8. Create a metric:
@@ -597,8 +597,8 @@ FROM
    - SQL:
    ```sql
    SELECT
-     userId as user_id,
-     anonymousId as anonymous_id,
+     user_id,
+     anonymous_id,
      timestamp as timestamp
    FROM
      orders
