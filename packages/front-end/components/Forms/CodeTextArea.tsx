@@ -86,19 +86,18 @@ export default function CodeTextArea({
 
   useEffect(() => {
     if (!editor) return;
+    if (!onCtrlEnter) return;
 
-    if (onCtrlEnter) {
-      editor.commands.bindKey(
-        {
-          win: "Ctrl-enter",
-          mac: "Command-enter",
-        },
-        {
-          exec: onCtrlEnter,
-          name: "ctrl-enter",
-        }
-      );
-    }
+    editor.commands.bindKey(
+      {
+        win: "Ctrl-enter",
+        mac: "Command-enter",
+      },
+      {
+        exec: onCtrlEnter,
+        name: "ctrl-enter",
+      }
+    );
   }, [editor, onCtrlEnter]);
 
   useEffect(() => {
@@ -160,39 +159,43 @@ export default function CodeTextArea({
     <Field
       {...fieldProps}
       containerClassName={fullHeight ? "h-100" : ""}
-      render={(id) => (
-        <div className={`border rounded ${fullHeight ? "h-100" : ""}`}>
-          <AceEditor
-            name={id}
-            onLoad={(e) => setEditor(e)}
-            mode={language}
-            theme={theme === "light" ? LIGHT_THEME : DARK_THEME}
-            width="inherit"
-            value={value}
-            onChange={(newValue) => setValue(newValue)}
-            placeholder={placeholder}
-            fontSize="1em"
-            {...heightProps}
-            setOptions={
-              language === "sql"
-                ? {
-                    enableBasicAutocompletion: true,
-                    enableLiveAutocompletion: true,
-                  }
-                : undefined
-            }
-            readOnly={fieldProps.disabled}
-            onCursorChange={(e) =>
-              setCursorData &&
-              setCursorData({
-                row: e.cursor.row,
-                column: e.cursor.column,
-                input: e.cursor.document.$lines,
-              })
-            }
-          />
-        </div>
-      )}
+      render={(id) => {
+        return (
+          <>
+            <div className={`border rounded ${fullHeight ? "h-100" : ""}`}>
+              <AceEditor
+                name={id}
+                onLoad={(e) => setEditor(e)}
+                mode={language}
+                theme={theme === "light" ? LIGHT_THEME : DARK_THEME}
+                width="inherit"
+                value={value}
+                onChange={(newValue) => setValue(newValue)}
+                placeholder={placeholder}
+                fontSize="1em"
+                {...heightProps}
+                setOptions={
+                  language === "sql"
+                    ? {
+                        enableBasicAutocompletion: true,
+                        enableLiveAutocompletion: true,
+                      }
+                    : undefined
+                }
+                readOnly={fieldProps.disabled}
+                onCursorChange={(e) =>
+                  setCursorData &&
+                  setCursorData({
+                    row: e.cursor.row,
+                    column: e.cursor.column,
+                    input: e.cursor.document.$lines,
+                  })
+                }
+              />
+            </div>
+          </>
+        );
+      }}
     />
   );
 }
