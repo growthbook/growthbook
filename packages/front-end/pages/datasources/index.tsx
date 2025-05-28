@@ -27,11 +27,14 @@ import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import Modal from "@/components/Modal";
 import SelectField from "@/components/Forms/SelectField";
+import Checkbox from "../../components/Radix/Checkbox";
 
 function ManagedClickhouseForm({ close }: { close: () => void }) {
   const { apiCall } = useAuth();
   const { mutateDefinitions } = useDefinitions();
   const router = useRouter();
+
+  const [agree, setAgree] = useState(false);
 
   return (
     <Modal
@@ -45,6 +48,8 @@ function ManagedClickhouseForm({ close }: { close: () => void }) {
       trackingEventModalType="managed-clickhouse"
       close={close}
       submit={async () => {
+        if (!agree) return;
+
         const res = await apiCall<{
           status: number;
           id: string;
@@ -58,6 +63,7 @@ function ManagedClickhouseForm({ close }: { close: () => void }) {
         }
       }}
       cta="Create"
+      ctaEnabled={agree}
     >
       <p>
         GrowthBook Cloud offers a fully-managed version of ClickHouse, an
@@ -98,6 +104,23 @@ function ManagedClickhouseForm({ close }: { close: () => void }) {
           1K events
         </p>
       </div>
+
+      <Checkbox
+        value={agree}
+        setValue={setAgree}
+        label={
+          <>
+            I agree to the{" "}
+            <a
+              href="https://www.growthbook.io/legal"
+              target="_blank"
+              rel="noreferrer"
+            >
+              terms and conditions
+            </a>
+          </>
+        }
+      />
     </Modal>
   );
 }
