@@ -1,5 +1,4 @@
 import Handlebars from "handlebars";
-import { FormatDialect, format } from "shared";
 import { SQLVars } from "back-end/types/sql";
 import {
   FactTableColumnType,
@@ -11,10 +10,6 @@ import { helpers } from "./handlebarsHelpers";
 Object.keys(helpers).forEach((helperName) => {
   Handlebars.registerHelper(helperName, helpers[helperName]);
 });
-
-// Re-export FormatDialect and format for backward compatibility
-export type { FormatDialect };
-export { format };
 
 export function getBaseIdTypeAndJoins(
   objects: string[][],
