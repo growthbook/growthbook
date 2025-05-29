@@ -59,7 +59,7 @@ export type CommercialFeature =
   | "require-project-for-features-setting"
   | "metric-effects"
   | "metric-correlations";
-  | "experiment-reports";
+  | "dashboards";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
@@ -278,7 +278,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "require-project-for-features-setting",
     "metric-effects",
     "metric-correlations",
-    "experiment-reports",
+    "dashboards",
   ]),
 };
 

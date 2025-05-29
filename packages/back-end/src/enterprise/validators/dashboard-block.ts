@@ -44,7 +44,7 @@ const timeSeriesBlockInterface = baseBlockInterface.extend({
   dateEnd: z.date(),
 });
 
-const reportBlockInterface = z.discriminatedUnion("type", [
+export const dashboardBlockInterface = z.discriminatedUnion("type", [
   markdownBlockInterface,
   metadataBlockInterface,
   variationImageBlockInterface,
@@ -53,17 +53,4 @@ const reportBlockInterface = z.discriminatedUnion("type", [
   timeSeriesBlockInterface,
 ]);
 
-export const experimentReportInterface = z.object({
-  id: z.string(),
-  organization: z.string(),
-  experiment: z.string(),
-  dateCreated: z.date(),
-  dateUpdated: z.date(),
-  title: z.string(),
-  content: z.array(reportBlockInterface),
-});
-
-export type ExperimentReportInterface = z.infer<
-  typeof experimentReportInterface
->;
-export type ReportBlock = z.infer<typeof reportBlockInterface>;
+export type DashboardBlockInterface = z.infer<typeof dashboardBlockInterface>;

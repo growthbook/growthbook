@@ -2,14 +2,15 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React, { useEffect, useState } from "react";
 import { PiArrowLeft, PiCaretDownFill, PiTrashFill } from "react-icons/pi";
 import { Flex } from "@radix-ui/themes";
-import { ExperimentReportInterface } from "back-end/src/enterprise/validators/experiment-report";
+import { DashboardInstanceInterface } from "back-end/src/enterprise/validators/dashboard-instance";
+import { DashboardBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
 import Button from "@/components/Radix/Button";
 import {
   DropdownMenu,
   DropdownMenuItem,
 } from "@/components/Radix/DropdownMenu";
 import Field from "@/components/Forms/Field";
-import ReportBlock, { Block } from "./ReportBlock";
+import DashboardBlock from "./DashboardBlock";
 
 const BLOCK_TYPE_INFO = {
   markdown: {
@@ -51,20 +52,20 @@ const BLOCK_TYPE_INFO = {
 
 interface Props {
   experiment: ExperimentInterfaceStringDates;
-  report?: ExperimentReportInterface;
+  dashboard?: DashboardInstanceInterface;
   back: () => void;
   cancel: () => void;
   submit: (
-    reportData: Pick<ExperimentReportInterface, "title" | "content">
+    dashboardData: Pick<DashboardInstanceInterface, "title" | "blocks">
   ) => Promise<void>;
   isEditing: boolean;
   mutate: () => void;
   setEditing: (editing: boolean) => void;
 }
 
-export default function ReportEditor({
+export default function DashboardEditor({
   experiment,
-  report,
+  dashboard,
   back,
   cancel,
   submit,
@@ -72,10 +73,10 @@ export default function ReportEditor({
   setEditing,
   mutate,
 }: Props) {
-  const [content, setContent] = useState<ExperimentReportInterface["content"]>(
-    report?.content || []
+  const [blocks, setBlocks] = useState<DashboardInstanceInterface["blocks"]>(
+    dashboard?.blocks || []
   );
-  const [title, setTitle] = useState<string>(report?.title || "");
+  const [title, setTitle] = useState<string>(dashboard?.title || "");
   const [localEditing, setLocalEditing] = useState<boolean>(isEditing);
   const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
   useEffect(() => {
@@ -104,7 +105,7 @@ export default function ReportEditor({
           <div className="d-flex justify-content-between align-items-center mb-3">
             <h3 className="mb-0">
               <Field
-                placeholder="Report Title"
+                placeholder="Dashboard Title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
               />
@@ -123,9 +124,9 @@ export default function ReportEditor({
               <Button
                 color="violet"
                 onClick={() => {
-                  if (content && title) submit({ title, content });
+                  if (blocks && title) submit({ title, blocks });
                 }}
-                disabled={!content}
+                disabled={!blocks}
               >
                 Save
               </Button>
@@ -134,7 +135,7 @@ export default function ReportEditor({
         ) : null}
 
         <div className="">
-          {content.map((block, i) => (
+          {blocks.map((block, i) => (
             <div key={i} className="appbox p-4">
               {localEditing && (
                 <Flex align="center" justify="between">
@@ -144,7 +145,7 @@ export default function ReportEditor({
                   <Button
                     color="red"
                     onClick={() => {
-                      setContent(content.filter((_, j) => j !== i));
+                      setBlocks(blocks.filter((_, j) => j !== i));
                     }}
                   >
                     <PiTrashFill />
@@ -152,12 +153,12 @@ export default function ReportEditor({
                 </Flex>
               )}
 
-              <ReportBlock
+              <DashboardBlock
                 block={block}
                 experiment={experiment}
                 isEditing={localEditing}
-                setBlock={(block: Block) => {
-                  setContent(content.map((b, j) => (j === i ? block : b)));
+                setBlock={(block: DashboardBlockInterface) => {
+                  setBlocks(blocks.map((b, j) => (j === i ? block : b)));
                 }}
                 mutate={mutate}
               />
@@ -184,10 +185,7 @@ export default function ReportEditor({
                   key={bType}
                   onClick={() => {
                     setDropdownOpen(false);
-                    setContent([
-                      ...content,
-                      BLOCK_TYPE_INFO[bType].defaultBlock,
-                    ]);
+                    setBlocks([...blocks, BLOCK_TYPE_INFO[bType].defaultBlock]);
                   }}
                 >
                   {BLOCK_TYPE_INFO[bType].name}

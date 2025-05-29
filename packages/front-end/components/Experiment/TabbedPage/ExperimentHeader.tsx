@@ -963,11 +963,11 @@ export default function ExperimentHeader({
                     <TabsTrigger value="explore">Explore</TabsTrigger>
                   ) : null}
                   <TabsTrigger
-                    disabled={!hasCommercialFeature("experiment-reports")}
-                    value="reports"
+                    disabled={!hasCommercialFeature("dashboards")}
+                    value="dashboards"
                   >
-                    <PremiumTooltip commercialFeature="experiment-reports">
-                      Reports
+                    <PremiumTooltip commercialFeature="dashboards">
+                      Dashboards
                     </PremiumTooltip>
                   </TabsTrigger>
                   {disableHealthTab ? (

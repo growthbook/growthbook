@@ -588,12 +588,12 @@ app.post(
   experimentsController.postSnapshotNotebook
 );
 app.post(
-  "/experiments/:id/reports/",
-  experimentsController.postExperimentReport
+  "/experiments/:id/dashboards/",
+  experimentsController.postExperimentDashboard
 );
 app.put(
-  "/experiments/:id/reports/:reportId",
-  experimentsController.putExperimentReport
+  "/experiments/:id/dashboards/:dashboardId",
+  experimentsController.putExperimentDashboard
 );
 app.post(
   "/experiments/report/:snapshot",

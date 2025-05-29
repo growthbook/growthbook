@@ -5,6 +5,7 @@ import cloneDeep from "lodash/cloneDeep";
 import { includeExperimentInPayload, hasVisualChanges } from "shared/util";
 import { generateTrackingKey } from "shared/experiments";
 import { v4 as uuidv4 } from "uuid";
+import { experimentReportSchema } from "back-end/src/enterprise/models/ExperimentReportModel";
 import {
   Changeset,
   ExperimentInterface,
@@ -40,7 +41,7 @@ import {
   updateVercelExperimentationItemFromExperiment,
   deleteVercelExperimentationItemFromExperiment,
 } from "back-end/src/services/vercel-native-integration.service";
-import { experimentReportSchema } from "back-end/src/enterprise/models/ExperimentReportModel";
+import { dashboardInstanceSchema } from "back-end/src/enterprise/models/DashboardInstanceModel";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";
@@ -303,7 +304,7 @@ const experimentSchema = new mongoose.Schema({
     },
   },
   dismissedWarnings: [String],
-  reports: [experimentReportSchema],
+  dashboards: [dashboardInstanceSchema],
 });
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;

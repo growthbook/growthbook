@@ -17,9 +17,9 @@ import { getScopedSettings } from "shared/settings";
 import { v4 as uuidv4 } from "uuid";
 import uniq from "lodash/uniq";
 import {
-  createExperimentReport,
-  updateExperimentReport,
-} from "back-end/src/enterprise/models/ExperimentReportModel";
+  createDashboardInstance,
+  updateDashboardInstance,
+} from "back-end/src/enterprise/models/DashboardInstanceModel";
 import { DataSourceInterface } from "back-end/types/datasource";
 import {
   AuthRequest,
@@ -128,7 +128,7 @@ import { CreateURLRedirectProps } from "back-end/types/url-redirect";
 import { logger } from "back-end/src/util/logger";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { generateExperimentReportSSRData } from "back-end/src/services/reports";
-import { ExperimentReportInterface } from "back-end/src/enterprise/validators/experiment-report";
+import { DashboardInstanceInterface } from "back-end/src/enterprise/validators/dashboard-instance";
 import { orgHasPremiumFeature } from "back-end/src/enterprise/licenseUtil";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
@@ -3273,19 +3273,17 @@ export async function getExperimentTimeSeries(
   });
 }
 
-export async function postExperimentReport(
-  req: AuthRequest<Partial<ExperimentReportInterface>, { id: string }>,
+export async function postExperimentDashboard(
+  req: AuthRequest<Partial<DashboardInstanceInterface>, { id: string }>,
   res: Response
 ) {
   const context = getContextFromReq(req);
-  if (!orgHasPremiumFeature(context.org, "experiment-reports")) {
-    throw new Error(
-      "Must have a commercial License Key to create Experiment Reports"
-    );
+  if (!orgHasPremiumFeature(context.org, "dashboards")) {
+    throw new Error("Must have a commercial License Key to create Dashboards");
   }
 
   const { id } = req.params;
-  const { title, content } = req.body;
+  const { title, blocks } = req.body;
 
   const experiment = await getExperimentById(context, id);
   if (!experiment) {
@@ -3308,68 +3306,66 @@ export async function postExperimentReport(
     return;
   }
 
-  if (!content) {
+  if (!blocks) {
     res.status(400).json({
       status: 400,
-      message: "Content is required",
+      message: "Blocks are required",
     });
     return;
   }
 
-  const report = await createExperimentReport({
+  const dashboard = await createDashboardInstance({
     context,
     experiment,
     data: {
       title,
-      content,
+      blocks,
     },
   });
 
-  // Add the report to the experiment
-  experiment.reports = experiment.reports || [];
-  experiment.reports.push(report);
+  // Add the dashboard to the experiment
+  experiment.dashboards = experiment.dashboards || [];
+  experiment.dashboards.push(dashboard);
 
   // Save the experiment
   await updateExperiment({
     context,
     experiment,
-    changes: { reports: experiment.reports },
+    changes: { dashboards: experiment.dashboards },
   });
 
   await req.audit({
-    event: "experiment.report.create",
+    event: "experiment.dashboard.create",
     entity: {
       object: "experiment",
       id: experiment.id,
     },
     details: auditDetailsCreate({
-      reportId: report.id,
+      dashboardId: dashboard.id,
       title,
     }),
   });
 
   res.status(200).json({
     status: 200,
-    report,
+    dashboard,
   });
 }
 
-export async function putExperimentReport(
+export async function putExperimentDashboard(
   req: AuthRequest<
-    Partial<ExperimentReportInterface>,
-    { id: string; reportId: string }
+    Partial<DashboardInstanceInterface>,
+    { id: string; dashboardId: string }
   >,
   res: Response
 ) {
   const context = getContextFromReq(req);
-  if (!orgHasPremiumFeature(context.org, "experiment-reports")) {
-    throw new Error(
-      "Must have a commercial License Key to modify Experiment Reports"
-    );
+  if (!orgHasPremiumFeature(context.org, "dashboards")) {
+    throw new Error("Must have a commercial License Key to modify Dashboards");
   }
 
-  const { id, reportId } = req.params;
-  const { title, content } = req.body;
+  const { id, dashboardId } = req.params;
+  const { title, blocks } = req.body;
 
   const experiment = await getExperimentById(context, id);
   if (!experiment) {
@@ -3384,49 +3380,51 @@ export async function putExperimentReport(
     context.permissions.throwPermissionError();
   }
 
-  const reportIndex = experiment.reports?.findIndex((r) => r.id === reportId);
-  if (reportIndex === -1 || reportIndex === undefined) {
+  const dashboardIndex = experiment.dashboards?.findIndex(
+    (d) => d.id === dashboardId
+  );
+  if (dashboardIndex === -1 || dashboardIndex === undefined) {
     res.status(404).json({
       status: 404,
-      message: "Report not found",
+      message: "Dashboard not found",
     });
     return;
   }
 
-  const oldReport = experiment.reports![reportIndex];
+  const oldDashboard = experiment.dashboards![dashboardIndex];
 
-  const updatedReport = await updateExperimentReport({
+  const updatedDashboard = await updateDashboardInstance({
     context,
-    report: oldReport,
-    changes: { title, content },
+    dashboard: oldDashboard,
+    changes: { title, blocks },
   });
 
-  // Add the report to the experiment
-  experiment.reports = (experiment.reports || []).map((r) =>
-    r.id === reportId ? updatedReport : r
+  // Add the dashboard to the experiment
+  experiment.dashboards = (experiment.dashboards || []).map((d) =>
+    d.id === dashboardId ? updatedDashboard : d
   );
 
   // Save the experiment
   await updateExperiment({
     context,
     experiment,
-    changes: { reports: experiment.reports },
+    changes: { dashboards: experiment.dashboards },
   });
 
   await req.audit({
-    event: "experiment.report.update",
+    event: "experiment.dashboard.update",
     entity: {
       object: "experiment",
       id: experiment.id,
     },
-    details: auditDetailsUpdate(oldReport, updatedReport, {
-      reportId,
+    details: auditDetailsUpdate(oldDashboard, updatedDashboard, {
+      dashboardId,
       title,
     }),
   });
 
   res.status(200).json({
     status: 200,
-    report: updatedReport,
+    dashboard: updatedDashboard,
   });
 }
