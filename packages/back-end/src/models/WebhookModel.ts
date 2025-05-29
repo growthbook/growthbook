@@ -6,9 +6,14 @@ import { z } from "zod";
 import { ReqContext } from "back-end/types/organization";
 import { migrateWebhookModel } from "back-end/src/util/migrations";
 import { WebhookInterface } from "back-end/types/webhook";
+import {
+  managedByValidator,
+  ManagedBy,
+} from "back-end/src/validators/managed-by";
 
 const payloadFormatValidator = z.enum([
   "standard",
+
   "standard-no-payload",
   "sdkPayload",
   "edgeConfig",
@@ -47,6 +52,7 @@ const webhookSchema = new mongoose.Schema({
   payloadKey: String,
   headers: String,
   httpMethod: String,
+  managedBy: {},
 });
 
 type WebhookDocument = mongoose.Document & WebhookInterface;
@@ -74,7 +80,7 @@ export async function findAllSdkWebhooksByConnectionIds(
 
 export async function findAllSdkWebhooksByPayloadFormat(
   context: ReqContext,
-  payloadFormat: string,
+  payloadFormat: string
 ): Promise<WebhookInterface[]> {
   return (
     await WebhookModel.find({
@@ -188,6 +194,23 @@ export async function updateSdkWebhook(
   };
 }
 
+export const updateWebhooksRemoveManagedBy = async (
+  context: ReqContext,
+  managedBy: Partial<ManagedBy>
+) => {
+  await WebhookModel.updateMany(
+    {
+      organization: context.org.id,
+      managedBy,
+    },
+    {
+      $unset: {
+        managedBy: 1,
+      },
+    }
+  );
+};
+
 const createSdkWebhookValidator = z
   .object({
     name: z.string(),
@@ -196,6 +219,7 @@ const createSdkWebhookValidator = z
     payloadKey: z.string().optional(),
     httpMethod: z.enum(["GET", "POST", "PUT", "DELETE", "PATCH", "PURGE"]),
     headers: z.string(),
+    managedBy: managedByValidator.optional(),
   })
   .strict();
 export type CreateSdkWebhookProps = z.infer<typeof createSdkWebhookValidator>;

@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { ApiProject } from "back-end/types/openapi";
 import { statsEngines } from "back-end/src/util/constants";
+import {
+  managedByValidator,
+  ManagedBy,
+} from "back-end/src/validators/managed-by";
 import { baseSchema, MakeModelClass } from "./BaseModel";
 export const statsEnginesValidator = z.enum(statsEngines);
 
@@ -13,6 +17,7 @@ export const projectValidator = baseSchema
     name: z.string(),
     description: z.string().default("").optional(),
     settings: projectSettingsValidator.default({}).optional(),
+    managedBy: managedByValidator.optional(),
   })
   .strict();
 
@@ -41,6 +46,7 @@ interface CreateProjectProps {
   name: string;
   description?: string;
   id?: string;
+  managedBy?: ManagedBy;
 }
 
 export class ProjectModel extends BaseClass {
@@ -74,6 +80,20 @@ export class ProjectModel extends BaseClass {
 
   public updateSettingsById(id: string, settings: Partial<ProjectSettings>) {
     return super.updateById(id, { settings });
+  }
+
+  public async removeManagedBy(managedBy: Partial<ManagedBy>) {
+    await super._dangerousGetCollection().updateMany(
+      {
+        organization: this.context.org.id,
+        managedBy,
+      },
+      {
+        $unset: {
+          managedBy: 1,
+        },
+      }
+    );
   }
 
   public async ensureProjectsExist(projectIds: string[]) {

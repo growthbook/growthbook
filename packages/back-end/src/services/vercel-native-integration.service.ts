@@ -11,7 +11,7 @@ import { logger } from "back-end/src/util/logger";
 import { getUserByEmail } from "back-end/src/models/UserModel";
 import {
   createSdkWebhook,
-  findAllSdkWebhooksByConnectionIds,
+  findAllSdkWebhooksByConnection,
   findAllSdkWebhooksByPayloadFormat,
   deleteSdkWebhookById,
 } from "back-end/src/models/WebhookModel";
@@ -372,12 +372,15 @@ export const syncVercelSdkConnection = async (organization: string) => {
     if (!sdkConnection)
       throw new Error("Internal error: no sdk connection found");
 
-    const webhooks = await findAllSdkWebhooksByConnectionIds(context, [
-      sdkConnection.id,
-    ]);
+    const webhooks = await findAllSdkWebhooksByConnection(
+      context,
+      sdkConnection.id
+    );
 
     const webhook = webhooks.find(
-      (w) => w.payloadFormat === "vercelNativeIntegration"
+      (w) =>
+        w.managedBy?.type === "vercel" &&
+        w.managedBy?.resourceId === resource.id
     );
 
     if (!resource.protocolSettings?.experimentation?.edgeConfigId) {
@@ -390,6 +393,10 @@ export const syncVercelSdkConnection = async (organization: string) => {
           payloadFormat: "vercelNativeIntegration",
           payloadKey: sdkConnection.key,
           httpMethod: "PUT",
+          managedBy: {
+            type: "vercel",
+            resourceId: resource.id,
+          },
           headers: JSON.stringify({
             Authorization: `Bearer ${nativeIntegration.upsertData.payload.credentials.access_token}`,
           }),

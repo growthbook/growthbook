@@ -20,20 +20,28 @@ import {
   findOrganizationById,
 } from "back-end/src/models/OrganizationModel";
 import { createUser, getUserByEmail } from "back-end/src/models/UserModel";
+import { ManagedBy } from "back-end/src/validators/managed-by";
 import { ReqContextClass } from "back-end/src/services/context";
-import { OrganizationInterface } from "back-end/types/organization";
+import { ReqContext, OrganizationInterface } from "back-end/types/organization";
 import {
   getVercelSSOToken,
   syncVercelSdkConnection,
   deleteVercelSdkWebhook,
 } from "back-end/src/services/vercel-native-integration.service";
-import { createSDKConnection } from "back-end/src/models/SdkConnectionModel";
+import { updateWebhooksRemoveManagedBy } from "back-end/src/models/WebhookModel";
+import {
+  createSDKConnection,
+  updateSdkConnectionsRemoveManagedBy,
+} from "back-end/src/models/SdkConnectionModel";
 import { IdTokenCookie, SSOConnectionIdCookie } from "back-end/src/util/cookie";
 import {
   getUserLoginPropertiesFromRequest,
   trackLoginForUser,
 } from "back-end/src/services/users";
-import { createTeam } from "back-end/src/models/TeamModel";
+import {
+  createTeam,
+  updateTeamRemoveManagedBy,
+} from "back-end/src/models/TeamModel";
 import {
   userAuthenticationValidator,
   systemAuthenticationValidator,
@@ -323,8 +331,12 @@ export async function updateInstallation(req: Request, res: Response) {
 }
 
 export async function deleteInstallation(req: Request, res: Response) {
-  const { integrationModel, integration } = await authContext(req, res);
+  const { context, integrationModel, integration } = await authContext(
+    req,
+    res
+  );
 
+  await removeManagedBy(context, { type: "vercel" });
   await integrationModel.deleteById(integration.id);
 
   return res.status(200).send({ finalized: true });
@@ -349,7 +361,17 @@ export async function provisionResource(req: Request, res: Response) {
 
   if (!billingPlan) return res.status(400).send("Invalid billing plan!");
 
-  const project = await context.models.projects.create({ name: payload.name });
+  const resourceId = uuidv4();
+
+  const managedBy = {
+    type: "vercel",
+    resourceId,
+  } as const;
+
+  const project = await context.models.projects.create({
+    name: payload.name,
+    managedBy,
+  });
 
   const sdkConnection = await createSDKConnection({
     organization: org.id,
@@ -364,6 +386,7 @@ export async function provisionResource(req: Request, res: Response) {
     hashSecureAttributes: false,
     projects: [project.id],
     encryptPayload: false,
+    managedBy,
   });
 
   const roleInfo = getDefaultRole(org);
@@ -373,12 +396,13 @@ export async function provisionResource(req: Request, res: Response) {
     description: `Team for vercel resource ${payload.name}`,
     organization: org.id,
     managedByIdp: false,
+    managedBy,
     ...roleInfo,
   });
 
   const resource: Resource = {
     ...payload,
-    id: uuidv4(),
+    id: resourceId,
     billingPlan,
     secrets: [{ name: "GROWTHBOOK_CLIENT_KEY", value: sdkConnection.key }],
     status: "ready",
@@ -444,6 +468,16 @@ export async function getResourceProducts(req: Request, res: Response) {
   return res.json({ plans: billingPlans });
 }
 
+async function removeManagedBy(
+  context: ReqContext,
+  managedBy: Partial<ManagedBy>
+) {
+  await updateSdkConnectionsRemoveManagedBy(context, managedBy);
+  await updateWebhooksRemoveManagedBy(context, managedBy);
+  await updateTeamRemoveManagedBy(context.org.id, managedBy);
+  await context.models.projects.removeManagedBy(managedBy);
+}
+
 export async function deleteResource(req: Request, res: Response) {
   const {
     context,
@@ -454,6 +488,8 @@ export async function deleteResource(req: Request, res: Response) {
   } = await authContext(req, res);
 
   if (!resource) return res.status(400).send("Resource not found!");
+
+  await removeManagedBy(context, { type: "vercel", resourceId: resource.id });
 
   await integrationModel.update(integration, {
     resources: integration.resources.filter((r) => r.id !== resource.id),
