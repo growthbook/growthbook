@@ -299,35 +299,45 @@ export default function ExecReport() {
                 style={{ width: "250px" }}
               />
             </label>
-            {dateRange === "custom" && (
-              <Flex mt="2">
-                <label className="mb-0 mr-2">From</label>
-                <DatePicker
-                  date={startDate}
-                  setDate={(sd) => {
-                    if (sd) {
-                      setStartDate(sd);
-                    }
-                  }}
-                  scheduleEndDate={endDate}
-                  precision="date"
-                  containerClassName=""
-                />
-                <label className="mb-0 mr-2">To</label>
-                <DatePicker
-                  date={endDate}
-                  setDate={(ed) => {
-                    if (ed) setEndDate(ed);
-                  }}
-                  scheduleStartDate={startDate}
-                  precision="date"
-                  containerClassName=""
-                />
-              </Flex>
-            )}
           </Box>
         </Flex>
       </Flex>
+      {dateRange === "custom" && (
+        <Flex
+          my="2"
+          justify="end"
+          align="center"
+          gap="3"
+          style={{ position: "relative", top: "-7px" }}
+        >
+          <Flex align="center">
+            <label className="mb-0 mr-2">From</label>
+            <DatePicker
+              date={startDate}
+              setDate={(sd) => {
+                if (sd) {
+                  setStartDate(sd);
+                }
+              }}
+              scheduleEndDate={endDate}
+              precision="date"
+              containerClassName=""
+            />
+          </Flex>
+          <Flex align="center">
+            <label className="mb-0 mr-2">To</label>
+            <DatePicker
+              date={endDate}
+              setDate={(ed) => {
+                if (ed) setEndDate(ed);
+              }}
+              scheduleStartDate={startDate}
+              precision="date"
+              containerClassName=""
+            />
+          </Flex>
+        </Flex>
+      )}
       {hasCommercialFeature("experiment-impact") ? (
         <Box className="appbox" p="4" px="4">
           <ExecExperimentImpact
@@ -385,13 +395,15 @@ export default function ExecReport() {
             !selectedProjects?.length && projects.length ? "40%" : "50%"
           }
         >
-          <ExecExperimentsGraph
-            selectedProjects={selectedProjects}
-            experiments={items}
-            dateRange={dateRange}
-            startDate={startDate}
-            endDate={endDate}
-          />
+          <Box>
+            <ExecExperimentsGraph
+              selectedProjects={selectedProjects}
+              experiments={items}
+              dateRange={dateRange}
+              startDate={startDate}
+              endDate={endDate}
+            />
+          </Box>
         </Box>
       </Flex>
       <Box>
