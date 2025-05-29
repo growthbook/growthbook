@@ -57,23 +57,6 @@ export class CustomFieldModel extends BaseClass {
     });
   }
 
-  public async customFieldsToApiInterface(
-    customFields: Record<string, unknown>
-  ): Promise<Record<string, unknown>> {
-    const customFieldDefinitions = await this.getCustomFields();
-    if (!customFieldDefinitions) {
-      return {};
-    }
-    return Object.fromEntries(
-      Object.entries(customFields).map(([k, v]) => {
-        const customField = customFieldDefinitions.fields.find(
-          (f) => f.id === k
-        );
-        return [customField?.name, v];
-      })
-    );
-  }
-
   /**
    * Because each organization should only have one set of custom fields,
    * this method will either create a new set of custom fields or update

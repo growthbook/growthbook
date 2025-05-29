@@ -416,9 +416,8 @@ export const createFeatureEvent = async <
 
     const safeRolloutMap = await eventData.context.models.safeRollout.getAllPayloadSafeRollouts();
 
-    const currentApiFeature = await getApiFeatureObj({
+    const currentApiFeature = getApiFeatureObj({
       feature: eventData.data.object,
-      context: eventData.context,
       organization: eventData.context.org,
       groupMap,
       experimentMap,
@@ -446,9 +445,8 @@ export const createFeatureEvent = async <
       version: eventData.data.previous_object.version,
     });
 
-    const previousApiFeature = await getApiFeatureObj({
+    const previousApiFeature = getApiFeatureObj({
       feature: eventData.data.previous_object,
-      context: eventData.context,
       organization: eventData.context.org,
       groupMap,
       experimentMap,
@@ -462,9 +460,8 @@ export const createFeatureEvent = async <
       objectId: eventData.data.object.id,
       data: {
         object: currentApiFeature,
-        previous_object: await getApiFeatureObj({
+        previous_object: getApiFeatureObj({
           feature: eventData.data.previous_object,
-          context: eventData.context,
           organization: eventData.context.org,
           groupMap,
           experimentMap,

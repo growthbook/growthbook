@@ -153,17 +153,16 @@ export default function CustomFieldModal({
       })}
     >
       <Field
-        label="Field Key"
+        label="Key"
         {...form.register("id")}
-        pattern="^[a-z0-9_-]+$" // TODO: double check this pattern
+        pattern="^[a-z0-9_-]+$"
         placeholder=""
         required={true}
-        title="Only lower case letters, numbers, and the characters '_-' allowed. No spaces."
+        title="Only lowercase letters, digits, underscores, and hyphens allowed. No spaces."
         helpText={
           <>
-            Only lower case letters, numbers, and the characters <code>_</code>{" "}
-            , and <code>-</code> allowed. No spaces.{" "}
-            <strong>Cannot be changed later!</strong>
+            Only lowercase letters, digits, underscores, and hyphens allowed. No
+            spaces. <strong>Cannot be changed later!</strong>
           </>
         }
         disabled={!!existing.id}

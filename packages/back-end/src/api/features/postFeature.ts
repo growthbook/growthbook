@@ -194,9 +194,8 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
     });
 
     return {
-      feature: await getApiFeatureObj({
+      feature: getApiFeatureObj({
         feature,
-        context: req.context,
         organization: req.organization,
         groupMap,
         experimentMap,

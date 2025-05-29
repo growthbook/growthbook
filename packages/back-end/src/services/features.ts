@@ -1215,9 +1215,8 @@ export async function encrypt(
   return bufToBase64(iv) + "." + bufToBase64(encryptedBuffer);
 }
 
-export async function getApiFeatureObj({
+export function getApiFeatureObj({
   feature,
-  context,
   organization,
   groupMap,
   experimentMap,
@@ -1226,14 +1225,13 @@ export async function getApiFeatureObj({
   safeRolloutMap,
 }: {
   feature: FeatureInterface;
-  context: ReqContext | ApiReqContext;
   organization: OrganizationInterface;
   groupMap: GroupMap;
   experimentMap: Map<string, ExperimentInterface>;
   revision: FeatureRevisionInterface | null;
   revisions?: FeatureRevisionInterface[];
   safeRolloutMap: Map<string, SafeRolloutInterface>;
-}): Promise<ApiFeatureWithRevisions> {
+}): ApiFeatureWithRevisions {
   const defaultValue = feature.defaultValue;
   const featureEnvironments: Record<string, ApiFeatureEnvironment> = {};
   const environments = getEnvironmentIdsFromOrg(organization);
@@ -1342,11 +1340,7 @@ export async function getApiFeatureObj({
       version: feature.version,
     },
     revisions: revisionDefs,
-    customFields: feature.customFields
-      ? await context.models.customFields.customFieldsToApiInterface(
-          feature.customFields
-        )
-      : {},
+    customFields: feature.customFields || {},
   };
 
   return featureRecord;

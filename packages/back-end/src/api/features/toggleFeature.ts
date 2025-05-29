@@ -74,9 +74,8 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
     });
     const safeRolloutMap = await req.context.models.safeRollout.getAllPayloadSafeRollouts();
     return {
-      feature: await getApiFeatureObj({
+      feature: getApiFeatureObj({
         feature: updatedFeature,
-        context: req.context,
         organization: req.organization,
         groupMap,
         experimentMap,

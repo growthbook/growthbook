@@ -55,9 +55,9 @@ export const postCustomField = async (
     throw new Error("Must specify field key");
   }
 
-  if (!id.match(/^[a-zA-Z0-9_.:|-]+$/)) {
+  if (!id.match(/^[a-z0-9_-]+$/)) {
     throw new Error(
-      "Custom field keys can only include letters, numbers, hyphens, and underscores."
+      "Custom field keys can only include lowercase letters, numbers, hyphens, and underscores."
     );
   }
   const existingFields = await context.models.customFields.getCustomFields();
