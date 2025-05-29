@@ -17,6 +17,7 @@ import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Frame from "@/components/Radix/Frame";
+import Badge from "@/components/Radix/Badge";
 
 function hasChanges(value: ProjectSettings, existing: ProjectSettings) {
   if (!existing) return true;
@@ -123,6 +124,16 @@ const ProjectPage: FC = () => {
             Back to all projects
           </Link>
         </div>
+        {p.managedBy?.type ? (
+          <div className="mb-2">
+            <Badge
+              label={`Managed by ${
+                p.managedBy.type.charAt(0).toUpperCase() +
+                p.managedBy.type.slice(1)
+              }`}
+            />
+          </div>
+        ) : null}
         <div className="d-flex align-items-center mb-2">
           <h1 className="mb-0">{p.name}</h1>
           <div className="ml-1">

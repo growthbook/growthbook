@@ -13,6 +13,7 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/components/Radix/Button";
+import Badge from "@/components/Radix/Badge";
 
 const ProjectsPage: FC = () => {
   const { projects, mutateDefinitions } = useDefinitions();
@@ -78,7 +79,9 @@ const ProjectsPage: FC = () => {
           <tbody>
             {projects.map((p) => {
               const canEdit = permissionsUtil.canUpdateProject(p.id);
-              const canDelete = permissionsUtil.canDeleteProject(p.id);
+              const canDelete =
+                // If the project has the `managedBy` property, we block deletion.
+                permissionsUtil.canDeleteProject(p.id) && !p.managedBy?.type;
               return (
                 <tr
                   key={p.id}
@@ -102,6 +105,16 @@ const ProjectsPage: FC = () => {
                     ) : (
                       <span className="font-weight-bold">{p.name}</span>
                     )}
+                    {p.managedBy?.type ? (
+                      <div>
+                        <Badge
+                          label={`Managed by ${
+                            p.managedBy.type.charAt(0).toUpperCase() +
+                            p.managedBy.type.slice(1)
+                          }`}
+                        />
+                      </div>
+                    ) : null}
                   </td>
                   <td className="pr-5 text-gray" style={{ fontSize: 12 }}>
                     {p.description}
