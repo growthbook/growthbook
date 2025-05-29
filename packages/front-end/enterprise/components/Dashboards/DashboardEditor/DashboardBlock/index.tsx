@@ -1,5 +1,5 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { ExperimentReportInterface } from "back-end/src/enterprise/validators/experiment-report";
+import { DashboardBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
 import SnapshotProvider from "@/components/Experiment/SnapshotProvider";
 import MarkdownBlock from "./MarkdownBlock";
 import MetadataBlock from "./MetadataBlock";
@@ -8,17 +8,15 @@ import VariationImageBlock from "./VariationImageBlock";
 import DimensionBlock from "./DimensionBlock";
 import TimeSeriesBlock from "./TimeSeriesBlock";
 
-export type Block = ExperimentReportInterface["content"][number];
-
 interface Props {
-  block: Block;
+  block: DashboardBlockInterface;
   isEditing: boolean;
-  setBlock: (block: Block) => void;
+  setBlock: (block: DashboardBlockInterface) => void;
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
 }
 
-export default function ReportBlock({
+export default function DashboardBlock({
   block,
   isEditing,
   setBlock,

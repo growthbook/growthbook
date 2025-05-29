@@ -36,7 +36,7 @@ import BanditSummaryResultsTab from "@/components/Experiment/TabbedPage/BanditSu
 import Button from "@/components/Radix/Button";
 import PremiumCallout from "@/components/Radix/PremiumCallout";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import ReportsTab from "@/enterprise/components/ExperimentReports/ReportsTab";
+import DashboardsTab from "@/enterprise/components/Dashboards/DashboardsTab";
 import ExperimentHeader from "./ExperimentHeader";
 import SetupTabOverview from "./SetupTabOverview";
 import Implementation from "./Implementation";
@@ -48,7 +48,7 @@ const experimentTabs = [
   "overview",
   "results",
   "explore",
-  "reports",
+  "dashboards",
   "health",
 ] as const;
 export type ExperimentTab = typeof experimentTabs[number];
@@ -476,10 +476,10 @@ export default function TabbedPage({
       <div
         className={clsx(
           "pt-3",
-          tab === "reports" ? "d-block" : "d-none d-print-block"
+          tab === "dashboards" ? "d-block" : "d-none d-print-block"
         )}
       >
-        <ReportsTab experiment={experiment} mutate={mutate} />
+        <DashboardsTab experiment={experiment} mutate={mutate} />
       </div>
       <div
         className={
