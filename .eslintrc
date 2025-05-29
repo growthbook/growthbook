@@ -101,15 +101,6 @@
   "overrides": [
     {
       "files": [
-        "./packages/sdk-js/rollup.config.js",
-        "./packages/sdk-react/rollup.config.js"
-      ],
-      "rules": {
-        "import/no-named-as-default": "off"
-      }
-    },
-    {
-      "files": [
         "./packages/back-end/src/**/*.ts*",
         "./packages/back-end/types/**/*.ts*",
         "./packages/front-end/**/*.ts*"

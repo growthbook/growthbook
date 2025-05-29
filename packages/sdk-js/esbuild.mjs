@@ -11,6 +11,7 @@ const bundleOptions = {
     __SDK_VERSION__: JSON.stringify(version),
   },
   bundle: true,
+  target: ["es2020"],
 };
 
 const rawOptions = {
@@ -19,6 +20,8 @@ const rawOptions = {
     __SDK_VERSION__: JSON.stringify(version),
   },
   entryPoints: ["src/**/*.ts"],
+  // This is the only one used by Node, so want to make sure we go back to Node 16
+  target: ["es2020", "node16"],
 };
 
 const minifyOptions = {

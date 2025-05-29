@@ -9,7 +9,7 @@ export {
   getDebugEvent,
 } from "./devtools";
 
-// Types must be exported separately, otherwise rollup includes them in the javascript output which breaks things
+// Types must be exported separately, otherwise they are included in the javascript output which breaks things
 export type {
   DevtoolsState,
   ExpressRequestCompat,
