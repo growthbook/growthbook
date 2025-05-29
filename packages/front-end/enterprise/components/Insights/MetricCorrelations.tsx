@@ -109,13 +109,16 @@ const MetricCorrelations = (): React.ReactElement => {
     },
     [correlationCards]
   );
+  const filteredExperiments = experiments.filter(
+    (e) => e.type !== "multi-armed-bandit"
+  );
 
   return (
     <Box>
       {correlationCards.map((index) => (
         <Box key={index}>
           <MetricCorrelationCard
-            experiments={experiments}
+            experiments={filteredExperiments}
             index={index}
             deleteCard={deleteCard}
             params={params.find((p) => p.idx === index)}

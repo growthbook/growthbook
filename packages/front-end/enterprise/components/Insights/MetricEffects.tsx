@@ -164,12 +164,15 @@ const MetricEffects = (): React.ReactElement => {
     [metricCards]
   );
 
+  const filteredExperiments = experiments.filter(
+    (e) => e.type !== "multi-armed-bandit"
+  );
   return (
     <Box>
       {metricCards.map((index) => (
         <Box key={index}>
           <MetricEffectCard
-            experiments={experiments}
+            experiments={filteredExperiments}
             index={index}
             deleteCard={deleteCard}
             params={params.find((p) => p.idx === index)}
