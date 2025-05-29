@@ -5,10 +5,17 @@ import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { CursorData } from "@/components/Segments/SegmentForm";
 import Field, { FieldProps } from "./Field";
 
+export type AceCompletion = {
+  caption: string;
+  value: string;
+  meta: string;
+  score: number;
+};
+
 const AceEditor = dynamic(
   async () => {
     const reactAce = await import("react-ace");
-    await import("ace-builds/src-min-noconflict/ext-language_tools");
+    await import("ace-builds/src-noconflict/ext-language_tools");
     await import("ace-builds/src-noconflict/mode-sql");
     await import("ace-builds/src-noconflict/mode-javascript");
     await import("ace-builds/src-noconflict/mode-python");
@@ -39,6 +46,7 @@ export type Props = Omit<
   maxLines?: number;
   fullHeight?: boolean;
   onCtrlEnter?: () => void;
+  completions?: AceCompletion[];
   resizeDependency?: boolean;
 };
 
@@ -56,13 +64,12 @@ export default function CodeTextArea({
   fullHeight,
   onCtrlEnter,
   resizeDependency,
+  completions,
   ...otherProps
 }: Props) {
   // eslint-disable-next-line
   const fieldProps = otherProps as any;
-
   const { theme } = useAppearanceUITheme();
-
   const [editor, setEditor] = useState<null | Ace.Editor>(null);
 
   // HACK: AceEditor doesn't automatically resize when the parent div resizes
@@ -92,6 +99,59 @@ export default function CodeTextArea({
     );
   }, [editor, onCtrlEnter]);
 
+  useEffect(() => {
+    if (typeof window !== "undefined" && editor) {
+      import("ace-builds").then((ace) => {
+        const langTools = ace.require("ace/ext/language_tools");
+
+        if (completions && Array.isArray(completions)) {
+          // Clear existing completers
+          langTools.setCompleters([]);
+
+          // Add our custom completer for templates
+          const customCompleter = {
+            getCompletions: (
+              editor: Ace.Editor,
+              session: Ace.EditSession,
+              pos: Ace.Position,
+              prefix: string,
+              callback: (err: unknown, results: AceCompletion[]) => void
+            ) => {
+              // Filter completions based on the current prefix
+              const filteredCompletions = completions.filter((completion) => {
+                if (!prefix || prefix.trim() === "") {
+                  return true;
+                }
+
+                const lowerPrefix = prefix.toLowerCase();
+                const lowerValue = completion.value.toLowerCase();
+                const lowerCaption = completion.caption.toLowerCase();
+
+                // Helper function to check if any part (split by dots) starts with prefix e.g. database.schema.table
+                const checkParts = (text: string) => {
+                  if (text.includes(".")) {
+                    return text
+                      .split(".")
+                      .some((part) => part.startsWith(lowerPrefix));
+                  }
+                  return text.startsWith(lowerPrefix);
+                };
+
+                return checkParts(lowerValue) || checkParts(lowerCaption);
+              });
+
+              callback(null, filteredCompletions);
+            },
+            // Add identifier regex that includes { to trigger on curly braces
+            identifierRegexps: [/[a-zA-Z_0-9{]/],
+          };
+
+          langTools.addCompleter(customCompleter);
+        }
+      });
+    }
+  }, [completions, editor, language]);
+
   return (
     <Field
       {...fieldProps}
@@ -111,6 +171,14 @@ export default function CodeTextArea({
                 placeholder={placeholder}
                 fontSize="1em"
                 {...heightProps}
+                setOptions={
+                  language === "sql"
+                    ? {
+                        enableBasicAutocompletion: true,
+                        enableLiveAutocompletion: true,
+                      }
+                    : undefined
+                }
                 readOnly={fieldProps.disabled}
                 onCursorChange={(e) =>
                   setCursorData &&

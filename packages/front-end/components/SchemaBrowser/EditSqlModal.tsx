@@ -1,13 +1,18 @@
 import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FaPlay } from "react-icons/fa";
-import { TestQueryRow } from "back-end/src/types/Integration";
+import { BsThreeDotsVertical } from "react-icons/bs";
+import {
+  InformationSchemaInterface,
+  TestQueryRow,
+} from "back-end/src/types/Integration";
 import clsx from "clsx";
 import { TemplateVariables } from "back-end/types/sql";
+import { IconButton } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { validateSQL } from "@/services/datasources";
-import CodeTextArea from "@/components/Forms/CodeTextArea";
+import CodeTextArea, { AceCompletion } from "@/components/Forms/CodeTextArea";
 import Modal from "@/components/Modal";
 import { CursorData } from "@/components/Segments/SegmentForm";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
@@ -19,6 +24,13 @@ import {
 import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import useApi from "@/hooks/useApi";
+import { getAutoCompletions } from "@/services/sqlAutoComplete";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+} from "@/components/Radix/DropdownMenu";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import SchemaBrowser from "./SchemaBrowser";
 import styles from "./EditSqlModal.module.scss";
 
@@ -60,6 +72,11 @@ export default function EditSqlModal({
     setTestQueryResults,
   ] = useState<TestQueryResults | null>(null);
   const [testQueryBeforeSaving, setTestQueryBeforeSaving] = useState(true);
+  const [autoCompletions, setAutoCompletions] = useState<AceCompletion[]>([]);
+  const [isAutocompleteEnabled, setIsAutocompleteEnabled] = useLocalStorage(
+    "sql-editor-autocomplete-enabled",
+    true
+  );
   const form = useForm({
     defaultValues: {
       sql: value,
@@ -149,6 +166,37 @@ export default function EditSqlModal({
   const hasEventName = usesEventName(form.watch("sql"));
   const hasValueCol = usesValueColumn(form.watch("sql"));
 
+  const { data } = useApi<{
+    informationSchema: InformationSchemaInterface;
+  }>(`/datasource/${datasourceId}/schema`);
+
+  const informationSchema = data?.informationSchema;
+
+  // Update autocompletions when cursor or schema changes
+  useEffect(() => {
+    const updateCompletions = async () => {
+      if (!isAutocompleteEnabled) {
+        setAutoCompletions([]);
+        return;
+      }
+      const completions = await getAutoCompletions(
+        cursorData,
+        informationSchema,
+        apiCall,
+        templateVariables?.eventName
+      );
+      setAutoCompletions(completions);
+    };
+
+    updateCompletions();
+  }, [
+    cursorData,
+    informationSchema,
+    apiCall,
+    templateVariables?.eventName,
+    isAutocompleteEnabled,
+  ]);
+
   useEffect(() => {
     if (!canRunQueries) setTestQueryBeforeSaving(false);
   }, [canRunQueries]);
@@ -237,13 +285,36 @@ export default function EditSqlModal({
                   </Tooltip>
                 </div>
                 {Array.from(requiredColumns).length > 0 && (
-                  <div className="col-auto ml-auto pr-3">
+                  <div className="col-auto ml-auto pr-3 d-flex align-items-center">
                     <strong>Required Columns:</strong>
                     {Array.from(requiredColumns).map((col) => (
                       <code className="mx-1 border p-1" key={col}>
                         {col}
                       </code>
                     ))}
+                    <DropdownMenu
+                      trigger={
+                        <IconButton
+                          variant="ghost"
+                          color="gray"
+                          radius="full"
+                          size="3"
+                          className="ml-2"
+                        >
+                          <BsThreeDotsVertical size={16} />
+                        </IconButton>
+                      }
+                    >
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setIsAutocompleteEnabled(!isAutocompleteEnabled);
+                        }}
+                      >
+                        {isAutocompleteEnabled
+                          ? "Disable Autocomplete"
+                          : "Enable Autocomplete"}
+                      </DropdownMenuItem>
+                    </DropdownMenu>
                   </div>
                 )}
               </div>
@@ -309,6 +380,7 @@ export default function EditSqlModal({
                 setCursorData={setCursorData}
                 onCtrlEnter={handleTestQuery}
                 resizeDependency={!!testQueryResults}
+                completions={autoCompletions}
               />
             </div>
             {testQueryResults && (
