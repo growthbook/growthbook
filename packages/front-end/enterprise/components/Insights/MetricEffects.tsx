@@ -215,7 +215,6 @@ const MetricEffectCard = ({
     ExperimentWithSnapshot[]
   >([]);
   const [loading, setLoading] = useState<boolean>(false);
-
   const [metric, setMetric] = useState<string>(params?.metric || "");
   const [searchParams, setSearchParams] = useState<Record<string, string>>({});
   const [differenceType, setDifferenceType] = useState<DifferenceType>(
@@ -226,6 +225,7 @@ const MetricEffectCard = ({
     stats:
       | {
           numExperiments: number;
+          numVariations: number;
           mean: number;
           standardDeviation: number;
         }
@@ -244,12 +244,13 @@ const MetricEffectCard = ({
   const formatterM1 = !metricObj
     ? formatPercent
     : differenceType === "relative"
-    ? formatNumber
+    ? formatPercent
     : getExperimentMetricFormatter(
         metricObj,
         getFactTableById,
         differenceType === "absolute" ? "percentagePoints" : "number"
       );
+
   const formatterOptions: Intl.NumberFormatOptions = {
     currency: displayCurrency,
     ...(differenceType === "relative" ? { maximumFractionDigits: 1 } : {}),
@@ -264,6 +265,7 @@ const MetricEffectCard = ({
     setLoading(true);
 
     const filteredExperiments = filterExperimentsByMetrics(experiments, metric);
+    const experimentsWithData = new Map<string, ExperimentWithSnapshot>();
 
     setSearchParams({
       [`metric_${index}`]: metric,
@@ -273,6 +275,7 @@ const MetricEffectCard = ({
     const queryIds = filteredExperiments
       .map((e) => encodeURIComponent(e.id))
       .join(",");
+
     try {
       const { snapshots } = await apiCall<{
         snapshots: ExperimentSnapshotInterface[];
@@ -280,17 +283,16 @@ const MetricEffectCard = ({
         method: "GET",
       });
 
-      if (snapshots && snapshots.length > 0) {
-        setExperimentsWithSnapshot(
-          filteredExperiments.map((e) => ({
-            ...e,
-            snapshot: snapshots.find((s) => s.experiment === e.id) ?? undefined,
-          }))
-        );
+      setExperimentsWithSnapshot(
+        filteredExperiments.map((e) => ({
+          ...e,
+          snapshot: snapshots.find((s) => s.experiment === e.id) ?? undefined,
+        }))
+      );
 
+      if (snapshots && snapshots.length > 0) {
         const histogramValues: number[] = [];
         let numExperiments = 0;
-        const multiplier = differenceType === "relative" ? 100 : 1;
 
         snapshots.forEach((snapshot) => {
           const experiment = filteredExperiments.find(
@@ -305,7 +307,6 @@ const MetricEffectCard = ({
             ...defaultAnalysis.settings,
             differenceType: differenceType,
           });
-          // TODO keep track of experiments missing difference type analysis
 
           if (!analysis) return;
 
@@ -320,23 +321,26 @@ const MetricEffectCard = ({
             const metricData = variation.metrics[metric];
 
             if (metricData && !metricData.errorMessage) {
-              histogramValues.push(multiplier * (metricData.uplift?.mean || 0));
+              experimentsWithData.set(experiment.id, {
+                ...experiment,
+                snapshot: snapshot,
+              });
+
+              histogramValues.push(metricData.uplift?.mean || 0);
             }
           });
         });
         const metricMean =
-          histogramValues.reduce((a, b) => a + b / multiplier, 0) /
-          histogramValues.length;
+          histogramValues.reduce((a, b) => a + b, 0) / histogramValues.length;
         const metricStandardDeviation = Math.sqrt(
-          histogramValues.reduce(
-            (a, b) => a + Math.pow(b / multiplier - metricMean, 2),
-            0
-          ) / histogramValues.length
+          histogramValues.reduce((a, b) => a + Math.pow(b - metricMean, 2), 0) /
+            histogramValues.length
         );
         setMetricData({
           histogramData: createHistogramData(histogramValues),
           stats: {
             numExperiments: numExperiments,
+            numVariations: histogramValues.length,
             mean: metricMean,
             standardDeviation: metricStandardDeviation,
           },
@@ -354,6 +358,7 @@ const MetricEffectCard = ({
         stats: undefined,
       });
     } finally {
+      setExperimentsWithSnapshot(Array.from(experimentsWithData.values()));
       setLoading(false);
     }
   }, [metric, experiments, differenceType, setSearchParams, index, apiCall]);
@@ -364,6 +369,44 @@ const MetricEffectCard = ({
 
   return (
     <Box className="">
+      {/* TODO: add when experiment filter component lands */}
+      {/* <Flex align="center" gap="2" className="mb-3" justify="between">
+        {experimentFilter ? (
+          <>
+            <Box flexBasis="40%" flexShrink="1" flexGrow="0">
+              <Field
+                  placeholder="Search..."
+                  type="search"
+                  {...searchInputProps}
+                />
+            </Box>
+            <Box>
+              <ExperimentSearchFilters
+                  experiments={experiments}
+                  syntaxFilters={syntaxFilters}
+                  searchInputProps={searchInputProps}
+                  setSearchValue={setSearchValue}
+                />
+            </Box>
+            <Box>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setExperimentFilter(false);
+                  // TODO remove params
+                  //setSearchParams({});
+                }}
+              >
+                Remove All Filters
+              </Button>
+            </Box>
+          </>
+        ) : (
+          <Button variant="ghost" onClick={() => setExperimentFilter(true)}>
+            <BiFilter /> Filter Eligible Experiments
+          </Button>
+        )}
+      </Flex> */}
       <Box className="appbox appbox-light p-3">
         <Flex direction="row" align="center" justify="between" width="100%">
           <Flex direction="row" gap="4" flexBasis="100%">
@@ -447,6 +490,10 @@ const MetricEffectCard = ({
                       <Text as="p" color="gray">
                         Number of Experiments with Results:{" "}
                         {metricData.stats?.numExperiments}
+                      </Text>
+                      <Text as="p" color="gray">
+                        Number of Variations with Results:{" "}
+                        {metricData.stats?.numVariations}
                       </Text>
                       <Text as="p" color="gray">
                         Mean:{" "}
