@@ -12,6 +12,7 @@ import { useEnvironments } from "@/services/features";
 import { roleHasAccessToEnv, useAuth } from "@/services/auth";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Badge from "@/components/Radix/Badge";
 
 const TeamsList: FC = () => {
   const { teams, refreshOrganization, organization } = useUser();
@@ -43,6 +44,8 @@ const TeamsList: FC = () => {
             </thead>
             <tbody>
               {teams.map((t) => {
+                const teamIsExternallyManaged =
+                  t.managedBy?.type || t.managedByIdp;
                 return (
                   <tr
                     key={t.id}
@@ -60,6 +63,16 @@ const TeamsList: FC = () => {
                           {t.name}
                         </Link>
                       }
+                      {t.managedBy?.type ? (
+                        <div>
+                          <Badge
+                            label={`Managed by ${
+                              t.managedBy.type.charAt(0).toUpperCase() +
+                              t.managedBy.type.slice(1)
+                            }`}
+                          />
+                        </div>
+                      ) : null}
                     </td>
                     <td className="pr-5 text-gray" style={{ fontSize: 12 }}>
                       {t.description}
@@ -104,7 +117,7 @@ const TeamsList: FC = () => {
                     })}
                     <td>{t.members ? t.members.length : 0}</td>
                     <td onClick={(e) => e.stopPropagation()}>
-                      {(canManageTeam && !t.managedByIdp && (
+                      {(canManageTeam && !teamIsExternallyManaged && (
                         <>
                           <DeleteButton
                             link={true}
