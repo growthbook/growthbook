@@ -1340,7 +1340,7 @@ export function getApiFeatureObj({
       version: feature.version,
     },
     revisions: revisionDefs,
-    customFields: feature.customFields || {},
+    customFields: feature.customFields ?? {},
   };
 
   return featureRecord;
