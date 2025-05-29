@@ -60,6 +60,11 @@ import {
 } from "back-end/src/services/clickhouse";
 import { FactTableColumnType } from "back-end/types/fact-table";
 import { factTableColumnTypes } from "back-end/src/routers/fact-table/fact-table.validators";
+import {
+  getFactTablesForDatasource,
+  updateFactTable,
+} from "back-end/src/models/FactTableModel";
+import { runRefreshColumnsQuery } from "back-end/src/jobs/refreshFactTableColumns";
 
 export async function deleteDataSource(
   req: AuthRequest<null, { id: string }>,
@@ -921,6 +926,12 @@ export async function postMaterializedColumn(
 
     await updateDataSource(context, datasource, updates);
 
+    const factTables = await getFactTablesForDatasource(context, datasource.id);
+    for (const ft of factTables) {
+      const columns = await runRefreshColumnsQuery(context, datasource, ft);
+      await updateFactTable(context, ft, { columns });
+    }
+
     const integration = getSourceIntegrationObject(context, {
       ...datasource,
       ...updates,
@@ -1026,6 +1037,12 @@ export async function updateMaterializedColumn(
       });
     }
     await updateDataSource(context, datasource, updates);
+
+    const factTables = await getFactTablesForDatasource(context, datasource.id);
+    for (const ft of factTables) {
+      const columns = await runRefreshColumnsQuery(context, datasource, ft);
+      await updateFactTable(context, ft, { columns });
+    }
 
     const integration = getSourceIntegrationObject(context, {
       ...datasource,
