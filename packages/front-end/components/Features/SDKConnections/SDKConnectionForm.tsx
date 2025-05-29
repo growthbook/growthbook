@@ -329,19 +329,20 @@ export default function SDKConnectionForm({
   }, [languages, languageError, setLanguageError]);
 
   // If the SDK Connection is externally managed, filter the environments that are in 'All Projects' or where the current project is included
-  const filteredEnvironments = initialValue.managedBy?.type
-    ? environments.filter((e) => {
-        if (!e.projects?.length) {
-          return true;
-        }
-        if (
-          initialValue.projects?.[0] &&
-          e.projects?.includes(initialValue.projects?.[0])
-        ) {
-          return true;
-        }
-      })
-    : environments;
+  const filteredEnvironments =
+    initialValue.managedBy?.type === "vercel"
+      ? environments.filter((e) => {
+          if (!e.projects?.length) {
+            return true;
+          }
+          if (
+            initialValue.projects?.[0] &&
+            e.projects?.includes(initialValue.projects?.[0])
+          ) {
+            return true;
+          }
+        })
+      : environments;
 
   return (
     <Modal
@@ -510,8 +511,8 @@ export default function SDKConnectionForm({
             value={form.watch("environment")}
             onChange={(env) => {
               form.setValue("environment", env);
-              // Only reset projects when environment changes if the SDK Connection is not externally managed
-              if (!initialValue.managedBy?.type) {
+              // Only reset projects when environment changes if the SDK Connection is not externally managed by vercel
+              if (initialValue.managedBy?.type !== "vercel") {
                 form.setValue("projects", []);
               }
             }}
@@ -566,7 +567,7 @@ export default function SDKConnectionForm({
             containerClassName="w-100"
             value={form.watch("projects") || []}
             onChange={(projects) => form.setValue("projects", projects)}
-            disabled={!!initialValue.managedBy?.type}
+            disabled={initialValue.managedBy?.type === "vercel"}
             options={projectsOptions}
             sort={false}
             closeMenuOnSelect={true}
