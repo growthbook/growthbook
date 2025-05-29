@@ -17,6 +17,7 @@ import PageHead from "@/components/Layout/PageHead";
 import SdkWebhooks from "@/pages/sdks/SdkWebhooks";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ConnectionDiagram from "@/components/Features/SDKConnections/ConnectionDiagram";
+import Badge from "@/components/Radix/Badge";
 
 export default function SDKConnectionPage() {
   const router = useRouter();
@@ -50,7 +51,9 @@ export default function SDKConnectionPage() {
 
   const canDuplicate = permissionsUtil.canCreateSDKConnection(connection);
   const canUpdate = permissionsUtil.canUpdateSDKConnection(connection, {});
-  const canDelete = permissionsUtil.canDeleteSDKConnection(connection);
+  const canDelete =
+    permissionsUtil.canDeleteSDKConnection(connection) &&
+    !connection.managedBy?.type;
 
   return (
     <div className="contents container pagecontents">
@@ -69,6 +72,17 @@ export default function SDKConnectionPage() {
           { display: connection.name },
         ]}
       />
+
+      {connection.managedBy?.type ? (
+        <div className="mb-2">
+          <Badge
+            label={`Managed by ${
+              connection.managedBy.type.charAt(0).toUpperCase() +
+              connection.managedBy.type.slice(1)
+            }`}
+          />
+        </div>
+      ) : null}
 
       <div className="row align-items-center mb-2">
         <h1 className="col-auto mb-0">{connection.name}</h1>

@@ -276,6 +276,16 @@ export default function SDKConnectionsList() {
                     <Link href={`/sdks/${connection.id}`}>
                       {connection.name}
                     </Link>
+                    {connection.managedBy?.type ? (
+                      <div>
+                        <Badge
+                          label={`Managed by ${
+                            connection.managedBy.type.charAt(0).toUpperCase() +
+                            connection.managedBy.type.slice(1)
+                          }`}
+                        />
+                      </div>
+                    ) : null}
                   </td>
                   {projects.length > 0 && (
                     <td>
