@@ -292,7 +292,6 @@ const MetricEffectCard = ({
 
       if (snapshots && snapshots.length > 0) {
         const histogramValues: number[] = [];
-        let numExperiments = 0;
 
         snapshots.forEach((snapshot) => {
           const experiment = filteredExperiments.find(
@@ -312,8 +311,6 @@ const MetricEffectCard = ({
 
           const result = analysis.results[0];
           if (!result) return;
-
-          numExperiments++;
 
           result.variations.forEach((variation, variationIndex) => {
             if (variationIndex === 0) return; // Skip baseline
@@ -339,7 +336,7 @@ const MetricEffectCard = ({
         setMetricData({
           histogramData: createHistogramData(histogramValues),
           stats: {
-            numExperiments: numExperiments,
+            numExperiments: experimentsWithData.size,
             numVariations: histogramValues.length,
             mean: metricMean,
             standardDeviation: metricStandardDeviation,
