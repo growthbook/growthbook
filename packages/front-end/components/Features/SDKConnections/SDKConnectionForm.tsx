@@ -42,6 +42,7 @@ import { DocLink } from "@/components/DocLink";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import Checkbox from "@/components/Radix/Checkbox";
+import Callout from "@/components/Radix/Callout";
 import SDKLanguageSelector from "./SDKLanguageSelector";
 import {
   LanguageType,
@@ -328,6 +329,9 @@ export default function SDKConnectionForm({
     }
   }, [languages, languageError, setLanguageError]);
 
+  const isExternallyManaged = !!initialValue.managedBy?.type;
+  const canEdit = edit ? !isExternallyManaged : true;
+
   return (
     <Modal
       trackingEventModalType=""
@@ -403,180 +407,201 @@ export default function SDKConnectionForm({
       cta={cta}
     >
       <div className="px-2 pb-2">
+        {edit && initialValue.managedBy?.type && (
+          <div className="mb-2">
+            <Callout status="info">
+              <span>
+                {`This SDK Connection is managed by ${
+                  initialValue.managedBy?.type.charAt(0).toUpperCase() +
+                  initialValue.managedBy?.type.slice(1)
+                }. You can
+                only edit the name.`}
+              </span>
+            </Callout>
+          </div>
+        )}
         <Field label="Name" {...form.register("name")} required />
 
-        <div className="mb-4">
-          <div className="form-group">
-            <label>SDK Language</label>
-            {languageError ? (
-              <span className="ml-3 alert px-1 py-0 mb-0 alert-danger">
-                {languageError}
-              </span>
-            ) : null}
-            <SDKLanguageSelector
-              value={form.watch("languages")}
-              setValue={(languages) => {
-                form.setValue("languages", languages);
-                if (languages?.length === 1) {
-                  form.setValue(
-                    "sdkVersion",
-                    getLatestSDKVersion(languages[0])
-                  );
-                }
+        {canEdit ? (
+          <div className="mb-4">
+            <div className="form-group">
+              <label>SDK Language</label>
+              {languageError ? (
+                <span className="ml-3 alert px-1 py-0 mb-0 alert-danger">
+                  {languageError}
+                </span>
+              ) : null}
+              <SDKLanguageSelector
+                value={form.watch("languages")}
+                setValue={(languages) => {
+                  form.setValue("languages", languages);
+                  if (languages?.length === 1) {
+                    form.setValue(
+                      "sdkVersion",
+                      getLatestSDKVersion(languages[0])
+                    );
+                  }
+                }}
+                languageFilter={languageFilter}
+                setLanguageFilter={setLanguageFilter}
+                multiple={form.watch("languages").length > 1}
+                includeOther={true}
+                skipLabel={form.watch("languages").length <= 1}
+                hideShowAllLanguages={true}
+              />
+            </div>
+
+            {form.watch("languages")?.length === 1 &&
+              !form.watch("languages")[0].match(/^(other|nocode-.*)$/) && (
+                <div className="form-group" style={{ marginTop: -10 }}>
+                  <label>SDK version</label>
+                  <div className="d-flex align-items-center">
+                    <SelectField
+                      style={{ width: 180 }}
+                      className="mr-4"
+                      placeholder="0.0.0"
+                      autoComplete="off"
+                      sort={false}
+                      options={getSDKVersions(
+                        form.watch("languages")[0]
+                      ).map((ver) => ({ label: ver, value: ver }))}
+                      createable={true}
+                      isClearable={false}
+                      value={
+                        form.watch("sdkVersion") ||
+                        getDefaultSDKVersion(languages[0])
+                      }
+                      onChange={(v) => form.setValue("sdkVersion", v)}
+                      formatOptionLabel={({ value, label }) => {
+                        const latest = getLatestSDKVersion(
+                          form.watch("languages")[0]
+                        );
+                        return (
+                          <span>
+                            {label}
+                            {value === latest && (
+                              <span
+                                className="text-muted uppercase-title float-right position-relative"
+                                style={{ top: 3 }}
+                              >
+                                latest
+                              </span>
+                            )}
+                          </span>
+                        );
+                      }}
+                    />
+                    {!usingLatestVersion && (
+                      <a
+                        role="button"
+                        className="small"
+                        onClick={useLatestSdkVersion}
+                      >
+                        Use latest
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
+          </div>
+        ) : null}
+
+        {canEdit ? (
+          <div className="mb-4">
+            <SelectField
+              label="Environment"
+              required
+              disabled={!!initialValue.managedBy?.type}
+              placeholder="Choose one..."
+              value={form.watch("environment")}
+              onChange={(env) => {
+                form.setValue("environment", env);
+                form.setValue("projects", []); // Reset projects when environment changes
               }}
-              languageFilter={languageFilter}
-              setLanguageFilter={setLanguageFilter}
-              multiple={form.watch("languages").length > 1}
-              includeOther={true}
-              skipLabel={form.watch("languages").length <= 1}
-              hideShowAllLanguages={true}
+              options={environments.map((e) => ({ label: e.id, value: e.id }))}
+              sort={false}
+              formatOptionLabel={({ value, label }) => {
+                const selectedEnvironment = environments.find(
+                  (e) => e.id === value
+                );
+                const numProjects = selectedEnvironment?.projects?.length ?? 0;
+                return (
+                  <div className="d-flex align-items-center">
+                    <div>{label}</div>
+                    <div className="flex-1" />
+                    {numProjects > 0 ? (
+                      <div className="text-muted small">
+                        Includes {numProjects} project
+                        {numProjects === 1 ? "" : "s"}
+                      </div>
+                    ) : (
+                      <div className="text-muted small font-italic">
+                        Includes all projects
+                      </div>
+                    )}
+                  </div>
+                );
+              }}
             />
           </div>
+        ) : null}
 
-          {form.watch("languages")?.length === 1 &&
-            !form.watch("languages")[0].match(/^(other|nocode-.*)$/) && (
-              <div className="form-group" style={{ marginTop: -10 }}>
-                <label>SDK version</label>
-                <div className="d-flex align-items-center">
-                  <SelectField
-                    style={{ width: 180 }}
-                    className="mr-4"
-                    placeholder="0.0.0"
-                    autoComplete="off"
-                    sort={false}
-                    options={getSDKVersions(
-                      form.watch("languages")[0]
-                    ).map((ver) => ({ label: ver, value: ver }))}
-                    createable={true}
-                    isClearable={false}
-                    value={
-                      form.watch("sdkVersion") ||
-                      getDefaultSDKVersion(languages[0])
-                    }
-                    onChange={(v) => form.setValue("sdkVersion", v)}
-                    formatOptionLabel={({ value, label }) => {
-                      const latest = getLatestSDKVersion(
-                        form.watch("languages")[0]
-                      );
-                      return (
-                        <span>
-                          {label}
-                          {value === latest && (
-                            <span
-                              className="text-muted uppercase-title float-right position-relative"
-                              style={{ top: 3 }}
-                            >
-                              latest
-                            </span>
-                          )}
-                        </span>
-                      );
-                    }}
-                  />
-                  {!usingLatestVersion && (
-                    <a
-                      role="button"
-                      className="small"
-                      onClick={useLatestSdkVersion}
-                    >
-                      Use latest
-                    </a>
-                  )}
-                </div>
+        {canEdit ? (
+          <div className="mb-4">
+            <label>
+              Filter by Projects{" "}
+              <Tooltip
+                body={`The dropdown below has been filtered to only include projects where you have permission to ${
+                  edit ? "update" : "create"
+                } SDK Connections.`}
+              />
+              {!!selectedProjects?.length && (
+                <> ({selectedValidProjects?.length ?? 0})</>
+              )}
+            </label>
+            <MultiSelectField
+              placeholder={
+                environmentHasProjects
+                  ? "All Environment Projects"
+                  : "All Projects"
+              }
+              containerClassName="w-100"
+              value={form.watch("projects") || []}
+              onChange={(projects) => form.setValue("projects", projects)}
+              options={projectsOptions}
+              sort={false}
+              closeMenuOnSelect={true}
+              formatOptionLabel={({ value, label }) => {
+                const disallowed = disallowedProjects?.find(
+                  (p) => p.id === value
+                );
+                return disallowed ? (
+                  <Tooltip body="This project is not allowed in the selected environment and will not be included in the SDK payload.">
+                    <del className="text-danger">
+                      <FaExclamationTriangle className="mr-1" />
+                      {label}
+                    </del>
+                  </Tooltip>
+                ) : (
+                  label
+                );
+              }}
+            />
+            {disallowedProjects.length > 0 && (
+              <div className="text-danger mt-2 small px-1">
+                <FaExclamationTriangle className="mr-1" />
+                This SDK Connection references {disallowedProjects.length}{" "}
+                project
+                {disallowedProjects.length !== 1 && "s"} that{" "}
+                {disallowedProjects.length === 1 ? "is" : "are"} not allowed in
+                the selected environment. This may have occurred as a result of
+                a project being removed from the selected environment.
               </div>
             )}
-        </div>
+          </div>
+        ) : null}
 
-        <div className="mb-4">
-          <SelectField
-            label="Environment"
-            required
-            placeholder="Choose one..."
-            value={form.watch("environment")}
-            onChange={(env) => {
-              form.setValue("environment", env);
-              form.setValue("projects", []); // Reset projects when environment changes
-            }}
-            options={environments.map((e) => ({ label: e.id, value: e.id }))}
-            sort={false}
-            formatOptionLabel={({ value, label }) => {
-              const selectedEnvironment = environments.find(
-                (e) => e.id === value
-              );
-              const numProjects = selectedEnvironment?.projects?.length ?? 0;
-              return (
-                <div className="d-flex align-items-center">
-                  <div>{label}</div>
-                  <div className="flex-1" />
-                  {numProjects > 0 ? (
-                    <div className="text-muted small">
-                      Includes {numProjects} project
-                      {numProjects === 1 ? "" : "s"}
-                    </div>
-                  ) : (
-                    <div className="text-muted small font-italic">
-                      Includes all projects
-                    </div>
-                  )}
-                </div>
-              );
-            }}
-          />
-        </div>
-
-        <div className="mb-4">
-          <label>
-            Filter by Projects{" "}
-            <Tooltip
-              body={`The dropdown below has been filtered to only include projects where you have permission to ${
-                edit ? "update" : "create"
-              } SDK Connections.`}
-            />
-            {!!selectedProjects?.length && (
-              <> ({selectedValidProjects?.length ?? 0})</>
-            )}
-          </label>
-          <MultiSelectField
-            placeholder={
-              environmentHasProjects
-                ? "All Environment Projects"
-                : "All Projects"
-            }
-            containerClassName="w-100"
-            value={form.watch("projects") || []}
-            onChange={(projects) => form.setValue("projects", projects)}
-            options={projectsOptions}
-            sort={false}
-            closeMenuOnSelect={true}
-            formatOptionLabel={({ value, label }) => {
-              const disallowed = disallowedProjects?.find(
-                (p) => p.id === value
-              );
-              return disallowed ? (
-                <Tooltip body="This project is not allowed in the selected environment and will not be included in the SDK payload.">
-                  <del className="text-danger">
-                    <FaExclamationTriangle className="mr-1" />
-                    {label}
-                  </del>
-                </Tooltip>
-              ) : (
-                label
-              );
-            }}
-          />
-          {disallowedProjects.length > 0 && (
-            <div className="text-danger mt-2 small px-1">
-              <FaExclamationTriangle className="mr-1" />
-              This SDK Connection references {disallowedProjects.length} project
-              {disallowedProjects.length !== 1 && "s"} that{" "}
-              {disallowedProjects.length === 1 ? "is" : "are"} not allowed in
-              the selected environment. This may have occurred as a result of a
-              project being removed from the selected environment.
-            </div>
-          )}
-        </div>
-
-        {languageType !== "backend" && (
+        {languageType !== "backend" && canEdit && (
           <>
             <label>SDK Payload Security</label>
             <div className="bg-highlight rounded pt-4 pb-2 px-4 mb-4">
@@ -981,7 +1006,7 @@ export default function SDKConnectionForm({
           </>
         )}
 
-        {(showVisualEditorSettings || showRedirectSettings) && (
+        {(showVisualEditorSettings || showRedirectSettings) && canEdit && (
           <div className="mt-5">
             <label>Auto Experiments</label>
             <div className="mt-2">
@@ -1063,7 +1088,7 @@ export default function SDKConnectionForm({
           </div>
         )}
 
-        {isCloud() && (
+        {isCloud() && canEdit && (
           <div className="mt-5">
             <label className="mb-1">GrowthBook Proxy</label>
             <div className="mt-2">
@@ -1111,7 +1136,7 @@ export default function SDKConnectionForm({
             </div>
           </div>
         )}
-        {showSavedGroupSettings && (
+        {showSavedGroupSettings && canEdit && (
           <div className="mt-4">
             <label>Saved Groups</label>
             <div className="mt-2">
@@ -1156,16 +1181,18 @@ export default function SDKConnectionForm({
             </div>
           </div>
         )}
-        <div className="mt-4">
-          <label>Feature Options</label>
-          <div>
-            <Checkbox
-              label={"Include Feature Rule IDs in Payload"}
-              value={!!form.watch("includeRuleIds")}
-              setValue={(val) => form.setValue("includeRuleIds", val)}
-            />
+        {canEdit ? (
+          <div className="mt-4">
+            <label>Feature Options</label>
+            <div>
+              <Checkbox
+                label={"Include Feature Rule IDs in Payload"}
+                value={!!form.watch("includeRuleIds")}
+                setValue={(val) => form.setValue("includeRuleIds", val)}
+              />
+            </div>
           </div>
-        </div>
+        ) : null}
       </div>
     </Modal>
   );
