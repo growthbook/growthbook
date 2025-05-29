@@ -15,6 +15,7 @@ import {
   findAllSdkWebhooksByPayloadFormat,
   deleteSdkWebhookById,
 } from "back-end/src/models/WebhookModel";
+import { fireSdkWebhook } from "back-end/src/jobs/sdkWebhooks";
 import { ReqContextClass } from "back-end/src/services/context";
 import { findSDKConnectionsById } from "back-end/src/models/SdkConnectionModel";
 import { findOrganizationById } from "back-end/src/models/OrganizationModel";
@@ -386,21 +387,32 @@ export const syncVercelSdkConnection = async (organization: string) => {
     if (!resource.protocolSettings?.experimentation?.edgeConfigId) {
       if (webhook) await deleteSdkWebhookById(context, webhook.id);
     } else {
-      if (!webhook)
-        await createSdkWebhook(context, sdkConnection.id, {
-          name: "Sync vercel integration edge config",
-          endpoint: `${VERCEL_URL}/v1/installations/${nativeIntegration.installationId}/resources/${resource.id}/experimentation/edge-config`,
-          payloadFormat: "vercelNativeIntegration",
-          payloadKey: sdkConnection.key,
-          httpMethod: "PUT",
-          managedBy: {
-            type: "vercel",
-            resourceId: resource.id,
-          },
-          headers: JSON.stringify({
-            Authorization: `Bearer ${nativeIntegration.upsertData.payload.credentials.access_token}`,
-          }),
-        });
+      if (!webhook) {
+        const createdWebhook = await createSdkWebhook(
+          context,
+          sdkConnection.id,
+          {
+            name: "Sync vercel integration edge config",
+            endpoint: `${VERCEL_URL}/v1/installations/${nativeIntegration.installationId}/resources/${resource.id}/experimentation/edge-config`,
+            payloadFormat: "vercelNativeIntegration",
+            payloadKey: sdkConnection.key,
+            httpMethod: "PUT",
+            managedBy: {
+              type: "vercel",
+              resourceId: resource.id,
+            },
+            headers: JSON.stringify({
+              Authorization: `Bearer ${nativeIntegration.upsertData.payload.credentials.access_token}`,
+            }),
+          }
+        );
+
+        try {
+          await fireSdkWebhook(context, createdWebhook);
+        } catch (err) {
+          logger.error("Error while firing webhook", err);
+        }
+      }
     }
   });
 };
