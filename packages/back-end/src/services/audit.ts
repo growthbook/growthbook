@@ -67,33 +67,52 @@ export async function getRecentWatchedAudits(
   return all;
 }
 
+const sortKeysReplacer = (_: never, value: unknown) =>
+  value instanceof Object && !(value instanceof Array)
+    ? Object.keys(value)
+        .sort()
+        .reduce((sorted: Record<string, unknown>, key) => {
+          sorted[key] = (value as Record<string, unknown>)[key];
+          return sorted;
+        }, {})
+    : value;
+
 export function auditDetailsCreate<T>(
   post: T,
   context: Record<string, unknown> = {}
 ): string {
-  return JSON.stringify({
-    post,
-    context,
-  });
+  return JSON.stringify(
+    {
+      post,
+      context,
+    },
+    sortKeysReplacer
+  );
 }
 export function auditDetailsUpdate<T>(
   pre: T,
   post: T,
   context: Record<string, unknown> = {}
 ): string {
-  return JSON.stringify({
-    pre,
-    post,
-    context,
-  });
+  return JSON.stringify(
+    {
+      pre,
+      post,
+      context,
+    },
+    sortKeysReplacer
+  );
 }
 
 export function auditDetailsDelete<T>(
   pre: T,
   context: Record<string, unknown> = {}
 ): string {
-  return JSON.stringify({
-    pre,
-    context,
-  });
+  return JSON.stringify(
+    {
+      pre,
+      context,
+    },
+    sortKeysReplacer
+  );
 }
