@@ -218,4 +218,4 @@ window.growthbook_queue = {
 };
 
 // Store a reference in window to enable more advanced use cases
-export default gb;
+module.exports = gb;
