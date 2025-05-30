@@ -74,6 +74,13 @@ export default function ClickhouseMaterializedColumns({
     await mutate();
   };
 
+  const refreshColumns = async (factTableId: string) => {
+    await apiCall(`/fact-tables/${factTableId}?forceColumnRefresh=true`, {
+      method: "PUT",
+    });
+    await mutate();
+  };
+
   return (
     <>
       {addModal && (
@@ -86,6 +93,7 @@ export default function ClickhouseMaterializedColumns({
           onCancel={() => {
             setAddModal(false);
           }}
+          refreshColumns={refreshColumns}
         />
       )}
       {typeof editColumnIdx !== "undefined" && (
@@ -104,6 +112,7 @@ export default function ClickhouseMaterializedColumns({
           onCancel={() => {
             setEditColumnIdx(undefined);
           }}
+          refreshColumns={refreshColumns}
         />
       )}
       <Box>

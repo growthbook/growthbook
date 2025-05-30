@@ -4,16 +4,20 @@ import { useForm } from "react-hook-form";
 import { useEffect, useMemo, useState } from "react";
 import { JSONColumnFields } from "back-end/types/fact-table";
 import { factTableColumnTypes } from "back-end/src/routers/fact-table/fact-table.validators";
+import { Flex, Text, Tooltip } from "@radix-ui/themes";
+import { PiArrowClockwise, PiSpinner } from "react-icons/pi";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import Button from "@/components/Radix/Button";
 
 interface BaseProps {
   existingColumnNames: string[];
   existingSourceFields: string[];
   onSave: (materializedColumn: MaterializedColumn) => Promise<void>;
   onCancel: () => void;
+  refreshColumns: (factTableId: string) => Promise<void>;
 }
 
 interface AddProps extends BaseProps {
@@ -35,8 +39,10 @@ export default function AddMaterializedColumnsModal({
   existingSourceFields,
   onSave,
   onCancel,
+  refreshColumns,
 }: Props) {
   const [mounted, setMounted] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const { factTables, getDatasourceById } = useDefinitions();
   const form = useForm<MaterializedColumn>({
     defaultValues:
@@ -84,16 +90,16 @@ export default function AddMaterializedColumnsModal({
     column,
   ]);
 
-  const contextJsonFields: JSONColumnFields = useMemo(() => {
-    const clickhouseFactTables = factTables.filter(
+  const [ftId, contextJsonFields]: [string, JSONColumnFields] = useMemo(() => {
+    const clickhouseFactTable = factTables.find(
       (ft) => getDatasourceById(ft.datasource)?.type === "growthbook_clickhouse"
     );
-    return clickhouseFactTables
-      .map(
-        (ft) =>
-          ft.columns.find((col) => col.column === "context_json")?.jsonFields
-      )
-      .reduce<JSONColumnFields>((acc, val) => ({ ...acc, ...(val || {}) }), {});
+    return [
+      clickhouseFactTable?.id || "",
+      (clickhouseFactTable?.columns || []).find(
+        (col) => col.column === "context_json"
+      )?.jsonFields || {},
+    ];
   }, [factTables, getDatasourceById]);
 
   useEffect(() => {
@@ -134,7 +140,32 @@ export default function AddMaterializedColumnsModal({
     >
       <SelectField
         id="materialized-column-source-field-input"
-        label="Source field"
+        labelClassName="w-100"
+        label={
+          <Flex justify="between" align="center">
+            <Text>Source field</Text>
+            <Tooltip
+              content={
+                ftId
+                  ? "Refresh list of fields"
+                  : "No Fact Tables found to load from"
+              }
+            >
+              <Button
+                size="xs"
+                variant="ghost"
+                disabled={refreshing || !ftId}
+                onClick={async () => {
+                  setRefreshing(true);
+                  await refreshColumns(ftId);
+                  setRefreshing(false);
+                }}
+              >
+                {refreshing ? <PiSpinner /> : <PiArrowClockwise />}
+              </Button>
+            </Tooltip>
+          </Flex>
+        }
         placeholder={"Select or enter a key"}
         formatCreateLabel={(fieldName) =>
           fieldName.length > 0
