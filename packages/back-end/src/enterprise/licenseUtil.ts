@@ -81,8 +81,9 @@ type MinimalOrganization = {
 export function getLowestPlanPerFeature(
   accountFeatures: CommercialFeaturesMap
 ): Partial<Record<CommercialFeature, AccountPlan>> {
-  const lowestPlanPerFeature: Partial<Record<CommercialFeature, AccountPlan>> =
-    {};
+  const lowestPlanPerFeature: Partial<
+    Record<CommercialFeature, AccountPlan>
+  > = {};
 
   // evaluate in order from highest to lowest plan
   const plansFromHighToLow: AccountPlan[] = [
@@ -424,7 +425,7 @@ export async function postNewVercelSubscriptionToLicenseServer(
   organization: OrganizationInterface,
   installationId: string,
   userName: string
-) {
+): Promise<LicenseInterface> {
   const url = `${LICENSE_SERVER_URL}subscription/new-vercel-native-subscription`;
   const license = await callLicenseServer({
     url,

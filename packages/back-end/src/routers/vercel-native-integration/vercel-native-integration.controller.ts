@@ -327,7 +327,7 @@ export async function upsertInstallation(req: Request, res: Response) {
     resources: [],
   });
 
-  return res.status(204);
+  return res.sendStatus(204);
 }
 
 export async function getInstallation(req: Request, res: Response) {
@@ -353,21 +353,18 @@ export async function updateInstallation(req: Request, res: Response) {
 
   if (!billingPlan) return res.status(400).send("Invalid billing plan!");
 
-  const license = await getLicenseByKey(org.licenseKey || "");
-  if (!license) {
-    return res.status(404).send(`Unable to locate license for org: ${org.id}`);
-  }
-
   // Check if current billing plan is different from new plan
   if (integration.billingPlanId !== billingPlanId) {
     if (integration.billingPlanId === "starter-billing-plan") {
       // The user is upgrading from the starter plan to the pro plan
       try {
-        await postNewVercelSubscriptionToLicenseServer(
+        //MKTODO: When we upgrade, we're not updating the org with the license key
+        const result = await postNewVercelSubscriptionToLicenseServer(
           org,
           req.params.installation_id,
           user?.name || ""
         );
+        await updateOrganization(org.id, { licenseKey: result.id });
       } catch (e) {
         throw new Error(
           `Unable to create new subscription. Reason: ${e.message} || "Unknown`
@@ -376,6 +373,13 @@ export async function updateInstallation(req: Request, res: Response) {
     } else {
       // The user is downgrading from the pro plan to the starter plan
       try {
+        const license = await getLicenseByKey(org.licenseKey || "");
+
+        if (!license) {
+          return res
+            .status(404)
+            .send(`Unable to locate license for org: ${org.id}`);
+        }
         await postCancelSubscriptionToLicenseServer(license.id);
       } catch (e) {
         throw new Error(
@@ -420,8 +424,42 @@ export async function provisionResource(req: Request, res: Response) {
 
   const {
     externalId: _externalId,
+    billingPlanId,
     ...payload
   } = req.body as ProvisitionResource;
+
+  const billingPlan = billingPlans.find(({ id }) => id === billingPlanId);
+
+  if (!billingPlan) return res.status(400).send("Invalid billing plan!");
+
+  if (!integration.billingPlanId) {
+    // The installation doesn't have a billing plan yet, so we need to create a new one
+    if (billingPlanId === "pro-billing-plan") {
+      try {
+        // Get fresh org with updated name
+        const updatedOrg = await getOrganizationById(org.id);
+
+        if (!updatedOrg) {
+          throw new Error("Organization not found");
+        }
+        const result = await postNewVercelSubscriptionToLicenseServer(
+          updatedOrg,
+          req.params.installation_id,
+          user?.name || ""
+        );
+        await updateOrganization(org.id, { licenseKey: result.id });
+      } catch (e) {
+        throw new Error(
+          `Unable to create new subscription. Reason: ${e.message} || "Unknown`
+        );
+      }
+    }
+
+    // Then, update the integration with the new billing plan
+    await integrationModel.update(integration, {
+      billingPlanId,
+    });
+  }
 
   const resourceId = uuidv4();
 
@@ -585,6 +623,7 @@ export async function getProducts(req: Request, res: Response) {
     ...existingBillingPlan,
     name: "Create GrowthBook Project",
     description: "",
+    cost: "",
   };
 
   return res.json({ plans: [additionalProjectBillingPlan] });
