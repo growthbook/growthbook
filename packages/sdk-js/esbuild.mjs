@@ -1,5 +1,6 @@
 import { createRequire } from "module";
 import * as esbuild from "esbuild";
+import { esbuildPluginFilePathExtensions } from "esbuild-plugin-file-path-extensions";
 
 const require = createRequire(import.meta.url);
 const { version } = require("./package.json");
@@ -27,6 +28,7 @@ const rawOptions = {
 const minifyOptions = {
   minify: true,
   mangleProps: /^_/,
+  legalComments: "none",
 };
 
 const autoWrapperOptions = {
@@ -82,6 +84,14 @@ await Promise.all([
     format: "esm",
     outdir: "dist/esm",
     outExtension: { ".js": ".mjs" },
+    // bundle: true is required for the file path extensions plugin to work correctly
+    // The code will not actually be bundled, but it needs to be set to true
+    bundle: true,
+    plugins: [
+      esbuildPluginFilePathExtensions({
+        esm: true,
+      }),
+    ],
   }),
   esbuild.build({
     ...rawOptions,
