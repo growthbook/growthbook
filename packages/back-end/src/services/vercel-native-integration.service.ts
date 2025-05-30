@@ -1,24 +1,29 @@
+import { Promise as BluebirdPromise } from "bluebird";
 import { OrganizationInterface } from "back-end/types/organization";
 import { FeatureInterface } from "back-end/types/feature";
 import { ExperimentInterface } from "back-end/types/experiment";
-import { findVercelInstallationByOrganization } from "back-end/src/models/VercelNativeIntegrationModel";
+import {
+  VercelIntallationNotFound,
+  findVercelInstallationByOrganization,
+} from "back-end/src/models/VercelNativeIntegrationModel";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
 import { getUserByEmail } from "back-end/src/models/UserModel";
 import {
   createSdkWebhook,
-  updateSdkWebhook,
-  findSdkWebhook,
+  findAllSdkWebhooksByConnection,
+  findAllSdkWebhooksByPayloadFormat,
   deleteSdkWebhookById,
 } from "back-end/src/models/WebhookModel";
+import { fireSdkWebhook } from "back-end/src/jobs/sdkWebhooks";
 import { ReqContextClass } from "back-end/src/services/context";
-import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
+import { findSDKConnectionsById } from "back-end/src/models/SdkConnectionModel";
 import { findOrganizationById } from "back-end/src/models/OrganizationModel";
 
 export const VERCEL_URL = "https://api.vercel.com";
 
-const VERCEL_CLIENT_ID = process.env.VERCEL_CLIENT_ID || "";
-const VERCEL_CLIENT_SECRET = process.env.VERCEL_CLIENT_SECRET || "";
+export const VERCEL_CLIENT_ID = process.env.VERCEL_CLIENT_ID || "";
+export const VERCEL_CLIENT_SECRET = process.env.VERCEL_CLIENT_SECRET || "";
 
 export type VercelExperimentationItem = {
   id: string;
@@ -58,12 +63,15 @@ export const getVercelSSOToken = async ({
   const data = await ret.json();
 
   if (!("id_token" in data) || typeof data.id_token !== "string")
-    throw "Invalid response!";
+    throw new Error("Invalid response!");
 
   return data.id_token;
 };
 
-const getVercelInstallationData = async (organizationId: string) => {
+const getVercelInstallationData = async (
+  organizationId: string,
+  projectId: string
+) => {
   const {
     installationId,
     resources,
@@ -74,9 +82,9 @@ const getVercelInstallationData = async (organizationId: string) => {
     },
   } = await findVercelInstallationByOrganization(organizationId);
 
-  const resource = resources.find((r) => r.organizationId === organizationId);
+  const resource = resources.find((r) => r.projectId === projectId);
 
-  if (!resource) throw "Invalid installation!";
+  if (!resource) throw new Error("Invalid installation!");
 
   const { id: resourceId } = resource;
 
@@ -122,16 +130,18 @@ const vercelExperimentExperimentationItem = ({
 const createVercelExperimentationItem = async ({
   experimentationItem,
   organization,
+  projectId,
 }: {
   experimentationItem: VercelExperimentationItem;
   organization: OrganizationInterface;
+  projectId: string;
 }) => {
   try {
     const {
       installationId,
       resourceId,
       accessToken,
-    } = await getVercelInstallationData(organization.id);
+    } = await getVercelInstallationData(organization.id, projectId);
 
     const ret = await fetch(
       `${VERCEL_URL}/v1/installations/${installationId}/resources/${resourceId}/experimentation/items`,
@@ -150,7 +160,8 @@ const createVercelExperimentationItem = async ({
     if (!ret.ok)
       throw new Error(`Error creating vercel resource: ${await ret.text()}`);
   } catch (err) {
-    logger.error(`Error while creating vercel experimentation item: ${err}`);
+    if (!(err instanceof VercelIntallationNotFound))
+      logger.error(`Error while creating vercel experimentation item: ${err}`);
   }
 };
 
@@ -161,10 +172,13 @@ export const createVercelExperimentationItemFromFeature = ({
   feature: FeatureInterface;
   organization: OrganizationInterface;
 }) =>
-  createVercelExperimentationItem({
-    experimentationItem: vercelFeatureExperimentationItem(feature),
-    organization,
-  });
+  feature.project
+    ? createVercelExperimentationItem({
+        experimentationItem: vercelFeatureExperimentationItem(feature),
+        organization,
+        projectId: feature.project,
+      })
+    : undefined;
 
 export const createVercelExperimentationItemFromExperiment = ({
   experiment,
@@ -173,24 +187,29 @@ export const createVercelExperimentationItemFromExperiment = ({
   experiment: ExperimentInterface;
   organization: OrganizationInterface;
 }) =>
-  createVercelExperimentationItem({
-    experimentationItem: vercelExperimentExperimentationItem(experiment),
-    organization,
-  });
+  experiment.project
+    ? createVercelExperimentationItem({
+        experimentationItem: vercelExperimentExperimentationItem(experiment),
+        organization,
+        projectId: experiment.project,
+      })
+    : undefined;
 
 const updateVercelExperimentationItem = async ({
   experimentationItem,
   organization,
+  projectId,
 }: {
   experimentationItem: VercelExperimentationItem;
   organization: OrganizationInterface;
+  projectId: string;
 }) => {
   try {
     const {
       installationId,
       resourceId,
       accessToken,
-    } = await getVercelInstallationData(organization.id);
+    } = await getVercelInstallationData(organization.id, projectId);
 
     const { id: _id, ...updatedItem } = experimentationItem;
 
@@ -209,7 +228,8 @@ const updateVercelExperimentationItem = async ({
     if (!ret.ok)
       throw new Error(`Error updating vercel resource: ${await ret.text()}`);
   } catch (err) {
-    logger.error("Error while creating vercel experimentation item:", err);
+    if (!(err instanceof VercelIntallationNotFound))
+      logger.error("Error while creating vercel experimentation item:", err);
   }
 };
 
@@ -220,10 +240,13 @@ export const updateVercelExperimentationItemFromFeature = ({
   feature: FeatureInterface;
   organization: OrganizationInterface;
 }) =>
-  updateVercelExperimentationItem({
-    experimentationItem: vercelFeatureExperimentationItem(feature),
-    organization,
-  });
+  feature.project
+    ? updateVercelExperimentationItem({
+        experimentationItem: vercelFeatureExperimentationItem(feature),
+        organization,
+        projectId: feature.project,
+      })
+    : undefined;
 
 export const updateVercelExperimentationItemFromExperiment = ({
   experiment,
@@ -232,41 +255,51 @@ export const updateVercelExperimentationItemFromExperiment = ({
   experiment: ExperimentInterface;
   organization: OrganizationInterface;
 }) =>
-  updateVercelExperimentationItem({
-    experimentationItem: vercelExperimentExperimentationItem(experiment),
-    organization,
-  });
+  experiment.project
+    ? updateVercelExperimentationItem({
+        experimentationItem: vercelExperimentExperimentationItem(experiment),
+        organization,
+        projectId: experiment.project,
+      })
+    : undefined;
 
 const deleteVercelExperimentationItem = async ({
   experimentationItem,
   organization,
+  projectId,
 }: {
   experimentationItem: VercelExperimentationItem;
   organization: OrganizationInterface;
+  projectId: string;
 }) => {
-  const {
-    installationId,
-    resourceId,
-    accessToken,
-  } = await getVercelInstallationData(organization.id);
+  try {
+    const {
+      installationId,
+      resourceId,
+      accessToken,
+    } = await getVercelInstallationData(organization.id, projectId);
 
-  const ret = await fetch(
-    `${VERCEL_URL}/v1/installations/${installationId}/resources/${resourceId}/experimentation/items/${experimentationItem.id}`,
-    {
-      method: "DELETE",
-      body: JSON.stringify({
-        client_id: VERCEL_CLIENT_ID,
-        client_secret: VERCEL_CLIENT_SECRET,
-      }),
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-    }
-  );
+    const ret = await fetch(
+      `${VERCEL_URL}/v1/installations/${installationId}/resources/${resourceId}/experimentation/items/${experimentationItem.id}`,
+      {
+        method: "DELETE",
+        body: JSON.stringify({
+          client_id: VERCEL_CLIENT_ID,
+          client_secret: VERCEL_CLIENT_SECRET,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
 
-  if (!ret.ok)
-    throw new Error(`Error deleting vercel resource: ${await ret.text()}`);
+    if (!ret.ok)
+      throw new Error(`Error deleting vercel resource: ${await ret.text()}`);
+  } catch (err) {
+    if (!(err instanceof VercelIntallationNotFound))
+      logger.error(`Error while deleting vercel experimentation item: ${err}`);
+  }
 };
 
 export const deleteVercelExperimentationItemFromFeature = ({
@@ -276,10 +309,13 @@ export const deleteVercelExperimentationItemFromFeature = ({
   feature: FeatureInterface;
   organization: OrganizationInterface;
 }) =>
-  deleteVercelExperimentationItem({
-    experimentationItem: vercelFeatureExperimentationItem(feature),
-    organization,
-  });
+  feature.project
+    ? deleteVercelExperimentationItem({
+        experimentationItem: vercelFeatureExperimentationItem(feature),
+        organization,
+        projectId: feature.project,
+      })
+    : undefined;
 
 export const deleteVercelExperimentationItemFromExperiment = ({
   experiment,
@@ -288,44 +324,39 @@ export const deleteVercelExperimentationItemFromExperiment = ({
   experiment: ExperimentInterface;
   organization: OrganizationInterface;
 }) =>
-  deleteVercelExperimentationItem({
-    experimentationItem: vercelExperimentExperimentationItem(experiment),
-    organization,
-  });
+  experiment.project
+    ? deleteVercelExperimentationItem({
+        experimentationItem: vercelExperimentExperimentationItem(experiment),
+        organization,
+        projectId: experiment.project,
+      })
+    : undefined;
 
 export const deleteVercelSdkWebhook = async (context: ReqContextClass) => {
-  const webhook = await findSdkWebhook(context, {
-    payloadFormat: "vercelNativeIntegration",
-  });
+  const webhooks = await findAllSdkWebhooksByPayloadFormat(
+    context,
+    "vercelNativeIntegration"
+  );
 
-  if (!webhook) return;
-
-  await deleteSdkWebhookById(context, webhook.id);
+  await BluebirdPromise.each(webhooks, (webhook) =>
+    deleteSdkWebhookById(context, webhook.id)
+  );
 };
 
-export const syncVercelSdkWebhook = async (organization: string) => {
+export const syncVercelSdkConnection = async (organization: string) => {
   const org = await findOrganizationById(organization);
 
-  if (!org) throw "Internal error";
+  if (!org) throw new Error("Internal error: no org found");
 
   if (!org.isVercelIntegration) return;
 
   const nativeIntegration = await findVercelInstallationByOrganization(org.id);
 
-  if (!nativeIntegration)
-    throw new Error(`Could not find a vercel installation for org ${org.id}`);
-
   const user = await getUserByEmail(
     nativeIntegration.upsertData.authentication.user_email
   );
 
-  if (!user) throw "Internal error";
-
-  const resource = nativeIntegration.resources.find(
-    (r) => (r.organizationId = org.id)
-  );
-
-  if (!resource) throw "Internal error";
+  if (!user) throw new Error("Internal error: no user found");
 
   const context = new ReqContextClass({
     org,
@@ -333,39 +364,55 @@ export const syncVercelSdkWebhook = async (organization: string) => {
     user,
   });
 
-  const sdkConnections = await findSDKConnectionsByOrganization(context);
+  await BluebirdPromise.each(nativeIntegration.resources, async (resource) => {
+    const sdkConnection = await findSDKConnectionsById(
+      context,
+      resource.sdkConnectionId
+    );
 
-  const webhook = await findSdkWebhook(context, {
-    payloadFormat: "vercelNativeIntegration",
+    if (!sdkConnection)
+      throw new Error("Internal error: no sdk connection found");
+
+    const webhooks = await findAllSdkWebhooksByConnection(
+      context,
+      sdkConnection.id
+    );
+
+    const webhook = webhooks.find(
+      (w) =>
+        w.managedBy?.type === "vercel" &&
+        w.managedBy?.resourceId === resource.id
+    );
+
+    if (!resource.protocolSettings?.experimentation?.edgeConfigId) {
+      if (webhook) await deleteSdkWebhookById(context, webhook.id);
+    } else {
+      if (!webhook) {
+        const createdWebhook = await createSdkWebhook(
+          context,
+          sdkConnection.id,
+          {
+            name: "Sync vercel integration edge config",
+            endpoint: `${VERCEL_URL}/v1/installations/${nativeIntegration.installationId}/resources/${resource.id}/experimentation/edge-config`,
+            payloadFormat: "vercelNativeIntegration",
+            payloadKey: sdkConnection.key,
+            httpMethod: "PUT",
+            managedBy: {
+              type: "vercel",
+              resourceId: resource.id,
+            },
+            headers: JSON.stringify({
+              Authorization: `Bearer ${nativeIntegration.upsertData.payload.credentials.access_token}`,
+            }),
+          }
+        );
+
+        try {
+          await fireSdkWebhook(context, createdWebhook);
+        } catch (err) {
+          logger.error("Error while firing webhook", err);
+        }
+      }
+    }
   });
-
-  if (
-    !resource.protocolSettings?.experimentation?.edgeConfigId ||
-    !sdkConnections.length
-  ) {
-    if (!webhook) return;
-
-    await deleteSdkWebhookById(context, webhook.id);
-
-    return;
-  }
-
-  const sdks = sdkConnections.map(({ id }) => id);
-
-  const webhookParams = {
-    name: "Sync vercel integration edge config",
-    endpoint: `${VERCEL_URL}/v1/installations/${nativeIntegration.installationId}/resources/${resource.id}/experimentation/edge-config`,
-    payloadFormat: "vercelNativeIntegration",
-    httpMethod: "PUT",
-    headers: JSON.stringify({
-      Authorization: `Bearer ${nativeIntegration.upsertData.payload.credentials.access_token}`,
-    }),
-  } as const;
-
-  if (webhook) {
-    await updateSdkWebhook(context, webhook, { ...webhookParams, sdks });
-    return;
-  }
-
-  await createSdkWebhook(context, sdks, webhookParams);
 };

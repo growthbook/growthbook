@@ -57,9 +57,9 @@ router.patch(
 );
 
 router.get(
-  "/v1/installations/:installation_id/resources/:resource_id/plans",
+  "/v1/installations/:installation_id/plans",
   validateRequestMiddleware({}),
-  vercelController.getResourceProducts
+  vercelController.getInstallationProducts
 );
 
 router.delete(

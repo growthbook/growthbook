@@ -15,7 +15,9 @@ const upsertDataValidator = z
   .strict();
 
 const installationResourceValidator = resourceValidator.extend({
-  organizationId: z.string(),
+  projectId: z.string(),
+  sdkConnectionId: z.string(),
+  teamId: z.string(),
 });
 
 export type Resource = z.infer<typeof installationResourceValidator>;
@@ -29,7 +31,6 @@ const vercelNativeIntegrationValidator = z
     dateCreated: z.date(),
     dateUpdated: z.date(),
     installationId: z.string(),
-    // This is NOT an installation-level billingPlanId
     billingPlanId: z.string().optional(),
     resources: z.array(installationResourceValidator),
     upsertData: upsertDataValidator,
@@ -53,6 +54,7 @@ const BaseClass = MakeModelClass({
     deleteEvent: "vercelNativeIntegration.delete",
   },
   globallyUniqueIds: true,
+  additionalIndexes: [{ fields: { installationId: 1 }, unique: true }],
 });
 
 export class VercelNativeIntegrationModel extends BaseClass {
@@ -85,16 +87,19 @@ export const findVercelInstallationByInstallationId = async (
   return (model as unknown) as VercelNativeIntegration;
 };
 
+export class VercelIntallationNotFound extends Error {}
+
 export const findVercelInstallationByOrganization = async (
   organization: string
 ): Promise<VercelNativeIntegration> => {
   const model = await mongoose.connection.db
     .collection(COLLECTION_NAME)
-    .findOne({
-      resources: { $elemMatch: { organizationId: organization } },
-    });
+    .findOne({ organization: { $eq: organization } });
 
-  if (!model) throw "Installation not found!";
+  if (!model)
+    throw new VercelIntallationNotFound(
+      `Vercel installation not found for org ${organization}!`
+    );
 
   return (model as unknown) as VercelNativeIntegration;
 };

@@ -6,6 +6,22 @@ import { z } from "zod";
 import { ReqContext } from "back-end/types/organization";
 import { migrateWebhookModel } from "back-end/src/util/migrations";
 import { WebhookInterface } from "back-end/types/webhook";
+import {
+  managedByValidator,
+  ManagedBy,
+} from "back-end/src/validators/managed-by";
+
+const payloadFormatValidator = z.enum([
+  "standard",
+
+  "standard-no-payload",
+  "sdkPayload",
+  "edgeConfig",
+  "vercelNativeIntegration",
+  "none",
+]);
+
+export type PayloadFormat = z.infer<typeof payloadFormatValidator>;
 
 const webhookSchema = new mongoose.Schema({
   id: {
@@ -36,6 +52,7 @@ const webhookSchema = new mongoose.Schema({
   payloadKey: String,
   headers: String,
   httpMethod: String,
+  managedBy: {},
 });
 
 type WebhookDocument = mongoose.Document & WebhookInterface;
@@ -56,6 +73,19 @@ export async function findAllSdkWebhooksByConnectionIds(
     await WebhookModel.find({
       organization: context.org.id,
       sdks: { $in: sdkConnectionIds },
+      useSdkMode: true,
+    })
+  ).map((e) => toInterface(e));
+}
+
+export async function findAllSdkWebhooksByPayloadFormat(
+  context: ReqContext,
+  payloadFormat: string
+): Promise<WebhookInterface[]> {
+  return (
+    await WebhookModel.find({
+      organization: context.org.id,
+      payloadFormat,
       useSdkMode: true,
     })
   ).map((e) => toInterface(e));
@@ -126,16 +156,7 @@ export const updateSdkWebhookValidator = z
   .object({
     name: z.string().optional(),
     endpoint: z.string().optional(),
-    payloadFormat: z
-      .enum([
-        "standard",
-        "standard-no-payload",
-        "sdkPayload",
-        "edgeConfig",
-        "vercelNativeIntegration",
-        "none",
-      ])
-      .optional(),
+    payloadFormat: payloadFormatValidator.optional(),
     payloadKey: z.string().optional(),
     sdks: z.array(z.string()).optional(),
     httpMethod: z
@@ -173,30 +194,39 @@ export async function updateSdkWebhook(
   };
 }
 
+export const updateWebhooksRemoveManagedBy = async (
+  context: ReqContext,
+  managedBy: Partial<ManagedBy>
+) => {
+  await WebhookModel.updateMany(
+    {
+      organization: context.org.id,
+      managedBy,
+    },
+    {
+      $unset: {
+        managedBy: 1,
+      },
+    }
+  );
+};
+
 const createSdkWebhookValidator = z
   .object({
     name: z.string(),
     endpoint: z.string(),
-    payloadFormat: z
-      .enum([
-        "standard",
-        "standard-no-payload",
-        "sdkPayload",
-        "edgeConfig",
-        "vercelNativeIntegration",
-        "none",
-      ])
-      .optional(),
+    payloadFormat: payloadFormatValidator.optional(),
     payloadKey: z.string().optional(),
     httpMethod: z.enum(["GET", "POST", "PUT", "DELETE", "PATCH", "PURGE"]),
     headers: z.string(),
+    managedBy: managedByValidator.optional(),
   })
   .strict();
 export type CreateSdkWebhookProps = z.infer<typeof createSdkWebhookValidator>;
 
 export async function createSdkWebhook(
   context: ReqContext,
-  sdkConnectionIds: string | string[],
+  sdkConnectionId: string,
   data: CreateSdkWebhookProps
 ) {
   data = createSdkWebhookValidator.parse(data);
@@ -215,10 +245,7 @@ export async function createSdkWebhook(
     error: "",
     lastSuccess: null,
     useSdkMode: true,
-    sdks:
-      typeof sdkConnectionIds === "string"
-        ? [sdkConnectionIds]
-        : sdkConnectionIds,
+    sdks: [sdkConnectionId],
   };
   const res = await WebhookModel.create(doc);
 
@@ -228,18 +255,6 @@ export async function createSdkWebhook(
 export async function findSdkWebhookByIdAcrossOrgs(id: string) {
   const doc = await WebhookModel.findOne({
     id,
-  });
-  return doc ? toInterface(doc) : null;
-}
-
-export async function findSdkWebhook(
-  context: ReqContext,
-  params: Partial<WebhookInterface>
-) {
-  const doc = await WebhookModel.findOne({
-    ...params,
-    organization: context.org.id,
-    useSdkMode: true,
   });
   return doc ? toInterface(doc) : null;
 }

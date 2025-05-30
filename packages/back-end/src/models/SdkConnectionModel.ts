@@ -4,6 +4,10 @@ import { z } from "zod";
 import { isEqual, omit } from "lodash";
 import { ApiSdkConnection } from "back-end/types/openapi";
 import {
+  managedByValidator,
+  ManagedBy,
+} from "back-end/src/validators/managed-by";
+import {
   CreateSDKConnectionParams,
   EditSDKConnectionParams,
   ProxyConnection,
@@ -23,7 +27,7 @@ import { triggerSingleSDKWebhookJobs } from "back-end/src/jobs/updateAllJobs";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/organization";
 import { addCloudSDKMapping } from "back-end/src/services/clickhouse";
-import { syncVercelSdkWebhook } from "back-end/src/services/vercel-native-integration.service";
+import { syncVercelSdkConnection } from "back-end/src/services/vercel-native-integration.service";
 import { generateEncryptionKey, generateSigningKey } from "./ApiKeyModel";
 
 const sdkConnectionSchema = new mongoose.Schema({
@@ -54,6 +58,7 @@ const sdkConnectionSchema = new mongoose.Schema({
   connected: Boolean,
   remoteEvalEnabled: Boolean,
   savedGroupReferencesEnabled: Boolean,
+  managedBy: {},
   key: {
     type: String,
     unique: true,
@@ -150,6 +155,14 @@ export async function findAllSDKConnectionsAcrossAllOrgs() {
   return docs.map(toInterface);
 }
 
+export async function findSDKConnectionsById(context: ReqContext, id: string) {
+  const doc = await SDKConnectionModel.findOne({
+    organization: context.org.id,
+    id,
+  });
+  return doc ? toInterface(doc) : null;
+}
+
 export async function findSDKConnectionsByIds(
   context: ReqContext,
   ids: string[]
@@ -185,6 +198,7 @@ export const createSDKConnectionValidator = z
     proxyHost: z.string().optional(),
     remoteEvalEnabled: z.boolean().optional(),
     savedGroupReferencesEnabled: z.boolean().optional(),
+    managedBy: managedByValidator.optional(),
   })
   .strict();
 
@@ -241,7 +255,7 @@ export async function createSDKConnection(params: CreateSDKConnectionParams) {
 
   if (IS_CLOUD) {
     await addCloudSDKMapping(connection);
-    await syncVercelSdkWebhook(connection.organization);
+    await syncVercelSdkConnection(connection.organization);
   }
 
   return toInterface(doc);
@@ -367,6 +381,23 @@ export async function editSDKConnection(
   return { ...connection, ...fullChanges };
 }
 
+export const updateSdkConnectionsRemoveManagedBy = async (
+  context: ReqContext,
+  managedBy: Partial<ManagedBy>
+) => {
+  await SDKConnectionModel.updateMany(
+    {
+      organization: context.org.id,
+      managedBy,
+    },
+    {
+      $unset: {
+        managedBy: 1,
+      },
+    }
+  );
+};
+
 export async function deleteSDKConnectionById(
   organization: string,
   id: string
@@ -377,7 +408,7 @@ export async function deleteSDKConnectionById(
   });
 
   if (IS_CLOUD) {
-    await syncVercelSdkWebhook(organization);
+    await syncVercelSdkConnection(organization);
   }
 }
 

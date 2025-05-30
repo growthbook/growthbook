@@ -3,26 +3,45 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { v4 as uuidv4 } from "uuid";
+import { getDefaultRole } from "shared/permissions";
 import {
   findVercelInstallationByInstallationId,
   VercelNativeIntegrationModel,
   Resource,
+  VercelNativeIntegration,
 } from "back-end/src/models/VercelNativeIntegrationModel";
+import {
+  addMemberToOrg,
+  addMembersToTeam,
+} from "back-end/src/services/organizations";
 import {
   createOrganization,
   updateOrganization,
   findOrganizationById,
 } from "back-end/src/models/OrganizationModel";
 import { createUser, getUserByEmail } from "back-end/src/models/UserModel";
+import { ManagedBy } from "back-end/src/validators/managed-by";
 import { ReqContextClass } from "back-end/src/services/context";
-import { setResponseCookies } from "back-end/src/controllers/auth";
-import { OrganizationInterface } from "back-end/types/organization";
+import { ReqContext, OrganizationInterface } from "back-end/types/organization";
 import {
   getVercelSSOToken,
-  syncVercelSdkWebhook,
+  syncVercelSdkConnection,
   deleteVercelSdkWebhook,
 } from "back-end/src/services/vercel-native-integration.service";
-import { createSDKConnection } from "back-end/src/models/SdkConnectionModel";
+import { updateWebhooksRemoveManagedBy } from "back-end/src/models/WebhookModel";
+import {
+  createSDKConnection,
+  updateSdkConnectionsRemoveManagedBy,
+} from "back-end/src/models/SdkConnectionModel";
+import { IdTokenCookie, SSOConnectionIdCookie } from "back-end/src/util/cookie";
+import {
+  getUserLoginPropertiesFromRequest,
+  trackLoginForUser,
+} from "back-end/src/services/users";
+import {
+  createTeam,
+  updateTeamRemoveManagedBy,
+} from "back-end/src/models/TeamModel";
 import {
   postCancelSubscriptionToLicenseServer,
   postNewVercelSubscriptionToLicenseServer,
@@ -35,6 +54,7 @@ import {
   UpsertInstallationPayload,
   ProvisitionResource,
   UpdateResource,
+  UpdateInstallation,
   BillingPlan,
 } from "./vercel-native-integration.validators";
 
@@ -112,44 +132,39 @@ const checkAuth = async <T extends string | "user">({
   }
 };
 
-const addOrganizationUser = (id: string, organization: OrganizationInterface) =>
-  updateOrganization(organization.id, {
-    members: [
-      ...organization.members,
-      {
-        id,
-        role: "admin",
-        dateCreated: new Date(),
-        limitAccessByEnvironment: false,
-        environments: [],
-      },
-    ],
-  });
+const getOrgFromInstallationResource = async <T>(
+  installationId: string,
+  resourceId?: T
+): Promise<{
+  org: OrganizationInterface;
+  integration: VercelNativeIntegration;
+  resource: T extends string ? Resource : undefined;
+}> => {
+  const integration = await findVercelInstallationByInstallationId(
+    installationId
+  );
 
-const findOrCreateUser = async ({
-  email,
-  organization,
-}: {
-  email: string;
-  organization: OrganizationInterface;
-}) => {
-  const existingUser = await getUserByEmail(email);
+  if (!integration) throw new Error("Invalid installation!");
 
-  if (existingUser) {
-    if (!organization.members.find(({ id }) => existingUser.id === id))
-      await addOrganizationUser(existingUser.id, organization);
-    return existingUser;
+  const resource = (() => {
+    if (!resourceId) return;
+
+    return integration.resources.find(({ id }) => id === resourceId);
+  })();
+
+  if (resourceId && !resource) {
+    throw new Error(`Invalid resourceId: ${resourceId}`);
   }
 
-  const newUser = await createUser({
-    name: email.split("@")[0],
-    email,
-    password: crypto.randomBytes(18).toString("hex"),
-  });
+  const org = await findOrganizationById(integration.organization);
 
-  await addOrganizationUser(newUser.id, organization);
+  if (!org) throw new Error("Invalid installation!");
 
-  return newUser;
+  return {
+    org,
+    integration,
+    resource: resource as T extends string ? Resource : undefined,
+  };
 };
 
 const getContext = async ({
@@ -170,53 +185,33 @@ const getContext = async ({
     throw new Error("Authentication failed");
   };
 
-  const integration = await findVercelInstallationByInstallationId(
-    installationId
-  );
-
-  if (!integration) return failed(400, "Invalid installation!");
-
-  const resource = (() => {
-    if (!resourceId) return;
-
-    const resource = integration.resources.find(({ id }) => id === resourceId);
-
-    if (!resource) {
-      res.status(400).send("Invalid request!");
-      throw new Error(`Invalid resourceId: ${resourceId}`);
+  const { org, integration, resource } = await (async () => {
+    try {
+      return await getOrgFromInstallationResource(installationId, resourceId);
+    } catch (err) {
+      return failed(401, err.message);
     }
-
-    return resource;
   })();
 
-  const organizationId = resource?.organizationId || integration.organization;
-  const org = await findOrganizationById(organizationId);
+  const user = userEmail ? await getUserByEmail(userEmail) : undefined;
 
-  if (!org) return failed(400, "Invalid installation!");
+  if (userEmail && !user) failed(400, "Invalid user!");
 
-  const user = await findOrCreateUser({
-    email: userEmail || org.ownerEmail,
-    organization: org,
-  });
-
+  // TODO: Verify the token is for an admin user (or system)
   const context = new ReqContextClass({
     org,
-    auditUser: null,
-    user,
+    auditUser: user
+      ? {
+          type: "dashboard",
+          id: user.id,
+          email: user.email,
+          name: user.name || user.email,
+        }
+      : null,
+    role: "admin",
   });
 
-  // The model is attached to the top-level org so we
-  // need a different context here!
-  const topLevelOrg = await findOrganizationById(integration.organization);
-  if (!topLevelOrg) return failed(400, "Invalid installation!");
-
-  const topLevelContext = new ReqContextClass({
-    org: topLevelOrg,
-    auditUser: null,
-    user,
-  });
-
-  const integrationModel = new VercelNativeIntegrationModel(topLevelContext);
+  const integrationModel = new VercelNativeIntegrationModel(context);
 
   return {
     context,
@@ -271,6 +266,21 @@ const authContext = async (req: Request, res: Response) => {
   });
 };
 
+const findOrCreateUser = async (email: string, name?: string) => {
+  const existingUser = await getUserByEmail(email);
+
+  if (existingUser) return { user: existingUser, isNew: false };
+
+  return {
+    user: await createUser({
+      name: name || email.split("@")[0],
+      email,
+      password: crypto.randomBytes(18).toString("hex"),
+    }),
+    isNew: true,
+  };
+};
+
 export async function upsertInstallation(req: Request, res: Response) {
   const token = getBearerToken(req);
 
@@ -288,13 +298,10 @@ export async function upsertInstallation(req: Request, res: Response) {
   if (authentication.payload.installation_id !== req.params.installation_id)
     return res.status(400).send("Invalid request!");
 
-  const user =
-    (await await getUserByEmail(payload.account.contact.email)) ||
-    (await createUser({
-      name: payload.account.name || payload.account.contact.email.split("@")[0],
-      email: payload.account.contact.email,
-      password: crypto.randomBytes(18).toString("hex"),
-    }));
+  const { user } = await findOrCreateUser(
+    payload.account.contact.email,
+    payload.account.name
+  );
 
   const installationName = `Vercel instalation ${authentication.payload.installation_id}`;
 
@@ -303,7 +310,7 @@ export async function upsertInstallation(req: Request, res: Response) {
     userId: user.id,
     name: installationName,
     isVercelIntegration: true,
-    restrictLoginMethod: "vercel",
+    restrictLoginMethod: `vercel:${req.params.installation_id}`,
   });
 
   const context = new ReqContextClass({
@@ -320,31 +327,54 @@ export async function upsertInstallation(req: Request, res: Response) {
     resources: [],
   });
 
-  return res.sendStatus(204);
+  return res.status(204);
 }
 
 export async function getInstallation(req: Request, res: Response) {
-  await authContext(req, res);
-  return res.json();
+  const { integration } = await authContext(req, res);
+
+  // billingPlan is not initially set.
+  const billingPlan = billingPlans.find(
+    ({ id }) => id === integration.billingPlanId
+  );
+
+  return res.json({ billingPlan });
 }
 
 export async function updateInstallation(req: Request, res: Response) {
-  // We don't support installation-level billing plans!
-  return res.status(400).send("Invalid request!");
+  const { integration, integrationModel } = await authContext(req, res);
+
+  const { billingPlanId } = req.body as UpdateInstallation;
+
+  const billingPlan = billingPlans.find(({ id }) => id === billingPlanId);
+
+  if (!billingPlan) return res.status(400).send("Invalid billing plan!");
+
+  //MKTODO: Add logic here to change the org's subscription if the billingPlan is different
+
+  await integrationModel.update(integration, { billingPlanId });
+
+  return res.send({ billingPlan });
 }
 
 export async function deleteInstallation(req: Request, res: Response) {
-  const { integrationModel, integration } = await authContext(req, res);
+  const { context, integrationModel, integration } = await authContext(
+    req,
+    res
+  );
 
+  await removeManagedBy(context, { type: "vercel" });
   await integrationModel.deleteById(integration.id);
 
+  //MKTODO: Remove the finalized: true before we ship this to production
   return res.status(200).send({ finalized: true });
 }
 
 export async function provisionResource(req: Request, res: Response) {
   const {
     user,
-    org: contextOrg,
+    org,
+    context,
     integrationModel,
     integration,
   } = await authContext(req, res);
@@ -359,29 +389,22 @@ export async function provisionResource(req: Request, res: Response) {
 
   if (!billingPlan) return res.status(400).send("Invalid billing plan!");
 
-  const org = await (async () => {
-    if (integration.resources.length === 0) {
-      await updateOrganization(contextOrg.id, {
-        name: payload.name,
-        isVercelIntegration: true,
-        restrictLoginMethod: "vercel",
-      });
-      return contextOrg;
-    }
+  const resourceId = uuidv4();
 
-    return createOrganization({
-      email: user.email,
-      userId: user.id,
-      name: payload.name,
-      isVercelIntegration: true,
-      restrictLoginMethod: "vercel",
-    });
-  })();
+  const managedBy = {
+    type: "vercel",
+    resourceId,
+  } as const;
+
+  const project = await context.models.projects.create({
+    name: payload.name,
+    managedBy,
+  });
 
   if (billingPlanId === "pro-billing-plan") {
     try {
       // Get fresh org with updated name
-      const updatedOrg = await getOrganizationById(contextOrg.id);
+      const updatedOrg = await getOrganizationById(org.id);
 
       if (!updatedOrg) {
         throw new Error("Organization not found");
@@ -389,7 +412,7 @@ export async function provisionResource(req: Request, res: Response) {
       await postNewVercelSubscriptionToLicenseServer(
         updatedOrg,
         req.params.installation_id,
-        user.name || ""
+        user?.name || ""
       );
     } catch (e) {
       throw new Error(
@@ -408,24 +431,38 @@ export async function provisionResource(req: Request, res: Response) {
     includeRedirectExperiments: false,
     includeExperimentNames: true,
     hashSecureAttributes: false,
-    projects: [],
+    projects: [project.id],
     encryptPayload: false,
+    managedBy,
+  });
+
+  const roleInfo = getDefaultRole(org);
+  const team = await createTeam({
+    name: payload.name,
+    createdBy: user?.email || payload.name,
+    description: `Team for vercel resource ${payload.name}`,
+    organization: org.id,
+    managedByIdp: false,
+    managedBy,
+    ...roleInfo,
   });
 
   const resource: Resource = {
     ...payload,
-    id: uuidv4(),
-    organizationId: org.id,
-    billingPlan,
+    id: resourceId,
     secrets: [{ name: "GROWTHBOOK_CLIENT_KEY", value: sdkConnection.key }],
     status: "ready",
+    projectId: project.id,
+    teamId: team.id,
+    sdkConnectionId: sdkConnection.id,
   };
 
   await integrationModel.update(integration, {
+    billingPlanId,
     resources: [...integration.resources, resource],
   });
 
-  await syncVercelSdkWebhook(org.id);
+  await syncVercelSdkConnection(org.id);
 
   return res.json(resource);
 }
@@ -446,19 +483,11 @@ export async function updateResource(req: Request, res: Response) {
 
   if (!resource) return res.status(400).send("Resource not found!");
 
-  const { billingPlanId, ...payload } = req.body as UpdateResource;
-
-  const updatedBillingPlan = billingPlanId
-    ? billingPlans.find(({ id }) => id === billingPlanId)
-    : undefined;
-
-  if (billingPlanId && !updatedBillingPlan)
-    return res.status(400).send("Invalid billing plan!");
+  const payload = req.body as UpdateResource;
 
   const updatedResource = {
     ...resource,
     ...payload,
-    ...(updatedBillingPlan ? { billingPlan: updatedBillingPlan } : {}),
   };
 
   await integrationModel.update(integration, {
@@ -467,15 +496,25 @@ export async function updateResource(req: Request, res: Response) {
     ),
   });
 
-  await syncVercelSdkWebhook(org.id);
+  await syncVercelSdkConnection(org.id);
 
   return res.json(updatedResource);
 }
 
-export async function getResourceProducts(req: Request, res: Response) {
+export async function getInstallationProducts(req: Request, res: Response) {
   await authContext(req, res);
 
   return res.json({ plans: billingPlans });
+}
+
+async function removeManagedBy(
+  context: ReqContext,
+  managedBy: Partial<ManagedBy>
+) {
+  await updateSdkConnectionsRemoveManagedBy(context, managedBy);
+  await updateWebhooksRemoveManagedBy(context, managedBy);
+  await updateTeamRemoveManagedBy(context.org.id, managedBy);
+  await context.models.projects.removeManagedBy(managedBy);
 }
 
 export async function deleteResource(req: Request, res: Response) {
@@ -496,6 +535,8 @@ export async function deleteResource(req: Request, res: Response) {
 
   await postCancelSubscriptionToLicenseServer(license.id);
 
+  await removeManagedBy(context, { type: "vercel", resourceId: resource.id });
+
   await integrationModel.update(integration, {
     resources: integration.resources.filter((r) => r.id !== resource.id),
   });
@@ -514,17 +555,34 @@ export async function deleteResource(req: Request, res: Response) {
 }
 
 export async function getProducts(req: Request, res: Response) {
-  await authContext(req, res);
+  const { integration } = await authContext(req, res);
 
   const slug = req.params.slug;
 
   if (!slug) return res.status(400).send("Invalid request!");
 
-  return res.json({ plans: billingPlans });
+  const existingBillingPlan = billingPlans.find(
+    ({ id }) => id === integration.billingPlanId
+  );
+
+  if (!existingBillingPlan) {
+    return res.json({ plans: billingPlans });
+  }
+
+  const additionalProjectBillingPlan: BillingPlan = {
+    ...existingBillingPlan,
+    name: "Create GrowthBook Project",
+    description: "",
+  };
+
+  return res.json({ plans: [additionalProjectBillingPlan] });
 }
 
 export async function postVercelIntegrationSSO(req: Request, res: Response) {
   const { code, state, resourceId } = req.body;
+
+  if (!resourceId || typeof resourceId !== "string")
+    throw new Error("Invalid request!");
 
   const token = await getVercelSSOToken({
     code: String(code),
@@ -553,14 +611,39 @@ export async function postVercelIntegrationSSO(req: Request, res: Response) {
         `Could not find installation for installationId: ${installationId}`
       );
 
-  const { user, org } = await getContext({
+  const { org, resource } = await getOrgFromInstallationResource(
     installationId,
-    resourceId,
-    userEmail,
-    res,
+    resourceId
+  );
+
+  const { isNew, user } = await findOrCreateUser(userEmail);
+
+  if (isNew) {
+    const roleInfo = getDefaultRole(org);
+
+    await addMemberToOrg({
+      organization: org,
+      userId: user.id,
+      projectRoles: [],
+      managedByIdp: false,
+      ...roleInfo,
+    });
+
+    await addMembersToTeam({
+      organization: org,
+      userIds: [user.id],
+      teamId: resource.teamId,
+    });
+  }
+
+  const trackingProperties = getUserLoginPropertiesFromRequest(req);
+  trackLoginForUser({
+    ...trackingProperties,
+    email: userEmail,
   });
 
-  await setResponseCookies(req, res, user);
+  SSOConnectionIdCookie.setValue(`vercel:${installationId}`, req, res);
+  IdTokenCookie.setValue(token, req, res);
 
-  res.send({ organizationId: org.id });
+  res.send({ organizationId: org.id, projectId: resource.projectId });
 }

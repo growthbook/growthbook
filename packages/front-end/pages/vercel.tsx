@@ -1,9 +1,11 @@
 import { useEffect } from "react";
 import { useRouter } from "next/router";
 import { getApiHost } from "@/services/env";
+import { useProject } from "@/services/DefinitionsContext";
 
 const VercelPage = () => {
   const router = useRouter();
+  const [, setProject] = useProject();
 
   useEffect(() => {
     const { code, state, resource_id: resourceId } = router.query;
@@ -12,22 +14,20 @@ const VercelPage = () => {
 
     const fn = async () => {
       try {
-        const ret = await fetch(
-          `${getApiHost()}/auth/sso/vercel?code=${code}&state=${state}&resourceId=${resourceId}`,
-          {
-            method: "POST",
-            credentials: "include",
-            body: JSON.stringify({ code, state, resourceId }),
-            headers: {
-              "Content-Type": "application/json",
-            },
-          }
-        );
+        const ret = await fetch(`${getApiHost()}/auth/sso/vercel`, {
+          method: "POST",
+          credentials: "include",
+          body: JSON.stringify({ code, state, resourceId }),
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
 
         if (!ret.ok) throw new Error(`Request failed: ${await ret.text()}`);
 
-        const { organizationId } = await ret.json();
+        const { organizationId, projectId } = await ret.json();
 
+        setProject(projectId);
         router.push(`/?org=${organizationId}`);
       } catch (err) {
         console.log("Ignored:", err);
@@ -36,7 +36,7 @@ const VercelPage = () => {
     };
 
     fn();
-  }, [router]);
+  }, [setProject, router]);
 
   return null;
 };
