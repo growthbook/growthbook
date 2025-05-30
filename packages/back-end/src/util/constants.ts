@@ -5,6 +5,7 @@ export const sdkLanguages = [
   "nocode-other",
   "javascript",
   "nodejs",
+  "nextjs",
   "react",
   "php",
   "ruby",
