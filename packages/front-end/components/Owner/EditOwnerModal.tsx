@@ -1,16 +1,15 @@
 import { FC } from "react";
 import { useForm } from "react-hook-form";
-import useMembers from "@/hooks/useMembers";
 import Modal from "@/components/Modal";
-import Field from "@/components/Forms/Field";
+import SelectOwner from "./SelectOwner";
 
 const EditOwnerModal: FC<{
   owner: string;
   save: (ownerName: string) => Promise<void>;
   cancel: () => void;
   mutate: () => void;
-}> = ({ owner, save, cancel, mutate }) => {
-  const { memberUsernameOptions } = useMembers();
+  resourceType: React.ComponentProps<typeof SelectOwner>["resourceType"];
+}> = ({ owner, save, cancel, mutate, resourceType }) => {
   const form = useForm({
     defaultValues: {
       owner,
@@ -19,6 +18,7 @@ const EditOwnerModal: FC<{
 
   return (
     <Modal
+      trackingEventModalType=""
       header={"Edit Owner"}
       open={true}
       close={cancel}
@@ -28,11 +28,10 @@ const EditOwnerModal: FC<{
       })}
       cta="Save"
     >
-      <Field
-        label="Owner"
-        options={memberUsernameOptions}
-        comboBox
-        {...form.register("owner")}
+      <SelectOwner
+        resourceType={resourceType}
+        value={form.watch("owner")}
+        onChange={(v) => form.setValue("owner", v)}
       />
     </Modal>
   );

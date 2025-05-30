@@ -1,23 +1,24 @@
 import { Response } from "express";
-import { OrganizationInterface } from "@back-end/types/organization";
-import { UserInterface } from "@back-end/types/user";
-import { getAllSSOConnections } from "../models/SSOConnectionModel";
+import { OrganizationInterface } from "back-end/types/organization";
+import { UserInterface } from "back-end/types/user";
+import { getAllSSOConnections } from "back-end/src/models/SSOConnectionModel";
 import {
   getAllUsersFiltered,
   getTotalNumUsers,
   getUserById,
   getUsersByIds,
   updateUser,
-} from "../models/UserModel";
-import { AuthRequest } from "../types/AuthRequest";
+} from "back-end/src/models/UserModel";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   findAllOrganizations,
   findOrganizationsByMemberIds,
   updateOrganization,
-} from "../models/OrganizationModel";
-import { getOrganizationById } from "../services/organizations";
-import { setLicenseKey } from "../routers/organizations/organizations.controller";
-import { auditDetailsUpdate } from "../services/audit";
+} from "back-end/src/models/OrganizationModel";
+import { getOrganizationById } from "back-end/src/services/organizations";
+import { setLicenseKey } from "back-end/src/routers/organizations/organizations.controller";
+import { auditDetailsUpdate } from "back-end/src/services/audit";
+import { _dangerourslyGetAllDatasourcesByOrganizations } from "back-end/src/models/DataSourceModel";
 
 export async function getOrganizations(
   req: AuthRequest<never, never, { page?: string; search?: string }>,
@@ -47,10 +48,17 @@ export async function getOrganizations(
     };
   });
 
+  const orgIds = organizations.map((o) => o.id);
+
+  const datasources = await _dangerourslyGetAllDatasourcesByOrganizations(
+    orgIds
+  );
+
   return res.status(200).json({
     status: 200,
     organizations,
     ssoConnections,
+    datasources,
     total,
   });
 }

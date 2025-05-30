@@ -1,7 +1,7 @@
 import express from "express";
 import z from "zod";
-import { wrapController } from "../wrapController";
-import { validateRequestMiddleware } from "../utils/validateRequestMiddleware";
+import { wrapController } from "back-end/src/routers/wrapController";
+import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import {
   createFactFilterPropsValidator,
   createFactTablePropsValidator,
@@ -37,6 +37,13 @@ router.put(
     body: updateFactTablePropsValidator,
   }),
   factTableController.putFactTable
+);
+
+router.post("/fact-tables/:id/archive", factTableController.archiveFactTable);
+
+router.post(
+  "/fact-tables/:id/unarchive",
+  factTableController.unarchiveFactTable
 );
 
 router.delete(

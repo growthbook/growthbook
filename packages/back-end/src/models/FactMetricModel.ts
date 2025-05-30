@@ -1,14 +1,20 @@
 import { omit } from "lodash";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import {
+  getAggregateFilters,
+  getSelectedColumnDatatype,
+} from "shared/experiments";
+import {
+  ColumnRef,
   FactMetricInterface,
+  FactMetricType,
   FactTableInterface,
   LegacyFactMetricInterface,
-} from "../../types/fact-table";
-import { ApiFactMetric } from "../../types/openapi";
-import { factMetricValidator } from "../routers/fact-table/fact-table.validators";
-import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
-import { UpdateProps } from "../../types/models";
+} from "back-end/types/fact-table";
+import { ApiFactMetric } from "back-end/types/openapi";
+import { factMetricValidator } from "back-end/src/routers/fact-table/fact-table.validators";
+import { DEFAULT_CONVERSION_WINDOW_HOURS } from "back-end/src/util/secrets";
+import { UpdateProps } from "back-end/types/models";
 import { MakeModelClass } from "./BaseModel";
 import { getFactTableMap } from "./FactTableModel";
 
@@ -25,6 +31,55 @@ const BaseClass = MakeModelClass({
   globallyUniqueIds: false,
   readonlyFields: ["datasource"],
 });
+
+// extra checks on user filter
+function validateUserFilter({
+  metricType,
+  numerator,
+  factTable,
+}: {
+  metricType: FactMetricType;
+  numerator: ColumnRef;
+  factTable: FactTableInterface;
+}): void {
+  // error if one is specified but not the other
+  if (!!numerator.aggregateFilter !== !!numerator.aggregateFilterColumn) {
+    throw new Error(
+      `Must specify both "aggregateFilter" and "aggregateFilterColumn" or neither.`
+    );
+  }
+
+  // error if metric type is not retention or proportion
+  if (metricType !== "retention" && metricType !== "proportion") {
+    throw new Error(
+      `Aggregate filter is only supported for retention and proportion metrics.`
+    );
+  }
+
+  if (numerator.aggregateFilterColumn) {
+    // error if column is not numeric or $$count
+    const columnType = getSelectedColumnDatatype({
+      factTable,
+      column: numerator.aggregateFilterColumn,
+    });
+    if (
+      !(
+        columnType === "number" || numerator.aggregateFilterColumn === "$$count"
+      )
+    ) {
+      throw new Error(
+        `Aggregate filter column '${numerator.aggregateFilterColumn}' must be a numeric column or "$$count".`
+      );
+    }
+
+    // error if filter is not valid
+    getAggregateFilters({
+      columnRef: numerator,
+      column: numerator.aggregateFilterColumn,
+      ignoreInvalid: false,
+    });
+  }
+}
 
 export class FactMetricModel extends BaseClass {
   protected canRead(doc: FactMetricInterface): boolean {
@@ -46,7 +101,7 @@ export class FactMetricModel extends BaseClass {
   public static upgradeFactMetricDoc(
     doc: LegacyFactMetricInterface
   ): FactMetricInterface {
-    const newDoc: FactMetricInterface = { ...doc };
+    const newDoc = { ...doc };
 
     if (doc.windowSettings === undefined) {
       newDoc.windowSettings = {
@@ -54,8 +109,16 @@ export class FactMetricModel extends BaseClass {
         windowValue:
           doc.conversionWindowValue || DEFAULT_CONVERSION_WINDOW_HOURS,
         windowUnit: doc.conversionWindowUnit || "hours",
-        delayHours: doc.conversionDelayHours || 0,
+        delayValue: doc.conversionDelayHours || 0,
+        delayUnit: "hours",
       };
+    } else if (doc.windowSettings.delayValue === undefined) {
+      newDoc.windowSettings = {
+        ...doc.windowSettings,
+        delayValue: doc.windowSettings.delayHours ?? 0,
+        delayUnit: doc.windowSettings.delayUnit ?? "hours",
+      };
+      delete newDoc.windowSettings.delayHours;
     }
 
     if (doc.cappingSettings === undefined) {
@@ -74,7 +137,7 @@ export class FactMetricModel extends BaseClass {
       };
     }
 
-    return newDoc;
+    return newDoc as FactMetricInterface;
   }
 
   protected migrate(legacyDoc: unknown): FactMetricInterface {
@@ -128,6 +191,18 @@ export class FactMetricModel extends BaseClass {
       }
     }
 
+    // validate user filter
+    if (
+      data.numerator.aggregateFilterColumn ||
+      data.numerator.aggregateFilter
+    ) {
+      validateUserFilter({
+        metricType: data.metricType,
+        numerator: data.numerator,
+        factTable: numeratorFactTable,
+      });
+    }
+
     if (data.metricType === "ratio") {
       if (!data.denominator) {
         throw new Error("Denominator required for ratio metric");
@@ -162,8 +237,14 @@ export class FactMetricModel extends BaseClass {
       }
 
       if (!data.quantileSettings) {
-        throw new Error("Must specify `quantileSettings` for Quantile metrics");
+        throw new Error("Must specify `quantileSettings` for quantile metrics");
       }
+    }
+    if (
+      data.metricType === "retention" &&
+      !this.context.hasPremiumFeature("retention-metrics")
+    ) {
+      throw new Error("Retention metrics are a premium feature");
     }
     if (data.loseRisk < data.winRisk) {
       throw new Error(

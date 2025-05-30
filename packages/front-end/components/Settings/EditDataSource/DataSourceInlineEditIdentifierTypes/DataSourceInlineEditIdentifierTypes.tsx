@@ -4,12 +4,14 @@ import {
   DataSourceInterfaceWithParams,
   UserIdType,
 } from "back-end/types/datasource";
-import { FaPencilAlt, FaPlus } from "react-icons/fa";
+import { FaPlus } from "react-icons/fa";
+import { Box, Card, Flex, Heading } from "@radix-ui/themes";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import { EditIdentifierType } from "@/components/Settings/EditDataSource/DataSourceInlineEditIdentifierTypes/EditIdentifierType";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Badge from "@/components/Radix/Badge";
+import Button from "@/components/Radix/Button";
 
 type DataSourceInlineEditIdentifierTypesProps = DataSourceQueryEditingModalBaseProps;
 
@@ -83,69 +85,59 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
   }
 
   return (
-    <div className="">
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <div>
-          <h3>Identifier Types</h3>
-          <p>The different units you use to split traffic in an experiment.</p>
-        </div>
-
+    <Box>
+      <Flex align="center" gap="2" justify="between" mb="3">
+        <Flex align="center" gap="3" mb="0">
+          <Heading as="h3" size="4" mb="0">
+            Identifier Types
+          </Heading>
+          <Badge label={userIdTypes.length + ""} color="gray" radius="medium" />
+        </Flex>
         {canEdit && (
-          <div className="">
-            <button
-              className="btn btn-outline-primary font-weight-bold"
-              onClick={handleAdd}
-            >
+          <Box>
+            <Button variant="solid" onClick={handleAdd}>
               <FaPlus className="mr-1" /> Add
-            </button>
-          </div>
+            </Button>
+          </Box>
         )}
-      </div>
+      </Flex>
+      <p>The different units you use to split traffic in an experiment.</p>
 
       {userIdTypes.map(({ userIdType, description }, idx) => (
-        <div
-          style={{ marginBottom: -1 }}
-          className="d-flex justify-content-between align-items-center bg-light border p-2 mb-3 rounded"
-          key={userIdType}
-        >
-          {/* region Identity Type text */}
-          <div className="d-flex">
-            <p className="mb-0 mr-3 font-weight-bold">{userIdType}</p>
-            <span className="text-muted">
-              {description || "(no description)"}
-            </span>
-          </div>
-          {/* endregion Identity Type text */}
+        <Card key={userIdType} mt="3">
+          <Flex align="start" justify="between" py="2" px="3" gap="3">
+            {/* region Identity Type text */}
+            <Box>
+              <Heading size="3" as="h3">
+                {userIdType}
+              </Heading>
+              <span className="text-muted">
+                {description || "(no description)"}
+              </span>
+            </Box>
+            {/* endregion Identity Type text */}
 
-          {/* region Identity Type actions */}
-          {canEdit && (
-            <div>
-              <MoreMenu>
-                <button
-                  className="dropdown-item py-2"
-                  onClick={handleActionEditClicked(idx)}
-                >
-                  <FaPencilAlt className="mr-2" /> Edit
-                </button>
-                <div className="">
-                  <DeleteButton
-                    onClick={handleActionDeleteClicked(idx)}
-                    className="dropdown-item text-danger py-2"
-                    iconClassName="mr-2"
-                    style={{ borderRadius: 0 }}
-                    useIcon
-                    displayName={userIdTypes[idx]?.userIdType}
-                    deleteMessage={`Are you sure you want to delete identifier type ${userIdTypes[idx]?.userIdType}?`}
-                    title="Delete"
-                    text="Delete"
-                    outline={false}
-                  />
-                </div>
-              </MoreMenu>
-            </div>
-          )}
-          {/* endregion Identity Type actions */}
-        </div>
+            {/* region Identity Type actions */}
+            {canEdit && (
+              <Flex gap="3">
+                <DeleteButton
+                  onClick={handleActionDeleteClicked(idx)}
+                  useRadix={true}
+                  useIcon={false}
+                  displayName={userIdTypes[idx]?.userIdType}
+                  deleteMessage={`Are you sure you want to delete identifier type ${userIdTypes[idx]?.userIdType}?`}
+                  title="Delete"
+                  text="Delete"
+                  outline={false}
+                />
+                <Button variant="ghost" onClick={handleActionEditClicked(idx)}>
+                  Edit
+                </Button>
+              </Flex>
+            )}
+            {/* endregion Identity Type actions */}
+          </Flex>
+        </Card>
       ))}
 
       {/* region Identity Type empty state */}
@@ -168,6 +160,6 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
         />
       ) : null}
       {/* endregion Add/Edit modal */}
-    </div>
+    </Box>
   );
 };

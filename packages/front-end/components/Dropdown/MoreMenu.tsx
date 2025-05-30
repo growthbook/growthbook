@@ -8,14 +8,26 @@ import {
   offset,
   useFloating,
 } from "@floating-ui/react";
+import clsx from "clsx";
+import { IconButton } from "@radix-ui/themes";
 import useGlobalMenu from "@/services/useGlobalMenu";
+import { RadixTheme } from "@/services/RadixTheme";
 
 const MoreMenu: FC<{
   autoCloseOnClick?: boolean;
   className?: string;
   zIndex?: number;
   children: ReactNode;
-}> = ({ children, autoCloseOnClick = true, className = "", zIndex = 1020 }) => {
+  useRadix?: boolean;
+  size?: number;
+}> = ({
+  children,
+  autoCloseOnClick = true,
+  className = "",
+  zIndex = 1020,
+  useRadix,
+  size = 18,
+}) => {
   const [open, setOpen] = useState(false);
   const [id] = useState(() => uniqId("more_menu_"));
   useGlobalMenu(`#${id}`, () => setOpen(false));
@@ -39,35 +51,60 @@ const MoreMenu: FC<{
   }
 
   return (
-    <div className={`dropdown position-relative ${className}`} id={id}>
-      <a
-        href="#"
-        className="text-dark"
-        style={{
-          fontSize: "1.5em",
-          lineHeight: "1em",
-        }}
-        ref={refs.setReference}
-        onClick={(e) => {
-          e.preventDefault();
-          setOpen(!open);
-        }}
-      >
-        <BsThreeDotsVertical />
-      </a>
-      <FloatingPortal>
-        <div
-          className={`dropdown-menu ${open ? "show" : ""}`}
-          onClick={() => {
-            if (autoCloseOnClick) {
-              setOpen(false);
-            }
-          }}
-          ref={refs.setFloating}
-          style={{ ...floatingStyles, zIndex, width: "max-content" }}
-        >
-          {children}
+    <div
+      className={clsx("dropdown position-relative", className, {
+        "d-flex align-items-center": useRadix,
+      })}
+      id={id}
+    >
+      {useRadix ? (
+        <div className="d-flex align-items-center">
+          <IconButton
+            variant="ghost"
+            color="gray"
+            radius="full"
+            size="3"
+            highContrast
+            ref={refs.setReference}
+            onClick={() => {
+              setOpen(!open);
+            }}
+          >
+            <BsThreeDotsVertical size={size} />
+          </IconButton>
         </div>
+      ) : (
+        <a
+          href="#"
+          className="text-dark"
+          style={{
+            fontSize: "1.5em",
+            lineHeight: "1em",
+          }}
+          ref={refs.setReference}
+          onClick={(e) => {
+            e.preventDefault();
+            setOpen(!open);
+          }}
+        >
+          <BsThreeDotsVertical />
+        </a>
+      )}
+      <FloatingPortal>
+        <RadixTheme>
+          <div
+            className={`dropdown-menu ${open ? "show" : ""}`}
+            onClick={() => {
+              if (autoCloseOnClick) {
+                setOpen(false);
+              }
+            }}
+            ref={refs.setFloating}
+            style={{ ...floatingStyles, zIndex, width: "max-content" }}
+          >
+            {children}
+          </div>
+        </RadixTheme>
       </FloatingPortal>
     </div>
   );

@@ -43,6 +43,7 @@ export type Props = {
   secondaryCTA?: ReactElement;
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
+  source?: string;
 };
 
 function parseDefaultValue(
@@ -135,6 +136,7 @@ export default function FeatureFromExperimentModal({
   secondaryCTA,
   experiment,
   mutate,
+  source,
 }: Props) {
   const { project, refreshTags } = useDefinitions();
   const allEnvironments = useEnvironments();
@@ -225,6 +227,8 @@ export default function FeatureFromExperimentModal({
 
   return (
     <Modal
+      trackingEventModalType="feature-from-experiment"
+      trackingEventModalSource={source}
       open
       size="lg"
       inline={inline}

@@ -97,6 +97,14 @@ $$
 
 where $\Phi_{posterior}$ is the CDF of the distribution $N(\Delta_{posterior}, \sigma^2_{posterior})$.
 
+### Risk
+
+Risk is the expected loss, where loss is considered to be 0 if the variation is beneficial.
+Define $p$ as the probability that treatment is worse than the control (i.e., 1 - Chance to Win).
+Define $L$ as the average loss under the scenario where treatment is worse than control.
+Then the risk is $p \cdot L$.
+We model the loss $L$ as the mean of a truncated normal distribution with mean $\Delta_{posterior}$, variance $\sigma^2_{posterior}$, and boundaries at $-\infty$ and 0 for a variation, and 0 and $\infty$ for baseline.
+
 ### Confidence Interval
 
 Our “confidence interval” in the Bayesian engine is an interval from the 2.5th to the 97.5th percentile of the posterior distribution (e.g. $\Phi^{-1}_{posterior}(0.025)$ and $\Phi^{-1}_{posterior}(0.975)$). We plot the posterior between these two points in the GrowthBook UI.

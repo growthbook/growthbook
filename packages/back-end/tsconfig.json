@@ -3,7 +3,7 @@
     "module": "commonjs",
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
-    "target": "es6",
+    "target": "es2020",
     "noImplicitAny": true,
     "moduleResolution": "node",
     "sourceMap": true,
@@ -12,11 +12,12 @@
     "strictNullChecks": true,
     "strictBindCallApply": true,
     "strictPropertyInitialization": true,
-    "rootDir": "src",
+    "baseUrl": "./",
     "paths": {
-      "@back-end/*": ["./*"]
+      "back-end/*": ["./*"]
     },
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "plugins": [{ "transform": "typescript-transform-paths" }]
   },
   "include": ["src/**/*", "types/**/*.d.ts", "typings/**/*.d.ts"]
 }

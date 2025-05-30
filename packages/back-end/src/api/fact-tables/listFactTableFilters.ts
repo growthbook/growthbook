@@ -1,10 +1,13 @@
-import { ListFactTableFiltersResponse } from "../../../types/openapi";
+import { ListFactTableFiltersResponse } from "back-end/types/openapi";
 import {
   getFactTable,
   toFactTableFilterApiInterface,
-} from "../../models/FactTableModel";
-import { applyPagination, createApiRequestHandler } from "../../util/handler";
-import { listFactTableFiltersValidator } from "../../validators/openapi";
+} from "back-end/src/models/FactTableModel";
+import {
+  applyPagination,
+  createApiRequestHandler,
+} from "back-end/src/util/handler";
+import { listFactTableFiltersValidator } from "back-end/src/validators/openapi";
 
 export const listFactTableFilters = createApiRequestHandler(
   listFactTableFiltersValidator

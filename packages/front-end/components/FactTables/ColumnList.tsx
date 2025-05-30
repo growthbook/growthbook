@@ -1,6 +1,6 @@
 import { FactTableInterface } from "back-end/types/fact-table";
 import { useMemo, useState } from "react";
-import { FaClock, FaUser } from "react-icons/fa";
+import { FaClock, FaFilter, FaUser } from "react-icons/fa";
 import { BsArrowRepeat } from "react-icons/bs";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import { useAuth } from "@/services/auth";
@@ -19,7 +19,6 @@ export interface Props {
 
 export default function ColumnList({ factTable }: Props) {
   const [editOpen, setEditOpen] = useState("");
-  const [newOpen, setNewOpen] = useState(false);
 
   const { mutateDefinitions } = useDefinitions();
 
@@ -41,27 +40,36 @@ export default function ColumnList({ factTable }: Props) {
         : column.datatype,
   }));
 
-  const { items, searchInputProps, isFiltered, SortableTH, clear } = useSearch({
+  const {
+    items,
+    searchInputProps,
+    isFiltered,
+    SortableTH,
+    clear,
+    pagination,
+  } = useSearch({
     items: columns,
     defaultSortField: "dateCreated",
     localStorageKey: "factColumns",
     searchFields: ["name^3", "description", "column^2"],
+    pageSize: 5,
   });
 
   const canEdit = permissionsUtil.canViewEditFactTableModal(factTable);
 
+  const existing = editOpen
+    ? factTable.columns.find((c) => c.column === editOpen)
+    : null;
+
   return (
     <>
-      {newOpen && (
-        <ColumnModal close={() => setNewOpen(false)} factTable={factTable} />
-      )}
-      {editOpen && (
+      {existing ? (
         <ColumnModal
           close={() => setEditOpen("")}
           factTable={factTable}
-          existing={factTable.columns.find((c) => c.column === editOpen)}
+          existing={existing}
         />
-      )}
+      ) : null}
 
       {factTable.columnsError && (
         <div className="alert alert-danger">
@@ -86,10 +94,13 @@ export default function ColumnList({ factTable }: Props) {
           <Button
             color="link"
             onClick={async () => {
-              await apiCall(`/fact-tables/${factTable.id}`, {
-                method: "PUT",
-                body: JSON.stringify({}),
-              });
+              await apiCall(
+                `/fact-tables/${factTable.id}?forceColumnRefresh=1`,
+                {
+                  method: "PUT",
+                  body: JSON.stringify({}),
+                }
+              );
               mutateDefinitions();
             }}
           >
@@ -105,80 +116,90 @@ export default function ColumnList({ factTable }: Props) {
         </div>
       )}
       {columns.length > 0 ? (
-        <table className="table appbox gbtable mt-2 mb-0">
-          <thead>
-            <tr>
-              <SortableTH field="column">Column</SortableTH>
-              <th></th>
-              <SortableTH field="type">Type</SortableTH>
-              <th style={{ width: 30 }}></th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((col) => (
-              <tr key={col.column}>
-                <td>
-                  {col.column}{" "}
-                  {col.identifier && (
-                    <Tooltip body="User Identifier Type">
-                      <span className="badge badge-purple">
-                        <FaUser />
-                      </span>
-                    </Tooltip>
-                  )}
-                  {col.column === "timestamp" && (
-                    <Tooltip body="Main date field used for sorting and filtering">
-                      <span className="badge badge-purple">
-                        <FaClock />
-                      </span>
-                    </Tooltip>
-                  )}
-                </td>
-                <td>{col.name !== col.column ? `"${col.name}"` : ""}</td>
-                <td>
-                  {col.datatype || "unknown"}{" "}
-                  {col.datatype === "number" && col.numberFormat && (
-                    <>({col.numberFormat})</>
-                  )}
-                  {col.datatype === "" && (
-                    <Tooltip body="Unable to detect the data type. Edit this column to set one.">
-                      <FaTriangleExclamation className="text-danger" />
-                    </Tooltip>
-                  )}
-                </td>
-                <td>
-                  {canEdit && (
-                    <button
-                      className="btn btn-link btn-sm"
+        <>
+          <table className="table appbox gbtable mt-2 mb-0">
+            <thead>
+              <tr>
+                <SortableTH field="column">Column</SortableTH>
+                <th></th>
+                <SortableTH field="type">Type</SortableTH>
+                <th style={{ width: 30 }}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((col) => (
+                <tr key={col.column}>
+                  <td>
+                    {col.column}{" "}
+                    {col.identifier && (
+                      <Tooltip body="User Identifier Type">
+                        <span className="badge badge-purple">
+                          <FaUser />
+                        </span>
+                      </Tooltip>
+                    )}
+                    {col.column === "timestamp" && (
+                      <Tooltip body="Main date field used for sorting and filtering">
+                        <span className="badge badge-purple">
+                          <FaClock />
+                        </span>
+                      </Tooltip>
+                    )}
+                    {col.alwaysInlineFilter && (
+                      <Tooltip body="Prompt all metrics to filter on this column">
+                        <span className="badge badge-purple">
+                          <FaFilter />
+                        </span>
+                      </Tooltip>
+                    )}
+                  </td>
+                  <td>{col.name !== col.column ? `"${col.name}"` : ""}</td>
+                  <td>
+                    {col.datatype || "unknown"}{" "}
+                    {col.datatype === "number" && col.numberFormat && (
+                      <>({col.numberFormat})</>
+                    )}
+                    {col.datatype === "" && (
+                      <Tooltip body="Unable to detect the data type. Edit this column to set one.">
+                        <FaTriangleExclamation className="text-danger" />
+                      </Tooltip>
+                    )}
+                  </td>
+                  <td>
+                    {canEdit && (
+                      <button
+                        className="btn btn-link btn-sm"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setEditOpen(col.column);
+                        }}
+                      >
+                        <GBEdit />
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {!items.length && isFiltered && (
+                <tr>
+                  <td colSpan={4} align={"center"}>
+                    No matching columns.{" "}
+                    <a
+                      href="#"
                       onClick={(e) => {
                         e.preventDefault();
-                        setEditOpen(col.column);
+                        clear();
                       }}
                     >
-                      <GBEdit />
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-            {!items.length && isFiltered && (
-              <tr>
-                <td colSpan={4} align={"center"}>
-                  No matching columns.{" "}
-                  <a
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      clear();
-                    }}
-                  >
-                    Clear search field
-                  </a>
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+                      Clear search field
+                    </a>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+          {pagination}
+        </>
       ) : (
         <div className="alert alert-warning mt-3">
           <strong>Unable to Auto-Detect Columns</strong>. Double check your SQL

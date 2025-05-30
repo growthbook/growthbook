@@ -3,16 +3,28 @@ import { freeEmailDomains } from "free-email-domains-typescript";
 import { cloneDeep } from "lodash";
 import { Request } from "express";
 import {
-  getLicense,
-  isActiveSubscriptionStatus,
-  isAirGappedLicenseKey,
-  postSubscriptionUpdateToLicenseServer,
-} from "enterprise";
-import {
   areProjectRolesValid,
   isRoleValid,
   getDefaultRole,
 } from "shared/permissions";
+import {
+  DEFAULT_MAX_PERCENT_CHANGE,
+  DEFAULT_METRIC_CAPPING,
+  DEFAULT_METRIC_CAPPING_VALUE,
+  DEFAULT_METRIC_WINDOW,
+  DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+  DEFAULT_METRIC_WINDOW_HOURS,
+  DEFAULT_MIN_PERCENT_CHANGE,
+  DEFAULT_MIN_SAMPLE_SIZE,
+  DEFAULT_P_VALUE_THRESHOLD,
+  DEFAULT_PROPER_PRIOR_STDDEV,
+  DEFAULT_TARGET_MDE,
+} from "shared/constants";
+import {
+  MetricCappingSettings,
+  MetricPriorSettings,
+  MetricWindowSettings,
+} from "back-end/types/fact-table";
 import {
   createOrganization,
   findAllOrganizations,
@@ -20,9 +32,9 @@ import {
   findOrganizationByInviteKey,
   findOrganizationsByDomain,
   updateOrganization,
-} from "../models/OrganizationModel";
-import { APP_ORIGIN, IS_CLOUD } from "../util/secrets";
-import { AuthRequest } from "../types/AuthRequest";
+} from "back-end/src/models/OrganizationModel";
+import { APP_ORIGIN, IS_CLOUD } from "back-end/src/util/secrets";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   ExpandedMember,
   ExpandedMemberInfo,
@@ -30,38 +42,45 @@ import {
   Member,
   MemberRoleInfo,
   MemberRoleWithProjects,
+  MetricDefaults,
   OrganizationInterface,
   PendingMember,
   ProjectMemberRole,
   ReqContext,
-} from "../../types/organization";
-import { ApiReqContext, ExperimentOverride } from "../../types/api";
-import { ConfigFile } from "../init/config";
+} from "back-end/types/organization";
+import { ApiReqContext, ExperimentOverride } from "back-end/types/api";
+import { ConfigFile } from "back-end/src/init/config";
 import {
   createDataSource,
   getDataSourceById,
   updateDataSource,
-} from "../models/DataSourceModel";
+} from "back-end/src/models/DataSourceModel";
 import {
   ALLOWED_METRIC_TYPES,
   getMetricById,
   updateMetric,
-} from "../models/MetricModel";
-import { MetricInterface } from "../../types/metric";
+} from "back-end/src/models/MetricModel";
+import { MetricInterface } from "back-end/types/metric";
 import {
   createDimension,
   findDimensionById,
   updateDimension,
-} from "../models/DimensionModel";
-import { DimensionInterface } from "../../types/dimension";
-import { DataSourceInterface } from "../../types/datasource";
-import { SSOConnectionInterface } from "../../types/sso-connection";
-import { logger } from "../util/logger";
-import { SegmentInterface } from "../../types/segment";
-import { getAllExperiments } from "../models/ExperimentModel";
-import { LegacyExperimentPhase } from "../../types/experiment";
-import { addTags } from "../models/TagModel";
-import { getUsersByIds } from "../models/UserModel";
+} from "back-end/src/models/DimensionModel";
+import { DimensionInterface } from "back-end/types/dimension";
+import { DataSourceInterface } from "back-end/types/datasource";
+import { SSOConnectionInterface } from "back-end/types/sso-connection";
+import { logger } from "back-end/src/util/logger";
+import { SegmentInterface } from "back-end/types/segment";
+import { getAllExperiments } from "back-end/src/models/ExperimentModel";
+import { LegacyExperimentPhase } from "back-end/types/experiment";
+import { addTags } from "back-end/src/models/TagModel";
+import { getUsersByIds } from "back-end/src/models/UserModel";
+import {
+  getLicenseMetaData,
+  getUserCodesForOrg,
+} from "back-end/src/services/licenseData";
+import { getLicense, licenseInit } from "back-end/src/enterprise";
+import { PValueCorrection } from "back-end/types/stats";
 import {
   encryptParams,
   getSourceIntegrationObject,
@@ -74,7 +93,7 @@ import { ReqContextClass } from "./context";
 export {
   getEnvironments,
   getEnvironmentIdsFromOrg,
-} from "../util/organization.util";
+} from "back-end/src/util/organization.util";
 
 export async function getOrganizationById(id: string) {
   return findOrganizationById(id);
@@ -145,6 +164,48 @@ export function getConfidenceLevelsForOrg(context: ReqContext) {
   };
 }
 
+export function getMetricDefaultsForOrg(context: ReqContext): MetricDefaults {
+  const defaultMetricWindowSettings: MetricWindowSettings = {
+    type: DEFAULT_METRIC_WINDOW,
+    windowValue: DEFAULT_METRIC_WINDOW_HOURS,
+    windowUnit: "hours",
+    delayValue: DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+    delayUnit: "hours",
+  };
+  const defaultMetricCappingSettings: MetricCappingSettings = {
+    type: DEFAULT_METRIC_CAPPING,
+    value: DEFAULT_METRIC_CAPPING_VALUE,
+  };
+  const defaultMetricPriorSettings: MetricPriorSettings = {
+    override: false,
+    proper: false,
+    mean: 0,
+    stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+  };
+
+  const METRIC_DEFAULTS = {
+    minimumSampleSize: DEFAULT_MIN_SAMPLE_SIZE,
+    maxPercentageChange: DEFAULT_MAX_PERCENT_CHANGE,
+    minPercentageChange: DEFAULT_MIN_PERCENT_CHANGE,
+    targetMDE: DEFAULT_TARGET_MDE,
+    windowSettings: defaultMetricWindowSettings,
+    cappingSettings: defaultMetricCappingSettings,
+    priorSettings: defaultMetricPriorSettings,
+  };
+
+  return context.org.settings?.metricDefaults || METRIC_DEFAULTS;
+}
+
+export function getPValueThresholdForOrg(context: ReqContext): number {
+  return context.org.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD;
+}
+
+export function getPValueCorrectionForOrg(
+  context: ReqContext
+): PValueCorrection {
+  return context.org.settings?.pValueCorrection ?? null;
+}
+
 export function getRole(
   org: OrganizationInterface,
   userId: string,
@@ -206,7 +267,12 @@ export async function removeMember(
   updatedOrganization.members = members;
   updatedOrganization.pendingMembers = pendingMembers;
 
-  await updateSubscriptionIfProLicense(updatedOrganization);
+  await licenseInit(
+    updatedOrganization,
+    getUserCodesForOrg,
+    getLicenseMetaData,
+    true
+  );
 
   return updatedOrganization;
 }
@@ -223,35 +289,18 @@ export async function revokeInvite(
 
   const updatedOrganization = cloneDeep(organization);
   updatedOrganization.invites = invites;
-  await updateSubscriptionIfProLicense(updatedOrganization);
+  await licenseInit(
+    updatedOrganization,
+    getUserCodesForOrg,
+    getLicenseMetaData,
+    true
+  );
 
   return updatedOrganization;
 }
 
 export function getInviteUrl(key: string) {
   return `${APP_ORIGIN}/invitation?key=${key}`;
-}
-
-async function updateSubscriptionIfProLicense(
-  organization: OrganizationInterface
-) {
-  if (
-    organization.licenseKey &&
-    !isAirGappedLicenseKey(organization.licenseKey)
-  ) {
-    const license = await getLicense(organization.licenseKey);
-    if (
-      license?.plan === "pro" &&
-      isActiveSubscriptionStatus(license?.stripeSubscription?.status)
-    ) {
-      // Only pro plans have a Stripe subscription that needs to get updated
-      const seatsInUse = getNumberOfUniqueMembersAndInvites(organization);
-      await postSubscriptionUpdateToLicenseServer(
-        organization.licenseKey,
-        seatsInUse
-      );
-    }
-  }
 }
 
 export async function addMemberToOrg({
@@ -312,7 +361,12 @@ export async function addMemberToOrg({
   updatedOrganization.members = members;
   updatedOrganization.pendingMembers = pendingMembers;
 
-  await updateSubscriptionIfProLicense(updatedOrganization);
+  await licenseInit(
+    updatedOrganization,
+    getUserCodesForOrg,
+    getLicenseMetaData,
+    true
+  );
 }
 
 export async function addMembersToTeam({
@@ -478,7 +532,14 @@ export async function acceptInvite(key: string, userId: string) {
     pendingMembers,
   });
 
-  return organization;
+  // fetch a fresh instance of the org now that the members & invites lists have changed
+  const updatedOrg = await getOrganizationById(organization.id);
+
+  if (!updatedOrg) {
+    throw new Error("Unable to locate org");
+  }
+
+  return updatedOrg;
 }
 
 export async function inviteUser({
@@ -546,7 +607,12 @@ export async function inviteUser({
   const updatedOrganization = cloneDeep(organization);
   updatedOrganization.invites = invites;
 
-  await updateSubscriptionIfProLicense(updatedOrganization);
+  await licenseInit(
+    updatedOrganization,
+    getUserCodesForOrg,
+    getLicenseMetaData,
+    true
+  );
 
   let emailSent = false;
   if (isEmailEnabled()) {
@@ -1070,6 +1136,10 @@ export async function getContextForAgendaJobByOrgId(
   const organization = await findOrganizationById(orgId);
 
   if (!organization) throw new Error("Organization not found");
+
+  if (organization.licenseKey && !getLicense(organization.licenseKey)) {
+    await licenseInit(organization, getUserCodesForOrg, getLicenseMetaData);
+  }
 
   return getContextForAgendaJobByOrgObject(organization);
 }

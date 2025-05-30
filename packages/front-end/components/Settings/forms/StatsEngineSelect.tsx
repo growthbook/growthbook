@@ -9,17 +9,21 @@ export default function StatsEngineSelect({
   showDefault = true,
   allowUndefined = true,
   label = "Statistics Engine",
+  className = "w-200px",
   value,
   onChange,
-  labelClassName = "font-weight-bold text-muted mr-2",
+  labelClassName = "mr-2",
+  disabled,
 }: {
   value?: StatsEngine;
   parentSettings?: ScopedSettings;
   showDefault?: boolean;
   allowUndefined?: boolean;
   label?: ReactNode;
+  className?: string;
   onChange?: (v: StatsEngine) => void;
   labelClassName?: string;
+  disabled?: boolean;
 }) {
   const parentScopeId = parentSettings?.statsEngine?.meta?.scopeApplied;
   const options = [
@@ -44,7 +48,7 @@ export default function StatsEngineSelect({
   return (
     <SelectField
       label={label}
-      className="w-200px"
+      className={className}
       containerClassName="mb-3"
       labelClassName={labelClassName}
       sort={false}
@@ -68,6 +72,7 @@ export default function StatsEngineSelect({
         }
         return label;
       }}
+      disabled={disabled}
     />
   );
 }

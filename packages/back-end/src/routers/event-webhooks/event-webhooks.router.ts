@@ -1,12 +1,12 @@
 import express from "express";
 import z from "zod";
-import { wrapController } from "../wrapController";
-import { validateRequestMiddleware } from "../utils/validateRequestMiddleware";
-import { zodNotificationEventNamesEnum } from "../../events/base-types";
+import { wrapController } from "back-end/src/routers/wrapController";
+import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
+import { zodNotificationEventNamesEnum } from "back-end/src/events/base-types";
 import {
   eventWebHookMethods,
   eventWebHookPayloadTypes,
-} from "../../validators/event-webhook";
+} from "back-end/src/validators/event-webhook";
 import * as rawEventWebHooksController from "./event-webhooks.controller";
 
 const router = express.Router();
@@ -158,6 +158,13 @@ router.post(
       .strict(),
   }),
   eventWebHooksController.toggleEventWebHook
+);
+
+router.post(`/webhook-secrets`, eventWebHooksController.createWebhookSecret);
+router.put(`/webhook-secrets/:id`, eventWebHooksController.updateWebhookSecret);
+router.delete(
+  `/webhook-secrets/:id`,
+  eventWebHooksController.deleteWebhookSecret
 );
 
 export { router as eventWebHooksRouter };

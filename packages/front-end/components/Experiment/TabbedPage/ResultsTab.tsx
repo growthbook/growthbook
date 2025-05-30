@@ -1,16 +1,17 @@
-import {
-  ExperimentInterfaceStringDates,
-  LinkedFeatureInfo,
-} from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { getScopedSettings } from "shared/settings";
-import { useMemo, useState } from "react";
-import { ReportInterface } from "back-end/types/report";
+import React, { useMemo, useState } from "react";
+import {
+  ExperimentSnapshotReportArgs,
+  ReportInterface,
+} from "back-end/types/report";
 import uniq from "lodash/uniq";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { DifferenceType } from "back-end/types/stats";
+import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import {
   getAllMetricIdsFromExperiment,
   getAllMetricSettingsForSnapshot,
@@ -20,13 +21,14 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
-import Button from "@/components/Button";
-import { GBAddCircle } from "@/components/Icons";
 import Results, { ResultsMetricFilters } from "@/components/Experiment/Results";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
 import ExperimentReportsList from "@/components/Experiment/ExperimentReportsList";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Callout from "@/components/Radix/Callout";
+import Button from "@/components/Radix/Button";
+import track from "@/services/track";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
 import { ExperimentTab } from ".";
 
@@ -39,7 +41,7 @@ export interface Props {
   editPhases?: (() => void) | null;
   visualChangesets: VisualChangesetInterface[];
   editTargeting?: (() => void) | null;
-  linkedFeatures: LinkedFeatureInfo[];
+  envs: string[];
   setTab: (tab: ExperimentTab) => void;
   connections: SDKConnectionInterface[];
   isTabActive: boolean;
@@ -56,6 +58,7 @@ export interface Props {
 
 export default function ResultsTab({
   experiment,
+  envs,
   mutate,
   editMetrics,
   editResult,
@@ -87,7 +90,7 @@ export default function ResultsTab({
 
   const router = useRouter();
 
-  const { snapshot } = useSnapshot();
+  const { snapshot, analysis, dimension } = useSnapshot();
   const permissionsUtil = usePermissionsUtil();
 
   const [analysisSettingsOpen, setAnalysisSettingsOpen] = useState(false);
@@ -124,7 +127,6 @@ export default function ResultsTab({
   const denominatorMetrics = denominatorMetricIds
     .map((m) => getMetricById(m as string))
     .filter(isDefined);
-
   const orgSettings = useOrgSettings();
 
   const {
@@ -162,23 +164,59 @@ export default function ResultsTab({
     mutate();
   };
 
+  const hasData =
+    (analysis?.results?.[0]?.variations?.length ?? 0) > 0 &&
+    (analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE) === statsEngine;
+
+  const hasResults =
+    experiment.status !== "draft" &&
+    hasData &&
+    snapshot &&
+    analysis?.results?.[0];
+
+  const isBandit = experiment.type === "multi-armed-bandit";
+
+  const datasourceSettings = experiment.datasource
+    ? getDatasourceById(experiment.datasource)?.settings
+    : undefined;
+  const userIdType = datasourceSettings?.queries?.exposure?.find(
+    (e) => e.id === experiment.exposureQueryId
+  )?.userIdType;
+
+  const reportArgs: ExperimentSnapshotReportArgs = {
+    userIdType: userIdType as "user" | "anonymous" | undefined,
+    differenceType,
+    dimension,
+  };
+
   return (
-    <>
-      <div className="bg-white border mt-3">
+    <div className="mt-3">
+      {isBandit && hasResults ? (
+        <Callout status="info" mb="5">
+          Bandits are better than experiments at directing traffic to the best
+          variation but they can produce biased results.
+          {/*todo: docs*/}
+        </Callout>
+      ) : null}
+
+      <div className="appbox">
         {analysisSettingsOpen && (
           <AnalysisForm
             cancel={() => setAnalysisSettingsOpen(false)}
             experiment={experiment}
+            envs={envs}
             mutate={mutate}
             phase={experiment.phases.length - 1}
             editDates={false}
             editMetrics={true}
             editVariationIds={false}
+            source={"results-tab"}
           />
         )}
         <div className="mb-2" style={{ overflowX: "initial" }}>
           <AnalysisSettingsSummary
             experiment={experiment}
+            envs={envs}
             mutate={mutate}
             statsEngine={statsEngine}
             editMetrics={editMetrics ?? undefined}
@@ -186,14 +224,14 @@ export default function ResultsTab({
             baselineRow={baselineRow}
             setBaselineRow={(b: number) => setBaselineRow(b)}
             setDifferenceType={setDifferenceType}
+            differenceType={differenceType}
+            reportArgs={reportArgs}
           />
           {experiment.status === "draft" ? (
-            <div className="mx-3">
-              <div className="alert bg-light border my-4">
-                Your experiment is still in a <strong>draft</strong> state. You
-                must start the experiment first before seeing results.
-              </div>
-            </div>
+            <Callout status="info" mx="3" my="4">
+              Your experiment is still in a <strong>draft</strong> state. You
+              must start the experiment first before seeing results.
+            </Callout>
           ) : (
             <>
               {experiment.status === "running" &&
@@ -249,6 +287,7 @@ export default function ResultsTab({
               ) : (
                 <Results
                   experiment={experiment}
+                  envs={envs}
                   mutateExperiment={mutate}
                   editMetrics={editMetrics ?? undefined}
                   editResult={editResult ?? undefined}
@@ -279,30 +318,38 @@ export default function ResultsTab({
         </div>
       </div>
       {snapshot && (
-        <div className="bg-white border mt-4">
+        <div className="appbox mt-4">
           <div className="row mx-2 py-3 d-flex align-items-center">
-            <div className="col h3 ml-2 mb-0">Custom Reports</div>
+            <div className="col ml-2">
+              <div className="h3">Custom Reports</div>
+              <div>
+                Create and share a stand-alone ad-hoc analysis without affecting
+                this {isBandit ? "Bandit" : "Experiment"}.
+              </div>
+            </div>
             <div className="col-auto mr-2">
               {permissionsUtil.canCreateReport(experiment) ? (
                 <Button
-                  className="btn btn-outline-primary float-right"
-                  color="outline-info"
-                  stopPropagation={true}
                   onClick={async () => {
                     const res = await apiCall<{ report: ReportInterface }>(
                       `/experiments/report/${snapshot.id}`,
                       {
                         method: "POST",
+                        body: reportArgs
+                          ? JSON.stringify(reportArgs)
+                          : undefined,
                       }
                     );
                     if (!res.report) {
                       throw new Error("Failed to create report");
                     }
+                    track("Experiment Report: Create", {
+                      source: "experiment results tab",
+                    });
                     await router.push(`/report/${res.report.id}`);
                   }}
                 >
-                  <GBAddCircle className="pr-1" />
-                  Custom Report
+                  New Custom Report
                 </Button>
               ) : null}
             </div>
@@ -310,6 +357,6 @@ export default function ResultsTab({
           <ExperimentReportsList experiment={experiment} />
         </div>
       )}
-    </>
+    </div>
   );
 }

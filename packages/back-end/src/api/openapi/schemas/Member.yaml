@@ -1,0 +1,55 @@
+type: object
+required:
+  - id
+  - email
+  - globalRole
+properties:
+  id:
+    type: string
+  name:
+    type: string
+  email:
+    type: string
+  globalRole:
+    type: string
+  environments:
+    type: array
+    items:
+      type: string
+  limitAccessByEnvironment:
+    type: boolean
+  managedbyIdp:
+    type: boolean
+  teams:
+    type: array
+    items:
+      type: string
+  projectRoles:
+    type: array
+    items:
+      type: object
+      required:
+        - project
+        - role
+        - limitAccessByEnvironment
+        - environments
+      properties:
+        project:
+          type: string
+        role:
+          type: string
+        limitAccessByEnvironment:
+          type: boolean
+        environments:
+          type: array
+          items:
+            type: string
+  lastLoginDate:
+    type: string
+    format: date-time
+  dateCreated:
+    type: string
+    format: date-time
+  dateUpdated:
+    type: string
+    format: date-time

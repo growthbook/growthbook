@@ -1,6 +1,10 @@
 // @ts-check
 // Note: type annotations allow type checking and IDEs autocompletion
 
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import { themes } from "prism-react-renderer";
+
 /** @type {import('@docusaurus/types').Config} */
 const config = {
   title: "GrowthBook Docs",
@@ -25,6 +29,10 @@ const config = {
     locales: ["en"],
   },
 
+  future: {
+    experimental_faster: true,
+  },
+
   // Kapa.ai chat bot on Docs page
   scripts: [
     {
@@ -32,13 +40,19 @@ const config = {
       "data-website-id": "c4406b9f-35c5-43ca-b0c1-e7c0e261831f", // Safe to expose publicly
       "data-project-name": "GrowthBook",
       "data-project-color": "#7817d3",
-      "data-modal-example-questions": "How do I run an experiment?",
-      "data-project-logo":
-        "https://docs.growthbook.io/images/chatbot-icon-white.png",
+      "data-modal-example-questions":
+        "How do I create a feature flag?, How do I run an experiment?",
+      "data-project-logo": "/img/gb-logo-white.svg",
+      "data-modal-image": "/img/gb-logo-ai.svg",
+      "data-button-width": "72px",
+      "data-button-height": "72px",
+      async: true,
+    },
+    {
+      src: "https://w.appzi.io/w.js?token=jZ31J",
       async: true,
     },
   ],
-
   presets: [
     [
       "classic",
@@ -48,9 +62,9 @@ const config = {
           breadcrumbs: true,
           remarkPlugins: [
             [require("@docusaurus/remark-plugin-npm2yarn"), { sync: true }],
-            require("remark-math"),
+            remarkMath,
           ],
-          rehypePlugins: [require("rehype-katex")],
+          rehypePlugins: [rehypeKatex],
           sidebarPath: require.resolve("./sidebars.js"),
           routeBasePath: "/", // Serve the docs at the site's root
           // Please change this to your repo.
@@ -178,8 +192,8 @@ const config = {
         },
       ],
       prism: {
-        theme: require("prism-react-renderer").themes.github,
-        darkTheme: require("prism-react-renderer").themes.dracula,
+        theme: themes.github,
+        darkTheme: themes.dracula,
         additionalLanguages: [
           "csharp",
           "ruby",
@@ -190,6 +204,8 @@ const config = {
           "dart",
           "groovy",
           "scala",
+          "json",
+          "bash",
         ],
       },
       colorMode: {

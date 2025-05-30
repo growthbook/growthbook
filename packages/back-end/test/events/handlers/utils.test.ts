@@ -1,8 +1,8 @@
 import {
   RELEVANT_KEYS_FOR_ALL_ENVS,
   getChangedApiFeatureEnvironments,
-} from "../../../src/events/handlers/utils";
-import { ApiFeature, ApiFeatureForceRule } from "../../../types/openapi";
+} from "back-end/src/events/handlers/utils";
+import { ApiFeature, ApiFeatureForceRule } from "back-end/types/openapi";
 
 describe("getChangedApiFeatureEnvironments", () => {
   const rule: ApiFeatureForceRule = {

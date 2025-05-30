@@ -1,9 +1,11 @@
-import React, { useState } from "react";
 import { FaCheck, FaExclamationTriangle } from "react-icons/fa";
-import clsx from "clsx";
 import Code from "@/components/SyntaxHighlighting/Code";
-import ControlledTabs from "@/components/Tabs/ControlledTabs";
-import Tab from "@/components/Tabs/Tab";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/Radix/Tabs";
 
 export type Props = {
   results: Record<string, unknown>[];
@@ -34,40 +36,36 @@ export default function DisplayTestQueryResults({
     ? Number(errorLineMatch[1] || errorLineMatch[2])
     : undefined;
 
-  const [tab, setTab] = useState(forceShowSql ? "sql" : "results");
-
   return (
-    <>
-      <ControlledTabs
-        className="pt-1 d-flex flex-column h-100"
-        buttonsClassName="px-3"
-        tabContentsClassName={clsx("px-3 pt-3 flex-grow-1 overflow-auto")}
-        navExtra={
-          <div className="flex-grow-1">
-            <button
-              type="button"
-              className="close"
-              style={{ padding: "0.3rem 1rem" }}
-              onClick={(e) => {
-                e.preventDefault();
-                close();
-              }}
-              aria-label="Close"
-            >
-              <span aria-hidden="true">×</span>
-            </button>
-          </div>
-        }
-        active={tab}
-        setActive={(tab) => setTab(tab ?? "results")}
-      >
-        <Tab
-          id="results"
-          display="Results"
-          padding={false}
-          visible={!forceShowSql}
+    <Tabs
+      defaultValue={forceShowSql ? "sql" : "results"}
+      style={{ maxHeight: "50%", overflow: "hidden" }}
+    >
+      <TabsList>
+        {!forceShowSql && <TabsTrigger value="results">Results</TabsTrigger>}
+        <TabsTrigger value="sql">Rendered SQL</TabsTrigger>
+        <div className="flex-grow-1">
+          <button
+            type="button"
+            className="close"
+            style={{ padding: "0.3rem 1rem" }}
+            onClick={(e) => {
+              e.preventDefault();
+              close();
+            }}
+            aria-label="Close"
+          >
+            <span aria-hidden="true">×</span>
+          </button>
+        </div>
+      </TabsList>
+
+      {!forceShowSql && (
+        <TabsContent
+          value="results"
+          style={{ display: "flex", flexDirection: "column", height: "100%" }}
         >
-          <div className="border p-2 bg-light">
+          <div className="border mt-2 rounded p-2 bg-light">
             <div className="row">
               <div className="col-auto">
                 <strong>Sample {results?.length} Rows</strong>
@@ -80,12 +78,22 @@ export default function DisplayTestQueryResults({
               </div>
             </div>
           </div>
-          <div style={{ width: "100%", overflow: "auto" }} className="mb-3">
+          <div
+            style={{ width: "100%", overflow: "auto", flexGrow: 1 }}
+            className="mb-3"
+          >
             <table
               className="table table-bordered table-sm appbox w-100 mb-0"
-              style={{ overflow: "auto" }}
+              style={{ position: "relative" }}
             >
-              <thead>
+              <thead
+                style={{
+                  position: "sticky",
+                  top: 0,
+                  zIndex: 2,
+                  background: "white",
+                }}
+              >
                 <tr>
                   {cols.map((col) => (
                     <th key={col}>{col}</th>
@@ -103,28 +111,32 @@ export default function DisplayTestQueryResults({
               </tbody>
             </table>
           </div>
-        </Tab>
-        <Tab id="sql" display="Rendered SQL" padding={false}>
-          <div style={{ overflowY: "auto", height: "100%" }}>
-            {error ? (
-              <div className="alert alert-danger mr-auto">{error}</div>
-            ) : (
-              !results.length && (
-                <div className="alert alert-warning mr-auto">
-                  <FaExclamationTriangle /> No rows returned, could not verify
-                  result
-                </div>
-              )
-            )}
-            <Code
-              code={sql}
-              language="sql"
-              errorLine={errorLine}
-              expandable={expandable}
-            />
-          </div>
-        </Tab>
-      </ControlledTabs>
-    </>
+        </TabsContent>
+      )}
+
+      <TabsContent
+        value="sql"
+        style={{ display: "flex", flexDirection: "column", height: "100%" }}
+      >
+        <div style={{ overflowY: "auto", height: "100%" }}>
+          {error ? (
+            <div className="alert alert-danger mr-auto">{error}</div>
+          ) : (
+            !results.length && (
+              <div className="alert alert-warning mr-auto">
+                <FaExclamationTriangle /> No rows returned, could not verify
+                result
+              </div>
+            )
+          )}
+          <Code
+            code={sql}
+            language="sql"
+            errorLine={errorLine}
+            expandable={expandable}
+          />
+        </div>
+      </TabsContent>
+    </Tabs>
   );
 }

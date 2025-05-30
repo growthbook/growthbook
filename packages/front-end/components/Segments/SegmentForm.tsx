@@ -1,7 +1,7 @@
 import { FC, useMemo, useState } from "react";
 import { SegmentInterface } from "back-end/types/segment";
 import { useForm } from "react-hook-form";
-import { FaExternalLinkAlt } from "react-icons/fa";
+import { FaArrowRight, FaExternalLinkAlt } from "react-icons/fa";
 import { isProjectListValidForProject } from "shared/util";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
@@ -12,6 +12,12 @@ import useMembers from "@/hooks/useMembers";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import Code from "@/components/SyntaxHighlighting/Code";
+import useProjectOptions from "@/hooks/useProjectOptions";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import MultiSelectField from "../Forms/MultiSelectField";
+import Tooltip from "../Tooltip/Tooltip";
+import SelectOwner from "../Owner/SelectOwner";
+import FactSegmentForm from "./FactSegmentForm";
 
 export type CursorData = {
   row: number;
@@ -30,7 +36,10 @@ const SegmentForm: FC<{
     getDatasourceById,
     mutateDefinitions,
     project,
+    projects,
+    factTables,
   } = useDefinitions();
+  const permissionsUtil = usePermissionsUtil();
   const filteredDatasources = datasources
     .filter((d) => d.properties?.segments)
     .filter(
@@ -38,6 +47,10 @@ const SegmentForm: FC<{
         d.id === current.datasource ||
         isProjectListValidForProject(d.projects, project)
     );
+
+  const currentOwner = memberUsernameOptions.find(
+    (member) => member.display === current.owner
+  );
   const form = useForm({
     defaultValues: {
       name: current.name || "",
@@ -45,15 +58,37 @@ const SegmentForm: FC<{
       datasource:
         (current.id ? current.datasource : filteredDatasources[0]?.id) || "",
       userIdType: current.userIdType || "user_id",
-      owner: current.owner || "",
+      owner: currentOwner?.display || "",
       description: current.description || "",
+      projects: current.id
+        ? current.projects || []
+        : filteredDatasources[0]?.projects || [],
     },
   });
   const [sqlOpen, setSqlOpen] = useState(false);
+  const [createFactSegment, setCreateFactSegment] = useState(
+    () => current?.type === "FACT"
+  );
 
   const userIdType = form.watch("userIdType");
 
   const datasource = getDatasourceById(form.watch("datasource"));
+
+  const filteredProjects = projects.filter((project) => {
+    // only filter projects is the data source isn't in All Projects (aka, projects is an empty array)
+    if (datasource?.projects && datasource.projects.length) {
+      return (
+        datasource.projects.includes(project.id) ||
+        form.watch("projects").includes(project.id)
+      );
+    }
+  });
+
+  const projectOptions = useProjectOptions(
+    (project) => permissionsUtil.canCreateSegment({ projects: [project] }),
+    form.watch("projects"),
+    filteredProjects.length ? filteredProjects : undefined
+  );
 
   const dsProps = datasource?.properties;
   const supportsSQL = dsProps?.queryLanguage === "sql";
@@ -63,6 +98,17 @@ const SegmentForm: FC<{
   const requiredColumns = useMemo(() => {
     return new Set([userIdType, "date"]);
   }, [userIdType]);
+
+  if (createFactSegment) {
+    return (
+      <FactSegmentForm
+        goBack={() => setCreateFactSegment(false)}
+        current={current}
+        filteredDatasources={filteredDatasources}
+        close={close}
+      />
+    );
+  }
 
   return (
     <>
@@ -77,35 +123,82 @@ const SegmentForm: FC<{
         />
       )}
       <Modal
+        trackingEventModalType=""
         close={close}
         open={true}
-        size={"md"}
+        size={"lg"}
+        cta={current.id ? "Update Segment" : "Create Segment"}
         header={current.id ? "Edit Segment" : "New Segment"}
         submit={form.handleSubmit(async (value) => {
           if (supportsSQL) {
             validateSQL(value.sql, [value.userIdType, "date"]);
           }
 
+          // Block creating a new segment if the connected data source has projects and the segment doesn't
+          if (
+            !current.id &&
+            datasource?.projects &&
+            datasource.projects.length > 0 &&
+            !value.projects.length
+          ) {
+            throw new Error(
+              `This segment can not be in "All Projects" since the connected data source is limited to at least one project.`
+            );
+          }
+
+          // Block updating an existing Segment with projects to "All Projects" if the connected data source isn't in "All Projects"
+          if (
+            current.id &&
+            datasource?.projects &&
+            datasource.projects.length > 0 &&
+            !value.projects.length &&
+            current.projects?.length
+          ) {
+            throw new Error(
+              `This segment can not be in "All Projects" since the connected data source is limited to at least one project.`
+            );
+          }
+
           await apiCall(current.id ? `/segments/${current.id}` : `/segments`, {
             method: current.id ? "PUT" : "POST",
-            body: JSON.stringify(value),
+            body: JSON.stringify({ ...value, type: "SQL" }),
           });
           mutateDefinitions({});
         })}
       >
+        {!current.id && factTables.length > 0 ? (
+          <div className="alert border badge-purple text-center d-flex align-items-center">
+            Want to use Fact Tables to create your segments instead?{" "}
+            <a
+              href="#"
+              className="ml-2 btn btn-primary btn-sm"
+              onClick={(e) => {
+                e.preventDefault();
+                setCreateFactSegment(true);
+              }}
+            >
+              Use Fact Tables <FaArrowRight />
+            </a>
+          </div>
+        ) : null}
         <Field label="Name" required {...form.register("name")} />
-        <Field
-          label="Owner"
-          options={memberUsernameOptions}
-          comboBox
-          {...form.register("owner")}
+        <SelectOwner
+          resourceType="segment"
+          value={form.watch("owner")}
+          onChange={(v) => form.setValue("owner", v)}
         />
         <Field label="Description" {...form.register("description")} textarea />
         <SelectField
           label="Data Source"
           required
           value={form.watch("datasource")}
-          onChange={(v) => form.setValue("datasource", v)}
+          disabled={!!current.id}
+          onChange={(v) => {
+            form.setValue("datasource", v);
+            // When a new data source is selected, update the projects so they equal the data source's project list
+            const newDataSourceObj = getDatasourceById(v);
+            form.setValue("projects", newDataSourceObj?.projects || []);
+          }}
           placeholder="Choose one..."
           options={filteredDatasources.map((d) => ({
             value: d.id,
@@ -126,6 +219,28 @@ const SegmentForm: FC<{
               };
             })}
           />
+        )}
+        {projects?.length > 0 && (
+          <div className="form-group">
+            <MultiSelectField
+              label={
+                <>
+                  Projects{" "}
+                  <Tooltip
+                    body={`The dropdown below has been filtered to only include projects where you have permission to ${
+                      current.id ? "update" : "create"
+                    } Segments and those that are a subset of the selected Data Source.`}
+                  />
+                </>
+              }
+              placeholder="All projects"
+              value={form.watch("projects")}
+              options={projectOptions}
+              onChange={(v) => form.setValue("projects", v)}
+              customClassName="label-overflow-ellipsis"
+              helpText="Assign this segment to specific projects"
+            />
+          </div>
         )}
         {supportsSQL ? (
           <div className="form-group">

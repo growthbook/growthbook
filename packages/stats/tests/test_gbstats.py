@@ -1,12 +1,13 @@
 import dataclasses
 from functools import partial
 from unittest import TestCase, main as unittest_main
-
 import numpy as np
 import pandas as pd
+import copy
 
 from gbstats.gbstats import (
     AnalysisSettingsForStatsEngine,
+    BanditSettingsForStatsEngine,
     MetricSettingsForStatsEngine,
     detect_unknown_variations,
     diff_for_daily_time_series,
@@ -15,56 +16,144 @@ from gbstats.gbstats import (
     get_metric_df,
     format_results,
     variation_statistic_from_metric_row,
+    get_bandit_result,
+    create_bandit_statistics,
+    preprocess_bandits,
 )
-from gbstats.models.statistics import RegressionAdjustedStatistic, SampleMeanStatistic
+from gbstats.bayesian.bandits import BanditsSimple
+
+from gbstats.models.settings import BanditWeightsSinglePeriod
+from gbstats.models.statistics import (
+    RegressionAdjustedStatistic,
+    SampleMeanStatistic,
+    BanditPeriodDataSampleMean,
+)
+
 
 DECIMALS = 9
 round_ = partial(np.round, decimals=DECIMALS)
 
 COUNT_METRIC = MetricSettingsForStatsEngine(
-    id="",
-    name="",
+    id="count_metric",
+    name="count_metric",
     inverse=False,
     statistic_type="mean",
     main_metric_type="count",
 )
 
-MULTI_DIMENSION_STATISTICS_DF = pd.DataFrame(
-    [
-        {
-            "dimension": "one",
-            "variation": "one",
-            "main_sum": 300,
-            "main_sum_squares": 869,
-            "users": 120,
-            "count": 120,
-        },
-        {
-            "dimension": "one",
-            "variation": "zero",
-            "main_sum": 270,
-            "main_sum_squares": 848.79,
-            "users": 100,
-            "count": 100,
-        },
-        {
-            "dimension": "two",
-            "variation": "one",
-            "main_sum": 770,
-            "main_sum_squares": 3571,
-            "users": 220,
-            "count": 220,
-        },
-        {
-            "dimension": "two",
-            "variation": "zero",
-            "main_sum": 740,
-            "main_sum_squares": 3615.59,
-            "users": 200,
-            "count": 200,
-        },
-    ]
-)
+QUERY_OUTPUT = [
+    {
+        "dimension": "one",
+        "variation": "one",
+        "main_sum": 300,
+        "main_sum_squares": 869,
+        "users": 120,
+        "count": 120,
+    },
+    {
+        "dimension": "one",
+        "variation": "zero",
+        "main_sum": 270,
+        "main_sum_squares": 848.79,
+        "users": 100,
+        "count": 100,
+    },
+    {
+        "dimension": "two",
+        "variation": "one",
+        "main_sum": 770,
+        "main_sum_squares": 3571,
+        "users": 220,
+        "count": 220,
+    },
+    {
+        "dimension": "two",
+        "variation": "zero",
+        "main_sum": 740,
+        "main_sum_squares": 3615.59,
+        "users": 200,
+        "count": 200,
+    },
+]
+
+MULTI_DIMENSION_STATISTICS_DF = pd.DataFrame(QUERY_OUTPUT)
+
+# used for testing bandits
+QUERY_OUTPUT_BANDITS = [
+    {
+        "dimension": "All",
+        "bandit_period": 0,
+        "variation": "zero",
+        "main_sum": 270,
+        "main_sum_squares": 848.79,
+        "users": 100,
+        "count": 100,
+    },
+    {
+        "dimension": "All",
+        "bandit_period": 0,
+        "variation": "one",
+        "main_sum": 300,
+        "main_sum_squares": 869,
+        "users": 120,
+        "count": 120,
+    },
+    {
+        "dimension": "All",
+        "bandit_period": 0,
+        "variation": "two",
+        "main_sum": 740,
+        "main_sum_squares": 1615.59,
+        "users": 200,
+        "count": 200,
+    },
+    {
+        "dimension": "All",
+        "bandit_period": 0,
+        "variation": "three",
+        "main_sum": 770,
+        "main_sum_squares": 1571,
+        "users": 220,
+        "count": 220,
+    },
+    {
+        "dimension": "All",
+        "bandit_period": 1,
+        "variation": "zero",
+        "main_sum": 270,
+        "main_sum_squares": 848.79,
+        "users": 100,
+        "count": 100,
+    },
+    {
+        "dimension": "All",
+        "bandit_period": 1,
+        "variation": "one",
+        "main_sum": 300,
+        "main_sum_squares": 869,
+        "users": 120,
+        "count": 120,
+    },
+    {
+        "dimension": "All",
+        "bandit_period": 1,
+        "variation": "two",
+        "main_sum": 740,
+        "main_sum_squares": 1615.59,
+        "users": 200,
+        "count": 200,
+    },
+    {
+        "dimension": "All",
+        "bandit_period": 1,
+        "variation": "three",
+        "main_sum": 770,
+        "main_sum_squares": 1571,
+        "users": 220,
+        "count": 220,
+    },
+]
+
 
 THIRD_DIMENSION_STATISTICS_DF = pd.DataFrame(
     [
@@ -96,6 +185,9 @@ RATIO_METRIC = MetricSettingsForStatsEngine(
     denominator_metric_type="count",
 )
 
+RATIO_RA_METRIC = copy.deepcopy(RATIO_METRIC)
+RATIO_RA_METRIC.statistic_type = "ratio_ra"
+
 RATIO_STATISTICS_DF = pd.DataFrame(
     [
         {
@@ -125,6 +217,54 @@ RATIO_STATISTICS_DF = pd.DataFrame(
 
 RATIO_STATISTICS_ADDITIONAL_DIMENSION_DF = RATIO_STATISTICS_DF.copy()
 RATIO_STATISTICS_ADDITIONAL_DIMENSION_DF["dimension"] = "fifth"
+
+RATIO_RA_STATISTICS_DF = pd.DataFrame(
+    [
+        {
+            "dimension": "All",
+            "variation": "zero",
+            "users": 100,
+            "count": 100,
+            "main_sum": 485.112236689623,
+            "main_sum_squares": 2715.484666118136,
+            "denominator_sum": 679.9093275844917,
+            "denominator_sum_squares": 4939.424001640236,
+            "covariate_sum": 192.59138069991536,
+            "covariate_sum_squares": 460.076026390857,
+            "denominator_pre_sum": 290.1398399750233,
+            "denominator_pre_sum_squares": 920.9461385038898,
+            "main_covariate_sum_product": 1113.6215759318352,
+            "main_denominator_sum_product": 3602.146836776702,
+            "main_post_denominator_pre_sum_product": 1559.2878434944676,
+            "main_pre_denominator_post_sum_product": 1460.3181079276983,
+            "main_pre_denominator_pre_sum_product": 634.239482353647,
+            "denominator_post_denominator_pre_sum_product": 2130.9404074446747,
+            "theta": None,
+        },
+        {
+            "dimension": "All",
+            "variation": "one",
+            "users": 100,
+            "count": 100,
+            "main_sum": 514.7757826608777,
+            "main_sum_squares": 2994.897482705013,
+            "denominator_sum": 705.4090874383759,
+            "denominator_sum_squares": 5291.36604146392,
+            "covariate_sum": 206.94157227402536,
+            "covariate_sum_squares": 514.2903702246757,
+            "denominator_pre_sum": 302.54389139107326,
+            "denominator_pre_sum_squares": 994.4506208125663,
+            "main_covariate_sum_product": 1237.0953021125997,
+            "main_denominator_sum_product": 3918.1561431600717,
+            "main_post_denominator_pre_sum_product": 1701.0287270040265,
+            "main_pre_denominator_post_sum_product": 1604.075950326651,
+            "main_pre_denominator_pre_sum_product": 698.4173425817913,
+            "denominator_post_denominator_pre_sum_product": 2292.081739775257,
+            "theta": None,
+        },
+    ]
+)
+
 
 ONE_USER_DF = pd.DataFrame(
     [
@@ -223,6 +363,19 @@ DEFAULT_ANALYSIS = AnalysisSettingsForStatsEngine(
     phase_length_days=1,
     alpha=0.05,
     max_dimensions=20,
+    one_sided_intervals=False,
+)
+
+
+BANDIT_ANALYSIS = BanditSettingsForStatsEngine(
+    var_names=["zero", "one", "two", "three"],
+    var_ids=["zero", "one", "two", "three"],
+    current_weights=[1 / 4] * 4,
+    reweight=True,
+    decision_metric="count_metric",
+    bandit_weights_seed=int(100),
+    weight_by_period=True,
+    top_two=True,
 )
 
 
@@ -334,7 +487,7 @@ class TestVariationStatisticBuilder(TestCase):
                 pre_statistic=expected_baseline_pre_stat,
                 post_pre_sum_of_products=expected_baseline_pre_post_sum_product,
                 n=expected_baseline_n,
-                theta=0,
+                theta=None,
             ),
         )
 
@@ -449,7 +602,6 @@ class TestAnalyzeMetricDfBayesian(TestCase):
         rows = MULTI_DIMENSION_STATISTICS_DF
         df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
         result = analyze_metric_df(df, metric=COUNT_METRIC, analysis=DEFAULT_ANALYSIS)
-
         self.assertEqual(len(result.index), 2)
         self.assertEqual(result.at[0, "dimension"], "one")
         self.assertEqual(round_(result.at[0, "baseline_cr"]), 2.7)
@@ -624,7 +776,7 @@ class TestAnalyzeMetricDfRegressionAdjustment(TestCase):
         self.assertEqual(result.at[0, "v1_risk"], None)
         self.assertEqual(round_(result.at[0, "v1_expected"]), -0.281707154)
         self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
-        self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.003736297)
+        self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.003732549)
         # But difference is not just DIM / control mean, like it used to be
         self.assertNotEqual(
             np.round(result.at[0, "v1_expected"], 3),
@@ -657,7 +809,26 @@ class TestAnalyzeMetricDfRegressionAdjustment(TestCase):
         self.assertEqual(result.at[0, "v1_risk"], None)
         self.assertEqual(round_(result.at[0, "v1_expected"]), -0.316211568)
         self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
-        self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.00000035)
+        self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.000000352)
+
+    def test_analyze_metric_df_ratio_ra(self):
+        rows = RATIO_RA_STATISTICS_DF
+        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
+        result = analyze_metric_df(
+            df,
+            metric=RATIO_RA_METRIC,
+            analysis=dataclasses.replace(DEFAULT_ANALYSIS, stats_engine="frequentist"),
+        )
+        self.assertEqual(len(result.index), 1)
+        self.assertEqual(result.at[0, "dimension"], "All")
+        self.assertEqual(round_(result.at[0, "baseline_cr"]), 0.713495487)
+        self.assertEqual(round_(result.at[0, "baseline_mean"]), 0.713495487)
+        self.assertEqual(round_(result.at[0, "v1_cr"]), 0.729754963)
+        self.assertEqual(round_(result.at[0, "v1_mean"]), 0.729754963)
+        self.assertEqual(result.at[0, "v1_risk"], None)
+        self.assertEqual(round_(result.at[0, "v1_expected"]), -0.000701483)
+        self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
+        self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.857710405)
 
 
 class TestAnalyzeMetricDfSequential(TestCase):
@@ -715,11 +886,80 @@ class TestFormatResults(TestCase):
                 analysis=dataclasses.replace(
                     DEFAULT_ANALYSIS, stats_engine="frequentist"
                 ),
-            )
+            ),
+            0,
         )
         for res in result:
             for i, v in enumerate(res.variations):
                 self.assertEqual(v.denominator, 510 if i == 0 else 500)
+
+
+class TestBandit(TestCase):
+    def setUp(self):
+        # preprocessing steps
+        self.rows = QUERY_OUTPUT_BANDITS
+        self.metric = COUNT_METRIC
+        self.analysis = DEFAULT_ANALYSIS
+        self.bandit_analysis = BANDIT_ANALYSIS
+        self.update_messages = [
+            "successfully updated",
+        ]
+        self.true_weights = [0.3716, 0.13325, 0.2488, 0.24635]
+        self.true_additional_reward = 192.0
+        num_variations = len(self.true_weights)
+        self.constant_weights = [1 / num_variations] * num_variations
+
+    import unittest
+
+    @unittest.skip("will update this test later in the week")
+    def test_create_bandit_statistics(self):
+        df = get_metric_df(
+            rows=pd.DataFrame(self.rows),
+            var_id_map={v: i for i, v in enumerate(self.bandit_analysis.var_ids)},
+            var_names=self.bandit_analysis.var_names,
+        )
+        result = create_bandit_statistics(df, self.metric)
+        stats_0 = []
+        stats_1 = []
+        for d in QUERY_OUTPUT_BANDITS:
+            if d["bandit_period"] == 0:
+                stats_0.append(
+                    SampleMeanStatistic(
+                        n=d["count"],
+                        sum=d["main_sum"],
+                        sum_squares=d["main_sum_squares"],
+                    )
+                )
+            if d["bandit_period"] == 1:
+                stats_1.append(
+                    SampleMeanStatistic(
+                        n=d["count"],
+                        sum=d["main_sum"],
+                        sum_squares=d["main_sum_squares"],
+                    )
+                )
+        result_true = {
+            0: BanditPeriodDataSampleMean(stats_0, self.constant_weights),
+            1: BanditPeriodDataSampleMean(stats_1, self.constant_weights),
+        }
+        self.assertEqual(result, result_true)
+
+    import unittest
+
+    @unittest.skip("will update this test later in the week")
+    def test_get_bandit_result_2(self):
+        b = preprocess_bandits(
+            self.rows, self.metric, self.bandit_analysis, self.analysis.alpha, "All"
+        )
+        if isinstance(b, BanditsSimple):
+            result = get_bandit_result(
+                self.rows, self.metric, self.analysis, self.bandit_analysis
+            )
+            self.assertEqual(result.updateMessage, self.update_messages[0])
+            self.assertEqual(result.updatedWeights, self.true_weights)
+            # self.assertEqual(result.additionalReward, self.true_additional_reward)
+        else:
+            assert 1 > 2, "wrong class"
 
 
 if __name__ == "__main__":

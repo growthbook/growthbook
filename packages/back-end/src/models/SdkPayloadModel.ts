@@ -2,12 +2,12 @@ import mongoose from "mongoose";
 import {
   AutoExperimentWithProject,
   FeatureDefinitionWithProject,
-} from "../../types/api";
+} from "back-end/types/api";
 import {
   SDKPayloadContents,
   SDKPayloadInterface,
   SDKStringifiedPayloadInterface,
-} from "../../types/sdk-payload";
+} from "back-end/types/sdk-payload";
 
 // Increment this if we change the payload contents in a backwards-incompatible way
 export const LATEST_SDK_PAYLOAD_SCHEMA_VERSION = 1;
@@ -69,15 +69,18 @@ export async function updateSDKPayload({
   environment,
   featureDefinitions,
   experimentsDefinitions,
+  savedGroupsInUse,
 }: {
   organization: string;
   environment: string;
   featureDefinitions: Record<string, FeatureDefinitionWithProject>;
   experimentsDefinitions: AutoExperimentWithProject[];
+  savedGroupsInUse: string[];
 }) {
   const contents: SDKPayloadContents = {
     features: featureDefinitions,
     experiments: experimentsDefinitions,
+    savedGroupsInUse: savedGroupsInUse,
   };
 
   await SDKPayloadModel.updateOne(

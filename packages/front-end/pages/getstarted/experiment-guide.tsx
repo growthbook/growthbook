@@ -2,9 +2,9 @@ import { PiArrowRight, PiCheckCircleFill } from "react-icons/pi";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
-import clsx from "clsx";
+import { Box, Separator } from "@radix-ui/themes";
 import { useRouter } from "next/router";
-import { GeneratedHypothesisInterface } from "@back-end/types/generated-hypothesis";
+import { GeneratedHypothesisInterface } from "back-end/types/generated-hypothesis";
 import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -17,14 +17,13 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useGetStarted } from "@/services/GetStartedProvider";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import ViewSampleDataButton from "@/components/GetStarted/ViewSampleDataButton";
-import styles from "@/components/GetStarted/GetStarted.module.scss";
 
 const ExperimentGuide = (): React.ReactElement => {
   const { organization } = useUser();
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
   const { data: sdkConnections } = useSDKConnections();
   const { experiments, loading: experimentsLoading, error } = useExperiments();
-  const { project, ready: definitionsReady } = useDefinitions();
+  const { project, ready: definitionsReady, datasources } = useDefinitions();
   const { setStep, clearStep } = useGetStarted();
 
   const router = useRouter();
@@ -87,9 +86,10 @@ const ExperimentGuide = (): React.ReactElement => {
       )
     : experiments.some((e) => e.project !== demoProjectId);
 
-  const manualChecks = organization.getStartedChecklistItems;
-  const environmentsReviewed = manualChecks?.includes("environments");
-  const attributesSet = manualChecks?.includes("attributes");
+  // Ignore the demo datasource
+  const hasDatasource = datasources.some(
+    (d) => !d.projects?.includes(demoProjectId)
+  );
 
   const hasStartedExperiment = project
     ? experiments.some(
@@ -115,7 +115,7 @@ const ExperimentGuide = (): React.ReactElement => {
       : false;
 
   return (
-    <div className={clsx(styles.getStartedPage, "container pagecontents p-4")}>
+    <div className="container pagecontents p-4">
       <PageHead
         breadcrumb={[
           { display: "Get Started", href: "/getstarted" },
@@ -125,8 +125,8 @@ const ExperimentGuide = (): React.ReactElement => {
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
-          reason=""
           source="get-started-experiment-guide"
+          commercialFeature={null}
         />
       )}
       <h1 className="mb-3">{title}</h1>
@@ -187,117 +187,8 @@ const ExperimentGuide = (): React.ReactElement => {
                 >
                   Integrate the GrowthBook SDK into your app
                 </Link>
-                <p className="mt-2">
-                  Allow GrowthBook to communicate with your app.
-                </p>
-                <hr />
-              </div>
-            </div>
-
-            <div className="row">
-              <div className="col-sm-auto">
-                {environmentsReviewed ? (
-                  <PiCheckCircleFill
-                    className="mt-1"
-                    style={{
-                      fill: "#56BA9F",
-                      width: "18.5px",
-                      height: "18.5px",
-                    }}
-                  />
-                ) : (
-                  <div
-                    className="mt-1"
-                    style={{
-                      borderRadius: "50%",
-                      borderStyle: "solid",
-                      borderWidth: "0.6px",
-                      borderColor: "#D3D4DB",
-                      width: "15px",
-                      height: "15px",
-                      margin: "2px",
-                    }}
-                  />
-                )}
-              </div>
-              <div className="col">
-                <Link
-                  href="/environments"
-                  style={{
-                    fontSize: "17px",
-                    fontWeight: 600,
-                    textDecoration: environmentsReviewed
-                      ? "line-through"
-                      : "none",
-                  }}
-                  onClick={() =>
-                    setStep({
-                      step: "Review or Add Environments",
-                      source: "experiments",
-                      sourceParams: params.hypId ? `hypId=${params.hypId}` : "",
-                      stepKey: "environments",
-                    })
-                  }
-                >
-                  Review or Add Environments
-                </Link>
-                <p className="mt-2">
-                  By default, GrowthBook comes with one
-                  environment—production—but you can add as many as you need.
-                </p>
-                <hr />
-              </div>
-            </div>
-
-            <div className="row">
-              <div className="col-sm-auto">
-                {attributesSet ? (
-                  <PiCheckCircleFill
-                    className="mt-1"
-                    style={{
-                      fill: "#56BA9F",
-                      width: "18.5px",
-                      height: "18.5px",
-                    }}
-                  />
-                ) : (
-                  <div
-                    style={{
-                      borderRadius: "50%",
-                      borderStyle: "solid",
-                      borderWidth: "0.6px",
-                      borderColor: "#D3D4DB",
-                      width: "15px",
-                      height: "15px",
-                      margin: "2px",
-                    }}
-                  />
-                )}
-              </div>
-              <div className="col">
-                <Link
-                  href="/attributes"
-                  style={{
-                    fontSize: "17px",
-                    fontWeight: 600,
-                    textDecoration: attributesSet ? "line-through" : "none",
-                  }}
-                  onClick={() =>
-                    setStep({
-                      step: "Customize Targeting Attributes",
-                      source: "experiments",
-                      sourceParams: params.hypId ? `hypId=${params.hypId}` : "",
-                      stepKey: "attributes",
-                    })
-                  }
-                >
-                  Customize Targeting Attributes
-                </Link>
-                <p className="mt-2">
-                  Define user attributes to use for targeting experiments and
-                  for use in randomization
-                </p>
-                <hr />
+                <Box mt="2">Allow GrowthBook to communicate with your app.</Box>
+                <Separator size="4" my="4" />
               </div>
             </div>
 
@@ -404,11 +295,11 @@ const ExperimentGuide = (): React.ReactElement => {
                       ? "Design the First Experiment for this Project"
                       : "Design Your Organization’s First Experiment"}
                   </Link>
-                  <p className="mt-2">
+                  <Box mt="2">
                     Create an experiment and change variations. Choose from
                     Feature Flags, URL Redirects, or the Visual Editor (Pro).
-                  </p>
-                  <hr />
+                  </Box>
+                  <Separator size="4" my="4" />
                 </div>
               </div>
             )}
@@ -482,13 +373,65 @@ const ExperimentGuide = (): React.ReactElement => {
                       Start the Test
                     </Tooltip>
                   </Link>
-                  <p className="mt-2">
+                  <Box mt="2">
                     Define any additional settings, rules and targeting as
                     desired. Then, click “Run experiment.”
-                  </p>
+                  </Box>
+                  <Separator size="4" my="4" />
                 </div>
               </div>
             )}
+
+            <div className="row">
+              <div className="col-sm-auto">
+                {hasDatasource ? (
+                  <PiCheckCircleFill
+                    className="mt-1"
+                    style={{
+                      fill: "#56BA9F",
+                      width: "18.5px",
+                      height: "18.5px",
+                    }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      borderRadius: "50%",
+                      borderStyle: "solid",
+                      borderWidth: "0.6px",
+                      borderColor: "#D3D4DB",
+                      width: "15px",
+                      height: "15px",
+                      margin: "2px",
+                    }}
+                  />
+                )}
+              </div>
+              <div className="col">
+                <Link
+                  href="/datasources"
+                  style={{
+                    fontSize: "17px",
+                    fontWeight: 600,
+                    textDecoration: hasDatasource ? "line-through" : "none",
+                  }}
+                  onClick={() =>
+                    setStep({
+                      step: "Connect to Your Data Warehouse",
+                      source: "experiments",
+                      sourceParams: params.hypId ? `hypId=${params.hypId}` : "",
+                      stepKey: "connectDataWarehouse",
+                    })
+                  }
+                >
+                  Connect to Your Data Warehouse
+                </Link>
+                <Box mt="2">
+                  Allow GrowthBook to query your warehouse to compute traffic
+                  totals and metric results.
+                </Box>
+              </div>
+            </div>
           </div>
         </div>
         {loadingHypothesis && <LoadingOverlay />}

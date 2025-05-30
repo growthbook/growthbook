@@ -30,7 +30,7 @@ const AddOrphanedUserModal: FC<{
       <UpgradeModal
         close={close}
         source="add orphaned user"
-        reason={"To enable advanced permissioning,"}
+        commercialFeature="advanced-permissions"
       />
     );
   }
@@ -40,10 +40,16 @@ const AddOrphanedUserModal: FC<{
     ["pro", "pro_sso", "enterprise"].includes(effectiveAccountPlan || "") &&
     license &&
     license.hardCap &&
-    license.seats < seatsInUse + 1
+    (license?.seats || 0) < seatsInUse + 1
   ) {
     return (
-      <Modal open={true} close={close} size="md" header={"Reached seat limit"}>
+      <Modal
+        trackingEventModalType=""
+        open={true}
+        close={close}
+        size="md"
+        header={"Reached seat limit"}
+      >
         <div className="my-3">
           Whoops! You reached the seat limit on your license. To increase your
           number of seats, please contact{" "}
@@ -58,6 +64,7 @@ const AddOrphanedUserModal: FC<{
 
   return (
     <Modal
+      trackingEventModalType=""
       close={close}
       header="Add User"
       open={true}

@@ -13,12 +13,12 @@ import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import Modal from "@/components/Modal";
-import RadioSelector from "@/components/Forms/RadioSelector";
 import {
   DimensionSlicesRunner,
   getLatestDimensionSlices,
 } from "@/components/Settings/EditDataSource/DimensionMetadata/UpdateDimensionMetadata";
 import track, { trackSnapshot } from "@/services/track";
+import RadioGroup from "@/components/Radix/RadioGroup";
 
 type HealthTabOnboardingModalProps = {
   open: boolean;
@@ -164,6 +164,7 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
   if (step === -1) {
     return (
       <Modal
+        trackingEventModalType=""
         open={open}
         submit={close}
         cta={"Confirm"}
@@ -290,26 +291,20 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
               Your Health Tab will display results when your data refreshes.
             </div>
             <div className="row">
-              <div className="form-group">
-                <RadioSelector
-                  name="type"
-                  value={setupChoice}
-                  setValue={(val: RefreshTypes) => setSetupChoice(val)}
-                  labelWidth={"100%"}
-                  options={[
-                    {
-                      key: "refresh",
-                      display: "Refresh results upon setup completion",
-                      description: "",
-                    },
-                    {
-                      key: "norefresh",
-                      display: "Refresh data whenever you next update results",
-                      description: "",
-                    },
-                  ]}
-                />
-              </div>
+              <RadioGroup
+                value={setupChoice}
+                setValue={(val: RefreshTypes) => setSetupChoice(val)}
+                options={[
+                  {
+                    value: "refresh",
+                    label: "Refresh results upon setup completion",
+                  },
+                  {
+                    value: "norefresh",
+                    label: "Refresh data whenever you next update results",
+                  },
+                ]}
+              />
             </div>
           </div>
         </>
@@ -339,6 +334,7 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
 
   return (
     <Modal
+      trackingEventModalType=""
       open={open}
       close={() => {
         setLastStep(step);

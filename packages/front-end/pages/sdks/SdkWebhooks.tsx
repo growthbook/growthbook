@@ -7,16 +7,18 @@ import {
   FaPaperPlane,
 } from "react-icons/fa";
 import { ago } from "shared/dates";
-import { SDKConnectionInterface } from "@back-end/types/sdk-connection";
+import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import useApi from "@/hooks/useApi";
-import WebhooksModal from "@/components/Settings/WebhooksModal";
+import EditSDKWebhooksModal, {
+  CreateSDKWebhookModal,
+} from "@/components/Settings/WebhooksModal";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
-import Button from "@/components/Button";
+import Button from "@/components/Radix/Button";
+import OldButton from "@/components/Button";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
-import { GBAddCircle } from "@/components/Icons";
 import { DocLink } from "@/components/DocLink";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ClickToReveal from "@/components/Settings/ClickToReveal";
@@ -31,6 +33,7 @@ const payloadFormatLabels: Record<string, string | ReactElement> = {
     </>
   ),
   sdkPayload: "SDK Payload only",
+  edgeConfig: "Vercel Edge Config",
   none: "none",
 };
 
@@ -42,9 +45,12 @@ export default function SdkWebhooks({
   const { data, mutate } = useApi<{ webhooks?: WebhookInterface[] }>(
     `/sdk-connections/${connection.id}/webhooks`
   );
+
+  const [createWebhookModalOpen, setCreateWebhookModalOpen] = useState(false);
+
   const [
-    createWebhookModalOpen,
-    setCreateWebhookModalOpen,
+    editWebhookData,
+    setEditWebhookData,
   ] = useState<null | Partial<WebhookInterface>>(null);
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
@@ -113,7 +119,7 @@ export default function SdkWebhooks({
           )}
         </td>
         <td>
-          <Button
+          <OldButton
             color="outline-primary"
             className="btn-sm"
             style={{ width: 80 }}
@@ -127,7 +133,7 @@ export default function SdkWebhooks({
           >
             <FaPaperPlane className="mr-1" />
             Test
-          </Button>
+          </OldButton>
         </td>
         <td className="px-0">
           <div className="col-auto mr-1">
@@ -137,7 +143,7 @@ export default function SdkWebhooks({
                   className="dropdown-item"
                   onClick={(e) => {
                     e.preventDefault();
-                    setCreateWebhookModalOpen(webhook);
+                    setEditWebhookData(webhook);
                   }}
                 >
                   Edit
@@ -170,7 +176,7 @@ export default function SdkWebhooks({
         for setup instructions
       </div>
       {canCreateWebhooks ? (
-        <>
+        <div className="d-flex align-items-center">
           <Tooltip
             body={
               disableWebhookCreate
@@ -178,19 +184,12 @@ export default function SdkWebhooks({
                 : ""
             }
           >
-            <button
-              className="btn btn-primary mb-2"
+            <Button
               disabled={disableWebhookCreate}
-              onClick={(e) => {
-                e.preventDefault();
-                if (!disableWebhookCreate) setCreateWebhookModalOpen({});
-              }}
+              onClick={() => setCreateWebhookModalOpen(true)}
             >
-              <span className="h4 pr-2 m-0 d-inline-block align-top">
-                <GBAddCircle />
-              </span>
               Add Webhook
-            </button>
+            </Button>
           </Tooltip>
           <Tooltip
             body={
@@ -207,7 +206,7 @@ export default function SdkWebhooks({
               What is this? <FaInfoCircle />
             </span>
           </Tooltip>
-        </>
+        </div>
       ) : null}
     </>
   );
@@ -237,12 +236,20 @@ export default function SdkWebhooks({
   return (
     <div className="gb-sdk-connections-webhooks mb-5">
       <h2 className="mb-2">SDK Webhooks</h2>
-      {createWebhookModalOpen && (
-        <WebhooksModal
-          close={() => setCreateWebhookModalOpen(null)}
+      {editWebhookData && (
+        <EditSDKWebhooksModal
+          close={() => setEditWebhookData(null)}
           onSave={mutate}
-          current={createWebhookModalOpen}
+          current={editWebhookData}
           sdkConnectionId={connection.id}
+        />
+      )}
+      {createWebhookModalOpen && (
+        <CreateSDKWebhookModal
+          close={() => setCreateWebhookModalOpen(false)}
+          onSave={mutate}
+          sdkConnectionId={connection.id}
+          language={connection.languages?.[0]}
         />
       )}
       {!isEmpty && renderTable()}

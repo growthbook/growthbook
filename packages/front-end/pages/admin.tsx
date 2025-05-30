@@ -4,6 +4,7 @@ import {
   OrganizationInterface,
 } from "back-end/types/organization";
 import clsx from "clsx";
+import { Box } from "@radix-ui/themes";
 import {
   FaAngleDown,
   FaAngleRight,
@@ -11,11 +12,13 @@ import {
   FaPlus,
   FaSearch,
   FaSpinner,
+  FaDatabase,
 } from "react-icons/fa";
 import { date } from "shared/dates";
 import stringify from "json-stringify-pretty-compact";
 import Collapsible from "react-collapsible";
-import { LicenseInterface } from "enterprise";
+import { LicenseInterface } from "shared/enterprise";
+import { DataSourceInterface } from "back-end/types/datasource";
 import Field from "@/components/Forms/Field";
 import Pagination from "@/components/Pagination";
 import { useUser } from "@/services/UserContext";
@@ -27,10 +30,16 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import CreateOrganization from "@/components/Admin/CreateOrganization";
 import ShowLicenseInfo from "@/components/License/ShowLicenseInfo";
 import { useAuth } from "@/services/auth";
-import ControlledTabs from "@/components/Tabs/ControlledTabs";
-import Tab from "@/components/Tabs/Tab";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/Radix/Tabs";
 import Modal from "@/components/Modal";
 import Toggle from "@/components/Forms/Toggle";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 interface memberOrgProps {
   id: string;
@@ -53,6 +62,7 @@ function OrganizationRow({
   showVerfiedDomain,
   onEdit,
   ssoInfo,
+  datasources,
 }: {
   organization: OrganizationInterface;
   switchTo: (organization: OrganizationInterface) => void;
@@ -61,6 +71,7 @@ function OrganizationRow({
   showVerfiedDomain: boolean;
   onEdit: () => void;
   ssoInfo: ssoInfoProps | undefined;
+  datasources: DataSourceInterface[];
 }) {
   const [expanded, setExpanded] = useState(false);
   const [editOrgModalOpen, setEditOrgModalOpen] = useState(false);
@@ -72,6 +83,10 @@ function OrganizationRow({
   const [license, setLicense] = useState<LicenseInterface | null>(null);
   const [licenseLoading, setLicenseLoading] = useState(false);
   const { apiCall } = useAuth();
+  const [clickhouseModalOpen, setClickhouseModalOpen] = useState(false);
+  const [hasGrowthbookClickhouse, setHasGrowthbookClickhouse] = useState(
+    datasources.find((ds) => ds.type === "growthbook_clickhouse") ? true : false
+  );
 
   useEffect(() => {
     if (isCloud() && expanded && !license) {
@@ -117,6 +132,15 @@ function OrganizationRow({
     }
   }, [expanded, apiCall, orgMembers, organization]);
 
+  const createClickhouseDatasource = async () => {
+    await apiCall(`/datasource/create-inbuilt`, {
+      method: "POST",
+      headers: { "X-Organization": organization.id },
+    });
+    setClickhouseModalOpen(false);
+    setHasGrowthbookClickhouse(true);
+  };
+
   return (
     <>
       {editOrgModalOpen && (
@@ -127,6 +151,19 @@ function OrganizationRow({
           onEdit={onEdit}
           close={() => setEditOrgModalOpen(false)}
         />
+      )}
+      {clickhouseModalOpen && (
+        <Modal
+          open={true}
+          header="Create Clickhouse Data Source"
+          close={() => setClickhouseModalOpen(false)}
+          submit={createClickhouseDatasource}
+          cta="Yes"
+          trackingEventModalType=""
+        >
+          Are you sure you want to create an inbuilt Clickhouse data source for
+          this organization?
+        </Modal>
       )}
       <tr
         className={clsx({
@@ -175,6 +212,37 @@ function OrganizationRow({
             <FaPencilAlt />
           </a>
         </td>
+        {isCloud() && (
+          <td className="p-0 text-center">
+            <Tooltip
+              body={
+                hasGrowthbookClickhouse
+                  ? "Already has an Inbuilt Growthbook Datasource"
+                  : "Create Inbuilt Growthbook Clickhouse DataSource"
+              }
+            >
+              <a
+                href="#"
+                className={clsx("d-block w-100 h-100", {
+                  "text-muted": hasGrowthbookClickhouse,
+                })}
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (!hasGrowthbookClickhouse) {
+                    setClickhouseModalOpen(true);
+                  }
+                }}
+                style={{
+                  lineHeight: "40px",
+                  pointerEvents: hasGrowthbookClickhouse ? "none" : "auto",
+                }}
+                title={"Create Clickhouse Data Source"}
+              >
+                <FaDatabase />
+              </a>
+            </Tooltip>
+          </td>
+        )}
         <td style={{ width: 40 }} className="p-0 text-center">
           <a
             href="#"
@@ -191,7 +259,7 @@ function OrganizationRow({
       </tr>
       {expanded && (
         <tr>
-          <td colSpan={8} className="bg-light">
+          <td colSpan={isCloud() ? 9 : 8} className="bg-light">
             <h3>Summary</h3>
             <div
               className="mb-3 bg-white border p-3"
@@ -249,41 +317,39 @@ function OrganizationRow({
                   {organization.invites.length}
                 </div>
               </div>
-              <div className="row">
-                <div className="col-2 text-right">Subscription:</div>
-                <div className="col-auto font-weight-bold">
-                  {organization?.subscription?.planNickname
-                    ? organization?.subscription?.planNickname +
-                      " (" +
-                      organization?.subscription?.status +
-                      ")"
-                    : "none"}
-                </div>
-              </div>
-              <div className="row">
-                <div className="col-2 text-right">Seats on subscription:</div>
-                <div className="col-auto font-weight-bold">
-                  {organization?.subscription?.qty &&
-                  organization?.subscription?.status === "active"
-                    ? organization.subscription.qty
-                    : ""}
-                  {organization?.freeSeats
-                    ? ` (${organization.freeSeats} free seats)`
-                    : ""}
-                </div>
-              </div>
-              <div className="row">
-                <div className="col-2 text-right">Enterprise (legacy):</div>
-                <div className="col-auto font-weight-bold">
-                  {organization?.enterprise ? "yes" : "no"}
-                </div>
-              </div>
-              <div className="row">
-                <div className="col-2 text-right">License Key:</div>
-                <div className="col-auto font-weight-bold">
-                  {organization?.licenseKey ? organization.licenseKey : "-"}
-                </div>
-              </div>
+              {isCloud() && (
+                <>
+                  <div className="row">
+                    <div className="col-2 text-right">Enterprise (legacy):</div>
+                    <div className="col-auto font-weight-bold">
+                      {organization?.enterprise ? "yes" : "no"}
+                    </div>
+                  </div>
+                  <div className="row">
+                    <div className="col-2 text-right">License Key:</div>
+                    <div className="col-auto font-weight-bold">
+                      {organization?.licenseKey ? organization.licenseKey : "-"}
+                    </div>
+                  </div>
+                  {((license || licenseLoading) && (
+                    <div className="row">
+                      <div className="col-2 text-right">Seats</div>
+                      <div className="col-auto font-weight-bold">
+                        {licenseLoading && <LoadingSpinner />}
+                        {license && license.seats}
+                      </div>
+                    </div>
+                  )) || // Only show free seats if they are on a free plan, ie. there is no license, no subscription, nor are they on a legacy enterprise
+                    (!organization?.enterprise && (
+                      <div className="row">
+                        <div className="col-2 text-right">Free Seats:</div>
+                        <div className="col-auto font-weight-bold">
+                          {organization?.freeSeats ?? 3}
+                        </div>
+                      </div>
+                    ))}
+                </>
+              )}
             </div>
             <div className="mb-3">
               <Collapsible
@@ -421,7 +487,7 @@ function MemberRow({
       </tr>
       {expanded && (
         <tr>
-          <td colSpan={8} className="bg-light">
+          <td colSpan={isCloud() ? 9 : 8} className="bg-light">
             <div className="mb-3">
               <h4>Organization Info</h4>
               <div className="row">
@@ -458,7 +524,6 @@ function MemberRow({
 }
 
 const Admin: FC = () => {
-  const [activeTab, setActiveTab] = useState("organizations");
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
 
@@ -470,6 +535,7 @@ const Admin: FC = () => {
   const { license, superAdmin } = useUser();
   const [orgs, setOrgs] = useState<OrganizationInterface[]>([]);
   const [ssoConnections, setSsoConnections] = useState<ssoInfoProps[]>([]);
+  const [datasources, setDatasources] = useState<DataSourceInterface[]>([]);
   const [total, setTotal] = useState(0);
   const [members, setMembers] = useState<ExpandedMember[]>([]);
   const [memberOrgs, setMemberOrgs] = useState<{
@@ -493,11 +559,13 @@ const Admin: FC = () => {
         const res = await apiCall<{
           organizations: OrganizationInterface[];
           ssoConnections: ssoInfoProps[];
+          datasources: DataSourceInterface[];
           total: number;
         }>(`/admin/organizations?${params.toString()}`);
         setOrgs(res.organizations);
         setTotal(res.total);
         setSsoConnections(res.ssoConnections);
+        setDatasources(res.datasources);
         setError("");
       } catch (e) {
         setError(e.message);
@@ -583,17 +651,15 @@ const Admin: FC = () => {
           <div className="divider border-bottom mb-3 mt-3" />
         </>
       )}
-      <ControlledTabs
-        newStyle={true}
-        className="mb-3"
-        active={activeTab}
-        setActive={(tab) => {
-          if (tab) {
-            setActiveTab(tab);
-          }
-        }}
-      >
-        <Tab display="Organizations" id="organizations" padding={false}>
+      <Tabs defaultValue="organizations" persistInURL={true}>
+        <Box mb="3">
+          <TabsList>
+            <TabsTrigger value="organizations">Organizations</TabsTrigger>
+            <TabsTrigger value="members">Members</TabsTrigger>
+          </TabsList>
+        </Box>
+
+        <TabsContent value="organizations">
           <button
             className="btn btn-primary float-right"
             onClick={(e) => {
@@ -648,6 +714,7 @@ const Admin: FC = () => {
                   {!isCloud() && <th>External Id</th>}
                   <th style={{ width: "120px" }}>Members</th>
                   <th style={{ width: "14px" }}></th>
+                  {isCloud() && <th style={{ width: "14px" }}></th>}
                   <th style={{ width: "40px" }}></th>
                 </tr>
               </thead>
@@ -657,6 +724,9 @@ const Admin: FC = () => {
                     organization={o}
                     ssoInfo={ssoConnections.find(
                       (sso) => sso.organization === o.id
+                    )}
+                    datasources={datasources.filter(
+                      (ds) => ds.organization === o.id
                     )}
                     showExternalId={!isCloud()}
                     showVerfiedDomain={isCloud()}
@@ -706,8 +776,9 @@ const Admin: FC = () => {
               />
             </div>
           )}
-        </Tab>
-        <Tab display="Members" id="members" padding={false}>
+        </TabsContent>
+
+        <TabsContent value="members">
           <div className="mb-2 row align-items-center">
             <div className="col-auto">
               <form
@@ -782,8 +853,8 @@ const Admin: FC = () => {
               }}
             />
           </div>
-        </Tab>
-      </ControlledTabs>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
@@ -817,6 +888,7 @@ const EditMember: FC<{
 
   return (
     <Modal
+      trackingEventModalType=""
       submit={handleSubmit}
       open={true}
       header={"Edit Member"}

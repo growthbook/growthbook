@@ -19,13 +19,15 @@ import {
 import { arrayMove } from "@dnd-kit/sortable";
 import CreatableSelect from "react-select/creatable";
 import { isDefined } from "shared/util";
+import clsx from "clsx";
 import {
-  GroupedValue,
   ReactSelectProps,
   SingleValue,
+  Option,
   useSelectOptions,
 } from "@/components/Forms/SelectField";
 import Field, { FieldProps } from "@/components/Forms/Field";
+import { ColorOption } from "@/components/Tags/TagsInput";
 
 const SortableMultiValue = SortableElement(
   (props: MultiValueProps<SingleValue>) => {
@@ -74,32 +76,30 @@ const Input = (props: InputProps) => {
   return <components.Input onPaste={onPaste} {...props} />;
 };
 
-type Option = SingleValue | GroupedValue;
+export type MultiSelectFieldProps = Omit<
+  FieldProps,
+  "value" | "onChange" | "options" | "multi" | "initialOption" | "placeholder"
+> & {
+  value: string[];
+  placeholder?: string;
+  options: Option[];
+  initialOption?: string;
+  onChange: (value: string[]) => void;
+  sort?: boolean;
+  customStyles?: StylesConfig<ColorOption, true>;
+  customClassName?: string;
+  closeMenuOnSelect?: boolean;
+  creatable?: boolean;
+  formatOptionLabel?: (
+    value: SingleValue,
+    meta: FormatOptionLabelMeta<SingleValue>
+  ) => ReactNode;
+  onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
+  isOptionDisabled?: (_: Option) => boolean;
+  noMenu?: boolean;
+};
 
-const MultiSelectField: FC<
-  Omit<
-    FieldProps,
-    "value" | "onChange" | "options" | "multi" | "initialOption" | "placeholder"
-  > & {
-    value: string[];
-    placeholder?: string;
-    options: Option[];
-    initialOption?: string;
-    onChange: (value: string[]) => void;
-    sort?: boolean;
-    customStyles?: StylesConfig;
-    customClassName?: string;
-    closeMenuOnSelect?: boolean;
-    creatable?: boolean;
-    formatOptionLabel?: (
-      value: SingleValue,
-      meta: FormatOptionLabelMeta<SingleValue>
-    ) => ReactNode;
-    onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
-    isOptionDisabled?: (_: Option) => boolean;
-    noMenu?: boolean;
-  }
-> = ({
+const MultiSelectField: FC<MultiSelectFieldProps> = ({
   value,
   options,
   onChange,
@@ -139,7 +139,7 @@ const MultiSelectField: FC<
   return (
     <Field
       {...fieldProps}
-      customClassName={customClassName}
+      customClassName={clsx(customClassName, { "cursor-disabled": disabled })}
       render={(id, ref) => {
         return (
           <Component
@@ -148,7 +148,20 @@ const MultiSelectField: FC<
             classNamePrefix="gb-multi-select"
             helperClass="multi-select-container"
             axis="xy"
-            onSortEnd={onSortEnd}
+            onSortEnd={(s, e) => {
+              onSortEnd(s, e);
+              // The following is a hack to clean up elements that might be
+              // left in the dom after dragging. Hopefully we can remove this
+              // if react-select and react-sortable fixes it.
+              setTimeout(() => {
+                const nodes = document.querySelectorAll(
+                  "body > .multi-select-container"
+                );
+                nodes.forEach((n) => {
+                  n.remove();
+                });
+              }, 100);
+            }}
             distance={4}
             getHelperDimensions={({ node }) => node.getBoundingClientRect()}
             id={id}
@@ -161,8 +174,6 @@ const MultiSelectField: FC<
               onChange(selected?.map((s) => s.value) ?? []);
             }}
             components={{
-              // eslint-disable-next-line
-              // @ts-expect-error We're failing to provide a required index prop to SortableElement
               MultiValue: SortableMultiValue,
               MultiValueLabel: SortableMultiValueLabel,
               Option: OptionWithTitle,
@@ -172,6 +183,25 @@ const MultiSelectField: FC<
                     Menu: () => null,
                     DropdownIndicator: () => null,
                     IndicatorSeparator: () => null,
+                  }
+                : creatable
+                ? {
+                    MenuList: (props) => {
+                      return (
+                        <>
+                          <div
+                            className="px-2 py-1"
+                            style={{
+                              fontWeight: 500,
+                              fontSize: "85%",
+                            }}
+                          >
+                            <strong>Select an option or create one</strong>
+                          </div>
+                          <components.MenuList {...props} />
+                        </>
+                      );
+                    },
                   }
                 : {}),
             }}
@@ -189,6 +219,28 @@ const MultiSelectField: FC<
             closeMenuOnSelect={closeMenuOnSelect}
             autoFocus={autoFocus}
             value={selected}
+            {...(creatable
+              ? {
+                  formatCreateLabel: (input: string) => {
+                    return (
+                      <span>
+                        <span className="text-muted">Create</span>{" "}
+                        <span
+                          className="badge bg-purple-light-2"
+                          style={{
+                            fontWeight: 600,
+                            padding: "3px 6px",
+                            lineHeight: "1.5",
+                            borderRadius: "2px",
+                          }}
+                        >
+                          {input}
+                        </span>
+                      </span>
+                    );
+                  },
+                }
+              : {})}
             placeholder={initialOption ?? placeholder}
             isOptionDisabled={isOptionDisabled}
             {...{ ...ReactSelectProps, ...mergeStyles }}

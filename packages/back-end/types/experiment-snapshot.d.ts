@@ -1,10 +1,17 @@
+import { MidExperimentPowerCalculationResult } from "shared/enterprise";
+import { BanditResult } from "back-end/src/validators/experiments";
 import {
   MetricSettingsForStatsEngine,
   QueryResultsForStatsEngine,
-} from "../src/services/stats";
+} from "back-end/src/services/stats";
 import { QueryLanguage } from "./datasource";
 import { MetricInterface, MetricStats } from "./metric";
-import { DifferenceType, RiskType, StatsEngine } from "./stats";
+import {
+  DifferenceType,
+  RiskType,
+  StatsEngine,
+  MetricPowerResponseFromStatsEngine,
+} from "./stats";
 import { Queries } from "./query";
 import {
   ExperimentReportResultDimension,
@@ -12,7 +19,11 @@ import {
   LegacyMetricRegressionAdjustmentStatus,
 } from "./report";
 import { DimensionInterface } from "./dimension";
-import { AttributionModel } from "./experiment";
+import {
+  AttributionModel,
+  ExperimentInterfaceStringDates,
+  LegacyBanditResult,
+} from "./experiment";
 import { MetricPriorSettings, MetricWindowSettings } from "./fact-table";
 
 export interface SnapshotMetric {
@@ -39,6 +50,7 @@ export interface SnapshotMetric {
   }[];
   chanceToWin?: number;
   errorMessage?: string;
+  power?: MetricPowerResponseFromStatsEngine;
 }
 
 export interface SnapshotVariation {
@@ -56,6 +68,7 @@ export type LegacyExperimentSnapshotInterface = ExperimentSnapshotInterface & {
   results?: ExperimentReportResultDimension[];
   regressionAdjustmentEnabled?: boolean;
   metricRegressionAdjustmentStatuses?: LegacyMetricRegressionAdjustmentStatus[];
+  banditResult?: LegacyBanditResult;
   sequentialTestingEnabled?: boolean;
   sequentialTestingTuningParameter?: number;
   queryFilter?: string;
@@ -80,6 +93,7 @@ export interface MetricForSnapshot {
     | "type"
   >;
   // Computed settings that take into account overrides
+  // see MetricSnapshotSettings
   computedSettings?: {
     regressionAdjustmentEnabled: boolean;
     regressionAdjustmentAvailable: boolean;
@@ -89,6 +103,7 @@ export interface MetricForSnapshot {
     properPriorMean: number;
     properPriorStdDev: number;
     windowSettings: MetricWindowSettings;
+    targetMDE?: number;
   };
 }
 
@@ -111,7 +126,12 @@ export interface ExperimentSnapshotAnalysisSettings {
   pValueCorrection?: null | "holm-bonferroni" | "benjamini-hochberg";
   pValueThreshold?: number;
   baselineVariationIndex?: number;
+  numGoalMetrics: number;
+  oneSidedIntervals?: boolean;
 }
+
+export type SnapshotType = "standard" | "exploratory" | "report";
+export type SnapshotTriggeredBy = "schedule" | "manual";
 
 export interface ExperimentSnapshotAnalysis {
   // Determines which analysis this is
@@ -125,6 +145,18 @@ export interface ExperimentSnapshotAnalysis {
 export interface SnapshotSettingsVariation {
   id: string;
   weight: number;
+}
+
+export interface SnapshotBanditSettings {
+  reweight: boolean;
+  decisionMetric: string;
+  seed: number;
+  currentWeights: number[];
+  historicalWeights: {
+    date: Date;
+    weights: number[];
+    totalUsers: number;
+  }[];
 }
 
 // Settings that control which queries are run
@@ -151,6 +183,7 @@ export interface ExperimentSnapshotSettings {
   endDate: Date;
   variations: SnapshotSettingsVariation[];
   coverage?: number;
+  banditSettings?: SnapshotBanditSettings;
 }
 
 export interface ExperimentSnapshotInterface {
@@ -167,6 +200,9 @@ export interface ExperimentSnapshotInterface {
   runStarted: Date | null;
   status: "running" | "success" | "error";
   settings: ExperimentSnapshotSettings;
+  type?: SnapshotType;
+  triggeredBy?: SnapshotTriggeredBy;
+  report?: string;
 
   // List of queries that were run as part of this snapshot
   queries: Queries;
@@ -175,12 +211,18 @@ export interface ExperimentSnapshotInterface {
   unknownVariations: string[];
   multipleExposures: number;
   analyses: ExperimentSnapshotAnalysis[];
+  banditResult?: BanditResult;
 
   health?: ExperimentSnapshotHealth;
 }
 
+export interface ExperimentWithSnapshot extends ExperimentInterfaceStringDates {
+  snapshot?: ExperimentSnapshotInterface;
+}
+
 export interface ExperimentSnapshotHealth {
   traffic: ExperimentSnapshotTraffic;
+  power?: MidExperimentPowerCalculationResult;
 }
 
 export interface ExperimentSnapshotTraffic {
@@ -205,9 +247,10 @@ export interface ExperimentMetricAnalysisParams {
   coverage: number;
 
   analyses: ExperimentSnapshotAnalysisSettings[];
+  banditSettings?: SnapshotBanditSettings;
+  metrics: Record<string, MetricSettingsForStatsEngine>;
 
   queryResults: QueryResultsForStatsEngine[];
-  metrics: Record<string, MetricSettingsForStatsEngine>;
 }
 
 export type ExperimentMetricAnalysisContext = {

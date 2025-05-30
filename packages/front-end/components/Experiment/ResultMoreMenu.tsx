@@ -5,28 +5,31 @@ import { Queries } from "back-end/types/query";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
+  ExperimentSnapshotReportArgs,
   ReportInterface,
 } from "back-end/types/report";
 import { BsArrowRepeat } from "react-icons/bs";
-import { DataSourceInterfaceWithParams } from "@back-end/types/datasource";
+import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { DifferenceType } from "back-end/types/stats";
 import { useAuth } from "@/services/auth";
 import ResultsDownloadButton from "@/components/Experiment/ResultsDownloadButton";
 import Button from "@/components/Button";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { trackReport } from "@/services/track";
-import { useDefinitions } from "@/services/DefinitionsContext";
+import track from "@/services/track";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 export default function ResultMoreMenu({
+  experiment,
   editMetrics,
   queries,
   queryError,
   hasData,
   supportsNotebooks,
-  id,
-  generateReport,
+  snapshotId,
+  reportArgs,
   notebookUrl,
   notebookFilename,
   forceRefresh,
@@ -37,14 +40,16 @@ export default function ResultMoreMenu({
   dimension,
   datasource,
   project,
+  differenceType,
 }: {
+  experiment?: ExperimentInterfaceStringDates;
   editMetrics?: () => void;
   queries?: Queries;
   queryError?: string;
   hasData?: boolean;
   supportsNotebooks?: boolean;
-  id: string;
-  generateReport?: boolean;
+  snapshotId?: string;
+  reportArgs?: ExperimentSnapshotReportArgs;
   notebookUrl: string;
   notebookFilename: string;
   forceRefresh?: () => Promise<void>;
@@ -55,16 +60,18 @@ export default function ResultMoreMenu({
   dimension?: string;
   datasource?: DataSourceInterfaceWithParams | null;
   project?: string;
+  differenceType: DifferenceType;
 }) {
   const { apiCall } = useAuth();
   const router = useRouter();
   const permissionsUtil = usePermissionsUtil();
-  const { getDatasourceById } = useDefinitions();
 
   const canEdit = permissionsUtil.canViewExperimentModal(project);
 
   const canDownloadJupyterNotebook =
     hasData && supportsNotebooks && notebookUrl && notebookFilename;
+
+  const isBandit = experiment?.type === "multi-armed-bandit";
 
   return (
     <MoreMenu autoCloseOnClick={false}>
@@ -73,6 +80,7 @@ export default function ResultMoreMenu({
           queries={queries?.map((q) => q.query) ?? []}
           error={queryError}
           className="dropdown-item py-2"
+          display=" View Queries"
         />
       )}
       {forceRefresh &&
@@ -88,35 +96,33 @@ export default function ResultMoreMenu({
             <BsArrowRepeat className="mr-2" /> Re-run All Queries
           </button>
         )}
-      {hasData && queries && generateReport && canEdit && (
+      {snapshotId &&
+      experiment &&
+      permissionsUtil.canCreateReport(experiment) ? (
         <Button
           className="dropdown-item py-2"
           color="outline-info"
           onClick={async () => {
             const res = await apiCall<{ report: ReportInterface }>(
-              `/experiments/report/${id}`,
+              `/experiments/report/${snapshotId}`,
               {
                 method: "POST",
+                body: reportArgs ? JSON.stringify(reportArgs) : undefined,
               }
             );
-
             if (!res.report) {
               throw new Error("Failed to create report");
             }
-            trackReport(
-              "create",
-              "AdhocReportButton",
-              getDatasourceById(res.report.args.datasource)?.type || null,
-              res.report
-            );
-
+            track("Experiment Report: Create", {
+              source: "experiment results tab",
+            });
             await router.push(`/report/${res.report.id}`);
           }}
         >
-          <BiTable className="mr-2" style={{ fontSize: "1.2rem" }} /> Ad-hoc
+          <BiTable className="mr-2" style={{ fontSize: "1.2rem" }} /> New Custom
           Report
         </Button>
-      )}
+      ) : null}
       <Tooltip
         shouldDisplay={!canDownloadJupyterNotebook}
         body="To download results as a Jupyter notebook, you must set up a Jupyter Notebook query runner. View our docs for more info."
@@ -153,7 +159,7 @@ export default function ResultMoreMenu({
           Download Notebook
         </Button>
       </Tooltip>
-      {canEdit && editMetrics && (
+      {canEdit && editMetrics && !isBandit && (
         <button
           type="button"
           className="dropdown-item py-2"
@@ -167,6 +173,7 @@ export default function ResultMoreMenu({
       {results && (
         <ResultsDownloadButton
           results={results}
+          differenceType={differenceType}
           metrics={metrics}
           variations={variations}
           trackingKey={trackingKey || ""}

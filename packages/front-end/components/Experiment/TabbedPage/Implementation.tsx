@@ -3,13 +3,19 @@ import {
   LinkedFeatureInfo,
 } from "back-end/types/experiment";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
-import { URLRedirectInterface } from "@back-end/types/url-redirect";
+import { URLRedirectInterface } from "back-end/types/url-redirect";
+import React from "react";
+import { Heading } from "@radix-ui/themes";
 import AddLinkedChanges from "@/components/Experiment/LinkedChanges/AddLinkedChanges";
 import RedirectLinkedChanges from "@/components/Experiment/LinkedChanges/RedirectLinkedChanges";
 import FeatureLinkedChanges from "@/components/Experiment/LinkedChanges/FeatureLinkedChanges";
 import VisualLinkedChanges from "@/components/Experiment/LinkedChanges/VisualLinkedChanges";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import TargetingInfo from "./TargetingInfo";
+import VariationsTable from "@/components/Experiment/VariationsTable";
+import TrafficAndTargeting from "@/components/Experiment/TabbedPage/TrafficAndTargeting";
+import AnalysisSettings from "@/components/Experiment/TabbedPage/AnalysisSettings";
+import Callout from "@/components/Radix/Callout";
+import Button from "@/components/Radix/Button";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -17,10 +23,12 @@ export interface Props {
   urlRedirects: URLRedirectInterface[];
   mutate: () => void;
   editTargeting?: (() => void) | null;
+  editVariations?: (() => void) | null;
   setFeatureModal: (open: boolean) => void;
   setVisualEditorModal: (open: boolean) => void;
   setUrlRedirectModal: (open: boolean) => void;
   linkedFeatures: LinkedFeatureInfo[];
+  envs: string[];
 }
 
 export default function Implementation({
@@ -29,10 +37,12 @@ export default function Implementation({
   urlRedirects,
   mutate,
   editTargeting,
+  editVariations,
   setFeatureModal,
   setVisualEditorModal,
   setUrlRedirectModal,
   linkedFeatures,
+  envs,
 }: Props) {
   const phases = experiment.phases || [];
 
@@ -53,54 +63,58 @@ export default function Implementation({
     linkedFeatures.length > 0 ||
     experiment.hasURLRedirects;
 
-  if (!hasLinkedChanges) {
-    if (experiment.status === "draft") {
-      return (
-        <AddLinkedChanges
-          experiment={experiment}
-          numLinkedChanges={0}
-          setFeatureModal={setFeatureModal}
-          setVisualEditorModal={setVisualEditorModal}
-          setUrlRedirectModal={setUrlRedirectModal}
-        />
-      );
-    }
-    return (
-      <div className="alert alert-info mb-0">
-        This experiment has no directly linked feature flag, visual editor
-        changes, or redirects. Randomization, targeting, and implementation is
-        either being managed by an external system or via legacy Feature Flags
-        in GrowthBook.
-      </div>
-    );
-  }
+  const showEditVariations = editVariations;
 
   return (
-    <div className="mb-4">
-      <div className="pl-1 mb-3">
-        <h2>Implementation</h2>
+    <div className="my-4">
+      <h2>Implementation</h2>
+
+      <div className="box my-3 mb-4 px-2 py-3">
+        <div className="d-flex flex-row align-items-center justify-content-between text-dark px-3 mb-3">
+          <Heading as="h4" size="3" mb="0">
+            Variations
+          </Heading>
+          <div className="flex-1" />
+          {showEditVariations ? (
+            <Button variant="ghost" onClick={editVariations}>
+              Edit
+            </Button>
+          ) : null}
+        </div>
+
+        <VariationsTable
+          experiment={experiment}
+          canEditExperiment={canEditExperiment}
+          mutate={mutate}
+        />
       </div>
-      <VisualLinkedChanges
-        setVisualEditorModal={setVisualEditorModal}
-        visualChangesets={visualChangesets}
-        canAddChanges={canAddLinkedChanges}
-        canEditVisualChangesets={hasVisualEditorPermission}
-        mutate={mutate}
-        experiment={experiment}
-      />
-      <FeatureLinkedChanges
-        setFeatureModal={setFeatureModal}
-        linkedFeatures={linkedFeatures}
-        experiment={experiment}
-        canAddChanges={canAddLinkedChanges}
-      />
-      <RedirectLinkedChanges
-        setUrlRedirectModal={setUrlRedirectModal}
-        urlRedirects={urlRedirects}
-        experiment={experiment}
-        canAddChanges={canAddLinkedChanges}
-        mutate={mutate}
-      />
+
+      {hasLinkedChanges ? (
+        <>
+          <VisualLinkedChanges
+            setVisualEditorModal={setVisualEditorModal}
+            visualChangesets={visualChangesets}
+            canAddChanges={canAddLinkedChanges}
+            canEditVisualChangesets={hasVisualEditorPermission}
+            mutate={mutate}
+            experiment={experiment}
+          />
+          <FeatureLinkedChanges
+            setFeatureModal={setFeatureModal}
+            linkedFeatures={linkedFeatures}
+            experiment={experiment}
+            canAddChanges={canAddLinkedChanges}
+          />
+          <RedirectLinkedChanges
+            setUrlRedirectModal={setUrlRedirectModal}
+            urlRedirects={urlRedirects}
+            experiment={experiment}
+            canAddChanges={canAddLinkedChanges}
+            mutate={mutate}
+          />
+        </>
+      ) : null}
+
       <AddLinkedChanges
         experiment={experiment}
         numLinkedChanges={0}
@@ -109,16 +123,29 @@ export default function Implementation({
         setVisualEditorModal={setVisualEditorModal}
         setUrlRedirectModal={setUrlRedirectModal}
       />
-      {hasLinkedChanges && (
-        <div className="appbox p-3 h-100 mb-4">
-          <TargetingInfo
-            experiment={experiment}
-            editTargeting={editTargeting}
-            phaseIndex={phases.length - 1}
-            horizontalView
-          />
-        </div>
-      )}
+
+      {experiment.status !== "draft" && !hasLinkedChanges ? (
+        <Callout status="info" mb="4">
+          This experiment has no linked GrowthBook implementation (linked
+          feature flag, visual editor changes, or URL redirect).{" "}
+          {experiment.status === "stopped"
+            ? "Either the implementation was deleted or the implementation, traffic, and targeting were managed by an external system."
+            : "The implementation, traffic, and targeting may be managed by an external system."}
+        </Callout>
+      ) : null}
+
+      <TrafficAndTargeting
+        experiment={experiment}
+        editTargeting={editTargeting}
+        phaseIndex={phases.length - 1}
+      />
+
+      <AnalysisSettings
+        experiment={experiment}
+        mutate={mutate}
+        envs={envs}
+        canEdit={!!editTargeting}
+      />
     </div>
   );
 }

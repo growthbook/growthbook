@@ -15,6 +15,7 @@ const EditProjectForm: FC<{
   cancel: () => void;
   mutate: () => void;
   method?: string;
+  source?: string;
 }> = ({
   current,
   apiEndpoint,
@@ -25,6 +26,7 @@ const EditProjectForm: FC<{
   additionalMessage,
   ctaEnabled = true,
   label,
+  source,
 }) => {
   const { apiCall } = useAuth();
 
@@ -39,6 +41,8 @@ const EditProjectForm: FC<{
 
   return (
     <Modal
+      trackingEventModalType="edit-project-form"
+      trackingEventModalSource={source}
       header={"Edit Project"}
       open={true}
       close={cancel}

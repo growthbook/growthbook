@@ -6,7 +6,7 @@ import {
 } from "shared/experiments";
 import React from "react";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
-import { StatsEngine } from "@back-end/types/stats";
+import { StatsEngine } from "back-end/types/stats";
 import {
   capitalizeFirstLetter,
   isNullUndefinedOrEmpty,
@@ -23,6 +23,7 @@ interface MetricToolTipCompProps {
   row?: ExperimentTableRow;
   statsEngine?: StatsEngine;
   reportRegressionAdjustmentEnabled?: boolean;
+  hideDetails?: boolean;
 }
 
 interface MetricInfo {
@@ -37,6 +38,7 @@ const MetricTooltipBody = ({
   row,
   statsEngine,
   reportRegressionAdjustmentEnabled,
+  hideDetails,
 }: MetricToolTipCompProps): React.ReactElement => {
   function validMetricDescription(description: string): boolean {
     if (!description) return false;
@@ -52,17 +54,21 @@ const MetricTooltipBody = ({
       label: "Type",
       body: isFactMetric(metric) ? metric.metricType : metric.type,
     },
-    {
-      show: (metric.tags?.length ?? 0) > 0,
-      label: "Tags",
-      body: (
-        <SortedTags
-          tags={metric.tags}
-          shouldShowEllipsis={false}
-          useFlex={true}
-        />
-      ),
-    },
+    ...(!hideDetails
+      ? [
+          {
+            show: (metric.tags?.length ?? 0) > 0,
+            label: "Tags",
+            body: (
+              <SortedTags
+                tags={metric.tags}
+                shouldShowEllipsis={false}
+                useFlex={true}
+              />
+            ),
+          },
+        ]
+      : []),
     {
       show: !!quantileMetricType(metric),
       label: "Quantile",
@@ -119,12 +125,15 @@ const MetricTooltipBody = ({
     },
     {
       show:
-        (metric.windowSettings.delayHours ?? 0) !== 0 ||
+        (metric.windowSettings.delayValue ?? 0) !== 0 ||
         metricOverrideFields.includes("delayHours"),
-      label: "Metric Delay Hours",
+      label:
+        isFactMetric(metric) && metric.metricType === "retention"
+          ? "Retention Window"
+          : "Metric Delay",
       body: (
         <>
-          {metric.windowSettings.delayHours}
+          {`${metric.windowSettings.delayValue} ${metric.windowSettings.delayUnit}`}
           {metricOverrideFields.includes("delayHours") ? (
             <small className="text-purple ml-1">(override)</small>
           ) : null}
@@ -198,14 +207,14 @@ const MetricTooltipBody = ({
       <h4>
         <MetricName id={metric.id} showOfficialLabel disableTooltip />
       </h4>
-      <table className="table table-sm table-bordered text-left mb-0">
+      <table className="table gbtable mb-0">
         <tbody>
           {metricInfo
             .filter((i) => i.show)
             .map(({ label, body, markdown }, index) => (
               <tr key={`metricInfo${index}`}>
                 <td
-                  className="text-right font-weight-bold py-1 align-middle"
+                  className="text-right font-weight-bold py-2 align-middle"
                   style={{
                     width: 120,
                     border: "1px solid var(--border-color-100)",
@@ -214,7 +223,7 @@ const MetricTooltipBody = ({
                   }}
                 >{`${label}`}</td>
                 <td
-                  className="py-1 align-middle"
+                  className="py-2 align-middle"
                   style={{
                     minWidth: 180,
                     border: "1px solid var(--border-color-100)",

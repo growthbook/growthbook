@@ -3,7 +3,7 @@ info:
   version: "1.0.0"
   title: "GrowthBook REST API"
   description: |
-    GrowthBook offers a full REST API for interacting with the GrowthBook application. This is currently in **beta** as we add more authenticated API routes and features.
+    GrowthBook offers a full REST API for interacting with the application.
 
     Request data can use either JSON or Form data encoding (with proper `Content-Type` headers). All response bodies are JSON-encoded.
 
@@ -63,9 +63,9 @@ tags:
   - name: environments
     x-displayName: Environments
     description: GrowthBook comes with one environment by default (production),
-                 but you can add as many as you need. When used with feature
-                 flags, you can enable/disable feature flags on a per-environment
-                 basis.
+      but you can add as many as you need. When used with feature
+      flags, you can enable/disable feature flags on a per-environment
+      basis.
   - name: features
     x-displayName: Feature Flags
     description: Control your feature flags programatically
@@ -78,6 +78,9 @@ tags:
   - name: experiments
     x-displayName: Experiments
     description: Experiments (A/B Tests)
+  - name: snapshots
+    x-displayName: Experiment Snapshots
+    description: Experiment Snapshots (the individual updates of an experiment)
   - name: dimensions
     x-displayName: Dimensions
     description: Dimensions used during experiment analysis
@@ -96,6 +99,9 @@ tags:
   - name: organizations
     x-displayName: Organizations
     description: Organizations are used for multi-org deployments where different teams can run their own isolated feature flags and experiments. These endpoints are only via a super-admin's Personal Access Token.
+  - name: members
+    x-displayName: Members
+    description: Members are users who have been invited to an organization.
   - name: fact-tables
     x-displayName: Fact Tables
     description: Fact Tables describe the shape of your data warehouse tables
@@ -105,6 +111,12 @@ tags:
   - name: code-references
     x-displayName: Code References
     description: Intended for use with our code reference CI utility, [`gb-find-code-refs`](https://github.com/growthbook/gb-find-code-refs).
+  - name: archetypes
+    x-displayName: Archetypes
+    description: Archetypes allow you to simulate the result of targeting rules on pre-set user attributes
+  - name: queries
+    x-displayName: Queries
+    description: Retrieve queries used in experiments to calculate results.
 paths:
   /features:
     get:
@@ -116,6 +128,8 @@ paths:
       $ref: "./paths/getFeature.yaml"
     post:
       $ref: "./paths/updateFeature.yaml"
+    delete:
+      $ref: "./paths/deleteFeature.yaml"
   /features/{id}/toggle:
     $ref: "./paths/toggleFeature.yaml"
   /feature-keys:
@@ -153,6 +167,9 @@ paths:
       $ref: "./paths/putSdkConnection.yaml"
     delete:
       $ref: "./paths/deleteSdkConnection.yaml"
+  /sdk-connections/lookup/{key}:
+    get:
+      $ref: "./paths/lookupSdkConnectionByKey.yaml"
   /data-sources:
     $ref: "./paths/listDataSources.yaml"
   /data-sources/{id}:
@@ -162,13 +179,22 @@ paths:
       $ref: "./paths/listExperiments.yaml"
     post:
       $ref: "./paths/postExperiment.yaml"
+  /experiment-names:
+    get:
+      $ref: "./paths/getExperimentNames.yaml"
   /experiments/{id}:
     get:
       $ref: "./paths/getExperiment.yaml"
     post:
       $ref: "./paths/updateExperiment.yaml"
+  /experiments/{id}/snapshot:
+    $ref: "./paths/postExperimentSnapshot.yaml"
   /experiments/{id}/results:
     $ref: "./paths/getExperimentResults.yaml"
+  /experiments/{id}/visual-changesets:
+    $ref: "./paths/listVisualChangesets.yaml"
+  /snapshots/{id}:
+    $ref: "./paths/getExperimentSnapshot.yaml"
   /metrics:
     get:
       $ref: "./paths/listMetrics.yaml"
@@ -181,8 +207,6 @@ paths:
       $ref: "./paths/putMetric.yaml"
     delete:
       $ref: "./paths/deleteMetric.yaml"
-  /experiments/{id}/visual-changesets:
-    $ref: "./paths/listVisualChangesets.yaml"
   /visual-changesets/{id}:
     get:
       $ref: "./paths/getVisualChangeset.yaml"
@@ -212,6 +236,37 @@ paths:
   /organizations/{id}:
     put:
       $ref: "./paths/putOrganization.yaml"
+  /attributes:
+    get:
+      $ref: "./paths/listAttributes.yaml"
+    post:
+      $ref: "./paths/postAttribute.yaml"
+  /attributes/${property}:
+    put:
+      $ref: "./paths/putAttribute.yaml"
+    delete:
+      $ref: "./paths/deleteAttribute.yaml"
+  /archetypes:
+    get:
+      $ref: "./paths/listArchetypes.yaml"
+    post:
+      $ref: "./paths/postArchetype.yaml"
+  /archetypes/${id}:
+    get:
+      $ref: "./paths/getArchetype.yaml"
+    put:
+      $ref: "./paths/putArchetype.yaml"
+    delete:
+      $ref: "./paths/deleteArchetype.yaml"
+  /members:
+    get:
+      $ref: "./paths/listMembers.yaml"
+  /members/{id}:
+    delete:
+      $ref: "./paths/deleteMember.yaml"
+  /members/{id}/role:
+    post:
+      $ref: "./paths/updateMemberRole.yaml"
   /environments:
     get:
       $ref: "./paths/listEnvironments.yaml"
@@ -264,6 +319,9 @@ paths:
   /code-refs:
     post:
       $ref: "./paths/postCodeRefs.yaml"
+  /queries/{id}:
+    get:
+      $ref: "./paths/getQuery.yaml"
   # PLOP_INSERT_PATHS_HERE
 components:
   parameters:

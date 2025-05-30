@@ -1,13 +1,15 @@
 import mongoose from "mongoose";
 import omit from "lodash/omit";
 import { checkIfRevisionNeedsReview } from "shared/util";
-import { FeatureInterface, FeatureRule } from "../../types/feature";
+import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import {
   FeatureRevisionInterface,
   RevisionLog,
-} from "../../types/feature-revision";
-import { EventUser, EventUserLoggedIn } from "../events/event-types";
-import { OrganizationInterface, ReqContext } from "../../types/organization";
+} from "back-end/types/feature-revision";
+import { EventUser, EventUserLoggedIn } from "back-end/src/events/event-types";
+import { OrganizationInterface, ReqContext } from "back-end/types/organization";
+import { ApiReqContext } from "back-end/types/api";
+import { applyEnvironmentInheritance } from "back-end/src/util/features";
 
 export type ReviewSubmittedType = "Comment" | "Approved" | "Requested Changes";
 
@@ -52,7 +54,10 @@ const FeatureRevisionModel = mongoose.model<FeatureRevisionInterface>(
   featureRevisionSchema
 );
 
-function toInterface(doc: FeatureRevisionDocument): FeatureRevisionInterface {
+function toInterface(
+  doc: FeatureRevisionDocument,
+  context: ReqContext | ApiReqContext
+): FeatureRevisionInterface {
   const revision = omit(doc.toJSON<FeatureRevisionDocument>(), ["__v", "_id"]);
 
   // These fields are new, so backfill them for old revisions
@@ -75,10 +80,15 @@ function toInterface(doc: FeatureRevisionDocument): FeatureRevisionInterface {
         .revisionDate || revision.dateCreated;
   }
 
+  revision.rules = applyEnvironmentInheritance(
+    context.org.settings?.environments || [],
+    revision.rules
+  );
   return revision;
 }
 
 export async function getRevisions(
+  context: ReqContext | ApiReqContext,
   organization: string,
   featureId: string
 ): Promise<FeatureRevisionInterface[]> {
@@ -86,14 +96,11 @@ export async function getRevisions(
     organization,
     featureId,
   })
+    .select("-log") // Remove the log when fetching all revisions since it can be large to send over the network
     .sort({ version: -1 })
     .limit(25);
 
-  // Remove the log when fetching all revisions since it can be large to send over the network
-  return docs.map(toInterface).map((d) => {
-    delete d.log;
-    return d;
-  });
+  return docs.map((m) => toInterface(m, context));
 }
 
 export async function hasDraft(
@@ -106,23 +113,55 @@ export async function hasDraft(
     featureId: feature.id,
     status: "draft",
     version: { $nin: excludeVersions },
-  });
+  }).select("_id");
 
   return doc ? true : false;
 }
 
-export async function getRevision(
-  organization: string,
-  featureId: string,
-  version: number
-) {
+export async function getFeatureRevisionsByStatus({
+  context,
+  organization,
+  featureId,
+  status,
+  limit = 10,
+}: {
+  context: ReqContext;
+  organization: string;
+  featureId: string;
+  status?: string;
+  limit?: number;
+}): Promise<FeatureRevisionInterface[]> {
+  const docs = await FeatureRevisionModel.find({
+    organization,
+    featureId,
+    ...(status ? { status } : {}),
+  })
+    .select("-log") // Remove the log when fetching all revisions since it can be large to send over the network
+    .sort({ version: -1 })
+    .limit(limit);
+  return docs.map((m) => toInterface(m, context));
+}
+
+export async function getRevision({
+  context,
+  organization,
+  featureId,
+  version,
+  includeLog = false,
+}: {
+  context: ReqContext | ApiReqContext;
+  organization: string;
+  featureId: string;
+  version: number;
+  includeLog?: boolean;
+}) {
   const doc = await FeatureRevisionModel.findOne({
     organization,
     featureId,
     version,
-  });
+  }).select(includeLog ? undefined : "-log");
 
-  return doc ? toInterface(doc) : null;
+  return doc ? toInterface(doc, context) : null;
 }
 
 export async function getRevisionsByStatus(
@@ -132,17 +171,19 @@ export async function getRevisionsByStatus(
   const revisions = await FeatureRevisionModel.find({
     organization: context.org.id,
     status: { $in: statuses },
-  });
+  }).select("-log"); // Remove the log when fetching all revisions since it can be large to send over the network
+
   const docs = revisions
     .filter((r) => !!r)
     .map((r) => {
-      return toInterface(r);
+      return toInterface(r, context);
     });
 
   return docs;
 }
 
 export async function createInitialRevision(
+  context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   user: EventUser | null,
   environments: string[],
@@ -171,16 +212,20 @@ export async function createInitialRevision(
     rules,
   });
 
-  return toInterface(doc);
+  return toInterface(doc, context);
 }
 
-export async function createRevisionFromLegacyDraft(feature: FeatureInterface) {
+export async function createRevisionFromLegacyDraft(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface
+) {
   if (!feature.legacyDraft) return;
   const doc = await FeatureRevisionModel.create(feature.legacyDraft);
-  return toInterface(doc);
+  return toInterface(doc, context);
 }
 
 export async function createRevision({
+  context,
   feature,
   user,
   environments,
@@ -191,6 +236,7 @@ export async function createRevision({
   org,
   canBypassApprovalChecks,
 }: {
+  context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
   user: EventUser;
   environments: string[];
@@ -242,7 +288,12 @@ export async function createRevision({
   const baseRevision =
     lastRevision?.version === baseVersion
       ? lastRevision
-      : await getRevision(feature.organization, feature.id, baseVersion);
+      : await getRevision({
+          context,
+          organization: feature.organization,
+          featureId: feature.id,
+          version: baseVersion,
+        });
 
   if (!baseRevision) {
     throw new Error("can not find a base revision");
@@ -281,7 +332,7 @@ export async function createRevision({
 
   const doc = await FeatureRevisionModel.create(revision);
 
-  return toInterface(doc);
+  return toInterface(doc, context);
 }
 
 export async function updateRevision(
@@ -483,6 +534,7 @@ export async function discardRevision(
 }
 
 export async function getFeatureRevisionsByFeatureIds(
+  context: ReqContext | ApiReqContext,
   organization: string,
   featureIds: string[]
 ): Promise<Record<string, FeatureRevisionInterface[]>> {
@@ -491,12 +543,16 @@ export async function getFeatureRevisionsByFeatureIds(
   if (featureIds.length) {
     const revisions = await FeatureRevisionModel.find({
       organization,
+      status: "draft",
       featureId: { $in: featureIds },
-    });
+    })
+      .select("-log") // Remove the log when fetching all revisions since it can be large to send over the network
+      .sort({ version: -1 })
+      .limit(10);
     revisions.forEach((revision) => {
       const featureId = revision.featureId;
       revisionsByFeatureId[featureId] = revisionsByFeatureId[featureId] || [];
-      revisionsByFeatureId[featureId].push(toInterface(revision));
+      revisionsByFeatureId[featureId].push(toInterface(revision, context));
     });
   }
 
@@ -526,7 +582,9 @@ export async function cleanUpPreviousRevisions(
     },
   });
 }
+
 export async function getFeatureRevisionsByFeaturesCurrentVersion(
+  context: ReqContext | ApiReqContext,
   features: FeatureInterface[]
 ): Promise<FeatureRevisionInterface[] | null> {
   if (features.length === 0) return null;
@@ -536,7 +594,7 @@ export async function getFeatureRevisionsByFeaturesCurrentVersion(
       organization: f.organization,
       version: f.version,
     })),
-  });
+  }).select("-log"); // Remove the log when fetching all revisions since it can be large to send over the network
 
-  return docs.map(toInterface);
+  return docs.map((m) => toInterface(m, context));
 }

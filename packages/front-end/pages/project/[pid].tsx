@@ -16,6 +16,7 @@ import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Frame from "@/components/Radix/Frame";
 
 function hasChanges(value: ProjectSettings, existing: ProjectSettings) {
   if (!existing) return true;
@@ -143,7 +144,8 @@ const ProjectPage: FC = () => {
           </div>
           <div className="ml-1">
             <a
-              href="#"
+              role="button"
+              className="link-purple"
               onClick={(e) => {
                 e.preventDefault();
                 setModalOpen(p);
@@ -162,7 +164,6 @@ const ProjectPage: FC = () => {
             canEditRoles={canManageTeam}
             canDeleteMembers={false}
             canInviteMembers={false}
-            maxHeight={500}
           />
         </div>
 
@@ -171,7 +172,7 @@ const ProjectPage: FC = () => {
         {/*  Override organization-wide settings for this project. Leave fields*/}
         {/*  blank to use the organization default.*/}
         {/*</div>*/}
-        <div className="bg-white p-3 border">
+        <Frame>
           <div className="row">
             <div className="col-sm-3">
               <h4>Experiment Settings</h4>
@@ -180,14 +181,14 @@ const ProjectPage: FC = () => {
               <StatsEngineSelect
                 value={form.watch("statsEngine")}
                 onChange={(v) => {
-                  form.setValue("statsEngine", v);
+                  form.setValue("statsEngine", v || undefined);
                 }}
                 label="Default Statistics Engine"
                 parentSettings={parentSettings}
               />
             </div>
           </div>
-        </div>
+        </Frame>
       </div>
 
       <div

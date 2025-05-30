@@ -5,11 +5,13 @@ import {
   FC,
   ReactNode,
   useCallback,
+  useEffect,
 } from "react";
 import { FaSort, FaSortDown, FaSortUp } from "react-icons/fa";
 import { useRouter } from "next/router";
 import Fuse from "fuse.js";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import Pagination from "@/components/Pagination";
 
 export function useAddComputedFields<T, ExtraFields>(
   items: T[] | undefined,
@@ -31,6 +33,13 @@ export type SearchFields<T> = (
 
 const searchTermOperators = [">", "<", "^", "=", "~", ""] as const;
 
+export type SyntaxFilter = {
+  field: string;
+  values: string[];
+  operator: SearchTermFilterOperator;
+  negated: boolean;
+};
+
 export type SearchTermFilterOperator = typeof searchTermOperators[number];
 
 export interface SearchProps<T> {
@@ -39,6 +48,7 @@ export interface SearchProps<T> {
   localStorageKey: string;
   defaultSortField: keyof T;
   defaultSortDir?: number;
+  undefinedLast?: boolean;
   searchTermFilters?: {
     [key: string]: (
       item: T
@@ -53,21 +63,30 @@ export interface SearchProps<T> {
       | (Date | null | undefined)[];
   };
   filterResults?: (items: T[]) => T[];
+  updateSearchQueryOnChange?: boolean;
+  pageSize?: number;
 }
 
 export interface SearchReturn<T> {
   items: T[];
+  unpaginatedItems: T[];
   isFiltered: boolean;
   clear: () => void;
+  syntaxFilters: SyntaxFilter[];
   searchInputProps: {
     value: string;
     onChange: (e: ChangeEvent<HTMLInputElement>) => void;
   };
+  setSearchValue: (value: string) => void;
   SortableTH: FC<{
     field: keyof T;
     className?: string;
     children: ReactNode;
+    style?: React.CSSProperties;
   }>;
+  page: number;
+  resetPage: () => void;
+  pagination: ReactNode;
 }
 
 export function useSearch<T>({
@@ -77,7 +96,10 @@ export function useSearch<T>({
   localStorageKey,
   defaultSortField,
   defaultSortDir,
+  undefinedLast,
   searchTermFilters,
+  updateSearchQueryOnChange,
+  pageSize,
 }: SearchProps<T>): SearchReturn<T> {
   const [sort, setSort] = useLocalStorage(`${localStorageKey}:sort-dir`, {
     field: defaultSortField,
@@ -88,6 +110,8 @@ export function useSearch<T>({
   const { q } = router.query;
   const initialSearchTerm = Array.isArray(q) ? q.join(" ") : q;
   const [value, setValue] = useState(initialSearchTerm ?? "");
+
+  const [page, setPage] = useState(1);
 
   // We only want to re-create the Fuse instance if the fields actually changed
   // It's really easy to forget to add `useMemo` around the fields declaration
@@ -106,7 +130,7 @@ export function useSearch<T>({
     });
   }, [items, JSON.stringify(searchFields)]);
 
-  const filtered = useMemo(() => {
+  const { filtered, syntaxFilters } = useMemo(() => {
     // remove any syntax filters from the search term
     const { searchTerm, syntaxFilters } = searchTermFilters
       ? transformQuery(value, Object.keys(searchTermFilters))
@@ -115,6 +139,34 @@ export function useSearch<T>({
     let filtered = items;
     if (searchTerm.length > 0) {
       filtered = fuse.search(searchTerm).map((item) => item.item);
+    }
+    if (updateSearchQueryOnChange) {
+      const searchParams = new URLSearchParams(window.location.search);
+      const currentQ = searchParams.has("q") ? searchParams.get("q") : null;
+
+      const shouldRemoveQ = value.length === 0 && currentQ !== null;
+      const shouldSetQ = value !== currentQ && value.length > 0;
+      const shouldUpdateURL = shouldRemoveQ || shouldSetQ;
+
+      if (shouldRemoveQ) {
+        searchParams.delete("q");
+      } else if (shouldSetQ) {
+        searchParams.set("q", value);
+      }
+
+      if (shouldUpdateURL) {
+        router
+          .replace(
+            router.pathname +
+              (searchParams.size > 0 ? `?${searchParams.toString()}` : "") +
+              window.location.hash,
+            undefined,
+            {
+              shallow: true,
+            }
+          )
+          .then();
+      }
     }
 
     // Search term filters
@@ -137,7 +189,7 @@ export function useSearch<T>({
     if (filterResults) {
       filtered = filterResults(filtered);
     }
-    return filtered;
+    return { filtered, syntaxFilters };
   }, [value, fuse, filterResults, transformQuery]);
 
   const isFiltered = value.length > 0;
@@ -150,6 +202,10 @@ export function useSearch<T>({
     sorted.sort((a, b) => {
       const comp1 = a[sort.field];
       const comp2 = b[sort.field];
+      if (undefinedLast) {
+        if (comp1 === undefined && comp2 !== undefined) return 1;
+        if (comp2 === undefined && comp1 !== undefined) return -1;
+      }
       if (typeof comp1 === "string" && typeof comp2 === "string") {
         return comp1.localeCompare(comp2) * sort.dir;
       }
@@ -175,15 +231,36 @@ export function useSearch<T>({
     return sorted;
   }, [sort.field, sort.dir, filtered, isFiltered]);
 
+  const paginated = useMemo(() => {
+    if (!pageSize) return sorted;
+
+    const start = (page - 1) * pageSize;
+    const end = start + pageSize;
+    return sorted.slice(start, end);
+  }, [sorted, page, pageSize]);
+
+  // When a filter is applied, reset the page
+  useEffect(() => {
+    setPage(1);
+  }, [sorted.length]);
+
   const SortableTH = useMemo(() => {
     const th: FC<{
       field: keyof T;
       className?: string;
       children: ReactNode;
-    }> = ({ children, field, className = "" }) => {
-      if (isFiltered) return <th className={className}>{children}</th>;
+      style?: React.CSSProperties;
+    }> = ({ children, field, className = "", style }) => {
+      if (isFiltered) {
+        return (
+          <th className={className} style={style}>
+            {children}
+          </th>
+        );
+      }
+
       return (
-        <th className={className}>
+        <th className={className} style={style}>
           <span
             className="cursor-pointer"
             onClick={(e) => {
@@ -225,14 +302,28 @@ export function useSearch<T>({
   }, []);
 
   return {
-    items: sorted,
+    items: paginated,
+    unpaginatedItems: sorted,
     isFiltered,
     clear,
+    syntaxFilters,
     searchInputProps: {
       value,
       onChange,
     },
+    setSearchValue: setValue,
     SortableTH,
+    page,
+    resetPage: () => setPage(1),
+    pagination:
+      pageSize && sorted.length > pageSize ? (
+        <Pagination
+          currentPage={page}
+          numItemsTotal={sorted.length}
+          onPageChange={setPage}
+          perPage={pageSize}
+        />
+      ) : null,
   };
 }
 
@@ -288,23 +379,21 @@ export function transformQuery(
   searchTerm: string,
   searchTermFilterKeys: string[]
 ) {
-  // TODO: Support comma-separated quoted values (e.g. `foo:"bar","baz"`)
+  // split up the string into the search term and the filters, and support OR'ing
+  // multiple search terms, even if they are in quotes
   const regex = new RegExp(
     `(^|\\s)(${searchTermFilterKeys.join(
       "|"
-    )}):(\\!?)([${searchTermOperators.join("")}]?)([^\\s"]+|"[^"]*"?)`,
+    )}):(\\!?)([${searchTermOperators.join(
+      ""
+    )}]?)((?:"[^"]*"|[^\\s,]+)(?:,(?:"[^"]*"|[^\\s,]+))*)`,
     "gi"
   );
   return parseQuery(searchTerm, regex);
 }
 
 export function parseQuery(query: string, regex: RegExp) {
-  const syntaxFilters: {
-    field: string;
-    values: string[];
-    operator: SearchTermFilterOperator;
-    negated: boolean;
-  }[] = [];
+  const syntaxFilters: SyntaxFilter[] = [];
 
   const matches = query.matchAll(regex);
   for (const match of matches) {

@@ -4,7 +4,7 @@ import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
 } from "back-end/types/report";
-import { DataSourceInterfaceWithParams } from "@back-end/types/datasource";
+import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import FixVariationIds from "@/components/Experiment/FixVariationIds";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 

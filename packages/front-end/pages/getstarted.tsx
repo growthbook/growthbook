@@ -1,123 +1,72 @@
 import { useState, useEffect } from "react";
-import Link from "next/link";
 import {
-  PiArrowFatLineRight,
-  PiChartScatter,
-  PiFolders,
-  PiGoogleChromeLogo,
-  PiTable,
-  PiUsersThree,
-  PiWebhooksLogo,
-  PiKey,
-  PiArrowSquareOut,
-} from "react-icons/pi";
-import { IconType } from "react-icons";
-import clsx from "clsx";
-import { useRouter } from "next/router";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
-import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
+  Box,
+  Card,
+  Container,
+  Flex,
+  Grid,
+  Heading,
+  Separator,
+  Text,
+} from "@radix-ui/themes";
+import { PiArrowSquareOut } from "react-icons/pi";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
-import styles from "@/components/GetStarted/GetStarted.module.scss";
-import YouTubeLightBox from "@/components/GetStarted/YoutubeLightbox";
 import { useGetStarted } from "@/services/GetStartedProvider";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import FeaturedCard from "@/components/GetStarted/FeaturedCard";
-
-function WorkspaceLink({
-  Icon,
-  url,
-  text,
-  external,
-  disabled,
-}: {
-  Icon: IconType;
-  url: string;
-  text: string;
-  disabled?: boolean;
-  external?: boolean;
-}) {
-  return (
-    <div className="col-6">
-      <Icon
-        className="ml-3 mr-1"
-        style={{
-          width: "20px",
-          height: "20px",
-          color: "var(--text-color-muted)",
-        }}
-      />{" "}
-      {disabled ? (
-        <Tooltip body="You do not have permission to complete this action">
-          <span
-            className={clsx(
-              styles.workspaceSetupLink,
-              styles.disabled,
-              "align-middle"
-            )}
-          >
-            <span style={{ fontSize: "15px" }}>{text}</span>
-          </span>
-        </Tooltip>
-      ) : (
-        <Link
-          href={url}
-          className={clsx(styles.workspaceSetupLink, "align-middle")}
-          {...(external ? { target: "_blank", rel: "noreferrer" } : {})}
-        >
-          <span style={{ fontSize: "15px" }}>
-            {text}{" "}
-            {external && (
-              <PiArrowSquareOut
-                className="ml-1"
-                style={{
-                  height: "15px",
-                  width: "15px",
-                  verticalAlign: "middle",
-                }}
-              />
-            )}
-          </span>
-        </Link>
-      )}
-      <hr />
-    </div>
-  );
-}
+import {
+  AnalyzeExperimentFeatureCard,
+  ExperimentFeatureCard,
+  FeatureFlagFeatureCard,
+  LaunchDarklyImportFeatureCard,
+} from "@/components/GetStarted/FeaturedCards";
+import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
+import YouTubeLightBox from "@/components/GetStarted/YoutubeLightbox";
+import OverviewCard from "@/components/GetStarted/OverviewCard";
+import WorkspaceLinks from "@/components/GetStarted/WorkspaceLinks";
+import Callout from "@/components/Radix/Callout";
+import Link from "@/components/Radix/Link";
+import useSDKConnections from "@/hooks/useSDKConnections";
 
 const GetStartedPage = (): React.ReactElement => {
   const [showVideoId, setShowVideoId] = useState<string>("");
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
   const { clearStep } = useGetStarted();
-  const showNewReleasePost = useFeatureIsOn("show-3.0-release");
-
-  const router = useRouter();
 
   const permissionsUtils = usePermissionsUtil();
-
   const { project } = useDefinitions();
 
-  const canImportLaunchDarkly =
-    permissionsUtils.canViewFeatureModal() &&
-    permissionsUtils.canCreateEnvironment({
-      projects: [],
-      id: "",
+  const canUseSetupFlow =
+    permissionsUtils.canCreateSDKConnection({
+      projects: [project],
+      environment: "production",
     }) &&
-    permissionsUtils.canCreateProjects();
+    permissionsUtils.canCreateEnvironment({
+      projects: [project],
+      id: "production",
+    });
+
+  const { data: sdkConnectionData } = useSDKConnections();
+  const showSetUpFlow =
+    canUseSetupFlow &&
+    sdkConnectionData &&
+    !sdkConnectionData.connections.some((c) => c.connected);
 
   // If they view the guide, clear the current step
   useEffect(() => {
     clearStep();
   }, [clearStep]);
 
+  // Also used for the `Launch Setup Flow` button to keep it aligned
+  const DOCUMENTATION_SIDEBAR_WIDTH = "minmax(0, 245px)";
+
   return (
-    <div className={clsx(styles.getStartedPage, "container pagecontents p-4")}>
+    <>
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
-          reason=""
           source="get-started"
+          commercialFeature={null}
         />
       )}
       {showVideoId && (
@@ -126,316 +75,135 @@ const GetStartedPage = (): React.ReactElement => {
           videoId={showVideoId}
         />
       )}
-      <h1 className="mb-3">Get Started</h1>
-      <div className="container-fluid mx-0 mb-3">
-        <div className="row">
-          <div
-            className="col pl-0 mr-auto col-md-12"
-            style={{
-              maxWidth: 862,
-            }}
-          >
-            <div className="d-flex flex-wrap">
+
+      <Container
+        px={{ initial: "2", xs: "4", sm: "7" }}
+        py={{ initial: "1", xs: "3", sm: "6" }}
+      >
+        <Grid
+          columns={{
+            initial: "1fr 1fr",
+            xs: `1fr ${DOCUMENTATION_SIDEBAR_WIDTH}`,
+          }}
+          mt="2"
+          mb={{ initial: "4", xs: "6" }}
+          justify="between"
+          align="center"
+        >
+          <Heading as="h1" size="6" weight="medium" mb="0">
+            Get Started
+          </Heading>
+        </Grid>
+
+        <Grid
+          columns={{
+            initial: "1fr",
+            xs: `1fr ${DOCUMENTATION_SIDEBAR_WIDTH}`,
+          }}
+          gapX="4"
+          mb="6"
+        >
+          {showSetUpFlow && (
+            <Callout status="wizard" size="md">
+              Connect to your SDK to get started.{" "}
               <Link
-                href={"/getstarted/feature-flag-guide"}
-                className="mb-3 d-block"
+                href="/setup"
+                className="font-weight-bold"
+                style={{ color: "inherit" }}
               >
-                <button
-                  className={clsx(styles.animatedCard, "px-0 py-4 text-left")}
-                >
-                  <div className="pr-3 mb-5" style={{ paddingLeft: "29px" }}>
-                    <div className="d-flex text-left align-middle">
-                      <h2>Create Feature Flags from Scratch</h2>
-                      <img
-                        className={clsx(styles.imgInactive, "ml-auto")}
-                        width="30px"
-                        height="30px"
-                        src="/images/get-started/icons/inactive-card-arrow.svg"
-                      />
-                      <img
-                        className={clsx(styles.imgActive, "ml-auto")}
-                        width="30px"
-                        height="30px"
-                        src="/images/get-started/icons/active-card-arrow.svg"
-                      />
-                    </div>
+                Launch the setup flow
+              </Link>{" "}
+              <PiArrowSquareOut />
+            </Callout>
+          )}
+        </Grid>
 
-                    <p>Explore a guided setup & sample feature flag</p>
-                  </div>
-                  <img
-                    className={clsx(styles.imgActive, "float-right")}
-                    src="/images/get-started/feature-flag-active.svg"
-                    width={"384px"}
-                    height={"80px"}
-                  />
-                  <img
-                    className={clsx(styles.imgInactive, "float-right")}
-                    src="/images/get-started/feature-flag-inactive.svg"
-                    width={"384px"}
-                    height={"80px"}
-                  />
-                </button>
+        <Grid
+          columns={{
+            initial: "1fr",
+            xs: `1fr ${DOCUMENTATION_SIDEBAR_WIDTH}`,
+          }}
+          mb="3"
+          gapX="4"
+        >
+          <Box>
+            <Grid
+              gapX="4"
+              gapY="3"
+              columns={{ initial: "1fr", sm: "1fr 1fr" }}
+              rows="auto auto"
+            >
+              <FeatureFlagFeatureCard />
+              <ExperimentFeatureCard />
+              <LaunchDarklyImportFeatureCard />
+              <AnalyzeExperimentFeatureCard />
+            </Grid>
+
+            <Separator my="5" size="4" />
+
+            <Box mb="6">
+              <Box mb="3">
+                <Text size="1" weight="bold">
+                  PRODUCT OVERVIEW
+                </Text>
+              </Box>
+
+              <Flex direction={{ initial: "column", sm: "row" }} gap="4">
+                <OverviewCard
+                  imgUrl="/images/get-started/thumbnails/intro-to-growthbook.svg"
+                  hoverText="Launch Video Player"
+                  onClick={() => setShowVideoId("b4xUnDGRKRQ")}
+                  playTime={5}
+                  type="video"
+                />
+
+                <OverviewCard
+                  imgUrl="/images/get-started/thumbnails/quantile-metrics-blog.png"
+                  hoverText="View Blog Post"
+                  href="https://blog.growthbook.io/measuring-a-b-test-impacts-on-website-latency-using-quantile-metrics-in-growthbook/"
+                  type="link"
+                />
+
+                <OverviewCard
+                  imgUrl="/images/get-started/thumbnails/3.6-release.svg"
+                  hoverText="View Blog Post"
+                  href="https://blog.growthbook.io/growthbook-version-3-6/"
+                  type="link"
+                />
+              </Flex>
+            </Box>
+
+            <Box mb="6">
+              <Box mb="3">
+                <Text size="1" weight="bold">
+                  SET UP YOUR WORKSPACE
+                </Text>
+              </Box>
+
+              <Card>
+                <Grid columns={{ initial: "1fr", md: "1fr 1fr" }} pb="2">
+                  <WorkspaceLinks />
+                </Grid>
+              </Card>
+            </Box>
+
+            {/* <Text size="1">
+              Finished setting up?{" "}
+              <Link weight="bold" href="#" underline="none">
+                Turn off the guide to hide this page
               </Link>
-              <Link
-                href={"/getstarted/experiment-guide"}
-                className="mb-3 d-block"
-              >
-                <button
-                  className={clsx(styles.animatedCard, "px-0 py-4 text-left")}
-                  style={{ marginRight: "0px" }}
-                >
-                  <div className="pr-3 mb-5" style={{ paddingLeft: "29px" }}>
-                    <div className="d-flex text-left align-middle">
-                      <h2>Run an Experiment</h2>
-                      <img
-                        className={clsx(styles.imgInactive, "ml-auto")}
-                        width="30px"
-                        height="30px"
-                        src="/images/get-started/icons/inactive-card-arrow.svg"
-                      />
-                      <img
-                        className={clsx(styles.imgActive, "ml-auto")}
-                        width="30px"
-                        height="30px"
-                        src="/images/get-started/icons/active-card-arrow.svg"
-                      />
-                    </div>
-                    <p>Explore a guided setup & sample results</p>
-                  </div>
+            </Text> */}
+          </Box>
 
-                  <img
-                    className={clsx(styles.imgActive, "float-right")}
-                    src="/images/get-started/traffic-split-active.svg"
-                    width={"384px"}
-                    height={"80px"}
-                  />
-                  <img
-                    className={clsx(styles.imgInactive, "float-right")}
-                    src="/images/get-started/traffic-split-inactive.svg"
-                    width={"384px"}
-                    height={"80px"}
-                  />
-                </button>
-              </Link>
-            </div>
-
-            <div className="d-flex flex-row flex-wrap mt-3 mb-3">
-              <Tooltip
-                body={
-                  canImportLaunchDarkly
-                    ? ""
-                    : "You do not have permission to complete this action"
-                }
-              >
-                <button
-                  className={clsx(
-                    styles.animatedButton,
-                    `p-3 mr-4 mb-3 text-left align-middle`,
-                    { [styles.disabled]: !canImportLaunchDarkly }
-                  )}
-                  disabled={!canImportLaunchDarkly}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    router.push("/importing/launchdarkly");
-                  }}
-                >
-                  <svg width="0" height="0">
-                    <linearGradient
-                      id="arrow-gradient"
-                      x1="100%"
-                      y1="100%"
-                      x2="0%"
-                      y2="0%"
-                    >
-                      <stop stopColor="#7B45EA" offset="0%" />
-                      <stop stopColor="#FFC53D" offset="100%" />
-                    </linearGradient>
-                  </svg>
-                  <PiArrowFatLineRight className={`${styles.arrowIcon} mr-4`} />
-                  <span
-                    className="align-middle"
-                    style={{ fontSize: "17px", fontWeight: 600 }}
-                  >
-                    Migrate from LaunchDarkly
-                  </span>
-
-                  <img
-                    className={clsx(styles.imgInactive, "float-right")}
-                    width="30px"
-                    height="30px"
-                    src="/images/get-started/icons/inactive-button-arrow.svg"
-                  />
-                  <img
-                    className={clsx(styles.imgActive, "float-right")}
-                    width="30px"
-                    height="30px"
-                    src="/images/get-started/icons/active-button-arrow.svg"
-                  />
-                </button>
-              </Tooltip>
-              <Link href="/getstarted/imported-experiment-guide">
-                <button className={`${styles.animatedButton} p-3 text-left`}>
-                  <svg width="0" height="0">
-                    <linearGradient
-                      id="chart-gradient"
-                      x1="100%"
-                      y1="100%"
-                      x2="0%"
-                      y2="0%"
-                    >
-                      <stop stopColor="#3E63DD" offset="0%" />
-                      <stop stopColor="#27B08B" offset="100%" />
-                    </linearGradient>
-                  </svg>
-                  <PiChartScatter className={`${styles.chartIcon} mr-4`} />
-                  <span
-                    className="align-middle"
-                    style={{ fontSize: "17px", fontWeight: 600 }}
-                  >
-                    Analyze Imported Experiments
-                  </span>
-                  <img
-                    className={clsx(
-                      styles.imgInactive,
-                      "float-right align-middle"
-                    )}
-                    width="30px"
-                    height="30px"
-                    src="/images/get-started/icons/inactive-button-arrow.svg"
-                  />
-                  <img
-                    className={clsx(styles.imgActive, "float-right")}
-                    width="30px"
-                    height="30px"
-                    src="/images/get-started/icons/active-button-arrow.svg"
-                  />
-                </button>
-              </Link>
-            </div>
-
-            <hr />
-
-            <div className="mt-4 mb-4">
-              <h6 className="text-muted mb-3">PRODUCT OVERVIEW</h6>
-              <div className="container-fluid">
-                <div className="row">
-                  <FeaturedCard
-                    imgUrl={
-                      "/images/get-started/thumbnails/intro-to-growthbook.svg"
-                    }
-                    handleClick={() => setShowVideoId("b4xUnDGRKRQ")}
-                    playTime={5}
-                  />
-                  <a
-                    href="https://blog.growthbook.io/measuring-a-b-test-impacts-on-website-latency-using-quantile-metrics-in-growthbook/"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    <FeaturedCard
-                      imgUrl={
-                        "/images/get-started/thumbnails/quantile-metrics-blog.png"
-                      }
-                    />
-                  </a>
-                  {showNewReleasePost ? (
-                    <a
-                      href="https://blog.growthbook.io/growthbook-version-3-0/"
-                      target="_blank"
-                      rel="noreferrer"
-                      key="3-0-release"
-                    >
-                      <FeaturedCard
-                        imgUrl={
-                          "/images/get-started/thumbnails/3.0-release.svg"
-                        }
-                        lastCard
-                      />
-                    </a>
-                  ) : (
-                    <a
-                      href="https://blog.growthbook.io/growthbook-version-2-9/"
-                      target="_blank"
-                      rel="noreferrer"
-                      key="2-9-release"
-                    >
-                      <FeaturedCard
-                        imgUrl={
-                          "/images/get-started/thumbnails/2.9-release.png"
-                        }
-                        lastCard
-                      />
-                    </a>
-                  )}
-                </div>
-              </div>
-            </div>
-            <div className="mb-2">
-              <h6 className="text-muted mb-3">SET UP YOUR WORKSPACE</h6>
-              <div
-                className="appbox d-flex px-4 pt-4 pb-3 mr-6 w-100"
-                style={{
-                  borderRadius: "5px",
-                }}
-              >
-                <div className="row mt-2">
-                  <WorkspaceLink
-                    Icon={PiUsersThree}
-                    url="/settings/team"
-                    text="Teams & Permissions"
-                    disabled={!permissionsUtils.canManageTeam()}
-                  />
-                  <WorkspaceLink
-                    Icon={PiGoogleChromeLogo}
-                    url="https://chromewebstore.google.com/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia"
-                    text="Install Chrome DevTools Extension"
-                    external
-                  />
-                  <WorkspaceLink
-                    Icon={PiFolders}
-                    url="/projects"
-                    text="Create Projects"
-                    disabled={!permissionsUtils.canCreateProjects()}
-                  />
-                  <WorkspaceLink
-                    Icon={PiWebhooksLogo}
-                    url="/settings/webhooks"
-                    text="Integrate Slack or Discord"
-                    disabled={!permissionsUtils.canCreateEventWebhook()}
-                  />
-                  <WorkspaceLink
-                    Icon={PiTable}
-                    url="/fact-tables"
-                    text="Configure Metric Library"
-                    disabled={
-                      !permissionsUtils.canViewCreateFactTableModal(project) &&
-                      !permissionsUtils.canCreateFactMetric({
-                        projects: project ? [project] : [],
-                      })
-                    }
-                  />
-                  <WorkspaceLink
-                    Icon={PiKey}
-                    url="/settings/keys"
-                    text="Create API Token"
-                    disabled={!permissionsUtils.canCreateApiKey()}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="col-auto pl-0">
+          <Box>
             <DocumentationSidebar
               setUpgradeModal={setUpgradeModal}
               type="get-started"
             />
-          </div>
-        </div>
-      </div>
-      {/* <span>
-        Finished setting up?{" "}
-        <a href="#">Turn off the guide to hide this page</a>
-      </span> */}
-    </div>
+          </Box>
+        </Grid>
+      </Container>
+    </>
   );
 };
 

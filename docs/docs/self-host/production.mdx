@@ -37,8 +37,8 @@ The most secure thing you can do is to put your entire GrowthBook deployment beh
 If you are using GrowthBook to serve feature flags to client-side apps, you will need some way for your end users to download the feature flag payload outside of the firewall or VPN. There are a few secure approaches for this:
 
 1. Use a [**GrowthBook Proxy**](/self-host/proxy) server. This way, your main GrowthBook instance can remain on a private subnet and only the Proxy needs to be exposed to the internet. The Proxy has a very small attack surface compared to the full GrowthBook app.
-2. Use a **CDN**. If you go this route, it's very important to only allow requests to the `/api/features/*` endpoint in your CDN. If you allow access to other endpoints (e.g. `/auth/*` or other API routes) you lose many of the benefits of a Firewall or VPN.
-3. Use **SDK Webhooks** to send your feature payload to a publically accessible place (e.g. a public S3 bucket). This switches GrowthBook from a "pull" model to a "push" model and you no longer need to allow any incoming requests from users at all.
+2. Use a [**CDN**](/self-host/cdn). If you go this route, it's very important to only allow requests to the `/api/features/*` endpoint in your CDN. If you allow access to other endpoints (e.g. `/auth/*` or other API routes) you lose many of the benefits of a Firewall or VPN.
+3. Use **SDK Webhooks** to send your feature payload to a publicly accessible place (e.g. a public S3 bucket). This switches GrowthBook from a "pull" model to a "push" model and you no longer need to allow any incoming requests from users at all.
 
 ### Authentication and Permissions
 
@@ -112,7 +112,7 @@ Hitting the GrowthBook instance directly from our SDKs can work fine at a small 
    - `CACHE_CONTROL_STALE_WHILE_REVALIDATE` (default `3600` = 1 hour)
    - `CACHE_CONTROL_STALE_IF_ERROR` (default `36000` = 10 hours)
 
-3. Use **SDK Webhooks** to send your feature payload to a publically accessible place (e.g. an S3 bucket) and point the SDKs there instead. This bypasses the issue by switching GrowthBook from a "pull" model to a "push" model.
+3. Use **SDK Webhooks** to send your feature payload to a publicly accessible place (e.g. an S3 bucket) and point the SDKs there instead. This bypasses the issue by switching GrowthBook from a "pull" model to a "push" model.
 
 ## Observability and Logging
 

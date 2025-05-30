@@ -28,9 +28,10 @@ The only required field for a global webhook is **`url`**. Here's a minimal exam
 There are additional fields you can specify:
 
 - **`signingKey`** (string) - Will be used to add a signature header that enables you to verify the webhook origin
-- **`method`** (string) - One of `GET`, `PUT`, `POST`, `PURGE`, or `DELETE`. Defaults to `POST` if omitted
+- **`method`** (string) - One of `GET`, `PUT`, `POST`, `PURGE`, `PATCH`, or `DELETE`. Defaults to `POST` if omitted
 - **`headers`** (object) - Additional headers to add to the webhook request. Useful for adding auth headers for example. Default `{}`.
-- **`payloadFormat`** (string) - How to format the body (ignored when method = "GET"). One of `standard`, `standard-no-payload`, `sdkPayload` or `none`. Defaults to `standard`. Read more about the different formats in the SDK Webhooks [Payload Format docs](/app/webhooks/sdk-webhooks#payload-format).
+- **`payloadFormat`** (string) - How to format the body (ignored when method = "GET"). One of `standard`, `standard-no-payload`, `sdkPayload`, `edgeConfig` or `none`. Defaults to `standard`. Read more about the different formats in the SDK Webhooks [Payload Format docs](/app/webhooks/sdk-webhooks#payload-format).
+- **`payloadKey`** (string) - Only used when payloadFormat is set to `edgeConfig`. The key in Vercel Edge Config you want to update.
 
 _Deprecated:_
 

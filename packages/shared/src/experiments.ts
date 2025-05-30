@@ -1,6 +1,10 @@
+import normal from "@stdlib/stats/base/dists/normal";
 import { MetricInterface } from "back-end/types/metric";
 import {
+  ColumnRef,
   FactMetricInterface,
+  FactTableColumnType,
+  FactTableInterface,
   FactTableMap,
   MetricQuantileSettings,
   MetricWindowSettings,
@@ -10,12 +14,30 @@ import {
   MetricDefaults,
   OrganizationSettings,
 } from "back-end/types/organization";
-import { MetricOverride } from "back-end/types/experiment";
-import { MetricSnapshotSettings } from "back-end/types/report";
+import {
+  ExperimentInterface,
+  ExperimentInterfaceStringDates,
+  MetricOverride,
+} from "back-end/types/experiment";
+import {
+  ExperimentReportResultDimension,
+  MetricSnapshotSettings,
+} from "back-end/types/report";
+import { DEFAULT_GUARDRAIL_ALPHA } from "shared/constants";
 import cloneDeep from "lodash/cloneDeep";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import {
+  DataSourceInterfaceWithParams,
+  DataSourceSettings,
+} from "back-end/types/datasource";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
-import { StatsEngine } from "back-end/types/stats";
+import {
+  DifferenceType,
+  IndexedPValue,
+  PValueCorrection,
+  StatsEngine,
+} from "back-end/types/stats";
+import { MetricGroupInterface } from "back-end/types/metric-groups";
+import uniqid from "uniqid";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
@@ -28,10 +50,137 @@ export function isFactMetricId(id: string): boolean {
   return !!id.match(/^fact__/);
 }
 
+export function isMetricGroupId(id: string): boolean {
+  return !!id.match(/^mg_/);
+}
+
 export function isFactMetric(
   m: ExperimentMetricInterface
 ): m is FactMetricInterface {
   return "metricType" in m;
+}
+
+export function canInlineFilterColumn(
+  factTable: Pick<FactTableInterface, "userIdTypes" | "columns">,
+  column: string
+): boolean {
+  // If the column is one of the identifier columns, it is not eligible for prompting
+  if (factTable.userIdTypes.includes(column)) return false;
+
+  if (
+    getSelectedColumnDatatype({ factTable, column, excludeDeleted: true }) !==
+    "string"
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+export function getColumnExpression(
+  column: string,
+  factTable: Pick<FactTableInterface, "columns">,
+  jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string,
+  alias: string = ""
+): string {
+  const parts = column.split(".");
+  if (parts.length > 1) {
+    const col = factTable.columns.find((c) => c.column === parts[0]);
+    if (col?.datatype === "json") {
+      const path = parts.slice(1).join(".");
+
+      const field = col.jsonFields?.[path];
+      const isNumeric = field?.datatype === "number";
+
+      return jsonExtract(
+        alias ? `${alias}.${parts[0]}` : parts[0],
+        path,
+        isNumeric
+      );
+    }
+  }
+
+  return alias ? `${alias}.${column}` : column;
+}
+
+export function getColumnRefWhereClause(
+  factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">,
+  columnRef: ColumnRef,
+  escapeStringLiteral: (s: string) => string,
+  jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string,
+  showSourceComment = false
+): string[] {
+  const inlineFilters = columnRef.inlineFilters || {};
+  const filterIds = columnRef.filters || [];
+
+  const where = new Set<string>();
+
+  // First add inline filters
+  Object.entries(inlineFilters).forEach(([column, values]) => {
+    const escapedValues = new Set(
+      values
+        .filter((v) => v.length > 0)
+        .map((v) => "'" + escapeStringLiteral(v) + "'")
+    );
+
+    const columnExpr = getColumnExpression(column, factTable, jsonExtract);
+
+    if (!escapedValues.size) {
+      return;
+    } else if (escapedValues.size === 1) {
+      where.add(`${columnExpr} = ${[...escapedValues][0]}`);
+    } else {
+      where.add(`${columnExpr} IN (\n  ${[...escapedValues].join(",\n  ")}\n)`);
+    }
+  });
+
+  // Then add additional filters
+  filterIds.forEach((filterId) => {
+    const filter = factTable.filters.find((f) => f.id === filterId);
+    if (filter) {
+      const comment = showSourceComment ? `-- Filter: ${filter.name}\n` : "";
+      where.add(comment + filter.value);
+    }
+  });
+
+  return [...where];
+}
+
+export function getAggregateFilters({
+  columnRef,
+  column,
+  ignoreInvalid = false,
+}: {
+  columnRef: Pick<
+    ColumnRef,
+    "aggregateFilter" | "aggregateFilterColumn" | "column"
+  > | null;
+  column: string;
+  ignoreInvalid?: boolean;
+}) {
+  if (!columnRef?.aggregateFilter) return [];
+  if (!columnRef.aggregateFilterColumn) return [];
+
+  // Only support distinctUsers for now
+  if (columnRef.column !== "$$distinctUsers") return [];
+
+  const parts = columnRef.aggregateFilter.replace(/\s*/g, "").split(",");
+
+  const filters: string[] = [];
+  parts.forEach((part) => {
+    if (!part) return;
+
+    // i.e. ">10" or "!=5.1"
+    const match = part.match(/^(=|!=|<>|<|<=|>|>=)(\d+(\.\d+)?)$/);
+    if (match) {
+      const [, operator, value] = match;
+      filters.push(`${column} ${operator} ${value}`);
+    } else if (!ignoreInvalid) {
+      throw new Error(`Invalid user filter: ${part}`);
+    }
+  });
+
+  return filters;
 }
 
 export function getMetricTemplateVariables(
@@ -55,8 +204,13 @@ export function getMetricTemplateVariables(
 }
 
 export function isBinomialMetric(m: ExperimentMetricInterface) {
-  if (isFactMetric(m)) return m.metricType === "proportion";
+  if (isFactMetric(m))
+    return ["proportion", "retention"].includes(m.metricType);
   return m.type === "binomial";
+}
+
+export function isRetentionMetric(m: ExperimentMetricInterface) {
+  return isFactMetric(m) && m.metricType === "retention";
 }
 
 export function isRatioMetric(
@@ -88,10 +242,12 @@ export function isRegressionAdjusted(
   m: ExperimentMetricInterface,
   denominatorMetric?: ExperimentMetricInterface
 ) {
+  const isLegacyRatioMetric: boolean =
+    isRatioMetric(m, denominatorMetric) && !isFactMetric(m);
   return (
     (m.regressionAdjustmentDays ?? 0) > 0 &&
     !!m.regressionAdjustmentEnabled &&
-    !isRatioMetric(m, denominatorMetric) &&
+    !isLegacyRatioMetric &&
     !quantileMetricType(m)
   );
 }
@@ -100,12 +256,53 @@ export function getConversionWindowHours(
   windowSettings: MetricWindowSettings
 ): number {
   const value = windowSettings.windowValue;
+  if (windowSettings.windowUnit === "minutes") return value / 60;
   if (windowSettings.windowUnit === "hours") return value;
   if (windowSettings.windowUnit === "days") return value * 24;
   if (windowSettings.windowUnit === "weeks") return value * 24 * 7;
 
-  // TODO
   return 72;
+}
+
+export function getDelayWindowHours(
+  windowSettings: MetricWindowSettings
+): number {
+  const value = windowSettings.delayValue;
+  if (windowSettings.delayUnit === "minutes") return value / 60;
+  if (windowSettings.delayUnit === "hours") return value;
+  if (windowSettings.delayUnit === "days") return value * 24;
+  if (windowSettings.delayUnit === "weeks") return value * 24 * 7;
+
+  return 0;
+}
+
+export function getSelectedColumnDatatype({
+  factTable,
+  column,
+  excludeDeleted = false,
+}: {
+  factTable: Pick<FactTableInterface, "columns"> | null;
+  column: string;
+  excludeDeleted?: boolean;
+}): FactTableColumnType | undefined {
+  if (!factTable) return undefined;
+
+  // Might be a JSON column, look at nested field
+  const parts = column.split(".");
+  if (parts.length > 1) {
+    const col = factTable.columns.find((c) => c.column === parts[0]);
+    if (col?.datatype === "json" && (!excludeDeleted || !col?.deleted)) {
+      const field = col.jsonFields?.[parts.slice(1).join(".")];
+      if (field) {
+        return field.datatype;
+      }
+    }
+  }
+
+  const col = factTable.columns.find((c) => c.column === column);
+  if (excludeDeleted && (!col || col.deleted)) return undefined;
+
+  return col?.datatype;
 }
 
 export function getUserIdTypes(
@@ -144,6 +341,7 @@ export function getMetricSnapshotSettings<T extends ExperimentMetricInterface>({
   metricOverrides?: MetricOverride[];
 }): {
   newMetric: T;
+  denominatorMetrics: MetricInterface[];
   metricSnapshotSettings: MetricSnapshotSettings;
 } {
   const newMetric = cloneDeep<T>(metric);
@@ -244,12 +442,6 @@ export function getMetricSnapshotSettings<T extends ExperimentMetricInterface>({
 
   // final gatekeeping for RA
   if (regressionAdjustmentEnabled) {
-    if (metric && isFactMetric(metric) && isRatioMetric(metric)) {
-      // is this a fact ratio metric?
-      regressionAdjustmentEnabled = false;
-      regressionAdjustmentAvailable = false;
-      regressionAdjustmentReason = "ratio metrics not supported";
-    }
     if (metric && isFactMetric(metric) && quantileMetricType(metric)) {
       // is this a fact quantile metric?
       regressionAdjustmentEnabled = false;
@@ -264,7 +456,7 @@ export function getMetricSnapshotSettings<T extends ExperimentMetricInterface>({
       if (denominator && !isBinomialMetric(denominator)) {
         regressionAdjustmentEnabled = false;
         regressionAdjustmentAvailable = false;
-        regressionAdjustmentReason = `denominator is ${denominator.type}`;
+        regressionAdjustmentReason = `denominator is ${denominator.type}. CUPED available for ratio metrics only if based on fact tables.`;
       }
     }
     if (metric && !isFactMetric(metric) && metric?.aggregation) {
@@ -283,6 +475,7 @@ export function getMetricSnapshotSettings<T extends ExperimentMetricInterface>({
 
   return {
     newMetric,
+    denominatorMetrics,
     metricSnapshotSettings: {
       metric: newMetric.id,
       ...metricPriorSettings,
@@ -433,28 +626,56 @@ export function isSuspiciousUplift(
   baseline: SnapshotMetric,
   stats: SnapshotMetric,
   metric: { maxPercentChange?: number },
-  metricDefaults: MetricDefaults
+  metricDefaults: MetricDefaults,
+  differenceType: DifferenceType
 ): boolean {
-  if (!baseline?.cr || !stats?.cr) return false;
+  if (!baseline?.cr || !stats?.cr || !stats?.expected) return false;
 
   const maxPercentChange =
     metric.maxPercentChange ?? metricDefaults?.maxPercentageChange ?? 0;
 
-  return Math.abs(baseline.cr - stats.cr) / baseline.cr >= maxPercentChange;
+  if (differenceType === "relative") {
+    return Math.abs(stats.expected) >= maxPercentChange;
+  } else if (differenceType === "absolute") {
+    return (
+      Math.abs(stats.expected ?? 0) / Math.abs(baseline.cr) >= maxPercentChange
+    );
+  } else {
+    // This means scaled impact could show up as suspicious even when
+    // it doesn't show up for other difference types if CUPED is applied
+    // and CUPED causes the value to cross the threshold
+    return (
+      Math.abs(stats.cr - baseline.cr) / Math.abs(baseline.cr) >=
+      maxPercentChange
+    );
+  }
 }
 
 export function isBelowMinChange(
   baseline: SnapshotMetric,
   stats: SnapshotMetric,
   metric: { minPercentChange?: number },
-  metricDefaults: MetricDefaults
+  metricDefaults: MetricDefaults,
+  differenceType: DifferenceType
 ): boolean {
-  if (!baseline?.cr || !stats?.cr) return false;
+  if (!baseline?.cr || !stats?.cr || !stats?.expected) return false;
 
   const minPercentChange =
     metric.minPercentChange ?? metricDefaults.minPercentageChange ?? 0;
 
-  return Math.abs(baseline.cr - stats.cr) / baseline.cr < minPercentChange;
+  if (differenceType === "relative") {
+    return Math.abs(stats.expected) < minPercentChange;
+  } else if (differenceType === "absolute") {
+    return Math.abs(stats.expected) / Math.abs(baseline.cr) < minPercentChange;
+  } else {
+    // This means scaled impact could show up as too small even it is
+    // large enough for other difference types if CUPED is applied
+    // and CUPED causes the value to cross the threshold
+    return (
+      Math.abs(stats.cr - baseline.cr) / Math.abs(baseline.cr) <
+      minPercentChange
+    );
+  }
 }
 
 export function getMetricResultStatus({
@@ -466,6 +687,7 @@ export function getMetricResultStatus({
   ciUpper,
   pValueThreshold,
   statsEngine,
+  differenceType,
 }: {
   metric: ExperimentMetricInterface;
   metricDefaults: MetricDefaults;
@@ -475,6 +697,7 @@ export function getMetricResultStatus({
   ciUpper: number;
   pValueThreshold: number;
   statsEngine: StatsEngine;
+  differenceType: DifferenceType;
 }) {
   const directionalStatus: "winning" | "losing" =
     (stats.expected ?? 0) * (metric.inverse ? -1 : 1) > 0
@@ -486,7 +709,8 @@ export function getMetricResultStatus({
     baseline,
     stats,
     metric,
-    metricDefaults
+    metricDefaults,
+    differenceType
   );
   const _shouldHighlight = shouldHighlight({
     metric,
@@ -519,15 +743,16 @@ export function getMetricResultStatus({
 
   let resultsStatus: "won" | "lost" | "draw" | "" = "";
   if (statsEngine === "bayesian") {
-    if (_shouldHighlight && (stats.chanceToWin ?? 0) > ciUpper) {
+    if (_shouldHighlight && (stats.chanceToWin ?? 0.5) > ciUpper) {
       resultsStatus = "won";
-    } else if (_shouldHighlight && (stats.chanceToWin ?? 0) < ciLower) {
+    } else if (_shouldHighlight && (stats.chanceToWin ?? 0.5) < ciLower) {
       resultsStatus = "lost";
     }
     if (
       enoughData &&
       belowMinChange &&
-      ((stats.chanceToWin ?? 0) > ciUpper || (stats.chanceToWin ?? 0) < ciLower)
+      ((stats.chanceToWin ?? 0.5) > ciUpper ||
+        (stats.chanceToWin ?? 0.5) < ciLower)
     ) {
       resultsStatus = "draw";
     }
@@ -544,6 +769,51 @@ export function getMetricResultStatus({
       resultsStatus = "draw";
     }
   }
+
+  let clearSignalResultsStatus: "won" | "lost" | "" = "";
+  // TODO make function of existing thresholds
+  if (statsEngine === "bayesian") {
+    if (
+      _shouldHighlight &&
+      (stats.chanceToWin ?? 0.5) > Math.max(0.999, ciUpper)
+    ) {
+      clearSignalResultsStatus = "won";
+    } else if (
+      _shouldHighlight &&
+      (stats.chanceToWin ?? 0.5) < Math.min(0.001, ciLower)
+    ) {
+      clearSignalResultsStatus = "lost";
+    }
+  } else {
+    const clearStatSig = isStatSig(
+      stats.pValueAdjusted ?? stats.pValue ?? 1,
+      Math.min(pValueThreshold, 0.001)
+    );
+    if (_shouldHighlight && clearStatSig && directionalStatus === "winning") {
+      clearSignalResultsStatus = "won";
+    } else if (
+      _shouldHighlight &&
+      clearStatSig &&
+      directionalStatus === "losing"
+    ) {
+      clearSignalResultsStatus = "lost";
+    }
+  }
+  let guardrailSafeStatus = false;
+  if (stats.ci) {
+    const ciLowerGuardrail = stats.ci?.[0] ?? Number.NEGATIVE_INFINITY;
+    const ciUpperGuardrail = stats.ci?.[1] ?? Number.POSITIVE_INFINITY;
+    const guardrailChanceToWin =
+      stats.chanceToWin ??
+      chanceToWinFlatPrior(
+        stats.expected ?? 0,
+        ciLowerGuardrail,
+        ciUpperGuardrail,
+        pValueThreshold,
+        metric.inverse
+      );
+    guardrailSafeStatus = guardrailChanceToWin > 1 - DEFAULT_GUARDRAIL_ALPHA;
+  }
   return {
     shouldHighlight: _shouldHighlight,
     belowMinChange,
@@ -551,7 +821,51 @@ export function getMetricResultStatus({
     significantUnadjusted,
     directionalStatus,
     resultsStatus,
+    clearSignalResultsStatus,
+    guardrailSafeStatus,
   };
+}
+
+export function chanceToWinFlatPrior(
+  expected: number,
+  lower: number,
+  upper: number,
+  pValueThreshold: number,
+  inverse: boolean = false
+): number {
+  if (
+    lower === Number.NEGATIVE_INFINITY &&
+    upper === Number.POSITIVE_INFINITY
+  ) {
+    return 0;
+  }
+  const confidenceIntervalType =
+    lower === Number.NEGATIVE_INFINITY
+      ? "oneSidedLesser"
+      : upper === Number.POSITIVE_INFINITY
+      ? "oneSidedGreater"
+      : "twoSided";
+  const halfwidth =
+    confidenceIntervalType === "twoSided"
+      ? 0.5 * (upper - lower)
+      : confidenceIntervalType === "oneSidedGreater"
+      ? expected - lower
+      : upper - expected;
+  const numTails = confidenceIntervalType === "twoSided" ? 2 : 1;
+  const zScore = normal.quantile(1 - pValueThreshold / numTails, 0, 1);
+  const s = halfwidth / zScore;
+  if (s === 0) {
+    if (expected === 0) {
+      return 0;
+    }
+    const chanceToWin = expected > 0;
+    return inverse ? 1 - +chanceToWin : +chanceToWin;
+  }
+  const ctwInverse = normal.cdf(-expected / s, 0, 1);
+  if (inverse) {
+    return ctwInverse;
+  }
+  return 1 - ctwInverse;
 }
 
 export function getAllMetricIdsFromExperiment(
@@ -561,16 +875,304 @@ export function getAllMetricIdsFromExperiment(
     guardrailMetrics?: string[];
     activationMetric?: string | null;
   },
-  includeActivationMetric: boolean = true
+  includeActivationMetric: boolean = true,
+  metricGroups: MetricGroupInterface[] = []
 ) {
   return Array.from(
-    new Set([
-      ...(exp.goalMetrics || []),
-      ...(exp.secondaryMetrics || []),
-      ...(exp.guardrailMetrics || []),
-      ...(includeActivationMetric && exp.activationMetric
-        ? [exp.activationMetric]
-        : []),
-    ])
+    new Set(
+      expandMetricGroups(
+        [
+          ...(exp.goalMetrics || []),
+          ...(exp.secondaryMetrics || []),
+          ...(exp.guardrailMetrics || []),
+          ...(includeActivationMetric && exp.activationMetric
+            ? [exp.activationMetric]
+            : []),
+        ],
+        metricGroups
+      )
+    )
   );
+}
+
+// Returns n "equal" decimals rounded to 3 places that add up to 1
+// The sum always adds to 1. In some cases the values are not equal.
+// For example, getEqualWeights(3) returns [0.3334, 0.3333, 0.3333]
+export function getEqualWeights(n: number, precision: number = 4): number[] {
+  // The power of 10 we need to manipulate weights to the correct precision
+  const multiplier = Math.pow(10, precision);
+
+  // Naive even weighting with rounding
+  // For n=3, this will result in `0.3333`
+  const w = Math.round(multiplier / n) / multiplier;
+
+  // Determine how far off we are from a sum of 1
+  // For n=3, this will be 0.9999-1 = -0.0001
+  const diff = w * n - 1;
+
+  // How many of the weights do we need to add a correction to?
+  // For n=3, we only have to adjust 1 of the weights to make it sum to 1
+  const numCorrections = Math.round(Math.abs(diff) * multiplier);
+  const delta = (diff < 0 ? 1 : -1) / multiplier;
+
+  return (
+    Array(n)
+      .fill(0)
+      .map((v, i) => +(w + (i < numCorrections ? delta : 0)).toFixed(precision))
+      // Put the larger weights first
+      .sort((a, b) => b - a)
+  );
+}
+
+export async function generateTrackingKey(
+  exp: Partial<ExperimentInterface>,
+  getExperimentByKey?: (
+    key: string
+  ) => Promise<ExperimentInterface | ExperimentInterfaceStringDates | null>
+): Promise<string> {
+  // Try to generate a unique tracking key based on the experiment name
+  let n = 1;
+  let found: null | string = null;
+  while (n < 10 && !found) {
+    const key = generate(exp.name || exp.id || "", n);
+    if (!getExperimentByKey || !(await getExperimentByKey(key))) {
+      found = key;
+    }
+    n++;
+  }
+
+  // Fall back to uniqid if couldn't generate
+  return found || uniqid();
+
+  function generate(name: string, n: number): string {
+    let key = ("-" + name)
+      .toLowerCase()
+      // Replace whitespace with hyphen
+      .replace(/\s+/g, "-")
+      // Get rid of all non alpha-numeric characters
+      .replace(/[^a-z0-9\-_]*/g, "")
+      // Remove stopwords
+      .replace(
+        /-((a|about|above|after|again|all|am|an|and|any|are|arent|as|at|be|because|been|before|below|between|both|but|by|cant|could|did|do|does|dont|down|during|each|few|for|from|had|has|have|having|here|how|if|in|into|is|isnt|it|its|itself|more|most|no|nor|not|of|on|once|only|or|other|our|out|over|own|same|should|shouldnt|so|some|such|that|than|then|the|there|theres|these|this|those|through|to|too|under|until|up|very|was|wasnt|we|weve|were|what|whats|when|where|which|while|who|whos|whom|why|with|wont|would)-)+/g,
+        "-"
+      )
+      // Collapse duplicate hyphens
+      .replace(/-{2,}/g, "-")
+      // Remove leading and trailing hyphens
+      .replace(/(^-|-$)/g, "");
+
+    // Add number if this is not the first attempt
+    if (n > 1) {
+      key += "-" + n;
+    }
+
+    return key;
+  }
+}
+
+export function expandMetricGroups(
+  metricIds: string[],
+  metricGroups: MetricGroupInterface[]
+): string[] {
+  const metricGroupMap = new Map(metricGroups.map((mg) => [mg.id, mg]));
+  const expandedMetricIds: string[] = [];
+  metricIds.forEach((id) => {
+    if (metricGroupMap.has(id)) {
+      expandedMetricIds.push(...(metricGroupMap.get(id)?.metrics || []));
+    } else {
+      expandedMetricIds.push(id);
+    }
+  });
+  return expandedMetricIds;
+}
+
+export function isMetricJoinable(
+  metricIdTypes: string[],
+  userIdType: string,
+  settings?: DataSourceSettings
+): boolean {
+  if (metricIdTypes.includes(userIdType)) return true;
+
+  if (settings?.queries?.identityJoins) {
+    if (
+      settings.queries.identityJoins.some(
+        (j) =>
+          j.ids.includes(userIdType) &&
+          j.ids.some((jid) => metricIdTypes.includes(jid))
+      )
+    ) {
+      return true;
+    }
+  }
+
+  // legacy support for pageviewsQuery
+  if (settings?.queries?.pageviewsQuery) {
+    if (
+      ["user_id", "anonymous_id"].includes(userIdType) &&
+      metricIdTypes.some((m) => ["user_id", "anonymous_id"].includes(m))
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+export function adjustPValuesBenjaminiHochberg(
+  indexedPValues: IndexedPValue[]
+): IndexedPValue[] {
+  const newIndexedPValues = cloneDeep<IndexedPValue[]>(indexedPValues);
+  const m = newIndexedPValues.length;
+
+  newIndexedPValues.sort((a, b) => {
+    return b.pValue - a.pValue;
+  });
+  newIndexedPValues.forEach((p, i) => {
+    newIndexedPValues[i].pValue = Math.min((p.pValue * m) / (m - i), 1);
+  });
+
+  let tempval = newIndexedPValues[0].pValue;
+  for (let i = 1; i < m; i++) {
+    if (newIndexedPValues[i].pValue < tempval) {
+      tempval = newIndexedPValues[i].pValue;
+    } else {
+      newIndexedPValues[i].pValue = tempval;
+    }
+  }
+  return newIndexedPValues;
+}
+
+export function adjustPValuesHolmBonferroni(
+  indexedPValues: IndexedPValue[]
+): IndexedPValue[] {
+  const newIndexedPValues = cloneDeep<IndexedPValue[]>(indexedPValues);
+  const m = newIndexedPValues.length;
+  newIndexedPValues.sort((a, b) => {
+    return a.pValue - b.pValue;
+  });
+  newIndexedPValues.forEach((p, i) => {
+    newIndexedPValues[i].pValue = Math.min(p.pValue * (m - i), 1);
+  });
+
+  let tempval = newIndexedPValues[0].pValue;
+  for (let i = 1; i < m; i++) {
+    if (newIndexedPValues[i].pValue > tempval) {
+      tempval = newIndexedPValues[i].pValue;
+    } else {
+      newIndexedPValues[i].pValue = tempval;
+    }
+  }
+  return newIndexedPValues;
+}
+
+export function setAdjustedPValuesOnResults(
+  results: ExperimentReportResultDimension[],
+  nonGuardrailMetrics: string[],
+  adjustment: PValueCorrection
+): void {
+  if (!adjustment) {
+    return;
+  }
+
+  let indexedPValues: IndexedPValue[] = [];
+  results.forEach((r, i) => {
+    r.variations.forEach((v, j) => {
+      nonGuardrailMetrics.forEach((m) => {
+        const pValue = v.metrics[m]?.pValue;
+        if (pValue !== undefined) {
+          indexedPValues.push({
+            pValue: pValue,
+            index: [i, j, m],
+          });
+        }
+      });
+    });
+  });
+
+  if (indexedPValues.length === 0) {
+    return;
+  }
+
+  if (adjustment === "benjamini-hochberg") {
+    indexedPValues = adjustPValuesBenjaminiHochberg(indexedPValues);
+  } else if (adjustment === "holm-bonferroni") {
+    indexedPValues = adjustPValuesHolmBonferroni(indexedPValues);
+  }
+
+  // modify results in place
+  indexedPValues.forEach((ip) => {
+    const ijk = ip.index;
+    results[ijk[0]].variations[ijk[1]].metrics[ijk[2]].pValueAdjusted =
+      ip.pValue;
+  });
+  return;
+}
+
+export function adjustedCI(
+  adjustedPValue: number,
+  lift: number | undefined,
+  pValueThreshold: number
+): [number, number] {
+  if (!lift) return [0, 0];
+  const zScore = normal.quantile(1 - pValueThreshold / 2, 0, 1);
+  const adjStdDev = Math.abs(
+    lift / normal.quantile(1 - adjustedPValue / 2, 0, 1)
+  );
+  const width = zScore * adjStdDev;
+  return [lift - width, lift + width];
+}
+
+export function setAdjustedCIs(
+  results: ExperimentReportResultDimension[],
+  pValueThreshold: number
+): void {
+  results.forEach((r) => {
+    r.variations.forEach((v) => {
+      for (const key in v.metrics) {
+        const pValueAdjusted = v.metrics[key].pValueAdjusted;
+        const uplift = v.metrics[key].uplift;
+        const ci = v.metrics[key].ci;
+        if (
+          pValueAdjusted === undefined ||
+          uplift === undefined ||
+          ci === undefined
+        ) {
+          continue;
+        }
+
+        const adjCI = getAdjustedCI(
+          pValueAdjusted,
+          uplift.mean,
+          pValueThreshold,
+          ci
+        );
+        if (adjCI) {
+          v.metrics[key].ciAdjusted = adjCI;
+        } else {
+          v.metrics[key].ciAdjusted = ci;
+        }
+      }
+    });
+  });
+  return;
+}
+
+export function getAdjustedCI(
+  pValueAdjusted: number,
+  lift: number | undefined,
+  pValueThreshold: number,
+  ci: [number, number]
+): [number, number] | undefined {
+  // set to Inf if adjusted pValue is 1
+  if (pValueAdjusted > 0.999999) {
+    return [-Infinity, Infinity];
+  }
+
+  const adjCI = adjustedCI(pValueAdjusted, lift, pValueThreshold);
+  // only update if CI got wider, should never get more narrow
+  if (adjCI[0] < ci[0] && adjCI[1] > ci[1]) {
+    return adjCI;
+  } else {
+    return ci;
+  }
 }

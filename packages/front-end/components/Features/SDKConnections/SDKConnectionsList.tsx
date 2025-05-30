@@ -10,6 +10,10 @@ import {
   getDisallowedProjects,
 } from "shared/util";
 import clsx from "clsx";
+import type { SDKLanguage } from "back-end/types/sdk-connection";
+import { useGrowthBook } from "@growthbook/growthbook-react";
+import { Box, Flex, Heading, Separator, Text } from "@radix-ui/themes";
+import { getLatestSDKVersion } from "shared/sdk-versioning";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBAddCircle, GBHashLock, GBRemoteEvalIcon } from "@/components/Icons";
@@ -19,9 +23,23 @@ import StatusCircle from "@/components/Helpers/StatusCircle";
 import ProjectBadges from "@/components/ProjectBadges";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useEnvironments } from "@/services/features";
-import Badge from "@/components/Badge";
-import SDKLanguageLogo from "./SDKLanguageLogo";
+import Badge from "@/components/Radix/Badge";
+import Button from "@/components/Radix/Button";
+import SDKLanguageLogo, {
+  getLanguagesByFilter,
+  languageMapping,
+} from "./SDKLanguageLogo";
 import SDKConnectionForm from "./SDKConnectionForm";
+import { SDKLanguageOption } from "./SDKLanguageSelector";
+
+function popularLanguagesFirst(a: SDKLanguage, b: SDKLanguage) {
+  const isAPopular = languageMapping[a].filters.includes("popular");
+  const isBPopular = languageMapping[b].filters.includes("popular");
+
+  if (isAPopular && !isBPopular) return -1;
+  if (!isAPopular && isBPopular) return 1;
+  return 0;
+}
 
 export default function SDKConnectionsList() {
   const { data, mutate, error } = useSDKConnections();
@@ -39,6 +57,22 @@ export default function SDKConnectionsList() {
     project
   );
 
+  const gb = useGrowthBook();
+
+  let useNewEmptyStateLayout = false;
+  if (data && connections.length === 0 && canCreateSDKConnections) {
+    useNewEmptyStateLayout = gb.isOn("sdk-connections-new-empty-state");
+  }
+
+  const [
+    initialModalSelectedLanguage,
+    setInitialModalSelectedLanguage,
+  ] = useState<SDKLanguage | null>(null);
+  const [showAllSdkLanguages, setShowAllSdkLanguages] = useState(false);
+  const sdkLanguagesToShow = getLanguagesByFilter(
+    showAllSdkLanguages ? "all" : "popular"
+  ).sort(popularLanguagesFirst);
+
   if (error) {
     return <div className="alert alert-danger">{error.message}</div>;
   }
@@ -46,10 +80,93 @@ export default function SDKConnectionsList() {
     return <LoadingOverlay />;
   }
 
+  const emptyStateContentControl = (
+    <div className="appbox p-5 text-center">
+      <p>
+        <strong>SDK Connections</strong> make it easy to integrate GrowthBook
+        into your front-end, back-end, or mobile application.
+      </p>
+      <button
+        className="btn btn-primary"
+        onClick={(e) => {
+          e.preventDefault();
+          setModalOpen(true);
+        }}
+      >
+        <GBAddCircle /> Create New SDK Connection
+      </button>
+    </div>
+  );
+
+  const emptyStateContentExperiment = (
+    <Box
+      pt="9"
+      pb="7"
+      px="10%"
+      mb="4"
+      style={{ backgroundColor: "var(--color-panel-solid)" }}
+    >
+      <Flex direction="column" align="center">
+        <Heading as="h2" size="6" align="center">
+          Easily integrate GrowthBook into your app or website
+        </Heading>
+        <Text size="3" align="center">
+          Select one of our SDKs to connect your front-end, back-end or mobile
+          app.
+        </Text>
+      </Flex>
+
+      <Separator size="4" mt="7" mb="6" />
+
+      <Flex
+        justify="start"
+        direction={{
+          initial: "column",
+          xs: "row",
+        }}
+        wrap="wrap"
+        gapX="5"
+        gapY="4"
+        mb="7"
+      >
+        {sdkLanguagesToShow.map((language) => (
+          <SDKLanguageOption
+            key={language}
+            language={language}
+            selected={false}
+            onClick={() => {
+              setInitialModalSelectedLanguage(language);
+              setModalOpen(true);
+            }}
+          />
+        ))}
+      </Flex>
+
+      <Flex justify="center">
+        <Button
+          variant="ghost"
+          onClick={() => setShowAllSdkLanguages(!showAllSdkLanguages)}
+          size="sm"
+        >
+          {showAllSdkLanguages ? "Show less" : "Show all"}
+        </Button>
+      </Flex>
+    </Box>
+  );
+
   return (
     <div>
       {modalOpen && (
         <SDKConnectionForm
+          initialValue={{
+            languages: initialModalSelectedLanguage
+              ? [initialModalSelectedLanguage]
+              : [],
+            sdkVersion: initialModalSelectedLanguage
+              ? getLatestSDKVersion(initialModalSelectedLanguage)
+              : undefined,
+            includeRuleIds: true,
+          }}
           close={() => setModalOpen(false)}
           mutate={mutate}
           edit={false}
@@ -60,20 +177,32 @@ export default function SDKConnectionsList() {
         <div className="col-auto">
           <h1 className="mb-0">SDK Connections</h1>
         </div>
-        {connections.length > 0 && canCreateSDKConnections ? (
+        {canCreateSDKConnections &&
+        (useNewEmptyStateLayout || connections.length > 0) ? (
           <div className="col-auto ml-auto">
-            <button
-              className="btn btn-primary"
-              onClick={(e) => {
-                e.preventDefault();
-                setModalOpen(true);
-              }}
-            >
-              <GBAddCircle /> Add SDK Connection
-            </button>
+            <Button onClick={() => setModalOpen(true)}>
+              Add SDK Connection
+            </Button>
           </div>
         ) : null}
       </div>
+
+      {connections.length === 0 ? (
+        <>
+          {!canCreateSDKConnections ? (
+            <div className="appbox p-5 text-center">
+              <p>
+                You do not have permission to create SDK connections. Please
+                contact your account administrator
+              </p>
+            </div>
+          ) : useNewEmptyStateLayout ? (
+            emptyStateContentExperiment
+          ) : (
+            emptyStateContentControl
+          )}
+        </>
+      ) : null}
 
       {connections.length > 0 && (
         <table className="table mb-3 appbox gbtable table-hover">
@@ -83,7 +212,7 @@ export default function SDKConnectionsList() {
               <th>Name</th>
               {projects.length > 0 && <th>Projects</th>}
               <th>Environment</th>
-              <th className="text-center">Features</th>
+              <th className="text-center">Supported Features</th>
               <th>Language</th>
               <th style={{ width: 25 }}></th>
             </tr>
@@ -152,10 +281,10 @@ export default function SDKConnectionsList() {
                     <td>
                       {showAllEnvironmentProjects && (
                         <Badge
-                          content={`All env projects (${envProjects.length})`}
                           key="All env projects"
-                          className="badge-muted-info border-info"
-                          skipMargin={true}
+                          color="teal"
+                          variant="solid"
+                          label={`All env projects (${envProjects.length})`}
                         />
                       )}
                       <div
@@ -164,17 +293,19 @@ export default function SDKConnectionsList() {
                         })}
                         style={{ gap: "0.5rem" }}
                       >
-                        <ProjectBadges
-                          projectIds={
-                            filteredProjectIdsWithDisallowed.length
-                              ? filteredProjectIdsWithDisallowed
-                              : undefined
-                          }
-                          invalidProjectIds={disallowedProjectIds}
-                          invalidProjectMessage="This project is not allowed in the selected environment and will not be included in the SDK payload."
-                          resourceType="sdk connection"
-                          skipMargin={true}
-                        />
+                        {!showAllEnvironmentProjects && (
+                          <ProjectBadges
+                            projectIds={
+                              filteredProjectIdsWithDisallowed.length
+                                ? filteredProjectIdsWithDisallowed
+                                : undefined
+                            }
+                            invalidProjectIds={disallowedProjectIds}
+                            invalidProjectMessage="This project is not allowed in the selected environment and will not be included in the SDK payload."
+                            resourceType="sdk connection"
+                            skipMargin={true}
+                          />
+                        )}
                       </div>
                     </td>
                   )}
@@ -257,6 +388,11 @@ export default function SDKConnectionsList() {
                           <SDKLanguageLogo
                             language={language}
                             hideExtra={true}
+                            version={
+                              connection.languages?.length === 1
+                                ? connection.sdkVersion
+                                : undefined
+                            }
                           />
                         </span>
                       ))}
@@ -271,35 +407,6 @@ export default function SDKConnectionsList() {
           </tbody>
         </table>
       )}
-
-      {connections.length === 0 ? (
-        <>
-          {canCreateSDKConnections ? (
-            <div className="appbox p-5 text-center">
-              <p>
-                <strong>SDK Connections</strong> make it easy to integrate
-                GrowthBook into your front-end, back-end, or mobile application.
-              </p>
-              <button
-                className="btn btn-primary"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setModalOpen(true);
-                }}
-              >
-                <GBAddCircle /> Create New SDK Connection
-              </button>
-            </div>
-          ) : (
-            <div className="appbox p-5 text-center">
-              <p>
-                You do not have permission to create SDK connections. Please
-                contact your account administrator
-              </p>
-            </div>
-          )}
-        </>
-      ) : null}
     </div>
   );
 }

@@ -1,9 +1,10 @@
 from abc import ABC, abstractmethod
-from typing import Union
-
+from typing import Optional, Union, List
+import copy
 import numpy as np
 import scipy.stats
 from pydantic.dataclasses import dataclass
+from gbstats.utils import variance_of_ratios
 
 
 @dataclass
@@ -55,6 +56,15 @@ class SampleMeanStatistic(Statistic):
             return 0
         return self.sum / self.n
 
+    def __add__(self, other):
+        if not isinstance(other, SampleMeanStatistic):
+            raise TypeError("Can add only another SampleMeanStatistic instance")
+        return SampleMeanStatistic(
+            n=self.n + other.n,
+            sum=self.sum + other.sum,
+            sum_squares=self.sum_squares + other.sum_squares,
+        )
+
 
 @dataclass
 class ProportionStatistic(Statistic):
@@ -73,6 +83,15 @@ class ProportionStatistic(Statistic):
         if self.n == 0:
             return 0
         return self.sum / self.n
+
+    def __add__(self, other):
+        if not isinstance(other, ProportionStatistic):
+            raise TypeError("Can add only another ProportionStatistic instance")
+        return SampleMeanStatistic(
+            n=self.n + other.n,
+            sum=self.sum + other.sum,
+            sum_squares=self.sum_squares + other.sum_squares,
+        )
 
 
 @dataclass
@@ -97,15 +116,12 @@ class RatioStatistic(Statistic):
     def variance(self):
         if self.d_statistic.mean == 0 or self.n <= 1:
             return 0
-        return (
-            self.m_statistic.variance / pow(self.d_statistic.mean, 2)
-            - 2
-            * self.covariance
-            * self.m_statistic.mean
-            / pow(self.d_statistic.mean, 3)
-            + pow(self.m_statistic.mean, 2)
-            * self.d_statistic.variance
-            / pow(self.d_statistic.mean, 4)
+        return variance_of_ratios(
+            self.m_statistic.mean,
+            self.m_statistic.variance,
+            self.d_statistic.mean,
+            self.d_statistic.variance,
+            self.covariance,
         )
 
     @property
@@ -123,34 +139,52 @@ class RegressionAdjustedStatistic(Statistic):
     post_statistic: Union[SampleMeanStatistic, ProportionStatistic]
     pre_statistic: Union[SampleMeanStatistic, ProportionStatistic]
     post_pre_sum_of_products: float
-    theta: float
+    theta: Optional[float]
+
+    def __add__(self, other):
+        if not isinstance(other, RegressionAdjustedStatistic):
+            raise TypeError("Can add only another RegressionAdjustedStatistic instance")
+        return RegressionAdjustedStatistic(
+            n=self.n + other.n,
+            post_statistic=self.post_statistic + other.post_statistic,
+            pre_statistic=self.pre_statistic + other.pre_statistic,
+            post_pre_sum_of_products=self.post_pre_sum_of_products
+            + other.post_pre_sum_of_products,
+            theta=None,
+        )
 
     @property
-    def mean(self):
-        return self.post_statistic.mean - self.theta * self.pre_statistic.mean
+    def mean(self) -> float:
+        theta = self.theta if self.theta else 0
+        return self.post_statistic.mean - theta * self.pre_statistic.mean
 
     @property
-    def sum(self):
+    def sum(self) -> None:
         raise NotImplementedError(
             "Regression Adjusted Statistic does not have a unique `sum` property"
         )
 
     @property
-    def unadjusted_mean(self):
+    def unadjusted_mean(self) -> float:
         return self.post_statistic.mean
 
     @property
-    def variance(self):
+    def unadjusted_variances(self) -> float:
+        return self.post_statistic.variance
+
+    @property
+    def variance(self) -> float:
         if self.n <= 1:
             return 0
+        theta = self.theta if self.theta else 0
         return (
             self.post_statistic.variance
-            + pow(self.theta, 2) * self.pre_statistic.variance
-            - 2 * self.theta * self.covariance
+            + pow(theta, 2) * self.pre_statistic.variance
+            - 2 * theta * self.covariance
         )
 
     @property
-    def covariance(self):
+    def covariance(self) -> float:
         if self.n <= 1:
             return 0
         return (
@@ -197,6 +231,244 @@ def create_joint_statistic(
     raise ValueError(
         "Statistic types for a metric must not be different types across variations."
     )
+
+
+@dataclass
+class RegressionAdjustedRatioStatistic(Statistic):
+    m_statistic_post: Union[SampleMeanStatistic, ProportionStatistic]
+    d_statistic_post: Union[SampleMeanStatistic, ProportionStatistic]
+    m_statistic_pre: Union[SampleMeanStatistic, ProportionStatistic]
+    d_statistic_pre: Union[SampleMeanStatistic, ProportionStatistic]
+    m_post_m_pre_sum_of_products: float
+    d_post_d_pre_sum_of_products: float
+    m_pre_d_pre_sum_of_products: float
+    m_post_d_post_sum_of_products: float
+    m_post_d_pre_sum_of_products: float
+    m_pre_d_post_sum_of_products: float
+    theta: Optional[float]
+
+    def __add__(self, other):
+        if not isinstance(other, RegressionAdjustedRatioStatistic):
+            raise TypeError(
+                "Can add only another RegressionAdjustedRatioStatistic instance"
+            )
+        return RegressionAdjustedRatioStatistic(
+            n=self.n + other.n,
+            m_statistic_post=self.m_statistic_post + other.m_statistic_post,
+            d_statistic_post=self.d_statistic_post + other.d_statistic_post,
+            m_statistic_pre=self.m_statistic_pre + other.m_statistic_pre,
+            d_statistic_pre=self.d_statistic_pre + other.d_statistic_pre,
+            m_post_m_pre_sum_of_products=self.m_post_m_pre_sum_of_products
+            + other.m_post_m_pre_sum_of_products,
+            d_post_d_pre_sum_of_products=self.d_post_d_pre_sum_of_products
+            + other.d_post_d_pre_sum_of_products,
+            m_pre_d_pre_sum_of_products=self.m_pre_d_pre_sum_of_products
+            + other.m_pre_d_pre_sum_of_products,
+            m_post_d_post_sum_of_products=self.m_post_d_post_sum_of_products
+            + other.m_post_d_post_sum_of_products,
+            m_post_d_pre_sum_of_products=self.m_post_d_pre_sum_of_products
+            + other.m_post_d_pre_sum_of_products,
+            m_pre_d_post_sum_of_products=self.m_pre_d_post_sum_of_products
+            + other.m_pre_d_post_sum_of_products,
+            theta=None,
+        )
+
+    @property
+    def mean(self) -> float:
+        if self.d_statistic_post.sum == 0 or self.d_statistic_pre.sum == 0:
+            return 0
+        theta = self.theta if self.theta else 0
+        return self.mean_post - theta * self.mean_pre
+
+    @property
+    def mean_post(self) -> float:
+        if self.d_statistic_post.sum == 0:
+            return 0
+        return self.m_statistic_post.sum / self.d_statistic_post.sum
+
+    @property
+    def mean_pre(self) -> float:
+        if self.d_statistic_pre.sum == 0:
+            return 0
+        return self.m_statistic_pre.sum / self.d_statistic_pre.sum
+
+    @property
+    def unadjusted_mean(self) -> float:
+        """
+        Return the mean that has no regression adjustments.
+        Must be over-ridden if regular `mean` function is adjusted,
+        as it is for RegressionAdjustedStatistic
+        """
+        return self.mean_post
+
+    @property
+    def sum(self):
+        raise NotImplementedError(
+            "RatioStatistic does not have a unique `sum` property"
+        )
+
+    @property
+    def variance(self) -> float:
+        return self.nabla.T.dot(self.lambda_matrix).dot(self.nabla)
+
+    @property
+    def var_pre(self) -> float:
+        return self.nabla[2:4].T.dot(self.lambda_matrix[2:4, 2:4]).dot(self.nabla[2:4])
+
+    @property
+    def covariance(self) -> float:
+        return self.nabla[2:4].T.dot(self.lambda_matrix[2:4, 0:2]).dot(self.nabla[0:2])
+
+    @property
+    def cov_m_pre_d_pre(self) -> float:
+        if self.n <= 1:
+            return 0
+        return (
+            self.m_pre_d_pre_sum_of_products
+            - self.m_statistic_pre.sum * self.d_statistic_pre.sum / self.n
+        ) / (self.n - 1)
+
+    @property
+    def cov_m_post_d_post(self) -> float:
+        if self.n <= 1:
+            return 0
+        return (
+            self.m_post_d_post_sum_of_products
+            - self.m_statistic_post.sum * self.d_statistic_post.sum / self.n
+        ) / (self.n - 1)
+
+    @property
+    def cov_m_post_m_pre(self) -> float:
+        if self.n <= 1:
+            return 0
+        return (
+            self.m_post_m_pre_sum_of_products
+            - self.m_statistic_post.sum * self.m_statistic_pre.sum / self.n
+        ) / (self.n - 1)
+
+    @property
+    def cov_d_post_d_pre(self) -> float:
+        if self.n <= 1:
+            return 0
+        return (
+            self.d_post_d_pre_sum_of_products
+            - self.d_statistic_post.sum * self.d_statistic_pre.sum / self.n
+        ) / (self.n - 1)
+
+    @property
+    def cov_m_post_d_pre(self) -> float:
+        if self.n <= 1:
+            return 0
+        return (
+            self.m_post_d_pre_sum_of_products
+            - self.m_statistic_post.sum * self.d_statistic_pre.sum / self.n
+        ) / (self.n - 1)
+
+    @property
+    def cov_d_post_m_pre(self) -> float:
+        if self.n <= 1:
+            return 0
+        return (
+            self.m_pre_d_post_sum_of_products
+            - self.m_statistic_pre.sum * self.d_statistic_post.sum / self.n
+        ) / (self.n - 1)
+
+    @property
+    def betahat(self) -> np.ndarray:
+        return np.array(
+            [self.mean_m_post, self.mean_d_post, self.mean_m_pre, self.mean_d_pre]
+        )
+
+    @property
+    def lambda_matrix(self) -> np.ndarray:
+        return np.array(
+            [
+                [
+                    self.var_m_post,
+                    self.cov_m_post_d_post,
+                    self.cov_m_post_m_pre,
+                    self.cov_m_post_d_pre,
+                ],
+                [
+                    self.cov_m_post_d_post,
+                    self.var_d_post,
+                    self.cov_d_post_m_pre,
+                    self.cov_d_post_d_pre,
+                ],
+                [
+                    self.cov_m_post_m_pre,
+                    self.cov_d_post_m_pre,
+                    self.var_m_pre,
+                    self.cov_m_pre_d_pre,
+                ],
+                [
+                    self.cov_m_post_d_pre,
+                    self.cov_d_post_d_pre,
+                    self.cov_m_pre_d_pre,
+                    self.var_d_pre,
+                ],
+            ]
+        )
+
+    # vector of partial derivatives for the absolute case
+    @property
+    def nabla(self) -> np.ndarray:
+        theta = self.theta if self.theta else 0
+        if self.betahat[1] == 0 or self.betahat[3] == 0:
+            return np.zeros((4,))
+        return np.array(
+            [
+                1 / self.betahat[1],
+                -self.betahat[0] / self.betahat[1] ** 2,
+                -theta / self.betahat[3],
+                theta * self.betahat[2] / self.betahat[3] ** 2,
+            ]
+        )
+
+    @property
+    def mean_m_post(self) -> float:
+        return self.m_statistic_post.mean
+
+    @property
+    def mean_m_pre(self) -> float:
+        return self.m_statistic_pre.mean
+
+    @property
+    def mean_d_post(self) -> float:
+        return self.d_statistic_post.mean
+
+    @property
+    def mean_d_pre(self) -> float:
+        return self.d_statistic_pre.mean
+
+    @property
+    def var_m_post(self) -> float:
+        return self.m_statistic_post.variance
+
+    @property
+    def var_m_pre(self) -> float:
+        return self.m_statistic_pre.variance
+
+    @property
+    def var_d_post(self) -> float:
+        return self.d_statistic_post.variance
+
+    @property
+    def var_d_pre(self) -> float:
+        return self.d_statistic_pre.variance
+
+
+def compute_theta_regression_adjusted_ratio(
+    a: RegressionAdjustedRatioStatistic, b: RegressionAdjustedRatioStatistic
+) -> float:
+    # set theta equal to 1, so the partial derivatives are unaffected by theta
+    a_one = copy.deepcopy(a)
+    b_one = copy.deepcopy(b)
+    a_one.theta = 1
+    b_one.theta = 1
+    if a_one.var_pre + b_one.var_pre == 0:
+        return 0
+    return -(a_one.covariance + b_one.covariance) / (a_one.var_pre + b_one.var_pre)
 
 
 @dataclass
@@ -283,9 +555,7 @@ class QuantileClusteredStatistic(QuantileStatistic):
             * self.n_clusters
             / (self.n_clusters - 1)
         )
-        num = (
-            sigma_2_s - 2 * mu_s * sigma_s_n / mu_n + mu_s**2 * sigma_2_n / mu_n**2
-        )
+        num = sigma_2_s - 2 * mu_s * sigma_s_n / mu_n + mu_s**2 * sigma_2_n / mu_n**2
         den = self.n_clusters * mu_n**2
         return num / den
 
@@ -297,4 +567,36 @@ TestStatistic = Union[
     RatioStatistic,
     QuantileStatistic,
     QuantileClusteredStatistic,
+    RegressionAdjustedRatioStatistic,
 ]
+
+BanditStatistic = Union[
+    SampleMeanStatistic,
+    RatioStatistic,
+    RegressionAdjustedStatistic,
+]
+
+
+ScaledImpactStatistic = Union[
+    ProportionStatistic,
+    SampleMeanStatistic,
+    RegressionAdjustedStatistic,
+]
+
+
+@dataclass
+class BanditPeriodDataSampleMean:
+    stats: List[SampleMeanStatistic]
+    weights: List[float]
+
+
+@dataclass
+class BanditPeriodDataRatio:
+    stats: List[RatioStatistic]
+    weights: List[float]
+
+
+@dataclass
+class BanditPeriodDataCuped:
+    stats: List[RegressionAdjustedStatistic]
+    weights: List[float]

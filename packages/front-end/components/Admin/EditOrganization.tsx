@@ -1,5 +1,5 @@
 import { useState, FC } from "react";
-import { OrganizationInterface } from "@back-end/types/organization";
+import { OrganizationInterface } from "back-end/types/organization";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { isCloud } from "@/services/env";
@@ -52,6 +52,7 @@ const EditOrganization: FC<{
 
   return (
     <Modal
+      trackingEventModalType=""
       submit={handleSubmit}
       open={true}
       header={"Edit Organization"}

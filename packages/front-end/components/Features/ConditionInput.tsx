@@ -8,6 +8,8 @@ import {
   FaPlusCircle,
 } from "react-icons/fa";
 import { RxLoop } from "react-icons/rx";
+import clsx from "clsx";
+import format from "date-fns/format";
 import {
   condToJson,
   jsonToConds,
@@ -20,6 +22,11 @@ import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import StringArrayField from "@/components/Forms/StringArrayField";
+import CountrySelector, {
+  ALL_COUNTRY_CODES,
+} from "@/components/Forms/CountrySelector";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
+import DatePicker from "@/components/DatePicker";
 import styles from "./ConditionInput.module.scss";
 
 interface Props {
@@ -72,6 +79,8 @@ export default function ConditionInput(props: Props) {
       value: "$notInGroup",
     },
   ];
+
+  const listOperators = ["$in", "$nin"];
 
   if (advanced || !attributes.size || !simpleAllowed) {
     const hasSecureAttributes = some(
@@ -168,6 +177,14 @@ export default function ConditionInput(props: Props) {
             const savedGroupOptions = savedGroups
               // First, limit to groups with the correct attribute
               .filter((g) => g.type === "list" && g.attributeKey === field)
+              // Filter by project
+              .filter((group) => {
+                return (
+                  !props.project ||
+                  !group.projects?.length ||
+                  group.projects.includes(props.project)
+                );
+              })
               // Then, transform into the select option format
               .map((g) => ({ label: g.groupName, value: g.id }));
 
@@ -297,6 +314,41 @@ export default function ConditionInput(props: Props) {
                   ]
                 : [];
 
+            let displayType:
+              | "select-only"
+              | "array-field"
+              | "enum"
+              | "number"
+              | "string"
+              | "isoCountryCode"
+              | null = null;
+            if (
+              [
+                "$exists",
+                "$notExists",
+                "$true",
+                "$false",
+                "$empty",
+                "$notEmpty",
+              ].includes(operator)
+            ) {
+              displayType = "select-only";
+            } else if (attribute.enum === ALL_COUNTRY_CODES) {
+              displayType = "isoCountryCode";
+            } else if (attribute.enum.length) {
+              displayType = "enum";
+            } else if (listOperators.includes(operator)) {
+              displayType = "array-field";
+            } else if (attribute.datatype === "number") {
+              displayType = "number";
+            } else if (
+              ["string", "secureString"].includes(attribute.datatype)
+            ) {
+              displayType = "string";
+            }
+            const hasExtraWhitespace =
+              displayType === "string" && value !== value.trim();
+
             return (
               <li key={i} className={styles.listitem}>
                 <div className={`row ${styles.listrow}`}>
@@ -348,14 +400,7 @@ export default function ConditionInput(props: Props) {
                       }}
                     />
                   </div>
-                  {[
-                    "$exists",
-                    "$notExists",
-                    "$true",
-                    "$false",
-                    "$empty",
-                    "$notEmpty",
-                  ].includes(operator) ? (
+                  {displayType === "select-only" ? (
                     ""
                   ) : ["$inGroup", "$notInGroup"].includes(operator) &&
                     savedGroupOptions.length > 0 ? (
@@ -370,7 +415,7 @@ export default function ConditionInput(props: Props) {
                       containerClassName="col-sm-12 col-md mb-2"
                       required
                     />
-                  ) : ["$in", "$nin"].includes(operator) ? (
+                  ) : displayType === "array-field" ? (
                     <div className="d-flex align-items-end flex-column col-sm-12 col-md mb-1">
                       {rawTextMode ? (
                         <Field
@@ -411,22 +456,58 @@ export default function ConditionInput(props: Props) {
                         Switch to {rawTextMode ? "token" : "raw text"} mode
                       </span>
                     </div>
-                  ) : attribute.enum.length ? (
-                    <SelectField
-                      options={attribute.enum.map((v) => ({
-                        label: v,
-                        value: v,
-                      }))}
-                      value={value}
-                      onChange={(v) => {
-                        handleCondsChange(v, "value");
-                      }}
-                      name="value"
-                      initialOption="Choose One..."
-                      containerClassName="col-sm-12 col-md mb-2"
-                      required
-                    />
-                  ) : attribute.datatype === "number" ? (
+                  ) : displayType === "isoCountryCode" ? (
+                    listOperators.includes(operator) ? (
+                      <CountrySelector
+                        selectAmount="multi"
+                        displayFlags={true}
+                        value={
+                          value ? value.split(",").map((val) => val.trim()) : []
+                        }
+                        onChange={handleListChange}
+                      />
+                    ) : (
+                      <CountrySelector
+                        selectAmount="single"
+                        displayFlags={true}
+                        value={value}
+                        onChange={(v) => {
+                          handleCondsChange(v, "value");
+                        }}
+                      />
+                    )
+                  ) : displayType === "enum" ? (
+                    listOperators.includes(operator) ? (
+                      <MultiSelectField
+                        options={attribute.enum.map((v) => ({
+                          label: v,
+                          value: v,
+                        }))}
+                        value={
+                          value ? value.split(",").map((val) => val.trim()) : []
+                        }
+                        onChange={handleListChange}
+                        name="value"
+                        containerClassName="col-sm-12 col-md mb-2"
+                        required
+                      />
+                    ) : (
+                      <SelectField
+                        options={attribute.enum.map((v) => ({
+                          label: v,
+                          value: v,
+                        }))}
+                        value={value}
+                        onChange={(v) => {
+                          handleCondsChange(v, "value");
+                        }}
+                        name="value"
+                        initialOption="Choose One..."
+                        containerClassName="col-sm-12 col-md mb-2"
+                        required
+                      />
+                    )
+                  ) : displayType === "number" ? (
                     <Field
                       type="number"
                       step="any"
@@ -437,23 +518,41 @@ export default function ConditionInput(props: Props) {
                       containerClassName="col-sm-12 col-md mb-2"
                       required
                     />
-                  ) : ["string", "secureString"].includes(
-                      attribute.datatype
-                    ) ? (
-                    <Field
-                      type={
-                        attribute.format === "date" &&
-                        !["$regex", "$notRegex"].includes(operator)
-                          ? "datetime-local"
-                          : undefined
-                      }
-                      value={value}
-                      onChange={handleFieldChange}
-                      name="value"
-                      className={styles.matchingInput}
-                      containerClassName="col-sm-12 col-md mb-2"
-                      required
-                    />
+                  ) : displayType === "string" ? (
+                    <>
+                      {attribute.format === "date" &&
+                      !["$regex", "$notRegex"].includes(operator) ? (
+                        <DatePicker
+                          date={value}
+                          setDate={(v) => {
+                            handleCondsChange(
+                              v ? format(v, "yyyy-MM-dd'T'HH:mm") : "",
+                              "value"
+                            );
+                          }}
+                          inputWidth={180}
+                          containerClassName="col-sm-12 col-md mb-2"
+                        />
+                      ) : (
+                        <Field
+                          value={value}
+                          onChange={handleFieldChange}
+                          name="value"
+                          className={styles.matchingInput}
+                          containerClassName={clsx("col-sm-12 col-md mb-2", {
+                            error: hasExtraWhitespace,
+                          })}
+                          helpText={
+                            hasExtraWhitespace ? (
+                              <small className="text-danger">
+                                Extra whitespace detected
+                              </small>
+                            ) : undefined
+                          }
+                          required
+                        />
+                      )}
+                    </>
                   ) : (
                     ""
                   )}

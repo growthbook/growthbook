@@ -13,8 +13,8 @@ import {
   ProjectMemberRole,
   UserPermission,
   UserPermissions,
-} from "../../types/organization";
-import { TeamInterface } from "../../types/team";
+} from "back-end/types/organization";
+import { TeamInterface } from "back-end/types/team";
 import { SUPERADMIN_DEFAULT_ROLE } from "./secrets";
 
 function hasEnvScopedPermissions(userPermission: PermissionsObject): boolean {

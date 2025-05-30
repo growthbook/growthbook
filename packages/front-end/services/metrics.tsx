@@ -3,9 +3,139 @@ import {
   ColumnInterface,
   ColumnRef,
   FactTableInterface,
+  CreateFactMetricProps,
+  FactMetricInterface,
 } from "back-end/types/fact-table";
-import { ExperimentMetricInterface } from "shared/experiments";
+import {
+  canInlineFilterColumn,
+  ExperimentMetricInterface,
+} from "shared/experiments";
+import {
+  DEFAULT_FACT_METRIC_WINDOW,
+  DEFAULT_LOSE_RISK_THRESHOLD,
+  DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+  DEFAULT_PROPER_PRIOR_STDDEV,
+  DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
+  DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+  DEFAULT_WIN_RISK_THRESHOLD,
+  DEFAULT_MIN_PERCENT_CHANGE,
+  DEFAULT_MAX_PERCENT_CHANGE,
+  DEFAULT_MIN_SAMPLE_SIZE,
+  DEFAULT_TARGET_MDE,
+} from "shared/constants";
+import {
+  MetricDefaults,
+  OrganizationSettings,
+} from "back-end/types/organization";
+import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { decimalToPercent } from "@/services/utils";
+import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
+
+export function getInitialInlineFilters(
+  factTable: FactTableInterface,
+  existingInlineFilters?: Record<string, string[]>
+) {
+  const inlineFilters = { ...existingInlineFilters };
+  factTable.columns
+    .filter(
+      (c) => c.alwaysInlineFilter && canInlineFilterColumn(factTable, c.column)
+    )
+    .forEach((c) => {
+      if (!inlineFilters[c.column] || !inlineFilters[c.column].length) {
+        inlineFilters[c.column] = [""];
+      }
+    });
+  return inlineFilters;
+}
+
+export function getDefaultFactMetricProps({
+  metricDefaults,
+  existing,
+  settings,
+  project,
+  datasources,
+  initialFactTable,
+}: {
+  metricDefaults: MetricDefaults;
+  settings: OrganizationSettings;
+  project?: string;
+  datasources: DataSourceInterfaceWithParams[];
+  existing?: Partial<FactMetricInterface>;
+  initialFactTable?: FactTableInterface;
+}): CreateFactMetricProps {
+  return {
+    name: existing?.name || "",
+    owner: existing?.owner || "",
+    description: existing?.description || "",
+    tags: existing?.tags || [],
+    metricType: existing?.metricType || "proportion",
+    numerator: existing?.numerator || {
+      factTableId: initialFactTable?.id || "",
+      column: "$$count",
+      filters: [],
+      inlineFilters: initialFactTable
+        ? getInitialInlineFilters(initialFactTable)
+        : {},
+    },
+    projects: existing?.projects || [],
+    denominator: existing?.denominator || null,
+    datasource:
+      existing?.datasource ||
+      getNewExperimentDatasourceDefaults(
+        datasources,
+        settings,
+        project,
+        initialFactTable ? { datasource: initialFactTable?.datasource } : {}
+      ).datasource,
+    inverse: existing?.inverse || false,
+    cappingSettings: existing?.cappingSettings || {
+      type: "",
+      value: 0,
+    },
+    quantileSettings: existing?.quantileSettings || null,
+    windowSettings: existing?.windowSettings || {
+      type: DEFAULT_FACT_METRIC_WINDOW,
+      windowUnit: "days",
+      windowValue: 3,
+      delayUnit: "hours",
+      delayValue: DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+    },
+    winRisk: existing?.winRisk ?? DEFAULT_WIN_RISK_THRESHOLD,
+    loseRisk: existing?.loseRisk ?? DEFAULT_LOSE_RISK_THRESHOLD,
+    minPercentChange:
+      existing?.minPercentChange ??
+      metricDefaults.minPercentageChange ??
+      DEFAULT_MIN_PERCENT_CHANGE,
+    targetMDE:
+      existing?.targetMDE ?? metricDefaults.targetMDE ?? DEFAULT_TARGET_MDE,
+    displayAsPercentage: existing?.displayAsPercentage,
+    maxPercentChange:
+      existing?.maxPercentChange ??
+      metricDefaults.maxPercentageChange ??
+      DEFAULT_MAX_PERCENT_CHANGE,
+    minSampleSize:
+      existing?.minSampleSize ??
+      metricDefaults.minimumSampleSize ??
+      DEFAULT_MIN_SAMPLE_SIZE,
+    regressionAdjustmentOverride:
+      existing?.regressionAdjustmentOverride || false,
+    regressionAdjustmentEnabled:
+      existing?.regressionAdjustmentEnabled ||
+      DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+    regressionAdjustmentDays:
+      existing?.regressionAdjustmentDays ??
+      settings.regressionAdjustmentDays ??
+      DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
+    priorSettings:
+      existing?.priorSettings ||
+      (metricDefaults.priorSettings ?? {
+        override: false,
+        proper: false,
+        mean: 0,
+        stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+      }),
+  };
+}
 
 export function getMetricConversionTitle(type: MetricType): string {
   // TODO: support more metric types
@@ -123,6 +253,19 @@ export function formatPercent(
   return percentFormatter.format(Math.round(value * 100000) / 100000);
 }
 
+export function formatPercentagePoints(value: number) {
+  const ppValue = 100 * value;
+  const absValue = Math.abs(ppValue);
+  const digits = absValue > 100 ? 0 : absValue > 10 ? 1 : absValue > 1 ? 2 : 3;
+  // Show fewer fractional digits for bigger numbers
+  const formatter = new Intl.NumberFormat(undefined, {
+    maximumFractionDigits: digits,
+    minimumFractionDigits: 0,
+  });
+  const number = formatter.format(ppValue);
+  return `${number} pp`;
+}
+
 export function getColumnFormatter(
   column: ColumnInterface
 ): (value: number, options?: Intl.NumberFormatOptions) => string {
@@ -158,26 +301,37 @@ export function getColumnRefFormatter(
 export function getExperimentMetricFormatter(
   metric: ExperimentMetricInterface,
   getFactTableById: (id: string) => FactTableInterface | null,
-  formatProportionAsNumber: boolean = false
+  proportionFormat: "number" | "percentagePoints" | "percentage" = "percentage"
 ): (value: number, options?: Intl.NumberFormatOptions) => string {
   // Old metric
   if ("type" in metric) {
-    return getMetricFormatter(
-      metric.type === "binomial" && formatProportionAsNumber
-        ? "count"
-        : metric.type
-    );
+    if (metric.type === "binomial" && proportionFormat === "number") {
+      return getMetricFormatter("count");
+    }
+    if (metric.type === "binomial" && proportionFormat === "percentagePoints") {
+      return formatPercentagePoints;
+    }
+    return getMetricFormatter(metric.type);
   }
 
   // Fact metric
   switch (metric.metricType) {
     case "proportion":
-      if (formatProportionAsNumber) {
+    case "retention":
+      if (proportionFormat === "number") {
         return formatNumber;
+      }
+      if (proportionFormat === "percentagePoints") {
+        return formatPercentagePoints;
       }
       return formatPercent;
     case "ratio":
       return (() => {
+        // If user has set displayAsPercentage to true, format as a percentage
+        if (metric.displayAsPercentage) {
+          return formatPercent;
+        }
+
         // If the metric is ratio of the same unit, they cancel out
         // For example: profit/revenue = $/$ = plain number
         const numerator = getFactTableById(

@@ -3,21 +3,93 @@ import {
   Variation,
   MetricOverride,
   ExperimentInterface,
-} from "../src/validators/experiments";
+  BanditResult,
+  BanditEvent,
+  ExperimentDecisionFrameworkSettings,
+} from "back-end/src/validators/experiments";
+import { DecisionCriteriaRule } from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.validators";
 import { ExperimentRefVariation, FeatureInterface } from "./feature";
 
 export {
   AttributionModel,
   ImplementationType,
   MetricOverride,
+  BanditResult,
   ExperimentStatus,
+  ExperimentType,
   ExperimentPhase,
+  BanditStageType,
+  ExperimentDecisionFrameworkSettings,
+  DecisionFrameworkMetricOverrides,
+  ExperimentAnalysisSettings,
+  ExperimentAnalysisSummaryResultsStatus,
+  ExperimentAnalysisSummaryVariationStatus,
   ExperimentInterface,
   ExperimentNotification,
   ExperimentResultsType,
   Screenshot,
   Variation,
-} from "../src/validators/experiments";
+} from "back-end/src/validators/experiments";
+
+export {
+  ExperimentTemplateInterface,
+  CreateTemplateProps,
+  UpdateTemplateProps,
+} from "back-end/src/routers/experiment-template/template.validators";
+
+export {
+  DecisionCriteriaInterface,
+  DecisionCriteriaData,
+  DecisionCriteriaAction,
+  DecisionCriteriaCondition,
+  DecisionCriteriaRule,
+} from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.validators";
+
+export type DecisionFrameworkVariation = {
+  variationId: string;
+  decidingRule: DecisionCriteriaRule | null;
+};
+
+export type DecisionFrameworkExperimentRecommendationStatus =
+  | { status: "days-left"; daysLeft: number }
+  | {
+      status: "ship-now";
+      variations: DecisionFrameworkVariation[];
+      powerReached: boolean;
+      sequentialUsed: boolean;
+    }
+  | {
+      status: "rollback-now";
+      variations: DecisionFrameworkVariation[];
+      powerReached: boolean;
+      sequentialUsed: boolean;
+    }
+  | {
+      status: "ready-for-review";
+      variations: DecisionFrameworkVariation[];
+      powerReached: boolean;
+      sequentialUsed: boolean;
+    };
+
+export type ExperimentUnhealthyData = {
+  // if key exists, the status is unhealthy
+  srm?: boolean;
+  multipleExposures?: {
+    rawDecimal: number;
+    multipleExposedUsers: number;
+  };
+  lowPowered?: boolean;
+};
+
+export type ExperimentResultStatus =
+  | DecisionFrameworkExperimentRecommendationStatus
+  | { status: "no-data" }
+  | { status: "unhealthy"; unhealthyData: ExperimentUnhealthyData }
+  | { status: "before-min-duration" };
+
+export type ExperimentResultStatusData = ExperimentResultStatus & {
+  tooltip?: string;
+};
 
 export type ExperimentPhaseType = "ramp" | "main" | "holdout";
 
@@ -39,11 +111,20 @@ export interface VariationWithIndex extends Variation {
   index: number;
 }
 
+export type LegacyBanditResult = BanditResult & {
+  srm?: number;
+};
+
+export type LegacyBanditEvent = BanditEvent & {
+  banditResult: LegacyBanditResult;
+};
+
 export interface LegacyExperimentPhase extends ExperimentPhase {
   /** @deprecated */
   phase?: ExperimentPhaseType;
   /** @deprecated */
   groups?: string[];
+  banditEvents?: LegacyBanditEvent[];
 }
 
 export type ExperimentPhaseStringDates = Omit<
@@ -70,6 +151,7 @@ export interface LegacyExperimentInterface
     | "goalMetrics"
     | "secondaryMetrics"
     | "guardrailMetrics"
+    | "decisionFrameworkSettings"
   > {
   /**
    * @deprecated
@@ -85,6 +167,7 @@ export interface LegacyExperimentInterface
   goalMetrics?: string[];
   secondaryMetrics?: string[];
   guardrailMetrics?: string[];
+  decisionFrameworkSettings?: ExperimentDecisionFrameworkSettings;
 }
 
 export type ExperimentInterfaceStringDates = Omit<
@@ -139,3 +222,44 @@ export interface LinkedFeatureInfo {
   rulesAbove: boolean;
   environmentStates: Record<string, LinkedFeatureEnvState>;
 }
+
+export type ExperimentHealthSettings = {
+  decisionFrameworkEnabled: boolean;
+  srmThreshold: number;
+  multipleExposureMinPercent: number;
+  experimentMinLengthDays: number;
+};
+
+export type ExperimentDataForStatusStringDates = Pick<
+  ExperimentInterfaceStringDates,
+  | "type"
+  | "variations"
+  | "status"
+  | "archived"
+  | "results"
+  | "analysisSummary"
+  | "phases"
+  | "dismissedWarnings"
+  | "goalMetrics"
+  | "secondaryMetrics"
+  | "guardrailMetrics"
+  | "datasource"
+  | "decisionFrameworkSettings"
+>;
+
+export type ExperimentDataForStatus = Pick<
+  ExperimentInterface,
+  | "type"
+  | "variations"
+  | "status"
+  | "archived"
+  | "results"
+  | "analysisSummary"
+  | "phases"
+  | "dismissedWarnings"
+  | "goalMetrics"
+  | "secondaryMetrics"
+  | "guardrailMetrics"
+  | "datasource"
+  | "decisionFrameworkSettings"
+>;

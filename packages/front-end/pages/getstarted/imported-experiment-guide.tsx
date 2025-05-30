@@ -2,7 +2,7 @@ import { PiArrowRight, PiCheckCircleFill } from "react-icons/pi";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
-import clsx from "clsx";
+import { Box, Separator } from "@radix-ui/themes";
 import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useUser } from "@/services/UserContext";
@@ -10,7 +10,6 @@ import PageHead from "@/components/Layout/PageHead";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import styles from "@/components/GetStarted/GetStarted.module.scss";
 import { useGetStarted } from "@/services/GetStartedProvider";
 
 const ImportedExperimentGuide = (): React.ReactElement => {
@@ -58,7 +57,7 @@ const ImportedExperimentGuide = (): React.ReactElement => {
   );
 
   return (
-    <div className={clsx(styles.getStartedPage, "container pagecontents p-4")}>
+    <div className="container pagecontents p-4">
       <PageHead
         breadcrumb={[
           { display: "Get Started", href: "/getstarted" },
@@ -68,8 +67,8 @@ const ImportedExperimentGuide = (): React.ReactElement => {
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
-          reason=""
           source="get-started-experiment-guide"
+          commercialFeature={null}
         />
       )}
       <h1 className="mb-3">Analyze Imported Experiments</h1>
@@ -126,11 +125,11 @@ const ImportedExperimentGuide = (): React.ReactElement => {
                 >
                   Connect to Your Data Warehouse
                 </Link>
-                <p className="mt-2">
+                <Box mt="2">
                   Allow GrowthBook to query your warehouse to compute traffic
                   totals and metric results.
-                </p>
-                <hr />
+                </Box>
+                <Separator size="4" my="4" />
               </div>
             </div>
 
@@ -178,11 +177,11 @@ const ImportedExperimentGuide = (): React.ReactElement => {
                 >
                   Define Fact Tables and Metrics
                 </Link>
-                <p className="mt-2">
+                <Box mt="2">
                   Define fact tables for the main events in your data warehouse
                   and build metrics based on those events.
-                </p>
-                <hr />
+                </Box>
+                <Separator size="4" my="4" />
               </div>
             </div>
 
@@ -213,7 +212,7 @@ const ImportedExperimentGuide = (): React.ReactElement => {
               </div>
               <div className="col">
                 <Link
-                  href="/experiments"
+                  href="/experiments?analyzeExisting=true"
                   style={{
                     fontSize: "17px",
                     fontWeight: 600,
@@ -233,10 +232,10 @@ const ImportedExperimentGuide = (): React.ReactElement => {
                   Import Your First Experiment{project && " in this Project"} &
                   View Results
                 </Link>
-                <p className="mt-2">
+                <Box mt="2">
                   Navigate to Experiments {">"} Add Experiment. In the popup,
                   select “Analyze an Existing Experiment”
-                </p>
+                </Box>
               </div>
             </div>
           </div>

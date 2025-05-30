@@ -1,6 +1,21 @@
 {
   "versions": [
     {
+      "version": "1.7.0",
+      "capabilities": ["savedGroupReferences"]
+    },
+    {
+      "version": "1.6.0",
+      "capabilities": ["prerequisites", "stickyBucketing"]
+    },
+    {
+      "version": "1.5.0",
+      "capabilities": ["semverTargeting"]
+    },
+    {
+      "version": "1.4.0"
+    },
+    {
       "version": "1.3.0"
     },
     {

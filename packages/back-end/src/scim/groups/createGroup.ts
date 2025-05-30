@@ -1,12 +1,12 @@
 import { Response } from "express";
 import { isRoleValid, getDefaultRole } from "shared/permissions";
-import { createTeam } from "../../models/TeamModel";
+import { createTeam } from "back-end/src/models/TeamModel";
 import {
   ScimError,
   ScimGroup,
   ScimGroupPostRequest,
-} from "../../../types/scim";
-import { addMembersToTeam } from "../../services/organizations";
+} from "back-end/types/scim";
+import { addMembersToTeam } from "back-end/src/services/organizations";
 
 export async function createGroup(
   req: ScimGroupPostRequest,

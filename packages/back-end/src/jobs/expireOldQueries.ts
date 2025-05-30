@@ -1,22 +1,25 @@
 import Agenda from "agenda";
-import { Queries } from "../../types/query";
+import { Queries } from "back-end/types/query";
 import {
   findRunningSnapshotsByQueryId,
   updateSnapshot,
-} from "../models/ExperimentSnapshotModel";
+} from "back-end/src/models/ExperimentSnapshotModel";
 import {
   findRunningMetricsByQueryId,
   updateMetricQueriesAndStatus,
-} from "../models/MetricModel";
+} from "back-end/src/models/MetricModel";
 import {
   findRunningPastExperimentsByQueryId,
   updatePastExperiments,
-} from "../models/PastExperimentsModel";
-import { getStaleQueries } from "../models/QueryModel";
-import { findReportsByQueryId, updateReport } from "../models/ReportModel";
-import { trackJob } from "../services/otel";
-import { getContextForAgendaJobByOrgId } from "../services/organizations";
-import { logger } from "../util/logger";
+} from "back-end/src/models/PastExperimentsModel";
+import { getStaleQueries } from "back-end/src/models/QueryModel";
+import {
+  findReportsByQueryId,
+  updateReport,
+} from "back-end/src/models/ReportModel";
+import { trackJob } from "back-end/src/services/tracing";
+import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { logger } from "back-end/src/util/logger";
 const JOB_NAME = "expireOldQueries";
 
 function updateQueryStatus(queries: Queries, ids: Set<string>) {
@@ -60,6 +63,7 @@ const expireOldQueries = trackJob(JOB_NAME, async () => {
   const reports = await findReportsByQueryId([...queryIds]);
   for (let i = 0; i < reports.length; i++) {
     const report = reports[i];
+    if (report.type !== "experiment") continue;
     logger.info("Updating status of report " + report.id);
     updateQueryStatus(report.queries, queryIds);
     await updateReport(report.organization, report.id, {

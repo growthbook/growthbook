@@ -1,5 +1,5 @@
 import { ExperimentMetricInterface } from "shared/experiments";
-import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
+import { ExperimentSnapshotSettings } from "back-end/types/experiment-snapshot";
 
 // mutates metric object itself!
 export function applyMetricOverrides(
@@ -19,6 +19,8 @@ export function applyMetricOverrides(
   metric.priorSettings.proper = computed.properPrior;
   metric.priorSettings.mean = computed.properPriorMean;
   metric.priorSettings.stddev = computed.properPriorStdDev;
+
+  metric.targetMDE = computed.targetMDE ?? undefined;
 
   // TODO: move this to the form validation when saving this settings
   if (metric.regressionAdjustmentDays < 0) {

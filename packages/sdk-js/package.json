@@ -1,6 +1,6 @@
 {
   "name": "@growthbook/growthbook",
-  "version": "1.1.0",
+  "version": "1.5.1",
   "license": "MIT",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.mjs",
@@ -16,6 +16,16 @@
       "require": {
         "types": "./dist/index.d.ts",
         "default": "./dist/cjs/index.js"
+      }
+    },
+    "./plugins": {
+      "import": {
+        "types": "./dist/plugins/index.d.ts",
+        "default": "./dist/esm/plugins/index.mjs"
+      },
+      "require": {
+        "types": "./dist/plugins/index.d.ts",
+        "default": "./dist/cjs/plugins/index.js"
       }
     }
   },
@@ -43,7 +53,8 @@
     "clean": "rimraf node_modules",
     "type-safe-tests": "node scripts/type-safe-tests.js",
     "type-check": "tsc --pretty --noEmit",
-    "size": "gzip-size ./dist/bundles/index.min.js --include-original"
+    "size": "gzip-size ./dist/bundles/index.min.js --include-original",
+    "bump-version": "node scripts/bump-version.js"
   },
   "author": "Jeremy Dorn",
   "dependencies": {
@@ -74,7 +85,7 @@
     "rollup": "^2.56.3",
     "rollup-plugin-terser": "^7.0.2",
     "ts-jest": "^27.0.5",
-    "typescript": "5.3.3"
+    "typescript": "5.6.3"
   },
   "browserslist": [
     "defaults",

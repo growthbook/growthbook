@@ -2,21 +2,23 @@ import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "back-end/types/experiment";
-import { IdeaInterface } from "back-end/types/idea";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { includeExperimentInPayload, isDefined } from "shared/util";
-import { useCallback, useEffect, useState } from "react";
-import { FaChartBar } from "react-icons/fa";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import clsx from "clsx";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useRouter } from "next/router";
 import { DifferenceType } from "back-end/types/stats";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
+import { FaChartBar } from "react-icons/fa";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import FeatureFromExperimentModal from "@/components/Features/FeatureModal/FeatureFromExperimentModal";
 import Modal from "@/components/Modal";
 import HistoryTable from "@/components/HistoryTable";
-import { openVisualEditor } from "@/components/OpenVisualEditorLink";
+import {
+  getBrowserDevice,
+  openVisualEditor,
+} from "@/components/OpenVisualEditorLink";
 import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -26,20 +28,22 @@ import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/Demo
 import { phaseSummary } from "@/services/utils";
 import EditStatusModal from "@/components/Experiment/EditStatusModal";
 import VisualChangesetModal from "@/components/Experiment/VisualChangesetModal";
-import EditExperimentNameForm from "@/components/Experiment/EditExperimentNameForm";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import { ResultsMetricFilters } from "@/components/Experiment/Results";
 import UrlRedirectModal from "@/components/Experiment/UrlRedirectModal";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
+import BanditSummaryResultsTab from "@/components/Experiment/TabbedPage/BanditSummaryResultsTab";
+import Button from "@/components/Radix/Button";
+import PremiumCallout from "@/components/Radix/PremiumCallout";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import ExperimentHeader from "./ExperimentHeader";
-import ProjectTagBar from "./ProjectTagBar";
 import SetupTabOverview from "./SetupTabOverview";
 import Implementation from "./Implementation";
 import ResultsTab from "./ResultsTab";
 import StoppedExperimentBanner from "./StoppedExperimentBanner";
 import HealthTab from "./HealthTab";
 
-const experimentTabs = ["overview", "results", "health"] as const;
+const experimentTabs = ["overview", "results", "explore", "health"] as const;
 export type ExperimentTab = typeof experimentTabs[number];
 
 export interface Props {
@@ -48,9 +52,8 @@ export interface Props {
   mutate: () => void;
   duplicate?: (() => void) | null;
   editTags?: (() => void) | null;
-  editProject?: (() => void) | null;
-  idea?: IdeaInterface;
   checklistItemsRemaining: number | null;
+  envs: string[];
   setChecklistItemsRemaining: (value: number | null) => void;
   editVariations?: (() => void) | null;
   visualChangesets: VisualChangesetInterface[];
@@ -68,11 +71,10 @@ export default function TabbedPage({
   linkedFeatures,
   mutate,
   duplicate,
-  editProject,
   editTags,
-  idea,
   editVariations,
   visualChangesets,
+  envs,
   urlRedirects,
   editPhases,
   editTargeting,
@@ -91,7 +93,6 @@ export default function TabbedPage({
 
   const { apiCall } = useAuth();
 
-  const [editNameOpen, setEditNameOpen] = useState(false);
   const [auditModal, setAuditModal] = useState(false);
   const [statusModal, setStatusModal] = useState(false);
   const [watchersModal, setWatchersModal] = useState(false);
@@ -127,6 +128,7 @@ export default function TabbedPage({
   }, [setTab]);
 
   const { phase, setPhase } = useSnapshot();
+  const { metricGroups } = useDefinitions();
 
   const variables = {
     experiment: experiment.name,
@@ -174,34 +176,48 @@ export default function TabbedPage({
     (connection) =>
       !visualChangesets.length || connection.includeVisualExperiments
   );
-  const verifiedConnections = matchingConnections.filter(
-    (connection) => connection.connected
-  );
 
-  const watcherIds = useApi<{
+  const { data, mutate: mutateWatchers } = useApi<{
     userIds: string[];
   }>(`/experiment/${experiment.id}/watchers`);
   const { users, organization } = useUser();
 
   // Get name or email of all active users watching this experiment
-  const usersWatching = (watcherIds?.data?.userIds || [])
+  const usersWatching = (data?.userIds || [])
     .map((id) => users.get(id))
     .filter(isDefined)
     .map((u) => u.name || u.email);
 
+  const { browser, deviceType } = useMemo(() => {
+    const ua = navigator.userAgent;
+    return getBrowserDevice(ua);
+  }, []);
+
   const safeToEdit = experiment.status !== "running" || !hasLiveLinkedChanges;
 
+  const isBandit = experiment.type === "multi-armed-bandit";
+  const trackSource = "tabbed-page";
+
+  const showMetricGroupPromo = (): boolean => {
+    if (metricGroups.length) return false;
+
+    // only show if there are atleast 2 metrics in any section
+    if (
+      experiment.goalMetrics.length > 2 ||
+      experiment.secondaryMetrics.length > 2 ||
+      experiment.guardrailMetrics.length > 2
+    ) {
+      return true;
+    }
+
+    return false;
+  };
+
   return (
-    <div>
-      {editNameOpen && (
-        <EditExperimentNameForm
-          experiment={experiment}
-          mutate={mutate}
-          cancel={() => setEditNameOpen(false)}
-        />
-      )}
+    <>
       {auditModal && (
         <Modal
+          trackingEventModalType=""
           open={true}
           header="Audit Log"
           close={() => setAuditModal(false)}
@@ -213,6 +229,7 @@ export default function TabbedPage({
       )}
       {watchersModal && (
         <Modal
+          trackingEventModalType=""
           open={true}
           header="Experiment Watchers"
           close={() => setWatchersModal(false)}
@@ -233,9 +250,15 @@ export default function TabbedPage({
           close={() => setVisualEditorModal(false)}
           onCreate={async (vc) => {
             // Try to immediately open the visual editor
-            await openVisualEditor(vc, apiCall);
+            await openVisualEditor({
+              vc,
+              apiCall,
+              browser,
+              deviceType,
+            });
           }}
           cta="Open Visual Editor"
+          source={trackSource}
         />
       )}
       {urlRedirectModal && (
@@ -244,7 +267,7 @@ export default function TabbedPage({
           experiment={experiment}
           mutate={mutate}
           close={() => setUrlRedirectModal(false)}
-          cta="Add Redirect"
+          source={trackSource}
         />
       )}
       {statusModal && (
@@ -252,6 +275,7 @@ export default function TabbedPage({
           experiment={experiment}
           close={() => setStatusModal(false)}
           mutate={mutate}
+          source={trackSource}
         />
       )}
       {featureModal && (
@@ -259,33 +283,38 @@ export default function TabbedPage({
           experiment={experiment}
           close={() => setFeatureModal(false)}
           mutate={mutate}
+          source={trackSource}
         />
       )}
-      {/* TODO: Update Experiment Header props to include redirest and pipe through to StartExperimentBanner */}
+      {/* TODO: Update Experiment Header props to include redirect and pipe through to StartExperimentBanner */}
+
       <ExperimentHeader
         experiment={experiment}
+        envs={envs}
         tab={tab}
         setTab={setTabAndScroll}
         mutate={mutate}
         safeToEdit={safeToEdit}
         setAuditModal={setAuditModal}
-        setEditNameOpen={setEditNameOpen}
         setStatusModal={setStatusModal}
         setWatchersModal={setWatchersModal}
         duplicate={duplicate}
         usersWatching={usersWatching}
+        mutateWatchers={mutateWatchers}
         editResult={editResult || undefined}
         editTargeting={editTargeting}
+        editTags={editTags}
         newPhase={newPhase}
         editPhases={editPhases}
         healthNotificationCount={healthNotificationCount}
         checklistItemsRemaining={checklistItemsRemaining}
-        verifiedConnections={verifiedConnections}
+        linkedFeatures={linkedFeatures}
       />
-      <div className="container pagecontents pb-4">
+
+      <div className="container-fluid pagecontents">
         {experiment.project ===
           getDemoDatasourceProjectIdForOrganization(organization.id) && (
-          <div className="alert alert-info mb-3 d-flex align-items-center mt-3">
+          <div className="alert alert-info d-flex align-items-center mb-0 mt-2">
             <div className="flex-1">
               This experiment is part of our sample dataset. You can safely
               delete this once you are done exploring.
@@ -298,9 +327,7 @@ export default function TabbedPage({
             </div>
           </div>
         )}
-        <div className="mt-3">
-          <CustomMarkdown page={"experiment"} variables={variables} />
-        </div>
+        <CustomMarkdown page={"experiment"} variables={variables} />
 
         {experiment.status === "stopped" && (
           <div className="pt-3">
@@ -312,120 +339,153 @@ export default function TabbedPage({
             />
           </div>
         )}
-        {viewingOldPhase && tab === "results" && (
-          <div className="alert alert-warning mt-3">
-            <div>
-              You are viewing the results of a previous experiment phase.{" "}
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setPhase(experiment.phases.length - 1);
-                }}
-              >
-                Switch to the latest phase
-              </a>
+        {viewingOldPhase &&
+          ((!isBandit && tab === "results") ||
+            (isBandit && tab === "explore")) && (
+            <div className="alert alert-warning mt-3">
+              <div>
+                You are viewing the results of a previous experiment phase.{" "}
+                <a
+                  role="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setPhase(experiment.phases.length - 1);
+                  }}
+                >
+                  Switch to the latest phase
+                </a>
+              </div>
+              <div className="mt-1">
+                <strong>Phase settings:</strong>{" "}
+                {phaseSummary(experiment?.phases?.[phase])}
+              </div>
             </div>
-            <div className="mt-1">
-              <strong>Phase settings:</strong>{" "}
-              {phaseSummary(experiment?.phases?.[phase])}
-            </div>
-          </div>
-        )}
+          )}
         <div
           className={clsx(
             "pt-3",
             tab === "overview" ? "d-block" : "d-none d-print-block"
           )}
         >
-          <ProjectTagBar
-            experiment={experiment}
-            editProject={!viewingOldPhase ? editProject : undefined}
-            editTags={!viewingOldPhase ? editTags : undefined}
-            idea={idea}
-          />
           <SetupTabOverview
             experiment={experiment}
             mutate={mutate}
-            safeToEdit={safeToEdit}
-            editVariations={!viewingOldPhase ? editVariations : undefined}
             disableEditing={viewingOldPhase}
             linkedFeatures={linkedFeatures}
             visualChangesets={visualChangesets}
             editTargeting={editTargeting}
-            verifiedConnections={verifiedConnections}
+            matchingConnections={matchingConnections}
             checklistItemsRemaining={checklistItemsRemaining}
             setChecklistItemsRemaining={setChecklistItemsRemaining}
+            envs={envs}
           />
           <Implementation
             experiment={experiment}
             mutate={mutate}
+            editVariations={editVariations}
             setFeatureModal={setFeatureModal}
             setVisualEditorModal={setVisualEditorModal}
             setUrlRedirectModal={setUrlRedirectModal}
             visualChangesets={visualChangesets}
             urlRedirects={urlRedirects}
-            editTargeting={!viewingOldPhase ? editTargeting : undefined}
+            editTargeting={editTargeting}
             linkedFeatures={linkedFeatures}
+            envs={envs}
           />
           {experiment.status !== "draft" && (
             <div className="mt-3 mb-2 text-center d-print-none">
-              <button
-                className="btn btn-lg btn-primary"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setTabAndScroll("results");
-                }}
+              <Button
+                onClick={() => setTabAndScroll("results")}
+                size="md"
+                icon={<FaChartBar />}
               >
-                <FaChartBar /> View Results
-              </button>
+                View Results
+              </Button>
             </div>
           )}
         </div>
-        <div className={tab === "results" ? "d-block" : "d-none d-print-block"}>
-          {/* TODO: Update ResultsTab props to include redirest and pipe through to StartExperimentBanner */}
-          <ResultsTab
-            experiment={experiment}
-            mutate={mutate}
-            editMetrics={editMetrics}
-            editPhases={editPhases}
-            editResult={editResult}
-            newPhase={newPhase}
-            connections={connections}
-            linkedFeatures={linkedFeatures}
-            setTab={setTabAndScroll}
-            visualChangesets={visualChangesets}
-            editTargeting={editTargeting}
-            isTabActive={tab === "results"}
-            safeToEdit={safeToEdit}
-            baselineRow={baselineRow}
-            setBaselineRow={setBaselineRow}
-            differenceType={differenceType}
-            setDifferenceType={setDifferenceType}
-            variationFilter={variationFilter}
-            setVariationFilter={setVariationFilter}
-            metricFilter={metricFilter}
-            setMetricFilter={setMetricFilter}
-          />
-        </div>
-        <div className={tab === "health" ? "d-block" : "d-none d-print-block"}>
-          <HealthTab
-            experiment={experiment}
-            onDrawerNotify={handleIncrementHealthNotifications}
-            onSnapshotUpdate={handleSnapshotChange}
-            resetResultsSettings={() => {
-              setBaselineRow(0);
-              setDifferenceType("relative");
-              setVariationFilter([]);
-            }}
-          />
-        </div>
+        {isBandit ? (
+          <div
+            className={
+              // todo: standardize explore & results tabs across experiment types
+              isBandit && tab === "results"
+                ? "container-fluid pagecontents d-block pt-0"
+                : "d-none d-print-block"
+            }
+          >
+            <BanditSummaryResultsTab
+              experiment={experiment}
+              mutate={mutate}
+              isTabActive={tab === "results"}
+            />
+          </div>
+        ) : null}
+      </div>
+      <div
+        className={
+          // todo: standardize explore & results tabs across experiment types
+          (!isBandit && tab === "results") || (isBandit && tab === "explore")
+            ? "container-fluid pagecontents d-block pt-0"
+            : "d-none d-print-block"
+        }
+      >
+        {showMetricGroupPromo() ? (
+          <PremiumCallout
+            commercialFeature="metric-groups"
+            dismissable={true}
+            id="metrics-list-metric-group-promo"
+            docSection="metricGroups"
+            mb="2"
+          >
+            <strong>Metric Groups</strong> help you organize and manage your
+            metrics at scale.
+          </PremiumCallout>
+        ) : null}
+        {/* TODO: Update ResultsTab props to include redirect and pipe through to StartExperimentBanner */}
+        <ResultsTab
+          experiment={experiment}
+          mutate={mutate}
+          editMetrics={editMetrics}
+          editPhases={editPhases}
+          editResult={editResult}
+          newPhase={newPhase}
+          connections={connections}
+          envs={envs}
+          setTab={setTabAndScroll}
+          visualChangesets={visualChangesets}
+          editTargeting={editTargeting}
+          isTabActive={tab === "results"}
+          safeToEdit={safeToEdit}
+          baselineRow={baselineRow}
+          setBaselineRow={setBaselineRow}
+          differenceType={differenceType}
+          setDifferenceType={setDifferenceType}
+          variationFilter={variationFilter}
+          setVariationFilter={setVariationFilter}
+          metricFilter={metricFilter}
+          setMetricFilter={setMetricFilter}
+        />
+      </div>
+      <div
+        className={
+          tab === "health"
+            ? "container-fluid pagecontents d-block pt-0"
+            : "d-none d-print-block"
+        }
+      >
+        <HealthTab
+          experiment={experiment}
+          onHealthNotify={handleIncrementHealthNotifications}
+          onSnapshotUpdate={handleSnapshotChange}
+          resetResultsSettings={() => {
+            setBaselineRow(0);
+            setDifferenceType("relative");
+            setVariationFilter([]);
+          }}
+        />
       </div>
 
-      <div
-        className="bg-white mt-4 px-4 border-top"
-        style={{ marginLeft: -8, marginRight: -8 }}
-      >
+      <div className="mt-4 px-4 border-top pb-3">
         <div className="pt-2 pt-4 pb-5 container pagecontents">
           <div className="h3 mb-4">Comments</div>
           <DiscussionThread
@@ -436,6 +496,6 @@ export default function TabbedPage({
           />
         </div>
       </div>
-    </div>
+    </>
   );
 }

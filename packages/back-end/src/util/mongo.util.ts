@@ -1,4 +1,3 @@
-import { omit } from "lodash";
 import type { Document } from "mongodb";
 import type { Document as MongooseDocument } from "mongoose";
 import mongoose from "mongoose";
@@ -147,9 +146,14 @@ export function removeMongooseFields<T>(
   if (doc.toJSON) {
     doc = doc.toJSON({ flattenMaps: true });
   }
-  return omit(doc, ["_id", "__v"]) as T;
+
+  // Copy the object and delete mongoose fields rather than using lodash.omit for perf reasons since this is called a lot
+  const result = { ...doc } as T & { _id?: string; __v?: unknown };
+  delete result._id;
+  delete result.__v;
+  return result;
 }
 
-export function getCollection(name: string) {
-  return mongoose.connection.db.collection(name);
+export function getCollection<T extends Document>(name: string) {
+  return mongoose.connection.db.collection<T>(name);
 }

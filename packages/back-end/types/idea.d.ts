@@ -20,6 +20,7 @@ export interface IdeaInterface {
   impactScore: number;
   experimentLength: number;
   estimateParams?: {
+    segment: string;
     estimate: string;
     improvement: number;
     numVariations: number;

@@ -67,6 +67,7 @@ export default function VercelIntegrationPage() {
     <>
       {integrationAlreadyExists ? (
         <Modal
+          trackingEventModalType=""
           open
           close={() => window.close()}
           cta="Continue"
@@ -94,6 +95,7 @@ export default function VercelIntegrationPage() {
             />
           ) : (
             <Modal
+              trackingEventModalType=""
               submit={async () => {
                 await apiCall("/vercel/env-vars", {
                   method: "POST",

@@ -1,23 +1,28 @@
 import type { Response } from "express";
 import { FilterQuery } from "mongoose";
-import { AuthRequest } from "../../types/AuthRequest";
-import { ApiErrorResponse } from "../../../types/api";
-import { getContextFromReq } from "../../services/organizations";
-import { getDataSourceById } from "../../models/DataSourceModel";
-import { getIdeasByQuery } from "../../services/ideas";
-import { IdeaDocument, IdeaModel } from "../../models/IdeasModel";
+import { z } from "zod";
+import { EventUserForResponseLocals } from "back-end/src/events/event-types";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { ApiErrorResponse } from "back-end/types/api";
+import { getContextFromReq } from "back-end/src/services/organizations";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { getIdeasByQuery } from "back-end/src/services/ideas";
+import { IdeaDocument, IdeaModel } from "back-end/src/models/IdeasModel";
 import {
   getMetricsUsingSegment,
   removeSegmentFromAllMetrics,
-} from "../../models/MetricModel";
+} from "back-end/src/models/MetricModel";
 import {
   deleteExperimentSegment,
   getExperimentsUsingSegment,
-} from "../../models/ExperimentModel";
-import { MetricInterface } from "../../../types/metric";
-import { SegmentInterface } from "../../../types/segment";
-import { ExperimentInterface } from "../../../types/experiment";
-import { EventUserForResponseLocals } from "../../events/event-types";
+} from "back-end/src/models/ExperimentModel";
+import { MetricInterface } from "back-end/types/metric";
+import { SegmentInterface } from "back-end/types/segment";
+import { ExperimentInterface } from "back-end/types/experiment";
+import {
+  createSegmentValidator,
+  updateSegmentValidator,
+} from "./segment.validators";
 
 // region GET /segments
 
@@ -108,14 +113,7 @@ export const getSegmentUsage = async (
 
 // region POST /segments
 
-type CreateSegmentRequest = AuthRequest<{
-  datasource: string;
-  userIdType: string;
-  owner: string;
-  name: string;
-  sql: string;
-  description: string;
-}>;
+type CreateSegmentRequest = AuthRequest<z.infer<typeof createSegmentValidator>>;
 
 type CreateSegmentResponse = {
   status: 200;
@@ -135,10 +133,21 @@ export const postSegment = async (
     EventUserForResponseLocals
   >
 ) => {
-  const { datasource, name, sql, userIdType, description, owner } = req.body;
+  const {
+    datasource,
+    name,
+    sql,
+    userIdType,
+    description,
+    owner,
+    factTableId,
+    filters,
+    type,
+    projects,
+  } = req.body;
 
   const context = getContextFromReq(req);
-  if (!context.permissions.canCreateSegment()) {
+  if (!context.permissions.canCreateSegment({ projects })) {
     context.permissions.throwPermissionError();
   }
 
@@ -147,14 +156,29 @@ export const postSegment = async (
     throw new Error("Invalid data source");
   }
 
-  const doc = await context.models.segments.create({
+  const baseSegment: Omit<
+    SegmentInterface,
+    "id" | "organization" | "dateCreated" | "dateUpdated"
+  > = {
     owner: owner || "",
     datasource,
     userIdType,
     name,
-    sql,
     description,
-  });
+    type,
+    projects,
+  };
+
+  if (type === "SQL") {
+    // if SQL type, set only sql field
+    baseSegment.sql = sql;
+  } else {
+    // if FACT type, only set factTableId and filters
+    baseSegment.factTableId = factTableId;
+    baseSegment.filters = filters;
+  }
+
+  const doc = await context.models.segments.create(baseSegment);
 
   res.status(200).json({
     status: 200,
@@ -167,14 +191,7 @@ export const postSegment = async (
 // region PUT /segments/:id
 
 type PutSegmentRequest = AuthRequest<
-  {
-    datasource: string;
-    userIdType: string;
-    name: string;
-    sql: string;
-    owner: string;
-    description: string;
-  },
+  z.infer<typeof updateSegmentValidator>,
   { id: string }
 >;
 
@@ -197,9 +214,6 @@ export const putSegment = async (
 ) => {
   const { id } = req.params;
   const context = getContextFromReq(req);
-  if (!context.permissions.canUpdateSegment()) {
-    context.permissions.throwPermissionError();
-  }
   const { org } = context;
 
   const segment = await context.models.segments.getById(id);
@@ -211,7 +225,22 @@ export const putSegment = async (
     throw new Error("You don't have access to that segment");
   }
 
-  const { datasource, name, sql, userIdType, owner, description } = req.body;
+  const {
+    datasource,
+    name,
+    sql,
+    userIdType,
+    description,
+    owner,
+    factTableId,
+    filters,
+    type,
+    projects,
+  } = req.body;
+
+  if (!context.permissions.canUpdateSegment(segment, { projects })) {
+    context.permissions.throwPermissionError();
+  }
 
   const datasourceDoc = await getDataSourceById(context, datasource);
   if (!datasourceDoc) {
@@ -219,12 +248,16 @@ export const putSegment = async (
   }
 
   await context.models.segments.updateById(id, {
+    owner: owner,
     datasource,
     userIdType,
     name,
-    owner,
     sql,
     description,
+    type,
+    factTableId,
+    filters,
+    projects,
   });
 
   res.status(200).json({
@@ -255,15 +288,14 @@ export const deleteSegment = async (
   const { id } = req.params;
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canDeleteSegment()) {
-    context.permissions.throwPermissionError();
-  }
-
   const { org } = context;
   const segment = await context.models.segments.getById(id);
 
   if (!segment) {
     throw new Error("Could not find segment");
+  }
+  if (!context.permissions.canDeleteSegment(segment)) {
+    context.permissions.throwPermissionError();
   }
 
   await context.models.segments.delete(segment);

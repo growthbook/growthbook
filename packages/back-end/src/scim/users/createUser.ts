@@ -5,13 +5,13 @@ import {
   addMemberToOrg,
   convertMemberToManagedByIdp,
   expandOrgMembers,
-} from "../../services/organizations";
-import { OrganizationInterface } from "../../../types/organization";
-import { ScimError, ScimUser, ScimUserPostRequest } from "../../../types/scim";
+} from "back-end/src/services/organizations";
+import { OrganizationInterface } from "back-end/types/organization";
+import { ScimError, ScimUser, ScimUserPostRequest } from "back-end/types/scim";
 import {
   createUser as createNewUser,
   getUserByEmail,
-} from "../../models/UserModel";
+} from "back-end/src/models/UserModel";
 
 export async function createUser(
   req: ScimUserPostRequest,

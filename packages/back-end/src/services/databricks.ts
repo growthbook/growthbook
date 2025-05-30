@@ -1,8 +1,8 @@
 import { DBSQLClient } from "@databricks/sql";
-import { DatabricksConnectionParams } from "../../types/integrations/databricks";
-import { logger } from "../util/logger";
-import { ENVIRONMENT } from "../util/secrets";
-import { QueryResponse } from "../types/Integration";
+import { DatabricksConnectionParams } from "back-end/types/integrations/databricks";
+import { logger } from "back-end/src/util/logger";
+import { ENVIRONMENT } from "back-end/src/util/secrets";
+import { QueryResponse } from "back-end/src/types/Integration";
 
 export async function runDatabricksQuery<T>(
   conn: DatabricksConnectionParams,

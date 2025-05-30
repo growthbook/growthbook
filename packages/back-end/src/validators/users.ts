@@ -15,3 +15,17 @@ export const userInterface = z
   .strict();
 
 export type UserInterface = z.infer<typeof userInterface>;
+
+export const userLoginInterface = z
+  .object({
+    email: z.string(),
+    id: z.string(),
+    name: z.string(),
+    ip: z.string(),
+    userAgent: z.string(),
+    os: z.string(),
+    device: z.string(),
+  })
+  .strict();
+
+export type UserLoginInterface = z.infer<typeof userLoginInterface>;

@@ -1,11 +1,12 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import { TeamInterface } from "../../types/team";
+import { TeamInterface } from "back-end/types/team";
 import {
   ToInterface,
   getCollection,
   removeMongooseFields,
-} from "../util/mongo.util";
+} from "back-end/src/util/mongo.util";
+import { IS_CLOUD } from "back-end/src/util/secrets";
 
 const teamSchema = new mongoose.Schema({
   id: {
@@ -118,4 +119,14 @@ export async function deleteTeam(id: string, orgId: string): Promise<void> {
     id,
     organization: orgId,
   });
+}
+
+export async function getAllTeamRoleInfoInDb() {
+  if (IS_CLOUD) {
+    throw new Error("getAllTeamRoleInfoInDb() is not supported on cloud");
+  }
+
+  const docs = await getCollection(COLLECTION).find().toArray();
+
+  return docs.map((d) => toInterface(d));
 }

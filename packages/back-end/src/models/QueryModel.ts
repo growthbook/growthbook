@@ -1,9 +1,12 @@
 import mongoose from "mongoose";
 import { omit } from "lodash";
 import uniqid from "uniqid";
-import { QueryInterface, QueryType } from "../../types/query";
-import { QUERY_CACHE_TTL_MINS } from "../util/secrets";
-import { QueryLanguage } from "../../types/datasource";
+import { QueryInterface, QueryType } from "back-end/types/query";
+import { QUERY_CACHE_TTL_MINS } from "back-end/src/util/secrets";
+import { QueryLanguage } from "back-end/types/datasource";
+import { ApiQuery } from "back-end/types/openapi";
+import type { ReqContext } from "back-end/types/organization";
+import type { ApiReqContext } from "back-end/types/api";
 
 export const queriesSchema = [
   {
@@ -62,6 +65,17 @@ export async function getQueriesByIds(organization: string, ids: string[]) {
   return docs.map((doc) => toInterface(doc));
 }
 
+export async function getQueryById(
+  context: ReqContext | ApiReqContext,
+  id: string
+) {
+  const doc = await QueryModel.findOne({
+    organization: context.org.id,
+    id: id,
+  });
+  return doc ? toInterface(doc) : null;
+}
+
 export async function getQueriesByDatasource(
   organization: string,
   datasource: string,
@@ -73,6 +87,17 @@ export async function getQueriesByDatasource(
       createdAt: -1,
     });
   return docs.map((doc) => toInterface(doc));
+}
+
+export async function countRunningQueries(
+  organization: string,
+  datasource: string
+) {
+  return await QueryModel.find({
+    organization,
+    datasource,
+    status: "running",
+  }).count();
 }
 
 export async function updateQuery(
@@ -219,4 +244,21 @@ export async function createNewQueryFromCached({
   };
   const doc = await QueryModel.create(data);
   return toInterface(doc);
+}
+
+export function toQueryApiInterface(query: QueryInterface): ApiQuery {
+  return {
+    id: query.id,
+    organization: query.organization,
+    datasource: query.datasource,
+    language: query.language,
+    query: query.query,
+    queryType: query.queryType || "",
+    createdAt: query.createdAt?.toISOString() || "",
+    startedAt: query.startedAt?.toISOString() || "",
+    status: query.status,
+    externalId: query.externalId ? query.externalId : "",
+    dependencies: query.dependencies ? query.dependencies : [],
+    runAtEnd: query.runAtEnd ? query.runAtEnd : false,
+  };
 }

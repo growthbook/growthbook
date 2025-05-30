@@ -1,24 +1,24 @@
 import { z } from "zod";
 import { validateFeatureValue } from "shared/util";
-import { orgHasPremiumFeature } from "enterprise";
-import { PostFeatureResponse } from "../../../types/openapi";
-import { createApiRequestHandler } from "../../util/handler";
-import { postFeatureValidator } from "../../validators/openapi";
-import { createFeature, getFeature } from "../../models/FeatureModel";
-import { getExperimentMapForFeature } from "../../models/ExperimentModel";
-import { FeatureInterface, JSONSchemaDef } from "../../../types/feature";
-import { getEnabledEnvironments } from "../../util/features";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { PostFeatureResponse } from "back-end/types/openapi";
+import { createApiRequestHandler } from "back-end/src/util/handler";
+import { postFeatureValidator } from "back-end/src/validators/openapi";
+import { createFeature, getFeature } from "back-end/src/models/FeatureModel";
+import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
+import { FeatureInterface, JSONSchemaDef } from "back-end/types/feature";
+import { getEnabledEnvironments } from "back-end/src/util/features";
 import {
   addIdsToRules,
   createInterfaceEnvSettingsFromApiEnvSettings,
   getApiFeatureObj,
   getSavedGroupMap,
-} from "../../services/features";
-import { auditDetailsCreate } from "../../services/audit";
-import { OrganizationInterface } from "../../../types/organization";
-import { getEnvironments } from "../../services/organizations";
-import { getRevision } from "../../models/FeatureRevisionModel";
-import { addTags } from "../../models/TagModel";
+} from "back-end/src/services/features";
+import { auditDetailsCreate } from "back-end/src/services/audit";
+import { OrganizationInterface } from "back-end/types/organization";
+import { getEnvironments } from "back-end/src/services/organizations";
+import { getRevision } from "back-end/src/models/FeatureRevisionModel";
+import { addTags } from "back-end/src/models/TagModel";
 
 export type ApiFeatureEnvSettings = NonNullable<
   z.infer<typeof postFeatureValidator.bodySchema>["environments"]
@@ -77,6 +77,12 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
       throw new Error(`Feature id '${req.body.id}' already exists.`);
     }
 
+    if (!req.body.id.match(/^[a-zA-Z0-9_.:|-]+$/)) {
+      throw new Error(
+        "Feature keys can only include letters, numbers, hyphens, and underscores."
+      );
+    }
+
     const orgEnvs = getEnvironments(req.context.org);
 
     // ensure environment keys are valid
@@ -84,6 +90,23 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
       orgEnvs.map((e) => e.id),
       Object.keys(req.body.environments ?? {})
     );
+
+    if (
+      req.context.org.settings?.requireProjectForFeatures &&
+      !req.body.project
+    ) {
+      throw new Error("Must specify a project for new features");
+    }
+
+    // Validate projects - We can remove this validation when FeatureModel is migrated to BaseModel
+    if (req.body.project) {
+      const projects = await req.context.getProjects();
+      if (!projects.some((p) => p.id === req.body.project)) {
+        throw new Error(
+          `Project id ${req.body.project} is not a valid project.`
+        );
+      }
+    }
 
     const tags = req.body.tags || [];
 
@@ -104,6 +127,10 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
       archived: !!req.body.archived,
       version: 1,
       environmentSettings: {},
+      prerequisites: (req.body?.prerequisites || []).map((p) => ({
+        id: p,
+        condition: `{"value": true}`,
+      })),
       tags,
     };
 
@@ -158,11 +185,13 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
       req.context,
       feature.id
     );
-    const revision = await getRevision(
-      feature.organization,
-      feature.id,
-      feature.version
-    );
+    const safeRolloutMap = await req.context.models.safeRollout.getAllPayloadSafeRollouts();
+    const revision = await getRevision({
+      context: req.context,
+      organization: feature.organization,
+      featureId: feature.id,
+      version: feature.version,
+    });
 
     return {
       feature: getApiFeatureObj({
@@ -171,6 +200,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
         groupMap,
         experimentMap,
         revision,
+        safeRolloutMap,
       }),
     };
   }

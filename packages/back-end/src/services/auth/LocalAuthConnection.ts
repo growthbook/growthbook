@@ -1,20 +1,20 @@
 import { NextFunction, Request, Response } from "express";
 import jwtExpress from "express-jwt";
 import jwt from "jsonwebtoken";
-import { JWT_SECRET } from "../../util/secrets";
-import { UserInterface } from "../../../types/user";
+import { JWT_SECRET } from "back-end/src/util/secrets";
+import { UserInterface } from "back-end/types/user";
 import {
   AuthRefreshModel,
   createRefreshToken,
   getUserIdFromAuthRefreshToken,
-} from "../../models/AuthRefreshModel";
-import { RefreshTokenCookie } from "../../util/cookie";
-import { UnauthenticatedResponse } from "../../../types/sso-connection";
+} from "back-end/src/models/AuthRefreshModel";
+import { RefreshTokenCookie } from "back-end/src/util/cookie";
+import { UnauthenticatedResponse } from "back-end/types/sso-connection";
 import {
-  getAuditableUserPropertiesFromRequest,
+  getUserLoginPropertiesFromRequest,
   trackLoginForUser,
-} from "../users";
-import { getUserById } from "../../models/UserModel";
+} from "back-end/src/services/users";
+import { getUserById } from "back-end/src/models/UserModel";
 import { AuthConnection, TokensResponse } from "./AuthConnection";
 import { isNewInstallation } from ".";
 
@@ -64,7 +64,7 @@ export class LocalAuthConnection implements AuthConnection {
 
     const email = user?.email;
     if (email) {
-      const trackingProperties = getAuditableUserPropertiesFromRequest(req);
+      const trackingProperties = getUserLoginPropertiesFromRequest(req);
       trackLoginForUser({
         ...trackingProperties,
         email,

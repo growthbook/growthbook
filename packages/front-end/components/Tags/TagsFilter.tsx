@@ -80,7 +80,8 @@ export default function TagsFilter({
   if (!open && !tags.length) {
     return (
       <a
-        href="#"
+        role="button"
+        className="link-purple"
         onClick={(e) => {
           e.preventDefault();
           setOpen(true);

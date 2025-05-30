@@ -4,11 +4,16 @@ export const factTableColumnTypeValidator = z.enum([
   "string",
   "date",
   "boolean",
+  "json",
   "other",
   "",
 ]);
 
 export const numberFormatValidator = z.enum(["", "currency", "time:seconds"]);
+
+export const jsonColumnFieldsValidator = z.record(
+  z.object({ datatype: factTableColumnTypeValidator })
+);
 
 export const createColumnPropsValidator = z
   .object({
@@ -17,16 +22,22 @@ export const createColumnPropsValidator = z
     description: z.string(),
     numberFormat: numberFormatValidator,
     datatype: factTableColumnTypeValidator,
+    jsonFields: jsonColumnFieldsValidator.optional(),
     deleted: z.boolean().optional(),
+    alwaysInlineFilter: z.boolean().optional(),
+    topValues: z.array(z.string()).optional(),
   })
   .strict();
 
 export const updateColumnPropsValidator = z
   .object({
-    name: z.string(),
-    description: z.string(),
-    numberFormat: numberFormatValidator,
-    datatype: factTableColumnTypeValidator,
+    name: z.string().optional(),
+    description: z.string().optional(),
+    numberFormat: numberFormatValidator.optional(),
+    datatype: factTableColumnTypeValidator.optional(),
+    jsonFields: jsonColumnFieldsValidator.optional(),
+    alwaysInlineFilter: z.boolean().optional(),
+    topValues: z.array(z.string()).optional(),
     deleted: z.boolean().optional(),
   })
   .strict();
@@ -61,19 +72,35 @@ export const updateFactTablePropsValidator = z
     columns: z.array(createColumnPropsValidator).optional(),
     managedBy: z.enum(["", "api"]).optional(),
     columnsError: z.string().nullable().optional(),
+    archived: z.boolean().optional(),
   })
   .strict();
+
+export const columnAggregationValidator = z.enum([
+  "sum",
+  "max",
+  "count distinct",
+]);
 
 export const columnRefValidator = z
   .object({
     factTableId: z.string(),
     column: z.string(),
+    aggregation: columnAggregationValidator.optional(),
+    inlineFilters: z.record(z.string().array()).optional(),
     filters: z.array(z.string()),
+    aggregateFilter: z.string().optional(),
+    aggregateFilterColumn: z.string().optional(),
   })
   .strict();
 
 export const cappingTypeValidator = z.enum(["absolute", "percentile", ""]);
-export const conversionWindowUnitValidator = z.enum(["weeks", "days", "hours"]);
+export const conversionWindowUnitValidator = z.enum([
+  "weeks",
+  "days",
+  "hours",
+  "minutes",
+]);
 export const windowTypeValidator = z.enum(["conversion", "lookback", ""]);
 
 export const cappingSettingsValidator = z
@@ -84,9 +111,19 @@ export const cappingSettingsValidator = z
   })
   .strict();
 
+export const legacyWindowSettingsValidator = z.object({
+  type: windowTypeValidator.optional(),
+  delayHours: z.coerce.number().optional(),
+  delayValue: z.coerce.number().optional(),
+  delayUnit: conversionWindowUnitValidator.optional(),
+  windowValue: z.number().optional(),
+  windowUnit: conversionWindowUnitValidator.optional(),
+});
+
 export const windowSettingsValidator = z.object({
   type: windowTypeValidator,
-  delayHours: z.coerce.number(),
+  delayValue: z.coerce.number(),
+  delayUnit: conversionWindowUnitValidator,
   windowValue: z.number(),
   windowUnit: conversionWindowUnitValidator,
 });
@@ -108,6 +145,7 @@ export const metricTypeValidator = z.enum([
   "ratio",
   "mean",
   "proportion",
+  "retention",
   "quantile",
 ]);
 
@@ -125,6 +163,7 @@ export const factMetricValidator = z
     tags: z.array(z.string()).default([]),
     projects: z.array(z.string()),
     inverse: z.boolean(),
+    archived: z.boolean().optional(),
 
     metricType: metricTypeValidator,
     numerator: columnRefValidator,
@@ -137,6 +176,9 @@ export const factMetricValidator = z
     maxPercentChange: z.number(),
     minPercentChange: z.number(),
     minSampleSize: z.number(),
+    targetMDE: z.number(),
+    displayAsPercentage: z.boolean().optional(),
+
     winRisk: z.number(),
     loseRisk: z.number(),
 

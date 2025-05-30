@@ -1,0 +1,25 @@
+type: object
+required:
+  - property
+  - datatype
+properties:
+  property:
+    type: string
+  datatype:
+    type: string
+    enum: ["boolean", "string", "number", "secureString", "enum", "string[]", "number[]", "secureString[]"]
+  description:
+    type: string
+  hashAttribute:
+    type: boolean
+  archived:
+    type: boolean
+  enum:
+    type: string
+  format:
+    type: string
+    enum: ["", "version", "date", "isoCountryCode"]
+  projects:
+    type: array
+    items:
+      type: string

@@ -7,13 +7,14 @@ import {
   FaCheck,
   FaSquare,
 } from "react-icons/fa";
-import clsx from "clsx";
 import { getValidDate } from "shared/dates";
 import { isFactMetricId } from "shared/experiments";
 import { FaBoltLightning } from "react-icons/fa6";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import Callout from "@/components/Radix/Callout";
+import HelperText from "@/components/Radix/HelperText";
 import QueryStatsRow from "./QueryStatsRow";
 
 const ExpandableQuery: FC<{
@@ -90,16 +91,18 @@ const ExpandableQuery: FC<{
         <>
           {query.rawResult?.[0] ? (
             <div style={{ maxHeight: 300, overflowY: "auto" }}>
-              <table className="table table-bordered table-sm">
+              <table className="table table-bordered table-sm query-table">
                 <thead>
                   <tr
-                    style={{ position: "sticky", top: 0 }}
-                    className="bg-light"
+                    style={{
+                      position: "sticky",
+                      top: -1,
+                    }}
                   >
                     <th></th>
-                    {Object.keys(query.rawResult[0]).map((k) => {
-                      return <th key={k}>{k}</th>;
-                    })}
+                    {Object.keys(query.rawResult[0]).map((k) => (
+                      <th key={k}>{k}</th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
@@ -141,9 +144,9 @@ const ExpandableQuery: FC<{
               </table>
             </div>
           ) : (
-            <div className={clsx("alert alert-info mb-1")}>
-              <em>No rows returned</em>
-            </div>
+            <Callout status="warning" my="3">
+              No rows returned
+            </Callout>
           )}
         </>
       )}
@@ -162,38 +165,41 @@ const ExpandableQuery: FC<{
                   )}
                 </strong>
               </div>
+              <div className="col-auto mb-2">
+                <em>Time queued</em>:{" "}
+                <strong>
+                  {formatDistanceStrict(
+                    getValidDate(query.createdAt),
+                    getValidDate(query.startedAt)
+                  )}
+                </strong>
+              </div>
             </div>
           )}
         </div>
       )}
       {query.status === "running" && (
         <>
-          <div className="alert alert-info">
-            <em>
-              Running for{" "}
-              {formatDistanceStrict(getValidDate(query.startedAt), new Date())}
-            </em>
-            {query.dependencies?.length && !query.cachedQueryUsed ? (
-              <div>
-                <em>
-                  Was queued for{" "}
-                  {formatDistanceStrict(
-                    getValidDate(query.createdAt),
-                    getValidDate(query.startedAt)
-                  )}
-                </em>
-              </div>
-            ) : null}
-          </div>
+          <HelperText status="info" mb="2">
+            Running for{" "}
+            {formatDistanceStrict(getValidDate(query.startedAt), new Date())}
+          </HelperText>
+          {query.dependencies?.length && !query.cachedQueryUsed ? (
+            <HelperText status="info" mb="2">
+              Was queued for{" "}
+              {formatDistanceStrict(
+                getValidDate(query.createdAt),
+                getValidDate(query.startedAt)
+              )}
+            </HelperText>
+          ) : null}
         </>
       )}
-      {query.status === "queued" && (
-        <div className="alert alert-secondary">
-          <em>
-            Queued for{" "}
-            {formatDistanceStrict(getValidDate(query.createdAt), new Date())}
-          </em>
-        </div>
+      {query.status == "queued" && (
+        <HelperText status="info" mb="3">
+          Queued for{" "}
+          {formatDistanceStrict(getValidDate(query.createdAt), new Date())}
+        </HelperText>
       )}
     </div>
   );

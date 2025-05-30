@@ -8,19 +8,21 @@ import {
   BsLightbulb,
   BsCodeSlash,
 } from "react-icons/bs";
-import { FaArrowRight } from "react-icons/fa";
+import { useGrowthBook } from "@growthbook/growthbook-react";
+import { Flex } from "@radix-ui/themes";
 import { getGrowthBookBuild } from "@/services/env";
 import { useUser } from "@/services/UserContext";
-import useStripeSubscription from "@/hooks/useStripeSubscription";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import {
+  GBBandit,
   GBDatabase,
   GBExperiment,
-  GBPremiumBadge,
   GBSettings,
 } from "@/components/Icons";
 import { inferDocUrl } from "@/components/DocLink";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
+import { AppFeatures } from "@/types/app-features";
+import { WhiteButton } from "@/components/Radix/Button";
 import ProjectSelector from "./ProjectSelector";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
 import TopNav from "./TopNav";
@@ -39,7 +41,7 @@ const navlinks: SidebarLinkProps[] = [
     name: "Features",
     href: "/features",
     Icon: BsFlag,
-    path: /^features/,
+    path: /^(features)/,
   },
   {
     name: "Experiments",
@@ -48,22 +50,28 @@ const navlinks: SidebarLinkProps[] = [
     Icon: GBExperiment,
   },
   {
+    name: "Bandits",
+    href: "/bandits",
+    Icon: GBBandit,
+    path: /^bandit/,
+    filter: ({ gb }) => !!gb?.isOn("bandits"),
+  },
+  {
     name: "Metrics and Data",
     href: "/metrics",
-    path: /^(metric|segment|dimension|datasources|fact-)/,
+    path: /^(metric|segment|dimension|datasources|fact-|metric-group)/,
     autoClose: true,
     Icon: GBDatabase,
     subLinks: [
       {
         name: "Metrics",
         href: "/metrics",
-        path: /^(metric|fact-metric)/,
+        path: /^(metric$|metrics|fact-metric|metric-group)/,
       },
       {
         name: "Fact Tables",
         href: "/fact-tables",
         path: /^fact-tables/,
-        beta: true,
       },
       {
         name: "Segments",
@@ -109,7 +117,7 @@ const navlinks: SidebarLinkProps[] = [
   {
     name: "SDK Configuration",
     href: "/sdks",
-    path: /^(attributes|namespaces|environments|saved-groups|sdks)/,
+    path: /^(attributes|namespaces|environments|saved-groups|sdks|archetypes)/,
     autoClose: true,
     Icon: BsCodeSlash,
     subLinks: [
@@ -137,6 +145,11 @@ const navlinks: SidebarLinkProps[] = [
         name: "Saved Groups",
         href: "/saved-groups",
         path: /^saved-groups/,
+      },
+      {
+        name: "Archetypes",
+        href: "/archetypes",
+        path: /^archetypes/,
       },
     ],
   },
@@ -174,6 +187,11 @@ const navlinks: SidebarLinkProps[] = [
         path: /^project/,
         filter: ({ permissionsUtils }) =>
           permissionsUtils.canManageSomeProjects(),
+      },
+      {
+        name: "Custom Fields",
+        href: "/settings/customfields",
+        path: /^settings\/customfields/,
       },
       {
         name: "API Keys",
@@ -226,6 +244,15 @@ const navlinks: SidebarLinkProps[] = [
           !!gb?.isOn("import-from-x"),
       },
       {
+        name: "Usage",
+        href: "/settings/usage",
+        path: /^settings\/usage/,
+        filter: ({ permissionsUtils, isCloud, gb }) =>
+          permissionsUtils.canViewUsage() &&
+          isCloud &&
+          !!gb?.isOn("cdn-usage-data"),
+      },
+      {
         name: "Billing",
         href: "/settings/billing",
         path: /^settings\/billing/,
@@ -259,6 +286,14 @@ const otherPageTitles = [
   {
     path: /^activity/,
     title: "Activity Feed",
+  },
+  {
+    path: /^reports/,
+    title: "My Reports",
+  },
+  {
+    path: /^account\/personal-access-tokens/,
+    title: "Personal Access Tokens",
   },
   {
     path: /^integrations\/vercel/,
@@ -297,17 +332,20 @@ const backgroundShade = (color: string) => {
 const Layout = (): React.ReactElement => {
   const [open, setOpen] = useState(false);
   const settings = useOrgSettings();
-  const { accountPlan, license } = useUser();
-  const { hasPaymentMethod } = useStripeSubscription();
+  const { accountPlan, license, subscription } = useUser();
+  const growthbook = useGrowthBook<AppFeatures>();
+
+  // holdout aa-test, dogfooding
+  growthbook?.isOn("aa-test-holdout");
 
   const { breadcrumb } = usePageHead();
 
   const [upgradeModal, setUpgradeModal] = useState(false);
   const showUpgradeButton =
     ["oss", "starter"].includes(accountPlan || "") ||
-    (license?.isTrial && !hasPaymentMethod) ||
+    (license?.isTrial && !subscription?.hasPaymentMethod) ||
     (["pro", "pro_sso"].includes(accountPlan || "") &&
-      license?.stripeSubscription?.status === "canceled");
+      subscription?.status === "canceled");
 
   // hacky:
   const router = useRouter();
@@ -366,8 +404,8 @@ const Layout = (): React.ReactElement => {
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
-          reason=""
           source="layout"
+          commercialFeature={null}
         />
       )}
       {settings?.customized && (
@@ -457,26 +495,16 @@ const Layout = (): React.ReactElement => {
           </div>
         </div>
         <div style={{ flex: 1 }} />
-        <div className="p-3">
+        <Flex p="3" direction="column" gap="4">
           {showUpgradeButton && (
-            <button
-              className="btn btn-premium btn-block font-weight-normal"
-              onClick={() => setUpgradeModal(true)}
-            >
-              <>
-                Upgrade <GBPremiumBadge />
-              </>
-            </button>
+            <WhiteButton onClick={() => setUpgradeModal(true)}>
+              <>Upgrade</>
+            </WhiteButton>
           )}
-          <a
-            href={inferDocUrl()}
-            className="btn btn-outline-light btn-block"
-            target="_blank"
-            rel="noreferrer"
-          >
-            View Docs <FaArrowRight className="ml-2" />
+          <a href={inferDocUrl()} target="_blank" rel="noreferrer">
+            <WhiteButton variant="outline">View docs</WhiteButton>
           </a>
-        </div>
+        </Flex>
         {build.sha && (
           <div className="px-3 my-1 text-center">
             <small>
@@ -487,7 +515,7 @@ const Layout = (): React.ReactElement => {
                 rel="noreferrer"
                 className="text-white"
               >
-                {build.sha.substr(0, 7)}
+                {build.lastVersion}+{build.sha.substr(0, 7)}
               </a>{" "}
               {build.date && (
                 <span className="text-muted">({build.date.substr(0, 10)})</span>

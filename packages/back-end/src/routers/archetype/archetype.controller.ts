@@ -1,33 +1,36 @@
 import type { Response } from "express";
-import { orgHasPremiumFeature } from "enterprise";
 import { filterEnvironmentsByFeature } from "shared/util";
-import { AuthRequest } from "../../types/AuthRequest";
-import { ApiErrorResponse, PrivateApiErrorResponse } from "../../../types/api";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { ApiErrorResponse, PrivateApiErrorResponse } from "back-end/types/api";
 import {
   getEnvironments,
   getContextFromReq,
-} from "../../services/organizations";
+} from "back-end/src/services/organizations";
 import {
   ArchetypeAttributeValues,
   ArchetypeInterface,
-} from "../../../types/archetype";
+} from "back-end/types/archetype";
 import {
   createArchetype,
   deleteArchetypeById,
   getAllArchetypes,
   getArchetypeById,
   updateArchetypeById,
-} from "../../models/ArchetypeModel";
+} from "back-end/src/models/ArchetypeModel";
 import {
   auditDetailsCreate,
   auditDetailsDelete,
   auditDetailsUpdate,
-} from "../../services/audit";
-import { FeatureTestResult } from "../../../types/feature";
-import { evaluateFeature, getSavedGroupMap } from "../../services/features";
-import { getFeature } from "../../models/FeatureModel";
-import { getAllPayloadExperiments } from "../../models/ExperimentModel";
-import { getRevision } from "../../models/FeatureRevisionModel";
+} from "back-end/src/services/audit";
+import { FeatureTestResult } from "back-end/types/feature";
+import {
+  evaluateFeature,
+  getSavedGroupMap,
+} from "back-end/src/services/features";
+import { getFeature } from "back-end/src/models/FeatureModel";
+import { getAllPayloadExperiments } from "back-end/src/models/ExperimentModel";
+import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 
 type GetArchetypeResponse = {
   status: 200;
@@ -63,6 +66,7 @@ export const getArchetypeAndEval = async (
     {
       scrubPrerequisites?: string;
       skipRulesWithPrerequisites?: string;
+      project?: string;
     }
   >,
   res: Response<GetArchetypeAndEvalResponse | PrivateApiErrorResponse>
@@ -73,6 +77,7 @@ export const getArchetypeAndEval = async (
   const {
     scrubPrerequisites: scrubPrerequisitesStr,
     skipRulesWithPrerequisites: skipRulesWithPrerequisitesStr,
+    project,
   } = req.query;
   const feature = await getFeature(context, id);
 
@@ -96,12 +101,17 @@ export const getArchetypeAndEval = async (
     throw new Error("Feature not found");
   }
 
-  const revision = await getRevision(org.id, feature.id, parseInt(version));
+  const revision = await getRevision({
+    context: context,
+    organization: org.id,
+    featureId: feature.id,
+    version: parseInt(version),
+  });
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
 
-  const archetype = await getAllArchetypes(org.id, userId);
+  const archetype = await getAllArchetypes(org.id, userId, project);
   const featureResults: { [key: string]: FeatureTestResult[] } = {};
 
   if (archetype.length) {
@@ -109,12 +119,13 @@ export const getArchetypeAndEval = async (
     const experimentMap = await getAllPayloadExperiments(context);
     const allEnvironments = getEnvironments(org);
     const environments = filterEnvironmentsByFeature(allEnvironments, feature);
+    const safeRolloutMap = await context.models.safeRollout.getAllPayloadSafeRollouts();
 
     archetype.forEach((arch) => {
       try {
-        const attributes = JSON.parse(
-          arch.attributes
-        ) as ArchetypeAttributeValues;
+        const attributes = arch.attributes
+          ? (JSON.parse(arch.attributes) as ArchetypeAttributeValues)
+          : ({} as ArchetypeAttributeValues);
         const result = evaluateFeature({
           feature,
           attributes,
@@ -124,6 +135,7 @@ export const getArchetypeAndEval = async (
           revision,
           scrubPrerequisites,
           skipRulesWithPrerequisites,
+          safeRolloutMap,
         });
 
         if (!result) return;
@@ -147,6 +159,7 @@ type CreateArchetypeRequest = AuthRequest<{
   owner: string;
   isPublic: boolean;
   attributes: string;
+  projects?: string[];
 }>;
 
 type CreateArchetypeResponse = {
@@ -160,7 +173,7 @@ export const postArchetype = async (
 ) => {
   const context = getContextFromReq(req);
   const { org, userId } = context;
-  const { name, attributes, description, isPublic } = req.body;
+  const { name, attributes, description, isPublic, projects } = req.body;
 
   if (!orgHasPremiumFeature(org, "archetypes")) {
     return res.status(403).json({
@@ -169,7 +182,7 @@ export const postArchetype = async (
     });
   }
 
-  if (!context.permissions.canCreateArchetype()) {
+  if (!context.permissions.canCreateArchetype(req.body)) {
     context.permissions.throwPermissionError();
   }
 
@@ -180,6 +193,7 @@ export const postArchetype = async (
     owner: userId,
     isPublic,
     organization: org.id,
+    projects,
   });
 
   await req.audit({
@@ -205,6 +219,7 @@ type PutArchetypeRequest = AuthRequest<
     owner: string;
     attributes: string;
     isPublic: boolean;
+    projects?: string[];
   },
   { id: string }
 >;
@@ -221,7 +236,7 @@ export const putArchetype = async (
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
-  const { name, description, isPublic, owner, attributes } = req.body;
+  const { name, description, isPublic, owner, attributes, projects } = req.body;
   const { id } = req.params;
 
   if (!id) {
@@ -235,23 +250,25 @@ export const putArchetype = async (
     });
   }
 
-  if (!context.permissions.canUpdateArchetype()) {
-    context.permissions.throwPermissionError();
-  }
-
-  const archetype = await getArchetypeById(id, org.id);
-
-  if (!archetype) {
-    throw new Error("Could not find sample user");
-  }
-
-  const changes = await updateArchetypeById(id, org.id, {
+  const updates = {
     attributes,
     name,
     description,
     isPublic,
     owner,
-  });
+    projects,
+  };
+
+  const archetype = await getArchetypeById(id, org.id);
+
+  if (!archetype) {
+    throw new Error("Could not find archetype");
+  }
+  if (!context.permissions.canUpdateArchetype(archetype, updates)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const changes = await updateArchetypeById(id, org.id, updates);
 
   const updatedArchetype = { ...archetype, ...changes };
 
@@ -293,11 +310,15 @@ export const deleteArchetype = async (
   const context = getContextFromReq(req);
   const { org } = context;
 
-  if (!context.permissions.canDeleteArchetype()) {
+  const archetype = await getArchetypeById(id, org.id);
+
+  if (
+    !context.permissions.canDeleteArchetype({
+      projects: archetype?.projects || [],
+    })
+  ) {
     context.permissions.throwPermissionError();
   }
-
-  const archetype = await getArchetypeById(id, org.id);
 
   if (!archetype) {
     res.status(403).json({

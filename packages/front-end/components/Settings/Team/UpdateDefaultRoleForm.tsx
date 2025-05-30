@@ -77,7 +77,7 @@ export default function UpdateDefaultRoleForm() {
   };
 
   return (
-    <div className="bg-white p-3 border mt-5 mb-5">
+    <div className="appbox p-3 border mt-5 mb-5">
       <div className="row">
         <div className="col-sm-3">
           <h4>Team Settings</h4>

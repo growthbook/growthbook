@@ -334,6 +334,64 @@ describe("sticky-buckets", () => {
     localStorage.clear();
   });
 
+  it("upgrades fallbackAttribute to hashAttribute during a single SDK session", async () => {
+    await clearCache();
+    const [, cleanup] = mockApi(sdkPayload);
+
+    // with sticky bucket support
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+      stickyBucketService: new LocalStorageStickyBucketService(),
+      attributes: {
+        deviceId: "d123",
+        anonymousId: "ses123",
+        country: "USA",
+      },
+    });
+
+    await growthbook.init();
+
+    // evaluate based on fallbackAttribute "deviceId"
+    const result1 = growthbook.evalFeature("exp1");
+    expect(result1.value).toBe("red");
+
+    const expResult1 = growthbook.triggerExperiment("manual-experiment")?.[0];
+    expect(expResult1?.variationId).toBe(2);
+
+    // provide the primary hashAttribute "id" as well as fallbackAttribute "deviceId"
+    growthbook.setAttributes({
+      ...growthbook.getAttributes(),
+      id: "12345",
+    });
+
+    const result2 = growthbook.evalFeature("exp1");
+    expect(result2.value).toBe("red");
+
+    const expResult2 = growthbook.triggerExperiment("manual-experiment")?.[0];
+    expect(expResult2?.variationId).toBe(2);
+
+    // remove the fallbackAttribute "deviceId".
+    // bucketing for "id" should have persisted
+    growthbook.setAttributes({
+      id: "12345",
+      anonymousId: "ses123",
+      country: "USA",
+    });
+
+    const result3 = growthbook.evalFeature("exp1");
+    expect(result3.value).toBe("red");
+
+    const expResult3 = growthbook.triggerExperiment("manual-experiment")?.[0];
+    expect(expResult3?.variationId).toBe(2);
+
+    growthbook.destroy();
+    cleanup();
+    // console.log("localStorage C", localStorage);
+
+    localStorage.clear();
+  });
+
   it("reads, writes, and upgrades sticky buckets using browser cookies driver", async () => {
     await clearCache();
     const [, cleanup] = mockApi(sdkPayload);
@@ -845,5 +903,17 @@ describe("sticky-buckets", () => {
     event.clear();
 
     localStorage.clear();
+  });
+
+  describe("getKey", () => {
+    it("returns the correct key", async () => {
+      const sbs = new LocalStorageStickyBucketService();
+      expect(sbs.getKey("foo", "bar")).toBe("gbStickyBuckets__foo||bar");
+    });
+
+    it("returns the correct key when a prefix is provided", async () => {
+      const sbs = new LocalStorageStickyBucketService({ prefix: "test_" });
+      expect(sbs.getKey("foo", "bar")).toBe("test_foo||bar");
+    });
   });
 });

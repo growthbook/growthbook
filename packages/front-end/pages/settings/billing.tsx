@@ -1,24 +1,26 @@
 import { FC, useEffect, useState } from "react";
-import { LicenseInterface } from "enterprise";
-import LoadingOverlay from "@/components/LoadingOverlay";
+import { useRouter } from "next/router";
+import { LicenseInterface } from "shared/enterprise";
 import SubscriptionInfo from "@/components/Settings/SubscriptionInfo";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
-import useStripeSubscription from "@/hooks/useStripeSubscription";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import PaymentInfo from "@/enterprise/components/Billing/PaymentInfo";
+import OrbPortal from "@/enterprise/components/Billing/OrbPortal";
+import { isCloud } from "@/services/env";
 
 const BillingPage: FC = () => {
   const [upgradeModal, setUpgradeModal] = useState(false);
 
-  const { canSubscribe, subscriptionStatus, loading } = useStripeSubscription();
-
   const permissionsUtil = usePermissionsUtil();
 
-  const { accountPlan } = useUser();
+  const { accountPlan, subscription, canSubscribe } = useUser();
 
   const { apiCall } = useAuth();
   const { refreshOrganization } = useUser();
+
+  const router = useRouter();
 
   useEffect(() => {
     const refreshLicense = async () => {
@@ -41,8 +43,15 @@ const BillingPage: FC = () => {
       if (urlParams.get("refreshLicense") || urlParams.get("org")) {
         refreshLicense();
       }
+
+      if (urlParams.get("openUpgradeModal")) {
+        setUpgradeModal(true);
+
+        // Remove the query param from the URL
+        router.replace(router.pathname, undefined, { shallow: true });
+      }
     }
-  }, [apiCall, refreshOrganization]);
+  }, [apiCall, refreshOrganization, router]);
 
   if (accountPlan === "enterprise") {
     return (
@@ -53,10 +62,6 @@ const BillingPage: FC = () => {
         </div>
       </div>
     );
-  }
-
-  if (loading) {
-    return <LoadingOverlay />;
   }
 
   if (!permissionsUtil.canManageBilling()) {
@@ -74,30 +79,31 @@ const BillingPage: FC = () => {
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
-          reason=""
           source="billing-free"
+          commercialFeature={null}
         />
       )}
-
-      <h1>Billing Settings</h1>
-      <div className=" bg-white p-3 border">
-        {subscriptionStatus ? (
+      <h1>Plan Info</h1>
+      <div className="appbox p-3 border">
+        {subscription?.status ? (
           <SubscriptionInfo />
         ) : canSubscribe ? (
-          <div className="alert alert-warning mb-0">
-            <div className="d-flex align-items-center">
-              <div>
-                You are currently on the <strong>Free Plan</strong>.
+          <div className="bg-white p-3">
+            <div className="alert alert-warning mb-0">
+              <div className="d-flex align-items-center">
+                <div>
+                  You are currently on the <strong>Starter Plan</strong>.
+                </div>
+                <button
+                  className="btn btn-primary ml-auto"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setUpgradeModal(true);
+                  }}
+                >
+                  Upgrade Now
+                </button>
               </div>
-              <button
-                className="btn btn-primary ml-auto"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setUpgradeModal(true);
-                }}
-              >
-                Upgrade Now
-              </button>
             </div>
           </div>
         ) : (
@@ -107,6 +113,14 @@ const BillingPage: FC = () => {
           </p>
         )}
       </div>
+      {subscription?.status ? (
+        <>
+          <PaymentInfo />
+          {isCloud() && subscription?.billingPlatform === "orb" ? (
+            <OrbPortal />
+          ) : null}
+        </>
+      ) : null}
     </div>
   );
 };

@@ -5,10 +5,10 @@ import omit from "lodash/omit";
 import {
   InformationSchema,
   InformationSchemaInterface,
-} from "../types/Integration";
-import { errorStringFromZodResult } from "../util/validation";
-import { logger } from "../util/logger";
-import { usingFileConfig } from "../init/config";
+} from "back-end/src/types/Integration";
+import { errorStringFromZodResult } from "back-end/src/util/validation";
+import { logger } from "back-end/src/util/logger";
+import { usingFileConfig } from "back-end/src/init/config";
 
 const informationSchema = new mongoose.Schema({
   id: String,

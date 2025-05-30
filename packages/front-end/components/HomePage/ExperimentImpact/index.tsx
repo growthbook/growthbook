@@ -1,9 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { FaArrowDown, FaArrowUp } from "react-icons/fa";
-import { MdInfoOutline } from "react-icons/md";
 import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { getValidDate } from "shared/dates";
+import { datetime, getValidDate } from "shared/dates";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
@@ -14,12 +13,18 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { formatNumber, getExperimentMetricFormatter } from "@/services/metrics";
 import MetricSelector from "@/components/Experiment/MetricSelector";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
-import Field from "@/components/Forms/Field";
 import Toggle from "@/components/Forms/Toggle";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import ControlledTabs from "@/components/Tabs/ControlledTabs";
-import Tab from "@/components/Tabs/Tab";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/Radix/Tabs";
+import Avatar from "@/components/Radix/Avatar";
+import DatePicker from "@/components/DatePicker";
+import { GBInfo } from "@/components/Icons";
 import { jamesSteinAdjustment } from "./JamesSteinAdjustment";
 import ExperimentImpactTab from "./ExperimentImpactTab";
 
@@ -292,10 +297,13 @@ function scaleImpactAndSetMissingExperiments({
 }
 
 export default function ExperimentImpact({
-  experiments,
+  experiments: allExperiments,
 }: {
   experiments: ExperimentInterfaceStringDates[];
 }) {
+  const experiments = allExperiments.filter(
+    (exp) => exp.type !== "multi-armed-bandit"
+  );
   const { apiCall } = useAuth();
   const settings = useOrgSettings();
   const displayCurrency = useCurrency();
@@ -303,7 +311,6 @@ export default function ExperimentImpact({
   const { metrics, project, projects, getFactTableById } = useDefinitions();
 
   const [loading, setLoading] = useState(true);
-  const [impactTab, setImpactTab] = useState<ExperimentImpactTab>("summary");
   const [snapshots, setSnapshots] = useState<ExperimentSnapshotInterface[]>();
 
   const experimentIds = experiments.map((e) => e.id);
@@ -337,7 +344,7 @@ export default function ExperimentImpact({
 
   const metricInterface = metrics.find((m) => m.id === metric);
   const formatter = metricInterface
-    ? getExperimentMetricFormatter(metricInterface, getFactTableById, true)
+    ? getExperimentMetricFormatter(metricInterface, getFactTableById, "number")
     : formatNumber;
 
   const formatterOptions: Intl.NumberFormatOptions = {
@@ -454,11 +461,24 @@ export default function ExperimentImpact({
         <div className="col-auto">
           <label className="mb-1">Date Ended</label>
           <div className="d-flex align-items-start">
-            <Field type="date" {...form.register("startDate")} />
+            <DatePicker
+              date={form.watch("startDate")}
+              setDate={(v) => {
+                form.setValue("startDate", v ? datetime(v) : "");
+              }}
+              scheduleEndDate={form.watch("endDate")}
+              disableAfter={form.watch("endDate") || undefined}
+              precision="date"
+            />
             <div className="m-2">{" to "}</div>
-            <Field
-              type="date"
-              {...form.register("endDate")}
+            <DatePicker
+              date={form.watch("endDate")}
+              setDate={(v) => {
+                form.setValue("endDate", v ? datetime(v) : "");
+              }}
+              scheduleStartDate={form.watch("startDate")}
+              disableBefore={form.watch("startDate") || undefined}
+              precision="date"
               helpText={
                 form.getValues("endDate") !== "" ? (
                   <div style={{ marginRight: -10 }}>
@@ -548,23 +568,32 @@ export default function ExperimentImpact({
           0 ? (
             <NoExperimentsForImpactBanner />
           ) : null}
-          <ControlledTabs
-            setActive={(s) => {
-              setImpactTab((s as ExperimentImpactTab) || "summary");
-            }}
-            active={impactTab}
-            showActiveCount={true}
-            newStyle={false}
-            buttonsClassName="px-3 py-2 h4"
-          >
-            <Tab
-              key={"summary"}
-              id={"summary"}
-              display={"Summary"}
-              padding={false}
-            >
+          <Tabs defaultValue="summary">
+            <TabsList>
+              <TabsTrigger value="summary">Summary</TabsTrigger>
+              <TabsTrigger value="winner">
+                Won
+                <Avatar color="gray" variant="soft" ml="2" size="sm">
+                  {summaryObj.winners.experiments.length}
+                </Avatar>
+              </TabsTrigger>
+              <TabsTrigger value="loser">
+                Lost
+                <Avatar color="gray" variant="soft" ml="2" size="sm">
+                  {summaryObj.losers.experiments.length}
+                </Avatar>
+              </TabsTrigger>
+              <TabsTrigger value="other">
+                Other
+                <Avatar color="gray" variant="soft" ml="2" size="sm">
+                  {summaryObj.others.experiments.length}
+                </Avatar>
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="summary">
               <div className="px-3 pt-3">
-                <table className="table bg-white text-center w-auto mb-0">
+                <table className="table text-center w-auto mb-0">
                   <thead>
                     <tr>
                       <th style={{ width: 150 }} className="border-top-0" />
@@ -663,7 +692,7 @@ export default function ExperimentImpact({
                               <span className="small font-weight-bold">
                                 summed impact / year
                               </span>{" "}
-                              <MdInfoOutline className="text-info" />
+                              <GBInfo />
                             </Tooltip>
                           </div>
                         </div>
@@ -729,7 +758,7 @@ export default function ExperimentImpact({
                               <span className="small text-muted font-weight-bold">
                                 avoided loss / year
                               </span>{" "}
-                              <MdInfoOutline className="text-info" />
+                              <GBInfo />
                             </Tooltip>
                           </div>
                         </div>
@@ -743,53 +772,35 @@ export default function ExperimentImpact({
                   </tbody>
                 </table>
               </div>
-            </Tab>
+            </TabsContent>
 
-            <Tab
-              key={"winner"}
-              id={"winner"}
-              display={"Won"}
-              count={summaryObj.winners.experiments.length}
-              padding={false}
-            >
+            <TabsContent value="winner">
               <ExperimentImpactTab
                 experimentImpactData={summaryObj.winners}
                 experimentImpactType={"winner"}
                 formatter={formatter}
                 formatterOptions={formatterOptions}
               />
-            </Tab>
+            </TabsContent>
 
-            <Tab
-              key={"loser"}
-              id={"loser"}
-              display={"Lost"}
-              count={summaryObj.losers.experiments.length}
-              padding={false}
-            >
+            <TabsContent value="loser">
               <ExperimentImpactTab
                 experimentImpactData={summaryObj.losers}
                 experimentImpactType={"loser"}
                 formatter={formatter}
                 formatterOptions={formatterOptions}
               />
-            </Tab>
+            </TabsContent>
 
-            <Tab
-              key={"other"}
-              id={"other"}
-              display={"Other"}
-              count={summaryObj.others.experiments.length}
-              padding={false}
-            >
+            <TabsContent value="other">
               <ExperimentImpactTab
                 experimentImpactData={summaryObj.others}
                 experimentImpactType={"other"}
                 formatter={formatter}
                 formatterOptions={formatterOptions}
               />
-            </Tab>
-          </ControlledTabs>
+            </TabsContent>
+          </Tabs>
         </>
       ) : null}
     </div>

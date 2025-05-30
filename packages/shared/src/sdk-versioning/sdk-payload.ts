@@ -5,6 +5,14 @@ import {
 import { pick, omit } from "lodash";
 import cloneDeep from "lodash/cloneDeep";
 import { getAutoExperimentChangeType } from "@growthbook/growthbook";
+import { OrganizationInterface } from "back-end/types/organization";
+import { SavedGroupsValues, SavedGroupInterface } from "../types";
+import {
+  getSavedGroupValueType,
+  getTypedSavedGroupValues,
+  NodeHandler,
+  recursiveWalk,
+} from "../util";
 import { SDKCapability } from "./index";
 
 const strictFeatureKeys = ["defaultValue", "rules"];
@@ -36,9 +44,17 @@ const stickyBucketingKeys = [
 ];
 const prerequisiteKeys = ["parentConditions"];
 
+const savedGroupOperatorReplacements = {
+  $inGroup: "$in",
+  $notInGroup: "$nin",
+};
+
 export const scrubFeatures = (
   features: Record<string, FeatureDefinitionWithProject>,
-  capabilities: SDKCapability[]
+  capabilities: SDKCapability[],
+  savedGroups: SavedGroupInterface[],
+  savedGroupReferencesEnabled: boolean,
+  organization: OrganizationInterface
 ): Record<string, FeatureDefinitionWithProject> => {
   const allowedFeatureKeys = [...strictFeatureKeys];
   const allowedFeatureRuleKeys = [...strictFeatureRuleKeys];
@@ -50,6 +66,29 @@ export const scrubFeatures = (
   }
   if (capabilities.includes("prerequisites")) {
     allowedFeatureRuleKeys.push(...prerequisiteKeys);
+  }
+  if (
+    !capabilities.includes("savedGroupReferences") ||
+    !savedGroupReferencesEnabled
+  ) {
+    const savedGroupsMap = Object.fromEntries(
+      savedGroups.map((group) => [group.id, group])
+    );
+    Object.values(features).forEach((feature) => {
+      if (!feature.rules) {
+        return;
+      }
+      feature.rules.forEach((rule) => {
+        recursiveWalk(
+          rule.condition,
+          replaceSavedGroups(savedGroupsMap, organization)
+        );
+        recursiveWalk(
+          rule.parentConditions,
+          replaceSavedGroups(savedGroupsMap, organization)
+        );
+      });
+    });
   }
 
   const newFeatures = cloneDeep(features);
@@ -99,11 +138,33 @@ export const scrubFeatures = (
 
 export const scrubExperiments = (
   experiments: AutoExperimentWithProject[],
-  capabilities: SDKCapability[]
+  capabilities: SDKCapability[],
+  savedGroups: SavedGroupInterface[],
+  savedGroupReferencesEnabled: boolean,
+  organization: OrganizationInterface
 ): AutoExperimentWithProject[] => {
   const removedExperimentKeys: string[] = [];
   const supportsPrerequisites = capabilities.includes("prerequisites");
   const supportsRedirects = capabilities.includes("redirects");
+
+  if (
+    !capabilities.includes("savedGroupReferences") ||
+    !savedGroupReferencesEnabled
+  ) {
+    const savedGroupsMap = Object.fromEntries(
+      savedGroups.map((group) => [group.id, group])
+    );
+    experiments.forEach((experimentDefinition) => {
+      recursiveWalk(
+        experimentDefinition.condition,
+        replaceSavedGroups(savedGroupsMap, organization)
+      );
+      recursiveWalk(
+        experimentDefinition.parentConditions,
+        replaceSavedGroups(savedGroupsMap, organization)
+      );
+    });
+  }
 
   if (supportsPrerequisites && supportsRedirects) return experiments;
 
@@ -139,4 +200,43 @@ export const scrubExperiments = (
     newExperiments.push(experiment);
   }
   return newExperiments;
+};
+
+export const scrubSavedGroups = (
+  savedGroupsValues: SavedGroupsValues,
+  capabilities: SDKCapability[],
+  savedGroupReferencesEnabled: boolean
+): SavedGroupsValues | undefined => {
+  if (
+    !capabilities.includes("savedGroupReferences") ||
+    !savedGroupReferencesEnabled
+  ) {
+    return undefined;
+  }
+  return savedGroupsValues;
+};
+
+// Returns a handler which modifies the object in place, replacing saved group IDs with the contents of those groups
+const replaceSavedGroups: (
+  savedGroups: Record<string, SavedGroupInterface>,
+  organization: OrganizationInterface
+) => NodeHandler = (
+  savedGroups: Record<string, SavedGroupInterface>,
+  organization
+) => {
+  return ([key, value], object) => {
+    if (key === "$inGroup" || key === "$notInGroup") {
+      const group = savedGroups[value];
+
+      const values = group
+        ? getTypedSavedGroupValues(
+            group.values || [],
+            getSavedGroupValueType(group, organization)
+          )
+        : [];
+      object[savedGroupOperatorReplacements[key]] = values;
+
+      delete object[key];
+    }
+  };
 };

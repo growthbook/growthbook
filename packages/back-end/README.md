@@ -71,9 +71,9 @@ if (IS_CLOUD) {
 
 ### Adding new commercial features
 
-If you want to add a new commercial feature, you need to edit the `enterprise` package:
+All back-end code for commercial features should live under the `src/enterprise` directory. The front-end and shared packages have their own `enterprise` directories as well which can be used as needed.
 
-- `packages/enterprise/src/license.ts` - Add to the `CommercialFeature` union type and edit the `accountFeatures` map, which defines which plans have access to which features
+You will also need to edit `packages/shared/src/enterprise/license.ts`. Add to the `CommercialFeature` union type and edit the `accountFeatures` map, which defines which plans have access to which features
 
 ## Data Model Classes
 
@@ -103,7 +103,7 @@ From this, you can export types to use throughout the front-end and back-end. Th
 ```ts
 // File: back-end/types/foo.d.ts
 import { z } from "zod";
-import type { fooSchema } from "../src/validators/foo";
+import type { fooSchema } from "back-end/src/validators/foo";
 import { CreateProps, UpdateProps } from "./models";
 
 // Full interface
@@ -119,7 +119,7 @@ Create the data model class based on the schema.
 
 ```ts
 // File: back-end/src/models/FooModel.ts
-import { fooSchema } from "../validators/foo";
+import { fooSchema } from "back-end/src/validators/foo";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -406,8 +406,8 @@ Next, you'll need to create a helper function to convert from our internal DB in
 
 ```ts
 // src/models/ProjectModel.ts
-import { ApiProject } from "../../types/openapi";
-import { ProjectInterface } from "../../types/project";
+import { ApiProject } from "back-end/types/openapi";
+import { ProjectInterface } from "back-end/types/project";
 
 export class ProjectModel extends BaseClass {
   ...
@@ -424,9 +424,12 @@ export class ProjectModel extends BaseClass {
 Then, create a route for your endpoint at `src/api/projects/listProjects.ts`:
 
 ```ts
-import { ListProjectsResponse } from "../../../types/openapi";
-import { applyPagination, createApiRequestHandler } from "../../util/handler";
-import { listProjectsValidator } from "../../validators/openapi";
+import { ListProjectsResponse } from "back-end/types/openapi";
+import {
+  applyPagination,
+  createApiRequestHandler,
+} from "back-end/src/util/handler";
+import { listProjectsValidator } from "back-end/src/validators/openapi";
 
 export const listProjects = createApiRequestHandler(listProjectsValidator)(
   async (req): Promise<ListProjectsResponse> => {
@@ -551,10 +554,10 @@ Next, you'll need to set up the connection to your DB from within GrowthBook.
 
 ```sql
 SELECT
-  userId as user_id,
-  anonymousId as anonymous_id
+  user_id,
+  anonymous_id
 FROM
-  experiment_viewed
+  viewed_experiment
 ```
 
 6. Then, define an assignment query for logged-in users:
@@ -562,14 +565,14 @@ FROM
    - SQL:
    ```sql
    SELECT
-     userId as user_id,
+     user_id,
      timestamp as timestamp,
-     experimentId as experiment_id,
-     variationId as variation_id,
+     experiment_id,
+     variation_id,
      browser,
      country
    FROM
-     experiment_viewed
+     viewed_experiment
    ```
    - Dimension columns: `browser`, `country`
 7. And another assignment query for anonymous visitors:
@@ -577,14 +580,14 @@ FROM
    - SQL:
    ```sql
    SELECT
-     anonymousId as anonymous_id,
+     anonymous_id,
      timestamp as timestamp,
      experimentId as experiment_id,
      variationId as variation_id,
      browser,
      country
    FROM
-     experiment_viewed
+     viewed_experiment
    ```
    - Dimension columns: `browser`, `country`
 8. Create a metric:
@@ -594,8 +597,8 @@ FROM
    - SQL:
    ```sql
    SELECT
-     userId as user_id,
-     anonymousId as anonymous_id,
+     user_id,
+     anonymous_id,
      timestamp as timestamp
    FROM
      orders

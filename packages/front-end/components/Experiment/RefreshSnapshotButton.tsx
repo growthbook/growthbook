@@ -21,7 +21,7 @@ const RefreshSnapshotButton: FC<{
   setAnalysisSettings: (
     settings: ExperimentSnapshotAnalysisSettings | null
   ) => void;
-  onSubmit?: () => void;
+  resetFilters?: () => void;
 }> = ({
   mutate,
   experiment,
@@ -29,7 +29,7 @@ const RefreshSnapshotButton: FC<{
   phase,
   dimension,
   setAnalysisSettings,
-  onSubmit,
+  resetFilters,
 }) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -84,7 +84,7 @@ const RefreshSnapshotButton: FC<{
       <Button
         color="outline-primary"
         onClick={async () => {
-          onSubmit?.();
+          resetFilters?.();
           setLoading(true);
           setLongResult(false);
 

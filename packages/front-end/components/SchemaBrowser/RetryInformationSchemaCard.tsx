@@ -1,4 +1,4 @@
-import { InformationSchemaInterface } from "@back-end/src/types/Integration";
+import { InformationSchemaInterface } from "back-end/src/types/Integration";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
 export default function RetryInformationSchemaCard({

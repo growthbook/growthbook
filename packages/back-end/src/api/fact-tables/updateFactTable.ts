@@ -1,15 +1,15 @@
-import { UpdateFactTableProps } from "../../../types/fact-table";
-import { UpdateFactTableResponse } from "../../../types/openapi";
-import { queueFactTableColumnsRefresh } from "../../jobs/refreshFactTableColumns";
-import { getDataSourceById } from "../../models/DataSourceModel";
+import { UpdateFactTableProps } from "back-end/types/fact-table";
+import { UpdateFactTableResponse } from "back-end/types/openapi";
+import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTableColumns";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   updateFactTable as updateFactTableInDb,
   toFactTableApiInterface,
   getFactTable,
-} from "../../models/FactTableModel";
-import { addTagsDiff } from "../../models/TagModel";
-import { createApiRequestHandler } from "../../util/handler";
-import { updateFactTableValidator } from "../../validators/openapi";
+} from "back-end/src/models/FactTableModel";
+import { addTagsDiff } from "back-end/src/models/TagModel";
+import { createApiRequestHandler } from "back-end/src/util/handler";
+import { updateFactTableValidator } from "back-end/src/validators/openapi";
 
 export const updateFactTable = createApiRequestHandler(
   updateFactTableValidator
@@ -58,7 +58,9 @@ export const updateFactTable = createApiRequestHandler(
     const data: UpdateFactTableProps = { ...req.body };
 
     await updateFactTableInDb(req.context, factTable, data);
-    await queueFactTableColumnsRefresh(factTable);
+    if (needsColumnRefresh(data)) {
+      await queueFactTableColumnsRefresh(factTable);
+    }
 
     if (data.tags) {
       await addTagsDiff(req.organization.id, factTable.tags, data.tags);
@@ -69,3 +71,7 @@ export const updateFactTable = createApiRequestHandler(
     };
   }
 );
+
+export function needsColumnRefresh(changes: UpdateFactTableProps): boolean {
+  return !!(changes.sql || changes.eventName);
+}

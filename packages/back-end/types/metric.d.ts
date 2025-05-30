@@ -1,5 +1,6 @@
 import {
   CappingType,
+  LegacyMetricWindowSettings,
   MetricCappingSettings,
   MetricPriorSettings,
   MetricWindowSettings,
@@ -19,7 +20,7 @@ export interface MetricStats {
   mean: number;
 }
 
-export interface MetricAnalysis {
+export interface LegacyMetricAnalysis {
   createdAt: Date;
   segment?: string;
   average: number;
@@ -73,6 +74,7 @@ export interface MetricInterface {
   maxPercentChange?: number;
   minPercentChange?: number;
   minSampleSize?: number;
+  targetMDE?: number;
 
   regressionAdjustmentOverride?: boolean;
   regressionAdjustmentEnabled?: boolean;
@@ -81,7 +83,7 @@ export interface MetricInterface {
   // metric analysis fields
   queries: Queries;
   runStarted: Date | null;
-  analysis?: MetricAnalysis;
+  analysis?: LegacyMetricAnalysis;
   analysisError?: string;
 
   // Query Builder Props (alternative to sql)
@@ -98,7 +100,7 @@ export type LegacyMetricInterface = Omit<
 > & {
   // make new mandatory fields optional
   cappingSettings?: MetricCappingSettings;
-  windowSettings?: MetricWindowSettings;
+  windowSettings?: LegacyMetricWindowSettings;
   priorSettings?: MetricPriorSettings;
 
   // keep old fields around for migration

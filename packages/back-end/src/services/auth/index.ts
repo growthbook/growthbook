@@ -1,33 +1,43 @@
 import { NextFunction, Request, Response } from "express";
-import { licenseInit, SSO_CONFIG } from "enterprise";
+import { SSO_CONFIG } from "shared/enterprise";
 import { userHasPermission } from "shared/permissions";
-import { logger } from "../../util/logger";
-import { IS_CLOUD } from "../../util/secrets";
-import { AuthRequest } from "../../types/AuthRequest";
+import { logger } from "back-end/src/util/logger";
+import { IS_CLOUD } from "back-end/src/util/secrets";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   hasUser,
   markUserAsVerified,
   getUserByEmail,
-} from "../../models/UserModel";
-import { getOrganizationById, validateLoginMethod } from "../organizations";
-import { Permission } from "../../../types/organization";
-import { UserInterface } from "../../../types/user";
-import { AuditInterface } from "../../../types/audit";
-import { hasOrganization, updateMember } from "../../models/OrganizationModel";
+} from "back-end/src/models/UserModel";
+import {
+  getOrganizationById,
+  validateLoginMethod,
+} from "back-end/src/services/organizations";
+import { Permission } from "back-end/types/organization";
+import { UserInterface } from "back-end/types/user";
+import { AuditInterface } from "back-end/types/audit";
+import {
+  hasOrganization,
+  updateMember,
+} from "back-end/src/models/OrganizationModel";
 import {
   IdTokenCookie,
   AuthChecksCookie,
   RefreshTokenCookie,
   SSOConnectionIdCookie,
-} from "../../util/cookie";
-import { getUserPermissions } from "../../util/organization.util";
+} from "back-end/src/util/cookie";
+import { getUserPermissions } from "back-end/src/util/organization.util";
 import {
   EventUserForResponseLocals,
   EventUserLoggedIn,
-} from "../../events/event-types";
-import { insertAudit } from "../../models/AuditModel";
-import { getTeamsForOrganization } from "../../models/TeamModel";
-import { getLicenseMetaData, getUserCodesForOrg } from "../licenseData";
+} from "back-end/src/events/event-types";
+import { insertAudit } from "back-end/src/models/AuditModel";
+import { getTeamsForOrganization } from "back-end/src/models/TeamModel";
+import {
+  getLicenseMetaData,
+  getUserCodesForOrg,
+} from "back-end/src/services/licenseData";
+import { licenseInit } from "back-end/src/enterprise";
 import { AuthConnection } from "./AuthConnection";
 import { OpenIdAuthConnection } from "./OpenIdAuthConnection";
 import { LocalAuthConnection } from "./LocalAuthConnection";

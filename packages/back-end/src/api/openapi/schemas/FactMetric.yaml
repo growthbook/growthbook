@@ -19,6 +19,7 @@ required:
   - minPercentChange
   - maxPercentChange
   - minSampleSize
+  - targetMDE
   - managedBy
   - dateCreated
   - dateUpdated
@@ -45,6 +46,7 @@ properties:
     type: string
     enum:
       - proportion
+      - retention
       - mean
       - quantile
       - ratio
@@ -59,11 +61,23 @@ properties:
         type: string
       column:
         type: string
+      aggregation:
+        type: string
+        enum:
+          - sum
+          - max
+          - count distinct
       filters:
         type: array
         description: Array of Fact Table Filter Ids
         items:
           type: string
+      aggregateFilterColumn:
+        type: string
+        description: Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics.
+      aggregateFilter:
+        type: string
+        description: Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`.
   denominator:
     type: object
     required:
@@ -136,14 +150,22 @@ properties:
           - "none"
           - "conversion"
           - "lookback"
-      delayHours:
+      delayValue:
         type: number
-        description: Wait this many hours after experiment exposure before counting conversions
+        description: Wait this long after experiment exposure before counting conversions.
+      delayUnit:
+        type: string
+        enum:
+          - "minutes"
+          - "hours"
+          - "days"
+          - "weeks"
       windowValue:
         type: number
       windowUnit:
         type: string
         enum:
+          - "minutes"
           - "hours"
           - "days"
           - "weeks"
@@ -187,11 +209,16 @@ properties:
     type: number
   riskThresholdDanger:
     type: number
+  displayAsPercentage:
+    type: boolean
+    description: If true and the metric is a ratio metric, variation means will be displayed as a percentage
   minPercentChange:
     type: number
   maxPercentChange:
     type: number
   minSampleSize:
+    type: number
+  targetMDE:
     type: number
   managedBy:
     type: string

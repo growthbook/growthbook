@@ -2,6 +2,7 @@ import { useEffect, useMemo } from "react";
 import {
   Environment,
   NamespaceUsage,
+  OrganizationSettings,
   SDKAttributeFormat,
   SDKAttributeSchema,
   SDKAttributeType,
@@ -15,24 +16,41 @@ import {
   FeatureValueType,
   ForceRule,
   RolloutRule,
+  ComputedFeatureInterface,
 } from "back-end/types/feature";
 import stringify from "json-stringify-pretty-compact";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureUsageRecords } from "back-end/types/realtime";
 import cloneDeep from "lodash/cloneDeep";
 import {
+  featureHasEnvironment,
+  featuresReferencingSavedGroups,
   generateVariationId,
+  getMatchingRules,
+  StaleFeatureReason,
   validateAndFixCondition,
   validateFeatureValue,
 } from "shared/util";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import isEqual from "lodash/isEqual";
+import { ExperimentLaunchChecklistInterface } from "back-end/types/experimentLaunchChecklist";
+import { SavedGroupInterface } from "shared/src/types";
+import { SafeRolloutRule } from "back-end/src/validators/features";
+import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import useApi from "@/hooks/useApi";
-import { isExperimentRefRuleSkipped } from "@/components/Features/ExperimentRefSummary";
+import { useAddComputedFields, useSearch } from "@/services/search";
+import { useUser } from "@/services/UserContext";
+import { ALL_COUNTRY_CODES } from "@/components/Forms/CountrySelector";
+import useSDKConnections from "@/hooks/useSDKConnections";
+import {
+  CheckListItem,
+  getChecklistItems,
+} from "@/components/Experiment/PreLaunchChecklist";
+import { SafeRolloutRuleCreateFields } from "@/components/Features/RuleModal";
 import { useDefinitions } from "./DefinitionsContext";
 
 export { generateVariationId } from "shared/util";
@@ -56,7 +74,6 @@ export interface AttributeData {
 export type NewExperimentRefRule = {
   type: "experiment-ref-new";
   name: string;
-  autoStart: boolean;
 } & Omit<ExperimentRule, "type">;
 
 export function useEnvironmentState() {
@@ -93,6 +110,176 @@ export function useEnvironments() {
 
   return environments;
 }
+
+export function useFeatureSearch({
+  allFeatures,
+  defaultSortField = "id",
+  filterResults,
+  environments,
+  localStorageKey = "features",
+  staleFeatures,
+}: {
+  allFeatures: FeatureInterface[];
+  defaultSortField?:
+    | "id"
+    | "description"
+    | "tags"
+    | "defaultValue"
+    | "dateCreated"
+    | "dateUpdated";
+  filterResults?: (items: FeatureInterface[]) => FeatureInterface[];
+  environments: Environment[];
+  localStorageKey?: string;
+  staleFeatures?: Record<
+    string,
+    { stale: boolean; reason?: StaleFeatureReason }
+  >;
+}) {
+  const { getUserDisplay } = useUser();
+  const { getProjectById, getSavedGroupById, savedGroups } = useDefinitions();
+  const savedGroupReferencesByFeature = useMemo(() => {
+    const savedGroupReferencesByGroup = featuresReferencingSavedGroups({
+      savedGroups,
+      features: allFeatures,
+      environments,
+    });
+    // Invert the map from groupId->featureList to featureId->groupList
+    const savedGroupReferencesByFeature: Record<
+      string,
+      SavedGroupInterface[]
+    > = {};
+    Object.keys(savedGroupReferencesByGroup).forEach((groupId) => {
+      const savedGroup = getSavedGroupById(groupId);
+      if (!savedGroup) return;
+      savedGroupReferencesByGroup[groupId].forEach((referencingFeature) => {
+        savedGroupReferencesByFeature[referencingFeature.id] ||= [];
+        savedGroupReferencesByFeature[referencingFeature.id].push(savedGroup);
+      });
+    });
+    return savedGroupReferencesByFeature;
+  }, [savedGroups, allFeatures, environments]);
+
+  const features = useAddComputedFields(
+    allFeatures,
+    (f) => {
+      const projectId = f.project;
+      const projectName = projectId ? getProjectById(projectId)?.name : "";
+      const projectIsDeReferenced = projectId && !projectName;
+      return {
+        ...f,
+        projectId,
+        projectName,
+        projectIsDeReferenced,
+        savedGroups: (savedGroupReferencesByFeature[f.id] || []).map(
+          (grp) => grp.groupName
+        ),
+        ownerName: getUserDisplay(f.owner, false) || "",
+      };
+    },
+    [getProjectById, savedGroupReferencesByFeature]
+  );
+  return useSearch({
+    items: features,
+    defaultSortField: defaultSortField,
+    searchFields: ["id^3", "description", "tags^2", "defaultValue"],
+    filterResults,
+    updateSearchQueryOnChange: true,
+    localStorageKey: localStorageKey,
+    searchTermFilters: {
+      is: (item) => {
+        const is: string[] = [item.valueType];
+        if (item.archived) is.push("archived");
+        if (item.hasDrafts) is.push("draft");
+        if (item.valueType === "json") is.push("json");
+        if (item.valueType === "string") is.push("string");
+        if (item.valueType === "number") is.push("number");
+        if (item.valueType === "boolean") is.push("boolean");
+        if (staleFeatures?.[item.id]?.stale) is.push("stale");
+        return is;
+      },
+      has: (item) => {
+        const has: string[] = [];
+        if (item.project) has.push("project");
+        if (item.hasDrafts) has.push("draft", "drafts");
+        if (item.prerequisites?.length) has.push("prerequisites", "prereqs");
+
+        if (item.valueType === "json" && item.jsonSchema?.enabled) {
+          has.push("validation", "schema", "jsonSchema");
+        }
+
+        const rules = getMatchingRules(
+          item,
+          () => true,
+          environments.map((e) => e.id)
+        );
+
+        if (rules.length) has.push("rule", "rules");
+        if (
+          rules.some((r) =>
+            ["experiment", "experiment-ref"].includes(r.rule.type)
+          )
+        ) {
+          has.push("experiment", "experiments");
+        }
+        if (rules.some((r) => r.rule.type === "rollout")) {
+          has.push("rollout", "percent");
+        }
+        if (rules.some((r) => r.rule.type === "force")) {
+          has.push("force", "targeting");
+        }
+
+        return has;
+      },
+      key: (item) => item.id,
+      project: (item: ComputedFeatureInterface) => [
+        item.project,
+        item.projectName,
+      ],
+      created: (item) => new Date(item.dateCreated),
+      updated: (item) => new Date(item.dateUpdated),
+      experiment: (item) => item.linkedExperiments || [],
+      savedgroup: (item: ComputedFeatureInterface) => item.savedGroups || [],
+      version: (item) => item.version,
+      revision: (item) => item.version,
+      owner: (item) => item.owner,
+      tag: (item) => item.tags,
+      type: (item) => item.valueType,
+      rules: (item) => {
+        const rules = getMatchingRules(
+          item,
+          () => true,
+          environments.map((e) => e.id)
+        );
+        return rules.length;
+      },
+      on: (item) => {
+        const on: string[] = [];
+        environments.forEach((e) => {
+          if (
+            featureHasEnvironment(item, e) &&
+            item.environmentSettings?.[e.id]?.enabled
+          ) {
+            on.push(e.id);
+          }
+        });
+        return on;
+      },
+      off: (item) => {
+        const off: string[] = [];
+        environments.forEach((e) => {
+          if (
+            featureHasEnvironment(item, e) &&
+            !item.environmentSettings?.[e.id]?.enabled
+          ) {
+            off.push(e.id);
+          }
+        });
+        return off;
+      },
+    },
+  });
+}
+
 export function getRules(feature: FeatureInterface, environment: string) {
   return feature?.environmentSettings?.[environment]?.rules ?? [];
 }
@@ -129,24 +316,47 @@ export function getVariationDefaultName(
   return val.value;
 }
 
-export function isRuleDisabled(
+export function isRuleInactive(
   rule: FeatureRule,
   experimentsMap: Map<string, ExperimentInterfaceStringDates>
 ): boolean {
-  const linkedExperiment =
-    rule.type === "experiment-ref" && experimentsMap.get(rule.experimentId);
+  // Explicitly disabled
+  if (!rule.enabled) return true;
+
+  // Was scheduled to be disabled and that time has passed
   const upcomingScheduleRule = getUpcomingScheduleRule(rule);
   const scheduleCompletedAndDisabled =
     !upcomingScheduleRule &&
     rule?.scheduleRules?.length &&
     rule.scheduleRules.at(-1)?.timestamp !== null;
+  if (scheduleCompletedAndDisabled) {
+    return true;
+  }
+  if (rule.type === "safe-rollout") {
+    if (rule.status === "stopped") {
+      return true;
+    }
+  }
+  // Linked experiment is missing, archived, or stopped with no temp rollout
+  if (rule.type === "experiment-ref") {
+    const linkedExperiment = experimentsMap.get(rule.experimentId);
+    if (!linkedExperiment) {
+      return true;
+    }
+    if (linkedExperiment.archived) {
+      return true;
+    }
+    if (
+      linkedExperiment.status === "stopped" &&
+      (linkedExperiment.excludeFromPayload ||
+        !linkedExperiment.releasedVariationId)
+    ) {
+      return true;
+    }
+  }
 
-  return (
-    scheduleCompletedAndDisabled ||
-    upcomingScheduleRule?.enabled ||
-    (linkedExperiment && isExperimentRefRuleSkipped(linkedExperiment)) ||
-    !rule.enabled
-  );
+  // Otherwise, it is active
+  return false;
 }
 
 type NamespaceGaps = { start: number; end: number }[];
@@ -203,28 +413,56 @@ export function useFeaturesList(withProject = true, includeArchived = false) {
     hasArchived: boolean;
   }>(url);
 
+  const { features, experiments, hasArchived } = useMemo(() => {
+    if (data) {
+      return {
+        features: data.features,
+        experiments: data.linkedExperiments,
+        hasArchived: data.hasArchived,
+      };
+    }
+    return {
+      features: [],
+      experiments: [],
+      hasArchived: false,
+    };
+  }, [data]);
+
   return {
-    features: data?.features || [],
-    experiments: data?.linkedExperiments || [],
+    features,
+    experiments,
     loading: !data,
     error,
     mutate,
-    hasArchived: data?.hasArchived || false,
+    hasArchived,
   };
 }
 
-export function getVariationColor(i: number) {
-  const colors = [
-    "#8f66dc",
-    "#e5a6f3",
-    "#38aecc",
-    "#f5dd90",
-    "#3383ec",
-    "#80c17b",
-    "#79c4e0",
-    "#f87a7a",
-    "#6cc160",
-  ];
+export function getVariationColor(i: number, experimentTheme = false) {
+  const colors = !experimentTheme
+    ? [
+        "#8f66dc",
+        "#e5a6f3",
+        "#38aecc",
+        "#f5dd90",
+        "#3383ec",
+        "#80c17b",
+        "#79c4e0",
+        "#f87a7a",
+        "#6cc160",
+      ]
+    : [
+        /* This should match the variant colors defined in _colors.scss */
+        "var(--blue-8)",
+        "var(--teal-10)",
+        "var(--orange-10)",
+        "var(--pink-10)",
+        "var(--amber-10)",
+        "var(--mint-10)",
+        "var(--lime-11)",
+        "var(--cyan-10)",
+        "var(--red-10)",
+      ];
   return colors[i % colors.length];
 }
 
@@ -323,6 +561,25 @@ export function validateFeatureRule(
         (ruleCopy as ExperimentRefRule).variations[i].value = newValue;
       }
     });
+  } else if (rule.type === "safe-rollout") {
+    const newVariationValue = validateFeatureValue(
+      feature,
+      rule.variationValue,
+      "Value to Rollout"
+    );
+    if (newVariationValue !== rule.variationValue) {
+      hasChanges = true;
+      (ruleCopy as SafeRolloutRule).variationValue = newVariationValue;
+    }
+    const newControlValue = validateFeatureValue(
+      feature,
+      rule.controlValue,
+      "Control Value"
+    );
+    if (newControlValue !== rule.controlValue) {
+      hasChanges = true;
+      (ruleCopy as SafeRolloutRule).controlValue = newControlValue;
+    }
   } else {
     const newValue = validateFeatureValue(
       feature,
@@ -405,32 +662,49 @@ export function getDefaultVariationValue(defaultValue: string) {
   };
   return defaultValue in map ? map[defaultValue] : defaultValue;
 }
-
+type safeRolloutFields = Omit<
+  SafeRolloutRuleCreateFields,
+  "safeRolloutFields"
+> & {
+  safeRolloutFields: Omit<
+    SafeRolloutRuleCreateFields["safeRolloutFields"],
+    "maxDuration"
+  >;
+};
 export function getDefaultRuleValue({
   defaultValue,
   attributeSchema,
   ruleType,
+  settings,
+  datasources,
+  isSafeRolloutAutoRollbackEnabled = false,
 }: {
   defaultValue: string;
   attributeSchema?: SDKAttributeSchema;
   ruleType: string;
-}): FeatureRule | NewExperimentRefRule {
+  settings?: OrganizationSettings;
+  datasources?: DataSourceInterfaceWithParams[];
+  isSafeRolloutAutoRollbackEnabled?: boolean;
+}): FeatureRule | NewExperimentRefRule | safeRolloutFields {
   const hashAttributes =
     attributeSchema?.filter((a) => a.hashAttribute)?.map((a) => a.property) ||
     [];
+
   const hashAttribute = hashAttributes.includes("id")
     ? "id"
     : hashAttributes[0] || "id";
-
+  let defaultDataSource = settings?.defaultDataSource;
+  if (datasources && !defaultDataSource && datasources.length === 1) {
+    defaultDataSource = datasources[0].id;
+  }
   const value = getDefaultVariationValue(defaultValue);
-
   if (ruleType === "rollout") {
     return {
       type: "rollout",
       description: "",
       id: "",
       value,
-      coverage: 0.5,
+      coverage: 1, // we are hardcoding the coverage to 1 for now
       condition: "",
       enabled: true,
       hashAttribute,
@@ -444,6 +718,29 @@ export function getDefaultRuleValue({
           timestamp: null,
         },
       ],
+    };
+  }
+  if (ruleType === "safe-rollout") {
+    return {
+      type: "safe-rollout",
+      description: "",
+      id: "",
+      condition: "",
+      safeRolloutId: "",
+      enabled: true,
+      prerequisites: [],
+      controlValue: defaultValue,
+      variationValue: value,
+      hashAttribute: "id",
+      trackingKey: "",
+      seed: "",
+      status: "running",
+      safeRolloutFields: {
+        datasourceId: defaultDataSource || "",
+        exposureQueryId: "",
+        guardrailMetricIds: [],
+        autoRollback: isSafeRolloutAutoRollbackEnabled,
+      },
     };
   }
   if (ruleType === "experiment") {
@@ -509,9 +806,9 @@ export function getDefaultRuleValue({
   if (ruleType === "experiment-ref-new") {
     return {
       type: "experiment-ref-new",
+      experimentType: "standard",
       description: "",
       name: "",
-      autoStart: true,
       id: "",
       condition: "",
       enabled: true,
@@ -521,12 +818,12 @@ export function getDefaultRuleValue({
         {
           value: defaultValue,
           weight: 0.5,
-          name: "",
+          name: "Control",
         },
         {
           value: value,
           weight: 0.5,
-          name: "",
+          name: "Variation 1",
         },
       ],
       coverage: 1,
@@ -571,43 +868,45 @@ export function getDefaultRuleValue({
   throw new Error("Unknown Rule Type: " + ruleType);
 }
 
-export function isRuleFullyCovered(rule: FeatureRule): boolean {
-  // get the schedules on any of the rules:
-  const upcomingScheduleRule = getUpcomingScheduleRule(rule);
+export function getUnreachableRuleIndex(
+  rules: FeatureRule[],
+  experimentsMap: Map<string, ExperimentInterfaceStringDates>
+) {
+  for (let i = 0; i < rules.length; i++) {
+    const rule = rules[i];
 
-  const scheduleCompletedAndDisabled =
-    !upcomingScheduleRule &&
-    rule?.scheduleRules?.length &&
-    rule.scheduleRules.at(-1)?.timestamp !== null;
+    // Skip over inactive rules
+    if (isRuleInactive(rule, experimentsMap)) continue;
 
-  const ruleDisabled =
-    scheduleCompletedAndDisabled ||
-    upcomingScheduleRule?.enabled ||
-    !rule.enabled;
+    // Skip rules that are conditional based on a schedule
+    const upcomingScheduleRule = getUpcomingScheduleRule(rule);
+    if (upcomingScheduleRule && upcomingScheduleRule.timestamp) {
+      continue;
+    }
 
-  if (rule?.prerequisites?.length) {
-    return false;
+    // Skip rules with targeting conditions
+    if (rule.condition && rule.condition !== "{}") {
+      continue;
+    }
+    if (rule.savedGroups?.length) {
+      continue;
+    }
+    if (rule.prerequisites?.length) {
+      continue;
+    }
+
+    // Skip non-force rules (require a non-null hash attribute, so may not match)
+    if (rule.type !== "force") {
+      continue;
+    }
+
+    // By this point, we have a force rule that matches all users
+    // Any rule after this is unreachable
+    return i + 1;
   }
 
-  // rollouts and experiments at 100%:
-  if (
-    (rule.type === "rollout" || rule.type === "experiment") &&
-    rule.coverage === 1 &&
-    rule.enabled === true &&
-    (!rule.condition || rule.condition === "{}") &&
-    !rule.savedGroups?.length &&
-    !ruleDisabled
-  ) {
-    return true;
-  }
-
-  // force rule at 100%: (doesn't have coverage)
-  return (
-    rule.type === "force" &&
-    rule.condition === "{}" &&
-    !rule.savedGroups?.length &&
-    !ruleDisabled
-  );
+  // No unreachable rules
+  return 0;
 }
 
 export function jsonToConds(
@@ -835,10 +1134,15 @@ export function condToJson(
     } else if (operator === "$notEmpty") {
       obj[field]["$size"] = { $gt: 0 };
     } else if (operator === "$in" || operator === "$nin") {
-      obj[field][operator] = value
-        .split(",")
-        .map((x) => x.trim())
-        .map((x) => parseValue(x, attributes.get(field)?.datatype));
+      // Allow for the empty list
+      if (value === "") {
+        obj[field][operator] = [];
+      } else {
+        obj[field][operator] = value
+          .split(",")
+          .map((x) => x.trim())
+          .map((x) => parseValue(x, attributes.get(field)?.datatype));
+      }
     } else if (operator === "$inGroup" || operator === "$notInGroup") {
       obj[field][operator] = value;
     } else {
@@ -886,6 +1190,8 @@ export function useAttributeMap(
         enum:
           schema.datatype === "enum" && schema.enum
             ? schema.enum.split(",").map((x) => x.trim())
+            : schema.format === "isoCountryCode"
+            ? ALL_COUNTRY_CODES
             : [],
         identifier: !!schema.hashAttribute,
         archived: !!schema.archived,
@@ -1030,4 +1336,136 @@ export function genDuplicatedKey({ id }: FeatureInterface) {
     // we failed, let the user name the key
     return "";
   }
+}
+
+export function getNewDraftExperimentsToPublish({
+  environments,
+  feature,
+  revision,
+  experimentsMap,
+}: {
+  feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
+  environments: Environment[];
+  experimentsMap: Map<string, ExperimentInterfaceStringDates>;
+}) {
+  const environmentIds = environments.map((e) => e.id);
+
+  const liveExperimentIds = new Set(
+    getMatchingRules(
+      feature,
+      (rule) => rule.type === "experiment-ref",
+      environmentIds
+    ).map((result) => (result.rule as ExperimentRefRule).experimentId)
+  );
+
+  function isExp(
+    exp: ExperimentInterfaceStringDates | undefined
+  ): exp is ExperimentInterfaceStringDates {
+    return !!exp;
+  }
+
+  const draftExperiments = getMatchingRules(
+    feature,
+    (rule) => {
+      if (rule.enabled === false) return false;
+      if (rule.type !== "experiment-ref") return false;
+
+      const exp = experimentsMap.get(rule.experimentId);
+      if (!exp) return false;
+
+      // Skip experiment rules that are already live
+      if (liveExperimentIds.has(rule.experimentId)) return false;
+
+      if (exp.status !== "draft") return false;
+      if (exp.archived) return false;
+
+      // Skip experiments with visual changesets. Those need to be started from the experiment page
+      if (exp.hasVisualChangesets) return false;
+
+      return true;
+    },
+    environmentIds,
+    revision
+  )
+    .map((result) =>
+      experimentsMap.get((result.rule as ExperimentRefRule).experimentId)
+    )
+    .filter(isExp);
+
+  return [...new Set(draftExperiments)];
+}
+
+export function useFeatureExperimentChecklists({
+  feature,
+  revision,
+  experimentsMap,
+}: {
+  feature: FeatureInterface;
+  revision?: FeatureRevisionInterface;
+  experimentsMap: Map<string, ExperimentInterfaceStringDates>;
+}) {
+  const allEnvironments = useEnvironments();
+
+  const { data: checklistData } = useApi<{
+    checklist: ExperimentLaunchChecklistInterface;
+  }>("/experiments/launch-checklist");
+
+  const settings = useOrgSettings();
+  const orgStickyBucketing = !!settings.useStickyBucketing;
+
+  const { data: sdkConnectionsData } = useSDKConnections();
+  const connections = sdkConnectionsData?.connections || [];
+
+  const experimentData = useMemo(() => {
+    const experimentsAvailableToPublish = revision
+      ? getNewDraftExperimentsToPublish({
+          feature,
+          revision,
+          environments: allEnvironments,
+          experimentsMap,
+        })
+      : [];
+
+    const experimentData: {
+      checklist: CheckListItem[];
+      experiment: ExperimentInterfaceStringDates;
+      failedRequired: boolean;
+    }[] = [];
+    experimentsAvailableToPublish.forEach((exp) => {
+      const projectConnections = connections.filter(
+        (connection) =>
+          !connection.projects.length ||
+          connection.projects.includes(exp.project || "")
+      );
+
+      const checklist = getChecklistItems({
+        experiment: exp,
+        linkedFeatures: [],
+        visualChangesets: [],
+        checklist: checklistData?.checklist,
+        usingStickyBucketing: orgStickyBucketing && !exp.disableStickyBucketing,
+        checkLinkedChanges: false,
+        connections: projectConnections,
+      });
+
+      const failedRequired = checklist.some(
+        (item) => item.status === "incomplete" && item.required
+      );
+
+      experimentData.push({ checklist, experiment: exp, failedRequired });
+    });
+
+    return experimentData;
+  }, [
+    connections,
+    allEnvironments,
+    orgStickyBucketing,
+    checklistData,
+    revision,
+  ]);
+
+  return {
+    experimentData,
+  };
 }

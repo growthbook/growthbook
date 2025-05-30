@@ -1,0 +1,57 @@
+tags:
+  - attributes
+summary: Create a new attribute
+operationId: postAttribute
+x-codeSamples:
+  - lang: "cURL"
+    source: |
+      curl -X POST https://api.growthbook.io/api/v1/attributes \
+        -d '{"property": "foo", "datatype": "boolean", "description": "My new attribute" }' \
+        -u secret_abc123DEF456:
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        type: object
+        required:
+          - property
+          - datatype
+        properties:
+          property:
+            type: string
+            description: The attribute property
+          datatype:
+            type: string
+            enum: ["boolean", "string", "number", "secureString", "enum", "string[]", "number[]", "secureString[]"]
+            description: The attribute datatype
+          description:
+            type: string
+            description: The description of the new attribute
+          archived:
+            type: boolean
+            description: The attribute is archived
+          hashAttribute:
+            type: boolean
+            description: Shall the attribute be hashed
+          enum:
+            type: string
+          format:
+            type: string
+            enum: ["", "version", "date", "isoCountryCode"]
+            description: The attribute's format
+          projects:
+            type: array
+            items:
+              type: string
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - attribute
+          properties:
+            attribute:
+              $ref: "../schemas/Attribute.yaml"

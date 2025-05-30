@@ -1,7 +1,7 @@
-import { PutProjectResponse } from "../../../types/openapi";
-import { createApiRequestHandler } from "../../util/handler";
-import { putProjectValidator } from "../../validators/openapi";
-import { auditDetailsUpdate } from "../../services/audit";
+import { PutProjectResponse } from "back-end/types/openapi";
+import { createApiRequestHandler } from "back-end/src/util/handler";
+import { putProjectValidator } from "back-end/src/validators/openapi";
+import { auditDetailsUpdate } from "back-end/src/services/audit";
 
 export const putProject = createApiRequestHandler(putProjectValidator)(
   async (req): Promise<PutProjectResponse> => {

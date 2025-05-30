@@ -2,6 +2,7 @@ import { useForm } from "react-hook-form";
 import { Environment } from "back-end/types/organization";
 import React, { useMemo } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
+import { DEFAULT_ENVIRONMENT_IDS } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useEnvironments } from "@/services/features";
 import { useUser } from "@/services/UserContext";
@@ -11,6 +12,8 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import Toggle from "@/components/Forms/Toggle";
+import SelectField from "@/components/Forms/SelectField";
+import { DocLink } from "../DocLink";
 
 export default function EnvironmentModal({
   existing,
@@ -28,6 +31,7 @@ export default function EnvironmentModal({
       toggleOnList: existing.toggleOnList || false,
       defaultState: existing.defaultState ?? true,
       projects: existing.projects || [],
+      parent: existing.parent,
     },
   });
   const { apiCall } = useAuth();
@@ -64,6 +68,7 @@ export default function EnvironmentModal({
 
   return (
     <Modal
+      trackingEventModalType=""
       open={true}
       close={close}
       header={
@@ -103,6 +108,7 @@ export default function EnvironmentModal({
             toggleOnList: value.toggleOnList,
             defaultState: value.defaultState,
             projects: value.projects,
+            parent: value.parent,
           };
           await apiCall(`/environment`, {
             method: "POST",
@@ -119,12 +125,28 @@ export default function EnvironmentModal({
       })}
     >
       {!existing.id && (
-        <Field
+        <SelectField
+          value={form.watch("id") || ""}
+          options={DEFAULT_ENVIRONMENT_IDS.map((id) => ({
+            label: id,
+            value: id,
+          }))}
+          sort={false}
+          createable
+          isClearable
+          formatCreateLabel={(value) =>
+            `Use custom environment name "${value}"`
+          }
+          onChange={(value) => {
+            form.setValue("id", value);
+            if (!DEFAULT_ENVIRONMENT_IDS.includes(value)) {
+              form.setValue("parent", undefined);
+            }
+          }}
           maxLength={30}
           required
           pattern="^[A-Za-z][A-Za-z0-9_-]*$"
           title="Must start with a letter. Can only contain letters, numbers, hyphens, and underscores. No spaces or special characters."
-          {...form.register("id")}
           label="Id"
           helpText={
             <>
@@ -146,6 +168,34 @@ export default function EnvironmentModal({
         placeholder=""
         textarea
       />
+      {!existing.id && (
+        <div className="mb-3">
+          <SelectField
+            label="Parent"
+            value={form.watch("parent") || ""}
+            onChange={(value) => {
+              form.setValue("parent", value || undefined);
+            }}
+            options={environments.map((e) => ({ label: e.id, value: e.id }))}
+            isClearable
+            disabled={!DEFAULT_ENVIRONMENT_IDS.includes(form.watch("id") || "")}
+            helpText={
+              <>
+                <div>
+                  Environment to inherit Feature Rules from.{" "}
+                  {`Only allowed when creating one of the default environments.`}
+                </div>
+                <div>
+                  For programmatic control of environment inheritance, use the{" "}
+                  <DocLink docSection="apiPostEnvironment">
+                    API endpoint instead
+                  </DocLink>
+                </div>
+              </>
+            }
+          />
+        </div>
+      )}
       <div className="mb-4">
         <MultiSelectField
           label="Projects"

@@ -28,7 +28,8 @@ metrics["signups"] = {
   },
   windowSettings: {
     type: "conversion",
-    delayHours: 0,
+    delayValue: 0,
+    delayUnit: "hours",
     windowValue: 72,
     windowUnit: "hours",
   },
@@ -70,7 +71,8 @@ metrics["revenue"] = {
   },
   windowSettings: {
     type: "conversion",
-    delayHours: 2.5,
+    delayValue: 2.5,
+    delayUnit: "hours",
     windowValue: 72,
     windowUnit: "hours",
   },
@@ -128,7 +130,8 @@ metrics["conversions"] = {
   },
   windowSettings: {
     type: "conversion",
-    delayHours: 0,
+    delayValue: 0,
+    delayUnit: "hours",
     windowValue: 72,
     windowUnit: "hours",
   },
@@ -185,7 +188,8 @@ metrics["testvar"] = {
   },
   windowSettings: {
     type: "conversion",
-    delayHours: 0,
+    delayValue: 0,
+    delayUnit: "hours",
     windowValue: 72,
     windowUnit: "hours",
   },

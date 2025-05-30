@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { GBEdit } from "@/components/Icons";
+import { Box, Flex } from "@radix-ui/themes";
 import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import Button from "@/components/Radix/Button";
 import Markdown from "./Markdown";
 import MarkdownInput from "./MarkdownInput";
 
@@ -15,7 +16,6 @@ type Props = {
   containerClassName?: string;
   header?: string | JSX.Element;
   headerClassName?: string;
-  editClassName?: string;
 };
 
 export default function MarkdownInlineEdit({
@@ -28,7 +28,6 @@ export default function MarkdownInlineEdit({
   containerClassName = "",
   header = "",
   headerClassName = "h3",
-  editClassName = "a",
 }: Props) {
   const [edit, setEdit] = useState(false);
   const [val, setVal] = useState("");
@@ -68,11 +67,11 @@ export default function MarkdownInlineEdit({
   }
 
   return (
-    <div className={className}>
+    <Box className={className}>
       {header && (
         <HeaderWithEdit
           edit={
-            value && canEdit
+            canEdit
               ? () => {
                   setVal(value || "");
                   setEdit(true);
@@ -81,20 +80,20 @@ export default function MarkdownInlineEdit({
           }
           className={headerClassName}
           containerClassName={containerClassName}
-          editClassName={editClassName}
         >
           {header}
         </HeaderWithEdit>
       )}
-      <div className="row">
-        <div className="col-auto">
+      <Flex align="start" justify="between" gap="4">
+        <Box className="" flexGrow="1">
           {value ? (
             <Markdown className="card-text">{value}</Markdown>
           ) : (
             <div className="card-text">
               {canCreate ? (
                 <a
-                  href="#"
+                  role="button"
+                  className="link-purple"
                   onClick={(e) => {
                     e.preventDefault();
                     setVal(value || "");
@@ -108,22 +107,23 @@ export default function MarkdownInlineEdit({
               )}
             </div>
           )}
-        </div>
+        </Box>
         {value && canEdit && !header && (
-          <div className="col-auto">
+          <Box className="">
             <a
-              href="#"
+              role="button"
+              className="link-purple"
               onClick={(e) => {
                 e.preventDefault();
                 setVal(value || "");
                 setEdit(true);
               }}
             >
-              <GBEdit />
+              <Button variant="ghost">Edit</Button>
             </a>
-          </div>
+          </Box>
         )}
-      </div>
-    </div>
+      </Flex>
+    </Box>
   );
 }

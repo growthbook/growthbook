@@ -34,6 +34,9 @@ export const entityEvents = {
   ],
   urlRedirect: ["create", "update", "delete"],
   metric: ["autocreate", "create", "update", "delete", "analysis"],
+  metricAnalysis: ["create", "update", "delete"],
+  metricGroup: ["create", "delete", "update"],
+  populationData: ["create", "delete", "update"],
   datasource: ["create", "update", "delete", "import"],
   comment: ["create", "update", "delete"],
   "sdk-connection": ["create", "update", "delete"],
@@ -44,6 +47,10 @@ export const entityEvents = {
   archetype: ["created", "deleted", "updated"],
   team: ["create", "delete", "update"],
   factTable: ["autocreate"],
+  customField: ["create", "update", "delete"],
+  experimentTemplate: ["create", "update", "delete"],
+  safeRollout: ["create", "update", "delete"],
+  decisionCriteria: ["create", "update", "delete"],
 } as const;
 
 export type EntityEvents = typeof entityEvents;

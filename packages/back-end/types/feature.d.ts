@@ -7,13 +7,12 @@ import {
   simpleSchemaValidator,
   FeatureRule,
   FeatureInterface,
-} from "../src/validators/features";
+} from "back-end/src/validators/features";
 import { UserRef } from "./user";
 
 export {
   FeatureRule,
   FeatureInterface,
-  FeaturePrerequisite,
   FeatureEnvironment,
   FeatureValueType,
   ForceRule,
@@ -22,10 +21,15 @@ export {
   ScheduleRule,
   ExperimentRefRule,
   RolloutRule,
+  ExperimentRefVariation,
+  ComputedFeatureInterface,
+} from "back-end/src/validators/features";
+
+export {
   NamespaceValue,
   SavedGroupTargeting,
-  ExperimentRefVariation,
-} from "../src/validators/features";
+  FeaturePrerequisite,
+} from "back-end/src/validators/shared";
 
 export type SchemaField = z.infer<typeof simpleSchemaFieldValidator>;
 export type SimpleSchema = z.infer<typeof simpleSchemaValidator>;
@@ -69,4 +73,29 @@ export interface FeatureTestResult {
   defaultValue: boolean | string | object;
   log?: [string, any][];
   featureDefinition?: FeatureDefinition;
+}
+
+export interface FeatureUsageTimeSeriesDataPoint {
+  t: number;
+  v: number;
+}
+export interface FeatureUsageTimeSeries {
+  total: number;
+  ts: FeatureUsageTimeSeriesDataPoint[];
+}
+
+export type FeatureUsageRuleVariation = FeatureUsageTimeSeries;
+export type FeatureUsageRule = FeatureUsageTimeSeries & {
+  variations: Record<string, FeatureUsageRuleVariation>;
+};
+export type FeatureUsageEnvironment = FeatureUsageTimeSeries & {
+  rules: Record<string, FeatureUsageRule>;
+};
+
+export interface FeatureUsageData {
+  overall: FeatureUsageTimeSeries;
+  defaultValue: FeatureUsageTimeSeries;
+  sources: Record<string, number>;
+  values: Record<string, number>;
+  environments: Record<string, FeatureUsageEnvironment>;
 }

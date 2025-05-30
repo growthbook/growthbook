@@ -1,13 +1,13 @@
-import { PostOrganizationResponse } from "../../../types/openapi";
+import { PostOrganizationResponse } from "back-end/types/openapi";
 import {
   createApiRequestHandler,
   validateIsSuperUserRequest,
-} from "../../util/handler";
-import { postOrganizationValidator } from "../../validators/openapi";
+} from "back-end/src/util/handler";
+import { postOrganizationValidator } from "back-end/src/validators/openapi";
 import {
   createOrganization,
   toOrganizationApiInterface,
-} from "../../models/OrganizationModel";
+} from "back-end/src/models/OrganizationModel";
 
 export const postOrganization = createApiRequestHandler(
   postOrganizationValidator
@@ -19,6 +19,9 @@ export const postOrganization = createApiRequestHandler(
 
     if (name.length < 3) {
       throw Error("Name length must be at least 3 characters");
+    }
+    if (name.length > 60) {
+      throw Error("Name length must be at most 60 characters");
     }
 
     const org = await createOrganization({

@@ -22,6 +22,8 @@ export interface paths {
     get: operations["getFeature"];
     /** Partially update a feature */
     post: operations["updateFeature"];
+    /** Deletes a single feature */
+    delete: operations["deleteFeature"];
   };
   "/features/{id}/toggle": {
     /** Toggle a feature in one or more environments */
@@ -93,6 +95,10 @@ export interface paths {
     /** Deletes a single SDK connection */
     delete: operations["deleteSdkConnection"];
   };
+  "/sdk-connections/lookup/{key}": {
+    /** Find a single sdk connection by its key */
+    get: operations["lookupSdkConnectionByKey"];
+  };
   "/data-sources": {
     /** Get all data sources */
     get: operations["listDataSources"];
@@ -113,17 +119,45 @@ export interface paths {
     /** Create a single experiment */
     post: operations["postExperiment"];
   };
+  "/experiment-names": {
+    /** Get a list of experiments with names and ids */
+    get: operations["getExperimentNames"];
+  };
   "/experiments/{id}": {
     /** Get a single experiment */
     get: operations["getExperiment"];
     /** Update a single experiment */
     post: operations["updateExperiment"];
   };
+  "/experiments/{id}/snapshot": {
+    /** Create Experiment Snapshot */
+    post: operations["postExperimentSnapshot"];
+    parameters: {
+        /** @description The experiment id of the experiment to update */
+      path: {
+        id: string;
+      };
+    };
+  };
   "/experiments/{id}/results": {
     /** Get results for an experiment */
     get: operations["getExperimentResults"];
     parameters: {
         /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+  };
+  "/experiments/{id}/visual-changesets": {
+    /** Get all visual changesets */
+    get: operations["listVisualChangesets"];
+  };
+  "/snapshots/{id}": {
+    /** Get an experiment snapshot status */
+    get: operations["getExperimentSnapshot"];
+    parameters: {
+        /** @description The id of the requested resource (a snapshot ID, not experiment ID) */
       path: {
         id: string;
       };
@@ -142,10 +176,6 @@ export interface paths {
     put: operations["putMetric"];
     /** Deletes a metric */
     delete: operations["deleteMetric"];
-  };
-  "/experiments/{id}/visual-changesets": {
-    /** Get all visual changesets */
-    get: operations["listVisualChangesets"];
   };
   "/visual-changesets/{id}": {
     /** Get a single visual changeset */
@@ -198,6 +228,44 @@ export interface paths {
   "/organizations/{id}": {
     /** Edit a single organization (only for super admins on multi-org Enterprise Plan only) */
     put: operations["putOrganization"];
+  };
+  "/attributes": {
+    /** Get the organization's attributes */
+    get: operations["listAttributes"];
+    /** Create a new attribute */
+    post: operations["postAttribute"];
+  };
+  "/attributes/${property}": {
+    /** Update an attribute */
+    put: operations["putAttribute"];
+    /** Deletes a single attribute */
+    delete: operations["deleteAttribute"];
+  };
+  "/archetypes": {
+    /** Get the organization's archetypes */
+    get: operations["listArchetypes"];
+    /** Create a single archetype */
+    post: operations["postArchetype"];
+  };
+  "/archetypes/${id}": {
+    /** Get a single archetype */
+    get: operations["getArchetype"];
+    /** Update a single archetype */
+    put: operations["putArchetype"];
+    /** Deletes a single archetype */
+    delete: operations["deleteArchetype"];
+  };
+  "/members": {
+    /** Get all organization members */
+    get: operations["listMembers"];
+  };
+  "/members/{id}": {
+    /** Removes a single user from an organization */
+    delete: operations["deleteMember"];
+  };
+  "/members/{id}/role": {
+    /** Update a member's global role (including any enviroment restrictions, if applicable). Can also update a member's project roles if your plan supports it. */
+    post: operations["updateMemberRole"];
   };
   "/environments": {
     /** Get the organization's environments */
@@ -260,6 +328,10 @@ export interface paths {
   "/code-refs": {
     /** Submit list of code references */
     post: operations["postCodeRefs"];
+  };
+  "/queries/{id}": {
+    /** Get a single query */
+    get: operations["getQuery"];
   };
 }
 
@@ -328,11 +400,13 @@ export interface components {
         windowSettings: {
           /** @enum {string} */
           type: "none" | "conversion" | "lookback";
-          /** @description Wait this many hours after experiment exposure before counting conversions */
-          delayHours?: number;
+          /** @description Wait this long after experiment exposure before counting conversions */
+          delayValue?: number;
+          /** @enum {string} */
+          delayUnit?: "minutes" | "hours" | "days" | "weeks";
           windowValue?: number;
           /** @enum {string} */
-          windowUnit?: "hours" | "days" | "weeks";
+          windowUnit?: "minutes" | "hours" | "days" | "weeks";
         };
         /** @description Controls the bayesian prior for the metric. */
         priorSettings?: {
@@ -354,6 +428,7 @@ export interface components {
         minPercentChange: number;
         maxPercentChange: number;
         minSampleSize: number;
+        targetMDE: number;
       };
       sql?: {
         identifierTypes: (string)[];
@@ -404,6 +479,19 @@ export interface components {
       toggleOnList: boolean;
       defaultState: boolean;
       projects: (string)[];
+      parent?: string;
+    };
+    Attribute: {
+      property: string;
+      /** @enum {string} */
+      datatype: "boolean" | "string" | "number" | "secureString" | "enum" | "string[]" | "number[]" | "secureString[]";
+      description?: string;
+      hashAttribute?: boolean;
+      archived?: boolean;
+      enum?: string;
+      /** @enum {string} */
+      format?: "" | "version" | "date" | "isoCountryCode";
+      projects?: (string)[];
     };
     Segment: {
       id: string;
@@ -411,9 +499,13 @@ export interface components {
       datasourceId: string;
       identifierType: string;
       name: string;
-      query: string;
+      query?: string;
       dateCreated: string;
       dateUpdated: string;
+      /** @enum {unknown} */
+      type?: "SQL" | "FACT";
+      factTableId?: string;
+      filters?: (string)[];
     };
     Feature: {
       id: string;
@@ -440,6 +532,11 @@ export interface components {
                   /** @enum {string} */
                   matchType: "all" | "any" | "none";
                   savedGroups: (string)[];
+                })[];
+              prerequisites?: ({
+                  /** @description Feature ID */
+                  id: string;
+                  condition: string;
                 })[];
               id: string;
               enabled: boolean;
@@ -471,7 +568,7 @@ export interface components {
               trackingKey?: string;
               hashAttribute?: string;
               fallbackAttribute?: string;
-              disableStickyBucketing?: any;
+              disableStickyBucketing?: boolean;
               bucketVersion?: number;
               minBucketVersion?: number;
               namespace?: {
@@ -497,7 +594,31 @@ export interface components {
                   variationId: string;
                 })[];
               experimentId: string;
-            })[];
+            } | ({
+              condition: string;
+              savedGroupTargeting?: ({
+                  /** @enum {string} */
+                  matchType: "all" | "any" | "none";
+                  savedGroups: (string)[];
+                })[];
+              prerequisites?: ({
+                  /** @description Feature ID */
+                  id: string;
+                  condition: string;
+                })[];
+              id: string;
+              trackingKey?: string;
+              enabled: boolean;
+              /** @enum {string} */
+              type: "safe-rollout";
+              controlValue: string;
+              variationValue: string;
+              seed?: string;
+              hashAttribute?: string;
+              safeRolloutId?: string;
+              /** @enum {string} */
+              status?: "running" | "released" | "rolled-back" | "stopped";
+            }))[];
           /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
           definition?: string;
           draft?: {
@@ -510,6 +631,11 @@ export interface components {
                     /** @enum {string} */
                     matchType: "all" | "any" | "none";
                     savedGroups: (string)[];
+                  })[];
+                prerequisites?: ({
+                    /** @description Feature ID */
+                    id: string;
+                    condition: string;
                   })[];
                 id: string;
                 enabled: boolean;
@@ -541,7 +667,7 @@ export interface components {
                 trackingKey?: string;
                 hashAttribute?: string;
                 fallbackAttribute?: string;
-                disableStickyBucketing?: any;
+                disableStickyBucketing?: boolean;
                 bucketVersion?: number;
                 minBucketVersion?: number;
                 namespace?: {
@@ -567,16 +693,38 @@ export interface components {
                     variationId: string;
                   })[];
                 experimentId: string;
-              })[];
+              } | ({
+                condition: string;
+                savedGroupTargeting?: ({
+                    /** @enum {string} */
+                    matchType: "all" | "any" | "none";
+                    savedGroups: (string)[];
+                  })[];
+                prerequisites?: ({
+                    /** @description Feature ID */
+                    id: string;
+                    condition: string;
+                  })[];
+                id: string;
+                trackingKey?: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "safe-rollout";
+                controlValue: string;
+                variationValue: string;
+                seed?: string;
+                hashAttribute?: string;
+                safeRolloutId?: string;
+                /** @enum {string} */
+                status?: "running" | "released" | "rolled-back" | "stopped";
+              }))[];
             /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
             definition?: string;
           };
         }) | undefined;
       };
-      prerequisites?: ({
-          parentId: string;
-          parentCondition: string;
-        })[];
+      /** @description Feature IDs. Each feature must evaluate to `true` */
+      prerequisites?: (string)[];
       revision: {
         version: number;
         comment: string;
@@ -585,6 +733,341 @@ export interface components {
         publishedBy: string;
       };
     };
+    FeatureWithRevisions: ({
+      id: string;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+      archived: boolean;
+      description: string;
+      owner: string;
+      project: string;
+      /** @enum {string} */
+      valueType: "boolean" | "string" | "number" | "json";
+      defaultValue: string;
+      tags: (string)[];
+      environments: {
+        [key: string]: ({
+          enabled: boolean;
+          defaultValue: string;
+          rules: (({
+              description: string;
+              condition: string;
+              savedGroupTargeting?: ({
+                  /** @enum {string} */
+                  matchType: "all" | "any" | "none";
+                  savedGroups: (string)[];
+                })[];
+              prerequisites?: ({
+                  /** @description Feature ID */
+                  id: string;
+                  condition: string;
+                })[];
+              id: string;
+              enabled: boolean;
+              /** @enum {string} */
+              type: "force";
+              value: string;
+            }) | ({
+              description: string;
+              condition: string;
+              savedGroupTargeting?: ({
+                  /** @enum {string} */
+                  matchType: "all" | "any" | "none";
+                  savedGroups: (string)[];
+                })[];
+              id: string;
+              enabled: boolean;
+              /** @enum {string} */
+              type: "rollout";
+              value: string;
+              coverage: number;
+              hashAttribute: string;
+            }) | {
+              description: string;
+              condition: string;
+              id: string;
+              enabled: boolean;
+              /** @enum {string} */
+              type: "experiment";
+              trackingKey?: string;
+              hashAttribute?: string;
+              fallbackAttribute?: string;
+              disableStickyBucketing?: boolean;
+              bucketVersion?: number;
+              minBucketVersion?: number;
+              namespace?: {
+                enabled: boolean;
+                name: string;
+                range: (number)[];
+              };
+              coverage?: number;
+              value?: ({
+                  value: string;
+                  weight: number;
+                  name?: string;
+                })[];
+            } | {
+              description: string;
+              id: string;
+              enabled: boolean;
+              /** @enum {string} */
+              type: "experiment-ref";
+              condition?: string;
+              variations: ({
+                  value: string;
+                  variationId: string;
+                })[];
+              experimentId: string;
+            } | ({
+              condition: string;
+              savedGroupTargeting?: ({
+                  /** @enum {string} */
+                  matchType: "all" | "any" | "none";
+                  savedGroups: (string)[];
+                })[];
+              prerequisites?: ({
+                  /** @description Feature ID */
+                  id: string;
+                  condition: string;
+                })[];
+              id: string;
+              trackingKey?: string;
+              enabled: boolean;
+              /** @enum {string} */
+              type: "safe-rollout";
+              controlValue: string;
+              variationValue: string;
+              seed?: string;
+              hashAttribute?: string;
+              safeRolloutId?: string;
+              /** @enum {string} */
+              status?: "running" | "released" | "rolled-back" | "stopped";
+            }))[];
+          /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
+          definition?: string;
+          draft?: {
+            enabled: boolean;
+            defaultValue: string;
+            rules: (({
+                description: string;
+                condition: string;
+                savedGroupTargeting?: ({
+                    /** @enum {string} */
+                    matchType: "all" | "any" | "none";
+                    savedGroups: (string)[];
+                  })[];
+                prerequisites?: ({
+                    /** @description Feature ID */
+                    id: string;
+                    condition: string;
+                  })[];
+                id: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "force";
+                value: string;
+              }) | ({
+                description: string;
+                condition: string;
+                savedGroupTargeting?: ({
+                    /** @enum {string} */
+                    matchType: "all" | "any" | "none";
+                    savedGroups: (string)[];
+                  })[];
+                id: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "rollout";
+                value: string;
+                coverage: number;
+                hashAttribute: string;
+              }) | {
+                description: string;
+                condition: string;
+                id: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "experiment";
+                trackingKey?: string;
+                hashAttribute?: string;
+                fallbackAttribute?: string;
+                disableStickyBucketing?: boolean;
+                bucketVersion?: number;
+                minBucketVersion?: number;
+                namespace?: {
+                  enabled: boolean;
+                  name: string;
+                  range: (number)[];
+                };
+                coverage?: number;
+                value?: ({
+                    value: string;
+                    weight: number;
+                    name?: string;
+                  })[];
+              } | {
+                description: string;
+                id: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "experiment-ref";
+                condition?: string;
+                variations: ({
+                    value: string;
+                    variationId: string;
+                  })[];
+                experimentId: string;
+              } | ({
+                condition: string;
+                savedGroupTargeting?: ({
+                    /** @enum {string} */
+                    matchType: "all" | "any" | "none";
+                    savedGroups: (string)[];
+                  })[];
+                prerequisites?: ({
+                    /** @description Feature ID */
+                    id: string;
+                    condition: string;
+                  })[];
+                id: string;
+                trackingKey?: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "safe-rollout";
+                controlValue: string;
+                variationValue: string;
+                seed?: string;
+                hashAttribute?: string;
+                safeRolloutId?: string;
+                /** @enum {string} */
+                status?: "running" | "released" | "rolled-back" | "stopped";
+              }))[];
+            /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
+            definition?: string;
+          };
+        }) | undefined;
+      };
+      /** @description Feature IDs. Each feature must evaluate to `true` */
+      prerequisites?: (string)[];
+      revision: {
+        version: number;
+        comment: string;
+        /** Format: date-time */
+        date: string;
+        publishedBy: string;
+      };
+    }) & ({
+      revisions?: ({
+          baseVersion: number;
+          version: number;
+          comment: string;
+          /** Format: date-time */
+          date: string;
+          status: string;
+          publishedBy?: string;
+          rules: {
+            [key: string]: ((({
+                description: string;
+                condition: string;
+                savedGroupTargeting?: ({
+                    /** @enum {string} */
+                    matchType: "all" | "any" | "none";
+                    savedGroups: (string)[];
+                  })[];
+                prerequisites?: ({
+                    /** @description Feature ID */
+                    id: string;
+                    condition: string;
+                  })[];
+                id: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "force";
+                value: string;
+              }) | ({
+                description: string;
+                condition: string;
+                savedGroupTargeting?: ({
+                    /** @enum {string} */
+                    matchType: "all" | "any" | "none";
+                    savedGroups: (string)[];
+                  })[];
+                id: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "rollout";
+                value: string;
+                coverage: number;
+                hashAttribute: string;
+              }) | {
+                description: string;
+                condition: string;
+                id: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "experiment";
+                trackingKey?: string;
+                hashAttribute?: string;
+                fallbackAttribute?: string;
+                disableStickyBucketing?: boolean;
+                bucketVersion?: number;
+                minBucketVersion?: number;
+                namespace?: {
+                  enabled: boolean;
+                  name: string;
+                  range: (number)[];
+                };
+                coverage?: number;
+                value?: ({
+                    value: string;
+                    weight: number;
+                    name?: string;
+                  })[];
+              } | {
+                description: string;
+                id: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "experiment-ref";
+                condition?: string;
+                variations: ({
+                    value: string;
+                    variationId: string;
+                  })[];
+                experimentId: string;
+              } | ({
+                condition: string;
+                savedGroupTargeting?: ({
+                    /** @enum {string} */
+                    matchType: "all" | "any" | "none";
+                    savedGroups: (string)[];
+                  })[];
+                prerequisites?: ({
+                    /** @description Feature ID */
+                    id: string;
+                    condition: string;
+                  })[];
+                id: string;
+                trackingKey?: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "safe-rollout";
+                controlValue: string;
+                variationValue: string;
+                seed?: string;
+                hashAttribute?: string;
+                safeRolloutId?: string;
+                /** @enum {string} */
+                status?: "running" | "released" | "rolled-back" | "stopped";
+              }))[]) | undefined;
+          };
+          definitions?: {
+            [key: string]: string | undefined;
+          };
+        })[];
+    });
     FeatureEnvironment: {
       enabled: boolean;
       defaultValue: string;
@@ -595,6 +1078,11 @@ export interface components {
               /** @enum {string} */
               matchType: "all" | "any" | "none";
               savedGroups: (string)[];
+            })[];
+          prerequisites?: ({
+              /** @description Feature ID */
+              id: string;
+              condition: string;
             })[];
           id: string;
           enabled: boolean;
@@ -626,7 +1114,7 @@ export interface components {
           trackingKey?: string;
           hashAttribute?: string;
           fallbackAttribute?: string;
-          disableStickyBucketing?: any;
+          disableStickyBucketing?: boolean;
           bucketVersion?: number;
           minBucketVersion?: number;
           namespace?: {
@@ -652,7 +1140,31 @@ export interface components {
               variationId: string;
             })[];
           experimentId: string;
-        })[];
+        } | ({
+          condition: string;
+          savedGroupTargeting?: ({
+              /** @enum {string} */
+              matchType: "all" | "any" | "none";
+              savedGroups: (string)[];
+            })[];
+          prerequisites?: ({
+              /** @description Feature ID */
+              id: string;
+              condition: string;
+            })[];
+          id: string;
+          trackingKey?: string;
+          enabled: boolean;
+          /** @enum {string} */
+          type: "safe-rollout";
+          controlValue: string;
+          variationValue: string;
+          seed?: string;
+          hashAttribute?: string;
+          safeRolloutId?: string;
+          /** @enum {string} */
+          status?: "running" | "released" | "rolled-back" | "stopped";
+        }))[];
       /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
       definition?: string;
       draft?: {
@@ -665,6 +1177,11 @@ export interface components {
                 /** @enum {string} */
                 matchType: "all" | "any" | "none";
                 savedGroups: (string)[];
+              })[];
+            prerequisites?: ({
+                /** @description Feature ID */
+                id: string;
+                condition: string;
               })[];
             id: string;
             enabled: boolean;
@@ -696,7 +1213,7 @@ export interface components {
             trackingKey?: string;
             hashAttribute?: string;
             fallbackAttribute?: string;
-            disableStickyBucketing?: any;
+            disableStickyBucketing?: boolean;
             bucketVersion?: number;
             minBucketVersion?: number;
             namespace?: {
@@ -722,7 +1239,31 @@ export interface components {
                 variationId: string;
               })[];
             experimentId: string;
-          })[];
+          } | ({
+            condition: string;
+            savedGroupTargeting?: ({
+                /** @enum {string} */
+                matchType: "all" | "any" | "none";
+                savedGroups: (string)[];
+              })[];
+            prerequisites?: ({
+                /** @description Feature ID */
+                id: string;
+                condition: string;
+              })[];
+            id: string;
+            trackingKey?: string;
+            enabled: boolean;
+            /** @enum {string} */
+            type: "safe-rollout";
+            controlValue: string;
+            variationValue: string;
+            seed?: string;
+            hashAttribute?: string;
+            safeRolloutId?: string;
+            /** @enum {string} */
+            status?: "running" | "released" | "rolled-back" | "stopped";
+          }))[];
         /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
         definition?: string;
       };
@@ -734,6 +1275,11 @@ export interface components {
           /** @enum {string} */
           matchType: "all" | "any" | "none";
           savedGroups: (string)[];
+        })[];
+      prerequisites?: ({
+          /** @description Feature ID */
+          id: string;
+          condition: string;
         })[];
       id: string;
       enabled: boolean;
@@ -765,7 +1311,7 @@ export interface components {
       trackingKey?: string;
       hashAttribute?: string;
       fallbackAttribute?: string;
-      disableStickyBucketing?: any;
+      disableStickyBucketing?: boolean;
       bucketVersion?: number;
       minBucketVersion?: number;
       namespace?: {
@@ -791,7 +1337,31 @@ export interface components {
           variationId: string;
         })[];
       experimentId: string;
-    };
+    } | ({
+      condition: string;
+      savedGroupTargeting?: ({
+          /** @enum {string} */
+          matchType: "all" | "any" | "none";
+          savedGroups: (string)[];
+        })[];
+      prerequisites?: ({
+          /** @description Feature ID */
+          id: string;
+          condition: string;
+        })[];
+      id: string;
+      trackingKey?: string;
+      enabled: boolean;
+      /** @enum {string} */
+      type: "safe-rollout";
+      controlValue: string;
+      variationValue: string;
+      seed?: string;
+      hashAttribute?: string;
+      safeRolloutId?: string;
+      /** @enum {string} */
+      status?: "running" | "released" | "rolled-back" | "stopped";
+    });
     FeatureDefinition: {
       defaultValue: OneOf<[string, number, (unknown)[], any, null]>;
       rules?: ({
@@ -815,6 +1385,11 @@ export interface components {
           matchType: "all" | "any" | "none";
           savedGroups: (string)[];
         })[];
+      prerequisites?: ({
+          /** @description Feature ID */
+          id: string;
+          condition: string;
+        })[];
       id: string;
       enabled: boolean;
       /** @enum {string} */
@@ -837,6 +1412,31 @@ export interface components {
       coverage: number;
       hashAttribute: string;
     };
+    FeatureSafeRolloutRule: {
+      condition: string;
+      savedGroupTargeting?: ({
+          /** @enum {string} */
+          matchType: "all" | "any" | "none";
+          savedGroups: (string)[];
+        })[];
+      prerequisites?: ({
+          /** @description Feature ID */
+          id: string;
+          condition: string;
+        })[];
+      id: string;
+      trackingKey?: string;
+      enabled: boolean;
+      /** @enum {string} */
+      type: "safe-rollout";
+      controlValue: string;
+      variationValue: string;
+      seed?: string;
+      hashAttribute?: string;
+      safeRolloutId?: string;
+      /** @enum {string} */
+      status?: "running" | "released" | "rolled-back" | "stopped";
+    };
     FeatureExperimentRule: {
       description: string;
       condition: string;
@@ -847,7 +1447,7 @@ export interface components {
       trackingKey?: string;
       hashAttribute?: string;
       fallbackAttribute?: string;
-      disableStickyBucketing?: any;
+      disableStickyBucketing?: boolean;
       bucketVersion?: number;
       minBucketVersion?: number;
       namespace?: {
@@ -895,6 +1495,7 @@ export interface components {
       includeDraftExperiments?: boolean;
       includeExperimentNames?: boolean;
       includeRedirectExperiments?: boolean;
+      includeRuleIds?: boolean;
       key: string;
       proxyEnabled: boolean;
       proxyHost: string;
@@ -902,14 +1503,18 @@ export interface components {
       sseEnabled?: boolean;
       hashSecureAttributes?: boolean;
       remoteEvalEnabled?: boolean;
+      savedGroupReferencesEnabled?: boolean;
     };
     Experiment: {
       id: string;
+      trackingKey: string;
       /** Format: date-time */
       dateCreated: string;
       /** Format: date-time */
       dateUpdated: string;
       name: string;
+      /** @enum {string} */
+      type: "standard" | "multi-armed-bandit";
       project: string;
       hypothesis: string;
       description: string;
@@ -922,7 +1527,7 @@ export interface components {
       fallbackAttribute?: string;
       /** @enum {number} */
       hashVersion: 1 | 2;
-      disableStickyBucketing?: any;
+      disableStickyBucketing?: boolean;
       bucketVersion?: number;
       minBucketVersion?: number;
       variations: ({
@@ -948,6 +1553,10 @@ export interface components {
             range: (unknown)[];
           };
           targetingCondition: string;
+          prerequisites?: ({
+              id: string;
+              condition: string;
+            })[];
           savedGroupTargeting?: ({
               /** @enum {string} */
               matchType: "all" | "any" | "none";
@@ -962,11 +1571,16 @@ export interface components {
         queryFilter: string;
         /** @enum {unknown} */
         inProgressConversions: "include" | "exclude";
-        /** @enum {unknown} */
+        /**
+         * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+         * @enum {unknown}
+         */
         attributionModel: "firstExposure" | "experimentDuration";
         /** @enum {unknown} */
         statsEngine: "bayesian" | "frequentist";
         regressionAdjustmentEnabled?: boolean;
+        sequentialTestingEnabled?: boolean;
+        sequentialTestingTuningParameter?: number;
         goals: ({
             metricId: string;
             overrides: {
@@ -1019,6 +1633,23 @@ export interface components {
         releasedVariationId: string;
         excludeFromPayload: boolean;
       };
+      /** @enum {string} */
+      shareLevel?: "public" | "organization";
+      publicUrl?: string;
+      banditScheduleValue?: number;
+      /** @enum {string} */
+      banditScheduleUnit?: "days" | "hours";
+      banditBurnInValue?: number;
+      /** @enum {string} */
+      banditBurnInUnit?: "days" | "hours";
+      linkedFeatures?: (string)[];
+      hasVisualChangesets?: boolean;
+      hasURLRedirects?: boolean;
+    };
+    ExperimentSnapshot: {
+      id: string;
+      experiment: string;
+      status: string;
     };
     ExperimentMetric: {
       metricId: string;
@@ -1039,11 +1670,16 @@ export interface components {
       queryFilter: string;
       /** @enum {unknown} */
       inProgressConversions: "include" | "exclude";
-      /** @enum {unknown} */
+      /**
+       * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+       * @enum {unknown}
+       */
       attributionModel: "firstExposure" | "experimentDuration";
       /** @enum {unknown} */
       statsEngine: "bayesian" | "frequentist";
       regressionAdjustmentEnabled?: boolean;
+      sequentialTestingEnabled?: boolean;
+      sequentialTestingTuningParameter?: number;
       goals: ({
           metricId: string;
           overrides: {
@@ -1108,11 +1744,16 @@ export interface components {
         queryFilter: string;
         /** @enum {unknown} */
         inProgressConversions: "include" | "exclude";
-        /** @enum {unknown} */
+        /**
+         * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+         * @enum {unknown}
+         */
         attributionModel: "firstExposure" | "experimentDuration";
         /** @enum {unknown} */
         statsEngine: "bayesian" | "frequentist";
         regressionAdjustmentEnabled?: boolean;
+        sequentialTestingEnabled?: boolean;
+        sequentialTestingTuningParameter?: number;
         goals: ({
             metricId: string;
             overrides: {
@@ -1188,6 +1829,153 @@ export interface components {
             })[];
         })[];
     };
+    ExperimentWithEnhancedStatus: ({
+      id: string;
+      trackingKey: string;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+      name: string;
+      /** @enum {string} */
+      type: "standard" | "multi-armed-bandit";
+      project: string;
+      hypothesis: string;
+      description: string;
+      tags: (string)[];
+      owner: string;
+      archived: boolean;
+      status: string;
+      autoRefresh: boolean;
+      hashAttribute: string;
+      fallbackAttribute?: string;
+      /** @enum {number} */
+      hashVersion: 1 | 2;
+      disableStickyBucketing?: boolean;
+      bucketVersion?: number;
+      minBucketVersion?: number;
+      variations: ({
+          variationId: string;
+          key: string;
+          name: string;
+          description: string;
+          screenshots: (string)[];
+        })[];
+      phases: ({
+          name: string;
+          dateStarted: string;
+          dateEnded: string;
+          reasonForStopping: string;
+          seed: string;
+          coverage: number;
+          trafficSplit: ({
+              variationId: string;
+              weight: number;
+            })[];
+          namespace?: {
+            namespaceId: string;
+            range: (unknown)[];
+          };
+          targetingCondition: string;
+          prerequisites?: ({
+              id: string;
+              condition: string;
+            })[];
+          savedGroupTargeting?: ({
+              /** @enum {string} */
+              matchType: "all" | "any" | "none";
+              savedGroups: (string)[];
+            })[];
+        })[];
+      settings: {
+        datasourceId: string;
+        assignmentQueryId: string;
+        experimentId: string;
+        segmentId: string;
+        queryFilter: string;
+        /** @enum {unknown} */
+        inProgressConversions: "include" | "exclude";
+        /**
+         * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+         * @enum {unknown}
+         */
+        attributionModel: "firstExposure" | "experimentDuration";
+        /** @enum {unknown} */
+        statsEngine: "bayesian" | "frequentist";
+        regressionAdjustmentEnabled?: boolean;
+        sequentialTestingEnabled?: boolean;
+        sequentialTestingTuningParameter?: number;
+        goals: ({
+            metricId: string;
+            overrides: {
+              delayHours?: number;
+              windowHours?: number;
+              /** @enum {string} */
+              window?: "conversion" | "lookback" | "";
+              winRiskThreshold?: number;
+              loseRiskThreshold?: number;
+            };
+          })[];
+        secondaryMetrics: ({
+            metricId: string;
+            overrides: {
+              delayHours?: number;
+              windowHours?: number;
+              /** @enum {string} */
+              window?: "conversion" | "lookback" | "";
+              winRiskThreshold?: number;
+              loseRiskThreshold?: number;
+            };
+          })[];
+        guardrails: ({
+            metricId: string;
+            overrides: {
+              delayHours?: number;
+              windowHours?: number;
+              /** @enum {string} */
+              window?: "conversion" | "lookback" | "";
+              winRiskThreshold?: number;
+              loseRiskThreshold?: number;
+            };
+          })[];
+        activationMetric?: {
+          metricId: string;
+          overrides: {
+            delayHours?: number;
+            windowHours?: number;
+            /** @enum {string} */
+            window?: "conversion" | "lookback" | "";
+            winRiskThreshold?: number;
+            loseRiskThreshold?: number;
+          };
+        };
+      };
+      resultSummary?: {
+        status: string;
+        winner: string;
+        conclusions: string;
+        releasedVariationId: string;
+        excludeFromPayload: boolean;
+      };
+      /** @enum {string} */
+      shareLevel?: "public" | "organization";
+      publicUrl?: string;
+      banditScheduleValue?: number;
+      /** @enum {string} */
+      banditScheduleUnit?: "days" | "hours";
+      banditBurnInValue?: number;
+      /** @enum {string} */
+      banditBurnInUnit?: "days" | "hours";
+      linkedFeatures?: (string)[];
+      hasVisualChangesets?: boolean;
+      hasURLRedirects?: boolean;
+    }) & ({
+      enhancedStatus?: {
+        /** @enum {string} */
+        status: "Running" | "Stopped" | "Draft" | "Archived";
+        detailedStatus?: string;
+      };
+    });
     DataSource: {
       id: string;
       /** Format: date-time */
@@ -1280,6 +2068,8 @@ export interface components {
       attributeKey?: string;
       /** @description When type = 'list', this is the list of values for the attribute key */
       values?: (string)[];
+      description?: string;
+      projects?: (string)[];
     };
     Organization: {
       /** @description The Growthbook unique identifier for the organization */
@@ -1340,12 +2130,18 @@ export interface components {
       tags: (string)[];
       datasource: string;
       /** @enum {string} */
-      metricType: "proportion" | "mean" | "quantile" | "ratio";
+      metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
       numerator: {
         factTableId: string;
         column: string;
+        /** @enum {string} */
+        aggregation?: "sum" | "max" | "count distinct";
         /** @description Array of Fact Table Filter Ids */
         filters: (string)[];
+        /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
+        aggregateFilterColumn?: string;
+        /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
+        aggregateFilter?: string;
       };
       denominator?: {
         factTableId: string;
@@ -1380,11 +2176,13 @@ export interface components {
       windowSettings: {
         /** @enum {string} */
         type: "none" | "conversion" | "lookback";
-        /** @description Wait this many hours after experiment exposure before counting conversions */
-        delayHours?: number;
+        /** @description Wait this long after experiment exposure before counting conversions. */
+        delayValue?: number;
+        /** @enum {string} */
+        delayUnit?: "minutes" | "hours" | "days" | "weeks";
         windowValue?: number;
         /** @enum {string} */
-        windowUnit?: "hours" | "days" | "weeks";
+        windowUnit?: "minutes" | "hours" | "days" | "weeks";
       };
       /** @description Controls the regression adjustment (CUPED) settings for the metric */
       regressionAdjustmentSettings: {
@@ -1397,9 +2195,12 @@ export interface components {
       };
       riskThresholdSuccess: number;
       riskThresholdDanger: number;
+      /** @description If true and the metric is a ratio metric, variation means will be displayed as a percentage */
+      displayAsPercentage?: boolean;
       minPercentChange: number;
       maxPercentChange: number;
       minSampleSize: number;
+      targetMDE: number;
       /**
        * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
        * @enum {string}
@@ -1409,6 +2210,55 @@ export interface components {
       dateCreated: string;
       /** Format: date-time */
       dateUpdated: string;
+    };
+    Member: {
+      id: string;
+      name?: string;
+      email: string;
+      globalRole: string;
+      environments?: (string)[];
+      limitAccessByEnvironment?: boolean;
+      managedbyIdp?: boolean;
+      teams?: (string)[];
+      projectRoles?: ({
+          project: string;
+          role: string;
+          limitAccessByEnvironment: boolean;
+          environments: (string)[];
+        })[];
+      /** Format: date-time */
+      lastLoginDate?: string;
+      /** Format: date-time */
+      dateCreated?: string;
+      /** Format: date-time */
+      dateUpdated?: string;
+    };
+    Archetype: {
+      id: string;
+      dateCreated: string;
+      dateUpdated: string;
+      name: string;
+      description?: string;
+      owner: string;
+      isPublic: boolean;
+      /** @description The attributes to set when using this Archetype */
+      attributes: any;
+      projects?: (string)[];
+    };
+    Query: {
+      id: string;
+      organization: string;
+      datasource: string;
+      language: string;
+      query: string;
+      queryType: string;
+      createdAt: string;
+      startedAt: string;
+      /** @enum {string} */
+      status: "running" | "queued" | "failed" | "partially-succeeded" | "succeeded";
+      externalId: string;
+      dependencies: (string)[];
+      runAtEnd: boolean;
     };
   };
   responses: {
@@ -1433,8 +2283,16 @@ export interface components {
     repo: string;
     /** @description Name of branch for git repo. */
     branch: string;
-    /** @description Name of versino control platform like GitHub or Gitlab. */
+    /** @description Name of version control platform like GitHub or Gitlab. */
     platform: "github" | "gitlab" | "bitbucket";
+    /** @description Name of the user. */
+    userName: string;
+    /** @description Email address of the user. */
+    userEmail: string;
+    /** @description Name of the global role */
+    globalRole: string;
+    /** @description Filter by a SDK connection's client key */
+    clientKey: string;
   };
   requestBodies: never;
   headers: never;
@@ -1451,10 +2309,12 @@ export interface operations {
         /** @description The number of items to return */
         /** @description How many items to skip (use in conjunction with limit for pagination) */
         /** @description Filter by project id */
+        /** @description Filter by a SDK connection's client key */
       query: {
         limit?: number;
         offset?: number;
         projectId?: string;
+        clientKey?: string;
       };
     };
     responses: {
@@ -1487,6 +2347,11 @@ export interface operations {
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
+                          })[];
                         id: string;
                         enabled: boolean;
                         /** @enum {string} */
@@ -1517,7 +2382,7 @@ export interface operations {
                         trackingKey?: string;
                         hashAttribute?: string;
                         fallbackAttribute?: string;
-                        disableStickyBucketing?: any;
+                        disableStickyBucketing?: boolean;
                         bucketVersion?: number;
                         minBucketVersion?: number;
                         namespace?: {
@@ -1543,7 +2408,31 @@ export interface operations {
                             variationId: string;
                           })[];
                         experimentId: string;
-                      })[];
+                      } | ({
+                        condition: string;
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
+                          })[];
+                        id: string;
+                        trackingKey?: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "safe-rollout";
+                        controlValue: string;
+                        variationValue: string;
+                        seed?: string;
+                        hashAttribute?: string;
+                        safeRolloutId?: string;
+                        /** @enum {string} */
+                        status?: "running" | "released" | "rolled-back" | "stopped";
+                      }))[];
                     /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string;
                     draft?: {
@@ -1556,6 +2445,11 @@ export interface operations {
                               /** @enum {string} */
                               matchType: "all" | "any" | "none";
                               savedGroups: (string)[];
+                            })[];
+                          prerequisites?: ({
+                              /** @description Feature ID */
+                              id: string;
+                              condition: string;
                             })[];
                           id: string;
                           enabled: boolean;
@@ -1587,7 +2481,7 @@ export interface operations {
                           trackingKey?: string;
                           hashAttribute?: string;
                           fallbackAttribute?: string;
-                          disableStickyBucketing?: any;
+                          disableStickyBucketing?: boolean;
                           bucketVersion?: number;
                           minBucketVersion?: number;
                           namespace?: {
@@ -1613,16 +2507,38 @@ export interface operations {
                               variationId: string;
                             })[];
                           experimentId: string;
-                        })[];
+                        } | ({
+                          condition: string;
+                          savedGroupTargeting?: ({
+                              /** @enum {string} */
+                              matchType: "all" | "any" | "none";
+                              savedGroups: (string)[];
+                            })[];
+                          prerequisites?: ({
+                              /** @description Feature ID */
+                              id: string;
+                              condition: string;
+                            })[];
+                          id: string;
+                          trackingKey?: string;
+                          enabled: boolean;
+                          /** @enum {string} */
+                          type: "safe-rollout";
+                          controlValue: string;
+                          variationValue: string;
+                          seed?: string;
+                          hashAttribute?: string;
+                          safeRolloutId?: string;
+                          /** @enum {string} */
+                          status?: "running" | "released" | "rolled-back" | "stopped";
+                        }))[];
                       /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                       definition?: string;
                     };
                   }) | undefined;
                 };
-                prerequisites?: ({
-                    parentId: string;
-                    parentCondition: string;
-                  })[];
+                /** @description Feature IDs. Each feature must evaluate to `true` */
+                prerequisites?: (string)[];
                 revision: {
                   version: number;
                   comment: string;
@@ -1694,6 +2610,11 @@ export interface operations {
                       matchType: "all" | "any" | "none";
                       savedGroups: (string)[];
                     })[];
+                  prerequisites?: ({
+                      /** @description Feature ID */
+                      id: string;
+                      condition: string;
+                    })[];
                   id?: string;
                   /** @description Enabled by default */
                   enabled?: boolean;
@@ -1703,7 +2624,7 @@ export interface operations {
                   /** @description Percent of traffic included in this experiment. Users not included in the experiment will skip this rule. */
                   coverage: number;
                   hashAttribute: string;
-                }) | {
+                }) | ({
                   description?: string;
                   id?: string;
                   /** @description Enabled by default */
@@ -1711,11 +2632,55 @@ export interface operations {
                   /** @enum {string} */
                   type: "experiment-ref";
                   condition?: string;
+                  savedGroupTargeting?: ({
+                      /** @enum {string} */
+                      matchType: "all" | "any" | "none";
+                      savedGroups: (string)[];
+                    })[];
+                  prerequisites?: ({
+                      /** @description Feature ID */
+                      id: string;
+                      condition: string;
+                    })[];
                   variations: ({
                       value: string;
                       variationId: string;
                     })[];
                   experimentId: string;
+                }) | {
+                  description?: string;
+                  condition: string;
+                  id?: string;
+                  /** @description Enabled by default */
+                  enabled?: boolean;
+                  /** @enum {string} */
+                  type: "experiment";
+                  trackingKey?: string;
+                  hashAttribute?: string;
+                  fallbackAttribute?: string;
+                  disableStickyBucketing?: boolean;
+                  bucketVersion?: number;
+                  minBucketVersion?: number;
+                  namespace?: {
+                    enabled: boolean;
+                    name: string;
+                    range: (number)[];
+                  };
+                  coverage?: number;
+                  values?: ({
+                      value: string;
+                      weight: number;
+                      name?: string;
+                    })[];
+                  /**
+                   * @deprecated 
+                   * @description Support passing values under the value key as that was the original spec for FeatureExperimentRules
+                   */
+                  value?: ({
+                      value: string;
+                      weight: number;
+                      name?: string;
+                    })[];
                 })[];
               /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
               definition?: string;
@@ -1746,6 +2711,11 @@ export interface operations {
                         matchType: "all" | "any" | "none";
                         savedGroups: (string)[];
                       })[];
+                    prerequisites?: ({
+                        /** @description Feature ID */
+                        id: string;
+                        condition: string;
+                      })[];
                     id?: string;
                     /** @description Enabled by default */
                     enabled?: boolean;
@@ -1755,7 +2725,7 @@ export interface operations {
                     /** @description Percent of traffic included in this experiment. Users not included in the experiment will skip this rule. */
                     coverage: number;
                     hashAttribute: string;
-                  }) | {
+                  }) | ({
                     description?: string;
                     id?: string;
                     /** @description Enabled by default */
@@ -1763,17 +2733,63 @@ export interface operations {
                     /** @enum {string} */
                     type: "experiment-ref";
                     condition?: string;
+                    savedGroupTargeting?: ({
+                        /** @enum {string} */
+                        matchType: "all" | "any" | "none";
+                        savedGroups: (string)[];
+                      })[];
+                    prerequisites?: ({
+                        /** @description Feature ID */
+                        id: string;
+                        condition: string;
+                      })[];
                     variations: ({
                         value: string;
                         variationId: string;
                       })[];
                     experimentId: string;
+                  }) | {
+                    description?: string;
+                    condition: string;
+                    id?: string;
+                    /** @description Enabled by default */
+                    enabled?: boolean;
+                    /** @enum {string} */
+                    type: "experiment";
+                    trackingKey?: string;
+                    hashAttribute?: string;
+                    fallbackAttribute?: string;
+                    disableStickyBucketing?: boolean;
+                    bucketVersion?: number;
+                    minBucketVersion?: number;
+                    namespace?: {
+                      enabled: boolean;
+                      name: string;
+                      range: (number)[];
+                    };
+                    coverage?: number;
+                    values?: ({
+                        value: string;
+                        weight: number;
+                        name?: string;
+                      })[];
+                    /**
+                     * @deprecated 
+                     * @description Support passing values under the value key as that was the original spec for FeatureExperimentRules
+                     */
+                    value?: ({
+                        value: string;
+                        weight: number;
+                        name?: string;
+                      })[];
                   })[];
                 /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                 definition?: string;
               };
             }) | undefined;
           };
+          /** @description Feature IDs. Each feature must evaluate to `true` */
+          prerequisites?: (string)[];
           /** @description Use JSON schema to validate the payload of a JSON-type feature value (enterprise only). */
           jsonSchema?: string;
         };
@@ -1809,6 +2825,11 @@ export interface operations {
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
+                      prerequisites?: ({
+                          /** @description Feature ID */
+                          id: string;
+                          condition: string;
+                        })[];
                       id: string;
                       enabled: boolean;
                       /** @enum {string} */
@@ -1839,7 +2860,7 @@ export interface operations {
                       trackingKey?: string;
                       hashAttribute?: string;
                       fallbackAttribute?: string;
-                      disableStickyBucketing?: any;
+                      disableStickyBucketing?: boolean;
                       bucketVersion?: number;
                       minBucketVersion?: number;
                       namespace?: {
@@ -1865,7 +2886,31 @@ export interface operations {
                           variationId: string;
                         })[];
                       experimentId: string;
-                    })[];
+                    } | ({
+                      condition: string;
+                      savedGroupTargeting?: ({
+                          /** @enum {string} */
+                          matchType: "all" | "any" | "none";
+                          savedGroups: (string)[];
+                        })[];
+                      prerequisites?: ({
+                          /** @description Feature ID */
+                          id: string;
+                          condition: string;
+                        })[];
+                      id: string;
+                      trackingKey?: string;
+                      enabled: boolean;
+                      /** @enum {string} */
+                      type: "safe-rollout";
+                      controlValue: string;
+                      variationValue: string;
+                      seed?: string;
+                      hashAttribute?: string;
+                      safeRolloutId?: string;
+                      /** @enum {string} */
+                      status?: "running" | "released" | "rolled-back" | "stopped";
+                    }))[];
                   /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                   definition?: string;
                   draft?: {
@@ -1878,6 +2923,11 @@ export interface operations {
                             /** @enum {string} */
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
                           })[];
                         id: string;
                         enabled: boolean;
@@ -1909,7 +2959,7 @@ export interface operations {
                         trackingKey?: string;
                         hashAttribute?: string;
                         fallbackAttribute?: string;
-                        disableStickyBucketing?: any;
+                        disableStickyBucketing?: boolean;
                         bucketVersion?: number;
                         minBucketVersion?: number;
                         namespace?: {
@@ -1935,16 +2985,38 @@ export interface operations {
                             variationId: string;
                           })[];
                         experimentId: string;
-                      })[];
+                      } | ({
+                        condition: string;
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
+                          })[];
+                        id: string;
+                        trackingKey?: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "safe-rollout";
+                        controlValue: string;
+                        variationValue: string;
+                        seed?: string;
+                        hashAttribute?: string;
+                        safeRolloutId?: string;
+                        /** @enum {string} */
+                        status?: "running" | "released" | "rolled-back" | "stopped";
+                      }))[];
                     /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string;
                   };
                 }) | undefined;
               };
-              prerequisites?: ({
-                  parentId: string;
-                  parentCondition: string;
-                })[];
+              /** @description Feature IDs. Each feature must evaluate to `true` */
+              prerequisites?: (string)[];
               revision: {
                 version: number;
                 comment: string;
@@ -1961,6 +3033,10 @@ export interface operations {
   getFeature: {
     /** Get a single feature */
     parameters: {
+        /** @description Also return feature revisions (all, draft, or published statuses) */
+      query: {
+        withRevisions?: "all" | "drafts" | "published" | "none";
+      };
         /** @description The id of the requested resource */
       path: {
         id: string;
@@ -1970,7 +3046,7 @@ export interface operations {
       200: {
         content: {
           "application/json": {
-            feature: {
+            feature: ({
               id: string;
               /** Format: date-time */
               dateCreated: string;
@@ -1996,6 +3072,11 @@ export interface operations {
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
+                      prerequisites?: ({
+                          /** @description Feature ID */
+                          id: string;
+                          condition: string;
+                        })[];
                       id: string;
                       enabled: boolean;
                       /** @enum {string} */
@@ -2026,7 +3107,7 @@ export interface operations {
                       trackingKey?: string;
                       hashAttribute?: string;
                       fallbackAttribute?: string;
-                      disableStickyBucketing?: any;
+                      disableStickyBucketing?: boolean;
                       bucketVersion?: number;
                       minBucketVersion?: number;
                       namespace?: {
@@ -2052,7 +3133,31 @@ export interface operations {
                           variationId: string;
                         })[];
                       experimentId: string;
-                    })[];
+                    } | ({
+                      condition: string;
+                      savedGroupTargeting?: ({
+                          /** @enum {string} */
+                          matchType: "all" | "any" | "none";
+                          savedGroups: (string)[];
+                        })[];
+                      prerequisites?: ({
+                          /** @description Feature ID */
+                          id: string;
+                          condition: string;
+                        })[];
+                      id: string;
+                      trackingKey?: string;
+                      enabled: boolean;
+                      /** @enum {string} */
+                      type: "safe-rollout";
+                      controlValue: string;
+                      variationValue: string;
+                      seed?: string;
+                      hashAttribute?: string;
+                      safeRolloutId?: string;
+                      /** @enum {string} */
+                      status?: "running" | "released" | "rolled-back" | "stopped";
+                    }))[];
                   /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                   definition?: string;
                   draft?: {
@@ -2065,6 +3170,11 @@ export interface operations {
                             /** @enum {string} */
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
                           })[];
                         id: string;
                         enabled: boolean;
@@ -2096,7 +3206,7 @@ export interface operations {
                         trackingKey?: string;
                         hashAttribute?: string;
                         fallbackAttribute?: string;
-                        disableStickyBucketing?: any;
+                        disableStickyBucketing?: boolean;
                         bucketVersion?: number;
                         minBucketVersion?: number;
                         namespace?: {
@@ -2122,16 +3232,38 @@ export interface operations {
                             variationId: string;
                           })[];
                         experimentId: string;
-                      })[];
+                      } | ({
+                        condition: string;
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
+                          })[];
+                        id: string;
+                        trackingKey?: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "safe-rollout";
+                        controlValue: string;
+                        variationValue: string;
+                        seed?: string;
+                        hashAttribute?: string;
+                        safeRolloutId?: string;
+                        /** @enum {string} */
+                        status?: "running" | "released" | "rolled-back" | "stopped";
+                      }))[];
                     /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string;
                   };
                 }) | undefined;
               };
-              prerequisites?: ({
-                  parentId: string;
-                  parentCondition: string;
-                })[];
+              /** @description Feature IDs. Each feature must evaluate to `true` */
+              prerequisites?: (string)[];
               revision: {
                 version: number;
                 comment: string;
@@ -2139,7 +3271,116 @@ export interface operations {
                 date: string;
                 publishedBy: string;
               };
-            };
+            }) & ({
+              revisions?: ({
+                  baseVersion: number;
+                  version: number;
+                  comment: string;
+                  /** Format: date-time */
+                  date: string;
+                  status: string;
+                  publishedBy?: string;
+                  rules: {
+                    [key: string]: ((({
+                        description: string;
+                        condition: string;
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
+                          })[];
+                        id: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "force";
+                        value: string;
+                      }) | ({
+                        description: string;
+                        condition: string;
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        id: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "rollout";
+                        value: string;
+                        coverage: number;
+                        hashAttribute: string;
+                      }) | {
+                        description: string;
+                        condition: string;
+                        id: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "experiment";
+                        trackingKey?: string;
+                        hashAttribute?: string;
+                        fallbackAttribute?: string;
+                        disableStickyBucketing?: boolean;
+                        bucketVersion?: number;
+                        minBucketVersion?: number;
+                        namespace?: {
+                          enabled: boolean;
+                          name: string;
+                          range: (number)[];
+                        };
+                        coverage?: number;
+                        value?: ({
+                            value: string;
+                            weight: number;
+                            name?: string;
+                          })[];
+                      } | {
+                        description: string;
+                        id: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "experiment-ref";
+                        condition?: string;
+                        variations: ({
+                            value: string;
+                            variationId: string;
+                          })[];
+                        experimentId: string;
+                      } | ({
+                        condition: string;
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
+                          })[];
+                        id: string;
+                        trackingKey?: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "safe-rollout";
+                        controlValue: string;
+                        variationValue: string;
+                        seed?: string;
+                        hashAttribute?: string;
+                        safeRolloutId?: string;
+                        /** @enum {string} */
+                        status?: "running" | "released" | "rolled-back" | "stopped";
+                      }))[]) | undefined;
+                  };
+                  definitions?: {
+                    [key: string]: string | undefined;
+                  };
+                })[];
+            });
           };
         };
       };
@@ -2192,6 +3433,11 @@ export interface operations {
                       matchType: "all" | "any" | "none";
                       savedGroups: (string)[];
                     })[];
+                  prerequisites?: ({
+                      /** @description Feature ID */
+                      id: string;
+                      condition: string;
+                    })[];
                   id?: string;
                   /** @description Enabled by default */
                   enabled?: boolean;
@@ -2201,7 +3447,7 @@ export interface operations {
                   /** @description Percent of traffic included in this experiment. Users not included in the experiment will skip this rule. */
                   coverage: number;
                   hashAttribute: string;
-                }) | {
+                }) | ({
                   description?: string;
                   id?: string;
                   /** @description Enabled by default */
@@ -2209,11 +3455,55 @@ export interface operations {
                   /** @enum {string} */
                   type: "experiment-ref";
                   condition?: string;
+                  savedGroupTargeting?: ({
+                      /** @enum {string} */
+                      matchType: "all" | "any" | "none";
+                      savedGroups: (string)[];
+                    })[];
+                  prerequisites?: ({
+                      /** @description Feature ID */
+                      id: string;
+                      condition: string;
+                    })[];
                   variations: ({
                       value: string;
                       variationId: string;
                     })[];
                   experimentId: string;
+                }) | {
+                  description?: string;
+                  condition: string;
+                  id?: string;
+                  /** @description Enabled by default */
+                  enabled?: boolean;
+                  /** @enum {string} */
+                  type: "experiment";
+                  trackingKey?: string;
+                  hashAttribute?: string;
+                  fallbackAttribute?: string;
+                  disableStickyBucketing?: boolean;
+                  bucketVersion?: number;
+                  minBucketVersion?: number;
+                  namespace?: {
+                    enabled: boolean;
+                    name: string;
+                    range: (number)[];
+                  };
+                  coverage?: number;
+                  values?: ({
+                      value: string;
+                      weight: number;
+                      name?: string;
+                    })[];
+                  /**
+                   * @deprecated 
+                   * @description Support passing values under the value key as that was the original spec for FeatureExperimentRules
+                   */
+                  value?: ({
+                      value: string;
+                      weight: number;
+                      name?: string;
+                    })[];
                 })[];
               /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
               definition?: string;
@@ -2244,6 +3534,11 @@ export interface operations {
                         matchType: "all" | "any" | "none";
                         savedGroups: (string)[];
                       })[];
+                    prerequisites?: ({
+                        /** @description Feature ID */
+                        id: string;
+                        condition: string;
+                      })[];
                     id?: string;
                     /** @description Enabled by default */
                     enabled?: boolean;
@@ -2253,7 +3548,7 @@ export interface operations {
                     /** @description Percent of traffic included in this experiment. Users not included in the experiment will skip this rule. */
                     coverage: number;
                     hashAttribute: string;
-                  }) | {
+                  }) | ({
                     description?: string;
                     id?: string;
                     /** @description Enabled by default */
@@ -2261,17 +3556,63 @@ export interface operations {
                     /** @enum {string} */
                     type: "experiment-ref";
                     condition?: string;
+                    savedGroupTargeting?: ({
+                        /** @enum {string} */
+                        matchType: "all" | "any" | "none";
+                        savedGroups: (string)[];
+                      })[];
+                    prerequisites?: ({
+                        /** @description Feature ID */
+                        id: string;
+                        condition: string;
+                      })[];
                     variations: ({
                         value: string;
                         variationId: string;
                       })[];
                     experimentId: string;
+                  }) | {
+                    description?: string;
+                    condition: string;
+                    id?: string;
+                    /** @description Enabled by default */
+                    enabled?: boolean;
+                    /** @enum {string} */
+                    type: "experiment";
+                    trackingKey?: string;
+                    hashAttribute?: string;
+                    fallbackAttribute?: string;
+                    disableStickyBucketing?: boolean;
+                    bucketVersion?: number;
+                    minBucketVersion?: number;
+                    namespace?: {
+                      enabled: boolean;
+                      name: string;
+                      range: (number)[];
+                    };
+                    coverage?: number;
+                    values?: ({
+                        value: string;
+                        weight: number;
+                        name?: string;
+                      })[];
+                    /**
+                     * @deprecated 
+                     * @description Support passing values under the value key as that was the original spec for FeatureExperimentRules
+                     */
+                    value?: ({
+                        value: string;
+                        weight: number;
+                        name?: string;
+                      })[];
                   })[];
                 /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                 definition?: string;
               };
             }) | undefined;
           };
+          /** @description Feature IDs. Each feature must evaluate to `true` */
+          prerequisites?: (string)[];
           /** @description Use JSON schema to validate the payload of a JSON-type feature value (enterprise only). */
           jsonSchema?: string;
         };
@@ -2307,6 +3648,11 @@ export interface operations {
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
+                      prerequisites?: ({
+                          /** @description Feature ID */
+                          id: string;
+                          condition: string;
+                        })[];
                       id: string;
                       enabled: boolean;
                       /** @enum {string} */
@@ -2337,7 +3683,7 @@ export interface operations {
                       trackingKey?: string;
                       hashAttribute?: string;
                       fallbackAttribute?: string;
-                      disableStickyBucketing?: any;
+                      disableStickyBucketing?: boolean;
                       bucketVersion?: number;
                       minBucketVersion?: number;
                       namespace?: {
@@ -2363,7 +3709,31 @@ export interface operations {
                           variationId: string;
                         })[];
                       experimentId: string;
-                    })[];
+                    } | ({
+                      condition: string;
+                      savedGroupTargeting?: ({
+                          /** @enum {string} */
+                          matchType: "all" | "any" | "none";
+                          savedGroups: (string)[];
+                        })[];
+                      prerequisites?: ({
+                          /** @description Feature ID */
+                          id: string;
+                          condition: string;
+                        })[];
+                      id: string;
+                      trackingKey?: string;
+                      enabled: boolean;
+                      /** @enum {string} */
+                      type: "safe-rollout";
+                      controlValue: string;
+                      variationValue: string;
+                      seed?: string;
+                      hashAttribute?: string;
+                      safeRolloutId?: string;
+                      /** @enum {string} */
+                      status?: "running" | "released" | "rolled-back" | "stopped";
+                    }))[];
                   /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                   definition?: string;
                   draft?: {
@@ -2376,6 +3746,11 @@ export interface operations {
                             /** @enum {string} */
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
                           })[];
                         id: string;
                         enabled: boolean;
@@ -2407,7 +3782,7 @@ export interface operations {
                         trackingKey?: string;
                         hashAttribute?: string;
                         fallbackAttribute?: string;
-                        disableStickyBucketing?: any;
+                        disableStickyBucketing?: boolean;
                         bucketVersion?: number;
                         minBucketVersion?: number;
                         namespace?: {
@@ -2433,16 +3808,38 @@ export interface operations {
                             variationId: string;
                           })[];
                         experimentId: string;
-                      })[];
+                      } | ({
+                        condition: string;
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
+                          })[];
+                        id: string;
+                        trackingKey?: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "safe-rollout";
+                        controlValue: string;
+                        variationValue: string;
+                        seed?: string;
+                        hashAttribute?: string;
+                        safeRolloutId?: string;
+                        /** @enum {string} */
+                        status?: "running" | "released" | "rolled-back" | "stopped";
+                      }))[];
                     /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string;
                   };
                 }) | undefined;
               };
-              prerequisites?: ({
-                  parentId: string;
-                  parentCondition: string;
-                })[];
+              /** @description Feature IDs. Each feature must evaluate to `true` */
+              prerequisites?: (string)[];
               revision: {
                 version: number;
                 comment: string;
@@ -2451,6 +3848,28 @@ export interface operations {
                 publishedBy: string;
               };
             };
+          };
+        };
+      };
+    };
+  };
+  deleteFeature: {
+    /** Deletes a single feature */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            /**
+             * @description The ID of the deleted feature 
+             * @example feature-123
+             */
+            deletedId?: string;
           };
         };
       };
@@ -2498,6 +3917,11 @@ export interface operations {
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
+                      prerequisites?: ({
+                          /** @description Feature ID */
+                          id: string;
+                          condition: string;
+                        })[];
                       id: string;
                       enabled: boolean;
                       /** @enum {string} */
@@ -2528,7 +3952,7 @@ export interface operations {
                       trackingKey?: string;
                       hashAttribute?: string;
                       fallbackAttribute?: string;
-                      disableStickyBucketing?: any;
+                      disableStickyBucketing?: boolean;
                       bucketVersion?: number;
                       minBucketVersion?: number;
                       namespace?: {
@@ -2554,7 +3978,31 @@ export interface operations {
                           variationId: string;
                         })[];
                       experimentId: string;
-                    })[];
+                    } | ({
+                      condition: string;
+                      savedGroupTargeting?: ({
+                          /** @enum {string} */
+                          matchType: "all" | "any" | "none";
+                          savedGroups: (string)[];
+                        })[];
+                      prerequisites?: ({
+                          /** @description Feature ID */
+                          id: string;
+                          condition: string;
+                        })[];
+                      id: string;
+                      trackingKey?: string;
+                      enabled: boolean;
+                      /** @enum {string} */
+                      type: "safe-rollout";
+                      controlValue: string;
+                      variationValue: string;
+                      seed?: string;
+                      hashAttribute?: string;
+                      safeRolloutId?: string;
+                      /** @enum {string} */
+                      status?: "running" | "released" | "rolled-back" | "stopped";
+                    }))[];
                   /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                   definition?: string;
                   draft?: {
@@ -2567,6 +4015,11 @@ export interface operations {
                             /** @enum {string} */
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
                           })[];
                         id: string;
                         enabled: boolean;
@@ -2598,7 +4051,7 @@ export interface operations {
                         trackingKey?: string;
                         hashAttribute?: string;
                         fallbackAttribute?: string;
-                        disableStickyBucketing?: any;
+                        disableStickyBucketing?: boolean;
                         bucketVersion?: number;
                         minBucketVersion?: number;
                         namespace?: {
@@ -2624,16 +4077,38 @@ export interface operations {
                             variationId: string;
                           })[];
                         experimentId: string;
-                      })[];
+                      } | ({
+                        condition: string;
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
+                          })[];
+                        id: string;
+                        trackingKey?: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "safe-rollout";
+                        controlValue: string;
+                        variationValue: string;
+                        seed?: string;
+                        hashAttribute?: string;
+                        safeRolloutId?: string;
+                        /** @enum {string} */
+                        status?: "running" | "released" | "rolled-back" | "stopped";
+                      }))[];
                     /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string;
                   };
                 }) | undefined;
               };
-              prerequisites?: ({
-                  parentId: string;
-                  parentCondition: string;
-                })[];
+              /** @description Feature IDs. Each feature must evaluate to `true` */
+              prerequisites?: (string)[];
               revision: {
                 version: number;
                 comment: string;
@@ -2906,18 +4381,22 @@ export interface operations {
     responses: {
       200: {
         content: {
-          "application/json": {
+          "application/json": ({
             segments: ({
                 id: string;
                 owner: string;
                 datasourceId: string;
                 identifierType: string;
                 name: string;
-                query: string;
+                query?: string;
                 dateCreated: string;
                 dateUpdated: string;
+                /** @enum {unknown} */
+                type?: "SQL" | "FACT";
+                factTableId?: string;
+                filters?: (string)[];
               })[];
-          } & {
+          }) & {
             limit: number;
             offset: number;
             count: number;
@@ -2941,9 +4420,13 @@ export interface operations {
               datasourceId: string;
               identifierType: string;
               name: string;
-              query: string;
+              query?: string;
               dateCreated: string;
               dateUpdated: string;
+              /** @enum {unknown} */
+              type?: "SQL" | "FACT";
+              factTableId?: string;
+              filters?: (string)[];
             };
           };
         };
@@ -2988,6 +4471,7 @@ export interface operations {
                 includeDraftExperiments?: boolean;
                 includeExperimentNames?: boolean;
                 includeRedirectExperiments?: boolean;
+                includeRuleIds?: boolean;
                 key: string;
                 proxyEnabled: boolean;
                 proxyHost: string;
@@ -2995,6 +4479,7 @@ export interface operations {
                 sseEnabled?: boolean;
                 hashSecureAttributes?: boolean;
                 remoteEvalEnabled?: boolean;
+                savedGroupReferencesEnabled?: boolean;
               })[];
           } & {
             limit: number;
@@ -3023,10 +4508,12 @@ export interface operations {
           includeDraftExperiments?: boolean;
           includeExperimentNames?: boolean;
           includeRedirectExperiments?: boolean;
+          includeRuleIds?: boolean;
           proxyEnabled?: boolean;
           proxyHost?: string;
           hashSecureAttributes?: boolean;
           remoteEvalEnabled?: boolean;
+          savedGroupReferencesEnabled?: boolean;
         };
       };
     };
@@ -3054,6 +4541,7 @@ export interface operations {
               includeDraftExperiments?: boolean;
               includeExperimentNames?: boolean;
               includeRedirectExperiments?: boolean;
+              includeRuleIds?: boolean;
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;
@@ -3061,6 +4549,7 @@ export interface operations {
               sseEnabled?: boolean;
               hashSecureAttributes?: boolean;
               remoteEvalEnabled?: boolean;
+              savedGroupReferencesEnabled?: boolean;
             };
           };
         };
@@ -3099,6 +4588,7 @@ export interface operations {
               includeDraftExperiments?: boolean;
               includeExperimentNames?: boolean;
               includeRedirectExperiments?: boolean;
+              includeRuleIds?: boolean;
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;
@@ -3106,6 +4596,7 @@ export interface operations {
               sseEnabled?: boolean;
               hashSecureAttributes?: boolean;
               remoteEvalEnabled?: boolean;
+              savedGroupReferencesEnabled?: boolean;
             };
           };
         };
@@ -3133,10 +4624,12 @@ export interface operations {
           includeDraftExperiments?: boolean;
           includeExperimentNames?: boolean;
           includeRedirectExperiments?: boolean;
+          includeRuleIds?: boolean;
           proxyEnabled?: boolean;
           proxyHost?: string;
           hashSecureAttributes?: boolean;
           remoteEvalEnabled?: boolean;
+          savedGroupReferencesEnabled?: boolean;
         };
       };
     };
@@ -3164,6 +4657,7 @@ export interface operations {
               includeDraftExperiments?: boolean;
               includeExperimentNames?: boolean;
               includeRedirectExperiments?: boolean;
+              includeRuleIds?: boolean;
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;
@@ -3171,6 +4665,7 @@ export interface operations {
               sseEnabled?: boolean;
               hashSecureAttributes?: boolean;
               remoteEvalEnabled?: boolean;
+              savedGroupReferencesEnabled?: boolean;
             };
           };
         };
@@ -3190,6 +4685,53 @@ export interface operations {
         content: {
           "application/json": {
             deletedId: string;
+          };
+        };
+      };
+    };
+  };
+  lookupSdkConnectionByKey: {
+    /** Find a single sdk connection by its key */
+    parameters: {
+        /** @description The key of the requested sdkConnection */
+      path: {
+        key: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            sdkConnection: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              organization: string;
+              languages: (string)[];
+              sdkVersion?: string;
+              environment: string;
+              /** @description Use 'projects' instead. This is only for backwards compatibility and contains the first project only. */
+              project: string;
+              projects?: (string)[];
+              encryptPayload: boolean;
+              encryptionKey: string;
+              includeVisualExperiments?: boolean;
+              includeDraftExperiments?: boolean;
+              includeExperimentNames?: boolean;
+              includeRedirectExperiments?: boolean;
+              includeRuleIds?: boolean;
+              key: string;
+              proxyEnabled: boolean;
+              proxyHost: string;
+              proxySigningKey: string;
+              sseEnabled?: boolean;
+              hashSecureAttributes?: boolean;
+              remoteEvalEnabled?: boolean;
+              savedGroupReferencesEnabled?: boolean;
+            };
           };
         };
       };
@@ -3326,11 +4868,14 @@ export interface operations {
           "application/json": ({
             experiments: ({
                 id: string;
+                trackingKey: string;
                 /** Format: date-time */
                 dateCreated: string;
                 /** Format: date-time */
                 dateUpdated: string;
                 name: string;
+                /** @enum {string} */
+                type: "standard" | "multi-armed-bandit";
                 project: string;
                 hypothesis: string;
                 description: string;
@@ -3343,7 +4888,7 @@ export interface operations {
                 fallbackAttribute?: string;
                 /** @enum {number} */
                 hashVersion: 1 | 2;
-                disableStickyBucketing?: any;
+                disableStickyBucketing?: boolean;
                 bucketVersion?: number;
                 minBucketVersion?: number;
                 variations: ({
@@ -3369,6 +4914,10 @@ export interface operations {
                       range: (unknown)[];
                     };
                     targetingCondition: string;
+                    prerequisites?: ({
+                        id: string;
+                        condition: string;
+                      })[];
                     savedGroupTargeting?: ({
                         /** @enum {string} */
                         matchType: "all" | "any" | "none";
@@ -3383,11 +4932,16 @@ export interface operations {
                   queryFilter: string;
                   /** @enum {unknown} */
                   inProgressConversions: "include" | "exclude";
-                  /** @enum {unknown} */
+                  /**
+                   * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                   * @enum {unknown}
+                   */
                   attributionModel: "firstExposure" | "experimentDuration";
                   /** @enum {unknown} */
                   statsEngine: "bayesian" | "frequentist";
                   regressionAdjustmentEnabled?: boolean;
+                  sequentialTestingEnabled?: boolean;
+                  sequentialTestingTuningParameter?: number;
                   goals: ({
                       metricId: string;
                       overrides: {
@@ -3440,6 +4994,18 @@ export interface operations {
                   releasedVariationId: string;
                   excludeFromPayload: boolean;
                 };
+                /** @enum {string} */
+                shareLevel?: "public" | "organization";
+                publicUrl?: string;
+                banditScheduleValue?: number;
+                /** @enum {string} */
+                banditScheduleUnit?: "days" | "hours";
+                banditBurnInValue?: number;
+                /** @enum {string} */
+                banditBurnInUnit?: "days" | "hours";
+                linkedFeatures?: (string)[];
+                hasVisualChangesets?: boolean;
+                hasURLRedirects?: boolean;
               })[];
           }) & {
             limit: number;
@@ -3459,12 +5025,14 @@ export interface operations {
       content: {
         "application/json": {
           /** @description ID for the [DataSource](#tag/DataSource_model) */
-          datasourceId: string;
+          datasourceId?: string;
           /** @description The ID property of one of the assignment query objects associated with the datasource */
           assignmentQueryId: string;
           trackingKey: string;
           /** @description Name of the experiment */
           name: string;
+          /** @enum {string} */
+          type?: "standard" | "multi-armed-bandit";
           /** @description Project ID which the experiment belongs to */
           project?: string;
           /** @description Hypothesis of the experiment */
@@ -3475,6 +5043,12 @@ export interface operations {
           metrics?: (string)[];
           secondaryMetrics?: (string)[];
           guardrailMetrics?: (string)[];
+          /** @description Users must convert on this metric before being included */
+          activationMetric?: string;
+          /** @description Only users in this segment will be included */
+          segmentId?: string;
+          /** @description WHERE clause to add to the default experiment query */
+          queryFilter?: string;
           /** @description Email of the person who owns this experiment */
           owner?: string;
           archived?: boolean;
@@ -3485,14 +5059,17 @@ export interface operations {
           fallbackAttribute?: string;
           /** @enum {number} */
           hashVersion?: 1 | 2;
-          disableStickyBucketing?: any;
+          disableStickyBucketing?: boolean;
           bucketVersion?: number;
           minBucketVersion?: number;
           releasedVariationId?: string;
           excludeFromPayload?: boolean;
           /** @enum {string} */
           inProgressConversions?: "loose" | "strict";
-          /** @enum {string} */
+          /**
+           * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+           * @enum {string}
+           */
           attributionModel?: "firstExposure" | "experimentDuration";
           /** @enum {string} */
           statsEngine?: "bayesian" | "frequentist";
@@ -3527,6 +5104,11 @@ export interface operations {
                 enabled?: boolean;
               };
               targetingCondition?: string;
+              prerequisites?: ({
+                  /** @description Feature ID */
+                  id: string;
+                  condition: string;
+                })[];
               reason?: string;
               condition?: string;
               savedGroupTargeting?: ({
@@ -3538,6 +5120,17 @@ export interface operations {
             })[];
           /** @description Controls whether regression adjustment (CUPED) is enabled for experiment analyses */
           regressionAdjustmentEnabled?: boolean;
+          /** @description Only applicable to frequentist analyses */
+          sequentialTestingEnabled?: boolean;
+          sequentialTestingTuningParameter?: number;
+          /** @enum {string} */
+          shareLevel?: "public" | "organization";
+          banditScheduleValue?: number;
+          /** @enum {string} */
+          banditScheduleUnit?: "days" | "hours";
+          banditBurnInValue?: number;
+          /** @enum {string} */
+          banditBurnInUnit?: "days" | "hours";
         };
       };
     };
@@ -3547,11 +5140,14 @@ export interface operations {
           "application/json": {
             experiment: {
               id: string;
+              trackingKey: string;
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
               dateUpdated: string;
               name: string;
+              /** @enum {string} */
+              type: "standard" | "multi-armed-bandit";
               project: string;
               hypothesis: string;
               description: string;
@@ -3564,7 +5160,7 @@ export interface operations {
               fallbackAttribute?: string;
               /** @enum {number} */
               hashVersion: 1 | 2;
-              disableStickyBucketing?: any;
+              disableStickyBucketing?: boolean;
               bucketVersion?: number;
               minBucketVersion?: number;
               variations: ({
@@ -3590,6 +5186,10 @@ export interface operations {
                     range: (unknown)[];
                   };
                   targetingCondition: string;
+                  prerequisites?: ({
+                      id: string;
+                      condition: string;
+                    })[];
                   savedGroupTargeting?: ({
                       /** @enum {string} */
                       matchType: "all" | "any" | "none";
@@ -3604,11 +5204,16 @@ export interface operations {
                 queryFilter: string;
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
-                /** @enum {unknown} */
+                /**
+                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                 * @enum {unknown}
+                 */
                 attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean;
+                sequentialTestingEnabled?: boolean;
+                sequentialTestingTuningParameter?: number;
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -3661,7 +5266,40 @@ export interface operations {
                 releasedVariationId: string;
                 excludeFromPayload: boolean;
               };
+              /** @enum {string} */
+              shareLevel?: "public" | "organization";
+              publicUrl?: string;
+              banditScheduleValue?: number;
+              /** @enum {string} */
+              banditScheduleUnit?: "days" | "hours";
+              banditBurnInValue?: number;
+              /** @enum {string} */
+              banditBurnInUnit?: "days" | "hours";
+              linkedFeatures?: (string)[];
+              hasVisualChangesets?: boolean;
+              hasURLRedirects?: boolean;
             };
+          };
+        };
+      };
+    };
+  };
+  getExperimentNames: {
+    /** Get a list of experiments with names and ids */
+    parameters: {
+        /** @description Filter by project id */
+      query: {
+        projectId?: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            experiments: ({
+                id: string;
+                name: string;
+              })[];
           };
         };
       };
@@ -3679,13 +5317,16 @@ export interface operations {
       200: {
         content: {
           "application/json": {
-            experiment: {
+            experiment: ({
               id: string;
+              trackingKey: string;
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
               dateUpdated: string;
               name: string;
+              /** @enum {string} */
+              type: "standard" | "multi-armed-bandit";
               project: string;
               hypothesis: string;
               description: string;
@@ -3698,7 +5339,7 @@ export interface operations {
               fallbackAttribute?: string;
               /** @enum {number} */
               hashVersion: 1 | 2;
-              disableStickyBucketing?: any;
+              disableStickyBucketing?: boolean;
               bucketVersion?: number;
               minBucketVersion?: number;
               variations: ({
@@ -3724,6 +5365,10 @@ export interface operations {
                     range: (unknown)[];
                   };
                   targetingCondition: string;
+                  prerequisites?: ({
+                      id: string;
+                      condition: string;
+                    })[];
                   savedGroupTargeting?: ({
                       /** @enum {string} */
                       matchType: "all" | "any" | "none";
@@ -3738,11 +5383,16 @@ export interface operations {
                 queryFilter: string;
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
-                /** @enum {unknown} */
+                /**
+                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                 * @enum {unknown}
+                 */
                 attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean;
+                sequentialTestingEnabled?: boolean;
+                sequentialTestingTuningParameter?: number;
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -3795,7 +5445,25 @@ export interface operations {
                 releasedVariationId: string;
                 excludeFromPayload: boolean;
               };
-            };
+              /** @enum {string} */
+              shareLevel?: "public" | "organization";
+              publicUrl?: string;
+              banditScheduleValue?: number;
+              /** @enum {string} */
+              banditScheduleUnit?: "days" | "hours";
+              banditBurnInValue?: number;
+              /** @enum {string} */
+              banditBurnInUnit?: "days" | "hours";
+              linkedFeatures?: (string)[];
+              hasVisualChangesets?: boolean;
+              hasURLRedirects?: boolean;
+            }) & ({
+              enhancedStatus?: {
+                /** @enum {string} */
+                status: "Running" | "Stopped" | "Draft" | "Archived";
+                detailedStatus?: string;
+              };
+            });
           };
         };
       };
@@ -3812,10 +5480,14 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
+          /** @description Can only be set if existing experiment does not have a datasource */
+          datasourceId?: string;
           assignmentQueryId?: string;
           trackingKey?: string;
           /** @description Name of the experiment */
           name?: string;
+          /** @enum {string} */
+          type?: "standard" | "multi-armed-bandit";
           /** @description Project ID which the experiment belongs to */
           project?: string;
           /** @description Hypothesis of the experiment */
@@ -3826,6 +5498,12 @@ export interface operations {
           metrics?: (string)[];
           secondaryMetrics?: (string)[];
           guardrailMetrics?: (string)[];
+          /** @description Users must convert on this metric before being included */
+          activationMetric?: string;
+          /** @description Only users in this segment will be included */
+          segmentId?: string;
+          /** @description WHERE clause to add to the default experiment query */
+          queryFilter?: string;
           /** @description Email of the person who owns this experiment */
           owner?: string;
           archived?: boolean;
@@ -3836,14 +5514,17 @@ export interface operations {
           fallbackAttribute?: string;
           /** @enum {number} */
           hashVersion?: 1 | 2;
-          disableStickyBucketing?: any;
+          disableStickyBucketing?: boolean;
           bucketVersion?: number;
           minBucketVersion?: number;
           releasedVariationId?: string;
           excludeFromPayload?: boolean;
           /** @enum {string} */
           inProgressConversions?: "loose" | "strict";
-          /** @enum {string} */
+          /**
+           * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+           * @enum {string}
+           */
           attributionModel?: "firstExposure" | "experimentDuration";
           /** @enum {string} */
           statsEngine?: "bayesian" | "frequentist";
@@ -3878,6 +5559,11 @@ export interface operations {
                 enabled?: boolean;
               };
               targetingCondition?: string;
+              prerequisites?: ({
+                  /** @description Feature ID */
+                  id: string;
+                  condition: string;
+                })[];
               reason?: string;
               condition?: string;
               savedGroupTargeting?: ({
@@ -3889,6 +5575,17 @@ export interface operations {
             })[];
           /** @description Controls whether regression adjustment (CUPED) is enabled for experiment analyses */
           regressionAdjustmentEnabled?: boolean;
+          /** @description Only applicable to frequentist analyses */
+          sequentialTestingEnabled?: boolean;
+          sequentialTestingTuningParameter?: number;
+          /** @enum {string} */
+          shareLevel?: "public" | "organization";
+          banditScheduleValue?: number;
+          /** @enum {string} */
+          banditScheduleUnit?: "days" | "hours";
+          banditBurnInValue?: number;
+          /** @enum {string} */
+          banditBurnInUnit?: "days" | "hours";
         };
       };
     };
@@ -3898,11 +5595,14 @@ export interface operations {
           "application/json": {
             experiment: {
               id: string;
+              trackingKey: string;
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
               dateUpdated: string;
               name: string;
+              /** @enum {string} */
+              type: "standard" | "multi-armed-bandit";
               project: string;
               hypothesis: string;
               description: string;
@@ -3915,7 +5615,7 @@ export interface operations {
               fallbackAttribute?: string;
               /** @enum {number} */
               hashVersion: 1 | 2;
-              disableStickyBucketing?: any;
+              disableStickyBucketing?: boolean;
               bucketVersion?: number;
               minBucketVersion?: number;
               variations: ({
@@ -3941,6 +5641,10 @@ export interface operations {
                     range: (unknown)[];
                   };
                   targetingCondition: string;
+                  prerequisites?: ({
+                      id: string;
+                      condition: string;
+                    })[];
                   savedGroupTargeting?: ({
                       /** @enum {string} */
                       matchType: "all" | "any" | "none";
@@ -3955,11 +5659,16 @@ export interface operations {
                 queryFilter: string;
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
-                /** @enum {unknown} */
+                /**
+                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                 * @enum {unknown}
+                 */
                 attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean;
+                sequentialTestingEnabled?: boolean;
+                sequentialTestingTuningParameter?: number;
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -4012,6 +5721,45 @@ export interface operations {
                 releasedVariationId: string;
                 excludeFromPayload: boolean;
               };
+              /** @enum {string} */
+              shareLevel?: "public" | "organization";
+              publicUrl?: string;
+              banditScheduleValue?: number;
+              /** @enum {string} */
+              banditScheduleUnit?: "days" | "hours";
+              banditBurnInValue?: number;
+              /** @enum {string} */
+              banditBurnInUnit?: "days" | "hours";
+              linkedFeatures?: (string)[];
+              hasVisualChangesets?: boolean;
+              hasURLRedirects?: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  postExperimentSnapshot: {
+    /** Create Experiment Snapshot */
+    requestBody?: {
+      content: {
+        "application/json": {
+          /**
+           * @description Set to "schedule" if you want this request to trigger notifications and other events as it if were a scheduled update. Defaults to manual. 
+           * @enum {string}
+           */
+          triggeredBy?: "manual" | "schedule";
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            snapshot: {
+              id: string;
+              experiment: string;
+              status: string;
             };
           };
         };
@@ -4049,11 +5797,16 @@ export interface operations {
                 queryFilter: string;
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
-                /** @enum {unknown} */
+                /**
+                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                 * @enum {unknown}
+                 */
                 attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean;
+                sequentialTestingEnabled?: boolean;
+                sequentialTestingTuningParameter?: number;
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -4134,6 +5887,65 @@ export interface operations {
       };
     };
   };
+  listVisualChangesets: {
+    /** Get all visual changesets */
+    parameters: {
+        /** @description The experiment id the visual changesets belong to */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            visualChangesets: ({
+                id?: string;
+                urlPatterns: ({
+                    include?: boolean;
+                    /** @enum {string} */
+                    type: "simple" | "regex";
+                    pattern: string;
+                  })[];
+                editorUrl: string;
+                experiment: string;
+                visualChanges: ({
+                    description?: string;
+                    css?: string;
+                    js?: string;
+                    variation: string;
+                    domMutations: ({
+                        selector: string;
+                        /** @enum {string} */
+                        action: "append" | "set" | "remove";
+                        attribute: string;
+                        value?: string;
+                        parentSelector?: string;
+                        insertBeforeSelector?: string;
+                      })[];
+                  })[];
+              })[];
+          };
+        };
+      };
+    };
+  };
+  getExperimentSnapshot: {
+    /** Get an experiment snapshot status */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            snapshot: {
+              id: string;
+              experiment: string;
+              status: string;
+            };
+          };
+        };
+      };
+    };
+  };
   listMetrics: {
     /** Get all metrics */
     parameters: {
@@ -4195,11 +6007,13 @@ export interface operations {
                   windowSettings: {
                     /** @enum {string} */
                     type: "none" | "conversion" | "lookback";
-                    /** @description Wait this many hours after experiment exposure before counting conversions */
-                    delayHours?: number;
+                    /** @description Wait this long after experiment exposure before counting conversions */
+                    delayValue?: number;
+                    /** @enum {string} */
+                    delayUnit?: "minutes" | "hours" | "days" | "weeks";
                     windowValue?: number;
                     /** @enum {string} */
-                    windowUnit?: "hours" | "days" | "weeks";
+                    windowUnit?: "minutes" | "hours" | "days" | "weeks";
                   };
                   /** @description Controls the bayesian prior for the metric. */
                   priorSettings?: {
@@ -4221,6 +6035,7 @@ export interface operations {
                   minPercentChange: number;
                   maxPercentChange: number;
                   minSampleSize: number;
+                  targetMDE: number;
                 };
                 sql?: {
                   identifierTypes: (string)[];
@@ -4284,7 +6099,7 @@ export interface operations {
           /** @description Description of the metric */
           description?: string;
           /**
-           * @description Type of metric. See [Metrics documentation](/app/metrics) 
+           * @description Type of metric. See [Metrics documentation](/app/metrics/legacy) 
            * @enum {string}
            */
           type: "binomial" | "count" | "duration" | "revenue";
@@ -4325,20 +6140,30 @@ export interface operations {
             windowSettings?: {
               /** @enum {string} */
               type: "none" | "conversion" | "lookback";
-              /** @description Wait this many hours after experiment exposure before counting conversions */
+              /**
+               * @deprecated 
+               * @description Wait this many hours after experiment exposure before counting conversions. Ignored if delayValue is set.
+               */
               delayHours?: number;
+              /** @description Wait this long after experiment exposure before counting conversions. */
+              delayValue?: number;
+              /**
+               * @description Default `hours`. 
+               * @enum {string}
+               */
+              delayUnit?: "minutes" | "hours" | "days" | "weeks";
               windowValue?: number;
               /** @enum {string} */
-              windowUnit?: "hours" | "days" | "weeks";
+              windowUnit?: "minutes" | "hours" | "days" | "weeks";
             };
             /**
              * @deprecated 
-             * @description The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.
+             * @description The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics/legacy/#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.
              */
             conversionWindowStart?: number;
             /**
              * @deprecated 
-             * @description The end of a [Conversion Window](/app/metrics#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.
+             * @description The end of a [Conversion Window](/app/metrics/legacy/#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics/legacy/#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.
              */
             conversionWindowEnd?: number;
             /** @description Controls the bayesian prior for the metric. If omitted, organization defaults will be used. */
@@ -4361,6 +6186,8 @@ export interface operations {
             /** @description Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%) */
             maxPercentChange?: number;
             minSampleSize?: number;
+            /** @description The percentage change that you want to reliably detect before ending an experiment, as a proportion (e.g. put 0.1 for 10%). This is used to estimate the "Days Left" for running experiments. */
+            targetMDE?: number;
           };
           /** @description Preferred way to define SQL. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed, and at least one must be specified. */
           sql?: {
@@ -4368,7 +6195,7 @@ export interface operations {
             conversionSQL: string;
             /** @description Custom user level aggregation for your metric (default: `SUM(value)`) */
             userAggregationSQL?: string;
-            /** @description The metric ID for a [denominator metric for funnel and ratio metrics](/app/metrics#denominator-ratio--funnel-metrics) */
+            /** @description The metric ID for a [denominator metric for funnel and ratio metrics](/app/metrics/legacy/#denominator-ratio--funnel-metrics) */
             denominatorMetricId?: string;
           };
           /** @description An alternative way to specify a SQL metric, rather than a full query. Using `sql` is preferred to `sqlBuilder`. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed, and at least one must be specified. */
@@ -4447,11 +6274,13 @@ export interface operations {
                 windowSettings: {
                   /** @enum {string} */
                   type: "none" | "conversion" | "lookback";
-                  /** @description Wait this many hours after experiment exposure before counting conversions */
-                  delayHours?: number;
+                  /** @description Wait this long after experiment exposure before counting conversions */
+                  delayValue?: number;
+                  /** @enum {string} */
+                  delayUnit?: "minutes" | "hours" | "days" | "weeks";
                   windowValue?: number;
                   /** @enum {string} */
-                  windowUnit?: "hours" | "days" | "weeks";
+                  windowUnit?: "minutes" | "hours" | "days" | "weeks";
                 };
                 /** @description Controls the bayesian prior for the metric. */
                 priorSettings?: {
@@ -4473,6 +6302,7 @@ export interface operations {
                 minPercentChange: number;
                 maxPercentChange: number;
                 minSampleSize: number;
+                targetMDE: number;
               };
               sql?: {
                 identifierTypes: (string)[];
@@ -4565,11 +6395,13 @@ export interface operations {
                 windowSettings: {
                   /** @enum {string} */
                   type: "none" | "conversion" | "lookback";
-                  /** @description Wait this many hours after experiment exposure before counting conversions */
-                  delayHours?: number;
+                  /** @description Wait this long after experiment exposure before counting conversions */
+                  delayValue?: number;
+                  /** @enum {string} */
+                  delayUnit?: "minutes" | "hours" | "days" | "weeks";
                   windowValue?: number;
                   /** @enum {string} */
-                  windowUnit?: "hours" | "days" | "weeks";
+                  windowUnit?: "minutes" | "hours" | "days" | "weeks";
                 };
                 /** @description Controls the bayesian prior for the metric. */
                 priorSettings?: {
@@ -4591,6 +6423,7 @@ export interface operations {
                 minPercentChange: number;
                 maxPercentChange: number;
                 minSampleSize: number;
+                targetMDE: number;
               };
               sql?: {
                 identifierTypes: (string)[];
@@ -4651,7 +6484,7 @@ export interface operations {
           /** @description Description of the metric */
           description?: string;
           /**
-           * @description Type of metric. See [Metrics documentation](/app/metrics) 
+           * @description Type of metric. See [Metrics documentation](/app/metrics/legacy) 
            * @enum {string}
            */
           type?: "binomial" | "count" | "duration" | "revenue";
@@ -4692,20 +6525,30 @@ export interface operations {
             windowSettings?: {
               /** @enum {string} */
               type: "none" | "conversion" | "lookback";
-              /** @description Wait this many hours after experiment exposure before counting conversions */
+              /**
+               * @deprecated 
+               * @description Wait this many hours after experiment exposure before counting conversions. Ignored if delayValue is set.
+               */
               delayHours?: number;
+              /** @description Wait this long after experiment exposure before counting conversions. */
+              delayValue?: number;
+              /**
+               * @description Default `hours`. 
+               * @enum {string}
+               */
+              delayUnit?: "minutes" | "hours" | "days" | "weeks";
               windowValue?: number;
               /** @enum {string} */
-              windowUnit?: "hours" | "days" | "weeks";
+              windowUnit?: "minutes" | "hours" | "days" | "weeks";
             };
             /**
              * @deprecated 
-             * @description The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.
+             * @description The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics/legacy/#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.
              */
             conversionWindowStart?: number;
             /**
              * @deprecated 
-             * @description The end of a [Conversion Window](/app/metrics#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.
+             * @description The end of a [Conversion Window](/app/metrics/legacy/#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics/legacy/#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.
              */
             conversionWindowEnd?: number;
             /** @description Controls the bayesian prior for the metric. If omitted, organization defaults will be used. */
@@ -4728,6 +6571,8 @@ export interface operations {
             /** @description Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%) */
             maxPercentChange?: number;
             minSampleSize?: number;
+            /** @description The percentage change that you want to reliably detect before ending an experiment, as a proportion (e.g. put 0.1 for 10%). This is used to estimate the "Days Left" for running experiments. */
+            targetMDE?: number;
           };
           /** @description Preferred way to define SQL. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed. */
           sql?: {
@@ -4735,7 +6580,7 @@ export interface operations {
             conversionSQL?: string;
             /** @description Custom user level aggregation for your metric (default: `SUM(value)`) */
             userAggregationSQL?: string;
-            /** @description The metric ID for a [denominator metric for funnel and ratio metrics](/app/metrics#denominator-ratio--funnel-metrics) */
+            /** @description The metric ID for a [denominator metric for funnel and ratio metrics](/app/metrics/legacy/#denominator-ratio--funnel-metrics) */
             denominatorMetricId?: string;
           };
           /** @description An alternative way to specify a SQL metric, rather than a full query. Using `sql` is preferred to `sqlBuilder`. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed */
@@ -4795,49 +6640,6 @@ export interface operations {
       };
     };
   };
-  listVisualChangesets: {
-    /** Get all visual changesets */
-    parameters: {
-        /** @description The experiment id the visual changesets belong to */
-      path: {
-        id: string;
-      };
-    };
-    responses: {
-      200: {
-        content: {
-          "application/json": {
-            visualChangesets: ({
-                id?: string;
-                urlPatterns: ({
-                    include?: boolean;
-                    /** @enum {string} */
-                    type: "simple" | "regex";
-                    pattern: string;
-                  })[];
-                editorUrl: string;
-                experiment: string;
-                visualChanges: ({
-                    description?: string;
-                    css?: string;
-                    js?: string;
-                    variation: string;
-                    domMutations: ({
-                        selector: string;
-                        /** @enum {string} */
-                        action: "append" | "set" | "remove";
-                        attribute: string;
-                        value?: string;
-                        parentSelector?: string;
-                        insertBeforeSelector?: string;
-                      })[];
-                  })[];
-              })[];
-          };
-        };
-      };
-    };
-  };
   getVisualChangeset: {
     /** Get a single visual changeset */
     parameters: {
@@ -4882,11 +6684,14 @@ export interface operations {
             };
             experiment?: {
               id: string;
+              trackingKey: string;
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
               dateUpdated: string;
               name: string;
+              /** @enum {string} */
+              type: "standard" | "multi-armed-bandit";
               project: string;
               hypothesis: string;
               description: string;
@@ -4899,7 +6704,7 @@ export interface operations {
               fallbackAttribute?: string;
               /** @enum {number} */
               hashVersion: 1 | 2;
-              disableStickyBucketing?: any;
+              disableStickyBucketing?: boolean;
               bucketVersion?: number;
               minBucketVersion?: number;
               variations: ({
@@ -4925,6 +6730,10 @@ export interface operations {
                     range: (unknown)[];
                   };
                   targetingCondition: string;
+                  prerequisites?: ({
+                      id: string;
+                      condition: string;
+                    })[];
                   savedGroupTargeting?: ({
                       /** @enum {string} */
                       matchType: "all" | "any" | "none";
@@ -4939,11 +6748,16 @@ export interface operations {
                 queryFilter: string;
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
-                /** @enum {unknown} */
+                /**
+                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                 * @enum {unknown}
+                 */
                 attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean;
+                sequentialTestingEnabled?: boolean;
+                sequentialTestingTuningParameter?: number;
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -4996,6 +6810,18 @@ export interface operations {
                 releasedVariationId: string;
                 excludeFromPayload: boolean;
               };
+              /** @enum {string} */
+              shareLevel?: "public" | "organization";
+              publicUrl?: string;
+              banditScheduleValue?: number;
+              /** @enum {string} */
+              banditScheduleUnit?: "days" | "hours";
+              banditBurnInValue?: number;
+              /** @enum {string} */
+              banditBurnInUnit?: "days" | "hours";
+              linkedFeatures?: (string)[];
+              hasVisualChangesets?: boolean;
+              hasURLRedirects?: boolean;
             };
           };
         };
@@ -5100,6 +6926,8 @@ export interface operations {
                 attributeKey?: string;
                 /** @description When type = 'list', this is the list of values for the attribute key */
                 values?: (string)[];
+                description?: string;
+                projects?: (string)[];
               })[];
           }) & {
             limit: number;
@@ -5133,6 +6961,7 @@ export interface operations {
           values?: (string)[];
           /** @description The person or team that owns this Saved Group. If no owner, you can pass an empty string. */
           owner?: string;
+          projects?: (string)[];
         };
       };
     };
@@ -5156,6 +6985,8 @@ export interface operations {
               attributeKey?: string;
               /** @description When type = 'list', this is the list of values for the attribute key */
               values?: (string)[];
+              description?: string;
+              projects?: (string)[];
             };
           };
         };
@@ -5190,6 +7021,8 @@ export interface operations {
               attributeKey?: string;
               /** @description When type = 'list', this is the list of values for the attribute key */
               values?: (string)[];
+              description?: string;
+              projects?: (string)[];
             };
           };
         };
@@ -5215,6 +7048,7 @@ export interface operations {
           values?: (string)[];
           /** @description The person or team that owns this Saved Group. If no owner, you can pass an empty string. */
           owner?: string;
+          projects?: (string)[];
         };
       };
     };
@@ -5238,6 +7072,8 @@ export interface operations {
               attributeKey?: string;
               /** @description When type = 'list', this is the list of values for the attribute key */
               values?: (string)[];
+              description?: string;
+              projects?: (string)[];
             };
           };
         };
@@ -5383,6 +7219,413 @@ export interface operations {
       };
     };
   };
+  listAttributes: {
+    /** Get the organization's attributes */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            attributes: ({
+                property: string;
+                /** @enum {string} */
+                datatype: "boolean" | "string" | "number" | "secureString" | "enum" | "string[]" | "number[]" | "secureString[]";
+                description?: string;
+                hashAttribute?: boolean;
+                archived?: boolean;
+                enum?: string;
+                /** @enum {string} */
+                format?: "" | "version" | "date" | "isoCountryCode";
+                projects?: (string)[];
+              })[];
+          };
+        };
+      };
+    };
+  };
+  postAttribute: {
+    /** Create a new attribute */
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description The attribute property */
+          property: string;
+          /**
+           * @description The attribute datatype 
+           * @enum {string}
+           */
+          datatype: "boolean" | "string" | "number" | "secureString" | "enum" | "string[]" | "number[]" | "secureString[]";
+          /** @description The description of the new attribute */
+          description?: string;
+          /** @description The attribute is archived */
+          archived?: boolean;
+          /** @description Shall the attribute be hashed */
+          hashAttribute?: boolean;
+          enum?: string;
+          /**
+           * @description The attribute's format 
+           * @enum {string}
+           */
+          format?: "" | "version" | "date" | "isoCountryCode";
+          projects?: (string)[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            attribute: {
+              property: string;
+              /** @enum {string} */
+              datatype: "boolean" | "string" | "number" | "secureString" | "enum" | "string[]" | "number[]" | "secureString[]";
+              description?: string;
+              hashAttribute?: boolean;
+              archived?: boolean;
+              enum?: string;
+              /** @enum {string} */
+              format?: "" | "version" | "date" | "isoCountryCode";
+              projects?: (string)[];
+            };
+          };
+        };
+      };
+    };
+  };
+  putAttribute: {
+    /** Update an attribute */
+    parameters: {
+        /** @description The attribute property */
+      path: {
+        property: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /**
+           * @description The attribute datatype 
+           * @enum {string}
+           */
+          datatype?: "boolean" | "string" | "number" | "secureString" | "enum" | "string[]" | "number[]" | "secureString[]";
+          /** @description The description of the new attribute */
+          description?: string;
+          /** @description The attribute is archived */
+          archived?: boolean;
+          /** @description Shall the attribute be hashed */
+          hashAttribute?: boolean;
+          enum?: string;
+          /**
+           * @description The attribute's format 
+           * @enum {string}
+           */
+          format?: "" | "version" | "date" | "isoCountryCode";
+          projects?: (string)[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            attribute: {
+              property: string;
+              /** @enum {string} */
+              datatype: "boolean" | "string" | "number" | "secureString" | "enum" | "string[]" | "number[]" | "secureString[]";
+              description?: string;
+              hashAttribute?: boolean;
+              archived?: boolean;
+              enum?: string;
+              /** @enum {string} */
+              format?: "" | "version" | "date" | "isoCountryCode";
+              projects?: (string)[];
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteAttribute: {
+    /** Deletes a single attribute */
+    parameters: {
+        /** @description The attribute property */
+      path: {
+        property: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            deletedProperty: string;
+          };
+        };
+      };
+    };
+  };
+  listArchetypes: {
+    /** Get the organization's archetypes */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            archetypes: ({
+                id: string;
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                description?: string;
+                owner: string;
+                isPublic: boolean;
+                /** @description The attributes to set when using this Archetype */
+                attributes: any;
+                projects?: (string)[];
+              })[];
+          };
+        };
+      };
+    };
+  };
+  postArchetype: {
+    /** Create a single archetype */
+    requestBody: {
+      content: {
+        "application/json": {
+          name: string;
+          description?: string;
+          /** @description Whether to make this Archetype available to other team members */
+          isPublic: boolean;
+          /** @description The attributes to set when using this Archetype */
+          attributes?: any;
+          projects?: (string)[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            archetype: {
+              id: string;
+              dateCreated: string;
+              dateUpdated: string;
+              name: string;
+              description?: string;
+              owner: string;
+              isPublic: boolean;
+              /** @description The attributes to set when using this Archetype */
+              attributes: any;
+              projects?: (string)[];
+            };
+          };
+        };
+      };
+    };
+  };
+  getArchetype: {
+    /** Get a single archetype */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            archetype: {
+              id: string;
+              dateCreated: string;
+              dateUpdated: string;
+              name: string;
+              description?: string;
+              owner: string;
+              isPublic: boolean;
+              /** @description The attributes to set when using this Archetype */
+              attributes: any;
+              projects?: (string)[];
+            };
+          };
+        };
+      };
+    };
+  };
+  putArchetype: {
+    /** Update a single archetype */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          name?: string;
+          description?: string;
+          /** @description Whether to make this Archetype available to other team members */
+          isPublic?: boolean;
+          /** @description The attributes to set when using this Archetype */
+          attributes?: any;
+          projects?: (string)[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            archetype: {
+              id: string;
+              dateCreated: string;
+              dateUpdated: string;
+              name: string;
+              description?: string;
+              owner: string;
+              isPublic: boolean;
+              /** @description The attributes to set when using this Archetype */
+              attributes: any;
+              projects?: (string)[];
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteArchetype: {
+    /** Deletes a single archetype */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            deletedId: string;
+          };
+        };
+      };
+    };
+  };
+  listMembers: {
+    /** Get all organization members */
+    parameters: {
+        /** @description The number of items to return */
+        /** @description How many items to skip (use in conjunction with limit for pagination) */
+        /** @description Name of the user. */
+        /** @description Email address of the user. */
+        /** @description Name of the global role */
+      query: {
+        limit?: number;
+        offset?: number;
+        userName?: string;
+        userEmail?: string;
+        globalRole?: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            members: ({
+                id: string;
+                name?: string;
+                email: string;
+                globalRole: string;
+                environments?: (string)[];
+                limitAccessByEnvironment?: boolean;
+                managedbyIdp?: boolean;
+                teams?: (string)[];
+                projectRoles?: ({
+                    project: string;
+                    role: string;
+                    limitAccessByEnvironment: boolean;
+                    environments: (string)[];
+                  })[];
+                /** Format: date-time */
+                lastLoginDate?: string;
+                /** Format: date-time */
+                dateCreated?: string;
+                /** Format: date-time */
+                dateUpdated?: string;
+              })[];
+          } & {
+            limit: number;
+            offset: number;
+            count: number;
+            total: number;
+            hasMore: boolean;
+            nextOffset: OneOf<[number, null]>;
+          };
+        };
+      };
+    };
+  };
+  deleteMember: {
+    /** Removes a single user from an organization */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            deletedId: string;
+          };
+        };
+      };
+    };
+  };
+  updateMemberRole: {
+    /** Update a member's global role (including any enviroment restrictions, if applicable). Can also update a member's project roles if your plan supports it. */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          member: {
+            role?: string;
+            environments?: (string)[];
+            projectRoles?: ({
+                project: string;
+                role: string;
+                environments: (string)[];
+              })[];
+          };
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            updatedMember: {
+              id: string;
+              role: string;
+              environments: (string)[];
+              limitAccessByEnvironment: boolean;
+              projectRoles?: ({
+                  project: string;
+                  role: string;
+                  limitAccessByEnvironment: boolean;
+                  environments: (string)[];
+                })[];
+            };
+          };
+        };
+      };
+    };
+  };
   listEnvironments: {
     /** Get the organization's environments */
     responses: {
@@ -5395,6 +7638,7 @@ export interface operations {
                 toggleOnList: boolean;
                 defaultState: boolean;
                 projects: (string)[];
+                parent?: string;
               })[];
           };
         };
@@ -5415,6 +7659,8 @@ export interface operations {
           /** @description Default state for new features */
           defaultState?: any;
           projects?: (string)[];
+          /** @description An environment that the new environment should inherit feature rules from. Requires an enterprise license */
+          parent?: string;
         };
       };
     };
@@ -5428,6 +7674,7 @@ export interface operations {
               toggleOnList: boolean;
               defaultState: boolean;
               projects: (string)[];
+              parent?: string;
             };
           };
         };
@@ -5465,6 +7712,7 @@ export interface operations {
               toggleOnList: boolean;
               defaultState: boolean;
               projects: (string)[];
+              parent?: string;
             };
           };
         };
@@ -5952,12 +8200,18 @@ export interface operations {
                 tags: (string)[];
                 datasource: string;
                 /** @enum {string} */
-                metricType: "proportion" | "mean" | "quantile" | "ratio";
+                metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
                 numerator: {
                   factTableId: string;
                   column: string;
+                  /** @enum {string} */
+                  aggregation?: "sum" | "max" | "count distinct";
                   /** @description Array of Fact Table Filter Ids */
                   filters: (string)[];
+                  /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
+                  aggregateFilterColumn?: string;
+                  /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
+                  aggregateFilter?: string;
                 };
                 denominator?: {
                   factTableId: string;
@@ -5992,11 +8246,13 @@ export interface operations {
                 windowSettings: {
                   /** @enum {string} */
                   type: "none" | "conversion" | "lookback";
-                  /** @description Wait this many hours after experiment exposure before counting conversions */
-                  delayHours?: number;
+                  /** @description Wait this long after experiment exposure before counting conversions. */
+                  delayValue?: number;
+                  /** @enum {string} */
+                  delayUnit?: "minutes" | "hours" | "days" | "weeks";
                   windowValue?: number;
                   /** @enum {string} */
-                  windowUnit?: "hours" | "days" | "weeks";
+                  windowUnit?: "minutes" | "hours" | "days" | "weeks";
                 };
                 /** @description Controls the regression adjustment (CUPED) settings for the metric */
                 regressionAdjustmentSettings: {
@@ -6009,9 +8265,12 @@ export interface operations {
                 };
                 riskThresholdSuccess: number;
                 riskThresholdDanger: number;
+                /** @description If true and the metric is a ratio metric, variation means will be displayed as a percentage */
+                displayAsPercentage?: boolean;
                 minPercentChange: number;
                 maxPercentChange: number;
                 minSampleSize: number;
+                targetMDE: number;
                 /**
                  * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
                  * @enum {string}
@@ -6045,19 +8304,33 @@ export interface operations {
           projects?: (string)[];
           tags?: (string)[];
           /** @enum {string} */
-          metricType: "proportion" | "mean" | "quantile" | "ratio";
+          metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
           numerator: {
             factTableId: string;
             /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' */
             column?: string;
+            /**
+             * @description User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics. 
+             * @enum {string}
+             */
+            aggregation?: "sum" | "max" | "count distinct";
             /** @description Array of Fact Table Filter Ids */
             filters?: (string)[];
+            /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
+            aggregateFilterColumn?: string;
+            /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
+            aggregateFilter?: string;
           };
           /** @description Only when metricType is 'ratio' */
           denominator?: {
             factTableId: string;
             /** @description The column name or one of the special values: '$$distinctUsers' or '$$count' */
             column: string;
+            /**
+             * @description User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics. 
+             * @enum {string}
+             */
+            aggregation?: "sum" | "max" | "count distinct";
             /** @description Array of Fact Table Filter Ids */
             filters?: (string)[];
           };
@@ -6088,11 +8361,24 @@ export interface operations {
           windowSettings?: {
             /** @enum {string} */
             type: "none" | "conversion" | "lookback";
-            /** @description Wait this many hours after experiment exposure before counting conversions */
+            /**
+             * @deprecated 
+             * @description Wait this many hours after experiment exposure before counting conversions. Ignored if delayValue is set.
+             */
             delayHours?: number;
+            /** @description Wait this long after experiment exposure before counting conversions. */
+            delayValue?: number;
+            /**
+             * @description Default `hours`. 
+             * @enum {string}
+             */
+            delayUnit?: "minutes" | "hours" | "days" | "weeks";
             windowValue?: number;
-            /** @enum {string} */
-            windowUnit?: "hours" | "days" | "weeks";
+            /**
+             * @description Default `hours`. 
+             * @enum {string}
+             */
+            windowUnit?: "minutes" | "hours" | "days" | "weeks";
           };
           /** @description Controls the bayesian prior for the metric. If omitted, organization defaults will be used. */
           priorSettings?: {
@@ -6118,11 +8404,15 @@ export interface operations {
           riskThresholdSuccess?: number;
           /** @description Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number. */
           riskThresholdDanger?: number;
+          /** @description If true and the metric is a ratio metric, variation means will be displayed as a percentage */
+          displayAsPercentage?: boolean;
           /** @description Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%) */
           minPercentChange?: number;
           /** @description Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%) */
           maxPercentChange?: number;
           minSampleSize?: number;
+          /** @description The percentage change that you want to reliably detect before ending an experiment, as a proportion (e.g. put 0.1 for 10%). This is used to estimate the "Days Left" for running experiments. */
+          targetMDE?: number;
           /**
            * @description Set this to "api" to disable editing in the GrowthBook UI 
            * @enum {string}
@@ -6144,12 +8434,18 @@ export interface operations {
               tags: (string)[];
               datasource: string;
               /** @enum {string} */
-              metricType: "proportion" | "mean" | "quantile" | "ratio";
+              metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
               numerator: {
                 factTableId: string;
                 column: string;
+                /** @enum {string} */
+                aggregation?: "sum" | "max" | "count distinct";
                 /** @description Array of Fact Table Filter Ids */
                 filters: (string)[];
+                /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
+                aggregateFilterColumn?: string;
+                /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
+                aggregateFilter?: string;
               };
               denominator?: {
                 factTableId: string;
@@ -6184,11 +8480,13 @@ export interface operations {
               windowSettings: {
                 /** @enum {string} */
                 type: "none" | "conversion" | "lookback";
-                /** @description Wait this many hours after experiment exposure before counting conversions */
-                delayHours?: number;
+                /** @description Wait this long after experiment exposure before counting conversions. */
+                delayValue?: number;
+                /** @enum {string} */
+                delayUnit?: "minutes" | "hours" | "days" | "weeks";
                 windowValue?: number;
                 /** @enum {string} */
-                windowUnit?: "hours" | "days" | "weeks";
+                windowUnit?: "minutes" | "hours" | "days" | "weeks";
               };
               /** @description Controls the regression adjustment (CUPED) settings for the metric */
               regressionAdjustmentSettings: {
@@ -6201,9 +8499,12 @@ export interface operations {
               };
               riskThresholdSuccess: number;
               riskThresholdDanger: number;
+              /** @description If true and the metric is a ratio metric, variation means will be displayed as a percentage */
+              displayAsPercentage?: boolean;
               minPercentChange: number;
               maxPercentChange: number;
               minSampleSize: number;
+              targetMDE: number;
               /**
                * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
                * @enum {string}
@@ -6240,12 +8541,18 @@ export interface operations {
               tags: (string)[];
               datasource: string;
               /** @enum {string} */
-              metricType: "proportion" | "mean" | "quantile" | "ratio";
+              metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
               numerator: {
                 factTableId: string;
                 column: string;
+                /** @enum {string} */
+                aggregation?: "sum" | "max" | "count distinct";
                 /** @description Array of Fact Table Filter Ids */
                 filters: (string)[];
+                /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
+                aggregateFilterColumn?: string;
+                /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
+                aggregateFilter?: string;
               };
               denominator?: {
                 factTableId: string;
@@ -6280,11 +8587,13 @@ export interface operations {
               windowSettings: {
                 /** @enum {string} */
                 type: "none" | "conversion" | "lookback";
-                /** @description Wait this many hours after experiment exposure before counting conversions */
-                delayHours?: number;
+                /** @description Wait this long after experiment exposure before counting conversions. */
+                delayValue?: number;
+                /** @enum {string} */
+                delayUnit?: "minutes" | "hours" | "days" | "weeks";
                 windowValue?: number;
                 /** @enum {string} */
-                windowUnit?: "hours" | "days" | "weeks";
+                windowUnit?: "minutes" | "hours" | "days" | "weeks";
               };
               /** @description Controls the regression adjustment (CUPED) settings for the metric */
               regressionAdjustmentSettings: {
@@ -6297,9 +8606,12 @@ export interface operations {
               };
               riskThresholdSuccess: number;
               riskThresholdDanger: number;
+              /** @description If true and the metric is a ratio metric, variation means will be displayed as a percentage */
+              displayAsPercentage?: boolean;
               minPercentChange: number;
               maxPercentChange: number;
               minSampleSize: number;
+              targetMDE: number;
               /**
                * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
                * @enum {string}
@@ -6332,19 +8644,33 @@ export interface operations {
           projects?: (string)[];
           tags?: (string)[];
           /** @enum {string} */
-          metricType?: "proportion" | "mean" | "quantile" | "ratio";
+          metricType?: "proportion" | "retention" | "mean" | "quantile" | "ratio";
           numerator?: {
             factTableId: string;
             /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' */
             column?: string;
+            /**
+             * @description User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics. 
+             * @enum {string}
+             */
+            aggregation?: "sum" | "max" | "count distinct";
             /** @description Array of Fact Table Filter Ids */
             filters?: (string)[];
+            /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
+            aggregateFilterColumn?: string;
+            /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
+            aggregateFilter?: string;
           };
           /** @description Only when metricType is 'ratio' */
           denominator?: {
             factTableId: string;
-            /** @description Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' */
+            /** @description The column name or one of the special values: '$$distinctUsers' or '$$count' */
             column: string;
+            /**
+             * @description User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics. 
+             * @enum {string}
+             */
+            aggregation?: "sum" | "max" | "count distinct";
             /** @description Array of Fact Table Filter Ids */
             filters?: (string)[];
           };
@@ -6375,11 +8701,24 @@ export interface operations {
           windowSettings?: {
             /** @enum {string} */
             type: "none" | "conversion" | "lookback";
-            /** @description Wait this many hours after experiment exposure before counting conversions */
+            /**
+             * @deprecated 
+             * @description Wait this many hours after experiment exposure before counting conversions. Ignored if delayValue is set.
+             */
             delayHours?: number;
+            /** @description Wait this long after experiment exposure before counting conversions. */
+            delayValue?: number;
+            /**
+             * @description Default `hours`. 
+             * @enum {string}
+             */
+            delayUnit?: "minutes" | "hours" | "days" | "weeks";
             windowValue?: number;
-            /** @enum {string} */
-            windowUnit?: "hours" | "days" | "weeks";
+            /**
+             * @description Default `hours`. 
+             * @enum {string}
+             */
+            windowUnit?: "minutes" | "hours" | "days" | "weeks";
           };
           /** @description Controls the regression adjustment (CUPED) settings for the metric */
           regressionAdjustmentSettings?: {
@@ -6394,11 +8733,14 @@ export interface operations {
           riskThresholdSuccess?: number;
           /** @description Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number. */
           riskThresholdDanger?: number;
+          /** @description If true and the metric is a ratio metric, variation means will be displayed as a percentage */
+          displayAsPercentage?: boolean;
           /** @description Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%) */
           minPercentChange?: number;
           /** @description Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%) */
           maxPercentChange?: number;
           minSampleSize?: number;
+          targetMDE?: number;
           /**
            * @description Set this to "api" to disable editing in the GrowthBook UI 
            * @enum {string}
@@ -6420,12 +8762,18 @@ export interface operations {
               tags: (string)[];
               datasource: string;
               /** @enum {string} */
-              metricType: "proportion" | "mean" | "quantile" | "ratio";
+              metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
               numerator: {
                 factTableId: string;
                 column: string;
+                /** @enum {string} */
+                aggregation?: "sum" | "max" | "count distinct";
                 /** @description Array of Fact Table Filter Ids */
                 filters: (string)[];
+                /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
+                aggregateFilterColumn?: string;
+                /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
+                aggregateFilter?: string;
               };
               denominator?: {
                 factTableId: string;
@@ -6460,11 +8808,13 @@ export interface operations {
               windowSettings: {
                 /** @enum {string} */
                 type: "none" | "conversion" | "lookback";
-                /** @description Wait this many hours after experiment exposure before counting conversions */
-                delayHours?: number;
+                /** @description Wait this long after experiment exposure before counting conversions. */
+                delayValue?: number;
+                /** @enum {string} */
+                delayUnit?: "minutes" | "hours" | "days" | "weeks";
                 windowValue?: number;
                 /** @enum {string} */
-                windowUnit?: "hours" | "days" | "weeks";
+                windowUnit?: "minutes" | "hours" | "days" | "weeks";
               };
               /** @description Controls the regression adjustment (CUPED) settings for the metric */
               regressionAdjustmentSettings: {
@@ -6477,9 +8827,12 @@ export interface operations {
               };
               riskThresholdSuccess: number;
               riskThresholdDanger: number;
+              /** @description If true and the metric is a ratio metric, variation means will be displayed as a percentage */
+              displayAsPercentage?: boolean;
               minPercentChange: number;
               maxPercentChange: number;
               minSampleSize: number;
+              targetMDE: number;
               /**
                * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
                * @enum {string}
@@ -6575,19 +8928,33 @@ export interface operations {
                 projects?: (string)[];
                 tags?: (string)[];
                 /** @enum {string} */
-                metricType: "proportion" | "mean" | "quantile" | "ratio";
+                metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
                 numerator: {
                   factTableId: string;
                   /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' */
                   column?: string;
+                  /**
+                   * @description User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics. 
+                   * @enum {string}
+                   */
+                  aggregation?: "sum" | "max" | "count distinct";
                   /** @description Array of Fact Table Filter Ids */
                   filters?: (string)[];
+                  /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
+                  aggregateFilterColumn?: string;
+                  /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
+                  aggregateFilter?: string;
                 };
                 /** @description Only when metricType is 'ratio' */
                 denominator?: {
                   factTableId: string;
                   /** @description The column name or one of the special values: '$$distinctUsers' or '$$count' */
                   column: string;
+                  /**
+                   * @description User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics. 
+                   * @enum {string}
+                   */
+                  aggregation?: "sum" | "max" | "count distinct";
                   /** @description Array of Fact Table Filter Ids */
                   filters?: (string)[];
                 };
@@ -6618,11 +8985,24 @@ export interface operations {
                 windowSettings?: {
                   /** @enum {string} */
                   type: "none" | "conversion" | "lookback";
-                  /** @description Wait this many hours after experiment exposure before counting conversions */
+                  /**
+                   * @deprecated 
+                   * @description Wait this many hours after experiment exposure before counting conversions. Ignored if delayValue is set.
+                   */
                   delayHours?: number;
+                  /** @description Wait this long after experiment exposure before counting conversions. */
+                  delayValue?: number;
+                  /**
+                   * @description Default `hours`. 
+                   * @enum {string}
+                   */
+                  delayUnit?: "minutes" | "hours" | "days" | "weeks";
                   windowValue?: number;
-                  /** @enum {string} */
-                  windowUnit?: "hours" | "days" | "weeks";
+                  /**
+                   * @description Default `hours`. 
+                   * @enum {string}
+                   */
+                  windowUnit?: "minutes" | "hours" | "days" | "weeks";
                 };
                 /** @description Controls the bayesian prior for the metric. If omitted, organization defaults will be used. */
                 priorSettings?: {
@@ -6648,11 +9028,15 @@ export interface operations {
                 riskThresholdSuccess?: number;
                 /** @description Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number. */
                 riskThresholdDanger?: number;
+                /** @description If true and the metric is a ratio metric, variation means will be displayed as a percentage */
+                displayAsPercentage?: boolean;
                 /** @description Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%) */
                 minPercentChange?: number;
                 /** @description Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%) */
                 maxPercentChange?: number;
                 minSampleSize?: number;
+                /** @description The percentage change that you want to reliably detect before ending an experiment, as a proportion (e.g. put 0.1 for 10%). This is used to estimate the "Days Left" for running experiments. */
+                targetMDE?: number;
                 /**
                  * @description Set this to "api" to disable editing in the GrowthBook UI 
                  * @enum {string}
@@ -6706,42 +9090,85 @@ export interface operations {
       };
     };
   };
+  getQuery: {
+    /** Get a single query */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            query: {
+              id: string;
+              organization: string;
+              datasource: string;
+              language: string;
+              query: string;
+              queryType: string;
+              createdAt: string;
+              startedAt: string;
+              /** @enum {string} */
+              status: "running" | "queued" | "failed" | "partially-succeeded" | "succeeded";
+              externalId: string;
+              dependencies: (string)[];
+              runAtEnd: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
 }
+import { z } from "zod";
+import * as openApiValidators from "back-end/src/validators/openapi";
 
 // Schemas
-export type ApiPaginationFields = components["schemas"]["PaginationFields"];
-export type ApiDimension = components["schemas"]["Dimension"];
-export type ApiMetric = components["schemas"]["Metric"];
-export type ApiProject = components["schemas"]["Project"];
-export type ApiEnvironment = components["schemas"]["Environment"];
-export type ApiSegment = components["schemas"]["Segment"];
-export type ApiFeature = components["schemas"]["Feature"];
-export type ApiFeatureEnvironment = components["schemas"]["FeatureEnvironment"];
-export type ApiFeatureRule = components["schemas"]["FeatureRule"];
-export type ApiFeatureDefinition = components["schemas"]["FeatureDefinition"];
-export type ApiFeatureForceRule = components["schemas"]["FeatureForceRule"];
-export type ApiFeatureRolloutRule = components["schemas"]["FeatureRolloutRule"];
-export type ApiFeatureExperimentRule = components["schemas"]["FeatureExperimentRule"];
-export type ApiFeatureExperimentRefRule = components["schemas"]["FeatureExperimentRefRule"];
-export type ApiSdkConnection = components["schemas"]["SdkConnection"];
-export type ApiExperiment = components["schemas"]["Experiment"];
-export type ApiExperimentMetric = components["schemas"]["ExperimentMetric"];
-export type ApiExperimentAnalysisSettings = components["schemas"]["ExperimentAnalysisSettings"];
-export type ApiExperimentResults = components["schemas"]["ExperimentResults"];
-export type ApiDataSource = components["schemas"]["DataSource"];
-export type ApiVisualChangeset = components["schemas"]["VisualChangeset"];
-export type ApiVisualChange = components["schemas"]["VisualChange"];
-export type ApiSavedGroup = components["schemas"]["SavedGroup"];
-export type ApiOrganization = components["schemas"]["Organization"];
-export type ApiFactTable = components["schemas"]["FactTable"];
-export type ApiFactTableFilter = components["schemas"]["FactTableFilter"];
-export type ApiFactMetric = components["schemas"]["FactMetric"];
+export type ApiPaginationFields = z.infer<typeof openApiValidators.apiPaginationFieldsValidator>;
+export type ApiDimension = z.infer<typeof openApiValidators.apiDimensionValidator>;
+export type ApiMetric = z.infer<typeof openApiValidators.apiMetricValidator>;
+export type ApiProject = z.infer<typeof openApiValidators.apiProjectValidator>;
+export type ApiEnvironment = z.infer<typeof openApiValidators.apiEnvironmentValidator>;
+export type ApiAttribute = z.infer<typeof openApiValidators.apiAttributeValidator>;
+export type ApiSegment = z.infer<typeof openApiValidators.apiSegmentValidator>;
+export type ApiFeature = z.infer<typeof openApiValidators.apiFeatureValidator>;
+export type ApiFeatureWithRevisions = z.infer<typeof openApiValidators.apiFeatureWithRevisionsValidator>;
+export type ApiFeatureEnvironment = z.infer<typeof openApiValidators.apiFeatureEnvironmentValidator>;
+export type ApiFeatureRule = z.infer<typeof openApiValidators.apiFeatureRuleValidator>;
+export type ApiFeatureDefinition = z.infer<typeof openApiValidators.apiFeatureDefinitionValidator>;
+export type ApiFeatureForceRule = z.infer<typeof openApiValidators.apiFeatureForceRuleValidator>;
+export type ApiFeatureRolloutRule = z.infer<typeof openApiValidators.apiFeatureRolloutRuleValidator>;
+export type ApiFeatureSafeRolloutRule = z.infer<typeof openApiValidators.apiFeatureSafeRolloutRuleValidator>;
+export type ApiFeatureExperimentRule = z.infer<typeof openApiValidators.apiFeatureExperimentRuleValidator>;
+export type ApiFeatureExperimentRefRule = z.infer<typeof openApiValidators.apiFeatureExperimentRefRuleValidator>;
+export type ApiSdkConnection = z.infer<typeof openApiValidators.apiSdkConnectionValidator>;
+export type ApiExperiment = z.infer<typeof openApiValidators.apiExperimentValidator>;
+export type ApiExperimentSnapshot = z.infer<typeof openApiValidators.apiExperimentSnapshotValidator>;
+export type ApiExperimentMetric = z.infer<typeof openApiValidators.apiExperimentMetricValidator>;
+export type ApiExperimentAnalysisSettings = z.infer<typeof openApiValidators.apiExperimentAnalysisSettingsValidator>;
+export type ApiExperimentResults = z.infer<typeof openApiValidators.apiExperimentResultsValidator>;
+export type ApiExperimentWithEnhancedStatus = z.infer<typeof openApiValidators.apiExperimentWithEnhancedStatusValidator>;
+export type ApiDataSource = z.infer<typeof openApiValidators.apiDataSourceValidator>;
+export type ApiVisualChangeset = z.infer<typeof openApiValidators.apiVisualChangesetValidator>;
+export type ApiVisualChange = z.infer<typeof openApiValidators.apiVisualChangeValidator>;
+export type ApiSavedGroup = z.infer<typeof openApiValidators.apiSavedGroupValidator>;
+export type ApiOrganization = z.infer<typeof openApiValidators.apiOrganizationValidator>;
+export type ApiFactTable = z.infer<typeof openApiValidators.apiFactTableValidator>;
+export type ApiFactTableFilter = z.infer<typeof openApiValidators.apiFactTableFilterValidator>;
+export type ApiFactMetric = z.infer<typeof openApiValidators.apiFactMetricValidator>;
+export type ApiMember = z.infer<typeof openApiValidators.apiMemberValidator>;
+export type ApiArchetype = z.infer<typeof openApiValidators.apiArchetypeValidator>;
+export type ApiQuery = z.infer<typeof openApiValidators.apiQueryValidator>;
 
 // Operations
 export type ListFeaturesResponse = operations["listFeatures"]["responses"]["200"]["content"]["application/json"];
 export type PostFeatureResponse = operations["postFeature"]["responses"]["200"]["content"]["application/json"];
 export type GetFeatureResponse = operations["getFeature"]["responses"]["200"]["content"]["application/json"];
 export type UpdateFeatureResponse = operations["updateFeature"]["responses"]["200"]["content"]["application/json"];
+export type DeleteFeatureResponse = operations["deleteFeature"]["responses"]["200"]["content"]["application/json"];
 export type ToggleFeatureResponse = operations["toggleFeature"]["responses"]["200"]["content"]["application/json"];
 export type GetFeatureKeysResponse = operations["getFeatureKeys"]["responses"]["200"]["content"]["application/json"];
 export type ListProjectsResponse = operations["listProjects"]["responses"]["200"]["content"]["application/json"];
@@ -6758,19 +9185,23 @@ export type PostSdkConnectionResponse = operations["postSdkConnection"]["respons
 export type GetSdkConnectionResponse = operations["getSdkConnection"]["responses"]["200"]["content"]["application/json"];
 export type PutSdkConnectionResponse = operations["putSdkConnection"]["responses"]["200"]["content"]["application/json"];
 export type DeleteSdkConnectionResponse = operations["deleteSdkConnection"]["responses"]["200"]["content"]["application/json"];
+export type LookupSdkConnectionByKeyResponse = operations["lookupSdkConnectionByKey"]["responses"]["200"]["content"]["application/json"];
 export type ListDataSourcesResponse = operations["listDataSources"]["responses"]["200"]["content"]["application/json"];
 export type GetDataSourceResponse = operations["getDataSource"]["responses"]["200"]["content"]["application/json"];
 export type ListExperimentsResponse = operations["listExperiments"]["responses"]["200"]["content"]["application/json"];
 export type PostExperimentResponse = operations["postExperiment"]["responses"]["200"]["content"]["application/json"];
+export type GetExperimentNamesResponse = operations["getExperimentNames"]["responses"]["200"]["content"]["application/json"];
 export type GetExperimentResponse = operations["getExperiment"]["responses"]["200"]["content"]["application/json"];
 export type UpdateExperimentResponse = operations["updateExperiment"]["responses"]["200"]["content"]["application/json"];
+export type PostExperimentSnapshotResponse = operations["postExperimentSnapshot"]["responses"]["200"]["content"]["application/json"];
 export type GetExperimentResultsResponse = operations["getExperimentResults"]["responses"]["200"]["content"]["application/json"];
+export type ListVisualChangesetsResponse = operations["listVisualChangesets"]["responses"]["200"]["content"]["application/json"];
+export type GetExperimentSnapshotResponse = operations["getExperimentSnapshot"]["responses"]["200"]["content"]["application/json"];
 export type ListMetricsResponse = operations["listMetrics"]["responses"]["200"]["content"]["application/json"];
 export type PostMetricResponse = operations["postMetric"]["responses"]["200"]["content"]["application/json"];
 export type GetMetricResponse = operations["getMetric"]["responses"]["200"]["content"]["application/json"];
 export type PutMetricResponse = operations["putMetric"]["responses"]["200"]["content"]["application/json"];
 export type DeleteMetricResponse = operations["deleteMetric"]["responses"]["200"]["content"]["application/json"];
-export type ListVisualChangesetsResponse = operations["listVisualChangesets"]["responses"]["200"]["content"]["application/json"];
 export type GetVisualChangesetResponse = operations["getVisualChangeset"]["responses"]["200"]["content"]["application/json"];
 export type PutVisualChangesetResponse = operations["putVisualChangeset"]["responses"]["200"]["content"]["application/json"];
 export type PostVisualChangeResponse = operations["postVisualChange"]["responses"]["200"]["content"]["application/json"];
@@ -6783,6 +9214,18 @@ export type DeleteSavedGroupResponse = operations["deleteSavedGroup"]["responses
 export type ListOrganizationsResponse = operations["listOrganizations"]["responses"]["200"]["content"]["application/json"];
 export type PostOrganizationResponse = operations["postOrganization"]["responses"]["200"]["content"]["application/json"];
 export type PutOrganizationResponse = operations["putOrganization"]["responses"]["200"]["content"]["application/json"];
+export type ListAttributesResponse = operations["listAttributes"]["responses"]["200"]["content"]["application/json"];
+export type PostAttributeResponse = operations["postAttribute"]["responses"]["200"]["content"]["application/json"];
+export type PutAttributeResponse = operations["putAttribute"]["responses"]["200"]["content"]["application/json"];
+export type DeleteAttributeResponse = operations["deleteAttribute"]["responses"]["200"]["content"]["application/json"];
+export type ListArchetypesResponse = operations["listArchetypes"]["responses"]["200"]["content"]["application/json"];
+export type PostArchetypeResponse = operations["postArchetype"]["responses"]["200"]["content"]["application/json"];
+export type GetArchetypeResponse = operations["getArchetype"]["responses"]["200"]["content"]["application/json"];
+export type PutArchetypeResponse = operations["putArchetype"]["responses"]["200"]["content"]["application/json"];
+export type DeleteArchetypeResponse = operations["deleteArchetype"]["responses"]["200"]["content"]["application/json"];
+export type ListMembersResponse = operations["listMembers"]["responses"]["200"]["content"]["application/json"];
+export type DeleteMemberResponse = operations["deleteMember"]["responses"]["200"]["content"]["application/json"];
+export type UpdateMemberRoleResponse = operations["updateMemberRole"]["responses"]["200"]["content"]["application/json"];
 export type ListEnvironmentsResponse = operations["listEnvironments"]["responses"]["200"]["content"]["application/json"];
 export type PostEnvironmentResponse = operations["postEnvironment"]["responses"]["200"]["content"]["application/json"];
 export type PutEnvironmentResponse = operations["putEnvironment"]["responses"]["200"]["content"]["application/json"];
@@ -6804,3 +9247,4 @@ export type UpdateFactMetricResponse = operations["updateFactMetric"]["responses
 export type DeleteFactMetricResponse = operations["deleteFactMetric"]["responses"]["200"]["content"]["application/json"];
 export type PostBulkImportFactsResponse = operations["postBulkImportFacts"]["responses"]["200"]["content"]["application/json"];
 export type PostCodeRefsResponse = operations["postCodeRefs"]["responses"]["200"]["content"]["application/json"];
+export type GetQueryResponse = operations["getQuery"]["responses"]["200"]["content"]["application/json"];

@@ -5,18 +5,18 @@ import { BsXCircle } from "react-icons/bs";
 import { BiHide, BiShow } from "react-icons/bi";
 import { ImBlocked } from "react-icons/im";
 import { useAuth } from "@/services/auth";
-import { GBAddCircle } from "@/components/Icons";
 import { useEnvironments } from "@/services/features";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Button from "@/components/Button";
+import OldButton from "@/components/Button";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import EnvironmentModal from "@/components/Settings/EnvironmentModal";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Button from "@/components/Radix/Button";
 
 const EnvironmentsPage: FC = () => {
   const { project } = useDefinitions();
@@ -70,15 +70,7 @@ const EnvironmentsPage: FC = () => {
         </div>
         {canCreate && (
           <div className="col-auto ml-auto">
-            <button
-              className="btn btn-primary"
-              onClick={(e) => {
-                e.preventDefault();
-                setModalOpen({});
-              }}
-            >
-              <GBAddCircle /> Add Environment
-            </button>
+            <Button onClick={() => setModalOpen({})}>Add Environment</Button>
           </div>
         )}
       </div>
@@ -118,13 +110,9 @@ const EnvironmentsPage: FC = () => {
                       <ProjectBadges
                         resourceType="environment"
                         projectIds={e.projects}
-                        className="badge-ellipsis short align-middle"
                       />
                     ) : (
-                      <ProjectBadges
-                        resourceType="environment"
-                        className="badge-ellipsis short align-middle"
-                      />
+                      <ProjectBadges resourceType="environment" />
                     )}
                   </td>
                   <td>
@@ -215,44 +203,48 @@ const EnvironmentsPage: FC = () => {
                       {canEdit ? (
                         <>
                           {i > 0 && (
-                            <Button
+                            <OldButton
                               color=""
                               className="dropdown-item"
                               onClick={async () => {
-                                const newEnvs = [...environments];
-                                newEnvs.splice(i, 1);
-                                newEnvs.splice(i - 1, 0, e);
+                                const targetEnv = filteredEnvironments[i - 1];
+                                const newIndex = environments.findIndex(
+                                  (env) => targetEnv.id === env.id
+                                );
                                 await apiCall(`/environment/order`, {
                                   method: "PUT",
                                   body: JSON.stringify({
-                                    environments: newEnvs.map((env) => env.id),
+                                    envId: e.id,
+                                    newIndex, // this is the filteredEnvironments index  we are moving it on
                                   }),
                                 });
                                 refreshOrganization();
                               }}
                             >
                               Move up
-                            </Button>
+                            </OldButton>
                           )}
-                          {i < environments.length - 1 && (
-                            <Button
+                          {i < filteredEnvironments.length - 1 && (
+                            <OldButton
                               color=""
                               className="dropdown-item"
                               onClick={async () => {
-                                const newEnvs = [...environments];
-                                newEnvs.splice(i, 1);
-                                newEnvs.splice(i + 1, 0, e);
+                                const targetEnv = filteredEnvironments[i + 1];
+                                const newIndex = environments.findIndex(
+                                  (env) => targetEnv.id === env.id
+                                );
                                 await apiCall(`/environment/order`, {
                                   method: "PUT",
                                   body: JSON.stringify({
-                                    environments: newEnvs.map((env) => env.id),
+                                    envId: e.id,
+                                    newIndex, // this is the filteredEnvironments index  we are moving it on
                                   }),
                                 });
                                 refreshOrganization();
                               }}
                             >
                               Move down
-                            </Button>
+                            </OldButton>
                           )}
                         </>
                       ) : null}

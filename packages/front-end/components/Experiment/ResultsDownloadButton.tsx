@@ -5,6 +5,7 @@ import {
 import React, { useCallback, useMemo } from "react";
 import { FaFileExport } from "react-icons/fa";
 import { Parser } from "json2csv";
+import { DifferenceType } from "back-end/types/stats";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { ExperimentTableRow, getRiskByVariation } from "@/services/experiments";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
@@ -31,16 +32,20 @@ type CsvRow = {
 
 export default function ResultsDownloadButton({
   results,
+  differenceType,
   metrics,
   variations,
   trackingKey,
   dimension,
+  noIcon,
 }: {
   results: ExperimentReportResultDimension[];
+  differenceType: DifferenceType;
   metrics?: string[];
   variations?: ExperimentReportVariation[];
   trackingKey?: string;
   dimension?: string;
+  noIcon?: boolean;
 }) {
   const { getExperimentMetricById, getDimensionById, ready } = useDefinitions();
   const { metricDefaults } = useOrganizationMetricDefaults();
@@ -84,7 +89,8 @@ export default function ResultsDownloadButton({
           const { relativeRisk } = getRiskByVariation(
             index,
             row,
-            metricDefaults
+            metricDefaults,
+            differenceType
           );
           csvRows.push({
             ...(dimensionName && { [dimensionName]: result.name }),
@@ -117,6 +123,7 @@ export default function ResultsDownloadButton({
     ready,
     results,
     variations,
+    differenceType,
   ]);
 
   const href = useMemo(() => {
@@ -148,7 +155,12 @@ export default function ResultsDownloadButton({
           : "results.csv"
       }
     >
-      <FaFileExport className="mr-2" /> Export CSV
+      {!noIcon ? (
+        <>
+          <FaFileExport className="mr-2" />{" "}
+        </>
+      ) : null}
+      Export CSV
     </a>
   );
 }

@@ -2,22 +2,22 @@ import { createHmac } from "crypto";
 import Agenda, { Job } from "agenda";
 import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
 import { filterProjectsByEnvironmentWithNull } from "shared/util";
-import { getFeatureDefinitions } from "../services/features";
-import { CRON_ENABLED, IS_CLOUD } from "../util/secrets";
-import { SDKPayloadKey } from "../../types/sdk-payload";
+import { getFeatureDefinitions } from "back-end/src/services/features";
+import { CRON_ENABLED, IS_CLOUD } from "back-end/src/util/secrets";
+import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import {
   clearProxyError,
   findSDKConnectionById,
   findSDKConnectionsByOrganization,
   setProxyError,
-} from "../models/SdkConnectionModel";
-import { SDKConnectionInterface } from "../../types/sdk-connection";
-import { cancellableFetch } from "../util/http.util";
-import { logger } from "../util/logger";
-import { ApiReqContext } from "../../types/api";
-import { ReqContext } from "../../types/organization";
-import { getContextForAgendaJobByOrgId } from "../services/organizations";
-import { trackJob } from "../services/otel";
+} from "back-end/src/models/SdkConnectionModel";
+import { SDKConnectionInterface } from "back-end/types/sdk-connection";
+import { cancellableFetch } from "back-end/src/util/http.util";
+import { logger } from "back-end/src/util/logger";
+import { ApiReqContext } from "back-end/types/api";
+import { ReqContext } from "back-end/types/organization";
+import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { trackJob } from "back-end/src/services/tracing";
 
 const PROXY_UPDATE_JOB_NAME = "proxyUpdate";
 type ProxyUpdateJob = Job<{
@@ -89,6 +89,7 @@ const proxyUpdate = trackJob(
       includeDraftExperiments: connection.includeDraftExperiments,
       includeExperimentNames: connection.includeExperimentNames,
       includeRedirectExperiments: connection.includeRedirectExperiments,
+      includeRuleIds: connection.includeRuleIds,
       hashSecureAttributes: connection.hashSecureAttributes,
     });
 

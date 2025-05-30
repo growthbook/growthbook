@@ -35,6 +35,7 @@ const EditDataSourceForm: FC<{
 
   return (
     <Modal
+      trackingEventModalType=""
       header={"Edit Data Source Settings"}
       open={true}
       close={cancel}
@@ -52,7 +53,7 @@ const EditDataSourceForm: FC<{
         value={form.watch("datasource")}
         onChange={(v) => form.setValue("datasource", v)}
         disabled={experiment.status !== "draft"}
-        initialOption="Manual"
+        placeholder="Select..."
         name="datasource"
         autoFocus={true}
         options={datasources.map((d) => ({ value: d.id, label: d.name }))}

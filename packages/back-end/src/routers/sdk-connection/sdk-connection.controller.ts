@@ -1,23 +1,23 @@
 import type { Response } from "express";
-import { orgHasPremiumFeature } from "enterprise";
-import { triggerSingleSDKWebhookJobs } from "../../jobs/updateAllJobs";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { triggerSingleSDKWebhookJobs } from "back-end/src/jobs/updateAllJobs";
 import {
   CreateSdkWebhookProps,
   WebhookInterface,
-} from "../../../types/webhook";
+} from "back-end/types/webhook";
 import {
   countSdkWebhooksByOrg,
   createSdkWebhook,
   findAllSdkWebhooksByConnection,
-} from "../../models/WebhookModel";
-import { AuthRequest } from "../../types/AuthRequest";
-import { getContextFromReq } from "../../services/organizations";
+} from "back-end/src/models/WebhookModel";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   SDKConnectionInterface,
   CreateSDKConnectionParams,
   EditSDKConnectionParams,
   ProxyTestResult,
-} from "../../../types/sdk-connection";
+} from "back-end/types/sdk-connection";
 import {
   createSDKConnection,
   deleteSDKConnectionById,
@@ -25,7 +25,7 @@ import {
   findSDKConnectionById,
   findSDKConnectionsByOrganization,
   testProxyConnection,
-} from "../../models/SdkConnectionModel";
+} from "back-end/src/models/SdkConnectionModel";
 
 export const getSDKConnections = async (
   req: AuthRequest,

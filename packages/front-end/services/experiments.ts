@@ -1,20 +1,22 @@
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
+import { DifferenceType, StatsEngine } from "back-end/types/stats";
 import {
-  DifferenceType,
-  PValueCorrection,
-  StatsEngine,
-} from "back-end/types/stats";
-import normal from "@stdlib/stats/base/dists/normal";
-import {
-  ExperimentReportResultDimension,
   ExperimentReportVariationWithIndex,
   MetricSnapshotSettings,
 } from "back-end/types/report";
-import { MetricDefaults } from "back-end/types/organization";
-import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
+import {
+  MetricDefaults,
+  SDKAttributeSchema,
+} from "back-end/types/organization";
+import {
+  ExperimentInterfaceStringDates,
+  ExperimentStatus,
+  ExperimentTemplateInterface,
+  MetricOverride,
+} from "back-end/types/experiment";
 import cloneDeep from "lodash/cloneDeep";
 import { getValidDate } from "shared/dates";
-import { isNil } from "lodash";
+import { isNil, omit } from "lodash";
 import { FactTableInterface } from "back-end/types/fact-table";
 import {
   ExperimentMetricInterface,
@@ -24,6 +26,8 @@ import {
   isBinomialMetric,
   isSuspiciousUplift,
   quantileMetricType,
+  isRatioMetric,
+  getEqualWeights,
 } from "shared/experiments";
 import {
   DEFAULT_LOSE_RISK_THRESHOLD,
@@ -31,6 +35,8 @@ import {
 } from "shared/constants";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { getExperimentMetricFormatter } from "@/services/metrics";
+import { getDefaultVariations } from "@/components/Experiment/NewExperimentForm";
+import { getDefaultRuleValue, NewExperimentRefRule } from "./features";
 
 export type ExperimentTableRow = {
   label: string;
@@ -47,6 +53,7 @@ export function getRisk(
   baseline: SnapshotMetric,
   metric: ExperimentMetricInterface,
   metricDefaults: MetricDefaults,
+  differenceType: DifferenceType,
   // separate CR because sometimes "baseline" above is the variation
   baselineCR: number
 ): { risk: number; relativeRisk: number; showRisk: boolean } {
@@ -65,20 +72,34 @@ export function getRisk(
   const showRisk =
     baseline.cr > 0 &&
     hasEnoughData(baseline, stats, metric, metricDefaults) &&
-    !isSuspiciousUplift(baseline, stats, metric, metricDefaults);
+    !isSuspiciousUplift(
+      baseline,
+      stats,
+      metric,
+      metricDefaults,
+      differenceType
+    );
   return { risk, relativeRisk, showRisk };
 }
 
 export function getRiskByVariation(
   riskVariation: number,
   row: ExperimentTableRow,
-  metricDefaults: MetricDefaults
+  metricDefaults: MetricDefaults,
+  differenceType: DifferenceType
 ) {
   const baseline = row.variations[0];
 
   if (riskVariation > 0) {
     const stats = row.variations[riskVariation];
-    return getRisk(stats, baseline, row.metric, metricDefaults, baseline.cr);
+    return getRisk(
+      stats,
+      baseline,
+      row.metric,
+      metricDefaults,
+      differenceType,
+      baseline.cr
+    );
   } else {
     let risk = -1;
     let relativeRisk = 0;
@@ -94,7 +115,14 @@ export function getRiskByVariation(
         risk: vRisk,
         relativeRisk: vRelativeRisk,
         showRisk: vShowRisk,
-      } = getRisk(baseline, stats, row.metric, metricDefaults, baseline.cr);
+      } = getRisk(
+        baseline,
+        stats,
+        row.metric,
+        metricDefaults,
+        differenceType,
+        baseline.cr
+      );
       if (vRisk > risk) {
         risk = vRisk;
         relativeRisk = vRelativeRisk;
@@ -115,7 +143,8 @@ export function hasRisk(rows: ExperimentTableRow[]) {
 
 export function useDomain(
   variations: ExperimentReportVariationWithIndex[], // must be ordered, baseline first
-  rows: ExperimentTableRow[]
+  rows: ExperimentTableRow[],
+  differenceType: DifferenceType
 ): [number, number] {
   const { metricDefaults } = useOrganizationMetricDefaults();
 
@@ -134,7 +163,15 @@ export function useDomain(
       if (!hasEnoughData(baseline, stats, row.metric, metricDefaults)) {
         return;
       }
-      if (isSuspiciousUplift(baseline, stats, row.metric, metricDefaults)) {
+      if (
+        isSuspiciousUplift(
+          baseline,
+          stats,
+          row.metric,
+          metricDefaults,
+          differenceType
+        )
+      ) {
         return;
       }
 
@@ -179,7 +216,8 @@ export function applyMetricOverrides<T extends ExperimentMetricInterface>(
       overrideFields.push("windowHours");
     }
     if (!isNil(metricOverride?.delayHours)) {
-      newMetric.windowSettings.delayHours = metricOverride.delayHours;
+      newMetric.windowSettings.delayUnit = "hours";
+      newMetric.windowSettings.delayValue = metricOverride.delayHours;
       overrideFields.push("delayHours");
     }
     if (!isNil(metricOverride?.winRisk)) {
@@ -229,149 +267,6 @@ export function pValueFormatter(pValue: number, digits: number = 3): string {
     : pValue.toFixed(digits);
 }
 
-export type IndexedPValue = {
-  pValue: number;
-  index: (number | string)[];
-};
-
-export function adjustPValuesBenjaminiHochberg(
-  indexedPValues: IndexedPValue[]
-): IndexedPValue[] {
-  const newIndexedPValues = cloneDeep<IndexedPValue[]>(indexedPValues);
-  const m = newIndexedPValues.length;
-
-  newIndexedPValues.sort((a, b) => {
-    return b.pValue - a.pValue;
-  });
-  newIndexedPValues.forEach((p, i) => {
-    newIndexedPValues[i].pValue = Math.min((p.pValue * m) / (m - i), 1);
-  });
-
-  let tempval = newIndexedPValues[0].pValue;
-  for (let i = 1; i < m; i++) {
-    if (newIndexedPValues[i].pValue < tempval) {
-      tempval = newIndexedPValues[i].pValue;
-    } else {
-      newIndexedPValues[i].pValue = tempval;
-    }
-  }
-  return newIndexedPValues;
-}
-
-export function adjustPValuesHolmBonferroni(
-  indexedPValues: IndexedPValue[]
-): IndexedPValue[] {
-  const newIndexedPValues = cloneDeep<IndexedPValue[]>(indexedPValues);
-  const m = newIndexedPValues.length;
-  newIndexedPValues.sort((a, b) => {
-    return a.pValue - b.pValue;
-  });
-  newIndexedPValues.forEach((p, i) => {
-    newIndexedPValues[i].pValue = Math.min(p.pValue * (m - i), 1);
-  });
-
-  let tempval = newIndexedPValues[0].pValue;
-  for (let i = 1; i < m; i++) {
-    if (newIndexedPValues[i].pValue > tempval) {
-      tempval = newIndexedPValues[i].pValue;
-    } else {
-      newIndexedPValues[i].pValue = tempval;
-    }
-  }
-  return newIndexedPValues;
-}
-
-export function setAdjustedPValuesOnResults(
-  results: ExperimentReportResultDimension[],
-  nonGuardrailMetrics: string[],
-  adjustment: PValueCorrection
-): void {
-  if (!adjustment) {
-    return;
-  }
-
-  let indexedPValues: IndexedPValue[] = [];
-  results.forEach((r, i) => {
-    r.variations.forEach((v, j) => {
-      nonGuardrailMetrics.forEach((m) => {
-        const pValue = v.metrics[m]?.pValue;
-        if (pValue !== undefined) {
-          indexedPValues.push({
-            pValue: pValue,
-            index: [i, j, m],
-          });
-        }
-      });
-    });
-  });
-
-  if (indexedPValues.length === 0) {
-    return;
-  }
-
-  if (adjustment === "benjamini-hochberg") {
-    indexedPValues = adjustPValuesBenjaminiHochberg(indexedPValues);
-  } else if (adjustment === "holm-bonferroni") {
-    indexedPValues = adjustPValuesHolmBonferroni(indexedPValues);
-  }
-
-  // modify results in place
-  indexedPValues.forEach((ip) => {
-    const ijk = ip.index;
-    results[ijk[0]].variations[ijk[1]].metrics[ijk[2]].pValueAdjusted =
-      ip.pValue;
-  });
-  return;
-}
-
-export function adjustedCI(
-  adjustedPValue: number,
-  uplift: { dist: string; mean?: number; stddev?: number },
-  zScore: number
-): [number, number] {
-  if (!uplift.mean) return [uplift.mean ?? 0, uplift.mean ?? 0];
-  const adjStdDev = Math.abs(
-    uplift.mean / normal.quantile(1 - adjustedPValue / 2, 0, 1)
-  );
-  const width = zScore * adjStdDev;
-  return [uplift.mean - width, uplift.mean + width];
-}
-
-export function setAdjustedCIs(
-  results: ExperimentReportResultDimension[],
-  pValueThreshold: number
-): void {
-  const zScore = normal.quantile(1 - pValueThreshold / 2, 0, 1);
-  results.forEach((r) => {
-    r.variations.forEach((v) => {
-      for (const key in v.metrics) {
-        const pValueAdjusted = v.metrics[key].pValueAdjusted;
-        const uplift = v.metrics[key].uplift;
-        const ci = v.metrics[key].ci;
-        if (pValueAdjusted === undefined) {
-          continue;
-        } else if (pValueAdjusted > 0.999999) {
-          // set to Inf if adjusted pValue is 1
-          v.metrics[key].ciAdjusted = [-Infinity, Infinity];
-        } else if (
-          pValueAdjusted !== undefined &&
-          uplift !== undefined &&
-          ci !== undefined
-        ) {
-          const adjCI = adjustedCI(pValueAdjusted, uplift, zScore);
-          // only update if CI got wider, should never get more narrow
-          if (adjCI[0] < ci[0] && adjCI[1] > ci[1]) {
-            v.metrics[key].ciAdjusted = adjCI;
-          } else {
-            v.metrics[key].ciAdjusted = v.metrics[key].ci;
-          }
-        }
-      }
-    });
-  });
-  return;
-}
-
 export type RowResults = {
   directionalStatus: "winning" | "losing";
   resultsStatus: "won" | "lost" | "draw" | "";
@@ -379,6 +274,7 @@ export type RowResults = {
   hasData: boolean;
   enoughData: boolean;
   enoughDataMeta: EnoughDataMeta;
+  hasScaledImpact: boolean;
   significant: boolean;
   significantUnadjusted: boolean;
   significantReason: string;
@@ -397,22 +293,32 @@ export type RiskMeta = {
   relativeRiskFormatted: string;
   riskReason: string;
 };
-export type EnoughDataMeta = {
+export type EnoughDataMetaZeroValues = {
+  reason: "baselineZero" | "variationZero";
+  reasonText: string;
+};
+export type EnoughDataMetaNotEnoughData = {
+  reason: "notEnoughData";
+  reasonText: string;
   percentComplete: number;
   percentCompleteNumerator: number;
   percentCompleteDenominator: number;
   timeRemainingMs: number | null;
   showTimeRemaining: boolean;
-  reason: string;
 };
+export type EnoughDataMeta =
+  | EnoughDataMetaZeroValues
+  | EnoughDataMetaNotEnoughData;
 export function getRowResults({
   stats,
   baseline,
   metric,
+  denominator,
   metricDefaults,
   isGuardrail,
   minSampleSize,
   statsEngine,
+  differenceType,
   ciUpper,
   ciLower,
   pValueThreshold,
@@ -426,7 +332,9 @@ export function getRowResults({
   stats: SnapshotMetric;
   baseline: SnapshotMetric;
   statsEngine: StatsEngine;
+  differenceType: DifferenceType;
   metric: ExperimentMetricInterface;
+  denominator?: ExperimentMetricInterface;
   metricDefaults: MetricDefaults;
   isGuardrail: boolean;
   minSampleSize: number;
@@ -453,49 +361,88 @@ export function getRowResults({
     maximumFractionDigits: 2,
   });
 
+  const hasScaledImpact =
+    !isRatioMetric(metric, denominator) && !quantileMetricType(metric);
   const hasData = !!stats?.value && !!baseline?.value;
   const metricSampleSize = getMetricSampleSize(baseline, stats, metric);
   const baselineSampleSize = metricSampleSize.baselineValue ?? baseline.value;
   const variationSampleSize = metricSampleSize.variationValue ?? stats.value;
   const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
-  const enoughDataReason =
-    `This metric has a minimum ${
-      quantileMetricType(metric) ? "sample size" : "total"
-    } of ${minSampleSize}; this value must be reached in one variation before results are displayed. ` +
-    `The total ${
-      quantileMetricType(metric) ? "sample size" : "metric value"
-    } of the variation is ${compactNumberFormatter.format(
-      variationSampleSize
-    )} and the baseline total is ${compactNumberFormatter.format(
-      baselineSampleSize
-    )}.`;
-  const percentComplete =
-    minSampleSize > 0
-      ? Math.max(baselineSampleSize, variationSampleSize) / minSampleSize
-      : 1;
-  const timeRemainingMs =
-    percentComplete > 0.1
-      ? ((snapshotDate.getTime() - getValidDate(phaseStartDate).getTime()) *
-          (1 - percentComplete)) /
-          percentComplete -
-        (Date.now() - snapshotDate.getTime())
-      : null;
-  const showTimeRemaining =
-    timeRemainingMs !== null && isLatestPhase && experimentStatus === "running";
-  const enoughDataMeta: EnoughDataMeta = {
-    percentComplete,
-    percentCompleteNumerator: Math.max(baselineSampleSize, variationSampleSize),
-    percentCompleteDenominator: minSampleSize,
-    timeRemainingMs,
-    showTimeRemaining,
-    reason: enoughDataReason,
-  };
 
+  const reason: EnoughDataMeta["reason"] =
+    baseline.value === 0
+      ? "baselineZero"
+      : stats.value === 0
+      ? "variationZero"
+      : "notEnoughData";
+
+  const enoughDataMeta: EnoughDataMeta = (() => {
+    switch (reason) {
+      case "notEnoughData": {
+        const reasonText =
+          `This metric has a minimum ${
+            quantileMetricType(metric) ? "sample size" : "total"
+          } of ${minSampleSize}; this value must be reached in one variation before results are displayed. ` +
+          `The total ${
+            quantileMetricType(metric) ? "sample size" : "metric value"
+          } of the variation is ${compactNumberFormatter.format(
+            variationSampleSize
+          )} and the baseline total is ${compactNumberFormatter.format(
+            baselineSampleSize
+          )}.`;
+        const percentComplete =
+          minSampleSize > 0
+            ? Math.max(baselineSampleSize, variationSampleSize) / minSampleSize
+            : 1;
+        const timeRemainingMs =
+          percentComplete !== null && percentComplete > 0.1
+            ? ((snapshotDate.getTime() -
+                getValidDate(phaseStartDate).getTime()) *
+                (1 - percentComplete)) /
+                percentComplete -
+              (Date.now() - snapshotDate.getTime())
+            : null;
+        const showTimeRemaining =
+          timeRemainingMs !== null &&
+          isLatestPhase &&
+          experimentStatus === "running";
+        return {
+          percentComplete,
+          percentCompleteNumerator: Math.max(
+            baselineSampleSize,
+            variationSampleSize
+          ),
+          percentCompleteDenominator: minSampleSize,
+          timeRemainingMs,
+          showTimeRemaining,
+          reason,
+          reasonText,
+        };
+        break;
+      }
+      case "baselineZero": {
+        const reasonText = `Statistics can only be displayed once the baseline has a non-zero value.`;
+        return {
+          reason,
+          reasonText,
+        };
+        break;
+      }
+      case "variationZero": {
+        const reasonText = `Statistics can only be displayed once the variation has a non-zero value.`;
+        return {
+          reason,
+          reasonText,
+        };
+      }
+    }
+  })();
   const suspiciousChange = isSuspiciousUplift(
     baseline,
     stats,
     metric,
-    metricDefaults
+    metricDefaults,
+    differenceType
   );
   const suspiciousChangeReason = suspiciousChange
     ? `A suspicious result occurs when the percent change exceeds your maximum percent change (${percentFormatter.format(
@@ -508,6 +455,7 @@ export function getRowResults({
     baseline,
     metric,
     metricDefaults,
+    differenceType,
     baseline.cr
   );
   const winRiskThreshold = metric.winRisk ?? DEFAULT_WIN_RISK_THRESHOLD;
@@ -563,6 +511,7 @@ export function getRowResults({
     ciUpper,
     pValueThreshold,
     statsEngine,
+    differenceType,
   });
 
   let significantReason = "";
@@ -624,6 +573,7 @@ export function getRowResults({
     hasData,
     enoughData,
     enoughDataMeta,
+    hasScaledImpact,
     significant,
     significantUnadjusted,
     significantReason,
@@ -645,4 +595,103 @@ export function getEffectLabel(differenceType: DifferenceType): string {
     return "Scaled Impact";
   }
   return "% Change";
+}
+
+export function convertTemplateToExperiment(
+  template: ExperimentTemplateInterface
+): Partial<ExperimentInterfaceStringDates> {
+  const templateWithoutTemplateFields = omit(template, [
+    "id",
+    "organization",
+    "owner",
+    "dateCreated",
+    "dateUpdated",
+    "templateMetadata",
+    "targeting",
+  ]);
+  return {
+    ...templateWithoutTemplateFields,
+    variations: getDefaultVariations(2),
+    phases: [
+      {
+        dateStarted: new Date().toISOString().substr(0, 16),
+        dateEnded: new Date().toISOString().substr(0, 16),
+        name: "Main",
+        reason: "",
+        variationWeights: getEqualWeights(2),
+        ...template.targeting,
+      },
+    ],
+    templateId: template.id,
+  };
+}
+
+export function convertTemplateToExperimentRule({
+  template,
+  defaultValue,
+  attributeSchema,
+}: {
+  template: ExperimentTemplateInterface;
+  defaultValue: string;
+  attributeSchema?: SDKAttributeSchema;
+}): Partial<NewExperimentRefRule> {
+  const templateWithoutTemplateFields = omit(template, [
+    "id",
+    "organization",
+    "owner",
+    "dateCreated",
+    "dateUpdated",
+    "templateMetadata",
+    "targeting",
+    "type",
+  ]);
+  if ("skipPartialData" in templateWithoutTemplateFields) {
+    // @ts-expect-error Mangled types
+    templateWithoutTemplateFields.skipPartialData = templateWithoutTemplateFields.skipPartialData
+      ? "strict"
+      : "loose";
+  }
+  return {
+    ...(getDefaultRuleValue({
+      defaultValue,
+      attributeSchema,
+      ruleType: "experiment-ref-new",
+    }) as NewExperimentRefRule),
+    ...templateWithoutTemplateFields,
+    ...template.targeting,
+    templateId: template.id,
+  };
+}
+
+export function convertExperimentToTemplate(
+  experiment: ExperimentInterfaceStringDates
+): Partial<ExperimentTemplateInterface> {
+  const latestPhase = experiment.phases[experiment.phases.length - 1];
+  const template = {
+    templateMetadata: {
+      name: `${experiment.name} Template`,
+      description: `Template based on ${experiment.name}`,
+    },
+    project: experiment.project,
+    type: "standard" as const,
+    hypothesis: experiment.hypothesis,
+    tags: experiment.tags,
+    datasource: experiment.datasource,
+    exposureQueryId: experiment.exposureQueryId,
+    hashAttribute: experiment.hashAttribute,
+    fallbackAttribute: experiment.fallbackAttribute,
+    disableStickyBucketing: experiment.disableStickyBucketing,
+    goalMetrics: experiment.goalMetrics,
+    secondaryMetrics: experiment.secondaryMetrics,
+    guardrailMetrics: experiment.guardrailMetrics,
+    activationMetric: experiment.activationMetric,
+    statsEngine: experiment.statsEngine,
+    targeting: {
+      coverage: latestPhase.coverage,
+      savedGroups: latestPhase.savedGroups,
+      prerequisites: latestPhase.prerequisites,
+      condition: latestPhase.condition,
+    },
+  };
+  return template;
 }

@@ -1,17 +1,20 @@
 import { Response } from "express";
-import { orgHasPremiumFeature } from "enterprise";
-import { ExperimentInterface } from "@back-end/types/experiment";
-import { getContextFromReq } from "../services/organizations";
-import { AuthRequest } from "../types/AuthRequest";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { ExperimentInterface } from "back-end/types/experiment";
+import { getContextFromReq } from "back-end/src/services/organizations";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   createExperimentLaunchChecklist,
   getExperimentLaunchChecklist,
   getExperimentLaunchChecklistById,
   updateExperimentLaunchChecklist,
-} from "../models/ExperimentLaunchChecklistModel";
-import { ChecklistTask } from "../../types/experimentLaunchChecklist";
-import { getExperimentById, updateExperiment } from "../models/ExperimentModel";
-import { auditDetailsUpdate } from "../services/audit";
+} from "back-end/src/models/ExperimentLaunchChecklistModel";
+import { ChecklistTask } from "back-end/types/experimentLaunchChecklist";
+import {
+  getExperimentById,
+  updateExperiment,
+} from "back-end/src/models/ExperimentModel";
+import { auditDetailsUpdate } from "back-end/src/services/audit";
 
 export async function postExperimentLaunchChecklist(
   req: AuthRequest<{ tasks: ChecklistTask[]; projectId?: string }>,

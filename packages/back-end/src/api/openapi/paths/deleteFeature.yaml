@@ -1,0 +1,24 @@
+parameters:
+  - $ref: "../parameters.yaml#/id"
+tags:
+  - features
+summary: Deletes a single feature
+operationId: deleteFeature
+x-codeSamples:
+  - lang: "cURL"
+    source: |
+      curl -X DELETE https://api.growthbook.io/api/v1/features/feature-123 \
+        -u secret_abc123DEF456:
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - deleatedId
+          properties:
+            deletedId:
+              type: string
+              description: The ID of the deleted feature
+              example: feature-123

@@ -1,6 +1,7 @@
 import React, { useState, ReactNode, useContext } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import {
+  SnapshotType,
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
@@ -14,6 +15,7 @@ const snapshotContext = React.createContext<{
   analysis?: ExperimentSnapshotAnalysis | undefined;
   latestAnalysis?: ExperimentSnapshotAnalysis | undefined;
   latest?: ExperimentSnapshotInterface;
+  dimensionless?: ExperimentSnapshotInterface;
   mutateSnapshot: () => void;
   phase: number;
   dimension: string;
@@ -23,6 +25,7 @@ const snapshotContext = React.createContext<{
   setAnalysisSettings: (
     analysisSettings: ExperimentSnapshotAnalysisSettings | null
   ) => void;
+  setSnapshotType: (snapshotType: SnapshotType | undefined) => void;
   loading?: boolean;
   error?: Error;
 }>({
@@ -35,6 +38,9 @@ const snapshotContext = React.createContext<{
     // do nothing
   },
   setAnalysisSettings: () => {
+    // do nothing
+  },
+  setSnapshotType: () => {
     // do nothing
   },
   mutateSnapshot: () => {
@@ -51,13 +57,18 @@ export default function SnapshotProvider({
 }) {
   const [phase, setPhase] = useState(experiment.phases?.length - 1 || 0);
   const [dimension, setDimension] = useState("");
+  const [snapshotType, setSnapshotType] = useState<SnapshotType | undefined>(
+    undefined
+  );
 
   const { data, error, isValidating, mutate } = useApi<{
     snapshot: ExperimentSnapshotInterface;
     latest?: ExperimentSnapshotInterface;
+    dimensionless?: ExperimentSnapshotInterface;
   }>(
     `/experiment/${experiment.id}/snapshot/${phase}` +
-      (dimension ? "/" + dimension : "")
+      (dimension ? "/" + dimension : "") +
+      (snapshotType ? `?type=${snapshotType}` : "")
   );
 
   const defaultAnalysisSettings = data?.snapshot
@@ -71,12 +82,19 @@ export default function SnapshotProvider({
       value={{
         experiment,
         snapshot: data?.snapshot,
+        dimensionless: data?.dimensionless ?? data?.snapshot,
         latest: data?.latest,
         analysis: data?.snapshot
-          ? getSnapshotAnalysis(data?.snapshot, analysisSettings) ?? undefined
+          ? (getSnapshotAnalysis(
+              data?.snapshot,
+              analysisSettings
+            ) as ExperimentSnapshotAnalysis) ?? undefined
           : undefined,
         latestAnalysis: data?.latest
-          ? getSnapshotAnalysis(data?.latest, analysisSettings) ?? undefined
+          ? (getSnapshotAnalysis(
+              data?.latest,
+              analysisSettings
+            ) as ExperimentSnapshotAnalysis) ?? undefined
           : undefined,
         mutateSnapshot: mutate,
         phase,
@@ -85,6 +103,7 @@ export default function SnapshotProvider({
         setPhase,
         setDimension,
         setAnalysisSettings,
+        setSnapshotType,
         error,
         loading: isValidating,
       }}

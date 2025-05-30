@@ -23,10 +23,8 @@ export interface Props {
   setAnalysisSettings: (
     settings: ExperimentSnapshotAnalysisSettings | null
   ) => void;
-  loading: boolean;
   mutate: () => void;
   dropdownEnabled: boolean;
-  dimension: string;
 }
 
 export default function BaselineChooser({
@@ -37,10 +35,8 @@ export default function BaselineChooser({
   snapshot,
   analysis,
   setAnalysisSettings,
-  loading,
   mutate,
   dropdownEnabled,
-  dimension,
 }: Props) {
   const { apiCall } = useAuth();
 
@@ -125,11 +121,7 @@ export default function BaselineChooser({
         >
           {baselineVariation.name}
         </span>
-        {((loading &&
-          dropdownEnabled &&
-          dimension === "" && // todo: remove when dimensions are supported
-          baselineRow !== analysis?.settings?.baselineVariationIndex) ||
-          postLoading) && <LoadingSpinner className="ml-1" />}
+        {postLoading && <LoadingSpinner className="ml-1" />}
       </div>
     </div>
   );

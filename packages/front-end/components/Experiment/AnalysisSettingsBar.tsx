@@ -15,7 +15,13 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { getSnapshotAnalysis } from "shared/util";
-import { getAllMetricIdsFromExperiment } from "shared/experiments";
+import {
+  expandMetricGroups,
+  getAllMetricIdsFromExperiment,
+} from "shared/experiments";
+import { FaMagnifyingGlassChart } from "react-icons/fa6";
+import { RiBarChartFill } from "react-icons/ri";
+import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Toggle from "@/components/Forms/Toggle";
@@ -52,6 +58,7 @@ export default function AnalysisSettingsBar({
   setBaselineRow,
   differenceType,
   setDifferenceType,
+  envs,
 }: {
   mutateExperiment: () => void;
   setAnalysisSettings: (
@@ -60,6 +67,7 @@ export default function AnalysisSettingsBar({
   editMetrics?: () => void;
   editPhases?: () => void;
   variations: ExperimentReportVariation[];
+  envs: string[];
   alwaysShowPhaseSelector?: boolean;
   regressionAdjustmentAvailable?: boolean;
   regressionAdjustmentEnabled?: boolean;
@@ -81,7 +89,7 @@ export default function AnalysisSettingsBar({
     mutateSnapshot: mutate,
     phase,
     setDimension,
-    loading,
+    setSnapshotType,
   } = useSnapshot();
   const { getDatasourceById } = useDefinitions();
   const datasource = experiment
@@ -105,14 +113,18 @@ export default function AnalysisSettingsBar({
 
   const manualSnapshot = !datasource;
 
+  const isBandit = experiment?.type === "multi-armed-bandit";
+
   return (
     <div>
       {modalOpen && experiment && (
         <AnalysisForm
+          envs={envs}
           cancel={() => setModalOpen(false)}
           experiment={experiment}
           mutate={mutateExperiment}
           phase={phase}
+          source={"analysis-settings-bar"}
         />
       )}
 
@@ -129,12 +141,10 @@ export default function AnalysisSettingsBar({
                   snapshot={snapshot}
                   analysis={analysis}
                   setAnalysisSettings={setAnalysisSettings}
-                  loading={!!loading}
                   mutate={mutate}
                   dropdownEnabled={
                     !manualSnapshot && snapshot?.dimension !== "pre:date"
                   }
-                  dimension={dimension}
                 />
                 <em className="text-muted mx-3" style={{ marginTop: 15 }}>
                   vs
@@ -172,7 +182,6 @@ export default function AnalysisSettingsBar({
                 snapshot={snapshot}
                 analysis={analysis}
                 setAnalysisSettings={setAnalysisSettings}
-                loading={!!loading}
                 mutate={mutate}
                 phase={phase}
               />
@@ -183,81 +192,135 @@ export default function AnalysisSettingsBar({
               <div className="col-auto form-inline">
                 <PhaseSelector
                   mutateExperiment={mutateExperiment}
-                  editPhases={editPhases}
+                  editPhases={!isBandit ? editPhases : undefined}
+                  isBandit={isBandit}
                 />
               </div>
             )}
           <div style={{ flex: 1 }} />
-          <div className="col-auto">
-            {regressionAdjustmentAvailable && (
-              <PremiumTooltip
-                commercialFeature="regression-adjustment"
-                className="form-inline"
-              >
-                <label
-                  htmlFor={"toggle-experiment-regression-adjustment"}
-                  className={`d-flex btn btn-outline-${
-                    !hasRegressionAdjustmentFeature
-                      ? "teal-disabled"
-                      : regressionAdjustmentEnabled
-                      ? "teal"
-                      : "teal-off"
-                  } my-0 pl-2 pr-1 py-1 form-inline`}
+          {!isBandit && (
+            <div className="col-auto">
+              {regressionAdjustmentAvailable && (
+                <PremiumTooltip
+                  commercialFeature="regression-adjustment"
+                  className="form-inline"
                 >
-                  <GBCuped />
-                  <span className="mx-1 font-weight-bold">CUPED</span>
-                  <Toggle
-                    id="toggle-experiment-regression-adjustment"
-                    value={!!regressionAdjustmentEnabled}
-                    setValue={(value) => {
-                      if (
-                        onRegressionAdjustmentChange &&
-                        hasRegressionAdjustmentFeature
-                      ) {
-                        onRegressionAdjustmentChange(value).catch((e) => {
-                          console.error(e);
-                        });
+                  <label
+                    htmlFor={"toggle-experiment-regression-adjustment"}
+                    className={`d-flex btn btn-outline-${
+                      !hasRegressionAdjustmentFeature
+                        ? "teal-disabled"
+                        : regressionAdjustmentEnabled
+                        ? "teal"
+                        : "teal-off"
+                    } my-0 pl-2 pr-1 py-1 form-inline`}
+                  >
+                    <GBCuped />
+                    <span className="mx-1 font-weight-bold">CUPED</span>
+                    <Toggle
+                      id="toggle-experiment-regression-adjustment"
+                      value={!!regressionAdjustmentEnabled}
+                      setValue={(value) => {
+                        if (
+                          onRegressionAdjustmentChange &&
+                          hasRegressionAdjustmentFeature
+                        ) {
+                          onRegressionAdjustmentChange(value).catch((e) => {
+                            console.error(e);
+                          });
+                        }
+                      }}
+                      className={`teal m-0`}
+                      style={{ transform: "scale(0.8)" }}
+                      disabled={
+                        !hasRegressionAdjustmentFeature ||
+                        !canEditAnalysisSettings
                       }
-                    }}
-                    className={`teal m-0`}
-                    style={{ transform: "scale(0.8)" }}
-                    disabled={
-                      !hasRegressionAdjustmentFeature ||
-                      !canEditAnalysisSettings
-                    }
-                  />
-                  {!regressionAdjustmentHasValidMetrics && (
-                    <Tooltip
-                      popperClassName="text-left"
-                      body={
-                        <>
-                          <p>
-                            This experiment does not have any metrics suitable
-                            for CUPED regression adjustment.
-                          </p>
-                          <p className="mb-0">
-                            Please check your metric definitions, as well as any
-                            experiment-level metric overrides.
-                          </p>
-                        </>
-                      }
-                    >
-                      <div
-                        className="text-warning-orange position-absolute p-1"
-                        style={{ top: -11, right: 2 }}
+                    />
+                    {!regressionAdjustmentHasValidMetrics && (
+                      <Tooltip
+                        popperClassName="text-left"
+                        body={
+                          <>
+                            <p>
+                              This experiment does not have any metrics suitable
+                              for CUPED regression adjustment.
+                            </p>
+                            <p className="mb-0">
+                              Please check your metric definitions, as well as
+                              any experiment-level metric overrides.
+                            </p>
+                          </>
+                        }
                       >
-                        <FaExclamationCircle />
+                        <div
+                          className="text-warning-orange position-absolute p-1"
+                          style={{ top: -11, right: 2 }}
+                        >
+                          <FaExclamationCircle />
+                        </div>
+                      </Tooltip>
+                    )}
+                  </label>
+                </PremiumTooltip>
+              )}
+            </div>
+          )}
+          {isBandit && snapshot ? (
+            <div className="col-auto text-right mb-0">
+              <div className="uppercase-title text-muted">Analysis type</div>
+              <div>
+                {snapshot?.type === "exploratory" ? (
+                  <Tooltip
+                    body={
+                      <div className="text-left">
+                        <p>This is an exploratory analysis.</p>
+                        <p>
+                          Exploratory analyses do not cause bandit variation
+                          weights to change.
+                        </p>
                       </div>
-                    </Tooltip>
-                  )}
-                </label>
-              </PremiumTooltip>
-            )}
-          </div>
+                    }
+                  >
+                    <FaMagnifyingGlassChart /> Exploratory
+                  </Tooltip>
+                ) : snapshot?.type === "standard" ? (
+                  <Tooltip
+                    body={
+                      <div className="text-left">
+                        <p>This is a standard analysis.</p>
+                        <p>
+                          Bandit variation weights may have changed in response
+                          to this analysis.
+                        </p>
+                      </div>
+                    }
+                  >
+                    <RiBarChartFill /> Standard
+                  </Tooltip>
+                ) : (
+                  <>{snapshot?.type || `unknown`}</>
+                )}
+              </div>
+              {snapshot?.type !== "standard" && (
+                <a
+                  role="button"
+                  className="position-relative link-purple small"
+                  onClick={() => {
+                    setSnapshotType("standard");
+                  }}
+                >
+                  View standard analysis
+                </a>
+              )}
+            </div>
+          ) : null}
           {showMoreMenu && (
             <div className="col-auto">
               <ResultMoreMenu
-                id={snapshot?.id || ""}
+                experiment={experiment}
+                differenceType={differenceType ?? "relative"}
+                snapshotId={snapshot?.id || ""}
                 datasource={datasource}
                 forceRefresh={async () => {
                   await apiCall<{ snapshot: ExperimentSnapshotInterface }>(
@@ -286,7 +349,6 @@ export default function AnalysisSettingsBar({
                 editMetrics={editMetrics}
                 notebookUrl={`/experiments/notebook/${snapshot?.id}`}
                 notebookFilename={experiment.trackingKey}
-                generateReport={true}
                 queries={snapshot?.queries}
                 queryError={snapshot?.error}
                 supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
@@ -335,15 +397,27 @@ function isDifferentDate(val1: Date, val2: Date, threshold: number = 86400000) {
   return Math.abs(val1.getTime() - val2.getTime()) >= threshold;
 }
 
-export function isOutdated(
-  experiment: ExperimentInterfaceStringDates | undefined,
-  snapshot: ExperimentSnapshotInterface | undefined,
-  orgSettings: OrganizationSettings,
-  statsEngine: StatsEngine,
-  hasRegressionAdjustmentFeature: boolean,
-  hasSequentialFeature: boolean,
-  phase: number | undefined
-): { outdated: boolean; reasons: string[] } {
+export function isOutdated({
+  experiment,
+  snapshot,
+  metricGroups = [],
+  orgSettings,
+  statsEngine,
+  hasRegressionAdjustmentFeature,
+  hasSequentialFeature,
+  phase,
+  unjoinableMetrics,
+}: {
+  experiment?: ExperimentInterfaceStringDates;
+  snapshot?: ExperimentSnapshotInterface;
+  metricGroups?: MetricGroupInterface[];
+  orgSettings: OrganizationSettings;
+  statsEngine: StatsEngine;
+  hasRegressionAdjustmentFeature: boolean;
+  hasSequentialFeature: boolean;
+  phase?: number;
+  unjoinableMetrics?: Set<string>;
+}): { outdated: boolean; reasons: string[] } {
   const snapshotSettings = snapshot?.settings;
   const analysisSettings = snapshot
     ? getSnapshotAnalysis(snapshot)?.settings
@@ -393,8 +467,22 @@ export function isOutdated(
   }
   if (
     isStringArrayMissingElements(
-      getAllMetricIdsFromExperiment(snapshotSettings, false),
-      getAllMetricIdsFromExperiment(experiment, false)
+      Array.from(
+        new Set(
+          expandMetricGroups(
+            getAllMetricIdsFromExperiment(snapshotSettings, false),
+            metricGroups
+          )
+        )
+      ).filter((m) => (unjoinableMetrics ? !unjoinableMetrics.has(m) : true)),
+      Array.from(
+        new Set(
+          expandMetricGroups(
+            getAllMetricIdsFromExperiment(experiment, false),
+            metricGroups
+          )
+        )
+      ).filter((m) => (unjoinableMetrics ? !unjoinableMetrics.has(m) : true))
     )
   ) {
     reasons.push("Metrics changed");

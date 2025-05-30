@@ -1,4 +1,5 @@
 import cloneDeep from "lodash/cloneDeep";
+import { GroupMap, SavedGroupInterface } from "shared/src/types";
 import {
   getAffectedSDKPayloadKeys,
   getEnabledEnvironments,
@@ -8,17 +9,26 @@ import {
   getSDKPayloadKeysByDiff,
   replaceSavedGroupsInCondition,
   roundVariationWeight,
-} from "../src/util/features";
-import { getCurrentEnabledState } from "../src/util/scheduleRules";
-import { FeatureInterface, ScheduleRule } from "../types/feature";
-import { hashStrings } from "../src/services/features";
-import { SDKAttributeSchema } from "../types/organization";
-import { ExperimentInterface } from "../types/experiment";
-import { GroupMap } from "../types/saved-group";
+} from "back-end/src/util/features";
+import { getCurrentEnabledState } from "back-end/src/util/scheduleRules";
+import { FeatureInterface, ScheduleRule } from "back-end/types/feature";
+import {
+  getFeatureDefinitionsResponse,
+  hashStrings,
+  sha256,
+} from "back-end/src/services/features";
+import {
+  OrganizationInterface,
+  SDKAttribute,
+  SDKAttributeSchema,
+} from "back-end/types/organization";
+import { ExperimentInterface } from "back-end/types/experiment";
+import { FeatureDefinitionWithProject } from "back-end/types/api";
+import { SafeRolloutInterface } from "../types/safe-rollout";
 
 const groupMap: GroupMap = new Map();
 const experimentMap = new Map();
-
+const safeRolloutMap = new Map();
 const baseFeature: FeatureInterface = {
   id: "feature",
   dateCreated: new Date(),
@@ -42,6 +52,16 @@ const baseFeature: FeatureInterface = {
   },
 };
 
+const baseOrganization: OrganizationInterface = {
+  id: "123",
+  url: "foo",
+  dateCreated: new Date(),
+  name: "",
+  ownerEmail: "",
+  members: [],
+  invites: [],
+};
+
 describe("getParsedCondition", () => {
   it("compiles correctly", () => {
     groupMap.clear();
@@ -50,12 +70,41 @@ describe("getParsedCondition", () => {
       values: ["0", "1"],
       attributeKey: "id_a",
     });
-    groupMap.set("b", { type: "list", values: ["2"], attributeKey: "id_b" });
-    groupMap.set("c", { type: "list", values: ["3"], attributeKey: "id_c" });
-    groupMap.set("d", { type: "list", values: ["4"], attributeKey: "id_d" });
-    groupMap.set("e", { type: "list", values: ["5"], attributeKey: "id_e" });
-    groupMap.set("f", { type: "list", values: ["6"], attributeKey: "id_f" });
-    groupMap.set("empty", { type: "list", values: [], attributeKey: "empty" });
+    groupMap.set("b", {
+      type: "list",
+      values: ["2"],
+      attributeKey: "id_b",
+    });
+    groupMap.set("c", {
+      type: "list",
+      values: ["3"],
+      attributeKey: "id_c",
+    });
+    groupMap.set("d", {
+      type: "list",
+      values: ["4"],
+      attributeKey: "id_d",
+    });
+    groupMap.set("e", {
+      type: "list",
+      values: ["5"],
+      attributeKey: "id_e",
+    });
+    groupMap.set("f", {
+      type: "list",
+      values: ["6"],
+      attributeKey: "id_f",
+    });
+    groupMap.set("empty", {
+      type: "list",
+      values: [],
+      attributeKey: "empty",
+    });
+    groupMap.set("legacy", {
+      type: "list",
+      values: ["0", "1"],
+      attributeKey: "id_a",
+    });
 
     // No condition or saved group
     expect(getParsedCondition(groupMap, "", [])).toBeUndefined();
@@ -78,7 +127,7 @@ describe("getParsedCondition", () => {
         []
       )
     ).toEqual({
-      id: { $in: ["0", "1"] },
+      id: { $inGroup: "a" },
     });
 
     // Single saved group
@@ -86,7 +135,16 @@ describe("getParsedCondition", () => {
       getParsedCondition(groupMap, "", [{ match: "any", ids: ["a"] }])
     ).toEqual({
       id_a: {
-        $in: ["0", "1"],
+        $inGroup: "a",
+      },
+    });
+
+    // Legacy saved group still uses inGroup operator (to be scrubbed later)
+    expect(
+      getParsedCondition(groupMap, "", [{ match: "any", ids: ["legacy"] }])
+    ).toEqual({
+      id_a: {
+        $inGroup: "legacy",
       },
     });
 
@@ -97,7 +155,7 @@ describe("getParsedCondition", () => {
         { match: "all", ids: ["g", "empty"] },
       ])
     ).toEqual({
-      id_b: { $in: ["2"] },
+      id_b: { $inGroup: "b" },
     });
 
     // Condition + a bunch of saved groups
@@ -123,12 +181,12 @@ describe("getParsedCondition", () => {
         // ALL
         {
           id_a: {
-            $in: ["0", "1"],
+            $inGroup: "a",
           },
         },
         {
           id_b: {
-            $in: ["2"],
+            $inGroup: "b",
           },
         },
         // ANY
@@ -136,12 +194,12 @@ describe("getParsedCondition", () => {
           $or: [
             {
               id_c: {
-                $in: ["3"],
+                $inGroup: "c",
               },
             },
             {
               id_d: {
-                $in: ["4"],
+                $inGroup: "d",
               },
             },
           ],
@@ -149,12 +207,12 @@ describe("getParsedCondition", () => {
         // NONE
         {
           id_e: {
-            $nin: ["5"],
+            $notInGroup: "e",
           },
         },
         {
           id_f: {
-            $nin: ["6"],
+            $notInGroup: "f",
           },
         },
       ],
@@ -233,6 +291,38 @@ describe("getParsedCondition", () => {
       ])
     ).toEqual(undefined);
 
+    groupMap.clear();
+  });
+
+  it("includes empty list groups only when the flag is set", () => {
+    groupMap.clear();
+    groupMap.set("a", {
+      values: [],
+      type: "list",
+      attributeKey: "attr",
+      useEmptyListGroup: true,
+    });
+    groupMap.set("b", {
+      values: [],
+      type: "list",
+      attributeKey: "attr",
+    });
+
+    expect(
+      getParsedCondition(groupMap, "", [{ match: "all", ids: ["a", "b"] }])
+    ).toEqual({
+      attr: {
+        $inGroup: "a",
+      },
+    });
+
+    expect(
+      getParsedCondition(groupMap, "", [{ match: "none", ids: ["a", "b"] }])
+    ).toEqual({
+      attr: {
+        $notInGroup: "a",
+      },
+    });
     groupMap.clear();
   });
 
@@ -1156,8 +1246,37 @@ describe("SDK Payloads", () => {
       linkedFeatures: ["feature"],
       excludeFromPayload: false,
     };
+    const safeRollout: SafeRolloutInterface = {
+      id: "sr_123",
+      organization: "123",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      featureId: "feature",
+      environment: "production",
+      datasourceId: "ds_123",
+      exposureQueryId: "eq_123",
+      guardrailMetricIds: [],
+      maxDuration: {
+        amount: 7,
+        unit: "days",
+      },
+      autoRollback: true,
+      status: "running",
+      autoSnapshots: true,
+      startedAt: new Date(),
+      lastSnapshotAttempt: new Date(),
+      nextSnapshotAttempt: new Date(),
+      analysisSummary: undefined,
+      pastNotifications: [],
+      rampUpSchedule: {
+        enabled: true,
+        step: 1,
+        steps: [0.1, 0.25, 0.5],
+        rampUpCompleted: false,
+      },
+    };
     const experimentMap = new Map([["exp_123", exp]]);
-
+    const safeRolloutMap = new Map([["sr_123", safeRollout]]);
     // Includes the experiment
     expect(
       getFeatureDefinition({
@@ -1165,11 +1284,13 @@ describe("SDK Payloads", () => {
         environment: "production",
         groupMap: groupMap,
         experimentMap: experimentMap,
+        safeRolloutMap: safeRolloutMap,
       })
     ).toEqual({
       defaultValue: true,
       rules: [
         {
+          id: "abc",
           key: "exp-key",
           coverage: 0.8,
           hashAttribute: "user_id",
@@ -1205,6 +1326,7 @@ describe("SDK Payloads", () => {
         environment: "production",
         groupMap: groupMap,
         experimentMap: experimentMap,
+        safeRolloutMap: safeRolloutMap,
       })
     ).toEqual({
       defaultValue: true,
@@ -1219,6 +1341,7 @@ describe("SDK Payloads", () => {
         environment: "production",
         groupMap: groupMap,
         experimentMap: experimentMap,
+        safeRolloutMap: safeRolloutMap,
       })
     ).toEqual({
       defaultValue: true,
@@ -1232,11 +1355,13 @@ describe("SDK Payloads", () => {
         environment: "production",
         groupMap: groupMap,
         experimentMap: experimentMap,
+        safeRolloutMap: safeRolloutMap,
       })
     ).toEqual({
       defaultValue: true,
       rules: [
         {
+          id: "abc",
           coverage: 0.8,
           hashAttribute: "user_id",
           hashVersion: 2,
@@ -1258,9 +1383,143 @@ describe("SDK Payloads", () => {
         environment: "production",
         groupMap: groupMap,
         experimentMap: experimentMap,
+        safeRolloutMap: safeRolloutMap,
       })
     ).toEqual({
       defaultValue: true,
+    });
+  });
+
+  it("Uses safe rollouts to build feature definitions", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "safe-rollout",
+        controlValue: "false",
+        variationValue: "true",
+        safeRolloutId: "sr_123",
+        status: "running",
+        hashAttribute: "user_id",
+        seed: "testing",
+        trackingKey: "exp-key",
+        description: "",
+        id: "abc",
+        enabled: true,
+      },
+    ];
+
+    // Includes the running safe rollout as an experiment with the right preset coverage
+    // and weights
+
+    expect(
+      getFeatureDefinition({
+        feature,
+        environment: "production",
+        groupMap: groupMap,
+        experimentMap: experimentMap,
+        safeRolloutMap: safeRolloutMap,
+      })
+    ).toEqual({
+      defaultValue: true,
+      project: undefined,
+      rules: [
+        {
+          id: "abc",
+          key: "exp-key",
+          coverage: 1,
+          hashAttribute: "user_id",
+          hashVersion: 2,
+          meta: [
+            {
+              key: "0",
+              name: "Control",
+            },
+            {
+              key: "1",
+              name: "Variation",
+            },
+          ],
+          name: "feature - Safe Rollout",
+          phase: "0",
+          seed: "testing",
+          variations: [false, true],
+          weights: [0.5, 0.5],
+        },
+      ],
+    });
+
+    const feature2 = cloneDeep(baseFeature);
+    feature2.environmentSettings["production"].rules = [
+      {
+        type: "safe-rollout",
+        controlValue: "false",
+        variationValue: "true",
+        safeRolloutId: "sr_123",
+        status: "rolled-back",
+        hashAttribute: "user_id",
+        seed: "testing",
+        trackingKey: "exp-key",
+        description: "",
+        id: "abc",
+        enabled: true,
+      },
+    ];
+
+    // Includes the rolled-back safe rollout as a force rule with the control value
+    expect(
+      getFeatureDefinition({
+        feature: feature2,
+        environment: "production",
+        groupMap: groupMap,
+        experimentMap: experimentMap,
+        safeRolloutMap: safeRolloutMap,
+      })
+    ).toEqual({
+      defaultValue: true,
+      project: undefined,
+      rules: [
+        {
+          id: "abc",
+          force: false,
+        },
+      ],
+    });
+
+    const feature3 = cloneDeep(baseFeature);
+    feature3.environmentSettings["production"].rules = [
+      {
+        type: "safe-rollout",
+        controlValue: "false",
+        variationValue: "true",
+        safeRolloutId: "sr_123",
+        status: "released",
+        hashAttribute: "user_id",
+        seed: "testing",
+        trackingKey: "exp-key",
+        description: "",
+        id: "abc",
+        enabled: true,
+      },
+    ];
+
+    // Includes the released safe rollout as a force rule with the variation value
+    expect(
+      getFeatureDefinition({
+        feature: feature3,
+        environment: "production",
+        groupMap: groupMap,
+        experimentMap: experimentMap,
+        safeRolloutMap: safeRolloutMap,
+      })
+    ).toEqual({
+      defaultValue: true,
+      project: undefined,
+      rules: [
+        {
+          id: "abc",
+          force: true,
+        },
+      ],
     });
   });
 
@@ -1273,6 +1532,7 @@ describe("SDK Payloads", () => {
         environment: "production",
         groupMap: groupMap,
         experimentMap: experimentMap,
+        safeRolloutMap: safeRolloutMap,
       })
     ).toEqual({
       defaultValue: true,
@@ -1286,6 +1546,7 @@ describe("SDK Payloads", () => {
         environment: "production",
         groupMap: groupMap,
         experimentMap: experimentMap,
+        safeRolloutMap: safeRolloutMap,
       })
     ).toEqual(null);
 
@@ -1295,6 +1556,7 @@ describe("SDK Payloads", () => {
         environment: "unknown",
         groupMap: groupMap,
         experimentMap: experimentMap,
+        safeRolloutMap: safeRolloutMap,
       })
     ).toEqual(null);
 
@@ -1369,6 +1631,7 @@ describe("SDK Payloads", () => {
         environment: "dev",
         groupMap: groupMap,
         experimentMap: experimentMap,
+        safeRolloutMap: safeRolloutMap,
       })
     ).toEqual({
       defaultValue: true,
@@ -1378,11 +1641,13 @@ describe("SDK Payloads", () => {
             country: "US",
           },
           force: false,
+          id: "1",
         },
         {
           coverage: 0.8,
           force: false,
           hashAttribute: "id",
+          id: "2",
         },
         {
           coverage: 1,
@@ -1391,8 +1656,109 @@ describe("SDK Payloads", () => {
           meta: [{ key: "0" }, { key: "1" }],
           weights: [0.7, 0.3],
           key: "testing",
+          id: "3",
         },
       ],
+    });
+  });
+
+  describe("Saved Groups", () => {
+    const secureStringAttr: SDKAttribute = {
+      property: "id",
+      datatype: "secureString",
+      hashAttribute: true,
+    };
+    const organization = cloneDeep(baseOrganization);
+    organization.settings = {
+      attributeSchema: [secureStringAttr],
+    };
+    const groupDef: SavedGroupInterface = {
+      id: "groupId",
+      type: "list",
+      attributeKey: "id",
+      values: ["1", "2", "3"],
+      organization: "123",
+      groupName: "",
+      owner: "",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    };
+    const featureDef: FeatureDefinitionWithProject = {
+      defaultValue: true,
+      rules: [
+        {
+          id: "1",
+          condition: {
+            id: {
+              $inGroup: "groupId",
+            },
+          },
+          force: false,
+        },
+      ],
+    };
+
+    it("Hashes secure attributes in inline saved groups", async () => {
+      const { features, savedGroups } = await getFeatureDefinitionsResponse({
+        features: { featureName: cloneDeep(featureDef) },
+        experiments: [],
+        dateUpdated: new Date(),
+        projects: [],
+        capabilities: [],
+        savedGroups: [cloneDeep(groupDef)],
+        organization: organization,
+        attributes: [secureStringAttr],
+        secureAttributeSalt: "salt",
+      });
+      expect(features).toEqual({
+        featureName: {
+          defaultValue: true,
+          rules: [
+            {
+              condition: {
+                id: {
+                  $in: ["1", "2", "3"].map((val) => sha256(val, "salt")),
+                },
+              },
+              force: false,
+            },
+          ],
+        },
+      });
+      expect(savedGroups).toEqual(undefined);
+    });
+
+    it("Hashes secure attributes in referenced saved groups", async () => {
+      const { features, savedGroups } = await getFeatureDefinitionsResponse({
+        features: { featureName: cloneDeep(featureDef) },
+        experiments: [],
+        dateUpdated: new Date(),
+        projects: [],
+        capabilities: ["savedGroupReferences"],
+        savedGroupReferencesEnabled: true,
+        savedGroups: [cloneDeep(groupDef)],
+        organization: organization,
+        attributes: [secureStringAttr],
+        secureAttributeSalt: "salt",
+      });
+      expect(features).toEqual({
+        featureName: {
+          defaultValue: true,
+          rules: [
+            {
+              condition: {
+                id: {
+                  $inGroup: "groupId",
+                },
+              },
+              force: false,
+            },
+          ],
+        },
+      });
+      expect(savedGroups).toEqual({
+        groupId: ["1", "2", "3"].map((val) => sha256(val, "salt")),
+      });
     });
   });
 });

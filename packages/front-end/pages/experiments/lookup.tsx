@@ -1,41 +1,16 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import { useEffect, useMemo, useState } from "react";
-import { FaAngleLeft } from "react-icons/fa";
-import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
-import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAuth } from "@/services/auth";
-import { useDefinitions } from "@/services/DefinitionsContext";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import Link from "@/components/Radix/Link";
+import Callout from "@/components/Radix/Callout";
 
 export default function ExperimentLookupPage() {
   const router = useRouter();
-  const { trackingKey, data } = router.query;
+  const { trackingKey } = router.query;
   const [error, setError] = useState("");
-  const { datasources, ready } = useDefinitions();
 
   const [loading, setLoading] = useState(true);
-
-  const initialValue = useMemo<Partial<ExperimentInterfaceStringDates>>(() => {
-    const datasource = datasources[0];
-    const defaultData: Partial<ExperimentInterfaceStringDates> = {
-      trackingKey: trackingKey + "",
-      name: trackingKey + "",
-      datasource: datasource?.id,
-      exposureQueryId: datasource?.settings?.queries?.exposure?.[0]?.id,
-    };
-
-    if (!data) return defaultData;
-
-    try {
-      return {
-        ...defaultData,
-        ...JSON.parse(data + ""),
-      };
-    } catch (e) {
-      return defaultData;
-    }
-  }, [data, trackingKey, datasources]);
 
   const { apiCall } = useAuth();
   useEffect(() => {
@@ -63,24 +38,18 @@ export default function ExperimentLookupPage() {
     return <div className="alert alert-danger">{error}</div>;
   }
 
-  if (loading || !ready) {
+  if (loading) {
     return <LoadingOverlay />;
   }
 
   return (
-    <div className="container p-4">
-      <div className="mb-2">
-        <Link href="/experiments">
-          <FaAngleLeft />
+    <div className="container-fluid pagecontents pt-4">
+      <Callout status="error">Experiment not found</Callout>
+      <div className="mt-3 px-3">
+        <Link href="/experiments" size="3">
           All Experiments
         </Link>
       </div>
-      <NewExperimentForm
-        source="tracking-key-deep-link"
-        initialValue={initialValue}
-        msg="We couldn't find an experiment analysis yet with that id. Create it here instead."
-        inline={true}
-      />
     </div>
   );
 }

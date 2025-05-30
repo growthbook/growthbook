@@ -1,5 +1,5 @@
 import React, { useState, FC } from "react";
-import { FaExclamationTriangle, FaFolderPlus } from "react-icons/fa";
+import { FaExclamationTriangle } from "react-icons/fa";
 import { ProjectInterface } from "back-end/types/project";
 import { useRouter } from "next/router";
 import Link from "next/link";
@@ -12,6 +12,7 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import Button from "@/components/Radix/Button";
 
 const ProjectsPage: FC = () => {
   const { projects, mutateDefinitions } = useDefinitions();
@@ -48,16 +49,12 @@ const ProjectsPage: FC = () => {
             body="You don't have permission to create projects"
             shouldDisplay={!canCreateProjects}
           >
-            <button
+            <Button
               disabled={!canCreateProjects}
-              className="btn btn-primary"
-              onClick={(e) => {
-                e.preventDefault();
-                setModalOpen({});
-              }}
+              onClick={() => setModalOpen({})}
             >
-              <FaFolderPlus /> Create Project
-            </button>
+              Create Project
+            </Button>
           </Tooltip>
         </div>
       </div>

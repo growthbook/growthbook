@@ -1,5 +1,5 @@
-import { EntityType, EntityEvents } from "../src/types/Audit";
-export { EventType } from "../src/types/Audit";
+import { EntityType, EntityEvents } from "back-end/src/types/Audit";
+export { EventType } from "back-end/src/types/Audit";
 
 export interface AuditUserLoggedIn {
   id: string;
@@ -11,11 +11,15 @@ export interface AuditUserApiKey {
   apiKey: string;
 }
 
+export interface AuditUserSystem {
+  system: true;
+}
+
 export type AuditInterfaceTemplate<Entity> = Entity extends EntityType
   ? {
       id: string;
       organization: string;
-      user: AuditUserLoggedIn | AuditUserApiKey;
+      user: AuditUserLoggedIn | AuditUserApiKey | AuditUserSystem;
       event: `${Entity}.${EntityEvents[Entity][number]}`;
       entity: {
         object: Entity;

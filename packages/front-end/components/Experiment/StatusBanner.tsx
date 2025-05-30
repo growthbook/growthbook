@@ -108,7 +108,8 @@ export default function StatusBanner({ mutateExperiment, editResult }: Props) {
               editResult();
             }}
           >
-            Stop Experiment
+            Stop{" "}
+            {experiment.type === "multi-armed-bandit" ? "Bandit" : "Experiment"}
           </a>
         )}
         <strong>This experiment is currently running.</strong>

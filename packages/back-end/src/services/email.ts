@@ -1,7 +1,6 @@
 import path from "path";
 import nodemailer from "nodemailer";
 import nunjucks from "nunjucks";
-import { daysLeft } from "shared/dates";
 import {
   EMAIL_ENABLED,
   EMAIL_FROM,
@@ -11,9 +10,9 @@ import {
   EMAIL_PORT,
   SITE_MANAGER_EMAIL,
   APP_ORIGIN,
-} from "../util/secrets";
-import { OrganizationInterface } from "../../types/organization";
-import { getEmailFromUserId } from "../models/UserModel";
+} from "back-end/src/util/secrets";
+import { OrganizationInterface } from "back-end/types/organization";
+import { getEmailFromUserId } from "back-end/src/models/UserModel";
 import { getInviteUrl } from "./organizations";
 
 export function isEmailEnabled(): boolean {
@@ -245,44 +244,6 @@ export async function sendPendingMemberApprovalEmail(
     )} on GrowthBook`,
     to: email,
     text: `Join ${noHyperlink(organization)} on GrowthBook`,
-  });
-}
-
-export async function sendStripeTrialWillEndEmail({
-  email,
-  organization,
-  endDate,
-  hasPaymentMethod,
-  billingUrl,
-}: {
-  email: string;
-  organization: string;
-  endDate: Date;
-  hasPaymentMethod: boolean;
-  billingUrl: string;
-}) {
-  const trialRemaining = Math.max(daysLeft(endDate), 1);
-  const trialDaysText = `${trialRemaining} day${
-    trialRemaining === 1 ? "" : "s"
-  }`;
-  const html = nunjucks.render("trial-will-end.jinja", {
-    trialDaysText,
-    hasPaymentMethod,
-    organization,
-    billingUrl,
-  });
-
-  const text = `Your GrowthBook Pro trial will end soon in ${trialDaysText}. ${
-    hasPaymentMethod
-      ? "Your credit card will be billed automatically."
-      : "Add a credit card to avoid losing access to GrowthBook Pro."
-  }`;
-
-  await sendMail({
-    html,
-    subject: `Your GrowthBook Pro trial will end in ${trialDaysText}`,
-    to: email,
-    text,
   });
 }
 

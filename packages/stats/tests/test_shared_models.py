@@ -1,6 +1,7 @@
 """This file tests statistic variances for two reasons:
 1. Demonstrating of the expected inputs
 2. Demonstrating equivalence to numpy methods that take raw data"""
+
 from unittest import TestCase, main as unittest_main
 
 import numpy as np

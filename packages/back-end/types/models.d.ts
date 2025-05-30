@@ -1,1 +1,1 @@
-export { CreateProps, UpdateProps } from "../src/models/BaseModel";
+export { CreateProps, UpdateProps } from "back-end/src/models/BaseModel";

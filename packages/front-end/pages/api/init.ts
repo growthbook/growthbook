@@ -4,7 +4,7 @@ import { NextApiRequest, NextApiResponse } from "next";
 import { stringToBoolean } from "shared/util";
 
 export interface EnvironmentInitValue {
-  telemetry: "debug" | "enable" | "disable";
+  telemetry: "debug" | "enable" | "disable" | "enable-with-debug";
   cloud: boolean;
   isMultiOrg?: boolean;
   allowSelfOrgCreation: boolean;
@@ -19,6 +19,7 @@ export interface EnvironmentInitValue {
   build?: {
     sha: string;
     date: string;
+    lastVersion: string;
   };
   sentryDSN: string;
   usingSSO: boolean;
@@ -26,6 +27,8 @@ export interface EnvironmentInitValue {
   allowCreateMetrics: boolean;
   usingFileProxy: boolean;
   superadminDefaultRole: string;
+  ingestorOverride: string;
+  stripePublishableKey: string;
 }
 
 // Get env variables at runtime on the front-end while still using SSG
@@ -40,6 +43,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     CDN_HOST,
     IS_CLOUD,
     IS_MULTI_ORG,
+    INGESTOR_HOST,
     ALLOW_SELF_ORG_CREATION,
     SHOW_MULTI_ORG_SELF_SELECTOR,
     DISABLE_TELEMETRY,
@@ -50,6 +54,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     ALLOW_CREATE_METRICS,
     USE_FILE_PROXY: USING_FILE_PROXY,
     SUPERADMIN_DEFAULT_ROLE,
+    NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
   } = process.env;
 
   const rootPath = path.join(__dirname, "..", "..", "..", "..", "..", "..");
@@ -61,6 +66,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
   const build = {
     sha: "",
     date: "",
+    lastVersion: "",
   };
   if (fs.existsSync(path.join(rootPath, "buildinfo", "SHA"))) {
     build.sha = fs
@@ -71,6 +77,17 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     build.date = fs
       .readFileSync(path.join(rootPath, "buildinfo", "DATE"))
       .toString();
+  }
+
+  // Read version from package.json
+  try {
+    const packageJSONPath = path.join(rootPath, "package.json");
+    if (fs.existsSync(packageJSONPath)) {
+      const json = JSON.parse(fs.readFileSync(packageJSONPath).toString());
+      build.lastVersion = json.version;
+    }
+  } catch (e) {
+    // Ignore errors here, not important
   }
 
   const body: EnvironmentInitValue = {
@@ -100,6 +117,8 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     telemetry:
       DISABLE_TELEMETRY === "debug"
         ? "debug"
+        : DISABLE_TELEMETRY === "enable-with-debug"
+        ? "enable-with-debug"
         : DISABLE_TELEMETRY
         ? "disable"
         : "enable",
@@ -108,6 +127,8 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     storeSegmentsInMongo: stringToBoolean(STORE_SEGMENTS_IN_MONGO),
     usingFileProxy: stringToBoolean(USING_FILE_PROXY),
     superadminDefaultRole: SUPERADMIN_DEFAULT_ROLE || "readonly",
+    ingestorOverride: INGESTOR_HOST || "",
+    stripePublishableKey: NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "",
   };
 
   res.setHeader("Cache-Control", "max-age=3600").status(200).json(body);

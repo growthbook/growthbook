@@ -1,31 +1,36 @@
-import { orgHasPremiumFeature } from "enterprise";
+import { analyzeExperimentPower } from "shared/enterprise";
+import { addDays } from "date-fns";
 import {
+  expandMetricGroups,
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
   isFactMetric,
   isRatioMetric,
   quantileMetricType,
 } from "shared/experiments";
+import { FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS } from "shared/constants";
+import { daysBetween } from "shared/dates";
 import chunk from "lodash/chunk";
-import { ApiReqContext } from "@back-end/types/api";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { ApiReqContext } from "back-end/types/api";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotHealth,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
-} from "../../types/experiment-snapshot";
-import { MetricInterface } from "../../types/metric";
-import { Queries, QueryPointer, QueryStatus } from "../../types/query";
-import { SegmentInterface } from "../../types/segment";
+} from "back-end/types/experiment-snapshot";
+import { MetricInterface } from "back-end/types/metric";
+import { Queries, QueryPointer, QueryStatus } from "back-end/types/query";
+import { SegmentInterface } from "back-end/types/segment";
 import {
   findSnapshotById,
   updateSnapshot,
-} from "../models/ExperimentSnapshotModel";
-import { parseDimensionId } from "../services/experiments";
+} from "back-end/src/models/ExperimentSnapshotModel";
+import { parseDimensionId } from "back-end/src/services/experiments";
 import {
   analyzeExperimentResults,
   analyzeExperimentTraffic,
-} from "../services/stats";
+} from "back-end/src/services/stats";
 import {
   ExperimentAggregateUnitsQueryResponseRows,
   ExperimentDimension,
@@ -36,12 +41,14 @@ import {
   ExperimentResults,
   ExperimentUnitsQueryParams,
   SourceIntegrationInterface,
-} from "../types/Integration";
-import { expandDenominatorMetrics } from "../util/sql";
-import { FactTableMap } from "../models/FactTableModel";
-import { OrganizationInterface } from "../../types/organization";
-import { FactMetricInterface } from "../../types/fact-table";
-import SqlIntegration from "../integrations/SqlIntegration";
+} from "back-end/src/types/Integration";
+import { expandDenominatorMetrics } from "back-end/src/util/sql";
+import { FactTableMap } from "back-end/src/models/FactTableModel";
+import { OrganizationInterface } from "back-end/types/organization";
+import { FactMetricInterface } from "back-end/types/fact-table";
+import SqlIntegration from "back-end/src/integrations/SqlIntegration";
+import { updateReport } from "back-end/src/models/ReportModel";
+import { BanditResult } from "back-end/types/experiment";
 import {
   QueryRunner,
   QueryMap,
@@ -54,6 +61,7 @@ export type SnapshotResult = {
   unknownVariations: string[];
   multipleExposures: number;
   analyses: ExperimentSnapshotAnalysis[];
+  banditResult?: BanditResult;
   health?: ExperimentSnapshotHealth;
 };
 
@@ -180,7 +188,11 @@ export const startExperimentResultQueries = async (
     : null;
 
   // Only include metrics tied to this experiment (both goal and guardrail metrics)
-  const selectedMetrics = getAllMetricIdsFromExperiment(snapshotSettings, false)
+  const allMetricGroups = await context.models.metricGroups.getAll();
+  const selectedMetrics = expandMetricGroups(
+    getAllMetricIdsFromExperiment(snapshotSettings, false),
+    allMetricGroups
+  )
     .map((m) => metricMap.get(m))
     .filter((m) => m) as ExperimentMetricInterface[];
   if (!selectedMetrics.length) {
@@ -274,7 +286,7 @@ export const startExperimentResultQueries = async (
     org
   );
 
-  const singlePromises = singles.map(async (m) => {
+  for (const m of singles) {
     const denominatorMetrics: MetricInterface[] = [];
     if (!isFactMetric(m) && m.denominator) {
       denominatorMetrics.push(
@@ -293,7 +305,7 @@ export const startExperimentResultQueries = async (
       metric: m,
       segment: segmentObj,
       settings: snapshotSettings,
-      useUnitsTable: !!unitQuery,
+      unitsSource: unitQuery ? "exposureTable" : "exposureQuery",
       unitsTableFullName: unitsTableFullName,
       factTableMap: params.factTableMap,
     };
@@ -308,16 +320,16 @@ export const startExperimentResultQueries = async (
         queryType: "experimentMetric",
       })
     );
-  });
+  }
 
-  const groupPromises = groups.map(async (m, i) => {
+  for (const [i, m] of groups.entries()) {
     const queryParams: ExperimentFactMetricsQueryParams = {
       activationMetric,
       dimensions: dimensionObj ? [dimensionObj] : [],
       metrics: m,
       segment: segmentObj,
       settings: snapshotSettings,
-      useUnitsTable: !!unitQuery,
+      unitsSource: unitQuery ? "exposureTable" : "exposureQuery",
       unitsTableFullName: unitsTableFullName,
       factTableMap: params.factTableMap,
     };
@@ -343,9 +355,7 @@ export const startExperimentResultQueries = async (
         queryType: "experimentMultiMetric",
       })
     );
-  });
-
-  await Promise.all([...singlePromises, ...groupPromises]);
+  }
 
   let trafficQuery: QueryPointer | null = null;
   if (runTrafficQuery) {
@@ -420,7 +430,10 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   }
 
   async runAnalysis(queryMap: QueryMap): Promise<SnapshotResult> {
-    const analysesResults = await analyzeExperimentResults({
+    const {
+      results: analysesResults,
+      banditResult,
+    } = await analyzeExperimentResults({
       queryData: queryMap,
       snapshotSettings: this.model.settings,
       analysisSettings: this.model.analyses.map((a) => a.settings),
@@ -432,6 +445,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       analyses: this.model.analyses,
       multipleExposures: 0,
       unknownVariations: [],
+      banditResult,
     };
 
     analysesResults.forEach((results, i) => {
@@ -450,22 +464,61 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
     // Run health checks
     const healthQuery = queryMap.get(TRAFFIC_QUERY_NAME);
     if (healthQuery) {
+      const rows = healthQuery.result as ExperimentAggregateUnitsQueryResponseRows;
       const trafficHealth = analyzeExperimentTraffic({
-        rows: healthQuery.result as ExperimentAggregateUnitsQueryResponseRows,
+        rows: rows,
         error: healthQuery.error,
         variations: this.model.settings.variations,
       });
-      result.health = { traffic: trafficHealth };
+
+      result.health = {
+        traffic: trafficHealth,
+      };
+
+      const relativeAnalysis = this.model.analyses.find(
+        (a) => a.settings.differenceType === "relative"
+      );
+
+      const isEligibleForMidExperimentPowerAnalysis =
+        relativeAnalysis &&
+        this.model.settings.banditSettings === undefined &&
+        rows &&
+        rows.length;
+
+      if (isEligibleForMidExperimentPowerAnalysis) {
+        const today = new Date();
+        const phaseStartDate = this.model.settings.startDate;
+        const experimentMaxLengthDays = this.context.org.settings
+          ?.experimentMaxLengthDays;
+
+        const experimentTargetEndDate = addDays(
+          phaseStartDate,
+          experimentMaxLengthDays && experimentMaxLengthDays > 0
+            ? experimentMaxLengthDays
+            : FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS
+        );
+        const targetDaysRemaining = daysBetween(today, experimentTargetEndDate);
+        // NB: This does not run a SQL query, but it is a health check that depends on the trafficHealth
+        result.health.power = analyzeExperimentPower({
+          trafficHealth,
+          targetDaysRemaining,
+          analysis: relativeAnalysis,
+          goalMetrics: this.model.settings.goalMetrics,
+          variationsSettings: this.model.settings.variations,
+        });
+      }
     }
 
     return result;
   }
+
   async getLatestModel(): Promise<ExperimentSnapshotInterface> {
     const obj = await findSnapshotById(this.model.organization, this.model.id);
     if (!obj)
       throw new Error("Could not load snapshot model: " + this.model.id);
     return obj;
   }
+
   async updateModel({
     status,
     queries,
@@ -475,9 +528,9 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   }: {
     status: QueryStatus;
     queries: Queries;
-    runStarted?: Date | undefined;
-    result?: SnapshotResult | undefined;
-    error?: string | undefined;
+    runStarted?: Date;
+    result?: SnapshotResult;
+    error?: string;
   }): Promise<ExperimentSnapshotInterface> {
     const updates: Partial<ExperimentSnapshotInterface> = {
       queries,
@@ -497,6 +550,14 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       updates,
       context: this.context,
     });
+    if (
+      this.model.report &&
+      ["failed", "partially-succeeded", "succeeded"].includes(status)
+    ) {
+      await updateReport(this.model.organization, this.model.report, {
+        snapshot: this.model.id,
+      });
+    }
     return {
       ...this.model,
       ...updates,

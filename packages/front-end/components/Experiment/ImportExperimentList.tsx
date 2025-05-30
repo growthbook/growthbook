@@ -24,6 +24,7 @@ import { generateVariationId } from "@/services/features";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import Callout from "@/components/Radix/Callout";
 
 const numberFormatter = new Intl.NumberFormat();
 
@@ -254,22 +255,42 @@ const ImportExperimentList: FC<{
       </div>
       {hasStarted && status === "failed" && (
         <>
-          <div className="alert alert-danger my-3">
+          <Callout status="error" my="3">
             <p>Error importing experiments.</p>
             {datasource?.id && (
-              <p>
-                Your datasource&apos;s <em>Experiment Assignment Queries</em>{" "}
-                may be misconfigured.{" "}
-                <Link href={`/datasources/${datasource.id}?openAll=1`}>
-                  Edit the datasource
-                </Link>
-              </p>
+              <>
+                {!!datasource?.dateUpdated &&
+                datasource?.dateUpdated > data?.experiments?.dateUpdated ? (
+                  <p>
+                    Your datasource&apos;s{" "}
+                    <em>Experiment Assignment Queries</em> may have been
+                    misconfigured. The datasource has been modified since the
+                    last data refresh, so use the &apos;Get New Data&apos;
+                    button above to check if the issue has been resolved.
+                    Otherwise,{" "}
+                    <Link href={`/datasources/${datasource.id}?openAll=1`}>
+                      edit the datasource
+                    </Link>
+                    .
+                  </p>
+                ) : (
+                  <p>
+                    Your datasource&apos;s{" "}
+                    <em>Experiment Assignment Queries</em> may be misconfigured.{" "}
+                    <Link href={`/datasources/${datasource.id}?openAll=1`}>
+                      Edit the datasource
+                    </Link>
+                    .
+                  </p>
+                )}
+              </>
             )}
+
             <span>
               <ViewAsyncQueriesButton
                 queries={data.experiments.queries?.map((q) => q.query) ?? []}
                 error={data.experiments.error}
-                ctaCommponent={(onClick) => (
+                ctaComponent={(onClick) => (
                   <a className="alert-link" href="#" onClick={onClick}>
                     View Queries
                   </a>
@@ -277,7 +298,7 @@ const ImportExperimentList: FC<{
               />{" "}
               for more information.
             </span>
-          </div>
+          </Callout>
         </>
       )}
       {totalRows === 0 && (

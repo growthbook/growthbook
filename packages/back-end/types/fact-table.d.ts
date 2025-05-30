@@ -18,12 +18,17 @@ import {
   factMetricValidator,
   quantileSettingsValidator,
   priorSettingsValidator,
-} from "../src/routers/fact-table/fact-table.validators";
-import { TestQueryRow } from "../src/types/Integration";
+  columnAggregationValidator,
+  legacyWindowSettingsValidator,
+  jsonColumnFieldsValidator,
+} from "back-end/src/routers/fact-table/fact-table.validators";
+import { TestQueryRow } from "back-end/src/types/Integration";
 import { CreateProps, UpdateProps } from "./models";
 
 export type FactTableColumnType = z.infer<typeof factTableColumnTypeValidator>;
 export type NumberFormat = z.infer<typeof numberFormatValidator>;
+
+export type JSONColumnFields = z.infer<typeof jsonColumnFieldsValidator>;
 
 export interface ColumnInterface {
   dateCreated: Date;
@@ -33,6 +38,10 @@ export interface ColumnInterface {
   column: string;
   datatype: FactTableColumnType;
   numberFormat: NumberFormat;
+  alwaysInlineFilter?: boolean;
+  topValues?: string[];
+  topValuesDate?: Date;
+  jsonFields?: JSONColumnFields;
   deleted: boolean;
 }
 
@@ -64,11 +73,14 @@ export interface FactTableInterface {
   columns: ColumnInterface[];
   columnsError?: string | null;
   filters: FactFilterInterface[];
+  archived?: boolean;
 }
 
 export type ColumnRef = z.infer<typeof columnRefValidator>;
 
 export type FactMetricType = z.infer<typeof metricTypeValidator>;
+
+export type ColumnAggregation = z.infer<typeof columnAggregationValidator>;
 
 export type MetricQuantileSettings = z.infer<typeof quantileSettingsValidator>;
 
@@ -79,11 +91,18 @@ export type ConversionWindowUnit = z.infer<
   typeof conversionWindowUnitValidator
 >;
 export type MetricWindowSettings = z.infer<typeof windowSettingsValidator>;
+export type LegacyMetricWindowSettings = z.infer<
+  typeof legacyWindowSettingsValidator
+>;
 export type MetricPriorSettings = z.infer<typeof priorSettingsValidator>;
 
 export type FactMetricInterface = z.infer<typeof factMetricValidator>;
 
-export type LegacyFactMetricInterface = FactMetricInterface & {
+export type LegacyFactMetricInterface = Omit<
+  FactMetricInterface,
+  "windowSettings"
+> & {
+  windowSettings: LegacyMetricWindowSettings;
   capping?: CappingType;
   capValue?: number;
 

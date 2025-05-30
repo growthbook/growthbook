@@ -5,13 +5,12 @@ import clsx from "clsx";
 import Link from "next/link";
 import { ago } from "shared/dates";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import Button from "@/components/Button";
+import Button from "@/components/Radix/Button";
 import DimensionForm from "@/components/Dimensions/DimensionForm";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { hasFileConfig } from "@/services/env";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
-import { GBAddCircle } from "@/components/Icons";
 import { DocLink } from "@/components/DocLink";
 import Code, { Language } from "@/components/SyntaxHighlighting/Code";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -101,15 +100,11 @@ const DimensionsPage: FC = () => {
         {!hasFileConfig() && canCreateDimension && (
           <div className="col-auto">
             <Button
-              color="primary"
               onClick={async () => {
                 setDimensionForm({});
               }}
             >
-              <span className="h4 pr-2 m-0 d-inline-block align-top">
-                <GBAddCircle />
-              </span>{" "}
-              New User Dimension
+              Add User Dimension
             </Button>
           </div>
         )}

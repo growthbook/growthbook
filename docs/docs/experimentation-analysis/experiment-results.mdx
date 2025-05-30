@@ -1,11 +1,12 @@
 ---
-title: Experiments (Results)
-description: Analyze your experiment results from your data source.
-sidebar_label: Experiments (Results)
+title: Understanding Experiment Results
+description: Learn how to analyze A/B test results, share insights, and make data-driven decisions. Includes statistical analysis, health checks, custom reports, and best practices for interpreting experiment data.
 slug: /app/experiment-results
 ---
 
-# Experiments (Results)
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
+
+# Experiment Results
 
 Once your experiment is up and running, you will be able to track how it is performing in the Experiment Results tab. This can be found on any Experiment page under the Results tab at the top.
 
@@ -30,11 +31,9 @@ For both columns, the raw data in grey underneath shows the numerator and denomi
 
 Furthermore, we include tooltips for **Risk**, which captures the average loss in a metric if the variation were actually to be worse than control. We use this tooltip to let you know about "risky" cases. For example, in cases like in the screenshot above, the chance to win is above 50% for a few metrics, but the average loss if the baseline was actually better is above the risk threshold, indicating that shipping the variation still has substantial risk. More information about risk is available in a tooltip when you mouseover the result:
 
-<img
-  src="/images/results-tooltip.png"
-  alt="Results Tooltip"
-  style={{ width: 400, margin: "0 auto" }}
-/>
+<MaxWidthImage maxWidth={500} border>
+  ![Results Tooltip](/images/results-tooltip.png)
+</MaxWidthImage>
 
 The graph and the **% Change** column show you how much better/worse the variation is compared to the baseline. It is a probability density graph and the thicker the area, the more likely the true percent change will be there.
 As you collect more data, the tails of the graphs will shorten, indicating more certainty around the estimates.
@@ -45,7 +44,7 @@ If you select the "Frequentist" engine, when you navigate to the results tab to 
 
 ![Results Table (Frequentist)](/images/results-table-frequentist.png)
 
-The **P-value** column is the probability that the experiment effect for a varitopm would have been observed if the true effect was zero. When the p-value is less than 0.05 (a customizable threshold set at the organization level) and the experiment effect is in the preferred direction, we highlight the cell green, indicating it is a clear winner. When the p-value is less than 0.05 and the experiment effect is _opposite_ the preferred direction, we highlight the cell red, indicating the variant is a clear loser on this metric.
+The **P-value** column is the probability that the experiment effect for a variation would have been observed if the true effect was zero. When the p-value is less than 0.05 (a customizable threshold set at the organization level) and the experiment effect is in the preferred direction, we highlight the cell green, indicating it is a clear winner. When the p-value is less than 0.05 and the experiment effect is _opposite_ the preferred direction, we highlight the cell red, indicating the variant is a clear loser on this metric.
 
 The graph now represents a 95% confidence interval (or 100\*(1 - $\alpha$)% confidence interval if you have a custom significance threshold other than 0.05).
 
@@ -53,8 +52,15 @@ The _% Change_ column is unaffected, although we now also represent the width of
 
 ## Guardrails
 
-In the new results view (as of GrowthBook 2.4), guardrail metrics are treated much like regular metrics, but they are placed in a separate part of the results view, have an additional tooltip warning if they are trending in the wrong direction, and are not part of any p-value corrections in the frequentist engine (in other words, even with p-value corrections applied, these results will be more sensitive to negative or positive trends).
+Guardrail metrics are treated much like regular metrics, but they are placed in a separate part of the results view, have an additional tooltip warning if they are trending in the wrong direction, and are not part of any p-value corrections in the frequentist engine (in other words, even with p-value corrections applied, these results will be more sensitive to negative or positive trends).
 
+## Time Series
+
+Time series showing the cumulative results of your experiment through a given experiment update are available in the experiment results. They use a history of experiment updates (either manually triggered or from automatic refreshes) to show how the results have evolved over time. To read more about time series, see the [Experiment Time Series](/app/experiment-time-series) documentation.
+
+<MaxWidthImage border maxWidth={800}>
+![Experiment Time Series](/images/experiment-time-series-tooltip.png)
+</MaxWidthImage>
 ## Results Table Settings
 
 There are several settings at the top of the results table that allow you to control your results.
@@ -99,17 +105,13 @@ The date dimension shows a time series of the count of users _first_ exposed to 
 
 Take the following results, for example.
 
-<img
-  src="/images/experiment-date-results.png"
-  alt="Experiment Date Results"
-  style={{ width: 400, margin: "0 auto" }}
-/>
+<MaxWidthImage border maxWidth={600}>
+  ![Experiment Date Results](/images/experiment-date-results.png)
+</MaxWidthImage>
 
 In the first graph, we see the number of users who were first exposed to the experiment on that day.
 
 In the second graph, we see the uplift for the two variations relative to the control _for all users first bucketed on that day_. That means that the values on October 7 show that users first exposed to the experiment on October 7 had X% uplift relative to control, when pooling all of the data in their relevant metric window. It does not mean show the difference in conversions across variations on October 7 for all previously bucketed users.
-
-That analysis, and other time series analyses, are on GrowthBook's roadmap.
 
 ## Experiment Health
 
@@ -155,11 +157,9 @@ To get access to the health tab, you need to enable us to run one additional que
 
 The health tab provides you with more insights on the traffic to your experiment over time and across dimensions.
 
-<img
-  src="/images/health-tab.png"
-  alt="Experiment Health Tab"
-  style={{ width: 800, margin: "0 auto" }}
-/>
+<MaxWidthImage>
+  ![Experiment Health Tab](/images/health-tab.png)
+</MaxWidthImage>
 
 **Experiment Traffic** - A plot of experiment units by the first date they were exposed to the experiment. You can look at daily traffic or cumulative traffic. If you have your experiment dimensions configured with pre-defined slices, we will also return traffic splits by dimension in this tab. For example, if you have a `browser` dimension with pre-defined slices, we will show you the traffic splits by browser.
 
@@ -174,3 +174,60 @@ Your health tab shows dimension breakdowns only for Experiment Dimensions which 
 When setting up the health tab, you will be prompted to configure your Experiment Dimensions to have pre-defined slices that can be used in the health tab. This is optional, but we require pre-defined slices for your experiment dimensions to compute dimension traffic and health checks so that we can run only one additional query per analysis and get reliable results.
 
 If you want to refresh your dimension slices or change your dimension definitions, you should do so via the Data Source page for the related data source. You can read more about that [here](/app/dimensions#experiment-dimensions).
+
+## Sharing Experiment Insights
+
+Share insights for A/B tests or bandits in 2 ways: Share the full experiment or create a custom report.
+
+![Overflow menu with sharing options highlighted](/images/reports-share-menu.webp)
+
+### Sharing a Full Experiment
+
+Share a live view of your experiment that automatically updates with the latest data. Viewers can explore the experiment details, variations, and metrics without making changes.
+
+![Share experiment modal](/images/reports-share-modal.webp)
+
+To share an experiment:
+
+- Go to the experiment page
+- Click the overflow menu (⋮)
+- Select **Share Experiment**
+- Choose **View access**
+  - **Only organization members:** Available to anyone in your organization
+  - **Anyone with the link:** Available via public link
+
+:::tip
+Changing access from **Anyone with the link** to **Only organization members** will invalidate existing public links.
+:::
+
+### Creating a Custom Report
+
+Create point-in-time snapshots to capture specific analyses or time periods. Custom reports are ideal for documenting important findings or sharing focused analyses.
+
+To create a shareable custom report:
+
+- Go to the experiment page
+- Click the overflow menu (⋮)
+- Click **Create shareable report**
+- Click **Edit Analysis** to customize content
+- To edit report name and description, click the overflow menu (⋮) → **Edit Name & Description**
+- Click **Share**
+- Choose **View access**
+  - **Only me**: Private report visible only to you.
+  - **Only organization members**: Visible to your organization.
+- **Edit access**: Allow specific organization members to modify the report
+
+Reports can be manually updated to reflect current data or any specific date range.
+
+### Managing Custom Reports
+
+Access your reports from the **Custom Reports** section in the experiment's **Results** tab.
+
+![Manage custom reports via the Results tab](/images/reports-list.webp)
+
+From here you can:
+
+- View existing reports
+- Edit report contents
+- Manage sharing permissions
+- Delete reports

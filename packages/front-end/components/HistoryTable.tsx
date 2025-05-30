@@ -30,7 +30,7 @@ function EventDetails({
     }
   }, [details]);
 
-  // Link to ad-hoc report
+  // Link to report
   if (eventType === "experiment.analysis" && json.report) {
     return <Link href={`/report/${json.report}`}>View Report</Link>;
   }
@@ -99,7 +99,8 @@ export function HistoryTableRow({
   const userDisplay =
     ("name" in user && user.name) ||
     ("email" in user && user.email) ||
-    ("apiKey" in user && "API Key");
+    ("apiKey" in user && "API Key") ||
+    ("system" in user && "System");
   let colSpanNum = 4;
   if (showName) colSpanNum++;
   if (showType) colSpanNum++;

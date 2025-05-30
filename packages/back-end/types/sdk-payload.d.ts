@@ -5,6 +5,7 @@ import { FeatureDefinition } from "./api";
 export type SDKPayloadContents = {
   features: Record<string, FeatureDefinition>;
   experiments: AutoExperiment[];
+  savedGroupsInUse: string[]; // The ids of saved groups to be pulled from Mongo before returning the SDK payload
 };
 
 interface DOMMutation {

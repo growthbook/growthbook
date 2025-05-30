@@ -10,36 +10,45 @@ import {
   isDefined,
 } from "shared/util";
 import {
-  getAllMetricSettingsForSnapshot,
   getAllMetricIdsFromExperiment,
+  getAllMetricSettingsForSnapshot,
 } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import { v4 as uuidv4 } from "uuid";
 import uniq from "lodash/uniq";
-import { DataSourceInterface } from "@back-end/types/datasource";
-import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
+import { DataSourceInterface } from "back-end/types/datasource";
 import {
-  SnapshotAnalysisParams,
+  AuthRequest,
+  ResponseWithStatusAndError,
+} from "back-end/src/types/AuthRequest";
+import {
+  _getSnapshots,
   createManualSnapshot,
   createSnapshot,
   createSnapshotAnalyses,
   createSnapshotAnalysis,
+  determineNextBanditSchedule,
   getAdditionalExperimentAnalysisSettings,
+  getChangesToStartExperiment,
   getDefaultExperimentAnalysisSettings,
   getLinkedFeatureInfo,
-} from "../services/experiments";
-import { MetricInterface, MetricStats } from "../../types/metric";
+  resetExperimentBanditSettings,
+  SnapshotAnalysisParams,
+  updateExperimentBanditSettings,
+} from "back-end/src/services/experiments";
+import { MetricInterface, MetricStats } from "back-end/types/metric";
 import {
   createExperiment,
   deleteExperimentByIdForOrganization,
   getAllExperiments,
   getExperimentById,
   getExperimentByTrackingKey,
+  getExperimentByUid,
   getExperimentsByIds,
   getPastExperimentsByDatasource,
   hasArchivedExperiments,
   updateExperiment,
-} from "../models/ExperimentModel";
+} from "back-end/src/models/ExperimentModel";
 import {
   createVisualChangeset,
   deleteVisualChangesetById,
@@ -47,25 +56,27 @@ import {
   findVisualChangesetsByExperiment,
   syncVisualChangesWithVariations,
   updateVisualChangeset,
-} from "../models/VisualChangesetModel";
+} from "back-end/src/models/VisualChangesetModel";
 import {
   deleteSnapshotById,
   findSnapshotById,
   getLatestSnapshot,
-  getLatestSnapshotMultipleExperiments,
   updateSnapshot,
   updateSnapshotsOnPhaseDelete,
-} from "../models/ExperimentSnapshotModel";
-import { getIntegrationFromDatasourceId } from "../services/datasource";
-import { addTagsDiff } from "../models/TagModel";
-import { getContextFromReq } from "../services/organizations";
-import { removeExperimentFromPresentations } from "../services/presentations";
+} from "back-end/src/models/ExperimentSnapshotModel";
+import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
+import { addTagsDiff } from "back-end/src/models/TagModel";
+import {
+  getContextForAgendaJobByOrgId,
+  getContextFromReq,
+} from "back-end/src/services/organizations";
+import { removeExperimentFromPresentations } from "back-end/src/services/presentations";
 import {
   createPastExperiments,
   getPastExperimentsById,
   getPastExperimentsModelByDatasource,
   updatePastExperiments,
-} from "../models/PastExperimentsModel";
+} from "back-end/src/models/PastExperimentsModel";
 import {
   Changeset,
   ExperimentInterface,
@@ -73,37 +84,48 @@ import {
   ExperimentPhase,
   ExperimentStatus,
   ExperimentTargetingData,
+  ExperimentType,
   Variation,
-} from "../../types/experiment";
-import { getMetricMap } from "../models/MetricModel";
-import { IdeaModel } from "../models/IdeasModel";
-import { IdeaInterface } from "../../types/idea";
-import { getDataSourceById } from "../models/DataSourceModel";
-import { generateExperimentNotebook } from "../services/notebook";
-import { IMPORT_LIMIT_DAYS } from "../util/secrets";
+} from "back-end/types/experiment";
+import { getMetricMap } from "back-end/src/models/MetricModel";
+import { IdeaModel } from "back-end/src/models/IdeasModel";
+import { IdeaInterface } from "back-end/types/idea";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { generateExperimentNotebook } from "back-end/src/services/notebook";
+import { IMPORT_LIMIT_DAYS } from "back-end/src/util/secrets";
 import {
   auditDetailsCreate,
   auditDetailsDelete,
   auditDetailsUpdate,
-} from "../services/audit";
+} from "back-end/src/services/audit";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
-} from "../../types/experiment-snapshot";
-import { VisualChangesetInterface } from "../../types/visual-changeset";
-import { ApiReqContext, PrivateApiErrorResponse } from "../../types/api";
-import { EventUserForResponseLocals } from "../events/event-types";
-import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQueryRunner";
-import { PastExperimentsQueryRunner } from "../queryRunners/PastExperimentsQueryRunner";
+  SnapshotTriggeredBy,
+  SnapshotType,
+} from "back-end/types/experiment-snapshot";
+import { VisualChangesetInterface } from "back-end/types/visual-changeset";
+import { ApiReqContext, PrivateApiErrorResponse } from "back-end/types/api";
+import { EventUserForResponseLocals } from "back-end/src/events/event-types";
+import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
+import { PastExperimentsQueryRunner } from "back-end/src/queryRunners/PastExperimentsQueryRunner";
 import {
   createUserVisualEditorApiKey,
   getVisualEditorApiKey,
-} from "../models/ApiKeyModel";
-import { getExperimentWatchers, upsertWatch } from "../models/WatchModel";
-import { getFactTableMap } from "../models/FactTableModel";
-import { OrganizationSettings, ReqContext } from "../../types/organization";
-import { CreateURLRedirectProps } from "../../types/url-redirect";
-import { logger } from "../util/logger";
+} from "back-end/src/models/ApiKeyModel";
+
+import {
+  getExperimentWatchers,
+  upsertWatch,
+} from "back-end/src/models/WatchModel";
+import { getFactTableMap } from "back-end/src/models/FactTableModel";
+import { OrganizationSettings, ReqContext } from "back-end/types/organization";
+import { CreateURLRedirectProps } from "back-end/types/url-redirect";
+import { logger } from "back-end/src/util/logger";
+import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
+import { generateExperimentReportSSRData } from "back-end/src/services/reports";
+
+export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
 
 export async function getExperiments(
   req: AuthRequest<
@@ -112,6 +134,7 @@ export async function getExperiments(
     {
       project?: string;
       includeArchived?: boolean;
+      type?: ExperimentType;
     }
   >,
   res: Response
@@ -123,10 +146,12 @@ export async function getExperiments(
   }
 
   const includeArchived = !!req.query?.includeArchived;
+  const type: ExperimentType | undefined = req.query?.type || undefined;
 
   const experiments = await getAllExperiments(context, {
     project,
     includeArchived,
+    type,
   });
 
   const hasArchived = includeArchived
@@ -213,8 +238,9 @@ export async function getExperimentsFrequencyMonth(
         // I can do this because the indexes will represent the same month
         dataByStatus[e.status][i].numExp++;
 
-        // experiments without a project, are included in the 'all projects'
-        if (e.project) {
+        // experiments without a project or with a deleted project
+        // are included in the 'all projects'
+        if (e.project && dataByProject[e.project]) {
           dataByProject[e.project][i].numExp++;
         } else {
           dataByProject["all"][i].numExp++;
@@ -297,25 +323,101 @@ export async function getExperiment(
     experiment.id
   );
 
-  const linkedFeatures = await getLinkedFeatureInfo(context, experiment);
+  const linkedFeatureInfo = await getLinkedFeatureInfo(context, experiment);
+
+  const linkedFeatureIds = experiment.linkedFeatures || [];
+
+  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+
+  const envs = getAffectedEnvsForExperiment({
+    experiment,
+    orgEnvironments: context.org.settings?.environments || [],
+    linkedFeatures,
+  });
 
   res.status(200).json({
     status: 200,
     experiment,
     visualChangesets,
     urlRedirects,
-    linkedFeatures,
+    linkedFeatures: linkedFeatureInfo,
+    envs,
     idea,
   });
 }
 
-async function _getSnapshot(
-  context: ReqContext | ApiReqContext,
-  experiment: string,
-  phase?: string,
-  dimension?: string,
-  withResults: boolean = true
+export async function getExperimentPublic(
+  req: AuthRequest<null, { uid: string }>,
+  res: Response
 ) {
+  const { uid } = req.params;
+  const experiment = await getExperimentByUid(uid);
+  if (!experiment) {
+    return res.status(404).json({
+      status: 404,
+      message: "Experiment not found",
+    });
+  }
+  if (experiment.shareLevel !== "public") {
+    return res.status(401).json({
+      message: "Unauthorized",
+    });
+  }
+
+  const context = await getContextForAgendaJobByOrgId(experiment.organization);
+  const phase = experiment.phases.length - 1;
+
+  const snapshot =
+    (await getLatestSnapshot({
+      experiment: experiment.id,
+      phase,
+      type: "standard",
+    })) || undefined;
+
+  const visualChangesets = await findVisualChangesetsByExperiment(
+    experiment.id,
+    experiment.organization
+  );
+
+  const urlRedirects = await context.models.urlRedirects.findByExperiment(
+    experiment.id
+  );
+
+  const linkedFeatures = await getLinkedFeatureInfo(context, experiment);
+
+  const ssrData = await generateExperimentReportSSRData({
+    context,
+    organization: experiment.organization,
+    project: experiment.project,
+    snapshot,
+  });
+
+  res.status(200).json({
+    status: 200,
+    experiment,
+    snapshot,
+    visualChangesets,
+    urlRedirects,
+    linkedFeatures,
+    ssrData,
+  });
+}
+
+async function _getSnapshot({
+  context,
+  experiment,
+  phase,
+  dimension,
+  withResults = true,
+  type,
+}: {
+  context: ReqContext | ApiReqContext;
+  experiment: string;
+  phase?: string;
+  dimension?: string;
+  withResults?: boolean;
+  type?: SnapshotType;
+}) {
   const experimentObj = await getExperimentById(context, experiment);
 
   if (!experimentObj) {
@@ -331,44 +433,79 @@ async function _getSnapshot(
     phase = String(experimentObj.phases.length - 1);
   }
 
-  return await getLatestSnapshot(
-    experimentObj.id,
-    parseInt(phase),
+  return await getLatestSnapshot({
+    experiment: experimentObj.id,
+    phase: parseInt(phase),
     dimension,
-    withResults
-  );
-}
-
-async function _getSnapshots(
-  context: ReqContext | ApiReqContext,
-  experimentObjs: ExperimentInterface[],
-  dimension?: string,
-  withResults: boolean = true
-): Promise<ExperimentSnapshotInterface[]> {
-  const experimentPhaseMap: Map<string, number> = new Map();
-  experimentObjs.forEach((e) => {
-    if (e.organization !== context.org.id) {
-      throw new Error("You do not have access to view this experiment");
-    }
-    // get the latest phase
-    experimentPhaseMap.set(e.id, e.phases.length - 1);
+    withResults,
+    type,
   });
-  return await getLatestSnapshotMultipleExperiments(
-    experimentPhaseMap,
-    dimension,
-    withResults
-  );
 }
 
 export async function getSnapshotWithDimension(
-  req: AuthRequest<null, { id: string; phase: string; dimension: string }>,
+  req: AuthRequest<
+    null,
+    { id: string; phase: string; dimension: string },
+    { type?: SnapshotType }
+  >,
   res: Response
 ) {
   const context = getContextFromReq(req);
   const { id, phase, dimension } = req.params;
-  const snapshot = await _getSnapshot(context, id, phase, dimension);
+  const type = req.query?.type || undefined;
 
-  const latest = await _getSnapshot(context, id, phase, dimension, false);
+  const snapshot = await _getSnapshot({
+    context,
+    experiment: id,
+    phase,
+    dimension,
+    type,
+  });
+  const latest = await _getSnapshot({
+    context,
+    experiment: id,
+    phase,
+    dimension,
+    withResults: false,
+    type,
+  });
+  const dimensionless =
+    snapshot?.dimension === ""
+      ? snapshot
+      : await _getSnapshot({
+          context,
+          experiment: id,
+          phase,
+          type,
+        });
+
+  res.status(200).json({
+    status: 200,
+    snapshot,
+    latest,
+    dimensionless,
+  });
+}
+export async function getSnapshot(
+  req: AuthRequest<
+    null,
+    { id: string; phase: string },
+    { type?: SnapshotType }
+  >,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const { id, phase } = req.params;
+  const type = req.query?.type || undefined;
+
+  const snapshot = await _getSnapshot({ context, experiment: id, phase, type });
+  const latest = await _getSnapshot({
+    context,
+    experiment: id,
+    phase,
+    withResults: false,
+    type,
+  });
 
   res.status(200).json({
     status: 200,
@@ -376,20 +513,27 @@ export async function getSnapshotWithDimension(
     latest,
   });
 }
-export async function getSnapshot(
-  req: AuthRequest<null, { id: string; phase: string }>,
+
+export async function getSnapshotById(
+  req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
   const context = getContextFromReq(req);
-  const { id, phase } = req.params;
-  const snapshot = await _getSnapshot(context, id, phase);
+  const { org } = context;
 
-  const latest = await _getSnapshot(context, id, phase, undefined, false);
+  const { id } = req.params;
+
+  const snapshot = await findSnapshotById(org.id, id);
+  if (!snapshot) {
+    return res.status(400).json({
+      status: 400,
+      message: "No snapshot found with that id",
+    });
+  }
 
   res.status(200).json({
     status: 200,
     snapshot,
-    latest,
   });
 }
 
@@ -433,7 +577,7 @@ export async function getSnapshots(
   return;
 }
 
-const validateVariationIds = (variations: Variation[]) => {
+export function validateVariationIds(variations: Variation[]) {
   variations.forEach((variation, i) => {
     if (!variation.id) {
       variation.id = uniqid("var_");
@@ -446,7 +590,7 @@ const validateVariationIds = (variations: Variation[]) => {
   if (keys.length !== new Set(keys).size) {
     throw new Error("Variation keys must be unique");
   }
-};
+}
 
 /**
  * Creates a new experiment
@@ -511,21 +655,42 @@ export async function postExperiments(
           return;
         }
       } else {
-        // new metric that's not recognized...
-        res.status(403).json({
-          status: 403,
-          message: "Unknown metric: " + metricIds[i],
-        });
-        return;
+        // check to see if this metric is actually a metric group
+        const metricGroup = await context.models.metricGroups.getById(
+          metricIds[i]
+        );
+        if (metricGroup) {
+          // Make sure it is tied to the same datasource as the experiment
+          if (data.datasource && metricGroup.datasource !== data.datasource) {
+            res.status(400).json({
+              status: 400,
+              message:
+                "Metric group must be tied to the same datasource as the experiment: " +
+                metricIds[i],
+            });
+            return;
+          }
+        } else {
+          // new metric that's not recognized...
+          res.status(403).json({
+            status: 403,
+            message: "Unknown metric: " + metricIds[i],
+          });
+          return;
+        }
       }
     }
   }
 
-  const obj: Omit<ExperimentInterface, "id"> = {
+  const experimentType = data.type ?? "standard";
+
+  const obj: Omit<ExperimentInterface, "id" | "uid"> = {
     organization: data.organization,
     archived: false,
     hashAttribute: data.hashAttribute || "",
+    fallbackAttribute: data.fallbackAttribute || "",
     hashVersion: data.hashVersion || 2,
+    disableStickyBucketing: data.disableStickyBucketing ?? false,
     autoSnapshots: true,
     dateCreated: new Date(),
     dateUpdated: new Date(),
@@ -550,9 +715,9 @@ export async function postExperiments(
     hypothesis: data.hypothesis || "",
     goalMetrics: data.goalMetrics || [],
     secondaryMetrics: data.secondaryMetrics || [],
-    metricOverrides: data.metricOverrides || [],
     guardrailMetrics: data.guardrailMetrics || [],
     activationMetric: data.activationMetric || "",
+    metricOverrides: data.metricOverrides || [],
     segment: data.segment || "",
     queryFilter: data.queryFilter || "",
     skipPartialData: !!data.skipPartialData,
@@ -570,14 +735,31 @@ export async function postExperiments(
     ideaSource: data.ideaSource || "",
     // todo: revisit this logic for project level settings, as well as "override stats settings" toggle:
     sequentialTestingEnabled:
-      data.sequentialTestingEnabled ??
-      !!org?.settings?.sequentialTestingEnabled,
+      experimentType === "multi-armed-bandit"
+        ? false
+        : data.sequentialTestingEnabled ??
+          !!org?.settings?.sequentialTestingEnabled,
     sequentialTestingTuningParameter:
       data.sequentialTestingTuningParameter ??
       org?.settings?.sequentialTestingTuningParameter ??
       DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-    statsEngine: data.statsEngine,
+    regressionAdjustmentEnabled: data.regressionAdjustmentEnabled ?? undefined,
+    statsEngine:
+      experimentType === "multi-armed-bandit" ? "bayesian" : data.statsEngine,
+    type: experimentType,
+    banditScheduleValue: data.banditScheduleValue ?? 1,
+    banditScheduleUnit: data.banditScheduleUnit ?? "days",
+    banditBurnInValue: data.banditBurnInValue ?? 1,
+    banditBurnInUnit: data.banditBurnInUnit ?? "days",
+    customFields: data.customFields || undefined,
+    templateId: data.templateId || undefined,
+    shareLevel: data.shareLevel || "organization",
+    decisionFrameworkSettings: data.decisionFrameworkSettings || {},
   };
+
+  const { settings } = getScopedSettings({
+    organization: org,
+  });
 
   try {
     validateVariationIds(obj.variations);
@@ -595,6 +777,16 @@ export async function postExperiments(
           existingId: existing.id,
         });
       }
+    }
+
+    if (experimentType === "multi-armed-bandit") {
+      Object.assign(
+        obj,
+        resetExperimentBanditSettings({
+          experiment: obj,
+          settings,
+        })
+      );
     }
 
     const experiment = await createExperiment({
@@ -634,7 +826,7 @@ export async function postExperiments(
     if (datasource && req.query.autoRefreshResults && metricIds.length > 0) {
       // This is doing an expensive analytics SQL query, so may take a long time
       // Set timeout to 30 minutes
-      req.setTimeout(30 * 60 * 1000);
+      req.setTimeout(SNAPSHOT_TIMEOUT);
 
       try {
         await createExperimentSnapshot({
@@ -689,6 +881,7 @@ export async function postExperiment(
       currentPhase?: number;
       phaseStartDate?: string;
       phaseEndDate?: string;
+      variationWeights?: number[];
     },
     { id: string }
   >,
@@ -725,7 +918,15 @@ export async function postExperiment(
     context.permissions.throwPermissionError();
   }
 
+  const { settings } = getScopedSettings({
+    organization: org,
+    experiment,
+  });
+
+  let datasourceId = experiment.datasource;
+
   if (data.datasource) {
+    datasourceId = data.datasource;
     const datasource = await getDataSourceById(context, data.datasource);
     if (!datasource) {
       res.status(403).json({
@@ -740,16 +941,15 @@ export async function postExperiment(
   const newMetricIds = getAllMetricIdsFromExperiment(data).filter(
     (m) => !oldMetricIds.includes(m)
   );
+
+  const metricMap = await getMetricMap(context);
+
   if (newMetricIds.length) {
-    const map = await getMetricMap(context);
     for (let i = 0; i < newMetricIds.length; i++) {
-      const metric = map.get(newMetricIds[i]);
+      const metric = metricMap.get(newMetricIds[i]);
       if (metric) {
         // Make sure it is tied to the same datasource as the experiment
-        if (
-          experiment.datasource &&
-          metric.datasource !== experiment.datasource
-        ) {
+        if (datasourceId && metric.datasource !== datasourceId) {
           res.status(400).json({
             status: 400,
             message:
@@ -759,12 +959,29 @@ export async function postExperiment(
           return;
         }
       } else {
-        // new metric that's not recognized...
-        res.status(403).json({
-          status: 403,
-          message: "Unknown metric: " + newMetricIds[i],
-        });
-        return;
+        // check to see if this metric is actually a metric group
+        const metricGroup = await context.models.metricGroups.getById(
+          newMetricIds[i]
+        );
+        if (metricGroup) {
+          // Make sure it is tied to the same datasource as the experiment
+          if (metricGroup.datasource !== datasourceId) {
+            res.status(400).json({
+              status: 400,
+              message:
+                "Metric group must be tied to the same datasource as the experiment: " +
+                newMetricIds[i],
+            });
+            return;
+          }
+        } else {
+          // new metric that's not recognized...
+          res.status(403).json({
+            status: 403,
+            message: "Unknown metric: " + newMetricIds[i],
+          });
+          return;
+        }
       }
     }
   }
@@ -780,6 +997,8 @@ export async function postExperiment(
     "exposureQueryId",
     "userIdType",
     "hashAttribute",
+    "fallbackAttribute",
+    "disableStickyBucketing",
     "hashVersion",
     "name",
     "tags",
@@ -794,6 +1013,7 @@ export async function postExperiment(
     "secondaryMetrics",
     "guardrailMetrics",
     "metricOverrides",
+    "decisionFrameworkSettings",
     "variations",
     "status",
     "results",
@@ -813,9 +1033,19 @@ export async function postExperiment(
     "sequentialTestingEnabled",
     "sequentialTestingTuningParameter",
     "statsEngine",
+    "type",
+    "banditStage",
+    "banditScheduleValue",
+    "banditScheduleUnit",
+    "banditBurnInValue",
+    "banditBurnInUnit",
+    "customFields",
+    "shareLevel",
+    "uid",
+    "analysisSummary",
+    "dismissedWarnings",
   ];
-  const existing: ExperimentInterface = experiment;
-  const changes: Changeset = {};
+  let changes: Changeset = {};
 
   keys.forEach((key) => {
     if (!(key in data)) {
@@ -823,15 +1053,17 @@ export async function postExperiment(
     }
 
     // Do a deep comparison for arrays, shallow for everything else
-    let hasChanges = data[key] !== existing[key];
+    let hasChanges = data[key] !== experiment[key];
     if (
       key === "goalMetrics" ||
       key === "secondaryMetrics" ||
       key === "guardrailMetrics" ||
       key === "metricOverrides" ||
-      key === "variations"
+      key === "variations" ||
+      key === "customFields"
     ) {
-      hasChanges = JSON.stringify(data[key]) !== JSON.stringify(existing[key]);
+      hasChanges =
+        JSON.stringify(data[key]) !== JSON.stringify(experiment[key]);
     }
 
     if (hasChanges) {
@@ -860,6 +1092,47 @@ export async function postExperiment(
     changes.phases = phases;
   }
 
+  // Clean up some vars for bandits, but only if safe to do so...
+  // If it's a draft, hasn't been run as a bandit before, and is/will be a MAB:
+  if (
+    experiment.status === "draft" &&
+    experiment.banditStage === undefined &&
+    ((data.type === undefined && experiment.type === "multi-armed-bandit") ||
+      data.type === "multi-armed-bandit")
+  ) {
+    changes = resetExperimentBanditSettings({
+      experiment,
+      metricMap,
+      changes,
+      settings,
+    });
+  }
+  // If it's already a bandit and..
+  if (experiment.type === "multi-armed-bandit") {
+    // ...the schedule has changed, recompute next run
+    if (
+      changes.banditScheduleUnit !== undefined ||
+      changes.banditScheduleValue !== undefined ||
+      changes.banditBurnInUnit !== undefined ||
+      changes.banditBurnInValue !== undefined
+    ) {
+      changes.nextSnapshotAttempt = determineNextBanditSchedule({
+        ...experiment,
+        ...changes,
+      } as ExperimentInterface);
+    }
+  }
+
+  if (data.variationWeights) {
+    const phases = [...experiment.phases];
+    const lastIndex = phases.length - 1;
+    phases[lastIndex] = {
+      ...phases[lastIndex],
+      variationWeights: data.variationWeights,
+    };
+    changes.phases = phases;
+  }
+
   // Only some fields affect production SDK payloads
   const needsRunExperimentsPermission = ([
     "phases",
@@ -871,10 +1144,23 @@ export async function postExperiment(
     "status",
     "releasedVariationId",
     "excludeFromPayload",
+    "type",
+    "banditStage",
+    "banditStageDateStarted",
+    "banditScheduleValue",
+    "banditScheduleUnit",
+    "banditBurnInValue",
+    "banditBurnInUnit",
   ] as (keyof ExperimentInterfaceStringDates)[]).some((key) => key in changes);
   if (needsRunExperimentsPermission) {
+    const linkedFeatureIds = experiment.linkedFeatures || [];
+
+    const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+
     const envs = getAffectedEnvsForExperiment({
       experiment,
+      orgEnvironments: context.org.settings?.environments || [],
+      linkedFeatures,
     });
     if (envs.length > 0) {
       const projects = [experiment.project || undefined];
@@ -987,8 +1273,14 @@ export async function postExperimentArchive(
     context.permissions.throwPermissionError();
   }
 
+  const linkedFeatureIds = experiment.linkedFeatures || [];
+
+  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+
   const envs = getAffectedEnvsForExperiment({
     experiment,
+    orgEnvironments: context.org.settings?.environments || [],
+    linkedFeatures,
   });
   if (
     envs.length > 0 &&
@@ -1116,8 +1408,19 @@ export async function postExperimentStatus(
     context.permissions.throwPermissionError();
   }
 
+  const linkedFeatureIds = experiment.linkedFeatures || [];
+
+  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+
+  const { settings } = getScopedSettings({
+    organization: org,
+    experiment,
+  });
+
   const envs = getAffectedEnvsForExperiment({
     experiment,
+    orgEnvironments: context.org.settings?.environments || [],
+    linkedFeatures,
   });
 
   if (
@@ -1129,41 +1432,78 @@ export async function postExperimentStatus(
 
   // If status changed from running to stopped, update the latest phase
   const phases = [...experiment.phases];
+  const lastIndex = phases.length - 1;
   if (
     experiment.status === "running" &&
     status === "stopped" &&
     phases?.length > 0 &&
-    !phases[phases.length - 1].dateEnded
+    !phases[lastIndex].dateEnded
   ) {
-    phases[phases.length - 1] = {
-      ...phases[phases.length - 1],
+    phases[lastIndex] = {
+      ...phases[lastIndex],
       reason,
       dateEnded: dateEnded ? getValidDate(dateEnded + ":00Z") : new Date(),
     };
     changes.phases = phases;
   }
-  // If starting an experiment from draft, use the current date as the phase start date
+  // Starting an experiment from draft
   else if (
     experiment.status === "draft" &&
     status === "running" &&
     phases?.length > 0
   ) {
-    phases[phases.length - 1] = {
-      ...phases[phases.length - 1],
-      dateStarted: new Date(),
-    };
-    changes.phases = phases;
+    const additionalChanges: Changeset = await getChangesToStartExperiment(
+      context,
+      experiment
+    );
+    Object.assign(changes, additionalChanges);
   }
-  // If starting a stopped experiment, clear the phase end date
+  // If starting or drafting a stopped experiment, clear the phase end date
+  // and perform any needed bandit cleanup
   else if (
     experiment.status === "stopped" &&
-    status === "running" &&
+    (status === "running" || status === "draft") &&
     phases?.length > 0
   ) {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- we don't want the dateEnded
-    const { dateEnded: _, ...newPhase } = phases[phases.length - 1];
-    phases[phases.length - 1] = newPhase;
+    const clonedPhase = { ...phases[lastIndex] };
+    delete clonedPhase.dateEnded;
+    phases[lastIndex] = clonedPhase;
     changes.phases = phases;
+
+    // Bandit-specific changes
+    if (experiment.type === "multi-armed-bandit") {
+      // We must create a new phase. No continuing old phases allowed
+      // If we had a previous phase, mark it as ended
+      if (phases.length) {
+        phases[phases.length - 1].dateEnded = new Date();
+      }
+
+      phases.push({
+        condition: clonedPhase.condition,
+        savedGroups: clonedPhase.savedGroups,
+        prerequisites: clonedPhase.prerequisites,
+        coverage: clonedPhase.coverage,
+        dateStarted: new Date(),
+        name: "Main",
+        namespace: clonedPhase.namespace,
+        reason: "",
+        variationWeights: clonedPhase.variationWeights,
+        seed: uuidv4(),
+      });
+
+      // flush the sticky existing buckets
+      changes.bucketVersion = (experiment.bucketVersion ?? 0) + 1;
+      changes.minBucketVersion = (experiment.bucketVersion ?? 0) + 1;
+
+      Object.assign(
+        changes,
+        resetExperimentBanditSettings({
+          experiment,
+          changes,
+          settings,
+        })
+      );
+    }
   }
 
   changes.status = status;
@@ -1231,8 +1571,14 @@ export async function postExperimentStop(
     context.permissions.throwPermissionError();
   }
 
+  const linkedFeatureIds = experiment.linkedFeatures || [];
+
+  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+
   const envs = getAffectedEnvsForExperiment({
     experiment,
+    orgEnvironments: context.org.settings?.environments || [],
+    linkedFeatures,
   });
 
   if (
@@ -1248,6 +1594,7 @@ export async function postExperimentStop(
     phases[phases.length - 1] = {
       ...phases[phases.length - 1],
       dateEnded: dateEnded ? getValidDate(dateEnded + ":00Z") : new Date(),
+      coverage: !excludeFromPayload ? 1 : phases[phases.length - 1].coverage,
       reason,
     };
     changes.phases = phases;
@@ -1266,6 +1613,11 @@ export async function postExperimentStop(
   changes.analysis = analysis;
   changes.releasedVariationId = releasedVariationId;
   changes.excludeFromPayload = !!excludeFromPayload;
+  if (experiment.type == "multi-armed-bandit") {
+    // pause bandit stage
+    changes.banditStage = "paused";
+    changes.banditStageDateStarted = new Date();
+  }
 
   try {
     const updated = await updateExperiment({
@@ -1326,8 +1678,21 @@ export async function deleteExperimentPhase(
     context.permissions.throwPermissionError();
   }
 
+  if (experiment.phases.length === 1) {
+    res.status(400).json({
+      status: 400,
+      message: "Cannot delete the only phase",
+    });
+  }
+
+  const linkedFeatureIds = experiment.linkedFeatures || [];
+
+  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+
   const envs = getAffectedEnvsForExperiment({
     experiment,
+    orgEnvironments: context.org.settings?.environments || [],
+    linkedFeatures,
   });
 
   if (
@@ -1346,6 +1711,9 @@ export async function deleteExperimentPhase(
 
   if (!changes.phases.length) {
     changes.status = "draft";
+    if (experiment.type === "multi-armed-bandit") {
+      changes.banditStage = "paused";
+    }
   }
   const updated = await updateExperiment({
     context,
@@ -1392,6 +1760,11 @@ export async function putExperimentPhase(
     throw new Error("You do not have access to this experiment");
   }
 
+  const { settings } = getScopedSettings({
+    organization: org,
+    experiment,
+  });
+
   if (!experiment.phases?.[i]) {
     throw new Error("Invalid phase");
   }
@@ -1400,8 +1773,14 @@ export async function putExperimentPhase(
     context.permissions.throwPermissionError();
   }
 
+  const linkedFeatureIds = experiment.linkedFeatures || [];
+
+  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+
   const envs = getAffectedEnvsForExperiment({
     experiment,
+    orgEnvironments: context.org.settings?.environments || [],
+    linkedFeatures,
   });
 
   if (
@@ -1424,6 +1803,18 @@ export async function putExperimentPhase(
     ...phase,
   };
   changes.phases = phases;
+
+  if (experiment.type === "multi-armed-bandit") {
+    Object.assign(
+      changes,
+      resetExperimentBanditSettings({
+        experiment,
+        changes,
+        settings,
+      })
+    );
+  }
+
   const updated = await updateExperiment({
     context,
     experiment,
@@ -1483,12 +1874,23 @@ export async function postExperimentTargeting(
     return;
   }
 
+  const { settings } = getScopedSettings({
+    organization: org,
+    experiment,
+  });
+
   if (!context.permissions.canUpdateExperiment(experiment, changes)) {
     context.permissions.throwPermissionError();
   }
 
+  const linkedFeatureIds = experiment.linkedFeatures || [];
+
+  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+
   const envs = getAffectedEnvsForExperiment({
     experiment,
+    orgEnvironments: context.org.settings?.environments || [],
+    linkedFeatures,
   });
 
   if (
@@ -1532,6 +1934,17 @@ export async function postExperimentTargeting(
     });
   }
   changes.phases = phases;
+
+  if (experiment.type === "multi-armed-bandit") {
+    Object.assign(
+      changes,
+      resetExperimentBanditSettings({
+        experiment,
+        changes,
+        settings,
+      })
+    );
+  }
 
   changes.hashAttribute = hashAttribute;
   changes.fallbackAttribute = fallbackAttribute;
@@ -1608,8 +2021,14 @@ export async function postExperimentPhase(
     context.permissions.throwPermissionError();
   }
 
+  const linkedFeatureIds = experiment.linkedFeatures || [];
+
+  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+
   const envs = getAffectedEnvsForExperiment({
     experiment,
+    orgEnvironments: context.org.settings?.environments || [],
+    linkedFeatures,
   });
 
   if (
@@ -1727,8 +2146,14 @@ export async function deleteExperiment(
     context.permissions.throwPermissionError();
   }
 
+  const linkedFeatureIds = experiment.linkedFeatures || [];
+
+  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+
   const envs = getAffectedEnvsForExperiment({
     experiment,
+    orgEnvironments: context.org.settings?.environments || [],
+    linkedFeatures,
   });
 
   if (
@@ -1799,13 +2224,38 @@ export async function cancelSnapshot(
   res.status(200).json({ status: 200 });
 }
 
-async function createExperimentSnapshot({
+function getSnapshotType({
+  experiment,
+  dimension,
+  phaseIndex,
+}: {
+  experiment: ExperimentInterface;
+  dimension: string | undefined;
+  phaseIndex: number;
+}): SnapshotType {
+  // dimension analyses are ad-hoc
+  if (dimension) {
+    return "exploratory";
+  }
+
+  // analyses of old phases are ad-hoc
+  if (phaseIndex !== experiment.phases.length - 1) {
+    return "exploratory";
+  }
+
+  return "standard";
+}
+
+export async function createExperimentSnapshot({
   context,
   experiment,
   datasource,
   dimension,
   phase,
   useCache = true,
+  triggeredBy,
+  type,
+  reweight,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
@@ -1813,7 +2263,21 @@ async function createExperimentSnapshot({
   dimension: string | undefined;
   phase: number;
   useCache?: boolean;
-}) {
+  triggeredBy?: SnapshotTriggeredBy;
+  type?: SnapshotType;
+  reweight?: boolean;
+}): Promise<{
+  snapshot: ExperimentSnapshotInterface;
+  queryRunner: ExperimentResultsQueryRunner;
+}> {
+  const snapshotType =
+    type ??
+    getSnapshotType({
+      experiment,
+      dimension,
+      phaseIndex: phase,
+    });
+
   let project = null;
   if (experiment.project) {
     project = await context.models.projects.getById(experiment.project);
@@ -1840,7 +2304,6 @@ async function createExperimentSnapshot({
   const denominatorMetrics = denominatorMetricIds
     .map((m) => metricMap.get(m) || null)
     .filter(isDefined) as MetricInterface[];
-
   const {
     settingsForSnapshotMetrics,
     regressionAdjustmentEnabled,
@@ -1877,10 +2340,13 @@ async function createExperimentSnapshot({
     settingsForSnapshotMetrics,
     metricMap,
     factTableMap,
+    reweight,
+    type: snapshotType,
+    triggeredBy: triggeredBy ?? "manual",
   });
   const snapshot = queryRunner.model;
 
-  return snapshot;
+  return { snapshot, queryRunner };
 }
 
 export async function postSnapshot(
@@ -1956,7 +2422,6 @@ export async function postSnapshot(
         orgPriorSettings: metricDefaults.priorSettings,
         analysisSettings,
         metricMap,
-        context,
       });
       res.status(200).json({
         status: 200,
@@ -1996,16 +2461,18 @@ export async function postSnapshot(
 
   // This is doing an expensive analytics SQL query, so may take a long time
   // Set timeout to 30 minutes
-  req.setTimeout(30 * 60 * 1000);
+  req.setTimeout(SNAPSHOT_TIMEOUT);
 
   try {
-    const snapshot = await createExperimentSnapshot({
+    const { snapshot } = await createExperimentSnapshot({
       context,
       experiment,
       datasource,
       dimension,
       phase,
       useCache,
+      type:
+        experiment.type === "multi-armed-bandit" ? "exploratory" : undefined,
     });
 
     await req.audit({
@@ -2083,16 +2550,13 @@ export async function postSnapshotAnalysis(
   const metricMap = await getMetricMap(context);
 
   try {
-    await createSnapshotAnalysis(
-      {
-        experiment: experiment,
-        organization: org,
-        analysisSettings: analysisSettings,
-        metricMap: metricMap,
-        snapshot: snapshot,
-      },
-      context
-    );
+    await createSnapshotAnalysis({
+      experiment: experiment,
+      organization: org,
+      analysisSettings: analysisSettings,
+      metricMap: metricMap,
+      snapshot: snapshot,
+    });
     res.status(200).json({
       status: 200,
     });
@@ -2101,6 +2565,112 @@ export async function postSnapshotAnalysis(
     res.status(400).json({
       status: 400,
       message: e.message,
+    });
+  }
+}
+
+export async function postBanditSnapshot(
+  req: AuthRequest<
+    {
+      reweight?: boolean;
+    },
+    { id: string }
+  >,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const { reweight } = req.body;
+  const { id } = req.params;
+
+  const experiment = await getExperimentById(context, id);
+  if (!experiment) {
+    res.status(404).json({
+      status: 404,
+      message: "Experiment not found",
+    });
+    return;
+  }
+
+  const phase = experiment.phases.length - 1;
+  if (!experiment.phases[phase]) {
+    res.status(404).json({
+      status: 404,
+      message: "Phase not found",
+    });
+    return;
+  }
+
+  if (!experiment.datasource) {
+    throw new Error("Could not find datasource for this experiment");
+  }
+
+  const datasource = await getDataSourceById(context, experiment.datasource);
+  if (!datasource) {
+    throw new Error("Could not find datasource for this experiment");
+  }
+
+  // This is doing an expensive analytics SQL query, so may take a long time
+  // Set timeout to 30 minutes
+  req.setTimeout(30 * 60 * 1000);
+  let snapshot: ExperimentSnapshotInterface | undefined = undefined;
+
+  try {
+    const { queryRunner } = await createExperimentSnapshot({
+      context,
+      experiment,
+      datasource,
+      dimension: "",
+      phase,
+      useCache: false,
+      type: "standard",
+      reweight,
+    });
+
+    await queryRunner.waitForResults();
+    snapshot = queryRunner.model;
+
+    if (!snapshot?.banditResult) {
+      return res.status(400).json({
+        status: 400,
+        message: "Unable to update bandit.",
+        snapshot,
+      });
+    }
+
+    const changes = updateExperimentBanditSettings({
+      experiment,
+      snapshot,
+      reweight,
+    });
+
+    await updateExperiment({
+      context,
+      experiment,
+      changes,
+    });
+
+    await req.audit({
+      event: "experiment.refresh",
+      entity: {
+        object: "experiment",
+        id: experiment.id,
+      },
+      details: auditDetailsCreate({
+        phase,
+        dimension: "",
+        useCache: false,
+        manual: false,
+      }),
+    });
+    return res.status(200).json({
+      status: 200,
+      snapshot,
+    });
+  } catch (e) {
+    return res.status(400).json({
+      status: 400,
+      message: e?.message || e,
+      snapshot,
     });
   }
 }
@@ -2501,8 +3071,14 @@ export async function postVisualChangeset(
     throw new Error("Could not find experiment");
   }
 
+  const linkedFeatureIds = experiment.linkedFeatures || [];
+
+  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+
   const envs = getAffectedEnvsForExperiment({
     experiment,
+    orgEnvironments: context.org.settings?.environments || [],
+    linkedFeatures,
   });
 
   if (
@@ -2551,7 +3127,17 @@ export async function putVisualChangeset(
     visualChanges: req.body.visualChanges,
   };
 
-  const envs = experiment ? getAffectedEnvsForExperiment({ experiment }) : [];
+  const linkedFeatureIds = experiment.linkedFeatures || [];
+
+  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+
+  const envs = experiment
+    ? getAffectedEnvsForExperiment({
+        experiment,
+        linkedFeatures,
+        orgEnvironments: context.org.settings?.environments || [],
+      })
+    : [];
   if (!context.permissions.canRunExperiment(experiment, envs)) {
     context.permissions.throwPermissionError();
   }
@@ -2590,7 +3176,17 @@ export async function deleteVisualChangeset(
     visualChangeset.experiment
   );
 
-  const envs = experiment ? getAffectedEnvsForExperiment({ experiment }) : [];
+  const linkedFeatureIds = experiment?.linkedFeatures || [];
+
+  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+
+  const envs = experiment
+    ? getAffectedEnvsForExperiment({
+        experiment,
+        linkedFeatures,
+        orgEnvironments: context.org.settings?.environments || [],
+      })
+    : [];
   if (!context.permissions.canRunExperiment(experiment || {}, envs)) {
     context.permissions.throwPermissionError();
   }
@@ -2627,5 +3223,46 @@ export async function findOrCreateVisualEditorToken(
 
   res.status(200).json({
     key: visualEditorKey.key,
+  });
+}
+
+export async function getExperimentTimeSeries(
+  req: AuthRequest<
+    null,
+    { id: string },
+    { phase: string; metricIds: string[] }
+  >,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  const { phase, metricIds } = req.query;
+  const phaseIndex = parseInt(phase, 10);
+
+  const experiment = await getExperimentById(context, id);
+  if (!experiment) {
+    throw new Error("Experiment not found");
+  }
+
+  if (metricIds.length === 0) {
+    throw new Error("metricIds is required");
+  }
+
+  if (isNaN(phaseIndex)) {
+    throw new Error("Invalid phase");
+  }
+
+  const timeSeries = await context.models.metricTimeSeries.getBySourceAndMetricIds(
+    {
+      source: "experiment",
+      sourceId: id,
+      sourcePhase: phaseIndex,
+      metricIds,
+    }
+  );
+
+  res.status(200).json({
+    status: 200,
+    timeSeries,
   });
 }

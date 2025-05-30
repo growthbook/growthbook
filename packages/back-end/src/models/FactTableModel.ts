@@ -10,10 +10,10 @@ import {
   UpdateColumnProps,
   UpdateFactTableProps,
   ColumnInterface,
-} from "../../types/fact-table";
-import { ApiFactTable, ApiFactTableFilter } from "../../types/openapi";
-import { ReqContext } from "../../types/organization";
-import { ApiReqContext } from "../../types/api";
+} from "back-end/types/fact-table";
+import { ApiFactTable, ApiFactTableFilter } from "back-end/types/openapi";
+import { ReqContext } from "back-end/types/organization";
+import { ApiReqContext } from "back-end/types/api";
 
 const factTableSchema = new mongoose.Schema({
   id: String,
@@ -40,7 +40,11 @@ const factTableSchema = new mongoose.Schema({
       column: String,
       numberFormat: String,
       datatype: String,
+      jsonFields: {},
       deleted: Boolean,
+      alwaysInlineFilter: Boolean,
+      topValues: [String],
+      topValuesDate: Date,
     },
   ],
   columnsError: String,
@@ -56,6 +60,7 @@ const factTableSchema = new mongoose.Schema({
       managedBy: String,
     },
   ],
+  archived: Boolean,
 });
 
 factTableSchema.index({ id: 1, organization: 1 }, { unique: true });
@@ -166,6 +171,29 @@ export async function getFactTable(
   return factTable;
 }
 
+export async function getFactTablesByIds(
+  context: ReqContext | ApiReqContext,
+  ids: string[]
+) {
+  const factTables: FactTableInterface[] = [];
+
+  if (!ids.length) {
+    return factTables;
+  }
+
+  const docs = await FactTableModel.find({
+    id: { $in: ids },
+    organization: context.org.id,
+  });
+  docs.forEach((doc) => {
+    factTables.push(toInterface(doc));
+  });
+
+  return factTables.filter((factTable) =>
+    context.permissions.canReadMultiProjectResource(factTable.projects)
+  );
+}
+
 export async function createFactTable(
   context: ReqContext | ApiReqContext,
   data: CreateFactTableProps
@@ -238,9 +266,17 @@ export async function updateColumn(
   const columnIndex = factTable.columns.findIndex((c) => c.column === column);
   if (columnIndex < 0) throw new Error("Could not find that column");
 
+  if (
+    changes.alwaysInlineFilter &&
+    (changes.datatype || factTable.columns[columnIndex]?.datatype) !== "string"
+  ) {
+    throw new Error("Only string columns are eligible for inline filtering");
+  }
+
   factTable.columns[columnIndex] = {
     ...factTable.columns[columnIndex],
     ...changes,
+    ...(changes.topValues ? { topValuesDate: new Date() } : {}),
     dateUpdated: new Date(),
   };
 

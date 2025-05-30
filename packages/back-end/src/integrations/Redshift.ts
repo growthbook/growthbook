@@ -1,8 +1,8 @@
-import { PostgresConnectionParams } from "../../types/integrations/postgres";
-import { decryptDataSourceParams } from "../services/datasource";
-import { runPostgresQuery } from "../services/postgres";
-import { QueryResponse } from "../types/Integration";
-import { FormatDialect } from "../util/sql";
+import { PostgresConnectionParams } from "back-end/types/integrations/postgres";
+import { decryptDataSourceParams } from "back-end/src/services/datasource";
+import { runPostgresQuery } from "back-end/src/services/postgres";
+import { QueryResponse } from "back-end/src/types/Integration";
+import { FormatDialect } from "back-end/src/util/sql";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Redshift extends SqlIntegration {
@@ -35,6 +35,25 @@ export default class Redshift extends SqlIntegration {
   }
   ensureFloat(col: string): string {
     return `${col}::float`;
+  }
+  hasCountDistinctHLL(): boolean {
+    return true;
+  }
+  hllAggregate(col: string): string {
+    return `HLL_CREATE_SKETCH(${col})`;
+  }
+  hllReaggregate(col: string): string {
+    return `HLL_COMBINE(${col})`;
+  }
+  hllCardinality(col: string): string {
+    return `HLL_CARDINALITY(${col})`;
+  }
+  extractJSONField(jsonCol: string, path: string, isNumeric: boolean): string {
+    const raw = `JSON_EXTRACT_PATH_TEXT(${jsonCol}, ${path
+      .split(".")
+      .map((p) => `'${p}'`)
+      .join(", ")}, TRUE)`;
+    return isNumeric ? this.ensureFloat(raw) : raw;
   }
   approxQuantile(value: string, quantile: string | number): string {
     // approx behaves differently in redshift

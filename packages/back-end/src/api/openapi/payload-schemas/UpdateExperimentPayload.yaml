@@ -1,5 +1,8 @@
 type: object
 properties:
+  datasourceId:
+    type: string
+    description: Can only be set if existing experiment does not have a datasource
   assignmentQueryId:
     type: string
   trackingKey:
@@ -7,6 +10,11 @@ properties:
   name:
     type: string
     description: Name of the experiment
+  type:
+    type: string
+    enum:
+      - "standard"
+      - "multi-armed-bandit"
   project:
     type: string
     description: Project ID which the experiment belongs to
@@ -32,6 +40,15 @@ properties:
     type: array
     items:
       type: string
+  activationMetric:
+    type: string
+    description: Users must convert on this metric before being included
+  segmentId:
+    type: string
+    description: Only users in this segment will be included
+  queryFilter:
+    type: string
+    description: WHERE clause to add to the default experiment query
   owner:
     type: string
     description: Email of the person who owns this experiment
@@ -53,7 +70,7 @@ properties:
     type: number
     enum: [1, 2]
   disableStickyBucketing:
-    type: boolean;
+    type: boolean
   bucketVersion:
     type: number
   minBucketVersion:
@@ -72,6 +89,7 @@ properties:
     enum:
       - firstExposure
       - experimentDuration
+    description: Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override.
   statsEngine:
     type: string
     enum:
@@ -161,6 +179,19 @@ properties:
               type: boolean
         targetingCondition:
           type: string
+        prerequisites:
+          type: array
+          items:
+            type: object
+            required:
+              - id
+              - condition
+            properties:
+              id:
+                type: string
+                description: "Feature ID"
+              condition:
+                type: string
         reason:
           type: string
         condition:
@@ -190,3 +221,27 @@ properties:
   regressionAdjustmentEnabled:
     type: boolean
     description: Controls whether regression adjustment (CUPED) is enabled for experiment analyses
+  sequentialTestingEnabled:
+    type: boolean
+    description: Only applicable to frequentist analyses
+  sequentialTestingTuningParameter:
+    type: number
+  shareLevel:
+    type: string
+    enum:
+      - "public"
+      - "organization"
+  banditScheduleValue:
+    type: number
+  banditScheduleUnit:
+    type: string
+    enum:
+      - "days"
+      - "hours"
+  banditBurnInValue:
+    type: number
+  banditBurnInUnit:
+    type: string
+    enum:
+      - "days"
+      - "hours"

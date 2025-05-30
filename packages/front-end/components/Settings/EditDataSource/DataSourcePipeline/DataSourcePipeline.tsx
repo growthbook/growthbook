@@ -1,8 +1,10 @@
 import { useCallback, useState } from "react";
-import { FaPencilAlt } from "react-icons/fa";
 import { DataSourceType } from "back-end/types/datasource";
+import { Box, Card, Flex, Heading, Text } from "@radix-ui/themes";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Button from "@/components/Radix/Button";
+import Badge from "@/components/Radix/Badge";
 import { EditDataSourcePipeline } from "./EditDataSourcePipeline";
 
 type DataSourcePipelineProps = DataSourceQueryEditingModalBaseProps;
@@ -38,65 +40,77 @@ export default function DataSourcePipeline({
   canEdit = canEdit && permissionsUtil.canUpdateDataSourceSettings(dataSource);
 
   return (
-    <div>
-      <div className="d-flex justify-content-between align-items-center mb-2">
-        <div className="d-flex justify-space-between align-items-center">
-          <h3>Data Pipeline Settings</h3>
-          <span className="badge badge-purple text-uppercase mx-2">Beta</span>
-        </div>
-        {canEdit && (
-          <div className="">
-            <button
-              className="btn btn-outline-primary font-weight-bold"
-              onClick={() => {
-                setUiMode("edit");
-              }}
-            >
-              <FaPencilAlt className="mr-1" /> Edit
-            </button>
-          </div>
-        )}
-      </div>
-      <div className="alert alert-info">
-        In this section, you can configure how GrowthBook can use write
-        permissions to your Data Source to improve the performance of experiment
-        queries.
-      </div>
-      <div>
-        <div className={`mb-2 ma-5 font-weight-bold`}>
-          {"Pipeline Mode: "}
-          {pipelineSettings?.allowWriting ? "Enabled" : "Disabled"}
-        </div>
-        {pipelineSettings?.allowWriting && (
-          <>
-            <div className={`mb-2 ma-5`}>
-              {`Destination ${
-                dataSourcePathNames(dataSource.type).schemaName
-              }: `}
-              {pipelineSettings?.writeDataset ? (
-                <code>{`${
-                  pipelineSettings?.writeDatabase
-                    ? pipelineSettings?.writeDatabase + "."
-                    : ""
-                }${pipelineSettings.writeDataset}`}</code>
-              ) : (
-                <em className="text-muted">not specified</em>
+    <Box>
+      <Flex align="center" justify="start" mb="3" gap="3">
+        <Heading as="h3" size="4" mb="0">
+          Data Pipeline Settings
+        </Heading>
+        <Badge label="Beta" color="teal" />
+      </Flex>
+      <p>
+        Configure how GrowthBook can use write permissions to your Data Source
+        to improve the performance of experiment queries.
+      </p>
+      <Card>
+        <Box px="3" py="2">
+          <Flex
+            align={pipelineSettings?.allowWriting ? "start" : "center"}
+            justify="between"
+          >
+            <Box>
+              <Text weight="medium" mb="0" as="p">
+                {"Pipeline Mode: "}
+                {pipelineSettings?.allowWriting ? "Enabled" : "Disabled"}
+              </Text>
+              {pipelineSettings?.allowWriting && (
+                <>
+                  <Box mt="2">
+                    {`Destination ${
+                      dataSourcePathNames(dataSource.type).schemaName
+                    }: `}
+                    {pipelineSettings?.writeDataset ? (
+                      <code>{`${
+                        pipelineSettings?.writeDatabase
+                          ? pipelineSettings?.writeDatabase + "."
+                          : ""
+                      }${pipelineSettings.writeDataset}`}</code>
+                    ) : (
+                      <em className="text-muted">not specified</em>
+                    )}
+                  </Box>
+                  {dataSource.type === "databricks" ? (
+                    <Box mt="2">
+                      {
+                        "Drop units table when analysis finishes (recommended): "
+                      }
+                      {pipelineSettings?.unitsTableDeletion
+                        ? "Enabled"
+                        : "Disabled"}
+                    </Box>
+                  ) : (
+                    <Box mt="2">
+                      {"Retention of temporary units table (hours): "}
+                      {pipelineSettings?.unitsTableRetentionHours ?? 24}
+                    </Box>
+                  )}
+                </>
               )}
-            </div>
-            {dataSource.type === "databricks" ? (
-              <div className={`mb-2 ma-5`}>
-                {"Drop units table when analysis finishes (recommended): "}
-                {pipelineSettings?.unitsTableDeletion ? "Enabled" : "Disabled"}
-              </div>
-            ) : (
-              <div className={`mb-2 ma-5`}>
-                {"Retention of temporary units table (hours): "}
-                {pipelineSettings?.unitsTableRetentionHours ?? 24}
-              </div>
+            </Box>
+            {canEdit && (
+              <Box>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setUiMode("edit");
+                  }}
+                >
+                  Edit
+                </Button>
+              </Box>
             )}
-          </>
-        )}
-      </div>
+          </Flex>
+        </Box>
+      </Card>
 
       {uiMode === "edit" ? (
         <EditDataSourcePipeline
@@ -105,6 +119,6 @@ export default function DataSourcePipeline({
           dataSource={dataSource}
         />
       ) : null}
-    </div>
+    </Box>
   );
 }

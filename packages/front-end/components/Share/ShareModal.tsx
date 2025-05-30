@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
+import { Box } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import {
   PresentationInterface,
@@ -22,8 +23,6 @@ import { useSearch } from "@/services/search";
 import track from "@/services/track";
 import { useExperiments } from "@/hooks/useExperiments";
 import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
-import Tab from "@/components/Tabs/Tab";
-import Tabs from "@/components/Tabs/Tabs";
 import Page from "@/components/Modal/Page";
 import PagedModal from "@/components/Modal/PagedModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -31,6 +30,14 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import SortedTags from "@/components/Tags/SortedTags";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from "@/components/Radix/Tabs";
+import Avatar from "@/components/Radix/Avatar";
+import { capitalizeFirstLetter } from "@/services/utils";
 import Preview from "./Preview";
 
 export const presentationThemes = {
@@ -274,7 +281,7 @@ const ShareModal = ({
 
   if (experiments.length === 0) {
     return (
-      <div className="alert alert-danger">
+      <div className="alert alert-danger" style={{ marginTop: "1rem" }}>
         You need some experiments to share first.
       </div>
     );
@@ -362,123 +369,6 @@ const ShareModal = ({
     ...draggableStyle,
   });
   resetServerContext();
-
-  const tabContents: JSX.Element[] = [];
-
-  Object.entries(byStatus).forEach(([status]) => {
-    tabContents.push(
-      <Tab
-        key={status}
-        display={
-          status.charAt(0).toUpperCase() + status.substr(1).toLowerCase()
-        }
-        anchor={status}
-        count={byStatus[status].length}
-      >
-        {byStatus[status].length > 0 ? (
-          <table className="table table-hover experiment-table appbox">
-            <thead>
-              <tr>
-                <th></th>
-                <th style={{ width: "99%" }}>Experiment</th>
-                <th>Tags</th>
-                <th>Owner</th>
-                <th>Ended</th>
-                <th>Result</th>
-              </tr>
-            </thead>
-            <tbody>
-              {byStatus[status]
-                .sort(
-                  (a, b) =>
-                    getValidDate(
-                      b.phases[b.phases.length - 1]?.dateEnded
-                    ).getTime() -
-                    getValidDate(
-                      a.phases[a.phases.length - 1]?.dateEnded
-                    ).getTime()
-                )
-                .map((e: ExperimentInterfaceStringDates) => {
-                  const phase = e.phases[e.phases.length - 1];
-                  if (!phase) return null;
-
-                  let hasScreenShots = true;
-                  e.variations.forEach((v) => {
-                    if (v.screenshots.length < 1) {
-                      hasScreenShots = false;
-                    }
-                  });
-                  return (
-                    <tr
-                      key={e.id}
-                      onClick={(event) => {
-                        event.preventDefault();
-                        setSelectedExperiments(e);
-                      }}
-                      className={`cursor-pointer ${
-                        selectedExperiments.has(e.id) ? "selected" : ""
-                      }`}
-                    >
-                      <td>
-                        <span className="h3 mb-0 checkmark">
-                          <FaCheck />
-                        </span>
-                      </td>
-                      <td>
-                        <div className="d-flex">
-                          <h4 className="testname h5">
-                            {e.name}
-                            {hasScreenShots ? (
-                              <></>
-                            ) : (
-                              <span className="text-warning pl-3">
-                                <Tooltip body="This experiment is missing screen shots">
-                                  <FiAlertTriangle />
-                                </Tooltip>
-                              </span>
-                            )}
-                          </h4>
-                        </div>
-                      </td>
-                      <td className="nowrap">
-                        <SortedTags tags={Object.values(e.tags)} />
-                      </td>
-                      <td className="nowrap">
-                        {getUserDisplay(e.owner, false)}
-                      </td>
-                      <td
-                        className="nowrap"
-                        title={datetime(phase?.dateEnded ?? "")}
-                      >
-                        {ago(phase?.dateEnded ?? "")}
-                      </td>
-                      <td className="nowrap">
-                        {e?.results ? (
-                          <ResultsIndicator results={e?.results ?? null} />
-                        ) : (
-                          <span className="text-muted font-italic">
-                            <Tooltip body="This experiment is has no results data">
-                              no results
-                            </Tooltip>
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-            </tbody>
-          </table>
-        ) : (
-          <div className="alert alert-info">
-            No {isFiltered ? "matching" : ""} {status} experiments
-          </div>
-        )}
-      </Tab>
-    );
-    // end of the byStatus loop
-  });
-
-  // end tab contents
 
   let counter = 0;
   const selectedList: JSX.Element[] = [];
@@ -593,6 +483,7 @@ const ShareModal = ({
 
   return (
     <PagedModal
+      trackingEventModalType="share"
       header={title}
       close={() => setModalState(false)}
       submit={submitForm}
@@ -645,18 +536,133 @@ const ShareModal = ({
                 </div>
               </div>
               <Tabs
-                // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | null' is not assignable to type 'st... Remove this comment to see the full error message
-                defaultTab={
+                defaultValue={
                   byStatus.stopped.length > 0
-                    ? "Stopped"
+                    ? "stopped"
                     : byStatus.running.length > 0
-                    ? "Running"
-                    : null
+                    ? "running"
+                    : undefined
                 }
               >
-                {tabContents.map((con) => {
-                  return con;
-                })}
+                <Box mb="3">
+                  <TabsList>
+                    {Object.keys(byStatus).map((status) => (
+                      <TabsTrigger key={status} value={status}>
+                        {capitalizeFirstLetter(status)}
+                        <Avatar color="gray" variant="soft" ml="2" size="sm">
+                          {byStatus[status].length}
+                        </Avatar>
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                </Box>
+
+                {Object.keys(byStatus).map((status) => (
+                  <TabsContent key={status} value={status}>
+                    {byStatus[status].length > 0 ? (
+                      <table className="table table-hover experiment-table appbox">
+                        <thead>
+                          <tr>
+                            <th></th>
+                            <th style={{ width: "99%" }}>Experiment</th>
+                            <th>Tags</th>
+                            <th>Owner</th>
+                            <th>Ended</th>
+                            <th>Result</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {byStatus[status]
+                            .sort(
+                              (a, b) =>
+                                getValidDate(
+                                  b.phases[b.phases.length - 1]?.dateEnded
+                                ).getTime() -
+                                getValidDate(
+                                  a.phases[a.phases.length - 1]?.dateEnded
+                                ).getTime()
+                            )
+                            .map((e: ExperimentInterfaceStringDates) => {
+                              const phase = e.phases[e.phases.length - 1];
+                              if (!phase) return null;
+
+                              let hasScreenShots = true;
+                              e.variations.forEach((v) => {
+                                if (v.screenshots.length < 1) {
+                                  hasScreenShots = false;
+                                }
+                              });
+                              return (
+                                <tr
+                                  key={e.id}
+                                  onClick={(event) => {
+                                    event.preventDefault();
+                                    setSelectedExperiments(e);
+                                  }}
+                                  className={`cursor-pointer ${
+                                    selectedExperiments.has(e.id)
+                                      ? "selected"
+                                      : ""
+                                  }`}
+                                >
+                                  <td>
+                                    <span className="h3 mb-0 checkmark">
+                                      <FaCheck />
+                                    </span>
+                                  </td>
+                                  <td>
+                                    <div className="d-flex">
+                                      <h4 className="testname h5">
+                                        {e.name}
+                                        {hasScreenShots ? (
+                                          <></>
+                                        ) : (
+                                          <span className="text-warning pl-3">
+                                            <Tooltip body="This experiment is missing screen shots">
+                                              <FiAlertTriangle />
+                                            </Tooltip>
+                                          </span>
+                                        )}
+                                      </h4>
+                                    </div>
+                                  </td>
+                                  <td className="nowrap">
+                                    <SortedTags tags={Object.values(e.tags)} />
+                                  </td>
+                                  <td className="nowrap">
+                                    {getUserDisplay(e.owner, false)}
+                                  </td>
+                                  <td
+                                    className="nowrap"
+                                    title={datetime(phase?.dateEnded ?? "")}
+                                  >
+                                    {ago(phase?.dateEnded ?? "")}
+                                  </td>
+                                  <td className="nowrap">
+                                    {e?.results ? (
+                                      <ResultsIndicator
+                                        results={e?.results ?? null}
+                                      />
+                                    ) : (
+                                      <span className="text-muted font-italic">
+                                        <Tooltip body="This experiment is has no results data">
+                                          no results
+                                        </Tooltip>
+                                      </span>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                        </tbody>
+                      </table>
+                    ) : (
+                      <div className="alert alert-info">
+                        No {isFiltered ? "matching" : ""} {status} experiments
+                      </div>
+                    )}
+                  </TabsContent>
+                ))}
               </Tabs>
             </div>
           </div>
@@ -742,7 +748,7 @@ const ShareModal = ({
                       }}
                       id="checkbox-voting"
                     />
-                  </div> 
+                  </div>
                 </div>*/}
             <div className="form-group row">
               <label htmlFor="" className="col-sm-4 col-form-label text-right">

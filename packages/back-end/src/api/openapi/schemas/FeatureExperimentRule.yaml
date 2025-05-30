@@ -24,13 +24,13 @@ properties:
   fallbackAttribute:
     type: string
   disableStickyBucketing:
-    type: boolean;
+    type: boolean
   bucketVersion:
     type: number
   minBucketVersion:
     type: number
   namespace:
-    type: obect
+    type: object
     required:
       - enabled
       - name

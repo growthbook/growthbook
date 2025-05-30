@@ -41,6 +41,7 @@ const ImpactModal: FC<{
 
   return (
     <Modal
+      trackingEventModalType=""
       header="Impact Score Parameters"
       open={true}
       submit={form.handleSubmit(async (value) => {
@@ -91,6 +92,7 @@ const ImpactModal: FC<{
           experimentLength,
           estimateParams: {
             estimate: est.id,
+            segment: est?.segment || "",
             improvement: value.improvement,
             numVariations: value.numVariations,
             userAdjustment: value.userAdjustment,

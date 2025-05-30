@@ -1,10 +1,13 @@
 import { keyBy } from "lodash";
 import { getAffectedEnvsForExperiment } from "shared/util";
 import { isURLTargeted } from "@growthbook/growthbook";
-import { ExperimentInterface } from "../../types/experiment";
-import { DestinationURL, URLRedirectInterface } from "../../types/url-redirect";
-import { refreshSDKPayloadCache } from "../services/features";
-import { urlRedirectValidator } from "../routers/url-redirects/url-redirects.validators";
+import { ExperimentInterface } from "back-end/types/experiment";
+import {
+  DestinationURL,
+  URLRedirectInterface,
+} from "back-end/types/url-redirect";
+import { refreshSDKPayloadCache } from "back-end/src/services/features";
+import { urlRedirectValidator } from "back-end/src/routers/url-redirects/url-redirects.validators";
 import {
   getAllPayloadExperiments,
   getAllURLRedirectExperiments,
@@ -50,7 +53,10 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
   private canWrite(doc: URLRedirectInterface): boolean {
     const { experiment } = this.getForeignRefs(doc);
     if (!experiment) throw new Error("Could not find experiment");
-    const envs = getAffectedEnvsForExperiment({ experiment });
+    const envs = getAffectedEnvsForExperiment({
+      experiment,
+      orgEnvironments: this.context.org.settings?.environments || [],
+    });
     return this.context.permissions.canRunExperiment(experiment, envs);
   }
   protected canCreate(doc: URLRedirectInterface): boolean {

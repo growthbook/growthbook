@@ -8,23 +8,26 @@ import {
   custom,
 } from "openid-client";
 
-import jwtExpress from "express-jwt";
+import jwtExpress, { RequestHandler } from "express-jwt";
 import jwks from "jwks-rsa";
-import { SSO_CONFIG } from "enterprise";
-import { AuthRequest } from "../../types/AuthRequest";
-import { MemoryCache } from "../cache";
+import { SSO_CONFIG } from "shared/enterprise";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { MemoryCache } from "back-end/src/services/cache";
 import {
   SSOConnectionInterface,
   UnauthenticatedResponse,
-} from "../../../types/sso-connection";
-import { AuthChecksCookie, SSOConnectionIdCookie } from "../../util/cookie";
-import { APP_ORIGIN, IS_CLOUD, USE_PROXY } from "../../util/secrets";
-import { getSSOConnectionById } from "../../models/SSOConnectionModel";
+} from "back-end/types/sso-connection";
 import {
-  getAuditableUserPropertiesFromRequest,
+  AuthChecksCookie,
+  SSOConnectionIdCookie,
+} from "back-end/src/util/cookie";
+import { APP_ORIGIN, IS_CLOUD, USE_PROXY } from "back-end/src/util/secrets";
+import { getSSOConnectionById } from "back-end/src/models/SSOConnectionModel";
+import {
+  getUserLoginPropertiesFromRequest,
   trackLoginForUser,
-} from "../users";
-import { getHttpOptions } from "../../util/http.util";
+} from "back-end/src/services/users";
+import { getHttpOptions } from "back-end/src/util/http.util";
 import { AuthConnection, TokensResponse } from "./AuthConnection";
 
 type AuthChecks = {
@@ -49,6 +52,8 @@ const ssoConnectionCache = new MemoryCache(async (ssoConnectionId: string) => {
 }, 30);
 
 const clientMap: Map<SSOConnectionInterface, Client> = new Map();
+
+const jwksMiddlewareCache: { [key: string]: RequestHandler } = {};
 
 export class OpenIdAuthConnection implements AuthConnection {
   async refresh(
@@ -113,7 +118,7 @@ export class OpenIdAuthConnection implements AuthConnection {
 
     const email = tokenSet.claims().email;
     if (email) {
-      const trackingProperties = getAuditableUserPropertiesFromRequest(req);
+      const trackingProperties = getUserLoginPropertiesFromRequest(req);
       trackLoginForUser({
         ...trackingProperties,
         email,
@@ -159,18 +164,29 @@ export class OpenIdAuthConnection implements AuthConnection {
         );
       }
 
-      const middleware = jwtExpress({
-        secret: jwks.expressJwtSecret({
-          cache: true,
-          cacheMaxEntries: 50,
-          rateLimit: true,
-          jwksRequestsPerMinute: 5,
-          jwksUri,
-        }),
-        audience: connection.clientId,
+      const cacheKey = JSON.stringify([
+        jwksUri,
+        connection.clientId,
         issuer,
         algorithms,
-      });
+      ]);
+
+      let middleware = jwksMiddlewareCache[cacheKey];
+      if (!middleware) {
+        middleware = jwtExpress({
+          secret: jwks.expressJwtSecret({
+            cache: true,
+            cacheMaxEntries: 50,
+            rateLimit: true,
+            jwksRequestsPerMinute: 5,
+            jwksUri,
+          }),
+          audience: connection.clientId,
+          issuer,
+          algorithms,
+        });
+        jwksMiddlewareCache[cacheKey] = middleware;
+      }
       middleware(req as Request, res, next);
     } catch (e) {
       next(e);

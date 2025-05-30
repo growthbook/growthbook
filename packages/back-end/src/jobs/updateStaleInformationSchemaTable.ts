@@ -1,16 +1,16 @@
 import Agenda, { Job } from "agenda";
-import { fetchTableData } from "../services/informationSchema";
-import { logger } from "../util/logger";
-import { getDataSourceById } from "../models/DataSourceModel";
-import { getInformationSchemaById } from "../models/InformationSchemaModel";
+import { fetchTableData } from "back-end/src/services/informationSchema";
+import { logger } from "back-end/src/util/logger";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { getInformationSchemaById } from "back-end/src/models/InformationSchemaModel";
 import {
   getInformationSchemaTableById,
   updateInformationSchemaTableById,
-} from "../models/InformationSchemaTablesModel";
-import { Column } from "../types/Integration";
-import { getPath } from "../util/informationSchemas";
-import { getContextForAgendaJobByOrgId } from "../services/organizations";
-import { trackJob } from "../services/otel";
+} from "back-end/src/models/InformationSchemaTablesModel";
+import { Column } from "back-end/src/types/Integration";
+import { getPath } from "back-end/src/util/informationSchemas";
+import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { trackJob } from "back-end/src/services/tracing";
 
 const UPDATE_STALE_INFORMATION_SCHEMA_TABLE_JOB_NAME =
   "updateStaleInformationSchemaTable";

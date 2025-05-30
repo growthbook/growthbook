@@ -28,6 +28,8 @@ export interface Props {
   feature: FeatureInterface;
   close: () => void;
   mutate: () => void;
+  defaultEnable?: boolean;
+  onEnable?: () => void;
 }
 
 // TODO: enable this when we have a GUI for entering feature values based on the schema
@@ -419,7 +421,13 @@ function EditSimpleSchema({
   );
 }
 
-export default function EditSchemaModal({ feature, close, mutate }: Props) {
+export default function EditSchemaModal({
+  feature,
+  close,
+  mutate,
+  defaultEnable,
+  onEnable,
+}: Props) {
   const defaultSimpleSchema = feature.jsonSchema?.simple?.fields?.length
     ? feature.jsonSchema.simple
     : inferSimpleSchemaFromValue(feature.defaultValue);
@@ -437,13 +445,14 @@ export default function EditSchemaModal({ feature, close, mutate }: Props) {
       schemaType: defaultSchemaType,
       simple: defaultSimpleSchema,
       schema: defaultJSONSchema,
-      enabled: feature.jsonSchema?.enabled ?? true,
+      enabled: defaultEnable ? true : feature.jsonSchema?.enabled ?? true,
     },
   });
   const { apiCall } = useAuth();
 
   return (
     <Modal
+      trackingEventModalType=""
       header="Edit Feature Validation"
       cta="Save"
       size="lg"
@@ -497,6 +506,7 @@ export default function EditSchemaModal({ feature, close, mutate }: Props) {
           body: JSON.stringify(value),
         });
         mutate();
+        onEnable && value.enabled && onEnable();
       })}
       close={close}
       open={true}

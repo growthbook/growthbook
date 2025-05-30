@@ -12,10 +12,11 @@ const ViewAsyncQueriesButton: FC<{
   color?: string;
   className?: string;
   inline?: boolean;
-  ctaCommponent?: (onClick: () => void) => ReactNode;
+  ctaComponent?: (onClick: () => void) => ReactNode;
   condensed?: boolean;
   icon?: JSX.Element | string | null;
   status?: QueryStatus;
+  hideQueryCount?: boolean;
 }> = ({
   queries,
   display = "View Queries",
@@ -23,10 +24,11 @@ const ViewAsyncQueriesButton: FC<{
   error,
   className = "",
   inline = false,
-  ctaCommponent,
+  ctaComponent,
   condensed = false,
   icon,
   status,
+  hideQueryCount,
 }) => {
   const [open, setOpen] = useState(false);
 
@@ -35,8 +37,8 @@ const ViewAsyncQueriesButton: FC<{
 
   return (
     <>
-      {ctaCommponent ? (
-        ctaCommponent(() => {
+      {ctaComponent ? (
+        ctaComponent(() => {
           if (!queries.length) return;
           setOpen(!open);
         })
@@ -60,13 +62,12 @@ const ViewAsyncQueriesButton: FC<{
           )}
         >
           <button
-            className={clsx(className, {
+            className={clsx("position-relative", className, {
               disabled: queries.length === 0,
-              "pl-2 pr-1 py-0 d-flex align-items-center": condensed,
+              "d-flex align-items-center": condensed,
             })}
             style={{
               ...(queries.length === 0 ? { cursor: "not-allowed" } : {}),
-              ...(condensed ? { height: 35 } : {}),
             }}
             type="button"
             onClick={(e) => {
@@ -75,29 +76,37 @@ const ViewAsyncQueriesButton: FC<{
               setOpen(!open);
             }}
           >
-            <span
-              className={clsx("h4", {
-                "position-relative d-flex m-0 d-inline-block align-top pr-3": condensed,
-                "pr-2": !condensed,
-              })}
-            >
-              {icon !== undefined ? icon : <FaDatabase />}
-            </span>{" "}
+            {icon !== null && (
+              <span
+                className={clsx("h4", {
+                  "position-relative d-flex m-0 d-inline-block align-top": condensed,
+                  "pr-2": !hideQueryCount,
+                })}
+              >
+                {icon !== undefined ? icon : <FaDatabase />}
+              </span>
+            )}
             {display}
-            {queries.length > 0 ? (
-              condensed ? (
-                <div
-                  className="d-inline-block position-absolute"
-                  style={{
-                    right: 12,
-                    top: -1,
-                  }}
-                >
-                  {queries.length}
-                </div>
-              ) : (
-                <div className="d-inline-block ml-1">({queries.length})</div>
-              )
+            {!hideQueryCount ? (
+              <>
+                {queries.length > 0 ? (
+                  condensed ? (
+                    <div
+                      className="d-inline-block position-absolute"
+                      style={{
+                        right: 12,
+                        top: -1,
+                      }}
+                    >
+                      {queries.length}
+                    </div>
+                  ) : (
+                    <div className="d-inline-block ml-1">
+                      ({queries.length})
+                    </div>
+                  )
+                ) : null}
+              </>
             ) : null}
           </button>
         </Tooltip>

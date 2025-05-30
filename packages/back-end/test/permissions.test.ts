@@ -2,13 +2,13 @@ import { Permissions } from "shared/permissions";
 import {
   getUserPermissions,
   roleToPermissionMap,
-} from "../src/util/organization.util";
-import { OrganizationInterface } from "../types/organization";
-import { TeamInterface } from "../types/team";
-import { FeatureInterface } from "../types/feature";
-import { MetricInterface } from "../types/metric";
-import { SUPERADMIN_DEFAULT_ROLE } from "../src/util/secrets";
-import { DataSourceInterface } from "../types/datasource";
+} from "back-end/src/util/organization.util";
+import { OrganizationInterface } from "back-end/types/organization";
+import { TeamInterface } from "back-end/types/team";
+import { FeatureInterface } from "back-end/types/feature";
+import { MetricInterface } from "back-end/types/metric";
+import { SUPERADMIN_DEFAULT_ROLE } from "back-end/src/util/secrets";
+import { DataSourceInterface } from "back-end/types/datasource";
 
 describe("Build base user permissions", () => {
   const testOrg: OrganizationInterface = {
@@ -31,9 +31,9 @@ describe("Build base user permissions", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -1305,9 +1305,9 @@ describe("PermissionsUtilClass.canReadSingleProjectResource check for features",
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -1466,9 +1466,9 @@ describe("PermissionsUtilClass.canReadMultiProjectResource check for metrics", (
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -1682,9 +1682,9 @@ describe("PermissionsUtilClass.canCreateAttribute check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -1841,9 +1841,9 @@ describe("PermissionsUtilClass.canUpdateAttribute check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -1935,9 +1935,9 @@ describe("PermissionsUtilClass.canDeleteAttribute check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -2094,9 +2094,9 @@ describe("PermissionsUtilClass.canCreateSegmentcheck", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -2111,7 +2111,29 @@ describe("PermissionsUtilClass.canCreateSegmentcheck", () => {
       projects: {},
     });
 
-    expect(permissions.canCreateSegment()).toEqual(false);
+    expect(permissions.canCreateSegment({ projects: [] })).toEqual(false);
+  });
+
+  it("User with global readonly role, but project level analyst role can not create segment in All Projects, but can create a segment in the project where they have analyst permissions", async () => {
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        ABC123: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+      },
+    });
+
+    expect(permissions.canCreateSegment({ projects: [] })).toEqual(false);
+    expect(permissions.canCreateSegment({ projects: ["ABC123"] })).toEqual(
+      true
+    );
   });
 
   it("User with global collaborator role can create segment", async () => {
@@ -2124,7 +2146,7 @@ describe("PermissionsUtilClass.canCreateSegmentcheck", () => {
       projects: {},
     });
 
-    expect(permissions.canCreateSegment()).toEqual(false);
+    expect(permissions.canCreateSegment({ projects: [] })).toEqual(false);
   });
 
   it("User with global analyst role can create segment", async () => {
@@ -2137,7 +2159,7 @@ describe("PermissionsUtilClass.canCreateSegmentcheck", () => {
       projects: {},
     });
 
-    expect(permissions.canCreateSegment()).toEqual(true);
+    expect(permissions.canCreateSegment({ projects: [] })).toEqual(true);
   });
 });
 
@@ -2162,9 +2184,9 @@ describe("PermissionsUtilClass.canUpdateSegmentcheck", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -2179,7 +2201,40 @@ describe("PermissionsUtilClass.canUpdateSegmentcheck", () => {
       projects: {},
     });
 
-    expect(permissions.canUpdateSegment()).toEqual(false);
+    expect(permissions.canUpdateSegment({ projects: [] }, {})).toEqual(false);
+  });
+
+  it("User with global readonly role, but project level analyst role can not update segment in All Projects, but can update a segment in the project where they have analyst permissions", async () => {
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        ABC123: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        DEF456: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+      },
+    });
+
+    expect(permissions.canUpdateSegment({ projects: [] }, {})).toEqual(false);
+    expect(
+      permissions.canUpdateSegment({ projects: ["ABC123"] }, { projects: [] })
+    ).toEqual(false);
+    expect(
+      permissions.canUpdateSegment(
+        { projects: ["ABC123"] },
+        { projects: ["ABC123", "DEF456"] }
+      )
+    ).toEqual(true);
   });
 
   it("User with global collaborator role can update segment", async () => {
@@ -2192,7 +2247,7 @@ describe("PermissionsUtilClass.canUpdateSegmentcheck", () => {
       projects: {},
     });
 
-    expect(permissions.canUpdateSegment()).toEqual(false);
+    expect(permissions.canUpdateSegment({ projects: [] }, {})).toEqual(false);
   });
 
   it("User with global analyst role can update segment", async () => {
@@ -2205,7 +2260,7 @@ describe("PermissionsUtilClass.canUpdateSegmentcheck", () => {
       projects: {},
     });
 
-    expect(permissions.canUpdateSegment()).toEqual(true);
+    expect(permissions.canUpdateSegment({ projects: [] }, {})).toEqual(true);
   });
 });
 
@@ -2230,9 +2285,9 @@ describe("PermissionsUtilClass.canDeleteSegmentcheck", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -2247,7 +2302,34 @@ describe("PermissionsUtilClass.canDeleteSegmentcheck", () => {
       projects: {},
     });
 
-    expect(permissions.canDeleteSegment()).toEqual(false);
+    expect(permissions.canDeleteSegment({ projects: [] })).toEqual(false);
+  });
+
+  it("User with global readonly role, but project level analyst role can not delete segment in All Projects, but can delete a segment in the project where they have analyst permissions", async () => {
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        ABC123: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        DEF456: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+      },
+    });
+
+    expect(permissions.canDeleteSegment({ projects: [] })).toEqual(false);
+    expect(permissions.canDeleteSegment({ projects: ["ABC123"] })).toEqual(
+      true
+    );
   });
 
   it("User with global collaborator role can delete segment", async () => {
@@ -2260,7 +2342,7 @@ describe("PermissionsUtilClass.canDeleteSegmentcheck", () => {
       projects: {},
     });
 
-    expect(permissions.canDeleteSegment()).toEqual(false);
+    expect(permissions.canDeleteSegment({ projects: [] })).toEqual(false);
   });
 
   it("User with global analyst role can delete segment", async () => {
@@ -2273,7 +2355,7 @@ describe("PermissionsUtilClass.canDeleteSegmentcheck", () => {
       projects: {},
     });
 
-    expect(permissions.canDeleteSegment()).toEqual(true);
+    expect(permissions.canDeleteSegment({ projects: [] })).toEqual(true);
   });
 });
 
@@ -2299,9 +2381,9 @@ describe("PermissionsUtilClass.canCreatePresentation check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -2367,9 +2449,9 @@ describe("PermissionsUtilClass.canUpdatePresentation check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -2435,9 +2517,9 @@ describe("PermissionsUtilClass.canDeletePresentation check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -2503,9 +2585,9 @@ describe("PermissionsUtilClass.canCreateDimension check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -2571,9 +2653,9 @@ describe("PermissionsUtilClass.canUpdateDimension check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -2639,9 +2721,9 @@ describe("PermissionsUtilClass.canDeleteDimension check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -2707,9 +2789,9 @@ describe("PermissionsUtilClass.canCreateSegmentcheck", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -2724,7 +2806,7 @@ describe("PermissionsUtilClass.canCreateSegmentcheck", () => {
       projects: {},
     });
 
-    expect(permissions.canCreateSegment()).toEqual(false);
+    expect(permissions.canCreateSegment({ projects: [] })).toEqual(false);
   });
 
   it("User with global collaborator role can create segment", async () => {
@@ -2737,7 +2819,7 @@ describe("PermissionsUtilClass.canCreateSegmentcheck", () => {
       projects: {},
     });
 
-    expect(permissions.canCreateSegment()).toEqual(false);
+    expect(permissions.canCreateSegment({ projects: [] })).toEqual(false);
   });
 
   it("User with global analyst role can create segment", async () => {
@@ -2750,145 +2832,145 @@ describe("PermissionsUtilClass.canCreateSegmentcheck", () => {
       projects: {},
     });
 
-    expect(permissions.canCreateSegment()).toEqual(true);
+    expect(permissions.canCreateSegment({ projects: [] })).toEqual(true);
   });
 });
 
-describe("PermissionsUtilClass.canUpdateSegmentcheck", () => {
-  const testOrg: OrganizationInterface = {
-    id: "org_sktwi1id9l7z9xkjb",
-    name: "Test Org",
-    ownerEmail: "test@test.com",
-    url: "https://test.com",
-    dateCreated: new Date(),
-    invites: [],
-    members: [
-      {
-        id: "base_user_123",
-        role: "readonly",
-        dateCreated: new Date(),
-        limitAccessByEnvironment: false,
-        environments: [],
-        projectRoles: [],
-        teams: [],
-      },
-    ],
-    settings: {
-      environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
-      ],
-    },
-  };
+// describe("PermissionsUtilClass.canUpdateSegmentcheck", () => {
+//   const testOrg: OrganizationInterface = {
+//     id: "org_sktwi1id9l7z9xkjb",
+//     name: "Test Org",
+//     ownerEmail: "test@test.com",
+//     url: "https://test.com",
+//     dateCreated: new Date(),
+//     invites: [],
+//     members: [
+//       {
+//         id: "base_user_123",
+//         role: "readonly",
+//         dateCreated: new Date(),
+//         limitAccessByEnvironment: false,
+//         environments: [],
+//         projectRoles: [],
+//         teams: [],
+//       },
+//     ],
+//     settings: {
+//       environments: [
+//         { id: "development", description: "" },
+//         { id: "staging", description: "" },
+//         { id: "production", description: "" },
+//       ],
+//     },
+//   };
 
-  it("User with global readonly role can not update segment", async () => {
-    const permissions = new Permissions({
-      global: {
-        permissions: roleToPermissionMap("readonly", testOrg),
-        limitAccessByEnvironment: false,
-        environments: [],
-      },
-      projects: {},
-    });
+//   it("User with global readonly role can not update segment", async () => {
+//     const permissions = new Permissions({
+//       global: {
+//         permissions: roleToPermissionMap("readonly", testOrg),
+//         limitAccessByEnvironment: false,
+//         environments: [],
+//       },
+//       projects: {},
+//     });
 
-    expect(permissions.canUpdateSegment()).toEqual(false);
-  });
+//     expect(permissions.canUpdateSegment({ projects: [] })).toEqual(false);
+//   });
 
-  it("User with global collaborator role can update segment", async () => {
-    const permissions = new Permissions({
-      global: {
-        permissions: roleToPermissionMap("collaborator", testOrg),
-        limitAccessByEnvironment: false,
-        environments: [],
-      },
-      projects: {},
-    });
+//   it("User with global collaborator role can update segment", async () => {
+//     const permissions = new Permissions({
+//       global: {
+//         permissions: roleToPermissionMap("collaborator", testOrg),
+//         limitAccessByEnvironment: false,
+//         environments: [],
+//       },
+//       projects: {},
+//     });
 
-    expect(permissions.canUpdateSegment()).toEqual(false);
-  });
+//     expect(permissions.canUpdateSegment({ projects: [] })).toEqual(false);
+//   });
 
-  it("User with global analyst role can update segment", async () => {
-    const permissions = new Permissions({
-      global: {
-        permissions: roleToPermissionMap("analyst", testOrg),
-        limitAccessByEnvironment: false,
-        environments: [],
-      },
-      projects: {},
-    });
+//   it("User with global analyst role can update segment", async () => {
+//     const permissions = new Permissions({
+//       global: {
+//         permissions: roleToPermissionMap("analyst", testOrg),
+//         limitAccessByEnvironment: false,
+//         environments: [],
+//       },
+//       projects: {},
+//     });
 
-    expect(permissions.canUpdateSegment()).toEqual(true);
-  });
-});
+//     expect(permissions.canUpdateSegment({ projects: [] })).toEqual(true);
+//   });
+// });
 
-describe("PermissionsUtilClass.canDeleteSegmentcheck", () => {
-  const testOrg: OrganizationInterface = {
-    id: "org_sktwi1id9l7z9xkjb",
-    name: "Test Org",
-    ownerEmail: "test@test.com",
-    url: "https://test.com",
-    dateCreated: new Date(),
-    invites: [],
-    members: [
-      {
-        id: "base_user_123",
-        role: "readonly",
-        dateCreated: new Date(),
-        limitAccessByEnvironment: false,
-        environments: [],
-        projectRoles: [],
-        teams: [],
-      },
-    ],
-    settings: {
-      environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
-      ],
-    },
-  };
+// describe("PermissionsUtilClass.canDeleteSegmentcheck", () => {
+//   const testOrg: OrganizationInterface = {
+//     id: "org_sktwi1id9l7z9xkjb",
+//     name: "Test Org",
+//     ownerEmail: "test@test.com",
+//     url: "https://test.com",
+//     dateCreated: new Date(),
+//     invites: [],
+//     members: [
+//       {
+//         id: "base_user_123",
+//         role: "readonly",
+//         dateCreated: new Date(),
+//         limitAccessByEnvironment: false,
+//         environments: [],
+//         projectRoles: [],
+//         teams: [],
+//       },
+//     ],
+//     settings: {
+//       environments: [
+//         { id: "development", description: "" },
+//         { id: "staging", description: "" },
+//         { id: "production", description: "" },
+//       ],
+//     },
+//   };
 
-  it("User with global readonly role can not delete segment", async () => {
-    const permissions = new Permissions({
-      global: {
-        permissions: roleToPermissionMap("readonly", testOrg),
-        limitAccessByEnvironment: false,
-        environments: [],
-      },
-      projects: {},
-    });
+//   it("User with global readonly role can not delete segment", async () => {
+//     const permissions = new Permissions({
+//       global: {
+//         permissions: roleToPermissionMap("readonly", testOrg),
+//         limitAccessByEnvironment: false,
+//         environments: [],
+//       },
+//       projects: {},
+//     });
 
-    expect(permissions.canDeleteSegment()).toEqual(false);
-  });
+//     expect(permissions.canDeleteSegment({ projects: [] })).toEqual(false);
+//   });
 
-  it("User with global collaborator role can delete segment", async () => {
-    const permissions = new Permissions({
-      global: {
-        permissions: roleToPermissionMap("collaborator", testOrg),
-        limitAccessByEnvironment: false,
-        environments: [],
-      },
-      projects: {},
-    });
+//   it("User with global collaborator role can delete segment", async () => {
+//     const permissions = new Permissions({
+//       global: {
+//         permissions: roleToPermissionMap("collaborator", testOrg),
+//         limitAccessByEnvironment: false,
+//         environments: [],
+//       },
+//       projects: {},
+//     });
 
-    expect(permissions.canDeleteSegment()).toEqual(false);
-  });
+//     expect(permissions.canDeleteSegment({ projects: [] })).toEqual(false);
+//   });
 
-  it("User with global analyst role can delete segment", async () => {
-    const permissions = new Permissions({
-      global: {
-        permissions: roleToPermissionMap("analyst", testOrg),
-        limitAccessByEnvironment: false,
-        environments: [],
-      },
-      projects: {},
-    });
+//   it("User with global analyst role can delete segment", async () => {
+//     const permissions = new Permissions({
+//       global: {
+//         permissions: roleToPermissionMap("analyst", testOrg),
+//         limitAccessByEnvironment: false,
+//         environments: [],
+//       },
+//       projects: {},
+//     });
 
-    expect(permissions.canDeleteSegment()).toEqual(true);
-  });
-});
+//     expect(permissions.canDeleteSegment({ projects: [] })).toEqual(true);
+//   });
+// });
 
 // permissionsClass Project Permissions Test
 describe("PermissionsUtilClass.canCreateIdea check", () => {
@@ -2912,9 +2994,9 @@ describe("PermissionsUtilClass.canCreateIdea check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -2999,9 +3081,9 @@ describe("PermissionsUtilClass.canUpdateIdea check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -3120,9 +3202,9 @@ describe("PermissionsUtilClass.canDeleteIdea check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -3207,9 +3289,9 @@ describe("PermissionsUtilClass.canViewExperimentModal check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -3294,9 +3376,9 @@ describe("PermissionsUtilClass.canCreateExperiment check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -3385,9 +3467,9 @@ describe("PermissionsUtilClass.canUpdateExperiment check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -3509,9 +3591,9 @@ describe("PermissionsUtilClass.canDeleteExperiment check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -3600,9 +3682,9 @@ describe("PermissionsUtilClass.canCreateMetric check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -3779,9 +3861,9 @@ describe("PermissionsUtilClass.canUpdateMetric check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -3979,9 +4061,9 @@ describe("PermissionsUtilClass.canDeleteMetric check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -4158,9 +4240,9 @@ describe("PermissionsUtilClass.canCreateFactTable check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -4270,9 +4352,9 @@ describe("PermissionsUtilClass.canUpdateFactTable check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -4379,9 +4461,9 @@ describe("PermissionsUtilClass.canDeleteFactTable check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -4491,9 +4573,9 @@ describe("PermissionsUtilClass.canAddComment check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -4664,9 +4746,9 @@ describe("PermissionsUtilClass.canCreateProjects check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -4722,9 +4804,9 @@ describe("PermissionsUtilClass.canUpdateProject check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -4780,9 +4862,9 @@ describe("PermissionsUtilClass.canDeleteProject check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -4837,9 +4919,9 @@ describe("PermissionsUtilClass.canByPassApprovalChecks", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -4892,9 +4974,9 @@ describe("PermissionsUtilClass.canReviewFeatureDrafts", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -5015,9 +5097,9 @@ describe("PermissionsUtilClass.canCreateVisualChange", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -5149,9 +5231,9 @@ describe("PermissionsUtilClass.canCreateDataSource", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -5166,7 +5248,9 @@ describe("PermissionsUtilClass.canCreateDataSource", () => {
       projects: {},
     });
 
-    expect(permissions.canCreateDataSource({ projects: [] })).toEqual(true);
+    expect(
+      permissions.canCreateDataSource({ projects: [], type: undefined })
+    ).toEqual(true);
   });
 
   it("User with engineer role is not able to create a data source", async () => {
@@ -5179,7 +5263,27 @@ describe("PermissionsUtilClass.canCreateDataSource", () => {
       projects: {},
     });
 
-    expect(permissions.canCreateDataSource({ projects: [] })).toEqual(false);
+    expect(
+      permissions.canCreateDataSource({ projects: [], type: undefined })
+    ).toEqual(false);
+  });
+
+  it("User with admin role unable to create growthbook_clickhouse source", async () => {
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("admin", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {},
+    });
+
+    expect(
+      permissions.canCreateDataSource({
+        projects: [],
+        type: "growthbook_clickhouse",
+      })
+    ).toEqual(false);
   });
 });
 
@@ -5204,9 +5308,9 @@ describe("PermissionsUtilClass.canUpdateDataSourceParams", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -5221,9 +5325,9 @@ describe("PermissionsUtilClass.canUpdateDataSourceParams", () => {
       projects: {},
     });
 
-    expect(permissions.canUpdateDataSourceParams({ projects: [] })).toEqual(
-      true
-    );
+    expect(
+      permissions.canUpdateDataSourceParams({ projects: [], type: undefined })
+    ).toEqual(true);
   });
 
   it("User with engineer role is not able to create a data source's params", async () => {
@@ -5236,9 +5340,27 @@ describe("PermissionsUtilClass.canUpdateDataSourceParams", () => {
       projects: {},
     });
 
-    expect(permissions.canUpdateDataSourceParams({ projects: [] })).toEqual(
-      false
-    );
+    expect(
+      permissions.canUpdateDataSourceParams({ projects: [], type: undefined })
+    ).toEqual(false);
+  });
+
+  it("User with admin role can't update a growthbook_clickhouse source's params", async () => {
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("admin", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {},
+    });
+
+    expect(
+      permissions.canUpdateDataSourceParams({
+        projects: [],
+        type: "growthbook_clickhouse",
+      })
+    ).toEqual(false);
   });
 });
 
@@ -5263,9 +5385,9 @@ describe("PermissionsUtilClass.canUpdateDataSourceSettings", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -5417,9 +5539,9 @@ describe("PermissionsUtilClass.canDeleteDataSource", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -5472,9 +5594,9 @@ describe("PermissionsUtilClass.canRunTestQueries check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -5592,9 +5714,9 @@ describe("PermissionsUtilClass.canManageFeatureDrafts", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -5738,9 +5860,9 @@ describe("PermissionsUtilClass.canViewFeatureModal check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -5812,9 +5934,9 @@ describe("PermissionsUtilClass.canCreateFeature check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -5905,9 +6027,9 @@ describe("PermissionsUtilClass.canUpdateFeature check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };
@@ -5996,9 +6118,9 @@ describe("PermissionsUtilClass.canDeleteFeature check", () => {
     ],
     settings: {
       environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
+        { id: "development", description: "" },
+        { id: "staging", description: "" },
+        { id: "production", description: "" },
       ],
     },
   };

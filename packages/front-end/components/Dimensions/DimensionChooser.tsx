@@ -4,6 +4,7 @@ import { DifferenceType } from "back-end/types/stats";
 import { getExposureQuery } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
+import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 
 export interface Props {
   value: string;
@@ -22,6 +23,7 @@ export interface Props {
     settings: ExperimentSnapshotAnalysisSettings | null
   ) => void;
   disabled?: boolean;
+  ssrPolyfills?: SSRPolyfills;
 }
 
 export default function DimensionChooser({
@@ -39,8 +41,9 @@ export default function DimensionChooser({
   setDifferenceType,
   setAnalysisSettings,
   disabled,
+  ssrPolyfills,
 }: Props) {
-  const { dimensions, getDatasourceById } = useDefinitions();
+  const { dimensions, getDatasourceById, getDimensionById } = useDefinitions();
   const datasource = datasourceId ? getDatasourceById(datasourceId) : null;
 
   // If activation metric is not selected, don't allow using that dimension
@@ -51,9 +54,9 @@ export default function DimensionChooser({
   }, [value, setValue, activationMetric]);
 
   // Don't show anything if the datasource doesn't support dimensions
-  if (!datasource || !datasource.properties?.dimensions) {
-    return null;
-  }
+  // if (!datasource || !datasource.properties?.dimensions) {
+  //   return null;
+  // }
 
   // Include user dimensions tied to the datasource
   const filteredDimensions = dimensions
@@ -65,11 +68,9 @@ export default function DimensionChooser({
       };
     });
 
-  const exposureQuery = getExposureQuery(
-    datasource.settings,
-    exposureQueryId,
-    userIdType
-  );
+  const exposureQuery = datasource?.settings
+    ? getExposureQuery(datasource.settings, exposureQueryId, userIdType)
+    : null;
   // Add experiment dimensions based on the selected exposure query
   if (exposureQuery) {
     if (exposureQuery.dimensions.length > 0) {
@@ -99,11 +100,27 @@ export default function DimensionChooser({
     },
   ];
   // Activation status is only available when an activation metric is chosen
-  if (datasource.properties?.activationDimension && activationMetric) {
+  if (datasource?.properties?.activationDimension && activationMetric) {
     builtInDimensions.push({
       label: "Activation status",
       value: "pre:activation",
     });
+  }
+
+  if (disabled) {
+    const dimensionName =
+      ssrPolyfills?.getDimensionById?.(value)?.name ||
+      getDimensionById(value)?.name ||
+      (value === "pre:date" ? "Date Cohorts (First Exposure)" : "") ||
+      (value === "pre:activation" ? "Activation status" : "") ||
+      value?.split(":")?.[1] ||
+      "None";
+    return (
+      <div>
+        <div className="uppercase-title text-muted">Dimension</div>
+        <div>{dimensionName}</div>
+      </div>
+    );
   }
 
   return (

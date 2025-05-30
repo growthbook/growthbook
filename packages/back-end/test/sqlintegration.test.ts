@@ -1,5 +1,5 @@
-import BigQuery from "../src/integrations/BigQuery";
-import { MetricInterface } from "../types/metric";
+import BigQuery from "back-end/src/integrations/BigQuery";
+import { MetricInterface } from "back-end/types/metric";
 
 describe("bigquery integration", () => {
   const bqIntegration = new BigQuery("", {});
@@ -27,7 +27,14 @@ describe("bigquery integration", () => {
         type: "conversion",
         windowUnit: "hours",
         windowValue: 72,
-        delayHours: 0,
+        delayUnit: "hours",
+        delayValue: 0,
+      },
+      priorSettings: {
+        override: false,
+        proper: false,
+        mean: 0,
+        stddev: 0.1,
       },
       cappingSettings: {
         type: "",
@@ -102,14 +109,16 @@ describe("bigquery integration", () => {
     );
 
     expect(
-      bqIntegration["getAggregateMetricColumn"](customNumberAggMetric)
+      bqIntegration["getAggregateMetricColumn"]({
+        metric: customNumberAggMetric,
+      })
     ).toEqual("(CASE WHEN value IS NOT NULL THEN 33 ELSE 0 END)");
-    expect(bqIntegration["getAggregateMetricColumn"](customCountAgg)).toEqual(
-      "COUNT(value) / (5 + COUNT(value))"
-    );
-    expect(bqIntegration["getAggregateMetricColumn"](normalSqlMetric)).toEqual(
-      "SUM(COALESCE(value, 0))"
-    );
+    expect(
+      bqIntegration["getAggregateMetricColumn"]({ metric: customCountAgg })
+    ).toEqual("COUNT(value) / (5 + COUNT(value))");
+    expect(
+      bqIntegration["getAggregateMetricColumn"]({ metric: normalSqlMetric })
+    ).toEqual("SUM(COALESCE(value, 0))");
   });
   it("correctly picks date windows", () => {
     const bqIntegration = new BigQuery("", {});
@@ -135,11 +144,18 @@ describe("bigquery integration", () => {
         type: "conversion",
         windowUnit: "hours",
         windowValue: 72,
-        delayHours: 0,
+        delayUnit: "hours",
+        delayValue: 0,
       },
       cappingSettings: {
         type: "",
         value: 0,
+      },
+      priorSettings: {
+        override: false,
+        proper: false,
+        mean: 0,
+        stddev: 0.1,
       },
       userIdTypes: ["anonymous_id", "user_id"],
     };
@@ -150,7 +166,8 @@ describe("bigquery integration", () => {
         type: "conversion",
         windowUnit: "hours",
         windowValue: 24,
-        delayHours: -4,
+        delayUnit: "hours",
+        delayValue: -4,
       },
     };
     const denominatorCountMetric: MetricInterface = {
@@ -161,7 +178,8 @@ describe("bigquery integration", () => {
         type: "conversion",
         windowUnit: "hours",
         windowValue: 1,
-        delayHours: 0,
+        delayUnit: "hours",
+        delayValue: 0,
       },
     };
     const denominatorBinomialMetric: MetricInterface = {
@@ -170,7 +188,8 @@ describe("bigquery integration", () => {
         type: "conversion",
         windowUnit: "hours",
         windowValue: 1,
-        delayHours: 0,
+        delayUnit: "hours",
+        delayValue: 0,
       },
     };
     const activationMetric: MetricInterface = {
@@ -179,7 +198,8 @@ describe("bigquery integration", () => {
         type: "conversion",
         windowUnit: "hours",
         windowValue: 72,
-        delayHours: 0,
+        delayUnit: "hours",
+        delayValue: 0,
       },
     };
 

@@ -6,6 +6,7 @@ on:
     branches:
       - main
     paths:
+      - ".github/workflows/deploy.yml"
       - "packages/**"
       - "!**.md"
       - "yarn.lock"
@@ -39,7 +40,7 @@ jobs:
           mkdir -p buildinfo
           echo "${GITHUB_SHA}" > buildinfo/SHA
           printf '%(%Y-%m-%dT%H:%M:%SZ)T' > buildinfo/DATE
-          echo "sha=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+          echo "docker_sha=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
 
       - name: Build, tag, and push image to Docker Hub
         uses: depot/build-push-action@v1
@@ -47,9 +48,13 @@ jobs:
           push: true
           context: .
           project: vmp2ssvj9r
+          build-args: |
+            DD_GIT_COMMIT_SHA=${{ github.sha }}
+            DD_GIT_REPOSITORY_URL=https://github.com/growthbook/growthbook.git
+            DD_VERSION=${{ github.sha }}
           tags: |
             growthbook/growthbook:latest
-            growthbook/growthbook:git-${{ steps.metadata.outputs.sha }}
+            growthbook/growthbook:git-${{ steps.metadata.outputs.docker_sha }}
           platforms: linux/amd64,linux/arm64
 
   # Deploy the back-end for GrowthBook Cloud
@@ -70,8 +75,36 @@ jobs:
           docker pull growthbook/growthbook:latest
           docker create --name temp-container growthbook/growthbook:latest
           docker cp temp-container:/usr/local/src/app/packages/front-end/.next/static ./static
+          # This is for the sentry source maps task below.
+          docker cp temp-container:/usr/local/src/app/packages/back-end/dist ./back-end-dist
           docker rm temp-container
           aws s3 sync ./static s3://growthbook-cloud-static-files/_next/static
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Generate sentry sourcemaps
+        run: |
+          npm install -g @sentry/cli
+          npm exec sentry-cli -- sourcemaps inject ./back-end-dist
+
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Create Sentry release
+        uses: getsentry/action-release@v1
+        with:
+          environment: 'production'
+          sourcemaps: './back-end-dist'
+          version: ${{ github.sha }}
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: growthbook
+          SENTRY_PROJECT: api
 
       - name: Deploy docker image to ECS for GrowthBook Cloud API
         run: aws ecs update-service --cluster prod-api --service prod-api --force-new-deployment --region us-east-1

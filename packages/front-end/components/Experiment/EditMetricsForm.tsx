@@ -1,4 +1,4 @@
-import { FC, useState } from "react";
+import { FC, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
@@ -19,6 +19,8 @@ import Modal from "@/components/Modal";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
+import track from "@/services/track";
+import PremiumCallout from "../Radix/PremiumCallout";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import { MetricsSelectorTooltip } from "./MetricsSelector";
 import MetricSelector from "./MetricSelector";
@@ -47,6 +49,7 @@ export function getDefaultMetricOverridesFormValue(
           "loseRisk",
           "maxPercentChange",
           "minPercentChange",
+          "targetMDE",
         ].includes(key)
       ) {
         defaultMetricOverrides[i][key] *= 100;
@@ -114,6 +117,7 @@ export function fixMetricOverridesBeforeSaving(overrides: MetricOverride[]) {
           "loseRisk",
           "maxPercentChange",
           "minPercentChange",
+          "targetMDE",
         ].includes(key)
       ) {
         overrides[i][key] = v / 100;
@@ -126,7 +130,8 @@ const EditMetricsForm: FC<{
   experiment: ExperimentInterfaceStringDates;
   cancel: () => void;
   mutate: () => void;
-}> = ({ experiment, cancel, mutate }) => {
+  source?: string;
+}> = ({ experiment, cancel, mutate, source }) => {
   const [upgradeModal, setUpgradeModal] = useState(false);
   const [hasMetricOverrideRiskError, setHasMetricOverrideRiskError] = useState(
     false
@@ -143,6 +148,8 @@ const EditMetricsForm: FC<{
     settings
   );
 
+  const isBandit = experiment.type === "multi-armed-bandit";
+
   const form = useForm<EditMetricsFormInterface>({
     defaultValues: {
       goalMetrics: experiment.goalMetrics || [],
@@ -153,19 +160,23 @@ const EditMetricsForm: FC<{
     },
   });
   const { apiCall } = useAuth();
-
+  useEffect(() => {
+    track("edit-metric-form-open");
+  });
   if (upgradeModal) {
     return (
       <UpgradeModal
         close={() => setUpgradeModal(false)}
-        reason="To override metric conversion windows,"
         source="override-metrics"
+        commercialFeature="override-metrics"
       />
     );
   }
 
   return (
     <Modal
+      trackingEventModalType="edit-metrics-form"
+      trackingEventModalSource={source}
       autoFocusSelector=""
       header="Edit Metrics"
       size="lg"
@@ -190,8 +201,10 @@ const EditMetricsForm: FC<{
         goalMetrics={form.watch("goalMetrics")}
         secondaryMetrics={form.watch("secondaryMetrics")}
         guardrailMetrics={form.watch("guardrailMetrics")}
-        setGoalMetrics={(goalMetrics) =>
-          form.setValue("goalMetrics", goalMetrics)
+        setGoalMetrics={
+          !(isBandit && experiment.status === "running")
+            ? (goalMetrics) => form.setValue("goalMetrics", goalMetrics)
+            : undefined
         }
         setSecondaryMetrics={(secondaryMetrics) =>
           form.setValue("secondaryMetrics", secondaryMetrics)
@@ -200,55 +213,72 @@ const EditMetricsForm: FC<{
           form.setValue("guardrailMetrics", guardrailMetrics)
         }
       />
+      {/* If the org has the feature, we render a callout within MetricsSelector */}
+      {!hasCommercialFeature("metric-groups") ? (
+        <PremiumCallout
+          commercialFeature="metric-groups"
+          dismissable={true}
+          id="metrics-list-metric-group-promo"
+          docSection="metricGroups"
+          mb="4"
+        >
+          <strong>Metric Groups</strong> make it possible to reuse sets of
+          metrics in your experiments.
+        </PremiumCallout>
+      ) : null}
 
-      <div className="form-group">
-        <label className="font-weight-bold mb-1">Activation Metric</label>
-        <div className="mb-1">
-          <span className="font-italic">
-            Users must convert on this metric before being included.{" "}
-          </span>
-          <MetricsSelectorTooltip onlyBinomial={true} />
-        </div>
-        <MetricSelector
-          initialOption="None"
-          value={form.watch("activationMetric")}
-          exposureQueryId={experiment.exposureQueryId}
-          onChange={(metric) => form.setValue("activationMetric", metric)}
-          datasource={experiment.datasource}
-          project={experiment.project}
-          onlyBinomial
-          includeFacts={true}
-        />
-      </div>
+      {!(isBandit && experiment.status === "running") && (
+        <>
+          <div className="form-group">
+            <label className="font-weight-bold mb-1">Activation Metric</label>
+            <div className="mb-1">
+              <span className="font-italic">
+                Users must convert on this metric before being included.{" "}
+              </span>
+              <MetricsSelectorTooltip onlyBinomial={true} />
+            </div>
+            <MetricSelector
+              initialOption="None"
+              value={form.watch("activationMetric")}
+              exposureQueryId={experiment.exposureQueryId}
+              onChange={(metric) => form.setValue("activationMetric", metric)}
+              datasource={experiment.datasource}
+              project={experiment.project}
+              onlyBinomial
+              includeFacts={true}
+            />
+          </div>
 
-      <div className="form-group mb-2">
-        <PremiumTooltip commercialFeature="override-metrics">
-          Metric Overrides (optional)
-        </PremiumTooltip>
-        <div className="mb-2 font-italic" style={{ fontSize: 12 }}>
-          <p className="mb-0">
-            Override metric behaviors within this experiment.
-          </p>
-          <p className="mb-0">
-            Leave any fields empty that you do not want to override.
-          </p>
-        </div>
-        <MetricsOverridesSelector
-          experiment={experiment}
-          form={form}
-          disabled={!hasOverrideMetricsFeature}
-          setHasMetricOverrideRiskError={(v: boolean) =>
-            setHasMetricOverrideRiskError(v)
-          }
-        />
-        {!hasOverrideMetricsFeature && (
-          <UpgradeMessage
-            showUpgradeModal={() => setUpgradeModal(true)}
-            commercialFeature="override-metrics"
-            upgradeMessage="override metrics"
-          />
-        )}
-      </div>
+          <div className="form-group mb-2">
+            <PremiumTooltip commercialFeature="override-metrics">
+              Metric Overrides (optional)
+            </PremiumTooltip>
+            <div className="mb-2 font-italic" style={{ fontSize: 12 }}>
+              <p className="mb-0">
+                Override metric behaviors within this experiment.
+              </p>
+              <p className="mb-0">
+                Leave any fields empty that you do not want to override.
+              </p>
+            </div>
+            <MetricsOverridesSelector
+              experiment={experiment}
+              form={form}
+              disabled={!hasOverrideMetricsFeature}
+              setHasMetricOverrideRiskError={(v: boolean) =>
+                setHasMetricOverrideRiskError(v)
+              }
+            />
+            {!hasOverrideMetricsFeature && (
+              <UpgradeMessage
+                showUpgradeModal={() => setUpgradeModal(true)}
+                commercialFeature="override-metrics"
+                upgradeMessage="override metrics"
+              />
+            )}
+          </div>
+        </>
+      )}
     </Modal>
   );
 };

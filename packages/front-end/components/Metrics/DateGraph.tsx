@@ -15,13 +15,12 @@ import {
   useTooltipInPortal,
 } from "@visx/tooltip";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { ScaleLinear } from "d3-scale";
-import { date, getValidDate } from "shared/dates";
+import { date, getValidDate, getValidDateOffsetByUTC } from "shared/dates";
 import { addDays, setHours, setMinutes } from "date-fns";
 import cloneDeep from "lodash/cloneDeep";
+import { ScaleLinear } from "d3-scale";
 import { getMetricFormatter } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
-import { PartialOn } from "@/types/utils";
 import styles from "./DateGraph.module.scss";
 
 interface Datapoint {
@@ -29,6 +28,8 @@ interface Datapoint {
   v: number | null; // value
   s?: number | null; // standard deviation
   c?: number | null; // count
+  num?: number | null; // numerator
+  den?: number | null; // denominator
   oor?: boolean; // out of range
 }
 
@@ -85,10 +86,10 @@ function getTooltipContents(
   type: MetricType,
   method: "sum" | "avg",
   smoothBy: "day" | "week",
+  formatter: (value: number, options?: Intl.NumberFormatOptions) => string,
   displayCurrency?: string
 ) {
   if (!d || d.oor) return null;
-  const formatter = getMetricFormatter(type);
   const formatterOptions = { currency: displayCurrency };
   return (
     <>
@@ -156,22 +157,16 @@ type ExperimentDisplayData = {
   };
 };
 
-// If status is draft, allow partial values, otherwise require everything.
-export type DraftExperiment = PartialOn<
-  ExperimentInterfaceStringDates,
-  "status",
-  "draft"
->;
-
 interface DateGraphProps {
   type: MetricType;
   smoothBy?: "day" | "week";
   method?: "avg" | "sum";
   dates: Datapoint[];
   showStdDev?: boolean;
-  experiments?: DraftExperiment[];
+  experiments?: ExperimentInterfaceStringDates[];
   height?: number;
   margin?: [number, number, number, number];
+  formatter?: (value: number, options?: Intl.NumberFormatOptions) => string;
   onHover?: (ret: { d: number | null }) => void;
   hoverDate?: number | null;
 }
@@ -185,13 +180,14 @@ const DateGraph: FC<DateGraphProps> = ({
   experiments = [],
   height = 220,
   margin = [15, 15, 30, 80],
+  formatter,
   onHover,
   hoverDate,
 }: DateGraphProps) => {
   const [marginTop, marginRight, marginBottom, marginLeft] = margin;
-  const displayCurrency = useCurrency();
 
-  const formatter = getMetricFormatter(type);
+  const displayCurrency = useCurrency();
+  const metricFormatter = formatter ?? getMetricFormatter(type);
   const formatterOptions = { currency: displayCurrency };
 
   const [
@@ -209,7 +205,7 @@ const DateGraph: FC<DateGraphProps> = ({
     const desiredHour = lastDate.getUTCHours();
     const desiredMinute = lastDate.getUTCMinutes();
     sortedDates = sortedDates.map((d) => {
-      let date = getValidDate(d.d);
+      let date = getValidDateOffsetByUTC(d.d);
       date = setMinutes(setHours(date, desiredHour), desiredMinute);
       d.d = date;
       return d;
@@ -401,6 +397,7 @@ const DateGraph: FC<DateGraphProps> = ({
     height += minGraphHeight - (yMax - expHeight);
     graphHeight = minGraphHeight;
   }
+
   const xScale = useMemo(
     () =>
       scaleTime({
@@ -547,6 +544,7 @@ const DateGraph: FC<DateGraphProps> = ({
                         type,
                         method,
                         smoothBy,
+                        metricFormatter,
                         displayCurrency
                       )}
                   </TooltipWithBounds>
@@ -554,6 +552,26 @@ const DateGraph: FC<DateGraphProps> = ({
               )}
             </div>
             <svg width={width} height={height}>
+              <defs>
+                <pattern
+                  id="stripe-pattern"
+                  patternUnits="userSpaceOnUse"
+                  width="6"
+                  height="6"
+                  patternTransform="rotate(45)"
+                >
+                  <rect fill="#cccccc" width="2.5" height="6" />
+                  <rect fill="#d6d6d6" x="2.5" width="3.5" height="6" />
+                </pattern>
+                <clipPath id="date-graph-clip">
+                  <rect
+                    x={0}
+                    y={0}
+                    width={width - margin[1] - margin[3]}
+                    height={height - margin[0] - margin[2]}
+                  />
+                </clipPath>
+              </defs>
               <Group left={marginLeft} top={marginTop}>
                 <GridRows
                   scale={yScale}
@@ -604,113 +622,107 @@ const DateGraph: FC<DateGraphProps> = ({
                     })}
                   </>
                 )}
-                {showStdDev && type !== "binomial" && (
-                  <>
-                    <defs>
-                      <pattern
-                        id="stripe-pattern"
-                        patternUnits="userSpaceOnUse"
-                        width="6"
-                        height="6"
-                        patternTransform="rotate(45)"
-                      >
-                        <rect fill="#cccccc" width="2.5" height="6" />
-                        <rect fill="#d6d6d6" x="2.5" width="3.5" height="6" />
-                      </pattern>
-                    </defs>
 
-                    <AreaClosed
-                      yScale={yScale}
-                      data={data}
-                      x={(d) => xScale(d.d) ?? 0}
-                      y0={(d) =>
-                        yScale(addStddev(d.v ?? 0, d.s ?? 0, 2, false))
-                      }
-                      y1={(d) => yScale(addStddev(d.v ?? 0, d.s ?? 0, 2, true))}
-                      fill={"#dddddd"}
-                      opacity={0.5}
-                      defined={(d) => d.s !== null && !d?.oor}
-                      curve={curveMonotoneX}
-                    />
-                    <AreaClosed
-                      yScale={yScale}
-                      data={data}
-                      x={(d) => xScale(d.d) ?? 0}
-                      y0={(d) =>
-                        yScale(addStddev(d.v ?? 0, d.s ?? 0, 1, false))
-                      }
-                      y1={(d) => yScale(addStddev(d.v ?? 0, d.s ?? 0, 1, true))}
-                      fill={"#cccccc"}
-                      opacity={0.5}
-                      defined={(d) => d.s !== null && !d?.oor}
-                      curve={curveMonotoneX}
-                    />
+                <Group clipPath="url(#date-graph-clip)">
+                  {showStdDev && type !== "binomial" && (
+                    <>
+                      <AreaClosed
+                        yScale={yScale}
+                        data={data}
+                        x={(d) => xScale(d.d) ?? 0}
+                        y0={(d) =>
+                          yScale(addStddev(d.v ?? 0, d.s ?? 0, 2, false))
+                        }
+                        y1={(d) =>
+                          yScale(addStddev(d.v ?? 0, d.s ?? 0, 2, true))
+                        }
+                        fill={"#dddddd"}
+                        opacity={0.5}
+                        defined={(d) => d.s !== null && !d?.oor}
+                        curve={curveMonotoneX}
+                      />
+                      <AreaClosed
+                        yScale={yScale}
+                        data={data}
+                        x={(d) => xScale(d.d) ?? 0}
+                        y0={(d) =>
+                          yScale(addStddev(d.v ?? 0, d.s ?? 0, 1, false))
+                        }
+                        y1={(d) =>
+                          yScale(addStddev(d.v ?? 0, d.s ?? 0, 1, true))
+                        }
+                        fill={"#cccccc"}
+                        opacity={0.5}
+                        defined={(d) => d.s !== null && !d?.oor}
+                        curve={curveMonotoneX}
+                      />
 
-                    {smoothBy === "week" && (
-                      <>
-                        <AreaClosed
-                          yScale={yScale}
-                          data={data}
-                          x={(d) => xScale(d.d) ?? 0}
-                          y0={(d) =>
-                            yScale(addStddev(d.v ?? 0, d.s ?? 0, 2, false))
-                          }
-                          y1={(d) =>
-                            yScale(addStddev(d.v ?? 0, d.s ?? 0, 2, true))
-                          }
-                          fill={"url(#stripe-pattern)"}
-                          opacity={0.3}
-                          defined={(d, i) =>
-                            d.s !== null && !!(d?.oor || data?.[i - 1]?.oor)
-                          }
-                          curve={curveMonotoneX}
-                        />
-                        <AreaClosed
-                          yScale={yScale}
-                          data={data}
-                          x={(d) => xScale(d.d) ?? 0}
-                          y0={(d) =>
-                            yScale(addStddev(d.v ?? 0, d.s ?? 0, 1, false))
-                          }
-                          y1={(d) =>
-                            yScale(addStddev(d.v ?? 0, d.s ?? 0, 1, true))
-                          }
-                          fill={"url(#stripe-pattern)"}
-                          opacity={0.3}
-                          defined={(d, i) =>
-                            d.s !== null && !!(d?.oor || data?.[i - 1]?.oor)
-                          }
-                          curve={curveMonotoneX}
-                        />
-                      </>
-                    )}
-                  </>
-                )}
+                      {smoothBy === "week" && (
+                        <>
+                          <AreaClosed
+                            yScale={yScale}
+                            data={data}
+                            x={(d) => xScale(d.d) ?? 0}
+                            y0={(d) =>
+                              yScale(addStddev(d.v ?? 0, d.s ?? 0, 2, false))
+                            }
+                            y1={(d) =>
+                              yScale(addStddev(d.v ?? 0, d.s ?? 0, 2, true))
+                            }
+                            fill={"url(#stripe-pattern)"}
+                            opacity={0.3}
+                            defined={(d, i) =>
+                              d.s !== null && !!(d?.oor || data?.[i - 1]?.oor)
+                            }
+                            curve={curveMonotoneX}
+                          />
+                          <AreaClosed
+                            yScale={yScale}
+                            data={data}
+                            x={(d) => xScale(d.d) ?? 0}
+                            y0={(d) =>
+                              yScale(addStddev(d.v ?? 0, d.s ?? 0, 1, false))
+                            }
+                            y1={(d) =>
+                              yScale(addStddev(d.v ?? 0, d.s ?? 0, 1, true))
+                            }
+                            fill={"url(#stripe-pattern)"}
+                            opacity={0.3}
+                            defined={(d, i) =>
+                              d.s !== null && !!(d?.oor || data?.[i - 1]?.oor)
+                            }
+                            curve={curveMonotoneX}
+                          />
+                        </>
+                      )}
+                    </>
+                  )}
 
-                <LinePath
-                  data={data}
-                  x={(d) => xScale(d.d) ?? 0}
-                  y={(d) => yScale(d.v ?? 0) ?? 0}
-                  stroke={"#8884d8"}
-                  strokeWidth={2}
-                  curve={curveMonotoneX}
-                  defined={(d) => d.v !== null && !d?.oor}
-                />
-                {smoothBy === "week" && (
                   <LinePath
                     data={data}
                     x={(d) => xScale(d.d) ?? 0}
                     y={(d) => yScale(d.v ?? 0) ?? 0}
                     stroke={"#8884d8"}
-                    opacity={0.5}
-                    strokeDasharray={"2,5"}
                     strokeWidth={2}
                     curve={curveMonotoneX}
-                    defined={(d, i) =>
-                      d.v !== null && !!(d?.oor || data?.[i - 1]?.oor)
-                    }
+                    defined={(d) => d.v !== null && !d?.oor}
                   />
-                )}
+                  {smoothBy === "week" && (
+                    <LinePath
+                      data={data}
+                      x={(d) => xScale(d.d) ?? 0}
+                      y={(d) => yScale(d.v ?? 0) ?? 0}
+                      stroke={"#8884d8"}
+                      opacity={0.5}
+                      strokeDasharray={"2,5"}
+                      strokeWidth={2}
+                      curve={curveMonotoneX}
+                      defined={(d, i) =>
+                        d.v !== null && !!(d?.oor || data?.[i - 1]?.oor)
+                      }
+                    />
+                  )}
+                </Group>
 
                 <AxisBottom
                   top={graphHeight}
@@ -744,7 +756,7 @@ const DateGraph: FC<DateGraphProps> = ({
                   tickFormat={(v) =>
                     type === "binomial"
                       ? (v as number).toLocaleString()
-                      : formatter(v as number, formatterOptions)
+                      : metricFormatter(v as number, formatterOptions)
                   }
                 />
               </Group>

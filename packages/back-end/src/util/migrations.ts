@@ -6,44 +6,44 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { RESERVED_ROLE_IDS, getDefaultRole } from "shared/permissions";
-import { accountFeatures, getAccountPlan } from "enterprise";
 import { omit } from "lodash";
+import { SavedGroupInterface } from "shared/src/types";
+import { v4 as uuidv4 } from "uuid";
+import { accountFeatures } from "shared/enterprise";
 import {
   ExperimentReportArgs,
+  ExperimentReportInterface,
   LegacyReportInterface,
-  ReportInterface,
-} from "@back-end/types/report";
-import { WebhookInterface } from "@back-end/types/webhook";
-import { SdkWebHookLogDocument } from "../models/SdkWebhookLogModel";
-import { LegacyMetricInterface, MetricInterface } from "../../types/metric";
+} from "back-end/types/report";
+import { WebhookInterface } from "back-end/types/webhook";
+import { SdkWebHookLogDocument } from "back-end/src/models/SdkWebhookLogModel";
+import { LegacyMetricInterface, MetricInterface } from "back-end/types/metric";
 import {
   DataSourceInterface,
   DataSourceSettings,
-} from "../../types/datasource";
-import { decryptDataSourceParams } from "../services/datasource";
+} from "back-end/types/datasource";
+import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import {
   FeatureDraftChanges,
   FeatureEnvironment,
   FeatureInterface,
   FeatureRule,
   LegacyFeatureInterface,
-} from "../../types/feature";
-import { OrganizationInterface } from "../../types/organization";
-import { getConfigOrganizationSettings } from "../init/config";
+} from "back-end/types/feature";
+import { OrganizationInterface } from "back-end/types/organization";
+import { getConfigOrganizationSettings } from "back-end/src/init/config";
 import {
   ExperimentInterface,
   LegacyExperimentInterface,
-} from "../../types/experiment";
+} from "back-end/types/experiment";
 import {
   LegacyExperimentSnapshotInterface,
   ExperimentSnapshotInterface,
   MetricForSnapshot,
-} from "../../types/experiment-snapshot";
-import { getEnvironments } from "../services/organizations";
-import {
-  LegacySavedGroupInterface,
-  SavedGroupInterface,
-} from "../../types/saved-group";
+} from "back-end/types/experiment-snapshot";
+import { getEnvironments } from "back-end/src/services/organizations";
+import { LegacySavedGroupInterface } from "back-end/types/saved-group";
+import { getAccountPlan } from "back-end/src/enterprise";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "./secrets";
 
 function roundVariationWeight(num: number): number {
@@ -67,7 +67,7 @@ function adjustWeights(weights: number[]): number[] {
 }
 
 export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
-  const newDoc = cloneDeep(doc);
+  const newDoc = { ...doc };
 
   if (doc.windowSettings === undefined) {
     if (doc.conversionDelayHours == null && doc.earlyStart) {
@@ -76,7 +76,8 @@ export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
         windowValue:
           (doc.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS) + 0.5,
         windowUnit: "hours",
-        delayHours: -0.5,
+        delayUnit: "hours",
+        delayValue: -0.5,
       };
     } else {
       newDoc.windowSettings = {
@@ -84,9 +85,20 @@ export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
         windowValue:
           doc.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS,
         windowUnit: "hours",
-        delayHours: doc.conversionDelayHours || 0,
+        delayUnit: "hours",
+        delayValue: doc.conversionDelayHours || 0,
       };
     }
+  } else {
+    if (doc.windowSettings.delayValue === undefined) {
+      newDoc.windowSettings = {
+        ...doc.windowSettings,
+        delayValue: doc.windowSettings.delayHours ?? 0,
+        delayUnit: doc.windowSettings.delayUnit ?? "hours",
+      };
+    }
+
+    delete newDoc?.windowSettings?.delayHours;
   }
 
   if (doc.priorSettings === undefined) {
@@ -536,7 +548,7 @@ export function upgradeExperimentDoc(
 
       phase.coverage = phase.coverage ?? 1;
       phase.condition = phase.condition || "";
-      phase.seed = phase.seed || experiment.trackingKey;
+      phase.seed = phase.seed || experiment.trackingKey; //support for old experiments where tracking key was used as seed instead of UUID
       phase.namespace = phase.namespace || {
         enabled: false,
         name: "",
@@ -550,6 +562,19 @@ export function upgradeExperimentDoc(
           name: "",
           range: [0, 1],
         };
+      }
+
+      // move bandit SRM to health.srm
+      if (phase.banditEvents) {
+        phase.banditEvents = phase.banditEvents.map((event) => ({
+          ...event,
+          ...(event.banditResult?.srm !== undefined &&
+            event?.health?.srm === undefined && {
+              health: {
+                srm: event.banditResult.srm,
+              },
+            }),
+        }));
       }
     });
   }
@@ -584,6 +609,10 @@ export function upgradeExperimentDoc(
     });
   }
 
+  if (experiment.decisionFrameworkSettings === undefined) {
+    experiment.decisionFrameworkSettings = {};
+  }
+
   // releasedVariationId
   if (!("releasedVariationId" in experiment)) {
     if (experiment.status === "stopped") {
@@ -607,10 +636,19 @@ export function upgradeExperimentDoc(
     experiment.sequentialTestingTuningParameter = DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
   }
 
+  if (!("shareLevel" in experiment)) {
+    experiment.shareLevel = "organization";
+  }
+  if (!("uid" in experiment)) {
+    experiment.uid = uuidv4().replace(/-/g, "");
+  }
+
   return experiment as ExperimentInterface;
 }
 
-export function migrateReport(orig: LegacyReportInterface): ReportInterface {
+export function migrateExperimentReport(
+  orig: LegacyReportInterface
+): ExperimentReportInterface {
   const { args, ...report } = orig;
 
   const {
@@ -630,6 +668,7 @@ export function migrateReport(orig: LegacyReportInterface): ReportInterface {
         : attributionModel,
     goalMetrics: otherArgs.goalMetrics || metrics || [],
     guardrailMetrics: otherArgs.guardrailMetrics || guardrails || [],
+    decisionFrameworkSettings: otherArgs.decisionFrameworkSettings || {},
   };
 
   if (
@@ -681,6 +720,15 @@ export function migrateSnapshot(
     manual,
     ...snapshot
   } = orig;
+  // Try to figure out metric ids from results
+  const metricIds = Object.keys(results?.[0]?.variations?.[0]?.metrics || {});
+  if (activationMetric && !metricIds.includes(activationMetric)) {
+    metricIds.push(activationMetric);
+  }
+
+  // We know the metric ids included, but don't know if they were goals or guardrails
+  // Just add them all as goals (doesn't really change much)
+  const goalMetrics = metricIds.filter((m) => m !== activationMetric);
 
   // Convert old results to new array of analyses
   if (!snapshot.analyses) {
@@ -707,6 +755,7 @@ export function migrateSnapshot(
             sequentialTestingTuningParameter:
               sequentialTestingTuningParameter ||
               DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+            numGoalMetrics: goalMetrics.length,
           },
           results,
         },
@@ -737,12 +786,6 @@ export function migrateSnapshot(
   // Migrate settings
   // We weren't tracking all of these before, so just pick good defaults
   if (!snapshot.settings) {
-    // Try to figure out metric ids from results
-    const metricIds = Object.keys(results?.[0]?.variations?.[0]?.metrics || {});
-    if (activationMetric && !metricIds.includes(activationMetric)) {
-      metricIds.push(activationMetric);
-    }
-
     const variations = (results?.[0]?.variations || []).map((v, i) => ({
       id: i + "",
       weight: 0,
@@ -758,7 +801,8 @@ export function migrateSnapshot(
         computedSettings: {
           windowSettings: {
             type: "conversion",
-            delayHours: 0,
+            delayUnit: "hours",
+            delayValue: 0,
             windowUnit: "hours",
             windowValue: DEFAULT_CONVERSION_WINDOW_HOURS,
           },
@@ -773,6 +817,7 @@ export function migrateSnapshot(
           ),
           regressionAdjustmentAvailable: !!regressionSettings?.regressionAdjustmentAvailable,
           regressionAdjustmentReason: regressionSettings?.reason || "",
+          targetMDE: undefined,
         },
       };
     });
@@ -787,9 +832,7 @@ export function migrateSnapshot(
           ]
         : [],
       metricSettings,
-      // We know the metric ids included, but don't know if they were goals or guardrails
-      // Just add them all as goals (doesn't really change much)
-      goalMetrics: metricIds.filter((m) => m !== activationMetric),
+      goalMetrics,
       secondaryMetrics: [],
       guardrailMetrics: [],
       activationMetric: activationMetric || null,
@@ -826,6 +869,15 @@ export function migrateSnapshot(
             ...defaultMetricPriorSettings,
             ...m.computedSettings,
           };
+          if (m.computedSettings.windowSettings?.delayValue === undefined) {
+            m.computedSettings.windowSettings = {
+              ...m.computedSettings.windowSettings,
+              // @ts-expect-error To prevent building a full legacy snapshot settings type
+              delayValue: m.computedSettings.windowSettings?.delayHours ?? 0,
+              delayUnit:
+                m.computedSettings.windowSettings?.delayUnit ?? "hours",
+            };
+          }
         }
         return m;
       }

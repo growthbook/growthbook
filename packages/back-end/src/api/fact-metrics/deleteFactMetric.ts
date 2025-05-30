@@ -1,6 +1,6 @@
-import { DeleteFactMetricResponse } from "../../../types/openapi";
-import { createApiRequestHandler } from "../../util/handler";
-import { deleteFactMetricValidator } from "../../validators/openapi";
+import { DeleteFactMetricResponse } from "back-end/types/openapi";
+import { createApiRequestHandler } from "back-end/src/util/handler";
+import { deleteFactMetricValidator } from "back-end/src/validators/openapi";
 
 export const deleteFactMetric = createApiRequestHandler(
   deleteFactMetricValidator

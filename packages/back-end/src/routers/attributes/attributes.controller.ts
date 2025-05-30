@@ -1,9 +1,9 @@
 import type { Response } from "express";
-import { AuthRequest } from "../../types/AuthRequest";
-import { getContextFromReq } from "../../services/organizations";
-import { SDKAttribute } from "../../../types/organization";
-import { updateOrganization } from "../../models/OrganizationModel";
-import { auditDetailsUpdate } from "../../services/audit";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { getContextFromReq } from "back-end/src/services/organizations";
+import { SDKAttribute } from "back-end/types/organization";
+import { updateOrganization } from "back-end/src/models/OrganizationModel";
+import { auditDetailsUpdate } from "back-end/src/services/audit";
 
 export const postAttribute = async (
   req: AuthRequest<SDKAttribute>,

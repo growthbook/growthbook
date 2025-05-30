@@ -1,9 +1,9 @@
-import { databricksCreateTableOptions } from "enterprise";
-import { DatabricksConnectionParams } from "../../types/integrations/databricks";
-import { runDatabricksQuery } from "../services/databricks";
-import { decryptDataSourceParams } from "../services/datasource";
-import { QueryResponse } from "../types/Integration";
-import { FormatDialect } from "../util/sql";
+import { databricksCreateTableOptions } from "shared/enterprise";
+import { DatabricksConnectionParams } from "back-end/types/integrations/databricks";
+import { runDatabricksQuery } from "back-end/src/services/databricks";
+import { decryptDataSourceParams } from "back-end/src/services/datasource";
+import { QueryResponse } from "back-end/src/types/Integration";
+import { FormatDialect } from "back-end/src/util/sql";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Databricks extends SqlIntegration {
@@ -63,7 +63,22 @@ export default class Databricks extends SqlIntegration {
   escapeStringLiteral(value: string): string {
     return value.replace(/(['\\])/g, "\\$1");
   }
-
+  hasCountDistinctHLL(): boolean {
+    return true;
+  }
+  hllAggregate(col: string): string {
+    return `HLL_SKETCH_AGG(${this.castToString(col)})`;
+  }
+  hllReaggregate(col: string): string {
+    return `HLL_UNION_AGG(${col})`;
+  }
+  hllCardinality(col: string): string {
+    return `HLL_SKETCH_ESTIMATE(${col})`;
+  }
+  extractJSONField(jsonCol: string, path: string, isNumeric: boolean): string {
+    const raw = `${jsonCol}:${path}`;
+    return isNumeric ? this.ensureFloat(raw) : raw;
+  }
   getDefaultDatabase(): string {
     return this.params.catalog;
   }

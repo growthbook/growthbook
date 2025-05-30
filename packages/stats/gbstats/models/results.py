@@ -3,10 +3,31 @@ from typing import List, Optional, Tuple, Union
 from pydantic.dataclasses import dataclass
 
 from gbstats.bayesian.tests import RiskType
+from gbstats.frequentist.tests import PValueErrorMessage
 from gbstats.models.tests import Uplift
 
 
 # Data classes for return to the back end
+@dataclass
+class SingleVariationResult:
+    users: Optional[float]
+    cr: Optional[float]
+    ci: Optional[List[float]]
+
+
+@dataclass
+class BanditResult:
+    singleVariationResults: Optional[List[SingleVariationResult]]
+    currentWeights: Optional[List[float]]
+    updatedWeights: Optional[List[float]]
+    bestArmProbabilities: Optional[List[float]]
+    seed: int
+    updateMessage: Optional[str]
+    error: Optional[str]
+    reweight: bool
+    weightsWereUpdated: bool
+
+
 @dataclass
 class MetricStats:
     users: int
@@ -25,11 +46,29 @@ class BaselineResponse:
 
 
 @dataclass
+class PowerResponse:
+    status: str
+    errorMessage: Optional[str]
+    firstPeriodPairwiseSampleSize: Optional[float]
+    targetMDE: float
+    sigmahat2Delta: Optional[float]
+    priorProper: Optional[bool]
+    priorLiftMean: Optional[float]
+    priorLiftVariance: Optional[float]
+    upperBoundAchieved: Optional[bool]
+    scalingFactor: Optional[float]
+
+
+ResponseCI = Tuple[Optional[float], Optional[float]]
+
+
+@dataclass
 class BaseVariationResponse(BaselineResponse):
     expected: float
     uplift: Uplift
-    ci: Tuple[float, float]
+    ci: ResponseCI
     errorMessage: Optional[str]
+    power: Optional[PowerResponse]
 
 
 @dataclass
@@ -41,7 +80,8 @@ class BayesianVariationResponse(BaseVariationResponse):
 
 @dataclass
 class FrequentistVariationResponse(BaseVariationResponse):
-    pValue: float
+    pValue: Optional[float]
+    pValueErrorMessage: Optional[PValueErrorMessage]
 
 
 VariationResponse = Union[
@@ -73,4 +113,6 @@ class ExperimentMetricAnalysis:
 class MultipleExperimentMetricAnalysis:
     id: str
     results: List[ExperimentMetricAnalysis]
+    banditResult: Optional[BanditResult]
     error: Optional[str]
+    traceback: Optional[str]

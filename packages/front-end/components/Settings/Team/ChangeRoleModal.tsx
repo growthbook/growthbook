@@ -18,14 +18,15 @@ const ChangeRoleModal: FC<{
     return (
       <UpgradeModal
         close={() => setUpgradeModal(false)}
-        reason="To enable advanced permissioning,"
         source="advanced-permissions"
+        commercialFeature="advanced-permissions"
       />
     );
   }
 
   return (
     <Modal
+      trackingEventModalType=""
       close={close}
       header="Change Role"
       open={true}

@@ -1,14 +1,18 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { Document } from "mongodb";
-import { UserInterface } from "../../types/user";
-import { usingOpenId, validatePasswordFormat } from "../services/auth";
-import { hash } from "../services/users";
+import { UserInterface } from "back-end/types/user";
+import {
+  usingOpenId,
+  validatePasswordFormat,
+} from "back-end/src/services/auth";
+import { hash } from "back-end/src/services/users";
 import {
   ToInterface,
   getCollection,
   removeMongooseFields,
-} from "../util/mongo.util";
+} from "back-end/src/util/mongo.util";
+import { IS_CLOUD } from "back-end/src/util/secrets";
 
 const userSchema = new mongoose.Schema({
   id: {
@@ -207,24 +211,21 @@ export async function hasUser() {
   return !!doc;
 }
 
-export async function getAllUserEmailsAcrossAllOrgs(): Promise<string[]> {
-  const users = await UserModel.aggregate([
-    {
-      $lookup: {
-        from: "organizations",
-        localField: "id",
-        foreignField: "members.id",
-        as: "orgs",
-      },
-    },
-    {
-      $match: {
-        "orgs.0": { $exists: true },
-      },
-    },
-  ]);
+export async function getUserIdsAndEmailsForAllUsersInDb() {
+  if (IS_CLOUD) {
+    throw new Error(
+      "getUserIdsAndEmailsForAllUsersInDb() is not supported on cloud"
+    );
+  }
 
-  return users.map((u) => u.email);
+  const users = await getCollection(COLLECTION)
+    .find({}, { projection: { email: 1, id: 1 } })
+    .toArray();
+
+  return users.map((u) => ({
+    id: u.id,
+    email: u.email,
+  }));
 }
 
 export async function getEmailFromUserId(userId: string) {

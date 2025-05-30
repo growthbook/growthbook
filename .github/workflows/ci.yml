@@ -1,7 +1,7 @@
 name: CI
 on:
   push:
-    branches: main
+    branches: [main]
     paths:
       - "packages/**"
       - "yarn.lock"
@@ -27,23 +27,23 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'yarn'
+          node-version: "20"
+          cache: "yarn"
 
       - name: Set up Python 3.11
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: 3.11
-          cache: 'pip'
+          cache: "pip"
 
       - name: Cache eslint
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: ${{ github.workspace }}/.eslintcache
           key: ${{ runner.os }}-eslint-${{ hashFiles('**/yarn.lock') }}-${{ hashFiles('**/*.ts', '**/*.tsx') }}
           restore-keys: |
             ${{ runner.os }}-eslint-
-      
+
       - name: Install dependencies
         run: |
           # Main app
@@ -75,13 +75,20 @@ jobs:
           yarn generate-api-types
           [[ -n $(git status --porcelain) ]] && echo "You need to run yarn generate-api-types" && git status --porcelain && exit 1 || true
 
+      - name: Check doc
+        run: |
+          cd docs
+          yarn
+          yarn gen
+          [[ -n $(git status --porcelain) ]] && echo "You need to run yarn gen-doc" && git status --porcelain && exit 1 || true
+
       - name: Type-check
         run: |
           yarn type-check
         env:
           CI: true
 
-      - name: Test 
+      - name: Test
         run: |
           yarn test
         env:

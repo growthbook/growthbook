@@ -1,5 +1,18 @@
-import { MetricPriorSettings } from "./fact-table";
-import { AttributionModel, MetricOverride } from "./experiment";
+import { ExperimentMetricInterface } from "shared/experiments";
+import { OrganizationSettings } from "back-end/types/organization";
+import { MetricGroupInterface } from "back-end/types/metric-groups";
+import { DimensionInterface } from "back-end/types/dimension";
+import { ProjectInterface } from "back-end/src/models/ProjectModel";
+import { ExperimentDecisionFrameworkSettings } from "back-end/src/validators/experiments";
+import { FactTableInterface, MetricPriorSettings } from "./fact-table";
+import {
+  AttributionModel,
+  ExperimentPhase,
+  ExperimentType,
+  MetricOverride,
+  Variation,
+  ExperimentAnalysisSettings,
+} from "./experiment";
 import { SnapshotVariation } from "./experiment-snapshot";
 import { Queries } from "./query";
 import { DifferenceType, StatsEngine } from "./stats";
@@ -14,9 +27,52 @@ export interface ReportInterfaceBase {
   title: string;
   description: string;
   runStarted: Date | null;
+  status?: "published" | "private";
+}
+
+export interface ExperimentSnapshotReportInterface extends ReportInterfaceBase {
+  type: "experiment-snapshot";
+  uid: string;
+  shareLevel: "public" | "organization" | "private";
+  editLevel: "organization" | "private";
+  snapshot: string;
+  experimentMetadata: ExperimentReportMetadata;
+  experimentAnalysisSettings: ExperimentReportAnalysisSettings;
+}
+
+export type ExperimentReportAnalysisSettings = ExperimentAnalysisSettings &
+  ExperimentSnapshotReportArgs;
+
+export type ExperimentSnapshotReportArgs = {
+  userIdType?: "user" | "anonymous";
+  differenceType?: DifferenceType;
+  dimension?: string;
+  dateStarted?: Date;
+  dateEnded?: Date | null;
+};
+
+export interface ExperimentReportMetadata {
+  type: ExperimentType;
+  phases: ExperimentReportPhase[];
+  variations: Omit<Variation, "description" | "screenshots">[];
+}
+export type ExperimentReportPhase = Pick<
+  ExperimentPhase,
+  | "dateStarted"
+  | "dateEnded"
+  | "name"
+  | "variationWeights"
+  | "banditEvents"
+  | "coverage"
+>;
+
+/** @deprecated */
+export interface ExperimentReportInterface extends ReportInterfaceBase {
+  type: "experiment";
+  args: ExperimentReportArgs;
+  results?: ExperimentReportResults;
   error?: string;
   queries: Queries;
-  status?: "published" | "private";
 }
 
 export interface ExperimentReportVariation {
@@ -50,9 +106,7 @@ export type LegacyMetricRegressionAdjustmentStatus = {
 export interface ExperimentReportArgs {
   trackingKey: string;
   datasource: string;
-  /**
-   * @deprecated
-   */
+  /** @deprecated */
   userIdType?: "anonymous" | "user";
   exposureQueryId: string;
   startDate: Date;
@@ -64,6 +118,7 @@ export interface ExperimentReportArgs {
   goalMetrics: string[];
   secondaryMetrics: string[];
   metricOverrides?: MetricOverride[];
+  decisionFrameworkSettings: ExperimentDecisionFrameworkSettings;
   guardrailMetrics: string[];
   activationMetric?: string;
   queryFilter?: string;
@@ -89,18 +144,19 @@ export interface ExperimentReportResults {
   multipleExposures: number;
   dimensions: ExperimentReportResultDimension[];
 }
-export interface ExperimentReportInterface extends ReportInterfaceBase {
-  type: "experiment";
-  args: ExperimentReportArgs;
-  results?: ExperimentReportResults;
-}
 
-export type ReportInterface = ExperimentReportInterface;
+export type ReportInterface =
+  | ExperimentSnapshotReportInterface
+  | ExperimentReportInterface;
 
-export type LegacyReportInterface = Omit<ReportInterface, "args"> & {
+/** @deprecated */
+export type LegacyReportInterface = Omit<ExperimentReportInterface, "args"> & {
   args: Omit<
     ExperimentReportArgs,
-    "goalMetrics" | "guardrailMetrics" | "secondaryMetrics"
+    | "goalMetrics"
+    | "guardrailMetrics"
+    | "secondaryMetrics"
+    | "decisionFrameworkSettings"
   > & {
     metricRegressionAdjustmentStatuses?: LegacyMetricRegressionAdjustmentStatus[];
     metrics?: string[];
@@ -108,5 +164,15 @@ export type LegacyReportInterface = Omit<ReportInterface, "args"> & {
     goalMetrics?: string[];
     guardrailMetrics?: string[];
     secondaryMetrics?: string[];
+    decisionFrameworkSettings?: ExperimentDecisionFrameworkSettings;
   };
+};
+
+export type ExperimentReportSSRData = {
+  metrics: Record<string, ExperimentMetricInterface>;
+  metricGroups: MetricGroupInterface[];
+  factTables: Record<string, FactTableInterface>;
+  settings: OrganizationSettings;
+  projects: Record<string, ProjectInterface>;
+  dimensions: DimensionInterface[];
 };

@@ -49,7 +49,11 @@ export default function OAuthLookup() {
     </>
   );
   return (
-    <WelcomeFrame leftside={leftside} loading={loading}>
+    <WelcomeFrame
+      leftside={leftside}
+      loading={loading}
+      pathName="/oauth/lookup"
+    >
       <form
         onSubmit={form.handleSubmit(async ({ email }) => {
           try {

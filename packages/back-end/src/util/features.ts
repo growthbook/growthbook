@@ -2,34 +2,35 @@ import isEqual from "lodash/isEqual";
 import {
   ConditionInterface,
   FeatureRule as FeatureDefinitionRule,
+  ParentConditionInterface,
 } from "@growthbook/growthbook";
 import { includeExperimentInPayload, isDefined } from "shared/util";
+import { GroupMap } from "shared/src/types";
+import { cloneDeep, isNil } from "lodash";
 import {
   FeatureInterface,
   FeatureRule,
   FeatureValueType,
   SavedGroupTargeting,
-} from "../../types/feature";
-import { FeatureDefinitionWithProject } from "../../types/api";
-import { GroupMap } from "../../types/saved-group";
-import { SDKPayloadKey } from "../../types/sdk-payload";
-import { ExperimentInterface } from "../../types/experiment";
-import { FeatureRevisionInterface } from "../../types/feature-revision";
+} from "back-end/types/feature";
+import { FeatureDefinitionWithProject } from "back-end/types/api";
+import { SDKPayloadKey } from "back-end/types/sdk-payload";
+import { ExperimentInterface } from "back-end/types/experiment";
+import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { Environment } from "back-end/types/organization";
+import { SafeRolloutInterface } from "back-end/types/safe-rollout";
 import { getCurrentEnabledState } from "./scheduleRules";
 
-// eslint-disable-next-line
-type GroupMapValue = GroupMap extends Map<any, infer I> ? I : never;
-
 function getSavedGroupCondition(
-  group: GroupMapValue,
+  groupId: string,
   groupMap: GroupMap,
   include: boolean
 ): null | ConditionInterface {
-  if (group.type === "condition") {
+  const group = groupMap.get(groupId);
+  if (!group) return null;
+  if (group.type === "condition" && group.condition) {
     try {
-      const cond = JSON.parse(
-        replaceSavedGroupsInCondition(group.condition || "{}", groupMap)
-      );
+      const cond = JSON.parse(group.condition);
       return include ? cond : { $not: cond };
     } catch (e) {
       return null;
@@ -39,7 +40,7 @@ function getSavedGroupCondition(
   if (!group.attributeKey) return null;
 
   return {
-    [group.attributeKey]: { [include ? "$in" : "$nin"]: group.values || [] },
+    [group.attributeKey]: { [include ? "$inGroup" : "$notInGroup"]: groupId },
   };
 }
 
@@ -51,9 +52,7 @@ export function getParsedCondition(
   const conditions: ConditionInterface[] = [];
   if (condition && condition !== "{}") {
     try {
-      const cond = JSON.parse(
-        replaceSavedGroupsInCondition(condition, groupMap)
-      );
+      const cond = JSON.parse(condition);
       if (cond) conditions.push(cond);
     } catch (e) {
       // ignore condition parse errors here
@@ -62,32 +61,34 @@ export function getParsedCondition(
 
   if (savedGroups) {
     savedGroups.forEach(({ ids, match }) => {
-      const groups = ids
-        .map((id) => groupMap.get(id))
-        // Must either have at least 1 value or be a non-empty condition
-        .filter((group) => {
-          if (!group) return false;
-          if (group.type === "condition") {
-            if (!group.condition || group.condition === "{}") return false;
-          } else {
-            if (!group.values?.length) return false;
-          }
-          return true;
-        }) as GroupMapValue[];
-      if (!groups.length) return;
+      const groupIds = ids.filter((id) => {
+        const group = groupMap.get(id);
+        if (!group) return false;
+        if (group.type === "condition") {
+          // Condition groups must be non-empty
+          if (!group.condition || group.condition === "{}") return false;
+        } else {
+          // Legacy list groups must be non-empty
+          if (!group.useEmptyListGroup && !group.values?.length) return false;
+          // List groups must have defined values
+          if (typeof group.values === "undefined") return false;
+        }
+        return true;
+      });
+      if (!groupIds.length) return;
 
       // Add each group as a separate top-level AND
       if (match === "all") {
-        groups.forEach((group) => {
-          const cond = getSavedGroupCondition(group, groupMap, true);
+        groupIds.forEach((groupId) => {
+          const cond = getSavedGroupCondition(groupId, groupMap, true);
           if (cond) conditions.push(cond);
         });
       }
       // Add one top-level AND with nested OR conditions
       else if (match === "any") {
         const ors: ConditionInterface[] = [];
-        groups.forEach((group) => {
-          const cond = getSavedGroupCondition(group, groupMap, true);
+        groupIds.forEach((groupId) => {
+          const cond = getSavedGroupCondition(groupId, groupMap, true);
           if (cond) ors.push(cond);
         });
 
@@ -102,8 +103,8 @@ export function getParsedCondition(
       }
       // Add each group as a separate top-level AND with a NOT condition
       else if (match === "none") {
-        groups.forEach((group) => {
-          const cond = getSavedGroupCondition(group, groupMap, false);
+        groupIds.forEach((groupId) => {
+          const cond = getSavedGroupCondition(groupId, groupMap, false);
           if (cond) conditions.push(cond);
         });
       }
@@ -139,12 +140,17 @@ export function replaceSavedGroupsInCondition(
   return newString;
 }
 
-export function isRuleEnabled(rule: FeatureRule): boolean {
+export function isRuleEnabled(
+  rule: FeatureRule,
+  date?: Date | number
+): boolean {
   // Manually disabled
   if (!rule.enabled) return false;
 
   // Disabled because of an automatic schedule
-  if (!getCurrentEnabledState(rule.scheduleRules || [], new Date())) {
+  // when used in filter/some array loops, the second parameter will be the index, which is not a date.
+  const enabledDate = date instanceof Date ? date : new Date();
+  if (!getCurrentEnabledState(rule.scheduleRules || [], enabledDate)) {
     return false;
   }
 
@@ -176,7 +182,7 @@ export function getEnabledEnvironments(
         if (!ruleFilter) return true;
         const env = settings[e];
         if (!env?.rules) return false;
-        return env.rules.filter(ruleFilter).some(isRuleEnabled);
+        return env.rules.filter(ruleFilter).some((r) => isRuleEnabled(r));
       })
       .forEach((e) => environments.add(e));
   });
@@ -314,14 +320,16 @@ export function getFeatureDefinition({
   groupMap,
   experimentMap,
   revision,
-  returnRuleId = false,
+  date,
+  safeRolloutMap,
 }: {
   feature: FeatureInterface;
   environment: string;
   groupMap: GroupMap;
   experimentMap: Map<string, ExperimentInterface>;
   revision?: FeatureRevisionInterface;
-  returnRuleId?: boolean;
+  date?: Date;
+  safeRolloutMap: Map<string, SafeRolloutInterface>;
 }): FeatureDefinitionWithProject | null {
   const settings = feature.environmentSettings?.[environment];
 
@@ -362,9 +370,13 @@ export function getFeatureDefinition({
   const defRules = [
     ...prerequisiteRules,
     ...(rules
-      ?.filter(isRuleEnabled)
+      ?.filter((r) => {
+        return isRuleEnabled(r, date);
+      })
       ?.map((r) => {
-        const rule: FeatureDefinitionRule = {};
+        const rule: FeatureDefinitionRule = {
+          id: r.id,
+        };
 
         // Experiment reference rules inherit everything from the experiment
         if (r.type === "experiment-ref") {
@@ -387,6 +399,22 @@ export function getFeatureDefinition({
           );
           if (condition) {
             rule.condition = condition;
+          }
+
+          if (phase?.prerequisites?.length) {
+            rule.parentConditions = phase.prerequisites
+              .map((prerequisite) => {
+                try {
+                  return {
+                    id: prerequisite.id,
+                    condition: JSON.parse(prerequisite.condition),
+                  };
+                } catch (e) {
+                  // do nothing
+                }
+                return null;
+              })
+              .filter(Boolean) as ParentConditionInterface[];
           }
 
           rule.coverage = phase.coverage;
@@ -454,7 +482,6 @@ export function getFeatureDefinition({
             rule.phase = exp.phases.length - 1 + "";
             rule.name = exp.name;
           }
-          if (returnRuleId) rule.id = r.id;
           return rule;
         }
 
@@ -534,8 +561,55 @@ export function getFeatureDefinition({
           if (r.hashAttribute) {
             rule.hashAttribute = r.hashAttribute;
           }
+        } else if (r.type === "safe-rollout") {
+          const safeRollout = safeRolloutMap.get(r.safeRolloutId);
+
+          if (r.status === "released") {
+            const variationValue = r.variationValue;
+            if (isNil(variationValue)) return null;
+
+            // If a variation has been rolled out to 100%
+            rule.force = getJSONValue(feature.valueType, variationValue);
+          } else if (r.status === "rolled-back") {
+            const controlValue = r.controlValue;
+            if (isNil(controlValue)) return null;
+
+            // Return control value if rolled back. Feature default value might not be the same as the control value.
+            rule.force = getJSONValue(feature.valueType, controlValue);
+          } else {
+            if (
+              safeRollout?.rampUpSchedule.rampUpCompleted ||
+              !safeRollout?.rampUpSchedule.enabled
+            ) {
+              rule.coverage = 1; // Always 100% right now
+            } else {
+              rule.coverage =
+                safeRollout?.rampUpSchedule?.steps[
+                  safeRollout?.rampUpSchedule.step
+                ]?.percent ?? 1;
+            }
+
+            rule.hashAttribute = r.hashAttribute;
+
+            rule.seed = r.seed;
+
+            rule.hashVersion = 2;
+
+            rule.variations = [
+              getJSONValue(feature.valueType, r.controlValue),
+              getJSONValue(feature.valueType, r.variationValue),
+            ];
+            const varWeights = 0.5;
+            rule.weights = [varWeights, varWeights];
+            rule.key = r.trackingKey;
+            rule.meta = [
+              { key: "0", name: "Control" },
+              { key: "1", name: "Variation" },
+            ];
+            rule.phase = "0";
+            rule.name = `${feature.id} - Safe Rollout`;
+          }
         }
-        if (returnRuleId) rule.id = r.id;
         return rule;
       })
       ?.filter(isRule) ?? []),
@@ -551,4 +625,29 @@ export function getFeatureDefinition({
   }
 
   return def;
+}
+
+// Populates the values of `environmentRecord` for environment keys which are undefined in the record
+// and have a parent (base) environment to inherit from which is defined.
+export function applyEnvironmentInheritance<T>(
+  environments: Environment[],
+  environmentRecord: Record<string, T>
+): Record<string, T> {
+  const environmentParents = Object.fromEntries(
+    environments.filter((env) => env.parent).map((env) => [env.id, env.parent])
+  );
+  const mutableClone = cloneDeep(environmentRecord);
+  Object.keys(environmentParents).forEach((env) => {
+    if (mutableClone[env]) return;
+    // If no definition for the environment exists, recursively inherit from the parent environments
+    let baseEnv = environmentParents[env];
+    while (baseEnv && typeof mutableClone[baseEnv] === "undefined") {
+      baseEnv = environmentParents[baseEnv];
+    }
+    // If a valid parent was found, copy its value in the record
+    if (baseEnv) {
+      mutableClone[env] = cloneDeep(mutableClone[baseEnv]);
+    }
+  });
+  return mutableClone;
 }

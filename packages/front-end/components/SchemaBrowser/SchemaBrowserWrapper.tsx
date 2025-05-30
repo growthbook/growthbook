@@ -1,4 +1,4 @@
-import { InformationSchemaInterface } from "@back-end/src/types/Integration";
+import { InformationSchemaInterface } from "back-end/src/types/Integration";
 import { FaDatabase, FaRedo } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -17,8 +17,8 @@ export default function SchemaBrowserWrapper({
   children: React.ReactNode;
   datasourceName: string;
   datasourceId: string;
-  informationSchema: InformationSchemaInterface;
-  setError: (error: string) => void;
+  informationSchema?: InformationSchemaInterface;
+  setError: (error: string | null) => void;
   setFetching: (fetching: boolean) => void;
   canRunQueries: boolean;
   fetching: boolean;
@@ -26,7 +26,7 @@ export default function SchemaBrowserWrapper({
   const { apiCall } = useAuth();
 
   return (
-    <div className="d-flex flex-column pt-2" style={{ flex: 1, height: "50%" }}>
+    <div className="d-flex flex-column py-2" style={{ flex: 1, height: "50%" }}>
       <div className="d-flex justify-content-between border-bottom px-2">
         <label className="font-weight-bold mb-1 d-flex align-items-center">
           <FaDatabase />
@@ -59,7 +59,6 @@ export default function SchemaBrowserWrapper({
                 }
                 onClick={async (e) => {
                   e.preventDefault();
-                  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
                   setError(null);
                   try {
                     await apiCall<{

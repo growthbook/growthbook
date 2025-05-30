@@ -28,6 +28,7 @@ export default function NamespaceModal({
 
   return (
     <Modal
+      trackingEventModalType=""
       open={true}
       close={close}
       cta={existing ? "Update" : "Create"}

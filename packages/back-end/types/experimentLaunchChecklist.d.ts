@@ -2,12 +2,15 @@ export interface ChecklistTask {
   task: string;
   completionType: "manual" | "auto";
   url?: string;
+  customFieldId?: string;
   propertyKey?:
     | "description"
     | "hypothesis"
     | "project"
     | "tag"
-    | "screenshots";
+    | "screenshots"
+    | "prerequisiteTargeting"
+    | "customField";
 }
 
 export interface ExperimentLaunchChecklistInterface {

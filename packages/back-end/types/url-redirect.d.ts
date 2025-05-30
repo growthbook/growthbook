@@ -2,7 +2,7 @@ import { z } from "zod";
 import {
   urlRedirectValidator,
   destinationUrlValidator,
-} from "../src/routers/url-redirects/url-redirects.validators";
+} from "back-end/src/routers/url-redirects/url-redirects.validators";
 import { CreateProps, UpdateProps } from "./models";
 
 export type DestinationURL = z.infer<typeof destinationUrlValidator>;

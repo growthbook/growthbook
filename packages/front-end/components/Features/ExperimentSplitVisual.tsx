@@ -84,7 +84,7 @@ export default function ExperimentSplitVisual({
               const additionalStyles: CSSProperties = {
                 width: percentVal + "%",
                 height: 30,
-                backgroundColor: getVariationColor(i),
+                backgroundColor: getVariationColor(i, true),
               };
               if (!stackLeft) {
                 additionalStyles.position = "absolute";

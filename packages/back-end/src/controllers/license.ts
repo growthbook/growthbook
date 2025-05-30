@@ -1,27 +1,21 @@
 import crypto from "crypto";
 import { Response } from "express";
-import {
-  AccountPlan,
-  licenseInit,
-  LicenseServerError,
-  postCreateTrialEnterpriseLicenseToLicenseServer,
-  postResendEmailVerificationEmailToLicenseServer,
-  postVerifyEmailToLicenseServer,
-} from "enterprise";
-import md5 from "md5";
+import { AccountPlan } from "shared/enterprise";
 import {
   getLicenseMetaData,
   getUserCodesForOrg,
-} from "../services/licenseData";
-import { getUserLicenseCodes } from "../services/users";
-import { AuthRequest } from "../types/AuthRequest";
-import { getContextFromReq } from "../services/organizations";
+} from "back-end/src/services/licenseData";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { getContextFromReq } from "back-end/src/services/organizations";
+import { updateOrganization } from "back-end/src/models/OrganizationModel";
+import { PrivateApiErrorResponse } from "back-end/types/api";
 import {
-  getAllInviteEmailsInDb,
-  updateOrganization,
-} from "../models/OrganizationModel";
-import { PrivateApiErrorResponse } from "../../types/api";
-import { updateSubscriptionInDb } from "../services/stripe";
+  licenseInit,
+  postCreateTrialEnterpriseLicenseToLicenseServer,
+  LicenseServerError,
+  postResendEmailVerificationEmailToLicenseServer,
+  postVerifyEmailToLicenseServer,
+} from "back-end/src/enterprise";
 
 /**
  * An endpoint mostly used to refresh the license data manually, if they
@@ -46,10 +40,6 @@ export async function getLicenseData(req: AuthRequest, res: Response) {
       getLicenseMetaData,
       true
     );
-  } else if (req.organization?.subscription) {
-    // TODO: Get rid of updateSubscriptionInDb one we have moved the license off the organizations
-    // This is to update the subscription data in the organization from stripe if they have it
-    await updateSubscriptionInDb(req.organization.subscription.id);
   }
 
   return res.status(200).json({
@@ -72,11 +62,7 @@ export async function getLicenseReport(req: AuthRequest, res: Response) {
 
   const timestamp = new Date().toISOString();
   const licenseMetaData = await getLicenseMetaData();
-  const userEmailCodes = await getUserLicenseCodes();
-  const inviteEmails = await getAllInviteEmailsInDb();
-  const inviteEmailCodes: string[] = inviteEmails.map((email) => {
-    return md5(email).slice(0, 8);
-  });
+  const userEmailCodes = await getUserCodesForOrg(context.org);
 
   // Create a hmac signature of the license data
   const hmac = crypto.createHmac("sha256", licenseMetaData.installationId);
@@ -85,7 +71,6 @@ export async function getLicenseReport(req: AuthRequest, res: Response) {
     timestamp,
     licenseMetaData,
     userEmailCodes,
-    inviteEmailCodes,
   };
 
   return res.status(200).json({

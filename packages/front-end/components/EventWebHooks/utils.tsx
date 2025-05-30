@@ -9,13 +9,19 @@ import {
   EventWebHookPayloadType,
   EventWebHookMethod,
 } from "back-end/types/event-webhook";
+import { VscJson } from "react-icons/vsc";
 
 export type {
   EventWebHookPayloadType,
   EventWebHookMethod,
 } from "back-end/types/event-webhook";
 
-export const eventWebHookPayloadTypes = ["raw", "slack", "discord"] as const;
+export const eventWebHookPayloadTypes = ["json", "slack", "discord"] as const;
+
+export const legacyEventWebHookPayloadTypes = [
+  ...eventWebHookPayloadTypes,
+  "raw",
+] as const;
 
 export const eventWebHookMethods = ["POST", "PUT", "PATCH"] as const;
 
@@ -37,12 +43,19 @@ export const notificationEventNames = [
   "feature.created",
   "feature.updated",
   "feature.deleted",
+  // Safe Rollouts
+  "feature.saferollout.ship",
+  "feature.saferollout.rollback",
+  "feature.saferollout.unhealthy",
   // Experiments
   "experiment.created",
   "experiment.updated",
   "experiment.deleted",
   "experiment.warning",
-  "experiment.info",
+  "experiment.info.significance",
+  "experiment.decision.ship",
+  "experiment.decision.rollback",
+  "experiment.decision.review",
   // User
   "user.login",
 ] as const;
@@ -64,6 +77,19 @@ export const eventWebHookEventOptions: {
     id: "feature.deleted",
     name: "feature.deleted",
   },
+  // Safe Rollouts
+  {
+    id: "feature.saferollout.ship",
+    name: "feature.saferollout.ship",
+  },
+  {
+    id: "feature.saferollout.rollback",
+    name: "feature.saferollout.rollback",
+  },
+  {
+    id: "feature.saferollout.unhealthy",
+    name: "feature.saferollout.unhealthy",
+  },
   // Experiments
   {
     id: "experiment.created",
@@ -80,6 +106,22 @@ export const eventWebHookEventOptions: {
   {
     id: "experiment.warning",
     name: "experiment.warning",
+  },
+  {
+    id: "experiment.info.significance",
+    name: "experiment.info.significance",
+  },
+  {
+    id: "experiment.decision.ship",
+    name: "experiment.decision.ship",
+  },
+  {
+    id: "experiment.decision.rollback",
+    name: "experiment.decision.rollback",
+  },
+  {
+    id: "experiment.decision.review",
+    name: "experiment.decision.review",
   },
 ];
 
@@ -147,11 +189,45 @@ export const useIconForState = (
     }
   }, [state, text]);
 
-export const webhookIcon = {
-  discord: "/images/discord.png",
-  slack: "/images/slack.png",
-  raw: "/images/raw-webhook.png",
-} as const;
+const ImageIcon = ({
+  src,
+  style,
+  className,
+}: {
+  src: string;
+  className: string;
+  style: React.CSSProperties;
+}) => <img src={src} className={className} style={style} />;
+
+export const WebhookIcon = ({
+  style,
+  className = "",
+  type,
+}: {
+  style: React.CSSProperties;
+  className?: string;
+  type: typeof legacyEventWebHookPayloadTypes[number];
+}) => {
+  let invalidType: never;
+
+  switch (type) {
+    case "discord":
+    case "slack":
+    case "raw":
+      return (
+        <ImageIcon
+          src={`/images/${type}-webhook.png`}
+          style={style}
+          className={className}
+        />
+      );
+    case "json":
+      return <VscJson style={style} className={className} />;
+    default:
+      invalidType = type;
+      throw new Error(`Invalid type: ${invalidType}`);
+  }
+};
 
 export const displayedEvents = (
   events: string[],

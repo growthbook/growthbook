@@ -1,12 +1,15 @@
 import { cloneDeep } from "lodash";
 import { Response } from "express";
-import { updateOrganization } from "../../models/OrganizationModel";
-import { ScimError, ScimPatchRequest, ScimUser } from "../../../types/scim";
-import { Member, OrganizationInterface } from "../../../types/organization";
-import { expandOrgMembers } from "../../services/organizations";
+import { updateOrganization } from "back-end/src/models/OrganizationModel";
+import { ScimError, ScimPatchRequest, ScimUser } from "back-end/types/scim";
+import { Member, OrganizationInterface } from "back-end/types/organization";
+import { expandOrgMembers } from "back-end/src/services/organizations";
 import { expandedMembertoScimUser } from "./getUser";
 
-async function removeUserFromOrg(org: OrganizationInterface, user: Member) {
+export async function removeUserFromOrg(
+  org: OrganizationInterface,
+  user: Member
+) {
   const updatedOrgMembers = cloneDeep(org.members);
 
   // If/When we introduce the ability to manage roles via SCIM, we can remove this check.
@@ -65,19 +68,24 @@ export async function patchUser(
 
   for (const operation of Operations) {
     const { op, value } = operation;
-    // Okta will only ever use PATCH to active/deactivate a user or sync a user's password
+    // Okta will only ever use PATCH to activate/deactivate a user or sync a user's password
     // https://developer.okta.com/docs/reference/scim/scim-20/#update-a-specific-user-patch
-    if (op === "replace" && value.active === false) {
-      // SCIM determines whether a user is active or not based on this property. If set to false, that means they want us to remove the user
-      // this means they want us to remove the user
-      try {
-        await removeUserFromOrg(org, orgUser);
-      } catch (e) {
-        return res.status(400).json({
-          schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
-          status: "400",
-          detail: `Unable to deactivate the user in GrowthBook: ${e.message}`,
-        });
+    // Azure sends op and value as title case, so need to normalize
+    if (op.toLowerCase() === "replace") {
+      const setUserInactive =
+        // Okta sends value as a string and Azure sends value as an object
+        typeof value === "string" ? value === "False" : value.active === false;
+
+      if (setUserInactive) {
+        try {
+          await removeUserFromOrg(org, orgUser);
+        } catch (e) {
+          return res.status(400).json({
+            schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
+            status: "400",
+            detail: `Unable to deactivate the user in GrowthBook: ${e.message}`,
+          });
+        }
       }
     }
   }

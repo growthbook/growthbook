@@ -20,17 +20,7 @@ There you can add a webhook endpoint and select which events you want to be noti
 
 ## Supported Event Types
 
-We currently support the following event types:
-
-- **feature.created**
-- **feature.updated**
-- **feature.deleted**
-- **experiment.created**
-- **experiment.updated**
-- **experiment.deleted**
-- **experiment.warning**
-
-The new webhooks are still in beta and we are always updating the list of supported events.
+See the [full list of events](/app/webhooks/event-webhooks/events).
 
 ## HTTP parameters
 
@@ -47,18 +37,13 @@ You can also add your own custom headers. The format of custom headers is a JSON
 
 ## Slack notifications
 
-Webhooks can be used to send notifications to slack channels and users with much less overhead than setting up a whole slack integration!
+Webhooks can be used to send notifications to Slack channels and users with much less overhead than setting up a whole Slack integration!
 
-First, you need to follow the instruction from the [slack documentation <ExternalLink />](https://api.slack.com/messaging/webhooks) to setup your own slack application and webhooks.
-
-Once you have setup your application on slack, you should be able to copy the application's webhook endpoint. You can then paste it
-as the endpoint URL of your webhook configuration on GrowthBook.
-
-Next, select the `Slack` payload. That's it, your endpoint is ready to send Slack notifications!
+Follow our instructions on [setting up a Slack integration](/integrations/slack) to create a Slack application and connect it to GrowthBook events.
 
 ## Discord notifications
 
-Discord notifications work the same way as Slack notifications. The only difference is that you need to follow the [discord documentation <ExternalLink />](https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks) on how to setup webhook for your discord server.
+Discord notifications work the same way as Slack notifications. The only difference is that you need to follow our instructions on [setting up a Discord integration](/integrations/discord).
 
 ## Projects, tags and environments filtering
 

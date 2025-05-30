@@ -1,5 +1,5 @@
 import express from "express";
-import { wrapController } from "../wrapController";
+import { wrapController } from "back-end/src/routers/wrapController";
 import * as rawController from "./url-redirects.controller";
 
 const router = express.Router();

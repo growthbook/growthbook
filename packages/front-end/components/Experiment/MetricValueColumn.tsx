@@ -1,18 +1,22 @@
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
-import { CSSProperties, DetailedHTMLProps, TdHTMLAttributes } from "react";
+import {
+  CSSProperties,
+  DetailedHTMLProps,
+  ReactElement,
+  TdHTMLAttributes,
+} from "react";
 import {
   ExperimentMetricInterface,
   isFactMetric,
   isRatioMetric,
   quantileMetricType,
 } from "shared/experiments";
+import { FactTableInterface } from "back-end/types/fact-table";
 import {
   getColumnRefFormatter,
   getExperimentMetricFormatter,
   getMetricFormatter,
 } from "@/services/metrics";
-import { useCurrency } from "@/hooks/useCurrency";
-import { useDefinitions } from "@/services/DefinitionsContext";
 
 const numberFormatter = Intl.NumberFormat("en-US", {
   notation: "compact",
@@ -31,6 +35,10 @@ interface Props
   style?: CSSProperties;
   rowSpan?: number;
   showRatio?: boolean;
+  noDataMessage?: ReactElement | string;
+  displayCurrency: string;
+  getExperimentMetricById: (id: string) => null | ExperimentMetricInterface;
+  getFactTableById: (id: string) => null | FactTableInterface;
 }
 
 export default function MetricValueColumn({
@@ -41,11 +49,13 @@ export default function MetricValueColumn({
   style,
   rowSpan,
   showRatio = true,
+  noDataMessage = "no data",
+  displayCurrency,
+  getExperimentMetricById,
+  getFactTableById,
   ...otherProps
 }: Props) {
-  const displayCurrency = useCurrency();
   const formatterOptions = { currency: displayCurrency };
-  const { getFactTableById, getMetricById } = useDefinitions();
 
   const overall = getExperimentMetricFormatter(metric, getFactTableById)(
     stats.cr,
@@ -56,7 +66,7 @@ export default function MetricValueColumn({
   const denominatorValue = isRatioMetric(
     metric,
     !isFactMetric(metric) && metric.denominator
-      ? getMetricById(metric.denominator) ?? undefined
+      ? getExperimentMetricById(metric.denominator) ?? undefined
       : undefined
   )
     ? stats.denominator ?? stats.users
@@ -114,7 +124,7 @@ export default function MetricValueColumn({
           ) : null}
         </>
       ) : (
-        <em className="text-muted">no data</em>
+        <em className="text-muted">{noDataMessage}</em>
       )}
     </td>
   );

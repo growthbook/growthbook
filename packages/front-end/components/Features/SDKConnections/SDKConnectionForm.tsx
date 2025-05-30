@@ -3,7 +3,7 @@ import {
   SDKConnectionInterface,
 } from "back-end/types/sdk-connection";
 import { useForm } from "react-hook-form";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import {
   FaCheck,
@@ -30,7 +30,6 @@ import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import Toggle from "@/components/Forms/Toggle";
 import { isCloud } from "@/services/env";
 import track from "@/services/track";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -42,6 +41,7 @@ import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { DocLink } from "@/components/DocLink";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
+import Checkbox from "@/components/Radix/Checkbox";
 import SDKLanguageSelector from "./SDKLanguageSelector";
 import {
   LanguageType,
@@ -95,6 +95,8 @@ export default function SDKConnectionForm({
   );
   const hasRemoteEvaluationFeature = hasCommercialFeature("remote-evaluation");
 
+  const hasLargeSavedGroupFeature = hasCommercialFeature("large-saved-groups");
+
   useEffect(() => {
     if (edit) return;
     track("View SDK Connection Form");
@@ -132,9 +134,12 @@ export default function SDKConnectionForm({
       includeExperimentNames: initialValue.includeExperimentNames ?? true,
       includeRedirectExperiments:
         initialValue.includeRedirectExperiments ?? false,
+      includeRuleIds: initialValue.includeRuleIds ?? false,
       proxyEnabled: initialValue.proxy?.enabled ?? false,
       proxyHost: initialValue.proxy?.host ?? "",
       remoteEvalEnabled: initialValue.remoteEvalEnabled ?? false,
+      savedGroupReferencesEnabled:
+        initialValue.savedGroupReferencesEnabled ?? false,
     },
   });
 
@@ -182,12 +187,23 @@ export default function SDKConnectionForm({
     form.getValues(),
     "min-ver-intersection"
   );
-
   const showVisualEditorSettings = latestSdkCapabilities.includes(
     "visualEditor"
   );
-
   const showRedirectSettings = latestSdkCapabilities.includes("redirects");
+  const showEncryption = currentSdkCapabilities.includes("encryption");
+  const showRemoteEval = currentSdkCapabilities.includes("remoteEval");
+
+  const showSavedGroupSettings = useMemo(
+    () => currentSdkCapabilities.includes("savedGroupReferences"),
+    [currentSdkCapabilities]
+  );
+
+  useEffect(() => {
+    if (!showSavedGroupSettings) {
+      form.setValue("savedGroupReferencesEnabled", false);
+    }
+  }, [showSavedGroupSettings, form]);
 
   const selectedProjects = form.watch("projects");
   const selectedEnvironment = environments.find(
@@ -253,10 +269,16 @@ export default function SDKConnectionForm({
       form.setValue("includeVisualExperiments", showVisualEditorSettings);
       form.setValue("includeDraftExperiments", showVisualEditorSettings);
       form.setValue("includeRedirectExperiments", showRedirectSettings);
-    } else if (!showVisualEditorSettings) {
-      form.setValue("includeVisualExperiments", false);
-      form.setValue("includeDraftExperiments", false);
-      form.setValue("includeRedirectExperiments", false);
+    } else {
+      if (!showVisualEditorSettings) {
+        form.setValue("includeVisualExperiments", false);
+      }
+      if (!showRedirectSettings) {
+        form.setValue("includeRedirectExperiments", false);
+      }
+      if (!showVisualEditorSettings && !showRedirectSettings) {
+        form.setValue("includeDraftExperiments", false);
+      }
     }
   }, [showVisualEditorSettings, form, edit, showRedirectSettings]);
 
@@ -308,6 +330,7 @@ export default function SDKConnectionForm({
 
   return (
     <Modal
+      trackingEventModalType=""
       header={edit ? "Edit SDK Connection" : "New SDK Connection"}
       size={"lg"}
       autoCloseOnSubmit={autoCloseOnSubmit}
@@ -640,125 +663,123 @@ export default function SDKConnectionForm({
                       </>
                     }
                   >
-                    <div>
+                    <div className="p-3">
                       <label className="mb-3">Cipher Options</label>
-                      <div className="mb-4 d-flex align-items-center">
-                        <Toggle
-                          id="encryptSDK"
-                          value={form.watch("encryptPayload")}
-                          setValue={(val) =>
-                            form.setValue("encryptPayload", val)
-                          }
-                          disabled={!hasEncryptionFeature}
-                        />
-                        <label className="ml-2 mb-0" htmlFor="encryptSDK">
-                          <PremiumTooltip
-                            commercialFeature="encrypt-features-endpoint"
-                            body={
-                              <>
-                                <p>
-                                  SDK payloads will be encrypted via the AES
-                                  encryption algorithm. When evaluating feature
-                                  flags in a public or insecure environment
-                                  (such as a browser), encryption provides an
-                                  additional layer of security through
-                                  obfuscation. This allows you to target users
-                                  based on sensitive attributes.
-                                </p>
-                                <p className="mb-0 text-warning-orange small">
-                                  <FaExclamationCircle /> When using an insecure
-                                  environment, do not rely exclusively on
-                                  payload encryption as a means of securing
-                                  highly sensitive data. Because the client
-                                  performs the decryption, the unencrypted
-                                  payload may be extracted with sufficient
-                                  effort.
-                                </p>
-                              </>
+                      {showEncryption && (
+                        <div className="mb-2 d-flex align-items-center">
+                          <Checkbox
+                            value={form.watch("encryptPayload")}
+                            setValue={(val) =>
+                              form.setValue("encryptPayload", val)
                             }
-                          >
-                            Encrypt SDK payload <FaInfoCircle />
-                          </PremiumTooltip>
-                        </label>
-                      </div>
+                            disabled={!hasEncryptionFeature}
+                            label={
+                              <PremiumTooltip
+                                commercialFeature="encrypt-features-endpoint"
+                                body={
+                                  <>
+                                    <p>
+                                      SDK payloads will be encrypted via the AES
+                                      encryption algorithm. When evaluating
+                                      feature flags in a public or insecure
+                                      environment (such as a browser),
+                                      encryption provides an additional layer of
+                                      security through obfuscation. This allows
+                                      you to target users based on sensitive
+                                      attributes.
+                                    </p>
+                                    <p className="mb-0 text-warning-orange small">
+                                      <FaExclamationCircle /> When using an
+                                      insecure environment, do not rely
+                                      exclusively on payload encryption as a
+                                      means of securing highly sensitive data.
+                                      Because the client performs the
+                                      decryption, the unencrypted payload may be
+                                      extracted with sufficient effort.
+                                    </p>
+                                  </>
+                                }
+                              >
+                                Encrypt SDK payload <FaInfoCircle />
+                              </PremiumTooltip>
+                            }
+                          />
+                        </div>
+                      )}
 
-                      <div className="mb-4 d-flex align-items-center">
-                        <Toggle
-                          id="hash-secure-attributes"
+                      <div className="mb-2 d-flex align-items-center">
+                        <Checkbox
                           value={form.watch("hashSecureAttributes")}
                           setValue={(val) =>
                             form.setValue("hashSecureAttributes", val)
                           }
                           disabled={!hasSecureAttributesFeature}
+                          label={
+                            <PremiumTooltip
+                              commercialFeature="hash-secure-attributes"
+                              body={
+                                <>
+                                  <p>
+                                    Feature targeting conditions referencing{" "}
+                                    <code>secureString</code> attributes will be
+                                    anonymized via SHA-256 hashing. When
+                                    evaluating feature flags in a public or
+                                    insecure environment (such as a browser),
+                                    hashing provides an additional layer of
+                                    security through obfuscation. This allows
+                                    you to target users based on sensitive
+                                    attributes.
+                                  </p>
+                                  <p className="mb-0 text-warning-orange small">
+                                    <FaExclamationCircle /> When using an
+                                    insecure environment, do not rely
+                                    exclusively on hashing as a means of
+                                    securing highly sensitive data. Hashing is
+                                    an obfuscation technique that makes it very
+                                    difficult, but not impossible, to extract
+                                    sensitive data.
+                                  </p>
+                                </>
+                              }
+                            >
+                              Hash secure attributes <FaInfoCircle />
+                            </PremiumTooltip>
+                          }
                         />
-                        <label
-                          className="ml-2 mb-0"
-                          htmlFor="hash-secure-attributes"
-                        >
-                          <PremiumTooltip
-                            commercialFeature="hash-secure-attributes"
-                            body={
-                              <>
-                                <p>
-                                  Feature targeting conditions referencing{" "}
-                                  <code>secureString</code> attributes will be
-                                  anonymized via SHA-256 hashing. When
-                                  evaluating feature flags in a public or
-                                  insecure environment (such as a browser),
-                                  hashing provides an additional layer of
-                                  security through obfuscation. This allows you
-                                  to target users based on sensitive attributes.
-                                </p>
-                                <p className="mb-0 text-warning-orange small">
-                                  <FaExclamationCircle /> When using an insecure
-                                  environment, do not rely exclusively on
-                                  hashing as a means of securing highly
-                                  sensitive data. Hashing is an obfuscation
-                                  technique that makes it very difficult, but
-                                  not impossible, to extract sensitive data.
-                                </p>
-                              </>
-                            }
-                          >
-                            Hash secure attributes <FaInfoCircle />
-                          </PremiumTooltip>
-                        </label>
                       </div>
 
                       <div className="d-flex align-items-center">
-                        <Toggle
-                          id="sdk-connection-include-experiment-meta"
+                        <Checkbox
                           value={!form.watch("includeExperimentNames")}
                           setValue={(val) =>
                             form.setValue("includeExperimentNames", !val)
                           }
+                          label={
+                            <Tooltip
+                              body={
+                                <>
+                                  <p>
+                                    Experiment and variation names can help add
+                                    context when debugging or tracking events.
+                                  </p>
+                                  <p>
+                                    However, this could expose potentially
+                                    sensitive information to your users if
+                                    enabled for a client-side or mobile
+                                    application.
+                                  </p>
+                                  <p className="mb-0">
+                                    For maximum privacy and security, we
+                                    recommend hiding these fields.
+                                  </p>
+                                </>
+                              }
+                            >
+                              Hide experiment and variation names{" "}
+                              <FaInfoCircle />
+                            </Tooltip>
+                          }
                         />
-                        <label
-                          className="ml-2 mb-0"
-                          htmlFor="sdk-connection-include-experiment-meta"
-                        >
-                          <Tooltip
-                            body={
-                              <>
-                                <p>
-                                  Experiment and variation names can help add
-                                  context when debugging or tracking events.
-                                </p>
-                                <p>
-                                  However, this could expose potentially
-                                  sensitive information to your users if enabled
-                                  for a client-side or mobile application.
-                                </p>
-                                <p className="mb-0">
-                                  For maximum privacy and security, we recommend
-                                  hiding these fields.
-                                </p>
-                              </>
-                            }
-                          >
-                            Hide experiment and variation names <FaInfoCircle />
-                          </Tooltip>
-                        </label>
                       </div>
                     </div>
 
@@ -800,7 +821,7 @@ export default function SDKConnectionForm({
                   </Tab>
                 )}
 
-                {["frontend", "nocode", "other"].includes(languageType) && (
+                {showRemoteEval && (
                   <Tab
                     id="remote"
                     padding={false}
@@ -840,11 +861,10 @@ export default function SDKConnectionForm({
                       </>
                     }
                   >
-                    <div>
+                    <div className="px-3 pb-3">
                       <label className="mb-3">Remote Evaluation Options</label>
                       <div className="d-flex align-items-center">
-                        <Toggle
-                          id="remote-evaluation"
+                        <Checkbox
                           value={form.watch("remoteEvalEnabled")}
                           setValue={(val) =>
                             form.setValue("remoteEvalEnabled", val)
@@ -853,55 +873,52 @@ export default function SDKConnectionForm({
                             !hasRemoteEvaluationFeature ||
                             !latestSdkCapabilities.includes("remoteEval")
                           }
+                          label={
+                            <PremiumTooltip
+                              commercialFeature="remote-evaluation"
+                              tipMinWidth="600px"
+                              body={
+                                <>
+                                  <div className="mb-2">
+                                    <strong>Remote Evaluation</strong> fully
+                                    secures your SDK by evaluating feature flags
+                                    exclusively on a private server instead of
+                                    within a front-end environment. This ensures
+                                    that any sensitive information within
+                                    targeting rules or unused feature variations
+                                    are never seen by the client.
+                                  </div>
+                                  <div className="mb-2">
+                                    Remote evaluation provides the same security
+                                    benefits as a includeExperimentNames SDK.
+                                    However, remote evaluation is neither needed
+                                    nor supported for backend SDKs.
+                                  </div>
+                                  <div className="mb-2">
+                                    Remote evaluation does come with a few cost
+                                    considerations:
+                                    <ol className="pl-3 mt-2">
+                                      <li className="mb-2">
+                                        It will increase network traffic.
+                                        Evaluated payloads cannot be shared
+                                        across different users; therefore CDN
+                                        cache misses will increase.
+                                      </li>
+                                      <li>
+                                        Any connections using Streaming Updates
+                                        will incur a slight delay. An additional
+                                        network hop is required to retrieve the
+                                        evaluated payload from the server.
+                                      </li>
+                                    </ol>
+                                  </div>
+                                </>
+                              }
+                            >
+                              Use remote evaluation <FaInfoCircle />
+                            </PremiumTooltip>
+                          }
                         />
-                        <label
-                          className="ml-2 mb-0"
-                          htmlFor="remote-evaluation"
-                        >
-                          <PremiumTooltip
-                            commercialFeature="remote-evaluation"
-                            tipMinWidth="600px"
-                            body={
-                              <>
-                                <div className="mb-2">
-                                  <strong>Remote Evaluation</strong> fully
-                                  secures your SDK by evaluating feature flags
-                                  exclusively on a private server instead of
-                                  within a front-end environment. This ensures
-                                  that any sensitive information within
-                                  targeting rules or unused feature variations
-                                  are never seen by the client.
-                                </div>
-                                <div className="mb-2">
-                                  Remote evaluation provides the same security
-                                  benefits as a includeExperimentNames SDK.
-                                  However, remote evaluation is neither needed
-                                  nor supported for backend SDKs.
-                                </div>
-                                <div className="mb-2">
-                                  Remote evaluation does come with a few cost
-                                  considerations:
-                                  <ol className="pl-3 mt-2">
-                                    <li className="mb-2">
-                                      It will increase network traffic.
-                                      Evaluated payloads cannot be shared across
-                                      different users; therefore CDN cache
-                                      misses will increase.
-                                    </li>
-                                    <li>
-                                      Any connections using Streaming Updates
-                                      will incur a slight delay. An additional
-                                      network hop is required to retrieve the
-                                      evaluated payload from the server.
-                                    </li>
-                                  </ol>
-                                </div>
-                              </>
-                            }
-                          >
-                            Use remote evaluation <FaInfoCircle />
-                          </PremiumTooltip>
-                        </label>
                       </div>
                       {isCloud() ? (
                         <div className="alert alert-info mb-0 mt-3 py-1 px-2 d-flex flex-row">
@@ -969,77 +986,76 @@ export default function SDKConnectionForm({
             <label>Auto Experiments</label>
             <div className="mt-2">
               {showVisualEditorSettings && (
-                <div className="mb-4 d-flex align-items-center">
-                  <Toggle
-                    id="sdk-connection-visual-experiments-toggle"
+                <div className="mb-2 d-flex align-items-center">
+                  <Checkbox
                     value={form.watch("includeVisualExperiments")}
                     setValue={(val) =>
                       form.setValue("includeVisualExperiments", val)
                     }
+                    label={
+                      <>
+                        Enable <strong>Visual Editor experiments</strong> (
+                        <DocLink docSection="visual_editor">docs</DocLink>)
+                      </>
+                    }
                   />
-                  <label
-                    className="ml-2 mb-0 cursor-pointer"
-                    htmlFor="sdk-connection-visual-experiments-toggle"
-                  >
-                    Enable <strong>Visual Editor experiments</strong> (
-                    <DocLink docSection="visual_editor">docs</DocLink>)
-                  </label>
                 </div>
               )}
 
               {showRedirectSettings && (
-                <div className="mb-4 d-flex align-items-center">
-                  <Toggle
-                    id="sdk-connection-redirects-toggle"
+                <div className="mb-2 d-flex align-items-center">
+                  <Checkbox
                     value={form.watch("includeRedirectExperiments")}
                     setValue={(val) =>
                       form.setValue("includeRedirectExperiments", val)
                     }
+                    label={
+                      <>
+                        Enable <strong>URL Redirect experiments</strong> (
+                        <DocLink docSection="url_redirects">docs</DocLink>)
+                      </>
+                    }
                   />
-                  <label
-                    className="ml-2 mb-0 cursor-pointer"
-                    htmlFor="sdk-connection-redirects-toggle"
-                  >
-                    Enable <strong>URL Redirect experiments</strong> (
-                    <DocLink docSection="url_redirects">docs</DocLink>)
-                  </label>
                 </div>
               )}
 
               {(form.watch("includeVisualExperiments") ||
                 form.watch("includeRedirectExperiments")) && (
                 <>
-                  <div className="mb-4 d-flex align-items-center">
-                    <Toggle
-                      id="sdk-connection-include-draft-experiments-toggle"
+                  <div className="mb-2 d-flex align-items-center">
+                    <Checkbox
                       value={form.watch("includeDraftExperiments")}
                       setValue={(val) =>
                         form.setValue("includeDraftExperiments", val)
                       }
-                    />
-                    <Tooltip
-                      body={
-                        <>
-                          <p>
-                            In-development auto experiments will be sent to the
-                            SDK. We recommend only enabling this for
-                            non-production environments.
-                          </p>
-                          <p className="mb-0">
-                            To force into a variation, use a URL query string
-                            such as{" "}
-                            <code className="d-block">?my-experiment-id=2</code>
-                          </p>
-                        </>
+                      label={
+                        <Tooltip
+                          body={
+                            <>
+                              <p>
+                                In-development auto experiments will be sent to
+                                the SDK. We recommend only enabling this for
+                                non-production environments.
+                              </p>
+                              <p className="mb-0">
+                                To force into a variation, use a URL query
+                                string such as{" "}
+                                <code className="d-block">
+                                  ?my-experiment-id=2
+                                </code>
+                              </p>
+                            </>
+                          }
+                        >
+                          <label
+                            className="ml-2 mb-0 cursor-pointer"
+                            htmlFor="sdk-connection-include-draft-experiments-toggle"
+                          >
+                            Include draft experiments <FaInfoCircle />
+                          </label>
+                        </Tooltip>
                       }
-                    >
-                      <label
-                        className="ml-2 mb-0 cursor-pointer"
-                        htmlFor="sdk-connection-include-draft-experiments-toggle"
-                      >
-                        Include draft experiments <FaInfoCircle />
-                      </label>
-                    </Tooltip>
+                    />
                   </div>
                 </>
               )}
@@ -1052,17 +1068,11 @@ export default function SDKConnectionForm({
             <label className="mb-1">GrowthBook Proxy</label>
             <div className="mt-2">
               <div className="d-flex align-items-center">
-                <Toggle
-                  id="sdk-connection-proxy-toggle"
+                <Checkbox
                   value={form.watch("proxyEnabled")}
                   setValue={(val) => form.setValue("proxyEnabled", val)}
+                  label="Use GrowthBook Proxy"
                 />
-                <label
-                  className="ml-2 mb-0"
-                  htmlFor="sdk-connection-proxy-toggle"
-                >
-                  Use GrowthBook Proxy
-                </label>
               </div>
               {form.watch("proxyEnabled") && (
                 <Field
@@ -1101,6 +1111,61 @@ export default function SDKConnectionForm({
             </div>
           </div>
         )}
+        {showSavedGroupSettings && (
+          <div className="mt-4">
+            <label>Saved Groups</label>
+            <div className="mt-2">
+              <div className="mb-2 d-flex align-items-center">
+                <Checkbox
+                  value={form.watch("savedGroupReferencesEnabled")}
+                  setValue={(val) =>
+                    form.setValue("savedGroupReferencesEnabled", val)
+                  }
+                  disabled={!hasLargeSavedGroupFeature}
+                  label={
+                    <PremiumTooltip
+                      commercialFeature="large-saved-groups"
+                      body={
+                        <>
+                          <p>
+                            Reduce the size of your payload by moving ID List
+                            Saved Groups from inline evaluation to a separate
+                            key in the payload json. Re-using an ID List in
+                            multiple features or experiments will no longer
+                            meaningfully increase the size of your payload.
+                          </p>
+                          <p>
+                            This feature is not supported by old SDK versions.
+                            Ensure that your SDK implementation is up to date
+                            before enabling this feature.
+                          </p>
+                          {form.watch("remoteEvalEnabled") && (
+                            <p>
+                              You will also need to update your proxy server for
+                              remote evaluation to continue working correctly.
+                            </p>
+                          )}
+                        </>
+                      }
+                    >
+                      Pass Saved Groups by reference <FaInfoCircle />
+                    </PremiumTooltip>
+                  }
+                />
+              </div>
+            </div>
+          </div>
+        )}
+        <div className="mt-4">
+          <label>Feature Options</label>
+          <div>
+            <Checkbox
+              label={"Include Feature Rule IDs in Payload"}
+              value={!!form.watch("includeRuleIds")}
+              setValue={(val) => form.setValue("includeRuleIds", val)}
+            />
+          </div>
+        </div>
       </div>
     </Modal>
   );

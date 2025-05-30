@@ -17,6 +17,7 @@ import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import Button from "@/components/Button";
+import Checkbox from "@/components/Radix/Checkbox";
 import FactTableSchema from "./FactTableSchema";
 
 export interface Props {
@@ -71,6 +72,7 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
 
   return (
     <Modal
+      trackingEventModalType=""
       open={true}
       close={close}
       cta={"Save"}
@@ -112,15 +114,12 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
         mutateDefinitions();
       })}
       secondaryCTA={
-        <label className="mr-4">
-          <input
-            type="checkbox"
-            className="form-check-input"
-            checked={testBeforeSave}
-            onChange={(e) => setTestBeforeSave(e.target.checked)}
-          />
-          Test before saving
-        </label>
+        <Checkbox
+          value={testBeforeSave}
+          setValue={(v) => setTestBeforeSave(v === true)}
+          label="Test before saving"
+          mr="5"
+        />
       }
     >
       <div className="row">

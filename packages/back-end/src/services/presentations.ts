@@ -1,17 +1,17 @@
 import uniqid from "uniqid";
-import { PresentationModel } from "../models/PresentationModel";
+import { PresentationModel } from "back-end/src/models/PresentationModel";
 import {
   PresentationInterface,
   PresentationSlide,
-} from "../../types/presentation";
-import { getExperimentsByIds } from "../models/ExperimentModel";
-import { ExperimentInterface } from "../../types/experiment";
-import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
-import { getLatestSnapshot } from "../models/ExperimentSnapshotModel";
-import { ReqContext } from "../../types/organization";
-import { ApiReqContext } from "../../types/api";
+} from "back-end/types/presentation";
+import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
+import { ExperimentInterface } from "back-end/types/experiment";
+import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import { getLatestSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
+import { ReqContext } from "back-end/types/organization";
+import { ApiReqContext } from "back-end/types/api";
 
-//import {query} from "../config/postgres";
+//import {query} from "back-end/src/config/postgres";
 
 export function getPresentationsByOrganization(organization: string) {
   return PresentationModel.find({
@@ -38,7 +38,10 @@ export async function getPresentationSnapshots(
   const promises = experiments.map(async (experiment) => {
     // get best phase to show:
     const phase = experiment.phases.length - 1;
-    const snapshot = await getLatestSnapshot(experiment.id, phase);
+    const snapshot = await getLatestSnapshot({
+      experiment: experiment.id,
+      phase,
+    });
     withSnapshots.push({
       experiment,
       snapshot: snapshot ? snapshot : null,

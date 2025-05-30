@@ -1,6 +1,6 @@
 import { z, ZodError } from "zod";
 import { Collection } from "mongodb";
-import { Context, MakeModelClass } from "../../src/models/BaseModel";
+import { Context, MakeModelClass } from "back-end/src/models/BaseModel";
 
 type WriteOptions = {
   option?: boolean;
@@ -27,10 +27,11 @@ const BaseModel = MakeModelClass({
     deleteEvent: "metric.delete",
   },
   readonlyFields: ["readonlyField"],
+  indexesToRemove: ["my_old_index"],
 });
 
 // This one is called in the constructor and therefore needs to be instantiated before that call.
-const addIndexesMock = jest.fn();
+const updateIndexesMock = jest.fn();
 
 class TestModel extends BaseModel<WriteOptions> {
   public canReadMock: jest.Mock;
@@ -82,8 +83,8 @@ class TestModel extends BaseModel<WriteOptions> {
     return this.canDeleteMock(...args);
   }
 
-  protected addIndexes(...args) {
-    return addIndexesMock(...args);
+  protected updateIndexes(...args) {
+    return updateIndexesMock(...args);
   }
 
   protected migrate(...args) {
@@ -129,7 +130,7 @@ const defaultContext = ({
 describe("BaseModel", () => {
   it("adds indexes", () => {
     new TestModel(defaultContext);
-    expect(addIndexesMock).toHaveBeenCalled();
+    expect(updateIndexesMock).toHaveBeenCalled();
   });
 
   it("can find by id", async () => {

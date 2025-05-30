@@ -1,27 +1,31 @@
-import clsx from "clsx";
 import { FaExclamationTriangle, FaInfoCircle } from "react-icons/fa";
 import React from "react";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Badge from "@/components/Badge";
+import Badge from "@/components/Radix/Badge";
 import Tooltip from "./Tooltip/Tooltip";
 
 export interface Props {
   resourceType:
     | "metric"
+    | "segment"
     | "data source"
     | "environment"
     | "member"
     | "team"
     | "fact table"
+    | "feature"
     | "attribute"
-    | "sdk connection";
+    | "sdk connection"
+    | "saved group";
   projectIds?: string[];
   invalidProjectIds?: string[];
   invalidProjectMessage?: string;
   sort?: boolean;
-  className?: string;
   skipMargin?: boolean;
 }
+// these types can only have one project associated with them, and we don't
+// want to show the project badge for them (rather than 'all')
+const singularProjectTypes = ["feature"];
 
 export default function ProjectBadges({
   resourceType,
@@ -29,20 +33,24 @@ export default function ProjectBadges({
   invalidProjectIds = [],
   invalidProjectMessage = "This project is invalid",
   sort = true,
-  className = "badge-ellipsis short",
   skipMargin = false,
 }: Props) {
   const { projects, project } = useDefinitions();
   if (!projectIds) {
+    if (singularProjectTypes.includes(resourceType)) {
+      return null;
+    }
     return (
       <Badge
-        content="All projects"
+        label="All projects"
         key="All projects"
-        className={clsx(
-          !project ? "badge-primary bg-purple" : "badge-gray",
-          className
-        )}
-        skipMargin={true}
+        color={!project ? "purple" : "gray"}
+        style={{
+          maxWidth: "120px",
+          overflow: "hidden",
+          whiteSpace: "nowrap",
+          textOverflow: "ellipsis",
+        }}
       />
     );
   }
@@ -62,14 +70,13 @@ export default function ProjectBadges({
   }
 
   const showMissingProjectErr = filteredProjects.some((p) => !p);
-
   return (
     <>
       {filteredProjects.map((p, i) => {
         if (!p?.name) return;
         return (
           <Badge
-            content={
+            label={
               invalidProjectIds.includes(p.id) ? (
                 <Tooltip
                   popperClassName="text-left"
@@ -86,11 +93,8 @@ export default function ProjectBadges({
               )
             }
             key={p.name}
-            className={clsx(
-              project === p?.id ? "badge-primary bg-purple" : "badge-gray",
-              className
-            )}
-            skipMargin={skipMargin || i === 0}
+            color={project === p?.id ? "purple" : "gray"}
+            ml={skipMargin || i === 0 ? "0" : "2"}
           />
         );
       })}

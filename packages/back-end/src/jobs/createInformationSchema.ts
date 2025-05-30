@@ -1,17 +1,17 @@
 import Agenda, { Job } from "agenda";
-import { getDataSourceById } from "../models/DataSourceModel";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   getInformationSchemaByDatasourceId,
   updateInformationSchemaById,
-} from "../models/InformationSchemaModel";
-import { initializeDatasourceInformationSchema } from "../services/informationSchema";
+} from "back-end/src/models/InformationSchemaModel";
+import { initializeDatasourceInformationSchema } from "back-end/src/services/informationSchema";
 import {
   DataSourceNotSupportedError,
   InformationSchemaError,
   MissingDatasourceParamsError,
-} from "../types/Integration";
-import { getContextForAgendaJobByOrgId } from "../services/organizations";
-import { trackJob } from "../services/otel";
+} from "back-end/src/types/Integration";
+import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { trackJob } from "back-end/src/services/tracing";
 
 const CREATE_INFORMATION_SCHEMA_JOB_NAME = "createInformationSchema";
 type CreateInformationSchemaJob = Job<{

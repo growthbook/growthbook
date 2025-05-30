@@ -3,38 +3,45 @@ import Agenda, { Job } from "agenda";
 import md5 from "md5";
 import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
 import { filterProjectsByEnvironmentWithNull } from "shared/util";
-import { getFeatureDefinitions } from "../services/features";
-import { CRON_ENABLED, WEBHOOKS } from "../util/secrets";
-import { SDKPayloadKey } from "../../types/sdk-payload";
+import { getFeatureDefinitions } from "back-end/src/services/features";
+import { CRON_ENABLED, WEBHOOKS } from "back-end/src/util/secrets";
+import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import {
   findSDKConnectionsByIds,
   findSDKConnectionsByOrganization,
-} from "../models/SdkConnectionModel";
-import { SDKConnectionInterface } from "../../types/sdk-connection";
-import { logger } from "../util/logger";
+} from "back-end/src/models/SdkConnectionModel";
+import { SDKConnectionInterface } from "back-end/types/sdk-connection";
+import { logger } from "back-end/src/util/logger";
 import {
   findAllSdkWebhooksByConnection,
   findAllSdkWebhooksByConnectionIds,
   findSdkWebhookByIdAcrossOrgs,
   setLastSdkWebhookError,
-} from "../models/WebhookModel";
-import { WebhookInterface } from "../../types/webhook";
-import { createSdkWebhookLog } from "../models/SdkWebhookLogModel";
-import { cancellableFetch, CancellableFetchReturn } from "../util/http.util";
+} from "back-end/src/models/WebhookModel";
+import { WebhookInterface, WebhookPayloadFormat } from "back-end/types/webhook";
+import { createSdkWebhookLog } from "back-end/src/models/SdkWebhookLogModel";
+import {
+  cancellableFetch,
+  CancellableFetchReturn,
+} from "back-end/src/util/http.util";
 import {
   getContextForAgendaJobByOrgId,
   getContextForAgendaJobByOrgObject,
-} from "../services/organizations";
-import { ReqContext } from "../../types/organization";
-import { ApiReqContext } from "../../types/api";
-import { trackJob } from "../services/otel";
+} from "back-end/src/services/organizations";
+import { ReqContext } from "back-end/types/organization";
+import { ApiReqContext } from "back-end/types/api";
+import { trackJob } from "back-end/src/services/tracing";
 
 const SDK_WEBHOOKS_JOB_NAME = "fireWebhooks";
 type SDKWebhookJob = Job<{
   webhookId: string;
   retryCount: number;
 }>;
-const sendPayloadFormats = ["standard", "sdkPayload"];
+const sendPayloadFormats: WebhookPayloadFormat[] = [
+  "standard",
+  "sdkPayload",
+  "edgeConfig",
+];
 
 const fireWebhooks = trackJob(
   SDK_WEBHOOKS_JOB_NAME,
@@ -151,11 +158,13 @@ async function runWebhookFetch({
   key,
   payload,
   global,
+  context,
 }: {
   webhook: WebhookInterface;
   key: string;
   payload: string;
   global?: boolean;
+  context: ReqContext;
 }) {
   const webhookId = webhook.id;
   const url = webhook.endpoint;
@@ -163,6 +172,7 @@ async function runWebhookFetch({
   const headers = webhook.headers || "";
   const method = webhook.httpMethod || "POST";
   const payloadFormat = webhook.payloadFormat || "standard";
+  const payloadKey = webhook.payloadKey;
   const organizationId = webhook.organization;
   const requestTimeout = 30000;
   const maxContentSize = 1000;
@@ -204,6 +214,17 @@ async function runWebhookFetch({
       case "standard":
         body = standardBody;
         break;
+      case "edgeConfig":
+        body = JSON.stringify({
+          items: [
+            {
+              operation: "upsert",
+              key: payloadKey || "gb_payload",
+              value: payload,
+            },
+          ],
+        });
+        break;
       default:
         body = standardBody;
         invalidValue = payloadFormat;
@@ -221,21 +242,24 @@ async function runWebhookFetch({
   let res: CancellableFetchReturn | undefined = undefined;
 
   try {
+    const applySecrets = await context.models.webhookSecrets.getBackEndSecretsReplacer();
+
     let customHeaders: Record<string, string> | undefined;
     if (headers) {
       try {
-        customHeaders = JSON.parse(headers);
+        customHeaders = applySecrets(JSON.parse(headers));
       } catch (error) {
         throw new Error("Failed to parse custom headers: " + error.message);
       }
     }
 
     res = await cancellableFetch(
-      url,
+      applySecrets(url, { encode: encodeURIComponent }),
       {
         headers: {
           ...customHeaders,
           "Content-Type": "application/json",
+          "User-Agent": "GrowthBook Webhook",
           "webhook-id": webhookID,
           "webhook-timestamp": timestamp + "",
           "webhook-signature": standardSignature,
@@ -328,6 +352,7 @@ export async function fireSdkWebhook(
         includeDraftExperiments: connection.includeDraftExperiments,
         includeExperimentNames: connection.includeExperimentNames,
         includeRedirectExperiments: connection.includeRedirectExperiments,
+        includeRuleIds: connection.includeRuleIds,
         hashSecureAttributes: connection.hashSecureAttributes,
       });
       payload = JSON.stringify(defs);
@@ -336,6 +361,7 @@ export async function fireSdkWebhook(
       webhook,
       key: connection.key,
       payload,
+      context: webhookContext,
     });
   }
 }
@@ -416,6 +442,7 @@ export async function fireGlobalSdkWebhooks(
       includeDraftExperiments: connection.includeDraftExperiments,
       includeExperimentNames: connection.includeExperimentNames,
       includeRedirectExperiments: connection.includeRedirectExperiments,
+      includeRuleIds: connection.includeRuleIds,
       hashSecureAttributes: connection.hashSecureAttributes,
     });
 
@@ -429,6 +456,7 @@ export async function fireGlobalSdkWebhooks(
         headers,
         sendPayload,
         payloadFormat,
+        payloadKey,
       } = webhook;
       let format = payloadFormat;
       if (!format) {
@@ -450,6 +478,7 @@ export async function fireGlobalSdkWebhooks(
         headers:
           typeof headers !== "string" ? JSON.stringify(headers) : headers,
         payloadFormat: format,
+        payloadKey,
         organization: context.org?.id,
         created: new Date(),
         error: "",
@@ -465,6 +494,7 @@ export async function fireGlobalSdkWebhooks(
         key: connection.key,
         payload,
         global: true,
+        context: context,
       }).catch((e) => {
         logger.error(e, "Failed to fire global webhook");
       });

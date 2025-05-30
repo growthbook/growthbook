@@ -1,7 +1,7 @@
-import { memoizeNotification } from "../../src/services/experimentNotifications";
-import { updateExperiment } from "../../src/models/ExperimentModel";
+import { memoizeNotification } from "back-end/src/services/experimentNotifications";
+import { updateExperiment } from "back-end/src/models/ExperimentModel";
 
-jest.mock("../../src/models/ExperimentModel", () => ({
+jest.mock("back-end/src/models/ExperimentModel", () => ({
   updateExperiment: jest.fn(),
 }));
 

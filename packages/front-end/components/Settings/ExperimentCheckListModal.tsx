@@ -65,6 +65,7 @@ export default function ExperimentCheckListModal({
 
   return (
     <Modal
+      trackingEventModalType=""
       open={true}
       close={close}
       size="max"

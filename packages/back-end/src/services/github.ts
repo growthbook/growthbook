@@ -1,6 +1,6 @@
 import { Octokit } from "@octokit/rest";
-import { GithubUserTokenInterface } from "../../types/github";
-import { getGithubUserToken } from "../models/GithubUserTokenModel";
+import { GithubUserTokenInterface } from "back-end/types/github";
+import { getGithubUserToken } from "back-end/src/models/GithubUserTokenModel";
 
 export const fetchRepositories = async (
   tokenId: GithubUserTokenInterface["id"]

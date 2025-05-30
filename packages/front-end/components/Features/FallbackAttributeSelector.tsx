@@ -8,7 +8,7 @@ import {
 } from "react-icons/fa";
 import { FaGear } from "react-icons/fa6";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
-import { SDKAttribute } from "@back-end/types/organization";
+import { SDKAttribute } from "back-end/types/organization";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
@@ -95,7 +95,7 @@ export default function FallbackAttributeSelector({
   return (
     <SelectField
       containerClassName="flex-1"
-      label="Fallback attribute"
+      label="Fallback Attribute"
       labelClassName="font-weight-bold"
       options={fallbackAttributeOptions}
       formatOptionLabel={({ value, label }) => {
@@ -209,14 +209,16 @@ export function StickyBucketingTooltip() {
 export function StickyBucketingToggleWarning({
   hasSDKWithStickyBucketing,
   showIcon = true,
+  skipMargin = false,
 }: {
   hasSDKWithStickyBucketing: boolean;
   showIcon?: boolean;
+  skipMargin?: boolean;
 }) {
   return (
     <>
       {!hasSDKWithStickyBucketing ? (
-        <div className="mt-1 mb-1 text-warning-orange">
+        <div className={`${skipMargin ? "" : "mt-1 mb-1"} text-warning-orange`}>
           {showIcon && <FaExclamationCircle className="mr-1" />}
           At least one SDK Connection with a compatible SDK is required to use
           Sticky Bucketing.
@@ -228,7 +230,7 @@ export function StickyBucketingToggleWarning({
           </DocLink>
         </div>
       ) : (
-        <div className="mt-1 mb-2 text-muted">
+        <div className={`${skipMargin ? "" : "mt-1 mb-2"} text-muted`}>
           <div>
             {showIcon && <FaExclamationCircle className="mr-1" />}
             Ensure that Sticky Bucketing is correctly integrated with your SDK

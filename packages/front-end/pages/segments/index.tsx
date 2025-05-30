@@ -7,17 +7,17 @@ import Link from "next/link";
 import clsx from "clsx";
 import { ago } from "shared/dates";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import Button from "@/components/Button";
+import Button from "@/components/Radix/Button";
 import SegmentForm from "@/components/Segments/SegmentForm";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
-import { GBAddCircle } from "@/components/Icons";
-import Code, { Language } from "@/components/SyntaxHighlighting/Code";
 import { hasFileConfig, storeSegmentsInMongo } from "@/services/env";
 import { DocLink } from "@/components/DocLink";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import ProjectBadges from "@/components/ProjectBadges";
 
 const SegmentPage: FC = () => {
   const {
@@ -27,11 +27,14 @@ const SegmentPage: FC = () => {
     datasources,
     error: segmentsError,
     mutateDefinitions: mutate,
+    project,
   } = useDefinitions();
 
   const permissionsUtil = usePermissionsUtil();
 
-  const hasCreatePermission = permissionsUtil.canCreateSegment();
+  const hasCreatePermission = permissionsUtil.canCreateSegment({
+    projects: [project],
+  });
   let canStoreSegmentsInMongo = false;
 
   if (!hasFileConfig() || (hasFileConfig() && storeSegmentsInMongo())) {
@@ -211,15 +214,11 @@ const SegmentPage: FC = () => {
         {hasCreatePermission && canStoreSegmentsInMongo && (
           <div className="col-auto">
             <Button
-              color="primary"
-              onClick={async () => {
+              onClick={() => {
                 setSegmentForm({});
               }}
             >
-              <span className="h4 pr-2 m-0 d-inline-block align-top">
-                <GBAddCircle />
-              </span>{" "}
-              New Segment
+              Add Segment
             </Button>
           </div>
         )}
@@ -246,9 +245,9 @@ const SegmentPage: FC = () => {
                 <tr>
                   <th>Name</th>
                   <th>Owner</th>
+                  <th>Projects</th>
                   <th className="d-none d-sm-table-cell">Data Source</th>
                   <th className="d-none d-md-table-cell">Identifier Type</th>
-                  <th className="d-none d-lg-table-cell">Definition</th>
                   {canStoreSegmentsInMongo ? <th>Date Updated</th> : null}
                   <th></th>
                 </tr>
@@ -256,8 +255,9 @@ const SegmentPage: FC = () => {
               <tbody>
                 {segments.map((s) => {
                   const datasource = getDatasourceById(s.datasource);
-                  const language: Language =
-                    datasource?.properties?.queryLanguage || "sql";
+                  const userIdType = datasource?.properties?.userIds
+                    ? s.userIdType || "user_id"
+                    : "";
                   return (
                     <tr key={s.id}>
                       <td>
@@ -269,6 +269,16 @@ const SegmentPage: FC = () => {
                         </>
                       </td>
                       <td>{s.owner}</td>
+                      <td className="col-2">
+                        {s && (s.projects || []).length > 0 ? (
+                          <ProjectBadges
+                            resourceType="segment"
+                            projectIds={s.projects}
+                          />
+                        ) : (
+                          <ProjectBadges resourceType="segment" />
+                        )}
+                      </td>
                       <td className="d-none d-sm-table-cell">
                         {datasource && (
                           <>
@@ -282,58 +292,50 @@ const SegmentPage: FC = () => {
                         )}
                       </td>
                       <td className="d-none d-md-table-cell">
-                        {datasource?.properties?.userIds
-                          ? s.userIdType || "user_id"
-                          : ""}
-                      </td>
-                      <td
-                        className="d-none d-lg-table-cell"
-                        style={{ maxWidth: "30em" }}
-                      >
-                        <Code
-                          code={s.sql}
-                          language={language}
-                          expandable={true}
-                        />
+                        <span
+                          className="badge badge-secondary mr-1"
+                          key={`${s.id}-${userIdType}`}
+                        >
+                          {userIdType}
+                        </span>
                       </td>
                       {canStoreSegmentsInMongo ? (
                         <td>{ago(s.dateUpdated)}</td>
                       ) : null}
                       <td>
-                        {permissionsUtil.canUpdateSegment() &&
-                        canStoreSegmentsInMongo ? (
-                          <a
-                            href="#"
-                            className="tr-hover text-primary mr-3"
-                            title="Edit this segment"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              setSegmentForm(s);
-                            }}
-                          >
-                            <FaPencilAlt />
-                          </a>
-                        ) : null}
-                        {permissionsUtil.canDeleteSegment() &&
-                        canStoreSegmentsInMongo ? (
-                          <DeleteButton
-                            link={true}
-                            className={"tr-hover text-primary"}
-                            displayName={s.name}
-                            title="Delete this segment"
-                            getConfirmationContent={getSegmentUsage(s)}
-                            onClick={async () => {
-                              await apiCall<{
-                                status: number;
-                                message?: string;
-                              }>(`/segments/${s.id}`, {
-                                method: "DELETE",
-                                body: JSON.stringify({ id: s.id }),
-                              });
-                              await mutate({});
-                            }}
-                          />
-                        ) : null}
+                        <MoreMenu>
+                          {permissionsUtil.canUpdateSegment(s, {}) &&
+                          canStoreSegmentsInMongo ? (
+                            <button
+                              className="dropdown-item"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setSegmentForm(s);
+                              }}
+                            >
+                              <FaPencilAlt /> Edit
+                            </button>
+                          ) : null}
+                          {permissionsUtil.canDeleteSegment(s) &&
+                          canStoreSegmentsInMongo ? (
+                            <DeleteButton
+                              className="dropdown-item"
+                              displayName={s.name}
+                              text="Delete"
+                              getConfirmationContent={getSegmentUsage(s)}
+                              onClick={async () => {
+                                await apiCall<{
+                                  status: number;
+                                  message?: string;
+                                }>(`/segments/${s.id}`, {
+                                  method: "DELETE",
+                                  body: JSON.stringify({ id: s.id }),
+                                });
+                                await mutate({});
+                              }}
+                            />
+                          ) : null}
+                        </MoreMenu>
                       </td>
                     </tr>
                   );

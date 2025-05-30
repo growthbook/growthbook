@@ -1,10 +1,9 @@
 import type { Response } from "express";
-import { NotificationEvent } from "../../events/notification-events";
-import * as Event from "../../models/EventModel";
-import { AuthRequest } from "../../types/AuthRequest";
-import { EventInterface } from "../../../types/event";
-import { ApiErrorResponse } from "../../../types/api";
-import { getContextFromReq } from "../../services/organizations";
+import * as Event from "back-end/src/models/EventModel";
+import { EventInterface } from "back-end/types/event";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { ApiErrorResponse } from "back-end/types/api";
+import { getContextFromReq } from "back-end/src/services/organizations";
 
 type GetEventsRequest = AuthRequest<
   null,
@@ -20,7 +19,7 @@ type GetEventsRequest = AuthRequest<
 >;
 
 type GetEventsResponse = {
-  events: EventInterface<unknown>[];
+  events: EventInterface[];
 };
 
 export const getEvents = async (
@@ -44,7 +43,7 @@ export const getEvents = async (
 
   return res.json({
     events: events.filter((event) =>
-      context.permissions.canViewEvent(event.data as NotificationEvent)
+      context.permissions.canViewEvent(event.data)
     ),
   });
 };
@@ -78,7 +77,7 @@ export const getEventsCount = async (
 type GetEventRequest = AuthRequest<null, { id: string }>;
 
 type GetEventResponse = {
-  event: EventInterface<unknown>;
+  event: EventInterface;
 };
 
 export const getEventById = async (
@@ -95,7 +94,7 @@ export const getEventById = async (
     return res.status(404).json({ message: "Not Found" });
   }
 
-  if (!context.permissions.canViewEvent(event.data as NotificationEvent)) {
+  if (!context.permissions.canViewEvent(event.data)) {
     return res.status(403).json({ message: "Forbidden" });
   }
 

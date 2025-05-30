@@ -1,4 +1,5 @@
 import chisquare from "@stdlib/stats/base/dists/chisquare";
+import { returnZeroIfNotFinite } from "shared/util";
 
 export function checkSrm(users: number[], weights: number[]) {
   // Skip variations with weight=0 or users=0
@@ -23,14 +24,11 @@ export function checkSrm(users: number[], weights: number[]) {
     e = (e / totalWeight) * totalUsers;
     x += Math.pow(o - e, 2) / e;
   });
-  return 1 - chisquare.cdf(x, data.length - 1);
+  return chi2pvalue(x, data.length - 1);
 }
 
-function returnZeroIfNotFinite(x: number): number {
-  if (isFinite(x)) {
-    return x;
-  }
-  return 0;
+export function chi2pvalue(x: number, df: number) {
+  return 1 - chisquare.cdf(x, df);
 }
 
 export function sumSquaresFromStats(
@@ -39,13 +37,4 @@ export function sumSquaresFromStats(
   n: number
 ): number {
   return returnZeroIfNotFinite(variance * (n - 1) + Math.pow(sum, 2) / n);
-}
-
-export function meanVarianceFromSums(
-  sum: number,
-  sum_squares: number,
-  n: number
-): number {
-  const variance = (sum_squares - Math.pow(sum, 2) / n) / (n - 1);
-  return returnZeroIfNotFinite(variance);
 }

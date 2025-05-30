@@ -2,52 +2,86 @@ import { Permissions, userHasPermission } from "shared/permissions";
 import { uniq } from "lodash";
 import type pino from "pino";
 import type { Request } from "express";
-import { CommercialFeature, orgHasPremiumFeature } from "enterprise";
+import { ExperimentMetricInterface } from "shared/experiments";
+import { CommercialFeature } from "shared/enterprise";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
+import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import {
   OrganizationInterface,
   Permission,
   UserPermissions,
-} from "../../types/organization";
-import { EventUser } from "../events/event-types";
+} from "back-end/types/organization";
+import { EventUser } from "back-end/src/events/event-types";
 import {
   getUserPermissions,
   roleToPermissionMap,
   getEnvironmentIdsFromOrg,
-} from "../util/organization.util";
-import { TeamInterface } from "../../types/team";
-import { FactMetricModel } from "../models/FactMetricModel";
-import { ProjectModel } from "../models/ProjectModel";
-import { ProjectInterface } from "../../types/project";
-import { addTags, getAllTags } from "../models/TagModel";
-import { AuditInterfaceInput } from "../../types/audit";
-import { insertAudit } from "../models/AuditModel";
-import { logger } from "../util/logger";
-import { UrlRedirectModel } from "../models/UrlRedirectModel";
-import { ExperimentInterface } from "../../types/experiment";
-import { DataSourceInterface } from "../../types/datasource";
-import { getExperimentsByIds } from "../models/ExperimentModel";
-import { getDataSourcesByOrganization } from "../models/DataSourceModel";
-import { SegmentModel } from "../models/SegmentModel";
+} from "back-end/src/util/organization.util";
+import { TeamInterface } from "back-end/types/team";
+import { FactMetricModel } from "back-end/src/models/FactMetricModel";
+import { ProjectModel } from "back-end/src/models/ProjectModel";
+import { ProjectInterface } from "back-end/types/project";
+import { addTags, getAllTags } from "back-end/src/models/TagModel";
+import { AuditInterfaceInput } from "back-end/types/audit";
+import { insertAudit } from "back-end/src/models/AuditModel";
+import { logger } from "back-end/src/util/logger";
+import { UrlRedirectModel } from "back-end/src/models/UrlRedirectModel";
+import { ExperimentInterface } from "back-end/types/experiment";
+import { DataSourceInterface } from "back-end/types/datasource";
+import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
+import { getDataSourcesByOrganization } from "back-end/src/models/DataSourceModel";
+import { SegmentModel } from "back-end/src/models/SegmentModel";
+import { MetricGroupModel } from "back-end/src/models/MetricGroupModel";
+import { PopulationDataModel } from "back-end/src/models/PopulationDataModel";
+import { ExperimentTemplatesModel } from "back-end/src/models/ExperimentTemplateModel";
+import { SafeRolloutModel } from "back-end/src/models/SafeRolloutModel";
+import { SafeRolloutSnapshotModel } from "back-end/src/models/SafeRolloutSnapshotModel";
+import { DecisionCriteriaModel } from "back-end/src/enterprise/models/DecisionCriteriaModel";
+import { MetricTimeSeriesModel } from "back-end/src/models/MetricTimeSeriesModel";
+import { WebhookSecretDataModel } from "back-end/src/models/WebhookSecretModel";
+import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
   experiment: ExperimentInterface;
   datasource: DataSourceInterface;
+  metric: ExperimentMetricInterface;
 };
 
 export class ReqContextClass {
   // Models
   public models!: {
+    customFields: CustomFieldModel;
     factMetrics: FactMetricModel;
     projects: ProjectModel;
     urlRedirects: UrlRedirectModel;
+    metricAnalysis: MetricAnalysisModel;
+    populationData: PopulationDataModel;
+    metricGroups: MetricGroupModel;
     segments: SegmentModel;
+    experimentTemplates: ExperimentTemplatesModel;
+    safeRollout: SafeRolloutModel;
+    safeRolloutSnapshots: SafeRolloutSnapshotModel;
+    decisionCriteria: DecisionCriteriaModel;
+    metricTimeSeries: MetricTimeSeriesModel;
+    webhookSecrets: WebhookSecretDataModel;
   };
   private initModels() {
     this.models = {
+      customFields: new CustomFieldModel(this),
       factMetrics: new FactMetricModel(this),
       projects: new ProjectModel(this),
       urlRedirects: new UrlRedirectModel(this),
+      metricAnalysis: new MetricAnalysisModel(this),
+      populationData: new PopulationDataModel(this),
+      metricGroups: new MetricGroupModel(this),
       segments: new SegmentModel(this),
+      experimentTemplates: new ExperimentTemplatesModel(this),
+      safeRollout: new SafeRolloutModel(this),
+      safeRolloutSnapshots: new SafeRolloutSnapshotModel(this),
+      decisionCriteria: new DecisionCriteriaModel(this),
+      metricTimeSeries: new MetricTimeSeriesModel(this),
+      webhookSecrets: new WebhookSecretDataModel(this),
     };
   }
 
@@ -177,7 +211,9 @@ export class ReqContextClass {
       ? {
           apiKey: this.apiKey,
         }
-      : null;
+      : ({
+          system: true,
+        } as const);
     if (!auditUser) {
       throw new Error("Must have user or apiKey in context to audit log");
     }
@@ -193,10 +229,12 @@ export class ReqContextClass {
   public foreignRefs: ForeignRefsCache = {
     experiment: new Map(),
     datasource: new Map(),
+    metric: new Map(),
   };
   public async populateForeignRefs({
     experiment,
     datasource,
+    metric,
   }: ForeignRefsCacheKeys) {
     await this.addMissingForeignRefs("experiment", experiment, (ids) =>
       getExperimentsByIds(this, ids)
@@ -204,6 +242,9 @@ export class ReqContextClass {
     // An org doesn't have that many data sources, so we just fetch them all
     await this.addMissingForeignRefs("datasource", datasource, () =>
       getDataSourcesByOrganization(this)
+    );
+    await this.addMissingForeignRefs("metric", metric, (ids) =>
+      getExperimentMetricsByIds(this, ids)
     );
   }
   private async addMissingForeignRefs<K extends keyof ForeignRefsCache>(

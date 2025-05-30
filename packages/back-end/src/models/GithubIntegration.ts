@@ -4,9 +4,9 @@ import mongoose from "mongoose";
 import {
   GithubIntegrationInterface,
   CreateGithubIntegrationInput,
-} from "../../types/github";
-import { OrganizationInterface } from "../../types/organization";
-import { fetchRepositories } from "../services/github";
+} from "back-end/types/github";
+import { OrganizationInterface } from "back-end/types/organization";
+import { fetchRepositories } from "back-end/src/services/github";
 import { doesTokenExist } from "./GithubUserTokenModel";
 
 type GithubIntegrationDocument = mongoose.Document & GithubIntegrationInterface;

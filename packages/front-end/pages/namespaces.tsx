@@ -1,7 +1,6 @@
 import { useState, FC } from "react";
 import { Namespaces, NamespaceUsage } from "back-end/types/organization";
 import useApi from "@/hooks/useApi";
-import { GBAddCircle } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import NamespaceModal from "@/components/Experiment/NamespaceModal";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -10,6 +9,7 @@ import NamespaceTableRow from "@/components/Settings/NamespaceTableRow";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import Button from "@/components/Radix/Button";
 
 export type NamespaceApiResponse = {
   namespaces: NamespaceUsage;
@@ -64,15 +64,7 @@ const NamespacesPage: FC = () => {
         </div>
         {canCreate ? (
           <div className="col-auto ml-auto">
-            <button
-              className="btn btn-primary"
-              onClick={(e) => {
-                e.preventDefault();
-                setModalOpen(true);
-              }}
-            >
-              <GBAddCircle /> Add Namespace
-            </button>
+            <Button onClick={() => setModalOpen(true)}>Add Namespace</Button>
           </div>
         ) : null}
       </div>

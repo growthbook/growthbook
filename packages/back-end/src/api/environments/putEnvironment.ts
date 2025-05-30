@@ -1,9 +1,9 @@
-import { PutEnvironmentResponse } from "../../../types/openapi";
-import { createApiRequestHandler } from "../../util/handler";
-import { putEnvironmentValidator } from "../../validators/openapi";
-import { updateOrganization } from "../../models/OrganizationModel";
-import { OrganizationInterface } from "../../../types/organization";
-import { auditDetailsUpdate } from "../../services/audit";
+import { PutEnvironmentResponse } from "back-end/types/openapi";
+import { createApiRequestHandler } from "back-end/src/util/handler";
+import { putEnvironmentValidator } from "back-end/src/validators/openapi";
+import { updateOrganization } from "back-end/src/models/OrganizationModel";
+import { OrganizationInterface } from "back-end/types/organization";
+import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { validatePayload } from "./validations";
 
 export const putEnvironment = createApiRequestHandler(putEnvironmentValidator)(

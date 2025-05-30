@@ -1,28 +1,30 @@
-import { KnownBlock } from "@slack/web-api";
+import { KnownBlock } from "@slack/types";
 import formatNumber from "number-format.js";
-import { logger } from "../../../util/logger";
-import { cancellableFetch } from "../../../util/http.util";
+import { logger } from "back-end/src/util/logger";
+import { cancellableFetch } from "back-end/src/util/http.util";
 import {
-  ExperimentCreatedNotificationEvent,
-  ExperimentDeletedNotificationEvent,
-  ExperimentUpdatedNotificationEvent,
-  ExperimentWarningNotificationEvent,
-  FeatureCreatedNotificationEvent,
-  FeatureDeletedNotificationEvent,
-  FeatureUpdatedNotificationEvent,
   NotificationEvent,
-} from "../../notification-events";
-import { getEvent } from "../../../models/EventModel";
-import { SlackIntegrationInterface } from "../../../../types/slack-integration";
-import { APP_ORIGIN } from "../../../util/secrets";
+  LegacyNotificationEvent,
+} from "back-end/src/events/notification-events";
+import { EventInterface } from "back-end/types/event";
+import { getEvent } from "back-end/src/models/EventModel";
+import { SlackIntegrationInterface } from "back-end/types/slack-integration";
+import { APP_ORIGIN } from "back-end/src/util/secrets";
 import {
   FilterDataForNotificationEvent,
   getFilterDataForNotificationEvent,
-} from "../utils";
+} from "back-end/src/events/handlers/utils";
+import { ExperimentWarningNotificationPayload } from "back-end/src/validators/experiment-warnings";
+import { ExperimentInfoSignificancePayload } from "back-end/src/validators/experiment-info";
+import { ExperimentDecisionNotificationPayload } from "back-end/src/validators/experiment-decision";
+import {
+  SafeRolloutDecisionNotificationPayload,
+  SafeRolloutUnhealthyNotificationPayload,
+} from "back-end/src/validators/safe-rollout-notifications";
 
 // region Filtering
 
-type DataForNotificationEvent = {
+export type DataForNotificationEvent = {
   filterData: FilterDataForNotificationEvent;
   slackMessage: SlackMessage;
 };
@@ -38,28 +40,133 @@ export const getSlackMessageForNotificationEvent = async (
       return null;
 
     case "feature.created":
-      return buildSlackMessageForFeatureCreatedEvent(event, eventId);
+      return buildSlackMessageForFeatureCreatedEvent(
+        event.data.object.id,
+        eventId
+      );
 
     case "feature.updated":
-      return buildSlackMessageForFeatureUpdatedEvent(event, eventId);
+      return buildSlackMessageForFeatureUpdatedEvent(
+        event.data.object.id,
+        eventId
+      );
 
     case "feature.deleted":
-      return buildSlackMessageForFeatureDeletedEvent(event, eventId);
+      return buildSlackMessageForFeatureDeletedEvent(
+        event.data.object.id,
+        eventId
+      );
+
+    case "feature.saferollout.ship":
+      return buildSlackMessageForSafeRolloutShipEvent(
+        event.data.object,
+        eventId
+      );
+
+    case "feature.saferollout.rollback":
+      return buildSlackMessageForSafeRolloutRollbackEvent(
+        event.data.object,
+        eventId
+      );
+
+    case "feature.saferollout.unhealthy":
+      return buildSlackMessageForSafeRolloutUnhealthyEvent(
+        event.data.object,
+        eventId
+      );
 
     case "experiment.created":
-      return buildSlackMessageForExperimentCreatedEvent(event, eventId);
+      return buildSlackMessageForExperimentCreatedEvent(
+        event.data.object,
+        eventId
+      );
 
     case "experiment.updated":
-      return buildSlackMessageForExperimentUpdatedEvent(event, eventId);
+      return buildSlackMessageForExperimentUpdatedEvent(
+        event.data.object,
+        eventId
+      );
 
     case "experiment.warning":
-      return buildSlackMessageForExperimentWarningEvent(event);
+      return buildSlackMessageForExperimentWarningEvent(event.data.object);
 
-    case "experiment.info":
-      return null;
+    case "experiment.info.significance":
+      return buildSlackMessageForExperimentInfoSignificanceEvent(
+        event.data.object
+      );
 
     case "experiment.deleted":
-      return buildSlackMessageForExperimentDeletedEvent(event, eventId);
+      return buildSlackMessageForExperimentDeletedEvent(
+        event.data.object.name,
+        eventId
+      );
+
+    case "experiment.decision.ship":
+      return buildSlackMessageForExperimentShipEvent(event.data.object);
+
+    case "experiment.decision.rollback":
+      return buildSlackMessageForExperimentRollbackEvent(event.data.object);
+
+    case "experiment.decision.review":
+      return buildSlackMessageForExperimentReviewEvent(event.data.object);
+
+    case "webhook.test":
+      return buildSlackMessageForWebhookTestEvent(event.data.object.webhookId);
+
+    default:
+      invalidEvent = event;
+      throw `Invalid event: ${invalidEvent}`;
+  }
+};
+
+export const getSlackMessageForLegacyNotificationEvent = async (
+  event: LegacyNotificationEvent,
+  eventId: string
+): Promise<SlackMessage | null> => {
+  let invalidEvent: never;
+
+  switch (event.event) {
+    case "user.login":
+      return null;
+
+    case "feature.created":
+      return buildSlackMessageForFeatureCreatedEvent(
+        event.data.current.id,
+        eventId
+      );
+
+    case "feature.updated":
+      return buildSlackMessageForFeatureUpdatedEvent(
+        event.data.current.id,
+        eventId
+      );
+
+    case "feature.deleted":
+      return buildSlackMessageForFeatureDeletedEvent(
+        event.data.previous.id,
+        eventId
+      );
+
+    case "experiment.created":
+      return buildSlackMessageForExperimentCreatedEvent(
+        event.data.current,
+        eventId
+      );
+
+    case "experiment.updated":
+      return buildSlackMessageForExperimentUpdatedEvent(
+        event.data.current,
+        eventId
+      );
+
+    case "experiment.warning":
+      return buildSlackMessageForExperimentWarningEvent(event.data);
+
+    case "experiment.deleted":
+      return buildSlackMessageForExperimentDeletedEvent(
+        event.data.previous.name,
+        eventId
+      );
 
     case "webhook.test":
       return buildSlackMessageForWebhookTestEvent(event.data.webhookId);
@@ -71,18 +178,17 @@ export const getSlackMessageForNotificationEvent = async (
 };
 
 export const getSlackDataForNotificationEvent = async (
-  event: NotificationEvent,
-  eventId: string
+  event: EventInterface
 ): Promise<DataForNotificationEvent | null> => {
   if (event.event === "webhook.test") return null;
 
-  const filterData = getFilterDataForNotificationEvent(event);
+  const filterData = getFilterDataForNotificationEvent(event.data);
   if (!filterData) return null;
 
-  const slackMessage = await getSlackMessageForNotificationEvent(
-    event,
-    eventId
-  );
+  const slackMessage = await (event.version
+    ? getSlackMessageForNotificationEvent(event.data, event.id)
+    : getSlackMessageForLegacyNotificationEvent(event.data, event.id));
+
   if (!slackMessage) return null;
 
   return { filterData, slackMessage };
@@ -122,13 +228,13 @@ export const getSlackIntegrationContextBlock = (
 
 // region Event-specific messages -> Feature
 
-const getFeatureUrlFormatted = (featureId: string): string =>
+export const getFeatureUrlFormatted = (featureId: string): string =>
   `\n• <${APP_ORIGIN}/features/${featureId}|View Feature>`;
 
-const getEventUrlFormatted = (eventId: string): string =>
+export const getEventUrlFormatted = (eventId: string): string =>
   `\n• <${APP_ORIGIN}/events/${eventId}|View Event>`;
 
-const getEventUserFormatted = async (eventId: string) => {
+export const getEventUserFormatted = async (eventId: string) => {
   const event = await getEvent(eventId);
 
   if (!event || !event.data?.user) return "an unknown user";
@@ -141,10 +247,9 @@ const getEventUserFormatted = async (eventId: string) => {
 };
 
 const buildSlackMessageForFeatureCreatedEvent = async (
-  featureEvent: FeatureCreatedNotificationEvent,
+  featureId: string,
   eventId: string
 ): Promise<SlackMessage> => {
-  const { id: featureId } = featureEvent.data.current;
   const eventUser = await getEventUserFormatted(eventId);
 
   const text = `The feature ${featureId} has been created by ${eventUser}`;
@@ -167,12 +272,9 @@ const buildSlackMessageForFeatureCreatedEvent = async (
 };
 
 const buildSlackMessageForFeatureUpdatedEvent = async (
-  featureEvent: FeatureUpdatedNotificationEvent,
+  featureId: string,
   eventId: string
 ): Promise<SlackMessage> => {
-  const {
-    current: { id: featureId },
-  } = featureEvent.data;
   const eventUser = await getEventUserFormatted(eventId);
 
   const text = `The feature ${featureId} has been updated by ${eventUser}`;
@@ -195,12 +297,9 @@ const buildSlackMessageForFeatureUpdatedEvent = async (
 };
 
 const buildSlackMessageForFeatureDeletedEvent = async (
-  featureEvent: FeatureDeletedNotificationEvent,
+  featureId: string,
   eventId: string
 ): Promise<SlackMessage> => {
-  const {
-    previous: { id: featureId },
-  } = featureEvent.data;
   const eventUser = await getEventUserFormatted(eventId);
   const text = `The feature ${featureId} has been deleted by ${eventUser}.`;
 
@@ -220,19 +319,88 @@ const buildSlackMessageForFeatureDeletedEvent = async (
   };
 };
 
+const buildSlackMessageForSafeRolloutShipEvent = (
+  data: SafeRolloutDecisionNotificationPayload,
+  eventId: string
+): SlackMessage => {
+  const text = `A Safe Rollout on feature ${data.featureId} in environment ${data.environment} is ready to ship to 100% of traffic.`;
+  return {
+    text,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text:
+            text +
+            getFeatureUrlFormatted(data.featureId) +
+            getEventUrlFormatted(eventId),
+        },
+      },
+    ],
+  };
+};
+
+const buildSlackMessageForSafeRolloutRollbackEvent = (
+  data: SafeRolloutDecisionNotificationPayload,
+  eventId: string
+): SlackMessage => {
+  const text = `A Safe Rollout on feature ${data.featureId} in environment ${data.environment} has a failing guardrail and should be rolled back.`;
+  return {
+    text,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text:
+            text +
+            getFeatureUrlFormatted(data.featureId) +
+            getEventUrlFormatted(eventId),
+        },
+      },
+    ],
+  };
+};
+
+const buildSlackMessageForSafeRolloutUnhealthyEvent = (
+  data: SafeRolloutUnhealthyNotificationPayload,
+  eventId: string
+): SlackMessage => {
+  const text = `A Safe Rollout on feature ${data.featureId} in environment ${data.environment} is failing a health check and may not be working as expected.`;
+  return {
+    text,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text:
+            text +
+            getFeatureUrlFormatted(data.featureId) +
+            getEventUrlFormatted(eventId),
+        },
+      },
+    ],
+  };
+};
+
 // endregion Event-specific messages -> Feature
 
 // region Event-specific messages -> Experiment
 
-const getExperimentUrlFormatted = (experimentId: string): string =>
+export const getExperimentUrlFormatted = (experimentId: string): string =>
   `\n• <${APP_ORIGIN}/experiment/${experimentId}|View Experiment>`;
 
+export const getExperimentUrlAndNameFormatted = (
+  experimentId: string,
+  experimentName: string
+): string => `<${APP_ORIGIN}/experiment/${experimentId}|${experimentName}>`;
+
 const buildSlackMessageForExperimentCreatedEvent = (
-  experimentEvent: ExperimentCreatedNotificationEvent,
+  { id: experimentId, name: experimentName }: { id: string; name: string },
   eventId: string
 ): SlackMessage => {
-  const experimentId = experimentEvent.data.current.id;
-  const experimentName = experimentEvent.data.current.name;
   const text = `The experiment ${experimentName} has been created`;
 
   return {
@@ -253,11 +421,9 @@ const buildSlackMessageForExperimentCreatedEvent = (
 };
 
 const buildSlackMessageForExperimentUpdatedEvent = (
-  experimentEvent: ExperimentUpdatedNotificationEvent,
+  { id: experimentId, name: experimentName }: { id: string; name: string },
   eventId: string
 ): SlackMessage => {
-  const experimentId = experimentEvent.data.previous.id;
-  const experimentName = experimentEvent.data.previous.name;
   const text = `The experiment ${experimentName} has been updated`;
 
   return {
@@ -293,10 +459,9 @@ const buildSlackMessageForWebhookTestEvent = (
 });
 
 const buildSlackMessageForExperimentDeletedEvent = (
-  experimentEvent: ExperimentDeletedNotificationEvent,
+  experimentName: string,
   eventId: string
 ): SlackMessage => {
-  const experimentName = experimentEvent.data.previous.name;
   const text = `The experiment ${experimentName} has been deleted`;
 
   return {
@@ -315,9 +480,70 @@ const buildSlackMessageForExperimentDeletedEvent = (
   };
 };
 
-const buildSlackMessageForExperimentWarningEvent = ({
-  data,
-}: ExperimentWarningNotificationEvent): SlackMessage => {
+const buildSlackMessageForExperimentInfoSignificanceEvent = ({
+  metricName,
+  experimentName,
+  experimentId,
+  variationName,
+  statsEngine,
+  criticalValue,
+  winning,
+}: ExperimentInfoSignificancePayload): SlackMessage => {
+  const percentFormatter = (v: number) => {
+    if (v > 0.99) {
+      return ">99%";
+    }
+    if (v < 0.01) {
+      return "<1%";
+    }
+    return formatNumber("#0.%", v * 100);
+  };
+
+  const text = ({
+    metricName,
+    variationName,
+    experimentName,
+  }: {
+    metricName: string;
+    variationName: string;
+    experimentName: string;
+  }) => {
+    if (statsEngine === "frequentist") {
+      return `In experiment ${experimentName}: metric ${metricName} for variation ${variationName} is ${
+        winning ? "beating" : "losing to"
+      } the baseline and has reached statistical significance (p-value = ${criticalValue.toFixed(
+        3
+      )}).`;
+    }
+    return `In experiment ${experimentName}: metric ${metricName} for variation ${variationName} has ${
+      winning ? "reached a" : "dropped to a"
+    } ${percentFormatter(criticalValue)} chance to beat the baseline.`;
+  };
+
+  return {
+    text: text({ metricName, experimentName, variationName }),
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: text({
+            metricName: `*${metricName}*`,
+            experimentName: getExperimentUrlAndNameFormatted(
+              experimentId,
+              experimentName
+            ),
+            variationName: `*${variationName}*`,
+          }),
+        },
+      },
+    ],
+  };
+};
+
+const buildSlackMessageForExperimentWarningEvent = (
+  data: ExperimentWarningNotificationPayload
+): SlackMessage => {
   let invalidData: never;
 
   switch (data.type) {
@@ -352,7 +578,7 @@ const buildSlackMessageForExperimentWarningEvent = ({
           data.usersCount
         )} users (${percentFormatter(
           data.percent
-        )}%) saw multiple variations and were automatically removed from results.`;
+        )}) saw multiple variations and were automatically removed from results.`;
 
       return {
         text: text(data.experimentName),
@@ -394,6 +620,75 @@ const buildSlackMessageForExperimentWarningEvent = ({
       invalidData = data;
       throw `Invalid data: ${invalidData}`;
   }
+};
+
+const buildSlackMessageForExperimentShipEvent = (
+  data: ExperimentDecisionNotificationPayload
+): SlackMessage => {
+  const text = (experimentName: string, description?: string) =>
+    `Experiment ${experimentName} has reached the "Ship now" status.${
+      description ? ` ${description}` : null
+    }`;
+  return {
+    text: text(data.experimentName, data.decisionDescription),
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text:
+            text(`*${data.experimentName}*`, data.decisionDescription) +
+            getExperimentUrlFormatted(data.experimentId),
+        },
+      },
+    ],
+  };
+};
+
+const buildSlackMessageForExperimentRollbackEvent = (
+  data: ExperimentDecisionNotificationPayload
+): SlackMessage => {
+  const text = (experimentName: string, description?: string) =>
+    `Experiment ${experimentName} has reached the "Roll back now" status.${
+      description ? ` ${description}` : null
+    }`;
+  return {
+    text: text(data.experimentName, data.decisionDescription),
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text:
+            text(`*${data.experimentName}*`, data.decisionDescription) +
+            getExperimentUrlFormatted(data.experimentId),
+        },
+      },
+    ],
+  };
+};
+
+const buildSlackMessageForExperimentReviewEvent = (
+  data: ExperimentDecisionNotificationPayload
+): SlackMessage => {
+  const text = (experimentName: string, description?: string) =>
+    `Experiment ${experimentName} has reached the "Ready for review" status.${
+      description ? ` ${description}` : null
+    }`;
+  return {
+    text: text(data.experimentName, data.decisionDescription),
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text:
+            text(`*${data.experimentName}*`, data.decisionDescription) +
+            getExperimentUrlFormatted(data.experimentId),
+        },
+      },
+    ],
+  };
 };
 
 // endregion Event-specific messages -> Experiment

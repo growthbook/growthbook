@@ -1,5 +1,5 @@
 import { GrowthBook } from "../src";
-import { Context } from "../src/types/growthbook";
+import { Options } from "../src/types/growthbook";
 
 Object.defineProperty(window, "location", {
   value: {
@@ -16,8 +16,8 @@ describe("preview links", () => {
   describe("when experiment is inactive and query param override is set", () => {
     it("should consider the client in the experiment", () => {
       window.location.href = "http://app.customer.com?exp-01=1";
-      const context: Context = { user: { id: "1" } };
-      const growthbook = new GrowthBook(context);
+      const options: Options = { user: { id: "1" } };
+      const growthbook = new GrowthBook(options);
       expect(
         growthbook.run({
           key: "exp-01",
@@ -52,8 +52,8 @@ describe("preview links", () => {
 
     it("should match the variation index with the index supplied via query param", () => {
       window.location.href = "http://app.customer.com?exp-01=1";
-      const context: Context = { user: { id: "1" } };
-      const growthbook = new GrowthBook(context);
+      const options: Options = { user: { id: "1" } };
+      const growthbook = new GrowthBook(options);
       expect(
         growthbook.run({
           key: "exp-01",
@@ -89,8 +89,8 @@ describe("preview links", () => {
     describe("when the experiment has multiple visual changesets", () => {
       it("should select the experiment with the url pattern that matches", () => {
         window.location.href = "http://app.customer.com?exp-01=1";
-        const context: Context = { user: { id: "1" } };
-        const growthbook = new GrowthBook(context);
+        const options: Options = { user: { id: "1" } };
+        const growthbook = new GrowthBook(options);
         expect(
           growthbook.run({
             key: "exp-01",

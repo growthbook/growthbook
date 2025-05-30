@@ -1,4 +1,4 @@
 export {
   RevisionLog,
   FeatureRevisionInterface,
-} from "../src/validators/features";
+} from "back-end/src/validators/features";
