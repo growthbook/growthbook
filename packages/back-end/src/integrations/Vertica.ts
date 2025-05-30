@@ -1,3 +1,5 @@
+import { FormatDialect } from "shared/src/types";
+import { format } from "shared/sql";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
 import { PostgresConnectionParams } from "back-end/types/integrations/postgres";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
@@ -7,7 +9,6 @@ import {
   QueryResponse,
   RawInformationSchema,
 } from "back-end/src/types/Integration";
-import { format, FormatDialect } from "back-end/src/util/sql";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Vertica extends SqlIntegration {

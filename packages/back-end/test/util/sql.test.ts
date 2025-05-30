@@ -1,8 +1,8 @@
+import { format } from "shared/sql";
 import {
   getBaseIdTypeAndJoins,
   compileSqlTemplate,
   expandDenominatorMetrics,
-  format,
   replaceCountStar,
   determineColumnTypes,
   getHost,
