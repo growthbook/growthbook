@@ -48,6 +48,7 @@ import {
   UpsertInstallationPayload,
   ProvisitionResource,
   UpdateResource,
+  UpdateInstallation,
   BillingPlan,
 } from "./vercel-native-integration.validators";
 
@@ -311,23 +312,41 @@ export async function upsertInstallation(req: Request, res: Response) {
 
   const integrationModel = new VercelNativeIntegrationModel(context);
 
+  const billingPlan = FREE_BILLING_PLAN;
+
   await integrationModel.create({
     installationId: authentication.payload.installation_id,
     upsertData: { payload, authentication: authentication.payload },
     resources: [],
+    billingPlanId: billingPlan.id,
   });
 
-  return res.sendStatus(204);
+  return res.send({ billingPlan });
 }
 
 export async function getInstallation(req: Request, res: Response) {
-  await authContext(req, res);
-  return res.json();
+  const { integration } = await authContext(req, res);
+
+  // billingPlan is not initially set.
+  const billingPlan = billingPlans.find(
+    ({ id }) => id === integration.billingPlanId
+  );
+
+  return res.json({ billingPlan });
 }
 
 export async function updateInstallation(req: Request, res: Response) {
-  // We don't support installation-level billing plans!
-  return res.status(400).send("Invalid request!");
+  const { integration, integrationModel } = await authContext(req, res);
+
+  const { billingPlanId } = req.body as UpdateInstallation;
+
+  const billingPlan = billingPlans.find(({ id }) => id === billingPlanId);
+
+  if (!billingPlan) return res.status(400).send("Invalid billing plan!");
+
+  await integrationModel.update(integration, { billingPlanId });
+
+  return res.send({ billingPlan });
 }
 
 export async function deleteInstallation(req: Request, res: Response) {
@@ -403,7 +422,6 @@ export async function provisionResource(req: Request, res: Response) {
   const resource: Resource = {
     ...payload,
     id: resourceId,
-    billingPlan,
     secrets: [{ name: "GROWTHBOOK_CLIENT_KEY", value: sdkConnection.key }],
     status: "ready",
     projectId: project.id,
@@ -412,6 +430,7 @@ export async function provisionResource(req: Request, res: Response) {
   };
 
   await integrationModel.update(integration, {
+    billingPlanId,
     resources: [...integration.resources, resource],
   });
 
@@ -436,19 +455,11 @@ export async function updateResource(req: Request, res: Response) {
 
   if (!resource) return res.status(400).send("Resource not found!");
 
-  const { billingPlanId, ...payload } = req.body as UpdateResource;
-
-  const updatedBillingPlan = billingPlanId
-    ? billingPlans.find(({ id }) => id === billingPlanId)
-    : undefined;
-
-  if (billingPlanId && !updatedBillingPlan)
-    return res.status(400).send("Invalid billing plan!");
+  const payload = req.body as UpdateResource;
 
   const updatedResource = {
     ...resource,
     ...payload,
-    ...(updatedBillingPlan ? { billingPlan: updatedBillingPlan } : {}),
   };
 
   await integrationModel.update(integration, {
@@ -462,7 +473,7 @@ export async function updateResource(req: Request, res: Response) {
   return res.json(updatedResource);
 }
 
-export async function getResourceProducts(req: Request, res: Response) {
+export async function getInstallationProducts(req: Request, res: Response) {
   await authContext(req, res);
 
   return res.json({ plans: billingPlans });
@@ -509,11 +520,14 @@ export async function deleteResource(req: Request, res: Response) {
 }
 
 export async function getProducts(req: Request, res: Response) {
-  await authContext(req, res);
+  const { integration } = await authContext(req, res);
 
   const slug = req.params.slug;
 
   if (!slug) return res.status(400).send("Invalid request!");
+
+  if (integration.billingPlanId !== FREE_BILLING_PLAN.id)
+    return res.json({ plans: [NON_FREE_BILLING_PLAN] });
 
   return res.json({ plans: billingPlans });
 }

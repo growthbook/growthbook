@@ -97,8 +97,8 @@ export const provisitionResourceValidator = z.object({
   productId: z.string(),
   name: z.string(),
   metadata: z.record(z.string(), z.unknown()),
-  billingPlanId: z.string(),
   externalId: z.string().optional(),
+  billingPlanId: z.string(),
   protocolSettings: z
     .object({
       experimentation: z
