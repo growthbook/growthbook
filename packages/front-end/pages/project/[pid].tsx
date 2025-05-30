@@ -17,6 +17,8 @@ import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Frame from "@/components/Radix/Frame";
+import Badge from "@/components/Radix/Badge";
+import { capitalizeFirstLetter } from "@/services/utils";
 
 function hasChanges(value: ProjectSettings, existing: ProjectSettings) {
   if (!existing) return true;
@@ -123,6 +125,13 @@ const ProjectPage: FC = () => {
             Back to all projects
           </Link>
         </div>
+        {p.managedBy?.type ? (
+          <div className="mb-2">
+            <Badge
+              label={`Managed by ${capitalizeFirstLetter(p.managedBy.type)}`}
+            />
+          </div>
+        ) : null}
         <div className="d-flex align-items-center mb-2">
           <h1 className="mb-0">{p.name}</h1>
           <div className="ml-1">

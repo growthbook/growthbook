@@ -11,6 +11,8 @@ import { AddMembersModal } from "@/components/Teams/AddMembersModal";
 import { PermissionsModal } from "@/components/Settings/Teams/PermissionModal";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Badge from "@/components/Radix/Badge";
+import { capitalizeFirstLetter } from "@/services/utils";
 
 const TeamPage: FC = () => {
   const { apiCall } = useAuth();
@@ -75,6 +77,13 @@ const TeamPage: FC = () => {
             via the <b>Edit Permissions</b> button below.
           </div>
         )}
+        {team.managedBy?.type ? (
+          <div>
+            <Badge
+              label={`Managed by ${capitalizeFirstLetter(team.managedBy.type)}`}
+            />
+          </div>
+        ) : null}
         <div className="d-flex align-items-center mb-2">
           <h1 className="mb-0">{team.name}</h1>
           {isEditable && (
