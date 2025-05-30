@@ -41,7 +41,14 @@ export default function SdkResources({ sdk }: { sdk: keyof typeof sdkInfo }) {
     version,
   ]);
 
-  const githubName = useMemo(() => github.split("/").pop(), [github]);
+  const githubName = useMemo(() => {
+    if (github.name) return github.name;
+    return github.split("/").pop();
+  }, [github]);
+  const githubUrl = useMemo(() => {
+    if (github.url) return github.url;
+    return github;
+  }, [github]);
 
   return (
     <section className="sdk-info">
@@ -53,7 +60,7 @@ export default function SdkResources({ sdk }: { sdk: keyof typeof sdkInfo }) {
         <InfoContainer icon={<GitBranch />}>{formattedVersion}</InfoContainer>
       </header>
 
-      <InfoContainer href={github} icon={<GitHubLogo />}>
+      <InfoContainer href={githubUrl} icon={<GitHubLogo />}>
         {githubName}
       </InfoContainer>
 
