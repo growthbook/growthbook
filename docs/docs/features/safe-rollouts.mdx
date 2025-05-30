@@ -69,6 +69,18 @@ Status indicators:
 Guardrails are analyzed for failure using one-sided sequential testing, allowing you to roll back as soon as statistical significance is reached without fear of false positives. Your safe rollout is automatically monitored for implementation errors with sample ratio mismatch and multiple exposures checks.
 :::
 
+## Understanding the Time series graph
+
+The safe rollout monitoring interface includes a time series graph that shows how your guardrail metrics are performing over time. This graph displays two key values:
+
+### Metric Boundary
+
+The Metric Boundary is the statistical boundary for whether a safe rollout is failing. When it crosses zero, we have enough statistical certainty that the safe rollout is harming this metric. Technically, it is the [lower/upper] bound of the absolute change confidence interval between the baseline and the safe rollout groups.
+
+### Threshold
+
+This is the threshold for when a metric is considered to be failing. It is always set to zero so that as soon as there is statistical certainty that a metric is being harmed at all (even for very small values), we consider a safe rollout as failing.
+
 ### 5. Take Action
 
 At the end of the monitoring period (or sooner if issues arise), you can:

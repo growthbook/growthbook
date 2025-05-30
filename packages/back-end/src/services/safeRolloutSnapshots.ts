@@ -555,14 +555,17 @@ const memoizeSafeRolloutNotification = async ({
   types: SafeRolloutNotification[];
   safeRollout: SafeRolloutInterface;
   dispatch: () => Promise<void>;
-}) => {
-  if (types.every((t) => safeRollout.pastNotifications?.includes(t))) return;
+}): Promise<boolean> => {
+  if (types.every((t) => safeRollout.pastNotifications?.includes(t)))
+    return false;
 
   await dispatch();
 
   await context.models.safeRollout.update(safeRollout, {
     pastNotifications: types,
   });
+
+  return true;
 };
 
 export async function notifySafeRolloutChange({
@@ -573,8 +576,11 @@ export async function notifySafeRolloutChange({
   context: ReqContext;
   updatedSafeRollout: SafeRolloutInterface;
   safeRolloutSnapshot: SafeRolloutSnapshotInterface;
-}): Promise<void> {
-  if (updatedSafeRollout.status !== "running") return;
+}): Promise<boolean> {
+  if (updatedSafeRollout.status !== "running") return false;
+
+  let notificationSent = false;
+
   const daysLeft = getSafeRolloutDaysLeft({
     safeRollout: updatedSafeRollout,
     snapshotWithResults: safeRolloutSnapshot,
@@ -610,7 +616,7 @@ export async function notifySafeRolloutChange({
       unhealthyReasons.push("multipleExposures");
     }
 
-    await memoizeSafeRolloutNotification({
+    const unhealthyNotificationSent = await memoizeSafeRolloutNotification({
       context,
       types: unhealthyReasons,
       safeRollout: updatedSafeRollout,
@@ -628,10 +634,11 @@ export async function notifySafeRolloutChange({
           },
         }),
     });
+    notificationSent = notificationSent || unhealthyNotificationSent;
   }
 
   if (safeRolloutStatus?.status === "rollback-now") {
-    await memoizeSafeRolloutNotification({
+    const rollbackNotificationSent = await memoizeSafeRolloutNotification({
       context,
       types: ["rollback"],
       safeRollout: updatedSafeRollout,
@@ -646,9 +653,10 @@ export async function notifySafeRolloutChange({
           },
         }),
     });
+    notificationSent = notificationSent || rollbackNotificationSent;
   }
   if (safeRolloutStatus?.status === "ship-now") {
-    await memoizeSafeRolloutNotification({
+    const shipNotificationSent = await memoizeSafeRolloutNotification({
       context,
       types: ["ship"],
       safeRollout: updatedSafeRollout,
@@ -663,5 +671,8 @@ export async function notifySafeRolloutChange({
           },
         }),
     });
+    notificationSent = notificationSent || shipNotificationSent;
   }
+
+  return notificationSent;
 }
