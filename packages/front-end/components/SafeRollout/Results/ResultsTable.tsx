@@ -47,6 +47,7 @@ import SafeRolloutTimeSeriesGraph from "@/components/Experiment/SafeRolloutTimeS
 import Tooltip from "@/components/Tooltip/Tooltip";
 import useApi from "@/hooks/useApi";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import { useSafeRolloutSnapshot } from "../SnapshotProvider";
 import ChangeColumn from "./ChangeColumn";
 import StatusColumn from "./StatusColumn";
 
@@ -288,7 +289,7 @@ export default function ResultsTable({
   const urlFormattedMetricIds = rows
     .map((row) => row.metric.id)
     .join("&metricIds[]=");
-  const { data: metricTimeSeries } = useApi<{
+  const { data: metricTimeSeries, mutate: mutateMetricTimeSeries } = useApi<{
     status: number;
     timeSeries: MetricTimeSeries[];
   }>(`/safe-rollout/${id}/time-series?metricIds[]=${urlFormattedMetricIds}`, {
@@ -308,6 +309,12 @@ export default function ResultsTable({
     if (!dataPoints) return [undefined, undefined] as [undefined, undefined];
     return extent(dataPoints);
   }, [metricTimeSeries]);
+
+  // Ensure that if we get a new snapshot, we refetch the metric time series
+  const { snapshot } = useSafeRolloutSnapshot();
+  useEffect(() => {
+    mutateMetricTimeSeries();
+  }, [snapshot?.id, mutateMetricTimeSeries]);
 
   return (
     <div className="position-relative">
@@ -560,7 +567,7 @@ export default function ResultsTable({
                             <td style={{ padding: 0, height: 1 }}>
                               <SafeRolloutTimeSeriesGraph
                                 data={metricTimeSeries}
-                                xExtent={metricTimeSeriesDateExtent}
+                                xDateRange={metricTimeSeriesDateExtent}
                                 ssrPolyfills={ssrPolyfills}
                               />
                             </td>
