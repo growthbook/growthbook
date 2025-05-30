@@ -260,6 +260,11 @@ export abstract class BaseModel<
       keys.metric = metric;
     }
 
+    const feature = this.detectForeignKey(doc, ["feature", "featureId"]);
+    if (feature) {
+      keys.feature = feature;
+    }
+
     return keys;
   }
 

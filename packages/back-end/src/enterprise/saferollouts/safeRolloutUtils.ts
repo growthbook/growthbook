@@ -108,6 +108,7 @@ export async function checkAndRollbackSafeRollout({
       org: context.org,
     });
     await editFeatureRule(
+      context,
       revision,
       updatedSafeRollout.environment,
       ruleIndex,
