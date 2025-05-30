@@ -1,0 +1,33 @@
+parameters:
+  - $ref: "../parameters.yaml#/delete"
+tags:
+  - metrics
+summary: Archives (or deletes) a set of metrics by IDs
+operationId: deleteMetrics
+x-codeSamples:
+  - lang: "cURL"
+    source: |
+      curl -X DELETE --data '{"ids": ["met_123", "met_456"]}' https://api.growthbook.io/api/v1/metrics?delete=true \
+        -u secret_abc123DEF456:
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "../payload-schemas/DeleteMetricsPayload.yaml"
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - modifiedIds
+            - deleted
+          properties:
+            modifiedIds:
+              type: array
+              items:
+                type: string
+            deleted:
+              type: boolean
