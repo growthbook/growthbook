@@ -171,9 +171,15 @@ paths:
     get:
       $ref: "./paths/lookupSdkConnectionByKey.yaml"
   /data-sources:
-    $ref: "./paths/listDataSources.yaml"
+    get:
+      $ref: "./paths/listDataSources.yaml"
+    post:
+      $ref: "./paths/postDataSource.yaml"
   /data-sources/{id}:
-    $ref: "./paths/getDataSource.yaml"
+    get:
+      $ref: "./paths/getDataSource.yaml"
+    put:
+      $ref: "./paths/updateDataSource.yaml"
   /experiments:
     get:
       $ref: "./paths/listExperiments.yaml"
