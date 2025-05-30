@@ -111,6 +111,9 @@ tags:
   - name: archetypes
     x-displayName: Archetypes
     description: Archetypes allow you to simulate the result of targeting rules on pre-set user attributes
+  - name: queries
+    x-displayName: Queries
+    description: Retrieve queries used in experiments to calculate results.
   - name: Archetype_model
     x-displayName: Archetype
     description: <SchemaDefinition schemaRef="#/components/schemas/Archetype" />
@@ -198,6 +201,9 @@ tags:
   - name: Project_model
     x-displayName: Project
     description: <SchemaDefinition schemaRef="#/components/schemas/Project" />
+  - name: Query_model
+    x-displayName: Query
+    description: <SchemaDefinition schemaRef="#/components/schemas/Query" />
   - name: SavedGroup_model
     x-displayName: SavedGroup
     description: <SchemaDefinition schemaRef="#/components/schemas/SavedGroup" />
@@ -5279,6 +5285,30 @@ paths:
                     type: array
                     items:
                       type: string
+  '/queries/{id}':
+    get:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      summary: Get a single query
+      tags:
+        - queries
+      operationId: getQuery
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/queries/qry_123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - query
+                properties:
+                  query:
+                    $ref: '#/components/schemas/Query'
 components:
   parameters:
     id:
@@ -7534,6 +7564,54 @@ components:
           type: array
           items:
             type: string
+    Query:
+      type: object
+      required:
+        - id
+        - organization
+        - datasource
+        - language
+        - query
+        - queryType
+        - createdAt
+        - startedAt
+        - status
+        - externalId
+        - dependencies
+        - runAtEnd
+      properties:
+        id:
+          type: string
+        organization:
+          type: string
+        datasource:
+          type: string
+        language:
+          type: string
+        query:
+          type: string
+        queryType:
+          type: string
+        createdAt:
+          type: string
+        startedAt:
+          type: string
+        status:
+          type: string
+          enum:
+            - running
+            - queued
+            - failed
+            - partially-succeeded
+            - succeeded
+        externalId:
+          type: string
+        dependencies:
+          type: array
+          items:
+            type: string
+        runAtEnd:
+          type: boolean
   securitySchemes:
     bearerAuth:
       type: http
@@ -7588,6 +7666,7 @@ x-tagGroups:
       - fact-metrics
       - code-references
       - archetypes
+      - queries
   - name: Models
     tags:
       - Archetype_model
@@ -7619,6 +7698,7 @@ x-tagGroups:
       - Organization_model
       - PaginationFields_model
       - Project_model
+      - Query_model
       - SavedGroup_model
       - SdkConnection_model
       - Segment_model

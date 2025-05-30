@@ -16,6 +16,7 @@ import {
 } from "@/components/Radix/DropdownMenu";
 import { SearchTermFilterOperator, SyntaxFilter } from "@/services/search";
 import Field from "@/components/Forms/Field";
+import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 
 const USE_SEARCH_BOX = false;
 
@@ -78,7 +79,9 @@ export const FilterItem: FC<{
       ) : (
         ""
       )}
-      <Box pl="4">{item}</Box>
+      <Box pl="4">
+        {typeof item === "string" ? <OverflowText>{item}</OverflowText> : item}
+      </Box>
     </Box>
   );
 };
