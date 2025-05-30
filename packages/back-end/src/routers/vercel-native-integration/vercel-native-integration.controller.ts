@@ -342,7 +342,10 @@ export async function getInstallation(req: Request, res: Response) {
 }
 
 export async function updateInstallation(req: Request, res: Response) {
-  const { integration, integrationModel } = await authContext(req, res);
+  const { integration, integrationModel, org, user } = await authContext(
+    req,
+    res
+  );
 
   const { billingPlanId } = req.body as UpdateInstallation;
 
@@ -350,7 +353,37 @@ export async function updateInstallation(req: Request, res: Response) {
 
   if (!billingPlan) return res.status(400).send("Invalid billing plan!");
 
-  //MKTODO: Add logic here to change the org's subscription if the billingPlan is different
+  const license = await getLicenseByKey(org.licenseKey || "");
+  if (!license) {
+    return res.status(404).send(`Unable to locate license for org: ${org.id}`);
+  }
+
+  // Check if current billing plan is different from new plan
+  if (integration.billingPlanId !== billingPlanId) {
+    if (integration.billingPlanId === "starter-billing-plan") {
+      // The user is upgrading from the starter plan to the pro plan
+      try {
+        await postNewVercelSubscriptionToLicenseServer(
+          org,
+          req.params.installation_id,
+          user?.name || ""
+        );
+      } catch (e) {
+        throw new Error(
+          `Unable to create new subscription. Reason: ${e.message} || "Unknown`
+        );
+      }
+    } else {
+      // The user is downgrading from the pro plan to the starter plan
+      try {
+        await postCancelSubscriptionToLicenseServer(license.id);
+      } catch (e) {
+        throw new Error(
+          `Unable to cancel subscription. Reason: ${e.message} || "Unknown`
+        );
+      }
+    }
+  }
 
   await integrationModel.update(integration, { billingPlanId });
 
@@ -358,11 +391,17 @@ export async function updateInstallation(req: Request, res: Response) {
 }
 
 export async function deleteInstallation(req: Request, res: Response) {
-  const { context, integrationModel, integration } = await authContext(
+  const { context, integrationModel, integration, org } = await authContext(
     req,
     res
   );
 
+  const license = await getLicenseByKey(org.licenseKey || "");
+  if (!license) {
+    return res.status(404).send(`Unable to locate license for org: ${org.id}`);
+  }
+
+  await postCancelSubscriptionToLicenseServer(license.id);
   await removeManagedBy(context, { type: "vercel" });
   await integrationModel.deleteById(integration.id);
 
@@ -381,13 +420,8 @@ export async function provisionResource(req: Request, res: Response) {
 
   const {
     externalId: _externalId,
-    billingPlanId,
     ...payload
   } = req.body as ProvisitionResource;
-
-  const billingPlan = billingPlans.find(({ id }) => id === billingPlanId);
-
-  if (!billingPlan) return res.status(400).send("Invalid billing plan!");
 
   const resourceId = uuidv4();
 
@@ -401,25 +435,6 @@ export async function provisionResource(req: Request, res: Response) {
     managedBy,
   });
 
-  if (billingPlanId === "pro-billing-plan") {
-    try {
-      // Get fresh org with updated name
-      const updatedOrg = await getOrganizationById(org.id);
-
-      if (!updatedOrg) {
-        throw new Error("Organization not found");
-      }
-      await postNewVercelSubscriptionToLicenseServer(
-        updatedOrg,
-        req.params.installation_id,
-        user?.name || ""
-      );
-    } catch (e) {
-      throw new Error(
-        `Unable to create new subscription. Reason: ${e.message} || "Unknown`
-      );
-    }
-  }
   const sdkConnection = await createSDKConnection({
     organization: org.id,
     name: payload.name,
@@ -458,7 +473,6 @@ export async function provisionResource(req: Request, res: Response) {
   };
 
   await integrationModel.update(integration, {
-    billingPlanId,
     resources: [...integration.resources, resource],
   });
 
@@ -532,8 +546,6 @@ export async function deleteResource(req: Request, res: Response) {
   if (!license) {
     return res.status(404).send(`Unable to locate license for org: ${org.id}`);
   }
-
-  await postCancelSubscriptionToLicenseServer(license.id);
 
   await removeManagedBy(context, { type: "vercel", resourceId: resource.id });
 
