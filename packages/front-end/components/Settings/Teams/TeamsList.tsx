@@ -13,6 +13,7 @@ import { roleHasAccessToEnv, useAuth } from "@/services/auth";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Badge from "@/components/Radix/Badge";
+import { capitalizeFirstLetter } from "@/services/utils";
 
 const TeamsList: FC = () => {
   const { teams, refreshOrganization, organization } = useUser();
@@ -66,10 +67,9 @@ const TeamsList: FC = () => {
                       {t.managedBy?.type ? (
                         <div>
                           <Badge
-                            label={`Managed by ${
-                              t.managedBy.type.charAt(0).toUpperCase() +
-                              t.managedBy.type.slice(1)
-                            }`}
+                            label={`Managed by ${capitalizeFirstLetter(
+                              t.managedBy.type
+                            )}`}
                           />
                         </div>
                       ) : null}

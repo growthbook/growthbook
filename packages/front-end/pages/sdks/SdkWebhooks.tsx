@@ -23,6 +23,7 @@ import { DocLink } from "@/components/DocLink";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ClickToReveal from "@/components/Settings/ClickToReveal";
 import Badge from "@/components/Radix/Badge";
+import { capitalizeFirstLetter } from "@/services/utils";
 
 const payloadFormatLabels: Record<string, string | ReactElement> = {
   standard: "Standard",
@@ -74,10 +75,9 @@ export default function SdkWebhooks({
           {webhook.managedBy?.type ? (
             <div>
               <Badge
-                label={`Managed by ${
-                  webhook.managedBy.type.charAt(0).toUpperCase() +
-                  webhook.managedBy.type.slice(1)
-                }`}
+                label={`Managed by ${capitalizeFirstLetter(
+                  webhook.managedBy.type
+                )}`}
               />
             </div>
           ) : null}

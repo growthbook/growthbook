@@ -14,6 +14,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/components/Radix/Button";
 import Badge from "@/components/Radix/Badge";
+import { capitalizeFirstLetter } from "@/services/utils";
 
 const ProjectsPage: FC = () => {
   const { projects, mutateDefinitions } = useDefinitions();
@@ -108,10 +109,9 @@ const ProjectsPage: FC = () => {
                     {p.managedBy?.type ? (
                       <div>
                         <Badge
-                          label={`Managed by ${
-                            p.managedBy.type.charAt(0).toUpperCase() +
-                            p.managedBy.type.slice(1)
-                          }`}
+                          label={`Managed by ${capitalizeFirstLetter(
+                            p.managedBy.type
+                          )}`}
                         />
                       </div>
                     ) : null}

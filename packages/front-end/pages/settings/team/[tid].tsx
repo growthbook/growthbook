@@ -12,6 +12,7 @@ import { PermissionsModal } from "@/components/Settings/Teams/PermissionModal";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Badge from "@/components/Radix/Badge";
+import { capitalizeFirstLetter } from "@/services/utils";
 
 const TeamPage: FC = () => {
   const { apiCall } = useAuth();
@@ -79,10 +80,7 @@ const TeamPage: FC = () => {
         {team.managedBy?.type ? (
           <div>
             <Badge
-              label={`Managed by ${
-                team.managedBy.type.charAt(0).toUpperCase() +
-                team.managedBy.type.slice(1)
-              }`}
+              label={`Managed by ${capitalizeFirstLetter(team.managedBy.type)}`}
             />
           </div>
         ) : null}

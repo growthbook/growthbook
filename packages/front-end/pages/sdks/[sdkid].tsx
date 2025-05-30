@@ -18,6 +18,7 @@ import SdkWebhooks from "@/pages/sdks/SdkWebhooks";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ConnectionDiagram from "@/components/Features/SDKConnections/ConnectionDiagram";
 import Badge from "@/components/Radix/Badge";
+import { capitalizeFirstLetter } from "@/services/utils";
 
 export default function SDKConnectionPage() {
   const router = useRouter();
@@ -76,10 +77,9 @@ export default function SDKConnectionPage() {
       {connection.managedBy?.type ? (
         <div className="mb-2">
           <Badge
-            label={`Managed by ${
-              connection.managedBy.type.charAt(0).toUpperCase() +
-              connection.managedBy.type.slice(1)
-            }`}
+            label={`Managed by ${capitalizeFirstLetter(
+              connection.managedBy.type
+            )}`}
           />
         </div>
       ) : null}
