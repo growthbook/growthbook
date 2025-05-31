@@ -43,7 +43,7 @@ export default function SdkResources({ sdk }: { sdk: keyof typeof sdkInfo }) {
 
   const [githubName, githubUrl] = useMemo(() => {
     if (typeof github !== "string" && github?.name && github?.url) {
-      return [github.name, githubUrl];
+      return [github.name, github];
     }
     return [github.split("/").pop(), github];
   }, [github]);
