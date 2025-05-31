@@ -147,7 +147,7 @@ To start the docs site, first `cd docs` and then run `yarn` to install and `yarn
 To work on the SDKs, `cd` into the desired directory and the following commands are available:
 
 - `yarn test` - Run Jest
-- `yarn build` - Run the rollup build process
+- `yarn build` - Run the build process
 - `yarn size` - Get the gzip size of the bundle (must run `yarn build` first)
 
 #### Releasing SDK Updates
