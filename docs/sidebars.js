@@ -464,6 +464,7 @@ const sidebars = {
           collapsed: true,
           items: [
             { type: "doc", id: "lib/node", label: "Node.js" },
+            { type: "doc", id: "lib/nextjs", label: "Next.js" },
             { type: "doc", id: "lib/php", label: "PHP" },
             { type: "doc", id: "lib/ruby", label: "Ruby" },
             { type: "doc", id: "lib/python", label: "Python" },

@@ -71,6 +71,36 @@
       "looseUnmarshalling"
     ]
   },
+  "nextjs": {
+    "name": "Next.js SDK",
+    "version": "0.1.0",
+    "github": {
+      "name": "Vercel Flags SDK → GrowthBook Adapter",
+      "url": "https://github.com/vercel/flags/tree/main/packages/adapter-growthbook"
+    },
+    "examples": [
+      {
+        "url": "https://github.com/vercel/examples/tree/main/flags-sdk/growthbook",
+        "name": "Next.js Flags SDK example app"
+      }
+    ],
+    "packageRepos": [
+      {
+        "name": "npm",
+        "url": "https://www.npmjs.com/package/@flags-sdk/growthbook"
+      }
+    ],
+    "capabilities": [
+      "savedGroupReferences",
+      "redirects",
+      "prerequisites",
+      "stickyBucketing",
+      "semverTargeting",
+      "bucketingV2",
+      "encryption",
+      "looseUnmarshalling"
+    ]
+  },
   "php": {
     "name": "PHP SDK",
     "version": "1.3.0",
