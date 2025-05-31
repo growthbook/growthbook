@@ -14,7 +14,7 @@
     "build": "yarn build:clean && yarn build:typescript",
     "test": "jest --forceExit --verbose --detectOpenHandles",
     "clean": "rimraf node_modules",
-    "type-check": "tsc --pretty --noEmit",
+    "type-check": "tsgo --pretty --noEmit",
     "generate-sdk-report": "node -r @swc-node/register ./src/sdk-versioning/sdk-report.ts ./src/sdk-versioning/CAPABILITIES.md"
   },
   "dependencies": {

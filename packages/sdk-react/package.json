@@ -30,7 +30,7 @@
     "build": "yarn build:clean && npm-run-all --parallel build:types build:bundles",
     "test": "jest",
     "clean": "rimraf node_modules",
-    "type-check": "tsc --pretty --noEmit",
+    "type-check": "tsgo --pretty --noEmit",
     "size": "cat ./dist/esm/index.js ../sdk-js/dist/bundles/index.min.js | terser | gzip-size --include-original"
   },
   "author": "Jeremy Dorn",
