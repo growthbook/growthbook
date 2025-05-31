@@ -1,9 +1,63 @@
 import { createRequire } from "module";
+import { dirname, resolve } from "node:path";
+import { readdir } from "node:fs/promises";
 import * as esbuild from "esbuild";
-import { esbuildPluginFilePathExtensions } from "esbuild-plugin-file-path-extensions";
 
 const require = createRequire(import.meta.url);
 const { version } = require("./package.json");
+
+const importExtensionsMjsPlugin = {
+  name: "import-extensions-mjs",
+  setup(build) {
+    build.onResolve({ filter: /.*/ }, async (args) => {
+      if (args.kind === "import-statement") {
+        if (args.importer) {
+          const path = args.path;
+
+          const keepExisting = {
+            path,
+            external: true,
+          };
+
+          // If the import is not relative, leave it alone
+          if (!path.match(/^\./)) {
+            //console.log(path, "Not a relative import, leaving alone");
+            return keepExisting;
+          }
+
+          const pathDir = dirname(resolve(args.resolveDir, path));
+          const files = await readdir(pathDir);
+
+          const filename = path.split("/").pop();
+
+          // If the import is relative and the path exists, leave it alone
+          if (files.includes(filename)) {
+            //console.log(path, "Path exists, leaving alone");
+            return keepExisting;
+          }
+
+          // If none of the files look like `path.{js-like-extension}, this is an error
+          const jsLikeExtensions = [".js", ".mjs", ".ts", ".tsx", ".jsx"];
+          const hasJsLikeExtension = files.some((file) => {
+            return jsLikeExtensions.some((ext) => file === `${filename}${ext}`);
+          });
+          if (!hasJsLikeExtension) {
+            throw new Error(
+              "Js-like file not found: " + pathDir + "/" + filename
+            );
+          }
+
+          // At this point, we can rewrite the import to have a mjs path
+          //console.log(path, "Rewriting import to mjs extension");
+          return {
+            path: `${path}.mjs`,
+            external: true,
+          };
+        }
+      }
+    });
+  },
+};
 
 const bundleOptions = {
   sourcemap: true,
@@ -87,11 +141,7 @@ await Promise.all([
     // bundle: true is required for the file path extensions plugin to work correctly
     // The code will not actually be bundled, but it needs to be set to true
     bundle: true,
-    plugins: [
-      esbuildPluginFilePathExtensions({
-        esm: true,
-      }),
-    ],
+    plugins: [importExtensionsMjsPlugin],
   }),
   esbuild.build({
     ...rawOptions,
