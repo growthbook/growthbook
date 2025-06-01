@@ -40,6 +40,7 @@ export default function WebhookSecretModal({
         if (existingId) {
           const body: UpdateWebhookSecretProps = {
             description: data.description,
+            allowedOrigins: data.allowedOrigins,
           };
           // Don't update the value if it's empty
           if (data.value) {
