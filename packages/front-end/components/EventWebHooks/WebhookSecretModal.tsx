@@ -4,6 +4,7 @@ import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import { useAuth } from "@/services/auth";
+import StringArrayField from "../Forms/StringArrayField";
 
 export default function WebhookSecretModal({
   existingId,
@@ -24,6 +25,7 @@ export default function WebhookSecretModal({
     defaultValues: {
       key: existing?.key || "",
       description: existing?.description || "",
+      allowedOrigins: existing?.allowedOrigins || [],
       value: "",
     },
   });
@@ -78,6 +80,12 @@ export default function WebhookSecretModal({
         label="Description"
         textarea
         placeholder="(optional)"
+      />
+      <StringArrayField
+        value={form.watch("allowedOrigins")}
+        onChange={(value) => form.setValue("allowedOrigins", value)}
+        label="Restrict to Specific Origins"
+        helpText="Only allow using this secret in requests to the specified origins. Leave empty for no origin restrictions."
       />
     </Modal>
   );
