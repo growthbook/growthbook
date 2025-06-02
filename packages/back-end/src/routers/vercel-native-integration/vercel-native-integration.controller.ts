@@ -408,6 +408,14 @@ export async function deleteInstallation(req: Request, res: Response) {
   await removeManagedBy(context, { type: "vercel" });
   await integrationModel.deleteById(integration.id);
 
+  await updateOrganization(
+    org.id,
+    {
+      isVercelIntegration: false,
+    },
+    { restrictLoginMethod: 1 }
+  );
+
   //MKTODO: Remove the finalized: true before we ship this to production
   return res.status(200).send({ finalized: true });
 }
@@ -571,18 +579,12 @@ async function removeManagedBy(
 export async function deleteResource(req: Request, res: Response) {
   const {
     context,
-    org,
     integrationModel,
     integration,
     resource,
   } = await authContext(req, res);
 
   if (!resource) return res.status(400).send("Resource not found!");
-
-  const license = await getLicenseByKey(org.licenseKey || "");
-  if (!license) {
-    return res.status(404).send(`Unable to locate license for org: ${org.id}`);
-  }
 
   await removeManagedBy(context, { type: "vercel", resourceId: resource.id });
 
@@ -591,14 +593,6 @@ export async function deleteResource(req: Request, res: Response) {
   });
 
   await deleteVercelSdkWebhook(context);
-
-  await updateOrganization(
-    org.id,
-    {
-      isVercelIntegration: false,
-    },
-    { restrictLoginMethod: 1 }
-  );
 
   return res.sendStatus(204);
 }
