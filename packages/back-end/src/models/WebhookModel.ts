@@ -6,10 +6,7 @@ import { z } from "zod";
 import { ReqContext } from "back-end/types/organization";
 import { migrateWebhookModel } from "back-end/src/util/migrations";
 import { WebhookInterface } from "back-end/types/webhook";
-import {
-  managedByValidator,
-  ManagedBy,
-} from "back-end/src/validators/managed-by";
+import { managedByValidator } from "back-end/src/validators/managed-by";
 
 const payloadFormatValidator = z.enum([
   "standard",
@@ -193,23 +190,6 @@ export async function updateSdkWebhook(
     ...updates,
   };
 }
-
-export const updateWebhooksRemoveManagedBy = async (
-  context: ReqContext,
-  managedBy: Partial<ManagedBy>
-) => {
-  await WebhookModel.updateMany(
-    {
-      organization: context.org.id,
-      managedBy,
-    },
-    {
-      $unset: {
-        managedBy: 1,
-      },
-    }
-  );
-};
 
 const createSdkWebhookValidator = z
   .object({

@@ -28,7 +28,6 @@ import {
   syncVercelSdkConnection,
   deleteVercelSdkWebhook,
 } from "back-end/src/services/vercel-native-integration.service";
-import { updateWebhooksRemoveManagedBy } from "back-end/src/models/WebhookModel";
 import {
   createSDKConnection,
   updateSdkConnectionsRemoveManagedBy,
@@ -484,7 +483,6 @@ async function removeManagedBy(
   managedBy: Partial<ManagedBy>
 ) {
   await updateSdkConnectionsRemoveManagedBy(context, managedBy);
-  await updateWebhooksRemoveManagedBy(context, managedBy);
   await updateTeamRemoveManagedBy(context.org.id, managedBy);
   await context.models.projects.removeManagedBy(managedBy);
 }

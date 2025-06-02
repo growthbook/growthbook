@@ -8,7 +8,6 @@ import {
 } from "back-end/src/models/VercelNativeIntegrationModel";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
-import { getUserByEmail } from "back-end/src/models/UserModel";
 import {
   createSdkWebhook,
   findAllSdkWebhooksByConnection,
@@ -24,6 +23,9 @@ export const VERCEL_URL = "https://api.vercel.com";
 
 export const VERCEL_CLIENT_ID = process.env.VERCEL_CLIENT_ID || "";
 export const VERCEL_CLIENT_SECRET = process.env.VERCEL_CLIENT_SECRET || "";
+
+const VERCEL_WEBHOOK_TOKEN_SECRET_NAME = (sdkConnectionId: string) =>
+  `VERCEL_INTEGRATION_TOKEN_${sdkConnectionId}`;
 
 export type VercelExperimentationItem = {
   id: string;
@@ -338,9 +340,15 @@ export const deleteVercelSdkWebhook = async (context: ReqContextClass) => {
     "vercelNativeIntegration"
   );
 
-  await BluebirdPromise.each(webhooks, (webhook) =>
-    deleteSdkWebhookById(context, webhook.id)
-  );
+  await BluebirdPromise.each(webhooks, async (webhook) => {
+    const webhookSecret = await context.models.webhookSecrets.findByKey(
+      VERCEL_WEBHOOK_TOKEN_SECRET_NAME(webhook.sdks[0])
+    );
+
+    if (webhookSecret)
+      await context.models.webhookSecrets.delete(webhookSecret);
+    await deleteSdkWebhookById(context, webhook.id);
+  });
 };
 
 export const syncVercelSdkConnection = async (organization: string) => {
@@ -352,16 +360,10 @@ export const syncVercelSdkConnection = async (organization: string) => {
 
   const nativeIntegration = await findVercelInstallationByOrganization(org.id);
 
-  const user = await getUserByEmail(
-    nativeIntegration.upsertData.authentication.user_email
-  );
-
-  if (!user) throw new Error("Internal error: no user found");
-
   const context = new ReqContextClass({
     org,
     auditUser: null,
-    user,
+    role: "admin",
   });
 
   await BluebirdPromise.each(nativeIntegration.resources, async (resource) => {
@@ -384,10 +386,21 @@ export const syncVercelSdkConnection = async (organization: string) => {
         w.managedBy?.resourceId === resource.id
     );
 
+    const webhookSecret = webhook
+      ? await context.models.webhookSecrets.findByKey(
+          VERCEL_WEBHOOK_TOKEN_SECRET_NAME(sdkConnection.id)
+        )
+      : undefined;
+
     if (!resource.protocolSettings?.experimentation?.edgeConfigId) {
       if (webhook) await deleteSdkWebhookById(context, webhook.id);
+      if (webhookSecret)
+        await context.models.webhookSecrets.delete(webhookSecret);
     } else {
       if (!webhook) {
+        if (webhookSecret)
+          await context.models.webhookSecrets.delete(webhookSecret);
+
         const createdWebhook = await createSdkWebhook(
           context,
           sdkConnection.id,
@@ -402,10 +415,17 @@ export const syncVercelSdkConnection = async (organization: string) => {
               resourceId: resource.id,
             },
             headers: JSON.stringify({
-              Authorization: `Bearer ${nativeIntegration.upsertData.payload.credentials.access_token}`,
+              Authorization: `Bearer {{${VERCEL_WEBHOOK_TOKEN_SECRET_NAME(
+                sdkConnection.id
+              )}}}`,
             }),
           }
         );
+
+        await context.models.webhookSecrets.create({
+          key: VERCEL_WEBHOOK_TOKEN_SECRET_NAME(sdkConnection.id),
+          value: nativeIntegration.upsertData.payload.credentials.access_token,
+        });
 
         try {
           await fireSdkWebhook(context, createdWebhook);

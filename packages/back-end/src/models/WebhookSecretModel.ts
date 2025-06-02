@@ -47,6 +47,10 @@ export class WebhookSecretDataModel extends BaseClass {
     });
   }
 
+  public async findByKey(key: string) {
+    return this._findOne({ key });
+  }
+
   public async getBackEndSecretsReplacer(): Promise<(s: string) => string> {
     const secrets = await this.getAll();
     const replacements: Record<string, string> = {};

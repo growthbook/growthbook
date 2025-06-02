@@ -82,6 +82,9 @@ export class ProjectModel extends BaseClass {
     return super.updateById(id, { settings });
   }
 
+  // Warning: This function is only used internally at the moment.
+  // Make sure to add permission check if this functions gets
+  // used in a context that needs it.
   public async removeManagedBy(managedBy: Partial<ManagedBy>) {
     await super._dangerousGetCollection().updateMany(
       {
