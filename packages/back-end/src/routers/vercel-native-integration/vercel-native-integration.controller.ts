@@ -13,6 +13,7 @@ import {
 import {
   addMemberToOrg,
   addMembersToTeam,
+  getOrganizationById,
 } from "back-end/src/services/organizations";
 import {
   createOrganization,
@@ -47,7 +48,6 @@ import {
   postNewVercelSubscriptionToLicenseServer,
 } from "back-end/src/enterprise";
 import { getLicenseByKey } from "back-end/src/enterprise/models/licenseModel";
-import { getOrganizationById } from "back-end/src/services/organizations";
 import {
   userAuthenticationValidator,
   systemAuthenticationValidator,
@@ -401,7 +401,7 @@ export async function deleteInstallation(req: Request, res: Response) {
 
   const license = await getLicenseByKey(org.licenseKey || "");
 
-  if (license) {
+  if (license && license.orbSubscription?.status === "active") {
     await postCancelSubscriptionToLicenseServer(license.id);
   }
 
