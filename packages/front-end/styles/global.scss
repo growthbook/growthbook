@@ -3560,3 +3560,7 @@ input:disabled {
     background-color: var(--accent-indicator);
   }
 }
+
+.ace_editor.ace_autocomplete {
+  width: 500px !important;
+}
