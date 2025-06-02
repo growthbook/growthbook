@@ -1,0 +1,100 @@
+---
+title: Next.js SDK (Flags)
+description: GrowthBook Next.js SDK (Vercel Flags)
+sidebar_label: Next.js
+slug: nextjs
+toc_max_heading_level: 5
+---
+
+import ExternalLink from '@site/src/components/ExternalLink'
+import SdkResources from '@site/src/components/SdkResources';
+
+# Next.js SDK (Vercel Flags)
+
+This documentation is intended for implementing the GrowthBook adapter for Vercel's [Flags SDK](https://flags-sdk.dev/) in Next.js back-end or hybrid environments. For front-end-only GrowthBook implementations, please see our [React docs](/lib/react).
+
+<SdkResources sdk="nextjs" />
+
+## Installation
+
+Install with a package manager
+
+```bash npm2yarn
+npm install --save @flags-sdk/growthbook
+```
+
+:::note
+
+The GrowthBook adapter for Vercel's Flags SDK is still in early release. More comprehensive documentation is coming soon.
+
+:::
+
+## Provider Instance
+
+You can import the default adapter instance `growthbookAdapter` from @flags-sdk/growthbook:
+
+```ts
+import { growthBookAdapter } from '@flags-sdk/growthbook';
+```
+
+## Flag definition example
+
+Define your flags in a `flags.ts` file.
+
+```ts
+import { flag } from 'flags/next';
+import { growthBookAdapter } from '@flags-sdk/growthbook';
+
+export const sampleFlag = feature<boolean>({
+  key: 'my-flag-id',
+  adapter: growthBookAdapter.feature(),
+});
+```
+
+Then use these flags in your application.
+
+```ts
+import { sampleFlag } from "../flags";
+
+export default async function Page() {
+  const sample = await sampleFlag();
+
+  return <div>Flag {sample ? "on" : "off"}</div>;
+}
+```
+
+## Experimentation
+
+In order to run GrowthBook experiments, you must define a tracking callback function. This is called every time a user is put into an experiment and can be used to track the exposure event in your analytics system. We recommend defining this callback in your flag definition file (e.g. `flags.ts`). Currently only back-end tracking callbacks are supported.
+
+```ts
+import { after } from 'next/server';
+
+growthbookAdapter.setTrackingCallback((experiment, result) => {
+  // Safely fire and forget async calls
+  after(async () => {
+    console.log('Viewed Experiment', {
+      experimentId: experiment.key,
+      variationId: result.key,
+    });
+  });
+});
+```
+
+### Sticky Bucketing
+
+To implement sticky bucketing (required for Bandits), you may create any `StickyBucketService` instance and apply it to the adapter (recommended in `flags.ts`). We recommend using our Redis service for ease of implementation.
+
+```ts
+import { RedisStickyBucketService } from '@growthbook/growthbook';
+import Redis from 'ioredis';
+
+const redis = new Redis(process.env.REDIS_CONNECTION_URL);
+const redisStickyBucketService = new RedisStickyBucketService({ redis });
+
+growthbookAdapter.setStickyBucketService(redisStickyBucketService);
+```
+
+## Examples
+
+- [Next.js 15+ example using app router <ExternalLink />](https://github.com/vercel/examples/tree/main/flags-sdk/growthbook).
