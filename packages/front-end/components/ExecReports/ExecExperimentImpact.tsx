@@ -4,6 +4,7 @@ import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot"
 import { useForm } from "react-hook-form";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import Link from "next/link";
+import { getValidDate } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -21,17 +22,26 @@ import SelectField from "@/components/Forms/SelectField";
 
 interface ExperimentSummaryType {
   experiment: ExperimentInterfaceStringDates;
-  type: string;
-  scaledImpact: {
+  type: "winner" | "loser" | "other";
+  scaledImpact?: {
     scaledImpact: number;
     scaledImpactAdjusted?: number | undefined;
     se: number;
-    selected: boolean;
   };
 }
 
+function getColor(val: number | undefined): string {
+  const defVal = val ?? 0;
+  return defVal > 0
+    ? "var(--green-11)"
+    : defVal < 0
+    ? "var(--red-11)"
+    : "var(--slate-11)";
+}
+
 export default function ExecExperimentImpact({
-  experiments: allExperiments,
+  filteredExperiments,
+  allExperiments,
   startDate,
   endDate,
   metric,
@@ -40,7 +50,8 @@ export default function ExecExperimentImpact({
   experimentsToShow,
   setExperimentsToShow,
 }: {
-  experiments: ExperimentInterfaceStringDates[];
+  filteredExperiments: ExperimentInterfaceStringDates[];
+  allExperiments: ExperimentInterfaceStringDates[];
   projects?: string[];
   startDate?: Date;
   endDate?: Date;
@@ -139,7 +150,8 @@ export default function ExecExperimentImpact({
   } = useMemo(
     () =>
       scaleImpactAndSetMissingExperiments({
-        experiments,
+        experiments: allExperiments,
+        filteredExperimentIds: filteredExperiments.map((e) => e.id),
         snapshots,
         metric,
         selectedProjects: projects,
@@ -147,21 +159,30 @@ export default function ExecExperimentImpact({
         endDate: endDate?.toISOString() || "",
         adjusted,
       }),
-    [experiments, snapshots, metric, projects, startDate, endDate, adjusted]
+    [
+      allExperiments,
+      filteredExperiments,
+      snapshots,
+      metric,
+      projects,
+      startDate,
+      endDate,
+      adjusted,
+    ]
   );
 
   // top winning experiments by scaled impact:
   const topWinningExperiments = useMemo(() => {
     if (!summaryObj) return [];
     return summaryObj.winners.experiments
-      .filter((e) => e.variationImpact)
+      .filter((e) => e.keyVariationImpact)
       .map((e) => {
-        const scaledImpact = e.variationImpact.filter((vi) => vi.selected);
-        return {
+        const expDat: ExperimentSummaryType = {
           experiment: e.experiment,
           type: "winner",
-          scaledImpact: scaledImpact[0],
+          scaledImpact: e.keyVariationImpact,
         };
+        return expDat;
       })
       .sort(
         (a, b) =>
@@ -173,14 +194,14 @@ export default function ExecExperimentImpact({
   const topLostExperiments = useMemo(() => {
     if (!summaryObj) return [];
     return summaryObj.losers.experiments
-      .filter((e) => e.variationImpact)
+      .filter((e) => e.keyVariationImpact)
       .map((e) => {
-        const scaledImpact = e.variationImpact.filter((vi) => vi.selected);
-        return {
+        const expDat: ExperimentSummaryType = {
           experiment: e.experiment,
           type: "loser",
-          scaledImpact: scaledImpact[0],
+          scaledImpact: e.keyVariationImpact,
         };
+        return expDat;
       })
       .sort(
         (a, b) =>
@@ -192,19 +213,22 @@ export default function ExecExperimentImpact({
   const topOtherExperiments = useMemo(() => {
     if (!summaryObj) return [];
     return summaryObj.others.experiments
-      .filter((e) => e.variationImpact)
       .map((e) => {
-        const scaledImpact = e.variationImpact.filter((vi) => vi.selected);
-        return {
+        const expDat: ExperimentSummaryType = {
           experiment: e.experiment,
           type: "other",
-          scaledImpact: scaledImpact[0],
+          scaledImpact: undefined,
         };
+        return expDat;
       })
       .sort(
         (a, b) =>
-          (b.scaledImpact?.scaledImpact || 0) -
-          (a.scaledImpact?.scaledImpact || 0)
+          getValidDate(
+            b.experiment.phases[b.experiment.phases.length - 1]?.dateEnded
+          ).getTime() -
+          getValidDate(
+            a.experiment.phases[a.experiment.phases.length - 1]?.dateEnded
+          ).getTime()
       );
   }, [summaryObj]);
 
@@ -366,7 +390,13 @@ export default function ExecExperimentImpact({
                       <Flex gap="2" align="center">
                         <Flex gap="2" align="center">
                           <Box style={{ fontSize: "1.6em" }}>
-                            <span style={{ color: "var(--green-11)" }}>
+                            <span
+                              style={{
+                                color: getColor(
+                                  summaryObj.winners.totalAdjustedImpact
+                                ),
+                              }}
+                            >
                               {formatImpact(
                                 summaryObj.winners.totalAdjustedImpact * 365,
                                 formatter,
@@ -444,7 +474,7 @@ export default function ExecExperimentImpact({
                         ></Tooltip>
                       </Flex>
                       <Flex>
-                        <Flex gap="2">
+                        <Flex gap="2" align="center">
                           <Box style={{ fontSize: "1.6em" }}>
                             {formatImpact(
                               summaryObj.losers.totalAdjustedImpact * 365,
@@ -561,7 +591,7 @@ export default function ExecExperimentImpact({
                         />
                       </Flex>
                     </th>
-                    <th>Lift</th>
+                    <th>Scaled Impact</th>
                     <th
                       className="text-right"
                       style={{
@@ -606,25 +636,36 @@ export default function ExecExperimentImpact({
                             className="d-block"
                           >
                             <Flex align="center" gap="2">
-                              <ExperimentDot color="green" />{" "}
+                              <ExperimentDot
+                                color={
+                                  obj.type === "winner"
+                                    ? "green"
+                                    : obj.type == "loser"
+                                    ? "red"
+                                    : "grey"
+                                }
+                              />{" "}
                               {obj.experiment.name}
                             </Flex>
                           </Link>
                         </td>
                         <td style={{ padding: "0.4rem" }}>
-                          {obj.scaledImpact ? (
+                          {obj.type === "other" ? (
+                            <span className="text-muted">{`N/A ${
+                              obj.experiment.results === "dnf"
+                                ? "- Did Not Finish"
+                                : obj.experiment.results === "inconclusive"
+                                ? "- Inconclusive"
+                                : ""
+                            }`}</span>
+                          ) : obj.scaledImpact ? (
                             <span
                               style={{
-                                color:
-                                  obj.type === "winner"
-                                    ? "var(--green-11)"
-                                    : obj.type === "loser"
-                                    ? "var(--red-11)"
-                                    : "var(--slate-11)",
+                                color: getColor(obj.scaledImpact.scaledImpact),
                               }}
                             >
                               {formatImpact(
-                                obj.scaledImpact.scaledImpact ?? 0,
+                                obj.scaledImpact.scaledImpact,
                                 formatter,
                                 formatterOptions
                               )}
@@ -642,16 +683,16 @@ export default function ExecExperimentImpact({
                               {obj?.scaledImpact?.scaledImpact ? (
                                 <span
                                   style={{
-                                    color:
-                                      obj.type === "winner"
-                                        ? "var(--green-11)"
-                                        : obj.type === "loser"
-                                        ? "var(--red-11)"
-                                        : "var(--slate-11)",
+                                    color: getColor(
+                                      obj.scaledImpact.scaledImpact
+                                    ),
                                   }}
                                 >
                                   {formatImpact(
-                                    obj.scaledImpact.scaledImpact * 365,
+                                    (adjusted
+                                      ? obj.scaledImpact.scaledImpactAdjusted ??
+                                        obj.scaledImpact.scaledImpact
+                                      : obj.scaledImpact.scaledImpact) * 365,
                                     formatter,
                                     formatterOptions
                                   )}
