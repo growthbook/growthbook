@@ -1,4 +1,3 @@
-import { format as sqlFormat, FormatOptions } from "sql-formatter";
 import Handlebars from "handlebars";
 import { SQLVars } from "back-end/types/sql";
 import {
@@ -162,19 +161,6 @@ export function compileSqlTemplate(
       );
     }
     throw new Error(`Error compiling SQL template: ${e.message}`);
-  }
-}
-
-export type FormatDialect = FormatOptions["language"] | "";
-export function format(sql: string, dialect?: FormatDialect) {
-  if (!dialect) return sql;
-
-  try {
-    return sqlFormat(sql, {
-      language: dialect,
-    });
-  } catch (e) {
-    return sql;
   }
 }
 

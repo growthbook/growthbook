@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import { FaPlay } from "react-icons/fa";
+import { FaPlay, FaExclamationTriangle } from "react-icons/fa";
 import { TestQueryRow } from "back-end/src/types/Integration";
 import clsx from "clsx";
 import { TemplateVariables } from "back-end/types/sql";
+import { Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { validateSQL } from "@/services/datasources";
@@ -12,6 +13,7 @@ import Modal from "@/components/Modal";
 import { CursorData } from "@/components/Segments/SegmentForm";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import Button from "@/components/Button";
+import RadixButton from "@/components/Radix/Button";
 import {
   usesEventName,
   usesValueColumn,
@@ -19,6 +21,7 @@ import {
 import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { formatSql, canFormatSql } from "@/services/sqlFormatter";
 import SchemaBrowser from "./SchemaBrowser";
 import styles from "./EditSqlModal.module.scss";
 
@@ -65,14 +68,13 @@ export default function EditSqlModal({
       sql: value,
     },
   });
+
   const { getDatasourceById } = useDefinitions();
-
   const { apiCall } = useAuth();
-
   const [cursorData, setCursorData] = useState<null | CursorData>(null);
   const [testingQuery, setTestingQuery] = useState(false);
-
   const permissionsUtil = usePermissionsUtil();
+  const [formatError, setFormatError] = useState<string | null>(null);
 
   const validateRequiredColumns = useCallback(
     (result: TestQueryRow) => {
@@ -145,9 +147,20 @@ export default function EditSqlModal({
     : null;
   const supportsSchemaBrowser =
     datasource?.properties?.supportsInformationSchema;
+  const canFormat = datasource ? canFormatSql(datasource.type) : false;
 
   const hasEventName = usesEventName(form.watch("sql"));
   const hasValueCol = usesValueColumn(form.watch("sql"));
+
+  const handleFormatClick = () => {
+    const result = formatSql(form.watch("sql"), datasource?.type);
+    if (result.error) {
+      setFormatError(result.error);
+    } else if (result.formattedSql) {
+      form.setValue("sql", result.formattedSql);
+      setFormatError(null);
+    }
+  };
 
   useEffect(() => {
     if (!canRunQueries) setTestQueryBeforeSaving(false);
@@ -217,24 +230,40 @@ export default function EditSqlModal({
             <div className="bg-light p-1">
               <div className="row align-items-center">
                 <div className="col-auto">
-                  <Tooltip
-                    body="You do not have permission to run test queries"
-                    shouldDisplay={!canRunQueries}
-                  >
-                    <Button
-                      color="primary"
-                      className="btn-sm"
-                      onClick={handleTestQuery}
-                      loading={testingQuery}
-                      disabled={!canRunQueries}
-                      type="button"
+                  <Flex align="center">
+                    <Tooltip
+                      body="You do not have permission to run test queries"
+                      shouldDisplay={!canRunQueries}
                     >
-                      <span className="pr-2">
-                        <FaPlay />
-                      </span>
-                      Test Query
-                    </Button>
-                  </Tooltip>
+                      <Button
+                        color="primary"
+                        className="btn-sm"
+                        onClick={handleTestQuery}
+                        loading={testingQuery}
+                        disabled={!canRunQueries}
+                        type="button"
+                      >
+                        <span className="pr-2">
+                          <FaPlay />
+                        </span>
+                        Test Query
+                      </Button>
+                    </Tooltip>
+                    {canFormat ? (
+                      <RadixButton
+                        variant="ghost"
+                        onClick={handleFormatClick}
+                        disabled={!form.watch("sql")}
+                      >
+                        Format
+                      </RadixButton>
+                    ) : null}
+                    {formatError && (
+                      <Tooltip body={formatError}>
+                        <FaExclamationTriangle className="text-danger" />
+                      </Tooltip>
+                    )}
+                  </Flex>
                 </div>
                 {Array.from(requiredColumns).length > 0 && (
                   <div className="col-auto ml-auto pr-3">
@@ -302,7 +331,13 @@ export default function EditSqlModal({
                 required
                 language="sql"
                 value={form.watch("sql")}
-                setValue={(sql) => form.setValue("sql", sql)}
+                setValue={(v) => {
+                  if (formatError) {
+                    // If there is a format error, clear it when the user changes the SQL
+                    setFormatError(null);
+                  }
+                  form.setValue("sql", v);
+                }}
                 placeholder={placeholder}
                 helpText={""}
                 fullHeight
