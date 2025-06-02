@@ -303,7 +303,7 @@ export async function upsertInstallation(req: Request, res: Response) {
     payload.account.name
   );
 
-  const installationName = `Vercel instalation ${authentication.payload.installation_id}`;
+  const installationName = `Vercel installation ${authentication.payload.installation_id}`;
 
   const org = await createOrganization({
     email: payload.account.contact.email,
@@ -355,10 +355,9 @@ export async function updateInstallation(req: Request, res: Response) {
 
   // Check if current billing plan is different from new plan
   if (integration.billingPlanId !== billingPlanId) {
-    if (integration.billingPlanId === "starter-billing-plan") {
+    if (billingPlanId === "pro-billing-plan") {
       // The user is upgrading from the starter plan to the pro plan
       try {
-        //MKTODO: When we upgrade, we're not updating the org with the license key
         const result = await postNewVercelSubscriptionToLicenseServer(
           org,
           req.params.installation_id,
@@ -401,11 +400,11 @@ export async function deleteInstallation(req: Request, res: Response) {
   );
 
   const license = await getLicenseByKey(org.licenseKey || "");
-  if (!license) {
-    return res.status(404).send(`Unable to locate license for org: ${org.id}`);
+
+  if (license) {
+    await postCancelSubscriptionToLicenseServer(license.id);
   }
 
-  await postCancelSubscriptionToLicenseServer(license.id);
   await removeManagedBy(context, { type: "vercel" });
   await integrationModel.deleteById(integration.id);
 
