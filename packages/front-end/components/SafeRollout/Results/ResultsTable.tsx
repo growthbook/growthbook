@@ -574,7 +574,14 @@ export default function ResultsTable({
                           ) : j > 0 && showTimeSeries ? (
                             <td>
                               {!metricTimeSeries ? (
-                                <Message>No time series data</Message>
+                                <Flex
+                                  align="center"
+                                  justify="center"
+                                  position="relative"
+                                  width="100%"
+                                >
+                                  No time series data
+                                </Flex>
                               ) : null}
                             </td>
                           ) : null}
@@ -703,12 +710,4 @@ function getChangeTooltip(changeTitle: string, differenceType: DifferenceType) {
     </>
   );
   return <>{changeElem}</>;
-}
-
-function Message({ children }: { children: React.ReactNode }) {
-  return (
-    <Flex align="center" justify="center" position="relative" width="100%">
-      {children}
-    </Flex>
-  );
 }
