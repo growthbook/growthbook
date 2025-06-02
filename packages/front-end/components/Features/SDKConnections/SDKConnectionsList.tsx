@@ -25,6 +25,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { useEnvironments } from "@/services/features";
 import Badge from "@/components/Radix/Badge";
 import Button from "@/components/Radix/Button";
+import { capitalizeFirstLetter } from "@/services/utils";
 import SDKLanguageLogo, {
   getLanguagesByFilter,
   languageMapping,
@@ -276,6 +277,15 @@ export default function SDKConnectionsList() {
                     <Link href={`/sdks/${connection.id}`}>
                       {connection.name}
                     </Link>
+                    {connection.managedBy?.type ? (
+                      <div>
+                        <Badge
+                          label={`Managed by ${capitalizeFirstLetter(
+                            connection.managedBy.type
+                          )}`}
+                        />
+                      </div>
+                    ) : null}
                   </td>
                   {projects.length > 0 && (
                     <td>
