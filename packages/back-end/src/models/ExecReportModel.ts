@@ -20,17 +20,17 @@ const BaseClass = MakeModelClass({
 });
 
 export class ExecReportModel extends BaseClass {
-  protected canCreate(): boolean {
-    return this.context.permissions.canManageExecReports();
+  protected canCreate(doc: ExecReportInterface): boolean {
+    return this.context.permissions.canManageExecReports(doc);
   }
   protected canRead(doc: ExecReportInterface): boolean {
     return this.context.permissions.canReadMultiProjectResource(doc.projects);
   }
-  protected canUpdate(): boolean {
-    return this.context.permissions.canManageExecReports();
+  protected canUpdate(doc: ExecReportInterface): boolean {
+    return this.context.permissions.canManageExecReports(doc);
   }
-  protected canDelete(): boolean {
-    return this.context.permissions.canManageExecReports();
+  protected canDelete(doc: ExecReportInterface): boolean {
+    return this.context.permissions.canManageExecReports(doc);
   }
 
   // Add any specific methods for ExecReports here
