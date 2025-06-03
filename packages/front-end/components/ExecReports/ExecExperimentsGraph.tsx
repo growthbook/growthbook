@@ -331,8 +331,8 @@ export default function ExecExperimentsGraph({
                         top={yMax}
                         scale={xScale}
                         numTicks={
-                          chartDataMonthly.length > 6
-                            ? 6
+                          chartDataMonthly.length > 5
+                            ? 5
                             : chartDataMonthly.length
                         }
                         tickLabelProps={() => ({

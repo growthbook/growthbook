@@ -361,9 +361,16 @@ export function useExperimentSearch({
         if (item.status === "draft") is.push("draft");
         if (item.status === "running") is.push("running");
         if (item.status === "stopped") is.push("stopped");
-        if (item.results === "won") is.push("winner");
-        if (item.results === "lost") is.push("loser");
+        if (item.results === "won") {
+          is.push("winner");
+          is.push("won");
+        }
+        if (item.results === "lost") {
+          is.push("loser");
+          is.push("lost");
+        }
         if (item.results === "inconclusive") is.push("inconclusive");
+        if (item.results === "dnf") is.push("dnf");
         if (item.hasVisualChangesets) is.push("visual");
         if (item.hasURLRedirects) is.push("redirect");
         return is;

@@ -45,7 +45,7 @@ const Tooltip: FC<Props> = ({
   state,
   trackingEventTooltipType,
   trackingEventTooltipSource,
-  delay = 300, // Default delay of 200ms
+  delay = 300,
   ...otherProps
 }) => {
   const [trigger, setTrigger] = useState(null);
@@ -54,13 +54,8 @@ const Tooltip: FC<Props> = ({
   const [open, setOpen] = useState(state ?? false);
   const [fadeIn, setFadeIn] = useState(false);
   const [alreadyHovered, setAlreadyHovered] = useState(false);
-  // we have to split the open state from the fade in state as if we set it all at once,
-  // the fade won't work as the opacity is not technically changing. By delaying slightly
-  // when we set the opacity to 1 (`tooltip-visible`) it lets the CSS transition work.
-  const openTimeout = useRef<NodeJS.Timeout | null>(null);
-  const fadeInTimeout = useRef<NodeJS.Timeout | null>(null);
-  const fadeOutTimeout = useRef<NodeJS.Timeout | null>(null);
-  const closeTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (state !== undefined) {
@@ -86,47 +81,38 @@ const Tooltip: FC<Props> = ({
   const { styles, attributes } = usePopper(trigger, tooltip, {
     modifiers: [
       { name: "arrow", options: { element: arrow } },
-      {
-        name: "offset",
-        options: {
-          offset: [0, 10],
-        },
-      },
+      { name: "offset", options: { offset: [0, 10] } },
     ],
     placement: tipPosition,
     strategy: "fixed",
   });
 
+  const clearTimeouts = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  };
+
   const handleMouseEnter = () => {
-    if (closeTimeout.current) {
-      clearTimeout(closeTimeout.current);
-    }
-    if (fadeOutTimeout.current) {
-      clearTimeout(fadeOutTimeout.current);
-    }
-    openTimeout.current = setTimeout(() => {
+    clearTimeouts();
+    timeoutRef.current = setTimeout(() => {
       setOpen(true);
-      fadeInTimeout.current = setTimeout(() => setFadeIn(true), 50);
+      setTimeout(() => setFadeIn(true), 50);
     }, delay);
   };
 
   const handleMouseLeave = () => {
-    if (openTimeout.current) {
-      clearTimeout(openTimeout.current);
-    }
-    if (fadeInTimeout.current) {
-      clearTimeout(fadeInTimeout.current);
-    }
-    closeTimeout.current = setTimeout(() => {
+    clearTimeouts();
+    timeoutRef.current = setTimeout(() => {
       setFadeIn(false);
-      fadeOutTimeout.current = setTimeout(() => setOpen(false), 300);
-    }, 200); // Optional: Keep a small delay for closing
+      setTimeout(() => setOpen(false), 300);
+    }, 200);
   };
 
   if (!children && children !== 0) children = <GBInfo />;
   const el = (
     <span
-      // @ts-expect-error TS(2322) If you come across this, please fix it!
       ref={setTrigger}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -143,7 +129,6 @@ const Tooltip: FC<Props> = ({
         <Box style={{ position: "absolute" }}>
           <RadixTheme flip={true}>
             <Box
-              // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'Dispatch<SetStateAction<null>>' is not assig... Remove this comment to see the full error message
               ref={setTooltip}
               onMouseEnter={handleMouseEnter}
               onMouseLeave={handleMouseLeave}
@@ -163,7 +148,6 @@ const Tooltip: FC<Props> = ({
               role="tooltip"
             >
               <div className={`body ${innerClassName}`}>{body}</div>
-              {/* @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'Dispatch<SetStateAction<null>>' is not assig... Remove this comment to see the full error message */}
               <div ref={setArrow} style={styles.arrow} className="arrow" />
             </Box>
           </RadixTheme>

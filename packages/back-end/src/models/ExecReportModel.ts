@@ -24,7 +24,7 @@ export class ExecReportModel extends BaseClass {
     return this.context.permissions.canManageExecReports();
   }
   protected canRead(doc: ExecReportInterface): boolean {
-    return this.context.hasPermission("readData", doc.projects || "");
+    return this.context.permissions.canReadMultiProjectResource(doc.projects);
   }
   protected canUpdate(): boolean {
     return this.context.permissions.canManageExecReports();

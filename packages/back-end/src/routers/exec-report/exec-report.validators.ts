@@ -11,7 +11,10 @@ export const execReportValidator = z
     organization: z.string(),
     name: z.string().min(1),
     description: z.string(),
-    dateRange: z.union([z.string(), DateRangeSchema]),
+    dateRange: z.object({
+      type: z.literal("dateRange"),
+      value: DateRangeSchema,
+    }),
     tags: z.array(z.string()),
     filter: z.string(),
     metrics: z.array(z.string()),

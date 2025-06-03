@@ -620,9 +620,11 @@ export class Permissions {
     );
   };
 
-  public canManageExecReports = (): boolean => {
+  public canManageExecReports = (
+    report: Pick<ExecReportModel, "projects">
+  ): boolean => {
     return this.checkProjectFilterPermission(
-      { projects: [] },
+      { projects: report.projects || [] },
       "manageExecReports"
     );
   };

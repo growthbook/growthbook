@@ -41,14 +41,16 @@ const formatDateForURL = (date: Date) => {
 };
 
 export default function ExecReport() {
-  const { projects } = useDefinitions();
+  const { project: currentProject, projects } = useDefinitions();
   const settings = useOrgSettings();
   const router = useRouter();
   const searchParams = new URLSearchParams(window.location.search);
 
   // Initialize state from query string
   const [selectedProjects, setSelectedProjects] = useState<string[]>(
-    searchParams.get("selectedProjects")?.split(",") || []
+    searchParams.get("selectedProjects")?.split(",") || currentProject === ""
+      ? []
+      : [currentProject]
   );
   const [dateRange, setDateRange] = useState(
     searchParams.get("dateRange") || "90"
@@ -176,7 +178,11 @@ export default function ExecReport() {
 
     const params: Record<string, string> = {};
     let updateUrl = false;
-    if (selectedProjects.length > 0) {
+    if (
+      selectedProjects.length > 0 &&
+      selectedProjects[0] !== "" &&
+      selectedProjects[0] !== currentProject
+    ) {
       params.selectedProjects = selectedProjects.join(",");
     }
     if (dateRange) {
@@ -208,7 +214,6 @@ export default function ExecReport() {
         updateUrl = true;
       }
     });
-
     if (updateUrl) {
       router
         .replace(
@@ -230,6 +235,7 @@ export default function ExecReport() {
     selectedMetric,
     router,
     experimentsToShow,
+    currentProject,
   ]);
 
   if (loading) {
