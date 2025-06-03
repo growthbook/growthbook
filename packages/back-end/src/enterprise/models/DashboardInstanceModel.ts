@@ -1,13 +1,9 @@
 import mongoose from "mongoose";
-import uniqid from "uniqid";
-import { DashboardInstanceInterface } from "back-end/src/enterprise/validators/dashboard-instance";
-import { ReqContext } from "back-end/types/organization";
-import { ApiReqContext } from "back-end/types/api";
 import {
-  removeMongooseFields,
-  ToInterface,
-} from "back-end/src/util/mongo.util";
-import { ExperimentInterface } from "back-end/types/experiment";
+  dashboardInstanceInterface,
+  DashboardInstanceInterface,
+} from "back-end/src/enterprise/validators/dashboard-instance";
+import { MakeModelClass } from "back-end/src/models/BaseModel";
 import { blockSchema } from "./DashboardBlockModel";
 
 export const dashboardInstanceSchema = new mongoose.Schema({
@@ -16,10 +12,16 @@ export const dashboardInstanceSchema = new mongoose.Schema({
     unique: true,
   },
   organizationId: String,
-  experiment: String,
   dateCreated: Date,
   dateUpdated: Date,
   title: String,
+  defaultMetricId: String,
+  defaultDimensionId: String,
+  baselineRow: String,
+  defaultDimensionValues: [String],
+  defaultVariationIds: [String],
+  dateStart: Date,
+  dateEnd: Date,
   blocks: [blockSchema],
 });
 
@@ -31,59 +33,43 @@ dashboardInstanceSchema.index({
 export type DashboardInstanceDocument = mongoose.Document &
   DashboardInstanceInterface;
 
-export const DashboardInstanceModel = mongoose.model<DashboardInstanceInterface>(
-  "DashboardInstance",
-  dashboardInstanceSchema
-);
+const BaseClass = MakeModelClass({
+  schema: dashboardInstanceInterface,
+  collectionName: "dashboardinstances",
+  idPrefix: "dashinst_",
+  auditLog: {
+    entity: "dashboardInstance",
+    createEvent: "dashboardInstance.create",
+    updateEvent: "dashboardInstance.update",
+    deleteEvent: "dashboardInstance.delete",
+  },
+  globallyUniqueIds: true,
+});
 
-export async function createDashboardInstance({
-  data,
-  context,
-  experiment,
-}: {
-  data: Pick<DashboardInstanceInterface, "title" | "blocks">;
-  context: ReqContext | ApiReqContext;
-  experiment: ExperimentInterface;
-}) {
-  const dashboard = toInterface(
-    await DashboardInstanceModel.create({
-      ...data,
-      id: uniqid("rep_"),
-      organizationId: context.org.id,
-      dateCreated: new Date(),
-      dateUpdated: new Date(),
-      experiment: experiment.id,
-    })
-  );
+export class DashboardInstanceModel extends BaseClass {
+  protected canCreate(_doc: DashboardInstanceInterface): boolean {
+    return true;
+    // TODO - define permissions helpers
+    // return this.context.permissions.canCreateDashboardInstance(doc);
+  }
 
-  return dashboard;
+  protected canRead(_doc: DashboardInstanceInterface): boolean {
+    return this.context.hasPermission("readData", "");
+  }
+  protected canUpdate(
+    _existing: DashboardInstanceInterface,
+    _updates: DashboardInstanceInterface
+  ): boolean {
+    return true;
+    // TODO - define permissions helpers
+    // return this.context.permissions.canUpdateDashboardInstance(
+    //   existing,
+    //   updates
+    // );
+  }
+  protected canDelete(_doc: DashboardInstanceInterface): boolean {
+    return true;
+    // TODO - define permissions helpers
+    // return this.context.permissions.canDeleteDashboardInstance(doc);
+  }
 }
-
-export async function updateDashboardInstance({
-  context,
-  dashboard,
-  changes,
-}: {
-  context: ReqContext | ApiReqContext;
-  dashboard: DashboardInstanceInterface;
-  changes: Partial<DashboardInstanceInterface>;
-}) {
-  const allChanges = {
-    ...changes,
-    dateUpdated: new Date(),
-  };
-
-  await DashboardInstanceModel.updateOne(
-    { id: dashboard.id, organizationId: context.org.id },
-    { $set: allChanges }
-  );
-
-  const updated = { ...dashboard, ...allChanges };
-
-  return toInterface(updated);
-}
-
-const toInterface: ToInterface<DashboardInstanceInterface> = (doc) => {
-  const dashboard = removeMongooseFields(doc);
-  return dashboard as DashboardInstanceInterface;
-};

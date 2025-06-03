@@ -2,7 +2,11 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React, { useEffect, useState } from "react";
 import { PiArrowLeft, PiCaretDownFill, PiTrashFill } from "react-icons/pi";
 import { Flex } from "@radix-ui/themes";
-import { DashboardInstanceInterface } from "back-end/src/enterprise/validators/dashboard-instance";
+import {
+  DashboardData,
+  DashboardInstanceInterface,
+  DashboardSettings,
+} from "back-end/src/enterprise/validators/dashboard-instance";
 import { DashboardBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
 import Button from "@/components/Radix/Button";
 import {
@@ -11,6 +15,7 @@ import {
 } from "@/components/Radix/DropdownMenu";
 import Field from "@/components/Forms/Field";
 import DashboardBlock from "./DashboardBlock";
+import DashboardSettingsHeader from "./DashboardSettingsHeader";
 
 const BLOCK_TYPE_INFO = {
   markdown: {
@@ -53,11 +58,10 @@ const BLOCK_TYPE_INFO = {
 interface Props {
   experiment: ExperimentInterfaceStringDates;
   dashboard?: DashboardInstanceInterface;
+  defaultSettings: DashboardSettings;
   back: () => void;
   cancel: () => void;
-  submit: (
-    dashboardData: Pick<DashboardInstanceInterface, "title" | "blocks">
-  ) => Promise<void>;
+  submit: (dashboard: DashboardData) => Promise<void>;
   isEditing: boolean;
   mutate: () => void;
   setEditing: (editing: boolean) => void;
@@ -66,6 +70,7 @@ interface Props {
 export default function DashboardEditor({
   experiment,
   dashboard,
+  defaultSettings,
   back,
   cancel,
   submit,
@@ -73,15 +78,21 @@ export default function DashboardEditor({
   setEditing,
   mutate,
 }: Props) {
-  const [blocks, setBlocks] = useState<DashboardInstanceInterface["blocks"]>(
+  const [blocks, setBlocks] = useState<DashboardBlockInterface[]>(
     dashboard?.blocks || []
   );
   const [title, setTitle] = useState<string>(dashboard?.title || "");
+  const [dashboardSettings, setDashboardSettings] = useState<DashboardSettings>(
+    dashboard?.settings || defaultSettings
+  );
+
   const [localEditing, setLocalEditing] = useState<boolean>(isEditing);
   const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
   useEffect(() => {
     setLocalEditing(isEditing);
   }, [isEditing]);
+
+  const canSubmit = blocks.length > 0 && title;
 
   return (
     <div className="mt-3">
@@ -124,9 +135,14 @@ export default function DashboardEditor({
               <Button
                 color="violet"
                 onClick={() => {
-                  if (blocks && title) submit({ title, blocks });
+                  if (canSubmit)
+                    submit({
+                      title,
+                      blocks,
+                      settings: dashboardSettings,
+                    });
                 }}
-                disabled={!blocks}
+                disabled={!canSubmit}
               >
                 Save
               </Button>
@@ -135,6 +151,13 @@ export default function DashboardEditor({
         ) : null}
 
         <div className="">
+          <div>
+            <DashboardSettingsHeader
+              isEditing={localEditing}
+              settings={dashboardSettings}
+              updateSettings={setDashboardSettings}
+            />
+          </div>
           {blocks.map((block, i) => (
             <div key={i} className="appbox p-4">
               {localEditing && (
@@ -156,6 +179,7 @@ export default function DashboardEditor({
               <DashboardBlock
                 block={block}
                 experiment={experiment}
+                settings={dashboardSettings}
                 isEditing={localEditing}
                 setBlock={(block: DashboardBlockInterface) => {
                   setBlocks(blocks.map((b, j) => (j === i ? block : b)));

@@ -1,6 +1,7 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React, { useState } from "react";
 import { DashboardInstanceInterface } from "back-end/src/enterprise/validators/dashboard-instance";
+import { getDefaultDashboardSettingsForExperiment } from "shared/enterprise";
 import Button from "@/components/Radix/Button";
 import { useAuth } from "@/services/auth";
 import Link from "@/components/Radix/Link";
@@ -50,6 +51,7 @@ export default function DashboardsTab({ experiment, mutate }: Props) {
         }}
         experiment={experiment}
         dashboard={dashboard}
+        defaultSettings={getDefaultDashboardSettingsForExperiment(experiment)}
         isEditing={isEditing}
         mutate={mutate}
       />

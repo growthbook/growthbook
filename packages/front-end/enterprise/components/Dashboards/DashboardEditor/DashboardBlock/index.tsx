@@ -1,5 +1,6 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { DashboardBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
+import { DashboardSettings } from "back-end/src/enterprise/validators/dashboard-instance";
 import SnapshotProvider from "@/components/Experiment/SnapshotProvider";
 import MarkdownBlock from "./MarkdownBlock";
 import MetadataBlock from "./MetadataBlock";
@@ -10,6 +11,7 @@ import TimeSeriesBlock from "./TimeSeriesBlock";
 
 interface Props {
   block: DashboardBlockInterface;
+  settings: DashboardSettings;
   isEditing: boolean;
   setBlock: (block: DashboardBlockInterface) => void;
   experiment: ExperimentInterfaceStringDates;
