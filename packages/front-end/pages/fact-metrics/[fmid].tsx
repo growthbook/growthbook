@@ -61,7 +61,6 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/Radix/DropdownMenu";
-import ConfirmModal from "@/components/ConfirmModal";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -380,14 +379,14 @@ export default function FactMetricPage() {
         </Modal>
       )}
       {showDeleteModal && (
-        <ConfirmModal
-          title="Delete Metric"
-          subtitle="Are you sure you want to delete this metric? This action cannot be undone."
-          yesText="Delete"
-          noText="Cancel"
-          modalState={showDeleteModal}
-          setModalState={setShowDeleteModal}
-          onConfirm={async () => {
+        <Modal
+          trackingEventModalType=""
+          header={`Delete Metric`}
+          close={() => setShowDeleteModal(false)}
+          open={true}
+          cta="Delete"
+          submitColor="danger"
+          submit={async () => {
             await apiCall(`/fact-metrics/${factMetric.id}`, {
               method: "DELETE",
             });
@@ -395,7 +394,14 @@ export default function FactMetricPage() {
             setShowDeleteModal(false);
             router.push("/metrics");
           }}
-        />
+          ctaEnabled={canDelete}
+          increasedElevation={true}
+        >
+          <p>
+            Are you sure you want to delete this metric? This action cannot be
+            undone.
+          </p>
+        </Modal>
       )}
       {editOpen !== "closed" && (
         <FactMetricModal
