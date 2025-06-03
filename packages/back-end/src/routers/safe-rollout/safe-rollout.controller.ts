@@ -253,9 +253,20 @@ export const getSafeRolloutTimeSeries = async (
     }
   );
 
+  // If the rollout variation has a CI of 0,0, remove the data point as it is invalid
+  const filteredTimeSeries = timeSeries.filter((ts) => {
+    return ts.dataPoints.some((dp) => {
+      return (
+        dp.variations[1].absolute?.ci &&
+        dp.variations[1].absolute.ci[0] !== 0 &&
+        dp.variations[1].absolute.ci[1] !== 0
+      );
+    });
+  });
+
   res.status(200).json({
     status: 200,
-    timeSeries,
+    timeSeries: filteredTimeSeries,
   });
 };
 // endregion GET /safe-rollout/:id/time-series
