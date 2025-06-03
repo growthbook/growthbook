@@ -54,6 +54,7 @@ import DataList, { DataListItem } from "@/components/Radix/DataList";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { AppFeatures } from "@/types/app-features";
 import { useCurrency } from "@/hooks/useCurrency";
+import HistoryTable from "@/components/HistoryTable";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -876,6 +877,7 @@ export default function FactMetricPage() {
               Bandits
             </TabsTrigger>
           )}
+          <TabsTrigger value="history">History</TabsTrigger>
         </TabsList>
 
         <TabsContent value="analysis">
@@ -897,6 +899,14 @@ export default function FactMetricPage() {
             <MetricExperiments metric={factMetric} bandits={true} />
           </TabsContent>
         )}
+
+        <TabsContent value="history">
+          <div className="appbox p-3 mb-3">
+            <div className="mt-1" style={{ maxHeight: 800, overflowY: "auto" }}>
+              <HistoryTable type="metric" id={factMetric.id} />
+            </div>
+          </div>
+        </TabsContent>
       </Tabs>
     </div>
   );
