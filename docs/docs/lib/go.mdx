@@ -75,7 +75,7 @@ if darkMode.On {
 
 The client is the core component of the GrowthBook SDK. After installing and importing the SDK, create a single shared instance of `growthbook.Client` using the `growthbook.NewClient` function with a list of options. You can customize the client with options such as a custom logger, client key, decryption key, default attributes, or a feature list loaded from JSON. The client is thread-safe and can be safely used from multiple goroutines.
 
-While you can evaluate features directly using the main client instance, it’s recommended to create child client instances that include session- or query-specific data. To create a child client with local attributes, call `client.WithAttributes`:
+While you can evaluate features directly using the main client instance, it's recommended to create child client instances that include session- or query-specific data. To create a child client with local attributes, call `client.WithAttributes`:
 
 ```go
 attrs := gb.Attributes{"id": 100, "user": "Bob"}
@@ -133,7 +133,7 @@ You can specify attributes about the current user and request. These attributes 
 - Feature targeting (for example, paid users receive one value, while free users receive another).
 - Assigning persistent variations in A/B tests (for example, a user with id "123" always gets variation B).
 
-Attributes can be any JSON data type—boolean, float, string, array, or object—and are represented by the `Attributes` type, which is an alias for Go’s generic `map[string]interface{}` type used for JSON objects. If you know the attributes upfront, you can pass them into `NewClient` using the `WithAttributes` option:
+Attributes can be any JSON data type—boolean, float, string, array, or object—and are represented by the `Attributes` type, which is an alias for Go's generic `map[string]interface{}` type used for JSON objects. If you know the attributes upfront, you can pass them into `NewClient` using the `WithAttributes` option:
 
 ```go
 attrs := gb.Attributes{
@@ -173,6 +173,54 @@ client, err := client.WithAttributeOverrides(attrs)
 This method updates only the fields provided in `attrs`, keeping the other fields from the original client instance.
 
 Be aware that changing attributes may change the assigned feature values. This can be disorienting to users if not handled carefully. A common approach is to refresh attributes only on navigation, when the window is focused, or after a user performs a major action such as logging in.
+
+#### Secure Attributes
+
+When _secure attribute hashing_ is enabled, all targeting conditions in the SDK payload referencing attributes with datatype `secureString` or `secureString[]` will be anonymized via SHA-256 hashing. This allows you to safely target users based on sensitive attributes. You must enable this feature in your SDK Connection for it to take effect.
+
+If your SDK Connection has secure attribute hashing enabled, you will need to manually hash any `secureString` or `secureString[]` attributes that you pass into the GrowthBook SDK.
+
+To hash an attribute, use Go's `crypto/sha256` package to compute the SHA-256 hashed value of your attribute _plus_ your organization's secure attribute salt.
+
+```go
+import (
+    "crypto/sha256"
+    "encoding/hex"
+    gb "github.com/growthbook/growthbook-golang"
+)
+
+// Your secure attribute salt (set in Organization Settings)
+salt := "f09jq3fij"
+
+// Hashing a secureString attribute
+userEmail := user.Email
+hasher := sha256.New()
+hasher.Write([]byte(salt + userEmail))
+hashedEmail := hex.EncodeToString(hasher.Sum(nil))
+
+// Hashing a secureString[] attribute
+userTags := user.Tags
+hashedTags := make([]string, len(userTags))
+for i, tag := range userTags {
+    hasher := sha256.New()
+    hasher.Write([]byte(salt + tag))
+    hashedTags[i] = hex.EncodeToString(hasher.Sum(nil))
+}
+
+// Create attributes with hashed values
+attrs := gb.Attributes{
+    "id":       user.ID,
+    "loggedIn": true,
+    "email":    hashedEmail,
+    "tags":     hashedTags,
+}
+
+// Create a client with the hashed attributes
+client, err := client.WithAttributes(attrs)
+if err != nil {
+    // Handle error
+}
+```
 
 ### Tracking Callback
 
@@ -345,7 +393,7 @@ if result.Source == gb.ExperimentResultSource {
 
 ## Inline Experiments
 
-Experiments can be defined and run using the `Experiment` type and the `RunExperiment` method of the client. Experiment definitions can be created directly as values of the `Experiment` type, or parsed from JSON using Go’s `json.Unmarshal` function. Passing an `Experiment` value to the `RunExperiment` method will run the experiment and return an `ExperimentResult` that contains the resulting feature value. This approach allows users to run arbitrary experiments without providing feature definitions upfront.
+Experiments can be defined and run using the `Experiment` type and the `RunExperiment` method of the client. Experiment definitions can be created directly as values of the `Experiment` type, or parsed from JSON using Go's `json.Unmarshal` function. Passing an `Experiment` value to the `RunExperiment` method will run the experiment and return an `ExperimentResult` that contains the resulting feature value. This approach allows users to run arbitrary experiments without providing feature definitions upfront.
 
 ```go
 experiment := &gb.Experiment{

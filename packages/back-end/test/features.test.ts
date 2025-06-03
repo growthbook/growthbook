@@ -24,10 +24,11 @@ import {
 } from "back-end/types/organization";
 import { ExperimentInterface } from "back-end/types/experiment";
 import { FeatureDefinitionWithProject } from "back-end/types/api";
+import { SafeRolloutInterface } from "../types/safe-rollout";
 
 const groupMap: GroupMap = new Map();
 const experimentMap = new Map();
-
+const safeRolloutMap = new Map();
 const baseFeature: FeatureInterface = {
   id: "feature",
   dateCreated: new Date(),
@@ -1245,8 +1246,37 @@ describe("SDK Payloads", () => {
       linkedFeatures: ["feature"],
       excludeFromPayload: false,
     };
+    const safeRollout: SafeRolloutInterface = {
+      id: "sr_123",
+      organization: "123",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      featureId: "feature",
+      environment: "production",
+      datasourceId: "ds_123",
+      exposureQueryId: "eq_123",
+      guardrailMetricIds: [],
+      maxDuration: {
+        amount: 7,
+        unit: "days",
+      },
+      autoRollback: true,
+      status: "running",
+      autoSnapshots: true,
+      startedAt: new Date(),
+      lastSnapshotAttempt: new Date(),
+      nextSnapshotAttempt: new Date(),
+      analysisSummary: undefined,
+      pastNotifications: [],
+      rampUpSchedule: {
+        enabled: true,
+        step: 1,
+        steps: [0.1, 0.25, 0.5],
+        rampUpCompleted: false,
+      },
+    };
     const experimentMap = new Map([["exp_123", exp]]);
-
+    const safeRolloutMap = new Map([["sr_123", safeRollout]]);
     // Includes the experiment
     expect(
       getFeatureDefinition({
@@ -1254,6 +1284,7 @@ describe("SDK Payloads", () => {
         environment: "production",
         groupMap: groupMap,
         experimentMap: experimentMap,
+        safeRolloutMap: safeRolloutMap,
       })
     ).toEqual({
       defaultValue: true,
@@ -1295,6 +1326,7 @@ describe("SDK Payloads", () => {
         environment: "production",
         groupMap: groupMap,
         experimentMap: experimentMap,
+        safeRolloutMap: safeRolloutMap,
       })
     ).toEqual({
       defaultValue: true,
@@ -1309,6 +1341,7 @@ describe("SDK Payloads", () => {
         environment: "production",
         groupMap: groupMap,
         experimentMap: experimentMap,
+        safeRolloutMap: safeRolloutMap,
       })
     ).toEqual({
       defaultValue: true,
@@ -1322,6 +1355,7 @@ describe("SDK Payloads", () => {
         environment: "production",
         groupMap: groupMap,
         experimentMap: experimentMap,
+        safeRolloutMap: safeRolloutMap,
       })
     ).toEqual({
       defaultValue: true,
@@ -1349,6 +1383,7 @@ describe("SDK Payloads", () => {
         environment: "production",
         groupMap: groupMap,
         experimentMap: experimentMap,
+        safeRolloutMap: safeRolloutMap,
       })
     ).toEqual({
       defaultValue: true,
@@ -1375,12 +1410,14 @@ describe("SDK Payloads", () => {
 
     // Includes the running safe rollout as an experiment with the right preset coverage
     // and weights
+
     expect(
       getFeatureDefinition({
         feature,
         environment: "production",
         groupMap: groupMap,
         experimentMap: experimentMap,
+        safeRolloutMap: safeRolloutMap,
       })
     ).toEqual({
       defaultValue: true,
@@ -1435,6 +1472,7 @@ describe("SDK Payloads", () => {
         environment: "production",
         groupMap: groupMap,
         experimentMap: experimentMap,
+        safeRolloutMap: safeRolloutMap,
       })
     ).toEqual({
       defaultValue: true,
@@ -1471,6 +1509,7 @@ describe("SDK Payloads", () => {
         environment: "production",
         groupMap: groupMap,
         experimentMap: experimentMap,
+        safeRolloutMap: safeRolloutMap,
       })
     ).toEqual({
       defaultValue: true,
@@ -1493,6 +1532,7 @@ describe("SDK Payloads", () => {
         environment: "production",
         groupMap: groupMap,
         experimentMap: experimentMap,
+        safeRolloutMap: safeRolloutMap,
       })
     ).toEqual({
       defaultValue: true,
@@ -1506,6 +1546,7 @@ describe("SDK Payloads", () => {
         environment: "production",
         groupMap: groupMap,
         experimentMap: experimentMap,
+        safeRolloutMap: safeRolloutMap,
       })
     ).toEqual(null);
 
@@ -1515,6 +1556,7 @@ describe("SDK Payloads", () => {
         environment: "unknown",
         groupMap: groupMap,
         experimentMap: experimentMap,
+        safeRolloutMap: safeRolloutMap,
       })
     ).toEqual(null);
 
@@ -1589,6 +1631,7 @@ describe("SDK Payloads", () => {
         environment: "dev",
         groupMap: groupMap,
         experimentMap: experimentMap,
+        safeRolloutMap: safeRolloutMap,
       })
     ).toEqual({
       defaultValue: true,

@@ -21,6 +21,7 @@ import { getLegacyMessageForNotificationEvent } from "back-end/src/events/handle
 import { LegacyNotificationEvent } from "back-end/src/events/notification-events";
 import { NotificationEventName } from "back-end/types/event";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
+import { SecretsReplacer } from "back-end/src/util/secrets";
 import {
   EventWebHookErrorResult,
   EventWebHookResult,
@@ -165,7 +166,11 @@ export class EventWebHookNotifier implements Notifier {
 
     const context = getContextForAgendaJobByOrgObject(organization);
 
-    const applySecrets = await context.models.webhookSecrets.getBackEndSecretsReplacer();
+    const origin = new URL(eventWebHook.url).origin;
+
+    const applySecrets = await context.models.webhookSecrets.getBackEndSecretsReplacer(
+      origin
+    );
 
     const webHookResult = await EventWebHookNotifier.sendDataToWebHook({
       payload,
@@ -214,7 +219,7 @@ export class EventWebHookNotifier implements Notifier {
     payload: DataType;
     eventWebHook: EventWebHookInterface;
     method: EventWebHookMethod;
-    applySecrets: (s: string) => string;
+    applySecrets: SecretsReplacer;
   }): Promise<EventWebHookResult> {
     const requestTimeout = 30000;
     const maxContentSize = 1000;
@@ -228,10 +233,10 @@ export class EventWebHookNotifier implements Notifier {
       });
 
       const result = await cancellableFetch(
-        applySecrets(url),
+        applySecrets(url, { encode: encodeURIComponent }),
         {
           headers: {
-            ...JSON.parse(applySecrets(JSON.stringify(headers))),
+            ...applySecrets(headers),
             "Content-Type": "application/json",
             "User-Agent": "GrowthBook Webhook",
             "X-GrowthBook-Signature": signature,

@@ -1,9 +1,9 @@
 import { omit } from "lodash";
-import Handlebars from "handlebars";
 import {
   WebhookSecretFrontEndInterface,
   webhookSecretSchema,
 } from "back-end/src/validators/webhook-secrets";
+import { secretsReplacer } from "back-end/src/util/secrets";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -47,18 +47,25 @@ export class WebhookSecretDataModel extends BaseClass {
     });
   }
 
-  public async getBackEndSecretsReplacer(): Promise<(s: string) => string> {
+  public async deleteByKey(key: string) {
+    const existing = await this._findOne({ key });
+    if (!existing) return;
+    await this._deleteOne(existing);
+  }
+
+  public async getBackEndSecretsReplacer(origin: string) {
     const secrets = await this.getAll();
     const replacements: Record<string, string> = {};
     for (const secret of secrets) {
-      replacements[secret.key] = secret.value;
+      if (
+        !secret.allowedOrigins ||
+        !secret.allowedOrigins.length ||
+        secret.allowedOrigins.includes(origin)
+      ) {
+        replacements[secret.key] = secret.value;
+      }
     }
-    return (s) => {
-      const template = Handlebars.compile(s, {
-        noEscape: true,
-        strict: true,
-      });
-      return template(replacements);
-    };
+
+    return secretsReplacer(replacements);
   }
 }

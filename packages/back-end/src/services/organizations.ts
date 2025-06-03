@@ -1015,12 +1015,12 @@ export async function addMemberFromSSOConnection(
         return null;
       }
       organization = await findOrganizationById(installation.organization);
+    } else {
+      if (!ssoConnection.organization) {
+        return null;
+      }
+      organization = await getOrganizationById(ssoConnection.organization);
     }
-
-    if (!ssoConnection.organization) {
-      return null;
-    }
-    organization = await getOrganizationById(ssoConnection.organization);
   }
   // When self-hosting, there should be only one organization in Mongo
   else {

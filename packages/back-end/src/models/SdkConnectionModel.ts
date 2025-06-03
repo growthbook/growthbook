@@ -27,7 +27,6 @@ import { triggerSingleSDKWebhookJobs } from "back-end/src/jobs/updateAllJobs";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/organization";
 import { addCloudSDKMapping } from "back-end/src/services/clickhouse";
-import { syncVercelSdkConnection } from "back-end/src/services/vercel-native-integration.service";
 import { generateEncryptionKey, generateSigningKey } from "./ApiKeyModel";
 
 const sdkConnectionSchema = new mongoose.Schema({
@@ -255,7 +254,6 @@ export async function createSDKConnection(params: CreateSDKConnectionParams) {
 
   if (IS_CLOUD) {
     await addCloudSDKMapping(connection);
-    await syncVercelSdkConnection(connection.organization);
   }
 
   return toInterface(doc);
@@ -406,10 +404,6 @@ export async function deleteSDKConnectionById(
     organization,
     id,
   });
-
-  if (IS_CLOUD) {
-    await syncVercelSdkConnection(organization);
-  }
 }
 
 export async function markSDKConnectionUsed(key: string) {

@@ -250,19 +250,22 @@ async function runWebhookFetch({
   let res: CancellableFetchReturn | undefined = undefined;
 
   try {
-    const applySecrets = await context.models.webhookSecrets.getBackEndSecretsReplacer();
+    const origin = new URL(url).origin;
+    const applySecrets = await context.models.webhookSecrets.getBackEndSecretsReplacer(
+      origin
+    );
 
     let customHeaders: Record<string, string> | undefined;
     if (headers) {
       try {
-        customHeaders = JSON.parse(applySecrets(headers));
+        customHeaders = applySecrets(JSON.parse(headers));
       } catch (error) {
         throw new Error("Failed to parse custom headers: " + error.message);
       }
     }
 
     res = await cancellableFetch(
-      applySecrets(url),
+      applySecrets(url, { encode: encodeURIComponent }),
       {
         headers: {
           ...customHeaders,
@@ -329,8 +332,6 @@ export async function fireSdkWebhook(
     webhook.httpMethod !== "GET" &&
     sendPayloadFormats.includes(webhook.payloadFormat ?? "standard");
 
-  if (!sendPayload) return;
-
   const connections = await findSDKConnectionsByIds(context, webhook?.sdks);
 
   if (!connections.length) {
@@ -346,6 +347,8 @@ export async function fireSdkWebhook(
   ][] = await BluebirdPromise.reduce(
     connections,
     async (payloads: [string, Record<string, unknown>][], connection) => {
+      if (!sendPayload) return [[connection.key, {}], ...payloads];
+
       const environmentDoc = webhookContext.org?.settings?.environments?.find(
         (e) => e.id === connection.environment
       );

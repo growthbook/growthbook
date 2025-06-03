@@ -29,7 +29,6 @@ import {
   syncVercelSdkConnection,
   deleteVercelSdkWebhook,
 } from "back-end/src/services/vercel-native-integration.service";
-import { updateWebhooksRemoveManagedBy } from "back-end/src/models/WebhookModel";
 import {
   createSDKConnection,
   updateSdkConnectionsRemoveManagedBy,
@@ -303,12 +302,12 @@ export async function upsertInstallation(req: Request, res: Response) {
     payload.account.name
   );
 
-  const installationName = `Vercel installation ${authentication.payload.installation_id}`;
-
   const org = await createOrganization({
     email: payload.account.contact.email,
     userId: user.id,
-    name: installationName,
+    name:
+      payload.account.name ||
+      `Vercel installation ${authentication.payload.installation_id}`,
     isVercelIntegration: true,
     restrictLoginMethod: `vercel:${req.params.installation_id}`,
   });
@@ -571,7 +570,6 @@ async function removeManagedBy(
   managedBy: Partial<ManagedBy>
 ) {
   await updateSdkConnectionsRemoveManagedBy(context, managedBy);
-  await updateWebhooksRemoveManagedBy(context, managedBy);
   await updateTeamRemoveManagedBy(context.org.id, managedBy);
   await context.models.projects.removeManagedBy(managedBy);
 }

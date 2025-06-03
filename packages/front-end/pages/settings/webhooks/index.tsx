@@ -52,6 +52,7 @@ const WebhooksPage: FC = () => {
               <tr>
                 <th>Key</th>
                 <th>Description</th>
+                <th>Allowed Origins</th>
                 <th>Created</th>
                 <th>Updated</th>
                 <th></th>
@@ -64,6 +65,13 @@ const WebhooksPage: FC = () => {
                     <ClickToCopy>{secret.key}</ClickToCopy>
                   </td>
                   <td>{secret.description}</td>
+                  <td>
+                    {secret.allowedOrigins?.length ? (
+                      secret.allowedOrigins.join(", ")
+                    ) : (
+                      <em>Any</em>
+                    )}
+                  </td>
                   <td>{datetime(secret.dateCreated)}</td>
                   <td>{datetime(secret.dateUpdated)}</td>
                   <td>
