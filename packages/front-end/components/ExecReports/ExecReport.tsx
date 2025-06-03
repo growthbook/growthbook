@@ -8,7 +8,6 @@ import MultiSelectField from "@/components/Forms/MultiSelectField";
 import DatePicker from "@/components/DatePicker";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { filterByTags, useTagsFilter } from "@/components/Tags/TagsFilter";
 import { useExperiments } from "@/hooks/useExperiments";
 import SelectField from "@/components/Forms/SelectField";
 import { useExperimentSearch } from "@/services/experiments";
@@ -98,7 +97,7 @@ export default function ExecReport() {
     "standard"
   );
 
-  const tagsFilter = useTagsFilter("experiments");
+  //const tagsFilter = useTagsFilter("experiments");
 
   const filterResults = useCallback(
     (items: ComputedExperimentInterface[]) => {
@@ -114,7 +113,7 @@ export default function ExecReport() {
 
       // filter out to only stopped experiments:
       items = items.filter((item) => item.status === "stopped");
-      items = filterByTags(items, tagsFilter.tags);
+      //items = filterByTags(items, tagsFilter.tags);
 
       // filter to dates:
       if (startDate && endDate) {
@@ -145,7 +144,7 @@ export default function ExecReport() {
 
       return items;
     },
-    [endDate, selectedProjects, startDate, tagsFilter.tags]
+    [endDate, selectedProjects, startDate]
   );
 
   const { items } = useExperimentSearch({
@@ -341,7 +340,8 @@ export default function ExecReport() {
       {hasCommercialFeature("experiment-impact") ? (
         <Box className="appbox" p="4" px="4">
           <ExecExperimentImpact
-            experiments={items}
+            filteredExperiments={items}
+            allExperiments={allExperiments}
             startDate={startDate}
             endDate={endDate}
             projects={selectedProjects}
