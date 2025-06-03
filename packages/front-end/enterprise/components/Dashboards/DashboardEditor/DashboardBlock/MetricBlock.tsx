@@ -1,6 +1,7 @@
 import React from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ExperimentMetricInterface } from "shared/experiments";
+import { DashboardBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
 import SelectField from "@/components/Forms/SelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
@@ -8,7 +9,6 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import BaselineChooser from "@/components/Experiment/BaselineChooser";
 import VariationChooser from "@/components/Experiment/VariationChooser";
-import { Block } from "./index";
 
 export function MetricSelector({
   metricId,
@@ -43,7 +43,7 @@ export default function MetricBlock({
   variationIds: string[];
   baselineRow: number;
   isEditing: boolean;
-  setBlock: (block: Block) => void;
+  setBlock: (block: DashboardBlockInterface) => void;
   experiment: ExperimentInterfaceStringDates;
 }) {
   const { getExperimentMetricById } = useDefinitions();

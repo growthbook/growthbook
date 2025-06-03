@@ -16,10 +16,6 @@ import {
 import { getScopedSettings } from "shared/settings";
 import { v4 as uuidv4 } from "uuid";
 import uniq from "lodash/uniq";
-import {
-  createDashboardInstance,
-  updateDashboardInstance,
-} from "back-end/src/enterprise/models/DashboardInstanceModel";
 import { DataSourceInterface } from "back-end/types/datasource";
 import {
   AuthRequest,
@@ -3283,7 +3279,7 @@ export async function postExperimentDashboard(
   }
 
   const { id } = req.params;
-  const { title, blocks } = req.body;
+  const { title, blocks, settings } = req.body;
 
   const experiment = await getExperimentById(context, id);
   if (!experiment) {
@@ -3314,13 +3310,18 @@ export async function postExperimentDashboard(
     return;
   }
 
-  const dashboard = await createDashboardInstance({
-    context,
-    experiment,
-    data: {
-      title,
-      blocks,
-    },
+  if (!settings) {
+    res.status(400).json({
+      status: 400,
+      message: "Settings are required",
+    });
+    return;
+  }
+
+  const dashboard = await context.models.dashboards.create({
+    title,
+    blocks,
+    settings,
   });
 
   // Add the dashboard to the experiment
@@ -3393,11 +3394,13 @@ export async function putExperimentDashboard(
 
   const oldDashboard = experiment.dashboards![dashboardIndex];
 
-  const updatedDashboard = await updateDashboardInstance({
-    context,
-    dashboard: oldDashboard,
-    changes: { title, blocks },
-  });
+  const updatedDashboard = await context.models.dashboards.updateById(
+    oldDashboard.id,
+    {
+      title,
+      blocks,
+    }
+  );
 
   // Add the dashboard to the experiment
   experiment.dashboards = (experiment.dashboards || []).map((d) =>
