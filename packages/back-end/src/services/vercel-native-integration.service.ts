@@ -341,12 +341,10 @@ export const deleteVercelSdkWebhook = async (context: ReqContextClass) => {
   );
 
   await BluebirdPromise.each(webhooks, async (webhook) => {
-    const webhookSecret = await context.models.webhookSecrets.findByKey(
+    await context.models.webhookSecrets.deleteByKey(
       VERCEL_WEBHOOK_TOKEN_SECRET_NAME(webhook.sdks[0])
     );
 
-    if (webhookSecret)
-      await context.models.webhookSecrets.delete(webhookSecret);
     await deleteSdkWebhookById(context, webhook.id);
   });
 };
@@ -386,20 +384,18 @@ export const syncVercelSdkConnection = async (organization: string) => {
         w.managedBy?.resourceId === resource.id
     );
 
-    const webhookSecret = webhook
-      ? await context.models.webhookSecrets.findByKey(
-          VERCEL_WEBHOOK_TOKEN_SECRET_NAME(sdkConnection.id)
-        )
-      : undefined;
-
     if (!resource.protocolSettings?.experimentation?.edgeConfigId) {
-      if (webhook) await deleteSdkWebhookById(context, webhook.id);
-      if (webhookSecret)
-        await context.models.webhookSecrets.delete(webhookSecret);
+      if (webhook) {
+        await deleteSdkWebhookById(context, webhook.id);
+        await context.models.webhookSecrets.deleteByKey(
+          VERCEL_WEBHOOK_TOKEN_SECRET_NAME(sdkConnection.id)
+        );
+      }
     } else {
       if (!webhook) {
-        if (webhookSecret)
-          await context.models.webhookSecrets.delete(webhookSecret);
+        await context.models.webhookSecrets.deleteByKey(
+          VERCEL_WEBHOOK_TOKEN_SECRET_NAME(sdkConnection.id)
+        );
 
         const createdWebhook = await createSdkWebhook(
           context,

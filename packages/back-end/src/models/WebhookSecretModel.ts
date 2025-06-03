@@ -47,8 +47,10 @@ export class WebhookSecretDataModel extends BaseClass {
     });
   }
 
-  public async findByKey(key: string) {
-    return this._findOne({ key });
+  public async deleteByKey(key: string) {
+    const existing = await this._findOne({ key });
+    if (!existing) return;
+    await this._deleteOne(existing);
   }
 
   public async getBackEndSecretsReplacer(origin: string) {

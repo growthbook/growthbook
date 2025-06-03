@@ -296,7 +296,9 @@ export async function upsertInstallation(req: Request, res: Response) {
   const org = await createOrganization({
     email: payload.account.contact.email,
     userId: user.id,
-    name: payload.account.name,
+    name:
+      payload.account.name ||
+      `Vercel instalation ${authentication.payload.installation_id}`,
     isVercelIntegration: true,
     restrictLoginMethod: `vercel:${req.params.installation_id}`,
   });

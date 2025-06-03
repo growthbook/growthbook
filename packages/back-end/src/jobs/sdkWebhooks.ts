@@ -332,8 +332,6 @@ export async function fireSdkWebhook(
     webhook.httpMethod !== "GET" &&
     sendPayloadFormats.includes(webhook.payloadFormat ?? "standard");
 
-  if (!sendPayload) return;
-
   const connections = await findSDKConnectionsByIds(context, webhook?.sdks);
 
   if (!connections.length) {
@@ -349,6 +347,8 @@ export async function fireSdkWebhook(
   ][] = await BluebirdPromise.reduce(
     connections,
     async (payloads: [string, Record<string, unknown>][], connection) => {
+      if (!sendPayload) return [[connection.key, {}], ...payloads];
+
       const environmentDoc = webhookContext.org?.settings?.environments?.find(
         (e) => e.id === connection.environment
       );
