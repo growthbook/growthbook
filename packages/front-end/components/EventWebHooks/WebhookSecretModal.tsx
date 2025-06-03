@@ -37,6 +37,21 @@ export default function WebhookSecretModal({
       trackingEventModalType={`webhook_secret_${existingId ? "edit" : "add"}`}
       header={existingId ? "Edit Secret" : "Add Secret"}
       submit={form.handleSubmit(async (data) => {
+        // Validation for allowed origins
+        if (data.allowedOrigins?.length) {
+          if (!data.allowedOrigins.every((o) => o.startsWith("http"))) {
+            throw new Error("All origins must start with http or https");
+          }
+
+          // Make sure all origins are valid and normalized
+          data.allowedOrigins = data.allowedOrigins.map(
+            (origin) => new URL(origin).origin
+          );
+
+          // Remove duplicates
+          data.allowedOrigins = [...new Set(data.allowedOrigins)];
+        }
+
         if (existingId) {
           const body: UpdateWebhookSecretProps = {
             description: data.description,
