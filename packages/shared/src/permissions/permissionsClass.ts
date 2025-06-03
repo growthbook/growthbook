@@ -15,7 +15,7 @@ import {
   FactTableInterface,
   UpdateFactTableProps,
 } from "back-end/types/fact-table";
-import { ExecReportModel } from "back-end/src/models/ExecReportModel";
+import { ExecReportInterface } from "back-end/src/models/ExecReportModel";
 import {
   ExperimentInterface,
   ExperimentTemplateInterface,
@@ -622,7 +622,7 @@ export class Permissions {
   };
 
   public canManageExecReports = (
-    report: Pick<ExecReportModel, "projects">
+    report: Pick<ExecReportInterface, "projects">
   ): boolean => {
     return this.checkProjectFilterPermission(
       { projects: report.projects || [] },
