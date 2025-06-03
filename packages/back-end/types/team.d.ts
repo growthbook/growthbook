@@ -1,5 +1,5 @@
-import { ProjectMemberRole } from "./organization";
 import { ManagedBy } from "back-end/src/validators/managed-by";
+import { ProjectMemberRole } from "./organization";
 
 export interface TeamInterface {
   id: string;
