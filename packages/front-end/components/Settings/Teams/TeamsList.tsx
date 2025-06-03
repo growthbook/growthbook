@@ -24,7 +24,7 @@ const TeamsList: FC = () => {
 
   return (
     <div className="mb-4">
-      <div>
+      <div style={{ overflowX: "auto" }}>
         {teams && teams.length > 0 ? (
           <table className="table appbox gbtable table-hover">
             <thead>

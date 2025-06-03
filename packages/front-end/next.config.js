@@ -23,6 +23,10 @@ module.exports = {
           key: "X-Frame-Options",
           value: "deny",
         },
+        {
+          key: "Cross-Origin-Opener-Policy",
+          value: "same-origin",
+        },
       ],
     },
   ],

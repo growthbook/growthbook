@@ -1,4 +1,5 @@
 import type { Response } from "express";
+import { omit } from "lodash";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { SafeRolloutSnapshotInterface } from "back-end/src/validators/safe-rollout-snapshot";
@@ -7,6 +8,7 @@ import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource
 import { SafeRolloutResultsQueryRunner } from "back-end/src/queryRunners/SafeRolloutResultsQueryRunner";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { SNAPSHOT_TIMEOUT } from "back-end/src/controllers/experiments";
+import { MetricTimeSeries } from "back-end/src/validators/metric-time-series";
 import {
   CreateSafeRolloutInterface,
   validateCreateSafeRolloutFields,
@@ -209,7 +211,7 @@ export async function putSafeRollout(
   );
 
   await context.models.safeRollout.update(safeRollout, {
-    ...validatedSafeRolloutFields,
+    ...omit(validatedSafeRolloutFields, "rampUpSchedule"),
   });
 
   res.status(200).json({
@@ -217,3 +219,54 @@ export async function putSafeRollout(
   });
 }
 // endregion PUT /safe-rollout/:id
+
+// region GET /safe-rollout/:id/time-series
+/**
+ * GET /safe-rollout/:id/time-series
+ * Get the time series data for a safe rollout rule
+ * @param req
+ * @param res
+ */
+export const getSafeRolloutTimeSeries = async (
+  req: AuthRequest<null, { id: string }, { metricIds: string[] }>,
+  res: Response<{ status: 200; timeSeries: MetricTimeSeries[] }>
+) => {
+  const context = getContextFromReq(req);
+
+  const { metricIds } = req.query;
+  if (metricIds.length === 0) {
+    throw new Error("metricIds is required");
+  }
+
+  const { id } = req.params;
+  const safeRollout = await context.models.safeRollout.getById(id);
+  if (!safeRollout) {
+    throw new Error("Safe rollout not found");
+  }
+
+  const timeSeries = await context.models.metricTimeSeries.getBySourceAndMetricIds(
+    {
+      source: "safe-rollout",
+      sourceId: id,
+      sourcePhase: undefined, // Safe rollouts don't have phases at the moment
+      metricIds,
+    }
+  );
+
+  // If the rollout variation has a CI of 0,0, remove the data point as it is invalid
+  const filteredTimeSeries = timeSeries.filter((ts) => {
+    return ts.dataPoints.some((dp) => {
+      return (
+        dp.variations[1].absolute?.ci &&
+        dp.variations[1].absolute.ci[0] !== 0 &&
+        dp.variations[1].absolute.ci[1] !== 0
+      );
+    });
+  });
+
+  res.status(200).json({
+    status: 200,
+    timeSeries: filteredTimeSeries,
+  });
+};
+// endregion GET /safe-rollout/:id/time-series

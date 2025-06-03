@@ -677,12 +677,14 @@ export function getDefaultRuleValue({
   ruleType,
   settings,
   datasources,
+  isSafeRolloutAutoRollbackEnabled = false,
 }: {
   defaultValue: string;
   attributeSchema?: SDKAttributeSchema;
   ruleType: string;
   settings?: OrganizationSettings;
   datasources?: DataSourceInterfaceWithParams[];
+  isSafeRolloutAutoRollbackEnabled?: boolean;
 }): FeatureRule | NewExperimentRefRule | safeRolloutFields {
   const hashAttributes =
     attributeSchema?.filter((a) => a.hashAttribute)?.map((a) => a.property) ||
@@ -737,6 +739,7 @@ export function getDefaultRuleValue({
         datasourceId: defaultDataSource || "",
         exposureQueryId: "",
         guardrailMetricIds: [],
+        autoRollback: isSafeRolloutAutoRollbackEnabled,
       },
     };
   }

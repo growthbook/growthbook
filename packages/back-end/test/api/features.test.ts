@@ -43,6 +43,11 @@ describe("features API", () => {
   it("can create new features", async () => {
     setReqContext({
       org,
+      models: {
+        safeRollout: {
+          getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
+        },
+      },
       permissions: {
         canPublishFeature: () => true,
         canCreateFeature: () => true,
@@ -50,14 +55,14 @@ describe("features API", () => {
       getProjects: async () => [{ id: "project" }],
     });
 
-    createFeature.mockImplementation((v) => v);
-    getFeature.mockReturnValue(undefined);
-    addTags.mockReturnValue(undefined);
-    createInterfaceEnvSettingsFromApiEnvSettings.mockReturnValue(
+    (createFeature as jest.Mock).mockImplementation((v) => v);
+    (getFeature as jest.Mock).mockReturnValue(undefined);
+    (addTags as jest.Mock).mockReturnValue(undefined);
+    (createInterfaceEnvSettingsFromApiEnvSettings as jest.Mock).mockReturnValue(
       "createInterfaceEnvSettingsFromApiEnvSettings"
     );
-    getSavedGroupMap.mockReturnValue("savedGroupMap");
-    getApiFeatureObj.mockImplementation((v) => v);
+    (getSavedGroupMap as jest.Mock).mockResolvedValue("savedGroupMap");
+    (getApiFeatureObj as jest.Mock).mockImplementation((v) => v);
 
     const feature = {
       defaultValue: "defaultValue",
@@ -74,7 +79,6 @@ describe("features API", () => {
       .post("/api/v1/features")
       .send(feature)
       .set("Authorization", "Bearer foo");
-
     expect(response.status).toBe(200);
     expect(getApiFeatureObj).toHaveBeenCalled();
     expect(addTags).toHaveBeenCalledWith("org", ["tag"]);
@@ -125,6 +129,11 @@ describe("features API", () => {
             requireProjectForFeatures: true,
           },
         },
+        models: {
+          safeRollout: {
+            getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
+          },
+        },
         permissions: {
           canPublishFeature: () => true,
           canCreateFeature: () => true,
@@ -159,6 +168,11 @@ describe("features API", () => {
           ...org,
           settings: {
             requireProjectForFeatures: true,
+          },
+        },
+        models: {
+          safeRollout: {
+            getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
           },
         },
         permissions: {
@@ -220,6 +234,11 @@ describe("features API", () => {
           ...org,
           settings: {
             requireProjectForFeatures: true,
+          },
+        },
+        models: {
+          safeRollout: {
+            getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
           },
         },
         permissions: {
