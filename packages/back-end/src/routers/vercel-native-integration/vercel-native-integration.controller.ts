@@ -398,9 +398,13 @@ export async function deleteInstallation(req: Request, res: Response) {
     res
   );
 
-  const license = await getLicenseByKey(org.licenseKey || "");
+  if (integration.billingPlanId === "pro-billing-plan") {
+    const license = await getLicenseByKey(org.licenseKey || "");
 
-  if (license && license.orbSubscription?.status === "active") {
+    if (!license) {
+      return res.status(404).send(`Invalid license for org: ${org.id}`);
+    }
+
     await postCancelSubscriptionToLicenseServer(license.id);
   }
 
