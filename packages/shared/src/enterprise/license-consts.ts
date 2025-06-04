@@ -93,6 +93,7 @@ export interface LicenseInterface {
     tooltipText: string; // The text to show in the tooltip
     showAllUsers: boolean; // True if all users should see the notice rather than just the admins
   };
+  vercelInstallationId?: string;
   stripeSubscription?: {
     id: string;
     qty: number;

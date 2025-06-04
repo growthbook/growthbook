@@ -13,6 +13,7 @@ import {
 import {
   addMemberToOrg,
   addMembersToTeam,
+  getOrganizationById,
 } from "back-end/src/services/organizations";
 import {
   createOrganization,
@@ -42,6 +43,11 @@ import {
   updateTeamRemoveManagedBy,
 } from "back-end/src/models/TeamModel";
 import {
+  postCancelSubscriptionToLicenseServer,
+  postNewVercelSubscriptionToLicenseServer,
+} from "back-end/src/enterprise";
+import { getLicenseByKey } from "back-end/src/enterprise/models/licenseModel";
+import {
   userAuthenticationValidator,
   systemAuthenticationValidator,
   UpsertInstallationPayload,
@@ -51,21 +57,24 @@ import {
   BillingPlan,
 } from "./vercel-native-integration.validators";
 
-const FREE_BILLING_PLAN: BillingPlan = {
-  description: "Free Billing Plan",
-  id: "free-billing-plan",
-  name: "Free",
+const STARTER_BILLING_PLAN: BillingPlan = {
+  description:
+    "Growthbook's free plan. Add up to 3 users. Enjoy unlimited feature flag evaluations, community support, up to 1M CDN requests/month, and up to 5GB of CDN Bandwidth/month.",
+  id: "starter-billing-plan",
+  name: "Starter (Free) Plan",
   type: "subscription",
 };
 
-const NON_FREE_BILLING_PLAN: BillingPlan = {
-  description: "Non Free Billing Plan",
-  id: "non-free",
-  name: "Non free",
+const PRO_BILLING_PLAN: BillingPlan = {
+  description:
+    "Enjoy all the benefits of our starter plan, plus add up to 100 members (each member incurs a cost of $20/month), get in-app chat support, advanced experimentation features, up to 2M CDN requests/month, and up to 20GB of CDN Bandwidth/month.",
+  id: "pro-billing-plan",
+  name: "Pro Plan",
   type: "subscription",
+  cost: "20.00/month per user + usage",
 };
 
-const billingPlans = [FREE_BILLING_PLAN, NON_FREE_BILLING_PLAN] as const;
+const billingPlans = [STARTER_BILLING_PLAN, PRO_BILLING_PLAN] as const;
 
 const VERCEL_JKWS_URL = "https://marketplace.vercel.com/.well-known/jwks";
 
@@ -298,7 +307,7 @@ export async function upsertInstallation(req: Request, res: Response) {
     userId: user.id,
     name:
       payload.account.name ||
-      `Vercel instalation ${authentication.payload.installation_id}`,
+      `Vercel installation ${authentication.payload.installation_id}`,
     isVercelIntegration: true,
     restrictLoginMethod: `vercel:${req.params.installation_id}`,
   });
@@ -311,16 +320,13 @@ export async function upsertInstallation(req: Request, res: Response) {
 
   const integrationModel = new VercelNativeIntegrationModel(context);
 
-  const billingPlan = FREE_BILLING_PLAN;
-
   await integrationModel.create({
     installationId: authentication.payload.installation_id,
     upsertData: { payload, authentication: authentication.payload },
     resources: [],
-    billingPlanId: billingPlan.id,
   });
 
-  return res.send({ billingPlan });
+  return res.sendStatus(204);
 }
 
 export async function getInstallation(req: Request, res: Response) {
@@ -335,7 +341,10 @@ export async function getInstallation(req: Request, res: Response) {
 }
 
 export async function updateInstallation(req: Request, res: Response) {
-  const { integration, integrationModel } = await authContext(req, res);
+  const { integration, integrationModel, org, user } = await authContext(
+    req,
+    res
+  );
 
   const { billingPlanId } = req.body as UpdateInstallation;
 
@@ -343,20 +352,74 @@ export async function updateInstallation(req: Request, res: Response) {
 
   if (!billingPlan) return res.status(400).send("Invalid billing plan!");
 
+  // Check if current billing plan is different from new plan
+  if (integration.billingPlanId !== billingPlanId) {
+    if (billingPlanId === "pro-billing-plan") {
+      // The user is upgrading from the starter plan to the pro plan
+      try {
+        const result = await postNewVercelSubscriptionToLicenseServer(
+          org,
+          req.params.installation_id,
+          user?.name || ""
+        );
+        await updateOrganization(org.id, { licenseKey: result.id });
+      } catch (e) {
+        throw new Error(
+          `Unable to create new subscription. Reason: ${e.message} || "Unknown`
+        );
+      }
+    } else {
+      // The user is downgrading from the pro plan to the starter plan
+      try {
+        const license = await getLicenseByKey(org.licenseKey || "");
+
+        if (!license) {
+          return res
+            .status(404)
+            .send(`Unable to locate license for org: ${org.id}`);
+        }
+        await postCancelSubscriptionToLicenseServer(license.id);
+      } catch (e) {
+        throw new Error(
+          `Unable to cancel subscription. Reason: ${e.message} || "Unknown`
+        );
+      }
+    }
+  }
+
   await integrationModel.update(integration, { billingPlanId });
 
   return res.send({ billingPlan });
 }
 
 export async function deleteInstallation(req: Request, res: Response) {
-  const { context, integrationModel, integration } = await authContext(
+  const { context, integrationModel, integration, org } = await authContext(
     req,
     res
   );
 
+  if (integration.billingPlanId === "pro-billing-plan") {
+    const license = await getLicenseByKey(org.licenseKey || "");
+
+    if (!license) {
+      return res.status(404).send(`Invalid license for org: ${org.id}`);
+    }
+
+    await postCancelSubscriptionToLicenseServer(license.id);
+  }
+
   await removeManagedBy(context, { type: "vercel" });
   await integrationModel.deleteById(integration.id);
 
+  await updateOrganization(
+    org.id,
+    {
+      isVercelIntegration: false,
+    },
+    { restrictLoginMethod: 1 }
+  );
+
+  //MKTODO: Remove the finalized: true before we ship this to production
   return res.status(200).send({ finalized: true });
 }
 
@@ -378,6 +441,35 @@ export async function provisionResource(req: Request, res: Response) {
   const billingPlan = billingPlans.find(({ id }) => id === billingPlanId);
 
   if (!billingPlan) return res.status(400).send("Invalid billing plan!");
+
+  if (!integration.billingPlanId) {
+    // The installation doesn't have a billing plan yet, so we need to create a new one
+    if (billingPlanId === "pro-billing-plan") {
+      try {
+        // Get fresh org with updated name
+        const updatedOrg = await getOrganizationById(org.id);
+
+        if (!updatedOrg) {
+          throw new Error("Organization not found");
+        }
+        const result = await postNewVercelSubscriptionToLicenseServer(
+          updatedOrg,
+          req.params.installation_id,
+          user?.name || ""
+        );
+        await updateOrganization(org.id, { licenseKey: result.id });
+      } catch (e) {
+        throw new Error(
+          `Unable to create new subscription. Reason: ${e.message} || "Unknown`
+        );
+      }
+    }
+
+    // Then, update the integration with the new billing plan
+    await integrationModel.update(integration, {
+      billingPlanId,
+    });
+  }
 
   const resourceId = uuidv4();
 
@@ -429,7 +521,6 @@ export async function provisionResource(req: Request, res: Response) {
   };
 
   await integrationModel.update(integration, {
-    billingPlanId,
     resources: [...integration.resources, resource],
   });
 
@@ -490,7 +581,6 @@ async function removeManagedBy(
 export async function deleteResource(req: Request, res: Response) {
   const {
     context,
-    org,
     integrationModel,
     integration,
     resource,
@@ -506,14 +596,6 @@ export async function deleteResource(req: Request, res: Response) {
 
   await deleteVercelSdkWebhook(context);
 
-  await updateOrganization(
-    org.id,
-    {
-      isVercelIntegration: false,
-    },
-    { restrictLoginMethod: 1 }
-  );
-
   return res.sendStatus(204);
 }
 
@@ -524,10 +606,22 @@ export async function getProducts(req: Request, res: Response) {
 
   if (!slug) return res.status(400).send("Invalid request!");
 
-  if (integration.billingPlanId !== FREE_BILLING_PLAN.id)
-    return res.json({ plans: [NON_FREE_BILLING_PLAN] });
+  const existingBillingPlan = billingPlans.find(
+    ({ id }) => id === integration.billingPlanId
+  );
 
-  return res.json({ plans: billingPlans });
+  if (!existingBillingPlan) {
+    return res.json({ plans: billingPlans });
+  }
+
+  const additionalProjectBillingPlan: BillingPlan = {
+    ...existingBillingPlan,
+    name: "Add GrowthBook Project to your existing plan",
+    description: "",
+    cost: "",
+  };
+
+  return res.json({ plans: [additionalProjectBillingPlan] });
 }
 
 export async function postVercelIntegrationSSO(req: Request, res: Response) {
