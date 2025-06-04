@@ -589,10 +589,9 @@ myAttributes = myAttributes.map(attribute => sha256(salt + attribute));`}
                   to GrowthBook.
                 </li>
                 <li>
-                  Implement back-end sticky bucketing using{" "}
+                  Implement sticky bucketing using{" "}
                   <code>growthbookAdapter.setStickyBucketService()</code> for
-                  advanced experimentation. We recommend our Redis Sticky Bucket
-                  driver.
+                  advanced experimentation.
                 </li>
                 <li>
                   Expose GrowthBook data to Vercel&apos;s Flags Explorer by
