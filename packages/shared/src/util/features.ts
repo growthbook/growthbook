@@ -32,7 +32,7 @@ export const DRAFT_REVISION_STATUSES = [
   "pending-review",
 ];
 
-export function getValidation(feature: FeatureInterface) {
+export function getValidation(feature: Pick<FeatureInterface, "jsonSchema">) {
   try {
     if (!feature?.jsonSchema) {
       return {
@@ -100,7 +100,7 @@ export function getJSONValidator() {
 export function validateJSONFeatureValue(
   // eslint-disable-next-line
   value: any,
-  feature: FeatureInterface
+  feature: Pick<FeatureInterface, "jsonSchema">
 ) {
   const { jsonSchema, validationEnabled } = getValidation(feature);
   if (!validationEnabled) {
@@ -154,7 +154,7 @@ export function validateJSONFeatureValue(
 }
 
 export function validateFeatureValue(
-  feature: FeatureInterface,
+  feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
   value: string,
   label?: string
 ): string {
