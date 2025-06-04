@@ -86,6 +86,12 @@ const ExperimentsPage = (): React.ReactElement => {
     hasArchived,
   } = useExperiments(project, tabs.includes("archived"), "standard");
 
+  useEffect(() => {
+    if (allExperiments.length === 0 && hasArchived) {
+      setTabs(["archived"]);
+    }
+  }, [allExperiments, hasArchived]);
+
   const tagsFilter = useTagsFilter("experiments");
   const [showMineOnly, setShowMineOnly] = useLocalStorage(
     "showMyExperimentsOnly",
