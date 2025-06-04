@@ -45,7 +45,7 @@ interface Props {
   bandits?: boolean;
 }
 
-interface MetricExperimentData {
+export interface MetricExperimentData {
   id: string;
   date: string;
   name: string;
