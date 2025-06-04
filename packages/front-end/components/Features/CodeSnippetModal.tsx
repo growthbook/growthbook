@@ -28,6 +28,7 @@ import TargetingAttributeCodeSnippet from "@/components/SyntaxHighlighting/Snipp
 import SelectField from "@/components/Forms/SelectField";
 import CheckSDKConnectionModal from "@/components/GuidedGetStarted/CheckSDKConnectionModal";
 import MultivariateFeatureCodeSnippet from "@/components/SyntaxHighlighting/Snippets/MultivariateFeatureCodeSnippet";
+import Callout from "../Radix/Callout";
 import SDKLanguageSelector from "./SDKConnections/SDKLanguageSelector";
 import {
   getPackageRepositoryName,
@@ -333,27 +334,6 @@ export default function CodeSnippetModal({
             </div>
           )}
 
-          {language === "nextjs" && (
-            <div className="mb-3">
-              <p>
-                For back-end and hybrid environments, we recommend using the
-                official GrowthBook adapter for Vercel&apos;s{" "}
-                <a
-                  href="https://flags-sdk.dev/providers/growthbook"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Flags SDK
-                </a>{" "}
-                (@flags-sdk/growthbook).
-              </p>
-              <p>
-                For front-end-only integrations, you should use our{" "}
-                <strong>React SDK</strong>.
-              </p>
-            </div>
-          )}
-
           {language !== "other" && (
             <div className="mb-3">
               <h4
@@ -368,6 +348,28 @@ export default function CodeSnippetModal({
               </h4>
               {installationOpen && (
                 <div className="appbox bg-light p-3">
+                  {language === "nextjs" && (
+                    <div className="mb-3">
+                      <p>
+                        For back-end and hybrid integrations, use the official
+                        GrowthBook adapter for Vercel&apos;s{" "}
+                        <a
+                          href="https://flags-sdk.dev/providers/growthbook"
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Flags SDK
+                        </a>{" "}
+                        (@flags-sdk/growthbook).
+                      </p>
+                      <Callout status="info" mb="6">
+                        Flags SDK does not run in a browser context. For
+                        front-end integrations, use our{" "}
+                        <strong>React SDK</strong>.
+                      </Callout>
+                    </div>
+                  )}
+
                   <InstallationCodeSnippet
                     language={language}
                     eventTracker={eventTracker}
