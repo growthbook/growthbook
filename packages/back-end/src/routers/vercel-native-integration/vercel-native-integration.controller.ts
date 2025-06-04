@@ -616,7 +616,7 @@ export async function getProducts(req: Request, res: Response) {
 
   const additionalProjectBillingPlan: BillingPlan = {
     ...existingBillingPlan,
-    name: "Create GrowthBook Project",
+    name: "Add GrowthBook Project to your existing plan",
     description: "",
     cost: "",
   };
