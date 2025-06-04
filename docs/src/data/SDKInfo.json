@@ -1,7 +1,7 @@
 {
   "js": {
     "name": "JS SDK",
-    "version": "1.4.1",
+    "version": "1.5.1",
     "github": "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
     "examples": [
       {
@@ -33,7 +33,7 @@
   },
   "react": {
     "name": "React SDK",
-    "version": "1.4.1",
+    "version": "1.5.1",
     "github": "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
     "examples": [
       {
@@ -71,6 +71,36 @@
       "looseUnmarshalling"
     ]
   },
+  "nextjs": {
+    "name": "Next.js SDK",
+    "version": "0.1.0",
+    "github": {
+      "name": "Vercel Flags SDK → GrowthBook Adapter",
+      "url": "https://github.com/vercel/flags/tree/main/packages/adapter-growthbook"
+    },
+    "examples": [
+      {
+        "url": "https://github.com/vercel/examples/tree/main/flags-sdk/growthbook",
+        "name": "Next.js Flags SDK example app"
+      }
+    ],
+    "packageRepos": [
+      {
+        "name": "npm",
+        "url": "https://www.npmjs.com/package/@flags-sdk/growthbook"
+      }
+    ],
+    "capabilities": [
+      "savedGroupReferences",
+      "redirects",
+      "prerequisites",
+      "stickyBucketing",
+      "semverTargeting",
+      "bucketingV2",
+      "encryption",
+      "looseUnmarshalling"
+    ]
+  },
   "php": {
     "name": "PHP SDK",
     "version": "1.3.0",
@@ -86,7 +116,7 @@
   },
   "node": {
     "name": "Node SDK",
-    "version": "1.4.1",
+    "version": "1.5.1",
     "github": "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
     "examples": [
       {
@@ -313,7 +343,7 @@
   },
   "reactNative": {
     "name": "React SDK",
-    "version": "1.4.1",
+    "version": "1.5.1",
     "github": "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
     "examples": [
       {

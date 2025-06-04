@@ -33,9 +33,14 @@ import {
   getEnvironmentIdsFromOrg,
 } from "back-end/src/services/organizations";
 import { ApiReqContext } from "back-end/types/api";
-import { simpleSchemaValidator } from "back-end/src/validators/features";
+import {
+  SafeRolloutRule,
+  simpleSchemaValidator,
+} from "back-end/src/validators/features";
 import { getChangedApiFeatureEnvironments } from "back-end/src/events/handlers/utils";
 import { ResourceEvents } from "back-end/src/events/base-types";
+import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
+import { determineNextSafeRolloutSnapshotAttempt } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
 import {
   createEvent,
   hasPreviousObject,
@@ -409,12 +414,15 @@ export const createFeatureEvent = async <
       version: eventData.data.object.version,
     });
 
+    const safeRolloutMap = await eventData.context.models.safeRollout.getAllPayloadSafeRollouts();
+
     const currentApiFeature = getApiFeatureObj({
       feature: eventData.data.object,
       organization: eventData.context.org,
       groupMap,
       experimentMap,
       revision: currentRevision,
+      safeRolloutMap,
     });
 
     if (!hasPreviousObject<"feature", Event, FeatureInterface>(eventData.data))
@@ -443,6 +451,7 @@ export const createFeatureEvent = async <
       groupMap,
       experimentMap,
       revision: previousRevision,
+      safeRolloutMap,
     });
 
     return {
@@ -457,6 +466,7 @@ export const createFeatureEvent = async <
           groupMap,
           experimentMap,
           revision: previousRevision,
+          safeRolloutMap,
         }),
       },
       projects: Array.from(
@@ -560,6 +570,7 @@ export async function onFeatureUpdate(
   updatedFeature: FeatureInterface,
   skipRefreshForProject?: string
 ) {
+  const safeRolloutMap = await context.models.safeRollout.getAllPayloadSafeRollouts();
   await refreshSDKPayloadCache(
     context,
     getSDKPayloadKeysByDiff(
@@ -569,6 +580,7 @@ export async function onFeatureUpdate(
     ),
     null,
     undefined,
+    safeRolloutMap,
     skipRefreshForProject
   );
 
@@ -906,6 +918,60 @@ export async function setJsonSchema(
   });
 }
 
+const updateSafeRolloutStatuses = async (
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface
+) => {
+  const safeRolloutStatusesMap: Record<
+    string,
+    { status: "running" | "rolled-back" | "released" | "stopped" }
+  > = Object.fromEntries(
+    Object.values(revision.rules)
+      .flat()
+      .filter((rule) => rule.type === "safe-rollout")
+      .map((rule: SafeRolloutRule) => {
+        return [rule.safeRolloutId, { status: rule.status }];
+      })
+  );
+  // stop safe rollouts that have been removed from the in the revision
+  Object.keys(feature.environmentSettings)
+    .flatMap((env) => feature.environmentSettings[env].rules)
+    .forEach((rule: FeatureRule) => {
+      if (
+        rule.type === "safe-rollout" &&
+        !safeRolloutStatusesMap[rule.safeRolloutId]
+      ) {
+        safeRolloutStatusesMap[rule.safeRolloutId] = { status: "stopped" };
+      }
+    });
+
+  const safeRollouts = await context.models.safeRollout.getByIds(
+    Object.keys(safeRolloutStatusesMap)
+  );
+
+  safeRollouts.forEach((safeRollout) => {
+    // sync the status of the safe rollout to the status of the revision
+    const safeRolloutUpdates: Partial<SafeRolloutInterface> = {
+      status: safeRolloutStatusesMap[safeRollout.id].status,
+    };
+    if (!safeRollout.startedAt && safeRolloutUpdates.status === "running") {
+      safeRolloutUpdates["startedAt"] = new Date();
+      const {
+        nextSnapshot,
+        nextRampUp,
+      } = determineNextSafeRolloutSnapshotAttempt(safeRollout, context.org);
+      safeRolloutUpdates["nextSnapshotAttempt"] = nextSnapshot;
+      safeRolloutUpdates["rampUpSchedule"] = {
+        ...safeRollout.rampUpSchedule,
+        nextUpdate: nextRampUp,
+      };
+    }
+
+    context.models.safeRollout.update(safeRollout, safeRolloutUpdates);
+  });
+};
+
 export async function applyRevisionChanges(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -952,7 +1018,7 @@ export async function applyRevisionChanges(
   changes.hasDrafts = await hasDraft(context.org.id, feature, [
     revision.version,
   ]);
-
+  await updateSafeRolloutStatuses(context, feature, revision);
   return await updateFeature(context, feature, changes);
 }
 

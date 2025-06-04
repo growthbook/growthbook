@@ -23,7 +23,10 @@ import {
   DEFAULT_TEST_QUERY_DAYS,
   DEFAULT_METRIC_HISTOGRAM_BINS,
   BANDIT_SRM_DIMENSION_NAME,
+  SAFE_ROLLOUT_TRACKING_KEY_PREFIX,
 } from "shared/constants";
+import { format } from "shared/sql";
+import { FormatDialect } from "shared/src/types";
 import { MetricAnalysisSettings } from "back-end/types/metric-analysis";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { ReqContext } from "back-end/types/organization";
@@ -88,8 +91,6 @@ import { SegmentInterface } from "back-end/types/segment";
 import {
   getBaseIdTypeAndJoins,
   compileSqlTemplate,
-  format,
-  FormatDialect,
   replaceCountStar,
 } from "back-end/src/util/sql";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
@@ -407,6 +408,9 @@ export default abstract class SqlIntegration
           WHERE
             timestamp > ${this.toTimestamp(params.from)}
             AND timestamp <= ${this.toTimestamp(end)}
+            AND SUBSTRING(experiment_id, 1, ${
+              SAFE_ROLLOUT_TRACKING_KEY_PREFIX.length
+            }) != '${SAFE_ROLLOUT_TRACKING_KEY_PREFIX}'
           GROUP BY
             experiment_id,
             variation_id,

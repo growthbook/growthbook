@@ -108,6 +108,7 @@ export function getDefaultFactMetricProps({
       DEFAULT_MIN_PERCENT_CHANGE,
     targetMDE:
       existing?.targetMDE ?? metricDefaults.targetMDE ?? DEFAULT_TARGET_MDE,
+    displayAsPercentage: existing?.displayAsPercentage,
     maxPercentChange:
       existing?.maxPercentChange ??
       metricDefaults.maxPercentageChange ??
@@ -326,6 +327,11 @@ export function getExperimentMetricFormatter(
       return formatPercent;
     case "ratio":
       return (() => {
+        // If user has set displayAsPercentage to true, format as a percentage
+        if (metric.displayAsPercentage) {
+          return formatPercent;
+        }
+
         // If the metric is ratio of the same unit, they cancel out
         // For example: profit/revenue = $/$ = plain number
         const numerator = getFactTableById(

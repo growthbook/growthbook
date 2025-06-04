@@ -1,7 +1,7 @@
 export const DEFAULT_STATS_ENGINE = "bayesian" as const;
 export const DEFAULT_METRIC_HISTOGRAM_BINS = 25;
 export const DEFAULT_P_VALUE_THRESHOLD = 0.05;
-
+export const DEFAULT_GUARDRAIL_ALPHA = 0.05; //used for early stopping for safe
 // Metric defaults
 export const DEFAULT_METRIC_WINDOW = "conversion";
 export const DEFAULT_FACT_METRIC_WINDOW = "";
@@ -72,3 +72,22 @@ export const DEFAULT_DECISION_FRAMEWORK_ENABLED = false;
 export const DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS = 3;
 export const DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS = undefined; // undefined means no limit
 export const FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS = 180;
+
+// Safe Rollout
+export const SAFE_ROLLOUT_TRACKING_KEY_PREFIX = "srk_";
+
+export const DEFAULT_REQUIRE_PROJECT_FOR_FEATURES = false;
+
+// Default configuration for Safe Rollout
+export const SAFE_ROLLOUT_VARIATIONS = [
+  {
+    id: "0",
+    name: "Control",
+    weight: 0.5,
+  },
+  {
+    id: "1",
+    name: "Rollout Value",
+    weight: 0.5,
+  },
+];

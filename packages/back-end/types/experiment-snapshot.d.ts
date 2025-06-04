@@ -103,6 +103,7 @@ export interface MetricForSnapshot {
     properPriorMean: number;
     properPriorStdDev: number;
     windowSettings: MetricWindowSettings;
+    targetMDE?: number;
   };
 }
 
@@ -126,6 +127,7 @@ export interface ExperimentSnapshotAnalysisSettings {
   pValueThreshold?: number;
   baselineVariationIndex?: number;
   numGoalMetrics: number;
+  oneSidedIntervals?: boolean;
 }
 
 export type SnapshotType = "standard" | "exploratory" | "report";

@@ -20,7 +20,6 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_TARGET_MDE,
 } from "shared/constants";
-import { getUsage } from "back-end/src/enterprise/billing";
 import {
   MetricCappingSettings,
   MetricPriorSettings,
@@ -81,6 +80,7 @@ import {
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
 import { getLicense, licenseInit } from "back-end/src/enterprise";
+import { PValueCorrection } from "back-end/types/stats";
 import {
   encryptParams,
   getSourceIntegrationObject,
@@ -135,11 +135,8 @@ export function getContextFromReq(req: AuthRequest): ReqContext {
     throw new Error("Must be logged in");
   }
 
-  const { organization } = req;
-
   return new ReqContextClass({
     org: req.organization,
-    usage: () => getUsage(organization),
     auditUser: {
       type: "dashboard",
       id: req.userId,
@@ -201,6 +198,12 @@ export function getMetricDefaultsForOrg(context: ReqContext): MetricDefaults {
 
 export function getPValueThresholdForOrg(context: ReqContext): number {
   return context.org.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD;
+}
+
+export function getPValueCorrectionForOrg(
+  context: ReqContext
+): PValueCorrection {
+  return context.org.settings?.pValueCorrection ?? null;
 }
 
 export function getRole(
@@ -1121,7 +1124,6 @@ export function getContextForAgendaJobByOrgObject(
 ): ApiReqContext {
   return new ReqContextClass({
     org: organization,
-    usage: () => getUsage(organization),
     auditUser: null,
     // TODO: Limit background job permissions to the user who created the job
     role: "admin",

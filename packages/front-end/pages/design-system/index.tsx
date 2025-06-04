@@ -815,6 +815,7 @@ export default function DesignSystemPage() {
               guardrailMetrics: [],
               secondaryMetrics: [],
               datasource: "ds_abc123",
+              decisionFrameworkSettings: {},
             }}
           />
           <ExperimentStatusIndicator
@@ -827,6 +828,7 @@ export default function DesignSystemPage() {
               guardrailMetrics: [],
               secondaryMetrics: [],
               datasource: "ds_abc123",
+              decisionFrameworkSettings: {},
             }}
           />
           <ExperimentStatusIndicator
@@ -839,6 +841,7 @@ export default function DesignSystemPage() {
               guardrailMetrics: [],
               secondaryMetrics: [],
               datasource: "ds_abc123",
+              decisionFrameworkSettings: {},
             }}
           />
           <ExperimentStatusIndicator
@@ -852,6 +855,7 @@ export default function DesignSystemPage() {
               guardrailMetrics: [],
               secondaryMetrics: [],
               datasource: "ds_abc123",
+              decisionFrameworkSettings: {},
             }}
           />
           <ExperimentStatusIndicator
@@ -865,6 +869,7 @@ export default function DesignSystemPage() {
               guardrailMetrics: [],
               secondaryMetrics: [],
               datasource: "ds_abc123",
+              decisionFrameworkSettings: {},
             }}
           />
           <ExperimentStatusIndicator
@@ -878,6 +883,7 @@ export default function DesignSystemPage() {
               guardrailMetrics: [],
               secondaryMetrics: [],
               datasource: "ds_abc123",
+              decisionFrameworkSettings: {},
             }}
           />
           <ExperimentStatusIndicator
@@ -891,6 +897,7 @@ export default function DesignSystemPage() {
               guardrailMetrics: [],
               secondaryMetrics: [],
               datasource: "ds_abc123",
+              decisionFrameworkSettings: {},
             }}
           />
           <ExperimentStatusIndicator
@@ -903,6 +910,7 @@ export default function DesignSystemPage() {
               guardrailMetrics: [],
               secondaryMetrics: [],
               datasource: "ds_abc123",
+              decisionFrameworkSettings: {},
             }}
           />
         </Flex>

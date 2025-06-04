@@ -10,6 +10,7 @@ import {
   DataSourceInterfaceWithParams,
   ExposureQuery,
 } from "back-end/types/datasource";
+import clsx from "clsx";
 import { useUser } from "@/services/UserContext";
 import VariationUsersTable from "@/components/Experiment/TabbedPage/VariationUsersTable";
 import SRMWarning from "@/components/Experiment/SRMWarning";
@@ -22,11 +23,13 @@ interface Props {
   traffic: ExperimentSnapshotTraffic;
   variations: ExperimentReportVariation[];
   totalUsers: number;
-  onNotify: (issue: IssueValue) => void;
+  onNotify?: (issue: IssueValue) => void;
   dataSource: DataSourceInterfaceWithParams | null;
   exposureQuery?: ExposureQuery;
-  healthTabConfigParams: HealthTabConfigParams;
+  healthTabConfigParams?: HealthTabConfigParams;
   canConfigHealthTab: boolean;
+  newDesign?: boolean;
+  hideDimensions?: boolean;
 }
 
 export const EXPERIMENT_DIMENSION_PREFIX = "dim_exp_";
@@ -41,6 +44,8 @@ export default function SRMCard({
   exposureQuery,
   healthTabConfigParams,
   canConfigHealthTab,
+  newDesign = false,
+  hideDimensions = false,
 }: Props) {
   const { settings } = useUser();
 
@@ -74,7 +79,8 @@ export default function SRMCard({
 
   useEffect(() => {
     if (srmHealth === "unhealthy") {
-      onNotify({ label: "Experiment Balance", value: "balanceCheck" });
+      onNotify &&
+        onNotify({ label: "Experiment Balance", value: "balanceCheck" });
     }
   }, [traffic, srmHealth, onNotify]);
 
@@ -86,10 +92,24 @@ export default function SRMCard({
     );
   }
 
+  const classes = !newDesign ? "appbox container-fluid my-4 pl-3 py-3" : "";
+
   return (
-    <div className="appbox container-fluid my-4 pl-3 py-3">
-      <div className="row overflow-hidden" id="parent-container">
-        <div className="col-8 border-right pr-4">
+    <div
+      className={classes}
+      style={{
+        ...(newDesign && {
+          border: "1px solid var(--slate-a4)",
+          borderRadius: "var(--radius-1)",
+          padding: "var(--space-4) var(--space-3) 0",
+        }),
+      }}
+    >
+      <div
+        className={clsx("overflow-hidden", { row: !hideDimensions })}
+        id="parent-container"
+      >
+        <div className={clsx({ "col-8 border-right pr-4": !hideDimensions })}>
           <div
             className="overflow-auto"
             id="child-container"
@@ -141,17 +161,19 @@ export default function SRMCard({
             </div>
           </div>
         </div>
-        <div className="col h-100 p-0 overflow-hidden">
-          <DimensionIssues
-            dimensionData={traffic.dimension}
-            variations={variations}
-            dataSource={dataSource}
-            exposureQuery={exposureQuery}
-            healthTabConfigParams={healthTabConfigParams}
-            canConfigHealthTab={canConfigHealthTab}
-            isBandit={false}
-          />
-        </div>
+        {!hideDimensions && (
+          <div className="col h-100 p-0 overflow-hidden">
+            <DimensionIssues
+              dimensionData={traffic.dimension}
+              variations={variations}
+              dataSource={dataSource}
+              exposureQuery={exposureQuery}
+              healthTabConfigParams={healthTabConfigParams}
+              canConfigHealthTab={canConfigHealthTab}
+              isBandit={false}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

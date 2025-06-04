@@ -158,11 +158,13 @@ async function runWebhookFetch({
   key,
   payload,
   global,
+  context,
 }: {
   webhook: WebhookInterface;
   key: string;
   payload: string;
   global?: boolean;
+  context: ReqContext;
 }) {
   const webhookId = webhook.id;
   const url = webhook.endpoint;
@@ -240,17 +242,22 @@ async function runWebhookFetch({
   let res: CancellableFetchReturn | undefined = undefined;
 
   try {
+    const origin = new URL(url).origin;
+    const applySecrets = await context.models.webhookSecrets.getBackEndSecretsReplacer(
+      origin
+    );
+
     let customHeaders: Record<string, string> | undefined;
     if (headers) {
       try {
-        customHeaders = JSON.parse(headers);
+        customHeaders = applySecrets(JSON.parse(headers));
       } catch (error) {
         throw new Error("Failed to parse custom headers: " + error.message);
       }
     }
 
     res = await cancellableFetch(
-      url,
+      applySecrets(url, { encode: encodeURIComponent }),
       {
         headers: {
           ...customHeaders,
@@ -357,6 +364,7 @@ export async function fireSdkWebhook(
       webhook,
       key: connection.key,
       payload,
+      context: webhookContext,
     });
   }
 }
@@ -489,6 +497,7 @@ export async function fireGlobalSdkWebhooks(
         key: connection.key,
         payload,
         global: true,
+        context: context,
       }).catch((e) => {
         logger.error(e, "Failed to fire global webhook");
       });

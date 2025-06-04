@@ -295,6 +295,7 @@ export default function HealthTab({
           <MultipleExposuresCard
             totalUsers={totalUsers}
             onNotify={handleHealthNotification}
+            snapshot={snapshot}
           />
         </div>
       </div>

@@ -26,6 +26,8 @@ FeatureForceRule:
   $ref: "./FeatureForceRule.yaml"
 FeatureRolloutRule:
   $ref: "./FeatureRolloutRule.yaml"
+FeatureSafeRolloutRule:
+  $ref: "./FeatureSafeRolloutRule.yaml"
 FeatureExperimentRule:
   $ref: "./FeatureExperimentRule.yaml"
 FeatureExperimentRefRule:
@@ -64,3 +66,5 @@ Member:
   $ref: "./Member.yaml"
 Archetype:
   $ref: "./Archetype.yaml"
+Query:
+  $ref: "./Query.yaml"

@@ -363,6 +363,7 @@ DEFAULT_ANALYSIS = AnalysisSettingsForStatsEngine(
     phase_length_days=1,
     alpha=0.05,
     max_dimensions=20,
+    one_sided_intervals=False,
 )
 
 

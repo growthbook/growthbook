@@ -1,14 +1,21 @@
+import normal from "@stdlib/stats/base/dists/normal";
 import {
   FactTableInterface,
   ColumnInterface,
   FactFilterInterface,
 } from "back-end/types/fact-table";
+import { IndexedPValue } from "back-end/types/stats";
 import {
   getColumnRefWhereClause,
   canInlineFilterColumn,
   getAggregateFilters,
   getColumnExpression,
   getSelectedColumnDatatype,
+  adjustPValuesBenjaminiHochberg,
+  adjustPValuesHolmBonferroni,
+  adjustedCI,
+  setAdjustedPValuesOnResults,
+  chanceToWinFlatPrior,
 } from "../src/experiments";
 
 describe("Experiments", () => {
@@ -750,5 +757,251 @@ describe("Experiments", () => {
         ).toBe(undefined);
       });
     });
+  });
+});
+
+function mockIndexedPvalue(
+  pvalues: number[],
+  index?: number[]
+): IndexedPValue[] {
+  // @ts-expect-error IndexedPValue typing here is for convenience
+  return pvalues.map((p, i) => {
+    return { pValue: p, index: [index ? index[i] : i] };
+  });
+}
+
+describe("pvalue correction method", () => {
+  it("does HB procedure correctly", () => {
+    expect(
+      adjustPValuesHolmBonferroni(
+        mockIndexedPvalue([0.01, 0.04, 0.03, 0.005, 0.55, 0.6])
+      )
+    ).toEqual(
+      mockIndexedPvalue([0.03, 0.05, 0.12, 0.12, 1, 1], [3, 0, 2, 1, 4, 5])
+    );
+  });
+  it("does BH procedure correctly", () => {
+    expect(
+      adjustPValuesBenjaminiHochberg(
+        mockIndexedPvalue([0.898, 0.138, 0.007, 0.964, 0.538, 0.006, 0.138])
+      ).map((x) => {
+        return { pValue: +x.pValue.toFixed(8), index: x.index };
+      })
+    ).toEqual(
+      mockIndexedPvalue(
+        [0.964, 0.964, 0.7532, 0.2415, 0.2415, 0.0245, 0.0245],
+        [3, 0, 4, 1, 6, 2, 5]
+      )
+    );
+  });
+});
+
+describe("pvalue correction on results", () => {
+  it("pvals and CIs adjusted in place", () => {
+    const results = [
+      {
+        name: "res1",
+        srm: 0.5,
+        variations: [
+          {
+            users: 100,
+            metrics: {
+              met1: { value: 0, cr: 0, users: 0, pValue: 0.025 },
+              met2: { value: 0, cr: 0, users: 0, pValue: 0.03 },
+            },
+          },
+        ],
+      },
+    ];
+    const expectedResultsHB = [
+      {
+        name: "res1",
+        srm: 0.5,
+        variations: [
+          {
+            users: 100,
+            metrics: {
+              met1: {
+                value: 0,
+                cr: 0,
+                users: 0,
+                pValue: 0.025,
+                pValueAdjusted: 0.05,
+              },
+              met2: {
+                value: 0,
+                cr: 0,
+                users: 0,
+                pValue: 0.03,
+                pValueAdjusted: 0.05,
+              },
+            },
+          },
+        ],
+      },
+    ];
+    const expectedResultsBH = [
+      {
+        name: "res1",
+        srm: 0.5,
+        variations: [
+          {
+            users: 100,
+            metrics: {
+              met1: {
+                value: 0,
+                cr: 0,
+                users: 0,
+                pValue: 0.025,
+                pValueAdjusted: 0.03,
+              },
+              met2: {
+                value: 0,
+                cr: 0,
+                users: 0,
+                pValue: 0.03,
+                pValueAdjusted: 0.03,
+              },
+            },
+          },
+        ],
+      },
+    ];
+
+    setAdjustedPValuesOnResults(results, ["met1", "met2"], "holm-bonferroni");
+    expect(results).toEqual(expectedResultsHB);
+    setAdjustedPValuesOnResults(
+      results,
+      ["met1", "met2"],
+      "benjamini-hochberg"
+    );
+    expect(results).toEqual(expectedResultsBH);
+  });
+
+  it("does BH procedure correctly", () => {
+    expect(
+      adjustPValuesBenjaminiHochberg(
+        mockIndexedPvalue([0.898, 0.138, 0.007, 0.964, 0.538, 0.006, 0.138])
+      ).map((x) => {
+        return { pValue: +x.pValue.toFixed(8), index: x.index };
+      })
+    ).toEqual(
+      mockIndexedPvalue(
+        [0.964, 0.964, 0.7532, 0.2415, 0.2415, 0.0245, 0.0245],
+        [3, 0, 4, 1, 6, 2, 5]
+      )
+    );
+  });
+
+  it("adjusts CIs as we expect", () => {
+    const adjCIs95pct = adjustedCI(0.049999999, 0.1, 0.05);
+    expect(adjCIs95pct[0]).toBeGreaterThan(0);
+    expect(adjCIs95pct[1]).toBeLessThan(0.2);
+    expect(adjCIs95pct.map((x) => +x.toFixed(8))).toEqual([0, 0.2]);
+
+    expect(
+      adjustedCI(0.0099999999, 0.1, 0.01).map((x) => +x.toFixed(8))
+    ).toEqual([0, 0.2]);
+  });
+});
+
+function roundToSeventhDecimal(num: number): number {
+  return Number(num.toFixed(7));
+}
+
+describe("chanceToWinFlatPrior", () => {
+  it("chance to win flat prior correct", () => {
+    const alpha = Math.PI / 100;
+    const expected = Math.sqrt(Math.PI);
+    const s = Math.PI;
+    const multiplier_two_sided = normal.quantile(1 - alpha / 2, 0, 1);
+    const multiplier_one_sided = normal.quantile(1 - alpha, 0, 1);
+
+    const truth = 0.7136874;
+    const truthInverse = 1 - truth;
+    const lower_two_sided = expected - s * multiplier_two_sided;
+    const upper_two_sided = expected + s * multiplier_two_sided;
+    const lower_one_sided = expected - s * multiplier_one_sided;
+    const upper_one_sided = expected + s * multiplier_one_sided;
+
+    expect(
+      chanceToWinFlatPrior(
+        expected,
+        Number.NEGATIVE_INFINITY,
+        Number.POSITIVE_INFINITY,
+        alpha,
+        true
+      )
+    ).toEqual(0);
+    expect(chanceToWinFlatPrior(0, -1, 1, alpha, true)).toEqual(0.5); //sanity check that effect size of 0 results in 0.5
+    expect(chanceToWinFlatPrior(0, 0, 0, alpha, true)).toEqual(0); //sanity check that effect size of 0 and 0 uncertainty results in 0
+    expect(chanceToWinFlatPrior(1, 0, 0, alpha, true)).toEqual(0); //sanity check that effect size of 1 and 0 uncertainty results in 1 for inverse case
+    expect(chanceToWinFlatPrior(1, 0, 0, alpha, false)).toEqual(1); //sanity check that effect size of 1 and 0 uncertainty results in 1 for non-inverse case
+    expect(
+      roundToSeventhDecimal(
+        chanceToWinFlatPrior(
+          expected,
+          lower_two_sided,
+          upper_two_sided,
+          alpha,
+          false
+        )
+      )
+    ).toEqual(roundToSeventhDecimal(truth));
+    expect(
+      roundToSeventhDecimal(
+        chanceToWinFlatPrior(
+          expected,
+          lower_two_sided,
+          upper_two_sided,
+          alpha,
+          true
+        )
+      )
+    ).toEqual(roundToSeventhDecimal(truthInverse));
+    expect(
+      roundToSeventhDecimal(
+        chanceToWinFlatPrior(
+          expected,
+          Number.NEGATIVE_INFINITY,
+          upper_one_sided,
+          alpha,
+          false
+        )
+      )
+    ).toEqual(roundToSeventhDecimal(truth));
+    expect(
+      roundToSeventhDecimal(
+        chanceToWinFlatPrior(
+          expected,
+          Number.NEGATIVE_INFINITY,
+          upper_one_sided,
+          alpha,
+          true
+        )
+      )
+    ).toEqual(roundToSeventhDecimal(truthInverse));
+    expect(
+      roundToSeventhDecimal(
+        chanceToWinFlatPrior(
+          expected,
+          lower_one_sided,
+          Number.POSITIVE_INFINITY,
+          alpha,
+          false
+        )
+      )
+    ).toEqual(roundToSeventhDecimal(truth));
+    expect(
+      roundToSeventhDecimal(
+        chanceToWinFlatPrior(
+          expected,
+          lower_one_sided,
+          Number.POSITIVE_INFINITY,
+          alpha,
+          true
+        )
+      )
+    ).toEqual(roundToSeventhDecimal(truthInverse));
   });
 });
