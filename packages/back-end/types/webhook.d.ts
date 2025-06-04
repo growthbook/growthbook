@@ -1,3 +1,5 @@
+import { ManagedBy } from "back-end/src/validators/managed-by";
+
 export interface WebhookInterface {
   id: string;
   organization: string;
@@ -18,6 +20,7 @@ export interface WebhookInterface {
   sdks: string[];
   headers?: string;
   httpMethod?: WebhookMethod;
+  managedBy?: ManagedBy;
 }
 
 export type WebhookMethod =
@@ -33,6 +36,7 @@ export type WebhookPayloadFormat =
   | "standard-no-payload"
   | "sdkPayload"
   | "edgeConfig"
+  | "vercelNativeIntegration"
   | "none";
 
 export type {

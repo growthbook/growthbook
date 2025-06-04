@@ -19,6 +19,7 @@ import {
   LicenseUserCodes,
   SubscriptionInfo,
 } from "shared/enterprise";
+import { OrganizationInterface } from "back-end/types/organization";
 import { getLicenseByKey, LicenseModel } from "./models/licenseModel";
 import { LICENSE_PUBLIC_KEY } from "./public-key";
 
@@ -412,6 +413,29 @@ export async function postNewInlineSubscriptionToLicenseServer(
       cloudSecret: process.env.CLOUD_SECRET,
       organizationId,
       nonInviteSeatQty,
+    }),
+  });
+
+  verifyAndSetServerLicenseData(license);
+  return license;
+}
+
+export async function postNewVercelSubscriptionToLicenseServer(
+  organization: OrganizationInterface,
+  installationId: string,
+  userName: string
+): Promise<LicenseInterface> {
+  const url = `${LICENSE_SERVER_URL}subscription/new-vercel-native-subscription`;
+  const license = await callLicenseServer({
+    url,
+    body: JSON.stringify({
+      cloudSecret: process.env.CLOUD_SECRET,
+      organizationId: organization.id,
+      companyName: organization.name,
+      ownerEmail: organization.ownerEmail,
+      name: userName,
+      nonInviteSeatQty: organization.members.length,
+      installationId,
     }),
   });
 

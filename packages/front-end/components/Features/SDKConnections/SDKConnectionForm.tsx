@@ -344,6 +344,22 @@ export default function SDKConnectionForm({
     }
   }, [languages, languageError, setLanguageError]);
 
+  // If the SDK Connection is externally managed, filter the environments that are in 'All Projects' or where the current project is included
+  const filteredEnvironments =
+    initialValue.managedBy?.type === "vercel"
+      ? environments.filter((e) => {
+          if (!e.projects?.length) {
+            return true;
+          }
+          if (
+            initialValue.projects?.[0] &&
+            e.projects?.includes(initialValue.projects?.[0])
+          ) {
+            return true;
+          }
+        })
+      : environments;
+
   return (
     <Modal
       trackingEventModalType=""
@@ -543,9 +559,15 @@ export default function SDKConnectionForm({
             value={form.watch("environment")}
             onChange={(env) => {
               form.setValue("environment", env);
-              form.setValue("projects", []); // Reset projects when environment changes
+              // Only reset projects when environment changes if the SDK Connection is not externally managed by vercel
+              if (initialValue.managedBy?.type !== "vercel") {
+                form.setValue("projects", []);
+              }
             }}
-            options={environments.map((e) => ({ label: e.id, value: e.id }))}
+            options={filteredEnvironments.map((e) => ({
+              label: e.id,
+              value: e.id,
+            }))}
             sort={false}
             formatOptionLabel={({ value, label }) => {
               const selectedEnvironment = environments.find(
@@ -593,6 +615,7 @@ export default function SDKConnectionForm({
             containerClassName="w-100"
             value={form.watch("projects") || []}
             onChange={(projects) => form.setValue("projects", projects)}
+            disabled={initialValue.managedBy?.type === "vercel"}
             options={projectsOptions}
             sort={false}
             closeMenuOnSelect={true}
