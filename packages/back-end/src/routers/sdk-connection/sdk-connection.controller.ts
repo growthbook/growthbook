@@ -191,6 +191,45 @@ export const checkSDKConnectionProxyStatus = async (
   });
 };
 
+export const getSDKConnectionsWebhooks = async (
+  req: AuthRequest,
+  res: Response<{
+    status: 200;
+    webhooks: Record<string, WebhookInterface[]>;
+  }>
+) => {
+  const context = getContextFromReq(req);
+
+  // Get all connections to check permissions
+  const connections = await findSDKConnectionsByOrganization(context);
+
+  // Fetch webhooks for all connections
+  const webhooksByConnection: Record<string, WebhookInterface[]> = {};
+
+  await Promise.all(
+    connections.map(async (connection) => {
+      const webhooks = await findAllSdkWebhooksByConnection(
+        context,
+        connection.id
+      );
+
+      // If user does not have write access, remove the shared secret
+      if (!context.permissions.canUpdateSDKWebhook(connection)) {
+        webhooks.forEach((w) => {
+          w.signingKey = "";
+        });
+      }
+
+      webhooksByConnection[connection.id] = webhooks;
+    })
+  );
+
+  res.status(200).json({
+    status: 200,
+    webhooks: webhooksByConnection,
+  });
+};
+
 export const getSDKConnectionWebhooks = async (
   req: AuthRequest<null, { id: string }>,
   res: Response<{

@@ -26,6 +26,7 @@ import { useEnvironments } from "@/services/features";
 import Badge from "@/components/Radix/Badge";
 import Button from "@/components/Radix/Button";
 import { capitalizeFirstLetter } from "@/services/utils";
+import Callout from "@/components/Radix/Callout";
 import SDKLanguageLogo, {
   getLanguagesByFilter,
   languageMapping,
@@ -43,7 +44,7 @@ function popularLanguagesFirst(a: SDKLanguage, b: SDKLanguage) {
 }
 
 export default function SDKConnectionsList() {
-  const { data, mutate, error } = useSDKConnections();
+  const { data, mutate, error } = useSDKConnections({ includeWebhooks: true });
   const connections = data?.connections ?? [];
 
   const [modalOpen, setModalOpen] = useState(false);
@@ -213,6 +214,7 @@ export default function SDKConnectionsList() {
               <th>Name</th>
               {projects.length > 0 && <th>Projects</th>}
               <th>Environment</th>
+              <th>Webhooks</th>
               <th className="text-center">Supported Features</th>
               <th>Language</th>
               <th style={{ width: 25 }}></th>
@@ -248,6 +250,9 @@ export default function SDKConnectionsList() {
                 ...filteredProjectIds,
                 ...disallowedProjectIds,
               ];
+
+              const webhooks = data.webhooks?.[connection.id];
+              const webhooksWithErrors = webhooks?.filter((w) => w.error);
 
               return (
                 <tr
@@ -320,6 +325,40 @@ export default function SDKConnectionsList() {
                     </td>
                   )}
                   <td>{connection.environment}</td>
+                  <td>
+                    {webhooks.length ? (
+                      <div className="nowrap">
+                        {webhooks.length} webhook{webhooks.length !== 1 && "s"}
+                        {webhooksWithErrors.length ? (
+                          <Tooltip
+                            className="ml-1"
+                            innerClassName="pb-3"
+                            usePortal={true}
+                            body={
+                              <>
+                                {webhooksWithErrors.map((webhook) => (
+                                  <Callout
+                                    key={webhook.id}
+                                    status="error"
+                                    my="4"
+                                  >
+                                    <div>
+                                      <strong>{webhook.name}:</strong>
+                                    </div>
+                                    <div style={{ wordBreak: "break-all" }}>
+                                      {webhook.error}
+                                    </div>
+                                  </Callout>
+                                ))}
+                              </>
+                            }
+                          >
+                            <FaExclamationTriangle className="text-danger ml-1" />
+                          </Tooltip>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </td>
                   <td className="text-center">
                     {connection.remoteEvalEnabled && (
                       <Tooltip
