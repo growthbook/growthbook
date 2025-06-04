@@ -642,7 +642,7 @@ export default function ExecExperimentImpact({
                                     ? "green"
                                     : obj.type == "loser"
                                     ? "red"
-                                    : "grey"
+                                    : "gray"
                                 }
                               />{" "}
                               {obj.experiment.name}

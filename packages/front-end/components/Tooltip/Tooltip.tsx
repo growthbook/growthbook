@@ -48,9 +48,6 @@ const Tooltip: FC<Props> = ({
   delay = 300,
   ...otherProps
 }) => {
-  const [trigger, setTrigger] = useState(null);
-  const [tooltip, setTooltip] = useState(null);
-  const [arrow, setArrow] = useState(null);
   const [open, setOpen] = useState(state ?? false);
   const [fadeIn, setFadeIn] = useState(false);
   const [alreadyHovered, setAlreadyHovered] = useState(false);
@@ -78,14 +75,22 @@ const Tooltip: FC<Props> = ({
     trackingEventTooltipSource,
   ]);
 
-  const { styles, attributes } = usePopper(trigger, tooltip, {
-    modifiers: [
-      { name: "arrow", options: { element: arrow } },
-      { name: "offset", options: { offset: [0, 10] } },
-    ],
-    placement: tipPosition,
-    strategy: "fixed",
-  });
+  const triggerRef = useRef<HTMLSpanElement | null>(null);
+  const tooltipRef = useRef<HTMLDivElement | null>(null);
+  const arrowRef = useRef<HTMLDivElement | null>(null);
+
+  const { styles, attributes } = usePopper(
+    triggerRef.current,
+    tooltipRef.current,
+    {
+      modifiers: [
+        { name: "arrow", options: { element: arrowRef.current } },
+        { name: "offset", options: { offset: [0, 10] } },
+      ],
+      placement: tipPosition,
+      strategy: "fixed",
+    }
+  );
 
   const clearTimeouts = () => {
     if (timeoutRef.current) {
@@ -113,7 +118,7 @@ const Tooltip: FC<Props> = ({
   if (!children && children !== 0) children = <GBInfo />;
   const el = (
     <span
-      ref={setTrigger}
+      ref={triggerRef}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       className={`${className}`}
@@ -129,7 +134,7 @@ const Tooltip: FC<Props> = ({
         <Box style={{ position: "absolute" }}>
           <RadixTheme flip={true}>
             <Box
-              ref={setTooltip}
+              ref={tooltipRef}
               onMouseEnter={handleMouseEnter}
               onMouseLeave={handleMouseLeave}
               style={{
@@ -148,7 +153,7 @@ const Tooltip: FC<Props> = ({
               role="tooltip"
             >
               <div className={`body ${innerClassName}`}>{body}</div>
-              <div ref={setArrow} style={styles.arrow} className="arrow" />
+              <div ref={arrowRef} style={styles.arrow} className="arrow" />
             </Box>
           </RadixTheme>
         </Box>
