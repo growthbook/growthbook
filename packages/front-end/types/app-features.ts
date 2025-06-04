@@ -72,4 +72,5 @@ export type AppFeatures = {
   "safe-rollout-ramp-up": boolean;
   "safe-rollout-auto-rollback": boolean;
   "aa-test-holdout": boolean;
+  "new-exec-reports": boolean;
 };
