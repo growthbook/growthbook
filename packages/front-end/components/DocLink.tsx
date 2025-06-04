@@ -46,7 +46,7 @@ const docSections = {
   javascript: "/lib/js",
   javascriptAutoAttributes: "/lib/js#auto-attributes",
   tsx: "/lib/react",
-  nextjsFlags: "/lib/nextjs",
+  nextjs: "/lib/nextjs",
   go: "/lib/go",
   kotlin: "/lib/kotlin",
   swift: "/lib/swift",

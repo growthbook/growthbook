@@ -77,27 +77,44 @@ app.get("/", (req, res) => {
   }
   if (language === "nextjs") {
     return (
-      <Code
-        language="javascript"
-        code={`
+      <>
+        <div className="font-weight-bold text-muted mt-2">Define your feature flag</div>
+        <Code
+          filename="flags.ts"
+          language="typescript"
+          code={`
 import { growthbookAdapter } from '@flags-sdk/growthbook';
 import { flag } from 'flags/next';
-import { identify } from './lib/identify';
+import { identify } from '@/lib/identify';
 
-export const myFeatureFlag = flag({
+export const myFeatureFlag = flag<boolean>({
   key: ${JSON.stringify(featureId)},
-  adapter: growthbookAdapter.feature(),
+  adapter: growthbookAdapter.feature<boolean>(),
   defaultValue: false,
   identify,
 });
-
-// Usage
-const value = await myFeatureFlag();
-if (value) {
-  // Feature is enabled!
-}
 `.trim()}
-      />
+        />
+
+        <div className="font-weight-bold text-muted mt-2">Use the flag</div>
+        <Code
+          filename="my-component.tsx"
+          language="tsx"
+          code={`
+import { myFeatureFlag } from '@/flags';
+
+function MyComponent() {
+  const enabled = await myFeatureFlag();
+
+  if (enabled) {
+    return <div>On!</div>
+  } else {
+    return <div>Off!</div>
+  }
+}
+  `.trim()}
+        />
+      </>
     );
   }
   if (language === "android") {

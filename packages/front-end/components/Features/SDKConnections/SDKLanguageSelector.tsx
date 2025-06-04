@@ -32,12 +32,12 @@ export function SDKLanguageOption({
 }) {
   return (
     <div
-      className={`hover-highlight cursor-pointer border rounded ${
+      className={`hover-highlight d-inline-flex align-items-center cursor-pointer border rounded ${
         selected ? "bg-light" : ""
       }`}
       style={{
         height: 50,
-        padding: 10,
+        padding: "0 10px",
         boxShadow: selected ? "0 0 0 1px var(--text-color-primary)" : "",
       }}
       onClick={(e) => {

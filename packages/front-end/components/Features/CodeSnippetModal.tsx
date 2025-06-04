@@ -333,6 +333,27 @@ export default function CodeSnippetModal({
             </div>
           )}
 
+          {language === "nextjs" && (
+            <div className="mb-3">
+              <p>
+                For back-end and hybrid environments, we recommend using the
+                official GrowthBook adapter for Vercel&apos;s{" "}
+                <a
+                  href="https://flags-sdk.dev/providers/growthbook"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Flags SDK
+                </a>{" "}
+                (@flags-sdk/growthbook).
+              </p>
+              <p>
+                For front-end-only integrations, you should use our{" "}
+                <strong>React SDK</strong>.
+              </p>
+            </div>
+          )}
+
           {language !== "other" && (
             <div className="mb-3">
               <h4
@@ -540,18 +561,45 @@ myAttributes = myAttributes.map(attribute => sha256(salt + attribute));`}
                       />
                     </>
                   )}
-                  {(!feature || feature?.valueType !== "boolean") && (
-                    <>
-                      {feature?.valueType || "String"} feature:
-                      <MultivariateFeatureCodeSnippet
-                        valueType={feature?.valueType || "string"}
-                        language={language}
-                        featureId={feature?.id || "my-feature"}
-                      />
-                    </>
-                  )}
+                  {language !== "nextjs" &&
+                    (!feature || feature?.valueType !== "boolean") && (
+                      <>
+                        {feature?.valueType || "String"} feature:
+                        <MultivariateFeatureCodeSnippet
+                          valueType={feature?.valueType || "string"}
+                          language={language}
+                          featureId={feature?.id || "my-feature"}
+                        />
+                      </>
+                    )}
                 </div>
               )}
+            </div>
+          )}
+
+          {language === "nextjs" && (
+            <div>
+              <div className="h4 mt-4 mb-3">Further customization</div>
+              <ul>
+                <li>
+                  Set up <strong>Vercel Edge Config</strong> and use a
+                  GrowthBook <strong>SDK Webhook</strong> to keep feature and
+                  experiment values synced between GrowthBook and the web
+                  server. This eliminates network requests from the web server
+                  to GrowthBook.
+                </li>
+                <li>
+                  Implement back-end sticky bucketing using{" "}
+                  <code>growthbookAdapter.setStickyBucketService()</code> for
+                  advanced experimentation. We recommend our Redis Sticky Bucket
+                  driver.
+                </li>
+                <li>
+                  Expose GrowthBook data to Vercel&apos;s Flags Explorer by
+                  creating an API route with{" "}
+                  <code>createFlagsDiscoveryEndpoint</code>.
+                </li>
+              </ul>
             </div>
           )}
         </div>

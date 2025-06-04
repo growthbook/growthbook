@@ -353,7 +353,8 @@ app.use(function(req, res, next) {
     attributesSnippets.push(
       <>
         <Code
-          language="javascript"
+          language="typescript"
+          filename="lib/identify.ts"
           code={`
 import { dedupe } from 'flags/next';
 
