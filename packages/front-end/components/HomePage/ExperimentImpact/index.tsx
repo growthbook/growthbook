@@ -48,8 +48,7 @@ export function formatImpact(
   formatterOptions: Intl.NumberFormatOptions
 ) {
   if (impact === 0) {
-    return <>N/A
-    </>
+    return <>N/A</>;
   }
   return (
     <>
@@ -78,7 +77,7 @@ type ExperimentWithImpact = {
     scaledImpact: number;
     scaledImpactAdjusted?: number;
     se: number;
-  },
+  };
   error?: string;
 };
 
@@ -143,7 +142,7 @@ export function scaleImpactAndSetMissingExperiments({
       );
       const inSelectedProject =
         selectedProjects.includes(e.project ?? "") || !selectedProjects.length;
-      
+
       return hasMetric && fitsDateFilter && inSelectedProject;
     })
     .sort(
@@ -167,7 +166,7 @@ export function scaleImpactAndSetMissingExperiments({
     const allScaledImpacts: number[] = [];
     exps.forEach((e) => {
       const s = snapshots.find((s) => s.experiment === e.id);
-      
+
       const summary =
         e.results === "won" && !!e.winner && e.status === "stopped"
           ? "winner"
@@ -266,7 +265,8 @@ export function scaleImpactAndSetMissingExperiments({
           : v.scaledImpact;
 
         // only add to total if in custom filtered list of experiments
-        let inFilteredList = filteredExperimentIds?.includes(e.experiment.id) ?? true;
+        const inFilteredList =
+          filteredExperimentIds?.includes(e.experiment.id) ?? true;
         if (inFilteredList) {
           if (e.type === "winner" && v.selected) {
             e.keyVariationId = vi + 1;
@@ -285,12 +285,16 @@ export function scaleImpactAndSetMissingExperiments({
         }
       });
 
-      if (experimentImpact !== null && experimentAdjustedImpact !== null && experimentAdjustedImpactStdDev !== null) {
+      if (
+        experimentImpact !== null &&
+        experimentAdjustedImpact !== null &&
+        experimentAdjustedImpactStdDev !== null
+      ) {
         e.keyVariationImpact = {
           scaledImpact: experimentImpact,
           scaledImpactAdjusted: experimentAdjustedImpact,
           se: experimentAdjustedImpactStdDev,
-        }
+        };
       }
 
       if (e.type === "winner") {
@@ -300,7 +304,6 @@ export function scaleImpactAndSetMissingExperiments({
           2
         );
         summaryObj.winners.experiments.push(e);
-        
       } else if (e.type === "loser") {
         // invert sign of lost impact
         summaryObj.losers.totalAdjustedImpact -= experimentAdjustedImpact ?? 0;
