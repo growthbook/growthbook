@@ -268,16 +268,13 @@ const authContext = async (req: Request, res: Response) => {
 const findOrCreateUser = async (email: string, name?: string) => {
   const existingUser = await getUserByEmail(email);
 
-  if (existingUser) return { user: existingUser, isNew: false };
+  if (existingUser) return existingUser;
 
-  return {
-    user: await createUser({
-      name: name || email.split("@")[0],
-      email,
-      password: crypto.randomBytes(18).toString("hex"),
-    }),
-    isNew: true,
-  };
+  return createUser({
+    name: name || email.split("@")[0],
+    email,
+    password: crypto.randomBytes(18).toString("hex"),
+  });
 };
 
 export async function upsertInstallation(req: Request, res: Response) {
@@ -297,7 +294,7 @@ export async function upsertInstallation(req: Request, res: Response) {
   if (authentication.payload.installation_id !== req.params.installation_id)
     return res.status(400).send("Invalid request!");
 
-  const { user } = await findOrCreateUser(
+  const user = await findOrCreateUser(
     payload.account.contact.email,
     payload.account.name
   );
@@ -499,7 +496,6 @@ export async function provisionResource(req: Request, res: Response) {
     managedBy,
   });
 
-  const roleInfo = getDefaultRole(org);
   const team = await createTeam({
     name: payload.name,
     createdBy: user?.email || payload.name,
@@ -507,7 +503,17 @@ export async function provisionResource(req: Request, res: Response) {
     organization: org.id,
     managedByIdp: false,
     managedBy,
-    ...roleInfo,
+    role: "noaccess",
+    environments: [],
+    limitAccessByEnvironment: true,
+    projectRoles: [
+      {
+        project: project.id,
+        role: "collaborator",
+        limitAccessByEnvironment: true,
+        environments: ["production"],
+      },
+    ],
   });
 
   const resource: Resource = {
@@ -659,26 +665,24 @@ export async function postVercelIntegrationSSO(req: Request, res: Response) {
     resourceId
   );
 
-  const { isNew, user } = await findOrCreateUser(userEmail);
+  const user = await findOrCreateUser(userEmail);
 
-  if (isNew) {
-    const roleInfo = getDefaultRole(org);
+  // This is idempotent.
+  await addMemberToOrg({
+    organization: org,
+    userId: user.id,
+    projectRoles: [],
+    managedByIdp: false,
+    ...getDefaultRole(org),
+  });
 
-    await addMemberToOrg({
+  if (resource?.teamId) {
+    // also idempotent.
+    await addMembersToTeam({
       organization: org,
-      userId: user.id,
-      projectRoles: [],
-      managedByIdp: false,
-      ...roleInfo,
+      userIds: [user.id],
+      teamId: resource.teamId,
     });
-
-    if (resource?.teamId) {
-      await addMembersToTeam({
-        organization: org,
-        userIds: [user.id],
-        teamId: resource.teamId,
-      });
-    }
   }
 
   const trackingProperties = getUserLoginPropertiesFromRequest(req);
