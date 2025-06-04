@@ -627,9 +627,6 @@ export async function getProducts(req: Request, res: Response) {
 export async function postVercelIntegrationSSO(req: Request, res: Response) {
   const { code, state, resourceId } = req.body;
 
-  if (!resourceId || typeof resourceId !== "string")
-    throw new Error("Invalid request!");
-
   const token = await getVercelSSOToken({
     code: String(code),
     state: String(state),
@@ -675,11 +672,13 @@ export async function postVercelIntegrationSSO(req: Request, res: Response) {
       ...roleInfo,
     });
 
-    await addMembersToTeam({
-      organization: org,
-      userIds: [user.id],
-      teamId: resource.teamId,
-    });
+    if (resource?.teamId) {
+      await addMembersToTeam({
+        organization: org,
+        userIds: [user.id],
+        teamId: resource.teamId,
+      });
+    }
   }
 
   const trackingProperties = getUserLoginPropertiesFromRequest(req);
@@ -691,5 +690,8 @@ export async function postVercelIntegrationSSO(req: Request, res: Response) {
   SSOConnectionIdCookie.setValue(`vercel:${installationId}`, req, res);
   IdTokenCookie.setValue(token, req, res);
 
-  res.send({ organizationId: org.id, projectId: resource.projectId });
+  res.send({
+    organizationId: org.id,
+    ...(resource ? { projectId: resource.projectId } : {}),
+  });
 }
