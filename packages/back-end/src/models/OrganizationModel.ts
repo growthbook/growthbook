@@ -70,6 +70,7 @@ const organizationSchema = new mongoose.Schema({
   restrictLoginMethod: String,
   restrictAuthSubPrefix: String,
   autoApproveMembers: Boolean,
+  isVercelIntegration: Boolean,
   members: [
     {
       ...baseMemberFields,
@@ -135,11 +136,6 @@ const organizationSchema = new mongoose.Schema({
       team: String,
       token: String,
     },
-    vercel: {
-      token: String,
-      configurationId: String,
-      teamId: String,
-    },
   },
   settings: {},
   getStartedChecklistItems: [String],
@@ -168,6 +164,8 @@ export async function createOrganization({
   url = "",
   verifiedDomain = "",
   externalId = "",
+  isVercelIntegration = false,
+  restrictLoginMethod,
 }: {
   email: string;
   userId: string;
@@ -176,6 +174,8 @@ export async function createOrganization({
   url?: string;
   verifiedDomain?: string;
   externalId?: string;
+  isVercelIntegration?: boolean;
+  restrictLoginMethod?: string;
 }) {
   // TODO: sanitize fields
   const doc = await OrganizationModel.create({
@@ -228,6 +228,8 @@ export async function createOrganization({
       ],
     },
     getStartedChecklistItems: [],
+    isVercelIntegration,
+    ...(restrictLoginMethod ? { restrictLoginMethod } : {}),
   });
   return toInterface(doc);
 }
@@ -268,9 +270,15 @@ export async function findOrganizationById(id: string) {
   return doc ? toInterface(doc) : null;
 }
 
+type DeletableKeys = Extract<
+  keyof OrganizationInterface,
+  "restrictLoginMethod"
+>;
+
 export async function updateOrganization(
   id: string,
-  update: Partial<OrganizationInterface>
+  update: Partial<OrganizationInterface>,
+  unset?: Partial<Record<DeletableKeys, 1>>
 ) {
   await OrganizationModel.updateOne(
     {
@@ -278,6 +286,7 @@ export async function updateOrganization(
     },
     {
       $set: update,
+      ...(unset ? { $unset: unset } : {}),
     }
   );
 }

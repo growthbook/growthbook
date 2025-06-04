@@ -1,3 +1,5 @@
+import { ManagedBy } from "back-end/src/validators/managed-by";
+
 // GrowthBook Proxy
 export interface ProxyConnection {
   enabled: boolean;
@@ -44,6 +46,7 @@ export type CreateSDKConnectionParams = {
   includeRedirectExperiments: boolean;
   includeRuleIds: boolean;
   remoteEvalEnabled?: boolean;
+  managedBy?: ManagedBy;
 };
 
 import { sdkLanguages } from "back-end/src/util/constants";
@@ -83,6 +86,7 @@ export interface SDKConnectionInterface {
 
   remoteEvalEnabled?: boolean;
   savedGroupReferencesEnabled?: boolean;
+  managedBy?: ManagedBy;
 }
 
 export interface ProxyTestResult {

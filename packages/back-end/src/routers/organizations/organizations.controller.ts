@@ -1416,16 +1416,6 @@ export async function putOrganization(
       };
       orig.settings = org.settings;
     }
-    if (connections?.vercel) {
-      const { token, configurationId, teamId } = connections.vercel;
-      if (token && configurationId) {
-        updates.connections = {
-          ...updates.connections,
-          vercel: { token, configurationId, teamId },
-        };
-        orig.connections = org.connections;
-      }
-    }
 
     if (licenseKey && licenseKey.trim() !== org.licenseKey) {
       updates.licenseKey = licenseKey.trim();

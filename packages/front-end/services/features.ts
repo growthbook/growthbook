@@ -489,7 +489,7 @@ export function useAttributeSchema(
 
 export function validateFeatureRule(
   rule: FeatureRule,
-  feature: FeatureInterface
+  feature: Pick<FeatureInterface, "valueType" | "jsonSchema">
 ): null | FeatureRule {
   let hasChanges = false;
   const ruleCopy = cloneDeep(rule);

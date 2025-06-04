@@ -24,6 +24,23 @@ export default function ExperimentStatusIndicator({
   );
 }
 
+export function ExperimentDot({
+  color,
+}: {
+  color: StatusIndicatorData["color"];
+}) {
+  return (
+    <div
+      style={{
+        width: 8,
+        height: 8,
+        borderRadius: 8,
+        backgroundColor: `var(--${color}-9)`,
+      }}
+    ></div>
+  );
+}
+
 export function ExperimentStatusDetailsWithDot({
   statusIndicatorData,
 }: {
@@ -42,14 +59,7 @@ export function ExperimentStatusDetailsWithDot({
   const contents =
     needsAttention || status === "Stopped" ? (
       <Flex gap="1" align="center">
-        <div
-          style={{
-            width: 8,
-            height: 8,
-            borderRadius: 8,
-            backgroundColor: `var(--${color}-9)`,
-          }}
-        ></div>
+        <ExperimentDot color={color} />
         {detailedStatus}
       </Flex>
     ) : (

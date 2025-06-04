@@ -9,6 +9,7 @@ import {
   SDKAttributeSchema,
 } from "back-end/types/organization";
 import {
+  ComputedExperimentInterface,
   ExperimentInterfaceStringDates,
   ExperimentStatus,
   ExperimentTemplateInterface,
@@ -28,6 +29,7 @@ import {
   quantileMetricType,
   isRatioMetric,
   getEqualWeights,
+  getAllMetricIdsFromExperiment,
 } from "shared/experiments";
 import {
   DEFAULT_LOSE_RISK_THRESHOLD,
@@ -36,6 +38,11 @@ import {
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { getExperimentMetricFormatter } from "@/services/metrics";
 import { getDefaultVariations } from "@/components/Experiment/NewExperimentForm";
+import { useAddComputedFields, useSearch } from "@/services/search";
+import { experimentDate } from "@/pages/experiments";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { useUser } from "@/services/UserContext";
+import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
 import { getDefaultRuleValue, NewExperimentRefRule } from "./features";
 
 export type ExperimentTableRow = {
@@ -265,6 +272,158 @@ export function pValueFormatter(pValue: number, digits: number = 3): string {
   return pValue < Math.pow(10, -digits)
     ? `<0.${"0".repeat(digits - 1)}1`
     : pValue.toFixed(digits);
+}
+
+export function useExperimentSearch({
+  allExperiments,
+  defaultSortField = "date",
+  defaultSortDir = -1,
+  filterResults,
+  localStorageKey = "experiments",
+}: {
+  allExperiments: ExperimentInterfaceStringDates[];
+  defaultSortField?: keyof ComputedExperimentInterface;
+  defaultSortDir?: -1 | 1;
+  filterResults?: (
+    items: ComputedExperimentInterface[]
+  ) => ComputedExperimentInterface[];
+  localStorageKey?: string;
+}) {
+  const {
+    getExperimentMetricById,
+    getProjectById,
+    getDatasourceById,
+    getSavedGroupById,
+  } = useDefinitions();
+  const { getUserDisplay } = useUser();
+  const getExperimentStatusIndicator = useExperimentStatusIndicator();
+
+  const experiments: ComputedExperimentInterface[] = useAddComputedFields(
+    allExperiments,
+    (exp) => {
+      const projectId = exp.project;
+      const projectName = projectId ? getProjectById(projectId)?.name : "";
+      const projectIsDeReferenced = projectId && !projectName;
+      const statusIndicator = getExperimentStatusIndicator(exp);
+      const statusSortOrder = statusIndicator.sortOrder;
+      const lastPhase = exp.phases?.[exp.phases?.length - 1] || {};
+      const rawSavedGroup = lastPhase?.savedGroups || [];
+      const savedGroupIds = rawSavedGroup.map((g) => g.ids).flat();
+
+      return {
+        ownerName: getUserDisplay(exp.owner, false) || "",
+        metricNames: exp.goalMetrics
+          .map((m) => getExperimentMetricById(m)?.name)
+          .filter(Boolean),
+        datasource: getDatasourceById(exp.datasource)?.name || "",
+        savedGroups: savedGroupIds.map(
+          (id) => getSavedGroupById(id)?.groupName
+        ),
+        projectId,
+        projectName,
+        projectIsDeReferenced,
+        tab: exp.archived
+          ? "archived"
+          : exp.status === "draft"
+          ? "drafts"
+          : exp.status,
+        date: experimentDate(exp),
+        statusIndicator,
+        statusSortOrder,
+      };
+    },
+    [getExperimentMetricById, getProjectById, getUserDisplay]
+  );
+
+  return useSearch({
+    items: experiments,
+    localStorageKey,
+    defaultSortField,
+    defaultSortDir,
+    updateSearchQueryOnChange: true,
+    searchFields: [
+      "name^3",
+      "trackingKey^2",
+      "id",
+      "hypothesis^2",
+      "description",
+      "tags",
+      "status",
+      "ownerName",
+      "metricNames",
+      "results",
+      "analysis",
+    ],
+    searchTermFilters: {
+      is: (item) => {
+        const is: string[] = [];
+        if (item.archived) is.push("archived");
+        if (item.status === "draft") is.push("draft");
+        if (item.status === "running") is.push("running");
+        if (item.status === "stopped") is.push("stopped");
+        if (item.results === "won") {
+          is.push("winner");
+          is.push("won");
+        }
+        if (item.results === "lost") {
+          is.push("loser");
+          is.push("lost");
+        }
+        if (item.results === "inconclusive") is.push("inconclusive");
+        if (item.results === "dnf") is.push("dnf");
+        if (item.hasVisualChangesets) is.push("visual");
+        if (item.hasURLRedirects) is.push("redirect");
+        return is;
+      },
+      has: (item) => {
+        const has: string[] = [];
+        if (item.project) has.push("project");
+        if (item.hasVisualChangesets) {
+          has.push("visualChange", "visualChanges");
+        }
+        if (item.hasURLRedirects) has.push("redirect", "redirects");
+        if (item.linkedFeatures?.length) has.push("features", "feature");
+        if (item.hypothesis?.trim()?.length) has.push("hypothesis");
+        if (item.description?.trim()?.length) has.push("description");
+        if (item.variations.some((v) => !!v.screenshots?.length)) {
+          has.push("screenshots");
+        }
+        if (
+          item.status === "stopped" &&
+          !item.excludeFromPayload &&
+          (item.linkedFeatures?.length ||
+            item.hasURLRedirects ||
+            item.hasVisualChangesets)
+        ) {
+          has.push("rollout", "tempRollout");
+        }
+        return has;
+      },
+      variations: (item) => item.variations.length,
+      variation: (item) => item.variations.map((v) => v.name),
+      created: (item) => new Date(item.dateCreated),
+      updated: (item) => new Date(item.dateUpdated),
+      name: (item) => item.name,
+      key: (item) => item.trackingKey,
+      trackingKey: (item) => item.trackingKey,
+      id: (item) => [item.id, item.trackingKey],
+      status: (item) => item.status,
+      result: (item) =>
+        item.status === "stopped" ? item.results || "unfinished" : "unfinished",
+      owner: (item) => [item.owner, item.ownerName],
+      tag: (item) => item.tags,
+      project: (item) => [item.project, item.projectName],
+      feature: (item) => item.linkedFeatures || [],
+      datasource: (item) => item.datasource,
+      metric: (item) => [
+        ...(item.metricNames ?? []),
+        ...getAllMetricIdsFromExperiment(item),
+      ],
+      savedgroup: (item) => item.savedGroups || [],
+      goal: (item) => [...(item.metricNames ?? []), ...item.goalMetrics],
+    },
+    filterResults,
+  });
 }
 
 export type RowResults = {

@@ -15,6 +15,7 @@ import {
   FactTableInterface,
   UpdateFactTableProps,
 } from "back-end/types/fact-table";
+import { ExecReportInterface } from "back-end/src/models/ExecReportModel";
 import {
   ExperimentInterface,
   ExperimentTemplateInterface,
@@ -617,6 +618,15 @@ export class Permissions {
     return this.checkProjectFilterPermission(
       { projects: [] },
       "manageCustomFields"
+    );
+  };
+
+  public canManageExecReports = (
+    report: Pick<ExecReportInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: report.projects || [] },
+      "manageExecReports"
     );
   };
 

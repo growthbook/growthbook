@@ -81,6 +81,7 @@ import {
 } from "back-end/src/services/licenseData";
 import { getLicense, licenseInit } from "back-end/src/enterprise";
 import { PValueCorrection } from "back-end/types/stats";
+import { findVercelInstallationByInstallationId } from "back-end/src/models/VercelNativeIntegrationModel";
 import {
   encryptParams,
   getSourceIntegrationObject,
@@ -108,8 +109,19 @@ export function validateLoginMethod(
     req.loginMethod?.id !== org.restrictLoginMethod
   ) {
     throw new Error(
-      "Your organization requires you to login with Enterprise SSO"
+      `Your organization requires you to login with ${
+        org.restrictLoginMethod.startsWith("vercel:")
+          ? "Vercel"
+          : "Enterprise SSO"
+      }`
     );
+  }
+
+  if (req.loginMethod?.id?.startsWith("vercel:")) {
+    const installationId = req.loginMethod.id.split(":")[1];
+    if (installationId !== req.vercelInstallationId) {
+      throw new Error(`Vercel installation id mismatch`);
+    }
   }
 
   // If the org requires a specific subject in the IdToken
@@ -961,6 +973,9 @@ export function isEnterpriseSSO(connection?: SSOConnectionInterface) {
   // On cloud, the default SSO (Auth0) does not have a connection id
   if (!connection.id) return false;
 
+  // Vercel SSO connections are not enterprise
+  if (connection.id.startsWith("vercel:")) return false;
+
   return true;
 }
 
@@ -971,21 +986,41 @@ export async function addMemberFromSSOConnection(
   if (!req.userId) return null;
 
   const ssoConnection = req.loginMethod;
-  if (!ssoConnection || !ssoConnection?.emailDomains?.length) return null;
+  if (!ssoConnection) return null;
 
-  // Check if the user's email domain is allowed by the SSO connection
-  const emailDomain = req.email.split("@").pop()?.toLowerCase() || "";
-  if (!ssoConnection?.emailDomains?.includes(emailDomain)) {
-    return null;
+  // For non-vercel, require email domains to match
+  if (!ssoConnection.id?.startsWith("vercel:")) {
+    if (!ssoConnection?.emailDomains?.length) return null;
+
+    // Check if the user's email domain is allowed by the SSO connection
+    const emailDomain = req.email.split("@").pop()?.toLowerCase() || "";
+    if (!ssoConnection?.emailDomains?.includes(emailDomain)) {
+      return null;
+    }
   }
 
   let organization: null | OrganizationInterface = null;
   // On Cloud, we need to get the organization from the SSO connection
   if (IS_CLOUD) {
-    if (!ssoConnection.organization) {
-      return null;
+    // For Vercel, we need to look up the Vercel installation to find the org
+    if (ssoConnection.id?.startsWith("vercel:")) {
+      const installationId = ssoConnection.id.split(":")[1];
+      if (!installationId) return null;
+      if (installationId !== req.vercelInstallationId) return null;
+
+      const installation = await findVercelInstallationByInstallationId(
+        installationId
+      );
+      if (!installation) {
+        return null;
+      }
+      organization = await findOrganizationById(installation.organization);
+    } else {
+      if (!ssoConnection.organization) {
+        return null;
+      }
+      organization = await getOrganizationById(ssoConnection.organization);
     }
-    organization = await getOrganizationById(ssoConnection.organization);
   }
   // When self-hosting, there should be only one organization in Mongo
   else {
