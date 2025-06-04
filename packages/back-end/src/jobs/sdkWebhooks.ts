@@ -230,7 +230,9 @@ async function runWebhookFetch({
         break;
       case "vercelNativeIntegration":
         body = JSON.stringify({
-          [payloadKey || "gb_payload"]: payload,
+          data: {
+            [payloadKey || "gb_payload"]: payload,
+          },
         });
         break;
       default:
