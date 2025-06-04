@@ -349,6 +349,28 @@ app.use(function(req, res, next) {
       );
     }
   }
+  if (language === "nextjs") {
+    attributesSnippets.push(
+      <>
+        <Code
+          language="typescript"
+          filename="lib/identify.ts"
+          code={`
+import type { Attributes } from '@flags-sdk/growthbook';
+import type { Identify } from 'flags';
+import { dedupe } from 'flags/next';
+
+export const identify = dedupe(async () => {
+  // Your own logic to identify the user
+  const user = await getUser(headers, cookies);
+
+  return ${indentLines(stringify(exampleAttributes), 2)};
+}) satisfies Identify<Attributes>;
+`.trim()}
+        />
+      </>
+    );
+  }
   if (language === "android") {
     attributesSnippets.push(
       <>
