@@ -109,7 +109,7 @@ export const myFeatureFlag = flag({
 
 ## Adapter Methods and Properties
 
-### feature&lt;T&gt;()
+### .feature&lt;T&gt;()
 
 This method implements the Adapter interface for a GrowthBook feature:
 
@@ -127,7 +127,7 @@ const myFlag = flag({
 
 If your flag returns a type other than `boolean`, you can provide a type argument to the `feature` method.
 
-### initialize()
+### .initialize()
 
 Initializes the GrowthBook SDK. This is done on-demand when a growthbook flag is evaluated, and is not required to be called manually:
 
@@ -135,7 +135,7 @@ Initializes the GrowthBook SDK. This is done on-demand when a growthbook flag is
 const growthbookClient = await growthbookAdapter.initialize();
 ```
 
-### setTrackingCallback()
+### .setTrackingCallback()
 
 Set a back-end callback to handle experiment exposures. This allows you to log exposures to your analytics platform:
 
@@ -156,7 +156,7 @@ growthbookAdapter.setTrackingCallback((experiment, result) => {
 
 Front-end experiment tracking is also supported, although it requires additional manual setup. See [client-side tracking](#client-side-tracking) for more information.
 
-### setStickyBucketService()
+### .setStickyBucketService()
 
 Sticky bucketing ensures that users see the same experiment variant, even when user session, user login status, or experiment parameters change. See the [Sticky Bucketing docs](/app/sticky-bucketing) for more information. If your organization and experiment supports sticky bucketing, you must implement an instance of the `StickyBucketService` to use Sticky Bucketing.
 
@@ -171,21 +171,33 @@ const redisStickyBucketService = new RedisStickyBucketService({ redis });
 growthbookAdapter.setStickyBucketService(redisStickyBucketService);
 ```
 
+### .growthbook
+
+You may access the underlying GrowthBook instance. Specifically, our Flags SDK adapter wraps the `GrowthBookClient` class [read more](/lib/js#). All user evaluation options (attributes, tracking callbacks, sticky buckets) are applied at the `userContext` level (not globally).
+
+### .stickyBucketService
+
+If you have set a sticky bucket service, you may retrieve its instance here.
+
 ## Edge Config
 
-The adapter can load feature configuration from Vercel Edge Config to lower the latency of feature flag evaluation:
+The adapter can load your SDK payload from Vercel^s Edge Config to lower the latency of feature flag evaluation:
 
 - Set `GROWTHBOOK_EDGE_CONNECTION_STRING` and (optionally) `GROWTHBOOK_EDGE_CONFIG_ITEM_KEY` in your environment.
 - Or pass `edgeConfig` directly to the adapter.
 
 If Edge Config is not set, the adapter will fetch configuration from GrowthBook's API.
 
-## Caveats & Best Practices
+:::note
+
+Vercel's Edge Config is subject to storage size limitations. If your SDK payload is excessively large, you may not be able to populate the your Edge Config. Read more about limitations [here](https://vercel.com/docs/edge-config/edge-config-limits).
+
+:::
+
+## Additional Configuration
 
 - **Initialization:** The adapter auto-initializes when a flag is evaluated. To pre-initialize, call `initialize()` manually.
-- **Exposure Logging:** By default, exposures are logged when flags are evaluated. You can disable this with `exposureLogging: false` or provide a custom tracking callback.
-- **Sticky Buckets:** For advanced experimentation (e.g., Bandits), use a StickyBucketService.
-- **Multiple Flags, Same Key:** You can use the same GrowthBook feature key with different mapping functions if needed.
+- **Exposure Logging:** By default, exposures are logged when flags are evaluated. You can disable this with `exposureLogging: false` or provide a custom tracking callback (applicable to back-end tracking only).
 
 ## Flags Explorer Integration
 

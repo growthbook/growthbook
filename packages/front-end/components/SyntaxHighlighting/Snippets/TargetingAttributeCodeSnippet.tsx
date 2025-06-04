@@ -356,6 +356,8 @@ app.use(function(req, res, next) {
           language="typescript"
           filename="lib/identify.ts"
           code={`
+import type { Attributes } from '@flags-sdk/growthbook';
+import type { Identify } from 'flags';
 import { dedupe } from 'flags/next';
 
 export const identify = dedupe(async () => {
@@ -363,7 +365,7 @@ export const identify = dedupe(async () => {
   const user = await getUser(headers, cookies);
 
   return ${indentLines(stringify(exampleAttributes), 2)};
-});
+}) satisfies Identify<Attributes>;
 `.trim()}
         />
       </>
