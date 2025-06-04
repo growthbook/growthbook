@@ -16,6 +16,7 @@ import { upsertWatch } from "back-end/src/models/WatchModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { validateVariationIds } from "back-end/src/controllers/experiments";
 import { Variation } from "back-end/src/validators/experiments";
+import { auditDetailsCreate } from "back-end/src/services/audit";
 
 export const postExperiment = createApiRequestHandler(postExperimentValidator)(
   async (req): Promise<PostExperimentResponse> => {
@@ -133,6 +134,15 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
     const experiment = await createExperiment({
       data: newExperiment,
       context: req.context,
+    });
+
+    await req.audit({
+      event: "experiment.create",
+      entity: {
+        object: "experiment",
+        id: experiment.id,
+      },
+      details: auditDetailsCreate(experiment, {}),
     });
 
     if (ownerId) {
