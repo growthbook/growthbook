@@ -109,14 +109,15 @@ export const myFeatureFlag = flag({
 
 ## Adapter Methods and Properties
 
-### .feature&lt;T&gt;()
+### `.feature<T>()`
 
-This method implements the Adapter interface for a GrowthBook feature:
+This method implements the Adapter interface for a GrowthBook feature. Typically flag definitions are applied in single file (e.g. `flags.ts`).
 
 ```ts
-const myFlag = flag({
+export const myFlag = flag({
   key: 'my_flag',
-  adapter: growthbookAdapter.feature<boolean>(),
+  adapter: growthbookAdapter.feature<string>(),
+  defaultValue: "default",
   identify,
 });
 ```
@@ -126,7 +127,7 @@ You may optionally pass in an options object for further customization (ex: `fea
 | --------------- | ------- | -------------------------------- |
 | exposureLogging | true | Enable/disable exposure logging. |
 
-### .initialize()
+### `.initialize()`
 
 Initializes the GrowthBook SDK. This is done on-demand when a growthbook flag is evaluated, and is not required to be called manually:
 
@@ -134,9 +135,9 @@ Initializes the GrowthBook SDK. This is done on-demand when a growthbook flag is
 const growthbookClient = await growthbookAdapter.initialize();
 ```
 
-### .setTrackingCallback()
+### `.setTrackingCallback()`
 
-Set a back-end callback to handle experiment exposures. This allows you to log exposures to your analytics platform:
+Set a back-end callback to handle experiment exposures. This allows you to log exposures to your analytics platform. Typically this is done in the same file where your flags are defined (e.g. `flags.ts`).
 
 ```ts
 import { growthbookAdapter } from '@flags-sdk/growthbook';
@@ -155,7 +156,7 @@ growthbookAdapter.setTrackingCallback((experiment, result) => {
 
 Front-end experiment tracking is also supported, although it requires additional manual setup. See [client-side tracking](#client-side-tracking) for more information.
 
-### .setStickyBucketService()
+### `.setStickyBucketService()`
 
 Sticky bucketing ensures that users see the same experiment variant, even when user session, user login status, or experiment parameters change. See the [Sticky Bucketing docs](/app/sticky-bucketing) for more information. If your organization and experiment supports sticky bucketing, you must implement an instance of the `StickyBucketService` to use Sticky Bucketing.
 
@@ -170,22 +171,42 @@ const redisStickyBucketService = new RedisStickyBucketService({ redis });
 growthbookAdapter.setStickyBucketService(redisStickyBucketService);
 ```
 
-### .growthbook
+### `.growthbook`
 
 You may access the underlying GrowthBook instance. Specifically, our Flags SDK adapter wraps the `GrowthBookClient` class [read more](/lib/js#). All user evaluation options (attributes, tracking callbacks, sticky buckets) are applied at the `userContext` level (not globally).
 
-### .stickyBucketService
+### `.stickyBucketService`
 
-If you have set a sticky bucket service, you may retrieve its instance here.
+If you have set a sticky bucket service, you may retrieve its instance.
 
 ## Edge Config
 
-The adapter can load your SDK payload from Vercel^s Edge Config to lower the latency of feature flag evaluation:
+The adapter can load your SDK payload from Vercel&apos;s Edge Config to lower the latency of feature flag evaluation:
 
-- Set `GROWTHBOOK_EDGE_CONNECTION_STRING` and (optionally) `GROWTHBOOK_EDGE_CONFIG_ITEM_KEY` in your environment.
+- Set `GROWTHBOOK_EDGE_CONNECTION_STRING` (or `EXPERIMENTATION_CONFIG` if installed through the Vercel Marketplace) in your environment. Optionally set `GROWTHBOOK_EDGE_CONFIG_ITEM_KEY` to override the default key name (defaults to your client key).
 - Or pass `edgeConfig` directly to the adapter.
 
 If Edge Config is not set, the adapter will fetch configuration from GrowthBook's API.
+
+### Configuring a SDK Webhook
+
+1. To automatically populate the Edge Config whenever your feature definitions change, create a [SDK Webhook](/app/webhooks/sdk-webhooks) on the same SDK Connection that you are using for the Next.js integration.ts
+
+2. Select "Vercel Edge Config" as the webhook type and fill out the following fields:
+
+- Vercel Edge Config ID (begins with `ecfg_`)
+- Team ID (optional)
+- Vercel API Token (see Vercel &rarr; Account Settings &rarr; Tokens)
+
+Under the hood, the webhook is being configured with the following properties. If you need to change any of these settings for any reason, you can always edit the webhook.
+
+- **Endpoint URL** is being set to
+  ```
+  https://api.vercel.com/v1/edge-config/{edge_config_id}/items
+  ```
+- **Method** is being set to `PATCH`
+- An **Authorization: Bearer token** header is being added with your Vercel API Token
+- The **Payload format** is being set to `Vercel Edge Config`
 
 :::note
 
