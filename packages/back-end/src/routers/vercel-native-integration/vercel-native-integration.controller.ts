@@ -509,9 +509,9 @@ export async function provisionResource(req: Request, res: Response) {
     projectRoles: [
       {
         project: project.id,
-        role: "collaborator",
+        role: "experimenter",
         limitAccessByEnvironment: true,
-        environments: ["production"],
+        environments: [],
       },
     ],
   });
