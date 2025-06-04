@@ -78,7 +78,9 @@ app.get("/", (req, res) => {
   if (language === "nextjs") {
     return (
       <>
-        <div className="font-weight-bold text-muted mt-2">Define your feature flag</div>
+        <div className="font-weight-bold text-muted mt-2">
+          Define your feature flag
+        </div>
         <Code
           filename="flags.ts"
           language="typescript"

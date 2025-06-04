@@ -299,30 +299,30 @@ import { growthbookAdapter } from "@flags-sdk/growthbook";
             </tr>
           </thead>
           <tbody>
-          <tr>
-            <td className="px-3">
-              <code>GROWTHBOOK_CLIENT_KEY</code>
-            </td>
-            <td className="px-3">
-              <ClickToCopy>{apiKey}</ClickToCopy>
-            </td>
-          </tr>
-          <tr>
-            <td className="px-3">
-              <code>GROWTHBOOK_API_HOST</code>
-              {isCloud() && (
-                <span className="text-muted small ml-2">(optional)</span>
-              )}
-            </td>
+            <tr>
+              <td className="px-3">
+                <code>GROWTHBOOK_CLIENT_KEY</code>
+              </td>
+              <td className="px-3">
+                <ClickToCopy>{apiKey}</ClickToCopy>
+              </td>
+            </tr>
+            <tr>
+              <td className="px-3">
+                <code>GROWTHBOOK_API_HOST</code>
+                {isCloud() && (
+                  <span className="text-muted small ml-2">(optional)</span>
+                )}
+              </td>
               <td className="px-3">
                 <ClickToCopy>{apiHost}</ClickToCopy>
               </td>
             </tr>
             <tr>
-            <td className="px-3">
-              <code>GROWTHBOOK_APP_ORIGIN</code>
-              <span className="text-muted small ml-2">(optional)</span>
-            </td>
+              <td className="px-3">
+                <code>GROWTHBOOK_APP_ORIGIN</code>
+                <span className="text-muted small ml-2">(optional)</span>
+              </td>
               <td className="px-3">
                 <ClickToCopy>{getAppOrigin()}</ClickToCopy>
               </td>
@@ -362,9 +362,9 @@ import { growthbookAdapter } from "@flags-sdk/growthbook";
             </tr>
           </tbody>
         </table>
-
         <div className="h4 mt-4 mb-2">Experiment tracking</div>
-        Define a server-side tracking callback. Note: Client-side tracking is also available but requires additional setup.
+        Define a server-side tracking callback. Note: Client-side tracking is
+        also available but requires additional setup.
         <Code
           filename="flags.ts"
           language="typescript"
