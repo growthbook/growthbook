@@ -45,6 +45,13 @@ declare global {
       track?: (name: string, props?: Record<string, unknown>) => void;
     };
     gtag?: (...args: unknown[]) => void;
+    rudderanalytics?: {
+      track?: (
+        name: string,
+        props?: Record<string, unknown>,
+        cb?: () => Promise<void>
+      ) => void;
+    };
   }
 }
 
