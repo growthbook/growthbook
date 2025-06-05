@@ -45,18 +45,12 @@ const CompletedExperimentList = ({
       <CustomMarkdown page={"learnings"} />
       {!hasExperiments ? (
         <EmptyState
-          title="Learning Library"
-          description="Learn from completed experiments"
+          title="Discover patterns in experiment outcomes"
+          description="Review past experiments to learn what's working and where to experiment next."
+          rightButton={null}
           leftButton={
-            <LinkButton
-              href="https://docs.growthbook.io/experiments"
-              variant="outline"
-              external
-            >
-              View docs
-            </LinkButton>
+            <LinkButton href="/experiments">Create experiment</LinkButton>
           }
-          rightButton={<></>}
         />
       ) : (
         hasExperiments && (
