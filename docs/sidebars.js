@@ -598,6 +598,14 @@ const sidebars = {
           label: "MCP Server",
           className: "pill-new",
         },
+        /*
+        {
+          type: "doc",
+          id: "integrations/vercel",
+          label: "Vercel",
+          className: "pill-new",
+        },
+        */
         {
           type: "doc",
           id: "integrations/framer",
