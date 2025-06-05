@@ -428,13 +428,8 @@ export default function ExperimentImpact({
 
   return (
     <div className="pt-2">
+      <h3 className="mt-2 mb-3 mr-4">Experiment Impact</h3>
       <div className="row align-items-start mb-4">
-        <div className="col-md-12 col-lg-auto">
-          <h3 className="mt-2 mb-3 mr-4">Experiment Impact</h3>
-        </div>
-
-        <div className="flex-1" />
-
         <div className="col-3">
           <label className="mb-1">Metric</label>
           <MetricSelector

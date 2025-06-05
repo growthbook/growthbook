@@ -46,7 +46,7 @@ export default function ExperimentList({
         });
         const currentPhase = test.phases[test.phases.length - 1];
         return (
-          <li key={i} className="w-100 hover-highlight">
+          <li key={i} className="w-100 px-1 hover-highlight">
             <div key={test.id} className="d-flex">
               <Link
                 href={`/experiment/${test.id}`}

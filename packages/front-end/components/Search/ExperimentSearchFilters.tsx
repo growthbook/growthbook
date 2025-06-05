@@ -140,6 +140,7 @@ const ExperimentSearchFilters: FC<
       {!project && (
         <FilterDropdown
           filter="project"
+          heading="Project"
           syntaxFilters={syntaxFilters}
           open={dropdownFilterOpen}
           setOpen={setDropdownFilterOpen}
@@ -151,6 +152,7 @@ const ExperimentSearchFilters: FC<
       )}
       <FilterDropdown
         filter="metric"
+        heading="Metric"
         syntaxFilters={syntaxFilters}
         open={dropdownFilterOpen}
         setOpen={setDropdownFilterOpen}
@@ -159,6 +161,7 @@ const ExperimentSearchFilters: FC<
       />
       <FilterDropdown
         filter="owner"
+        heading="Owner"
         syntaxFilters={syntaxFilters}
         open={dropdownFilterOpen}
         setOpen={setDropdownFilterOpen}
@@ -168,30 +171,38 @@ const ExperimentSearchFilters: FC<
         updateQuery={updateQuery}
       />
       <FilterDropdown
-        filter="tag"
+        filter="is"
+        heading="Result"
         syntaxFilters={syntaxFilters}
         open={dropdownFilterOpen}
         setOpen={setDropdownFilterOpen}
-        items={availableTags.map((t) => {
-          return {
-            name: <Tag tag={t} key={t} skipMargin={true} />,
-            id: t,
-            searchValue: t,
-          };
-        })}
-        updateQuery={updateQuery}
-      />
-      <FilterDropdown
-        filter="type"
-        syntaxFilters={syntaxFilters}
-        open={dropdownFilterOpen}
-        setOpen={setDropdownFilterOpen}
-        items={allExperimentTypes}
+        items={[
+          {
+            searchValue: "won",
+            id: "isWon",
+            name: "Won",
+          },
+          {
+            searchValue: "lost",
+            id: "isLost",
+            name: "Lost",
+          },
+          {
+            searchValue: "inconclusive",
+            id: "isInconclusive",
+            name: "Inconclusive",
+          },
+          {
+            searchValue: "dnf",
+            id: "isDNF",
+            name: "Did not finish",
+          },
+        ]}
         updateQuery={updateQuery}
       />
       <FilterDropdown
         filter="status"
-        heading="status"
+        heading="Status"
         syntaxFilters={syntaxFilters}
         open={dropdownFilterOpen}
         setOpen={setDropdownFilterOpen}
@@ -221,33 +232,27 @@ const ExperimentSearchFilters: FC<
         updateQuery={updateQuery}
       />
       <FilterDropdown
-        filter="is"
-        heading="result"
+        filter="tag"
+        heading="Tag"
         syntaxFilters={syntaxFilters}
         open={dropdownFilterOpen}
         setOpen={setDropdownFilterOpen}
-        items={[
-          {
-            searchValue: "won",
-            id: "isWon",
-            name: "Won",
-          },
-          {
-            searchValue: "lost",
-            id: "isLost",
-            name: "Lost",
-          },
-          {
-            searchValue: "inconclusive",
-            id: "isInconclusive",
-            name: "Inconclusive",
-          },
-          {
-            searchValue: "dnf",
-            id: "isDNF",
-            name: "did not finish",
-          },
-        ]}
+        items={availableTags.map((t) => {
+          return {
+            name: <Tag tag={t} key={t} skipMargin={true} />,
+            id: t,
+            searchValue: t,
+          };
+        })}
+        updateQuery={updateQuery}
+      />
+      <FilterDropdown
+        filter="type"
+        heading="Type"
+        syntaxFilters={syntaxFilters}
+        open={dropdownFilterOpen}
+        setOpen={setDropdownFilterOpen}
+        items={allExperimentTypes}
         updateQuery={updateQuery}
       />
       {/*<DropdownMenu*/}

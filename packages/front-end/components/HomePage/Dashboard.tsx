@@ -1,5 +1,4 @@
 import React from "react";
-import Link from "next/link";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { AppFeatures } from "@/types/app-features";
@@ -9,6 +8,7 @@ import ExperimentList from "@/components/Experiment/ExperimentList";
 import ExperimentGraph from "@/components/Experiment/ExperimentGraph";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Frame from "@/components/Radix/Frame";
+import Link from "@/components/Radix/Link";
 import styles from "./Dashboard.module.scss";
 import IdeasFeed from "./IdeasFeed";
 import NorthStar from "./NorthStar";
@@ -86,7 +86,7 @@ export default function Dashboard({ experiments }: Props) {
           </div>
           <div className="col-md-4 col-xl-6">
             <Frame className="overflow-auto fixed-height" height="100%">
-              <h4>
+              <h4 style={{ marginBottom: "1.4rem" }}>
                 Running Experiments
                 <Link href={`/experiments`} className="float-right h6">
                   See all
