@@ -25,8 +25,6 @@ export type Resource = z.infer<typeof installationResourceValidator>;
 const vercelNativeIntegrationValidator = z
   .object({
     id: z.string(),
-    // All installation need at least one org.
-    // Each additional resources map to a different org.
     organization: z.string(),
     dateCreated: z.date(),
     dateUpdated: z.date(),
