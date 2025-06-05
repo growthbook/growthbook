@@ -1,8 +1,13 @@
 import { z } from "zod";
 
+const dashboardExperimentSnapshotLookup = z
+  .string()
+  .refine((s) => /^\w+:\w*:(standard|exploratory|report)?$/.test(s));
+
 const baseBlockInterface = z
   .object({
     type: z.string(),
+    experimentSnapshotLookup: dashboardExperimentSnapshotLookup.optional(),
   })
   .strict();
 
@@ -30,6 +35,7 @@ const variationImageBlockInterface = baseBlockInterface
 const metricBlockInterface = baseBlockInterface
   .extend({
     type: z.literal("metric"),
+    experimentSnapshotLookup: dashboardExperimentSnapshotLookup,
     metricId: z.string(),
     variationIds: z.array(z.string()),
     baselineRow: z.number(),
@@ -67,4 +73,7 @@ export const dashboardBlockInterface = z.discriminatedUnion("type", [
   timeSeriesBlockInterface,
 ]);
 
+export type DashboardExperimentSnapshotLookup = z.infer<
+  typeof dashboardExperimentSnapshotLookup
+>;
 export type DashboardBlockInterface = z.infer<typeof dashboardBlockInterface>;
