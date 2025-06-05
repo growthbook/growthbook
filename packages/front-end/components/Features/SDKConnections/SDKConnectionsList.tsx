@@ -326,7 +326,7 @@ export default function SDKConnectionsList() {
                   )}
                   <td>{connection.environment}</td>
                   <td>
-                    {webhooks.length ? (
+                    {webhooks?.length ? (
                       <div className="nowrap">
                         {webhooks.length} webhook{webhooks.length !== 1 && "s"}
                         {webhooksWithErrors.length ? (
