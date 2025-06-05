@@ -1,5 +1,4 @@
 import { useRouter } from "next/router";
-import { isProjectListValidForProject } from "shared/util";
 import {
   columnRefValidator,
   metricTypeValidator,
@@ -17,6 +16,7 @@ import { useUser } from "@/services/UserContext";
 import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import Link from "@/components/Radix/Link";
+import { useProjectDefinitions } from "@/hooks/useProjectDefinitions";
 
 const metricToCreateValidator = z.object({
   metricType: metricTypeValidator,
@@ -30,16 +30,9 @@ const metricToCreateValidator = z.object({
 });
 
 export default function CreateMetricFromTemplate() {
-  const { datasources, project, factTables, factMetrics } = useDefinitions();
+  const { project, factMetrics } = useDefinitions();
+  const { hasDatasource, hasFactTables } = useProjectDefinitions(project);
   const router = useRouter();
-
-  const hasDatasource = datasources.some((d) =>
-    isProjectListValidForProject(d.projects, project)
-  );
-
-  const hasFactTables = factTables.some((f) =>
-    isProjectListValidForProject(f.projects, project)
-  );
 
   const { hasCommercialFeature } = useUser();
 

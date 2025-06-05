@@ -1,9 +1,9 @@
 import { FC } from "react";
-import { isProjectListValidForProject } from "shared/util";
 import { isBinomialMetric, isMetricJoinable } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField, { SelectFieldProps } from "@/components/Forms/SelectField";
 import MetricName from "@/components/Metrics/MetricName";
+import { useProjectDefinitions } from "@/hooks/useProjectDefinitions";
 
 type MetricOption = {
   id: string;
@@ -39,13 +39,8 @@ const MetricSelector: FC<
   onPaste,
   ...selectProps
 }) => {
-  const {
-    metrics,
-    factMetrics,
-    factTables,
-    getDatasourceById,
-  } = useDefinitions();
-
+  const { factMetrics, factTables, getDatasourceById } = useDefinitions();
+  const { projectMetrics: metrics } = useProjectDefinitions(project, projects);
   const options: MetricOption[] = [
     ...metrics.map((m) => ({
       id: m.id,
@@ -96,16 +91,7 @@ const MetricSelector: FC<
       userIdType && m.userIdTypes.length
         ? isMetricJoinable(m.userIdTypes, userIdType, datasourceSettings)
         : true
-    )
-    .filter((m) => {
-      if (projects && !project) {
-        return (
-          !projects.length ||
-          projects.some((p) => isProjectListValidForProject(m.projects, p))
-        );
-      }
-      return isProjectListValidForProject(m.projects, project);
-    });
+    );
 
   return (
     <SelectField

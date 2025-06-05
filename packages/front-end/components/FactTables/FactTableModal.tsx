@@ -5,7 +5,6 @@ import {
 } from "back-end/types/fact-table";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/router";
-import { isProjectListValidForProject } from "shared/util";
 import { useEffect, useState } from "react";
 import { FaAngleDown, FaAngleRight, FaExternalLinkAlt } from "react-icons/fa";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -21,6 +20,7 @@ import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { usesEventName } from "@/components/Metrics/MetricForm";
 import EditFactTableSQLModal from "@/components/FactTables/EditFactTableSQLModal";
+import { useProjectDefinitions } from "@/hooks/useProjectDefinitions";
 
 export interface Props {
   existing?: FactTableInterface;
@@ -34,6 +34,7 @@ export default function FactTableModal({ existing, close }: Props) {
     getDatasourceById,
     mutateDefinitions,
   } = useDefinitions();
+  const { projectDataSources } = useProjectDefinitions(project);
   const settings = useOrgSettings();
   const router = useRouter();
 
@@ -48,9 +49,9 @@ export default function FactTableModal({ existing, close }: Props) {
 
   const { apiCall } = useAuth();
 
-  const validDatasources = datasources
-    .filter((d) => isProjectListValidForProject(d.projects, project))
-    .filter((d) => d.properties?.queryLanguage === "sql");
+  const validDatasources = projectDataSources.filter(
+    (d) => d.properties?.queryLanguage === "sql"
+  );
 
   const form = useForm<CreateFactTableProps>({
     defaultValues: {

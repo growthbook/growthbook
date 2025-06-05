@@ -1,12 +1,12 @@
 import { FC, useEffect, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { isProjectListValidForProject } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Modal from "@/components/Modal";
 import SelectField from "@/components/Forms/SelectField";
 import Callout from "@/components/Radix/Callout";
+import { useProjectDefinitions } from "@/hooks/useProjectDefinitions";
 import ImportExperimentList from "./ImportExperimentList";
 import NewExperimentForm from "./NewExperimentForm";
 
@@ -24,7 +24,8 @@ const ImportExperimentModal: FC<{
   fromFeature = false,
 }) => {
   const settings = useOrgSettings();
-  const { datasources, project } = useDefinitions();
+  const { project } = useDefinitions();
+  const { projectDataSources: datasources } = useProjectDefinitions(project);
   const [
     selected,
     setSelected,
@@ -34,9 +35,9 @@ const ImportExperimentModal: FC<{
   const [error, setError] = useState<string | null>(null);
   const [importModal, setImportModal] = useState<boolean>(importMode);
   const [datasourceId, setDatasourceId] = useState(() => {
-    const validDatasources = datasources
-      .filter((d) => d.properties?.pastExperiments)
-      .filter((d) => isProjectListValidForProject(d.projects, project));
+    const validDatasources = datasources.filter(
+      (d) => d.properties?.pastExperiments
+    );
 
     if (!validDatasources?.length) return null;
 
