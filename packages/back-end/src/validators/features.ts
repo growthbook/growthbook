@@ -206,18 +206,12 @@ export type RevisionLog = z.infer<typeof revisionLog>;
 const revisionRulesSchema = z.record(z.string(), z.array(featureRule));
 export type RevisionRules = z.infer<typeof revisionRulesSchema>;
 
-const featureRevisionInterface = z
+const minimalFeatureRevisionInterface = z
   .object({
-    featureId: z.string(),
-    organization: z.string(),
-    baseVersion: z.number(),
     version: z.number(),
-    dateCreated: z.date(),
-    dateUpdated: z.date(),
     datePublished: z.union([z.null(), z.date()]),
-    publishedBy: z.union([z.null(), eventUser]),
+    dateUpdated: z.date(),
     createdBy: eventUser,
-    comment: z.string(),
     status: z.enum([
       "draft",
       "published",
@@ -226,6 +220,21 @@ const featureRevisionInterface = z
       "changes-requested",
       "pending-review",
     ]),
+  })
+  .strict();
+
+export type MinimalFeatureRevisionInterface = z.infer<
+  typeof minimalFeatureRevisionInterface
+>;
+
+const featureRevisionInterface = minimalFeatureRevisionInterface
+  .extend({
+    featureId: z.string(),
+    organization: z.string(),
+    baseVersion: z.number(),
+    dateCreated: z.date(),
+    publishedBy: z.union([z.null(), eventUser]),
+    comment: z.string(),
     defaultValue: z.string(),
     rules: revisionRulesSchema,
     log: z.array(revisionLog).optional(),

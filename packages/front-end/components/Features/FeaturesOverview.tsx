@@ -28,6 +28,7 @@ import { FeatureUsageLookback } from "back-end/src/types/Integration";
 import { Box, Flex, Heading, Switch, Text } from "@radix-ui/themes";
 import { RxListBullet } from "react-icons/rx";
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
+import { MinimalFeatureRevisionInterface } from "back-end/src/validators/features";
 import Button from "@/components/Radix/Button";
 import { GBAddCircle, GBEdit } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -86,6 +87,7 @@ export default function FeaturesOverview({
   baseFeature,
   feature,
   revision,
+  revisionList,
   revisions,
   experiments,
   mutate,
@@ -101,6 +103,7 @@ export default function FeaturesOverview({
   baseFeature: FeatureInterface;
   feature: FeatureInterface;
   revision: FeatureRevisionInterface | null;
+  revisionList: MinimalFeatureRevisionInterface[];
   revisions: FeatureRevisionInterface[];
   experiments: ExperimentInterfaceStringDates[] | undefined;
   safeRollouts: SafeRolloutInterface[] | undefined;
@@ -954,7 +957,7 @@ export default function FeaturesOverview({
                       feature={feature}
                       version={currentVersion}
                       setVersion={setVersion}
-                      revisions={revisions || []}
+                      revisions={revisionList || []}
                     />
                   </Box>
                   <Box mx="6">

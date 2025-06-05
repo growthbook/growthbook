@@ -1,5 +1,5 @@
 import { FeatureInterface } from "back-end/types/feature";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { MinimalFeatureRevisionInterface } from "back-end/types/feature-revision";
 import { datetime } from "shared/dates";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import SelectField from "@/components/Forms/SelectField";
@@ -8,7 +8,7 @@ import Badge from "@/components/Radix/Badge";
 
 export interface Props {
   feature: FeatureInterface;
-  revisions: FeatureRevisionInterface[];
+  revisions: MinimalFeatureRevisionInterface[];
   version: number;
   setVersion: (version: number) => void;
 }
