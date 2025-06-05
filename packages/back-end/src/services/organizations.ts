@@ -324,6 +324,7 @@ export async function addMemberToOrg({
   projectRoles,
   externalId,
   managedByIdp,
+  teams = [],
 }: {
   organization: OrganizationInterface;
   userId: string;
@@ -333,6 +334,7 @@ export async function addMemberToOrg({
   projectRoles?: ProjectMemberRole[];
   externalId?: string;
   managedByIdp?: boolean;
+  teams?: string[];
 }) {
   // If member is already in the org, skip
   if (organization.members.find((m) => m.id === userId)) {
@@ -361,6 +363,7 @@ export async function addMemberToOrg({
       dateCreated: new Date(),
       externalId,
       managedByIdp,
+      teams,
     },
   ];
 
