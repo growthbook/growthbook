@@ -1,7 +1,7 @@
 import React, { useCallback, useState, useEffect } from "react";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { getValidDate } from "shared/dates";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, Heading } from "@radix-ui/themes";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -15,12 +15,13 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/Radix/Tabs";
-import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
 import CompletedExperimentList from "@/components/Experiment/CompletedExperimentList";
 import ExperimentTimeline from "@/enterprise/components/Insights/ExperimentTimeline";
 import ExperimentSearchFilters from "@/components/Search/ExperimentSearchFilters";
 import DatePicker from "@/components/DatePicker";
+import EmptyState from "@/components/EmptyState";
+import LinkButton from "@/components/Radix/LinkButton";
 
 const LearningsPage = (): React.ReactElement => {
   const {
@@ -55,6 +56,10 @@ const LearningsPage = (): React.ReactElement => {
     project,
     false,
     "standard"
+  );
+  const allStoppedExperiments = React.useMemo(
+    () => allExperiments.filter((e) => e.status === "stopped"),
+    [allExperiments]
   );
 
   const { getUserDisplay } = useUser();
@@ -203,6 +208,74 @@ const LearningsPage = (): React.ReactElement => {
     filterResults,
   });
 
+  const stoppedExperiments = React.useMemo(
+    () => items.filter((e) => e.status === "stopped"),
+    [items]
+  );
+
+  const SearchAndFilters = () => {
+    return (
+      <>
+        <Flex align="center" gap="2" className="mb-3" justify="between">
+          <Box flexBasis="60%" flexShrink="1" flexGrow="0">
+            <Field
+              placeholder="Search..."
+              type="search"
+              {...searchInputProps}
+            />
+          </Box>
+          <Box>
+            <Flex
+              align="center"
+              gap="4"
+              justify="end"
+              flexBasis="100%"
+              style={{
+                fontSize: "0.8rem",
+              }}
+            >
+              <Flex align="center">
+                <label className="mb-0 mr-2">From</label>
+                <DatePicker
+                  date={startDate}
+                  setDate={(sd) => {
+                    if (sd) {
+                      setStartDate(sd);
+                    }
+                  }}
+                  scheduleEndDate={endDate}
+                  precision="date"
+                  containerClassName=""
+                />
+              </Flex>
+              <Flex align="center">
+                <label className="mb-0 mr-2">To</label>
+                <DatePicker
+                  date={endDate}
+                  setDate={(ed) => {
+                    if (ed) setEndDate(ed);
+                  }}
+                  scheduleStartDate={startDate}
+                  precision="date"
+                  containerClassName=""
+                />
+              </Flex>
+            </Flex>
+          </Box>
+        </Flex>
+        <Box p="2">
+          <ExperimentSearchFilters
+            experiments={experiments}
+            syntaxFilters={syntaxFilters}
+            searchInputProps={searchInputProps}
+            setSearchValue={setSearchValue}
+            allowDrafts={false}
+          />
+        </Box>
+      </>
+    );
+  };
+
   if (error) {
     return (
       <div className="alert alert-danger">
@@ -210,6 +283,7 @@ const LearningsPage = (): React.ReactElement => {
       </div>
     );
   }
+
   if (loading || !ready) {
     return <LoadingOverlay />;
   }
@@ -218,89 +292,43 @@ const LearningsPage = (): React.ReactElement => {
     <>
       <div className="contents experiments container-fluid pagecontents">
         <div className="my-3">
-          <div className="filters md-form row align-items-center">
-            <div className="col-auto">
-              <h1>Experiment Learnings</h1>
-            </div>
-            <div style={{ flex: 1 }} />
-          </div>
-          <Box>
-            <Flex align="center" gap="2" className="mb-3" justify="between">
-              <Box flexBasis="40%" flexShrink="1" flexGrow="0">
-                <Field
-                  placeholder="Search..."
-                  type="search"
-                  {...searchInputProps}
-                />
-              </Box>
-              <Box>
-                <ExperimentSearchFilters
-                  experiments={experiments}
-                  syntaxFilters={syntaxFilters}
-                  searchInputProps={searchInputProps}
-                  setSearchValue={setSearchValue}
-                  allowDrafts={false}
-                />
-              </Box>
-            </Flex>
-          </Box>
-          <Tabs defaultValue="experiments" persistInURL>
+          <Heading size="7" style={{ fontWeight: 500 }}>
+            Experiment Learnings
+          </Heading>
+
+          <Tabs mt="3" defaultValue="experiments" persistInURL>
             <Box mb="5">
               <TabsList style={{ paddingTop: "5px" }}>
                 <TabsTrigger value="experiments">
                   Completed Experiments
                 </TabsTrigger>
-                <TabsTrigger value="timeline">
-                  Experiment Timeline{" "}
-                  <PaidFeatureBadge commercialFeature="templates" mx="2" />
-                </TabsTrigger>
-
-                <Flex
-                  align="center"
-                  gap="4"
-                  justify="end"
-                  flexBasis="100%"
-                  style={{
-                    fontSize: "0.8rem",
-                    position: "relative",
-                    top: "-4px",
-                  }}
-                >
-                  <Flex align="center">
-                    <label className="mb-0 mr-2">From</label>
-                    <DatePicker
-                      date={startDate}
-                      setDate={(sd) => {
-                        if (sd) {
-                          setStartDate(sd);
-                        }
-                      }}
-                      scheduleEndDate={endDate}
-                      precision="date"
-                      containerClassName=""
-                    />
-                  </Flex>
-                  <Flex align="center">
-                    <label className="mb-0 mr-2">To</label>
-                    <DatePicker
-                      date={endDate}
-                      setDate={(ed) => {
-                        if (ed) setEndDate(ed);
-                      }}
-                      scheduleStartDate={startDate}
-                      precision="date"
-                      containerClassName=""
-                    />
-                  </Flex>
-                </Flex>
+                <TabsTrigger value="timeline">Experiment Timeline</TabsTrigger>
               </TabsList>
             </Box>
 
             <TabsContent value="experiments">
-              <CompletedExperimentList experiments={items} />
+              {allStoppedExperiments.length === 0 ? (
+                <EmptyState
+                  title="Discover patterns in experiment outcomes"
+                  description="Review past experiments to learn what's working and where to experiment next."
+                  rightButton={null}
+                  leftButton={
+                    <LinkButton href="/experiments">
+                      Create experiment
+                    </LinkButton>
+                  }
+                />
+              ) : (
+                <CompletedExperimentList
+                  searchAndFilters={<SearchAndFilters />}
+                  experiments={stoppedExperiments}
+                />
+              )}
             </TabsContent>
+
             <TabsContent value="timeline">
               <ExperimentTimeline
+                searchAndFilters={<SearchAndFilters />}
                 experiments={items}
                 startDate={startDate}
                 endDate={endDate}

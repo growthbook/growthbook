@@ -9,7 +9,6 @@ import { date } from "shared/dates";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import EmptyState from "@/components/EmptyState";
-import LinkButton from "@/components/Radix/LinkButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import AuthorizedImage from "@/components/AuthorizedImage";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
@@ -24,15 +23,12 @@ const imageCache = {};
 
 const CompletedExperimentList = ({
   experiments,
+  searchAndFilters,
 }: {
   experiments: ExperimentInterfaceStringDates[];
+  searchAndFilters: React.ReactNode;
 }) => {
   const [currentPage, setCurrentPage] = useState(1);
-  const stoppedExperiments = React.useMemo(
-    () => experiments.filter((e) => e.status === "stopped"),
-    [experiments]
-  );
-  const hasExperiments = stoppedExperiments.length > 0;
 
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
@@ -43,340 +39,318 @@ const CompletedExperimentList = ({
   return (
     <>
       <CustomMarkdown page={"learnings"} />
-      {!hasExperiments ? (
-        <EmptyState
-          title="Discover patterns in experiment outcomes"
-          description="Review past experiments to learn what's working and where to experiment next."
-          rightButton={null}
-          leftButton={
-            <LinkButton href="/experiments">Create experiment</LinkButton>
-          }
-        />
-      ) : (
-        hasExperiments && (
-          <>
-            <Box>
-              {stoppedExperiments.slice(start, end).map((e) => {
-                const result = e.results;
+      <Box>
+        {searchAndFilters && <Box mb="5">{searchAndFilters}</Box>}
+        {experiments.length === 0 ? (
+          <EmptyState
+            title="No experiments found"
+            description="No stopped experiments match your search criteria. Try adjusting your filters."
+            rightButton={null}
+            leftButton={null}
+          />
+        ) : (
+          experiments.slice(start, end).map((e) => {
+            const result = e.results;
 
-                const winningVariation = (result === "lost"
-                  ? e.variations[0]
-                  : result === "won"
-                  ? e.variations[e.winner || 1]
-                  : { name: "" }) || { name: "" };
+            const winningVariation = (result === "lost"
+              ? e.variations[0]
+              : result === "won"
+              ? e.variations[e.winner || 1]
+              : { name: "" }) || { name: "" };
 
-                const winningVariationName = winningVariation?.name || "";
+            const winningVariationName = winningVariation?.name || "";
 
-                const releasedVariation =
-                  e.variations.find((v) => v.id === e.releasedVariationId)
-                    ?.name || "";
+            const releasedVariation =
+              e.variations.find((v) => v.id === e.releasedVariationId)?.name ||
+              "";
 
-                const expResult = (
+            const expResult = (
+              <>
+                {(e.results === "won" || e.results === "lost") &&
+                winningVariationName !== releasedVariation ? (
                   <>
-                    {(e.results === "won" || e.results === "lost") &&
-                    winningVariationName !== releasedVariation ? (
-                      <>
-                        {" "}
-                        but <em>{winningVariationName}</em> was released
-                      </>
-                    ) : null}
-                    {e.results === "won" &&
-                    winningVariationName &&
-                    winningVariationName === releasedVariation ? (
-                      <>
-                        <em>{winningVariationName}</em> was released to 100%
-                      </>
-                    ) : (
-                      <>{e.results === "lost" ? "reverted to control" : ""}</>
-                    )}
+                    {" "}
+                    but <em>{winningVariationName}</em> was released
                   </>
-                );
-                const expTypes: JSX.Element[] = [];
-                if (e.hasVisualChangesets) {
-                  expTypes.push(
-                    <Tooltip
-                      key={e.id + "-visual"}
-                      className="d-flex align-items-center ml-2"
-                      body="Visual experiment"
-                    >
-                      <RxDesktop className="text-blue" />
-                    </Tooltip>
-                  );
-                }
-                if ((e.linkedFeatures || []).length > 0) {
-                  expTypes.push(
-                    <Tooltip
-                      key={e.id + "-feature-flag"}
-                      className="d-flex align-items-center ml-2"
-                      body="Linked Feature Flag"
-                    >
-                      <BsFlag className="text-blue" />
-                    </Tooltip>
-                  );
-                }
-                if (e.hasURLRedirects) {
-                  expTypes.push(
-                    <Tooltip
-                      key={e.id + "-url-redirect"}
-                      className="d-flex align-items-center ml-2"
-                      body="URL Redirect experiment"
-                    >
-                      <PiShuffle className="text-blue" />
-                    </Tooltip>
-                  );
-                }
+                ) : null}
+                {e.results === "won" &&
+                winningVariationName &&
+                winningVariationName === releasedVariation ? (
+                  <>
+                    <em>{winningVariationName}</em> was released to 100%
+                  </>
+                ) : (
+                  <>{e.results === "lost" ? "reverted to control" : ""}</>
+                )}
+              </>
+            );
+            const expTypes: JSX.Element[] = [];
+            if (e.hasVisualChangesets) {
+              expTypes.push(
+                <Tooltip
+                  key={e.id + "-visual"}
+                  className="d-flex align-items-center ml-2"
+                  body="Visual experiment"
+                >
+                  <RxDesktop className="text-blue" />
+                </Tooltip>
+              );
+            }
+            if ((e.linkedFeatures || []).length > 0) {
+              expTypes.push(
+                <Tooltip
+                  key={e.id + "-feature-flag"}
+                  className="d-flex align-items-center ml-2"
+                  body="Linked Feature Flag"
+                >
+                  <BsFlag className="text-blue" />
+                </Tooltip>
+              );
+            }
+            if (e.hasURLRedirects) {
+              expTypes.push(
+                <Tooltip
+                  key={e.id + "-url-redirect"}
+                  className="d-flex align-items-center ml-2"
+                  body="URL Redirect experiment"
+                >
+                  <PiShuffle className="text-blue" />
+                </Tooltip>
+              );
+            }
 
-                // use the image if its there, if not, use a placeholder.
-                const maxImageHeight = 200;
-                const maxImageWidth = 300;
-                const img =
-                  "screenshots" in winningVariation &&
-                  winningVariation?.screenshots?.[0] ? (
-                    <AuthorizedImage
-                      imageCache={imageCache}
-                      className="experiment-image"
-                      src={winningVariation?.screenshots?.[0]?.path}
-                      key={e.id + winningVariation?.screenshots?.[0]?.path}
-                      style={{
-                        width: maxImageWidth + "px",
-                        height: maxImageHeight + "px",
-                        objectFit: "contain",
-                        border: "1px solid var(--slate-a6)",
-                      }}
-                      onErrorMsg={(msg) => {
-                        return (
-                          <Flex
-                            title={msg}
-                            align="center"
-                            justify="center"
-                            className="appbox mb-0"
-                            width="100%"
-                            style={{
-                              backgroundColor: "var(--slate-a3)",
-                              height: maxImageHeight + "px",
-                              width: "100%",
-                              color: "var(--slate-a9)",
-                            }}
-                          >
-                            <Text size="8">
-                              <PiCameraLight />
-                            </Text>
-                          </Flex>
-                        );
-                      }}
-                    />
-                  ) : (
-                    <Flex
-                      title={"no image uploaded"}
-                      align="center"
-                      justify="center"
-                      className="appbox mb-0"
-                      width="100%"
-                      style={{
-                        backgroundColor: "var(--slate-a3)",
-                        width: maxImageWidth + "px",
-                        height: maxImageHeight + "px",
-                        color: "var(--slate-a9)",
-                      }}
-                    >
-                      <Text size="8">
-                        <PiCameraLight />
-                      </Text>
-                    </Flex>
-                  );
-
-                const goalMetrics = e.goalMetrics.map((m) => {
-                  const metric = isFactMetricId(m)
-                    ? getFactMetricById(m)
-                    : getMetricById(m);
-                  if (metric) {
+            // use the image if its there, if not, use a placeholder.
+            const maxImageHeight = 200;
+            const maxImageWidth = 300;
+            const img =
+              "screenshots" in winningVariation &&
+              winningVariation?.screenshots?.[0] ? (
+                <AuthorizedImage
+                  imageCache={imageCache}
+                  className="experiment-image"
+                  src={winningVariation?.screenshots?.[0]?.path}
+                  key={e.id + winningVariation?.screenshots?.[0]?.path}
+                  style={{
+                    width: maxImageWidth + "px",
+                    height: maxImageHeight + "px",
+                    objectFit: "contain",
+                    border: "1px solid var(--slate-a6)",
+                  }}
+                  onErrorMsg={(msg) => {
                     return (
-                      <Link
-                        key={e.id + m}
-                        href={`/metrics/${m}`}
-                        className="text-decoration-none mr-3"
-                      >
-                        {metric.name}
-                      </Link>
-                    );
-                  }
-                  return null;
-                });
-                const moreGoalMetrics = e.goalMetrics.length > 2;
-
-                return (
-                  <Box
-                    key={e.trackingKey}
-                    className="appbox"
-                    mb="4"
-                    p="3"
-                    px="4"
-                  >
-                    <Heading as="h2" size="3" mb="4">
-                      <Link
-                        href={`/experiment/${e.id}`}
-                        className="w-100 no-link-color"
-                      >
-                        {e.name}
-                      </Link>
-                    </Heading>
-                    <Flex align="start" justify="between" gap="4">
                       <Flex
-                        align="start"
-                        justify="start"
-                        gap="5"
-                        direction="column"
+                        title={msg}
+                        align="center"
+                        justify="center"
+                        className="appbox mb-0"
+                        width="100%"
+                        style={{
+                          backgroundColor: "var(--slate-a3)",
+                          height: maxImageHeight + "px",
+                          width: "100%",
+                          color: "var(--slate-a9)",
+                        }}
                       >
-                        <Flex
-                          align="start"
-                          justify="start"
-                          gap="6"
-                          flexGrow="1"
-                        >
-                          <Box>
-                            <Box mb="1">
-                              <Text
-                                weight="medium"
-                                size="1"
-                                color="gray"
-                                style={{ textTransform: "uppercase" }}
-                              >
-                                Duration
-                              </Text>
-                            </Box>
-                            <Box>
-                              {(e.phases?.[0]?.dateStarted
-                                ? date(e.phases?.[0]?.dateStarted)
-                                : "") +
-                                " - " +
-                                (experimentDate(e)
-                                  ? date(experimentDate(e))
-                                  : "")}
-                            </Box>
-                          </Box>
-                          <Box>
-                            <Box mb="1">
-                              <Text
-                                weight="medium"
-                                size="1"
-                                color="gray"
-                                style={{ textTransform: "uppercase" }}
-                              >
-                                Owner
-                              </Text>
-                            </Box>
-                            <Box>{getUserDisplay(e.owner, false) || ""}</Box>
-                          </Box>
-                          <Box>
-                            <Box mb="1">
-                              <Text
-                                weight="medium"
-                                size="1"
-                                color="gray"
-                                style={{ textTransform: "uppercase" }}
-                              >
-                                Type
-                              </Text>
-                            </Box>
-                            <Box>
-                              <Flex>{expTypes}</Flex>
-                            </Box>
-                          </Box>
-                          <Box>
-                            <Box mb="1">
-                              <Text
-                                weight="medium"
-                                size="1"
-                                color="gray"
-                                style={{ textTransform: "uppercase" }}
-                              >
-                                Goal Metrics
-                              </Text>
-                            </Box>
-                            <Box>
-                              <Flex direction="column">
-                                {goalMetrics.slice(0, 2).map((g, ind) => (
-                                  <Box key={e.id + "-metric-" + ind}>{g}</Box>
-                                ))}
-                                {moreGoalMetrics
-                                  ? `and ${goalMetrics.length - 2} more`
-                                  : ""}
-                              </Flex>
-                            </Box>
-                          </Box>
-                          <Box>
-                            <Box mb="1">
-                              <Text
-                                weight="medium"
-                                size="1"
-                                color="gray"
-                                style={{ textTransform: "uppercase" }}
-                              >
-                                Result
-                              </Text>
-                            </Box>
-                            <Flex direction="column">
-                              <Box mb="2">
-                                <ExperimentStatusIndicator experimentData={e} />
-                              </Box>
-                              <Box>{expResult}</Box>
-                            </Flex>
-                          </Box>
-                        </Flex>
-                        <Flex align="start" direction="column">
-                          <Box>
-                            <Text
-                              weight="medium"
-                              color="gray"
-                              size="1"
-                              style={{ textTransform: "uppercase" }}
-                            >
-                              Summary
-                            </Text>
-                          </Box>
-                          <Box>
-                            <Markdown>{e.analysis}</Markdown>
-                          </Box>
-                        </Flex>
+                        <Text size="8">
+                          <PiCameraLight />
+                        </Text>
                       </Flex>
+                    );
+                  }}
+                />
+              ) : (
+                <Flex
+                  title={"no image uploaded"}
+                  align="center"
+                  justify="center"
+                  className="appbox mb-0"
+                  width="100%"
+                  style={{
+                    backgroundColor: "var(--slate-a3)",
+                    width: maxImageWidth + "px",
+                    height: maxImageHeight + "px",
+                    color: "var(--slate-a9)",
+                  }}
+                >
+                  <Text size="8">
+                    <PiCameraLight />
+                  </Text>
+                </Flex>
+              );
+
+            const goalMetrics = e.goalMetrics.map((m) => {
+              const metric = isFactMetricId(m)
+                ? getFactMetricById(m)
+                : getMetricById(m);
+              if (metric) {
+                return (
+                  <Link
+                    key={e.id + m}
+                    href={`/metrics/${m}`}
+                    className="text-decoration-none mr-3"
+                  >
+                    {metric.name}
+                  </Link>
+                );
+              }
+              return null;
+            });
+            const moreGoalMetrics = e.goalMetrics.length > 2;
+
+            return (
+              <Box key={e.trackingKey} className="appbox" mb="4" p="3" px="4">
+                <Heading as="h2" size="3" mb="4">
+                  <Link
+                    href={`/experiment/${e.id}`}
+                    className="w-100 no-link-color"
+                  >
+                    {e.name}
+                  </Link>
+                </Heading>
+                <Flex align="start" justify="between" gap="4">
+                  <Flex
+                    align="start"
+                    justify="start"
+                    gap="5"
+                    direction="column"
+                  >
+                    <Flex align="start" justify="start" gap="6" flexGrow="1">
                       <Box>
-                        {img ? (
-                          <Flex
-                            align="center"
-                            justify="center"
-                            direction="column"
+                        <Box mb="1">
+                          <Text
+                            weight="medium"
+                            size="1"
+                            color="gray"
+                            style={{ textTransform: "uppercase" }}
                           >
-                            <Box>
-                              <Link
-                                href={`/experiment/${e.id}`}
-                                className="w-100 no-link-color"
-                              >
-                                {img}
-                              </Link>
-                            </Box>
-                            <Box style={{ textAlign: "center" }}>
-                              {winningVariationName}
-                            </Box>
+                            Duration
+                          </Text>
+                        </Box>
+                        <Box>
+                          {(e.phases?.[0]?.dateStarted
+                            ? date(e.phases?.[0]?.dateStarted)
+                            : "") +
+                            " - " +
+                            (experimentDate(e) ? date(experimentDate(e)) : "")}
+                        </Box>
+                      </Box>
+                      <Box>
+                        <Box mb="1">
+                          <Text
+                            weight="medium"
+                            size="1"
+                            color="gray"
+                            style={{ textTransform: "uppercase" }}
+                          >
+                            Owner
+                          </Text>
+                        </Box>
+                        <Box>{getUserDisplay(e.owner, false) || ""}</Box>
+                      </Box>
+                      <Box>
+                        <Box mb="1">
+                          <Text
+                            weight="medium"
+                            size="1"
+                            color="gray"
+                            style={{ textTransform: "uppercase" }}
+                          >
+                            Type
+                          </Text>
+                        </Box>
+                        <Box>
+                          <Flex>{expTypes}</Flex>
+                        </Box>
+                      </Box>
+                      <Box>
+                        <Box mb="1">
+                          <Text
+                            weight="medium"
+                            size="1"
+                            color="gray"
+                            style={{ textTransform: "uppercase" }}
+                          >
+                            Goal Metrics
+                          </Text>
+                        </Box>
+                        <Box>
+                          <Flex direction="column">
+                            {goalMetrics.slice(0, 2).map((g, ind) => (
+                              <Box key={e.id + "-metric-" + ind}>{g}</Box>
+                            ))}
+                            {moreGoalMetrics
+                              ? `and ${goalMetrics.length - 2} more`
+                              : ""}
                           </Flex>
-                        ) : (
-                          <></>
-                        )}
+                        </Box>
+                      </Box>
+                      <Box>
+                        <Box mb="1">
+                          <Text
+                            weight="medium"
+                            size="1"
+                            color="gray"
+                            style={{ textTransform: "uppercase" }}
+                          >
+                            Result
+                          </Text>
+                        </Box>
+                        <Flex direction="column">
+                          <Box mb="2">
+                            <ExperimentStatusIndicator experimentData={e} />
+                          </Box>
+                          <Box>{expResult}</Box>
+                        </Flex>
                       </Box>
                     </Flex>
+                    <Flex align="start" direction="column">
+                      <Box>
+                        <Text
+                          weight="medium"
+                          color="gray"
+                          size="1"
+                          style={{ textTransform: "uppercase" }}
+                        >
+                          Summary
+                        </Text>
+                      </Box>
+                      <Box>
+                        <Markdown>{e.analysis}</Markdown>
+                      </Box>
+                    </Flex>
+                  </Flex>
+                  <Box>
+                    {img ? (
+                      <Flex align="center" justify="center" direction="column">
+                        <Box>
+                          <Link
+                            href={`/experiment/${e.id}`}
+                            className="w-100 no-link-color"
+                          >
+                            {img}
+                          </Link>
+                        </Box>
+                        <Box style={{ textAlign: "center" }}>
+                          {winningVariationName}
+                        </Box>
+                      </Flex>
+                    ) : (
+                      <></>
+                    )}
                   </Box>
-                );
-              })}
-            </Box>
-            {stoppedExperiments.length > NUM_PER_PAGE && (
-              <Pagination
-                numItemsTotal={stoppedExperiments.length}
-                currentPage={currentPage}
-                perPage={NUM_PER_PAGE}
-                onPageChange={setCurrentPage}
-              />
-            )}
-          </>
-        )
+                </Flex>
+              </Box>
+            );
+          })
+        )}
+      </Box>
+      {experiments.length > NUM_PER_PAGE && (
+        <Pagination
+          numItemsTotal={experiments.length}
+          currentPage={currentPage}
+          perPage={NUM_PER_PAGE}
+          onPageChange={setCurrentPage}
+        />
       )}
     </>
   );

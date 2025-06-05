@@ -20,9 +20,11 @@ const EmptyState: FC<{
           {description}
         </Text>
 
-        <Flex justify="center" gap="5" pt="4">
-          {leftButton} {rightButton}
-        </Flex>
+        {(leftButton || rightButton) && (
+          <Flex justify="center" gap="5" pt="4">
+            {leftButton} {rightButton}
+          </Flex>
+        )}
       </Flex>
     </Box>
   );
