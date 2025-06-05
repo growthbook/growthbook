@@ -521,6 +521,10 @@ app.post(
 );
 
 app.get("/experiments/snapshots", experimentsController.getSnapshots);
+app.get(
+  "/experiments/snapshots",
+  experimentsController.getSnapshotsWithDimensions
+);
 app.post(
   "/experiments/snapshots/scaled",
   experimentsController.postSnapshotsWithScaledImpactAnalysis
