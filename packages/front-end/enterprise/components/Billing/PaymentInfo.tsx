@@ -36,7 +36,9 @@ export default function PaymentInfo() {
   const canShowPaymentInfo =
     isCloud() &&
     !!organization.licenseKey &&
-    growthbook.getFeatureValue("ff_payment-info", false);
+    growthbook.getFeatureValue("ff_payment-info", false) &&
+    subscription &&
+    !subscription.isVercelIntegration;
 
   const fetchPaymentMethods = useCallback(async () => {
     setLoading(true);

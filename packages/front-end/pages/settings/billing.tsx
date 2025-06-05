@@ -15,7 +15,7 @@ const BillingPage: FC = () => {
 
   const permissionsUtil = usePermissionsUtil();
 
-  const { accountPlan, subscription, canSubscribe, organization } = useUser();
+  const { accountPlan, subscription, canSubscribe } = useUser();
 
   const { apiCall } = useAuth();
   const { refreshOrganization } = useUser();
@@ -69,19 +69,6 @@ const BillingPage: FC = () => {
       <div className="container pagecontents">
         <div className="alert alert-danger">
           You do not have access to view this page.
-        </div>
-      </div>
-    );
-  }
-
-  if (organization.isVercelIntegration) {
-    return (
-      <div className="container pagecontents">
-        <div className="alert alert-info">
-          This page is not available for customers whose plan is managed by
-          Vercel. Please go to your Vercel Integration Dashboard for any billing
-          information. If you&apos;d like to cancel your subscription, you can
-          do so by uninstalling the GrowthBook Integration in Vercel
         </div>
       </div>
     );
