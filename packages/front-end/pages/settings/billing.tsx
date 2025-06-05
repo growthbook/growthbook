@@ -78,10 +78,10 @@ const BillingPage: FC = () => {
     return (
       <div className="container pagecontents">
         <div className="alert alert-info">
-          This page is not available for customers whose plan is managed by
+          This page is not available for organizations whose plan is managed by
           Vercel. Please go to your Vercel Integration Dashboard for any billing
           information. If you&apos;d like to cancel your subscription, you can
-          do so by uninstalling the GrowthBook Integration in Vercel.
+          do so in the GrowthBook Integration Dashboard in Vercel.
         </div>
       </div>
     );

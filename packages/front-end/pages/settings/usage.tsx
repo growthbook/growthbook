@@ -21,7 +21,7 @@ export default function UsagePage() {
     return (
       <div className="container pagecontents">
         <div className="alert alert-info">
-          This page is not available for customers whose plan is managed by
+          This page is not available for organizations whose plan is managed by
           Vercel. Please go to your Vercel Integration Dashboard to view your
           usage and billing information.
         </div>
