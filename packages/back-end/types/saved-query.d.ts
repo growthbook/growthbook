@@ -9,7 +9,6 @@ export interface SavedQueryInterface {
   description?: string;
   sql: string;
   datasourceId: string;
-  tags?: string[];
   results?: TestQueryRow[];
   dateLastRan?: Date;
 }

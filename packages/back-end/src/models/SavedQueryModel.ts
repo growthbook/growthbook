@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { omit } from "lodash";
+import { TestQueryRow } from "back-end/src/types/Integration";
 import { SavedQueryInterface } from "back-end/types/saved-query";
 
 const savedQuerySchema = new mongoose.Schema({
@@ -26,7 +27,6 @@ const savedQuerySchema = new mongoose.Schema({
     required: true,
     index: true,
   },
-  tags: [String],
   results: [],
   dateCreated: Date,
   dateUpdated: Date,
@@ -47,20 +47,18 @@ const toInterface = (doc: SavedQueryDocument): SavedQueryInterface => {
   );
 };
 
-export async function createSavedQuery(
-  organization: string,
-  data: {
-    name: string;
-    description?: string;
-    sql: string;
-    datasourceId: string;
-    tags?: string[];
-  }
-): Promise<SavedQueryInterface> {
+export async function createSavedQuery(data: {
+  name: string;
+  organization: string;
+  description?: string;
+  sql: string;
+  datasourceId: string;
+  results?: TestQueryRow[];
+  dateLastRan?: Date;
+}): Promise<SavedQueryInterface> {
   const newSavedQuery = await SavedQueryModel.create({
     ...data,
     id: uniqid("sq_"),
-    organization,
     dateCreated: new Date(),
     dateUpdated: new Date(),
   });
@@ -86,7 +84,6 @@ export async function updateSavedQuery(
     description?: string;
     sql?: string;
     datasourceId?: string;
-    tags?: string[];
     results?: any[];
     dateLastRan?: Date;
   }
