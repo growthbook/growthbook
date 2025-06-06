@@ -26,10 +26,12 @@ export async function updateSafeRolloutTimeSeries({
   context,
   safeRollout,
   safeRolloutSnapshot,
+  notificationTriggered,
 }: {
   context: ReqContext;
   safeRollout: SafeRolloutInterface;
   safeRolloutSnapshot: SafeRolloutSnapshotInterface;
+  notificationTriggered: boolean;
 }) {
   if (
     // Dimensioned safe rollouts are not supported at the moment
@@ -106,6 +108,7 @@ export async function updateSafeRolloutTimeSeries({
       singleDataPoint: {
         date: safeRolloutSnapshot.dateCreated,
         variations: timeSeriesVariationsPerMetricId[metricId],
+        ...(notificationTriggered && { tags: ["triggered-alert"] }),
       },
     })
   );

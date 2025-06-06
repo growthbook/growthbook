@@ -22,6 +22,8 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { DocLink } from "@/components/DocLink";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ClickToReveal from "@/components/Settings/ClickToReveal";
+import Badge from "@/components/Radix/Badge";
+import { capitalizeFirstLetter } from "@/services/utils";
 
 const payloadFormatLabels: Record<string, string | ReactElement> = {
   standard: "Standard",
@@ -68,21 +70,48 @@ export default function SdkWebhooks({
     // only render table if there is data to show
     return data?.webhooks?.map((webhook) => (
       <tr key={webhook.name}>
-        <td style={{ minWidth: 150 }}>{webhook.name}</td>
+        <td style={{ minWidth: 150 }}>
+          {webhook.name}
+          {webhook.managedBy?.type ? (
+            <div>
+              <Badge
+                label={`Managed by ${capitalizeFirstLetter(
+                  webhook.managedBy.type
+                )}`}
+              />
+            </div>
+          ) : null}
+        </td>
         <td
           style={{
             wordBreak: "break-word",
             overflowWrap: "anywhere",
           }}
         >
-          <code className="text-main small">{webhook.endpoint}</code>
+          {webhook.managedBy?.type ? (
+            <em className="text-muted">hidden</em>
+          ) : (
+            <code className="text-main small">{webhook.endpoint}</code>
+          )}
         </td>
-        <td className="small">{webhook.httpMethod}</td>
-        <td className="small">
-          {payloadFormatLabels?.[webhook?.payloadFormat ?? "standard"]}
+        <td className="text-main">
+          {webhook.managedBy?.type ? (
+            <em className="text-muted">hidden</em>
+          ) : (
+            <span className="small">{webhook.httpMethod}</span>
+          )}
+        </td>
+        <td className="text-main">
+          {webhook.managedBy?.type ? (
+            <em className="text-muted">hidden</em>
+          ) : (
+            <span className="small">
+              {payloadFormatLabels?.[webhook?.payloadFormat ?? "standard"]}
+            </span>
+          )}
         </td>
         <td className="nowrap">
-          {webhook.signingKey ? (
+          {webhook.signingKey && !webhook.managedBy?.type ? (
             <ClickToReveal
               valueWhenHidden="wk_abc123def456ghi789"
               getValue={async () => webhook.signingKey}
@@ -136,35 +165,37 @@ export default function SdkWebhooks({
           </OldButton>
         </td>
         <td className="px-0">
-          <div className="col-auto mr-1">
-            <MoreMenu>
-              {canUpdateWebhook ? (
-                <button
-                  className="dropdown-item"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setEditWebhookData(webhook);
-                  }}
-                >
-                  Edit
-                </button>
-              ) : null}
-              {canDeleteWebhook ? (
-                <DeleteButton
-                  className="dropdown-item"
-                  displayName="SDK Connection"
-                  text="Delete"
-                  useIcon={false}
-                  onClick={async () => {
-                    await apiCall(`/sdk-webhooks/${webhook.id}`, {
-                      method: "DELETE",
-                    });
-                    mutate();
-                  }}
-                />
-              ) : null}
-            </MoreMenu>
-          </div>
+          {!webhook.managedBy?.type ? (
+            <div className="col-auto mr-1">
+              <MoreMenu>
+                {canUpdateWebhook ? (
+                  <button
+                    className="dropdown-item"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setEditWebhookData(webhook);
+                    }}
+                  >
+                    Edit
+                  </button>
+                ) : null}
+                {canDeleteWebhook ? (
+                  <DeleteButton
+                    className="dropdown-item"
+                    displayName="SDK Connection"
+                    text="Delete"
+                    useIcon={false}
+                    onClick={async () => {
+                      await apiCall(`/sdk-webhooks/${webhook.id}`, {
+                        method: "DELETE",
+                      });
+                      mutate();
+                    }}
+                  />
+                ) : null}
+              </MoreMenu>
+            </div>
+          ) : null}
         </td>
       </tr>
     ));
@@ -249,6 +280,7 @@ export default function SdkWebhooks({
           close={() => setCreateWebhookModalOpen(false)}
           onSave={mutate}
           sdkConnectionId={connection.id}
+          sdkConnectionKey={connection.key}
           language={connection.languages?.[0]}
         />
       )}

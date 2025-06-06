@@ -90,7 +90,7 @@ const navlinks: SidebarLinkProps[] = [
     name: "Insights",
     href: "/insights",
     Icon: GBLibrary,
-    path: /^(insights|library|metric-effect|correlations)/,
+    path: /^(insights|library|^learning*|timeline|metric-effect|correlations)/,
     subLinks: [
       {
         name: "Impact",
@@ -99,8 +99,13 @@ const navlinks: SidebarLinkProps[] = [
       },
       {
         name: "Learnings",
-        href: "/library",
-        path: /^(library$|learning|learnings)/,
+        href: "/learning",
+        path: /^(learning|learnings)/,
+      },
+      {
+        name: "Timeline",
+        href: "/timeline",
+        path: /^(timeline)/,
       },
       // {
       //   name: "Interaction Effects",
@@ -326,14 +331,6 @@ const otherPageTitles = [
     title: "Personal Access Tokens",
   },
   {
-    path: /^integrations\/vercel/,
-    title: "Vercel Integration",
-  },
-  {
-    path: /^integrations\/vercel\/configure/,
-    title: "Vercel Integration Configuration",
-  },
-  {
     path: /^getstarted/,
     title: "Get Started",
   },
@@ -365,9 +362,8 @@ const Layout = (): React.ReactElement => {
   const { accountPlan, license, subscription } = useUser();
   const growthbook = useGrowthBook<AppFeatures>();
 
-  // app wide a-a tests
-  growthbook?.isOn("gb-ax5-bandit");
-  growthbook?.isOn("gb-ax10-bandit");
+  // holdout aa-test, dogfooding
+  growthbook?.isOn("aa-test-holdout");
 
   const { breadcrumb } = usePageHead();
 

@@ -51,7 +51,7 @@ interface Props {
   differenceType?: DifferenceType;
 }
 
-interface MetricExperimentData {
+export interface MetricExperimentData {
   id: string;
   date: string;
   name: string;
