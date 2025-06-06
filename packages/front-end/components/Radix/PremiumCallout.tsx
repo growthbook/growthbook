@@ -4,7 +4,6 @@ import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { useState } from "react";
 import { PiArrowSquareOut, PiLightbulb, PiX } from "react-icons/pi";
 import { useUser } from "@/services/UserContext";
-import { DocLink, DocSection } from "@/components/DocLink";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
@@ -17,7 +16,7 @@ export type Props = {
   dismissable?: boolean;
   renderWhenDismissed?: (undismiss: () => void) => React.ReactElement;
   children: React.ReactNode;
-  docSection?: DocSection;
+  cta?: React.ReactElement;
 } & MarginProps;
 
 export default function PremiumCallout({
@@ -25,7 +24,7 @@ export default function PremiumCallout({
   id,
   dismissable = false,
   children,
-  docSection,
+  cta,
   renderWhenDismissed,
   ...containerProps
 }: Props) {
@@ -39,7 +38,7 @@ export default function PremiumCallout({
 
   const [upgradeModal, setUpgradeModal] = useState(false);
 
-  if (hasFeature && !docSection) return null;
+  if (hasFeature && !cta) return null;
   if (dismissable && dismissed)
     return renderWhenDismissed
       ? renderWhenDismissed(() => setDismissed(false))
@@ -64,11 +63,7 @@ export default function PremiumCallout({
   );
 
   const link =
-    hasFeature && docSection ? (
-      <DocLink docSection={docSection} useRadix={true}>
-        View docs <PiArrowSquareOut size={15} />
-      </DocLink>
-    ) : pro ? (
+    pro && !hasFeature ? (
       <Link
         href="#"
         onClick={(e) => {
@@ -78,7 +73,7 @@ export default function PremiumCallout({
       >
         Upgrade Now
       </Link>
-    ) : (
+    ) : enterprise && !hasFeature ? (
       <Link
         href="https://www.growthbook.io/demo"
         target="_blank"
@@ -86,6 +81,8 @@ export default function PremiumCallout({
       >
         Talk to Sales <PiArrowSquareOut size={15} />
       </Link>
+    ) : (
+      cta
     );
 
   return (
@@ -111,7 +108,7 @@ export default function PremiumCallout({
         <RadixCallout.Text size="2">
           <Flex align="start" gap="1" pr="3">
             <div>{children}</div>
-            <div style={{ flex: 1 }}>{link}</div>
+            {link ? <div style={{ flex: 1 }}>{link}</div> : null}
           </Flex>
         </RadixCallout.Text>
         {dismissable ? (

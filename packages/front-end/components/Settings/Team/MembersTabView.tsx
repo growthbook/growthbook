@@ -1,5 +1,6 @@
 import { FC, useEffect, useState } from "react";
 import { useRouter } from "next/router";
+import { PiArrowSquareOut } from "react-icons/pi";
 import InviteList from "@/components/Settings/Team/InviteList";
 import MemberList from "@/components/Settings/Team/MemberList";
 import { redirectWithTimeout, useAuth } from "@/services/auth";
@@ -18,6 +19,7 @@ import PleaseVerifyEmailModal from "@/components/Settings/UpgradeModal/PleaseVer
 import LicenseSuccessModal from "@/components/Settings/UpgradeModal/LicenseSuccessModal";
 import track from "@/services/track";
 import PremiumCallout from "@/components/Radix/PremiumCallout";
+import { DocLink } from "@/components/DocLink";
 
 export const MembersTabView: FC = () => {
   const {
@@ -146,7 +148,11 @@ export const MembersTabView: FC = () => {
         <PremiumCallout
           commercialFeature="teams"
           id="member-list-team-promo"
-          docSection="team"
+          cta={
+            <DocLink docSection="team" useRadix={true}>
+              View docs <PiArrowSquareOut size={15} />
+            </DocLink>
+          }
           dismissable={true}
           mb="5"
         >

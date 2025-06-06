@@ -219,7 +219,6 @@ const EditMetricsForm: FC<{
           commercialFeature="metric-groups"
           dismissable={true}
           id="metrics-list-metric-group-promo"
-          docSection="metricGroups"
           mb="4"
         >
           <strong>Metric Groups</strong> make it possible to reuse sets of
