@@ -196,7 +196,7 @@ export const getSDKConnectionsWebhooks = async (
   req: AuthRequest,
   res: Response<{
     status: 200;
-    webhooks: Record<string, WebhookInterface[]>;
+    connections: Record<string, WebhookInterface[]>;
   }>
 ) => {
   const context = getContextFromReq(req);
@@ -228,7 +228,7 @@ export const getSDKConnectionsWebhooks = async (
 
   res.status(200).json({
     status: 200,
-    webhooks: webhooksByConnection,
+    connections: webhooksByConnection,
   });
 };
 

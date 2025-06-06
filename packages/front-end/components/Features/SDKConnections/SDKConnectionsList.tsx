@@ -19,6 +19,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBAddCircle, GBHashLock, GBRemoteEvalIcon } from "@/components/Icons";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useSDKConnections from "@/hooks/useSDKConnections";
+import useSDKConnectionsWebhooks from "@/hooks/useSDKConnectionsWebhooks";
 import StatusCircle from "@/components/Helpers/StatusCircle";
 import ProjectBadges from "@/components/ProjectBadges";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -44,7 +45,11 @@ function popularLanguagesFirst(a: SDKLanguage, b: SDKLanguage) {
 }
 
 export default function SDKConnectionsList() {
-  const { data, mutate, error } = useSDKConnections({ includeWebhooks: true });
+  const { data, mutate, error } = useSDKConnections();
+  const {
+    data: webhooksData,
+    mutate: mutateWebhooks,
+  } = useSDKConnectionsWebhooks();
   const connections = data?.connections ?? [];
 
   const [modalOpen, setModalOpen] = useState(false);
@@ -170,7 +175,10 @@ export default function SDKConnectionsList() {
             includeRuleIds: true,
           }}
           close={() => setModalOpen(false)}
-          mutate={mutate}
+          mutate={() => {
+            mutate();
+            mutateWebhooks();
+          }}
           edit={false}
         />
       )}
@@ -251,7 +259,7 @@ export default function SDKConnectionsList() {
                 ...disallowedProjectIds,
               ];
 
-              const webhooks = data.webhooks?.[connection.id];
+              const webhooks = webhooksData?.connections?.[connection.id];
               const webhooksWithErrors = webhooks?.filter((w) => w.error);
 
               return (
