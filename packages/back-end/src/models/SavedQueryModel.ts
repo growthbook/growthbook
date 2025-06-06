@@ -1,0 +1,116 @@
+import mongoose from "mongoose";
+import uniqid from "uniqid";
+import { omit } from "lodash";
+import { SavedQueryInterface } from "back-end/types/saved-query";
+
+const savedQuerySchema = new mongoose.Schema({
+  id: {
+    type: String,
+    unique: true,
+  },
+  organization: {
+    type: String,
+    index: true,
+  },
+  name: {
+    type: String,
+    required: true,
+  },
+  description: String,
+  sql: {
+    type: String,
+    required: true,
+  },
+  datasourceId: {
+    type: String,
+    required: true,
+    index: true,
+  },
+  tags: [String],
+  results: [],
+  dateCreated: Date,
+  dateUpdated: Date,
+  dateLastRan: Date,
+});
+
+type SavedQueryDocument = mongoose.Document & SavedQueryInterface;
+
+const SavedQueryModel = mongoose.model<SavedQueryInterface>(
+  "SavedQuery",
+  savedQuerySchema
+);
+
+const toInterface = (doc: SavedQueryDocument): SavedQueryInterface => {
+  return omit(
+    doc.toJSON<SavedQueryDocument>({ flattenMaps: true }),
+    ["__v", "_id"]
+  );
+};
+
+export async function createSavedQuery(
+  organization: string,
+  data: {
+    name: string;
+    description?: string;
+    sql: string;
+    datasourceId: string;
+    tags?: string[];
+  }
+): Promise<SavedQueryInterface> {
+  const newSavedQuery = await SavedQueryModel.create({
+    ...data,
+    id: uniqid("sq_"),
+    organization,
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+  });
+
+  return toInterface(newSavedQuery);
+}
+
+export async function getSavedQueriesByOrg(
+  organization: string
+): Promise<SavedQueryInterface[]> {
+  const savedQueries: SavedQueryDocument[] = await SavedQueryModel.find({
+    organization,
+  });
+
+  return savedQueries.map(toInterface);
+}
+
+export async function updateSavedQuery(
+  savedQueryId: string,
+  organization: string,
+  updates: {
+    name?: string;
+    description?: string;
+    sql?: string;
+    datasourceId?: string;
+    tags?: string[];
+    results?: any[];
+    dateLastRan?: Date;
+  }
+): Promise<void> {
+  const changes = {
+    ...updates,
+    dateUpdated: new Date(),
+  };
+
+  await SavedQueryModel.updateOne(
+    {
+      id: savedQueryId,
+      organization,
+    },
+    changes
+  );
+}
+
+export async function deleteSavedQuery(
+  savedQueryId: string,
+  organization: string
+): Promise<void> {
+  await SavedQueryModel.deleteOne({
+    id: savedQueryId,
+    organization,
+  });
+}

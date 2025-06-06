@@ -22,7 +22,6 @@ export async function postSavedQuery(
     description?: string;
     sql: string;
     datasourceId: string;
-    projects?: string[];
     tags?: string[];
   }>,
   res: Response
@@ -39,7 +38,6 @@ export async function putSavedQuery(
       description?: string;
       sql?: string;
       datasourceId?: string;
-      projects?: string[];
       tags?: string[];
     },
     { id: string }
