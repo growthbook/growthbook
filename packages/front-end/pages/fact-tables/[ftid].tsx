@@ -2,6 +2,7 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import { useState } from "react";
 import { Box } from "@radix-ui/themes";
+import { FactTableInterface } from "back-end/types/fact-table";
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -46,6 +47,10 @@ export default function FactTablePage() {
   const [editProjectsOpen, setEditProjectsOpen] = useState(false);
   const [editTagsModal, setEditTagsModal] = useState(false);
 
+  const [duplicateFactTable, setDuplicateFactTable] = useState<
+    FactTableInterface | undefined
+  >();
+
   const { apiCall } = useAuth();
 
   const permissionsUtil = usePermissionsUtil();
@@ -83,6 +88,13 @@ export default function FactTablePage() {
     <div className="pagecontents container-fluid">
       {editOpen && (
         <FactTableModal close={() => setEditOpen(false)} existing={factTable} />
+      )}
+      {duplicateFactTable && (
+        <FactTableModal
+          close={() => setDuplicateFactTable(undefined)}
+          existing={duplicateFactTable}
+          duplicate
+        />
       )}
       {editSQLOpen && (
         <EditFactTableSQLModal
@@ -185,6 +197,18 @@ export default function FactTablePage() {
                 }}
               >
                 Edit Fact Table
+              </button>
+              <button
+                className="dropdown-item"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setDuplicateFactTable({
+                    ...factTable,
+                    name: `${factTable.name} (Copy)`,
+                  });
+                }}
+              >
+                Duplicate Fact Table
               </button>
               <button
                 className="dropdown-item"
