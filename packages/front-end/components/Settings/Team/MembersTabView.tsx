@@ -1,6 +1,5 @@
-import { FC, useEffect, useMemo, useState } from "react";
+import { FC, useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import { getNumberOfNonReadOnlyMembers } from "shared/util";
 import InviteList from "@/components/Settings/Team/InviteList";
 import MemberList from "@/components/Settings/Team/MemberList";
 import { redirectWithTimeout, useAuth } from "@/services/auth";
@@ -27,26 +26,9 @@ export const MembersTabView: FC = () => {
     organization,
     hasCommercialFeature,
     teams,
-    subscription,
   } = useUser();
 
   const { project, projects } = useDefinitions();
-  const canInviteMembers = useMemo(() => {
-    let canInviteMembers = true;
-
-    if (organization.isVercelIntegration) {
-      if (!subscription) {
-        const numberOfNonReadOnlyMembers = getNumberOfNonReadOnlyMembers(
-          organization.members || []
-        );
-
-        if (numberOfNonReadOnlyMembers >= 3) {
-          canInviteMembers = false;
-        }
-      }
-    }
-    return canInviteMembers;
-  }, [organization.isVercelIntegration, subscription, organization.members]);
 
   const [currentProject, setCurrentProject] = useState(project || "");
   const [error, setError] = useState("");
@@ -158,7 +140,7 @@ export const MembersTabView: FC = () => {
         project={currentProject}
         canEditRoles={true}
         canDeleteMembers={true}
-        canInviteMembers={canInviteMembers}
+        canInviteMembers={true}
       />
       {!teams?.length || !organization.customRoles?.length ? (
         <PremiumCallout

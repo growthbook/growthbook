@@ -7,14 +7,17 @@ export default function RoleSelector({
   value,
   setValue,
   showUpgradeModal,
+  disabled,
 }: {
   value: MemberRoleWithProjects;
   setValue: (value: MemberRoleWithProjects) => void;
   showUpgradeModal?: () => void;
+  disabled?: boolean;
 }) {
   return (
     <div>
       <SingleRoleSelector
+        disabled={disabled}
         value={{
           role: value.role,
           environments: value.environments,

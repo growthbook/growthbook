@@ -1,9 +1,10 @@
-import React, { FC, useEffect, useState } from "react";
+import React, { FC, useEffect, useState, useMemo } from "react";
 import { FaCheck, FaTimes } from "react-icons/fa";
 import { ExpandedMember } from "back-end/types/organization";
 import { date, datetime } from "shared/dates";
 import { RxIdCard } from "react-icons/rx";
 import router from "next/router";
+import { getNumberOfNonReadOnlyMembers } from "shared/util";
 import { roleHasAccessToEnv, useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import ProjectBadges from "@/components/ProjectBadges";
@@ -35,7 +36,7 @@ const MemberList: FC<{
 }) => {
   const [inviting, setInviting] = useState(!!router.query["just-subscribed"]);
   const { apiCall } = useAuth();
-  const { userId, users, organization } = useUser();
+  const { userId, users, organization, subscription } = useUser();
   const [roleModal, setRoleModal] = useState<string>("");
   const [
     passwordResetModal,
@@ -43,6 +44,16 @@ const MemberList: FC<{
   ] = useState<ExpandedMember | null>(null);
   const { projects } = useDefinitions();
   const environments = useEnvironments();
+
+  const orgCanOnlyAddReadOnlyMembers = useMemo(() => {
+    if (organization.isVercelIntegration && !subscription) {
+      const numberOfNonReadOnlyMembers = getNumberOfNonReadOnlyMembers(
+        organization.members || []
+      );
+      return numberOfNonReadOnlyMembers >= 3;
+    }
+    return false;
+  }, [organization.isVercelIntegration, subscription, organization.members]);
 
   const openInviteModal = !!router.query["just-subscribed"];
 
@@ -84,7 +95,13 @@ const MemberList: FC<{
   return (
     <>
       {canInviteMembers && inviting && (
-        <InviteModal close={() => setInviting(false)} mutate={mutate} />
+        <InviteModal
+          close={() => setInviting(false)}
+          mutate={mutate}
+          // Free orgs managed by Vercel can only have 3 non-readonly members
+          defaultRole={orgCanOnlyAddReadOnlyMembers ? "readonly" : undefined}
+          preventRoleChange={orgCanOnlyAddReadOnlyMembers}
+        />
       )}
       {canEditRoles && roleModal && roleModalUser && (
         <ChangeRoleModal

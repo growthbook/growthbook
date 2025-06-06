@@ -23,9 +23,15 @@ interface Props {
   mutate: () => void;
   close: () => void;
   defaultRole?: DefaultMemberRole;
+  preventRoleChange?: boolean;
 }
 
-const InviteModal = ({ mutate, close, defaultRole }: Props) => {
+const InviteModal = ({
+  mutate,
+  close,
+  defaultRole,
+  preventRoleChange,
+}: Props) => {
   const {
     license,
     seatsInUse,
@@ -257,6 +263,7 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
             type="email"
           />
           <RoleSelector
+            disabled={preventRoleChange}
             value={form.watch("roleInfo")}
             setValue={(value) => form.setValue("roleInfo", value)}
             showUpgradeModal={() => setShowUpgradeModal(true)}
