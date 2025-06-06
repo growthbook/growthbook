@@ -9,6 +9,7 @@ import {
   countSdkWebhooksByOrg,
   createSdkWebhook,
   findAllSdkWebhooksByConnection,
+  findAllSdkWebhooksByConnectionIds,
 } from "back-end/src/models/WebhookModel";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -202,27 +203,28 @@ export const getSDKConnectionsWebhooks = async (
 
   // Get all connections to check permissions
   const connections = await findSDKConnectionsByOrganization(context);
+  const connectionIds = connections.map((conn) => conn.id);
 
-  // Fetch webhooks for all connections
-  const webhooksByConnection: Record<string, WebhookInterface[]> = {};
-
-  await Promise.all(
-    connections.map(async (connection) => {
-      const webhooks = await findAllSdkWebhooksByConnection(
-        context,
-        connection.id
-      );
-
-      // If user does not have write access, remove the shared secret
-      if (!context.permissions.canUpdateSDKWebhook(connection)) {
-        webhooks.forEach((w) => {
-          w.signingKey = "";
-        });
-      }
-
-      webhooksByConnection[connection.id] = webhooks;
-    })
+  // Fetch all webhooks in a single query
+  const allWebhooks = await findAllSdkWebhooksByConnectionIds(
+    context,
+    connectionIds
   );
+
+  // Group webhooks by connection ID
+  const webhooksByConnection: Record<string, WebhookInterface[]> = {};
+  connections.forEach((connection) => {
+    const webhooks = allWebhooks.filter((w) => w.sdks.includes(connection.id));
+
+    // If user does not have write access, remove the shared secret
+    if (!context.permissions.canUpdateSDKWebhook(connection)) {
+      webhooks.forEach((w) => {
+        w.signingKey = "";
+      });
+    }
+
+    webhooksByConnection[connection.id] = webhooks;
+  });
 
   res.status(200).json({
     status: 200,
