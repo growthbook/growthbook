@@ -3,6 +3,7 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { v4 as uuidv4 } from "uuid";
+import { getNumberOfNonReadOnlyMembers } from "shared/util";
 import {
   findVercelInstallationByInstallationId,
   VercelNativeIntegrationModel,
@@ -21,7 +22,11 @@ import {
 import { createUser, getUserByEmail } from "back-end/src/models/UserModel";
 import { ManagedBy } from "back-end/src/validators/managed-by";
 import { ReqContextClass } from "back-end/src/services/context";
-import { ReqContext, OrganizationInterface } from "back-end/types/organization";
+import {
+  ReqContext,
+  OrganizationInterface,
+  DefaultMemberRole,
+} from "back-end/types/organization";
 import {
   getVercelSSOToken,
   syncVercelSdkConnection,
@@ -639,11 +644,23 @@ export async function postVercelIntegrationSSO(req: Request, res: Response) {
 
   const user = await findOrCreateUser(userEmail);
 
+  let role: DefaultMemberRole = "experimenter";
+
+  if (vercelInstallation.billingPlanId === "starter-billing-plan") {
+    const numberOfNonReadOnlyMembers = getNumberOfNonReadOnlyMembers(
+      org.members
+    );
+
+    if (numberOfNonReadOnlyMembers >= 3) {
+      role = "readonly";
+    }
+  }
+
   // This is idempotent.
   await addMemberToOrg({
     organization: org,
     userId: user.id,
-    role: "experimenter",
+    role,
     projectRoles: [],
     managedByIdp: false,
     environments: [],

@@ -15,7 +15,7 @@ import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { VisualChange } from "back-end/types/visual-changeset";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import { Environment } from "back-end/types/organization";
+import { Environment, Member } from "back-end/types/organization";
 import {
   SafeRolloutSnapshotAnalysis,
   SafeRolloutSnapshotAnalysisSettings,
@@ -492,4 +492,15 @@ export function parseProcessLogBase() {
     : {
         base: parsedLogBase,
       };
+}
+
+function isReadonly(member: Member) {
+  return (
+    ["readonly", "collaborator"].includes(member.role) &&
+    !member.projectRoles?.length
+  );
+}
+
+export function getNumberOfNonReadOnlyMembers(members: Member[]): number {
+  return members.filter((member) => !isReadonly(member)).length;
 }
