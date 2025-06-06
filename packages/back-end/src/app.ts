@@ -87,6 +87,9 @@ const informationSchemasController = wrapController(
   informationSchemasControllerRaw
 );
 
+import * as savedQueriesControllerRaw from "./controllers/savedQueries";
+const savedQueriesController = wrapController(savedQueriesControllerRaw);
+
 // End Controllers
 
 import { isEmailEnabled } from "./services/email";
@@ -782,6 +785,13 @@ app.get(
   informationSchemasController.getInformationSchema
 );
 
+// Saved Queries
+app.get("/saved-queries", savedQueriesController.getSavedQueries);
+app.post("/saved-queries", savedQueriesController.postSavedQuery);
+app.get("/saved-query/:id", savedQueriesController.getSavedQuery);
+app.put("/saved-query/:id", savedQueriesController.putSavedQuery);
+app.delete("/saved-query/:id", savedQueriesController.deleteSavedQuery);
+
 // Events
 app.use("/events", eventsRouter);
 app.use(eventWebHooksRouter);
@@ -885,7 +895,7 @@ const errorHandler: ErrorRequestHandler = (
   req,
   res: Response & { sentry?: string },
   // eslint-disable-next-line
-  next,
+  next
 ) => {
   const status = err.status || 400;
 
