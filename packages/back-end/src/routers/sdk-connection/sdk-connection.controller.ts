@@ -1,9 +1,11 @@
 import type { Response } from "express";
+import { pick } from "lodash";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { triggerSingleSDKWebhookJobs } from "back-end/src/jobs/updateAllJobs";
 import {
   CreateSdkWebhookProps,
   WebhookInterface,
+  WebhookSummary,
 } from "back-end/types/webhook";
 import {
   countSdkWebhooksByOrg,
@@ -196,16 +198,13 @@ export const getSDKConnectionsWebhooks = async (
   req: AuthRequest,
   res: Response<{
     status: 200;
-    connections: Record<string, WebhookInterface[]>;
+    connections: Record<string, WebhookSummary[]>;
   }>
 ) => {
   const context = getContextFromReq(req);
-
-  // Get all connections to check permissions
   const connections = await findSDKConnectionsByOrganization(context);
   const connectionIds = connections.map((conn) => conn.id);
 
-  // Fetch all webhooks in a single query
   const allWebhooks = await findAllSdkWebhooksByConnectionIds(
     context,
     connectionIds
@@ -214,15 +213,11 @@ export const getSDKConnectionsWebhooks = async (
   // Group webhooks by connection ID
   const webhooksByConnection: Record<string, WebhookInterface[]> = {};
   connections.forEach((connection) => {
-    const webhooks = allWebhooks.filter((w) => w.sdks.includes(connection.id));
-
-    // If user does not have write access, remove the shared secret
-    if (!context.permissions.canUpdateSDKWebhook(connection)) {
-      webhooks.forEach((w) => {
-        w.signingKey = "";
-      });
-    }
-
+    const webhooks = allWebhooks
+      .filter((w) => w.sdks.includes(connection.id))
+      .map((w) =>
+        pick(w, ["id", "name", "endpoint", "lastSuccess", "error", "created"])
+      );
     webhooksByConnection[connection.id] = webhooks;
   });
 

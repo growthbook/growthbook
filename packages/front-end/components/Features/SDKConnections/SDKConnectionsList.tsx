@@ -19,7 +19,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBAddCircle, GBHashLock, GBRemoteEvalIcon } from "@/components/Icons";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useSDKConnections from "@/hooks/useSDKConnections";
-import useSDKConnectionsWebhooks from "@/hooks/useSDKConnectionsWebhooks";
+import useSDKWebhooks from "@/hooks/useSDKWebhooks";
 import StatusCircle from "@/components/Helpers/StatusCircle";
 import ProjectBadges from "@/components/ProjectBadges";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -46,10 +46,7 @@ function popularLanguagesFirst(a: SDKLanguage, b: SDKLanguage) {
 
 export default function SDKConnectionsList() {
   const { data, mutate, error } = useSDKConnections();
-  const {
-    data: webhooksData,
-    mutate: mutateWebhooks,
-  } = useSDKConnectionsWebhooks();
+  const { data: webhooksData, mutate: mutateWebhooks } = useSDKWebhooks();
   const connections = data?.connections ?? [];
 
   const [modalOpen, setModalOpen] = useState(false);
