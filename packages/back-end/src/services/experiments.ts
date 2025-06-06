@@ -1470,6 +1470,7 @@ export async function toExperimentApiInterface(
     linkedFeatures: experiment.linkedFeatures || [],
     hasVisualChangesets: experiment.hasVisualChangesets || false,
     hasURLRedirects: experiment.hasURLRedirects || false,
+    customFields: experiment.customFields ?? {},
   };
 }
 
