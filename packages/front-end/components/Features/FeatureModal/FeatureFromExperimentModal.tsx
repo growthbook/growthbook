@@ -6,15 +6,11 @@ import {
   FeatureInterface,
   FeatureValueType,
 } from "back-end/types/feature";
-import dJSON from "dirty-json";
 import { ReactElement, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Link from "next/link";
 import { FaExternalLinkAlt } from "react-icons/fa";
-import {
-  filterEnvironmentsByExperiment,
-  validateFeatureValue,
-} from "shared/util";
+import { filterEnvironmentsByExperiment } from "shared/util";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -45,26 +41,6 @@ export type Props = {
   mutate: () => void;
   source?: string;
 };
-
-function parseDefaultValue(
-  defaultValue: string,
-  valueType: FeatureValueType
-): string {
-  if (valueType === "boolean") {
-    return defaultValue === "true" ? "true" : "false";
-  }
-  if (valueType === "number") {
-    return parseFloat(defaultValue) + "";
-  }
-  if (valueType === "string") {
-    return defaultValue;
-  }
-  try {
-    return JSON.stringify(dJSON.parse(defaultValue), null, 2);
-  } catch (e) {
-    throw new Error(`JSON parse error for default value`);
-  }
-}
 
 const genEnvironmentSettings = ({
   environments,
@@ -98,7 +74,10 @@ const genFormDefaultValues = ({
   permissions: ReturnType<typeof usePermissionsUtil>;
   project: string;
   experiment: ExperimentInterfaceStringDates;
-}): Omit<FeatureInterface, "organization" | "dateCreated" | "dateUpdated"> & {
+}): Omit<
+  FeatureInterface,
+  "organization" | "dateCreated" | "dateUpdated" | "defaultValue"
+> & {
   variations: ExperimentRefVariation[];
   existing: string;
 } => {
@@ -112,7 +91,6 @@ const genFormDefaultValues = ({
   return {
     existing: "",
     valueType: type,
-    defaultValue,
     version: 1,
     description: experiment.description || "",
     id: "",
@@ -215,7 +193,6 @@ export default function FeatureFromExperimentModal({
       }
     };
 
-    form.setValue("defaultValue", transformValue(form.watch("defaultValue")));
     form.setValue(
       "variations",
       form.watch("variations").map((v) => ({
@@ -240,11 +217,18 @@ export default function FeatureFromExperimentModal({
       secondaryCTA={secondaryCTA}
       submit={form.handleSubmit(async (values) => {
         const { variations, existing, ...feature } = values;
-        const valueType = feature.valueType as FeatureValueType;
 
-        const featureToCreate = existing
+        const featureToCreate:
+          | undefined
+          | Omit<
+              FeatureInterface,
+              "organization" | "dateCreated" | "dateUpdated"
+            > = existing
           ? features.find((f) => f.id === existing)
-          : feature;
+          : {
+              ...feature,
+              defaultValue: variations[0].value,
+            };
 
         if (!featureToCreate) {
           throw new Error("Invalid feature selected");
@@ -262,25 +246,13 @@ export default function FeatureFromExperimentModal({
           variations,
         };
 
-        const newRule = validateFeatureRule(rule, feature as FeatureInterface);
+        const newRule = validateFeatureRule(rule, featureToCreate);
         if (newRule) {
           form.setValue(
             "variations",
             (newRule as ExperimentRefRule).variations
           );
           hasChanges = true;
-        }
-
-        if (!existing) {
-          const newDefaultValue = validateFeatureValue(
-            feature as FeatureInterface,
-            feature.defaultValue,
-            "Value"
-          );
-          if (newDefaultValue !== feature.defaultValue) {
-            form.setValue("defaultValue", newDefaultValue);
-            hasChanges = true;
-          }
         }
 
         if (hasChanges) {
@@ -300,11 +272,6 @@ export default function FeatureFromExperimentModal({
             }
           );
         } else {
-          featureToCreate.defaultValue = parseDefaultValue(
-            values.defaultValue,
-            valueType
-          );
-
           // Add experiment rule to all environments
           Object.values(featureToCreate.environmentSettings).forEach(
             (settings) => {
@@ -442,17 +409,6 @@ export default function FeatureFromExperimentModal({
           ))}
         </div>
       </div>
-
-      {!existing && (
-        <FeatureValueField
-          label={"Fallback value"}
-          id="defaultValue"
-          value={form.watch("defaultValue")}
-          setValue={(v) => form.setValue("defaultValue", v)}
-          valueType={valueType}
-          helpText="For users not included in the experiment"
-        />
-      )}
     </Modal>
   );
 }

@@ -301,14 +301,6 @@ const otherPageTitles = [
     title: "Personal Access Tokens",
   },
   {
-    path: /^integrations\/vercel/,
-    title: "Vercel Integration",
-  },
-  {
-    path: /^integrations\/vercel\/configure/,
-    title: "Vercel Integration Configuration",
-  },
-  {
     path: /^getstarted/,
     title: "Get Started",
   },
