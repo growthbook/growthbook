@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FaPlay, FaExclamationTriangle } from "react-icons/fa";
 import { TestQueryRow } from "back-end/src/types/Integration";
@@ -36,13 +36,11 @@ export type TestQueryResults = {
 export interface Props {
   close: () => void;
   datasourceId?: string;
-  onRunQuery?: (sql: string, datasourceId: string) => void;
 }
 
 export default function SqlExplorerModal({
   close,
   datasourceId: initialDatasourceId,
-  onRunQuery,
 }: Props) {
   const [step, setStep] = useState(initialDatasourceId ? 1 : 0);
   const [selectedDatasourceId, setSelectedDatasourceId] = useState(
@@ -52,7 +50,6 @@ export default function SqlExplorerModal({
     testQueryResults,
     setTestQueryResults,
   ] = useState<TestQueryResults | null>(null);
-  const [testQueryBeforeSaving, setTestQueryBeforeSaving] = useState(true);
   const form = useForm({
     defaultValues: {
       sql: "",
@@ -125,18 +122,6 @@ export default function SqlExplorerModal({
     }
   };
 
-  const handleRunQuery = () => {
-    const sql = form.getValues("sql");
-    if (onRunQuery && selectedDatasourceId) {
-      onRunQuery(sql, selectedDatasourceId);
-    }
-    close();
-  };
-
-  useEffect(() => {
-    if (!canRunQueries) setTestQueryBeforeSaving(false);
-  }, [canRunQueries]);
-
   // Filter datasources to only those that support SQL queries
   const validDatasources = datasources.filter(
     (d) => d.type !== "google_analytics"
@@ -147,56 +132,21 @@ export default function SqlExplorerModal({
       trackingEventModalType="sql-explorer"
       header="SQL Explorer"
       close={close}
+      navStyle="default"
       size="max"
+      includeCloseCta={step === 0 ? true : false}
       bodyClassName="p-0"
-      cta={step === 0 ? "Next" : "Run Query"}
-      closeCta="Cancel"
+      cta={step === 0 ? "Next" : "Close"}
       step={step}
       setStep={setStep}
-      ctaEnabled={step === 0 ? !!selectedDatasourceId : !!form.watch("sql")}
+      ctaEnabled={step === 0 ? !!selectedDatasourceId : true}
       submit={async () => {
         if (step === 0) {
           setStep(1);
         } else {
-          if (testQueryBeforeSaving) {
-            let res: TestQueryResults;
-            try {
-              res = await runTestQuery(form.getValues("sql"));
-            } catch (e) {
-              setTestQueryResults({
-                sql: form.getValues("sql"),
-                error: e.message,
-              });
-              throw new Error();
-            }
-            if (res.error) {
-              setTestQueryResults(res);
-              throw new Error();
-            }
-          }
-          handleRunQuery();
+          close();
         }
       }}
-      secondaryCTA={
-        step === 1 ? (
-          <Tooltip
-            body="You do not have permission to run test queries"
-            shouldDisplay={!canRunQueries}
-            tipPosition="top"
-          >
-            <label className="mx-4 mb-0">
-              <input
-                type="checkbox"
-                disabled={!canRunQueries}
-                className="form-check-input"
-                checked={testQueryBeforeSaving}
-                onChange={(e) => setTestQueryBeforeSaving(e.target.checked)}
-              />
-              Test query before running
-            </label>
-          </Tooltip>
-        ) : undefined
-      }
     >
       <Page display="Select Data Source">
         <div className="p-4">

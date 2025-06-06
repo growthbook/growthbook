@@ -12,13 +12,9 @@ export default function SqlExplorer() {
   const hasDatasource = datasources.some((d) =>
     isProjectListValidForProject(d.projects, project)
   );
-  const hasSavedQueries = false;
 
-  const handleRunQuery = (sql: string, datasourceId: string) => {
-    // TODO: Handle the query execution - could save as a new query,
-    // navigate to a results view, etc.
-    console.log("Running query:", { sql, datasourceId });
-  };
+  // MKTODO: Once we build the saved queries feature, update this
+  const hasSavedQueries = false;
 
   return (
     <div className="container pagecontents">
@@ -44,12 +40,7 @@ export default function SqlExplorer() {
         <div>Saved Queries go here</div>
       )}
 
-      {showModal && (
-        <SqlExplorerModal
-          close={() => setShowModal(false)}
-          onRunQuery={handleRunQuery}
-        />
-      )}
+      {showModal && <SqlExplorerModal close={() => setShowModal(false)} />}
     </div>
   );
 }
