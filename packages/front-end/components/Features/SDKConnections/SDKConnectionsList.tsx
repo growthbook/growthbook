@@ -334,7 +334,7 @@ export default function SDKConnectionsList() {
                     {webhooks?.length ? (
                       <div className="nowrap">
                         {webhooks.length} webhook{webhooks.length !== 1 && "s"}
-                        {webhooksWithErrors.length ? (
+                        {webhooksWithErrors?.length ? (
                           <Tooltip
                             className="ml-1"
                             innerClassName="pb-3"

@@ -211,7 +211,7 @@ export const getSDKConnectionsWebhooks = async (
   );
 
   // Group webhooks by connection ID
-  const webhooksByConnection: Record<string, WebhookInterface[]> = {};
+  const webhooksByConnection: Record<string, WebhookSummary[]> = {};
   connections.forEach((connection) => {
     const webhooks = allWebhooks
       .filter((w) => w.sdks.includes(connection.id))
