@@ -2487,7 +2487,7 @@ export async function getFeatureById(
     throw new Error("Could not find feature");
   }
 
-  let minimalRevisions = await getMinimalRevisions(context, org.id, id);
+  const minimalRevisions = await getMinimalRevisions(context, org.id, id);
 
   let fullRevisions = await getLatestRevisions(context, org.id, id);
 
