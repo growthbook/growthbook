@@ -24,6 +24,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ClickToReveal from "@/components/Settings/ClickToReveal";
 import Badge from "@/components/Radix/Badge";
 import { capitalizeFirstLetter } from "@/services/utils";
+import Callout from "@/components/Radix/Callout";
 
 const payloadFormatLabels: Record<string, string | ReactElement> = {
   standard: "Standard",
@@ -123,21 +124,22 @@ export default function SdkWebhooks({
         <td>
           {webhook.error ? (
             <>
-              <span className="text-danger">
-                <FaExclamationTriangle /> error
-              </span>
               <Tooltip
                 className="ml-1"
-                innerClassName="pb-1"
+                innerClassName="pb-3"
                 usePortal={true}
                 body={
-                  <>
-                    <div className="alert alert-danger mt-2">
+                  <Callout key={webhook.id} status="error">
+                    <div style={{ wordBreak: "break-all" }}>
                       {webhook.error}
                     </div>
-                  </>
+                  </Callout>
                 }
-              />
+              >
+                <span className="text-danger">
+                  <FaExclamationTriangle /> error
+                </span>
+              </Tooltip>
             </>
           ) : webhook.lastSuccess ? (
             <em className="small">
