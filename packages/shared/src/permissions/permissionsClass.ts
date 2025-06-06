@@ -777,6 +777,36 @@ export class Permissions {
     return this.checkProjectFilterPermission(datasource, "runQueries");
   };
 
+  public canViewSavedQueries = (
+    datasource: Pick<DataSourceInterface, "projects">
+  ): boolean => {
+    return this.canReadMultiProjectResource(datasource.projects);
+  };
+
+  public canCreateSavedQueries = (
+    datasource: Pick<DataSourceInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(datasource, "runQueries");
+  };
+
+  public canUpdateSavedQueries = (
+    datasource: Pick<DataSourceInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(datasource, "runQueries");
+  };
+
+  public canDeleteSavedQueries = (
+    datasource: Pick<DataSourceInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(datasource, "runQueries");
+  };
+
+  public canRunSavedQueries = (
+    datasource: Pick<DataSourceInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(datasource, "runQueries");
+  };
+
   // ENV_SCOPED_PERMISSIONS
   public canPublishFeature = (
     feature: Pick<FeatureInterface, "project">,

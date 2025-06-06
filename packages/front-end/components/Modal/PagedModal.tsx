@@ -25,6 +25,7 @@ type Props = {
   ctaEnabled?: boolean;
   forceCtaText?: boolean;
   closeCta?: string;
+  includeCloseCta?: boolean;
   disabledMessage?: string;
   size?: "md" | "lg" | "max" | "fill";
   docSection?: DocSection;
