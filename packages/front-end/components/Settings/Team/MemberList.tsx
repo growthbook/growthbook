@@ -121,6 +121,7 @@ const MemberList: FC<{
             });
             mutate();
           }}
+          orgCanOnlyAddReadOnlyMembers={orgCanOnlyAddReadOnlyMembers}
         />
       )}
       {canEditRoles && passwordResetModal && (

@@ -9,10 +9,20 @@ const ChangeRoleModal: FC<{
   roleInfo: MemberRoleWithProjects;
   close?: () => void;
   onConfirm: (data: MemberRoleWithProjects) => Promise<void>;
-}> = ({ roleInfo, displayInfo, close, onConfirm }) => {
+  orgCanOnlyAddReadOnlyMembers?: boolean;
+}> = ({
+  roleInfo,
+  displayInfo,
+  close,
+  onConfirm,
+  orgCanOnlyAddReadOnlyMembers,
+}) => {
   const [value, setValue] = useState(roleInfo);
 
   const [upgradeModal, setUpgradeModal] = useState(false);
+
+  const blockEditingRole =
+    orgCanOnlyAddReadOnlyMembers && roleInfo.role === "readonly";
 
   if (upgradeModal) {
     return (
@@ -41,6 +51,7 @@ const ChangeRoleModal: FC<{
         value={value}
         setValue={setValue}
         showUpgradeModal={() => setUpgradeModal(true)}
+        disabled={blockEditingRole}
       />
     </Modal>
   );
