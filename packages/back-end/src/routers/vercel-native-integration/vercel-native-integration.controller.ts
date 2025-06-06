@@ -12,7 +12,6 @@ import {
 } from "back-end/src/models/VercelNativeIntegrationModel";
 import {
   addMemberToOrg,
-  addMembersToTeam,
   getOrganizationById,
 } from "back-end/src/services/organizations";
 import {
@@ -674,16 +673,8 @@ export async function postVercelIntegrationSSO(req: Request, res: Response) {
     projectRoles: [],
     managedByIdp: false,
     ...getDefaultRole(org),
+    ...(resource?.teamId ? { teams: [resource.teamId] } : {}),
   });
-
-  if (resource?.teamId) {
-    // also idempotent.
-    await addMembersToTeam({
-      organization: org,
-      userIds: [user.id],
-      teamId: resource.teamId,
-    });
-  }
 
   const trackingProperties = getUserLoginPropertiesFromRequest(req);
   trackLoginForUser({
