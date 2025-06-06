@@ -230,3 +230,10 @@ export async function testQueryValidity(
     return e.message;
   }
 }
+
+export function isDataSourceType<T extends DataSourceInterface>(
+  datasource: DataSourceInterface,
+  type: T["type"]
+): datasource is T {
+  return datasource.type === type;
+}

@@ -120,9 +120,9 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
 
   return (
     <Box>
-      <Flex align="start" gap="2" mb="0" justify="between">
+      <Flex align="center" gap="2" mb="3" justify="between">
         <Box>
-          <Flex align="center" gap="3" mb="3">
+          <Flex align="center" gap="3" mb="0">
             <Heading as="h3" size="4" mb="0">
               Experiment Assignment Queries
             </Heading>
@@ -132,11 +132,6 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
               radius="medium"
             />
           </Flex>
-          <p>
-            Queries that return a list of experiment variation assignment
-            events. Returns a record of which experiment variation was assigned
-            to each user.
-          </p>
         </Box>
 
         {canEdit && (
@@ -147,6 +142,11 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
           </Box>
         )}
       </Flex>
+      <p>
+        Queries that return a list of experiment variation assignment events.
+        Returns a record of which experiment variation was assigned to each
+        user.
+      </p>
 
       {/* region Empty state */}
       {experimentExposureQueries.length === 0 ? (
