@@ -922,6 +922,7 @@ function getWHERE({
     : "";
 }
 
+
 function getPreviewSQL({
   type,
   quantileSettings,

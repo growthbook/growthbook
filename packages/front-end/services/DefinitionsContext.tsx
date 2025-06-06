@@ -1,5 +1,5 @@
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import { DimensionInterface } from "back-end/types/dimension";
+import { DimensionInterface, ExperimentDimensionInterface } from "back-end/types/dimension";
 import { MetricInterface } from "back-end/types/metric";
 import { SegmentInterface } from "back-end/types/segment";
 import { ProjectInterface } from "back-end/types/project";
@@ -32,6 +32,7 @@ type Definitions = {
   metrics: MetricInterface[];
   _metricsIncludingArchived: MetricInterface[];
   datasources: DataSourceInterfaceWithParams[];
+  experimentDimensions: ExperimentDimensionInterface[];
   dimensions: DimensionInterface[];
   segments: SegmentInterface[];
   projects: ProjectInterface[];
@@ -84,6 +85,7 @@ const defaultValue: DefinitionContextValue = {
   _metricsIncludingArchived: [],
   datasources: [],
   dimensions: [],
+  experimentDimensions: [],
   segments: [],
   tags: [],
   savedGroups: [],
@@ -275,6 +277,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       metrics: activeMetrics,
       _metricsIncludingArchived: allMetrics,
       datasources: data.datasources,
+      experimentDimensions: data.experimentDimensions,
       dimensions: data.dimensions,
       segments: data.segments,
       tags: allTags,

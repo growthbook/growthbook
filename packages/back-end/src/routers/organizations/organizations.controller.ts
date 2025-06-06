@@ -143,6 +143,7 @@ import {
   getSubscriptionFromLicense,
 } from "back-end/src/enterprise";
 import { getUsageFromCache } from "back-end/src/enterprise/billing";
+import { getExperimentDimensionsByOrganization } from "back-end/src/services/experimentDimensions";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
@@ -154,6 +155,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
   const [
     metrics,
     datasources,
+    experimentDimensions,
     dimensions,
     segments,
     metricGroups,
@@ -168,6 +170,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
   ] = await Promise.all([
     getMetricsByOrganization(context),
     getDataSourcesByOrganization(context),
+    getExperimentDimensionsByOrganization(context),
     findDimensionsByOrganization(orgId),
     context.models.segments.getAll(),
     context.models.metricGroups.getAll(),
@@ -200,6 +203,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
         dateUpdated: d.dateUpdated,
       };
     }),
+    experimentDimensions,
     dimensions,
     segments,
     metricGroups,
