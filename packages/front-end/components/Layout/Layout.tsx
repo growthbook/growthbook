@@ -98,7 +98,7 @@ const navlinks: SidebarLinkProps[] = [
     path: /^(dashboard|learning|timeline|metric-effect|correlations|presentation)/,
     subLinks: [
       {
-        name: "Impact",
+        name: "Dashboard",
         href: "/dashboard",
         path: /^dashboard/,
       },

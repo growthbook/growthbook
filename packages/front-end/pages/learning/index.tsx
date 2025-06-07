@@ -39,7 +39,7 @@ const LearningsPage = (): React.ReactElement => {
 
   const { experiments: allExperiments, error, loading } = useExperiments(
     project,
-    false,
+    true,
     "standard"
   );
   const allStoppedExperiments = React.useMemo(
