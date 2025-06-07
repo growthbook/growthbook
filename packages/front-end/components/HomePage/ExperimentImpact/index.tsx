@@ -97,7 +97,6 @@ type ExperimentImpactSummary = {
 
 export function scaleImpactAndSetMissingExperiments({
   experiments,
-  filteredExperimentIds,
   snapshots,
   metric,
   selectedProjects,
@@ -106,8 +105,6 @@ export function scaleImpactAndSetMissingExperiments({
   adjusted,
 }: {
   experiments: ExperimentInterfaceStringDates[];
-  // optional additional filter list for final total impact
-  filteredExperimentIds: string[] | undefined;
   snapshots: ExperimentSnapshotInterface[] | undefined;
   metric: string;
   selectedProjects: string[];
@@ -264,23 +261,18 @@ export function scaleImpactAndSetMissingExperiments({
           ? adjustedImpact
           : v.scaledImpact;
 
-        // only add to total if in custom filtered list of experiments
-        const inFilteredList =
-          filteredExperimentIds?.includes(e.experiment.id) ?? true;
-        if (inFilteredList) {
-          if (e.type === "winner" && v.selected) {
+        if (e.type === "winner" && v.selected) {
+          e.keyVariationId = vi + 1;
+          experimentImpact = v.scaledImpact;
+          experimentAdjustedImpact = v.scaledImpactAdjusted;
+          experimentAdjustedImpactStdDev = v.se;
+        } else if (e.type === "loser") {
+          // only include biggest loser for "savings"
+          if (v.scaledImpact < (experimentImpact ?? Infinity)) {
             e.keyVariationId = vi + 1;
             experimentImpact = v.scaledImpact;
             experimentAdjustedImpact = v.scaledImpactAdjusted;
             experimentAdjustedImpactStdDev = v.se;
-          } else if (e.type === "loser") {
-            // only include biggest loser for "savings"
-            if (v.scaledImpact < (experimentImpact ?? Infinity)) {
-              e.keyVariationId = vi + 1;
-              experimentImpact = v.scaledImpact;
-              experimentAdjustedImpact = v.scaledImpactAdjusted;
-              experimentAdjustedImpactStdDev = v.se;
-            }
           }
         }
       });
@@ -436,7 +428,6 @@ export default function ExperimentImpact({
     () =>
       scaleImpactAndSetMissingExperiments({
         experiments,
-        filteredExperimentIds: undefined,
         snapshots,
         metric,
         selectedProjects,
@@ -457,13 +448,8 @@ export default function ExperimentImpact({
 
   return (
     <div className="pt-2">
+      <h3 className="mt-2 mb-3 mr-4">Experiment Impact</h3>
       <div className="row align-items-start mb-4">
-        <div className="col-md-12 col-lg-auto">
-          <h3 className="mt-2 mb-3 mr-4">Experiment Impact</h3>
-        </div>
-
-        <div className="flex-1" />
-
         <div className="col-3">
           <label className="mb-1">Metric</label>
           <MetricSelector

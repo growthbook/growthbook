@@ -42,13 +42,6 @@ export default function ExperimentList({
     allExperiments: experiments,
     filterResults,
   });
-  let exps = experiments.filter((e) => e.status === status);
-  if (!exps.length) {
-    return <div>no {status} experiments</div>;
-  }
-  if (exps.length > num) {
-    exps = exps.slice(0, num);
-  }
 
   if (as === "table") {
     // create a sortable table with the following columns: experiment name, project, type, tags, date started, owner, status
@@ -66,7 +59,7 @@ export default function ExperimentList({
           </tr>
         </thead>
         <tbody>
-          {items.map((test, i) => {
+          {items.slice(0, num).map((test, i) => {
             const currentPhase = test.phases[test.phases.length - 1];
             return (
               <tr key={i}>
@@ -123,6 +116,13 @@ export default function ExperimentList({
       </table>
     );
   } else {
+    let exps = experiments.filter((e) => e.status === status);
+    if (!exps.length) {
+      return <div>no {status} experiments</div>;
+    }
+    if (exps.length > num) {
+      exps = exps.slice(0, num);
+    }
     return (
       <ul className="list-unstyled simple-divider ">
         {exps.map((test, i) => {
@@ -145,7 +145,7 @@ export default function ExperimentList({
           });
           const currentPhase = test.phases[test.phases.length - 1];
           return (
-            <li key={i} className="w-100 hover-highlight">
+            <li key={i} className="w-100 px-1 hover-highlight">
               <div key={test.id} className="d-flex">
                 <Link
                   href={`/experiment/${test.id}`}

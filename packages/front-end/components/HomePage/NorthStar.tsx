@@ -75,7 +75,7 @@ const NorthStar: FC<{
   });
 
   const northStar = settings.northStar || null;
-  const hasNorthStar = selectedMetrics?.length || 0 > 0;
+  const hasNorthStar = (selectedMetrics?.length || 0) > 0;
 
   return (
     <>

@@ -40,7 +40,6 @@ function getColor(val: number | undefined): string {
 }
 
 export default function ExecExperimentImpact({
-  filteredExperiments,
   allExperiments,
   startDate,
   endDate,
@@ -50,7 +49,6 @@ export default function ExecExperimentImpact({
   experimentsToShow,
   setExperimentsToShow,
 }: {
-  filteredExperiments: ExperimentInterfaceStringDates[];
   allExperiments: ExperimentInterfaceStringDates[];
   projects?: string[];
   startDate?: Date;
@@ -61,19 +59,37 @@ export default function ExecExperimentImpact({
   setExperimentsToShow: (experimentsToShow: string) => void;
 }) {
   const NUM_EXP_TO_SHOW = 5;
-  const experiments = allExperiments.filter(
-    (exp) => exp.type !== "multi-armed-bandit"
+
+  const experiments = useMemo(
+    () =>
+      allExperiments
+        .filter((exp) => exp.type !== "multi-armed-bandit")
+        .filter((exp) => {
+          // Only experiments that contain the selected metric
+          return !!(
+            exp.goalMetrics?.includes(metric) ||
+            exp.secondaryMetrics?.includes(metric) ||
+            exp.guardrailMetrics?.includes(metric)
+          );
+        }),
+    [allExperiments, metric]
   );
   const { apiCall } = useAuth();
   const displayCurrency = useCurrency();
 
-  const { metrics, getFactTableById, getProjectById } = useDefinitions();
+  const {
+    getExperimentMetricById,
+    getFactTableById,
+    getProjectById,
+  } = useDefinitions();
 
   const [loading, setLoading] = useState(true);
   const [snapshots, setSnapshots] = useState<ExperimentSnapshotInterface[]>();
   const [showAllExperiments, setShowAllExperiments] = useState(false);
 
-  const experimentIds = experiments.map((e) => e.id);
+  const experimentIds = experiments
+    .map((e) => encodeURIComponent(e.id))
+    .join(",");
 
   const form = useForm<{
     adjusted: boolean;
@@ -85,7 +101,7 @@ export default function ExecExperimentImpact({
 
   const adjusted = form.watch("adjusted");
 
-  const metricInterface = metrics.find((m) => m.id === metric);
+  const metricInterface = getExperimentMetricById(metric);
   const formatter = metricInterface
     ? getExperimentMetricFormatter(metricInterface, getFactTableById, "number")
     : formatNumber;
@@ -97,17 +113,37 @@ export default function ExecExperimentImpact({
     maximumSignificantDigits: 3,
   };
 
+  const metricExpCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    allExperiments.forEach((exp) => {
+      const metricIds = [
+        ...new Set([
+          ...exp.goalMetrics,
+          ...exp.secondaryMetrics,
+          ...exp.guardrailMetrics,
+        ]),
+      ];
+      metricIds.forEach((id) => {
+        counts[id] = (counts[id] || 0) + 1;
+      });
+    });
+    return counts;
+  }, [allExperiments]);
+
   // 1 get all snapshots
   // 2 check for snapshots w/o impact
   const fetchSnapshots = useCallback(async () => {
+    if (!experimentIds) {
+      setSnapshots([]);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
-    const queryIds = experimentIds
-      .map((id) => encodeURIComponent(id))
-      .join(",");
     try {
       const { snapshots } = await apiCall<{
         snapshots: ExperimentSnapshotInterface[];
-      }>(`/experiments/snapshots/?experiments=${queryIds}`, {
+      }>(`/experiments/snapshots/?experiments=${experimentIds}`, {
         method: "GET",
       });
       setSnapshots(snapshots);
@@ -150,8 +186,7 @@ export default function ExecExperimentImpact({
   } = useMemo(
     () =>
       scaleImpactAndSetMissingExperiments({
-        experiments: allExperiments,
-        filteredExperimentIds: filteredExperiments.map((e) => e.id),
+        experiments,
         snapshots,
         metric,
         selectedProjects: projects,
@@ -159,16 +194,7 @@ export default function ExecExperimentImpact({
         endDate: endDate?.toISOString() || "",
         adjusted,
       }),
-    [
-      allExperiments,
-      filteredExperiments,
-      snapshots,
-      metric,
-      projects,
-      startDate,
-      endDate,
-      adjusted,
-    ]
+    [experiments, snapshots, metric, projects, startDate, endDate, adjusted]
   );
 
   // top winning experiments by scaled impact:
@@ -309,6 +335,16 @@ export default function ExecExperimentImpact({
             projects={projects}
             includeFacts={true}
             containerClassName="w-100"
+            filterMetrics={(m) => {
+              // Only show metrics that are used in the experiments
+              return m.id === metric || !!metricExpCounts[m.id];
+            }}
+            sortMetrics={(a, b) => {
+              // Metrics with the most experiments first
+              return (
+                (metricExpCounts[b.id] || 0) - (metricExpCounts[a.id] || 0)
+              );
+            }}
           />
         </Flex>
       </Flex>
@@ -751,7 +787,9 @@ export default function ExecExperimentImpact({
         ) : (
           <Box width="100%" pt="3">
             <Callout status="info" mb="3">
-              Select a metric to see the impact
+              {Object.keys(metricExpCounts).length === 0
+                ? "There are no experiments with metrics in the selected project and date range."
+                : "Select a metric to see the impact."}
             </Callout>
           </Box>
         )}

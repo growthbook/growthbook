@@ -26,7 +26,6 @@ const ExperimentWinRateByProject: React.FC<ExperimentWinRateByProjectProps> = ({
         name: string;
         wins: number;
         losses: number;
-        inconclusive: number;
         total: number;
       }
     > = projects.reduce((map, project) => {
@@ -35,15 +34,13 @@ const ExperimentWinRateByProject: React.FC<ExperimentWinRateByProjectProps> = ({
         name: project.name,
         wins: 0,
         losses: 0,
-        inconclusive: 0,
         total: 0,
       };
       return map;
-    }, {} as Record<string, { id: string; name: string; wins: number; losses: number; inconclusive: number; total: number }>);
+    }, {} as Record<string, { id: string; name: string; wins: number; losses: number; total: number }>);
 
     let allWins = 0;
     let allLosses = 0;
-    let allInconclusive = 0;
     let allTotal = 0;
 
     experiments.forEach((exp) => {
@@ -55,7 +52,6 @@ const ExperimentWinRateByProject: React.FC<ExperimentWinRateByProjectProps> = ({
               name: exp.project,
               wins: 0,
               losses: 0,
-              inconclusive: 0,
               total: 0,
             };
           }
@@ -68,10 +64,6 @@ const ExperimentWinRateByProject: React.FC<ExperimentWinRateByProjectProps> = ({
           if (exp.results === "lost") {
             projectMap[exp.project].losses += 1;
             allLosses += 1;
-          }
-          if (exp.results === "inconclusive") {
-            projectMap[exp.project].inconclusive += 1;
-            allInconclusive += 1;
           }
         } else {
           // If no project is specified, count it as "all" project
@@ -98,7 +90,6 @@ const ExperimentWinRateByProject: React.FC<ExperimentWinRateByProjectProps> = ({
       name: project.name,
       wins: project.wins,
       losses: project.losses,
-      inconclusive: project.inconclusive,
       winRate: project.total > 0 ? (project.wins / project.total) * 100 : 0,
       total: project.total,
     }));
@@ -110,7 +101,6 @@ const ExperimentWinRateByProject: React.FC<ExperimentWinRateByProjectProps> = ({
         winRate: allTotal > 0 ? (allWins / allTotal) * 100 : 0,
         losses: allLosses,
         wins: allWins,
-        inconclusive: allInconclusive,
         total: allTotal,
       });
     }
@@ -138,7 +128,8 @@ const ExperimentWinRateByProject: React.FC<ExperimentWinRateByProjectProps> = ({
                 <tr key={project.id}>
                   <td>{project.name}</td>
                   <td style={{ textAlign: "right" }}>
-                    {project.wins}/{project.losses}/{project.inconclusive}
+                    {project.wins}/{project.losses}/
+                    {project.total - project.wins - project.losses}
                   </td>
                   <td style={{ textAlign: "right" }}>
                     {project.total > 0 ? `${project.winRate.toFixed(2)}%` : "-"}
