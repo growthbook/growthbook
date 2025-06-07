@@ -1,5 +1,4 @@
 import React, { FC, ReactNode, useState } from "react";
-import { isProjectListValidForProject } from "shared/util";
 import {
   isFactMetric,
   isMetricGroupId,
@@ -17,6 +16,7 @@ import ClickToCopy from "@/components/Settings/ClickToCopy";
 import { GBInfo } from "@/components/Icons";
 import { useUser } from "@/services/UserContext";
 import MetricGroupInlineForm from "@/enterprise/components/MetricGroupInlineForm";
+import { useProjectDefinitions } from "@/hooks/useProjectDefinitions";
 import Link from "../Radix/Link";
 
 type MetricOption = {
@@ -104,7 +104,6 @@ const MetricsSelector: FC<{
 }) => {
   const [createMetricGroup, setCreateMetricGroup] = useState(false);
   const {
-    metrics,
     metricGroups,
     factMetrics,
     factTables,
@@ -112,6 +111,7 @@ const MetricsSelector: FC<{
     getDatasourceById,
     mutateDefinitions,
   } = useDefinitions();
+  const { projectMetrics: metrics } = useProjectDefinitions(project);
   const { hasCommercialFeature } = useUser();
 
   const metricListContainsGroup = selected.some((metric) =>
@@ -200,8 +200,7 @@ const MetricsSelector: FC<{
       datasourceSettings && userIdType && m.userIdTypes.length
         ? isMetricJoinable(m.userIdTypes, userIdType, datasourceSettings)
         : true
-    )
-    .filter((m) => isProjectListValidForProject(m.projects, project));
+    );
 
   const tagCounts: Record<string, number> = {};
   filteredOptions.forEach((m) => {
