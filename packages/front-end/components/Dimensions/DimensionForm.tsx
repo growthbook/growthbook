@@ -106,25 +106,12 @@ const DimensionForm: FC<{
             validateSQL(value.sql, [value.userIdType, "value"]);
           }
 
-          // Prevent creating a new dimension in "All Projects" if the selected data source is restricted to specific projects
+          // Prevent assigning "All Projects" when the connected data source is restricted to specific projects
           if (
-            !current.id &&
-            dsObj?.projects &&
-            dsObj.projects.length > 0 &&
-            !value.projects.length
-          ) {
-            throw new Error(
-              `This dimension can not be in "All Projects" since the connected data source is limited to at least one project.`
-            );
-          }
-
-          // Prevent updating an existing dimension that is currently assigned to specific projects to "All Projects" when the connected data source is restricted to specific projects (not available in "All Projects")
-          if (
-            current.id &&
             dsObj?.projects &&
             dsObj.projects.length > 0 &&
             !value.projects.length &&
-            current.projects?.length
+            (!current.id || current.projects?.length)
           ) {
             throw new Error(
               `This dimension can not be in "All Projects" since the connected data source is limited to at least one project.`
