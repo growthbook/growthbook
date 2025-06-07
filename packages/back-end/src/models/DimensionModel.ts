@@ -17,6 +17,10 @@ const dimensionSchema = new mongoose.Schema({
   sql: String,
   dateCreated: Date,
   dateUpdated: Date,
+  projects: {
+    type: [String],
+    index: true,
+  },
 });
 dimensionSchema.index({ id: 1, organization: 1 }, { unique: true });
 type DimensionDocument = mongoose.Document & DimensionInterface;
