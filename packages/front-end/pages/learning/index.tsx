@@ -8,7 +8,6 @@ import Field from "@/components/Forms/Field";
 import { useExperiments } from "@/hooks/useExperiments";
 import { experimentDate } from "@/pages/experiments";
 import CompletedExperimentList from "@/components/Experiment/CompletedExperimentList";
-import ExperimentTimeline from "@/enterprise/components/Insights/ExperimentTimeline";
 import ExperimentSearchFilters from "@/components/Search/ExperimentSearchFilters";
 import DatePicker from "@/components/DatePicker";
 import EmptyState from "@/components/EmptyState";
@@ -175,13 +174,6 @@ const LearningsPage = (): React.ReactElement => {
               experiments={stoppedExperiments}
             />
           )}
-
-          <ExperimentTimeline
-            searchAndFilters={<SearchAndFilters />}
-            experiments={items}
-            startDate={startDate}
-            endDate={endDate}
-          />
         </div>
       </div>
     </>
