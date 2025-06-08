@@ -28,6 +28,8 @@ import {
 import HistogramGraph from "@/components/MetricAnalysis/HistogramGraph";
 import MetricExperiments from "@/components/MetricExperiments/MetricExperiments";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useUser } from "@/services/UserContext";
+import PremiumEmptyState from "@/components/PremiumEmptyState";
 
 interface HistogramDatapoint {
   start: number;
@@ -164,9 +166,27 @@ const MetricEffects = (): React.ReactElement => {
     [metricCards]
   );
 
+  const { hasCommercialFeature } = useUser();
+  const hasMetricEffectsCommercialFeature = hasCommercialFeature(
+    "metric-effects"
+  );
+
   const filteredExperiments = experiments.filter(
     (e) => e.type !== "multi-armed-bandit"
   );
+  if (!hasMetricEffectsCommercialFeature) {
+    return (
+      <Box mb="3">
+        <PremiumEmptyState
+          title="Metric Effects"
+          description="See the net effects on your metrics are from your experiments."
+          commercialFeature="metric-effects"
+          learnMoreLink="https://docs.growthbook.io/app/metrics" //<- fix this link when docs are ready
+          image="/images/empty-states/Enterprise-MetricEffects-light.png"
+        />
+      </Box>
+    );
+  }
   return (
     <Box>
       {metricCards.map((index) => (
