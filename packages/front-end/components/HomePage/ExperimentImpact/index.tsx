@@ -97,7 +97,6 @@ type ExperimentImpactSummary = {
 
 export function scaleImpactAndSetMissingExperiments({
   experiments,
-  filteredExperimentIds,
   snapshots,
   metric,
   selectedProjects,
@@ -106,8 +105,6 @@ export function scaleImpactAndSetMissingExperiments({
   adjusted,
 }: {
   experiments: ExperimentInterfaceStringDates[];
-  // optional additional filter list for final total impact
-  filteredExperimentIds: string[] | undefined;
   snapshots: ExperimentSnapshotInterface[] | undefined;
   metric: string;
   selectedProjects: string[];
@@ -264,23 +261,18 @@ export function scaleImpactAndSetMissingExperiments({
           ? adjustedImpact
           : v.scaledImpact;
 
-        // only add to total if in custom filtered list of experiments
-        const inFilteredList =
-          filteredExperimentIds?.includes(e.experiment.id) ?? true;
-        if (inFilteredList) {
-          if (e.type === "winner" && v.selected) {
+        if (e.type === "winner" && v.selected) {
+          e.keyVariationId = vi + 1;
+          experimentImpact = v.scaledImpact;
+          experimentAdjustedImpact = v.scaledImpactAdjusted;
+          experimentAdjustedImpactStdDev = v.se;
+        } else if (e.type === "loser") {
+          // only include biggest loser for "savings"
+          if (v.scaledImpact < (experimentImpact ?? Infinity)) {
             e.keyVariationId = vi + 1;
             experimentImpact = v.scaledImpact;
             experimentAdjustedImpact = v.scaledImpactAdjusted;
             experimentAdjustedImpactStdDev = v.se;
-          } else if (e.type === "loser") {
-            // only include biggest loser for "savings"
-            if (v.scaledImpact < (experimentImpact ?? Infinity)) {
-              e.keyVariationId = vi + 1;
-              experimentImpact = v.scaledImpact;
-              experimentAdjustedImpact = v.scaledImpactAdjusted;
-              experimentAdjustedImpactStdDev = v.se;
-            }
           }
         }
       });
@@ -436,7 +428,6 @@ export default function ExperimentImpact({
     () =>
       scaleImpactAndSetMissingExperiments({
         experiments,
-        filteredExperimentIds: undefined,
         snapshots,
         metric,
         selectedProjects,

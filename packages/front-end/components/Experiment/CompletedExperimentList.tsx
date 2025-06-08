@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import { Box, Flex, Heading, Separator, Text } from "@radix-ui/themes";
 import { RxDesktop } from "react-icons/rx";
 import { BsFlag } from "react-icons/bs";
-import { PiCameraLight, PiShuffle } from "react-icons/pi";
+import { PiArrowSquareOut, PiShuffle } from "react-icons/pi";
+import { TbCloudOff } from "react-icons/tb";
 import React, { useState } from "react";
 import { isFactMetricId } from "shared/experiments";
 import { date } from "shared/dates";
@@ -10,15 +11,20 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import EmptyState from "@/components/EmptyState";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import AuthorizedImage from "@/components/AuthorizedImage";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import Pagination from "@/components/Pagination";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import Markdown from "@/components/Markdown/Markdown";
 import { experimentDate } from "@/pages/experiments";
+import { VariationBox } from "@/components/Experiment/VariationsTable";
+import ExperimentCarouselModal from "@/components/Experiment/ExperimentCarouselModal";
+
+const maxImageHeight = 200;
+const maxImageWidth = 300;
 
 const NUM_PER_PAGE = 20;
+
 const imageCache = {};
 
 const CompletedExperimentList = ({
@@ -29,6 +35,11 @@ const CompletedExperimentList = ({
   searchAndFilters: React.ReactNode;
 }) => {
   const [currentPage, setCurrentPage] = useState(1);
+  const [openCarousel, setOpenCarousel] = useState<{
+    experimentIndex: number;
+    variationId: string;
+    index: number;
+  } | null>(null);
 
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
@@ -38,6 +49,18 @@ const CompletedExperimentList = ({
 
   return (
     <>
+      {openCarousel && (
+        <ExperimentCarouselModal
+          experiment={experiments[openCarousel.experimentIndex]}
+          currentVariation={openCarousel.variationId}
+          currentScreenshot={openCarousel.index}
+          imageCache={imageCache}
+          close={() => {
+            setOpenCarousel(null);
+          }}
+          restrictVariation={false}
+        />
+      )}
       <CustomMarkdown page={"learnings"} />
       <Box>
         {searchAndFilters && <Box mb="5">{searchAndFilters}</Box>}
@@ -49,39 +72,53 @@ const CompletedExperimentList = ({
             leftButton={null}
           />
         ) : (
-          experiments.slice(start, end).map((e) => {
+          experiments.slice(start, end).map((e, experimentIndex) => {
             const result = e.results;
 
-            const winningVariation = (result === "lost"
-              ? e.variations[0]
-              : result === "won"
-              ? e.variations[e.winner || 1]
-              : { name: "" }) || { name: "" };
+            const winningVariationIndex =
+              result === "lost" ? 0 : result === "won" ? e.winner ?? 1 : null;
 
-            const winningVariationName = winningVariation?.name || "";
+            const winningVariation =
+              winningVariationIndex !== null
+                ? e.variations[winningVariationIndex]
+                : null;
 
+            const releasedVariationId = e.releasedVariationId || "";
+            const releasedVariationIndex = e.variations.findIndex(
+              (v) => v.id === releasedVariationId
+            );
             const releasedVariation =
-              e.variations.find((v) => v.id === e.releasedVariationId)?.name ||
-              "";
+              releasedVariationIndex >= 0
+                ? e.variations[releasedVariationIndex]
+                : null;
+
+            const variantImageToShow = winningVariation
+              ? winningVariationIndex
+              : releasedVariation
+              ? releasedVariationIndex
+              : 0;
 
             const expResult = (
               <>
-                {(e.results === "won" || e.results === "lost") &&
-                winningVariationName !== releasedVariation ? (
-                  <>
-                    {" "}
-                    but <em>{winningVariationName}</em> was released
-                  </>
+                {winningVariation ? (
+                  <em>
+                    <strong>{winningVariation.name}</strong> won
+                    {releasedVariation &&
+                    releasedVariationId !== winningVariation.id ? (
+                      <>
+                        , but <strong>{releasedVariation.name}</strong> was
+                        released to 100% instead
+                      </>
+                    ) : (
+                      ` and was released to 100%`
+                    )}
+                  </em>
+                ) : releasedVariation ? (
+                  <em>
+                    <strong>{releasedVariation.name}</strong> was released to
+                    100%
+                  </em>
                 ) : null}
-                {e.results === "won" &&
-                winningVariationName &&
-                winningVariationName === releasedVariation ? (
-                  <>
-                    <em>{winningVariationName}</em> was released to 100%
-                  </>
-                ) : (
-                  <>{e.results === "lost" ? "reverted to control" : ""}</>
-                )}
               </>
             );
             const expTypes: JSX.Element[] = [];
@@ -119,64 +156,17 @@ const CompletedExperimentList = ({
               );
             }
 
-            // use the image if its there, if not, use a placeholder.
-            const maxImageHeight = 200;
-            const maxImageWidth = 300;
-            const img =
-              "screenshots" in winningVariation &&
-              winningVariation?.screenshots?.[0] ? (
-                <AuthorizedImage
-                  imageCache={imageCache}
-                  className="experiment-image"
-                  src={winningVariation?.screenshots?.[0]?.path}
-                  key={e.id + winningVariation?.screenshots?.[0]?.path}
-                  style={{
-                    width: maxImageWidth + "px",
-                    height: maxImageHeight + "px",
-                    objectFit: "contain",
-                    border: "1px solid var(--slate-a6)",
-                  }}
-                  onErrorMsg={(msg) => {
-                    return (
-                      <Flex
-                        title={msg}
-                        align="center"
-                        justify="center"
-                        className="appbox mb-0"
-                        width="100%"
-                        style={{
-                          backgroundColor: "var(--slate-a3)",
-                          height: maxImageHeight + "px",
-                          width: "100%",
-                          color: "var(--slate-a9)",
-                        }}
-                      >
-                        <Text size="8">
-                          <PiCameraLight />
-                        </Text>
-                      </Flex>
-                    );
-                  }}
-                />
-              ) : (
-                <Flex
-                  title={"no image uploaded"}
-                  align="center"
-                  justify="center"
-                  className="appbox mb-0"
-                  width="100%"
-                  style={{
-                    backgroundColor: "var(--slate-a3)",
-                    width: maxImageWidth + "px",
-                    height: maxImageHeight + "px",
-                    color: "var(--slate-a9)",
-                  }}
+            if (expTypes.length === 0) {
+              expTypes.push(
+                <Tooltip
+                  key={e.id + "-no-type"}
+                  className="d-flex align-items-center ml-2"
+                  body="Implemented outside of GrowthBook"
                 >
-                  <Text size="8">
-                    <PiCameraLight />
-                  </Text>
-                </Flex>
+                  <TbCloudOff className="text-blue" />
+                </Tooltip>
               );
+            }
 
             const goalMetrics = e.goalMetrics.map((m) => {
               const metric = isFactMetricId(m)
@@ -187,7 +177,7 @@ const CompletedExperimentList = ({
                   <Link
                     key={e.id + m}
                     href={`/metrics/${m}`}
-                    className="text-decoration-none mr-3"
+                    className="text-decoration-none"
                   >
                     {metric.name}
                   </Link>
@@ -198,145 +188,141 @@ const CompletedExperimentList = ({
             const moreGoalMetrics = e.goalMetrics.length > 2;
 
             return (
-              <Box key={e.trackingKey} className="appbox" mb="4" p="3" px="4">
-                <Heading as="h2" size="3" mb="4">
-                  <Link
-                    href={`/experiment/${e.id}`}
-                    className="w-100 no-link-color"
+              <Box key={e.trackingKey} className="appbox" mb="4" p="5">
+                <Flex align="center" mb="2">
+                  <Box flexGrow="1">
+                    <Heading as="h2" size="4" mb="0">
+                      <Link
+                        href={`/experiment/${e.id}`}
+                        className="w-100 no-link-color text-dark"
+                      >
+                        {e.name}
+                      </Link>
+                    </Heading>
+                  </Box>
+                  <Box>
+                    <Text size="1">
+                      <Link href={`/experiment/${e.id}`}>
+                        View experiment <PiArrowSquareOut />
+                      </Link>
+                    </Text>
+                  </Box>
+                </Flex>
+                <Flex gap="4">
+                  <Box
+                    width={maxImageWidth + 40 + "px"}
+                    minWidth={maxImageWidth + 40 + "px"}
                   >
-                    {e.name}
-                  </Link>
-                </Heading>
-                <Flex align="start" justify="between" gap="4">
-                  <Flex
-                    align="start"
-                    justify="start"
-                    gap="5"
-                    direction="column"
-                  >
-                    <Flex align="start" justify="start" gap="6" flexGrow="1">
-                      <Box>
-                        <Box mb="1">
-                          <Text
-                            weight="medium"
-                            size="1"
-                            color="gray"
-                            style={{ textTransform: "uppercase" }}
-                          >
-                            Duration
-                          </Text>
-                        </Box>
+                    <VariationBox
+                      i={variantImageToShow || 0}
+                      v={e.variations[variantImageToShow || 0]}
+                      experiment={e}
+                      showDescription={false}
+                      showIds={false}
+                      height={maxImageHeight}
+                      canEdit={false}
+                      allowImages={true}
+                      openCarousel={(variationId, index) => {
+                        setOpenCarousel({
+                          experimentIndex: experimentIndex + start,
+                          variationId,
+                          index,
+                        });
+                      }}
+                    />
+                  </Box>
+                  <Box className="appbox mb-0" p="3" flexGrow="1">
+                    <Flex
+                      align="start"
+                      justify="start"
+                      gap="3"
+                      flexGrow="1"
+                      direction={"column"}
+                    >
+                      <Flex gap="2" align="center">
                         <Box>
-                          {(e.phases?.[0]?.dateStarted
-                            ? date(e.phases?.[0]?.dateStarted)
-                            : "") +
-                            " - " +
-                            (experimentDate(e) ? date(experimentDate(e)) : "")}
+                          <ExperimentStatusIndicator experimentData={e} />
                         </Box>
+                        <Box>{expResult}</Box>
+                      </Flex>
+                      <Flex gap="5" align="start" wrap={"wrap"}>
+                        <Flex gap="2">
+                          <Box>
+                            <Text weight="medium">Duration:</Text>
+                          </Box>
+                          <Box>
+                            {(e.phases?.[0]?.dateStarted
+                              ? date(e.phases?.[0]?.dateStarted)
+                              : "") +
+                              " - " +
+                              (experimentDate(e)
+                                ? date(experimentDate(e))
+                                : "")}
+                          </Box>
+                        </Flex>
+                        <Flex gap="2">
+                          <Box>
+                            <Text weight="medium">Owner:</Text>
+                          </Box>
+                          <Box>{getUserDisplay(e.owner, false) || ""}</Box>
+                        </Flex>
+                        <Flex gap="2" align="center">
+                          <Box>
+                            <Text weight="medium">Type:</Text>
+                          </Box>
+                          <Box>
+                            <Flex>{expTypes}</Flex>
+                          </Box>
+                        </Flex>
+                      </Flex>
+                      <Flex align="start" gap="0" wrap={"wrap"}>
+                        <Box pr="2">
+                          <Text weight="medium">Goal Metrics:</Text>
+                        </Box>
+                        {goalMetrics.slice(0, 2).map((g, ind) => (
+                          <Box key={e.id + "-metric-" + ind}>
+                            {ind > 0 ? ", " : ""}
+                            {g}
+                          </Box>
+                        ))}
+                        {goalMetrics.length === 0 ? (
+                          <Box>
+                            <em>None</em>
+                          </Box>
+                        ) : null}
+                        {moreGoalMetrics ? (
+                          <Box>, +{goalMetrics.length - 2} more</Box>
+                        ) : null}
+                      </Flex>
+                      <Box width={"100%"}>
+                        <Separator size="4" />
                       </Box>
-                      <Box>
-                        <Box mb="1">
-                          <Text
-                            weight="medium"
-                            size="1"
-                            color="gray"
-                            style={{ textTransform: "uppercase" }}
-                          >
-                            Owner
-                          </Text>
-                        </Box>
-                        <Box>{getUserDisplay(e.owner, false) || ""}</Box>
-                      </Box>
-                      <Box>
-                        <Box mb="1">
-                          <Text
-                            weight="medium"
-                            size="1"
-                            color="gray"
-                            style={{ textTransform: "uppercase" }}
-                          >
-                            Type
-                          </Text>
-                        </Box>
-                        <Box>
-                          <Flex>{expTypes}</Flex>
-                        </Box>
-                      </Box>
-                      <Box>
-                        <Box mb="1">
-                          <Text
-                            weight="medium"
-                            size="1"
-                            color="gray"
-                            style={{ textTransform: "uppercase" }}
-                          >
-                            Goal Metrics
-                          </Text>
-                        </Box>
-                        <Box>
-                          <Flex direction="column">
-                            {goalMetrics.slice(0, 2).map((g, ind) => (
-                              <Box key={e.id + "-metric-" + ind}>{g}</Box>
-                            ))}
-                            {moreGoalMetrics
-                              ? `and ${goalMetrics.length - 2} more`
-                              : ""}
+                      {e.analysis || e.description || e.hypothesis ? (
+                        <Box style={{ maxHeight: "140px", overflowY: "auto" }}>
+                          <Flex direction="column" gap="3">
+                            {e.analysis ? (
+                              <Markdown>{`**Results Summary:** \n${e.analysis}`}</Markdown>
+                            ) : null}
+
+                            {e.hypothesis ? (
+                              <Markdown>
+                                {`**Original Hypothesis:** \n${e.hypothesis}`}
+                              </Markdown>
+                            ) : e.description ? (
+                              <Markdown>
+                                {`**Experiment Description:** \n${e.description}`}
+                              </Markdown>
+                            ) : null}
                           </Flex>
                         </Box>
-                      </Box>
-                      <Box>
-                        <Box mb="1">
-                          <Text
-                            weight="medium"
-                            size="1"
-                            color="gray"
-                            style={{ textTransform: "uppercase" }}
-                          >
-                            Result
-                          </Text>
-                        </Box>
-                        <Flex direction="column">
-                          <Box mb="2">
-                            <ExperimentStatusIndicator experimentData={e} />
-                          </Box>
-                          <Box>{expResult}</Box>
-                        </Flex>
-                      </Box>
-                    </Flex>
-                    <Flex align="start" direction="column">
-                      <Box>
-                        <Text
-                          weight="medium"
-                          color="gray"
-                          size="1"
-                          style={{ textTransform: "uppercase" }}
-                        >
-                          Summary
-                        </Text>
-                      </Box>
-                      <Box>
-                        <Markdown>{e.analysis}</Markdown>
-                      </Box>
-                    </Flex>
-                  </Flex>
-                  <Box>
-                    {img ? (
-                      <Flex align="center" justify="center" direction="column">
+                      ) : (
                         <Box>
-                          <Link
-                            href={`/experiment/${e.id}`}
-                            className="w-100 no-link-color"
-                          >
-                            {img}
-                          </Link>
+                          <em>
+                            No description, hypothesis, or results summary
+                          </em>
                         </Box>
-                        <Box style={{ textAlign: "center" }}>
-                          {winningVariationName}
-                        </Box>
-                      </Flex>
-                    ) : (
-                      <></>
-                    )}
+                      )}
+                    </Flex>
                   </Box>
                 </Flex>
               </Box>

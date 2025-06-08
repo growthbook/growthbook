@@ -1,14 +1,14 @@
-import React, { useEffect, useCallback, useState } from "react";
+import React, { useEffect, useCallback, useState, useMemo } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import {
   ExperimentSnapshotInterface,
   ExperimentWithSnapshot,
 } from "back-end/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
-import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import { Box, Flex, Text } from "@radix-ui/themes";
 import { DifferenceType } from "back-end/types/stats";
-import { FaPlus, FaTrash } from "react-icons/fa";
 import { useRouter } from "next/router";
+import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { useExperiments } from "@/hooks/useExperiments";
 import MetricSelector from "@/components/Experiment/MetricSelector";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -20,7 +20,6 @@ import {
 } from "@/services/metrics";
 import SelectField from "@/components/Forms/SelectField";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import Button from "@/components/Radix/Button";
 import {
   filterExperimentsByMetrics,
   updateSearchParams,
@@ -155,15 +154,9 @@ const MetricEffects = (): React.ReactElement => {
 
   const params = parseQueryParams(qParams);
 
-  const [metricCards, setMetricCards] = useState<number[]>(
-    params.length > 0 ? params.map((p) => p.idx) : [0]
-  );
-
-  const deleteCard = useCallback(
-    (id: number) => {
-      setMetricCards(metricCards.filter((cardId) => cardId !== id));
-    },
-    [metricCards]
+  const filteredExperiments = useMemo(
+    () => experiments.filter((e) => e.type !== "multi-armed-bandit"),
+    [experiments]
   );
 
   const { hasCommercialFeature } = useUser();
@@ -171,9 +164,6 @@ const MetricEffects = (): React.ReactElement => {
     "metric-effects"
   );
 
-  const filteredExperiments = experiments.filter(
-    (e) => e.type !== "multi-armed-bandit"
-  );
   if (!hasMetricEffectsCommercialFeature) {
     return (
       <Box mb="3">
@@ -188,40 +178,18 @@ const MetricEffects = (): React.ReactElement => {
     );
   }
   return (
-    <Box>
-      {metricCards.map((index) => (
-        <Box key={index}>
-          <MetricEffectCard
-            experiments={filteredExperiments}
-            index={index}
-            deleteCard={deleteCard}
-            params={params.find((p) => p.idx === index)}
-          />
-        </Box>
-      ))}
-      <Button
-        variant="ghost"
-        mt="4"
-        onClick={() => {
-          const id = Math.max(...metricCards) + 1;
-          setMetricCards([...metricCards, id]);
-        }}
-      >
-        <FaPlus /> Add Another Metric
-      </Button>
-    </Box>
+    <MetricEffectCard
+      experiments={filteredExperiments}
+      params={params[0] || undefined}
+    />
   );
 };
 
 const MetricEffectCard = ({
   experiments,
-  index,
-  deleteCard,
   params,
 }: {
   experiments: ExperimentInterfaceStringDates[];
-  index: number;
-  deleteCard?: (index: number) => void;
   params?: MetricEffectParams;
 }): React.ReactElement => {
   const { apiCall } = useAuth();
@@ -231,6 +199,16 @@ const MetricEffectCard = ({
     getExperimentMetricById,
     getFactTableById,
   } = useDefinitions();
+
+  const metricExpCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    experiments.forEach((exp) => {
+      getAllMetricIdsFromExperiment(exp).forEach((metric) => {
+        counts[metric] = (counts[metric] || 0) + 1;
+      });
+    });
+    return counts;
+  }, [experiments]);
 
   const displayCurrency = useCurrency();
 
@@ -291,8 +269,8 @@ const MetricEffectCard = ({
     const experimentsWithData = new Map<string, ExperimentWithSnapshot>();
 
     setSearchParams({
-      [`metric_${index}`]: metric,
-      [`diff_${index}`]: differenceType,
+      [`metric_0`]: metric,
+      [`diff_0`]: differenceType,
     });
 
     const queryIds = filteredExperiments
@@ -381,14 +359,14 @@ const MetricEffectCard = ({
       setExperimentsWithSnapshot(Array.from(experimentsWithData.values()));
       setLoading(false);
     }
-  }, [metric, experiments, differenceType, setSearchParams, index, apiCall]);
+  }, [metric, experiments, differenceType, setSearchParams, apiCall]);
 
   useEffect(() => {
     handleFetchMetric();
   }, [handleFetchMetric]);
 
   return (
-    <Box className="">
+    <Box className="" width="100%">
       {/* TODO: add when experiment filter component lands */}
       {/* <Flex align="center" gap="2" className="mb-3" justify="between">
         {experimentFilter ? (
@@ -441,6 +419,12 @@ const MetricEffectCard = ({
                 includeFacts={true}
                 id="metric1-selector"
                 style={{ flexBasis: "100%" }}
+                sortMetrics={(a, b) => {
+                  return (
+                    (metricExpCounts[b.id] || 0) - (metricExpCounts[a.id] || 0)
+                  );
+                }}
+                filterMetrics={(m) => !!metricExpCounts[m.id]}
               />
             </Box>
             <Box flexBasis="200px" flexGrow="0" flexShrink="1">
@@ -462,32 +446,12 @@ const MetricEffectCard = ({
               </Box>
             )}
           </Flex>
-          {index && deleteCard ? (
-            <Button
-              variant="ghost"
-              onClick={() => {
-                deleteCard(index);
-                updateSearchParams(searchParams, true);
-              }}
-            >
-              <FaTrash /> Remove
-            </Button>
-          ) : null}
         </Flex>
         {metricObj && metricData.histogramData.length > 0 ? (
-          <Box mt="4">
-            <Heading as="h3" size="5" my="3">
-              {metricObj.name} - Lift Distribution
-            </Heading>
-            <Flex
-              direction="row"
-              justify="center"
-              mt="2"
-              className="appbox appbox-light"
-              align="baseline"
-            >
-              {metricData.histogramData.length > 0 ? (
-                <Flex direction="column" gap="2">
+          <Box mt="4" width="100%">
+            {metricData.histogramData.length > 0 ? (
+              <Flex direction="column" gap="2" width="100%">
+                <Box className="appbox" p="3">
                   <Flex
                     direction="row"
                     gap="5"
@@ -506,50 +470,58 @@ const MetricEffectCard = ({
                         invertHighlightColors={metricObj.inverse}
                       />
                     </Box>
-                    <Flex direction="column" align="center">
-                      <Text as="p" color="gray">
-                        Number of Experiments with Results:{" "}
-                        {metricData.stats?.numExperiments}
-                      </Text>
-                      <Text as="p" color="gray">
-                        Number of Variations with Results:{" "}
-                        {metricData.stats?.numVariations}
-                      </Text>
-                      <Text as="p" color="gray">
-                        Mean:{" "}
-                        {differenceType === "relative"
-                          ? formatPercent(metricData.stats?.mean || 0)
-                          : formatNumber(metricData.stats?.mean || 0)}
-                      </Text>
-                      <Text as="p" color="gray">
-                        Standard Deviation:{" "}
-                        {differenceType === "relative"
-                          ? formatPercent(
-                              metricData.stats?.standardDeviation || 0
-                            )
-                          : formatNumber(
-                              metricData.stats?.standardDeviation || 0
-                            )}
-                      </Text>
-                    </Flex>
+                    <Box flexGrow="1" minWidth={"250px"}>
+                      <Box className="appbox p-3 bg-light">
+                        <Flex direction="column" align="start">
+                          <Text as="p" color="gray">
+                            <Text weight="medium">
+                              Number of Experiments with Results:
+                            </Text>{" "}
+                            {metricData.stats?.numExperiments}
+                          </Text>
+                          <Text as="p" color="gray">
+                            <Text weight="medium">
+                              Number of Variations with Results:
+                            </Text>{" "}
+                            {metricData.stats?.numVariations}
+                          </Text>
+                          <Text as="p" color="gray">
+                            <Text weight="medium">Mean:</Text>{" "}
+                            {differenceType === "relative"
+                              ? formatPercent(metricData.stats?.mean || 0)
+                              : formatNumber(metricData.stats?.mean || 0)}
+                          </Text>
+                          <Text as="p" color="gray">
+                            <Text weight="medium">Standard Deviation:</Text>{" "}
+                            {differenceType === "relative"
+                              ? formatPercent(
+                                  metricData.stats?.standardDeviation || 0
+                                )
+                              : formatNumber(
+                                  metricData.stats?.standardDeviation || 0
+                                )}
+                          </Text>
+                        </Flex>
+                      </Box>
+                    </Box>
                   </Flex>
-                  <Box p="2">
-                    <MetricExperiments
-                      metric={metricObj}
-                      dataWithSnapshot={experimentsWithSnapshot}
-                      includeOnlyResults={true}
-                      numPerPage={10}
-                      differenceType={differenceType}
-                      outerClassName=""
-                    />
-                  </Box>
-                </Flex>
-              ) : (
-                <Text as="p" color="gray">
-                  No lift data to display for histogram.
-                </Text>
-              )}
-            </Flex>
+                </Box>
+                <Box>
+                  <MetricExperiments
+                    metric={metricObj}
+                    dataWithSnapshot={experimentsWithSnapshot}
+                    includeOnlyResults={true}
+                    numPerPage={10}
+                    differenceType={differenceType}
+                    outerClassName=""
+                  />
+                </Box>
+              </Flex>
+            ) : (
+              <Text as="p" color="gray">
+                No lift data to display for histogram.
+              </Text>
+            )}
           </Box>
         ) : metric ? (
           <Box mt="4">

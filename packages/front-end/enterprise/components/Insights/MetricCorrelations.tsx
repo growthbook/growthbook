@@ -1,11 +1,10 @@
-import React, { useEffect, useCallback, useState } from "react";
+import React, { useEffect, useCallback, useState, useMemo } from "react";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { DifferenceType } from "back-end/types/stats";
-import { FaPlus, FaTrash } from "react-icons/fa";
 import router, { useRouter } from "next/router";
 import Callout from "@/components/Radix/Callout";
 import ScatterPlotGraph, {
@@ -21,7 +20,6 @@ import {
 } from "@/services/metrics";
 import SelectField from "@/components/Forms/SelectField";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import Button from "@/components/Radix/Button";
 
 export const filterExperimentsByMetrics = (
   experiments: ExperimentInterfaceStringDates[],
@@ -99,43 +97,16 @@ const MetricCorrelations = (): React.ReactElement => {
 
   const params = parseQueryParams(qParams);
 
-  const [correlationCards, setCorrelationCards] = useState<number[]>(
-    params.length > 0 ? params.map((p) => p.idx) : [0]
-  );
-
-  const deleteCard = useCallback(
-    (id: number) => {
-      setCorrelationCards(correlationCards.filter((cardId) => cardId !== id));
-    },
-    [correlationCards]
-  );
-  const filteredExperiments = experiments.filter(
-    (e) => e.type !== "multi-armed-bandit"
+  const filteredExperiments = useMemo(
+    () => experiments.filter((e) => e.type !== "multi-armed-bandit"),
+    [experiments]
   );
 
   return (
-    <Box>
-      {correlationCards.map((index) => (
-        <Box key={index}>
-          <MetricCorrelationCard
-            experiments={filteredExperiments}
-            index={index}
-            deleteCard={deleteCard}
-            params={params.find((p) => p.idx === index)}
-          />
-        </Box>
-      ))}
-      <Button
-        variant="ghost"
-        mt="4"
-        onClick={() => {
-          const id = Math.max(...correlationCards) + 1;
-          setCorrelationCards([...correlationCards, id]);
-        }}
-      >
-        <FaPlus /> Add New Correlation Analysis
-      </Button>
-    </Box>
+    <MetricCorrelationCard
+      experiments={filteredExperiments}
+      params={params[0]}
+    />
   );
 };
 
@@ -180,13 +151,9 @@ export const updateSearchParams = (
 
 const MetricCorrelationCard = ({
   experiments,
-  index,
-  deleteCard,
   params,
 }: {
   experiments: ExperimentInterfaceStringDates[];
-  index: number;
-  deleteCard?: (index: number) => void;
   params?: MetricCorrelationParams;
 }): React.ReactElement => {
   const { apiCall } = useAuth();
@@ -214,6 +181,32 @@ const MetricCorrelationCard = ({
   }>({
     correlationData: [],
   });
+
+  const metric1OptionCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    experiments.forEach((experiment) => {
+      const metricIds = getAllMetricIdsFromExperiment(experiment);
+      metricIds.forEach((metricId) => {
+        counts[metricId] = (counts[metricId] || 0) + 1;
+      });
+    });
+    return counts;
+  }, [experiments]);
+
+  const metric2OptionCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    if (!metric1) return counts;
+
+    experiments.forEach((exp) => {
+      const ids = getAllMetricIdsFromExperiment(exp);
+      if (!ids.includes(metric1)) return;
+      ids.forEach((id) => {
+        if (id === metric1) return;
+        counts[id] = (counts[id] || 0) + 1;
+      });
+    });
+    return counts;
+  }, [experiments, metric1]);
 
   useEffect(() => {
     updateSearchParams(searchParams, false);
@@ -270,9 +263,9 @@ const MetricCorrelationCard = ({
     );
 
     setSearchParams({
-      [`m1_${index}`]: metric1,
-      [`m2_${index}`]: metric2,
-      [`diff_${index}`]: differenceType,
+      [`m1_0`]: metric1,
+      [`m2_0`]: metric2,
+      [`diff_0`]: differenceType,
     });
 
     const queryIds = filteredExperiments
@@ -362,7 +355,6 @@ const MetricCorrelationCard = ({
     experiments,
     differenceType,
     setSearchParams,
-    index,
     apiCall,
   ]);
 
@@ -377,14 +369,24 @@ const MetricCorrelationCard = ({
           <Flex direction="row" gap="4" flexBasis="100%">
             <Box flexBasis="400px" flexGrow="0" flexShrink="1">
               <label htmlFor="metric1-selector" className="form-label">
-                Metric
+                Metric 1
               </label>
               <MetricSelector
                 value={metric1}
-                onChange={setMetric1}
+                onChange={(id) => {
+                  setMetric1(id);
+                  setMetric2(""); // Reset metric2 when metric1 changes
+                }}
                 project={project}
                 includeFacts={true}
                 id="metric1-selector"
+                filterMetrics={(m) => !!metric1OptionCounts[m.id]}
+                sortMetrics={(a, b) => {
+                  return (
+                    (metric1OptionCounts[b.id] || 0) -
+                    (metric1OptionCounts[a.id] || 0)
+                  );
+                }}
               />
             </Box>
             <Box flexBasis="400px" flexGrow="0" flexShrink="1">
@@ -397,6 +399,15 @@ const MetricCorrelationCard = ({
                 project={project}
                 includeFacts={true}
                 id="metric2-selector"
+                disabled={!metric1}
+                filterMetrics={(m) => !!metric2OptionCounts[m.id]}
+                sortMetrics={(a, b) => {
+                  return (
+                    (metric2OptionCounts[b.id] || 0) -
+                    (metric2OptionCounts[a.id] || 0)
+                  );
+                }}
+                initialOption="Select..."
               />
             </Box>
             <Box flexBasis="200px" flexGrow="0" flexShrink="1">
@@ -418,19 +429,9 @@ const MetricCorrelationCard = ({
               </Box>
             )}
           </Flex>
-          {index && deleteCard ? (
-            <Button
-              variant="ghost"
-              onClick={() => {
-                deleteCard(index);
-                updateSearchParams(searchParams, true);
-              }}
-            >
-              <FaTrash /> Remove
-            </Button>
-          ) : null}
         </Flex>
-        {metricData.correlationData.length > 0 ? (
+        {!metric1 || !metric2 || loading ? null : metricData.correlationData
+            .length > 0 ? (
           <Box mt="4">
             <Flex mt="2" align="center" justify="center" p="3">
               <ScatterPlotGraph
@@ -474,13 +475,13 @@ const MetricCorrelationCard = ({
               />
             </Flex>
           </Box>
-        ) : metric1 && metric2 ? (
+        ) : (
           <Box mt="4">
             <Callout status="info">
               No experiments found that both have these two metrics
             </Callout>
           </Box>
-        ) : null}
+        )}
       </Box>
     </>
   );

@@ -2,7 +2,12 @@ import Link from "next/link";
 import { useState } from "react";
 import clsx from "clsx";
 import { useRouter } from "next/router";
-import { BsFlag, BsLightbulb, BsCodeSlash } from "react-icons/bs";
+import {
+  BsFlag,
+  BsClipboardCheck,
+  BsLightbulb,
+  BsCodeSlash,
+} from "react-icons/bs";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Flex } from "@radix-ui/themes";
 import { getGrowthBookBuild } from "@/services/env";
@@ -55,14 +60,14 @@ const navlinks: SidebarLinkProps[] = [
   {
     name: "Metrics and Data",
     href: "/metrics",
-    path: /^(metric$|metrics|segment|dimension|datasources|fact-|metric-group)/,
+    path: /^(metric\/|metrics|segment|dimension|datasources|fact-|metric-group)/,
     autoClose: true,
     Icon: GBDatabase,
     subLinks: [
       {
         name: "Metrics",
         href: "/metrics",
-        path: /^(metric$|metrics|fact-metric|metric-group)/,
+        path: /^(metric\/|metrics|fact-metric|metric-group)/,
       },
       {
         name: "Fact Tables",
@@ -88,12 +93,12 @@ const navlinks: SidebarLinkProps[] = [
   },
   {
     name: "Insights",
-    href: "/insights",
+    href: "/dashboard",
     Icon: GBLibrary,
-    path: /^(insights|library|^learning*|timeline|metric-effect|correlations)/,
+    path: /^(dashboard|learning|timeline|metric-effect|correlations|presentation)/,
     subLinks: [
       {
-        name: "Impact",
+        name: "Dashboard",
         href: "/dashboard",
         path: /^dashboard/,
       },
@@ -130,7 +135,7 @@ const navlinks: SidebarLinkProps[] = [
     ],
     filter: ({ gb }) => !!gb?.isOn("insights"),
   },
-  /*{
+  {
     name: "Management",
     href: "/dashboard",
     Icon: BsClipboardCheck,
@@ -147,8 +152,14 @@ const navlinks: SidebarLinkProps[] = [
         href: "/ideas",
         path: /^idea/,
       },
+      {
+        name: "Presentations",
+        href: "/presentations",
+        path: /^presentation/,
+      },
     ],
-  },*/
+    filter: ({ gb }) => !gb?.isOn("insights"),
+  },
   {
     name: "SDK Configuration",
     href: "/sdks",
