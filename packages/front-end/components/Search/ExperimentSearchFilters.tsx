@@ -223,11 +223,6 @@ const ExperimentSearchFilters: FC<
             id: "stopped",
             name: "Stopped",
           },
-          {
-            searchValue: "archived",
-            id: "archived",
-            name: "Archived",
-          },
         ]}
         updateQuery={updateQuery}
       />
@@ -247,7 +242,7 @@ const ExperimentSearchFilters: FC<
         updateQuery={updateQuery}
       />
       <FilterDropdown
-        filter="type"
+        filter="has"
         heading="Type"
         syntaxFilters={syntaxFilters}
         open={dropdownFilterOpen}

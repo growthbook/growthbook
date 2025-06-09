@@ -68,69 +68,6 @@ const ExperimentTimelinePage = (): React.ReactElement => {
     filterResults,
   });
 
-  const SearchAndFilters = () => {
-    return (
-      <>
-        <Flex align="center" gap="2" className="mb-3" justify="between">
-          <Box flexBasis="60%" flexShrink="1" flexGrow="0">
-            <Field
-              placeholder="Search..."
-              type="search"
-              {...searchInputProps}
-            />
-          </Box>
-          <Box>
-            <Flex
-              align="center"
-              gap="4"
-              justify="end"
-              flexBasis="100%"
-              style={{
-                fontSize: "0.8rem",
-              }}
-            >
-              <Flex align="center">
-                <label className="mb-0 mr-2">From</label>
-                <DatePicker
-                  date={startDate}
-                  setDate={(sd) => {
-                    if (sd) {
-                      setStartDate(sd);
-                    }
-                  }}
-                  scheduleEndDate={endDate}
-                  precision="date"
-                  containerClassName=""
-                />
-              </Flex>
-              <Flex align="center">
-                <label className="mb-0 mr-2">To</label>
-                <DatePicker
-                  date={endDate}
-                  setDate={(ed) => {
-                    if (ed) setEndDate(ed);
-                  }}
-                  scheduleStartDate={startDate}
-                  precision="date"
-                  containerClassName=""
-                />
-              </Flex>
-            </Flex>
-          </Box>
-        </Flex>
-        <Box p="2">
-          <ExperimentSearchFilters
-            experiments={items}
-            syntaxFilters={syntaxFilters}
-            searchInputProps={searchInputProps}
-            setSearchValue={setSearchValue}
-            allowDrafts={false}
-          />
-        </Box>
-      </>
-    );
-  };
-
   if (error) {
     return (
       <div className="alert alert-danger">
@@ -146,12 +83,12 @@ const ExperimentTimelinePage = (): React.ReactElement => {
   return (
     <>
       <div className="contents experiments container-fluid pagecontents">
-        <div className="my-3">
-          <Heading size="7" style={{ fontWeight: 500 }}>
+        <div className="mb-3">
+          <Heading size="7" style={{ fontWeight: 500 }} mb="4">
             Experiment Timeline
           </Heading>
 
-          {items.length === 0 && (
+          {allExperiments.length === 0 ? (
             <EmptyState
               title="Experimentation Timeline"
               description="See a timeline of past experiments."
@@ -160,13 +97,73 @@ const ExperimentTimelinePage = (): React.ReactElement => {
                 <LinkButton href="/experiments">Create experiment</LinkButton>
               }
             />
+          ) : (
+            <>
+              <Flex align="center" gap="2" className="mb-3" justify="between">
+                <Box flexBasis="60%" flexShrink="1" flexGrow="0">
+                  <Field
+                    placeholder="Search..."
+                    type="search"
+                    {...searchInputProps}
+                  />
+                </Box>
+                <Box>
+                  <Flex
+                    align="center"
+                    gap="4"
+                    justify="end"
+                    flexBasis="100%"
+                    style={{
+                      fontSize: "0.8rem",
+                    }}
+                  >
+                    <Flex align="center">
+                      <label className="mb-0 mr-2">From</label>
+                      <DatePicker
+                        date={startDate}
+                        setDate={(sd) => {
+                          if (sd) {
+                            setStartDate(sd);
+                          }
+                        }}
+                        scheduleEndDate={endDate}
+                        precision="date"
+                        containerClassName=""
+                      />
+                    </Flex>
+                    <Flex align="center">
+                      <label className="mb-0 mr-2">To</label>
+                      <DatePicker
+                        date={endDate}
+                        setDate={(ed) => {
+                          if (ed) setEndDate(ed);
+                        }}
+                        scheduleStartDate={startDate}
+                        precision="date"
+                        containerClassName=""
+                      />
+                    </Flex>
+                  </Flex>
+                </Box>
+              </Flex>
+              <Box p="2">
+                <ExperimentSearchFilters
+                  experiments={allExperiments}
+                  syntaxFilters={syntaxFilters}
+                  searchInputProps={searchInputProps}
+                  setSearchValue={setSearchValue}
+                  allowDrafts={false}
+                />
+              </Box>
+              <Box pt="5">
+                <ExperimentTimeline
+                  experiments={items}
+                  startDate={startDate}
+                  endDate={endDate}
+                />
+              </Box>
+            </>
           )}
-          <ExperimentTimeline
-            searchAndFilters={<SearchAndFilters />}
-            experiments={items}
-            startDate={startDate}
-            endDate={endDate}
-          />
         </div>
       </div>
     </>
