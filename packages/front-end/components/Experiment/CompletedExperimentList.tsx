@@ -279,20 +279,22 @@ const CompletedExperimentList = ({
                         <Box pr="2">
                           <Text weight="medium">Goal Metrics:</Text>
                         </Box>
-                        {goalMetrics.slice(0, 2).map((g, ind) => (
-                          <Box key={e.id + "-metric-" + ind}>
-                            {g}
-                            {ind < goalMetrics.length - 1 ? ", " : ""}
-                          </Box>
-                        ))}
-                        {goalMetrics.length === 0 ? (
-                          <Box>
-                            <em>None</em>
-                          </Box>
-                        ) : null}
-                        {moreGoalMetrics ? (
-                          <Box>, +{goalMetrics.length - 2} more</Box>
-                        ) : null}
+                        <Flex gap="1">
+                          {goalMetrics.slice(0, 2).map((g, ind) => (
+                            <Box key={e.id + "-metric-" + ind}>
+                              {g}
+                              {ind < goalMetrics.length - 1 ? ", " : ""}
+                            </Box>
+                          ))}
+                          {goalMetrics.length === 0 ? (
+                            <Box>
+                              <em>None</em>
+                            </Box>
+                          ) : null}
+                          {moreGoalMetrics ? (
+                            <Box> +{goalMetrics.length - 2} more</Box>
+                          ) : null}
+                        </Flex>
                       </Flex>
                       <Box width={"100%"}>
                         <Separator size="4" />
