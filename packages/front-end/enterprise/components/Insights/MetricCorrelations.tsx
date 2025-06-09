@@ -183,6 +183,7 @@ const MetricCorrelationCard = ({
     project,
     getExperimentMetricById,
     getFactTableById,
+    metricGroups,
   } = useDefinitions();
 
   //const displayCurrency = useCurrency();
@@ -206,20 +207,24 @@ const MetricCorrelationCard = ({
   const metric1OptionCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     experiments.forEach((experiment) => {
-      const metricIds = getAllMetricIdsFromExperiment(experiment);
+      const metricIds = getAllMetricIdsFromExperiment(
+        experiment,
+        false,
+        metricGroups
+      );
       metricIds.forEach((metricId) => {
         counts[metricId] = (counts[metricId] || 0) + 1;
       });
     });
     return counts;
-  }, [experiments]);
+  }, [experiments, metricGroups]);
 
   const metric2OptionCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     if (!metric1) return counts;
 
     experiments.forEach((exp) => {
-      const ids = getAllMetricIdsFromExperiment(exp);
+      const ids = getAllMetricIdsFromExperiment(exp, false, metricGroups);
       if (!ids.includes(metric1)) return;
       ids.forEach((id) => {
         if (id === metric1) return;
@@ -227,7 +232,7 @@ const MetricCorrelationCard = ({
       });
     });
     return counts;
-  }, [experiments, metric1]);
+  }, [experiments, metricGroups, metric1]);
 
   useEffect(() => {
     updateSearchParams(searchParams, false);

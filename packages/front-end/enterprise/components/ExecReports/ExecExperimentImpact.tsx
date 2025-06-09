@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import Link from "next/link";
 import { getValidDate } from "shared/dates";
+import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { useAuth } from "@/services/auth";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -60,28 +61,25 @@ export default function ExecExperimentImpact({
 }) {
   const NUM_EXP_TO_SHOW = 5;
 
-  const experiments = useMemo(
-    () =>
-      allExperiments
-        .filter((exp) => exp.type !== "multi-armed-bandit")
-        .filter((exp) => {
-          // Only experiments that contain the selected metric
-          return !!(
-            exp.goalMetrics?.includes(metric) ||
-            exp.secondaryMetrics?.includes(metric) ||
-            exp.guardrailMetrics?.includes(metric)
-          );
-        }),
-    [allExperiments, metric]
-  );
-  const { apiCall } = useAuth();
-  const displayCurrency = useCurrency();
-
   const {
     getExperimentMetricById,
     getFactTableById,
     getProjectById,
+    metricGroups,
   } = useDefinitions();
+
+  const experiments = useMemo(() => {
+    if (!metric) return [];
+    return allExperiments
+      .filter((exp) => exp.type !== "multi-armed-bandit")
+      .filter((exp) => {
+        const ids = getAllMetricIdsFromExperiment(exp, false, metricGroups);
+        // Only experiments that contain the selected metric
+        return ids.includes(metric);
+      });
+  }, [allExperiments, metricGroups, metric]);
+  const { apiCall } = useAuth();
+  const displayCurrency = useCurrency();
 
   const [loading, setLoading] = useState(true);
   const [snapshots, setSnapshots] = useState<ExperimentSnapshotInterface[]>();
@@ -116,19 +114,13 @@ export default function ExecExperimentImpact({
   const metricExpCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     allExperiments.forEach((exp) => {
-      const metricIds = [
-        ...new Set([
-          ...exp.goalMetrics,
-          ...exp.secondaryMetrics,
-          ...exp.guardrailMetrics,
-        ]),
-      ];
-      metricIds.forEach((id) => {
+      const ids = getAllMetricIdsFromExperiment(exp, false, metricGroups);
+      ids.forEach((id) => {
         counts[id] = (counts[id] || 0) + 1;
       });
     });
     return counts;
-  }, [allExperiments]);
+  }, [allExperiments, metricGroups]);
 
   // 1 get all snapshots
   // 2 check for snapshots w/o impact

@@ -198,17 +198,20 @@ const MetricEffectCard = ({
     project,
     getExperimentMetricById,
     getFactTableById,
+    metricGroups,
   } = useDefinitions();
 
   const metricExpCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     experiments.forEach((exp) => {
-      getAllMetricIdsFromExperiment(exp).forEach((metric) => {
-        counts[metric] = (counts[metric] || 0) + 1;
-      });
+      getAllMetricIdsFromExperiment(exp, false, metricGroups).forEach(
+        (metric) => {
+          counts[metric] = (counts[metric] || 0) + 1;
+        }
+      );
     });
     return counts;
-  }, [experiments]);
+  }, [experiments, metricGroups]);
 
   const displayCurrency = useCurrency();
 
