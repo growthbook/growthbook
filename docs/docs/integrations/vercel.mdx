@@ -12,7 +12,7 @@ GrowthBook is now available as a Native Integration in Vercel, allowing you to m
 - View all of your feature flags and experiments in Vercel with links to GrowthBook for more details.
 - Login to GrowthBook directly from Vercel without needing to manage separate credentials.
 - Sync your feature flags to Vercel Edge Config to bootstrap our SDKs with near-zero latency.
-- Install into multiple Vercel projects - each one will get their own corresponding team and project in GrowthBook.
+- Install into multiple Vercel projects - each one will get their own corresponding project in GrowthBook.
 - Seamlessly integrate with Vercel's Flags SDK with zero-configuration - ideal for Next.js applications.
 
 ## Installation
@@ -34,13 +34,13 @@ When configuring the integration, you can choose either our free Starter plan or
 
 When using the Pro plan, you will be billed directly through Vercel. You can manage your billing info, view current usage, download past invoices, and cancel your subscription directly from the Vercel dashboard.
 
-The Pro plan includes a per-seat fee. You are only charged for members on your team who log into the GrowthBook application. Viewing flags and experiments directly within the Vercel dashboard is always 100% free. If you no longer need a seat (e.g. someone leaves your organization), you can remove them from GrowthBook's settings and they will no longer be charged.
+The Pro plan includes a per-seat fee. You are only charged for members on your team who log into the GrowthBook application. The user who installs the integration will be your first seat. Viewing flags and experiments directly within the Vercel dashboard is always 100% free. If you no longer need a seat (e.g. someone leaves your organization), you can remove them from GrowthBook's member settings page and they will no longer be charged.
 
 ## User Management
 
-Any user in your Vercel team can log into GrowthBook by clicking the "Open in Provider" button in Vercel. This will automatically create a GrowthBook user for them if they don't already have one and grant them the necessary permissions to view feature flags and experiments.
+Any user in your Vercel team can log into GrowthBook by clicking the "Open in Provider" button or clicking into a flag or experiment within Vercel. This will automatically create a GrowthBook user for them if they don't already have one and grant them the necessary permissions to manage feature flags and experiments.
 
-Admins within GrowthBook can manage user roles and permissions, allowing you to control who can create or modify feature flags and experiments. Only the first user who installs the integration will be an admin by default, but you can change this later in GrowthBook settings.
+Admins within GrowthBook can manage user roles and permissions. Only the first user who installs the integration will be an admin by default and you must always have at least one admin user in GrowthBook.
 
 ## Edge Config and SDK Integration
 
