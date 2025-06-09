@@ -173,7 +173,7 @@ const CompletedExperimentList = ({
                 return (
                   <Link
                     key={e.id + m}
-                    href={`/metrics/${m}`}
+                    href={`/metric/${m}`}
                     className="text-decoration-none"
                   >
                     {metric.name}
@@ -188,7 +188,7 @@ const CompletedExperimentList = ({
               <Box key={e.trackingKey} className="appbox" mb="4" p="6" pt="5">
                 <Flex align="center" mb="4">
                   <Box flexGrow="1">
-                    <Heading as="h2" size="4" mb="0">
+                    <Heading as="h2" size="5" mb="0">
                       <Link
                         href={`/experiment/${e.id}`}
                         className="w-100 no-link-color text-dark"
