@@ -1343,10 +1343,154 @@ paths:
                         items:
                           $ref: '#/components/schemas/DataSource'
                   - $ref: '#/components/schemas/PaginationFields'
+    post:
+      tags:
+        - DataSources
+      summary: Create data source
+      operationId: postDataSource
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - type
+              properties:
+                name:
+                  type: string
+                  description: Name of the data source
+                type:
+                  type: string
+                  enum:
+                    - growthbook_clickhouse
+                    - redshift
+                    - athena
+                    - google_analytics
+                    - snowflake
+                    - postgres
+                    - mysql
+                    - mssql
+                    - bigquery
+                    - clickhouse
+                    - presto
+                    - databricks
+                    - mixpanel
+                    - vertica
+                  description: Type of data source
+                description:
+                  type: string
+                  description: Description of the data source
+                projectIds:
+                  type: array
+                  items:
+                    type: string
+                  description: List of project IDs this data source belongs to
+                params:
+                  type: object
+                  description: Connection parameters for the data source (varies by type)
+                settings:
+                  type: object
+                  properties:
+                    schemaFormat:
+                      type: string
+                      enum:
+                        - segment
+                        - snowplow
+                        - jitsu
+                        - freshpaint
+                        - ga4
+                        - fullstory
+                        - matomo
+                        - heap
+                        - rudderstack
+                        - amplitude
+                        - mparticle
+                        - mixpanel
+                        - firebase
+                        - keen
+                        - clevertap
+                        - custom
+                    userIdTypes:
+                      type: array
+                      items:
+                        type: object
+                        required:
+                          - userIdType
+                        properties:
+                          userIdType:
+                            type: string
+                          description:
+                            type: string
+                    queries:
+                      type: object
+                      properties:
+                        exposure:
+                          type: array
+                          items:
+                            type: object
+                            required:
+                              - name
+                              - userIdType
+                              - query
+                            properties:
+                              name:
+                                type: string
+                              description:
+                                type: string
+                              userIdType:
+                                type: string
+                              query:
+                                type: string
+                              hasNameCol:
+                                type: boolean
+                              dimensions:
+                                type: array
+                                items:
+                                  type: string
+                        identityJoins:
+                          type: array
+                          items:
+                            type: object
+                            required:
+                              - ids
+                              - query
+                            properties:
+                              ids:
+                                type: array
+                                items:
+                                  type: string
+                              query:
+                                type: string
+                    events:
+                      type: object
+                      properties:
+                        experimentEvent:
+                          type: string
+                        experimentIdProperty:
+                          type: string
+                        variationIdProperty:
+                          type: string
+                        extraUserIdProperty:
+                          type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - dataSource
+                properties:
+                  dataSource:
+                    $ref: '#/components/schemas/DataSource'
   '/data-sources/{id}':
-    parameters:
-      - $ref: '#/components/parameters/id'
     get:
+      parameters:
+        - $ref: '#/components/parameters/id'
       tags:
         - data-sources
       summary: Get a single data source
@@ -1358,6 +1502,138 @@ paths:
               -u secret_abc123DEF456:
       responses:
         '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - dataSource
+                properties:
+                  dataSource:
+                    $ref: '#/components/schemas/DataSource'
+    put:
+      tags:
+        - DataSources
+      summary: Update data source
+      operationId: updateDataSource
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the data source
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Name of the data source
+                description:
+                  type: string
+                  description: Description of the data source
+                projectIds:
+                  type: array
+                  items:
+                    type: string
+                  description: List of project IDs this data source belongs to
+                params:
+                  type: object
+                  description: Connection parameters for the data source (varies by type)
+                settings:
+                  type: object
+                  properties:
+                    schemaFormat:
+                      type: string
+                      enum:
+                        - segment
+                        - snowplow
+                        - jitsu
+                        - freshpaint
+                        - ga4
+                        - fullstory
+                        - matomo
+                        - heap
+                        - rudderstack
+                        - amplitude
+                        - mparticle
+                        - mixpanel
+                        - firebase
+                        - keen
+                        - clevertap
+                        - custom
+                    userIdTypes:
+                      type: array
+                      items:
+                        type: object
+                        required:
+                          - userIdType
+                        properties:
+                          userIdType:
+                            type: string
+                          description:
+                            type: string
+                    queries:
+                      type: object
+                      properties:
+                        exposure:
+                          type: array
+                          items:
+                            type: object
+                            required:
+                              - name
+                              - userIdType
+                              - query
+                            properties:
+                              id:
+                                type: string
+                                description: ID of the exposure query (auto-generated if not provided)
+                              name:
+                                type: string
+                              description:
+                                type: string
+                              userIdType:
+                                type: string
+                              query:
+                                type: string
+                              hasNameCol:
+                                type: boolean
+                              dimensions:
+                                type: array
+                                items:
+                                  type: string
+                        identityJoins:
+                          type: array
+                          items:
+                            type: object
+                            required:
+                              - ids
+                              - query
+                            properties:
+                              ids:
+                                type: array
+                                items:
+                                  type: string
+                              query:
+                                type: string
+                    events:
+                      type: object
+                      properties:
+                        experimentEvent:
+                          type: string
+                        experimentIdProperty:
+                          type: string
+                        variationIdProperty:
+                          type: string
+                        extraUserIdProperty:
+                          type: string
+      responses:
+        '200':
+          description: Successful response
           content:
             application/json:
               schema:

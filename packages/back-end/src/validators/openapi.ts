@@ -214,8 +214,20 @@ export const listDataSourcesValidator = {
   paramsSchema: z.never(),
 };
 
+export const postDataSourceValidator = {
+  bodySchema: z.object({ "name": z.string().describe("Name of the data source"), "type": z.enum(["growthbook_clickhouse","redshift","athena","google_analytics","snowflake","postgres","mysql","mssql","bigquery","clickhouse","presto","databricks","mixpanel","vertica"]).describe("Type of data source"), "description": z.string().describe("Description of the data source").optional(), "projectIds": z.array(z.string()).describe("List of project IDs this data source belongs to").optional(), "params": z.record(z.any()).describe("Connection parameters for the data source (varies by type)").optional(), "settings": z.object({ "schemaFormat": z.enum(["segment","snowplow","jitsu","freshpaint","ga4","fullstory","matomo","heap","rudderstack","amplitude","mparticle","mixpanel","firebase","keen","clevertap","custom"]).optional(), "userIdTypes": z.array(z.object({ "userIdType": z.string(), "description": z.string().optional() })).optional(), "queries": z.object({ "exposure": z.array(z.object({ "name": z.string(), "description": z.string().optional(), "userIdType": z.string(), "query": z.string(), "hasNameCol": z.boolean().optional(), "dimensions": z.array(z.string()).optional() })).optional(), "identityJoins": z.array(z.object({ "ids": z.array(z.string()), "query": z.string() })).optional() }).optional(), "events": z.object({ "experimentEvent": z.string().optional(), "experimentIdProperty": z.string().optional(), "variationIdProperty": z.string().optional(), "extraUserIdProperty": z.string().optional() }).optional() }).optional() }).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.never(),
+};
+
 export const getDataSourceValidator = {
   bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
+export const updateDataSourceValidator = {
+  bodySchema: z.object({ "name": z.string().describe("Name of the data source").optional(), "description": z.string().describe("Description of the data source").optional(), "projectIds": z.array(z.string()).describe("List of project IDs this data source belongs to").optional(), "params": z.record(z.any()).describe("Connection parameters for the data source (varies by type)").optional(), "settings": z.object({ "schemaFormat": z.enum(["segment","snowplow","jitsu","freshpaint","ga4","fullstory","matomo","heap","rudderstack","amplitude","mparticle","mixpanel","firebase","keen","clevertap","custom"]).optional(), "userIdTypes": z.array(z.object({ "userIdType": z.string(), "description": z.string().optional() })).optional(), "queries": z.object({ "exposure": z.array(z.object({ "id": z.string().describe("ID of the exposure query (auto-generated if not provided)").optional(), "name": z.string(), "description": z.string().optional(), "userIdType": z.string(), "query": z.string(), "hasNameCol": z.boolean().optional(), "dimensions": z.array(z.string()).optional() })).optional(), "identityJoins": z.array(z.object({ "ids": z.array(z.string()), "query": z.string() })).optional() }).optional(), "events": z.object({ "experimentEvent": z.string().optional(), "experimentIdProperty": z.string().optional(), "variationIdProperty": z.string().optional(), "extraUserIdProperty": z.string().optional() }).optional() }).optional() }).strict(),
   querySchema: z.never(),
   paramsSchema: z.object({ "id": z.string() }).strict(),
 };
