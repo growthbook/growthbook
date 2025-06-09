@@ -18,7 +18,6 @@ import {
   getSavedGroupMap,
   refreshSDKPayloadCache,
 } from "back-end/src/services/features";
-import { determineNextDate } from "back-end/src/services/experiments";
 import { upgradeFeatureInterface } from "back-end/src/util/migrations";
 import { ReqContext } from "back-end/types/organization";
 import {
@@ -41,6 +40,12 @@ import {
 import { getChangedApiFeatureEnvironments } from "back-end/src/events/handlers/utils";
 import { ResourceEvents } from "back-end/src/events/base-types";
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
+import { determineNextSafeRolloutSnapshotAttempt } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
+import {
+  createVercelExperimentationItemFromFeature,
+  updateVercelExperimentationItemFromFeature,
+  deleteVercelExperimentationItemFromFeature,
+} from "back-end/src/services/vercel-native-integration.service";
 import {
   createEvent,
   hasPreviousObject,
@@ -414,12 +419,15 @@ export const createFeatureEvent = async <
       version: eventData.data.object.version,
     });
 
+    const safeRolloutMap = await eventData.context.models.safeRollout.getAllPayloadSafeRollouts();
+
     const currentApiFeature = getApiFeatureObj({
       feature: eventData.data.object,
       organization: eventData.context.org,
       groupMap,
       experimentMap,
       revision: currentRevision,
+      safeRolloutMap,
     });
 
     if (!hasPreviousObject<"feature", Event, FeatureInterface>(eventData.data))
@@ -448,6 +456,7 @@ export const createFeatureEvent = async <
       groupMap,
       experimentMap,
       revision: previousRevision,
+      safeRolloutMap,
     });
 
     return {
@@ -462,6 +471,7 @@ export const createFeatureEvent = async <
           groupMap,
           experimentMap,
           revision: previousRevision,
+          safeRolloutMap,
         }),
       },
       projects: Array.from(
@@ -545,6 +555,12 @@ async function onFeatureCreate(
   );
 
   await logFeatureCreatedEvent(context, feature);
+
+  if (context.org.isVercelIntegration)
+    await createVercelExperimentationItemFromFeature({
+      feature,
+      organization: context.org,
+    });
 }
 
 async function onFeatureDelete(
@@ -557,6 +573,12 @@ async function onFeatureDelete(
   );
 
   await logFeatureDeletedEvent(context, feature);
+
+  if (context.org.isVercelIntegration)
+    await deleteVercelExperimentationItemFromFeature({
+      feature,
+      organization: context.org,
+    });
 }
 
 export async function onFeatureUpdate(
@@ -565,6 +587,7 @@ export async function onFeatureUpdate(
   updatedFeature: FeatureInterface,
   skipRefreshForProject?: string
 ) {
+  const safeRolloutMap = await context.models.safeRollout.getAllPayloadSafeRollouts();
   await refreshSDKPayloadCache(
     context,
     getSDKPayloadKeysByDiff(
@@ -574,11 +597,18 @@ export async function onFeatureUpdate(
     ),
     null,
     undefined,
+    safeRolloutMap,
     skipRefreshForProject
   );
 
   // New event-based webhooks
   await logFeatureUpdatedEvent(context, feature, updatedFeature);
+
+  if (context.org.isVercelIntegration)
+    await updateVercelExperimentationItemFromFeature({
+      feature: updatedFeature,
+      organization: context.org,
+    });
 }
 
 export async function updateFeature(
@@ -631,6 +661,7 @@ export async function updateFeature(
   onFeatureUpdate(context, feature, updatedFeature).catch((e) => {
     logger.error(e, "Error refreshing SDK Payload on feature update");
   });
+
   return updatedFeature;
 }
 
@@ -950,9 +981,15 @@ const updateSafeRolloutStatuses = async (
     };
     if (!safeRollout.startedAt && safeRolloutUpdates.status === "running") {
       safeRolloutUpdates["startedAt"] = new Date();
-      safeRolloutUpdates["nextSnapshotAttempt"] =
-        determineNextDate(context.org.settings?.updateSchedule || null) ??
-        new Date(); // TODO: `null` should not be possible here because we need to update
+      const {
+        nextSnapshot,
+        nextRampUp,
+      } = determineNextSafeRolloutSnapshotAttempt(safeRollout, context.org);
+      safeRolloutUpdates["nextSnapshotAttempt"] = nextSnapshot;
+      safeRolloutUpdates["rampUpSchedule"] = {
+        ...safeRollout.rampUpSchedule,
+        nextUpdate: nextRampUp,
+      };
     }
 
     context.models.safeRollout.update(safeRollout, safeRolloutUpdates);

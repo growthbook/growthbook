@@ -4,6 +4,10 @@ import { z } from "zod";
 import { isEqual, omit } from "lodash";
 import { ApiSdkConnection } from "back-end/types/openapi";
 import {
+  managedByValidator,
+  ManagedBy,
+} from "back-end/src/validators/managed-by";
+import {
   CreateSDKConnectionParams,
   EditSDKConnectionParams,
   ProxyConnection,
@@ -53,6 +57,7 @@ const sdkConnectionSchema = new mongoose.Schema({
   connected: Boolean,
   remoteEvalEnabled: Boolean,
   savedGroupReferencesEnabled: Boolean,
+  managedBy: {},
   key: {
     type: String,
     unique: true,
@@ -149,6 +154,14 @@ export async function findAllSDKConnectionsAcrossAllOrgs() {
   return docs.map(toInterface);
 }
 
+export async function findSDKConnectionsById(context: ReqContext, id: string) {
+  const doc = await SDKConnectionModel.findOne({
+    organization: context.org.id,
+    id,
+  });
+  return doc ? toInterface(doc) : null;
+}
+
 export async function findSDKConnectionsByIds(
   context: ReqContext,
   ids: string[]
@@ -184,6 +197,7 @@ export const createSDKConnectionValidator = z
     proxyHost: z.string().optional(),
     remoteEvalEnabled: z.boolean().optional(),
     savedGroupReferencesEnabled: z.boolean().optional(),
+    managedBy: managedByValidator.optional(),
   })
   .strict();
 
@@ -364,6 +378,23 @@ export async function editSDKConnection(
 
   return { ...connection, ...fullChanges };
 }
+
+export const updateSdkConnectionsRemoveManagedBy = async (
+  context: ReqContext,
+  managedBy: Partial<ManagedBy>
+) => {
+  await SDKConnectionModel.updateMany(
+    {
+      organization: context.org.id,
+      managedBy,
+    },
+    {
+      $unset: {
+        managedBy: 1,
+      },
+    }
+  );
+};
 
 export async function deleteSDKConnectionById(
   organization: string,

@@ -28,7 +28,7 @@ export const apiFeatureEnvironmentValidator = z.object({ "enabled": z.boolean(),
 
 export const apiFeatureRuleValidator = z.union([z.object({ "description": z.string(), "condition": z.string(), "savedGroupTargeting": z.array(z.object({ "matchType": z.enum(["all","any","none"]), "savedGroups": z.array(z.string()) })).optional(), "prerequisites": z.array(z.object({ "id": z.string().describe("Feature ID"), "condition": z.string() })).optional(), "id": z.string(), "enabled": z.boolean(), "type": z.literal("force"), "value": z.string() }), z.object({ "description": z.string(), "condition": z.string(), "savedGroupTargeting": z.array(z.object({ "matchType": z.enum(["all","any","none"]), "savedGroups": z.array(z.string()) })).optional(), "id": z.string(), "enabled": z.boolean(), "type": z.literal("rollout"), "value": z.string(), "coverage": z.coerce.number(), "hashAttribute": z.string() }), z.object({ "description": z.string(), "condition": z.string(), "id": z.string(), "enabled": z.boolean(), "type": z.literal("experiment"), "trackingKey": z.string().optional(), "hashAttribute": z.string().optional(), "fallbackAttribute": z.string().optional(), "disableStickyBucketing": z.boolean().optional(), "bucketVersion": z.coerce.number().optional(), "minBucketVersion": z.coerce.number().optional(), "namespace": z.object({ "enabled": z.boolean(), "name": z.string(), "range": z.array(z.coerce.number()).min(2).max(2) }).optional(), "coverage": z.coerce.number().optional(), "value": z.array(z.object({ "value": z.string(), "weight": z.coerce.number(), "name": z.string().optional() })).optional() }), z.object({ "description": z.string(), "id": z.string(), "enabled": z.boolean(), "type": z.literal("experiment-ref"), "condition": z.string().optional(), "variations": z.array(z.object({ "value": z.string(), "variationId": z.string() })), "experimentId": z.string() }), z.object({ "condition": z.string(), "savedGroupTargeting": z.array(z.object({ "matchType": z.enum(["all","any","none"]), "savedGroups": z.array(z.string()) })).optional(), "prerequisites": z.array(z.object({ "id": z.string().describe("Feature ID"), "condition": z.string() })).optional(), "id": z.string(), "trackingKey": z.string().optional(), "enabled": z.boolean(), "type": z.literal("safe-rollout"), "controlValue": z.string(), "variationValue": z.string(), "seed": z.string().optional(), "hashAttribute": z.string().optional(), "safeRolloutId": z.string().optional(), "status": z.enum(["running","released","rolled-back","stopped"]).optional() })])
 
-export const apiFeatureDefinitionValidator = z.object({ "defaultValue": z.union([z.string(), z.coerce.number(), z.array(z.any()), z.record(z.any()), z.null()]), "rules": z.array(z.object({ "force": z.union([z.string(), z.coerce.number(), z.array(z.any()), z.record(z.any()), z.null()]).optional(), "weights": z.array(z.any()).optional(), "variations": z.array(z.union([z.string(), z.coerce.number(), z.array(z.any()), z.record(z.any()), z.null()])).optional(), "hashAttribute": z.string().optional(), "namespace": z.array(z.union([z.coerce.number(), z.string()])).min(3).max(3).optional(), "key": z.string().optional(), "coverage": z.coerce.number().optional(), "condition": z.record(z.any()).optional() })).optional() }).strict()
+export const apiFeatureDefinitionValidator = z.object({ "defaultValue": z.union([z.string(), z.coerce.number(), z.array(z.any()), z.record(z.any()), z.null()]), "rules": z.array(z.object({ "force": z.union([z.string(), z.coerce.number(), z.array(z.any()), z.record(z.any()), z.null()]).optional(), "weights": z.array(z.coerce.number()).optional(), "variations": z.array(z.union([z.string(), z.coerce.number(), z.array(z.any()), z.record(z.any()), z.null()])).optional(), "hashAttribute": z.string().optional(), "namespace": z.array(z.union([z.coerce.number(), z.string()])).min(3).max(3).optional(), "key": z.string().optional(), "coverage": z.coerce.number().optional(), "condition": z.record(z.any()).optional() })).optional() }).strict()
 
 export const apiFeatureForceRuleValidator = z.object({ "description": z.string(), "condition": z.string(), "savedGroupTargeting": z.array(z.object({ "matchType": z.enum(["all","any","none"]), "savedGroups": z.array(z.string()) })).optional(), "prerequisites": z.array(z.object({ "id": z.string().describe("Feature ID"), "condition": z.string() })).optional(), "id": z.string(), "enabled": z.boolean(), "type": z.literal("force"), "value": z.string() }).strict()
 
@@ -74,9 +74,11 @@ export const apiMemberValidator = z.object({ "id": z.string(), "name": z.string(
 
 export const apiArchetypeValidator = z.object({ "id": z.string(), "dateCreated": z.string(), "dateUpdated": z.string(), "name": z.string(), "description": z.string().optional(), "owner": z.string(), "isPublic": z.boolean(), "attributes": z.record(z.any()).describe("The attributes to set when using this Archetype"), "projects": z.array(z.string()).optional() }).strict()
 
+export const apiQueryValidator = z.object({ "id": z.string(), "organization": z.string(), "datasource": z.string(), "language": z.string(), "query": z.string(), "queryType": z.string(), "createdAt": z.string(), "startedAt": z.string(), "status": z.enum(["running","queued","failed","partially-succeeded","succeeded"]), "externalId": z.string(), "dependencies": z.array(z.string()), "runAtEnd": z.boolean() }).strict()
+
 export const listFeaturesValidator = {
   bodySchema: z.never(),
-  querySchema: z.object({ "limit": z.coerce.number().int().default(10), "offset": z.coerce.number().int().default(0), "projectId": z.string().optional() }).strict(),
+  querySchema: z.object({ "limit": z.coerce.number().int().default(10), "offset": z.coerce.number().int().default(0), "projectId": z.string().optional(), "clientKey": z.string().optional() }).strict(),
   paramsSchema: z.never(),
 };
 
@@ -570,4 +572,10 @@ export const postCodeRefsValidator = {
   bodySchema: z.object({ "branch": z.string(), "repoName": z.string(), "refs": z.array(z.object({ "filePath": z.string(), "startingLineNumber": z.number().int(), "lines": z.string(), "flagKey": z.string(), "contentHash": z.string() })) }).strict(),
   querySchema: z.never(),
   paramsSchema: z.never(),
+};
+
+export const getQueryValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
 };

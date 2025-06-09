@@ -47,6 +47,9 @@ export function formatImpact(
   ) => string,
   formatterOptions: Intl.NumberFormatOptions
 ) {
+  if (impact === 0) {
+    return <>N/A</>;
+  }
   return (
     <>
       <span className="expectedArrows">
@@ -70,6 +73,11 @@ type ExperimentWithImpact = {
   }[];
   type: ExperimentImpactType;
   keyVariationId?: number;
+  keyVariationImpact?: {
+    scaledImpact: number;
+    scaledImpactAdjusted?: number;
+    se: number;
+  };
   error?: string;
 };
 
@@ -87,8 +95,9 @@ type ExperimentImpactSummary = {
   others: ExperimentImpactData;
 };
 
-function scaleImpactAndSetMissingExperiments({
+export function scaleImpactAndSetMissingExperiments({
   experiments,
+  filteredExperimentIds,
   snapshots,
   metric,
   selectedProjects,
@@ -97,6 +106,8 @@ function scaleImpactAndSetMissingExperiments({
   adjusted,
 }: {
   experiments: ExperimentInterfaceStringDates[];
+  // optional additional filter list for final total impact
+  filteredExperimentIds: string[] | undefined;
   snapshots: ExperimentSnapshotInterface[] | undefined;
   metric: string;
   selectedProjects: string[];
@@ -253,21 +264,38 @@ function scaleImpactAndSetMissingExperiments({
           ? adjustedImpact
           : v.scaledImpact;
 
-        if (e.type === "winner" && v.selected) {
-          e.keyVariationId = vi + 1;
-          experimentImpact = v.scaledImpact;
-          experimentAdjustedImpact = v.scaledImpactAdjusted;
-          experimentAdjustedImpactStdDev = v.se;
-        } else if (e.type === "loser") {
-          // only include biggest loser for "savings"
-          if (v.scaledImpact < (experimentImpact ?? Infinity)) {
+        // only add to total if in custom filtered list of experiments
+        const inFilteredList =
+          filteredExperimentIds?.includes(e.experiment.id) ?? true;
+        if (inFilteredList) {
+          if (e.type === "winner" && v.selected) {
             e.keyVariationId = vi + 1;
             experimentImpact = v.scaledImpact;
             experimentAdjustedImpact = v.scaledImpactAdjusted;
             experimentAdjustedImpactStdDev = v.se;
+          } else if (e.type === "loser") {
+            // only include biggest loser for "savings"
+            if (v.scaledImpact < (experimentImpact ?? Infinity)) {
+              e.keyVariationId = vi + 1;
+              experimentImpact = v.scaledImpact;
+              experimentAdjustedImpact = v.scaledImpactAdjusted;
+              experimentAdjustedImpactStdDev = v.se;
+            }
           }
         }
       });
+
+      if (
+        experimentImpact !== null &&
+        experimentAdjustedImpact !== null &&
+        experimentAdjustedImpactStdDev !== null
+      ) {
+        e.keyVariationImpact = {
+          scaledImpact: experimentImpact,
+          scaledImpactAdjusted: experimentAdjustedImpact,
+          se: experimentAdjustedImpactStdDev,
+        };
+      }
 
       if (e.type === "winner") {
         summaryObj.winners.totalAdjustedImpact += experimentAdjustedImpact ?? 0;
@@ -408,6 +436,7 @@ export default function ExperimentImpact({
     () =>
       scaleImpactAndSetMissingExperiments({
         experiments,
+        filteredExperimentIds: undefined,
         snapshots,
         metric,
         selectedProjects,

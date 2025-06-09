@@ -31,6 +31,7 @@ import { getFeatureKeys } from "./features/getFeatureKeys";
 import ingestionRouter from "./ingestion/ingestion.router";
 import archetypesRouter from "./archetypes/archetypes.router";
 import { getExperimentNames } from "./experiments/getExperimentNames";
+import queryRouter from "./queries/queries.router";
 
 const router = Router();
 let openapiSpec: string;
@@ -106,6 +107,7 @@ router.use("/code-refs", codeRefsRouter);
 router.use("/members", membersRouter);
 router.use("/ingestion", ingestionRouter);
 router.use("/archetypes", archetypesRouter);
+router.use("/queries", queryRouter);
 
 router.post("/transform-copy", postCopyTransform);
 

@@ -69,4 +69,8 @@ export type AppFeatures = {
   "decision-framework-criteria": boolean;
   "safe-rollout": boolean;
   "safe-rollout-promo": boolean;
+  "safe-rollout-ramp-up": boolean;
+  "safe-rollout-auto-rollback": boolean;
+  "aa-test-holdout": boolean;
+  "new-exec-reports": boolean;
 };
