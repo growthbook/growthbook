@@ -271,7 +271,7 @@ export function formatBytes(value: number) {
 }
 
 export function formatKilobytes(value: number) {
-  return formatByteSizeString(value * 1000, true);
+  return formatByteSizeString(value / 1000, true);
 }
 
 export function getColumnFormatter(
