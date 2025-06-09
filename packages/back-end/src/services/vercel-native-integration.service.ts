@@ -101,7 +101,7 @@ const vercelFeatureExperimentationItem = ({
   dateCreated,
   dateUpdated,
 }: FeatureInterface): VercelExperimentationItem => ({
-  id,
+  id: `features:${id}`,
   slug,
   origin: `${APP_ORIGIN}/features/${id}`,
   category: "flag",
@@ -119,7 +119,7 @@ const vercelExperimentExperimentationItem = ({
   dateCreated,
   dateUpdated,
 }: ExperimentInterface): VercelExperimentationItem => ({
-  id,
+  id: `experiment:${id}`,
   slug,
   origin: `${APP_ORIGIN}/experiment/${id}`,
   category: "experiment",

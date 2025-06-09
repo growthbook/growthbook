@@ -8,9 +8,18 @@ const VercelPage = () => {
   const [, setProject] = useProject();
 
   useEffect(() => {
-    const { code, state, resource_id: resourceId } = router.query;
+    const {
+      code,
+      state,
+      resource_id: resourceId,
+      experimentation_item_id: experimentationItemId,
+    } = router.query;
 
     if (!code || !state) return;
+
+    const baseUrl =
+      "/" +
+      (experimentationItemId ? experimentationItemId.replace(":", "/") : "");
 
     const fn = async () => {
       try {
@@ -28,10 +37,10 @@ const VercelPage = () => {
         const { organizationId, projectId } = await ret.json();
 
         if (projectId) setProject(projectId);
-        router.push(`/?org=${organizationId}`);
+        router.push(`${baseUrl}?org=${organizationId}`);
       } catch (err) {
         console.log("Ignored:", err);
-        router.push("/");
+        router.push(baseUrl);
       }
     };
 
