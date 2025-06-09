@@ -6,7 +6,6 @@ import { getSnapshotAnalysis } from "shared/util";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { DifferenceType } from "back-end/types/stats";
 import router, { useRouter } from "next/router";
-import Button from "@/components/Radix/Button";
 import Callout from "@/components/Radix/Callout";
 import ScatterPlotGraph, {
   ScatterPointData,
@@ -449,22 +448,6 @@ const MetricCorrelationCard = ({
                 ]}
               />
             </Box>
-            <Flex justify="end" align="end" direction="column">
-              <Box style={{ marginBottom: "1rem" }}>
-                <Button
-                  variant="outline"
-                  style={{ marginBottom: "3px" }}
-                  disabled={!metric1 || loading}
-                  onClick={() => {
-                    //updateSearchParams({}, true); // we need to reset the URL params
-                    setMetric2(""); // @todo <- this doesn't seem to work
-                    setMetric1("");
-                  }}
-                >
-                  Clear
-                </Button>
-              </Box>
-            </Flex>
             {loading && (
               <Box>
                 <LoadingSpinner />

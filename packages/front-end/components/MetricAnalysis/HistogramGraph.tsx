@@ -305,8 +305,7 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
             </div>
             <svg
               width={parentWidth}
-              height={height}
-              style={{ overflow: "visible" }}
+              height={height + 20} // Add some extra height for the axis labels
             >
               <Group top={marginTop} left={marginLeft}>
                 {binWidth > 0 && data.length > 0
@@ -398,11 +397,11 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
                 />
                 <line
                   x1={contentXScale(0)}
-                  y1={marginTop}
+                  y1={marginTop - 10}
                   x2={contentXScale(0)}
                   y2={height - marginBottom - marginTop}
-                  stroke="var(--slate-a5)"
-                  strokeWidth={1}
+                  stroke="var(--color-text-low)"
+                  strokeWidth={2}
                 />
                 {mean !== undefined && (
                   <line
