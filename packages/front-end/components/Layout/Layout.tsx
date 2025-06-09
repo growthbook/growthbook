@@ -8,7 +8,6 @@ import {
   BsLightbulb,
   BsCodeSlash,
 } from "react-icons/bs";
-import { PiNotebook } from "react-icons/pi";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Flex } from "@radix-ui/themes";
 import { getGrowthBookBuild } from "@/services/env";
@@ -18,6 +17,7 @@ import {
   GBBandit,
   GBDatabase,
   GBExperiment,
+  GBLibrary,
   GBSettings,
 } from "@/components/Icons";
 import { inferDocUrl } from "@/components/DocLink";
@@ -94,7 +94,7 @@ const navlinks: SidebarLinkProps[] = [
   {
     name: "Insights",
     href: "/dashboard",
-    Icon: PiNotebook,
+    Icon: GBLibrary,
     path: /^(dashboard|learnings|timeline|metric-effect|correlations|presentation)/,
     subLinks: [
       {
