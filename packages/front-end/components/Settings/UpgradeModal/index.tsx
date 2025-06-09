@@ -78,6 +78,8 @@ export default function UpgradeModal({
 
   const { organization, refreshOrganization } = useUser();
 
+  const orgIsManagedByVercel = organization.isVercelIntegration;
+
   function shouldShowEnterpriseTreatment(): boolean {
     // if no commercialFeature is provided, determine what plan to show based on org's current plan
     if (!commercialFeature) {
@@ -720,6 +722,49 @@ export default function UpgradeModal({
             closeParent={close}
           />
         </StripeProvider>
+      ) : orgIsManagedByVercel ? (
+        <Modal
+          trackingEventModalType="upgrade-modal"
+          allowlistedTrackingEventProps={trackContext}
+          open={true}
+          includeCloseCta={true}
+          closeCta="Close"
+          close={close}
+          size="md"
+          header={null}
+          showHeaderCloseButton={false}
+        >
+          <div>
+            <h3 className="pb-2">
+              Upgrade to {showEnterpriseTreatment ? "Enterprise" : "Pro"}
+            </h3>
+            <Callout status="info">
+              You organization is currently managed by Vercel.
+              {showEnterpriseTreatment ? (
+                <span className="pl-1">
+                  To upgrade to Enterprise, please email{" "}
+                  <b>
+                    <a
+                      href="mailto:sales@growthbook.io"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="link-purple"
+                    >
+                      sales@growthbook.io
+                    </a>
+                  </b>
+                  .
+                </span>
+              ) : (
+                <span className="pl-1">
+                  Please go to your Vercel Integration Dashboard and locate the
+                  GrowthBook integration. From there, you can upgrade your
+                  GrowthBook subscription via the <b>Settings </b>tab.
+                </span>
+              )}
+            </Callout>
+          </div>
+        </Modal>
       ) : (
         <Modal
           trackingEventModalType="upgrade-modal"
