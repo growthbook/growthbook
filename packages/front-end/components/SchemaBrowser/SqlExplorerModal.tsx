@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { FaPlay, FaExclamationTriangle, FaSave } from "react-icons/fa";
 import { TestQueryRow } from "back-end/src/types/Integration";
@@ -59,6 +59,7 @@ export default function SqlExplorerModal({
     setTestQueryResults,
   ] = useState<TestQueryResults | null>(null);
   const [showSaveQueryModal, setShowSaveQueryModal] = useState(false);
+  const previousDatasourceId = useRef(selectedDatasourceId);
   const form = useForm({
     defaultValues: {
       sql: savedQuery?.sql || "",
@@ -154,10 +155,16 @@ export default function SqlExplorerModal({
   }, [savedQuery]);
 
   useEffect(() => {
-    // Reset the sql on datasource change
-    form.setValue("sql", "");
-    setTestQueryResults(null);
-  }, [datasource, form]);
+    // Only clear SQL when the datasource actually changes (not on initial load)
+    if (
+      previousDatasourceId.current !== selectedDatasourceId &&
+      previousDatasourceId.current
+    ) {
+      form.setValue("sql", "");
+      setTestQueryResults(null);
+    }
+    previousDatasourceId.current = selectedDatasourceId;
+  }, [selectedDatasourceId, form]);
 
   return (
     <>
