@@ -444,21 +444,22 @@ const MetricCorrelationCard = ({
                 ]}
               />
             </Box>
-            <Box>
-              <label>&nbsp;</label>
-              <Button
-                mt="1"
-                variant="outline"
-                disabled={!metric1 || loading}
-                onClick={() => {
-                  //updateSearchParams({}, true); // we need to reset the URL params
-                  setMetric2(""); // @todo <- this doesn't seem to work
-                  setMetric1("");
-                }}
-              >
-                Clear
-              </Button>
-            </Box>
+            <Flex justify="end" align="end" direction="column">
+              <Box style={{ marginBottom: "1rem" }}>
+                <Button
+                  variant="outline"
+                  style={{ marginBottom: "3px" }}
+                  disabled={!metric1 || loading}
+                  onClick={() => {
+                    //updateSearchParams({}, true); // we need to reset the URL params
+                    setMetric2(""); // @todo <- this doesn't seem to work
+                    setMetric1("");
+                  }}
+                >
+                  Clear
+                </Button>
+              </Box>
+            </Flex>
             {loading && (
               <Box>
                 <LoadingSpinner />
