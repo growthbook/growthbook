@@ -8,6 +8,7 @@ import {
   BsLightbulb,
   BsCodeSlash,
 } from "react-icons/bs";
+import { PiNotebook } from "react-icons/pi";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Flex } from "@radix-ui/themes";
 import { getGrowthBookBuild } from "@/services/env";
@@ -18,7 +19,6 @@ import {
   GBDatabase,
   GBExperiment,
   GBSettings,
-  GBLibrary,
 } from "@/components/Icons";
 import { inferDocUrl } from "@/components/DocLink";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
@@ -94,8 +94,8 @@ const navlinks: SidebarLinkProps[] = [
   {
     name: "Insights",
     href: "/dashboard",
-    Icon: GBLibrary,
-    path: /^(dashboard|learning|timeline|metric-effect|correlations|presentation)/,
+    Icon: PiNotebook,
+    path: /^(dashboard|learnings|timeline|metric-effect|correlations|presentation)/,
     subLinks: [
       {
         name: "Dashboard",
@@ -104,8 +104,8 @@ const navlinks: SidebarLinkProps[] = [
       },
       {
         name: "Learnings",
-        href: "/learning",
-        path: /^(learning|learnings)/,
+        href: "/learnings",
+        path: /^learnings/,
       },
       {
         name: "Timeline",
@@ -347,7 +347,7 @@ const otherPageTitles = [
   },
   {
     path: /^dashboard/,
-    title: "Program Management",
+    title: "Dashboard",
   },
 ];
 
