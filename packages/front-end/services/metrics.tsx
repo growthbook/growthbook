@@ -28,6 +28,7 @@ import {
   OrganizationSettings,
 } from "back-end/types/organization";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { formatByteSizeString, getNumberFormatDigits } from "shared/util";
 import { decimalToPercent } from "@/services/utils";
 import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
 
@@ -226,13 +227,12 @@ export function formatDurationSeconds(value: number) {
 
   return f;
 }
+
 export function formatNumber(
   value: number,
   options?: Intl.NumberFormatOptions
 ) {
-  const absValue = Math.abs(value);
-  const digits =
-    absValue > 1000 ? 0 : absValue > 100 ? 1 : absValue > 10 ? 2 : 3;
+  const digits = getNumberFormatDigits(value);
   // Show fewer fractional digits for bigger numbers
   const formatter = new Intl.NumberFormat(undefined, {
     maximumFractionDigits: digits,
@@ -266,6 +266,14 @@ export function formatPercentagePoints(value: number) {
   return `${number} pp`;
 }
 
+export function formatBytes(value: number) {
+  return formatByteSizeString(value, true);
+}
+
+export function formatKilobytes(value: number) {
+  return formatByteSizeString(value * 1024, true);
+}
+
 export function getColumnFormatter(
   column: ColumnInterface
 ): (value: number, options?: Intl.NumberFormatOptions) => string {
@@ -276,6 +284,10 @@ export function getColumnFormatter(
       return formatCurrency;
     case "time:seconds":
       return formatDurationSeconds;
+    case "memory:bytes":
+      return formatBytes;
+    case "memory:kilobytes":
+      return formatKilobytes;
   }
 }
 
