@@ -226,6 +226,50 @@ export function formatDurationSeconds(value: number) {
 
   return f;
 }
+
+export function formatMemoryBytes(value: number) {
+  if (value < 1000 * 1000) {
+    return formatNumber(value, {
+      style: "unit",
+      unit: "byte",
+    });
+  } else if (value < 1000 * 1000 * 1000) {
+    return formatNumber(value / 1000, {
+      style: "unit",
+      unit: "kilobyte",
+    });
+  } else if (value < 1000 * 1000 * 1000 * 1000) {
+    return formatNumber(value / 1000 / 1000, {
+      style: "unit",
+      unit: "megabyte",
+    });
+  } else {
+    return formatNumber(value / 1000 / 1000 / 1000, {
+      style: "unit",
+      unit: "gigabyte",
+    });
+  }
+}
+
+export function formatMemoryKilobytes(value: number) {
+  if (value < 1000 * 1000) {
+    return formatNumber(value, {
+      style: "unit",
+      unit: "kilobyte",
+    });
+  } else if (value < 1000 * 1000 * 1000) {
+    return formatNumber(value / 1000, {
+      style: "unit",
+      unit: "megabyte",
+    });
+  } else {
+    return formatNumber(value / 1000 / 1000, {
+      style: "unit",
+      unit: "gigabyte",
+    });
+  }
+}
+
 export function formatNumber(
   value: number,
   options?: Intl.NumberFormatOptions
@@ -276,6 +320,10 @@ export function getColumnFormatter(
       return formatCurrency;
     case "time:seconds":
       return formatDurationSeconds;
+    case "memory:bytes":
+      return formatMemoryBytes;
+    case "memory:kilobytes":
+      return formatMemoryKilobytes;
   }
 }
 
