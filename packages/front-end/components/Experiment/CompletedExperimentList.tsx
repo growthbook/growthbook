@@ -1,8 +1,7 @@
-import Link from "next/link";
 import { Box, Flex, Heading, Separator, Text } from "@radix-ui/themes";
 import { RxDesktop } from "react-icons/rx";
 import { BsFlag } from "react-icons/bs";
-import { PiArrowSquareOut, PiShuffle } from "react-icons/pi";
+import { PiArrowSquareOutBold, PiShuffle } from "react-icons/pi";
 import { TbCloudOff } from "react-icons/tb";
 import React, { useState } from "react";
 import { isFactMetricId } from "shared/experiments";
@@ -16,6 +15,7 @@ import Pagination from "@/components/Pagination";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import Markdown from "@/components/Markdown/Markdown";
+import Link from "@/components/Radix/Link";
 import { experimentDate } from "@/pages/experiments";
 import { VariationBox } from "@/components/Experiment/VariationsTable";
 import ExperimentCarouselModal from "@/components/Experiment/ExperimentCarouselModal";
@@ -185,8 +185,8 @@ const CompletedExperimentList = ({
             const moreGoalMetrics = e.goalMetrics.length > 2;
 
             return (
-              <Box key={e.trackingKey} className="appbox" mb="4" p="5">
-                <Flex align="center" mb="2">
+              <Box key={e.trackingKey} className="appbox" mb="4" p="6" pt="5">
+                <Flex align="center" mb="4">
                   <Box flexGrow="1">
                     <Heading as="h2" size="4" mb="0">
                       <Link
@@ -198,9 +198,9 @@ const CompletedExperimentList = ({
                     </Heading>
                   </Box>
                   <Box>
-                    <Text size="1">
+                    <Text size="1" weight="bold">
                       <Link href={`/experiment/${e.id}`}>
-                        View experiment <PiArrowSquareOut />
+                        View experiment <PiArrowSquareOutBold />
                       </Link>
                     </Text>
                   </Box>
@@ -228,7 +228,7 @@ const CompletedExperimentList = ({
                       }}
                     />
                   </Box>
-                  <Box className="appbox mb-0" p="3" flexGrow="1">
+                  <Box className="appbox mb-0" p="4" flexGrow="1">
                     <Flex
                       align="start"
                       justify="start"
@@ -278,8 +278,8 @@ const CompletedExperimentList = ({
                         </Box>
                         {goalMetrics.slice(0, 2).map((g, ind) => (
                           <Box key={e.id + "-metric-" + ind}>
-                            {ind > 0 ? ", " : ""}
                             {g}
+                            {ind < goalMetrics.length - 1 ? ", " : ""}
                           </Box>
                         ))}
                         {goalMetrics.length === 0 ? (
