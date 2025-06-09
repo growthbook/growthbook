@@ -23,6 +23,7 @@ type TooltipData = { x: number; y: number; d: Datapoint };
 
 interface HistogramGraphProps {
   data: Datapoint[];
+  mean?: number;
   formatter: (value: number, options?: Intl.NumberFormatOptions) => string;
   height?: number;
   margin?: [number, number, number, number];
@@ -71,6 +72,7 @@ function getTooltipContents(
 
 const HistogramGraph: FC<HistogramGraphProps> = ({
   data,
+  mean,
   formatter,
   height = 220,
   margin = [15, 15, 30, 80],
@@ -301,7 +303,11 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
                 </>
               )}
             </div>
-            <svg width={parentWidth} height={height}>
+            <svg
+              width={parentWidth}
+              height={height}
+              style={{ overflow: "visible" }}
+            >
               <Group top={marginTop} left={marginLeft}>
                 {binWidth > 0 && data.length > 0
                   ? data.map((d, i) => {
@@ -362,6 +368,12 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
                     fontSize: 10,
                     textAnchor: "middle",
                   })}
+                  label="Lift"
+                  labelClassName="h5"
+                  labelOffset={25}
+                  labelProps={{
+                    style: { fill: "var(--slate-11)" },
+                  }}
                   tickFormat={(value) =>
                     formatter(value as number, formatterOptions)
                   }
@@ -392,6 +404,17 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
                   stroke="var(--slate-a5)"
                   strokeWidth={1}
                 />
+                {mean !== undefined && (
+                  <line
+                    x1={contentXScale(mean)}
+                    y1={marginTop - 10}
+                    x2={contentXScale(mean)}
+                    y2={height - marginBottom - marginTop + 10}
+                    stroke="var(--blue-11)"
+                    strokeWidth={1}
+                    strokeDasharray="4, 4"
+                  />
+                )}
               </Group>
             </svg>
           </>
