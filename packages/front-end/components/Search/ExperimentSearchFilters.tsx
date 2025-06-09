@@ -242,7 +242,7 @@ const ExperimentSearchFilters: FC<
         updateQuery={updateQuery}
       />
       <FilterDropdown
-        filter="type"
+        filter="has"
         heading="Type"
         syntaxFilters={syntaxFilters}
         open={dropdownFilterOpen}

@@ -157,7 +157,7 @@ const LearningsPage = (): React.ReactElement => {
                 </Flex>
                 <Box p="2">
                   <ExperimentSearchFilters
-                    experiments={items}
+                    experiments={allExperiments}
                     syntaxFilters={syntaxFilters}
                     searchInputProps={searchInputProps}
                     setSearchValue={setSearchValue}
