@@ -238,7 +238,10 @@ const CompletedExperimentList = ({
                     >
                       <Flex gap="2" align="center">
                         <Box>
-                          <ExperimentStatusIndicator experimentData={e} />
+                          <ExperimentStatusIndicator
+                            experimentData={e}
+                            skipArchived={true}
+                          />
                         </Box>
                         <Box>{expResult}</Box>
                       </Flex>

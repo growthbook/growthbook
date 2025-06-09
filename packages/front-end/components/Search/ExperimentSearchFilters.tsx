@@ -223,11 +223,6 @@ const ExperimentSearchFilters: FC<
             id: "stopped",
             name: "Stopped",
           },
-          {
-            searchValue: "archived",
-            id: "archived",
-            name: "Archived",
-          },
         ]}
         updateQuery={updateQuery}
       />
