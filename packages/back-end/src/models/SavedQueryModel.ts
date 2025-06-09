@@ -40,6 +40,9 @@ const SavedQueryModel = mongoose.model<SavedQueryInterface>(
   savedQuerySchema
 );
 
+//MKTODO: I think we may want to switch this to being based off the BaseModel and the projects are set on the savedQuery itself
+// even if that means the savedQuery and the datasource projects could be different
+
 const toInterface = (doc: SavedQueryDocument): SavedQueryInterface => {
   return omit(
     doc.toJSON<SavedQueryDocument>({ flattenMaps: true }),
@@ -74,6 +77,18 @@ export async function getSavedQueriesByOrg(
   });
 
   return savedQueries.map(toInterface);
+}
+
+export async function getSavedQueryById(
+  savedQueryId: string,
+  organization: string
+): Promise<SavedQueryInterface | null> {
+  const savedQuery = await SavedQueryModel.findOne({
+    id: savedQueryId,
+    organization,
+  });
+
+  return savedQuery ? toInterface(savedQuery) : null;
 }
 
 export async function updateSavedQuery(

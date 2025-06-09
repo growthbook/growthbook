@@ -1,7 +1,8 @@
-import { useCallback, useState } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { FaPlay, FaExclamationTriangle, FaSave } from "react-icons/fa";
 import { TestQueryRow } from "back-end/src/types/Integration";
+import { SavedQueryInterface } from "back-end/types/saved-query";
 import clsx from "clsx";
 import { Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
@@ -37,15 +38,19 @@ export type TestQueryResults = {
 export interface Props {
   close: () => void;
   datasourceId?: string;
+  savedQuery?: SavedQueryInterface;
+  mutate: () => void;
 }
 
 export default function SqlExplorerModal({
   close,
   datasourceId: initialDatasourceId,
+  savedQuery,
+  mutate,
 }: Props) {
-  const [step, setStep] = useState(initialDatasourceId ? 1 : 0);
+  const [step, setStep] = useState(savedQuery || initialDatasourceId ? 1 : 0);
   const [selectedDatasourceId, setSelectedDatasourceId] = useState(
-    initialDatasourceId || ""
+    savedQuery?.datasourceId || initialDatasourceId || ""
   );
   const [
     testQueryResults,
@@ -54,7 +59,7 @@ export default function SqlExplorerModal({
   const [showSaveQueryModal, setShowSaveQueryModal] = useState(false);
   const form = useForm({
     defaultValues: {
-      sql: "",
+      sql: savedQuery?.sql || "",
     },
   });
 
@@ -138,6 +143,16 @@ export default function SqlExplorerModal({
     (d) => d.type !== "google_analytics"
   );
 
+  // Pre-fill results if we're editing a saved query with existing results
+  useEffect(() => {
+    if (savedQuery?.results && savedQuery.results.length > 0) {
+      setTestQueryResults({
+        results: savedQuery.results,
+        sql: savedQuery.sql,
+      });
+    }
+  }, [savedQuery]);
+
   return (
     <>
       {showSaveQueryModal && (
@@ -147,7 +162,8 @@ export default function SqlExplorerModal({
           datasourceId={selectedDatasourceId}
           results={testQueryResults?.results || []}
           onSave={() => {
-            // Could add success notification here
+            setShowSaveQueryModal(false);
+            mutate();
           }}
         />
       )}

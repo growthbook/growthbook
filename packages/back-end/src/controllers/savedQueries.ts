@@ -3,12 +3,32 @@ import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { TestQueryRow } from "back-end/src/types/Integration";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { createSavedQuery } from "back-end/src/models/SavedQueryModel";
+import {
+  createSavedQuery,
+  getSavedQueriesByOrg,
+  deleteSavedQuery as deleteSavedQueryFromDB,
+  getSavedQueryById,
+} from "back-end/src/models/SavedQueryModel";
 
 export async function getSavedQueries(req: AuthRequest, res: Response) {
-  res.status(200).json({
-    status: 200,
-  });
+  const context = getContextFromReq(req);
+  const { org } = context;
+
+  try {
+    const savedQueries = await getSavedQueriesByOrg(org.id);
+
+    //MKTODO: Filter saved queries by the user's readAccess
+
+    res.status(200).json({
+      status: 200,
+      savedQueries,
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 500,
+      message: `Failed to fetch saved queries: ${error}`,
+    });
+  }
 }
 
 export async function getSavedQuery(
@@ -86,7 +106,33 @@ export async function deleteSavedQuery(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  res.status(200).json({
-    status: 200,
-  });
+  const { id } = req.params;
+  const context = getContextFromReq(req);
+  const { org } = context;
+
+  const savedQuery = await getSavedQueryById(id, org.id);
+  if (!savedQuery) {
+    throw new Error("Cannot find saved query");
+  }
+
+  const datasource = await getDataSourceById(context, savedQuery.datasourceId);
+  if (!datasource) {
+    throw new Error("Cannot find datasource");
+  }
+
+  if (!context.permissions.canDeleteSavedQueries(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
+  try {
+    await deleteSavedQueryFromDB(id, org.id);
+    res.status(200).json({
+      status: 200,
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 500,
+      message: `Failed to delete saved query: ${error}`,
+    });
+  }
 }
