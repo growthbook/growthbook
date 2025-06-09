@@ -10,8 +10,7 @@ export const savedQueryValidator = z
     name: z.string(),
     description: z.string().optional(),
     sql: z.string(),
-    results: z.array(z.any()).optional(), //MKTODO: Is there a better data structure for this?
-    dateLastRan: z.date().optional(),
+    results: z.array(z.any()),
   })
   .strict();
 

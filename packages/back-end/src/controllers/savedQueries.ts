@@ -37,7 +37,7 @@ export async function postSavedQuery(
     description?: string;
     sql: string;
     datasourceId: string;
-    results?: TestQueryRow[];
+    results: TestQueryRow[];
   }>,
   res: Response
 ) {
@@ -56,7 +56,6 @@ export async function postSavedQuery(
       sql,
       datasourceId,
       results,
-      dateLastRan: results && results.length > 0 ? new Date() : undefined,
     });
     res.status(200).json({
       status: 200,

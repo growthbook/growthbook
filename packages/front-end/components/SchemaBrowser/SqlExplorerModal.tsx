@@ -2,7 +2,7 @@ import { useCallback, useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { FaPlay, FaExclamationTriangle, FaSave } from "react-icons/fa";
 import { TestQueryRow } from "back-end/src/types/Integration";
-import { SavedQueryInterface } from "back-end/types/saved-query";
+import { SavedQuery } from "back-end/src/validators/saved-queries";
 import clsx from "clsx";
 import { Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
@@ -39,7 +39,7 @@ export type TestQueryResults = {
 export interface Props {
   close: () => void;
   datasourceId?: string;
-  savedQuery?: SavedQueryInterface;
+  savedQuery?: SavedQuery;
   mutate: () => void;
 }
 
@@ -50,7 +50,6 @@ export default function SqlExplorerModal({
   mutate,
 }: Props) {
   const [step, setStep] = useState(savedQuery || initialDatasourceId ? 1 : 0);
-  const [limitQuery, setLimitQuery] = useState(true);
   const [selectedDatasourceId, setSelectedDatasourceId] = useState(
     savedQuery?.datasourceId || initialDatasourceId || ""
   );
@@ -106,12 +105,12 @@ export default function SqlExplorerModal({
         body: JSON.stringify({
           query: sql,
           datasourceId: selectedDatasourceId,
-          limit: limitQuery ? 100 : undefined,
+          limit: 1000,
         }),
       });
       return res;
     },
-    [apiCall, limitQuery, selectedDatasourceId]
+    [apiCall, selectedDatasourceId]
   );
 
   const handleQuery = useCallback(async () => {
@@ -293,12 +292,16 @@ export default function SqlExplorerModal({
                           </Tooltip>
                         )}
                         <div className="pl-2">
-                          <Checkbox
-                            disabled={!form.watch("sql")}
-                            label="Limit 100"
-                            value={limitQuery}
-                            setValue={setLimitQuery}
-                          />
+                          <Tooltip body="GrowthBook automatically limits the results to 1000 rows">
+                            <Checkbox
+                              disabled={true}
+                              label="Limit 1000"
+                              value={true}
+                              setValue={() =>
+                                console.log("changing limit is disabled")
+                              }
+                            />
+                          </Tooltip>
                         </div>
                       </Flex>
                     </div>
