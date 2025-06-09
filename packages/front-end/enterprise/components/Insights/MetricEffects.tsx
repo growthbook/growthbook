@@ -36,14 +36,17 @@ interface HistogramDatapoint {
   units: number;
 }
 
-function createHistogramData(
-  values: number[],
-  numBins: number = 10
-): HistogramDatapoint[] {
-  if (values.length === 0 || numBins <= 0) return [];
+function createHistogramData(values: number[]): HistogramDatapoint[] {
+  if (values.length === 0) return [];
 
   let minVal = Math.min(...values);
   let maxVal = Math.max(...values);
+
+  // rough IQR estimate
+  const psuedoIQR = 0.7413 * (maxVal - minVal);
+  const bw = 2 * psuedoIQR * values.length ** (-1 / 3);
+  // compute number of bins
+  const numBins = Math.max(5, Math.min(20, Math.ceil((maxVal - minVal) / bw)));
 
   if (minVal === maxVal) {
     const center = minVal;
