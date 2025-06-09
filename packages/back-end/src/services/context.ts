@@ -40,6 +40,7 @@ import { SafeRolloutSnapshotModel } from "back-end/src/models/SafeRolloutSnapsho
 import { DecisionCriteriaModel } from "back-end/src/enterprise/models/DecisionCriteriaModel";
 import { MetricTimeSeriesModel } from "back-end/src/models/MetricTimeSeriesModel";
 import { WebhookSecretDataModel } from "back-end/src/models/WebhookSecretModel";
+import { SavedQueryDataModel } from "back-end/src/models/SavedQueryDataModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
@@ -57,6 +58,7 @@ export class ReqContextClass {
     urlRedirects: UrlRedirectModel;
     metricAnalysis: MetricAnalysisModel;
     populationData: PopulationDataModel;
+    savedQueries: SavedQueryDataModel;
     metricGroups: MetricGroupModel;
     segments: SegmentModel;
     experimentTemplates: ExperimentTemplatesModel;
@@ -74,6 +76,7 @@ export class ReqContextClass {
       urlRedirects: new UrlRedirectModel(this),
       metricAnalysis: new MetricAnalysisModel(this),
       populationData: new PopulationDataModel(this),
+      savedQueries: new SavedQueryDataModel(this),
       metricGroups: new MetricGroupModel(this),
       segments: new SegmentModel(this),
       experimentTemplates: new ExperimentTemplatesModel(this),

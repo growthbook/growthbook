@@ -3,21 +3,12 @@ import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { TestQueryRow } from "back-end/src/types/Integration";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import {
-  createSavedQuery,
-  getSavedQueriesByOrg,
-  deleteSavedQuery as deleteSavedQueryFromDB,
-  getSavedQueryById,
-} from "back-end/src/models/SavedQueryModel";
 
 export async function getSavedQueries(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
-  const { org } = context;
 
   try {
-    const savedQueries = await getSavedQueriesByOrg(org.id);
-
-    //MKTODO: Filter saved queries by the user's readAccess
+    const savedQueries = await context.models.savedQueries.getAll();
 
     res.status(200).json({
       status: 200,
@@ -58,16 +49,9 @@ export async function postSavedQuery(
     throw new Error("Cannot find datasource");
   }
 
-  if (!context.permissions.canCreateSavedQueries(datasource)) {
-    context.permissions.throwPermissionError();
-  }
-
-  const { org } = context;
-
   try {
-    await createSavedQuery({
+    await context.models.savedQueries.create({
       name,
-      organization: org.id,
       description,
       sql,
       datasourceId,
@@ -108,24 +92,9 @@ export async function deleteSavedQuery(
 ) {
   const { id } = req.params;
   const context = getContextFromReq(req);
-  const { org } = context;
-
-  const savedQuery = await getSavedQueryById(id, org.id);
-  if (!savedQuery) {
-    throw new Error("Cannot find saved query");
-  }
-
-  const datasource = await getDataSourceById(context, savedQuery.datasourceId);
-  if (!datasource) {
-    throw new Error("Cannot find datasource");
-  }
-
-  if (!context.permissions.canDeleteSavedQueries(datasource)) {
-    context.permissions.throwPermissionError();
-  }
 
   try {
-    await deleteSavedQueryFromDB(id, org.id);
+    await context.models.savedQueries.deleteById(id);
     res.status(200).json({
       status: 200,
     });
