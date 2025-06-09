@@ -83,7 +83,7 @@ const ExperimentTimelinePage = (): React.ReactElement => {
   return (
     <>
       <div className="contents experiments container-fluid pagecontents">
-        <div className="my-3">
+        <div className="mb-3">
           <Heading size="7" style={{ fontWeight: 500 }} mb="4">
             Experiment Timeline
           </Heading>
