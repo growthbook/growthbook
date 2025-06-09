@@ -131,6 +131,7 @@ const CustomFields: FC<{
               <tr>
                 <th style={{ width: "30px" }}></th>
                 <th>Field Name</th>
+                <th>Field Key</th>
                 <th>Description</th>
                 <th>Type</th>
                 <th>Default value</th>
@@ -160,7 +161,7 @@ const CustomFields: FC<{
               ) : (
                 <>
                   <tr>
-                    <td colSpan={9} className="text-center text-gray">
+                    <td colSpan={10} className="text-center text-gray">
                       <em>
                         No custom fields defined{" "}
                         <a
