@@ -242,7 +242,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
                         className="dropdown-item py-2"
                         onClick={handleActionClicked(idx, "dimension")}
                       >
-                        Configure Dimensions
+                        Edit Dimensions
                       </button>
                     ) : null}
 

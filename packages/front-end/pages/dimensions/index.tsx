@@ -20,8 +20,8 @@ import { useSearch } from "@/services/search";
 import Table, { TableBody, TableCell, TableHeader, TableRow } from "@/components/Radix/Table";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Modal from "@/components/Modal";
-import DimensionEditor from "@/components/DimensionEditor/DimensionEditor";
 import router from "next/router";
+import { EAQ_ANCHOR_ID } from "@/pages/datasources/[did]";
 
 const ExposureQueryModal: FC<{
   datasourceId: string;
@@ -175,22 +175,6 @@ const DimensionsPage: FC = () => {
           close={() => setExposureQueryData(null)}
         />
       )}
-      {showEditDimensionValues && (
-        <DimensionEditor
-          initialMapping={{
-            dimension: "device_type",
-            values: []
-          }}
-          dimensionName={"device_type"}
-          availableValues={[
-            { value: "iOS", count: 1250 },
-            { value: "Android", count: 980 },
-            { value: "Desktop", count: 750 }
-          ]}
-          close={() => setShowEditDimensionValues(false)}
-          onSave={() => {}}
-        />
-      )}
       <Flex mb="3" direction="column">
         <Box>
           <h1>Experiment Dimensions</h1>
@@ -236,13 +220,13 @@ const DimensionsPage: FC = () => {
                 <MoreMenu useRadix={true}>
                 <a
                   className="dropdown-item"
-                  href="#"
+                  href={`/datasources/${item.datasourceId}#${EAQ_ANCHOR_ID}`}
                   onClick={(e) => {
                     e.preventDefault();
-                    setShowEditDimensionValues(true);
+                    router.push(`/datasources/${item.datasourceId}#${EAQ_ANCHOR_ID}`);
                   }}
                 >
-                  Edit Values
+                  Edit Via Data Source
                 </a>
                 </MoreMenu></TableCell>
               </TableRow>

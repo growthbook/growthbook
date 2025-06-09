@@ -41,6 +41,8 @@ function quotePropertyName(name: string) {
   return JSON.stringify(name);
 }
 
+export const EAQ_ANCHOR_ID = "experiment-assignment-queries";
+
 const DataSourcePage: FC = () => {
   const permissionsUtil = usePermissionsUtil();
   const [editConn, setEditConn] = useState(false);
@@ -345,7 +347,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
               </Frame>
             ) : null}
 
-            <Frame>
+            <Frame id={EAQ_ANCHOR_ID}>
               <ExperimentAssignmentQueries
                 dataSource={d}
                 onSave={updateDataSourceSettings}

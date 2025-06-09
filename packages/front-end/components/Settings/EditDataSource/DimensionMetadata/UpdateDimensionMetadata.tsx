@@ -7,8 +7,9 @@ import cloneDeep from "lodash/cloneDeep";
 import { ago, datetime } from "shared/dates";
 import { QueryStatus } from "back-end/types/query";
 import { DimensionSlicesInterface } from "back-end/types/dimension";
-import { BsGear } from "react-icons/bs";
+import { BsArrowRepeat, BsGear } from "react-icons/bs";
 import { useForm } from "react-hook-form";
+import { Button, Flex, Text } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import RunQueriesButton, {
@@ -19,6 +20,7 @@ import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import track from "@/services/track";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Link from "@/components/Radix/Link";
 
 const smallPercentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -146,23 +148,14 @@ export const UpdateDimensionMetadataModal: FC<UpdateDimensionMetadataModalProps>
         size="lg"
         header={"Configure Experiment Dimensions"}
       >
-        <div className="my-2 ml-3 mr-3">
-          <div className="row mb-1">
-            Experiment Dimensions can be configured to have up to 20 pre-defined
-            slices per dimension.
-          </div>
-          <div className="row mb-1">
-            <strong>Why?</strong>
-            Pre-defining dimension slices allows us to automatically run traffic
-            and health checks on your experiment for all bins whenever you
-            update experiment results.
-          </div>
-          <div className="row mb-3">
-            <strong>How?</strong>
-            Running the query on this page will load data using your experiment
-            assignment query to determine the 20 most popular dimension slices.
-          </div>
-          <div className="row">
+        <Flex direction="column" gap="2">
+        <Text>
+          Experiment Dimensions are additional columns made available in the Experiment Assignment Query. These columns
+          can be used for dimension-based analysis without additional joins.
+          
+          Dimension values can be defined in this modal to ensure
+          consistency, reliability, and query performance.
+        </Text>
             <DimensionSlicesRunner
               dimensionSlices={data?.dimensionSlices}
               status={status}
@@ -173,8 +166,7 @@ export const UpdateDimensionMetadataModal: FC<UpdateDimensionMetadataModalProps>
               exposureQuery={exposureQuery}
               source={source}
             />
-          </div>
-        </div>
+        </Flex>
       </Modal>
     </>
   );
@@ -243,36 +235,6 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
       <div className="col-12">
         <div className="col-auto ml-auto">
           <div className="row align-items-center mb-3">
-            {permissionsUtil.canRunHealthQueries(dataSource) ? (
-              <div className="mr-2">
-                <form
-                  onSubmit={async (e) => {
-                    e.preventDefault();
-                    try {
-                      setError("");
-                      refreshDimension();
-                    } catch (e) {
-                      setError(e.message);
-                      console.error(e);
-                    }
-                  }}
-                >
-                  <RunQueriesButton
-                    cta={`${
-                      dimensionSlices ? "Refresh" : "Query"
-                    } Dimension Slices`}
-                    icon={dimensionSlices ? "refresh" : "run"}
-                    position={"left"}
-                    mutate={mutate}
-                    model={
-                      dimensionSlices ?? { queries: [], runStarted: undefined }
-                    }
-                    cancelEndpoint={`/dimension-slices/${id}/cancel`}
-                    color={`${dimensionSlices ? "outline-" : ""}primary`}
-                  />
-                </form>
-              </div>
-            ) : null}
             {dimensionSlices?.runStarted ? (
               <div className="pt-2 mr-2">
                 <div
@@ -284,10 +246,27 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
                 </div>
               </div>
             ) : null}
-            <div className="flex-1" />
-            <div>
-              <div className="text-right text-muted">
-                {openLookbackField ? (
+          </div>
+        </div>
+        {(status === "failed" || error !== "") && dimensionSlices ? (
+          <div className="alert alert-danger mt-2">
+            <strong>Error updating data</strong>
+            {error ? `: ${error}` : null}
+          </div>
+        ) : null}
+        {status === "succeeded" && dimensionSlices?.results.length === 0 ? (
+          <div className="alert alert-warning mt-2">
+            <p className="mb-0">
+              <strong>
+                No experiment assignment rows found in data source.
+              </strong>{" "}
+            </p>{" "}
+            <p className="mb-0">
+              Ensure that
+              your Experiment Assignment Query is correctly specified or increase 
+              the lookback window.
+            </p>
+            {openLookbackField ? (
                   <div className="d-inline-flex align-items-center mt-1">
                     <label className="mb-0 mr-2 small">Days to look back</label>
                     <Field
@@ -314,37 +293,17 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
                     {form.getValues("lookbackDays")} days to look back
                   </span>
                 )}
-              </div>
-            </div>
-          </div>
-        </div>
-        {(status === "failed" || error !== "") && dimensionSlices ? (
-          <div className="alert alert-danger mt-2">
-            <strong>Error updating data</strong>
-            {error ? `: ${error}` : null}
-          </div>
-        ) : null}
-        {status === "succeeded" && dimensionSlices?.results.length === 0 ? (
-          <div className="alert alert-warning mt-2">
-            <p className="mb-0">
-              <strong>
-                No experiment assignment rows found in data source.
-              </strong>{" "}
-            </p>{" "}
-            <p className="mb-0">
-              Either increase the number of days to look back or ensure that
-              your Experiment Assignment Query is correctly specified.
-            </p>
           </div>
         ) : null}
 
         <div className="row align-items-center mb-2">
-          <strong>Dimension Slices to Display on Health Tab:</strong>
+          <strong>Dimension Values:</strong>
         </div>
         <DimensionSlicesResults
           status={status}
           dimensions={exposureQuery.dimensions}
           dimensionSlices={dimensionSlices}
+          refreshDimension={refreshDimension}
         />
 
         {dimensionSlices?.queries && (
@@ -370,12 +329,53 @@ type DimensionSlicesProps = {
   status: string;
   dimensions: string[];
   dimensionSlices?: DimensionSlicesInterface;
+  refreshDimension: () => Promise<void>;
+};
+
+const RefreshDataText = ({ onClick }: { onClick: () => Promise<void> }) => {
+  return <Link
+            onClick={async () => {
+              await onClick();
+            }}
+          >
+            <BsArrowRepeat style={{ marginTop: -1 }} /> Refresh
+          </Link>;
+    //   <div className="mr-2">
+    //     <form
+    //       onSubmit={async (e) => {
+    //         e.preventDefault();
+    //         try {
+    //           setError("");
+    //           refreshDimension();
+    //         } catch (e) {
+    //           setError(e.message);
+    //           console.error(e);
+    //         }
+    //       }}
+    //     >
+    //       <RunQueriesButton
+    //         cta={`${
+    //           dimensionSlices ? "Refresh" : "Query"
+    //         } Dimension Slices`}
+    //         icon={dimensionSlices ? "refresh" : "run"}
+    //         position={"left"}
+    //         mutate={mutate}
+    //         model={
+    //           dimensionSlices ?? { queries: [], runStarted: undefined }
+    //         }
+    //         cancelEndpoint={`/dimension-slices/${id}/cancel`}
+    //         color={`${dimensionSlices ? "outline-" : ""}primary`}
+    //       />
+    //     </form>
+    //   </div>
+    // ) : null}
 };
 
 export const DimensionSlicesResults: FC<DimensionSlicesProps> = ({
   dimensions,
   dimensionSlices,
   status,
+  refreshDimension,
 }) => {
   return (
     <>
@@ -383,7 +383,8 @@ export const DimensionSlicesResults: FC<DimensionSlicesProps> = ({
         <thead>
           <tr>
             <th>Dimension</th>
-            <th>Pre-defined Slices (% of Units)</th>
+            <th>% of Traffic <RefreshDataText onClick={refreshDimension} /></th>
+            <th>Defined Values</th>
           </tr>
         </thead>
         <tbody>
@@ -441,6 +442,9 @@ export const DimensionSlicesResults: FC<DimensionSlicesProps> = ({
                         : ""}
                     </div>
                   )}
+                </td>
+                <td>
+                  
                 </td>
               </tr>
             );
