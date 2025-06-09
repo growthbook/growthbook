@@ -204,21 +204,28 @@ export const getSDKConnectionsWebhooks = async (
   const context = getContextFromReq(req);
   const connections = await findSDKConnectionsByOrganization(context);
   const connectionIds = connections.map((conn) => conn.id);
-
   const allWebhooks = await findAllSdkWebhooksByConnectionIds(
     context,
     connectionIds
   );
 
-  // Group webhooks by connection ID
   const webhooksByConnection: Record<string, WebhookSummary[]> = {};
-  connections.forEach((connection) => {
-    const webhooks = allWebhooks
-      .filter((w) => w.sdks.includes(connection.id))
-      .map((w) =>
-        pick(w, ["id", "name", "endpoint", "lastSuccess", "error", "created"])
-      );
-    webhooksByConnection[connection.id] = webhooks;
+
+  allWebhooks.forEach((webhook) => {
+    const webhookSummary = pick(webhook, [
+      "id",
+      "name",
+      "endpoint",
+      "lastSuccess",
+      "error",
+      "created",
+    ]);
+    webhook.sdks.forEach((sdkId) => {
+      if (!webhooksByConnection[sdkId]) {
+        webhooksByConnection[sdkId] = [];
+      }
+      webhooksByConnection[sdkId].push(webhookSummary);
+    });
   });
 
   res.status(200).json({
