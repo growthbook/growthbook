@@ -3,6 +3,13 @@ import { useRouter } from "next/router";
 import { getApiHost } from "@/services/env";
 import { useProject } from "@/services/DefinitionsContext";
 
+type QueryParams = {
+  code?: string;
+  state?: string;
+  resource_id?: string;
+  experimentation_item_id?: string;
+};
+
 const VercelPage = () => {
   const router = useRouter();
   const [, setProject] = useProject();
@@ -13,13 +20,9 @@ const VercelPage = () => {
       state,
       resource_id: resourceId,
       experimentation_item_id: experimentationItemId,
-    } = router.query;
+    } = router.query as QueryParams;
 
     if (!code || !state) return;
-
-    const baseUrl =
-      "/" +
-      (experimentationItemId ? experimentationItemId.replace(":", "/") : "");
 
     const fn = async () => {
       try {
@@ -36,11 +39,18 @@ const VercelPage = () => {
 
         const { organizationId, projectId } = await ret.json();
 
+        const urlRegex = /^(features|experiment):/;
+
+        const baseUrl =
+          "/" +
+          (experimentationItemId?.match(urlRegex)
+            ? experimentationItemId.replace(urlRegex, "/$1/")
+            : "");
+
         if (projectId) setProject(projectId);
         router.push(`${baseUrl}?org=${organizationId}`);
       } catch (err) {
-        console.log("Ignored:", err);
-        router.push(baseUrl);
+        return `Error: ${err}`;
       }
     };
 
