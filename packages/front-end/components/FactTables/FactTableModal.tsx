@@ -25,9 +25,14 @@ import { useProjectDefinitions } from "@/hooks/useProjectDefinitions";
 export interface Props {
   existing?: FactTableInterface;
   close: () => void;
+  duplicate?: boolean;
 }
 
-export default function FactTableModal({ existing, close }: Props) {
+export default function FactTableModal({
+  existing,
+  close,
+  duplicate = false,
+}: Props) {
   const {
     datasources,
     project,
@@ -83,7 +88,7 @@ export default function FactTableModal({ existing, close }: Props) {
     setShowAdditionalColumnMessage(true);
   }, [selectedDataSource, form, existing]);
 
-  const isNew = !existing;
+  const isNew = !existing || duplicate;
   useEffect(() => {
     track(
       isNew ? "Viewed Create Fact Table Modal" : "Viewed Edit Fact Table Modal"
@@ -113,7 +118,9 @@ export default function FactTableModal({ existing, close }: Props) {
         open={true}
         close={close}
         cta={"Save"}
-        header={existing ? "Edit Fact Table" : "Create Fact Table"}
+        header={
+          existing && !duplicate ? "Edit Fact Table" : "Create Fact Table"
+        }
         submit={form.handleSubmit(async (value) => {
           if (!value.userIdTypes.length) {
             throw new Error("Must select at least one identifier type");
@@ -128,7 +135,7 @@ export default function FactTableModal({ existing, close }: Props) {
           // Default eventName to the metric name
           value.eventName = value.eventName || value.name;
 
-          if (existing) {
+          if (existing && !duplicate) {
             const data: UpdateFactTableProps = {
               description: value.description,
               name: value.name,
@@ -169,7 +176,7 @@ export default function FactTableModal({ existing, close }: Props) {
       >
         <Field label="Name" {...form.register("name")} required />
 
-        {!existing && (
+        {
           <SelectField
             label="Data Source"
             value={form.watch("datasource")}
@@ -189,7 +196,7 @@ export default function FactTableModal({ existing, close }: Props) {
             name="datasource"
             placeholder="Select..."
           />
-        )}
+        }
 
         {selectedDataSource && usesEventName(form.watch("sql")) && (
           <Field
@@ -200,7 +207,7 @@ export default function FactTableModal({ existing, close }: Props) {
           />
         )}
 
-        {selectedDataSource && !existing?.id && (
+        {selectedDataSource && (!existing?.id || duplicate) && (
           <div className="form-group">
             <label>Query</label>
             {showAdditionalColumnMessage && (
@@ -233,7 +240,7 @@ export default function FactTableModal({ existing, close }: Props) {
           </div>
         )}
 
-        {selectedDataSource && !existing?.id && (
+        {selectedDataSource && (!existing?.id || duplicate) && (
           <>
             <a
               href="#"

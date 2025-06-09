@@ -3,7 +3,6 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { v4 as uuidv4 } from "uuid";
-import { getDefaultRole } from "shared/permissions";
 import {
   findVercelInstallationByInstallationId,
   VercelNativeIntegrationModel,
@@ -12,7 +11,6 @@ import {
 } from "back-end/src/models/VercelNativeIntegrationModel";
 import {
   addMemberToOrg,
-  addMembersToTeam,
   getOrganizationById,
 } from "back-end/src/services/organizations";
 import {
@@ -39,10 +37,6 @@ import {
   trackLoginForUser,
 } from "back-end/src/services/users";
 import {
-  createTeam,
-  updateTeamRemoveManagedBy,
-} from "back-end/src/models/TeamModel";
-import {
   postCancelSubscriptionToLicenseServer,
   postNewVercelSubscriptionToLicenseServer,
 } from "back-end/src/enterprise";
@@ -58,20 +52,37 @@ import {
 } from "./vercel-native-integration.validators";
 
 const STARTER_BILLING_PLAN: BillingPlan = {
-  description:
-    "Growthbook's free plan. Add up to 3 users. Enjoy unlimited feature flag evaluations, community support, up to 1M CDN requests/month, and up to 5GB of CDN Bandwidth/month.",
+  description: "Basic flags and experiments for solo devs and small teams",
   id: "starter-billing-plan",
-  name: "Starter (Free) Plan",
+  name: "Starter Plan",
+  cost: "Free",
   type: "subscription",
+  details: [
+    { label: "Feature Flags & Evaluations", value: "Unlimited" },
+    { label: "Experiments", value: "Unlimited" },
+    { label: "Seats", value: "Up to 3" },
+  ],
 };
 
 const PRO_BILLING_PLAN: BillingPlan = {
-  description:
-    "Enjoy all the benefits of our starter plan, plus add up to 100 members (each member incurs a cost of $20/month), get in-app chat support, advanced experimentation features, up to 2M CDN requests/month, and up to 20GB of CDN Bandwidth/month.",
+  description: "Full featured experimentation and growth platform",
   id: "pro-billing-plan",
   name: "Pro Plan",
   type: "subscription",
-  cost: "20.00/month per user + usage",
+  cost: "Starting at $20/month",
+  details: [
+    { label: "Feature Flags & Evaluations", value: "Unlimited" },
+    { label: "Experiments", value: "Unlimited" },
+    { label: "Seats", value: "$20/seat/month" },
+    {
+      label: "Advanced Flags",
+      value: "Safe Rollouts, pre-requisites, & more",
+    },
+    {
+      label: "Advanced Experimentation",
+      value: "Bandits, advanced metrics, & more",
+    },
+  ],
 };
 
 const billingPlans = [STARTER_BILLING_PLAN, PRO_BILLING_PLAN] as const;
@@ -483,7 +494,7 @@ export async function provisionResource(req: Request, res: Response) {
   const sdkConnection = await createSDKConnection({
     organization: org.id,
     name: payload.name,
-    languages: ["react"],
+    languages: ["nextjs"],
     environment: "production",
     includeVisualExperiments: true,
     includeDraftExperiments: true,
@@ -496,33 +507,12 @@ export async function provisionResource(req: Request, res: Response) {
     managedBy,
   });
 
-  const team = await createTeam({
-    name: payload.name,
-    createdBy: user?.email || payload.name,
-    description: `Team for vercel resource ${payload.name}`,
-    organization: org.id,
-    managedByIdp: false,
-    managedBy,
-    role: "noaccess",
-    environments: [],
-    limitAccessByEnvironment: true,
-    projectRoles: [
-      {
-        project: project.id,
-        role: "experimenter",
-        limitAccessByEnvironment: true,
-        environments: [],
-      },
-    ],
-  });
-
   const resource: Resource = {
     ...payload,
     id: resourceId,
     secrets: [{ name: "GROWTHBOOK_CLIENT_KEY", value: sdkConnection.key }],
     status: "ready",
     projectId: project.id,
-    teamId: team.id,
     sdkConnectionId: sdkConnection.id,
   };
 
@@ -580,7 +570,6 @@ async function removeManagedBy(
   managedBy: Partial<ManagedBy>
 ) {
   await updateSdkConnectionsRemoveManagedBy(context, managedBy);
-  await updateTeamRemoveManagedBy(context.org.id, managedBy);
   await context.models.projects.removeManagedBy(managedBy);
 }
 
@@ -671,19 +660,12 @@ export async function postVercelIntegrationSSO(req: Request, res: Response) {
   await addMemberToOrg({
     organization: org,
     userId: user.id,
+    role: "experimenter",
     projectRoles: [],
     managedByIdp: false,
-    ...getDefaultRole(org),
+    environments: [],
+    limitAccessByEnvironment: false,
   });
-
-  if (resource?.teamId) {
-    // also idempotent.
-    await addMembersToTeam({
-      organization: org,
-      userIds: [user.id],
-      teamId: resource.teamId,
-    });
-  }
 
   const trackingProperties = getUserLoginPropertiesFromRequest(req);
   trackLoginForUser({
