@@ -24,6 +24,7 @@ import { formatSql, canFormatSql } from "@/services/sqlFormatter";
 import SelectField from "@/components/Forms/SelectField";
 import PagedModal from "../Modal/PagedModal";
 import Page from "../Modal/Page";
+import Checkbox from "../Radix/Checkbox";
 import SchemaBrowser from "./SchemaBrowser";
 import SaveQueryModal from "./SaveQueryModal";
 import styles from "./EditSqlModal.module.scss";
@@ -49,6 +50,7 @@ export default function SqlExplorerModal({
   mutate,
 }: Props) {
   const [step, setStep] = useState(savedQuery || initialDatasourceId ? 1 : 0);
+  const [limitQuery, setLimitQuery] = useState(true);
   const [selectedDatasourceId, setSelectedDatasourceId] = useState(
     savedQuery?.datasourceId || initialDatasourceId || ""
   );
@@ -95,35 +97,33 @@ export default function SqlExplorerModal({
     canSaveQueries && hasValidResults && form.watch("sql").trim();
 
   const runTestQuery = useCallback(
-    async (sql: string): Promise<TestQueryResults> => {
-      if (!selectedDatasourceId) {
-        throw new Error("No data source selected");
-      }
-
-      validateSQL(sql, []);
+    async (sql: string) => {
       setTestQueryResults(null);
-      const res: TestQueryResults = await apiCall("/query/test", {
+      validateSQL(sql, []);
+      const res: TestQueryResults = await apiCall("/query/run", {
         method: "POST",
         body: JSON.stringify({
           query: sql,
           datasourceId: selectedDatasourceId,
-          templateVariables: templateVariables,
+          limit: limitQuery ? 100 : undefined,
         }),
       });
-
       return res;
     },
-    [apiCall, selectedDatasourceId, templateVariables]
+    [apiCall, limitQuery, selectedDatasourceId]
   );
 
-  const handleTestQuery = useCallback(async () => {
+  const handleQuery = useCallback(async () => {
     setTestingQuery(true);
-    const sql = form.getValues("sql");
     try {
-      const res = await runTestQuery(sql);
+      const res = await runTestQuery(form.watch("sql"));
       setTestQueryResults({ ...res, error: res.error ? res.error : "" });
     } catch (e) {
-      setTestQueryResults({ sql: sql, error: e.message });
+      setTestQueryResults({
+        sql: form.watch("sql"),
+        error: e.message,
+        results: [],
+      });
     }
     setTestingQuery(false);
   }, [form, runTestQuery]);
@@ -153,12 +153,18 @@ export default function SqlExplorerModal({
     }
   }, [savedQuery]);
 
+  useEffect(() => {
+    // Reset the sql on datasource change
+    form.setValue("sql", "");
+    setTestQueryResults(null);
+  }, [datasource, form]);
+
   return (
     <>
       {showSaveQueryModal && (
         <SaveQueryModal
           close={() => setShowSaveQueryModal(false)}
-          sql={form.watch("sql")}
+          sql={testQueryResults?.sql || ""}
           datasourceId={selectedDatasourceId}
           results={testQueryResults?.results || []}
           onSave={() => {
@@ -231,7 +237,7 @@ export default function SqlExplorerModal({
                           <Button
                             color="primary"
                             className="btn-sm"
-                            onClick={handleTestQuery}
+                            onClick={handleQuery}
                             loading={testingQuery}
                             disabled={!canRunQueries}
                             type="button"
@@ -279,6 +285,14 @@ export default function SqlExplorerModal({
                             <FaExclamationTriangle className="text-danger" />
                           </Tooltip>
                         )}
+                        <div className="pl-2">
+                          <Checkbox
+                            disabled={!form.watch("sql")}
+                            label="Limit 100"
+                            value={limitQuery}
+                            setValue={setLimitQuery}
+                          />
+                        </div>
                       </Flex>
                     </div>
                   </div>
@@ -303,7 +317,7 @@ export default function SqlExplorerModal({
                             }
                             onKeyDown={(e) => {
                               if (e.key === "Enter" && e.ctrlKey) {
-                                handleTestQuery();
+                                handleQuery();
                               }
                             }}
                           />
@@ -323,7 +337,7 @@ export default function SqlExplorerModal({
                             }
                             onKeyDown={(e) => {
                               if (e.key === "Enter" && e.ctrlKey) {
-                                handleTestQuery();
+                                handleQuery();
                               }
                             }}
                           />
@@ -347,7 +361,7 @@ export default function SqlExplorerModal({
                     helpText={""}
                     fullHeight
                     setCursorData={setCursorData}
-                    onCtrlEnter={handleTestQuery}
+                    onCtrlEnter={handleQuery}
                     resizeDependency={!!testQueryResults}
                   />
                 </div>

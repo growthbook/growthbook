@@ -140,6 +140,46 @@ export async function testDataSourceConnection(
   await integration.testConnection();
 }
 
+export async function runFreeFormQuery(
+  context: ReqContext,
+  datasource: DataSourceInterface,
+  query: string,
+  limit?: number
+): Promise<{
+  results?: TestQueryRow[];
+  duration?: number;
+  error?: string;
+  sql?: string;
+}> {
+  if (!context.permissions.canRunTestQueries(datasource)) {
+    throw new Error("Permission denied");
+  }
+
+  const integration = getSourceIntegrationObject(context, datasource);
+
+  // The Mixpanel integration does not support test queries
+  if (!integration.getFreeFormQuery || !integration.runTestQuery) {
+    throw new Error("Unable to test query.");
+  }
+
+  const sql = integration.getFreeFormQuery(query, limit);
+  try {
+    const { results, duration } = await integration.runTestQuery(sql, [
+      "timestamp",
+    ]);
+    return {
+      results,
+      duration,
+      sql,
+    };
+  } catch (e) {
+    return {
+      error: e.message,
+      sql,
+    };
+  }
+}
+
 export async function testQuery(
   context: ReqContext,
   datasource: DataSourceInterface,

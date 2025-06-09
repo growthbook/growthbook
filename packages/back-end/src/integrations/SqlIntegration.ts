@@ -1412,6 +1412,17 @@ export default abstract class SqlIntegration
     });
   }
 
+  getFreeFormQuery(query: string, limit?: number): string {
+    const sql = !limit
+      ? query
+      : `WITH __table as (
+        ${query}
+      )
+      ${this.selectStarLimit("__table", limit)}`;
+
+    return format(sql, this.getFormatDialect());
+  }
+
   getTestQuery(params: TestQueryParams): string {
     const { query, templateVariables } = params;
     const limit = params.limit ?? 5;

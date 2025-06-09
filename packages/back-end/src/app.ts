@@ -447,6 +447,7 @@ app.post(
 
 app.get("/queries/:ids", datasourcesController.getQueries);
 app.post("/query/test", datasourcesController.testLimitedQuery);
+app.post("/query/run", datasourcesController.runQuery);
 app.post("/dimension-slices", datasourcesController.postDimensionSlices);
 app.get("/dimension-slices/:id", datasourcesController.getDimensionSlices);
 app.post(
