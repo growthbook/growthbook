@@ -689,6 +689,7 @@ export async function getOrganization(
     messages,
     externalId,
     setupEventTracker,
+    isVercelIntegration,
   } = org;
 
   let license: Partial<LicenseInterface> | null = null;
@@ -788,6 +789,7 @@ export async function getOrganization(
       discountCode: org.discountCode || "",
       customRoles: org.customRoles,
       deactivatedRoles: org.deactivatedRoles,
+      isVercelIntegration,
       settings: {
         ...settings,
         attributeSchema: filteredAttributes,
