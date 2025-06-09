@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/router";
 import { getApiHost } from "@/services/env";
 import { useProject } from "@/services/DefinitionsContext";
+import { OAuthError } from "@/components/OAuthError";
 
 type QueryParams = {
   code?: string;
@@ -50,7 +51,7 @@ const VercelPage = () => {
         if (projectId) setProject(projectId);
         router.push(`${baseUrl}?org=${organizationId}`);
       } catch (err) {
-        return `Error: ${err}`;
+        return <OAuthError error={String(err)} />;
       }
     };
 
