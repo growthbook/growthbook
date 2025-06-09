@@ -232,52 +232,6 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
   return (
     <ParentSizeModern style={{ position: "relative" }}>
       {({ width: parentWidth }) => {
-        const currentXMax = parentWidth - marginRight - marginLeft; // This is the actual drawable xMax
-        const contentXScale = getContentXScale(currentXMax);
-        const generatedTickValues = getGeneratedTickValues(contentXScale);
-        return (
-          <>
-            <AxisBottom
-              top={yMax}
-              scale={contentXScale}
-              stroke={"var(--text-color-table)"}
-              tickStroke={"var(--text-color-table)"}
-              tickValues={generatedTickValues}
-              tickLabelProps={() => ({
-                fill: "var(--text-color-table)",
-                fontSize: 10,
-                textAnchor: "middle",
-              })}
-              tickFormat={(value) =>
-                formatter(value as number, formatterOptions)
-              }
-            />
-            <AxisLeft
-              scale={yScale}
-              stroke={"var(--text-color-table)"}
-              tickStroke={"var(--text-color-table)"}
-              numTicks={numYTicks}
-              tickLabelProps={() => ({
-                fill: "var(--text-color-table)",
-                fontSize: 12,
-                textAnchor: "end",
-                dx: -5,
-              })}
-              label="Count"
-              labelProps={{
-                style: { fill: "var(--slate-11)", translate: "0 15px" },
-              }}
-              labelClassName="h5"
-              labelOffset={55}
-            />
-          </>
-        );
-      }}
-    </ParentSizeModern>
-  );
-  return (
-    <ParentSizeModern style={{ position: "relative" }}>
-      {({ width: parentWidth }) => {
         // parentWidth is the width from ParentSizeModern
         const currentXMax = parentWidth - marginRight - marginLeft; // This is the actual drawable xMax
 

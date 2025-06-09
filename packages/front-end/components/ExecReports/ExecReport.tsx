@@ -17,8 +17,8 @@ import NorthStar from "@/components/HomePage/NorthStar";
 import ExperimentList from "@/components/Experiment/ExperimentList";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Callout from "@/components/Radix/Callout";
+import ExecExperimentImpact from "../../enterprise/components/ExecReports/ExecExperimentImpact";
 import ExperimentWinRate from "./ExperimentWinRate";
-import ExecExperimentImpact from "./ExecExperimentImpact";
 import ExecExperimentsGraph from "./ExecExperimentsGraph";
 
 const dateRanges = [

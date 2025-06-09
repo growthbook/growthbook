@@ -6,6 +6,7 @@ import { getSnapshotAnalysis } from "shared/util";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { DifferenceType } from "back-end/types/stats";
 import router, { useRouter } from "next/router";
+import Button from "@/components/Radix/Button";
 import Callout from "@/components/Radix/Callout";
 import ScatterPlotGraph, {
   ScatterPointData,
@@ -20,6 +21,8 @@ import {
 } from "@/services/metrics";
 import SelectField from "@/components/Forms/SelectField";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { useUser } from "@/services/UserContext";
+import PremiumEmptyState from "@/components/PremiumEmptyState";
 
 export const filterExperimentsByMetrics = (
   experiments: ExperimentInterfaceStringDates[],
@@ -102,6 +105,24 @@ const MetricCorrelations = (): React.ReactElement => {
     [experiments]
   );
 
+  const { hasCommercialFeature } = useUser();
+  const hasMetricCorrelationCommercialFeature = hasCommercialFeature(
+    "metric-correlations"
+  );
+
+  if (!hasMetricCorrelationCommercialFeature) {
+    return (
+      <Box mb="3">
+        <PremiumEmptyState
+          title="Examine relationships between metrics"
+          description="Explore how metrics are related across experiments."
+          commercialFeature="metric-correlations"
+          learnMoreLink="https://docs.growthbook.io/app/metrics" //<- fix this link when docs are ready
+          image="/images/empty-states/metric_correlations.png"
+        />
+      </Box>
+    );
+  }
   return (
     <MetricCorrelationCard
       experiments={filteredExperiments}
@@ -422,6 +443,21 @@ const MetricCorrelationCard = ({
                   { label: "Scaled Impact", value: "scaled" },
                 ]}
               />
+            </Box>
+            <Box>
+              <label>&nbsp;</label>
+              <Button
+                mt="1"
+                variant="outline"
+                disabled={!metric1 || loading}
+                onClick={() => {
+                  //updateSearchParams({}, true); // we need to reset the URL params
+                  setMetric2(""); // @todo <- this doesn't seem to work
+                  setMetric1("");
+                }}
+              >
+                Clear
+              </Button>
             </Box>
             {loading && (
               <Box>

@@ -172,7 +172,7 @@ const MetricEffects = (): React.ReactElement => {
           description="See the net effects on your metrics are from your experiments."
           commercialFeature="metric-effects"
           learnMoreLink="https://docs.growthbook.io/app/metrics" //<- fix this link when docs are ready
-          image="/images/empty-states/Enterprise-MetricEffects-light.png"
+          image="/images/empty-states/metric_effects_light.png"
         />
       </Box>
     );
@@ -527,7 +527,74 @@ const MetricEffectCard = ({
           <Box mt="4">
             <Text>No experiments found</Text>
           </Box>
-        ) : null}
+        ) : (
+          <>
+            {/* default empty state */}
+            <Flex gap="4" align="center" justify="between" mt="4">
+              <Box px="6" flexBasis="60%" flexShrink="0">
+                <Box>
+                  <Box
+                    style={{
+                      border: "1px solid var(--slate-a8)",
+                      borderTop: 0,
+                      borderRight: 0,
+                      width: "100%",
+                      height: "260px",
+                      position: "relative",
+                    }}
+                  >
+                    <Box
+                      style={{
+                        position: "absolute",
+                        transform: "rotate(-90deg)",
+                        color: "var(--slate-a8)",
+                        left: "-40px",
+                        top: "50%",
+                        transformOrigin: "center",
+                      }}
+                    >
+                      Count
+                    </Box>
+                  </Box>
+                  <Box
+                    p="3"
+                    style={{
+                      color: "var(--slate-a8)",
+                      textAlign: "center",
+                      transformOrigin: "center",
+                    }}
+                  >
+                    Lift
+                  </Box>
+                </Box>
+              </Box>
+              <Box flexBasis="40%" style={{ opacity: 0.6 }}>
+                <Box className="appbox p-3 bg-light">
+                  <Flex direction="column" align="start">
+                    <Text as="p" color="gray">
+                      <Text weight="medium">
+                        Number of Experiments with Results:
+                      </Text>{" "}
+                      --
+                    </Text>
+                    <Text as="p" color="gray">
+                      <Text weight="medium">
+                        Number of Variations with Results:
+                      </Text>{" "}
+                      --
+                    </Text>
+                    <Text as="p" color="gray">
+                      <Text weight="medium">Mean:</Text> --
+                    </Text>
+                    <Text as="p" color="gray">
+                      <Text weight="medium">Standard Deviation:</Text> --
+                    </Text>
+                  </Flex>
+                </Box>
+              </Box>
+            </Flex>
+          </>
+        )}
       </Box>
     </Box>
   );

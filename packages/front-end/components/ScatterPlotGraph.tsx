@@ -98,7 +98,7 @@ const ScatterPlotGraph = <T,>({
 
   return (
     <div style={{ position: "relative" }}>
-      <svg width={width} height={height}>
+      <svg width={width} height={height} style={{ overflow: "visible" }}>
         <rect
           x={0}
           y={0}
@@ -112,7 +112,7 @@ const ScatterPlotGraph = <T,>({
             scale={yScale}
             width={xMax}
             height={yMax}
-            stroke="var(--slate-a8)"
+            stroke="var(--slate-a5)"
             strokeDasharray="2,2"
             strokeWidth={1}
           />
@@ -120,7 +120,7 @@ const ScatterPlotGraph = <T,>({
             scale={xScale}
             width={xMax}
             height={yMax}
-            stroke="var(--slate-a8)"
+            stroke="var(--slate-a5)"
             strokeDasharray="2,2"
             strokeWidth={1}
           />
@@ -149,6 +149,7 @@ const ScatterPlotGraph = <T,>({
             scale={yScale}
             label={yLabel || "Y Value"}
             labelClassName={styles.label}
+            labelOffset={50}
             tickFormat={yFormatter}
             tickLabelProps={() => ({
               fill: "var(--text-color-table)",
@@ -162,6 +163,7 @@ const ScatterPlotGraph = <T,>({
             top={yMax}
             label={xLabel || "X Value"}
             labelClassName={styles.label}
+            labelOffset={20}
             tickFormat={xFormatter}
             tickLabelProps={() => ({
               fill: "var(--text-color-table)",
@@ -189,7 +191,7 @@ const ScatterPlotGraph = <T,>({
                 <Line
                   from={{ x: xMinCoord, y: cy }}
                   to={{ x: xMaxCoord, y: cy }}
-                  stroke="var(--blue-10)"
+                  stroke="var(--violet-10)"
                   strokeWidth={1.5}
                   strokeOpacity={0.75}
                 />
@@ -197,7 +199,7 @@ const ScatterPlotGraph = <T,>({
                 <Line
                   from={{ x: cx, y: yMinCoord }}
                   to={{ x: cx, y: yMaxCoord }}
-                  stroke="var(--blue-10)"
+                  stroke="var(--violet-10)"
                   strokeWidth={1.5}
                   strokeOpacity={0.75}
                 />
@@ -205,7 +207,7 @@ const ScatterPlotGraph = <T,>({
                   left={cx}
                   top={cy}
                   size={radius * radius * Math.PI} // GlyphCircle size is area
-                  fill="var(--blue-10)" // A common blue color
+                  fill="var(--violet-10)" // A common blue color
                   fillOpacity={0.75}
                   stroke="#fff" // White border for better visibility
                   strokeWidth={1}
