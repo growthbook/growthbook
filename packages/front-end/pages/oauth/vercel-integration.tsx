@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { getApiHost } from "@/services/env";
 import { useProject } from "@/services/DefinitionsContext";
@@ -14,6 +14,7 @@ type QueryParams = {
 const VercelPage = () => {
   const router = useRouter();
   const [, setProject] = useProject();
+  const [error, setError] = useState<string | undefined>();
 
   useEffect(() => {
     const {
@@ -51,14 +52,14 @@ const VercelPage = () => {
         if (projectId) setProject(projectId);
         router.push(`${baseUrl}?org=${organizationId}`);
       } catch (err) {
-        return <OAuthError error={String(err)} />;
+        setError(String(err));
       }
     };
 
     fn();
   }, [setProject, router]);
 
-  return null;
+  return error ? <OAuthError error={error} /> : null;
 };
 
 VercelPage.noOrganization = true;
