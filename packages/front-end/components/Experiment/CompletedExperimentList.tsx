@@ -29,10 +29,8 @@ const imageCache = {};
 
 const CompletedExperimentList = ({
   experiments,
-  searchAndFilters,
 }: {
   experiments: ExperimentInterfaceStringDates[];
-  searchAndFilters: React.ReactNode;
 }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [openCarousel, setOpenCarousel] = useState<{
@@ -63,7 +61,6 @@ const CompletedExperimentList = ({
       )}
       <CustomMarkdown page={"learnings"} />
       <Box>
-        {searchAndFilters && <Box mb="5">{searchAndFilters}</Box>}
         {experiments.length === 0 ? (
           <EmptyState
             title="No experiments found"

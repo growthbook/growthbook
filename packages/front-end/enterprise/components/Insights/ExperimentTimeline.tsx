@@ -60,11 +60,10 @@ const getPhaseColor = (
 };
 
 const ExperimentTimeline: React.FC<{
-  searchAndFilters: React.ReactNode;
   experiments: ExperimentInterfaceStringDates[];
   startDate: Date;
   endDate: Date;
-}> = ({ searchAndFilters, experiments, startDate, endDate }) => {
+}> = ({ experiments, startDate, endDate }) => {
   const showPhase = false;
   const today = new Date();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -174,8 +173,6 @@ const ExperimentTimeline: React.FC<{
   const currentDateX = xScale(today);
   return (
     <Box>
-      {searchAndFilters && <Box mb="5">{searchAndFilters}</Box>}
-
       {experiments.length === 0 ? (
         <EmptyState
           title="No experiments found"
