@@ -1572,7 +1572,6 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
           variationId: v.variationId,
           value: validateFeatureValue(feature, v.value),
         })),
-        ...(r.condition && { condition: r.condition }),
         ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
       };
       return experimentRefRule;
@@ -1592,7 +1591,6 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
         enabled: r.enabled != null ? r.enabled : true,
         description: r.description ?? "",
         values: values,
-        ...(r.condition && { condition: r.condition }),
         ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
       };
       return experimentRule;
