@@ -53,7 +53,7 @@ export class MetricTimeSeriesModel extends BaseClass {
     sourceId: MetricTimeSeries["sourceId"];
     sourcePhase: MetricTimeSeries["sourcePhase"];
     metricIds: Array<MetricTimeSeries["metricId"]>;
-  }) {
+  }): Promise<MetricTimeSeries[]> {
     const query: FilterQuery<MetricTimeSeries> = {
       source,
       sourceId,
@@ -72,7 +72,34 @@ export class MetricTimeSeriesModel extends BaseClass {
       query.sourcePhase = sourcePhase;
     }
 
-    return this._find(query);
+    const results = await this._find(query);
+
+    const filteredResults = results.map((ts) => {
+      const filteredDataPoints = ts.dataPoints.filter((dp) => {
+        if (!dp.variations || dp.variations.length <= 1) return true;
+
+        // Check variations from index 1 onwards (skip control)
+        for (let i = 1; i < dp.variations.length; i++) {
+          const variation = dp.variations[i];
+          if (
+            variation.absolute?.ci &&
+            variation.absolute.ci[0] === 0 &&
+            variation.absolute.ci[1] === 0
+          ) {
+            return false;
+          }
+        }
+
+        return true;
+      });
+
+      return {
+        ...ts,
+        dataPoints: filteredDataPoints,
+      };
+    });
+
+    return filteredResults;
   }
 
   public async deleteAllBySource(
