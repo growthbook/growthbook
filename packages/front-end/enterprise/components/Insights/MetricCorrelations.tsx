@@ -486,7 +486,7 @@ const MetricCorrelationCard = ({
             )}
           </Flex>
         </Flex>
-        {!metric1 || !metric2 || loading ? (
+        {!metric1 || !metric2 ? (
           <Flex align="center" justify="center" mt="3">
             <Box width="60%">
               <img
@@ -494,6 +494,12 @@ const MetricCorrelationCard = ({
                 alt="Metric Correlations"
                 style={{ width: "100%", height: "auto" }}
               />
+            </Box>
+          </Flex>
+        ) : loading ? (
+          <Flex align="center" justify="center" mt="3">
+            <Box>
+              <LoadingSpinner />
             </Box>
           </Flex>
         ) : metricData.correlationData.length > 0 ? (
