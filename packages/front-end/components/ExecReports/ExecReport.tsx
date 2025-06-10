@@ -55,7 +55,7 @@ export default function ExecReport() {
     searchParams.get("dateRange") || "90"
   );
   const defaultStartDate = new Date();
-  defaultStartDate.setDate(defaultStartDate.getDate() - 30);
+  defaultStartDate.setDate(defaultStartDate.getDate() - parseInt(dateRange));
   const [startDate, setStartDate] = useState<Date>(
     searchParams.get("startDate")
       ? new Date(searchParams.get("startDate")!)
