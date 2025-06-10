@@ -1,4 +1,10 @@
-import React, { useEffect, useCallback, useState, useMemo } from "react";
+import React, {
+  useEffect,
+  useCallback,
+  useState,
+  useMemo,
+  ReactNode,
+} from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import {
   ExperimentSnapshotInterface,
@@ -29,6 +35,9 @@ import MetricExperiments from "@/components/MetricExperiments/MetricExperiments"
 import { useCurrency } from "@/hooks/useCurrency";
 import { useUser } from "@/services/UserContext";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
+import EmptyState from "@/components/EmptyState";
+import LinkButton from "@/components/Radix/LinkButton";
+import Callout from "@/components/Radix/Callout";
 
 interface HistogramDatapoint {
   start: number;
@@ -167,15 +176,44 @@ const MetricEffects = (): React.ReactElement => {
     "metric-effects"
   );
 
+  const { metrics, factMetrics, datasources } = useDefinitions();
+
+  const metricExpCounts = useMetricExpCounts(filteredExperiments);
+
   if (!hasMetricEffectsCommercialFeature) {
     return (
       <Box mb="3">
         <PremiumEmptyState
           title="Metric Effects"
-          description="See the net effects on your metrics are from your experiments."
+          description="View the distribution of experiment effects on your metrics."
           commercialFeature="metric-effects"
           learnMoreLink="https://docs.growthbook.io/app/metrics" //<- fix this link when docs are ready
           image="/images/empty-states/metric_effects_light.png"
+        />
+      </Box>
+    );
+  } else if (
+    !datasources.length ||
+    (!metrics.length && !factMetrics.length) ||
+    Object.keys(metricExpCounts).length === 0
+  ) {
+    let button: ReactNode;
+    if (!datasources.length) {
+      button = <LinkButton href="/datasources">Add Data Source</LinkButton>;
+    } else if (!metrics.length && !factMetrics.length) {
+      button = <LinkButton href="/metrics">Create Metric</LinkButton>;
+    } else {
+      button = <LinkButton href="/experiments">Create Experiment</LinkButton>;
+    }
+
+    return (
+      <Box mb="3">
+        <EmptyState
+          title="Metric Effects"
+          description="View the distribution of experiment effects on your metrics."
+          image="/images/empty-states/metric_effects_light.png"
+          leftButton={button}
+          rightButton={null}
         />
       </Box>
     );
@@ -187,6 +225,25 @@ const MetricEffects = (): React.ReactElement => {
     />
   );
 };
+
+function useMetricExpCounts(experiments: ExperimentInterfaceStringDates[]) {
+  const { metricGroups } = useDefinitions();
+
+  const metricExpCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    experiments.forEach((exp) => {
+      if (exp.status === "draft") return;
+      getAllMetricIdsFromExperiment(exp, false, metricGroups).forEach(
+        (metric) => {
+          counts[metric] = (counts[metric] || 0) + 1;
+        }
+      );
+    });
+    return counts;
+  }, [experiments, metricGroups]);
+
+  return metricExpCounts;
+}
 
 const MetricEffectCard = ({
   experiments,
@@ -201,20 +258,9 @@ const MetricEffectCard = ({
     project,
     getExperimentMetricById,
     getFactTableById,
-    metricGroups,
   } = useDefinitions();
 
-  const metricExpCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    experiments.forEach((exp) => {
-      getAllMetricIdsFromExperiment(exp, false, metricGroups).forEach(
-        (metric) => {
-          counts[metric] = (counts[metric] || 0) + 1;
-        }
-      );
-    });
-    return counts;
-  }, [experiments, metricGroups]);
+  const metricExpCounts = useMetricExpCounts(experiments);
 
   const displayCurrency = useCurrency();
 
@@ -532,7 +578,7 @@ const MetricEffectCard = ({
           </Box>
         ) : metric ? (
           <Box mt="4">
-            <Text>No experiments found</Text>
+            <Callout status="info">No experiments with results found</Callout>
           </Box>
         ) : (
           <>
