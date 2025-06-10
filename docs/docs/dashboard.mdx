@@ -1,26 +1,24 @@
 ---
-title: Program Management Dashboard
-description: Program Management Dashboard
-slug: dashboard
+title: Insights
+description: Insights
+slug: insights
 ---
 
-# Program Management Dashboard
+# Insights
 
-GrowthBook provides a Program Management Dashboard to help you understand your experimentation program at a glance. This document covers several key sections of the dashboard and how to use them effectively.
+Insights provide a variety of tools to help you understand your experimentation program at a glance and perform meta-analyses.
 
-![GrowthBook Dashboard](/images/dashboard.png)
+## Dashboard
 
-## North Star Metrics
+The Dashboard provides a high-level overview of the velocity, shipping rate, and impact of your experimentation program.
+
+### North Star Metrics
 
 North Star Metrics are crucial, company-wide indicators of success. This panel displays how these metrics evolve over time and shows which experiments using this metric are running (or when they ended). If this panel isn't visible, go to **Settings** &rarr; **General** to set up your North Star metrics.
 
-## Experiment Impact
+### Experiment Impact
 
-:::caution
 
-Summed experiment impact relies on several assumptions (independence of experiments, additivity of experiment impacts, and no selection bias). This tool should not replace accurate impact estimation via [holdouts](kb/experiments/holdouts).
-
-:::
 
 Experiment Impact provides an overview of how multiple experiments have influenced a key metric. Besides letting you filter by metric and project, you have two other filters:
 
@@ -57,3 +55,11 @@ Sum these scaled impacts to get the total impact. Note, again, total impact assu
 ![Experiment impact of winners (de-biased)](/images/impact/impact-winners-debias.png)
 
 By selecting the "de-bias" option, you can reduce bias in the estimates. This example shows a slight reduction in estimates, with the Scaled Impact column reflecting a shrinkage multiplier (i.e., 0.989). The degree of shrinkage depends on the range of effect sizes in the filtered experiments.
+
+## Learnings
+
+## Timeline
+
+## Metric Effects
+
+## Metric Correlations
