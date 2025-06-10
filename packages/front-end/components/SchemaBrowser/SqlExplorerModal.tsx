@@ -22,6 +22,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { formatSql, canFormatSql } from "@/services/sqlFormatter";
 import SelectField from "@/components/Forms/SelectField";
+import { convertToCSV, downloadCSVFile } from "@/services/sql";
 import PagedModal from "../Modal/PagedModal";
 import Page from "../Modal/Page";
 import Checkbox from "../Radix/Checkbox";
@@ -142,6 +143,20 @@ export default function SqlExplorerModal({
   const validDatasources = datasources.filter(
     (d) => d.type !== "google_analytics"
   );
+
+  function handleDownload(results: TestQueryRow[]) {
+    //MKTODO: Add error state rather than alert (just waiting for design to be finalized)
+    if (!results.length) {
+      alert("No data to export.");
+      return;
+    }
+    const csv = convertToCSV(results);
+    if (!csv) {
+      alert("No data to export.");
+      return;
+    }
+    downloadCSVFile(csv);
+  }
 
   // Pre-fill results if we're editing a saved query with existing results
   useEffect(() => {
@@ -277,6 +292,22 @@ export default function SqlExplorerModal({
                             </Button>
                           </Tooltip>
                         )}
+                        {/* {testQueryResults?.results && ( */}
+                        <Button
+                          color="outline-primary"
+                          className="btn-sm ml-2"
+                          onClick={() =>
+                            handleDownload(testQueryResults?.results || [])
+                          }
+                          disabled={!testQueryResults?.results}
+                          type="button"
+                        >
+                          <span className="pr-2">
+                            <FaSave />
+                          </span>
+                          Download Results
+                        </Button>
+                        {/* )} */}
                         {canFormat ? (
                           <RadixButton
                             variant="ghost"
