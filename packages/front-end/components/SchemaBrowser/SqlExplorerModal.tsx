@@ -185,7 +185,7 @@ export default function SqlExplorerModal({
       {showSaveQueryModal && (
         <SaveQueryModal
           close={() => setShowSaveQueryModal(false)}
-          sql={testQueryResults?.sql || ""}
+          sql={form.watch("sql") || ""}
           datasourceId={selectedDatasourceId}
           results={testQueryResults?.results || []}
           onSave={() => {
@@ -266,7 +266,7 @@ export default function SqlExplorerModal({
                             <span className="pr-2">
                               <FaPlay />
                             </span>
-                            Test Query
+                            Run
                           </Button>
                         </Tooltip>
                         {canShowSaveButton && (
@@ -292,7 +292,6 @@ export default function SqlExplorerModal({
                             </Button>
                           </Tooltip>
                         )}
-                        {/* {testQueryResults?.results && ( */}
                         <Button
                           color="outline-primary"
                           className="btn-sm ml-2"

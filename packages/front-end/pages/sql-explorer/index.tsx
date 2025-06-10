@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { isProjectListValidForProject } from "shared/util";
-import { SavedQueryInterface } from "back-end/types/saved-query";
+import { SavedQuery } from "back-end/src/validators/saved-queries";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
 import LinkButton from "@/components/Radix/LinkButton";
@@ -15,7 +15,7 @@ export default function SqlExplorer() {
 
   const { data, error, mutate } = useApi<{
     status: number;
-    savedQueries: SavedQueryInterface[];
+    savedQueries: SavedQuery[];
   }>("/saved-queries");
 
   const hasDatasource = datasources.some((d) =>
@@ -69,8 +69,8 @@ export default function SqlExplorer() {
         <div>
           <div className="mb-3">
             <p className="text-muted">
-              Create and manage SQL queries to explore your data sources. Save
-              frequently used queries for easy access later.
+              Explore your Data Sources with adhoc SQL queries. Save your
+              commonly run queries and build visualizations from the results.
             </p>
           </div>
           <SavedQueriesList savedQueries={savedQueries} mutate={mutate} />

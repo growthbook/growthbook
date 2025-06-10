@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
-import { SavedQueryInterface } from "back-end/types/saved-query";
 import { date, datetime } from "shared/dates";
 import { FaCode } from "react-icons/fa";
+import { SavedQuery } from "back-end/src/validators/saved-queries";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -12,7 +12,7 @@ import Button from "@/components/Button";
 import SqlExplorerModal from "@/components/SchemaBrowser/SqlExplorerModal";
 
 interface Props {
-  savedQueries: SavedQueryInterface[];
+  savedQueries: SavedQuery[];
   mutate: () => void;
 }
 
@@ -22,7 +22,7 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
   const permissionsUtil = usePermissionsUtil();
   const [showSqlExplorerModal, setShowSqlExplorerModal] = useState(false);
   const [selectedSavedQuery, setSelectedSavedQuery] = useState<
-    SavedQueryInterface | undefined
+    SavedQuery | undefined
   >();
 
   const {
@@ -41,7 +41,7 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
   });
 
   const handleDelete = useCallback(
-    async (query: SavedQueryInterface) => {
+    async (query: SavedQuery) => {
       await apiCall(`/saved-query/${query.id}`, {
         method: "DELETE",
       });
@@ -50,13 +50,13 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
     [apiCall, mutate]
   );
 
-  const handleEdit = useCallback((query: SavedQueryInterface) => {
+  const handleEdit = useCallback((query: SavedQuery) => {
     setSelectedSavedQuery(query);
     setShowSqlExplorerModal(true);
   }, []);
 
   const handleRowClick = useCallback(
-    (query: SavedQueryInterface) => {
+    (query: SavedQuery) => {
       // Only allow row click for queries the user can edit
       const datasource = getDatasourceById(query.datasourceId);
       if (datasource && permissionsUtil.canUpdateSavedQueries(datasource)) {
@@ -67,7 +67,7 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
   );
 
   const canEdit = useCallback(
-    (query: SavedQueryInterface) => {
+    (query: SavedQuery) => {
       const datasource = getDatasourceById(query.datasourceId);
       return datasource
         ? permissionsUtil.canUpdateSavedQueries(datasource)
@@ -77,7 +77,7 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
   );
 
   const canDelete = useCallback(
-    (query: SavedQueryInterface) => {
+    (query: SavedQuery) => {
       const datasource = getDatasourceById(query.datasourceId);
       return datasource
         ? permissionsUtil.canDeleteSavedQueries(datasource)
@@ -118,9 +118,9 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                 </SortableTH>
                 <th className="col-4">Description</th>
                 <th className="col-2">Data Source</th>
-                <SortableTH field="dateLastRan" className="col-1">
+                {/* <SortableTH field="dateLastRan" className="col-1">
                   Last Run
-                </SortableTH>
+                </SortableTH> */}
                 <SortableTH field="dateUpdated" className="col-1">
                   Updated
                 </SortableTH>
@@ -163,7 +163,7 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                       </div>
                     </td>
                     <td>{datasourceName}</td>
-                    <td>
+                    {/* <td>
                       {query.dateLastRan ? (
                         <span title={datetime(query.dateLastRan)}>
                           {date(query.dateLastRan)}
@@ -171,7 +171,7 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                       ) : (
                         <em className="text-muted">Never</em>
                       )}
-                    </td>
+                    </td> */}
                     <td title={datetime(query.dateUpdated)}>
                       {date(query.dateUpdated)}
                     </td>
