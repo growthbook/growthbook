@@ -85,10 +85,6 @@ export default function ExecExperimentImpact({
   const [snapshots, setSnapshots] = useState<ExperimentSnapshotInterface[]>();
   const [showAllExperiments, setShowAllExperiments] = useState(false);
 
-  const experimentIds = experiments
-    .map((e) => encodeURIComponent(e.id))
-    .join(",");
-
   const form = useForm<{
     adjusted: boolean;
   }>({
@@ -124,26 +120,32 @@ export default function ExecExperimentImpact({
 
   // 1 get all snapshots
   // 2 check for snapshots w/o impact
-  const fetchSnapshots = useCallback(async () => {
-    if (!experimentIds) {
-      setSnapshots([]);
-      setLoading(false);
-      return;
-    }
+  const fetchSnapshots = useCallback(
+    async (experiments: ExperimentInterfaceStringDates[]) => {
+      const experimentIds = experiments
+        .map((e) => encodeURIComponent(e.id))
+        .join(",");
+      if (!experimentIds) {
+        setSnapshots([]);
+        setLoading(false);
+        return;
+      }
 
-    setLoading(true);
-    try {
-      const { snapshots } = await apiCall<{
-        snapshots: ExperimentSnapshotInterface[];
-      }>(`/experiments/snapshots/?experiments=${experimentIds}`, {
-        method: "GET",
-      });
-      setSnapshots(snapshots);
-    } catch (error) {
-      console.error(`Error getting snapshots: ${error.message}`);
-    }
-    setLoading(false);
-  }, [apiCall, experimentIds]);
+      setLoading(true);
+      try {
+        const { snapshots } = await apiCall<{
+          snapshots: ExperimentSnapshotInterface[];
+        }>(`/experiments/snapshots/?experiments=${experimentIds}`, {
+          method: "GET",
+        });
+        setSnapshots(snapshots);
+      } catch (error) {
+        console.error(`Error getting snapshots: ${error.message}`);
+      }
+      setLoading(false);
+    },
+    [apiCall]
+  );
 
   const updateSnapshots = useCallback(
     async (ids: string[]) => {
@@ -166,9 +168,9 @@ export default function ExecExperimentImpact({
 
   useEffect(() => {
     // 1 gets latest non-dimension snapshot from latest phase
-    fetchSnapshots();
+    fetchSnapshots(experiments);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [experiments]);
 
   // 2 check for snapshots w/o impact and update data
   const {
@@ -367,7 +369,9 @@ export default function ExecExperimentImpact({
                               className="btn btn-sm btn-primary"
                               onClick={() =>
                                 updateSnapshots(experimentsWithNoImpact).then(
-                                  fetchSnapshots
+                                  () => {
+                                    fetchSnapshots(experiments);
+                                  }
                                 )
                               }
                             >

@@ -52,11 +52,8 @@ function createHistogramData(values: number[]): HistogramDatapoint[] {
   let minVal = Math.min(...values);
   let maxVal = Math.max(...values);
 
-  // rough IQR estimate
-  const psuedoIQR = 0.7413 * (maxVal - minVal);
-  const bw = 2 * psuedoIQR * values.length ** (-1 / 3);
   // compute number of bins
-  const numBins = Math.max(5, Math.min(20, Math.ceil((maxVal - minVal) / bw)));
+  const numBins = Math.max(5, Math.min(20, Math.ceil(values.length ** 0.68)));
 
   if (minVal === maxVal) {
     const center = minVal;
