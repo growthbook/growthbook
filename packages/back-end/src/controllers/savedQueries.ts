@@ -25,7 +25,6 @@ export async function getSavedQueries(req: AuthRequest, res: Response) {
 export async function postSavedQuery(
   req: AuthRequest<{
     name: string;
-    description?: string;
     sql: string;
     datasourceId: string;
     results: TestQueryRow[];
@@ -33,14 +32,7 @@ export async function postSavedQuery(
   }>,
   res: Response
 ) {
-  const {
-    name,
-    description,
-    sql,
-    datasourceId,
-    results,
-    dateLastRan,
-  } = req.body;
+  const { name, sql, datasourceId, results, dateLastRan } = req.body;
   const context = getContextFromReq(req);
 
   const datasource = await getDataSourceById(context, datasourceId);
@@ -51,7 +43,6 @@ export async function postSavedQuery(
   try {
     await context.models.savedQueries.create({
       name,
-      description,
       sql,
       datasourceId,
       dateLastRan: new Date(dateLastRan),
@@ -72,7 +63,6 @@ export async function putSavedQuery(
   req: AuthRequest<
     {
       name?: string;
-      description?: string;
       sql?: string;
       datasourceId?: string;
       results?: TestQueryRow[];
@@ -83,14 +73,7 @@ export async function putSavedQuery(
   res: Response
 ) {
   const { id } = req.params;
-  const {
-    name,
-    description,
-    sql,
-    datasourceId,
-    results,
-    dateLastRan,
-  } = req.body;
+  const { name, sql, datasourceId, results, dateLastRan } = req.body;
   const context = getContextFromReq(req);
 
   const savedQuery = await context.models.savedQueries.getById(id);
@@ -109,7 +92,6 @@ export async function putSavedQuery(
     }> = {};
 
     if (name !== undefined) updateData.name = name;
-    if (description !== undefined) updateData.description = description;
     if (sql !== undefined) updateData.sql = sql;
     if (datasourceId !== undefined) updateData.datasourceId = datasourceId;
     if (results !== undefined) updateData.results = results;

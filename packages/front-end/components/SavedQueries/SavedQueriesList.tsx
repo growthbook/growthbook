@@ -36,7 +36,7 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
     items: savedQueries,
     defaultSortField: "dateUpdated",
     localStorageKey: "savedqueries",
-    searchFields: ["name^3", "description", "sql"],
+    searchFields: ["name^3", "sql"],
     pageSize: 20,
   });
 
@@ -113,11 +113,10 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
           <table className="table appbox gbtable table-hover">
             <thead>
               <tr>
-                <SortableTH field="name" className="col-4">
+                <SortableTH field="name" className="col-auto">
                   Name
                 </SortableTH>
-                <th className="col-4">Description</th>
-                <th className="col-2">Data Source</th>
+                <th className="col-3">Data Source</th>
                 <SortableTH field="dateLastRan" className="col-1">
                   Last Run
                 </SortableTH>
@@ -143,7 +142,6 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                   >
                     <td>
                       <div className="d-flex align-items-center">
-                        <FaCode className="text-muted mr-2" />
                         <div>
                           <div className="font-weight-bold">{query.name}</div>
                           {query.results && query.results.length > 0 && (
@@ -153,13 +151,6 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                             </small>
                           )}
                         </div>
-                      </div>
-                    </td>
-                    <td>
-                      <div className="text-ellipsis" style={{ maxWidth: 300 }}>
-                        {query.description || (
-                          <em className="text-muted">No description</em>
-                        )}
                       </div>
                     </td>
                     <td>{datasourceName}</td>

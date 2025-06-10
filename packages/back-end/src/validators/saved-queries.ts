@@ -8,7 +8,6 @@ export const savedQueryValidator = z
     dateCreated: z.date(),
     dateUpdated: z.date(),
     name: z.string(),
-    description: z.string().optional(),
     dateLastRan: z.date(),
     sql: z.string(),
     results: z.array(z.any()), // MKTODO: Add a proper type for the results
