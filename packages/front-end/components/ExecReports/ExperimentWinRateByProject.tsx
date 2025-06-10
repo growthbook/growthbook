@@ -71,6 +71,9 @@ const ExperimentWinRateByProject: React.FC<ExperimentWinRateByProjectProps> = ({
           if (exp.results === "won") {
             allWins += 1;
           }
+          if (exp.results === "lost") {
+            allLosses += 1;
+          }
         }
       }
     });
