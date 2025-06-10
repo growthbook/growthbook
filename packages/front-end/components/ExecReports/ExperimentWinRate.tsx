@@ -32,7 +32,10 @@ const ExperimentWinRate: React.FC<ExperimentWinRateProps> = ({
     (exp) => exp.status === "stopped" && exp.results === "lost"
   ).length;
   const incon = experiments.filter(
-    (exp) => exp.status === "stopped" && exp.results === "inconclusive"
+    (exp) =>
+      exp.status === "stopped" &&
+      exp.results !== "won" &&
+      exp.results !== "lost"
   ).length;
   const total = wins + losses + incon;
   const winRate = total > 0 ? (wins / total) * 100 : 0;
