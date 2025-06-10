@@ -51,6 +51,7 @@ export default function SqlExplorerModal({
   mutate,
 }: Props) {
   const [step, setStep] = useState(savedQuery || initialDatasourceId ? 1 : 0);
+  const [dateLastRan, setDateLastRan] = useState(savedQuery?.dateLastRan);
   const [selectedDatasourceId, setSelectedDatasourceId] = useState(
     savedQuery?.datasourceId || initialDatasourceId || ""
   );
@@ -101,6 +102,7 @@ export default function SqlExplorerModal({
     async (sql: string) => {
       setTestQueryResults(null);
       validateSQL(sql, []);
+      setDateLastRan(new Date());
       const res: TestQueryResults = await apiCall("/query/run", {
         method: "POST",
         body: JSON.stringify({
@@ -186,6 +188,7 @@ export default function SqlExplorerModal({
         <SaveQueryModal
           close={() => setShowSaveQueryModal(false)}
           sql={form.watch("sql") || ""}
+          dateLastRan={dateLastRan}
           datasourceId={selectedDatasourceId}
           results={testQueryResults?.results || []}
           onSave={() => {

@@ -29,10 +29,18 @@ export async function postSavedQuery(
     sql: string;
     datasourceId: string;
     results: TestQueryRow[];
+    dateLastRan: string;
   }>,
   res: Response
 ) {
-  const { name, description, sql, datasourceId, results } = req.body;
+  const {
+    name,
+    description,
+    sql,
+    datasourceId,
+    results,
+    dateLastRan,
+  } = req.body;
   const context = getContextFromReq(req);
 
   const datasource = await getDataSourceById(context, datasourceId);
@@ -46,6 +54,7 @@ export async function postSavedQuery(
       description,
       sql,
       datasourceId,
+      dateLastRan: new Date(dateLastRan),
       results,
     });
     res.status(200).json({
@@ -67,13 +76,21 @@ export async function putSavedQuery(
       sql?: string;
       datasourceId?: string;
       results?: TestQueryRow[];
+      dateLastRan?: string;
     },
     { id: string }
   >,
   res: Response
 ) {
   const { id } = req.params;
-  const { name, description, sql, datasourceId, results } = req.body;
+  const {
+    name,
+    description,
+    sql,
+    datasourceId,
+    results,
+    dateLastRan,
+  } = req.body;
   const context = getContextFromReq(req);
 
   const savedQuery = await context.models.savedQueries.getById(id);
@@ -82,13 +99,24 @@ export async function putSavedQuery(
   }
 
   try {
-    await context.models.savedQueries.updateById(id, {
-      name,
-      description,
-      sql,
-      datasourceId,
-      results,
-    });
+    const updateData: Partial<{
+      name: string;
+      description: string;
+      sql: string;
+      datasourceId: string;
+      dateLastRan: Date;
+      results: TestQueryRow[];
+    }> = {};
+
+    if (name !== undefined) updateData.name = name;
+    if (description !== undefined) updateData.description = description;
+    if (sql !== undefined) updateData.sql = sql;
+    if (datasourceId !== undefined) updateData.datasourceId = datasourceId;
+    if (results !== undefined) updateData.results = results;
+    if (dateLastRan !== undefined)
+      updateData.dateLastRan = new Date(dateLastRan);
+
+    await context.models.savedQueries.updateById(id, updateData);
     res.status(200).json({
       status: 200,
     });

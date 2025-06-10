@@ -10,6 +10,7 @@ export interface Props {
   sql: string;
   datasourceId: string;
   results: TestQueryRow[];
+  dateLastRan?: Date;
   onSave?: () => void;
 }
 
@@ -22,6 +23,7 @@ export default function SaveQueryModal({
   close,
   sql,
   datasourceId,
+  dateLastRan,
   results,
   onSave,
 }: Props) {
@@ -47,6 +49,7 @@ export default function SaveQueryModal({
           description: data.description || undefined,
           sql,
           datasourceId,
+          dateLastRan,
           results,
         }),
       });

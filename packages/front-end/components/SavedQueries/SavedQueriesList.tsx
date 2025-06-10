@@ -118,9 +118,9 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                 </SortableTH>
                 <th className="col-4">Description</th>
                 <th className="col-2">Data Source</th>
-                {/* <SortableTH field="dateLastRan" className="col-1">
+                <SortableTH field="dateLastRan" className="col-1">
                   Last Run
-                </SortableTH> */}
+                </SortableTH>
                 <SortableTH field="dateUpdated" className="col-1">
                   Updated
                 </SortableTH>
@@ -163,7 +163,7 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                       </div>
                     </td>
                     <td>{datasourceName}</td>
-                    {/* <td>
+                    <td>
                       {query.dateLastRan ? (
                         <span title={datetime(query.dateLastRan)}>
                           {date(query.dateLastRan)}
@@ -171,7 +171,7 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                       ) : (
                         <em className="text-muted">Never</em>
                       )}
-                    </td> */}
+                    </td>
                     <td title={datetime(query.dateUpdated)}>
                       {date(query.dateUpdated)}
                     </td>
