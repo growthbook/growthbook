@@ -14,6 +14,7 @@ import { useExperimentSearch } from "@/services/experiments";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import NorthStar from "@/components/HomePage/NorthStar";
+import Frame from "@/components/Radix/Frame";
 import ExperimentList from "@/components/Experiment/ExperimentList";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Callout from "@/components/Radix/Callout";
@@ -430,7 +431,20 @@ export default function ExecReport() {
             endDate={endDate}
           />
         </Box>
-      ) : null}
+      ) : (
+        <Frame>
+          <Flex justify="between" align="center">
+            <Heading size="5">North Star Metrics</Heading>
+            <Link href="/settings#metrics" className="h6">
+              Configure North Star Metrics
+            </Link>
+          </Flex>
+          <Text mt="2">
+            No North Star Metrics configured.{" "}
+            <Link href="/settings#metrics">Add one now.</Link>
+          </Text>
+        </Frame>
+      )}
       <Box mt="6" mb="6">
         <Flex justify="between">
           <Heading size="5">Running Experiments</Heading>

@@ -22,6 +22,9 @@ import SelectField from "@/components/Forms/SelectField";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useUser } from "@/services/UserContext";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
+import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
+import EmptyState from "@/components/EmptyState";
+import LinkButton from "@/components/Radix/LinkButton";
 
 export const filterExperimentsByMetrics = (
   experiments: ExperimentInterfaceStringDates[],
@@ -122,6 +125,19 @@ const MetricCorrelations = (): React.ReactElement => {
       </Box>
     );
   }
+  if (filteredExperiments.length === 0) {
+    return (
+      <Box mb="3">
+        <PremiumEmptyState
+          title="Examine relationships between metrics"
+          description="Explore how metrics are related across experiments."
+          commercialFeature="metric-correlations"
+          learnMoreLink="https://docs.growthbook.io/app/metrics" //<- fix this link when docs are ready
+          image="/images/empty-states/metric_correlations.png"
+        />
+      </Box>
+    );
+  }
   return (
     <MetricCorrelationCard
       experiments={filteredExperiments}
@@ -184,7 +200,8 @@ const MetricCorrelationCard = ({
     getFactTableById,
     metricGroups,
   } = useDefinitions();
-
+  const { theme } = useAppearanceUITheme();
+  const computedTheme = theme === "light" ? "light" : "dark";
   //const displayCurrency = useCurrency();
 
   const [loading, setLoading] = useState<boolean>(false);
@@ -387,6 +404,20 @@ const MetricCorrelationCard = ({
     handleFetchCorrelations();
   }, [handleFetchCorrelations]);
 
+  if (Object.entries(metric1OptionCounts).length === 0) {
+    return (
+      <EmptyState
+        title="Examine relationships between metrics"
+        description="Explore how metrics are correlated in your experiments. To get
+            started, create some experiments."
+        leftButton={null}
+        rightButton={
+          <LinkButton href="/experiments">Setup experiments</LinkButton>
+        }
+        image={`/images/empty-states/metric_correlations_${computedTheme}.png`}
+      />
+    );
+  }
   return (
     <>
       <Box className="appbox appbox-light p-3">
@@ -455,8 +486,17 @@ const MetricCorrelationCard = ({
             )}
           </Flex>
         </Flex>
-        {!metric1 || !metric2 || loading ? null : metricData.correlationData
-            .length > 0 ? (
+        {!metric1 || !metric2 || loading ? (
+          <Flex align="center" justify="center" mt="3">
+            <Box width="60%">
+              <img
+                src={`/images/empty-states/metric_correlations_${computedTheme}.png`}
+                alt="Metric Correlations"
+                style={{ width: "100%", height: "auto" }}
+              />
+            </Box>
+          </Flex>
+        ) : metricData.correlationData.length > 0 ? (
           <Box mt="4">
             <Flex mt="2" align="center" justify="center" p="3">
               <ScatterPlotGraph

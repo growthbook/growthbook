@@ -132,7 +132,7 @@ const ExperimentWinRateByProject: React.FC<ExperimentWinRateByProjectProps> = ({
                     {project.total - project.wins - project.losses}
                   </td>
                   <td style={{ textAlign: "right" }}>
-                    {project.total > 0 ? `${project.winRate.toFixed(2)}%` : "-"}
+                    {project.total > 0 ? `${project.winRate.toFixed(0)}%` : "-"}
                   </td>
                 </tr>
               );

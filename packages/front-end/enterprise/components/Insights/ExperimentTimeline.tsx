@@ -27,16 +27,8 @@ const getPhaseColor = (
   experiment: ExperimentInterfaceStringDates,
   phase: ExperimentPhaseStringDates
 ) => {
-  const bgMinColor = 3;
-  const bgMaxColor = 7;
-  const densityNumber = Math.round(
-    bgMinColor + phase.coverage * (bgMaxColor - bgMinColor)
-  );
-  const minBorderColor = 9;
-  const maxBorderColor = 11;
-  const borderDensityNumber = Math.round(
-    minBorderColor + phase.coverage * (maxBorderColor - minBorderColor)
-  );
+  const densityNumber = 7; //Math.round(bgMinColor + phase.coverage * (bgMaxColor - bgMinColor));
+  const borderDensityNumber = 11; //Math.round(minBorderColor + phase.coverage * (maxBorderColor - minBorderColor));
   const mainColor =
     experiment.status === "running"
       ? "cyan"

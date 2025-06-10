@@ -38,6 +38,7 @@ import PremiumEmptyState from "@/components/PremiumEmptyState";
 import EmptyState from "@/components/EmptyState";
 import LinkButton from "@/components/Radix/LinkButton";
 import Callout from "@/components/Radix/Callout";
+import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 
 interface HistogramDatapoint {
   start: number;
@@ -176,6 +177,8 @@ const MetricEffects = (): React.ReactElement => {
     "metric-effects"
   );
 
+  const { theme } = useAppearanceUITheme();
+  const computedTheme = theme === "light" ? "light" : "dark";
   const { metrics, factMetrics, datasources } = useDefinitions();
 
   const metricExpCounts = useMetricExpCounts(filteredExperiments);
@@ -188,7 +191,7 @@ const MetricEffects = (): React.ReactElement => {
           description="View the distribution of experiment effects on your metrics."
           commercialFeature="metric-effects"
           learnMoreLink="https://docs.growthbook.io/app/metrics" //<- fix this link when docs are ready
-          image="/images/empty-states/metric_effects_light.png"
+          image={`/images/empty-states/metric_effects_${computedTheme}.png`}
         />
       </Box>
     );
@@ -211,7 +214,7 @@ const MetricEffects = (): React.ReactElement => {
         <EmptyState
           title="Metric Effects"
           description="View the distribution of experiment effects on your metrics."
-          image="/images/empty-states/metric_effects_light.png"
+          image={`/images/empty-states/metric_effects_${computedTheme}.png`}
           leftButton={button}
           rightButton={null}
         />
