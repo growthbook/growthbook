@@ -55,6 +55,15 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
     setShowSqlExplorerModal(true);
   }, []);
 
+  const handleDuplicate = useCallback((query: SavedQuery) => {
+    setSelectedSavedQuery({
+      ...query,
+      id: "",
+      name: `${query.name}-copy`,
+    });
+    setShowSqlExplorerModal(true);
+  }, []);
+
   const handleRowClick = useCallback(
     (query: SavedQuery) => {
       // Only allow row click for queries the user can edit
@@ -177,6 +186,14 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                             onClick={() => handleEdit(query)}
                           >
                             Edit
+                          </button>
+                        )}
+                        {canEdit(query) && (
+                          <button
+                            className="dropdown-item"
+                            onClick={() => handleDuplicate(query)}
+                          >
+                            Duplicate
                           </button>
                         )}
                         {canDelete(query) && (
