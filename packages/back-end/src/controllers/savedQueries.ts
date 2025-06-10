@@ -22,15 +22,6 @@ export async function getSavedQueries(req: AuthRequest, res: Response) {
   }
 }
 
-export async function getSavedQuery(
-  req: AuthRequest<null, { id: string }>,
-  res: Response
-) {
-  res.status(200).json({
-    status: 200,
-  });
-}
-
 export async function postSavedQuery(
   req: AuthRequest<{
     name: string;
@@ -75,14 +66,38 @@ export async function putSavedQuery(
       description?: string;
       sql?: string;
       datasourceId?: string;
+      results?: TestQueryRow[];
     },
     { id: string }
   >,
   res: Response
 ) {
-  res.status(200).json({
-    status: 200,
-  });
+  const { id } = req.params;
+  const { name, description, sql, datasourceId, results } = req.body;
+  const context = getContextFromReq(req);
+
+  const savedQuery = await context.models.savedQueries.getById(id);
+  if (!savedQuery) {
+    throw new Error("Cannot find saved query");
+  }
+
+  try {
+    await context.models.savedQueries.updateById(id, {
+      name,
+      description,
+      sql,
+      datasourceId,
+      results,
+    });
+    res.status(200).json({
+      status: 200,
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 500,
+      message: `Failed to update saved query: ${error}`,
+    });
+  }
 }
 
 export async function deleteSavedQuery(
