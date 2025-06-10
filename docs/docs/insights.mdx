@@ -1,0 +1,108 @@
+---
+title: Insights
+description: Insights
+slug: insights
+---
+
+import MaxWidthImage from '@site/src/components/MaxWidthImage';
+
+# Insights and Meta-Analysis
+
+Insights provide a variety of tools to help you understand your experimentation program at a glance and perform meta-analyses.
+
+## Dashboard
+
+The Dashboard provides a high-level overview of the velocity, shipping rate, and impact of your experimentation program.
+
+### Experiment Impact
+
+Experiment Impact provides an overview of how multiple experiments have influenced a key metric. All of the completed experiments that have the metric you selected will be included in this section.
+
+<MaxWidthImage maxWidth={800}>
+    ![Experiment Impact](/images/insights/impact.png)
+</MaxWidthImage>
+
+This shows you a few key values - for all stopped experiments that are marked as "won" or "lost", we sum the scaled impact of those experiments to present a measure of total impact. Because some experiments have multiple variations, we only pick one variation per experiment: for "Won" experiments, we use the variant selected as the winner in the experiment metadata; for "Lost," we use the variation that performed worst relative to the baseline. Summing the scaled impact of "Lost" experiments helps demonstrate how experimentation provides value by preventing shipping ideas that did not pan out.
+
+We also provide an opportunity to "de-bias" these estimates so long as there are at least 6 experiments that were stopped in this window, since simple sums of experiment impacts are subject to a variety of biases when considering total impact.
+
+:::caution
+
+Summed experiment impact relies on several assumptions (independence of experiments, additivity of experiment impacts, and no selection bias). This tool should not replace accurate impact estimation via [holdouts](kb/experiments/holdouts).
+
+:::
+
+<details>
+<summary>Details of scaled impact and de-biasing procedure</summary>
+
+**Scaled Impact**
+
+[Scaled impact](app/experiment-results#difference-types) rescales your experiment effect to answer the question, "What would the total effect be if all participants had received a specific test variant?" For example, imagine your absolute lift in an experiment is \$0.30 per user with 100 users in that variation. If your experiment got 50\% of total traffic, and that variation received 50\% of that traffic, then the total potential traffic was 100 / (50\% _ 50\%) = 400 users. So, the scaled impact would be \$0.30 _ 400 = \$120. It is a simple rescaling that makes some assumptions, but it does allow you to compare the effects of experiments on different parts of your product (e.g. a big change to a small feature vs. a small change to a big feature might have the same scaled impact).
+
+**Total Impact**
+The total impact sums the effects of all experiments within a category. This assumes the effects are independent and not additive. **This is not an assumption easily satisfied**, but it allows you to get a general sense of scale.
+
+**De-biasing** To mitigate the natural bias in experiment outcomes (where more decisive results tend to show larger effects), we use the [_positive-part_ James-Stein](https://en.wikipedia.org/wiki/James%E2%80%93Stein_estimator#Improvements) shrinkage estimator. This estimator adjusts the results by estimating variance only from the shown experiments and shrinks all impacts toward zero. While this reduces selection bias, it does not address concerns about the independence or additivity of experiments.
+
+</details>
+
+### Win Rate and Velocity
+
+The next two graphs show you the win rate (e.g. the percentage of experiments that were stopped and marked as "won") and velocity (e.g. the number of experiments that were completed in the selected time period) of your experimentation program.
+
+<MaxWidthImage maxWidth={800}>
+    ![Win Rate and Velocity](/images/insights/win-rate.png)
+</MaxWidthImage>
+
+The win rate graph is highlighted around 33\% because this represents a great win rate for a team experimenting often. Higher win rates can suggest that you might want to be testing more ideas!
+
+### North Star Metrics
+
+North Star Metrics are crucial, company-wide indicators of success. This panel displays how these metrics evolve over time and shows which experiments using this metric are running (or when they ended). If this panel isn't visible, go to **Settings** &rarr; **General** to set up your North Star metrics.
+
+## Learnings
+
+<MaxWidthImage maxWidth={800}>
+    ![Experiment Learnings](/images/insights/learnings.png)
+</MaxWidthImage>
+
+The Learnings page allows you to review all stopped experiments that match the selected filters and see: (1) the decision reached; (2) screenshots of the winning variation; and (3) additional experiment metadata. This can provide a handy, in-depth update of all the recent experiments that were completed in your organization. The better the metadata input when creating and stopping an experiment, the richer the data in this page.
+
+## Timeline
+
+<MaxWidthImage maxWidth={800}>
+    ![Experiment Timeline](/images/insights/timeline.png)
+</MaxWidthImage>
+
+The Timeline page allows you to see all experiments that match the selected filters, when they were started, and when they were stopped (or if they are still running). If a stopped experiment is marked as a winner or a loser, we color it appropriately. If an experiment had multiple phases, we place those into separate blocks on the same row.
+
+## Metric Effects
+
+<MaxWidthImage maxWidth={800}>
+    ![Metric Effects](/images/insights/effects.png)
+</MaxWidthImage>
+
+The Metric Effects page allows you to select a metric and view a histogram of experiment impacts for that metric from running and completed experiments. This allows you to estimate what the spread of effects for your experiments tends to be, as well as providing you with historical lift data that may be helpful if using informative priors in our Bayesian engine.
+
+## Metric Correlations
+
+The Metric Correlations page allows you visualize how experiments tend to jointly impact two metrics. Each dot on the plot is a variation from an experiment, with the size of the dot corresponding to the number of units and the lines corresponding to the error bars. This graph allows you to answer the following questions:
+
+- "When my experiments increase one metric, are other metrics following suit?"
+- "Is there any trade-off between maximizing one key metric and another key metric?"
+
+<MaxWidthImage maxWidth={800}>
+    ![Metric Correlations - Positive Correlation](/images/insights/correlations.png)
+</MaxWidthImage>
+
+The above screenshot shows two positively correlated metrics ("Any Purchase" and "Average Order Value"). Because the dots are largely in the top-right and bottom-left quadrants, we can see that when experiments increase the "Any Purchase" metric, they tend to also increase the "Average Order Value" metric. This means that your experiments tend to benefit or harm whether users make _any_ purchases as well as the average value of those purchases.
+
+The next screenshot shows a more ambiguous case, or potentially even a negative correlation:
+
+<MaxWidthImage maxWidth={800}>
+    ![Metric Correlations - Negative Correlation](/images/insights/correlations-two.png)
+</MaxWidthImage>
+
+In this example, consider an app with in-app purchases. "User Retention" and "Total User Revenue" are both important as User Retention could be a leading indicator for long-run success and revenue. In this image, the effects are more scattered, or even concentrated in the bottom-right and top-left quadrants, indicating a neutral or negative correlation. In this example, this could mean there is a trade-off between maximizing revenue and keeping users engaged. This could indicate potentially a dark pattern, where your experiments are driving purchasing behavior but somehow making the product worse. In this situation, you'll often want to consider which goal metric is really important and how to make trade-offs between them, or consider new experiments or features that may improve both jointly.
+
+For a more technical discussion of this topic, you can read this excellent blog post by Tom Cunningham: [Thinking About Tradeoffs? Draw an Ellipse](https://tecunningham.github.io/posts/2023-10-23-pareto-frontiers-experiments-ranking.html).
