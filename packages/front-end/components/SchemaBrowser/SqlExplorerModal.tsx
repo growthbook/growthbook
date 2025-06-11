@@ -201,13 +201,10 @@ export default function SqlExplorerModal({
 
     // If nothing changed, just close without making API call
     if (!hasChanges(savedQuery, currentValues)) {
-      console.log("no changes, closing");
       setLoading(false);
       close();
       return;
     }
-
-    console.log("changes detected, saving");
 
     // Something changed, so save the updates
     try {
