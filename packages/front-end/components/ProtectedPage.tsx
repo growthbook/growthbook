@@ -15,7 +15,7 @@ const LoggedInPageGuard = ({
   children: ReactNode;
   organizationRequired: boolean;
 }) => {
-  const { error, ready, organization } = useUser();
+  const { error, ready, organization, user } = useUser();
   const { organizations } = useAuth();
 
   if (error) {
@@ -70,6 +70,15 @@ const LoggedInPageGuard = ({
   // Still waiting to fetch current user/org details
   if ((organizations || []).length > 0 && !Object.keys(organization).length) {
     return <LoadingOverlay />;
+  }
+  if (user?.disabled) {
+    return (
+      <div className="container">
+        <div className="alert alert-danger">
+          Your account has been disabled. Please contact administrator.
+        </div>
+      </div>
+    );
   }
 
   return <>{children}</>;
