@@ -3,6 +3,7 @@ import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { TestQueryRow } from "back-end/src/types/Integration";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { DataVizConfig } from "back-end/src/validators/saved-queries";
 
 export async function getSavedQueries(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
@@ -29,10 +30,18 @@ export async function postSavedQuery(
     datasourceId: string;
     results: TestQueryRow[];
     dateLastRan: string;
+    dataVizConfig?: DataVizConfig;
   }>,
   res: Response
 ) {
-  const { name, sql, datasourceId, results, dateLastRan } = req.body;
+  const {
+    name,
+    sql,
+    datasourceId,
+    results,
+    dateLastRan,
+    dataVizConfig,
+  } = req.body;
   const context = getContextFromReq(req);
 
   const datasource = await getDataSourceById(context, datasourceId);
@@ -47,6 +56,7 @@ export async function postSavedQuery(
       datasourceId,
       dateLastRan: new Date(dateLastRan),
       results,
+      dataVizConfig,
     });
     res.status(200).json({
       status: 200,
@@ -67,13 +77,21 @@ export async function putSavedQuery(
       datasourceId?: string;
       results?: TestQueryRow[];
       dateLastRan?: string;
+      dataVizConfig?: DataVizConfig;
     },
     { id: string }
   >,
   res: Response
 ) {
   const { id } = req.params;
-  const { name, sql, datasourceId, results, dateLastRan } = req.body;
+  const {
+    name,
+    sql,
+    datasourceId,
+    results,
+    dateLastRan,
+    dataVizConfig,
+  } = req.body;
   const context = getContextFromReq(req);
 
   const savedQuery = await context.models.savedQueries.getById(id);
@@ -89,6 +107,7 @@ export async function putSavedQuery(
       datasourceId: string;
       dateLastRan: Date;
       results: TestQueryRow[];
+      dataVizConfig: DataVizConfig;
     }> = {};
 
     if (name !== undefined) updateData.name = name;
@@ -97,6 +116,7 @@ export async function putSavedQuery(
     if (results !== undefined) updateData.results = results;
     if (dateLastRan !== undefined)
       updateData.dateLastRan = new Date(dateLastRan);
+    if (dataVizConfig !== undefined) updateData.dataVizConfig = dataVizConfig;
 
     await context.models.savedQueries.updateById(id, updateData);
     res.status(200).json({
