@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "zod/v4";
 export const factTableColumnTypeValidator = z.enum([
   "number",
   "string",
@@ -18,6 +18,7 @@ export const numberFormatValidator = z.enum([
 ]);
 
 export const jsonColumnFieldsValidator = z.record(
+  z.string(),
   z.object({ datatype: factTableColumnTypeValidator })
 );
 
@@ -93,7 +94,7 @@ export const columnRefValidator = z
     factTableId: z.string(),
     column: z.string(),
     aggregation: columnAggregationValidator.optional(),
-    inlineFilters: z.record(z.string().array()).optional(),
+    inlineFilters: z.record(z.string(), z.string().array()).optional(),
     filters: z.array(z.string()),
     aggregateFilter: z.string().optional(),
     aggregateFilterColumn: z.string().optional(),

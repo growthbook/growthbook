@@ -1,4 +1,4 @@
-import { z, ZodError } from "zod";
+import { z, ZodError } from "zod/v4";
 import { Collection } from "mongodb";
 import { Context, MakeModelClass } from "back-end/src/models/BaseModel";
 

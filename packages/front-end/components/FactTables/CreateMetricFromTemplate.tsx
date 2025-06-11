@@ -6,7 +6,7 @@ import {
   quantileSettingsValidator,
   windowSettingsValidator,
 } from "back-end/src/routers/fact-table/fact-table.validators";
-import { z } from "zod";
+import { z } from "zod/v4";
 import { ReactNode, useState } from "react";
 import dJSON from "dirty-json";
 import { CommercialFeature } from "shared/enterprise";

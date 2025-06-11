@@ -1,5 +1,5 @@
 import { RequestHandler } from "express";
-import { Schema } from "zod";
+import { Schema } from "zod/v4";
 import { ParamsDictionary } from "express-serve-static-core";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
 

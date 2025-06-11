@@ -1,5 +1,5 @@
 import express from "express";
-import { z } from "zod";
+import { z } from "zod/v4";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as rawTemplateController from "./template.controller";

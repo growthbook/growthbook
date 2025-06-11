@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { Request, Response } from "express";
-import { z } from "zod";
+import { z } from "zod/v4";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { v4 as uuidv4 } from "uuid";
 import {

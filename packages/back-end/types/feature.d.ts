@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import type { FeatureDefinition, FeatureResult } from "@growthbook/growthbook";
-import { z } from "zod";
+import { z } from "zod/v4";
 import {
   simpleSchemaFieldValidator,
   simpleSchemaValidator,

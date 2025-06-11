@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "zod/v4";
 
 // This is only the things that look interesting.
 export const userAuthenticationValidator = z.object({

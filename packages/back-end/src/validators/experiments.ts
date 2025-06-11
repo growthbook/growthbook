@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "zod/v4";
 import { windowTypeValidator } from "back-end/src/routers/fact-table/fact-table.validators";
 import { statsEngines } from "back-end/src/util/constants";
 import {
@@ -311,7 +311,7 @@ export const experimentInterface = z
     banditScheduleUnit: z.enum(["hours", "days"]).optional(),
     banditBurnInValue: z.number().optional(),
     banditBurnInUnit: z.enum(["hours", "days"]).optional(),
-    customFields: z.record(z.any()).optional(),
+    customFields: z.record(z.string(),z.any()).optional(),
     templateId: z.string().optional(),
     shareLevel: z.enum(["public", "organization"]).optional(),
     analysisSummary: experimentAnalysisSummary.optional(),

@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import { z } from "zod";
+import { z } from "zod/v4";
 import { isEqual, omit } from "lodash";
 import { ApiSdkConnection } from "back-end/types/openapi";
 import {

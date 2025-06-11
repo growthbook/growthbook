@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import z from "zod";
+import { z } from "zod/v4";
 import omit from "lodash/omit";
 import md5 from "md5";
 import mongoose from "mongoose";

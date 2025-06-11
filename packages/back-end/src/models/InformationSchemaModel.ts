@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import z from "zod";
+import { z } from "zod/v4";
 import uniqid from "uniqid";
 import omit from "lodash/omit";
 import {

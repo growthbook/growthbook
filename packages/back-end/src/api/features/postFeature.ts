@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "zod/v4";
 import { validateFeatureValue } from "shared/util";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { PostFeatureResponse } from "back-end/types/openapi";

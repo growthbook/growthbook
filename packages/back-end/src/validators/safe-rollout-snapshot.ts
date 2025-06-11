@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "zod/v4";
 import { MidExperimentPowerCalculationResultValidator } from "shared/enterprise";
 import {
   cappingSettingsValidator,
@@ -77,8 +77,7 @@ export type SafeRolloutSnapshotTrafficDimension = z.infer<
 
 const safeRolloutSnapshotTrafficObject = z.object({
   overall: safeRolloutSnapshotTrafficDimensionObject,
-  dimension: z.record(
-    z.string(),
+  dimension: z.record(z.string(),
     z.array(safeRolloutSnapshotTrafficDimensionObject)
   ),
   error: z

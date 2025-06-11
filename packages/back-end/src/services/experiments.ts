@@ -1,6 +1,6 @@
 import uniqid from "uniqid";
 import cronParser from "cron-parser";
-import { z } from "zod";
+import { z } from "zod/v4";
 import { isEqual } from "lodash";
 import cloneDeep from "lodash/cloneDeep";
 import {

@@ -3,7 +3,7 @@ import fs from "fs";
 import * as url from "url";
 import SwaggerParser from "@apidevtools/swagger-parser";
 import openapiTS from "openapi-typescript";
-import { parseSchema } from "json-schema-to-zod";
+import { parseSchema, parseObject } from "json-schema-to-zod";
 import { load } from "js-yaml";
 
 const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
@@ -35,15 +35,15 @@ async function run() {
 
   // Step 3: Add additional named types for easier access
   // Export each schema as a named type
-  output += `import { z } from "zod";\n`;
+  output += `import { z } from "zod/v4";\n`;
   output += `import * as openApiValidators from "back-end/src/validators/openapi";\n`;
   output += "\n// Schemas\n";
   Object.keys(api.components.schemas).forEach((k) => {
     // Zod validator for response body
     validators.push(
       `export const api${k}Validator = ${generateZodSchema(
-        api.components.schemas[k]
-      )}`
+        api.components.schemas[k],
+      )}`,
     );
 
     output += `export type Api${k} = z.infer<typeof openApiValidators.api${k}Validator>;\n`;
@@ -72,7 +72,7 @@ async function run() {
   bodySchema: ${generateZodSchema(requestSchema, false)},
   querySchema: ${generateZodSchema(querySchema)},
   paramsSchema: ${generateZodSchema(pathSchema)},
-};`
+};`,
         );
       }
     });
@@ -81,13 +81,13 @@ async function run() {
   // Step 4: Persist specs and generated files to file system
   fs.writeFileSync(
     path.join(__dirname, "..", "..", "types", "openapi.d.ts"),
-    output
+    output,
   );
   fs.writeFileSync(
     path.join(__dirname, "..", "..", "src", "validators", "openapi.ts"),
     generatedFileHeader +
-      `import { z } from "zod";\n\n` +
-      validators.join("\n\n")
+      `import { z } from "zod/v4";\n\n` +
+      validators.join("\n\n"),
   );
 }
 
@@ -103,7 +103,22 @@ function generateZodSchema(jsonSchema, coerceStringsToNumbers = true) {
     return `z.never()`;
   }
 
-  let zod = parseSchema(jsonSchema);
+  const parserOverride = (objectSchema, refs) => {
+    if (objectSchema.type === "object") {
+      const parsed = parseObject(objectSchema, refs);
+
+      if (parsed.startsWith("z.record("))
+        return parsed.replace(/z.record\(/, "z.record(z.string(),");
+
+      return parsed;
+    }
+  };
+
+  let zod = parseSchema(jsonSchema, {
+    seen: new Map(),
+    path: [],
+    parserOverride,
+  });
 
   if (zod.startsWith("z.object")) {
     zod += ".strict()";

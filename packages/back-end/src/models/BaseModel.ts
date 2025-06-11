@@ -4,7 +4,7 @@ import uniqid from "uniqid";
 import mongoose, { FilterQuery } from "mongoose";
 import { Collection } from "mongodb";
 import omit from "lodash/omit";
-import { z } from "zod";
+import { z } from "zod/v4";
 import { isEqual, orderBy, pick } from "lodash";
 import { evalCondition } from "@growthbook/growthbook";
 import { ApiReqContext } from "back-end/types/api";
@@ -45,17 +45,16 @@ export type CreateRawShape<T extends z.ZodRawShape> = {
   [k in keyof Omit<
     T,
     "id" | "organization" | "dateCreated" | "dateUpdated"
-  >]: T[k];
+  >]: z.output<T[k]>;
 } & {
-  id: z.ZodOptional<z.ZodString>;
+  id?: z.output<z.ZodString>;
 };
 
 export type CreateZodObject<T> = T extends z.ZodObject<
   infer RawShape,
-  infer UnknownKeysParam,
-  infer ZodTypeAny
+  infer UnknownKeysParams
 >
-  ? z.ZodObject<CreateRawShape<RawShape>, UnknownKeysParam, ZodTypeAny>
+  ? { parse: (_: unknown) => CreateRawShape<RawShape> }
   : never;
 
 export const createSchema = <T extends BaseSchema>(schema: T) =>
@@ -76,15 +75,14 @@ export type UpdateRawShape<T extends z.ZodRawShape> = {
   [k in keyof Omit<
     T,
     "id" | "organization" | "dateCreated" | "dateUpdated"
-  >]: z.ZodOptional<T[k]>;
+  >]?: z.output<T[k]>;
 };
 
 export type UpdateZodObject<T> = T extends z.ZodObject<
   infer RawShape,
-  infer UnknownKeysParam,
-  infer ZodTypeAny
+  infer UnknownKeysParam
 >
-  ? z.ZodObject<UpdateRawShape<RawShape>, UnknownKeysParam, ZodTypeAny>
+  ? { parse: (_: unknown) => UpdateRawShape<RawShape> }
   : never;
 
 const updateSchema = <T extends BaseSchema>(schema: T) =>

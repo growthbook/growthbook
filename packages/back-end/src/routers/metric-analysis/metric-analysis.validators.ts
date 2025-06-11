@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "zod/v4";
 import { queryPointerValidator } from "back-end/src/validators/queries";
 
 export const metricAnalysisPopulationTypeValidator = z.enum([

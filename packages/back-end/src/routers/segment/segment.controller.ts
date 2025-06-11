@@ -1,6 +1,6 @@
 import type { Response } from "express";
 import { FilterQuery } from "mongoose";
-import { z } from "zod";
+import { z } from "zod/v4";
 import { EventUserForResponseLocals } from "back-end/src/events/event-types";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
