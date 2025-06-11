@@ -86,7 +86,9 @@ def frequentist_variance_relative_cuped(
     )
     v_trt = num_trt / den_trt
     const = -stat_b.post_statistic.mean
-    num_a = stat_a.post_statistic.variance * const**2 / (stat_a.post_statistic.mean**2)
+    num_a = (
+        stat_a.post_statistic.variance * const**2 / (stat_a.post_statistic.mean**2)
+    )
     num_b = 2 * theta * stat_a.covariance * const / stat_a.post_statistic.mean
     num_c = theta**2 * stat_a.pre_statistic.variance
     v_ctrl = (num_a + num_b + num_c) / den_ctrl

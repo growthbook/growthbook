@@ -145,3 +145,9 @@ def random_inverse_wishart(df: float, sai: np.ndarray, seed: int) -> np.ndarray:
     w = np.linalg.inv(w_wishart)
 
     return w
+
+
+def invert_symmetric_matrix(m: np.ndarray) -> np.ndarray:
+    m_chol = np.linalg.cholesky(m)
+    m_chol_inv = np.linalg.inv(m_chol)
+    return m_chol_inv.T @ m_chol_inv

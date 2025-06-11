@@ -15,8 +15,8 @@ from gbstats.models.statistics import (
 @dataclass
 class CellResult:
     n: int
-    mean: np.ndarray  # Expected shape: (2,) for count and (4,) for ratio
-    covariance: np.ndarray  # Expected shape: (2, 2) for count and (4, 4) for ratio
+    sample_mean: np.ndarray  # Expected shape: (2,) for count and (4,) for ratio
+    sample_covariance: np.ndarray  # Expected shape: (2, 2) for count and (4, 4) for ratio
 
 
 class BasePostStratification(ABC):
@@ -125,7 +125,7 @@ class PostStratification(BasePostStratification):
 
     @property
     def contrast_matrix(self) -> np.ndarray:
-        return np.array([[0, 1], [1, -1]])
+        return np.array([[1, 0], [1, -1]])
 
     def compute_result(self) -> CellResult:
         return CellResult(self.n, self.mean, self.covariance)

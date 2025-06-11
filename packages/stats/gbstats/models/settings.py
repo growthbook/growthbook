@@ -17,6 +17,7 @@ class InteractionDimension:
     variation_names: List[str]
     variation_weights: List[float]
 
+
 @dataclass
 class AnalysisSettingsForStatsEngine:
     var_names: List[str]
