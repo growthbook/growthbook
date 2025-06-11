@@ -14,6 +14,7 @@ type SelectProps = {
   children: React.ReactNode;
   size?: "1" | "2" | "3";
   placeholder?: string;
+  variant?: "classic" | "surface" | "soft" | "ghost";
 } & MarginProps;
 
 export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
@@ -28,6 +29,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
     setValue,
     size = "3",
     placeholder,
+    variant = "surface",
     ...containerProps
   }: SelectProps,
   ref
@@ -50,7 +52,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
           placeholder={placeholder}
           className={error ? "error" : undefined}
           disabled={disabled}
-          variant="surface"
+          variant={variant}
         />
         <RadixSelect.Content variant="soft" position="popper">
           {children}

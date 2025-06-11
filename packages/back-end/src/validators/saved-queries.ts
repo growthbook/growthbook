@@ -5,6 +5,9 @@ export const dataVizConfigValidator = z.object({
   chartType: z.enum(["bar", "line", "pie", "scatter", "area", "donut"]),
   xAxis: z.string(),
   yAxis: z.string(),
+  // TODO: Make specific types depending on chart type
+  aggregation: z.enum(["stacked", "grouped"]).optional(),
+  aggregationAxis: z.string().optional(),
 });
 
 export const testQueryRowSchema = z.record(z.any());

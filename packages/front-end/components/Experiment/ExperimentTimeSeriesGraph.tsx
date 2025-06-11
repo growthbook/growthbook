@@ -137,7 +137,8 @@ const getTooltipContents = (
           {variationNames.map((v, i) => {
             if (!d.variations) return null;
             if (!showVariations[i]) return null;
-            const variation = d.variations[i];
+            const variation = d.variations?.[i];
+            if (!variation) return null;
             const variationColor = getVariationColor(i, true);
             return (
               <TableRow
@@ -173,11 +174,9 @@ const getTooltipContents = (
                 </TableRowHeaderCell>
                 {yaxis === "effect" && (
                   <>
+                    <TableCell justify="center">{variation.users}</TableCell>
                     <TableCell justify="center">
-                      {d.variations[i].users}
-                    </TableCell>
-                    <TableCell justify="center">
-                      {d.variations[i].v_formatted}
+                      {variation.v_formatted}
                     </TableCell>
                     <TableCell justify="center">
                       {i > 0 && (
