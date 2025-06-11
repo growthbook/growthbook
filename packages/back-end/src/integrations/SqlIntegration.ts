@@ -1416,15 +1416,9 @@ export default abstract class SqlIntegration
     });
   }
 
-  getFreeFormQuery(query: string, limit?: number): string {
-    const sql = !limit
-      ? query
-      : `WITH __table as (
-        ${query}
-      )
-      ${this.selectStarLimit("__table", limit)}`;
-
-    return format(sql, this.getFormatDialect());
+  getFreeFormQuery(sql: string, limit?: number): string {
+    const limitedQuery = this.ensureMaxLimit(sql, limit || 1000);
+    return format(limitedQuery, this.getFormatDialect());
   }
 
   getTestQuery(params: TestQueryParams): string {
