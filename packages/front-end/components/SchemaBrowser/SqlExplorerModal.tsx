@@ -6,7 +6,11 @@ import {
   FaCheck,
   FaTimes,
 } from "react-icons/fa";
-import { PiCaretDoubleRight, PiPencilSimpleFill } from "react-icons/pi";
+import {
+  PiCaretDoubleRight,
+  PiDownloadSimpleThin,
+  PiPencilSimpleFill,
+} from "react-icons/pi";
 import { TestQueryRow } from "back-end/src/types/Integration";
 import { SavedQuery } from "back-end/src/validators/saved-queries";
 import { Box, Flex, Text, Tooltip } from "@radix-ui/themes";
@@ -383,10 +387,20 @@ export default function SqlExplorerModal({
                       <Panel order={2}>
                         <AreaWithHeader
                           header={
-                            <Flex align="center" gap="1">
+                            <Flex align="center" justify="between" gap="1">
                               <Text weight="bold" size="2">
                                 Query Results
                               </Text>
+                              <Button
+                                variant="ghost"
+                                size="xs"
+                                onClick={() =>
+                                  handleDownload(queryResults.results || [])
+                                }
+                              >
+                                {/* TODO: Replace this button */}
+                                <PiDownloadSimpleThin size={16} /> Download CSV
+                              </Button>
                             </Flex>
                           }
                         >
