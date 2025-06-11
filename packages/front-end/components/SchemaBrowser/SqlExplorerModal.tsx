@@ -8,7 +8,10 @@ import {
 } from "react-icons/fa";
 import { PiCaretDoubleRight, PiPencilSimpleFill } from "react-icons/pi";
 import { TestQueryRow } from "back-end/src/types/Integration";
-import { SavedQuery } from "back-end/src/validators/saved-queries";
+import {
+  DataVizConfig,
+  SavedQuery,
+} from "back-end/src/validators/saved-queries";
 import { Box, Flex, Text, Tooltip } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -46,8 +49,51 @@ export type QueryResults = {
 export interface Props {
   close: () => void;
   datasourceId?: string;
-  savedQuery?: SavedQuery;
+  savedQuery?: SavedQueryFromAPI;
   mutate: () => void;
+}
+
+// Type that reflects the actual API response where dates are strings
+type SavedQueryFromAPI = Omit<
+  SavedQuery,
+  "dateCreated" | "dateUpdated" | "dateLastRan"
+> & {
+  dateCreated: string;
+  dateUpdated: string;
+  dateLastRan?: string;
+};
+
+// Helper function to check if the current query state differs from the saved query
+function hasChanges(
+  savedQuery: SavedQueryFromAPI,
+  currentValues: {
+    name: string;
+    sql: string;
+    datasourceId: string;
+    dateLastRan?: string;
+    dataVizConfig?: DataVizConfig;
+  }
+): boolean {
+  // Simple equality checks for all values - strings are more reliable than Date comparisons
+  const nameChanged = currentValues.name !== savedQuery.name;
+  const sqlChanged = currentValues.sql !== savedQuery.sql;
+  const datasourceChanged =
+    currentValues.datasourceId !== savedQuery.datasourceId;
+  const dateLastRanChanged =
+    currentValues.dateLastRan !== savedQuery.dateLastRan;
+
+  // Deep comparison for dataVizConfig (using JSON.stringify for simplicity)
+  const dataVizConfigChanged =
+    JSON.stringify(currentValues.dataVizConfig) !==
+    JSON.stringify(savedQuery.dataVizConfig);
+
+  return (
+    nameChanged ||
+    sqlChanged ||
+    datasourceChanged ||
+    dateLastRanChanged ||
+    dataVizConfigChanged
+  );
 }
 
 export default function SqlExplorerModal({
@@ -70,6 +116,9 @@ export default function SqlExplorerModal({
       name: savedQuery?.name || "",
       sql: savedQuery?.sql || "",
       dateLastRan: savedQuery?.dateLastRan || undefined,
+      dataVizConfig: savedQuery?.dataVizConfig || undefined,
+      datasourceId: savedQuery?.datasourceId || "",
+      results: savedQuery?.results || [],
     },
   });
 
@@ -100,7 +149,7 @@ export default function SqlExplorerModal({
     async (sql: string) => {
       setQueryResults(null);
       validateSQL(sql, []);
-      form.setValue("dateLastRan", new Date());
+      form.setValue("dateLastRan", new Date().toISOString());
       const res: QueryResults = await apiCall("/query/run", {
         method: "POST",
         body: JSON.stringify({
@@ -116,23 +165,61 @@ export default function SqlExplorerModal({
 
   const handleSubmit = async () => {
     setLoading(true);
-    //TODO: Validate form values
 
-    let url = "/saved-queries";
-    let method = "POST";
-    if (savedQuery?.id) {
-      url = `/saved-queries/${savedQuery.id}`;
-      method = "PUT";
+    // If it's a new query (no savedQuery.id), always save
+    if (!savedQuery?.id) {
+      try {
+        await apiCall("/saved-queries", {
+          method: "POST",
+          body: JSON.stringify({
+            name: form.watch("name"),
+            sql: form.watch("sql"),
+            datasourceId: selectedDatasourceId,
+            dateLastRan: form.watch("dateLastRan"),
+            results: queryResults?.results,
+            dataVizConfig: undefined, // New queries don't have viz config yet
+          }),
+        });
+        mutate();
+        close();
+      } catch (error) {
+        setLoading(false);
+        throw new Error("Failed to save the query. Reason: " + error);
+      }
+      return;
     }
+
+    // For existing queries, check if anything has changed
+    const currentValues = {
+      name: form.watch("name"),
+      sql: form.watch("sql"),
+      datasourceId: selectedDatasourceId,
+      dateLastRan: form.watch("dateLastRan"),
+      dataVizConfig: form.watch("dataVizConfig"),
+      results: queryResults?.results,
+    };
+
+    // If nothing changed, just close without making API call
+    if (!hasChanges(savedQuery, currentValues)) {
+      console.log("no changes, closing");
+      setLoading(false);
+      close();
+      return;
+    }
+
+    console.log("changes detected, saving");
+
+    // Something changed, so save the updates
     try {
-      await apiCall(url, {
-        method,
+      await apiCall(`/saved-queries/${savedQuery.id}`, {
+        method: "PUT",
         body: JSON.stringify({
-          name: form.watch("name"),
-          sql: form.watch("sql"),
-          datasourceId: selectedDatasourceId,
-          dateLastRan: form.watch("dateLastRan"),
+          name: currentValues.name,
+          sql: currentValues.sql,
+          datasourceId: currentValues.datasourceId,
+          dateLastRan: currentValues.dateLastRan,
           results: queryResults?.results,
+          dataVizConfig: currentValues.dataVizConfig,
         }),
       });
       mutate();
@@ -334,7 +421,7 @@ export default function SqlExplorerModal({
                                 disabled={!canRunQueries}
                                 icon={<FaPlay />}
                               >
-                                Run Query
+                                Run
                               </Button>
                             </Tooltip>
                           </Flex>
