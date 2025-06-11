@@ -245,7 +245,9 @@ export default function SqlExplorerModal({
         }}
       >
         <Tabs
-          defaultValue={savedQuery?.dataVizConfig ? "visualization" : "sql"}
+          defaultValue={
+            savedQuery?.dataVizConfig?.length ? "visualization" : "sql"
+          }
           style={{ display: "flex", flexDirection: "column", height: "100%" }}
         >
           <TabsList mb="4">

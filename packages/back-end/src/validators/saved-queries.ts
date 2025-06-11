@@ -16,7 +16,7 @@ export const savedQueryValidator = z
     name: z.string(),
     dateLastRan: z.date(),
     sql: z.string(),
-    dataVizConfig: dataVizConfigValidator.optional(),
+    dataVizConfig: z.array(dataVizConfigValidator).optional(),
     results: z.array(z.any()), // MKTODO: Add a proper type for the results
   })
   .strict();

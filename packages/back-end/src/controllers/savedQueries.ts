@@ -30,7 +30,7 @@ export async function postSavedQuery(
     datasourceId: string;
     results: TestQueryRow[];
     dateLastRan: string;
-    dataVizConfig?: DataVizConfig;
+    dataVizConfig?: DataVizConfig[];
   }>,
   res: Response
 ) {
@@ -77,7 +77,7 @@ export async function putSavedQuery(
       datasourceId?: string;
       results?: TestQueryRow[];
       dateLastRan?: string;
-      dataVizConfig?: DataVizConfig;
+      dataVizConfig?: DataVizConfig[];
     },
     { id: string }
   >,
@@ -107,7 +107,7 @@ export async function putSavedQuery(
       datasourceId: string;
       dateLastRan: Date;
       results: TestQueryRow[];
-      dataVizConfig: DataVizConfig;
+      dataVizConfig: DataVizConfig[];
     }> = {};
 
     if (name !== undefined) updateData.name = name;
