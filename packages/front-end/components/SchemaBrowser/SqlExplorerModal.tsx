@@ -63,39 +63,6 @@ type SavedQueryFromAPI = Omit<
   dateLastRan?: string;
 };
 
-// Helper function to check if the current query state differs from the saved query
-function hasChanges(
-  savedQuery: SavedQueryFromAPI,
-  currentValues: {
-    name: string;
-    sql: string;
-    datasourceId: string;
-    dateLastRan?: string;
-    dataVizConfig?: DataVizConfig;
-  }
-): boolean {
-  // Simple equality checks for all values - strings are more reliable than Date comparisons
-  const nameChanged = currentValues.name !== savedQuery.name;
-  const sqlChanged = currentValues.sql !== savedQuery.sql;
-  const datasourceChanged =
-    currentValues.datasourceId !== savedQuery.datasourceId;
-  const dateLastRanChanged =
-    currentValues.dateLastRan !== savedQuery.dateLastRan;
-
-  // Deep comparison for dataVizConfig (using JSON.stringify for simplicity)
-  const dataVizConfigChanged =
-    JSON.stringify(currentValues.dataVizConfig) !==
-    JSON.stringify(savedQuery.dataVizConfig);
-
-  return (
-    nameChanged ||
-    sqlChanged ||
-    datasourceChanged ||
-    dateLastRanChanged ||
-    dataVizConfigChanged
-  );
-}
-
 export default function SqlExplorerModal({
   close,
   datasourceId: initialDatasourceId,
@@ -105,6 +72,7 @@ export default function SqlExplorerModal({
   const [selectedDatasourceId, setSelectedDatasourceId] = useState(
     savedQuery?.datasourceId || initialDatasourceId || ""
   );
+  const [dirty, setDirty] = useState(savedQuery?.id ? false : true);
   const [loading, setLoading] = useState(false);
   const [isRunningQuery, setIsRunningQuery] = useState(false);
   const [queryResults, setQueryResults] = useState<QueryResults | null>(null);
@@ -143,7 +111,8 @@ export default function SqlExplorerModal({
   const canSave: boolean =
     canSaveQueries === true &&
     !!queryResults?.results &&
-    !!form.watch("sql").trim();
+    !!form.watch("sql").trim() &&
+    dirty;
 
   const runQuery = useCallback(
     async (sql: string) => {
@@ -189,18 +158,8 @@ export default function SqlExplorerModal({
       return;
     }
 
-    // For existing queries, check if anything has changed
-    const currentValues = {
-      name: form.watch("name"),
-      sql: form.watch("sql"),
-      datasourceId: selectedDatasourceId,
-      dateLastRan: form.watch("dateLastRan"),
-      dataVizConfig: form.watch("dataVizConfig"),
-      results: queryResults?.results,
-    };
-
     // If nothing changed, just close without making API call
-    if (!hasChanges(savedQuery, currentValues)) {
+    if (!dirty) {
       setLoading(false);
       close();
       return;
@@ -211,12 +170,12 @@ export default function SqlExplorerModal({
       await apiCall(`/saved-queries/${savedQuery.id}`, {
         method: "PUT",
         body: JSON.stringify({
-          name: currentValues.name,
-          sql: currentValues.sql,
-          datasourceId: currentValues.datasourceId,
-          dateLastRan: currentValues.dateLastRan,
+          name: form.watch("name"),
+          sql: form.watch("sql"),
+          datasourceId: selectedDatasourceId,
+          dateLastRan: form.watch("dateLastRan"),
+          dataVizConfig: form.watch("dataVizConfig"),
           results: queryResults?.results,
-          dataVizConfig: currentValues.dataVizConfig,
         }),
       });
       mutate();
@@ -228,6 +187,7 @@ export default function SqlExplorerModal({
   };
 
   const handleQuery = useCallback(async () => {
+    setDirty(true);
     setIsRunningQuery(true);
     try {
       const res = await runQuery(form.watch("sql"));
@@ -319,6 +279,7 @@ export default function SqlExplorerModal({
                       autoFocus
                       onKeyDown={(e) => {
                         if (e.key === "Enter") {
+                          setDirty(true);
                           form.setValue("name", tempName);
                           setIsEditingName(false);
                         } else if (e.key === "Escape") {
@@ -341,6 +302,7 @@ export default function SqlExplorerModal({
                       variant="ghost"
                       size="sm"
                       onClick={() => {
+                        setDirty(true);
                         form.setValue("name", tempName);
                         setIsEditingName(false);
                       }}
@@ -436,6 +398,7 @@ export default function SqlExplorerModal({
                               setFormatError(null);
                             }
                             form.setValue("sql", v);
+                            setDirty(true);
                           }}
                           placeholder="Enter your SQL query here..."
                           helpText={""}
@@ -485,7 +448,10 @@ export default function SqlExplorerModal({
                   <Flex direction="column" height="100%" px="4" py="5">
                     <Select
                       value={selectedDatasourceId}
-                      setValue={(value) => setSelectedDatasourceId(value)}
+                      setValue={(value) => {
+                        setDirty(true);
+                        setSelectedDatasourceId(value);
+                      }}
                       placeholder="Select a data source..."
                       size="2"
                       mb="2"
