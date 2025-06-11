@@ -1,6 +1,5 @@
 import { useState, useCallback } from "react";
 import { date, datetime } from "shared/dates";
-import { FaCode } from "react-icons/fa";
 import { SavedQuery } from "back-end/src/validators/saved-queries";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
