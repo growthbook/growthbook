@@ -1,0 +1,36 @@
+.sdk-supported-features {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+:is(a, p).sdk-supported-feature {
+  display: inline-flex;
+  flex-direction: row;
+  gap: 6px;
+  align-items: center;
+  background-color: var(--ifm-color-gray-100);
+  border-radius: 1000px;
+  padding: 4px 12px;
+  margin: 0;
+  font-size: 14px;
+  color: var(--ifm-color-gray-900);
+  height: 28px;
+  line-height: 1;
+
+  svg {
+    width: 16px;
+    height: 16px;
+    fill: var(--ifm-color-gray-900);
+  }
+}
+
+a.sdk-supported-feature {
+  text-decoration: none;
+  &:hover {
+    background-color: var(--ifm-color-gray-200);
+    color: var(--ifm-color-gray-900);
+    text-decoration: none;
+  }
+}
