@@ -39,7 +39,7 @@ export default function DisplayTestQueryResults({
   return (
     <Tabs
       defaultValue={forceShowSql ? "sql" : "results"}
-      style={{ maxHeight: "50%", overflow: "hidden" }}
+      style={{ overflow: "hidden", height: "100%" }}
     >
       <TabsList>
         {!forceShowSql && <TabsTrigger value="results">Results</TabsTrigger>}

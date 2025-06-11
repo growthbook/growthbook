@@ -1,36 +1,42 @@
-import { useCallback, useState, useEffect, useRef } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { FaPlay, FaExclamationTriangle, FaSave } from "react-icons/fa";
+import { FaPlay, FaExclamationTriangle } from "react-icons/fa";
+import { PiCaretDoubleRight } from "react-icons/pi";
 import { TestQueryRow } from "back-end/src/types/Integration";
 import { SavedQuery } from "back-end/src/validators/saved-queries";
-import clsx from "clsx";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex, Text, Tooltip } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { validateSQL } from "@/services/datasources";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import { CursorData } from "@/components/Segments/SegmentForm";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
-import Button from "@/components/Button";
-import RadixButton from "@/components/Radix/Button";
+import Button from "@/components/Radix/Button";
 import {
   usesEventName,
   usesValueColumn,
 } from "@/components/Metrics/MetricForm";
-import Field from "@/components/Forms/Field";
+import { Select, SelectItem } from "@/components/Radix/Select";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import { formatSql, canFormatSql } from "@/services/sqlFormatter";
-import SelectField from "@/components/Forms/SelectField";
 import { convertToCSV, downloadCSVFile } from "@/services/sql";
-import PagedModal from "../Modal/PagedModal";
-import Page from "../Modal/Page";
-import Checkbox from "../Radix/Checkbox";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/Radix/Tabs";
+import {
+  Panel,
+  PanelGroup,
+  PanelResizeHandle,
+} from "@/components/ResizablePanels";
+import Modal from "../Modal";
+import SqlExplorerDataVisualization from "../DataViz/SqlExplorerDataVisualization";
 import SchemaBrowser from "./SchemaBrowser";
-import SaveQueryModal from "./SaveQueryModal";
 import styles from "./EditSqlModal.module.scss";
 
-export type TestQueryResults = {
+export type QueryResults = {
   duration?: string;
   error?: string;
   results?: TestQueryRow[];
@@ -50,28 +56,24 @@ export default function SqlExplorerModal({
   savedQuery,
   mutate,
 }: Props) {
-  const [step, setStep] = useState(savedQuery || initialDatasourceId ? 1 : 0);
-  const [dateLastRan, setDateLastRan] = useState(savedQuery?.dateLastRan);
   const [selectedDatasourceId, setSelectedDatasourceId] = useState(
     savedQuery?.datasourceId || initialDatasourceId || ""
   );
-  const [
-    testQueryResults,
-    setTestQueryResults,
-  ] = useState<TestQueryResults | null>(null);
-  const [showSaveQueryModal, setShowSaveQueryModal] = useState(false);
-  const previousDatasourceId = useRef(selectedDatasourceId);
+  const [isRunningQuery, setIsRunningQuery] = useState(false);
+  const [queryResults, setQueryResults] = useState<QueryResults | null>(null);
+  const [dateLastRan, setDateLastRan] = useState(savedQuery?.dateLastRan);
+
   const form = useForm({
     defaultValues: {
+      name: savedQuery?.name || "",
       sql: savedQuery?.sql || "",
     },
   });
 
-  const { getDatasourceById, datasources } = useDefinitions();
   const { apiCall } = useAuth();
-  const [cursorData, setCursorData] = useState<null | CursorData>(null);
-  const [testingQuery, setTestingQuery] = useState(false);
   const permissionsUtil = usePermissionsUtil();
+  const { getDatasourceById, datasources } = useDefinitions();
+  const [cursorData, setCursorData] = useState<null | CursorData>(null);
   const [formatError, setFormatError] = useState<string | null>(null);
   const [templateVariables, setTemplateVariables] = useState<{
     eventName?: string;
@@ -87,6 +89,7 @@ export default function SqlExplorerModal({
     : null;
   const supportsSchemaBrowser =
     datasource?.properties?.supportsInformationSchema;
+
   const canFormat = datasource ? canFormatSql(datasource.type) : false;
 
   const hasEventName = usesEventName(form.watch("sql"));
@@ -94,16 +97,21 @@ export default function SqlExplorerModal({
 
   // Check if query has been run successfully
   const hasValidResults =
-    testQueryResults && !testQueryResults.error && testQueryResults.results;
-  const canShowSaveButton =
-    canSaveQueries && hasValidResults && form.watch("sql").trim();
+    queryResults !== null &&
+    queryResults.error === undefined &&
+    queryResults.results !== undefined;
+
+  const canSave =
+    canSaveQueries === true &&
+    hasValidResults === true &&
+    !!form.watch("sql").trim();
 
   const runTestQuery = useCallback(
     async (sql: string) => {
-      setTestQueryResults(null);
+      setQueryResults(null);
       validateSQL(sql, []);
       setDateLastRan(new Date());
-      const res: TestQueryResults = await apiCall("/query/run", {
+      const res: QueryResults = await apiCall("/query/run", {
         method: "POST",
         body: JSON.stringify({
           query: sql,
@@ -117,18 +125,18 @@ export default function SqlExplorerModal({
   );
 
   const handleQuery = useCallback(async () => {
-    setTestingQuery(true);
+    setIsRunningQuery(true);
     try {
       const res = await runTestQuery(form.watch("sql"));
-      setTestQueryResults({ ...res, error: res.error ? res.error : "" });
+      setQueryResults({ ...res, error: res.error ? res.error : "" });
     } catch (e) {
-      setTestQueryResults({
+      setQueryResults({
         sql: form.watch("sql"),
         error: e.message,
         results: [],
       });
     }
-    setTestingQuery(false);
+    setIsRunningQuery(false);
   }, [form, runTestQuery]);
 
   const handleFormatClick = () => {
@@ -163,180 +171,241 @@ export default function SqlExplorerModal({
   // Pre-fill results if we're editing a saved query with existing results
   useEffect(() => {
     if (savedQuery?.results && savedQuery.results.length > 0) {
-      setTestQueryResults({
+      setQueryResults({
         results: savedQuery.results,
         sql: savedQuery.sql,
       });
     }
   }, [savedQuery]);
 
-  useEffect(() => {
-    // Only clear SQL when the datasource actually changes (not on initial load)
-    if (
-      previousDatasourceId.current !== selectedDatasourceId &&
-      previousDatasourceId.current
-    ) {
-      form.setValue("sql", "");
-      setTestQueryResults(null);
-    }
-    previousDatasourceId.current = selectedDatasourceId;
-  }, [selectedDatasourceId, form]);
-
   return (
-    <>
-      {showSaveQueryModal && (
-        <SaveQueryModal
-          close={() => setShowSaveQueryModal(false)}
-          sql={form.watch("sql") || ""}
-          dateLastRan={dateLastRan}
-          datasourceId={selectedDatasourceId}
-          results={testQueryResults?.results || []}
-          onSave={() => {
-            setShowSaveQueryModal(false);
-            mutate();
-          }}
-        />
-      )}
-
-      <PagedModal
-        trackingEventModalType="sql-explorer"
-        header="SQL Explorer"
-        close={close}
-        navStyle="default"
-        size="max"
-        includeCloseCta={step === 0 ? true : false}
-        bodyClassName="p-0"
-        cta={step === 0 ? "Next" : "Close"}
-        step={step}
-        setStep={setStep}
-        ctaEnabled={step === 0 ? !!selectedDatasourceId : true}
-        submit={async () => {
-          if (step === 0) {
-            setStep(1);
-          } else {
-            close();
-          }
+    <Modal
+      bodyClassName="p-0"
+      borderlessHeader={true}
+      close={close}
+      closeCta="Close"
+      cta="Save & Close"
+      ctaEnabled={canSave}
+      header={`${savedQuery ? "Edit" : "New"} SQL Query`}
+      headerClassName={styles["modal-header-backgroundless"]}
+      open={true}
+      showHeaderCloseButton={false}
+      size="max"
+      submit={() => {}}
+      trackingEventModalType="sql-explorer"
+      useRadixButton={true}
+    >
+      <Box
+        p="4"
+        style={{
+          // 95vh is the max height of the modal
+          // 125px is the height of the header and footer + 2px for the borders
+          height: "calc(95vh - 127px)",
         }}
       >
-        <Page display="Select Data Source">
-          <div className="p-4">
-            <h3>Choose a Data Source</h3>
-            <p className="text-muted mb-4">
-              Select the data source you want to explore with SQL queries.
-            </p>
-            <SelectField
-              label="Data Source"
-              value={selectedDatasourceId}
-              onChange={(value) => setSelectedDatasourceId(value)}
-              options={validDatasources.map((d) => ({
-                value: d.id,
-                label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
-              }))}
-              className="portal-overflow-ellipsis"
-              placeholder="Choose a data source..."
-              required
-            />
-          </div>
-        </Page>
+        <Tabs
+          defaultValue={savedQuery ? "visualization" : "sql"}
+          style={{ display: "flex", flexDirection: "column", height: "100%" }}
+        >
+          <TabsList mb="4">
+            <TabsTrigger value="sql">
+              <Flex align="center" gap="2">
+                New SQL Query{" "}
+                {/* <Button variant="ghost" size="sm">
+                  <PiPencilSimpleFill color="var(--accent-11)" />
+                </Button> */}
+              </Flex>
+            </TabsTrigger>
 
-        <Page display="SQL Editor">
-          <div
-            className={clsx("d-flex", {
-              [styles["with-schema-browser"]]: supportsSchemaBrowser,
-            })}
-            style={{
-              height: "calc(93vh - 140px)",
-            }}
+            <TabsTrigger value="visualization">Visualization</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="sql" style={{ flex: 1 }}>
+            <PanelGroup direction="horizontal">
+              <Panel>
+                <PanelGroup direction="vertical">
+                  <Panel order={1}>
+                    <AreaWithHeader
+                      header={
+                        <Flex align="center" justify="between">
+                          <Text
+                            weight="bold"
+                            style={{ color: "var(--color-text-mid)" }}
+                          >
+                            SQL
+                          </Text>
+                          <Flex gap="3">
+                            {formatError && (
+                              <Tooltip content={formatError}>
+                                <span>
+                                  <FaExclamationTriangle className="text-danger" />
+                                </span>
+                              </Tooltip>
+                            )}
+                            {canFormat ? (
+                              <Button
+                                size="xs"
+                                variant="ghost"
+                                onClick={handleFormatClick}
+                                disabled={!form.watch("sql")}
+                              >
+                                Format
+                              </Button>
+                            ) : null}
+                            <Tooltip
+                              content={
+                                selectedDatasourceId === ""
+                                  ? "Select a data source to run your query"
+                                  : !canRunQueries
+                                  ? "You do not have permission to query the selected data source"
+                                  : undefined
+                              }
+                              open={canRunQueries ? false : undefined}
+                            >
+                              <Button
+                                size="xs"
+                                onClick={handleQuery}
+                                loading={isRunningQuery}
+                                disabled={!canRunQueries}
+                                icon={<FaPlay />}
+                              >
+                                Run Query
+                              </Button>
+                            </Tooltip>
+                          </Flex>
+                        </Flex>
+                      }
+                    >
+                      <Flex direction="column" height="100%">
+                        <CodeTextArea
+                          wrapperClassName={styles["sql-editor-wrapper"]}
+                          required
+                          language="sql"
+                          value={form.watch("sql")}
+                          setValue={(v) => {
+                            if (formatError) {
+                              setFormatError(null);
+                            }
+                            form.setValue("sql", v);
+                          }}
+                          placeholder="Enter your SQL query here..."
+                          helpText={""}
+                          fullHeight
+                          setCursorData={setCursorData}
+                          onCtrlEnter={handleQuery}
+                          resizeDependency={!!queryResults}
+                        />
+                      </Flex>
+                    </AreaWithHeader>
+                  </Panel>
+                  {queryResults && (
+                    <>
+                      <PanelResizeHandle />
+                      <Panel order={2}>
+                        <AreaWithHeader
+                          header={
+                            <Flex align="center" gap="1">
+                              <Text weight="bold" size="2">
+                                Query Results
+                              </Text>
+                            </Flex>
+                          }
+                        >
+                          <DisplayTestQueryResults
+                            duration={parseInt(queryResults.duration || "0")}
+                            results={queryResults.results || []}
+                            sql={queryResults.sql || ""}
+                            error={queryResults.error || ""}
+                            close={() => setQueryResults(null)}
+                          />
+                        </AreaWithHeader>
+                      </Panel>
+                    </>
+                  )}
+                </PanelGroup>
+              </Panel>
+
+              <PanelResizeHandle />
+
+              <Panel defaultSize={25}>
+                <AreaWithHeader
+                  header={
+                    <Flex align="center" gap="1">
+                      <Button variant="ghost" size="xs">
+                        <PiCaretDoubleRight />
+                      </Button>
+                      <Text
+                        weight="bold"
+                        style={{ color: "var(--color-text-high)" }}
+                      >
+                        Data Sources
+                      </Text>
+                    </Flex>
+                  }
+                >
+                  <Flex direction="column" height="100%" px="4" py="5">
+                    <Select
+                      value={selectedDatasourceId}
+                      setValue={(value) => setSelectedDatasourceId(value)}
+                      placeholder="Select a data source..."
+                      size="2"
+                    >
+                      {validDatasources.map((d) => (
+                        <SelectItem key={d.id} value={d.id}>
+                          {d.name}
+                          {d.description ? ` — ${d.description}` : ""}
+                        </SelectItem>
+                      ))}
+                    </Select>
+                    {supportsSchemaBrowser && (
+                      <SchemaBrowser
+                        updateSqlInput={(sql: string) => {
+                          form.setValue("sql", sql);
+                        }}
+                        datasource={datasource}
+                        cursorData={cursorData || undefined}
+                      />
+                    )}
+                  </Flex>
+                </AreaWithHeader>
+              </Panel>
+            </PanelGroup>
+          </TabsContent>
+
+          <TabsContent value="visualization" style={{ flex: 1 }}>
+            <SqlExplorerDataVisualization rows={queryResults?.results || []} />
+          </TabsContent>
+        </Tabs>
+      </Box>
+
+      {/* <Button
+            color="outline-primary"
+            className="btn-sm ml-2"
+            onClick={() =>
+              handleDownload(queryResults?.results || [])
+            }
+            disabled={!queryResults?.results}
+            type="button"
           >
-            <div className={styles.left}>
-              <div className="d-flex flex-column h-100">
+            <span className="pr-2">
+              <FaSave />
+            </span>
+            Download Results
+          </Button> */}
+
+      {/* <PanelGroup
+        direction="horizontal"
+        style={{
+        }}
+      >
+        <Panel>
+          <PanelGroup direction="vertical">
+            <div className="d-flex flex-column h-100">
+              <Panel className="d-flex flex-column h-100">
                 <div className="bg-light p-1">
                   <div className="row align-items-center">
                     <div className="col-auto">
-                      <Flex align="center">
-                        <Tooltip
-                          body="You do not have permission to run test queries"
-                          shouldDisplay={!canRunQueries}
-                        >
-                          <Button
-                            color="primary"
-                            className="btn-sm"
-                            onClick={handleQuery}
-                            loading={testingQuery}
-                            disabled={!canRunQueries}
-                            type="button"
-                          >
-                            <span className="pr-2">
-                              <FaPlay />
-                            </span>
-                            Run
-                          </Button>
-                        </Tooltip>
-                        {canShowSaveButton && (
-                          <Tooltip
-                            body={
-                              !canSaveQueries
-                                ? "You do not have permission to save queries"
-                                : "Save this query for future use"
-                            }
-                            shouldDisplay={!canSaveQueries}
-                          >
-                            <Button
-                              color="outline-primary"
-                              className="btn-sm ml-2"
-                              onClick={() => setShowSaveQueryModal(true)}
-                              disabled={!canSaveQueries}
-                              type="button"
-                            >
-                              <span className="pr-2">
-                                <FaSave />
-                              </span>
-                              Save Query
-                            </Button>
-                          </Tooltip>
-                        )}
-                        <Button
-                          color="outline-primary"
-                          className="btn-sm ml-2"
-                          onClick={() =>
-                            handleDownload(testQueryResults?.results || [])
-                          }
-                          disabled={!testQueryResults?.results}
-                          type="button"
-                        >
-                          <span className="pr-2">
-                            <FaSave />
-                          </span>
-                          Download Results
-                        </Button>
-                        {/* )} */}
-                        {canFormat ? (
-                          <RadixButton
-                            variant="ghost"
-                            onClick={handleFormatClick}
-                            disabled={!form.watch("sql")}
-                          >
-                            Format
-                          </RadixButton>
-                        ) : null}
-                        {formatError && (
-                          <Tooltip body={formatError}>
-                            <FaExclamationTriangle className="text-danger" />
-                          </Tooltip>
-                        )}
-                        <div className="pl-2">
-                          <Tooltip body="GrowthBook automatically limits the results to 1000 rows">
-                            <Checkbox
-                              disabled={true}
-                              label="Limit 1000"
-                              value={true}
-                              setValue={() =>
-                                console.log("changing limit is disabled")
-                              }
-                            />
-                          </Tooltip>
-                        </div>
-                      </Flex>
+                      
                     </div>
                   </div>
                 </div>
@@ -389,50 +458,56 @@ export default function SqlExplorerModal({
                     </div>
                   </div>
                 )}
-                <div className="" style={{ flex: 1 }}>
-                  <CodeTextArea
-                    required
-                    language="sql"
-                    value={form.watch("sql")}
-                    setValue={(v) => {
-                      if (formatError) {
-                        setFormatError(null);
-                      }
-                      form.setValue("sql", v);
-                    }}
-                    placeholder="Enter your SQL query here..."
-                    helpText={""}
-                    fullHeight
-                    setCursorData={setCursorData}
-                    onCtrlEnter={handleQuery}
-                    resizeDependency={!!testQueryResults}
-                  />
-                </div>
-                {testQueryResults && (
-                  <DisplayTestQueryResults
-                    duration={parseInt(testQueryResults.duration || "0")}
-                    results={testQueryResults.results || []}
-                    sql={testQueryResults.sql || ""}
-                    error={testQueryResults.error || ""}
-                    close={() => setTestQueryResults(null)}
-                  />
-                )}
-              </div>
+              </Panel>
+              {queryResults && (
+                <>
+                  <PanelResizeHandle />
+                  <Panel>
+                    <DisplayTestQueryResults
+                      duration={parseInt(queryResults.duration || "0")}
+                      results={queryResults.results || []}
+                      sql={queryResults.sql || ""}
+                      error={queryResults.error || ""}
+                      close={() => setQueryResults(null)}
+                    />
+                  </Panel>
+                </>
+              )}
             </div>
-            {supportsSchemaBrowser && (
-              <div className={styles.right + " border-left"}>
-                <SchemaBrowser
-                  updateSqlInput={(sql: string) => {
-                    form.setValue("sql", sql);
-                  }}
-                  datasource={datasource}
-                  cursorData={cursorData || undefined}
-                />
-              </div>
-            )}
-          </div>
-        </Page>
-      </PagedModal>
-    </>
+          </PanelGroup>
+        </Panel>
+
+        <PanelResizeHandle />
+
+        <Panel>
+          
+        </Panel>
+      </PanelGroup> */}
+    </Modal>
+  );
+}
+
+// TODO: Find a better name
+function AreaWithHeader({
+  children,
+  header,
+}: {
+  children: React.ReactNode;
+  header: React.ReactNode;
+}) {
+  return (
+    <Flex
+      direction="column"
+      height="100%"
+      style={{
+        border: "1px solid var(--gray-a3)",
+        borderRadius: "var(--radius-4)",
+      }}
+    >
+      <Box px="4" py="2" style={{ borderBottom: "1px solid var(--gray-a3)" }}>
+        {header}
+      </Box>
+      <Box flexGrow="1">{children}</Box>
+    </Flex>
   );
 }
