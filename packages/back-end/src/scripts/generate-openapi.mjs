@@ -3,7 +3,7 @@ import fs from "fs";
 import * as url from "url";
 import SwaggerParser from "@apidevtools/swagger-parser";
 import openapiTS from "openapi-typescript";
-import { parseSchema } from "json-schema-to-zod";
+import { parseSchema, parseObject } from "json-schema-to-zod";
 import { load } from "js-yaml";
 
 const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
@@ -103,11 +103,21 @@ function generateZodSchema(jsonSchema, coerceStringsToNumbers = true) {
     return `z.never()`;
   }
 
-  let zod = parseSchema(jsonSchema);
+  const parserOverride = (objectSchema, refs) => {
+    if (objectSchema.type === "object") {
+      const parsed = parseObject(objectSchema, refs);
 
-  if (zod.startsWith("z.object")) {
-    zod += ".strict()";
-  }
+      if (parsed.startsWith("z.object")) return `${parsed}.strict()`;
+
+      return parsed;
+    }
+  };
+
+  let zod = parseSchema(jsonSchema, {
+    seen: new Map(),
+    path: [],
+    parserOverride,
+  });
 
   if (coerceStringsToNumbers) {
     zod = zod.replace(/z\.number\(\)/g, "z.coerce.number()");
