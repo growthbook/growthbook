@@ -84,6 +84,15 @@ Our official Helm chart is available on [Artifact Hub](https://artifacthub.io/pa
 - For local testing and development, use Minikube.
 :::
 
+### Add the Helm Repository
+
+First, add the GrowthBook Helm repository to your local Helm installation:
+
+```bash
+helm repo add growthbook oci://ghcr.io/growthbook/charts/growhtbook
+helm repo update
+```
+
 ### Minimal Prerequisites
 
 Before you apply the example values files, make sure you complete these minimal prerequisites for your environment:
@@ -129,6 +138,10 @@ The example values files below use `sslip.io` for demonstration purposes. For pr
 **Environment Configuration**
 
 In the next step you will need to decide on which environment to deploy to and configure your values files accordingly before installation.
+
+:::info
+The examples below provide minimal configurations to get you started quickly. For a complete list of all available configuration options and advanced customization, refer to the [full values.yaml file](https://github.com/growthbook/growthbook/tree/main/charts/growthbook/values.yaml) in our repository.
+:::
 
 ### Environment-Specific Values
 
