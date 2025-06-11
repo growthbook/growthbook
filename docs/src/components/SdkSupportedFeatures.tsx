@@ -16,7 +16,7 @@ const capabilityDetails = {
       </svg>
     ),
     label: "Features",
-    link: "/features",
+    link: "/app/features",
   },
   experimentation: {
     icon: () => (
@@ -31,7 +31,7 @@ const capabilityDetails = {
       </svg>
     ),
     label: "Experimentation",
-    link: "/experimentation",
+    link: "/experiments",
   },
   looseUnmarshalling: {
     icon: undefined,
