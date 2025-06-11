@@ -67,7 +67,10 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
     (query: SavedQuery) => {
       // Only allow row click for queries the user can edit
       const datasource = getDatasourceById(query.datasourceId);
-      if (datasource && permissionsUtil.canUpdateSavedQueries(datasource)) {
+      if (
+        datasource &&
+        permissionsUtil.canUpdateSqlExplorerQueries(datasource)
+      ) {
         handleEdit(query);
       }
     },
@@ -78,7 +81,7 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
     (query: SavedQuery) => {
       const datasource = getDatasourceById(query.datasourceId);
       return datasource
-        ? permissionsUtil.canUpdateSavedQueries(datasource)
+        ? permissionsUtil.canUpdateSqlExplorerQueries(datasource)
         : false;
     },
     [getDatasourceById, permissionsUtil]
@@ -88,7 +91,7 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
     (query: SavedQuery) => {
       const datasource = getDatasourceById(query.datasourceId);
       return datasource
-        ? permissionsUtil.canDeleteSavedQueries(datasource)
+        ? permissionsUtil.canDeleteSqlExplorerQueries(datasource)
         : false;
     },
     [getDatasourceById, permissionsUtil]

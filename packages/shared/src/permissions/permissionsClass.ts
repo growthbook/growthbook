@@ -777,34 +777,46 @@ export class Permissions {
     return this.checkProjectFilterPermission(datasource, "runQueries");
   };
 
-  public canViewSavedQueries = (
+  public canViewSqlExplorerQueries = (
     datasource: Pick<DataSourceInterface, "projects">
   ): boolean => {
     return this.canReadMultiProjectResource(datasource.projects);
   };
 
-  public canCreateSavedQueries = (
+  public canCreateSqlExplorerQueries = (
     datasource: Pick<DataSourceInterface, "projects">
   ): boolean => {
-    return this.checkProjectFilterPermission(datasource, "runQueries");
+    return this.checkProjectFilterPermission(
+      datasource,
+      "runSqlExplorerQueries"
+    );
   };
 
-  public canUpdateSavedQueries = (
+  public canUpdateSqlExplorerQueries = (
     datasource: Pick<DataSourceInterface, "projects">
   ): boolean => {
-    return this.checkProjectFilterPermission(datasource, "runQueries");
+    return this.checkProjectFilterPermission(
+      datasource,
+      "runSqlExplorerQueries"
+    );
   };
 
-  public canDeleteSavedQueries = (
+  public canDeleteSqlExplorerQueries = (
     datasource: Pick<DataSourceInterface, "projects">
   ): boolean => {
-    return this.checkProjectFilterPermission(datasource, "runQueries");
+    return this.checkProjectFilterPermission(
+      datasource,
+      "runSqlExplorerQueries"
+    );
   };
 
-  public canRunSavedQueries = (
+  public canRunSqlExplorerQueries = (
     datasource: Pick<DataSourceInterface, "projects">
   ): boolean => {
-    return this.checkProjectFilterPermission(datasource, "runQueries");
+    return this.checkProjectFilterPermission(
+      datasource,
+      "runSqlExplorerQueries"
+    );
   };
 
   // ENV_SCOPED_PERMISSIONS

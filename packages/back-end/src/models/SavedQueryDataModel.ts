@@ -28,20 +28,26 @@ const BaseClass = MakeModelClass({
 export class SavedQueryDataModel extends BaseClass {
   protected canRead(doc: SavedQuery): boolean {
     const { datasource } = this.getForeignRefs(doc);
-    return this.context.permissions.canReadMultiProjectResource(
-      datasource?.projects || []
-    );
+    return this.context.permissions.canViewSqlExplorerQueries({
+      projects: datasource?.projects || [],
+    });
   }
   protected canCreate(doc: SavedQuery): boolean {
     const { datasource } = this.getForeignRefs(doc);
-    return this.context.permissions.canRunSavedQueries({
+    return this.context.permissions.canRunSqlExplorerQueries({
       projects: datasource?.projects || [],
     });
   }
   protected canUpdate(existing: SavedQuery): boolean {
-    return this.canCreate(existing);
+    const { datasource } = this.getForeignRefs(existing);
+    return this.context.permissions.canUpdateSqlExplorerQueries({
+      projects: datasource?.projects || [],
+    });
   }
   protected canDelete(doc: SavedQuery): boolean {
-    return this.canCreate(doc);
+    const { datasource } = this.getForeignRefs(doc);
+    return this.context.permissions.canDeleteSqlExplorerQueries({
+      projects: datasource?.projects || [],
+    });
   }
 }

@@ -8,6 +8,7 @@ import Button from "@/components/Radix/Button";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import SqlExplorerModal from "@/components/SchemaBrowser/SqlExplorerModal";
 import SavedQueriesList from "@/components/SavedQueries/SavedQueriesList";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 export default function SqlExplorer() {
   const { datasources, project } = useDefinitions();
@@ -21,6 +22,12 @@ export default function SqlExplorer() {
   const hasDatasource = datasources.some((d) =>
     isProjectListValidForProject(d.projects, project)
   );
+
+  const permissionsUtil = usePermissionsUtil();
+
+  const canCreateSavedQueries = permissionsUtil.canCreateSqlExplorerQueries({
+    projects: [project],
+  });
 
   const savedQueries = data?.savedQueries || [];
   const hasSavedQueries = savedQueries.length > 0;
@@ -43,7 +50,7 @@ export default function SqlExplorer() {
     <div className="container pagecontents">
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h1>SQL Explorer</h1>
-        {hasDatasource && (
+        {hasDatasource && canCreateSavedQueries && (
           <Button onClick={() => setShowModal(true)}>New Query</Button>
         )}
       </div>
@@ -58,11 +65,11 @@ export default function SqlExplorer() {
           <div className="mt-3">
             {!hasDatasource ? (
               <LinkButton href="/datasources">Connect Data Source</LinkButton>
-            ) : (
+            ) : canCreateSavedQueries ? (
               <Button onClick={() => setShowModal(true)}>
                 Start Exploring
               </Button>
-            )}
+            ) : null}
           </div>
         </div>
       ) : (

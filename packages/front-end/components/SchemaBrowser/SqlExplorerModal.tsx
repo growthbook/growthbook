@@ -88,18 +88,18 @@ export default function SqlExplorerModal({
 
   const datasource = getDatasourceById(selectedDatasourceId);
   const canRunQueries = datasource
-    ? permissionsUtil.canRunTestQueries(datasource)
-    : null;
-  const canSaveQueries = datasource
-    ? permissionsUtil.canCreateSavedQueries(datasource)
-    : null;
+    ? permissionsUtil.canRunSqlExplorerQueries(datasource)
+    : false;
+  const canCreateQueries = datasource
+    ? permissionsUtil.canCreateSqlExplorerQueries(datasource)
+    : false;
   const supportsSchemaBrowser =
     datasource?.properties?.supportsInformationSchema;
 
   const canFormat = datasource ? canFormatSql(datasource.type) : false;
 
   const canSave: boolean =
-    canSaveQueries === true &&
+    canCreateQueries &&
     !!queryResults?.results &&
     !!form.watch("sql").trim() &&
     dirty;
