@@ -6,6 +6,7 @@ import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { AreaWithHeader } from "./SqlExplorerModal";
 
 type Props = {
   datasource: DataSourceInterfaceWithParams;
@@ -80,77 +81,79 @@ export default function DatasourceSchema({
 
   if (!table) return null;
   return (
-    <div
-      className="d-flex flex-column"
-      style={{
-        boxShadow: "0 -3px 5px -1px var(--border-color-200)",
-        position: "relative",
-        flex: 1,
-        height: "50%",
-      }}
-    >
-      <div className="d-flex justify-content-between px-2 pt-2">
-        <label className="font-weight-bold">
-          <div>
-            <FaTable />{" "}
+    <AreaWithHeader
+      header={
+        <div className="d-flex justify-content-between px-2">
+          <label className="font-weight-bold mb-1 d-flex align-items-center">
+            <FaTable />
             {table ? (
-              datasource.type === "growthbook_clickhouse" ? (
-                `${table.tableName}`
-              ) : (
-                `${table.tableSchema}.${table.tableName}`
-              )
+              <span
+                className="px-1"
+                style={{
+                  wordBreak: "break-word",
+                  overflowWrap: "break-word",
+                }}
+              >
+                {datasource.type === "growthbook_clickhouse"
+                  ? table.tableName
+                  : `${table.tableSchema}.${table.tableName}`}
+              </span>
             ) : (
               <LoadingSpinner />
             )}
-          </div>
-        </label>
-        {table && (
-          <label>
-            <Tooltip
-              body={
-                <div>
-                  <div>
-                    {`Last Updated: ${new Date(
-                      table.dateUpdated
-                    ).toLocaleString()}`}
-                  </div>
-                  {!canRunQueries ? (
-                    <div className="alert alert-warning mt-2">
-                      You do not have permission to refresh this information
-                      schema.
-                    </div>
-                  ) : null}
-                </div>
-              }
-              tipPosition="top"
-            >
-              <button
-                className="btn btn-link p-0 text-secondary"
-                disabled={fetching}
-                onClick={async (e) => {
-                  e.preventDefault();
-                  setDateLastUpdated(table.dateUpdated);
-                  setError(null);
-                  try {
-                    await apiCall<{
-                      status: number;
-                      table?: InformationSchemaTablesInterface;
-                    }>(`/datasource/${datasourceId}/schema/table/${table.id}`, {
-                      method: "PUT",
-                    });
-                    setFetching(true);
-                  } catch (e) {
-                    setError(e.message);
-                  }
-                }}
-              >
-                {fetching ? <LoadingSpinner /> : <FaRedo />}
-              </button>
-            </Tooltip>
           </label>
-        )}
-      </div>
-      <div className="border rounded" style={{ overflowY: "auto" }}>
+          {table && (
+            <label>
+              <Tooltip
+                body={
+                  <div>
+                    <div>
+                      {`Last Updated: ${new Date(
+                        table.dateUpdated
+                      ).toLocaleString()}`}
+                    </div>
+                    {!canRunQueries ? (
+                      <div className="alert alert-warning mt-2">
+                        You do not have permission to refresh this information
+                        schema.
+                      </div>
+                    ) : null}
+                  </div>
+                }
+                tipPosition="top"
+              >
+                <button
+                  className="btn btn-link p-0 text-secondary"
+                  disabled={fetching}
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    setDateLastUpdated(table.dateUpdated);
+                    setError(null);
+                    try {
+                      await apiCall<{
+                        status: number;
+                        table?: InformationSchemaTablesInterface;
+                      }>(
+                        `/datasource/${datasourceId}/schema/table/${table.id}`,
+                        {
+                          method: "PUT",
+                        }
+                      );
+                      setFetching(true);
+                    } catch (e) {
+                      setError(e.message);
+                    }
+                  }}
+                >
+                  {fetching ? <LoadingSpinner /> : <FaRedo />}
+                </button>
+              </Tooltip>
+            </label>
+          )}
+        </div>
+      }
+    >
+      <div style={{ overflow: "auto", height: "100%" }}>
         <table className="table table-sm">
           <tbody>
             {table?.columns.map((column) => {
@@ -166,6 +169,6 @@ export default function DatasourceSchema({
           </tbody>
         </table>
       </div>
-    </div>
+    </AreaWithHeader>
   );
 }

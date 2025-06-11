@@ -192,7 +192,7 @@ export default function SqlExplorerModal({
       closeCta="Close"
       cta="Save & Close"
       ctaEnabled={canSave}
-      header={`${savedQuery ? "Edit" : "New"} SQL Query`}
+      header={`Sql Explorer`}
       headerClassName={styles["modal-header-backgroundless"]}
       open={true}
       showHeaderCloseButton={false}
@@ -202,7 +202,8 @@ export default function SqlExplorerModal({
       useRadixButton={true}
     >
       <Box
-        p="4"
+        px="4"
+        pb="2"
         style={{
           // 95vh is the max height of the modal
           // 125px is the height of the header and footer + 2px for the borders
@@ -288,7 +289,7 @@ export default function SqlExplorerModal({
             <PanelGroup direction="horizontal">
               <Panel>
                 <PanelGroup direction="vertical">
-                  <Panel order={1}>
+                  <Panel order={1} className="bg-light">
                     <AreaWithHeader
                       header={
                         <Flex align="center" justify="between">
@@ -365,7 +366,7 @@ export default function SqlExplorerModal({
                   {queryResults && (
                     <>
                       <PanelResizeHandle />
-                      <Panel order={2} className="border rounded">
+                      <Panel order={2} className="border rounded bg-light">
                         <DisplayTestQueryResults
                           duration={parseInt(queryResults.duration || "0")}
                           results={queryResults.results || []}
@@ -381,7 +382,7 @@ export default function SqlExplorerModal({
 
               <PanelResizeHandle />
 
-              <Panel defaultSize={25}>
+              <Panel defaultSize={25} className="bg-light">
                 <AreaWithHeader
                   header={
                     <Flex align="center" gap="1">
@@ -403,6 +404,7 @@ export default function SqlExplorerModal({
                       setValue={(value) => setSelectedDatasourceId(value)}
                       placeholder="Select a data source..."
                       size="2"
+                      mb="2"
                     >
                       {validDatasources.map((d) => (
                         <SelectItem key={d.id} value={d.id}>
@@ -431,118 +433,12 @@ export default function SqlExplorerModal({
           </TabsContent>
         </Tabs>
       </Box>
-
-      {/* <Button
-            color="outline-primary"
-            className="btn-sm ml-2"
-            onClick={() =>
-              handleDownload(queryResults?.results || [])
-            }
-            disabled={!queryResults?.results}
-            type="button"
-          >
-            <span className="pr-2">
-              <FaSave />
-            </span>
-            Download Results
-          </Button> */}
-
-      {/* <PanelGroup
-        direction="horizontal"
-        style={{
-        }}
-      >
-        <Panel>
-          <PanelGroup direction="vertical">
-            <div className="d-flex flex-column h-100">
-              <Panel className="d-flex flex-column h-100">
-                <div className="bg-light p-1">
-                  <div className="row align-items-center">
-                    <div className="col-auto">
-                      
-                    </div>
-                  </div>
-                </div>
-                {(hasEventName || hasValueCol) && (
-                  <div className="bg-light px-3 py-1 border-top form-inline">
-                    <div className="row align-items-center">
-                      <div className="col-auto">
-                        <strong>SQL Template Variables:</strong>
-                      </div>
-                      {hasEventName && (
-                        <div className="col-auto">
-                          <Field
-                            label="eventName"
-                            labelClassName="mr-2"
-                            value={templateVariables?.eventName || ""}
-                            onChange={(e) =>
-                              setTemplateVariables({
-                                ...templateVariables,
-                                eventName: e.target.value,
-                              })
-                            }
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" && e.ctrlKey) {
-                                handleQuery();
-                              }
-                            }}
-                          />
-                        </div>
-                      )}
-                      {hasValueCol && (
-                        <div className="col-auto">
-                          <Field
-                            label="valueColumn"
-                            labelClassName="mr-2"
-                            value={templateVariables?.valueColumn || ""}
-                            onChange={(e) =>
-                              setTemplateVariables({
-                                ...templateVariables,
-                                valueColumn: e.target.value,
-                              })
-                            }
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" && e.ctrlKey) {
-                                handleQuery();
-                              }
-                            }}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </Panel>
-              {queryResults && (
-                <>
-                  <PanelResizeHandle />
-                  <Panel>
-                    <DisplayTestQueryResults
-                      duration={parseInt(queryResults.duration || "0")}
-                      results={queryResults.results || []}
-                      sql={queryResults.sql || ""}
-                      error={queryResults.error || ""}
-                      close={() => setQueryResults(null)}
-                    />
-                  </Panel>
-                </>
-              )}
-            </div>
-          </PanelGroup>
-        </Panel>
-
-        <PanelResizeHandle />
-
-        <Panel>
-          
-        </Panel>
-      </PanelGroup> */}
     </Modal>
   );
 }
 
 // TODO: Find a better name
-function AreaWithHeader({
+export function AreaWithHeader({
   children,
   header,
 }: {
@@ -556,12 +452,15 @@ function AreaWithHeader({
       style={{
         border: "1px solid var(--gray-a3)",
         borderRadius: "var(--radius-4)",
+        overflow: "hidden",
       }}
     >
       <Box px="4" py="2" style={{ borderBottom: "1px solid var(--gray-a3)" }}>
         {header}
       </Box>
-      <Box flexGrow="1">{children}</Box>
+      <Box flexGrow="1" style={{ overflow: "hidden", minHeight: 0 }}>
+        {children}
+      </Box>
     </Flex>
   );
 }
