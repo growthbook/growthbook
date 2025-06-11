@@ -6,11 +6,7 @@ import {
   FaCheck,
   FaTimes,
 } from "react-icons/fa";
-import {
-  PiCaretDoubleRight,
-  PiDownloadSimpleThin,
-  PiPencilSimpleFill,
-} from "react-icons/pi";
+import { PiCaretDoubleRight, PiPencilSimpleFill } from "react-icons/pi";
 import { TestQueryRow } from "back-end/src/types/Integration";
 import { SavedQuery } from "back-end/src/validators/saved-queries";
 import { Box, Flex, Text, Tooltip } from "@radix-ui/themes";
@@ -24,7 +20,6 @@ import Button from "@/components/Radix/Button";
 import { Select, SelectItem } from "@/components/Radix/Select";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { formatSql, canFormatSql } from "@/services/sqlFormatter";
-import { convertToCSV, downloadCSVFile } from "@/services/sql";
 import {
   Tabs,
   TabsContent,
@@ -177,20 +172,6 @@ export default function SqlExplorerModal({
   const validDatasources = datasources.filter(
     (d) => d.type !== "google_analytics"
   );
-
-  function handleDownload(results: TestQueryRow[]) {
-    //MKTODO: Add error state rather than alert (just waiting for design to be finalized)
-    if (!results.length) {
-      alert("No data to export.");
-      return;
-    }
-    const csv = convertToCSV(results);
-    if (!csv) {
-      alert("No data to export.");
-      return;
-    }
-    downloadCSVFile(csv);
-  }
 
   // Pre-fill results if we're editing a saved query with existing results
   useEffect(() => {
@@ -384,34 +365,14 @@ export default function SqlExplorerModal({
                   {queryResults && (
                     <>
                       <PanelResizeHandle />
-                      <Panel order={2}>
-                        <AreaWithHeader
-                          header={
-                            <Flex align="center" justify="between" gap="1">
-                              <Text weight="bold" size="2">
-                                Query Results
-                              </Text>
-                              <Button
-                                variant="ghost"
-                                size="xs"
-                                onClick={() =>
-                                  handleDownload(queryResults.results || [])
-                                }
-                              >
-                                {/* TODO: Replace this button */}
-                                <PiDownloadSimpleThin size={16} /> Download CSV
-                              </Button>
-                            </Flex>
-                          }
-                        >
-                          <DisplayTestQueryResults
-                            duration={parseInt(queryResults.duration || "0")}
-                            results={queryResults.results || []}
-                            sql={queryResults.sql || ""}
-                            error={queryResults.error || ""}
-                            close={() => setQueryResults(null)}
-                          />
-                        </AreaWithHeader>
+                      <Panel order={2} className="border rounded">
+                        <DisplayTestQueryResults
+                          duration={parseInt(queryResults.duration || "0")}
+                          results={queryResults.results || []}
+                          sql={queryResults.sql || ""}
+                          error={queryResults.error || ""}
+                          allowDownload={true}
+                        />
                       </Panel>
                     </>
                   )}
