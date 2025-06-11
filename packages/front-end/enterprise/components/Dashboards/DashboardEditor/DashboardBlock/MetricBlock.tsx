@@ -1,85 +1,40 @@
 import React from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { ExperimentMetricInterface } from "shared/experiments";
-import { DashboardBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
-import SelectField from "@/components/Forms/SelectField";
+import { MetricBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import BaselineChooser from "@/components/Experiment/BaselineChooser";
 import VariationChooser from "@/components/Experiment/VariationChooser";
-
-export function MetricSelector({
-  metricId,
-  setMetricId,
-  options,
-}: {
-  metricId: string;
-  setMetricId: (metricId: string) => void;
-  options: { label: string; options: { label: string; value: string }[] }[];
-}) {
-  return (
-    <div className="mb-3">
-      <SelectField
-        value={metricId}
-        placeholder="Select a Metric"
-        options={options}
-        onChange={setMetricId}
-      />
-    </div>
-  );
-}
+import { useDashboardSettings } from "../../DashboardSettingsProvider";
+import { ExperimentMetricSelector } from "../DashboardSettingsHeader";
+import { useDashboardSnapshot } from "../../DashboardSnapshotProvider";
+import { BlockProps, withExperiment } from ".";
 
 export default function MetricBlock({
-  metricId,
-  variationIds,
-  baselineRow,
+  metricId: metricIdOverride,
+  variationIds: variationIdsOverride,
+  baselineRow: baselineRowOverride,
   isEditing,
   setBlock,
   experiment,
-}: {
-  metricId: string;
-  variationIds: string[];
-  baselineRow: number;
-  isEditing: boolean;
-  setBlock: (block: DashboardBlockInterface) => void;
-  experiment: ExperimentInterfaceStringDates;
-}) {
+}: withExperiment<BlockProps<MetricBlockInterface>>) {
+  const {
+    defaultMetricId,
+    baselineRow: defaultBaselineRow,
+    defaultVariationIds,
+  } = useDashboardSettings();
+  const metricId = metricIdOverride || defaultMetricId;
+  const baselineRow = baselineRowOverride || defaultBaselineRow;
+  const variationIds = variationIdsOverride || defaultVariationIds;
   const { getExperimentMetricById } = useDefinitions();
   const {
     snapshot,
     analysis,
     mutateSnapshot,
-    setAnalysisSettings,
     analysisSettings,
-  } = useSnapshot();
+  } = useDashboardSnapshot();
   const orgSettings = useOrgSettings();
   const pValueCorrection = orgSettings?.pValueCorrection;
-
-  const goalMetrics = experiment.goalMetrics
-    .map((id) => getExperimentMetricById(id))
-    .filter(Boolean) as ExperimentMetricInterface[];
-  const secondaryMetrics = experiment.secondaryMetrics
-    .map((id) => getExperimentMetricById(id))
-    .filter(Boolean) as ExperimentMetricInterface[];
-  const guardrailMetrics = experiment.guardrailMetrics
-    .map((id) => getExperimentMetricById(id))
-    .filter(Boolean) as ExperimentMetricInterface[];
-  const metricOptions = [
-    {
-      label: "Goal Metrics",
-      options: goalMetrics.map((m) => ({ label: m.name, value: m.id })),
-    },
-    {
-      label: "Secondary Metrics",
-      options: secondaryMetrics.map((m) => ({ label: m.name, value: m.id })),
-    },
-    {
-      label: "Guardrail Metrics",
-      options: guardrailMetrics.map((m) => ({ label: m.name, value: m.id })),
-    },
-  ];
 
   const metric = getExperimentMetricById(metricId);
 
@@ -87,33 +42,33 @@ export default function MetricBlock({
     setBlock({
       type: "metric",
       metricId: value,
-      variationIds: experiment.variations.map((v) => v.key || ""),
-      baselineRow,
+      variationIds: variationIdsOverride,
+      baselineRow: baselineRowOverride,
     });
 
   const setVariationFilter = (variations: number[]) => {
     setBlock({
       type: "metric",
-      metricId,
+      metricId: metricIdOverride,
       variationIds: variations.map(toString),
-      baselineRow,
+      baselineRow: baselineRowOverride,
     });
   };
 
-  const setBaselineRow = (row) =>
+  const setBaselineRow = (row: number) =>
     setBlock({
       type: "metric",
-      metricId,
-      variationIds,
+      metricId: metricIdOverride,
+      variationIds: variationIdsOverride,
       baselineRow: row,
     });
 
   if (!metric && isEditing) {
     return (
-      <MetricSelector
+      <ExperimentMetricSelector
         metricId={metricId}
         setMetricId={setMetricId}
-        options={metricOptions}
+        experiment={experiment}
       />
     );
   }
@@ -173,10 +128,10 @@ export default function MetricBlock({
   return (
     <div className="metric-block">
       {isEditing && (
-        <MetricSelector
+        <ExperimentMetricSelector
           metricId={metricId}
           setMetricId={setMetricId}
-          options={metricOptions}
+          experiment={experiment}
         />
       )}
       <div className="row align-items-center mb-3">
@@ -185,11 +140,11 @@ export default function MetricBlock({
             dropdownEnabled={isEditing}
             variations={experiment.variations}
             setVariationFilter={setVariationFilter}
-            setAnalysisSettings={setAnalysisSettings}
+            setAnalysisSettings={() => {}}
             baselineRow={baselineRow}
             setBaselineRow={setBaselineRow}
             snapshot={snapshot}
-            analysis={analysis}
+            analysis={analysis || undefined}
             mutate={mutateSnapshot}
           />
           <em className="text-muted mx-3" style={{ marginTop: 15 }}>

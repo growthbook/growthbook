@@ -1,7 +1,22 @@
 import mongoose from "mongoose";
+import uniqid from "uniqid";
+import { v4 as uuidv4 } from "uuid";
+import { DashboardBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
+import {
+  removeMongooseFields,
+  ToInterface,
+} from "back-end/src/util/mongo.util";
+import { DistributiveOmit } from "back-end/src/util/types";
 
-export const blockSchema = new mongoose.Schema(
+export type DashboardBlockData<
+  T extends DashboardBlockInterface
+> = DistributiveOmit<T, "id" | "uid" | "organization">;
+
+export const dashboardBlockSchema = new mongoose.Schema(
   {
+    organization: String,
+    id: String,
+    uid: String,
     type: {
       type: String,
       required: true,
@@ -54,11 +69,36 @@ const timeSeriesBlockSchema = new mongoose.Schema({
   dateEnd: Date,
 });
 
-export const BlockModel = mongoose.model("DashboardBlock", blockSchema);
+dashboardBlockSchema.index({
+  uid: 1,
+});
 
-BlockModel.discriminator("markdown", markdownBlockSchema);
-BlockModel.discriminator("metadata", metadataBlockSchema);
-BlockModel.discriminator("variation-image", variationImageBlockSchema);
-BlockModel.discriminator("metric", metricBlockSchema);
-BlockModel.discriminator("dimension", dimensionBlockSchema);
-BlockModel.discriminator("time-series", timeSeriesBlockSchema);
+export const DashboardBlockModel = mongoose.model(
+  "DashboardBlock",
+  dashboardBlockSchema
+);
+
+DashboardBlockModel.discriminator("markdown", markdownBlockSchema);
+DashboardBlockModel.discriminator("metadata", metadataBlockSchema);
+DashboardBlockModel.discriminator("variation-image", variationImageBlockSchema);
+DashboardBlockModel.discriminator("metric", metricBlockSchema);
+DashboardBlockModel.discriminator("dimension", dimensionBlockSchema);
+DashboardBlockModel.discriminator("time-series", timeSeriesBlockSchema);
+
+const toInterface: ToInterface<DashboardBlockInterface> = (doc) => {
+  return removeMongooseFields<DashboardBlockInterface>(doc);
+};
+
+export async function createDashboardBlock(
+  organization: string,
+  initialValue: DashboardBlockData<DashboardBlockInterface>
+) {
+  const block = await DashboardBlockModel.create({
+    ...initialValue,
+    organization,
+    id: uniqid("dshblk_"),
+    uid: uuidv4().replace(/-/g, ""),
+  });
+
+  return toInterface(block);
+}

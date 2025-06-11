@@ -1,12 +1,11 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { getValidDate } from "shared/dates";
-import { ExperimentMetricInterface } from "shared/experiments";
+import { TimeSeriesBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
 import ExperimentMetricTimeSeriesGraphWrapper from "@/components/Experiment/ExperimentMetricTimeSeriesGraphWrapper";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { MetricSelector } from "./MetricBlock";
-import { Block } from ".";
+import { ExperimentMetricSelector } from "../DashboardSettingsHeader";
+import { BlockProps, withExperiment } from ".";
 
 export default function TimeSeriesBlock({
   experiment,
@@ -16,46 +15,15 @@ export default function TimeSeriesBlock({
   dateEnd,
   isEditing,
   setBlock,
-}: {
-  experiment: ExperimentInterfaceStringDates;
-  metricId: string;
-  variationIds: string[];
-  dateStart: Date;
-  dateEnd: Date;
-  isEditing: boolean;
-  setBlock: (block: Block) => void;
-}) {
+}: withExperiment<BlockProps<TimeSeriesBlockInterface>>) {
+  metricId ||= "";
   const { snapshot, analysisSettings } = useSnapshot();
   const orgSettings = useOrgSettings();
   const pValueCorrection = orgSettings?.pValueCorrection;
   const { getExperimentMetricById } = useDefinitions();
-  const showVariations = experiment.variations.map((v) =>
-    variationIds.includes(v.id)
+  const showVariations = experiment.variations.map(
+    (v) => !variationIds || variationIds.includes(v.id)
   );
-
-  const goalMetrics = experiment.goalMetrics
-    .map((id) => getExperimentMetricById(id))
-    .filter(Boolean) as ExperimentMetricInterface[];
-  const secondaryMetrics = experiment.secondaryMetrics
-    .map((id) => getExperimentMetricById(id))
-    .filter(Boolean) as ExperimentMetricInterface[];
-  const guardrailMetrics = experiment.guardrailMetrics
-    .map((id) => getExperimentMetricById(id))
-    .filter(Boolean) as ExperimentMetricInterface[];
-  const metricOptions = [
-    {
-      label: "Goal Metrics",
-      options: goalMetrics.map((m) => ({ label: m.name, value: m.id })),
-    },
-    {
-      label: "Secondary Metrics",
-      options: secondaryMetrics.map((m) => ({ label: m.name, value: m.id })),
-    },
-    {
-      label: "Guardrail Metrics",
-      options: guardrailMetrics.map((m) => ({ label: m.name, value: m.id })),
-    },
-  ];
 
   const setMetricId = (value: string) =>
     setBlock({
@@ -70,10 +38,10 @@ export default function TimeSeriesBlock({
 
   if (!metric && isEditing) {
     return (
-      <MetricSelector
+      <ExperimentMetricSelector
         metricId={metricId}
         setMetricId={setMetricId}
-        options={metricOptions}
+        experiment={experiment}
       />
     );
   }
@@ -130,10 +98,10 @@ export default function TimeSeriesBlock({
   return (
     <div className="time-series-block">
       {isEditing && (
-        <MetricSelector
+        <ExperimentMetricSelector
           metricId={metricId}
           setMetricId={setMetricId}
-          options={metricOptions}
+          experiment={experiment}
         />
       )}
       <ExperimentMetricTimeSeriesGraphWrapper

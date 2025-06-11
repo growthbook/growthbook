@@ -126,6 +126,7 @@ import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { generateExperimentReportSSRData } from "back-end/src/services/reports";
 import { DashboardInstanceInterface } from "back-end/src/enterprise/validators/dashboard-instance";
 import { orgHasPremiumFeature } from "back-end/src/enterprise/licenseUtil";
+import { createDashboardBlock } from "back-end/src/enterprise/models/DashboardBlockModel";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
 
@@ -3316,7 +3317,7 @@ export async function postExperimentDashboard(
   }
 
   const { id } = req.params;
-  const { title, blocks } = req.body;
+  const { title, blocks, settings } = req.body;
 
   const experiment = await getExperimentById(context, id);
   if (!experiment) {
@@ -3347,9 +3348,28 @@ export async function postExperimentDashboard(
     return;
   }
 
+  if (!settings) {
+    res.status(400).json({
+      status: 400,
+      message: "Settings are required",
+    });
+    return;
+  }
+
+  settings.dateStart = getValidDate(
+    settings.dateStart,
+    new Date(Date.now() - 30 * 1000 * 3600 * 24)
+  );
+  settings.dateEnd = getValidDate(settings.dateEnd, new Date());
+
+  const createdBlocks = await Promise.all(
+    blocks.map((blockData) => createDashboardBlock(context.org.id, blockData))
+  );
+
   const dashboard = await context.models.dashboards.create({
     title,
-    blocks,
+    blocks: createdBlocks,
+    settings,
   });
 
   // Add the dashboard to the experiment
