@@ -77,6 +77,15 @@ const LoggedInPageGuard = ({
         <div className="alert alert-danger">
           Your account has been disabled. Please contact administrator.
         </div>
+        <Button
+          className="ml-auto"
+          onClick={async () => {
+            await safeLogout();
+          }}
+          color="danger"
+        >
+          Log Out
+        </Button>
       </div>
     );
   }
