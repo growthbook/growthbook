@@ -1,10 +1,7 @@
 import { z } from "zod";
 
-export const dataVizConfigValidator = z.object({
-  chartType: z.enum(["bar", "line", "pie", "scatter", "area", "donut"]),
-  xAxis: z.string(),
-  yAxis: z.string(),
-});
+// TODO: Add a proper type for the data viz config
+export const dataVizConfigValidator = z.any();
 
 export const savedQueryValidator = z
   .object({

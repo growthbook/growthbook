@@ -33,7 +33,6 @@ import {
   PanelResizeHandle,
 } from "@/components/ResizablePanels";
 import Modal from "../Modal";
-import SqlExplorerDataVisualization from "../DataViz/SqlExplorerDataVisualization";
 import SchemaBrowser from "./SchemaBrowser";
 import styles from "./EditSqlModal.module.scss";
 
@@ -339,8 +338,6 @@ export default function SqlExplorerModal({
                 )}
               </Flex>
             </TabsTrigger>
-
-            <TabsTrigger value="visualization">Visualization</TabsTrigger>
           </TabsList>
 
           <TabsContent value="sql" style={{ flex: 1 }}>
@@ -488,10 +485,6 @@ export default function SqlExplorerModal({
                 </AreaWithHeader>
               </Panel>
             </PanelGroup>
-          </TabsContent>
-
-          <TabsContent value="visualization" style={{ flex: 1 }}>
-            <SqlExplorerDataVisualization rows={queryResults?.results || []} />
           </TabsContent>
         </Tabs>
       </Box>
