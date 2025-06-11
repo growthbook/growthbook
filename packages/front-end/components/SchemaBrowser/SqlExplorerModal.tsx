@@ -8,11 +8,9 @@ import {
 } from "react-icons/fa";
 import { PiCaretDoubleRight, PiPencilSimpleFill } from "react-icons/pi";
 import { TestQueryRow } from "back-end/src/types/Integration";
-import {
-  DataVizConfig,
-  SavedQuery,
-} from "back-end/src/validators/saved-queries";
+import { SavedQuery } from "back-end/src/validators/saved-queries";
 import { Box, Flex, Text, Tooltip } from "@radix-ui/themes";
+import { getValidDate } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { validateSQL } from "@/services/datasources";
@@ -49,19 +47,9 @@ export type QueryResults = {
 export interface Props {
   close: () => void;
   datasourceId?: string;
-  savedQuery?: SavedQueryFromAPI;
+  savedQuery?: Omit<SavedQuery, "dateCreated" | "dateUpdated">;
   mutate: () => void;
 }
-
-// Type that reflects the actual API response where dates are strings
-type SavedQueryFromAPI = Omit<
-  SavedQuery,
-  "dateCreated" | "dateUpdated" | "dateLastRan"
-> & {
-  dateCreated: string;
-  dateUpdated: string;
-  dateLastRan?: string;
-};
 
 export default function SqlExplorerModal({
   close,
@@ -79,11 +67,13 @@ export default function SqlExplorerModal({
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempName, setTempName] = useState("");
 
-  const form = useForm({
+  const form = useForm<Omit<SavedQuery, "dateCreated" | "dateUpdated">>({
     defaultValues: {
       name: savedQuery?.name || "",
       sql: savedQuery?.sql || "",
-      dateLastRan: savedQuery?.dateLastRan || undefined,
+      dateLastRan: savedQuery?.dateLastRan
+        ? getValidDate(savedQuery.dateLastRan)
+        : undefined,
       dataVizConfig: savedQuery?.dataVizConfig || undefined,
       datasourceId: savedQuery?.datasourceId || "",
       results: savedQuery?.results || [],
@@ -118,7 +108,7 @@ export default function SqlExplorerModal({
     async (sql: string) => {
       setQueryResults(null);
       validateSQL(sql, []);
-      form.setValue("dateLastRan", new Date().toISOString());
+      form.setValue("dateLastRan", new Date());
       const res: QueryResults = await apiCall("/query/run", {
         method: "POST",
         body: JSON.stringify({
