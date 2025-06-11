@@ -1,7 +1,12 @@
 import { useCallback, useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { FaPlay, FaExclamationTriangle } from "react-icons/fa";
-import { PiCaretDoubleRight } from "react-icons/pi";
+import {
+  FaPlay,
+  FaExclamationTriangle,
+  FaCheck,
+  FaTimes,
+} from "react-icons/fa";
+import { PiCaretDoubleRight, PiPencilSimpleFill } from "react-icons/pi";
 import { TestQueryRow } from "back-end/src/types/Integration";
 import { SavedQuery } from "back-end/src/validators/saved-queries";
 import { Box, Flex, Text, Tooltip } from "@radix-ui/themes";
@@ -12,10 +17,6 @@ import CodeTextArea from "@/components/Forms/CodeTextArea";
 import { CursorData } from "@/components/Segments/SegmentForm";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import Button from "@/components/Radix/Button";
-import {
-  usesEventName,
-  usesValueColumn,
-} from "@/components/Metrics/MetricForm";
 import { Select, SelectItem } from "@/components/Radix/Select";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { formatSql, canFormatSql } from "@/services/sqlFormatter";
@@ -59,14 +60,17 @@ export default function SqlExplorerModal({
   const [selectedDatasourceId, setSelectedDatasourceId] = useState(
     savedQuery?.datasourceId || initialDatasourceId || ""
   );
+  const [loading, setLoading] = useState(false);
   const [isRunningQuery, setIsRunningQuery] = useState(false);
   const [queryResults, setQueryResults] = useState<QueryResults | null>(null);
-  const [dateLastRan, setDateLastRan] = useState(savedQuery?.dateLastRan);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [tempName, setTempName] = useState("");
 
   const form = useForm({
     defaultValues: {
       name: savedQuery?.name || "",
       sql: savedQuery?.sql || "",
+      dateLastRan: savedQuery?.dateLastRan || undefined,
     },
   });
 
@@ -75,10 +79,6 @@ export default function SqlExplorerModal({
   const { getDatasourceById, datasources } = useDefinitions();
   const [cursorData, setCursorData] = useState<null | CursorData>(null);
   const [formatError, setFormatError] = useState<string | null>(null);
-  const [templateVariables, setTemplateVariables] = useState<{
-    eventName?: string;
-    valueColumn?: string;
-  }>({});
 
   const datasource = getDatasourceById(selectedDatasourceId);
   const canRunQueries = datasource
@@ -92,25 +92,16 @@ export default function SqlExplorerModal({
 
   const canFormat = datasource ? canFormatSql(datasource.type) : false;
 
-  const hasEventName = usesEventName(form.watch("sql"));
-  const hasValueCol = usesValueColumn(form.watch("sql"));
-
-  // Check if query has been run successfully
-  const hasValidResults =
-    queryResults !== null &&
-    queryResults.error === undefined &&
-    queryResults.results !== undefined;
-
-  const canSave =
+  const canSave: boolean =
     canSaveQueries === true &&
-    hasValidResults === true &&
+    !!queryResults?.results &&
     !!form.watch("sql").trim();
 
-  const runTestQuery = useCallback(
+  const runQuery = useCallback(
     async (sql: string) => {
       setQueryResults(null);
       validateSQL(sql, []);
-      setDateLastRan(new Date());
+      form.setValue("dateLastRan", new Date());
       const res: QueryResults = await apiCall("/query/run", {
         method: "POST",
         body: JSON.stringify({
@@ -121,13 +112,42 @@ export default function SqlExplorerModal({
       });
       return res;
     },
-    [apiCall, selectedDatasourceId]
+    [apiCall, form, selectedDatasourceId]
   );
+
+  const handleSubmit = async () => {
+    setLoading(true);
+    //TODO: Validate form values
+
+    let url = "/saved-queries";
+    let method = "POST";
+    if (savedQuery?.id) {
+      url = `/saved-queries/${savedQuery.id}`;
+      method = "PUT";
+    }
+    try {
+      await apiCall(url, {
+        method,
+        body: JSON.stringify({
+          name: form.watch("name"),
+          sql: form.watch("sql"),
+          datasourceId: selectedDatasourceId,
+          dateLastRan: form.watch("dateLastRan"),
+          results: queryResults?.results,
+        }),
+      });
+      mutate();
+      close();
+    } catch (error) {
+      setLoading(false);
+      throw new Error("Failed to save the query. Reason: " + error);
+    }
+  };
 
   const handleQuery = useCallback(async () => {
     setIsRunningQuery(true);
     try {
-      const res = await runTestQuery(form.watch("sql"));
+      const res = await runQuery(form.watch("sql"));
       setQueryResults({ ...res, error: res.error ? res.error : "" });
     } catch (e) {
       setQueryResults({
@@ -137,7 +157,7 @@ export default function SqlExplorerModal({
       });
     }
     setIsRunningQuery(false);
-  }, [form, runTestQuery]);
+  }, [form, runQuery]);
 
   const handleFormatClick = () => {
     const result = formatSql(form.watch("sql"), datasource?.type);
@@ -183,6 +203,7 @@ export default function SqlExplorerModal({
       bodyClassName="p-0"
       borderlessHeader={true}
       close={close}
+      loading={loading}
       closeCta="Close"
       cta="Save & Close"
       ctaEnabled={canSave}
@@ -191,7 +212,7 @@ export default function SqlExplorerModal({
       open={true}
       showHeaderCloseButton={false}
       size="max"
-      submit={() => {}}
+      submit={async () => await handleSubmit()}
       trackingEventModalType="sql-explorer"
       useRadixButton={true}
     >
@@ -210,10 +231,68 @@ export default function SqlExplorerModal({
           <TabsList mb="4">
             <TabsTrigger value="sql">
               <Flex align="center" gap="2">
-                New SQL Query{" "}
-                {/* <Button variant="ghost" size="sm">
-                  <PiPencilSimpleFill color="var(--accent-11)" />
-                </Button> */}
+                {isEditingName ? (
+                  <Flex align="center" gap="2">
+                    <input
+                      type="text"
+                      value={tempName}
+                      onChange={(e) => setTempName(e.target.value)}
+                      style={{
+                        padding: "4px 8px",
+                        border: "1px solid var(--gray-a6)",
+                        borderRadius: "var(--radius-2)",
+                        fontSize: "14px",
+                        backgroundColor: "var(--color-surface)",
+                        color: "var(--color-text-high)",
+                        minWidth: "150px",
+                      }}
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          form.setValue("name", tempName);
+                          setIsEditingName(false);
+                        } else if (e.key === "Escape") {
+                          setTempName(form.watch("name"));
+                          setIsEditingName(false);
+                        }
+                      }}
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setTempName(form.watch("name"));
+                        setIsEditingName(false);
+                      }}
+                    >
+                      <FaTimes color="var(--gray-11)" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        form.setValue("name", tempName);
+                        setIsEditingName(false);
+                      }}
+                    >
+                      <FaCheck color="var(--accent-11)" />
+                    </Button>
+                  </Flex>
+                ) : (
+                  <>
+                    {form.watch("name") || "New SQL Query"}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setTempName(form.watch("name"));
+                        setIsEditingName(true);
+                      }}
+                    >
+                      <PiPencilSimpleFill color="var(--accent-11)" />
+                    </Button>
+                  </>
+                )}
               </Flex>
             </TabsTrigger>
 

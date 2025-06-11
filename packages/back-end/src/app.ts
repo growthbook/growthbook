@@ -789,8 +789,8 @@ app.get(
 // Saved Queries
 app.get("/saved-queries", savedQueriesController.getSavedQueries);
 app.post("/saved-queries", savedQueriesController.postSavedQuery);
-app.put("/saved-query/:id", savedQueriesController.putSavedQuery);
-app.delete("/saved-query/:id", savedQueriesController.deleteSavedQuery);
+app.put("/saved-queries/:id", savedQueriesController.putSavedQuery);
+app.delete("/saved-queries/:id", savedQueriesController.deleteSavedQuery);
 
 // Events
 app.use("/events", eventsRouter);
