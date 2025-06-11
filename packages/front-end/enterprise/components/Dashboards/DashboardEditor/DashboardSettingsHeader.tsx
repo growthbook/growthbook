@@ -1,28 +1,78 @@
 import React, { useMemo } from "react";
-import { DashboardSettings } from "back-end/src/enterprise/validators/dashboard-instance";
 import { Flex } from "@radix-ui/themes";
+import { ExperimentMetricInterface } from "shared/experiments";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import SelectField from "@/components/Forms/SelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useDashboardSettings } from "../DashboardSettingsProvider";
 
-interface Props {
-  isEditing: boolean;
-  settings: DashboardSettings;
-  updateSettings: (newSettings: DashboardSettings) => void;
+export function ExperimentMetricSelector({
+  disabled,
+  label,
+  metricId,
+  setMetricId,
+  experiment,
+}: {
+  disabled?: boolean;
+  label?: string;
+  metricId: string;
+  setMetricId: (metricId: string) => void;
+  experiment: ExperimentInterfaceStringDates;
+}) {
+  const { getExperimentMetricById } = useDefinitions();
+
+  const goalMetrics = experiment.goalMetrics
+    .map((id) => getExperimentMetricById(id))
+    .filter(Boolean) as ExperimentMetricInterface[];
+  const secondaryMetrics = experiment.secondaryMetrics
+    .map((id) => getExperimentMetricById(id))
+    .filter(Boolean) as ExperimentMetricInterface[];
+  const guardrailMetrics = experiment.guardrailMetrics
+    .map((id) => getExperimentMetricById(id))
+    .filter(Boolean) as ExperimentMetricInterface[];
+  const metricOptions = [
+    {
+      label: "Goal Metrics",
+      options: goalMetrics.map((m) => ({ label: m.name, value: m.id })),
+    },
+    {
+      label: "Secondary Metrics",
+      options: secondaryMetrics.map((m) => ({ label: m.name, value: m.id })),
+    },
+    {
+      label: "Guardrail Metrics",
+      options: guardrailMetrics.map((m) => ({ label: m.name, value: m.id })),
+    },
+  ];
+
+  return (
+    <div className="mb-3">
+      <SelectField
+        disabled={disabled}
+        label={label}
+        value={metricId}
+        placeholder="Select a Metric"
+        options={metricOptions}
+        onChange={setMetricId}
+      />
+    </div>
+  );
 }
+
 export default function DashboardSettingsHeader({
   isEditing,
-  settings,
-  updateSettings,
-}: Props) {
-  const { metrics, factMetrics, dimensions } = useDefinitions();
-  const factMetricOptions = useMemo(
-    () => factMetrics.map(({ id, name }) => ({ label: name, value: id })),
-    [factMetrics]
-  );
-  const legacyMetricOptions = useMemo(
-    () => metrics.map(({ id, name }) => ({ label: name, value: id })),
-    [metrics]
-  );
+  experiment,
+}: {
+  isEditing: boolean;
+  experiment: ExperimentInterfaceStringDates;
+}) {
+  const { dimensions } = useDefinitions();
+  const {
+    defaultMetricId,
+    setDefaultMetricId,
+    defaultDimensionId,
+    setDefaultDimensionId,
+  } = useDashboardSettings();
   const dimensionOptions = useMemo(
     () => dimensions.map(({ id, name }) => ({ label: name, value: id })),
     [dimensions]
@@ -30,26 +80,19 @@ export default function DashboardSettingsHeader({
 
   return (
     <Flex align="center" gap="1">
-      <SelectField
+      <ExperimentMetricSelector
         disabled={!isEditing}
         label="Default Metric"
-        value={settings.defaultMetricId}
-        options={[
-          { label: "Fact Metrics", options: factMetricOptions },
-          { label: "Legacy Metrics", options: legacyMetricOptions },
-        ]}
-        onChange={(mid) =>
-          updateSettings({ ...settings, defaultMetricId: mid })
-        }
+        metricId={defaultMetricId}
+        experiment={experiment}
+        setMetricId={setDefaultMetricId}
       />
       <SelectField
         disabled={!isEditing}
         label="Default Dimension"
-        value={settings.defaultDimensionId}
+        value={defaultDimensionId}
         options={dimensionOptions}
-        onChange={(did) =>
-          updateSettings({ ...settings, defaultDimensionId: did })
-        }
+        onChange={setDefaultDimensionId}
       />
     </Flex>
   );

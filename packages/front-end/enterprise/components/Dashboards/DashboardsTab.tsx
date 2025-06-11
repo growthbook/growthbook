@@ -28,9 +28,7 @@ export default function DashboardsTab({ experiment, mutate }: Props) {
         }}
         cancel={() => setIsEditing(false)}
         setEditing={setIsEditing}
-        submit={async (
-          dashboardData: Pick<DashboardInstanceInterface, "title" | "blocks">
-        ) => {
+        submit={async (dashboardData) => {
           const res = await apiCall<{
             status: number;
             dashboard: DashboardInstanceInterface;

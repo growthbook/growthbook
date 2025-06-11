@@ -1,9 +1,9 @@
 import React from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { DashboardBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
+import { MetadataBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
 import SelectField from "@/components/Forms/SelectField";
 import ExperimentHypothesis from "@/components/Experiment/TabbedPage/ExperimentHypothesis";
 import ExperimentDescription from "@/components/Experiment/TabbedPage/ExperimentDescription";
+import { BlockProps, withExperiment } from ".";
 
 export default function MetadataBlock({
   subtype,
@@ -11,13 +11,7 @@ export default function MetadataBlock({
   setBlock,
   experiment,
   mutate,
-}: {
-  subtype: "description" | "hypothesis";
-  isEditing: boolean;
-  setBlock: (block: DashboardBlockInterface) => void;
-  experiment: ExperimentInterfaceStringDates;
-  mutate: () => void;
-}) {
+}: withExperiment<BlockProps<MetadataBlockInterface>>) {
   return (
     <>
       {isEditing && (
@@ -32,6 +26,7 @@ export default function MetadataBlock({
             setBlock({
               type: "metadata",
               subtype: value as "description" | "hypothesis",
+              experimentId: experiment.id,
             })
           }
         />

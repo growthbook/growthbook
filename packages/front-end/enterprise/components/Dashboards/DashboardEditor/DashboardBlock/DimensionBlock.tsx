@@ -1,15 +1,14 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { ExperimentMetricInterface } from "shared/experiments";
 import { DifferenceType } from "back-end/types/stats";
+import { DimensionBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
-import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import BaselineChooser from "@/components/Experiment/BaselineChooser";
 import VariationChooser from "@/components/Experiment/VariationChooser";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { MetricSelector } from "./MetricBlock";
-import { Block } from "./index";
+import { ExperimentMetricSelector } from "../DashboardSettingsHeader";
+import { useDashboardSnapshot } from "../../DashboardSnapshotProvider";
+import { withExperiment, BlockProps } from ".";
 
 export default function DimensionBlock({
   dimensionId,
@@ -21,53 +20,21 @@ export default function DimensionBlock({
   setBlock,
   experiment,
   differenceType,
-}: {
-  dimensionId: string;
-  dimensionValues: string[];
-  baselineRow: number;
-  variationIds: string[];
-  metricId: string;
-  isEditing: boolean;
-  setBlock: (block: Block) => void;
-  experiment: ExperimentInterfaceStringDates;
-  differenceType: DifferenceType;
-}) {
+}: withExperiment<BlockProps<DimensionBlockInterface>>) {
+  variationIds ||= [];
+  baselineRow ||= 0;
+  metricId ||= "";
+  dimensionId ||= "";
   const {
     snapshot,
     analysis,
     mutateSnapshot,
     analysisSettings,
-    setAnalysisSettings,
-    setDimension,
-  } = useSnapshot();
+  } = useDashboardSnapshot();
   const orgSettings = useOrgSettings();
   const pValueCorrection = orgSettings?.pValueCorrection;
 
   const { getExperimentMetricById } = useDefinitions();
-
-  const goalMetrics = experiment.goalMetrics
-    .map((id) => getExperimentMetricById(id))
-    .filter(Boolean) as ExperimentMetricInterface[];
-  const secondaryMetrics = experiment.secondaryMetrics
-    .map((id) => getExperimentMetricById(id))
-    .filter(Boolean) as ExperimentMetricInterface[];
-  const guardrailMetrics = experiment.guardrailMetrics
-    .map((id) => getExperimentMetricById(id))
-    .filter(Boolean) as ExperimentMetricInterface[];
-  const metricOptions = [
-    {
-      label: "Goal Metrics",
-      options: goalMetrics.map((m) => ({ label: m.name, value: m.id })),
-    },
-    {
-      label: "Secondary Metrics",
-      options: secondaryMetrics.map((m) => ({ label: m.name, value: m.id })),
-    },
-    {
-      label: "Guardrail Metrics",
-      options: guardrailMetrics.map((m) => ({ label: m.name, value: m.id })),
-    },
-  ];
 
   const setMetricId = (value: string) =>
     setBlock({
@@ -80,8 +47,7 @@ export default function DimensionBlock({
       differenceType,
     });
 
-  const setDimensionId = (value: string) => {
-    setDimension(value);
+  const updateDimensionId = (value: string) => {
     setBlock({
       type: "dimension",
       metricId,
@@ -131,10 +97,10 @@ export default function DimensionBlock({
 
   if (!metric && isEditing) {
     return (
-      <MetricSelector
+      <ExperimentMetricSelector
         metricId={metricId}
         setMetricId={setMetricId}
-        options={metricOptions}
+        experiment={experiment}
       />
     );
   }
@@ -194,10 +160,10 @@ export default function DimensionBlock({
   return (
     <div className="dimension-block">
       {isEditing && (
-        <MetricSelector
+        <ExperimentMetricSelector
           metricId={metricId}
           setMetricId={setMetricId}
-          options={metricOptions}
+          experiment={experiment}
         />
       )}
 
@@ -206,7 +172,7 @@ export default function DimensionBlock({
           dropdownEnabled={isEditing}
           variations={experiment.variations}
           setVariationFilter={setVariationFilter}
-          setAnalysisSettings={setAnalysisSettings}
+          setAnalysisSettings={() => {}}
           baselineRow={baselineRow}
           setBaselineRow={setBaselineRow}
           snapshot={snapshot}
@@ -225,7 +191,7 @@ export default function DimensionBlock({
         />
         <DimensionChooser
           value={dimensionId}
-          setValue={setDimensionId}
+          setValue={updateDimensionId}
           activationMetric={!!experiment.activationMetric}
           datasourceId={experiment.datasource}
           exposureQueryId={experiment.exposureQueryId}
@@ -234,7 +200,7 @@ export default function DimensionBlock({
           setVariationFilter={setVariationFilter}
           setBaselineRow={setBaselineRow}
           setDifferenceType={setDifferenceType}
-          setAnalysisSettings={setAnalysisSettings}
+          setAnalysisSettings={() => {}}
         />
       </div>
       <ResultsTable

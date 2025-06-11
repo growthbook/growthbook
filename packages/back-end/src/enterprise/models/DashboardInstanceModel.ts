@@ -4,7 +4,7 @@ import {
   DashboardInstanceInterface,
 } from "back-end/src/enterprise/validators/dashboard-instance";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
-import { blockSchema } from "./DashboardBlockModel";
+import { dashboardBlockSchema } from "./DashboardBlockModel";
 
 export const dashboardInstanceSchema = new mongoose.Schema({
   id: {
@@ -22,7 +22,7 @@ export const dashboardInstanceSchema = new mongoose.Schema({
   defaultVariationIds: [String],
   dateStart: Date,
   dateEnd: Date,
-  blocks: [blockSchema],
+  blocks: [dashboardBlockSchema],
 });
 
 dashboardInstanceSchema.index({

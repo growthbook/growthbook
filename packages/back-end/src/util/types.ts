@@ -63,3 +63,7 @@ export function ensureAndReturn<T>(x: T): NonNullable<T> {
   ensure(x);
   return x;
 }
+
+export type DistributiveOmit<T, K extends PropertyKey> = T extends any
+  ? Omit<T, K>
+  : never;
