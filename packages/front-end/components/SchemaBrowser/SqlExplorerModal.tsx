@@ -37,6 +37,7 @@ import {
   PanelResizeHandle,
 } from "@/components/ResizablePanels";
 import Modal from "../Modal";
+import SqlExplorerDataVisualization from "../DataViz/SqlExplorerDataVisualization";
 import SelectField from "../Forms/SelectField";
 import SchemaBrowser from "./SchemaBrowser";
 import styles from "./EditSqlModal.module.scss";
@@ -372,6 +373,8 @@ export default function SqlExplorerModal({
                     </>
                   )}
                 </Flex>
+
+                <TabsTrigger value="visualization">Visualization</TabsTrigger>
               </TabsTrigger>
             </TabsList>
             {!readOnlyMode ? (
@@ -542,6 +545,10 @@ export default function SqlExplorerModal({
                 </>
               ) : null}
             </PanelGroup>
+          </TabsContent>
+
+          <TabsContent value="visualization" style={{ flex: 1 }}>
+            <SqlExplorerDataVisualization rows={queryResults?.results || []} />
           </TabsContent>
         </Tabs>
       </Box>
