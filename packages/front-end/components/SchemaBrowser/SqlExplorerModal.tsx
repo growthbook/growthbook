@@ -125,13 +125,31 @@ export default function SqlExplorerModal({
   const handleSubmit = async () => {
     setLoading(true);
 
+    // Validate required name field
+    const currentName = form.watch("name")?.trim();
+    if (!currentName) {
+      setLoading(false);
+      setIsEditingName(true);
+      setTempName("");
+      throw new Error("You must enter a name for your query");
+    }
+
+    // Validate that the name only contains letters, numbers, hyphens, and underscores
+    if (!currentName.match(/^[a-zA-Z0-9_.:|-]+$/)) {
+      setLoading(false);
+      setIsEditingName(true);
+      throw new Error(
+        "Query name can only contain letters, numbers, hyphens, and underscores"
+      );
+    }
+
     // If it's a new query (no savedQuery.id), always save
     if (!savedQuery?.id) {
       try {
         await apiCall("/saved-queries", {
           method: "POST",
           body: JSON.stringify({
-            name: form.watch("name"),
+            name: currentName,
             sql: form.watch("sql"),
             datasourceId: selectedDatasourceId,
             dateLastRan: form.watch("dateLastRan"),
@@ -160,7 +178,7 @@ export default function SqlExplorerModal({
       await apiCall(`/saved-queries/${savedQuery.id}`, {
         method: "PUT",
         body: JSON.stringify({
-          name: form.watch("name"),
+          name: currentName,
           sql: form.watch("sql"),
           datasourceId: selectedDatasourceId,
           dateLastRan: form.watch("dateLastRan"),
@@ -231,6 +249,7 @@ export default function SqlExplorerModal({
       open={true}
       showHeaderCloseButton={false}
       size="max"
+      autoCloseOnSubmit={false}
       submit={async () => await handleSubmit()}
       trackingEventModalType="sql-explorer"
       useRadixButton={true}
@@ -258,6 +277,7 @@ export default function SqlExplorerModal({
                     <input
                       type="text"
                       value={tempName}
+                      placeholder="Enter a name..."
                       onChange={(e) => setTempName(e.target.value)}
                       style={{
                         padding: "4px 8px",
@@ -304,7 +324,7 @@ export default function SqlExplorerModal({
                   </Flex>
                 ) : (
                   <>
-                    {form.watch("name") || "New SQL Query"}
+                    {form.watch("name") || "Untitled Query..."}
                     <Button
                       variant="ghost"
                       size="sm"
