@@ -15,14 +15,16 @@ export const dashboardInstanceSchema = new mongoose.Schema({
   dateCreated: Date,
   dateUpdated: Date,
   title: String,
-  defaultMetricId: String,
-  defaultDimensionId: String,
-  baselineRow: String,
-  defaultDimensionValues: [String],
-  defaultVariationIds: [String],
-  dateStart: Date,
-  dateEnd: Date,
   blocks: [dashboardBlockSchema],
+  settings: {
+    baselineRow: String,
+    dateStart: Date,
+    dateEnd: Date,
+    defaultMetricId: String,
+    defaultVariationIds: [String],
+    defaultDimensionId: String,
+    defaultDimensionValues: [String],
+  },
 });
 
 dashboardInstanceSchema.index({
