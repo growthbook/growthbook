@@ -8,9 +8,11 @@ import {
 } from "react-icons/fa";
 import { PiCaretDoubleRight, PiPencilSimpleFill } from "react-icons/pi";
 import { TestQueryRow } from "back-end/src/types/Integration";
-import { SavedQuery } from "back-end/src/validators/saved-queries";
+import {
+  DataVizConfig,
+  SavedQuery,
+} from "back-end/src/validators/saved-queries";
 import { Box, Flex, Text, Tooltip } from "@radix-ui/themes";
-import { getValidDate } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -45,33 +47,32 @@ type QueryExecutionResult = {
   sql?: string;
 };
 
-type SavedQueryFormData = {
-  name: string;
-  sql: string;
-  datasourceId: string;
-  dateLastRan?: Date;
-  dataVizConfig?: any;
-  results: TestQueryRow[];
-};
-
 export interface Props {
   close: () => void;
+  sql?: string;
+  name?: string;
   datasourceId?: string;
-  savedQuery?: Omit<SavedQuery, "dateCreated" | "dateUpdated">;
+  results?: TestQueryRow[];
+  dataVizConfig?: DataVizConfig[];
+  id?: string;
   mutate: () => void;
 }
 
 export default function SqlExplorerModal({
   close,
-  datasourceId: initialDatasourceId,
-  savedQuery,
+  sql,
+  name,
+  datasourceId,
+  results,
+  dataVizConfig,
+  id,
   mutate,
 }: Props) {
   const [showDataSourcesPanel, setShowDataSourcesPanel] = useState(true);
   const [selectedDatasourceId, setSelectedDatasourceId] = useState(
-    savedQuery?.datasourceId || initialDatasourceId || ""
+    datasourceId || ""
   );
-  const [dirty, setDirty] = useState(savedQuery?.id ? false : true);
+  const [dirty, setDirty] = useState(name ? false : true);
   const [loading, setLoading] = useState(false);
   const [isRunningQuery, setIsRunningQuery] = useState(false);
   const [
@@ -81,16 +82,14 @@ export default function SqlExplorerModal({
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempName, setTempName] = useState("");
 
-  const form = useForm<SavedQueryFormData>({
+  const form = useForm<Omit<SavedQuery, "dateCreated" | "dateUpdated">>({
     defaultValues: {
-      name: savedQuery?.name || "",
-      sql: savedQuery?.sql || "",
-      dateLastRan: savedQuery?.dateLastRan
-        ? getValidDate(savedQuery.dateLastRan)
-        : undefined,
-      dataVizConfig: savedQuery?.dataVizConfig || undefined,
-      datasourceId: savedQuery?.datasourceId || "",
-      results: savedQuery?.results || [],
+      name: name || "",
+      sql: sql || "",
+      dateLastRan: undefined,
+      dataVizConfig: dataVizConfig || undefined,
+      datasourceId: datasourceId || "",
+      results: results || [],
     },
   });
 
@@ -162,7 +161,7 @@ export default function SqlExplorerModal({
     }
 
     // If it's a new query (no savedQuery.id), always save
-    if (!savedQuery?.id) {
+    if (!id) {
       try {
         await apiCall("/saved-queries", {
           method: "POST",
@@ -193,7 +192,7 @@ export default function SqlExplorerModal({
 
     // Something changed, so save the updates
     try {
-      await apiCall(`/saved-queries/${savedQuery.id}`, {
+      await apiCall(`/saved-queries/${id}`, {
         method: "PUT",
         body: JSON.stringify({
           name: currentName,
@@ -252,13 +251,13 @@ export default function SqlExplorerModal({
 
   // Pre-fill results if we're editing a saved query with existing results
   useEffect(() => {
-    if (savedQuery?.results && savedQuery.results.length > 0) {
+    if (results && results.length > 0) {
       setQueryExecution({
-        results: savedQuery.results,
-        sql: savedQuery.sql,
+        results,
+        sql,
       });
     }
-  }, [savedQuery]);
+  }, [results, sql]);
 
   return (
     <Modal
@@ -274,7 +273,7 @@ export default function SqlExplorerModal({
           ? "Upgrade to Pro and Enterprise plans to save queries."
           : undefined
       }
-      header={`${savedQuery?.id ? "Update" : "Create"} SQL Query`}
+      header={`${id ? "Update" : "Create"} SQL Query`}
       headerClassName={styles["modal-header-backgroundless"]}
       open={true}
       showHeaderCloseButton={false}
@@ -294,9 +293,7 @@ export default function SqlExplorerModal({
         }}
       >
         <Tabs
-          defaultValue={
-            savedQuery?.dataVizConfig?.length ? "visualization" : "sql"
-          }
+          defaultValue={dataVizConfig?.length ? "visualization" : "sql"}
           style={{ display: "flex", flexDirection: "column", height: "100%" }}
         >
           <Flex

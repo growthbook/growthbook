@@ -19,7 +19,6 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
   const { apiCall } = useAuth();
   const { getDatasourceById } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
-  const [showSqlExplorerModal, setShowSqlExplorerModal] = useState(false);
   const [selectedSavedQuery, setSelectedSavedQuery] = useState<
     SavedQuery | undefined
   >();
@@ -51,7 +50,6 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
 
   const handleEdit = useCallback((query: SavedQuery) => {
     setSelectedSavedQuery(query);
-    setShowSqlExplorerModal(true);
   }, []);
 
   const handleDuplicate = useCallback((query: SavedQuery) => {
@@ -60,7 +58,6 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
       id: "",
       name: `${query.name}-copy`,
     });
-    setShowSqlExplorerModal(true);
   }, []);
 
   const handleRowClick = useCallback(
@@ -99,13 +96,17 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
 
   return (
     <>
-      {showSqlExplorerModal && (
+      {selectedSavedQuery && (
         <SqlExplorerModal
           close={() => {
-            setShowSqlExplorerModal(false);
             setSelectedSavedQuery(undefined);
           }}
-          savedQuery={selectedSavedQuery}
+          sql={selectedSavedQuery?.sql}
+          name={selectedSavedQuery?.name}
+          datasourceId={selectedSavedQuery?.datasourceId}
+          results={selectedSavedQuery?.results}
+          dataVizConfig={selectedSavedQuery?.dataVizConfig}
+          id={selectedSavedQuery?.id}
           mutate={mutate}
         />
       )}
