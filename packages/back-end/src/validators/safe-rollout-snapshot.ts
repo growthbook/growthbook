@@ -77,7 +77,8 @@ export type SafeRolloutSnapshotTrafficDimension = z.infer<
 
 const safeRolloutSnapshotTrafficObject = z.object({
   overall: safeRolloutSnapshotTrafficDimensionObject,
-  dimension: z.record(z.string(),
+  dimension: z.record(
+    z.string(),
     z.array(safeRolloutSnapshotTrafficDimensionObject)
   ),
   error: z
