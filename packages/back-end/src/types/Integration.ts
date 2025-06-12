@@ -12,7 +12,7 @@ import {
 import { DimensionInterface } from "back-end/types/dimension";
 import { ExperimentSnapshotSettings } from "back-end/types/experiment-snapshot";
 import { MetricInterface, MetricType } from "back-end/types/metric";
-import { QueryStatistics } from "back-end/types/query";
+import { QueryColumn, QueryStatistics } from "back-end/types/query";
 import { SegmentInterface } from "back-end/types/segment";
 import { TemplateVariables } from "back-end/types/sql";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
@@ -426,6 +426,7 @@ export type DimensionSlicesQueryResponseRows = {
 // eslint-disable-next-line
 export type QueryResponse<Rows = Record<string, any>[]> = {
   rows: Rows;
+  columns?: QueryColumn[];
   statistics?: QueryStatistics;
 };
 
@@ -548,6 +549,9 @@ export interface FeatureUsageAggregateRow {
   evaluations: number;
 }
 export type FeatureUsageLookback = "15minute" | "hour" | "day" | "week";
+
+export type ColumnType = "boolean" | "number" | "string" | "datetime" | "binary" | "null" | "unknown";
+
 export interface SourceIntegrationInterface {
   datasource: DataSourceInterface;
   context: ReqContext;

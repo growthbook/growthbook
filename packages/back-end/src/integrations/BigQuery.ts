@@ -78,7 +78,11 @@ export default class BigQuery extends SqlIntegration {
       await setExternalId(job.id);
     }
 
-    const [rows] = await job.getQueryResults();
+    const [rows, schema] = await job.getQueryResults();
+    //TODO
+    //console.log(schema);
+    //const columns = schema?.fields?.map((f) => ({name: f.name, type: f.type}));
+
     const [metadata] = await job.getMetadata();
     const statistics = {
       executionDurationMs: Number(

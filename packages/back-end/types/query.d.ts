@@ -21,6 +21,11 @@ export type QueryStatistics = {
   partitionsUsed?: boolean;
 };
 
+export type QueryColumn = {
+  name: string;
+  type: string;
+};
+
 export type QueryType =
   | ""
   | "pastExperiment"
@@ -55,5 +60,6 @@ export interface QueryInterface {
   runAtEnd?: boolean; // only run when all other queries in model finish
   cachedQueryUsed?: string;
   statistics?: QueryStatistics;
+  columns?: QueryColumn[];
   externalId?: string;
 }

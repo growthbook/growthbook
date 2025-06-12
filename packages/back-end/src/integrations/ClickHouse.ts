@@ -52,6 +52,7 @@ export default class ClickHouse extends SqlIntegration {
     const data: ResponseJSON<Record<string, any>[]> = await results.json();
     return {
       rows: data.data ? data.data : [],
+      columns: data.meta,
       statistics: data.statistics
         ? {
             executionDurationMs: data.statistics.elapsed,

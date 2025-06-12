@@ -46,10 +46,54 @@ export function runPostgresQuery(
         } catch (e) {
           logger.warn(e, "Postgres query failed");
         }
-        resolve({ rows: res.rows });
+        resolve({ rows: res.rows, columns: res.fields.map((f) => ({name: f.name, type: inferPostgresType(f.dataTypeID)})) });
       })
       .catch((e) => {
         reject(e);
       });
   });
+}
+
+const numeric_oids = [
+  1700,
+  700,
+  701,
+  21,
+  23,
+  20
+]
+const string_oids = [
+  18,
+  19,
+  26,
+  25,
+  2950,
+  1043,
+]
+//const array_oids TODO
+const boolean_oids = [
+  16
+]
+const datetime_oids = [
+  1082,
+  1083,
+  1114,
+  1184,
+  1266,
+]
+const inferPostgresType = (dataTypeID: number) => {
+  // https://jdbc.postgresql.org/documentation/publicapi/constant-values.html
+  if (numeric_oids.includes(dataTypeID)) {
+    return "number";
+  }
+  if (string_oids.includes(dataTypeID)) {
+    return "string";
+  }
+  if (boolean_oids.includes(dataTypeID)) {
+    return "boolean";
+  }
+  if (datetime_oids.includes(dataTypeID)) {
+    return "datetime";
+  }
+  return "unknown";
 }

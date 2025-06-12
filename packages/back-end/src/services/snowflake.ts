@@ -1,7 +1,7 @@
 import { createPrivateKey } from "crypto";
 import { createConnection } from "snowflake-sdk";
 import { SnowflakeConnectionParams } from "back-end/types/integrations/snowflake";
-import { QueryResponse } from "back-end/src/types/Integration";
+import { ColumnType, QueryResponse } from "back-end/src/types/Integration";
 import { logger } from "back-end/src/util/logger";
 import { TEST_QUERY_SQL } from "back-end/src/integrations/SqlIntegration";
 
@@ -108,14 +108,16 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
     logger.warn(e, "Snowflake query tag failed");
   }
 
-  const res = await new Promise<T[]>((resolve, reject) => {
+  const res = await new Promise<{columns: {name: string, type: string}[], rows: T[]}>((resolve, reject) => {
     connection.execute({
       sqlText: sql,
       complete: (err, stmt, rows) => {
         if (err) {
           reject(err);
         } else {
-          resolve(rows || []);
+          const columns = stmt.getColumns().map((c) => ({name: c.getName(), type: c.getType()}));
+          console.log(columns);
+          resolve({columns, rows: rows || []});
         }
       },
     });
@@ -123,11 +125,33 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
 
   // Annoyingly, Snowflake turns all column names into all caps
   // Need to lowercase them here so they match other data sources
-  const lowercase = res.map((row) => {
+  const lowercase = res.rows.map((row) => {
     return Object.fromEntries(
       Object.entries(row).map(([k, v]) => [k.toLowerCase(), v])
     ) as T;
   });
 
-  return { rows: lowercase };
+  const lowercaseColumns = res.columns.map((c) => ({name: c.name.toLowerCase(), type: c.type}));
+
+  return { rows: lowercase, columns: lowercaseColumns };
+}
+
+// TODO lookup snowflake types
+export const inferSnowflakeType = (type: string): ColumnType => {
+  if (type === "text" || type === "varchar" || type === "char") {
+    return "string";
+  }
+  if (type === "number" || type === "float" || type === "double" || type === "decimal" || type === "fixed" || type === "int" || type === "bigint" || type === "smallint" || type === "tinyint" || type === "real") {
+    return "number";
+  }
+  if (type === "boolean") {
+    return "boolean";
+  }
+  if (type === "timestamp" || type === "date" || type === "datetime") {
+    return "datetime";
+  }
+  if (type === "binary") {
+    return "binary";
+  }
+  return "unknown";
 }
