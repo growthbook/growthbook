@@ -6,5 +6,6 @@ module.exports = {
   testMatch: ["**/test/**/*.test.(ts|js)"],
   moduleNameMapper: {
     "^axios$": "axios/dist/axios.js",
+    "^zod": "zod/dist/cjs",
   },
 };
