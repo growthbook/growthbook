@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "zod/v4";
 import { CreateProps, UpdateProps } from "back-end/types/models";
 
 export const webhookSecretSchema = z

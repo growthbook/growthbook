@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "zod/v4";
 import { execReportValidator } from "back-end/src/routers/exec-report/exec-report.validators";
 import { MakeModelClass } from "./BaseModel";
 

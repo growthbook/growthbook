@@ -6,7 +6,7 @@ import {
   PROJECT_SCOPED_PERMISSIONS,
   Policy,
 } from "shared/permissions";
-import { z } from "zod";
+import { z } from "zod/v4";
 import {
   AccountPlan,
   CommercialFeature,

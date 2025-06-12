@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "zod/v4";
 import normal from "@stdlib/stats/base/dists/normal";
 import {
   ExperimentSnapshotAnalysis,

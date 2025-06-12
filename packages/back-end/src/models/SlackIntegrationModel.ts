@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 import omit from "lodash/omit";
 import pick from "lodash/pick";
 import intersection from "lodash/intersection";
-import { z } from "zod";
+import { z } from "zod/v4";
 import { SlackIntegrationInterface } from "back-end/types/slack-integration";
 import {
   NotificationEventName,

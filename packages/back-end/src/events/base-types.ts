@@ -1,4 +1,4 @@
-import { z, ZodType } from "zod";
+import { z, ZodType } from "zod/v4";
 import { UnionToTuple } from "back-end/src/util/types";
 import {
   apiExperimentValidator,
@@ -210,7 +210,7 @@ export const notificationEventPayloadData = <
 ) => {
   const data = notificationEvents[resource][event] as WebhookEntry;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const schema = data.schema as z.ZodObject<any, any, any>;
+  const schema = data.schema as z.ZodObject<any, any>;
 
   const ret = z.object({
     object: schema,
