@@ -4,4 +4,7 @@ module.exports = {
     "^.+\\.(ts|tsx)$": "@swc/jest",
   },
   testMatch: ["**/test/**/*.test.(ts|js)"],
+  moduleNameMapper: {
+    "^zod": "zod/dist/cjs",
+  },
 };

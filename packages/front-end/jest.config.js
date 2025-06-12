@@ -6,6 +6,7 @@ module.exports = {
   moduleNameMapper: {
     "\\.scss$": "identity-obj-proxy",
     "@/(.*)": "<rootDir>/$1",
+    "^zod": "zod/dist/cjs",
   },
   testMatch: ["**/test/**/*.test.(ts|js)"],
 };
