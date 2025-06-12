@@ -523,9 +523,17 @@ export default function SqlExplorerModal({
 export function AreaWithHeader({
   children,
   header,
+  headerStyles = {
+    paddingLeft: "12px",
+    paddingRight: "12px",
+    paddingTop: "12px",
+    paddingBottom: "12px",
+    borderBottom: "1px solid var(--gray-a3)",
+  },
 }: {
   children: React.ReactNode;
   header: React.ReactNode;
+  headerStyles?: React.CSSProperties;
 }) {
   return (
     <Flex
@@ -535,11 +543,10 @@ export function AreaWithHeader({
         border: "1px solid var(--gray-a3)",
         borderRadius: "var(--radius-4)",
         overflow: "hidden",
+        backgroundColor: "var(--slate-a2)",
       }}
     >
-      <Box px="4" py="2" style={{ borderBottom: "1px solid var(--gray-a3)" }}>
-        {header}
-      </Box>
+      <Box style={headerStyles}>{header}</Box>
       <Box flexGrow="1" style={{ overflow: "hidden", minHeight: 0 }}>
         {children}
       </Box>
