@@ -13,6 +13,7 @@ import { Box, Flex, Text, Tooltip } from "@radix-ui/themes";
 import { getValidDate } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useUser } from "@/services/UserContext";
 import { validateSQL } from "@/services/datasources";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import { CursorData } from "@/components/Segments/SegmentForm";
@@ -82,6 +83,7 @@ export default function SqlExplorerModal({
   });
 
   const { apiCall } = useAuth();
+  const { hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const { getDatasourceById, datasources } = useDefinitions();
   const [cursorData, setCursorData] = useState<null | CursorData>(null);
@@ -99,8 +101,12 @@ export default function SqlExplorerModal({
 
   const canFormat = datasource ? canFormatSql(datasource.type) : false;
 
+  // Check if the organization has the feature to save queries
+  const canSaveQueries = hasCommercialFeature("saveSqlExplorerQueries");
+
   const canSave: boolean =
     canCreateQueries &&
+    canSaveQueries &&
     !!queryResults?.results &&
     !!form.watch("sql").trim() &&
     dirty;
@@ -136,11 +142,11 @@ export default function SqlExplorerModal({
     }
 
     // Validate that the name only contains letters, numbers, hyphens, and underscores
-    if (!currentName.match(/^[a-zA-Z0-9_.:|-]+$/)) {
+    if (!currentName.match(/^[a-zA-Z0-9_.:|\s-]+$/)) {
       setLoading(false);
       setIsEditingName(true);
       throw new Error(
-        "Query name can only contain letters, numbers, hyphens, and underscores"
+        "Query name can only contain letters, numbers, hyphens, underscores, and spaces"
       );
     }
 
@@ -245,6 +251,11 @@ export default function SqlExplorerModal({
       closeCta="Close"
       cta="Save & Close"
       ctaEnabled={canSave}
+      disabledMessage={
+        !canSaveQueries
+          ? "Upgrade to Pro and Enterprise plans to save queries."
+          : undefined
+      }
       header={`${savedQuery?.id ? "Update" : "Create"} SQL Query`}
       headerClassName={styles["modal-header-backgroundless"]}
       open={true}
