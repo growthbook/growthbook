@@ -56,6 +56,7 @@ export default function SqlExplorerModal({
   savedQuery,
   mutate,
 }: Props) {
+  const [showDataSourcesPanel, setShowDataSourcesPanel] = useState(true);
   const [selectedDatasourceId, setSelectedDatasourceId] = useState(
     savedQuery?.datasourceId || initialDatasourceId || ""
   );
@@ -268,78 +269,93 @@ export default function SqlExplorerModal({
           }
           style={{ display: "flex", flexDirection: "column", height: "100%" }}
         >
-          <TabsList mb="4">
-            <TabsTrigger value="sql">
-              <Flex align="center" gap="2">
-                {isEditingName ? (
-                  <Flex align="center" gap="2">
-                    <input
-                      type="text"
-                      value={tempName}
-                      placeholder="Enter a name..."
-                      onChange={(e) => setTempName(e.target.value)}
-                      style={{
-                        padding: "4px 8px",
-                        border: "1px solid var(--gray-a6)",
-                        borderRadius: "var(--radius-2)",
-                        fontSize: "14px",
-                        backgroundColor: "var(--color-surface)",
-                        color: "var(--color-text-high)",
-                        minWidth: "150px",
-                      }}
-                      autoFocus
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
+          <Flex align="center" justify="between" mb="4">
+            <TabsList>
+              <TabsTrigger value="sql">
+                <Flex align="center" gap="2">
+                  {isEditingName ? (
+                    <Flex align="center" gap="2">
+                      <input
+                        type="text"
+                        value={tempName}
+                        placeholder="Enter a name..."
+                        onChange={(e) => setTempName(e.target.value)}
+                        style={{
+                          padding: "4px 8px",
+                          border: "1px solid var(--gray-a6)",
+                          borderRadius: "var(--radius-2)",
+                          fontSize: "14px",
+                          backgroundColor: "var(--color-surface)",
+                          color: "var(--color-text-high)",
+                          minWidth: "150px",
+                        }}
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            setDirty(true);
+                            form.setValue("name", tempName);
+                            setIsEditingName(false);
+                          } else if (e.key === "Escape") {
+                            setTempName(form.watch("name"));
+                            setIsEditingName(false);
+                          }
+                        }}
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setTempName(form.watch("name"));
+                          setIsEditingName(false);
+                        }}
+                      >
+                        <FaTimes color="var(--gray-11)" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
                           setDirty(true);
                           form.setValue("name", tempName);
                           setIsEditingName(false);
-                        } else if (e.key === "Escape") {
+                        }}
+                      >
+                        <FaCheck color="var(--accent-11)" />
+                      </Button>
+                    </Flex>
+                  ) : (
+                    <>
+                      {form.watch("name") || "Untitled Query..."}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
                           setTempName(form.watch("name"));
-                          setIsEditingName(false);
-                        }
-                      }}
-                    />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setTempName(form.watch("name"));
-                        setIsEditingName(false);
-                      }}
-                    >
-                      <FaTimes color="var(--gray-11)" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setDirty(true);
-                        form.setValue("name", tempName);
-                        setIsEditingName(false);
-                      }}
-                    >
-                      <FaCheck color="var(--accent-11)" />
-                    </Button>
-                  </Flex>
-                ) : (
-                  <>
-                    {form.watch("name") || "Untitled Query..."}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setTempName(form.watch("name"));
-                        setIsEditingName(true);
-                      }}
-                    >
-                      <PiPencilSimpleFill color="var(--accent-11)" />
-                    </Button>
-                  </>
-                )}
-              </Flex>
-            </TabsTrigger>
-          </TabsList>
-
+                          setIsEditingName(true);
+                        }}
+                      >
+                        <PiPencilSimpleFill color="var(--accent-11)" />
+                      </Button>
+                    </>
+                  )}
+                </Flex>
+              </TabsTrigger>
+            </TabsList>
+            <Button
+              variant="ghost"
+              size="xs"
+              onClick={() => setShowDataSourcesPanel(!showDataSourcesPanel)}
+            >
+              <PiCaretDoubleRight
+                style={{
+                  transform: showDataSourcesPanel
+                    ? "rotate(0deg)"
+                    : "rotate(180deg)",
+                  transition: "transform 0.5s ease",
+                }}
+              />
+            </Button>
+          </Flex>
           <TabsContent value="sql" style={{ flex: 1 }}>
             <PanelGroup direction="horizontal">
               <Panel defaultSize={60}>
@@ -434,54 +450,58 @@ export default function SqlExplorerModal({
                 </PanelGroup>
               </Panel>
 
-              <PanelResizeHandle />
-
-              <Panel defaultSize={25} minSize={20} maxSize={80}>
-                <AreaWithHeader
-                  header={
-                    <Flex align="center" gap="1">
-                      <Button variant="ghost" size="xs">
-                        <PiCaretDoubleRight />
-                      </Button>
-                      <Text
-                        weight="bold"
-                        style={{ color: "var(--color-text-high)" }}
-                      >
-                        Data Sources
-                      </Text>
-                    </Flex>
-                  }
-                >
-                  <Flex direction="column" height="100%" px="4" py="5">
-                    <Select
-                      value={selectedDatasourceId}
-                      setValue={(value) => {
-                        setDirty(true);
-                        setSelectedDatasourceId(value);
-                      }}
-                      placeholder="Select a data source..."
-                      size="2"
-                      mb="2"
+              {showDataSourcesPanel ? (
+                <>
+                  <PanelResizeHandle />
+                  <Panel
+                    defaultSize={showDataSourcesPanel ? 25 : 0}
+                    minSize={20}
+                    maxSize={80}
+                  >
+                    <AreaWithHeader
+                      header={
+                        <Flex align="center" gap="1">
+                          <Text
+                            weight="bold"
+                            style={{ color: "var(--color-text-high)" }}
+                          >
+                            Data Sources
+                          </Text>
+                        </Flex>
+                      }
                     >
-                      {validDatasources.map((d) => (
-                        <SelectItem key={d.id} value={d.id}>
-                          {d.name}
-                          {d.description ? ` — ${d.description}` : ""}
-                        </SelectItem>
-                      ))}
-                    </Select>
-                    {supportsSchemaBrowser && (
-                      <SchemaBrowser
-                        updateSqlInput={(sql: string) => {
-                          form.setValue("sql", sql);
-                        }}
-                        datasource={datasource}
-                        cursorData={cursorData || undefined}
-                      />
-                    )}
-                  </Flex>
-                </AreaWithHeader>
-              </Panel>
+                      <Flex direction="column" height="100%" px="4" py="5">
+                        <Select
+                          value={selectedDatasourceId}
+                          setValue={(value) => {
+                            setDirty(true);
+                            setSelectedDatasourceId(value);
+                          }}
+                          placeholder="Select a data source..."
+                          size="2"
+                          mb="2"
+                        >
+                          {validDatasources.map((d) => (
+                            <SelectItem key={d.id} value={d.id}>
+                              {d.name}
+                              {d.description ? ` — ${d.description}` : ""}
+                            </SelectItem>
+                          ))}
+                        </Select>
+                        {supportsSchemaBrowser && (
+                          <SchemaBrowser
+                            updateSqlInput={(sql: string) => {
+                              form.setValue("sql", sql);
+                            }}
+                            datasource={datasource}
+                            cursorData={cursorData || undefined}
+                          />
+                        )}
+                      </Flex>
+                    </AreaWithHeader>
+                  </Panel>
+                </>
+              ) : null}
             </PanelGroup>
           </TabsContent>
         </Tabs>
