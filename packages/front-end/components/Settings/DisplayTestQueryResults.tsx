@@ -174,7 +174,7 @@ export default function DisplayTestQueryResults({
           value="sql"
           style={{ display: "flex", flexDirection: "column", height: "100%" }}
         >
-          <div style={{ overflowY: "auto", height: "100%" }}>
+          <div style={{ overflowY: "auto", height: "100%" }} className="mt-3">
             {error ? (
               <div className="alert alert-danger mr-auto">{error}</div>
             ) : (
