@@ -342,9 +342,9 @@ export default function SqlExplorerModal({
 
           <TabsContent value="sql" style={{ flex: 1 }}>
             <PanelGroup direction="horizontal">
-              <Panel>
+              <Panel defaultSize={60}>
                 <PanelGroup direction="vertical">
-                  <Panel order={1} className="bg-light">
+                  <Panel defaultSize={queryResults ? 30 : 100} minSize={7}>
                     <AreaWithHeader
                       header={
                         <Flex align="center" justify="between">
@@ -396,33 +396,31 @@ export default function SqlExplorerModal({
                         </Flex>
                       }
                     >
-                      <Flex direction="column" height="100%">
-                        <CodeTextArea
-                          wrapperClassName={styles["sql-editor-wrapper"]}
-                          required
-                          language="sql"
-                          value={form.watch("sql")}
-                          setValue={(v) => {
-                            if (formatError) {
-                              setFormatError(null);
-                            }
-                            form.setValue("sql", v);
-                            setDirty(true);
-                          }}
-                          placeholder="Enter your SQL query here..."
-                          helpText={""}
-                          fullHeight
-                          setCursorData={setCursorData}
-                          onCtrlEnter={handleQuery}
-                          resizeDependency={!!queryResults}
-                        />
-                      </Flex>
+                      <CodeTextArea
+                        wrapperClassName={styles["sql-editor-wrapper"]}
+                        required
+                        language="sql"
+                        value={form.watch("sql")}
+                        setValue={(v) => {
+                          if (formatError) {
+                            setFormatError(null);
+                          }
+                          form.setValue("sql", v);
+                          setDirty(true);
+                        }}
+                        placeholder="Enter your SQL query here..."
+                        helpText={""}
+                        fullHeight
+                        setCursorData={setCursorData}
+                        onCtrlEnter={handleQuery}
+                        resizeDependency={!!queryResults}
+                      />
                     </AreaWithHeader>
                   </Panel>
                   {queryResults && (
                     <>
                       <PanelResizeHandle />
-                      <Panel order={2} className="border rounded bg-light">
+                      <Panel minSize={10}>
                         <DisplayTestQueryResults
                           duration={parseInt(queryResults.duration || "0")}
                           results={queryResults.results || []}
@@ -438,7 +436,7 @@ export default function SqlExplorerModal({
 
               <PanelResizeHandle />
 
-              <Panel defaultSize={25} className="bg-light">
+              <Panel defaultSize={25} minSize={20} maxSize={80}>
                 <AreaWithHeader
                   header={
                     <Flex align="center" gap="1">
