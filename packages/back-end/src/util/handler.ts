@@ -23,7 +23,7 @@ type ApiRequest<
     z.infer<QuerySchema>
   >;
 
-function validate<T extends z4.$ZodType>(
+function validate<T extends Schema>(
   schema: T,
   value: unknown
 ):
@@ -35,7 +35,7 @@ function validate<T extends z4.$ZodType>(
       success: false;
       errors: string[];
     } {
-  const result = z.safeParse(schema, value);
+  const result = schema.safeParse(value);
   if (!result.success) {
     return {
       success: false,
