@@ -269,7 +269,12 @@ export default function SqlExplorerModal({
           }
           style={{ display: "flex", flexDirection: "column", height: "100%" }}
         >
-          <Flex align="center" justify="between" mb="4">
+          <Flex
+            align="center"
+            justify="between"
+            mb="4"
+            style={{ borderBottom: "1px solid var(--gray-a6)" }}
+          >
             <TabsList>
               <TabsTrigger value="sql">
                 <Flex align="center" gap="2">
