@@ -50,6 +50,7 @@ type CreateDimensionRequest = AuthRequest<{
   name: string;
   sql: string;
   description: string;
+  projects: string[];
 }>;
 
 type CreateDimensionResponse = {
@@ -68,12 +69,12 @@ export const postDimension = async (
   res: Response<CreateDimensionResponse | PrivateApiErrorResponse>
 ) => {
   const context = getContextFromReq(req);
+  const { datasource, name, sql, userIdType, description, projects } = req.body;
 
-  if (!context.permissions.canCreateDimension()) {
+  if (!context.permissions.canCreateDimension({ projects })) {
     context.permissions.throwPermissionError();
   }
   const { org, userName } = context;
-  const { datasource, name, sql, userIdType, description } = req.body;
 
   const datasourceDoc = await getDataSourceById(context, datasource);
   if (!datasourceDoc) {
@@ -91,6 +92,7 @@ export const postDimension = async (
     dateUpdated: new Date(),
     organization: org.id,
     description,
+    projects,
   });
 
   res.status(200).json({
@@ -111,6 +113,7 @@ type PutDimensionRequest = AuthRequest<
     sql: string;
     owner: string;
     description: string;
+    projects: string[];
   },
   { id: string },
   Record<string, never>
@@ -131,18 +134,26 @@ export const putDimension = async (
   res: Response<PutDimensionResponse>
 ) => {
   const context = getContextFromReq(req);
-  if (!context.permissions.canUpdateDimension()) {
-    context.permissions.throwPermissionError();
-  }
+  const {
+    datasource,
+    name,
+    sql,
+    userIdType,
+    owner,
+    description,
+    projects,
+  } = req.body;
+
   const { org } = context;
   const { id } = req.params;
   const dimension = await findDimensionById(id, org.id);
-
   if (!dimension) {
     throw new Error("Could not find dimension");
   }
 
-  const { datasource, name, sql, userIdType, owner, description } = req.body;
+  if (!context.permissions.canUpdateDimension(dimension, { projects })) {
+    context.permissions.throwPermissionError();
+  }
 
   const datasourceDoc = await getDataSourceById(context, datasource);
   if (!datasourceDoc) {
@@ -157,6 +168,7 @@ export const putDimension = async (
     owner,
     description,
     dateUpdated: new Date(),
+    projects,
   });
 
   res.status(200).json({
@@ -186,15 +198,17 @@ export const deleteDimension = async (
 ) => {
   const { id } = req.params;
   const context = getContextFromReq(req);
-  if (!context.permissions.canDeleteDimension()) {
-    context.permissions.throwPermissionError();
-  }
   const { org } = context;
   const dimension = await findDimensionById(id, org.id);
 
   if (!dimension) {
     throw new Error("Could not find dimension");
   }
+
+  if (!context.permissions.canDeleteDimension(dimension)) {
+    context.permissions.throwPermissionError();
+  }
+
   try {
     await deleteDimensionById(id, org.id);
   } catch (e) {

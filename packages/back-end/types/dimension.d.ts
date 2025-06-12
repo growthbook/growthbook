@@ -11,6 +11,7 @@ export interface DimensionInterface {
   sql: string;
   dateCreated: Date | null;
   dateUpdated: Date | null;
+  projects?: string[];
 }
 
 export interface DimensionSlicesResult {

@@ -11,7 +11,11 @@ import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import Code from "@/components/SyntaxHighlighting/Code";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useProjectOptions from "@/hooks/useProjectOptions";
 import SelectOwner from "../Owner/SelectOwner";
+import MultiSelectField from "../Forms/MultiSelectField";
+import Tooltip from "../Tooltip/Tooltip";
 
 const DimensionForm: FC<{
   close: () => void;
@@ -23,8 +27,9 @@ const DimensionForm: FC<{
     datasources,
     mutateDefinitions,
     project,
+    projects,
   } = useDefinitions();
-
+  const permissionsUtil = usePermissionsUtil();
   const validDatasources = datasources.filter(
     (d) =>
       d.id === current.datasource ||
@@ -40,14 +45,34 @@ const DimensionForm: FC<{
         (current.id ? current.datasource : validDatasources[0]?.id) || "",
       userIdType: current.userIdType || "user_id",
       owner: current?.owner || "",
+      projects: current.id
+        ? current.projects || []
+        : validDatasources[0]?.projects || [],
     },
   });
+
+  console.log("projects", projects);
   const [sqlOpen, setSqlOpen] = useState(false);
 
   const datasource = form.watch("datasource");
   const userIdType = form.watch("userIdType");
 
   const dsObj = getDatasourceById(datasource);
+
+  const filteredProjects = projects.filter((project) => {
+    if (dsObj?.projects && dsObj.projects.length) {
+      return (
+        dsObj.projects.includes(project.id) ||
+        form.watch("projects").includes(project.id)
+      );
+    }
+  });
+
+  const projectOptions = useProjectOptions(
+    (project) => permissionsUtil.canCreateDimension({ projects: [project] }),
+    form.watch("projects"),
+    filteredProjects.length ? filteredProjects : undefined
+  );
 
   const dsProps = dsObj?.properties;
   const supportsSQL = dsProps?.queryLanguage === "sql";
@@ -81,6 +106,18 @@ const DimensionForm: FC<{
             validateSQL(value.sql, [value.userIdType, "value"]);
           }
 
+          // Prevent assigning "All Projects" when the connected data source is restricted to specific projects
+          if (
+            dsObj?.projects &&
+            dsObj.projects.length > 0 &&
+            !value.projects.length &&
+            (!current.id || current.projects?.length)
+          ) {
+            throw new Error(
+              `This dimension can not be in "All Projects" since the connected data source is limited to at least one project.`
+            );
+          }
+
           await apiCall(
             current.id ? `/dimensions/${current.id}` : `/dimensions`,
             {
@@ -102,7 +139,13 @@ const DimensionForm: FC<{
           label="Data Source"
           required
           value={form.watch("datasource")}
-          onChange={(v) => form.setValue("datasource", v)}
+          disabled={!!current.id}
+          onChange={(v) => {
+            form.setValue("datasource", v);
+            // When a new data source is selected, reset the projects field to match the selected data source's associated projects
+            const newDsObj = getDatasourceById(v);
+            form.setValue("projects", newDsObj?.projects || []);
+          }}
           placeholder="Choose one..."
           options={validDatasources.map((d) => ({
             value: d.id,
@@ -123,6 +166,28 @@ const DimensionForm: FC<{
               };
             })}
           />
+        )}
+        {projects?.length > 0 && (
+          <div className="form-group">
+            <MultiSelectField
+              label={
+                <>
+                  Projects{" "}
+                  <Tooltip
+                    body={`The dropdown below has been filtered to only include projects where you have permission to ${
+                      current.id ? "update" : "create"
+                    } Dimensions and those that are a subset of the selected Data Source.`}
+                  />
+                </>
+              }
+              placeholder="All projects"
+              value={form.watch("projects")}
+              options={projectOptions}
+              onChange={(v) => form.setValue("projects", v)}
+              customClassName="label-overflow-ellipsis"
+              helpText="Assign this dimension to specific projects"
+            />
+          </div>
         )}
         {supportsSQL ? (
           <div className="form-group">

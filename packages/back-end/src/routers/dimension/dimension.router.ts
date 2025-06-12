@@ -21,6 +21,7 @@ router.post(
         sql: z.string(),
         description: z.string(),
         owner: z.string().optional(), // This is required even though it's not being used
+        projects: z.array(z.string()).optional(),
       })
       .strict(),
   }),
@@ -43,6 +44,7 @@ router.put(
         sql: z.string(),
         owner: z.string(),
         description: z.string(),
+        projects: z.array(z.string()).optional(),
       })
       .strict(),
   }),
