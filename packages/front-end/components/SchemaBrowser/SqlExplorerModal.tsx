@@ -18,7 +18,7 @@ import CodeTextArea from "@/components/Forms/CodeTextArea";
 import { CursorData } from "@/components/Segments/SegmentForm";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import Button from "@/components/Radix/Button";
-import { Select, SelectItem } from "@/components/Radix/Select";
+import { SelectItem } from "@/components/Radix/Select";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { formatSql, canFormatSql } from "@/services/sqlFormatter";
 import {
@@ -33,6 +33,7 @@ import {
   PanelResizeHandle,
 } from "@/components/ResizablePanels";
 import Modal from "../Modal";
+import SelectField from "../Forms/SelectField";
 import SchemaBrowser from "./SchemaBrowser";
 import styles from "./EditSqlModal.module.scss";
 
@@ -244,7 +245,7 @@ export default function SqlExplorerModal({
       closeCta="Close"
       cta="Save & Close"
       ctaEnabled={canSave}
-      header={`Sql Explorer`}
+      header={`${savedQuery?.id ? "Update" : "Create"} SQL Query`}
       headerClassName={styles["modal-header-backgroundless"]}
       open={true}
       showHeaderCloseButton={false}
@@ -347,7 +348,7 @@ export default function SqlExplorerModal({
               </TabsTrigger>
             </TabsList>
             <Button
-              variant="ghost"
+              variant="outline"
               size="xs"
               onClick={() => setShowDataSourcesPanel(!showDataSourcesPanel)}
             >
@@ -383,22 +384,20 @@ export default function SqlExplorerModal({
                                 </span>
                               </Tooltip>
                             )}
-                            {canFormat ? (
-                              <Button
-                                size="xs"
-                                variant="ghost"
-                                onClick={handleFormatClick}
-                                disabled={!form.watch("sql")}
-                              >
-                                Format
-                              </Button>
-                            ) : null}
+                            <Button
+                              size="xs"
+                              variant="ghost"
+                              onClick={handleFormatClick}
+                              disabled={!form.watch("sql") || !canFormat}
+                            >
+                              Format
+                            </Button>
                             <Tooltip
                               content={
                                 selectedDatasourceId === ""
-                                  ? "Select a data source to run your query"
+                                  ? "Select a Data Dource to run your query"
                                   : !canRunQueries
-                                  ? "You do not have permission to query the selected data source"
+                                  ? "You do not have permission to query the selected Data Source"
                                   : undefined
                               }
                               open={canRunQueries ? false : undefined}
@@ -429,7 +428,7 @@ export default function SqlExplorerModal({
                           form.setValue("sql", v);
                           setDirty(true);
                         }}
-                        placeholder="Enter your SQL query here..."
+                        placeholder="Select a Data Source to get started..."
                         helpText={""}
                         fullHeight
                         setCursorData={setCursorData}
@@ -476,15 +475,20 @@ export default function SqlExplorerModal({
                       }
                     >
                       <Flex direction="column" height="100%" px="4" py="5">
-                        <Select
+                        <SelectField
+                          className="mb-2"
                           value={selectedDatasourceId}
-                          setValue={(value) => {
+                          onChange={(value) => {
                             setDirty(true);
                             setSelectedDatasourceId(value);
                           }}
-                          placeholder="Select a data source..."
-                          size="2"
-                          mb="2"
+                          options={validDatasources.map((d) => ({
+                            value: d.id,
+                            label: `${d.name}${
+                              d.description ? ` — ${d.description}` : ""
+                            }`,
+                          }))}
+                          placeholder="Select a Data Source..."
                         >
                           {validDatasources.map((d) => (
                             <SelectItem key={d.id} value={d.id}>
@@ -492,7 +496,7 @@ export default function SqlExplorerModal({
                               {d.description ? ` — ${d.description}` : ""}
                             </SelectItem>
                           ))}
-                        </Select>
+                        </SelectField>
                         {supportsSchemaBrowser && (
                           <SchemaBrowser
                             updateSqlInput={(sql: string) => {

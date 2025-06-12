@@ -159,7 +159,11 @@ export default function SchemaBrowser({
   return (
     <div className="d-flex flex-column h-100">
       <PanelGroup direction="vertical">
-        <Panel defaultSize={50} minSize={11}>
+        <Panel
+          defaultSize={50}
+          minSize={11}
+          style={{ backgroundColor: "var(--color-surface)" }}
+        >
           <SchemaBrowserWrapper
             datasourceName={datasource.name}
             datasourceId={datasource.id}
@@ -321,7 +325,10 @@ export default function SchemaBrowser({
         {currentTable && (
           <>
             <PanelResizeHandle />
-            <Panel minSize={5}>
+            <Panel
+              minSize={5}
+              style={{ backgroundColor: "var(--color-surface)" }}
+            >
               <DatasourceTableData
                 datasource={datasource}
                 canRunQueries={canRunQueries}

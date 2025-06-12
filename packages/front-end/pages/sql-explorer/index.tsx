@@ -51,7 +51,7 @@ export default function SqlExplorer() {
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h1>SQL Explorer</h1>
         {hasDatasource && canCreateSavedQueries && (
-          <Button onClick={() => setShowModal(true)}>New Query</Button>
+          <Button onClick={() => setShowModal(true)}>New SQL Query</Button>
         )}
       </div>
 

@@ -125,9 +125,13 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
             <thead>
               <tr>
                 <SortableTH field="name" className="col-auto">
-                  Name
+                  QueryName
                 </SortableTH>
-                <th className="col-3">Data Source</th>
+                <SortableTH field="datasourceId" className="col-3">
+                  Data Source
+                </SortableTH>
+                <th>Visualization</th>
+                <th className="col-1">Results</th>
                 <SortableTH field="dateLastRan" className="col-1">
                   Last Run
                 </SortableTH>
@@ -155,16 +159,16 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                       <div className="d-flex align-items-center">
                         <div>
                           <div className="font-weight-bold">{query.name}</div>
-                          {query.results && query.results.length > 0 && (
-                            <small className="text-muted">
-                              {query.results.length} row
-                              {query.results.length !== 1 ? "s" : ""}
-                            </small>
-                          )}
                         </div>
                       </div>
                     </td>
                     <td>{datasourceName}</td>
+                    <td>
+                      {query.dataVizConfig && query.dataVizConfig.length > 0
+                        ? "Yes"
+                        : "No"}
+                    </td>
+                    <td>{query.results?.length}</td>
                     <td>
                       {query.dateLastRan ? (
                         <span title={datetime(query.dateLastRan)}>
