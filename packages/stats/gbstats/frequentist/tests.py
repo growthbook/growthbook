@@ -28,6 +28,7 @@ class FrequentistConfig(BaseConfig):
 @dataclass
 class SequentialConfig(FrequentistConfig):
     sequential_tuning_parameter: float = 5000
+    rho: Optional[float] = None
 
 
 PValueErrorMessage = Literal[
@@ -261,8 +262,11 @@ def sequential_rho(alpha, sequential_tuning_parameter, two_sided=True) -> float:
     )
 
 
-def sequential_interval_halfwidth(s2, n, sequential_tuning_parameter, alpha) -> float:
-    rho = sequential_rho(alpha, sequential_tuning_parameter, two_sided=True)
+def sequential_interval_halfwidth(
+    s2, n, sequential_tuning_parameter, alpha, rho=None
+) -> float:
+    if rho is None:
+        rho = sequential_rho(alpha, sequential_tuning_parameter, two_sided=True)
     # eq 9 in Waudby-Smith et al. 2023 https://arxiv.org/pdf/2103.06476v7.pdf
     return np.sqrt(s2) * np.sqrt(
         (
@@ -274,9 +278,10 @@ def sequential_interval_halfwidth(s2, n, sequential_tuning_parameter, alpha) -> 
 
 
 def sequential_interval_halfwidth_one_sided(
-    s2, n, sequential_tuning_parameter, alpha
+    s2, n, sequential_tuning_parameter, alpha, rho=None
 ) -> float:
-    rho = sequential_rho(alpha, sequential_tuning_parameter, two_sided=False)
+    if rho is None:
+        rho = sequential_rho(alpha, sequential_tuning_parameter, two_sided=False)
     # eq 134 in https://arxiv.org/pdf/2103.06476v7.pdf
     part_1 = s2
     part_2 = 2 * (n * np.power(rho, 2) + 1) / (np.power(n * rho, 2))
@@ -291,34 +296,34 @@ class SequentialTTest(TTest):
         config: SequentialConfig = SequentialConfig(),
     ):
         config_dict = asdict(config)
+        super().__init__(result, FrequentistConfig(**config_dict))
         self.sequential_tuning_parameter = config_dict.pop(
             "sequential_tuning_parameter"
         )
-        super().__init__(result, FrequentistConfig(**config_dict))
-
-    @property
-    def rho(self) -> float:
-        # eq 161 in https://arxiv.org/pdf/2103.06476v7.pdf
-        return sequential_rho(
-            self.alpha, self.sequential_tuning_parameter, two_sided=True
-        )
+        self.rho = config_dict.pop("rho", None)
+        if self.rho is None:
+            self.rho = sequential_rho(
+                self.alpha,
+                self.sequential_tuning_parameter,
+                two_sided=not self.sequential_one_sided_test,
+            )
 
     @property
     @abstractmethod
     def halfwidth(self) -> float:
         pass
 
-    # "variance" of the treatment effect distribution;
     @property
-    def s2(self) -> float:
-        return self.standard_error**2 * self.n
+    def sequential_one_sided_test(self) -> bool:
+        return False
 
 
 class SequentialTwoSidedTTest(SequentialTTest):
     @property
     def halfwidth(self) -> float:
+        s2 = self.result.standard_error**2 * self.n
         return sequential_interval_halfwidth(
-            self.s2, self.n, self.sequential_tuning_parameter, self.alpha
+            s2, self.n, self.sequential_tuning_parameter, self.alpha, self.rho
         )
 
     @property
@@ -332,7 +337,7 @@ class SequentialTwoSidedTTest(SequentialTTest):
         st2 = (
             np.power(self.point_estimate - self.test_value, 2)
             * self.n
-            / (self.standard_error**2)
+            / (self.result.standard_error**2)
         )
         tr2p1 = self.n * np.power(self.rho, 2) + 1
         evalue = np.exp(np.power(self.rho, 2) * st2 / (2 * tr2p1)) / np.sqrt(tr2p1)
@@ -350,11 +355,9 @@ class SequentialOneSidedTreatmentLesserTTest(SequentialTTest):
 
     @property
     def halfwidth(self) -> float:
+        s2 = self.result.standard_error**2 * self.n
         return sequential_interval_halfwidth_one_sided(
-            self.s2,
-            self.n,
-            self.sequential_tuning_parameter,
-            self.alpha,
+            s2, self.n, self.sequential_tuning_parameter, self.alpha, self.rho
         )
 
     @property
@@ -368,6 +371,7 @@ class SequentialOneSidedTreatmentLesserTTest(SequentialTTest):
         return None
 
     def compute_p_value(self) -> PValueResult:
+        rho = self.rho
         difference_type = (
             "relative" if self.relative else "scaled" if self.scaled else "absolute"
         )
@@ -375,7 +379,9 @@ class SequentialOneSidedTreatmentLesserTTest(SequentialTTest):
         max_iters = 100
         min_alpha = 1e-5
         max_alpha = 0.4999
-        this_config = SequentialConfig(difference_type=difference_type, alpha=min_alpha)
+        this_config = SequentialConfig(
+            difference_type=difference_type, alpha=min_alpha, rho=rho
+        )
         this_test = (
             SequentialOneSidedTreatmentLesserTTest
             if self.lesser

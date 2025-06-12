@@ -25,20 +25,6 @@ def truncated_normal_mean(mu, sigma, a, b) -> float:
     return float(mn)
 
 
-# given X ~ multinomial(1, nu), what is the covariance matrix of X?
-def multinomial_covariance(nu: np.ndarray) -> np.ndarray:
-    """
-    Calculate the covariance matrix for a multinomial distribution.
-
-    Args:
-        nu: A numpy array of probabilities that sum to 1
-
-    Returns:
-        A numpy array representing the covariance matrix
-    """
-    return np.diag(nu) - np.outer(nu, nu)
-
-
 # given numerator random variable M (mean = mean_m, var = var_m),
 # denominator random variable D (mean = mean_d, var = var_d),
 # and covariance cov_m_d, what is the variance of M / D?

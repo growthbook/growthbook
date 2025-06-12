@@ -43,7 +43,7 @@ COUNT_METRIC = MetricSettingsForStatsEngine(
 
 QUERY_OUTPUT = [
     {
-        "dim_browser": "one",
+        "dimension": "one",
         "variation": "one",
         "main_sum": 300,
         "main_sum_squares": 869,
@@ -51,7 +51,7 @@ QUERY_OUTPUT = [
         "count": 120,
     },
     {
-        "dim_browser": "one",
+        "dimension": "one",
         "variation": "zero",
         "main_sum": 270,
         "main_sum_squares": 848.79,
@@ -59,7 +59,7 @@ QUERY_OUTPUT = [
         "count": 100,
     },
     {
-        "dim_browser": "two",
+        "dimension": "two",
         "variation": "one",
         "main_sum": 770,
         "main_sum_squares": 3571,
@@ -67,7 +67,7 @@ QUERY_OUTPUT = [
         "count": 220,
     },
     {
-        "dim_browser": "two",
+        "dimension": "two",
         "variation": "zero",
         "main_sum": 740,
         "main_sum_squares": 3615.59,
@@ -158,7 +158,7 @@ QUERY_OUTPUT_BANDITS = [
 THIRD_DIMENSION_STATISTICS_DF = pd.DataFrame(
     [
         {
-            "dim_browser": "three",
+            "dimension": "three",
             "variation": "one",
             "main_sum": 222,
             "main_sum_squares": 555,
@@ -166,7 +166,7 @@ THIRD_DIMENSION_STATISTICS_DF = pd.DataFrame(
             "count": 3000,
         },
         {
-            "dim_browser": "three",
+            "dimension": "three",
             "variation": "zero",
             "main_sum": 333,
             "main_sum_squares": 999,
@@ -191,7 +191,7 @@ RATIO_RA_METRIC.statistic_type = "ratio_ra"
 RATIO_STATISTICS_DF = pd.DataFrame(
     [
         {
-            "dim_browser": "one",
+            "dimension": "one",
             "variation": "one",
             "users": 120,
             "count": 120,
@@ -202,7 +202,7 @@ RATIO_STATISTICS_DF = pd.DataFrame(
             "main_denominator_sum_product": -905,
         },
         {
-            "dim_browser": "one",
+            "dimension": "one",
             "variation": "zero",
             "main_sum": 270,
             "users": 100,
@@ -216,12 +216,12 @@ RATIO_STATISTICS_DF = pd.DataFrame(
 )
 
 RATIO_STATISTICS_ADDITIONAL_DIMENSION_DF = RATIO_STATISTICS_DF.copy()
-RATIO_STATISTICS_ADDITIONAL_DIMENSION_DF["dim_browser"] = "fifth"
+RATIO_STATISTICS_ADDITIONAL_DIMENSION_DF["dimension"] = "fifth"
 
 RATIO_RA_STATISTICS_DF = pd.DataFrame(
     [
         {
-            "dim_browser": "All",
+            "dimension": "All",
             "variation": "zero",
             "users": 100,
             "count": 100,
@@ -242,7 +242,7 @@ RATIO_RA_STATISTICS_DF = pd.DataFrame(
             "theta": None,
         },
         {
-            "dim_browser": "All",
+            "dimension": "All",
             "variation": "one",
             "users": 100,
             "count": 100,
@@ -269,7 +269,7 @@ RATIO_RA_STATISTICS_DF = pd.DataFrame(
 ONE_USER_DF = pd.DataFrame(
     [
         {
-            "dim_browser": "one",
+            "dimension": "one",
             "variation": "one",
             "main_sum": 1,
             "main_sum_squares": 1,
@@ -277,7 +277,7 @@ ONE_USER_DF = pd.DataFrame(
             "count": 1,
         },
         {
-            "dim_browser": "one",
+            "dimension": "one",
             "variation": "zero",
             "main_sum": 20,
             "main_sum_squares": 443,
@@ -290,7 +290,7 @@ ONE_USER_DF = pd.DataFrame(
 ZERO_DENOM_RATIO_STATISTICS_DF = pd.DataFrame(
     [
         {
-            "dim_browser": "one",
+            "dimension": "one",
             "variation": "one",
             "users": 120,
             "count": 120,
@@ -301,7 +301,7 @@ ZERO_DENOM_RATIO_STATISTICS_DF = pd.DataFrame(
             "main_denominator_sum_product": -905,
         },
         {
-            "dim_browser": "one",
+            "dimension": "one",
             "variation": "zero",
             "main_sum": 270,
             "users": 100,
@@ -326,7 +326,7 @@ RA_METRIC = MetricSettingsForStatsEngine(
 RA_STATISTICS_DF = pd.DataFrame(
     [
         {
-            "dim_browser": "All",
+            "dimension": "All",
             "variation": "one",
             "main_sum": 222,
             "main_sum_squares": 555,
@@ -337,7 +337,7 @@ RA_STATISTICS_DF = pd.DataFrame(
             "count": 3000,
         },
         {
-            "dim_browser": "All",
+            "dimension": "All",
             "variation": "zero",
             "main_sum": 300,
             "main_sum_squares": 600,
@@ -381,22 +381,15 @@ BANDIT_ANALYSIS = BanditSettingsForStatsEngine(
 class TestDiffDailyTS(TestCase):
     def test_diff_works_as_expected(self):
         dfc = MULTI_DIMENSION_STATISTICS_DF.copy()
-        dfc["dim_date"] = dfc.pop("dim_browser")
-
-        dfc["dim_date"].replace(
+        dfc["dimension"].replace(
             ["one", "two"], ["2022-01-01", "2022-01-02"], inplace=True
         )
-        # make dim_date the first column
-        cols = dfc.columns.tolist()
-        cols.insert(0, cols.pop(cols.index("dim_date")))
-        dfc = dfc[cols]
-
-        dfc = diff_for_daily_time_series(dfc, "dim_date")
+        dfc = diff_for_daily_time_series(dfc)
 
         target_df = pd.DataFrame(
             [
                 {
-                    "dim_date": "2022-01-01",
+                    "dimension": "2022-01-01",
                     "variation": "one",
                     "main_sum": 300,
                     "main_sum_squares": 869,
@@ -404,7 +397,7 @@ class TestDiffDailyTS(TestCase):
                     "count": 120,
                 },
                 {
-                    "dim_date": "2022-01-01",
+                    "dimension": "2022-01-01",
                     "variation": "zero",
                     "main_sum": 270,
                     "main_sum_squares": 848.79,
@@ -412,7 +405,7 @@ class TestDiffDailyTS(TestCase):
                     "count": 100,
                 },
                 {
-                    "dim_date": "2022-01-02",
+                    "dimension": "2022-01-02",
                     "variation": "one",
                     "main_sum": 770.0 - 300,
                     "main_sum_squares": 3571 - 869,
@@ -420,7 +413,7 @@ class TestDiffDailyTS(TestCase):
                     "count": 220,
                 },
                 {
-                    "dim_date": "2022-01-02",
+                    "dimension": "2022-01-02",
                     "variation": "zero",
                     "main_sum": 740.0 - 270,
                     "main_sum_squares": 3615.59 - 848.79,
@@ -429,10 +422,9 @@ class TestDiffDailyTS(TestCase):
                 },
             ]
         )
-
         pd.testing.assert_frame_equal(
-            dfc.sort_values(["variation", "dim_date"]).reset_index(drop=True),
-            target_df.sort_values(["variation", "dim_date"]).reset_index(drop=True),
+            dfc.sort_values(["variation", "dimension"]).reset_index(drop=True),
+            target_df.sort_values(["variation", "dimension"]).reset_index(drop=True),
         )
 
 
@@ -443,7 +435,6 @@ class TestGetMetricDf(TestCase):
             rows,
             {"zero": 0, "one": 1},
             ["zero", "one"],
-            dimension="browser",
         )
         for i, row in df.iterrows():
             self.assertEqual(row["baseline_count"], row["baseline_users"])
@@ -540,7 +531,6 @@ class TestReduceDimensionality(TestCase):
             rows,
             {"zero": 0, "one": 1},
             ["zero", "one"],
-            dimension="browser",
         )
         reduced = reduce_dimensionality(df, 3)
         self.assertEqual(len(reduced.index), 3)
@@ -562,9 +552,7 @@ class TestReduceDimensionality(TestCase):
         rows = pd.concat(
             [RATIO_STATISTICS_DF, RATIO_STATISTICS_ADDITIONAL_DIMENSION_DF]
         )
-        df = get_metric_df(
-            rows, {"zero": 0, "one": 1}, ["zero", "one"], dimension="browser"
-        )
+        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
 
         reduced = reduce_dimensionality(df, 20)
 
@@ -609,9 +597,7 @@ class TestAnalyzeMetricDfBayesian(TestCase):
     # New usage (no mean/stddev correction)
     def test_get_metric_df_new(self):
         rows = MULTI_DIMENSION_STATISTICS_DF
-        df = get_metric_df(
-            rows, {"zero": 0, "one": 1}, ["zero", "one"], dimension="browser"
-        )
+        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
         result = analyze_metric_df(df, metric=COUNT_METRIC, analysis=DEFAULT_ANALYSIS)
         self.assertEqual(len(result.index), 2)
         self.assertEqual(result.at[0, "dimension"], "one")
@@ -624,9 +610,7 @@ class TestAnalyzeMetricDfBayesian(TestCase):
 
     def test_get_metric_df_bayesian_ratio(self):
         rows = RATIO_STATISTICS_DF
-        df = get_metric_df(
-            rows, {"zero": 0, "one": 1}, ["zero", "one"], dimension="browser"
-        )
+        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
         result = analyze_metric_df(
             df=df, metric=RATIO_METRIC, analysis=DEFAULT_ANALYSIS
         )
@@ -642,9 +626,7 @@ class TestAnalyzeMetricDfBayesian(TestCase):
 
     def test_get_metric_df_inverse(self):
         rows = MULTI_DIMENSION_STATISTICS_DF
-        df = get_metric_df(
-            rows, {"zero": 0, "one": 1}, ["zero", "one"], dimension="browser"
-        )
+        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
         result = analyze_metric_df(
             df,
             metric=dataclasses.replace(COUNT_METRIC, inverse=True),
@@ -662,9 +644,7 @@ class TestAnalyzeMetricDfBayesian(TestCase):
 
     def test_get_metric_df_zero_val(self):
         rows = ONE_USER_DF
-        df = get_metric_df(
-            rows, {"zero": 0, "one": 1}, ["zero", "one"], dimension="browser"
-        )
+        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
         result = analyze_metric_df(
             df,
             metric=dataclasses.replace(COUNT_METRIC, inverse=True),
@@ -682,9 +662,7 @@ class TestAnalyzeMetricDfBayesian(TestCase):
 
     def test_get_metric_df_ratio_zero_denom(self):
         rows = ZERO_DENOM_RATIO_STATISTICS_DF
-        df = get_metric_df(
-            rows, {"zero": 0, "one": 1}, ["zero", "one"], dimension="browser"
-        )
+        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
         result = analyze_metric_df(df, metric=RATIO_METRIC, analysis=DEFAULT_ANALYSIS)
 
         self.assertEqual(len(result.index), 1)
@@ -700,9 +678,7 @@ class TestAnalyzeMetricDfBayesian(TestCase):
 class TestAnalyzeMetricDfFrequentist(TestCase):
     def test_get_metric_df_frequentist(self):
         rows = MULTI_DIMENSION_STATISTICS_DF
-        df = get_metric_df(
-            rows, {"zero": 0, "one": 1}, ["zero", "one"], dimension="browser"
-        )
+        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
         result = analyze_metric_df(
             df,
             metric=COUNT_METRIC,
@@ -720,9 +696,7 @@ class TestAnalyzeMetricDfFrequentist(TestCase):
 
     def test_get_metric_df_frequentist_ratio(self):
         rows = RATIO_STATISTICS_DF
-        df = get_metric_df(
-            rows, {"zero": 0, "one": 1}, ["zero", "one"], dimension="browser"
-        )
+        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
         result = analyze_metric_df(
             df,
             metric=RATIO_METRIC,
@@ -740,9 +714,7 @@ class TestAnalyzeMetricDfFrequentist(TestCase):
 
     def test_get_metric_df_zero_val(self):
         rows = ONE_USER_DF
-        df = get_metric_df(
-            rows, {"zero": 0, "one": 1}, ["zero", "one"], dimension="browser"
-        )
+        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
         result = analyze_metric_df(
             df,
             metric=COUNT_METRIC,
@@ -760,9 +732,7 @@ class TestAnalyzeMetricDfFrequentist(TestCase):
 
     def test_get_metric_df_ratio_zero_denom(self):
         rows = ZERO_DENOM_RATIO_STATISTICS_DF
-        df = get_metric_df(
-            rows, {"zero": 0, "one": 1}, ["zero", "one"], dimension="browser"
-        )
+        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
         result = analyze_metric_df(
             df,
             metric=RATIO_METRIC,
@@ -782,9 +752,7 @@ class TestAnalyzeMetricDfFrequentist(TestCase):
 class TestAnalyzeMetricDfRegressionAdjustment(TestCase):
     def test_analyze_metric_df_ra(self):
         rows = RA_STATISTICS_DF
-        df = get_metric_df(
-            rows, {"zero": 0, "one": 1}, ["zero", "one"], dimension="browser"
-        )
+        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
         result = analyze_metric_df(
             df,
             metric=RA_METRIC,
@@ -813,9 +781,7 @@ class TestAnalyzeMetricDfRegressionAdjustment(TestCase):
         # override default DF
         rows["main_sum_squares"] = 0
         rows["covariate_sum_squares"] = 0
-        df = get_metric_df(
-            rows, {"zero": 0, "one": 1}, ["zero", "one"], dimension="browser"
-        )
+        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
         result = analyze_metric_df(
             df,
             metric=dataclasses.replace(
@@ -834,15 +800,13 @@ class TestAnalyzeMetricDfRegressionAdjustment(TestCase):
         self.assertEqual(round_(result.at[0, "v1_cr"]), 0.074)
         self.assertEqual(round_(result.at[0, "v1_mean"]), 0.074)
         self.assertEqual(result.at[0, "v1_risk"], None)
-        self.assertEqual(round_(result.at[0, "v1_expected"]), -0.31620216)
+        self.assertEqual(round_(result.at[0, "v1_expected"]), -0.316211568)
         self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
         self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.000000352)
 
     def test_analyze_metric_df_ratio_ra(self):
         rows = RATIO_RA_STATISTICS_DF
-        df = get_metric_df(
-            rows, {"zero": 0, "one": 1}, ["zero", "one"], dimension="browser"
-        )
+        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
         result = analyze_metric_df(
             df,
             metric=RATIO_RA_METRIC,
@@ -863,9 +827,7 @@ class TestAnalyzeMetricDfRegressionAdjustment(TestCase):
 class TestAnalyzeMetricDfSequential(TestCase):
     def test_analyze_metric_df_sequential(self):
         rows = MULTI_DIMENSION_STATISTICS_DF
-        df = get_metric_df(
-            rows, {"zero": 0, "one": 1}, ["zero", "one"], dimension="browser"
-        )
+        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
         result = analyze_metric_df(
             df,
             metric=COUNT_METRIC,
@@ -905,9 +867,7 @@ class TestAnalyzeMetricDfSequential(TestCase):
 class TestFormatResults(TestCase):
     def test_format_results_denominator(self):
         rows = RATIO_STATISTICS_DF
-        df = get_metric_df(
-            rows, {"zero": 0, "one": 1}, ["zero", "one"], dimension="browser"
-        )
+        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
         result = format_results(
             analyze_metric_df(
                 df,
@@ -946,7 +906,6 @@ class TestBandit(TestCase):
             rows=pd.DataFrame(self.rows),
             var_id_map={v: i for i, v in enumerate(self.bandit_analysis.var_ids)},
             var_names=self.bandit_analysis.var_names,
-            dimension="browser",
         )
         result = create_bandit_statistics(df, self.metric)
         stats_0 = []

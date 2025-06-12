@@ -133,16 +133,6 @@ class RatioStatistic(Statistic):
             - self.m_statistic.sum * self.d_statistic.sum / self.n
         ) / (self.n - 1)
 
-    def __add__(self, other):
-        if not isinstance(other, RatioStatistic):
-            raise TypeError("Can add only another RatioStatistic instance")
-        return RatioStatistic(
-            n=self.n + other.n,
-            m_statistic=self.m_statistic + other.m_statistic,
-            d_statistic=self.d_statistic + other.d_statistic,
-            m_d_sum_of_products=self.m_d_sum_of_products + other.m_d_sum_of_products,
-        )
-
 
 @dataclass
 class RegressionAdjustedStatistic(Statistic):
@@ -150,6 +140,18 @@ class RegressionAdjustedStatistic(Statistic):
     pre_statistic: Union[SampleMeanStatistic, ProportionStatistic]
     post_pre_sum_of_products: float
     theta: Optional[float]
+
+    def __add__(self, other):
+        if not isinstance(other, RegressionAdjustedStatistic):
+            raise TypeError("Can add only another RegressionAdjustedStatistic instance")
+        return RegressionAdjustedStatistic(
+            n=self.n + other.n,
+            post_statistic=self.post_statistic + other.post_statistic,
+            pre_statistic=self.pre_statistic + other.pre_statistic,
+            post_pre_sum_of_products=self.post_pre_sum_of_products
+            + other.post_pre_sum_of_products,
+            theta=None,
+        )
 
     @property
     def mean(self) -> float:
@@ -190,26 +192,45 @@ class RegressionAdjustedStatistic(Statistic):
             - self.post_statistic.sum * self.pre_statistic.sum / self.n
         ) / (self.n - 1)
 
-    def __add__(self, other):
-        if not isinstance(other, RegressionAdjustedStatistic):
-            raise TypeError("Can add only another RegressionAdjustedStatistic instance")
-        return RegressionAdjustedStatistic(
-            n=self.n + other.n,
-            post_statistic=self.post_statistic + other.post_statistic,
-            pre_statistic=self.pre_statistic + other.pre_statistic,
-            post_pre_sum_of_products=self.post_pre_sum_of_products
-            + other.post_pre_sum_of_products,
-            theta=None,
-        )
-
 
 def compute_theta(
     a: RegressionAdjustedStatistic, b: RegressionAdjustedStatistic
 ) -> float:
-    joint = a + b
-    if joint.pre_statistic.variance == 0 or joint.post_statistic.variance == 0:
+    n = a.n + b.n
+    joint_post_statistic = create_joint_statistic(
+        a=a.post_statistic, b=b.post_statistic, n=n
+    )
+    joint_pre_statistic = create_joint_statistic(
+        a=a.pre_statistic, b=b.pre_statistic, n=n
+    )
+    if joint_pre_statistic.variance == 0 or joint_post_statistic.variance == 0:
         return 0
+
+    joint = RegressionAdjustedStatistic(
+        n=n,
+        post_statistic=joint_post_statistic,
+        pre_statistic=joint_pre_statistic,
+        post_pre_sum_of_products=a.post_pre_sum_of_products
+        + b.post_pre_sum_of_products,
+        theta=0,
+    )
     return joint.covariance / joint.pre_statistic.variance
+
+
+def create_joint_statistic(
+    a: Union[ProportionStatistic, SampleMeanStatistic],
+    b: Union[ProportionStatistic, SampleMeanStatistic],
+    n: int,
+) -> Union[ProportionStatistic, SampleMeanStatistic]:
+    if isinstance(a, ProportionStatistic) and isinstance(b, ProportionStatistic):
+        return ProportionStatistic(n=n, sum=a.sum + b.sum)
+    elif isinstance(a, SampleMeanStatistic) and isinstance(b, SampleMeanStatistic):
+        return SampleMeanStatistic(
+            n=n, sum=a.sum + b.sum, sum_squares=a.sum_squares + b.sum_squares
+        )
+    raise ValueError(
+        "Statistic types for a metric must not be different types across variations."
+    )
 
 
 @dataclass
@@ -225,6 +246,32 @@ class RegressionAdjustedRatioStatistic(Statistic):
     m_post_d_pre_sum_of_products: float
     m_pre_d_post_sum_of_products: float
     theta: Optional[float]
+
+    def __add__(self, other):
+        if not isinstance(other, RegressionAdjustedRatioStatistic):
+            raise TypeError(
+                "Can add only another RegressionAdjustedRatioStatistic instance"
+            )
+        return RegressionAdjustedRatioStatistic(
+            n=self.n + other.n,
+            m_statistic_post=self.m_statistic_post + other.m_statistic_post,
+            d_statistic_post=self.d_statistic_post + other.d_statistic_post,
+            m_statistic_pre=self.m_statistic_pre + other.m_statistic_pre,
+            d_statistic_pre=self.d_statistic_pre + other.d_statistic_pre,
+            m_post_m_pre_sum_of_products=self.m_post_m_pre_sum_of_products
+            + other.m_post_m_pre_sum_of_products,
+            d_post_d_pre_sum_of_products=self.d_post_d_pre_sum_of_products
+            + other.d_post_d_pre_sum_of_products,
+            m_pre_d_pre_sum_of_products=self.m_pre_d_pre_sum_of_products
+            + other.m_pre_d_pre_sum_of_products,
+            m_post_d_post_sum_of_products=self.m_post_d_post_sum_of_products
+            + other.m_post_d_post_sum_of_products,
+            m_post_d_pre_sum_of_products=self.m_post_d_pre_sum_of_products
+            + other.m_post_d_pre_sum_of_products,
+            m_pre_d_post_sum_of_products=self.m_pre_d_post_sum_of_products
+            + other.m_pre_d_post_sum_of_products,
+            theta=None,
+        )
 
     @property
     def mean(self) -> float:
@@ -410,32 +457,6 @@ class RegressionAdjustedRatioStatistic(Statistic):
     def var_d_pre(self) -> float:
         return self.d_statistic_pre.variance
 
-    def __add__(self, other):
-        if not isinstance(other, RegressionAdjustedRatioStatistic):
-            raise TypeError(
-                "Can add only another RegressionAdjustedRatioStatistic instance"
-            )
-        return RegressionAdjustedRatioStatistic(
-            n=self.n + other.n,
-            m_statistic_post=self.m_statistic_post + other.m_statistic_post,
-            d_statistic_post=self.d_statistic_post + other.d_statistic_post,
-            m_statistic_pre=self.m_statistic_pre + other.m_statistic_pre,
-            d_statistic_pre=self.d_statistic_pre + other.d_statistic_pre,
-            m_post_m_pre_sum_of_products=self.m_post_m_pre_sum_of_products
-            + other.m_post_m_pre_sum_of_products,
-            d_post_d_pre_sum_of_products=self.d_post_d_pre_sum_of_products
-            + other.d_post_d_pre_sum_of_products,
-            m_pre_d_pre_sum_of_products=self.m_pre_d_pre_sum_of_products
-            + other.m_pre_d_pre_sum_of_products,
-            m_post_d_post_sum_of_products=self.m_post_d_post_sum_of_products
-            + other.m_post_d_post_sum_of_products,
-            m_post_d_pre_sum_of_products=self.m_post_d_pre_sum_of_products
-            + other.m_post_d_pre_sum_of_products,
-            m_pre_d_post_sum_of_products=self.m_pre_d_post_sum_of_products
-            + other.m_pre_d_post_sum_of_products,
-            theta=None,
-        )
-
 
 def compute_theta_regression_adjusted_ratio(
     a: RegressionAdjustedRatioStatistic, b: RegressionAdjustedRatioStatistic
@@ -539,15 +560,6 @@ class QuantileClusteredStatistic(QuantileStatistic):
         )
         den = self.n_clusters * mu_n**2
         return num / den
-
-
-PostStratificationStatistic = Union[
-    ProportionStatistic,
-    SampleMeanStatistic,
-    RegressionAdjustedStatistic,
-    RatioStatistic,
-    RegressionAdjustedRatioStatistic,
-]
 
 
 TestStatistic = Union[

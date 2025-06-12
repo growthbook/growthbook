@@ -1,5 +1,6 @@
 from dataclasses import asdict
 from functools import partial
+from typing import Optional
 from unittest import TestCase, main as unittest_main
 
 import numpy as np
@@ -30,11 +31,12 @@ from gbstats.models.statistics import (
     SampleMeanStatistic,
     RegressionAdjustedRatioStatistic,
 )
+from gbstats.models.tests import Uplift
 
 DECIMALS = 5
 
 
-def round_if_not_none(x: float, decimals: int):
+def round_if_not_none(x: Optional[float], decimals: int):
     return np.round(x, decimals) if x is not None else None
 
 
@@ -368,17 +370,17 @@ class TestSequentialTTest(TestCase):
 
         # Way underestimating should be worse here
         self.assertTrue(
-            (result_below.ci[0] < result_above.ci[0])
-            and (result_below.ci[1] > result_above.ci[1])
+            (result_below.ci[0] < result_above.ci[0])  # type: ignore
+            and (result_below.ci[1] > result_above.ci[1])  # type: ignore
         )
         # And estimating well should be both
         self.assertTrue(
-            (result_below.ci[0] < result_near.ci[0])
-            and (result_below.ci[1] > result_near.ci[1])
+            (result_below.ci[0] < result_near.ci[0])  # type: ignore
+            and (result_below.ci[1] > result_near.ci[1])  # type: ignore
         )
         self.assertTrue(
-            (result_above.ci[0] < result_near.ci[0])
-            and (result_above.ci[1] > result_near.ci[1])
+            (result_above.ci[0] < result_near.ci[0])  # type: ignore
+            and (result_above.ci[1] > result_near.ci[1])  # type: ignore
         )
 
 
@@ -542,6 +544,7 @@ class TestSequentialOneSidedGreaterTTest(TestCase):
                 SequentialConfig(difference_type="absolute"),
             ).compute_result()
         )
+        print(_round_result_dict(result_dict))
         expected_rounded_dict = asdict(
             FrequentistTestResult(
                 expected=0.23437666666666668,
@@ -550,12 +553,13 @@ class TestSequentialOneSidedGreaterTTest(TestCase):
                     dist="normal", mean=0.23437666666666668, stddev=0.12983081254184736
                 ),
                 error_message=None,
-                p_value=0.4999,
+                p_value=0.46316491943359384,
                 p_value_error_message=None,
                 unadjusted_baseline_mean=self.stat_a.unadjusted_mean,
                 n=self.stat_a.n + self.stat_b.n,
             )
         )
+        print(_round_result_dict(expected_rounded_dict))
         self.assertDictEqual(
             _round_result_dict(result_dict), _round_result_dict(expected_rounded_dict)
         )

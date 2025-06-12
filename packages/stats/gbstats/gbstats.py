@@ -5,6 +5,7 @@ import copy
 from typing import Any, Dict, Hashable, List, Optional, Set, Tuple, Union
 
 import pandas as pd
+import numpy as np
 
 from gbstats.bayesian.tests import (
     BayesianTestResult,
@@ -34,7 +35,12 @@ from gbstats.frequentist.tests import (
     SequentialConfig,
     SequentialTwoSidedTTest,
     TwoSidedTTest,
+    OneSidedTreatmentGreaterTTest,
+    OneSidedTreatmentLesserTTest,
+    SequentialOneSidedTreatmentLesserTTest,
+    SequentialOneSidedTreatmentGreaterTTest,
 )
+
 from gbstats.models.results import (
     BaselineResponse,
     BayesianVariationResponse,
@@ -45,6 +51,7 @@ from gbstats.models.results import (
     MetricStats,
     MultipleExperimentMetricAnalysis,
     BanditResult,
+    ResponseCI,
     SingleVariationResult,
     PowerResponse,
 )
@@ -114,7 +121,7 @@ def detect_unknown_variations(
     return set(unknown_var_ids)
 
 
-def diff_for_daily_time_series(df: pd.DataFrame, dimension: str) -> pd.DataFrame:
+def diff_for_daily_time_series(df: pd.DataFrame) -> pd.DataFrame:
     dfc = df.copy()
     diff_cols = [
         x
@@ -128,7 +135,7 @@ def diff_for_daily_time_series(df: pd.DataFrame, dimension: str) -> pd.DataFrame
         ]
         if x in dfc.columns
     ]
-    dfc.sort_values(dimension, inplace=True)
+    dfc.sort_values("dimension", inplace=True)
     dfc[diff_cols] = dfc.groupby(["variation"])[diff_cols].diff().fillna(dfc[diff_cols])
     return dfc
 
@@ -138,15 +145,13 @@ def get_metric_df(
     rows: pd.DataFrame,
     var_id_map: VarIdMap,
     var_names: List[str],
-    dimension: str,
 ) -> pd.DataFrame:
     dfc = rows.copy()
     dimensions = {}
-    # Each row in the raw SQL result is a (dimension level, variation combo
-    # We want to end up with one row per dimension level
+    # Each row in the raw SQL result is a dimension/variation combo
+    # We want to end up with one row per dimension
     for row in dfc.itertuples(index=False):
-        # TODO fix dimensionname
-        dim = getattr(row, "dim_" + dimension.replace(":", "_")) if dimension else ""
+        dim = row.dimension
         # If this is the first time we're seeing this dimension, create an empty dict
         if dim not in dimensions:
             # Overall columns
@@ -169,15 +174,11 @@ def get_metric_df(
             i = var_id_map[key]
             dimensions[dim]["total_users"] += row.users
             prefix = f"v{i}" if i > 0 else "baseline"
-            # Sum here in case multiple rows per dimension
-            for index, col in enumerate(ROW_COLS):
-                # Special handling for count, if missing returns a method, so override with user value
-                if col == "count" and callable(getattr(row, col)):
-                    dimensions[dim][f"{prefix}_count"] += getattr(row, "users", 0)
-                elif col == "theta":
-                    dimensions[dim][f"{prefix}_theta"] = None
-                else:
-                    dimensions[dim][f"{prefix}_{col}"] += getattr(row, col, 0)
+            for col in ROW_COLS:
+                dimensions[dim][f"{prefix}_{col}"] = getattr(row, col, 0)
+            # Special handling for count, if missing returns a method, so override with user value
+            if callable(getattr(row, "count")):
+                dimensions[dim][f"{prefix}_count"] = getattr(row, "users", 0)
     return pd.DataFrame(dimensions.values())
 
 
@@ -233,8 +234,15 @@ def get_configured_test(
     test_index: int,
     analysis: AnalysisSettingsForStatsEngine,
     metric: MetricSettingsForStatsEngine,
-) -> Union[EffectBayesianABTest, SequentialTwoSidedTTest, TwoSidedTTest]:
-
+) -> Union[
+    EffectBayesianABTest,
+    SequentialTwoSidedTTest,
+    TwoSidedTTest,
+    OneSidedTreatmentGreaterTTest,
+    OneSidedTreatmentLesserTTest,
+    SequentialOneSidedTreatmentLesserTTest,
+    SequentialOneSidedTreatmentGreaterTTest,
+]:
     stat_a = variation_statistic_from_metric_row(row, "baseline", metric)
     stat_b = variation_statistic_from_metric_row(row, f"v{test_index}", metric)
 
@@ -251,14 +259,25 @@ def get_configured_test(
 
     if analysis.stats_engine == "frequentist":
         if analysis.sequential_testing_enabled:
-            return SequentialTwoSidedTTest(
-                moment_result,
-                SequentialConfig(
-                    **base_config,
-                    alpha=analysis.alpha,
-                    sequential_tuning_parameter=analysis.sequential_tuning_parameter,
-                ),
+            sequential_config = SequentialConfig(
+                **base_config,
+                alpha=analysis.alpha,
+                sequential_tuning_parameter=analysis.sequential_tuning_parameter,
             )
+            if analysis.one_sided_intervals:
+                if metric.inverse:
+                    return SequentialOneSidedTreatmentGreaterTTest(
+                        moment_result, sequential_config
+                    )
+                else:
+                    return SequentialOneSidedTreatmentLesserTTest(
+                        moment_result, sequential_config
+                    )
+            else:
+                return SequentialTwoSidedTTest(
+                    moment_result,
+                    sequential_config,
+                )
         else:
             return TwoSidedTTest(
                 moment_result,
@@ -268,7 +287,6 @@ def get_configured_test(
                 ),
             )
     else:
-        assert type(stat_a) is type(stat_b), "stat_a and stat_b must be of same type."
         prior = GaussianPrior(
             mean=metric.prior_mean,
             variance=pow(metric.prior_stddev, 2),
@@ -285,12 +303,12 @@ def get_configured_test(
         )
 
 
-def decision_making_conditions(metric, analysis, dimension):
+def decision_making_conditions(metric, analysis):
     return (
         metric.business_metric_type
         and "goal" in metric.business_metric_type
         and analysis.difference_type == "relative"
-        and dimension == ""
+        and analysis.dimension == ""
     )
 
 
@@ -342,7 +360,7 @@ def analyze_metric_df(
                 row=s, test_index=i, analysis=analysis, metric=metric
             )
             res = test.compute_result()
-            if decision_making_conditions(metric, analysis, s["dimension"]):
+            if decision_making_conditions(metric, analysis):
                 s[f"v{i}_decision_making_conditions"] = True
                 config = BaseConfig(
                     difference_type=analysis.difference_type,
@@ -509,10 +527,16 @@ def format_variation_result(
             )
         else:
             power_response = None
+
+        # sanitize CIs to replace inf with None
+        ci: ResponseCI = (
+            None if np.isinf(row[f"{prefix}_ci"][0]) else row[f"{prefix}_ci"][0],
+            None if np.isinf(row[f"{prefix}_ci"][1]) else row[f"{prefix}_ci"][1],
+        )
         testResult = {
             "expected": row[f"{prefix}_expected"],
             "uplift": row[f"{prefix}_uplift"],
-            "ci": row[f"{prefix}_ci"],
+            "ci": ci,
             "errorMessage": row[f"{prefix}_error_message"],
         }
         if row["engine"] == "frequentist":
@@ -677,23 +701,20 @@ def process_analysis(
     max_dimensions = analysis.max_dimensions
     # If we're doing a daily time series, we need to diff the data
     if analysis.dimension == "pre:datedaily":
-        rows = diff_for_daily_time_series(rows, analysis.dimension)
+        rows = diff_for_daily_time_series(rows)
 
     # Convert raw SQL result into a dataframe of dimensions
     df = get_metric_df(
         rows=rows,
         var_id_map=var_id_map,
         var_names=var_names,
-        dimension=analysis.dimension,
     )
     # Limit to the top X dimensions with the most users
     # not possible to just re-sum for quantile metrics,
     # so we throw away "other" dimension
     keep_other = True
-    append_combined_dimension = True
     if metric.statistic_type in ["quantile_event", "quantile_unit"]:
         keep_other = False
-        append_combined_dimension = False
     if metric.keep_theta and metric.statistic_type == "mean_ra":
         keep_other = False
     reduced = reduce_dimensionality(
@@ -701,8 +722,6 @@ def process_analysis(
         max=max_dimensions,
         keep_other=keep_other,
     )
-    if append_combined_dimension:
-        reduced = append_combined_row(reduced)
 
     # Run the analysis for each variation and dimension
     result = analyze_metric_df(
@@ -805,7 +824,6 @@ def preprocess_bandits(
             rows=pdrows,
             var_id_map=get_var_id_map(bandit_settings.var_ids),
             var_names=bandit_settings.var_names,
-            dimension=dimension,
         )
         bandit_stats = create_bandit_statistics(df, metric)
     bandit_prior = GaussianPrior(mean=0, variance=float(1e4), proper=True)
