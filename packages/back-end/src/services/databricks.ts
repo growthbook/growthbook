@@ -2,7 +2,7 @@ import { DBSQLClient } from "@databricks/sql";
 import { DatabricksConnectionParams } from "back-end/types/integrations/databricks";
 import { logger } from "back-end/src/util/logger";
 import { ENVIRONMENT } from "back-end/src/util/secrets";
-import { QueryResponse } from "back-end/src/types/Integration";
+import { ColumnType, QueryResponse } from "back-end/src/types/Integration";
 import { TTypeId } from "@databricks/sql/thrift/TCLIService_types";
 
 export async function runDatabricksQuery<T>(
@@ -57,7 +57,7 @@ export async function runDatabricksQuery<T>(
           if (!finished) {
             const rows = await result;
             const schema = await queryOperation.getSchema();
-            const columns = schema?.columns?.map((c) => ({name: c.columnName, type: getDatabricksType(c.typeDesc.types[0].primitiveEntry?.type)}));
+            const columns = schema?.columns?.map((c) => ({name: c.columnName, type: getDatabricksType(c.typeDesc.types[0].primitiveEntry?.type), rawType: c.typeDesc.types[0].primitiveEntry?.type}));
             console.log(columns);
             finished = true;
             resolve({rows, columns: columns});
@@ -84,7 +84,7 @@ export async function runDatabricksQuery<T>(
   }
 }
 
-const getDatabricksType = (type: TTypeId | undefined) => {
+const getDatabricksType = (type: TTypeId | undefined): ColumnType => {
   if (type === undefined) {
     return "unknown";
   }

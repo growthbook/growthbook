@@ -131,13 +131,13 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
     ) as T;
   });
 
-  const lowercaseColumns = res.columns.map((c) => ({name: c.name.toLowerCase(), type: c.type}));
+  const lowercaseColumns = res.columns.map((c) => ({name: c.name.toLowerCase(), type: inferSnowflakeType(c.type), rawType: c.type}));
 
   return { rows: lowercase, columns: lowercaseColumns };
 }
 
 // TODO lookup snowflake types
-export const inferSnowflakeType = (type: string): ColumnType => {
+const inferSnowflakeType = (type: string): ColumnType => {
   if (type === "text" || type === "varchar" || type === "char") {
     return "string";
   }

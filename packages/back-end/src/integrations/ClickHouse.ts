@@ -52,7 +52,8 @@ export default class ClickHouse extends SqlIntegration {
     const data: ResponseJSON<Record<string, any>[]> = await results.json();
     return {
       rows: data.data ? data.data : [],
-      columns: data.meta,
+      // TODO infer clickhouse type
+      columns: data.meta?.map((c) => ({name: c.name, type: c.type, rawType: c.type})),
       statistics: data.statistics
         ? {
             executionDurationMs: data.statistics.elapsed,

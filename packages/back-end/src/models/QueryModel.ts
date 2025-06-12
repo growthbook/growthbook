@@ -42,7 +42,7 @@ const querySchema = new mongoose.Schema({
   result: {},
   rawResult: [],
   error: String,
-  columns: [{name: String, type: String}],
+  columns: [{name: String, type: String, rawType: String}],
   statistics: {},
   dependencies: [String],
   runAtEnd: Boolean,

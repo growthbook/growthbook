@@ -4,6 +4,7 @@ import {
   queryStatusValidator,
 } from "back-end/src/validators/queries";
 import { QueryLanguage } from "./datasource";
+import { ColumnType } from "back-end/src/types/Integration";
 
 export type QueryStatus = z.infer<typeof queryStatusValidator>;
 
@@ -23,7 +24,8 @@ export type QueryStatistics = {
 
 export type QueryColumn = {
   name: string;
-  type: string;
+  type: ColumnType;
+  rawType?: string;
 };
 
 export type QueryType =

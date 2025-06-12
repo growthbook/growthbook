@@ -1,7 +1,7 @@
 import { Client, ClientConfig } from "pg";
 import { PostgresConnectionParams } from "back-end/types/integrations/postgres";
 import { logger } from "back-end/src/util/logger";
-import { QueryResponse } from "back-end/src/types/Integration";
+import { ColumnType, QueryResponse } from "back-end/src/types/Integration";
 
 export function runPostgresQuery(
   conn: PostgresConnectionParams,
@@ -46,7 +46,7 @@ export function runPostgresQuery(
         } catch (e) {
           logger.warn(e, "Postgres query failed");
         }
-        resolve({ rows: res.rows, columns: res.fields.map((f) => ({name: f.name, type: inferPostgresType(f.dataTypeID)})) });
+        resolve({ rows: res.rows, columns: res.fields.map((f) => ({name: f.name, type: inferPostgresType(f.dataTypeID), rawType: f.dataTypeID + ""})) });
       })
       .catch((e) => {
         reject(e);
@@ -81,7 +81,7 @@ const datetime_oids = [
   1184,
   1266,
 ]
-const inferPostgresType = (dataTypeID: number) => {
+const inferPostgresType = (dataTypeID: number): ColumnType => {
   // https://jdbc.postgresql.org/documentation/publicapi/constant-values.html
   if (numeric_oids.includes(dataTypeID)) {
     return "number";
