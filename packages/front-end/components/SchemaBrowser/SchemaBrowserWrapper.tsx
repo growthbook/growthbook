@@ -28,14 +28,16 @@ export default function SchemaBrowserWrapper({
 
   return (
     <AreaWithHeader
+      //MKTODO: Can't figure out this color
+      backgroundColor="#192130"
       header={
         <div className="d-flex justify-content-between px-2">
           <label className="font-weight-bold mb-1 d-flex align-items-center">
-            <FaDatabase />
+            <FaDatabase className="mr-2" />
             <span className="pl-1">{datasourceName}</span>
           </label>
           {informationSchema && !informationSchema.error && (
-            <label>
+            <label className="pl-5">
               <Tooltip
                 body={
                   <div>

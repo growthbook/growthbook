@@ -82,10 +82,12 @@ export default function DatasourceSchema({
   if (!table) return null;
   return (
     <AreaWithHeader
+      //MKTODO: Can't figure out this color
+      backgroundColor="#192130"
       header={
         <div className="d-flex justify-content-between px-2">
           <label className="font-weight-bold mb-1 d-flex align-items-center">
-            <FaTable />
+            <FaTable className="mr-2" />
             {table ? (
               <span
                 className="px-1"
@@ -103,7 +105,7 @@ export default function DatasourceSchema({
             )}
           </label>
           {table && (
-            <label>
+            <label className="pl-5">
               <Tooltip
                 body={
                   <div>

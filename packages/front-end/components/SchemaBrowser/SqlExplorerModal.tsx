@@ -532,6 +532,7 @@ export default function SqlExplorerModal({
 
 // TODO: Find a better name
 export function AreaWithHeader({
+  backgroundColor = "var(--slate-a2)",
   children,
   header,
   headerStyles = {
@@ -542,6 +543,7 @@ export function AreaWithHeader({
     borderBottom: "1px solid var(--gray-a3)",
   },
 }: {
+  backgroundColor?: string;
   children: React.ReactNode;
   header: React.ReactNode;
   headerStyles?: React.CSSProperties;
@@ -554,7 +556,7 @@ export function AreaWithHeader({
         border: "1px solid var(--gray-a3)",
         borderRadius: "var(--radius-4)",
         overflow: "hidden",
-        backgroundColor: "var(--slate-a2)",
+        backgroundColor,
       }}
     >
       <Box style={headerStyles}>{header}</Box>
