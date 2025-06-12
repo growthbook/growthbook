@@ -1,4 +1,16 @@
 import { z } from "zod";
+
+// If you change these types, also update the factTableColumnTypeValidator to match
+export const factTableColumnTypes = [
+  "number",
+  "string",
+  "date",
+  "boolean",
+  "json",
+  "other",
+  "",
+];
+// Duplicate of the above as we can't use `as const` without breaking imports in the frontend
 export const factTableColumnTypeValidator = z.enum([
   "number",
   "string",

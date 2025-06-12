@@ -69,9 +69,9 @@ export default function DataSourceMetrics({
           datasource={dataSource.id}
         />
       ) : null}
-      <Flex align="center" justify="between">
+      <Flex align="center" justify="between" mb="3">
         <Box>
-          <Flex align="center" gap="3" mb="3">
+          <Flex align="center" gap="3" mb="0">
             <Heading as="h4" size="4" mb="0">
               Metrics
             </Heading>
@@ -81,43 +81,40 @@ export default function DataSourceMetrics({
               radius="medium"
             />
           </Flex>
-          <p className="m-0">
-            Metrics are what your experiments are trying to improve (or at least
-            not hurt). Below are the metrics defined from this data source.{" "}
-            <DocLink docSection="metrics">Learn more.</DocLink>
-          </p>
         </Box>
-
-        <Flex gap="2" direction="column" justify="end">
-          {canEdit &&
-          envAllowsCreatingMetrics() &&
-          canCreateMetricsInAllDataSourceProjects ? (
-            <>
-              <AutoGenerateMetricsButton
-                setShowAutoGenerateMetricsModal={
-                  setShowAutoGenerateMetricsModal
-                }
-                datasource={dataSource}
-                size="sm"
-              />
-              <Button onClick={() => setModalData({ mode: "new" })}>
-                <FaPlus className="mr-1" /> Add
-              </Button>
-            </>
-          ) : null}
-          <Button
-            variant="ghost"
-            onClick={() => {
-              setMetricsOpen(!metricsOpen);
-            }}
-          >
-            <FaChevronRight
-              style={{
-                transform: `rotate(${metricsOpen ? "90deg" : "0deg"})`,
-              }}
+        {canEdit &&
+        envAllowsCreatingMetrics() &&
+        canCreateMetricsInAllDataSourceProjects ? (
+          <>
+            <AutoGenerateMetricsButton
+              setShowAutoGenerateMetricsModal={setShowAutoGenerateMetricsModal}
+              datasource={dataSource}
+              size="sm"
             />
-          </Button>
-        </Flex>
+            <Button onClick={() => setModalData({ mode: "new" })}>
+              <FaPlus className="mr-1" /> Add
+            </Button>
+          </>
+        ) : null}
+      </Flex>
+      <Flex gap="2">
+        <p className="m-0">
+          Metrics are what your experiments are trying to improve (or at least
+          not hurt). Below are the metrics defined from this data source.{" "}
+          <DocLink docSection="metrics">Learn more.</DocLink>
+        </p>
+        <Button
+          variant="ghost"
+          onClick={() => {
+            setMetricsOpen(!metricsOpen);
+          }}
+        >
+          <FaChevronRight
+            style={{
+              transform: `rotate(${metricsOpen ? "90deg" : "0deg"})`,
+            }}
+          />
+        </Button>
       </Flex>
       {metricsOpen ? (
         <Box>
