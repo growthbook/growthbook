@@ -38,11 +38,20 @@ import SelectField from "../Forms/SelectField";
 import SchemaBrowser from "./SchemaBrowser";
 import styles from "./EditSqlModal.module.scss";
 
-export type QueryResults = {
-  duration?: string;
+type QueryExecutionResult = {
+  results: TestQueryRow[];
   error?: string;
-  results?: TestQueryRow[];
+  duration?: string;
   sql?: string;
+};
+
+type SavedQueryFormData = {
+  name: string;
+  sql: string;
+  datasourceId: string;
+  dateLastRan?: Date;
+  dataVizConfig?: any;
+  results: TestQueryRow[];
 };
 
 export interface Props {
@@ -65,11 +74,14 @@ export default function SqlExplorerModal({
   const [dirty, setDirty] = useState(savedQuery?.id ? false : true);
   const [loading, setLoading] = useState(false);
   const [isRunningQuery, setIsRunningQuery] = useState(false);
-  const [queryResults, setQueryResults] = useState<QueryResults | null>(null);
+  const [
+    queryExecution,
+    setQueryExecution,
+  ] = useState<QueryExecutionResult | null>(null);
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempName, setTempName] = useState("");
 
-  const form = useForm<Omit<SavedQuery, "dateCreated" | "dateUpdated">>({
+  const form = useForm<SavedQueryFormData>({
     defaultValues: {
       name: savedQuery?.name || "",
       sql: savedQuery?.sql || "",
@@ -107,16 +119,16 @@ export default function SqlExplorerModal({
   const canSave: boolean =
     canCreateQueries &&
     canSaveQueries &&
-    !!queryResults?.results &&
+    !!queryExecution?.results &&
     !!form.watch("sql").trim() &&
     dirty;
 
   const runQuery = useCallback(
     async (sql: string) => {
-      setQueryResults(null);
+      setQueryExecution(null);
       validateSQL(sql, []);
       form.setValue("dateLastRan", new Date());
-      const res: QueryResults = await apiCall("/query/run", {
+      const res: QueryExecutionResult = await apiCall("/query/run", {
         method: "POST",
         body: JSON.stringify({
           query: sql,
@@ -160,7 +172,7 @@ export default function SqlExplorerModal({
             sql: form.watch("sql"),
             datasourceId: selectedDatasourceId,
             dateLastRan: form.watch("dateLastRan"),
-            results: queryResults?.results,
+            results: form.watch("results"),
             dataVizConfig: undefined, // New queries don't have viz config yet
           }),
         });
@@ -190,7 +202,7 @@ export default function SqlExplorerModal({
           datasourceId: selectedDatasourceId,
           dateLastRan: form.watch("dateLastRan"),
           dataVizConfig: form.watch("dataVizConfig"),
-          results: queryResults?.results,
+          results: form.watch("results"),
         }),
       });
       mutate();
@@ -206,12 +218,19 @@ export default function SqlExplorerModal({
     setIsRunningQuery(true);
     try {
       const res = await runQuery(form.watch("sql"));
-      setQueryResults({ ...res, error: res.error ? res.error : "" });
+      setQueryExecution({
+        results: res.results || [],
+        error: res.error || "",
+        duration: res.duration,
+        sql: res.sql,
+      });
+      // Update the form's results field
+      form.setValue("results", res.results || []);
     } catch (e) {
-      setQueryResults({
-        sql: form.watch("sql"),
-        error: e.message,
+      setQueryExecution({
         results: [],
+        error: e.message,
+        sql: form.watch("sql"),
       });
     }
     setIsRunningQuery(false);
@@ -235,7 +254,7 @@ export default function SqlExplorerModal({
   // Pre-fill results if we're editing a saved query with existing results
   useEffect(() => {
     if (savedQuery?.results && savedQuery.results.length > 0) {
-      setQueryResults({
+      setQueryExecution({
         results: savedQuery.results,
         sql: savedQuery.sql,
       });
@@ -377,7 +396,7 @@ export default function SqlExplorerModal({
             <PanelGroup direction="horizontal">
               <Panel defaultSize={60}>
                 <PanelGroup direction="vertical">
-                  <Panel defaultSize={queryResults ? 30 : 100} minSize={7}>
+                  <Panel defaultSize={queryExecution ? 30 : 100} minSize={7}>
                     <AreaWithHeader
                       header={
                         <Flex align="center" justify="between">
@@ -444,19 +463,19 @@ export default function SqlExplorerModal({
                         fullHeight
                         setCursorData={setCursorData}
                         onCtrlEnter={handleQuery}
-                        resizeDependency={!!queryResults}
+                        resizeDependency={!!queryExecution}
                       />
                     </AreaWithHeader>
                   </Panel>
-                  {queryResults && (
+                  {queryExecution && (
                     <>
                       <PanelResizeHandle />
                       <Panel minSize={10}>
                         <DisplayTestQueryResults
-                          duration={parseInt(queryResults.duration || "0")}
-                          results={queryResults.results || []}
-                          sql={queryResults.sql || ""}
-                          error={queryResults.error || ""}
+                          duration={parseInt(queryExecution.duration || "0")}
+                          results={queryExecution.results}
+                          sql={queryExecution.sql || ""}
+                          error={queryExecution.error || ""}
                           allowDownload={true}
                         />
                       </Panel>
