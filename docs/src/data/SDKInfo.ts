@@ -20,21 +20,51 @@ export default {
       },
     ],
     capabilities: [
-      "features",
-      "experimentation",
-      "savedGroupReferences",
-      "redirects",
-      "prerequisites",
-      "stickyBucketing",
-      "visualEditorDragDrop",
-      "remoteEval",
-      "semverTargeting",
-      "visualEditorJS",
-      "visualEditor",
-      "bucketingV2",
-      "streaming",
-      "encryption",
-      "looseUnmarshalling",
+      {
+        features: "All versions",
+      },
+      {
+        experimentation: "All versions",
+      },
+      {
+        savedGroupReferences: "≥ v1.1.0",
+      },
+      {
+        redirects: "≥ v0.36.0",
+      },
+      {
+        prerequisites: "≥ v0.34.0",
+      },
+      {
+        stickyBucketing: "≥ v0.32.0",
+      },
+      {
+        visualEditorDragDrop: "≥ v0.30.0",
+      },
+      {
+        remoteEval: "≥ v0.29.0",
+      },
+      {
+        semverTargeting: "≥ v0.27.0",
+      },
+      {
+        visualEditorJS: "≥ v0.27.0",
+      },
+      {
+        visualEditor: "≥ v0.24.0",
+      },
+      {
+        bucketingV2: "≥ v0.23.0",
+      },
+      {
+        streaming: "≥ v0.21.0",
+      },
+      {
+        encryption: "≥ v0.20.0",
+      },
+      {
+        looseUnmarshalling: "≥ v0.0.0",
+      },
     ],
   },
   react: {
@@ -63,21 +93,51 @@ export default {
       },
     ],
     capabilities: [
-      "features",
-      "experimentation",
-      "savedGroupReferences",
-      "redirects",
-      "prerequisites",
-      "stickyBucketing",
-      "visualEditorDragDrop",
-      "remoteEval",
-      "semverTargeting",
-      "visualEditorJS",
-      "visualEditor",
-      "bucketingV2",
-      "streaming",
-      "encryption",
-      "looseUnmarshalling",
+      {
+        features: "All versions",
+      },
+      {
+        experimentation: "All versions",
+      },
+      {
+        savedGroupReferences: "≥ v1.1.0",
+      },
+      {
+        redirects: "≥ v0.26.0",
+      },
+      {
+        prerequisites: "≥ v0.24.0",
+      },
+      {
+        stickyBucketing: "≥ v0.22.0",
+      },
+      {
+        visualEditorDragDrop: "≥ v0.20.0",
+      },
+      {
+        remoteEval: "≥ v0.19.0",
+      },
+      {
+        semverTargeting: "≥ v0.17.0",
+      },
+      {
+        visualEditorJS: "≥ v0.17.0",
+      },
+      {
+        visualEditor: "≥ v0.14.0",
+      },
+      {
+        bucketingV2: "≥ v0.13.0",
+      },
+      {
+        streaming: "≥ v0.11.0",
+      },
+      {
+        encryption: "≥ v0.10.1",
+      },
+      {
+        looseUnmarshalling: "≥ v0.0.0",
+      },
     ],
   },
   nextjs: {
@@ -99,16 +159,36 @@ export default {
       },
     ],
     capabilities: [
-      "features",
-      "experimentation",
-      "savedGroupReferences",
-      "redirects",
-      "prerequisites",
-      "stickyBucketing",
-      "semverTargeting",
-      "bucketingV2",
-      "encryption",
-      "looseUnmarshalling",
+      {
+        features: "All versions",
+      },
+      {
+        experimentation: "All versions",
+      },
+      {
+        savedGroupReferences: "≥ v0.1.0",
+      },
+      {
+        redirects: "≥ v0.1.0",
+      },
+      {
+        prerequisites: "≥ v0.1.0",
+      },
+      {
+        stickyBucketing: "≥ v0.1.0",
+      },
+      {
+        semverTargeting: "≥ v0.1.0",
+      },
+      {
+        bucketingV2: "≥ v0.1.0",
+      },
+      {
+        encryption: "≥ v0.1.0",
+      },
+      {
+        looseUnmarshalling: "≥ v0.1.0",
+      },
     ],
   },
   php: {
@@ -123,15 +203,33 @@ export default {
       },
     ],
     capabilities: [
-      "features",
-      "experimentation",
-      "savedGroupReferences",
-      "prerequisites",
-      "stickyBucketing",
-      "semverTargeting",
-      "bucketingV2",
-      "encryption",
-      "looseUnmarshalling",
+      {
+        features: "All versions",
+      },
+      {
+        experimentation: "All versions",
+      },
+      {
+        savedGroupReferences: "≥ v1.7.0",
+      },
+      {
+        prerequisites: "≥ v1.6.0",
+      },
+      {
+        stickyBucketing: "≥ v1.6.0",
+      },
+      {
+        semverTargeting: "≥ v1.5.0",
+      },
+      {
+        bucketingV2: "≥ v1.2.0",
+      },
+      {
+        encryption: "≥ v1.2.0",
+      },
+      {
+        looseUnmarshalling: "≥ v1.0.0",
+      },
     ],
   },
   node: {
@@ -152,17 +250,39 @@ export default {
       },
     ],
     capabilities: [
-      "features",
-      "experimentation",
-      "savedGroupReferences",
-      "redirects",
-      "prerequisites",
-      "stickyBucketing",
-      "semverTargeting",
-      "bucketingV2",
-      "streaming",
-      "encryption",
-      "looseUnmarshalling",
+      {
+        features: "All versions",
+      },
+      {
+        experimentation: "All versions",
+      },
+      {
+        savedGroupReferences: "≥ v1.1.0",
+      },
+      {
+        redirects: "≥ v0.36.0",
+      },
+      {
+        prerequisites: "≥ v0.34.0",
+      },
+      {
+        stickyBucketing: "≥ v0.32.0",
+      },
+      {
+        semverTargeting: "≥ v0.27.0",
+      },
+      {
+        bucketingV2: "≥ v0.23.0",
+      },
+      {
+        streaming: "≥ v0.21.0",
+      },
+      {
+        encryption: "≥ v0.20.0",
+      },
+      {
+        looseUnmarshalling: "≥ v0.0.0",
+      },
     ],
   },
   ruby: {
@@ -183,14 +303,30 @@ export default {
       },
     ],
     capabilities: [
-      "features",
-      "experimentation",
-      "prerequisites",
-      "stickyBucketing",
-      "semverTargeting",
-      "encryption",
-      "bucketingV2",
-      "looseUnmarshalling",
+      {
+        features: "All versions",
+      },
+      {
+        experimentation: "All versions",
+      },
+      {
+        prerequisites: "≥ v1.3.0",
+      },
+      {
+        stickyBucketing: "≥ v1.3.0",
+      },
+      {
+        semverTargeting: "≥ v1.2.2",
+      },
+      {
+        encryption: "≥ v1.1.0",
+      },
+      {
+        bucketingV2: "≥ v1.0.0",
+      },
+      {
+        looseUnmarshalling: "≥ v0.0.0",
+      },
     ],
   },
   python: {
@@ -205,15 +341,33 @@ export default {
       },
     ],
     capabilities: [
-      "features",
-      "experimentation",
-      "savedGroupReferences",
-      "looseUnmarshalling",
-      "prerequisites",
-      "stickyBucketing",
-      "semverTargeting",
-      "bucketingV2",
-      "encryption",
+      {
+        features: "All versions",
+      },
+      {
+        experimentation: "All versions",
+      },
+      {
+        savedGroupReferences: "≥ v1.2.1",
+      },
+      {
+        looseUnmarshalling: "≥ v1.1.0",
+      },
+      {
+        prerequisites: "≥ v1.1.0",
+      },
+      {
+        stickyBucketing: "≥ v1.1.0",
+      },
+      {
+        semverTargeting: "≥ v1.1.0",
+      },
+      {
+        bucketingV2: "≥ v1.0.0",
+      },
+      {
+        encryption: "≥ v1.0.0",
+      },
     ],
   },
   go: {
@@ -233,16 +387,36 @@ export default {
       },
     ],
     capabilities: [
-      "features",
-      "experimentation",
-      "stickyBucketing",
-      "prerequisites",
-      "savedGroupReferences",
-      "bucketingV2",
-      "streaming",
-      "semverTargeting",
-      "encryption",
-      "looseUnmarshalling",
+      {
+        features: "All versions",
+      },
+      {
+        experimentation: "All versions",
+      },
+      {
+        stickyBucketing: "≥ v0.2.3",
+      },
+      {
+        prerequisites: "≥ v0.2.0",
+      },
+      {
+        savedGroupReferences: "≥ v0.2.0",
+      },
+      {
+        bucketingV2: "≥ v0.1.4",
+      },
+      {
+        streaming: "≥ v0.1.4",
+      },
+      {
+        semverTargeting: "≥ v0.1.4",
+      },
+      {
+        encryption: "≥ v0.1.4",
+      },
+      {
+        looseUnmarshalling: "≥ v0.0.0",
+      },
     ],
   },
   java: {
@@ -275,15 +449,33 @@ export default {
       },
     ],
     capabilities: [
-      "features",
-      "experimentation",
-      "prerequisites",
-      "stickyBucketing",
-      "streaming",
-      "semverTargeting",
-      "bucketingV2",
-      "encryption",
-      "looseUnmarshalling",
+      {
+        features: "All versions",
+      },
+      {
+        experimentation: "All versions",
+      },
+      {
+        prerequisites: "≥ v0.9.3",
+      },
+      {
+        stickyBucketing: "≥ v0.9.3",
+      },
+      {
+        streaming: "≥ v0.9.0",
+      },
+      {
+        semverTargeting: "≥ v0.7.0",
+      },
+      {
+        bucketingV2: "≥ v0.6.0",
+      },
+      {
+        encryption: "≥ v0.3.0",
+      },
+      {
+        looseUnmarshalling: "≥ v0.0.0",
+      },
     ],
   },
   csharp: {
@@ -304,16 +496,36 @@ export default {
       },
     ],
     capabilities: [
-      "features",
-      "experimentation",
-      "stickyBucketing",
-      "prerequisites",
-      "savedGroupReferences",
-      "encryption",
-      "streaming",
-      "bucketingV2",
-      "semverTargeting",
-      "looseUnmarshalling",
+      {
+        features: "All versions",
+      },
+      {
+        experimentation: "All versions",
+      },
+      {
+        stickyBucketing: "≥ v1.1.0",
+      },
+      {
+        prerequisites: "≥ v1.1.0",
+      },
+      {
+        savedGroupReferences: "≥ v1.1.0",
+      },
+      {
+        encryption: "≥ v1.0.0",
+      },
+      {
+        streaming: "≥ v1.0.0",
+      },
+      {
+        bucketingV2: "≥ v1.0.0",
+      },
+      {
+        semverTargeting: "≥ v1.0.0",
+      },
+      {
+        looseUnmarshalling: "≥ v0.0.0",
+      },
     ],
   },
   elixir: {
@@ -328,13 +540,27 @@ export default {
       },
     ],
     capabilities: [
-      "features",
-      "experimentation",
-      "encryption",
-      "prerequisites",
-      "semverTargeting",
-      "bucketingV2",
-      "looseUnmarshalling",
+      {
+        features: "All versions",
+      },
+      {
+        experimentation: "All versions",
+      },
+      {
+        encryption: "≥ v0.3.0",
+      },
+      {
+        prerequisites: "≥ v0.2.0",
+      },
+      {
+        semverTargeting: "≥ v0.2.0",
+      },
+      {
+        bucketingV2: "≥ v0.2.0",
+      },
+      {
+        looseUnmarshalling: "≥ v0.2.0",
+      },
     ],
   },
   kotlin: {
@@ -349,16 +575,36 @@ export default {
       },
     ],
     capabilities: [
-      "features",
-      "experimentation",
-      "remoteEval",
-      "streaming",
-      "prerequisites",
-      "stickyBucketing",
-      "bucketingV2",
-      "semverTargeting",
-      "encryption",
-      "looseUnmarshalling",
+      {
+        features: "All versions",
+      },
+      {
+        experimentation: "All versions",
+      },
+      {
+        remoteEval: "≥ v1.1.50",
+      },
+      {
+        streaming: "≥ v1.1.50",
+      },
+      {
+        prerequisites: "≥ v1.1.44",
+      },
+      {
+        stickyBucketing: "≥ v1.1.44",
+      },
+      {
+        bucketingV2: "≥ v1.1.38",
+      },
+      {
+        semverTargeting: "≥ v1.1.31",
+      },
+      {
+        encryption: "≥ v1.1.23",
+      },
+      {
+        looseUnmarshalling: "≥ v0.0.0",
+      },
     ],
   },
   swift: {
@@ -373,16 +619,36 @@ export default {
       },
     ],
     capabilities: [
-      "features",
-      "experimentation",
-      "remoteEval",
-      "stickyBucketing",
-      "prerequisites",
-      "bucketingV2",
-      "streaming",
-      "semverTargeting",
-      "encryption",
-      "looseUnmarshalling",
+      {
+        features: "All versions",
+      },
+      {
+        experimentation: "All versions",
+      },
+      {
+        remoteEval: "≥ v1.0.50",
+      },
+      {
+        stickyBucketing: "≥ v1.0.49",
+      },
+      {
+        prerequisites: "≥ v1.0.49",
+      },
+      {
+        bucketingV2: "≥ v1.0.43",
+      },
+      {
+        streaming: "≥ v1.0.43",
+      },
+      {
+        semverTargeting: "≥ v1.0.38",
+      },
+      {
+        encryption: "≥ v1.0.35",
+      },
+      {
+        looseUnmarshalling: "≥ v0.0.0",
+      },
     ],
   },
   reactNative: {
@@ -404,21 +670,51 @@ export default {
       },
     ],
     capabilities: [
-      "features",
-      "experimentation",
-      "savedGroupReferences",
-      "redirects",
-      "prerequisites",
-      "stickyBucketing",
-      "visualEditorDragDrop",
-      "remoteEval",
-      "semverTargeting",
-      "visualEditorJS",
-      "visualEditor",
-      "bucketingV2",
-      "streaming",
-      "encryption",
-      "looseUnmarshalling",
+      {
+        features: "All versions",
+      },
+      {
+        experimentation: "All versions",
+      },
+      {
+        savedGroupReferences: "≥ v1.1.0",
+      },
+      {
+        redirects: "≥ v0.26.0",
+      },
+      {
+        prerequisites: "≥ v0.24.0",
+      },
+      {
+        stickyBucketing: "≥ v0.22.0",
+      },
+      {
+        visualEditorDragDrop: "≥ v0.20.0",
+      },
+      {
+        remoteEval: "≥ v0.19.0",
+      },
+      {
+        semverTargeting: "≥ v0.17.0",
+      },
+      {
+        visualEditorJS: "≥ v0.17.0",
+      },
+      {
+        visualEditor: "≥ v0.14.0",
+      },
+      {
+        bucketingV2: "≥ v0.13.0",
+      },
+      {
+        streaming: "≥ v0.11.0",
+      },
+      {
+        encryption: "≥ v0.10.1",
+      },
+      {
+        looseUnmarshalling: "≥ v0.0.0",
+      },
     ],
   },
   edgeCloudflare: {
@@ -440,20 +736,48 @@ export default {
       },
     ],
     capabilities: [
-      "features",
-      "experimentation",
-      "savedGroupReferences",
-      "looseUnmarshalling",
-      "encryption",
-      "streaming",
-      "bucketingV2",
-      "visualEditor",
-      "semverTargeting",
-      "visualEditorJS",
-      "visualEditorDragDrop",
-      "prerequisites",
-      "redirects",
-      "stickyBucketing",
+      {
+        features: "All versions",
+      },
+      {
+        experimentation: "All versions",
+      },
+      {
+        savedGroupReferences: "≥ v0.1.12",
+      },
+      {
+        looseUnmarshalling: "≥ v0.1.11",
+      },
+      {
+        encryption: "≥ v0.1.11",
+      },
+      {
+        streaming: "≥ v0.1.11",
+      },
+      {
+        bucketingV2: "≥ v0.1.11",
+      },
+      {
+        visualEditor: "≥ v0.1.11",
+      },
+      {
+        semverTargeting: "≥ v0.1.11",
+      },
+      {
+        visualEditorJS: "≥ v0.1.11",
+      },
+      {
+        visualEditorDragDrop: "≥ v0.1.11",
+      },
+      {
+        prerequisites: "≥ v0.1.11",
+      },
+      {
+        redirects: "≥ v0.1.11",
+      },
+      {
+        stickyBucketing: "≥ v0.1.11",
+      },
     ],
   },
   edgeFastly: {
@@ -475,20 +799,48 @@ export default {
       },
     ],
     capabilities: [
-      "features",
-      "experimentation",
-      "savedGroupReferences",
-      "looseUnmarshalling",
-      "encryption",
-      "streaming",
-      "bucketingV2",
-      "visualEditor",
-      "semverTargeting",
-      "visualEditorJS",
-      "visualEditorDragDrop",
-      "prerequisites",
-      "redirects",
-      "stickyBucketing",
+      {
+        features: "All versions",
+      },
+      {
+        experimentation: "All versions",
+      },
+      {
+        savedGroupReferences: "≥ v0.1.6",
+      },
+      {
+        looseUnmarshalling: "≥ v0.1.5",
+      },
+      {
+        encryption: "≥ v0.1.5",
+      },
+      {
+        streaming: "≥ v0.1.5",
+      },
+      {
+        bucketingV2: "≥ v0.1.5",
+      },
+      {
+        visualEditor: "≥ v0.1.5",
+      },
+      {
+        semverTargeting: "≥ v0.1.5",
+      },
+      {
+        visualEditorJS: "≥ v0.1.5",
+      },
+      {
+        visualEditorDragDrop: "≥ v0.1.5",
+      },
+      {
+        prerequisites: "≥ v0.1.5",
+      },
+      {
+        redirects: "≥ v0.1.5",
+      },
+      {
+        stickyBucketing: "≥ v0.1.5",
+      },
     ],
   },
   edgeLambda: {
@@ -504,20 +856,48 @@ export default {
       },
     ],
     capabilities: [
-      "features",
-      "experimentation",
-      "savedGroupReferences",
-      "looseUnmarshalling",
-      "encryption",
-      "streaming",
-      "bucketingV2",
-      "visualEditor",
-      "semverTargeting",
-      "visualEditorJS",
-      "visualEditorDragDrop",
-      "prerequisites",
-      "redirects",
-      "stickyBucketing",
+      {
+        features: "All versions",
+      },
+      {
+        experimentation: "All versions",
+      },
+      {
+        savedGroupReferences: "≥ v0.0.7",
+      },
+      {
+        looseUnmarshalling: "≥ v0.0.6",
+      },
+      {
+        encryption: "≥ v0.0.6",
+      },
+      {
+        streaming: "≥ v0.0.6",
+      },
+      {
+        bucketingV2: "≥ v0.0.6",
+      },
+      {
+        visualEditor: "≥ v0.0.6",
+      },
+      {
+        semverTargeting: "≥ v0.0.6",
+      },
+      {
+        visualEditorJS: "≥ v0.0.6",
+      },
+      {
+        visualEditorDragDrop: "≥ v0.0.6",
+      },
+      {
+        prerequisites: "≥ v0.0.6",
+      },
+      {
+        redirects: "≥ v0.0.6",
+      },
+      {
+        stickyBucketing: "≥ v0.0.6",
+      },
     ],
   },
   edgeUtils: {
@@ -533,20 +913,48 @@ export default {
       },
     ],
     capabilities: [
-      "features",
-      "experimentation",
-      "savedGroupReferences",
-      "looseUnmarshalling",
-      "encryption",
-      "streaming",
-      "bucketingV2",
-      "visualEditor",
-      "semverTargeting",
-      "visualEditorJS",
-      "visualEditorDragDrop",
-      "prerequisites",
-      "redirects",
-      "stickyBucketing",
+      {
+        features: "All versions",
+      },
+      {
+        experimentation: "All versions",
+      },
+      {
+        savedGroupReferences: "≥ v0.1.5",
+      },
+      {
+        looseUnmarshalling: "≥ v0.1.4",
+      },
+      {
+        encryption: "≥ v0.1.4",
+      },
+      {
+        streaming: "≥ v0.1.4",
+      },
+      {
+        bucketingV2: "≥ v0.1.4",
+      },
+      {
+        visualEditor: "≥ v0.1.4",
+      },
+      {
+        semverTargeting: "≥ v0.1.4",
+      },
+      {
+        visualEditorJS: "≥ v0.1.4",
+      },
+      {
+        visualEditorDragDrop: "≥ v0.1.4",
+      },
+      {
+        prerequisites: "≥ v0.1.4",
+      },
+      {
+        redirects: "≥ v0.1.4",
+      },
+      {
+        stickyBucketing: "≥ v0.1.4",
+      },
     ],
   },
   flutter: {
@@ -561,16 +969,36 @@ export default {
       },
     ],
     capabilities: [
-      "features",
-      "experimentation",
-      "stickyBucketing",
-      "remoteEval",
-      "streaming",
-      "prerequisites",
-      "encryption",
-      "bucketingV2",
-      "semverTargeting",
-      "looseUnmarshalling",
+      {
+        features: "All versions",
+      },
+      {
+        experimentation: "All versions",
+      },
+      {
+        stickyBucketing: "≥ v3.8.0",
+      },
+      {
+        remoteEval: "≥ v3.7.0",
+      },
+      {
+        streaming: "≥ v3.4.0",
+      },
+      {
+        prerequisites: "≥ v3.2.0",
+      },
+      {
+        encryption: "≥ v3.1.0",
+      },
+      {
+        bucketingV2: "≥ v3.1.0",
+      },
+      {
+        semverTargeting: "≥ v3.1.0",
+      },
+      {
+        looseUnmarshalling: "≥ v0.0.0",
+      },
     ],
   },
 };

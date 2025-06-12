@@ -16,7 +16,6 @@ const capabilityDetails = {
       </svg>
     ),
     label: "Features",
-    link: "/app/features",
   },
   experimentation: {
     icon: () => (
@@ -31,12 +30,10 @@ const capabilityDetails = {
       </svg>
     ),
     label: "Experimentation",
-    link: "/experiments",
   },
   looseUnmarshalling: {
     icon: undefined,
     label: "Loose Unmarshalling",
-    link: "",
   },
   encryption: {
     icon: () => (
@@ -51,7 +48,6 @@ const capabilityDetails = {
       </svg>
     ),
     label: "Encrypted Features",
-    link: "",
   },
   streaming: {
     icon: () => (
@@ -66,7 +62,6 @@ const capabilityDetails = {
       </svg>
     ),
     label: "Streaming",
-    link: "",
   },
   bucketingV2: {
     icon: () => (
@@ -81,7 +76,6 @@ const capabilityDetails = {
       </svg>
     ),
     label: "v2 Hashing",
-    link: "",
   },
   visualEditor: {
     icon: () => (
@@ -96,7 +90,6 @@ const capabilityDetails = {
       </svg>
     ),
     label: "Visual Editor",
-    link: "/app/visual",
   },
   semverTargeting: {
     icon: () => (
@@ -111,7 +104,6 @@ const capabilityDetails = {
       </svg>
     ),
     label: "SemVer Targeting",
-    link: "",
   },
   visualEditorJS: {
     icon: () => (
@@ -126,7 +118,6 @@ const capabilityDetails = {
       </svg>
     ),
     label: "Visual Editor (JS)",
-    link: "/app/visual#custom-javascript",
   },
   remoteEval: {
     icon: () => (
@@ -141,7 +132,6 @@ const capabilityDetails = {
       </svg>
     ),
     label: "Remote Evaluation",
-    link: "",
   },
   visualEditorDragDrop: {
     icon: () => (
@@ -156,7 +146,6 @@ const capabilityDetails = {
       </svg>
     ),
     label: "Visual Editor Drag & Drop",
-    link: "/app/visual#drag-and-drop",
   },
   stickyBucketing: {
     icon: () => (
@@ -171,7 +160,6 @@ const capabilityDetails = {
       </svg>
     ),
     label: "Sticky Bucketing",
-    link: "/app/sticky-bucketing",
   },
   redirects: {
     icon: () => (
@@ -186,7 +174,6 @@ const capabilityDetails = {
       </svg>
     ),
     label: "URL Redirects",
-    link: "/app/url-redirects",
   },
   prerequisites: {
     icon: () => (
@@ -201,7 +188,6 @@ const capabilityDetails = {
       </svg>
     ),
     label: "Prerequisites",
-    link: "/features/prerequisites",
   },
   savedGroupReferences: {
     icon: () => (
@@ -216,7 +202,6 @@ const capabilityDetails = {
       </svg>
     ),
     label: "Saved Group References",
-    link: "/features/targeting#id-lists",
   },
 };
 
@@ -226,33 +211,25 @@ export default function SdkSupportedFeatures({
   sdk: keyof typeof sdkInfo;
 }) {
   const sdkDetail = sdkInfo[sdk] as SingleSdkInfoType;
-  const capabilitiesWithoutMarshalling = sdkDetail.capabilities.filter(
-    (feature) => feature !== "looseUnmarshalling"
-  );
+  const capabilities = sdkDetail.capabilities
+    .filter((cap: Record<string, string>) => !cap.looseUnmarshalling)
+    .map((cap: Record<string, string>) => {
+      const feature = Object.keys(cap)[0];
+      const version = cap[feature];
+      return { feature, version };
+    });
 
   return (
     <section className="sdk-supported-features">
-      {capabilitiesWithoutMarshalling.map((feature: string) => {
-        if (capabilityDetails[feature].link) {
-          return (
-            <a
-              key={feature}
-              className="sdk-supported-feature"
-              href={capabilityDetails[feature].link}
-            >
-              {capabilityDetails[feature].icon?.()}
-              {capabilityDetails[feature].label}
-            </a>
-          );
-        }
-
-        return (
-          <p key={feature} className="sdk-supported-feature">
-            {capabilityDetails[feature].icon?.()}
-            {capabilityDetails[feature].label}
-          </p>
-        );
-      })}
+      {capabilities.map(({ feature, version }) => (
+        <p key={feature} className="sdk-supported-feature">
+          {capabilityDetails[feature]?.icon?.()}
+          <span className="sdk-feature-tooltip">
+            {capabilityDetails[feature]?.label}
+            <span className="sdk-feature-tooltip-content">{version}</span>
+          </span>
+        </p>
+      ))}
     </section>
   );
 }

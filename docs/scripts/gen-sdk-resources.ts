@@ -4,12 +4,27 @@ import prettier from "prettier";
 import {
   getLatestSDKVersion,
   getSDKCapabilities,
+  getSDKCapabilityVersion,
+  SDKCapability,
 } from "shared/src/sdk-versioning";
+import type { SDKLanguage } from "back-end/types/sdk-connection";
+
+function defineSDKCapabilityVersion(sdk: string, capabilities: string[]) {
+  return capabilities.map((c) => {
+    const v = getSDKCapabilityVersion(sdk as SDKLanguage, c as SDKCapability);
+    return {
+      [c]: v === "All versions" ? "All versions" : `≥ v${v}`,
+    };
+  });
+}
 
 const basePath = path.resolve(path.dirname(process.argv[1]), "..");
 const TARGET = `${basePath}/src/data/SDKInfo.ts`;
 
-const defaultCapabilities = ["features", "experimentation"];
+const defaultCapabilities = [
+  { features: "All versions" },
+  { experimentation: "All versions" },
+];
 
 const baseSDKInfo = {
   js: {
@@ -32,7 +47,10 @@ const baseSDKInfo = {
     ],
     capabilities: [
       ...defaultCapabilities,
-      ...getSDKCapabilities("javascript", getLatestSDKVersion("javascript")),
+      ...defineSDKCapabilityVersion(
+        "javascript",
+        getSDKCapabilities("javascript", getLatestSDKVersion("javascript"))
+      ),
     ],
   },
   react: {
@@ -62,7 +80,10 @@ const baseSDKInfo = {
     ],
     capabilities: [
       ...defaultCapabilities,
-      ...getSDKCapabilities("react", getLatestSDKVersion("react")),
+      ...defineSDKCapabilityVersion(
+        "react",
+        getSDKCapabilities("react", getLatestSDKVersion("react"))
+      ),
     ],
   },
   nextjs: {
@@ -85,7 +106,10 @@ const baseSDKInfo = {
     ],
     capabilities: [
       ...defaultCapabilities,
-      ...getSDKCapabilities("nextjs", getLatestSDKVersion("nextjs")),
+      ...defineSDKCapabilityVersion(
+        "nextjs",
+        getSDKCapabilities("nextjs", getLatestSDKVersion("nextjs"))
+      ),
     ],
   },
   php: {
@@ -101,7 +125,10 @@ const baseSDKInfo = {
     ],
     capabilities: [
       ...defaultCapabilities,
-      ...getSDKCapabilities("php", getLatestSDKVersion("php")),
+      ...defineSDKCapabilityVersion(
+        "php",
+        getSDKCapabilities("php", getLatestSDKVersion("php"))
+      ),
     ],
   },
   node: {
@@ -123,7 +150,10 @@ const baseSDKInfo = {
     ],
     capabilities: [
       ...defaultCapabilities,
-      ...getSDKCapabilities("nodejs", getLatestSDKVersion("nodejs")),
+      ...defineSDKCapabilityVersion(
+        "nodejs",
+        getSDKCapabilities("nodejs", getLatestSDKVersion("nodejs"))
+      ),
     ],
   },
   ruby: {
@@ -145,7 +175,10 @@ const baseSDKInfo = {
     ],
     capabilities: [
       ...defaultCapabilities,
-      ...getSDKCapabilities("ruby", getLatestSDKVersion("ruby")),
+      ...defineSDKCapabilityVersion(
+        "ruby",
+        getSDKCapabilities("ruby", getLatestSDKVersion("ruby"))
+      ),
     ],
   },
   python: {
@@ -161,7 +194,10 @@ const baseSDKInfo = {
     ],
     capabilities: [
       ...defaultCapabilities,
-      ...getSDKCapabilities("python", getLatestSDKVersion("python")),
+      ...defineSDKCapabilityVersion(
+        "python",
+        getSDKCapabilities("python", getLatestSDKVersion("python"))
+      ),
     ],
   },
   go: {
@@ -182,7 +218,10 @@ const baseSDKInfo = {
     ],
     capabilities: [
       ...defaultCapabilities,
-      ...getSDKCapabilities("go", getLatestSDKVersion("go")),
+      ...defineSDKCapabilityVersion(
+        "go",
+        getSDKCapabilities("go", getLatestSDKVersion("go"))
+      ),
     ],
   },
   java: {
@@ -216,7 +255,10 @@ const baseSDKInfo = {
     ],
     capabilities: [
       ...defaultCapabilities,
-      ...getSDKCapabilities("java", getLatestSDKVersion("java")),
+      ...defineSDKCapabilityVersion(
+        "java",
+        getSDKCapabilities("java", getLatestSDKVersion("java"))
+      ),
     ],
   },
   csharp: {
@@ -238,7 +280,10 @@ const baseSDKInfo = {
     ],
     capabilities: [
       ...defaultCapabilities,
-      ...getSDKCapabilities("csharp", getLatestSDKVersion("csharp")),
+      ...defineSDKCapabilityVersion(
+        "csharp",
+        getSDKCapabilities("csharp", getLatestSDKVersion("csharp"))
+      ),
     ],
   },
   elixir: {
@@ -254,7 +299,10 @@ const baseSDKInfo = {
     ],
     capabilities: [
       ...defaultCapabilities,
-      ...getSDKCapabilities("elixir", getLatestSDKVersion("elixir")),
+      ...defineSDKCapabilityVersion(
+        "elixir",
+        getSDKCapabilities("elixir", getLatestSDKVersion("elixir"))
+      ),
     ],
   },
   kotlin: {
@@ -270,7 +318,10 @@ const baseSDKInfo = {
     ],
     capabilities: [
       ...defaultCapabilities,
-      ...getSDKCapabilities("android", getLatestSDKVersion("android")),
+      ...defineSDKCapabilityVersion(
+        "android",
+        getSDKCapabilities("android", getLatestSDKVersion("android"))
+      ),
     ],
   },
   swift: {
@@ -286,7 +337,10 @@ const baseSDKInfo = {
     ],
     capabilities: [
       ...defaultCapabilities,
-      ...getSDKCapabilities("ios", getLatestSDKVersion("ios")),
+      ...defineSDKCapabilityVersion(
+        "ios",
+        getSDKCapabilities("ios", getLatestSDKVersion("ios"))
+      ),
     ],
   },
   reactNative: {
@@ -309,7 +363,10 @@ const baseSDKInfo = {
     ],
     capabilities: [
       ...defaultCapabilities,
-      ...getSDKCapabilities("react", getLatestSDKVersion("react")),
+      ...defineSDKCapabilityVersion(
+        "react",
+        getSDKCapabilities("react", getLatestSDKVersion("react"))
+      ),
     ],
   },
   edgeCloudflare: {
@@ -332,9 +389,12 @@ const baseSDKInfo = {
     ],
     capabilities: [
       ...defaultCapabilities,
-      ...getSDKCapabilities(
+      ...defineSDKCapabilityVersion(
         "edge-cloudflare",
-        getLatestSDKVersion("edge-cloudflare")
+        getSDKCapabilities(
+          "edge-cloudflare",
+          getLatestSDKVersion("edge-cloudflare")
+        )
       ),
     ],
   },
@@ -358,7 +418,10 @@ const baseSDKInfo = {
     ],
     capabilities: [
       ...defaultCapabilities,
-      ...getSDKCapabilities("edge-fastly", getLatestSDKVersion("edge-fastly")),
+      ...defineSDKCapabilityVersion(
+        "edge-fastly",
+        getSDKCapabilities("edge-fastly", getLatestSDKVersion("edge-fastly"))
+      ),
     ],
   },
   edgeLambda: {
@@ -375,7 +438,10 @@ const baseSDKInfo = {
     ],
     capabilities: [
       ...defaultCapabilities,
-      ...getSDKCapabilities("edge-lambda", getLatestSDKVersion("edge-lambda")),
+      ...defineSDKCapabilityVersion(
+        "edge-lambda",
+        getSDKCapabilities("edge-lambda", getLatestSDKVersion("edge-lambda"))
+      ),
     ],
   },
   edgeUtils: {
@@ -392,7 +458,10 @@ const baseSDKInfo = {
     ],
     capabilities: [
       ...defaultCapabilities,
-      ...getSDKCapabilities("edge-other", getLatestSDKVersion("edge-other")),
+      ...defineSDKCapabilityVersion(
+        "edge-other",
+        getSDKCapabilities("edge-other", getLatestSDKVersion("edge-other"))
+      ),
     ],
   },
   flutter: {
@@ -408,7 +477,10 @@ const baseSDKInfo = {
     ],
     capabilities: [
       ...defaultCapabilities,
-      ...getSDKCapabilities("flutter", getLatestSDKVersion("flutter")),
+      ...defineSDKCapabilityVersion(
+        "flutter",
+        getSDKCapabilities("flutter", getLatestSDKVersion("flutter"))
+      ),
     ],
   },
 };
