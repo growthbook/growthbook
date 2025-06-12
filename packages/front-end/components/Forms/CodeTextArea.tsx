@@ -5,6 +5,41 @@ import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { CursorData } from "@/components/Segments/SegmentForm";
 import Field, { FieldProps } from "./Field";
 
+// Type definitions for ace editor
+interface AceThemeModule {
+  cssText: string;
+  isDark?: boolean;
+  cssClass?: string;
+}
+
+interface AceRequire {
+  (moduleName: string): AceThemeModule;
+}
+
+interface AceExports {
+  isDark: boolean;
+  cssClass: string;
+  cssText: string;
+}
+
+interface AceGlobal {
+  define: (
+    name: string,
+    deps: string[],
+    factory: (require: AceRequire, exports: AceExports) => void
+  ) => void;
+}
+
+interface WindowWithAce extends Window {
+  ace?: AceGlobal;
+}
+
+interface ThemeConfig {
+  baseTheme: string;
+  isDark: boolean;
+  additionalCSS: string;
+}
+
 const AceEditor = dynamic(
   async () => {
     const reactAce = await import("react-ace");
@@ -43,8 +78,59 @@ export type Props = Omit<
   wrapperClassName?: string;
 };
 
-const LIGHT_THEME = "textmate";
-const DARK_THEME = "tomorrow_night";
+const LIGHT_THEME = "growthbook-light";
+const DARK_THEME = "growthbook-dark";
+const FALLBACK_LIGHT_THEME = "textmate";
+const FALLBACK_DARK_THEME = "tomorrow_night";
+
+// Theme configuration for cleaner CSS generation
+const THEME_CONFIG = {
+  [LIGHT_THEME]: {
+    baseTheme: FALLBACK_LIGHT_THEME,
+    isDark: false,
+    additionalCSS: "",
+  },
+  [DARK_THEME]: {
+    baseTheme: FALLBACK_DARK_THEME,
+    isDark: true,
+    additionalCSS: `
+    .ace-${DARK_THEME} .ace_selection {
+      border: none;
+    }`,
+  },
+} as const;
+
+// Generate CSS for all custom themes
+const customThemeCSS = Object.keys(THEME_CONFIG)
+  .map(
+    (themeName) => `
+  .ace-${themeName} {
+    background-color: var(--color-background);
+  }
+  .ace-${themeName} .ace_gutter {
+    background: var(--color-panel-solid);
+  }${THEME_CONFIG[themeName as keyof typeof THEME_CONFIG].additionalCSS}
+`
+  )
+  .join("");
+
+// Helper function to register a custom theme
+const registerCustomTheme = (
+  ace: AceGlobal,
+  themeName: string,
+  config: ThemeConfig
+) => {
+  ace.define(
+    `ace/theme/${themeName}`,
+    ["require", "exports", "module", `ace/theme/${config.baseTheme}`],
+    function (require, exports) {
+      const baseTheme = require(`ace/theme/${config.baseTheme}`);
+      exports.isDark = config.isDark;
+      exports.cssClass = `ace-${themeName}`;
+      exports.cssText = baseTheme.cssText;
+    }
+  );
+};
 
 export default function CodeTextArea({
   language,
@@ -66,6 +152,54 @@ export default function CodeTextArea({
   const { theme } = useAppearanceUITheme();
 
   const [editor, setEditor] = useState<null | Ace.Editor>(null);
+  const [customThemesLoaded, setCustomThemesLoaded] = useState(false);
+
+  // Initialize custom themes and inject CSS
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    let customThemesRegistered = false;
+
+    try {
+      // Inject custom CSS
+      const styleId = "growthbook-ace-themes";
+      let styleElement = document.getElementById(styleId) as HTMLStyleElement;
+
+      if (!styleElement) {
+        styleElement = document.createElement("style");
+        styleElement.id = styleId;
+        styleElement.type = "text/css";
+        document.head.appendChild(styleElement);
+      }
+
+      styleElement.innerHTML = customThemeCSS;
+
+      // Register custom themes when ace is available
+      const windowWithAce = window as WindowWithAce;
+      if (windowWithAce.ace) {
+        Object.entries(THEME_CONFIG).forEach(([themeName, config]) => {
+          registerCustomTheme(windowWithAce.ace!, themeName, config);
+        });
+        customThemesRegistered = true;
+      }
+    } catch (error) {
+      console.warn(
+        "Failed to load custom ace themes, falling back to defaults:",
+        error
+      );
+    }
+
+    setCustomThemesLoaded(customThemesRegistered);
+  }, []);
+
+  // Select theme with fallback logic
+  const selectedTheme = customThemesLoaded
+    ? theme === "light"
+      ? LIGHT_THEME
+      : DARK_THEME
+    : theme === "light"
+    ? FALLBACK_LIGHT_THEME
+    : FALLBACK_DARK_THEME;
 
   // HACK: AceEditor doesn't automatically resize when the parent div resizes
   // Also because we dynamically load the AceEditor component, we can't use
@@ -110,7 +244,7 @@ export default function CodeTextArea({
                 name={id}
                 onLoad={(e) => setEditor(e)}
                 mode={language}
-                theme={theme === "light" ? LIGHT_THEME : DARK_THEME}
+                theme={selectedTheme}
                 width="inherit"
                 value={value}
                 onChange={(newValue) => setValue(newValue)}
