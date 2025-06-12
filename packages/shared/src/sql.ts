@@ -24,11 +24,6 @@ export function format(
 export function ensureLimit(sql: string, limit: number): string {
   if (limit <= 0) throw new Error("Limit must be a positive integer");
 
-  // Remove all comments from the SQL
-  // This will break if comments are within strings
-  // but that should not happen very often in practice
-  sql = sql.replace(/(--[^\n\r]*)|(\/\*[\w\W]*?(?=\*\/)\*\/)/gm, "");
-
   // Remove trailing semicolons and spaces
   sql = sql.replace(/;\s*$/, "").trim();
 
@@ -68,5 +63,6 @@ export function ensureLimit(sql: string, limit: number): string {
     return sql.replace(/LIMIT\s+\d+$/, `LIMIT ${limit}`);
   }
   // Default: Append LIMIT at the end
-  return `${sql} LIMIT ${limit}`;
+  // Add a newline in case there's a line comment at the end
+  return `${sql}\nLIMIT ${limit}`;
 }

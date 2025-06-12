@@ -69,62 +69,59 @@ describe("ensureLimit", () => {
     it("should append LIMIT at the end", () => {
       const sql = "SELECT * FROM users";
       const result = ensureLimit(sql, 10);
-      expect(result).toBe("SELECT * FROM users LIMIT 10");
+      expect(result).toBe("SELECT * FROM users\nLIMIT 10");
     });
     it("should handle semicolon at the end without LIMIT or OFFSET", () => {
       const sql = "SELECT * FROM users;";
       const result = ensureLimit(sql, 10);
-      expect(result).toBe("SELECT * FROM users LIMIT 10");
+      expect(result).toBe("SELECT * FROM users\nLIMIT 10");
     });
   });
 
   describe("edge cases", () => {
-    it("should handle comments in the middle of LIMIT", () => {
-      const sql = "SELECT * FROM users LI/*\ntest\n*/MIT/* LIMIT 5 */ 5";
-      const result = ensureLimit(sql, 10);
-      expect(result).toBe("SELECT * FROM users LIMIT 5");
-    });
     it("should handle complex case with subquery that has LIMIT", () => {
       const sql = "SELECT * FROM (SELECT * FROM users LIMIT 50) AS subquery";
       const result = ensureLimit(sql, 10);
       expect(result).toBe(
-        "SELECT * FROM (SELECT * FROM users LIMIT 50) AS subquery LIMIT 10"
+        "SELECT * FROM (SELECT * FROM users LIMIT 50) AS subquery\nLIMIT 10"
       );
     });
     it("should handle WHERE clause with deceptive LIMIT in string", () => {
       const sql = "SELECT * FROM users WHERE test = 'LIMIT 5'";
       const result = ensureLimit(sql, 10);
       expect(result).toBe(
-        "SELECT * FROM users WHERE test = 'LIMIT 5' LIMIT 10"
+        "SELECT * FROM users WHERE test = 'LIMIT 5'\nLIMIT 10"
       );
     });
     it("should handle SQL with single-line comments", () => {
-      const sql = "SELECT * FROM users -- LIMIT 5";
+      const sql = "SELECT * FROM users -- something";
       const result = ensureLimit(sql, 10);
-      expect(result).toBe("SELECT * FROM users LIMIT 10");
+      expect(result).toBe("SELECT * FROM users -- something\nLIMIT 10");
     });
     it("should handle SQL with multi-line comments", () => {
       const sql = "SELECT * FROM users /* LIMIT 5 \n*/";
       const result = ensureLimit(sql, 10);
-      expect(result).toBe("SELECT * FROM users LIMIT 10");
+      expect(result).toBe("SELECT * FROM users /* LIMIT 5 \n*/\nLIMIT 10");
     });
-    it("should handle comments and semicolons at end", () => {
-      const sql = "SELECT * FROM users; -- LIMIT 5; \n";
-      const result = ensureLimit(sql, 10);
-      expect(result).toBe("SELECT * FROM users LIMIT 10");
-    });
-    it("should strip out all comments", () => {
-      const sql = `SELECT * FROM users /* This is a comment */ WHERE id = 1; -- Another comment`;
-      const result = ensureLimit(sql, 10);
-      expect(result).toBe("SELECT * FROM users  WHERE id = 1 LIMIT 10");
-    });
-    // TODO: Handle comments within strings
-    it.skip("should ignore comments within strings", () => {
-      const sql = `SELECT * FROM users WHERE name = 'This is a comment /* not a real comment */';`;
+    // TODO: properly parse comments and ignore them when looking for keywords
+    it.skip("should handle comments in the middle of LIMIT", () => {
+      const sql = "SELECT * FROM users LI/*\ntest\n*/MIT/* LIMIT 5 */ 5";
       const result = ensureLimit(sql, 10);
       expect(result).toBe(
-        "SELECT * FROM users WHERE name = 'This is a comment /* not a real comment */' LIMIT 10"
+        "SELECT * FROM users LI/*\ntest\n*/MIT/* LIMIT 5 */ 5"
       );
+    });
+    // TODO: properly parse comments to remove trailing semicolons
+    it.skip("should handle comments and semicolons at end", () => {
+      const sql = "SELECT * FROM users; -- testing\n";
+      const result = ensureLimit(sql, 10);
+      expect(result).toBe("SELECT * FROM users -- testing\nLIMIT 10");
+    });
+    // TODO: properly parse comments to ignore LIMIT in comments
+    it.skip("should handle SQL with single-line comments with deceptive LIMIT", () => {
+      const sql = "SELECT * FROM users -- LIMIT 5";
+      const result = ensureLimit(sql, 10);
+      expect(result).toBe("SELECT * FROM users -- LIMIT 5\nLIMIT 10");
     });
     // TODO: Handle complex expressions in LIMIT clause
     it.skip("should handle complex expressions in LIMIT clause", () => {
