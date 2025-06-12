@@ -582,7 +582,7 @@ export interface SourceIntegrationInterface {
     templateVariables?: TemplateVariables
   ): string;
   getTestQuery?(params: TestQueryParams): string;
-  getFreeFormQuery?(query: string, limit?: number): string;
+  getFreeFormQuery?(query: string): string;
   runTestQuery?(
     sql: string,
     timestampCols?: string[]

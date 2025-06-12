@@ -133,7 +133,6 @@ export default function SqlExplorerModal({
         body: JSON.stringify({
           query: sql,
           datasourceId: selectedDatasourceId,
-          limit: 1000,
         }),
       });
       return res;
@@ -497,7 +496,7 @@ export default function SqlExplorerModal({
                         <Flex align="center" gap="1">
                           <Text
                             weight="bold"
-                            style={{ color: "var(--color-text-high)" }}
+                            style={{ color: "var(--color-text-mid)" }}
                           >
                             Data Sources
                           </Text>

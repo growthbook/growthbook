@@ -696,13 +696,12 @@ export async function runQuery(
   req: AuthRequest<{
     query: string;
     datasourceId: string;
-    limit?: number;
   }>,
   res: Response
 ) {
   const context = getContextFromReq(req);
 
-  const { query, datasourceId, limit } = req.body;
+  const { query, datasourceId } = req.body;
 
   const datasource = await getDataSourceById(context, datasourceId);
   if (!datasource) {
@@ -715,8 +714,7 @@ export async function runQuery(
   const { results, sql, duration, error } = await runFreeFormQuery(
     context,
     datasource,
-    query,
-    limit
+    query
   );
 
   res.status(200).json({

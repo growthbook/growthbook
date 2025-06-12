@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CreateProps, UpdateProps } from "back-end/types/models";
 
 // TODO: Add a proper type for the data viz config
 export const dataVizConfigValidator = z.any();
@@ -19,4 +20,6 @@ export const savedQueryValidator = z
   .strict();
 
 export type SavedQuery = z.infer<typeof savedQueryValidator>;
+export type SavedQueryCreateProps = CreateProps<SavedQuery>;
+export type SavedQueryUpdateProps = UpdateProps<SavedQuery>;
 export type DataVizConfig = z.infer<typeof dataVizConfigValidator>;

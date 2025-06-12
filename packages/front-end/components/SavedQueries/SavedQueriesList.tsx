@@ -41,7 +41,7 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
 
   const handleDelete = useCallback(
     async (query: SavedQuery) => {
-      await apiCall(`/saved-query/${query.id}`, {
+      await apiCall(`/saved-queries/${query.id}`, {
         method: "DELETE",
       });
       mutate();

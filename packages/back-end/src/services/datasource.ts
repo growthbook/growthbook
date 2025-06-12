@@ -143,15 +143,14 @@ export async function testDataSourceConnection(
 export async function runFreeFormQuery(
   context: ReqContext,
   datasource: DataSourceInterface,
-  query: string,
-  limit?: number
+  query: string
 ): Promise<{
   results?: TestQueryRow[];
   duration?: number;
   error?: string;
   sql?: string;
 }> {
-  if (!context.permissions.canRunTestQueries(datasource)) {
+  if (!context.permissions.canRunSqlExplorerQueries(datasource)) {
     throw new Error("Permission denied");
   }
 
@@ -162,7 +161,7 @@ export async function runFreeFormQuery(
     throw new Error("Unable to test query.");
   }
 
-  const sql = integration.getFreeFormQuery(query, limit);
+  const sql = integration.getFreeFormQuery(query);
   try {
     const { results, duration } = await integration.runTestQuery(sql, [
       "timestamp",

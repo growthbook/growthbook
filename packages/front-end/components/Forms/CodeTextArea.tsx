@@ -46,16 +46,6 @@ export type Props = Omit<
 const LIGHT_THEME = "textmate";
 const DARK_THEME = "tomorrow_night";
 
-// CSS overrides for AceEditor themes
-const aceThemeOverrides = `
-  .ace_editor {
-    background-color: var(--color-background) !important;
-  }
-  .ace_editor .ace_gutter {
-    background: var(--color-panel-solid) !important;
-  }
-`;
-
 export default function CodeTextArea({
   language,
   value,
@@ -76,25 +66,6 @@ export default function CodeTextArea({
   const { theme } = useAppearanceUITheme();
 
   const [editor, setEditor] = useState<null | Ace.Editor>(null);
-
-  // Inject CSS overrides
-  useEffect(() => {
-    const styleId = "ace-editor-theme-overrides";
-    let styleElement = document.getElementById(styleId) as HTMLStyleElement;
-
-    if (!styleElement) {
-      styleElement = document.createElement("style");
-      styleElement.id = styleId;
-      styleElement.type = "text/css";
-      document.head.appendChild(styleElement);
-    }
-
-    styleElement.innerHTML = aceThemeOverrides;
-
-    return () => {
-      styleElement.remove();
-    };
-  }, []);
 
   // HACK: AceEditor doesn't automatically resize when the parent div resizes
   // Also because we dynamically load the AceEditor component, we can't use

@@ -87,9 +87,6 @@ const informationSchemasController = wrapController(
   informationSchemasControllerRaw
 );
 
-import * as savedQueriesControllerRaw from "./controllers/savedQueries";
-const savedQueriesController = wrapController(savedQueriesControllerRaw);
-
 // End Controllers
 
 import { isEmailEnabled } from "./services/email";
@@ -108,6 +105,7 @@ import { customFieldsRouter } from "./routers/custom-fields/custom-fields.router
 import { segmentRouter } from "./routers/segment/segment.router";
 import { dimensionRouter } from "./routers/dimension/dimension.router";
 import { sdkConnectionRouter } from "./routers/sdk-connection/sdk-connection.router";
+import { savedQueriesRouter } from "./routers/saved-queries/saved-queries.router";
 import { projectRouter } from "./routers/project/project.router";
 import { vercelRouter } from "./routers/vercel-native-integration/vercel-native-integration.router";
 import { factTableRouter } from "./routers/fact-table/fact-table.router";
@@ -662,6 +660,8 @@ app.use("/dimensions", dimensionRouter);
 
 app.use("/sdk-connections", sdkConnectionRouter);
 
+app.use("/saved-queries", savedQueriesRouter);
+
 app.use("/projects", projectRouter);
 
 app.use(factTableRouter);
@@ -785,12 +785,6 @@ app.get(
   "/datasource/:datasourceId/schema",
   informationSchemasController.getInformationSchema
 );
-
-// Saved Queries
-app.get("/saved-queries", savedQueriesController.getSavedQueries);
-app.post("/saved-queries", savedQueriesController.postSavedQuery);
-app.put("/saved-queries/:id", savedQueriesController.putSavedQuery);
-app.delete("/saved-queries/:id", savedQueriesController.deleteSavedQuery);
 
 // Events
 app.use("/events", eventsRouter);
