@@ -63,21 +63,27 @@ const ExperimentTimeline: React.FC<{
 
   // we need to filter the experiments to only those that have phases within the selected date range:
   const filteredExperiments = useMemo(() => {
-    return experiments.filter((experiment) => {
-      if (experiment.status === "draft") return false; // drafts don't have dates/phases (or shouldn't)
-      if (!experiment.phases || experiment.phases.length === 0) return false;
-      return experiment.phases.some((phase) => {
-        const start = getValidDate(phase.dateStarted);
-        const end =
-          experiment.status === "stopped"
-            ? getValidDate(phase.dateEnded)
-            : new Date();
-        return (
-          (start && start >= startDate && start <= endDate) ||
-          (end && end >= startDate && end <= endDate)
-        );
+    return experiments
+      .filter((experiment) => {
+        if (experiment.status === "draft") return false; // drafts don't have dates/phases (or shouldn't)
+        if (!experiment.phases || experiment.phases.length === 0) return false;
+        return experiment.phases.some((phase) => {
+          const start = getValidDate(phase.dateStarted);
+          const end =
+            experiment.status === "stopped"
+              ? getValidDate(phase.dateEnded)
+              : new Date();
+          return (
+            (start && start >= startDate && start <= endDate) ||
+            (end && end >= startDate && end <= endDate)
+          );
+        });
+      })
+      .sort((a, b) => {
+        const aStart = getValidDate(a.phases[0]?.dateStarted)?.getTime() || 0;
+        const bStart = getValidDate(b.phases[0]?.dateStarted)?.getTime() || 0;
+        return bStart - aStart;
       });
-    });
   }, [endDate, experiments, startDate]);
   const [width, setWidth] = useState(800); // Default width
   const rowHeight = 30;
