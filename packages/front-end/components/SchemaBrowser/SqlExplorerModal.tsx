@@ -551,7 +551,7 @@ export default function SqlExplorerModal({
 
 // TODO: Find a better name
 export function AreaWithHeader({
-  backgroundColor = "var(--slate-a2)",
+  backgroundColor = "var(--color-panel-translucent)",
   children,
   header,
   headerStyles = {

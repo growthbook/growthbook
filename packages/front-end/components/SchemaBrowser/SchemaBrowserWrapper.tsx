@@ -28,8 +28,7 @@ export default function SchemaBrowserWrapper({
 
   return (
     <AreaWithHeader
-      //MKTODO: Can't figure out this color
-      backgroundColor="#192130"
+      backgroundColor="var(--color-surface)"
       header={
         <div className="d-flex justify-content-between px-2">
           <label className="font-weight-bold mb-1 d-flex align-items-center">
