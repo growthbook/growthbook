@@ -37,6 +37,7 @@ import {
   isEnterpriseSSO,
   removeMember,
   revokeInvite,
+  toggleMemberAccess,
 } from "back-end/src/services/organizations";
 import {
   getNonSensitiveParams,
@@ -2277,6 +2278,33 @@ export async function activateRole(
   }
 
   await activateRoleById(context.org, id);
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function putMemberAccess(
+  req: AuthRequest<null, { id: string; disable: boolean }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageTeam()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const { org, userId } = context;
+  const { id, disable } = req.params;
+
+  if (id === userId) {
+    return res.status(400).json({
+      status: 400,
+      message: "Cannot change your own access",
+    });
+  }
+
+  await toggleMemberAccess(org, id, disable);
 
   res.status(200).json({
     status: 200,

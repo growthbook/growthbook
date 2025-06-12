@@ -120,6 +120,7 @@ export interface Member extends MemberRoleWithProjects {
   externalId?: string;
   managedByIdp?: boolean;
   lastLoginDate?: Date;
+  disabled?: boolean;
 }
 
 export interface ExpandedMemberInfo {
@@ -127,6 +128,7 @@ export interface ExpandedMemberInfo {
   name: string;
   verified: boolean;
   numTeams?: number;
+  disabled?: boolean;
 }
 
 export type ExpandedMember = Member & ExpandedMemberInfo;
