@@ -82,7 +82,7 @@ export default function SqlExplorerModal({
       dataVizConfig: dataVizConfig || undefined,
       datasourceId: datasourceId || "",
       results: results || {
-        rows: [],
+        results: [],
         error: undefined,
         duration: undefined,
         sql: undefined,
@@ -139,6 +139,7 @@ export default function SqlExplorerModal({
         body: JSON.stringify({
           query: sql,
           datasourceId: selectedDatasourceId,
+          limit: 1000,
         }),
       });
       return res;
@@ -223,16 +224,17 @@ export default function SqlExplorerModal({
     setIsRunningQuery(true);
     try {
       const results = await runQuery(form.watch("sql"));
+      console.log("results", results);
       // Update the form's results field
       form.setValue("results", {
-        rows: results.rows || [],
+        results: results.results || [],
         error: results.error,
         duration: results.duration,
         sql: results.sql,
       });
     } catch (e) {
       form.setValue("results", {
-        rows: [],
+        results: [],
         error: e.message,
         sql: form.watch("sql"),
         duration: e.duration || 0,
@@ -470,7 +472,7 @@ export default function SqlExplorerModal({
                       <Panel minSize={10}>
                         <DisplayTestQueryResults
                           duration={form.watch("results").duration || 0}
-                          results={form.watch("results").rows || []}
+                          results={form.watch("results").results || []}
                           sql={form.watch("results").sql || ""}
                           error={form.watch("results").error || ""}
                           allowDownload={true}

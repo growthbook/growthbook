@@ -7,7 +7,7 @@ export const dataVizConfigValidator = z.any();
 export const testQueryRowSchema = z.record(z.any());
 
 export const queryExecutionResultValidator = z.object({
-  rows: z.array(testQueryRowSchema),
+  results: z.array(testQueryRowSchema),
   error: z.string().optional(),
   duration: z.number().optional(),
   sql: z.string().optional(),

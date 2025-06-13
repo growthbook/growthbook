@@ -1416,8 +1416,8 @@ export default abstract class SqlIntegration
     });
   }
 
-  getFreeFormQuery(sql: string): string {
-    const limitedQuery = this.ensureMaxLimit(sql, 1000);
+  getFreeFormQuery(sql: string, limit?: number): string {
+    const limitedQuery = this.ensureMaxLimit(sql, limit ?? 1000);
     return format(limitedQuery, this.getFormatDialect());
   }
 
@@ -1444,7 +1444,6 @@ export default abstract class SqlIntegration
     sql: string,
     timestampCols?: string[]
   ): Promise<TestQueryResult> {
-    console.log("runTestQuery", sql);
     // Calculate the run time of the query
     const queryStartTime = Date.now();
     const results = await this.runQuery(sql);

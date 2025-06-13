@@ -155,7 +155,7 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                         ? "Yes"
                         : "No"}
                     </td>
-                    <td>{query.results?.rows?.length || 0}</td>
+                    <td>{query.results?.results?.length || 0}</td>
                     <td>
                       {query.dateLastRan ? (
                         <span title={datetime(query.dateLastRan)}>
