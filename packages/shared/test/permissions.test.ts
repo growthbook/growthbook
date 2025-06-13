@@ -210,6 +210,7 @@ describe("Role permissions", () => {
     expect(p.canRunPastExperimentQueries(projectsResource)).toBe(false);
     expect(p.canRunSchemaQueries(projectsResource)).toBe(false);
     expect(p.canRunTestQueries(projectsResource)).toBe(false);
+    expect(p.canRunSqlExplorerQueries(projectsResource)).toBe(false);
     expect(p.canSuperDeleteReport()).toBe(false);
     expect(p.canUpdateArchetype(projectsResource, updates)).toBe(false);
     expect(p.canUpdateAttribute(projectsResource, updates)).toBe(false);
@@ -320,6 +321,7 @@ describe("Role permissions", () => {
     expect(p.canRunPastExperimentQueries(projectsResource)).toBe(false);
     expect(p.canRunSchemaQueries(projectsResource)).toBe(false);
     expect(p.canRunTestQueries(projectsResource)).toBe(false);
+    expect(p.canRunSqlExplorerQueries(projectsResource)).toBe(false);
     expect(p.canSuperDeleteReport()).toBe(false);
     expect(p.canUpdateArchetype(projectsResource, updates)).toBe(false);
     expect(p.canUpdateAttribute(projectsResource, updates)).toBe(false);
@@ -430,6 +432,7 @@ describe("Role permissions", () => {
     expect(p.canRunPastExperimentQueries(projectsResource)).toBe(false);
     expect(p.canRunSchemaQueries(projectsResource)).toBe(false);
     expect(p.canRunTestQueries(projectsResource)).toBe(false);
+    expect(p.canRunSqlExplorerQueries(projectsResource)).toBe(false);
     expect(p.canSuperDeleteReport()).toBe(false);
     expect(p.canUpdateArchetype(projectsResource, updates)).toBe(false);
     expect(p.canUpdateAttribute(projectsResource, updates)).toBe(false);
@@ -540,6 +543,7 @@ describe("Role permissions", () => {
     expect(p.canRunPastExperimentQueries(projectsResource)).toBe(false);
     expect(p.canRunSchemaQueries(projectsResource)).toBe(false);
     expect(p.canRunTestQueries(projectsResource)).toBe(false);
+    expect(p.canRunSqlExplorerQueries(projectsResource)).toBe(false);
     expect(p.canSuperDeleteReport()).toBe(false);
     expect(p.canUpdateArchetype(projectsResource, updates)).toBe(true);
     expect(p.canUpdateAttribute(projectsResource, updates)).toBe(true);
@@ -650,6 +654,7 @@ describe("Role permissions", () => {
     expect(p.canRunPastExperimentQueries(projectsResource)).toBe(true);
     expect(p.canRunSchemaQueries(projectsResource)).toBe(true);
     expect(p.canRunTestQueries(projectsResource)).toBe(true);
+    expect(p.canRunSqlExplorerQueries(projectsResource)).toBe(true);
     expect(p.canSuperDeleteReport()).toBe(false);
     expect(p.canUpdateArchetype(projectsResource, updates)).toBe(false);
     expect(p.canUpdateAttribute(projectsResource, updates)).toBe(false);
@@ -760,6 +765,7 @@ describe("Role permissions", () => {
     expect(p.canRunPastExperimentQueries(projectsResource)).toBe(true);
     expect(p.canRunSchemaQueries(projectsResource)).toBe(true);
     expect(p.canRunTestQueries(projectsResource)).toBe(true);
+    expect(p.canRunSqlExplorerQueries(projectsResource)).toBe(true);
     expect(p.canSuperDeleteReport()).toBe(false);
     expect(p.canUpdateArchetype(projectsResource, updates)).toBe(true);
     expect(p.canUpdateAttribute(projectsResource, updates)).toBe(true);
@@ -870,6 +876,7 @@ describe("Role permissions", () => {
     expect(p.canRunPastExperimentQueries(projectsResource)).toBe(true);
     expect(p.canRunSchemaQueries(projectsResource)).toBe(true);
     expect(p.canRunTestQueries(projectsResource)).toBe(true);
+    expect(p.canRunSqlExplorerQueries(projectsResource)).toBe(true);
     expect(p.canSuperDeleteReport()).toBe(true);
     expect(p.canUpdateArchetype(projectsResource, updates)).toBe(true);
     expect(p.canUpdateAttribute(projectsResource, updates)).toBe(true);

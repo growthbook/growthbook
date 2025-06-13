@@ -247,6 +247,10 @@ pre {
 
 .modal-header {
   border-color: var(--slate-a3);
+
+  .modal-borderless-header & {
+    border-color: transparent;
+  }
 }
 
 .modal-content {
@@ -257,6 +261,10 @@ pre {
 
 .modal-footer {
   border-color: var(--slate-a3);
+
+  .modal-borderless-footer & {
+    border-color: transparent;
+  }
 }
 
 // endregion Modals

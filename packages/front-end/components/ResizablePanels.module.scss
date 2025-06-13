@@ -1,0 +1,24 @@
+.resize-handle {
+  div[data-panel-group-direction="horizontal"] & {
+    height: 100%;
+    width: 20px;
+  }
+  div[data-panel-group-direction="vertical"] & {
+    height: 20px;
+    width: 100%;
+  }
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.resize-handle-icon {
+  color: var(--accent-11);
+  height: 12px;
+  width: 12px;
+
+  div[data-panel-group-direction="horizontal"] > & {
+    rotate: 90deg;
+  }
+}

@@ -81,6 +81,7 @@
     "react-paginate": "^8.0.0",
     "react-player": "^2.10.1",
     "react-popper": "^2.3.0",
+    "react-resizable-panels": "^3.0.2",
     "react-select": "^5.10.0",
     "react-sortable-hoc": "^2.0.0",
     "react-syntax-highlighter": "^15.5.0",

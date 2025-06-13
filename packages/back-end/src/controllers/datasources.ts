@@ -19,6 +19,7 @@ import {
   encryptParams,
   testQuery,
   getIntegrationFromDatasourceId,
+  runFreeFormQuery,
 } from "back-end/src/services/datasource";
 import { getOauth2Client } from "back-end/src/integrations/GoogleAnalytics";
 import {
@@ -680,6 +681,42 @@ export async function testLimitedQuery(
     datasource,
     query,
     templateVariables
+  );
+
+  res.status(200).json({
+    status: 200,
+    duration,
+    results,
+    sql,
+    error,
+  });
+}
+
+export async function runQuery(
+  req: AuthRequest<{
+    query: string;
+    datasourceId: string;
+    limit?: number;
+  }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+
+  const { query, datasourceId, limit } = req.body;
+
+  const datasource = await getDataSourceById(context, datasourceId);
+  if (!datasource) {
+    return res.status(404).json({
+      status: 404,
+      message: "Cannot find data source",
+    });
+  }
+
+  const { results, sql, duration, error } = await runFreeFormQuery(
+    context,
+    datasource,
+    query,
+    limit
   );
 
   res.status(200).json({
