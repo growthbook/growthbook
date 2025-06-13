@@ -116,17 +116,10 @@ export default function SqlExplorerModal({
 
   const canFormat = datasource ? canFormatSql(datasource.type) : false;
 
-  // Check if the organization has the feature to save queries
-  const canSaveQueries = hasCommercialFeature("saveSqlExplorerQueries");
-
-  const hasSuccessfulResults = form.watch("results").error === undefined;
-
   const canSave: boolean =
     hasPermission &&
-    canSaveQueries &&
-    !!hasSuccessfulResults &&
-    !!form.watch("sql").trim() &&
-    dirty;
+    hasCommercialFeature("saveSqlExplorerQueries") &&
+    !!form.watch("sql").trim();
 
   const runQuery = useCallback(
     async (sql: string) => {
@@ -266,7 +259,7 @@ export default function SqlExplorerModal({
       cta="Save & Close"
       ctaEnabled={canSave}
       disabledMessage={
-        !canSaveQueries
+        !hasCommercialFeature("saveSqlExplorerQueries")
           ? "Upgrade to a Pro or Enterprise plan to save your queries."
           : undefined
       }

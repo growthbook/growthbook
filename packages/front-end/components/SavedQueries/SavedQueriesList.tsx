@@ -64,7 +64,7 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
     (query: SavedQuery) => {
       const datasource = getDatasourceById(query.datasourceId);
       return datasource
-        ? permissionsUtil.canUpdateSqlExplorerQueries(datasource)
+        ? permissionsUtil.canUpdateSqlExplorerQueries(datasource, {})
         : false;
     },
     [getDatasourceById, permissionsUtil]
@@ -89,7 +89,7 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
           }}
           sql={selectedSavedQuery?.sql}
           name={selectedSavedQuery?.name}
-          datasourceId={selectedSavedQuery?.datasourceId}
+          initialDatasourceId={selectedSavedQuery?.datasourceId}
           results={selectedSavedQuery?.results}
           dataVizConfig={selectedSavedQuery?.dataVizConfig}
           id={selectedSavedQuery?.id}
