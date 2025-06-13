@@ -1,7 +1,6 @@
 import { FC, useState } from "react";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import { isProjectListValidForProject } from "shared/util";
 import { useRouter } from "next/router";
 import { DocLink } from "@/components/DocLink";
 import DataSources from "@/components/Settings/DataSources";
@@ -18,6 +17,7 @@ import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
 import LinkButton from "@/components/Radix/LinkButton";
 import DataSourceDiagram from "@/components/InitialSetup/DataSourceDiagram";
 import DataSourceTypeSelector from "@/components/Settings/DataSourceTypeSelector";
+import { useProjectDefinitions } from "@/hooks/useProjectDefinitions";
 
 const DataSourcesPage: FC = () => {
   const {
@@ -27,21 +27,13 @@ const DataSourcesPage: FC = () => {
     currentProjectIsDemo,
   } = useDemoDataSourceProject();
   const { apiCall } = useAuth();
-  const {
-    mutateDefinitions,
-    setProject,
-    project,
-    datasources,
-  } = useDefinitions();
-
+  const { mutateDefinitions, setProject, project } = useDefinitions();
+  const { projectDataSources: datasources } = useProjectDefinitions(project);
   const router = useRouter();
 
-  const filteredDatasources = (project
-    ? datasources.filter((ds) =>
-        isProjectListValidForProject(ds.projects, project)
-      )
-    : datasources
-  ).filter((ds) => !ds.projects?.includes(demoProjectId || ""));
+  const filteredDatasources = datasources.filter(
+    (ds) => !ds.projects?.includes(demoProjectId || "")
+  );
 
   const [
     newModalData,
