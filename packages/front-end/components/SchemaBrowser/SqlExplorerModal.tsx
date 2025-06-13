@@ -45,7 +45,7 @@ export interface Props {
   close: () => void;
   sql?: string;
   name?: string;
-  datasourceId?: string;
+  initialDatasourceId?: string;
   results?: QueryExecutionResult;
   dateLastRan?: string;
   dataVizConfig?: DataVizConfig[];
@@ -57,7 +57,7 @@ export default function SqlExplorerModal({
   close,
   sql,
   name,
-  datasourceId,
+  initialDatasourceId,
   results,
   dataVizConfig,
   dateLastRan,
@@ -65,9 +65,6 @@ export default function SqlExplorerModal({
   mutate,
 }: Props) {
   const [showDataSourcesPanel, setShowDataSourcesPanel] = useState(true);
-  const [selectedDatasourceId, setSelectedDatasourceId] = useState(
-    datasourceId || ""
-  );
   const [dirty, setDirty] = useState(name ? false : true);
   const [loading, setLoading] = useState(false);
   const [isRunningQuery, setIsRunningQuery] = useState(false);
@@ -80,7 +77,7 @@ export default function SqlExplorerModal({
       sql: sql || "",
       dateLastRan: getValidDate(dateLastRan) || undefined,
       dataVizConfig: dataVizConfig || undefined,
-      datasourceId: datasourceId || "",
+      datasourceId: initialDatasourceId || "",
       results: results || {
         results: [],
         error: undefined,
@@ -97,13 +94,14 @@ export default function SqlExplorerModal({
   const [cursorData, setCursorData] = useState<null | CursorData>(null);
   const [formatError, setFormatError] = useState<string | null>(null);
 
-  const datasource = getDatasourceById(selectedDatasourceId);
+  const datasource = getDatasourceById(form.watch("datasourceId"));
   const canRunQueries = datasource
     ? permissionsUtil.canRunSqlExplorerQueries(datasource)
     : false;
 
+  // if this is a new query,
   const hasUpdatePermissions = datasource
-    ? permissionsUtil.canUpdateSqlExplorerQueries(datasource)
+    ? permissionsUtil.canUpdateSqlExplorerQueries(datasource, {})
     : false;
 
   // Should we check for canCreate and canUpdate here?
@@ -138,13 +136,13 @@ export default function SqlExplorerModal({
         method: "POST",
         body: JSON.stringify({
           query: sql,
-          datasourceId: selectedDatasourceId,
+          datasourceId: form.watch("datasourceId"),
           limit: 1000,
         }),
       });
       return res;
     },
-    [apiCall, form, selectedDatasourceId]
+    [apiCall, form]
   );
 
   const handleSubmit = async () => {
@@ -176,7 +174,7 @@ export default function SqlExplorerModal({
           body: JSON.stringify({
             name: currentName,
             sql: form.watch("sql"),
-            datasourceId: selectedDatasourceId,
+            datasourceId: form.watch("datasourceId"),
             dateLastRan: form.watch("dateLastRan"),
             results: form.watch("results"),
             dataVizConfig: undefined, // New queries don't have viz config yet
@@ -205,7 +203,7 @@ export default function SqlExplorerModal({
         body: JSON.stringify({
           name: currentName,
           sql: form.watch("sql"),
-          datasourceId: selectedDatasourceId,
+          datasourceId: form.watch("datasourceId"),
           dateLastRan: form.watch("dateLastRan"),
           dataVizConfig: form.watch("dataVizConfig"),
           results: form.watch("results"),
@@ -269,7 +267,7 @@ export default function SqlExplorerModal({
       ctaEnabled={canSave}
       disabledMessage={
         !canSaveQueries
-          ? "Upgrade to Pro and Enterprise plans to save queries."
+          ? "Upgrade to a Pro or Enterprise plan to save your queries."
           : undefined
       }
       header={`${id ? "Update" : "Create"} SQL Query`}
@@ -422,7 +420,7 @@ export default function SqlExplorerModal({
                             </Button>
                             <Tooltip
                               content={
-                                selectedDatasourceId === ""
+                                form.watch("datasourceId") === ""
                                   ? "Select a Data Dource to run your query"
                                   : !canRunQueries
                                   ? "You do not have permission to query the selected Data Source"
@@ -506,10 +504,10 @@ export default function SqlExplorerModal({
                       <Flex direction="column" height="100%" px="4" py="5">
                         <SelectField
                           className="mb-2"
-                          value={selectedDatasourceId}
+                          value={form.watch("datasourceId")}
                           onChange={(value) => {
                             setDirty(true);
-                            setSelectedDatasourceId(value);
+                            form.setValue("datasourceId", value);
                           }}
                           options={validDatasources.map((d) => ({
                             value: d.id,

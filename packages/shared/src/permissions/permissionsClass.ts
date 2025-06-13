@@ -793,10 +793,12 @@ export class Permissions {
   };
 
   public canUpdateSqlExplorerQueries = (
-    datasource: Pick<DataSourceInterface, "projects">
+    existing: Pick<DataSourceInterface, "projects">,
+    updates: Pick<DataSourceInterface, "projects">
   ): boolean => {
-    return this.checkProjectFilterPermission(
-      datasource,
+    return this.checkProjectFilterUpdatePermission(
+      existing,
+      updates,
       "runSqlExplorerQueries"
     );
   };
@@ -1049,7 +1051,7 @@ export class Permissions {
 
   private checkProjectFilterUpdatePermission(
     existing: { projects?: string[] },
-    updates: { projects?: string[] },
+    updates: { projects?: string[] } | undefined,
     permission: ProjectScopedPermission
   ): boolean {
     // check if the user has permission to update based on the existing projects
@@ -1059,6 +1061,7 @@ export class Permissions {
 
     // if the updates include projects, check if the user has permission to update based on the new projects
     if (
+      updates &&
       "projects" in updates &&
       !this.checkProjectFilterPermission(updates, permission)
     ) {

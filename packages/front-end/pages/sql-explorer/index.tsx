@@ -9,6 +9,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import SqlExplorerModal from "@/components/SchemaBrowser/SqlExplorerModal";
 import SavedQueriesList from "@/components/SavedQueries/SavedQueriesList";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import PremiumCallout from "@/components/Radix/PremiumCallout";
 
 export default function SqlExplorer() {
   const { datasources, project } = useDefinitions();
@@ -55,23 +56,37 @@ export default function SqlExplorer() {
         )}
       </div>
 
+      <div className="mb-2">
+        <PremiumCallout
+          id="save-sql-explorer-queries"
+          commercialFeature="saveSqlExplorerQueries"
+        >
+          <span>
+            Save your commonly run queries and build visualizations from the
+            results.
+          </span>
+        </PremiumCallout>
+      </div>
+
       {!hasSavedQueries ? (
-        <div className="appbox p-5 text-center">
-          <h2>Easily Explore Your Data Sources</h2>
-          <p>
-            Our SQL Explorer allows you to easily explore your data sources,
-            write one-off queries and build visualizations from the results.
-          </p>
-          <div className="mt-3">
-            {!hasDatasource ? (
-              <LinkButton href="/datasources">Connect Data Source</LinkButton>
-            ) : canCreateSavedQueries ? (
-              <Button onClick={() => setShowModal(true)}>
-                Start Exploring
-              </Button>
-            ) : null}
+        <>
+          <div className="appbox p-5 text-center">
+            <h2>Easily Explore Your Data Sources</h2>
+            <p>
+              Our SQL Explorer allows you to easily explore your data sources,
+              write one-off queries and build visualizations from the results.
+            </p>
+            <div className="mt-3">
+              {!hasDatasource ? (
+                <LinkButton href="/datasources">Connect Data Source</LinkButton>
+              ) : canCreateSavedQueries ? (
+                <Button onClick={() => setShowModal(true)}>
+                  Start Exploring
+                </Button>
+              ) : null}
+            </div>
           </div>
-        </div>
+        </>
       ) : (
         <div>
           <div className="mb-3">

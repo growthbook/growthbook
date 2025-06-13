@@ -7,9 +7,17 @@ import {
   SavedQueryCreateProps,
   SavedQueryUpdateProps,
 } from "back-end/src/validators/saved-queries";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
 
 export async function getSavedQueries(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
+
+  if (!orgHasPremiumFeature(context.org, "saveSqlExplorerQueries")) {
+    return res.status(200).json({
+      status: 200,
+      savedQueries: [],
+    });
+  }
 
   const savedQueries = await context.models.savedQueries.getAll();
 
@@ -32,6 +40,10 @@ export async function postSavedQuery(
     dataVizConfig,
   } = req.body;
   const context = getContextFromReq(req);
+
+  if (!orgHasPremiumFeature(context.org, "saveSqlExplorerQueries")) {
+    throw new Error("Your organization's plan does not support saving queries");
+  }
 
   const datasource = await getDataSourceById(context, datasourceId);
   if (!datasource) {
@@ -57,6 +69,10 @@ export async function putSavedQuery(
 ) {
   const { id } = req.params;
   const context = getContextFromReq(req);
+
+  if (!orgHasPremiumFeature(context.org, "saveSqlExplorerQueries")) {
+    throw new Error("Your organization's plan does not support saving queries");
+  }
 
   const updateData = {
     ...req.body,
