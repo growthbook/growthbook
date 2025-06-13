@@ -399,6 +399,8 @@ export async function getAllExperiments(
     query.type = "multi-armed-bandit";
   } else if (type === "standard") {
     query.type = { $in: ["standard", null] };
+  } else if (type === "holdout") {
+    query.type = "holdout";
   }
 
   return await findExperiments(context, query);

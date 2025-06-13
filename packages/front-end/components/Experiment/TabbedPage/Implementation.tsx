@@ -68,7 +68,6 @@ export default function Implementation({
   return (
     <div className="my-4">
       <h2>Implementation</h2>
-
       <div className="box my-3 mb-4 px-2 py-3">
         <div className="d-flex flex-row align-items-center justify-content-between text-dark px-3 mb-3">
           <Heading as="h4" size="3" mb="0">
@@ -88,8 +87,7 @@ export default function Implementation({
           mutate={mutate}
         />
       </div>
-
-      {hasLinkedChanges ? (
+      {hasLinkedChanges && experiment.type !== "holdout" ? (
         <>
           <VisualLinkedChanges
             setVisualEditorModal={setVisualEditorModal}
@@ -114,17 +112,26 @@ export default function Implementation({
           />
         </>
       ) : null}
+      {experiment.type !== "holdout" && (
+        <AddLinkedChanges
+          experiment={experiment}
+          numLinkedChanges={0}
+          hasLinkedFeatures={linkedFeatures.length > 0}
+          setFeatureModal={setFeatureModal}
+          setVisualEditorModal={setVisualEditorModal}
+          setUrlRedirectModal={setUrlRedirectModal}
+        />
+      )}
 
-      <AddLinkedChanges
-        experiment={experiment}
-        numLinkedChanges={0}
-        hasLinkedFeatures={linkedFeatures.length > 0}
-        setFeatureModal={setFeatureModal}
-        setVisualEditorModal={setVisualEditorModal}
-        setUrlRedirectModal={setUrlRedirectModal}
-      />
-
-      {experiment.status !== "draft" && !hasLinkedChanges ? (
+      {experiment.type === "holdout" && (
+        <div className="box p-4 my-4">
+          <h3>Linked Experiments & Features</h3>
+          <p>Table goes here</p>
+        </div>
+      )}
+      {experiment.status !== "draft" &&
+      !hasLinkedChanges &&
+      experiment.type !== "holdout" ? (
         <Callout status="info" mb="4">
           This experiment has no linked GrowthBook implementation (linked
           feature flag, visual editor changes, or URL redirect).{" "}
@@ -133,13 +140,11 @@ export default function Implementation({
             : "The implementation, traffic, and targeting may be managed by an external system."}
         </Callout>
       ) : null}
-
       <TrafficAndTargeting
         experiment={experiment}
         editTargeting={editTargeting}
         phaseIndex={phases.length - 1}
       />
-
       <AnalysisSettings
         experiment={experiment}
         mutate={mutate}

@@ -35,6 +35,7 @@ import {
   SavedGroupInterface,
 } from "shared/src/types";
 import { clone } from "lodash";
+import { v4 as uuidv4 } from "uuid";
 import {
   ApiReqContext,
   AutoExperimentWithProject,
@@ -805,6 +806,53 @@ export async function getFeatureDefinitions({
   const groupMap = await getSavedGroupMap(context.org, savedGroups);
   const experimentMap = await getAllPayloadExperiments(context);
   const safeRolloutMap = await context.models.safeRollout.getAllPayloadSafeRollouts();
+  const holdouts = await context.models.holdout.getAllPayloadHoldouts(
+    environment
+  );
+
+  // Create fake features for holdouts with an experiment ref rule
+  const holdoutFeatures: FeatureInterface[] = holdouts.map((h) => {
+    return {
+      id: h.id,
+      name: h.name,
+      organization: h.organization,
+      owner: "",
+      dateCreated: h.dateCreated,
+      dateUpdated: h.dateUpdated,
+      valueType: "string",
+      defaultValue: "genpop",
+      version: 1,
+      hasDrafts: false,
+      linkedExperiments: [h.experimentId],
+      environmentSettings: {
+        [environment]: {
+          enabled: true,
+          rules: [
+            {
+              id: `fr_${uuidv4()}`,
+              type: "experiment-ref",
+              description: "",
+              condition: "",
+              experimentId: h.experimentId,
+              scheduleRules: [],
+              variations: [
+                {
+                  value: "holdoutcontrol",
+                  variationId:
+                    experimentMap.get(h.experimentId)?.variations[0].id ?? "",
+                },
+                {
+                  value: "holdouttreatment",
+                  variationId:
+                    experimentMap.get(h.experimentId)?.variations[1].id ?? "",
+                },
+              ],
+            },
+          ],
+        },
+      },
+    };
+  });
 
   const prereqStateCache: Record<
     string,
@@ -812,7 +860,7 @@ export async function getFeatureDefinitions({
   > = {};
 
   const featureDefinitions = generateFeaturesPayload({
-    features,
+    features: [...features, ...holdoutFeatures],
     environment,
     groupMap,
     experimentMap,

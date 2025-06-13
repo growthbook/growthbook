@@ -134,7 +134,11 @@ export const metricOverride = z
   .strict();
 export type MetricOverride = z.infer<typeof metricOverride>;
 
-export const experimentType = ["standard", "multi-armed-bandit"] as const;
+export const experimentType = [
+  "standard",
+  "multi-armed-bandit",
+  "holdout",
+] as const;
 export type ExperimentType = typeof experimentType[number];
 
 export const banditStageType = ["explore", "exploit", "paused"] as const;

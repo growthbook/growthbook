@@ -63,6 +63,7 @@ export default function SetupTabOverview({
     !disableEditing;
 
   const isBandit = experiment.type === "multi-armed-bandit";
+  const isHoldout = experiment.type === "holdout";
 
   return (
     <>
@@ -86,7 +87,7 @@ export default function SetupTabOverview({
       ) : null}
       <div>
         <h2>Overview</h2>
-        {experiment.status === "draft" ? (
+        {experiment.status === "draft" && experiment.type !== "holdout" ? (
           <PreLaunchChecklist
             experiment={experiment}
             envs={envs}
@@ -169,7 +170,7 @@ export default function SetupTabOverview({
           </Collapsible>
         </Frame>
 
-        {!isBandit && (
+        {!isBandit && !isHoldout && (
           <Frame>
             <Flex align="start" justify="between" mb="3">
               <Heading as="h4" size="3">

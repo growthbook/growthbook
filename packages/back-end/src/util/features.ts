@@ -7,6 +7,7 @@ import {
 import { includeExperimentInPayload, isDefined } from "shared/util";
 import { GroupMap } from "shared/src/types";
 import { cloneDeep, isNil } from "lodash";
+import { v4 as uuidv4 } from "uuid";
 import {
   FeatureInterface,
   FeatureRule,
@@ -329,7 +330,7 @@ export function getFeatureDefinition({
   experimentMap: Map<string, ExperimentInterface>;
   revision?: FeatureRevisionInterface;
   date?: Date;
-  safeRolloutMap: Map<string, SafeRolloutInterface>;
+  safeRolloutMap: Map<string, SafeRolloutInterface>; // TODO: Check in to see if we need a holdoutMap
 }): FeatureDefinitionWithProject | null {
   const settings = feature.environmentSettings?.[environment];
 
@@ -345,6 +346,23 @@ export function getFeatureDefinition({
   const rules = revision
     ? revision.rules?.[environment] ?? settings.rules
     : settings.rules;
+
+  // If the feature has a holdout and it's enabled for the environment, add holdout as a
+  // pseudo force rule with a prerequisite condition
+  const holdoutRule: FeatureDefinitionRule[] = feature.holdout
+    ? [
+        {
+          id: uuidv4(),
+          parentConditions: [
+            {
+              id: feature.holdout.id,
+              condition: { value: "holdoutcontrol" },
+            },
+          ],
+          force: getJSONValue(feature.valueType, feature.holdout.value),
+        },
+      ]
+    : [];
 
   // convert prerequisites to force rules:
   const prerequisiteRules = (feature.prerequisites ?? [])
@@ -368,6 +386,7 @@ export function getFeatureDefinition({
   ): rule is FeatureDefinitionRule => !!rule;
 
   const defRules = [
+    ...holdoutRule,
     ...prerequisiteRules,
     ...(rules
       ?.filter((r) => {
