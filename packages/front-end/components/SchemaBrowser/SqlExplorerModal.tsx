@@ -37,6 +37,7 @@ import {
   PanelResizeHandle,
 } from "@/components/ResizablePanels";
 import Modal from "../Modal";
+import SqlExplorerDataVisualization from "../DataViz/SqlExplorerDataVisualization";
 import SelectField from "../Forms/SelectField";
 import Tooltip from "../Tooltip/Tooltip";
 import SchemaBrowser from "./SchemaBrowser";
@@ -72,12 +73,16 @@ export default function SqlExplorerModal({
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempName, setTempName] = useState("");
 
-  const form = useForm<Omit<SavedQuery, "dateCreated" | "dateUpdated">>({
+  const form = useForm<
+    Omit<SavedQuery, "dateCreated" | "dateUpdated" | "dataVizConfig"> & {
+      dataVizConfig?: Partial<DataVizConfig>[];
+    }
+  >({
     defaultValues: {
       name: name || "",
       sql: sql || "",
       dateLastRan: getValidDate(dateLastRan) || undefined,
-      dataVizConfig: dataVizConfig || undefined,
+      dataVizConfig: dataVizConfig || [{}],
       datasourceId: initialDatasourceId || "",
       results: results || {
         results: [],
@@ -164,6 +169,12 @@ export default function SqlExplorerModal({
       );
     }
 
+    // If we have an empty object for dataVizConfig, set it to undefined
+    let dataVizConfig = form.watch("dataVizConfig");
+    if (dataVizConfig && Object.keys(dataVizConfig[0]).length === 0) {
+      dataVizConfig = undefined;
+    }
+
     // If it's a new query (no savedQuery.id), always save
     if (!id) {
       try {
@@ -175,7 +186,7 @@ export default function SqlExplorerModal({
             datasourceId: form.watch("datasourceId"),
             dateLastRan: form.watch("dateLastRan"),
             results: form.watch("results"),
-            dataVizConfig: undefined, // New queries don't have viz config yet
+            dataVizConfig,
           }),
         });
         mutate();
@@ -203,7 +214,7 @@ export default function SqlExplorerModal({
           sql: form.watch("sql"),
           datasourceId: form.watch("datasourceId"),
           dateLastRan: form.watch("dateLastRan"),
-          dataVizConfig: form.watch("dataVizConfig"),
+          dataVizConfig,
           results: form.watch("results"),
         }),
       });
@@ -370,6 +381,8 @@ export default function SqlExplorerModal({
                     </>
                   )}
                 </Flex>
+
+                <TabsTrigger value="visualization">Visualization</TabsTrigger>
               </TabsTrigger>
             </TabsList>
             {!readOnlyMode ? (
@@ -389,11 +402,18 @@ export default function SqlExplorerModal({
               </Button>
             ) : null}
           </Flex>
+
           <TabsContent value="sql" style={{ flex: 1 }}>
             <PanelGroup direction="horizontal">
-              <Panel defaultSize={60}>
+              <Panel
+                id="main"
+                order={1}
+                defaultSize={showDataSourcesPanel ? 70 : 100}
+              >
                 <PanelGroup direction="vertical">
                   <Panel
+                    id="sql-editor"
+                    order={1}
                     defaultSize={form.watch("results").sql ? 30 : 100}
                     minSize={7}
                   >
@@ -469,7 +489,12 @@ export default function SqlExplorerModal({
                   {form.watch("results").sql && (
                     <>
                       <PanelResizeHandle />
-                      <Panel minSize={10}>
+                      <Panel
+                        id="query-results"
+                        order={2}
+                        defaultSize={form.watch("results").results ? 70 : 0}
+                        minSize={10}
+                      >
                         <DisplayTestQueryResults
                           duration={form.watch("results").duration || 0}
                           results={form.watch("results").results || []}
@@ -487,7 +512,9 @@ export default function SqlExplorerModal({
                 <>
                   <PanelResizeHandle />
                   <Panel
-                    defaultSize={showDataSourcesPanel ? 25 : 0}
+                    id="sidebar"
+                    order={2}
+                    defaultSize={showDataSourcesPanel ? 30 : 0}
                     minSize={20}
                     maxSize={80}
                   >
@@ -541,6 +568,28 @@ export default function SqlExplorerModal({
                 </>
               ) : null}
             </PanelGroup>
+          </TabsContent>
+
+          <TabsContent value="visualization" style={{ flex: 1 }}>
+            {!form.watch("results").results ||
+            form.watch("results").results.length === 0 ? (
+              <Flex justify="center" align="center" height="100%">
+                <Text align="center">
+                  No results to visualize.
+                  <br />
+                  Ensure your query has results to add a visualization.
+                </Text>
+              </Flex>
+            ) : (
+              <SqlExplorerDataVisualization
+                rows={form.watch("results").results}
+                dataVizConfig={form.watch("dataVizConfig")?.[0] || {}}
+                onDataVizConfigChange={(updatedConfig) => {
+                  setDirty(true);
+                  form.setValue("dataVizConfig", [updatedConfig]);
+                }}
+              />
+            )}
           </TabsContent>
         </Tabs>
       </Box>
