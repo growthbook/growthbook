@@ -218,23 +218,28 @@ export default function SqlExplorerModal({
   const handleQuery = useCallback(async () => {
     setDirty(true);
     setIsRunningQuery(true);
+    // Reset the results field so it's empty
+    form.setValue("results", {
+      results: [],
+      error: undefined,
+      duration: undefined,
+      sql: undefined,
+    });
     try {
-      const results = await runQuery(form.watch("sql"));
-      console.log("results", results);
+      const { results, error, duration, sql } = await runQuery(
+        form.watch("sql")
+      );
       // Update the form's results field
       form.setValue("results", {
-        results: results.results || [],
-        error: results.error,
-        duration: results.duration,
-        sql: results.sql,
+        results: results || [],
+        error,
+        duration,
+        sql,
       });
     } catch (e) {
-      form.setValue("results", {
-        results: [],
-        error: e.message,
-        sql: form.watch("sql"),
-        duration: e.duration || 0,
-      });
+      throw new Error(
+        `Unable to run query. ${e.message ? `Reason: ${e.message}` : ""}`
+      );
     }
     setIsRunningQuery(false);
   }, [form, runQuery]);
@@ -433,6 +438,10 @@ export default function SqlExplorerModal({
                                 <Button
                                   size="xs"
                                   onClick={handleQuery}
+                                  disabled={
+                                    !form.watch("sql") ||
+                                    !form.watch("datasourceId")
+                                  }
                                   loading={isRunningQuery}
                                   icon={<FaPlay />}
                                 >
