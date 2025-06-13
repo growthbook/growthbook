@@ -314,18 +314,10 @@ export default function SqlExplorerModal({
                     <Flex align="center" gap="2">
                       <input
                         type="text"
+                        className="form-control"
                         value={tempName}
                         placeholder="Enter a name..."
                         onChange={(e) => setTempName(e.target.value)}
-                        style={{
-                          padding: "4px 8px",
-                          border: "1px solid var(--gray-a6)",
-                          borderRadius: "var(--radius-2)",
-                          fontSize: "14px",
-                          backgroundColor: "var(--color-surface)",
-                          color: "var(--color-text-high)",
-                          minWidth: "150px",
-                        }}
                         autoFocus
                         onKeyDown={(e) => {
                           if (e.key === "Enter") {
