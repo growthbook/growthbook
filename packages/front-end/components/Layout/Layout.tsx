@@ -93,6 +93,7 @@ const navlinks: SidebarLinkProps[] = [
         name: "SQL Explorer",
         href: "/sql-explorer",
         path: /^sql-explorer/,
+        filter: ({ gb }) => !!gb?.isOn("sql-explorer"),
       },
     ],
   },
