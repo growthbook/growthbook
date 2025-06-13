@@ -95,16 +95,20 @@ export default function SqlExplorerModal({
   const [formatError, setFormatError] = useState<string | null>(null);
 
   const datasource = getDatasourceById(form.watch("datasourceId"));
-  const canRunQueries = datasource
-    ? permissionsUtil.canRunSqlExplorerQueries(datasource)
+  const initialDatasource = initialDatasourceId
+    ? getDatasourceById(initialDatasourceId)
+    : undefined;
+
+  // If the modal opens with a datasource that the user doesn't have permission to query,
+  // we'll show the modal in read only mode
+  const readOnlyMode = initialDatasource
+    ? !permissionsUtil.canRunSqlExplorerQueries(initialDatasource)
     : false;
 
-  // if this is a new query,
   const hasUpdatePermissions = datasource
     ? permissionsUtil.canUpdateSqlExplorerQueries(datasource, {})
     : false;
 
-  // Should we check for canCreate and canUpdate here?
   const hasCreatePermissions = datasource
     ? permissionsUtil.canCreateSqlExplorerQueries(datasource)
     : false;
@@ -245,8 +249,11 @@ export default function SqlExplorerModal({
   };
 
   // Filter datasources to only those that support SQL queries
+  // Also only show datasources that the user has permission to query
   const validDatasources = datasources.filter(
-    (d) => d.type !== "google_analytics"
+    (d) =>
+      d.type !== "google_analytics" &&
+      permissionsUtil.canRunSqlExplorerQueries(d)
   );
 
   return (
@@ -261,6 +268,8 @@ export default function SqlExplorerModal({
       disabledMessage={
         !hasCommercialFeature("saveSqlExplorerQueries")
           ? "Upgrade to a Pro or Enterprise plan to save your queries."
+          : !hasPermission
+          ? "You don't have permission to save this query."
           : undefined
       }
       header={`${id ? "Update" : "Create"} SQL Query`}
@@ -348,35 +357,39 @@ export default function SqlExplorerModal({
                   ) : (
                     <>
                       {form.watch("name") || "Untitled Query..."}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setTempName(form.watch("name"));
-                          setIsEditingName(true);
-                        }}
-                      >
-                        <PiPencilSimpleFill color="var(--accent-11)" />
-                      </Button>
+                      {!readOnlyMode ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setTempName(form.watch("name"));
+                            setIsEditingName(true);
+                          }}
+                        >
+                          <PiPencilSimpleFill color="var(--accent-11)" />
+                        </Button>
+                      ) : null}
                     </>
                   )}
                 </Flex>
               </TabsTrigger>
             </TabsList>
-            <Button
-              variant="outline"
-              size="xs"
-              onClick={() => setShowDataSourcesPanel(!showDataSourcesPanel)}
-            >
-              <PiCaretDoubleRight
-                style={{
-                  transform: showDataSourcesPanel
-                    ? "rotate(0deg)"
-                    : "rotate(180deg)",
-                  transition: "transform 0.5s ease",
-                }}
-              />
-            </Button>
+            {!readOnlyMode ? (
+              <Button
+                variant="outline"
+                size="xs"
+                onClick={() => setShowDataSourcesPanel(!showDataSourcesPanel)}
+              >
+                <PiCaretDoubleRight
+                  style={{
+                    transform: showDataSourcesPanel
+                      ? "rotate(0deg)"
+                      : "rotate(180deg)",
+                    transition: "transform 0.5s ease",
+                  }}
+                />
+              </Button>
+            ) : null}
           </Flex>
           <TabsContent value="sql" style={{ flex: 1 }}>
             <PanelGroup direction="horizontal">
@@ -395,43 +408,41 @@ export default function SqlExplorerModal({
                           >
                             SQL
                           </Text>
-                          <Flex gap="3">
-                            {formatError && (
-                              <Tooltip content={formatError}>
-                                <span>
-                                  <FaExclamationTriangle className="text-danger" />
-                                </span>
-                              </Tooltip>
-                            )}
-                            <Button
-                              size="xs"
-                              variant="ghost"
-                              onClick={handleFormatClick}
-                              disabled={!form.watch("sql") || !canFormat}
-                            >
-                              Format
-                            </Button>
-                            <Tooltip
-                              content={
-                                form.watch("datasourceId") === ""
-                                  ? "Select a Data Dource to run your query"
-                                  : !canRunQueries
-                                  ? "You do not have permission to query the selected Data Source"
-                                  : undefined
-                              }
-                              open={canRunQueries ? false : undefined}
-                            >
+                          {!readOnlyMode ? (
+                            <Flex gap="3">
+                              {formatError && (
+                                <Tooltip content={formatError}>
+                                  <span>
+                                    <FaExclamationTriangle className="text-danger" />
+                                  </span>
+                                </Tooltip>
+                              )}
                               <Button
                                 size="xs"
-                                onClick={handleQuery}
-                                loading={isRunningQuery}
-                                disabled={!canRunQueries}
-                                icon={<FaPlay />}
+                                variant="ghost"
+                                onClick={handleFormatClick}
+                                disabled={!form.watch("sql") || !canFormat}
                               >
-                                Run
+                                Format
                               </Button>
-                            </Tooltip>
-                          </Flex>
+                              <Tooltip
+                                content={
+                                  form.watch("datasourceId") === ""
+                                    ? "Select a Data Dource to run your query"
+                                    : undefined
+                                }
+                              >
+                                <Button
+                                  size="xs"
+                                  onClick={handleQuery}
+                                  loading={isRunningQuery}
+                                  icon={<FaPlay />}
+                                >
+                                  Run
+                                </Button>
+                              </Tooltip>
+                            </Flex>
+                          ) : null}
                         </Flex>
                       }
                     >
@@ -452,8 +463,7 @@ export default function SqlExplorerModal({
                         fullHeight
                         setCursorData={setCursorData}
                         onCtrlEnter={handleQuery}
-                        // MKTODO: Test if we need this resizeDependency
-                        // resizeDependency={!!queryExecutionResults}
+                        resizeDependency={!!form.watch("results")}
                       />
                     </AreaWithHeader>
                   </Panel>
@@ -466,7 +476,7 @@ export default function SqlExplorerModal({
                           results={form.watch("results").results || []}
                           sql={form.watch("results").sql || ""}
                           error={form.watch("results").error || ""}
-                          allowDownload={true}
+                          allowDownload={!readOnlyMode}
                         />
                       </Panel>
                     </>
@@ -474,7 +484,7 @@ export default function SqlExplorerModal({
                 </PanelGroup>
               </Panel>
 
-              {showDataSourcesPanel ? (
+              {showDataSourcesPanel && !readOnlyMode ? (
                 <>
                   <PanelResizeHandle />
                   <Panel
