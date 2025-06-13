@@ -66,7 +66,10 @@ export default function DisplayTestQueryResults({
       }}
     >
       <AreaWithHeader
-        headerStyles={{}}
+        headerStyles={{
+          paddingLeft: "12px",
+          paddingRight: "12px",
+        }}
         header={
           <TabsList>
             {!forceShowSql && (
@@ -95,7 +98,13 @@ export default function DisplayTestQueryResults({
         {!forceShowSql && (
           <TabsContent
             value="results"
-            style={{ display: "flex", flexDirection: "column", height: "100%" }}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              height: "100%",
+              paddingLeft: "12px",
+              paddingRight: "12px",
+            }}
           >
             <div className="mt-2 rounded p-2 bg-light">
               {downloadError ? (
@@ -148,6 +157,7 @@ export default function DisplayTestQueryResults({
                     position: "sticky",
                     top: 0,
                     zIndex: 2,
+                    backgroundColor: "var(--color-panel-solid)",
                   }}
                 >
                   <tr>
@@ -174,7 +184,15 @@ export default function DisplayTestQueryResults({
           value="sql"
           style={{ display: "flex", flexDirection: "column", height: "100%" }}
         >
-          <div style={{ overflowY: "auto", height: "100%" }} className="mt-3">
+          <div
+            style={{
+              overflowY: "auto",
+              height: "100%",
+              paddingLeft: "12px",
+              paddingRight: "12px",
+            }}
+            className="mt-3"
+          >
             {error ? (
               <div className="alert alert-danger mr-auto">{error}</div>
             ) : (

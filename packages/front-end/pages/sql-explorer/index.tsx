@@ -74,7 +74,10 @@ export default function SqlExplorer() {
             <h2>Easily Explore Your Data Sources</h2>
             <p>
               Our SQL Explorer allows you to easily explore your data sources,
-              write one-off queries and build visualizations from the results.
+              write one-off queries and build visualizations from the results.{" "}
+              {!hasDatasource
+                ? "To get started, set up your first Data Source."
+                : ""}
             </p>
             <div className="mt-3">
               {!hasDatasource ? (
