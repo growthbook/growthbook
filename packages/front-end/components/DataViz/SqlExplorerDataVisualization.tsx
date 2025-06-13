@@ -133,8 +133,8 @@ export default function SqlExplorerDataVisualization({
           dataVizConfig.chartType === "area" ? "line" : dataVizConfig.chartType,
         ...(dataVizConfig.chartType === "area" && { areaStyle: {} }),
         encode: {
-          x: dataVizConfig.xAxis!.fieldName,
-          y: dataVizConfig.yAxis![0].fieldName,
+          x: dataVizConfig.xAxis?.fieldName,
+          y: dataVizConfig.yAxis?.[0]?.fieldName,
         },
         datasetIndex: 1,
       },
