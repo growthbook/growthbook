@@ -1,5 +1,4 @@
 import React from "react";
-import Link from "next/link";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { AppFeatures } from "@/types/app-features";
@@ -9,6 +8,7 @@ import ExperimentList from "@/components/Experiment/ExperimentList";
 import ExperimentGraph from "@/components/Experiment/ExperimentGraph";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import ExecReport from "@/components/ExecReports/ExecReport";
+import Link from "@/components/Radix/Link";
 import styles from "./Dashboard.module.scss";
 import IdeasFeed from "./IdeasFeed";
 import NorthStar from "./NorthStar";

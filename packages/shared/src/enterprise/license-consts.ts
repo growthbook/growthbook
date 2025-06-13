@@ -57,7 +57,9 @@ export type CommercialFeature =
   | "unlimited-cdn-usage"
   | "safe-rollout"
   | "require-project-for-features-setting"
-  | "saveSqlExplorerQueries";
+  | "saveSqlExplorerQueries"
+  | "metric-effects"
+  | "metric-correlations";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
@@ -277,6 +279,8 @@ export const accountFeatures: CommercialFeaturesMap = {
     "safe-rollout",
     "require-project-for-features-setting",
     "saveSqlExplorerQueries",
+    "metric-effects",
+    "metric-correlations",
   ]),
 };
 
