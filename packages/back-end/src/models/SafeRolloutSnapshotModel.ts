@@ -3,10 +3,16 @@ import {
   SafeRolloutSnapshotInterface,
   safeRolloutSnapshotInterface,
 } from "back-end/src/validators/safe-rollout-snapshot";
+import { updateSafeRolloutTimeSeries } from "back-end/src/services/safeRolloutTimeSeries";
 import {
   getSafeRolloutAnalysisSummary,
   notifySafeRolloutChange,
 } from "back-end/src/services/safeRolloutSnapshots";
+import { getFeature } from "back-end/src/models/FeatureModel";
+import {
+  checkAndRollbackSafeRollout,
+  updateRampUpSchedule,
+} from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -101,18 +107,66 @@ export class SafeRolloutSnapshotModel extends BaseClass {
         safeRolloutSnapshot: updatedDoc,
       });
 
-      await this.context.models.safeRollout.updateById(safeRollout.id, {
-        analysisSummary: safeRolloutAnalysisSummary,
-      });
-
-      await notifySafeRolloutChange({
-        context: this.context,
-        updatedSafeRollout: {
-          ...safeRollout,
+      const updatedSafeRollout = await this.context.models.safeRollout.updateById(
+        safeRollout.id,
+        {
           analysisSummary: safeRolloutAnalysisSummary,
-        },
+        }
+      );
+
+      const notificationTriggered = await notifySafeRolloutChange({
+        context: this.context,
+        updatedSafeRollout,
         safeRolloutSnapshot: updatedDoc,
       });
+
+      try {
+        await updateSafeRolloutTimeSeries({
+          context: this.context,
+          safeRollout: updatedSafeRollout,
+          safeRolloutSnapshot: updatedDoc,
+          notificationTriggered,
+        });
+      } catch (e) {
+        this.context.logger.error(
+          e,
+          "Failed to update Safe Rollout time series data",
+          {
+            safeRolloutId: safeRollout.id,
+            snapshotId: updatedDoc.id,
+          }
+        );
+      }
+
+      const feature = await getFeature(this.context, safeRollout.featureId);
+      if (!feature) {
+        throw new Error("Feature not found");
+      }
+      const environment = feature.environmentSettings[safeRollout.environment];
+      if (!environment) {
+        throw new Error("Environment not found");
+      }
+      const ruleIndex = environment.rules.findIndex(
+        (r) => r.type === "safe-rollout" && r.safeRolloutId === safeRollout.id
+      );
+      if (ruleIndex === -1) {
+        throw new Error("Rule not found");
+      }
+
+      const status = await checkAndRollbackSafeRollout({
+        context: this.context,
+        updatedSafeRollout,
+        safeRolloutSnapshot: updatedDoc,
+        ruleIndex,
+        feature,
+      });
+      // update the ramp up Schedule if the status is running and the ramp up is enabled and not completed
+      if (status === "running") {
+        await updateRampUpSchedule({
+          context: this.context,
+          safeRollout,
+        });
+      }
     }
   }
 }

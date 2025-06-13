@@ -559,7 +559,7 @@ export async function putMetric(
 }
 
 export const getMetricExperimentResults = async (
-  req: AuthRequest<unknown, { id: string }>,
+  req: AuthRequest<{ startDate?: string; endDate?: string }, { id: string }>,
   res: Response<{ status: 200; data: ExperimentWithSnapshot[] }>
 ) => {
   const context = getContextFromReq(req);
@@ -585,6 +585,26 @@ export const getMetricExperimentResults = async (
     snapshot: snapshots.find((s) => s.experiment === e.id),
   }));
 
+  // if startDate or endDate are provided, filter the experiments to experiments that have an end phase within that date range:
+  if (req.body.startDate || req.body.endDate) {
+    const startDate = req.body.startDate
+      ? new Date(req.body.startDate)
+      : new Date(0);
+    const endDate = req.body.endDate ? new Date(req.body.endDate) : new Date();
+
+    const filteredData = data.filter((e) => {
+      return e.phases.some((p) => {
+        if (!p.dateEnded) return false;
+        const endDatePhase = new Date(p.dateEnded);
+        return endDatePhase >= startDate && endDatePhase <= endDate;
+      });
+    });
+
+    return res.status(200).json({
+      status: 200,
+      data: filteredData,
+    });
+  }
   res.status(200).json({
     status: 200,
     data,

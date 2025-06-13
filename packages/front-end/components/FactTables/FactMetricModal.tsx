@@ -1612,6 +1612,11 @@ export default function FactMetricModal({
           values.denominator = null;
         }
 
+        // if denominator is undefined, set to null instead
+        if (values.denominator === undefined) {
+          values.denominator = null;
+        }
+
         // reset displayAsPercentage for non-ratio metrics
         if (values.metricType !== "ratio" && values.displayAsPercentage) {
           values.displayAsPercentage = undefined;

@@ -1,3 +1,4 @@
+import { StatusIndicatorData } from "shared/enterprise";
 import {
   ExperimentPhase,
   Variation,
@@ -5,6 +6,7 @@ import {
   ExperimentInterface,
   BanditResult,
   BanditEvent,
+  ExperimentDecisionFrameworkSettings,
 } from "back-end/src/validators/experiments";
 import { DecisionCriteriaRule } from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.validators";
 import { ExperimentRefVariation, FeatureInterface } from "./feature";
@@ -18,6 +20,8 @@ export {
   ExperimentType,
   ExperimentPhase,
   BanditStageType,
+  ExperimentDecisionFrameworkSettings,
+  DecisionFrameworkMetricOverrides,
   ExperimentAnalysisSettings,
   ExperimentAnalysisSummaryResultsStatus,
   ExperimentAnalysisSummaryVariationStatus,
@@ -148,6 +152,7 @@ export interface LegacyExperimentInterface
     | "goalMetrics"
     | "secondaryMetrics"
     | "guardrailMetrics"
+    | "decisionFrameworkSettings"
   > {
   /**
    * @deprecated
@@ -163,6 +168,7 @@ export interface LegacyExperimentInterface
   goalMetrics?: string[];
   secondaryMetrics?: string[];
   guardrailMetrics?: string[];
+  decisionFrameworkSettings?: ExperimentDecisionFrameworkSettings;
 }
 
 export type ExperimentInterfaceStringDates = Omit<
@@ -172,6 +178,20 @@ export type ExperimentInterfaceStringDates = Omit<
   dateCreated: string;
   dateUpdated: string;
   phases: ExperimentPhaseStringDates[];
+};
+
+export type ComputedExperimentInterface = ExperimentInterfaceStringDates & {
+  ownerName: string;
+  metricNames?: (string | undefined)[];
+  datasource: string;
+  savedGroups?: (string | undefined)[];
+  projectId?: string;
+  projectName?: string;
+  projectIsDeReferenced?: string | boolean;
+  tab: string;
+  date: string;
+  statusSortOrder: number;
+  statusIndicator: StatusIndicatorData;
 };
 
 export type Changeset = Partial<ExperimentInterface>;
@@ -239,6 +259,7 @@ export type ExperimentDataForStatusStringDates = Pick<
   | "secondaryMetrics"
   | "guardrailMetrics"
   | "datasource"
+  | "decisionFrameworkSettings"
 >;
 
 export type ExperimentDataForStatus = Pick<
@@ -255,4 +276,5 @@ export type ExperimentDataForStatus = Pick<
   | "secondaryMetrics"
   | "guardrailMetrics"
   | "datasource"
+  | "decisionFrameworkSettings"
 >;

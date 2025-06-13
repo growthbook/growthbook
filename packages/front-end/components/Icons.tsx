@@ -26,6 +26,24 @@ export function GBInfo(): React.ReactElement {
   return <PiInfo style={{ color: "var(--violet-11)" }} />;
 }
 
+export function GBLibrary({ className = "" }): React.ReactElement {
+  return (
+    <svg
+      width="25"
+      height="25"
+      viewBox="0 0 15 16"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+    >
+      <path
+        d="M10.781 7.063a.469.469 0 0 1-.469.468h-3.75a.469.469 0 0 1 0-.937h3.75a.47.47 0 0 1 .47.468Zm-.469 1.406h-3.75a.469.469 0 0 0 0 .937h3.75a.47.47 0 0 0 0-.937Zm2.813-5.156v9.374a.938.938 0 0 1-.938.938H2.813a.938.938 0 0 1-.938-.938V3.313a.937.937 0 0 1 .938-.938h9.374a.937.937 0 0 1 .938.938ZM2.812 12.687H4.22V3.313H2.812v9.374Zm9.376 0V3.313H5.155v9.374h7.032Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
 export function GBIdea({ className = "" }): React.ReactElement {
   return (
     <svg

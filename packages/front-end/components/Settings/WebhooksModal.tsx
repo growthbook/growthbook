@@ -1,4 +1,4 @@
-import { FC, useState } from "react";
+import { FC, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
   CreateSdkWebhookProps,
@@ -115,11 +115,13 @@ const isValidHttp = (urlString: string) => {
 
 export function CreateSDKWebhookModal({
   sdkConnectionId,
+  sdkConnectionKey,
   language,
   close,
   onSave,
 }: {
   sdkConnectionId: string;
+  sdkConnectionKey: string;
   language?: SDKLanguage;
   close: () => void;
   onSave: () => void;
@@ -160,6 +162,14 @@ export function CreateSDKWebhookModal({
       headers: "{}",
     },
   });
+
+  useEffect(() => {
+    if (webhookType === "vercel") {
+      form.setValue("key", sdkConnectionKey);
+    } else {
+      form.setValue("key", "gb_payload");
+    }
+  }, [webhookType, sdkConnectionKey, form]);
 
   return (
     <Modal
@@ -308,7 +318,8 @@ export function CreateSDKWebhookModal({
                 ) : (
                   ""
                 )}
-                .
+                . Supports{" "}
+                <DocLink docSection="webhookSecrets">Webhook Secrets</DocLink>.
               </>
             }
             key="http_endpoint_url"
@@ -356,7 +367,13 @@ export function CreateSDKWebhookModal({
                 {!validHeaders ? (
                   <div className="alert alert-danger mr-auto">Invalid JSON</div>
                 ) : (
-                  <div>JSON format for headers.</div>
+                  <div>
+                    JSON format for headers. Supports{" "}
+                    <DocLink docSection="webhookSecrets">
+                      Webhook Secrets
+                    </DocLink>
+                    .
+                  </div>
                 )}
               </>
             }

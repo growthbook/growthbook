@@ -465,6 +465,13 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
     (it) => it.helperText
   );
 
+  // If any point or variation has a valid CI we should render it
+  const variationsWithCI = useMemo(() => {
+    return variationNames.map((_, i) =>
+      sortedDatesWithData.some((d) => d.variations?.[i]?.ci !== undefined)
+    );
+  }, [sortedDatesWithData, variationNames]);
+
   const hasDataForDay = useMemo(() => {
     const firstDateWithData =
       sortedDatesWithData[lastDataPointIndexWithHelperText + 1].d;
@@ -640,8 +647,7 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                     }
                     // Render a shaded area for error bars for each variation if defined
                     return (
-                      typeof sortedDatesWithData[0]?.variations?.[i]?.ci !==
-                        "undefined" && (
+                      variationsWithCI[i] && (
                         <AreaClosed
                           key={`ci_${i}`}
                           yScale={yScale}

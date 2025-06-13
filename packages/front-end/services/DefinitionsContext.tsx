@@ -21,6 +21,8 @@ import { ExperimentMetricInterface, isFactMetricId } from "shared/experiments";
 import { SavedGroupInterface } from "shared/src/types";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { CustomField } from "back-end/types/custom-fields";
+import { DecisionCriteriaInterface } from "back-end/types/experiment";
+import { WebhookSecretFrontEndInterface } from "back-end/src/validators/webhook-secrets";
 import useApi from "@/hooks/useApi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -41,6 +43,8 @@ type Definitions = {
   _factTablesIncludingArchived: FactTableInterface[];
   factMetrics: FactMetricInterface[];
   _factMetricsIncludingArchived: FactMetricInterface[];
+  decisionCriteria: DecisionCriteriaInterface[];
+  webhookSecrets: WebhookSecretFrontEndInterface[];
 };
 
 type DefinitionContextValue = Definitions & {
@@ -61,6 +65,7 @@ type DefinitionContextValue = Definitions & {
   getFactMetricById: (id: string) => null | FactMetricInterface;
   getExperimentMetricById: (id: string) => null | ExperimentMetricInterface;
   getMetricGroupById: (id: string) => null | MetricGroupInterface;
+  getDecisionCriteriaById: (id: string) => null | DecisionCriteriaInterface;
 };
 
 const defaultValue: DefinitionContextValue = {
@@ -89,6 +94,8 @@ const defaultValue: DefinitionContextValue = {
   _factTablesIncludingArchived: [],
   factMetrics: [],
   _factMetricsIncludingArchived: [],
+  decisionCriteria: [],
+  webhookSecrets: [],
   getMetricById: () => null,
   getDatasourceById: () => null,
   getDimensionById: () => null,
@@ -100,6 +107,7 @@ const defaultValue: DefinitionContextValue = {
   getFactMetricById: () => null,
   getExperimentMetricById: () => null,
   getMetricGroupById: () => null,
+  getDecisionCriteriaById: () => null,
 };
 
 export const DefinitionsContext = createContext<DefinitionContextValue>(
@@ -134,6 +142,8 @@ export function useDefinitions() {
 
 export const LOCALSTORAGE_PROJECT_KEY = "gb_current_project" as const;
 
+export const useProject = () => useLocalStorage(LOCALSTORAGE_PROJECT_KEY, "");
+
 export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
   children,
 }) => {
@@ -141,7 +151,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
     "/organization/definitions"
   );
 
-  const [project, setProject] = useLocalStorage(LOCALSTORAGE_PROJECT_KEY, "");
+  const [project, setProject] = useProject();
 
   const activeMetrics = useMemo(() => {
     if (!data || !data.metrics) {
@@ -163,6 +173,13 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
     }
     return data.metricGroups;
   }, [data?.metricGroups]);
+
+  const decisionCriteria = useMemo(() => {
+    if (!data || !data.decisionCriteria) {
+      return [];
+    }
+    return data.decisionCriteria;
+  }, [data?.decisionCriteria]);
 
   const activeFactMetrics = useMemo(() => {
     if (!data || !data.factMetrics) {
@@ -231,6 +248,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
   const getFactTableById = useGetById(data?.factTables);
   const getFactMetricById = useGetById(data?.factMetrics);
   const getMetricGroupById = useGetById(data?.metricGroups);
+  const getDecisionCriteriaById = useGetById(data?.decisionCriteria);
 
   const getExperimentMetricById = useCallback(
     (id: string) => {
@@ -269,6 +287,8 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       _factTablesIncludingArchived: allFactTables,
       factMetrics: activeFactMetrics,
       _factMetricsIncludingArchived: allFactMetrics,
+      decisionCriteria: decisionCriteria,
+      webhookSecrets: data.webhookSecrets,
       setProject,
       getMetricById,
       getDatasourceById,
@@ -281,6 +301,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       getFactMetricById,
       getExperimentMetricById,
       getMetricGroupById,
+      getDecisionCriteriaById,
       refreshTags: async (tags) => {
         const existingTags = data.tags.map((t) => t.id);
         const newTags = tags.filter((t) => !existingTags.includes(t));

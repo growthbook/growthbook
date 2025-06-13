@@ -19,10 +19,9 @@ import {
 import useApi from "@/hooks/useApi";
 import Field from "@/components/Forms/Field";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { LOCALSTORAGE_PROJECT_KEY } from "@/services/DefinitionsContext";
+import { useProject } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
 import Checkbox from "@/components/Radix/Checkbox";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
 import style from "./CreateOrJoinOrganization.module.scss";
 import WelcomeFrame from "./WelcomeFrame";
 
@@ -53,8 +52,7 @@ const CreateOrJoinOrganization: FC<{
 
   const { apiCall, logout, setOrgId } = useAuth();
   const { updateUser } = useUser();
-
-  const [, setProject] = useLocalStorage(LOCALSTORAGE_PROJECT_KEY, "");
+  const [, setProject] = useProject();
 
   const { data: recommendedOrgsData } = useApi<{
     organizations: {

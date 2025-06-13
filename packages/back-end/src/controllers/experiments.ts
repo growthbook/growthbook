@@ -962,6 +962,7 @@ export async function postExperiments(
     customFields: data.customFields || undefined,
     templateId: data.templateId || undefined,
     shareLevel: data.shareLevel || "organization",
+    decisionFrameworkSettings: data.decisionFrameworkSettings || {},
   };
 
   const { settings } = getScopedSettings({
@@ -1220,6 +1221,7 @@ export async function postExperiment(
     "secondaryMetrics",
     "guardrailMetrics",
     "metricOverrides",
+    "decisionFrameworkSettings",
     "variations",
     "status",
     "results",
@@ -3459,10 +3461,12 @@ export async function getExperimentTimeSeries(
   }
 
   const timeSeries = await context.models.metricTimeSeries.getBySourceAndMetricIds(
-    "experiment",
-    id,
-    phaseIndex,
-    metricIds
+    {
+      source: "experiment",
+      sourceId: id,
+      sourcePhase: phaseIndex,
+      metricIds,
+    }
   );
 
   res.status(200).json({

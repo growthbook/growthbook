@@ -61,12 +61,9 @@ import { ResourceEvents } from "back-end/src/events/base-types";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { SafeRolloutInterface } from "back-end/types/safe-rollout";
 import { SafeRolloutNotification } from "back-end/src/validators/safe-rollout";
+import { determineNextSafeRolloutSnapshotAttempt } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
 import { getSourceIntegrationObject } from "./datasource";
-import {
-  computeResultsStatus,
-  determineNextDate,
-  isJoinableMetric,
-} from "./experiments";
+import { computeResultsStatus, isJoinableMetric } from "./experiments";
 
 export function getMetricForSafeRolloutSnapshot(
   id: string | null | undefined,
@@ -405,13 +402,12 @@ export async function _createSafeRolloutSnapshot({
     status: "running",
   };
 
-  const nextUpdate = determineNextDate(
-    organization.settings?.updateSchedule || null
+  const { nextSnapshot } = determineNextSafeRolloutSnapshotAttempt(
+    safeRollout,
+    organization
   );
-
   await context.models.safeRollout.update(safeRollout, {
-    nextSnapshotAttempt:
-      nextUpdate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    nextSnapshotAttempt: nextSnapshot,
   });
 
   const snapshot = await context.models.safeRolloutSnapshots.create(data);
@@ -559,14 +555,17 @@ const memoizeSafeRolloutNotification = async ({
   types: SafeRolloutNotification[];
   safeRollout: SafeRolloutInterface;
   dispatch: () => Promise<void>;
-}) => {
-  if (types.every((t) => safeRollout.pastNotifications?.includes(t))) return;
+}): Promise<boolean> => {
+  if (types.every((t) => safeRollout.pastNotifications?.includes(t)))
+    return false;
 
   await dispatch();
 
   await context.models.safeRollout.update(safeRollout, {
     pastNotifications: types,
   });
+
+  return true;
 };
 
 export async function notifySafeRolloutChange({
@@ -577,7 +576,11 @@ export async function notifySafeRolloutChange({
   context: ReqContext;
   updatedSafeRollout: SafeRolloutInterface;
   safeRolloutSnapshot: SafeRolloutSnapshotInterface;
-}): Promise<void> {
+}): Promise<boolean> {
+  if (updatedSafeRollout.status !== "running") return false;
+
+  let notificationSent = false;
+
   const daysLeft = getSafeRolloutDaysLeft({
     safeRollout: updatedSafeRollout,
     snapshotWithResults: safeRolloutSnapshot,
@@ -591,7 +594,6 @@ export async function notifySafeRolloutChange({
     healthSettings,
     daysLeft,
   });
-
   const feature = await getFeature(context, updatedSafeRollout.featureId);
   if (!feature) {
     throw new Error("Could not find feature to fire event");
@@ -614,7 +616,7 @@ export async function notifySafeRolloutChange({
       unhealthyReasons.push("multipleExposures");
     }
 
-    await memoizeSafeRolloutNotification({
+    const unhealthyNotificationSent = await memoizeSafeRolloutNotification({
       context,
       types: unhealthyReasons,
       safeRollout: updatedSafeRollout,
@@ -632,10 +634,11 @@ export async function notifySafeRolloutChange({
           },
         }),
     });
+    notificationSent = notificationSent || unhealthyNotificationSent;
   }
 
   if (safeRolloutStatus?.status === "rollback-now") {
-    await memoizeSafeRolloutNotification({
+    const rollbackNotificationSent = await memoizeSafeRolloutNotification({
       context,
       types: ["rollback"],
       safeRollout: updatedSafeRollout,
@@ -650,10 +653,10 @@ export async function notifySafeRolloutChange({
           },
         }),
     });
+    notificationSent = notificationSent || rollbackNotificationSent;
   }
-
   if (safeRolloutStatus?.status === "ship-now") {
-    await memoizeSafeRolloutNotification({
+    const shipNotificationSent = await memoizeSafeRolloutNotification({
       context,
       types: ["ship"],
       safeRollout: updatedSafeRollout,
@@ -668,5 +671,8 @@ export async function notifySafeRolloutChange({
           },
         }),
     });
+    notificationSent = notificationSent || shipNotificationSent;
   }
+
+  return notificationSent;
 }

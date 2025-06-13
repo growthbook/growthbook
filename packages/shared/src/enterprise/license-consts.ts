@@ -56,7 +56,10 @@ export type CommercialFeature =
   | "historical-power"
   | "decision-framework"
   | "unlimited-cdn-usage"
-  | "safe-rollout";
+  | "safe-rollout"
+  | "require-project-for-features-setting"
+  | "metric-effects"
+  | "metric-correlations";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
@@ -70,6 +73,7 @@ export type SubscriptionInfo = {
   dateToBeCanceled: string;
   cancelationDate: string;
   pendingCancelation: boolean;
+  isVercelIntegration: boolean;
 };
 
 export interface LicenseInterface {
@@ -93,6 +97,7 @@ export interface LicenseInterface {
     tooltipText: string; // The text to show in the tooltip
     showAllUsers: boolean; // True if all users should see the notice rather than just the admins
   };
+  vercelInstallationId?: string;
   stripeSubscription?: {
     id: string;
     qty: number;
@@ -271,6 +276,9 @@ export const accountFeatures: CommercialFeaturesMap = {
     "historical-power",
     "decision-framework",
     "safe-rollout",
+    "require-project-for-features-setting",
+    "metric-effects",
+    "metric-correlations",
   ]),
 };
 

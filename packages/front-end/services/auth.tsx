@@ -20,9 +20,8 @@ import { roleSupportsEnvLimit } from "shared/permissions";
 import Modal from "@/components/Modal";
 import { DocLink } from "@/components/DocLink";
 import Welcome from "@/components/Auth/Welcome";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { getApiHost, getAppOrigin, isCloud, isSentryEnabled } from "./env";
-import { LOCALSTORAGE_PROJECT_KEY } from "./DefinitionsContext";
+import { useProject, LOCALSTORAGE_PROJECT_KEY } from "./DefinitionsContext";
 
 export type UserOrganizations = { id: string; name: string }[];
 // eslint-disable-next-line
@@ -217,7 +216,7 @@ export const AuthProvider: React.FC<{
   const router = useRouter();
   const initialOrgId = router.query.org ? router.query.org + "" : null;
 
-  const [, setProject] = useLocalStorage(LOCALSTORAGE_PROJECT_KEY, "");
+  const [, setProject] = useProject();
 
   async function init() {
     const resp = await refreshToken();

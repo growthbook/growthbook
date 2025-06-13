@@ -450,6 +450,11 @@ const sidebars = {
       ],
     },
     {
+      type: "doc",
+      id: "insights",
+      label: "Insights",
+    },
+    {
       type: "category",
       label: "SDKs",
       collapsed: false,
@@ -464,6 +469,7 @@ const sidebars = {
           collapsed: true,
           items: [
             { type: "doc", id: "lib/node", label: "Node.js" },
+            { type: "doc", id: "lib/nextjs", label: "Next.js" },
             { type: "doc", id: "lib/php", label: "PHP" },
             { type: "doc", id: "lib/ruby", label: "Ruby" },
             { type: "doc", id: "lib/python", label: "Python" },
@@ -552,11 +558,6 @@ const sidebars = {
     },
     { type: "doc", id: "api-overview", label: "API" },
     {
-      type: "doc",
-      id: "dashboard",
-      label: "Management Dashboard",
-    },
-    {
       type: "category",
       collapsed: true,
       label: "Webhooks",
@@ -591,6 +592,20 @@ const sidebars = {
       label: "Integrations",
       collapsed: true,
       items: [
+        {
+          type: "doc",
+          id: "integrations/mcp",
+          label: "MCP Server",
+          className: "pill-new",
+        },
+        /*
+        {
+          type: "doc",
+          id: "integrations/vercel",
+          label: "Vercel",
+          className: "pill-new",
+        },
+        */
         {
           type: "doc",
           id: "integrations/framer",
@@ -788,6 +803,28 @@ const sidebars = {
               type: "doc",
               id: "kb/experiments/holdouts",
               label: "Holdouts in GrowthBook",
+            },
+          ],
+        },
+        {
+          type: "category",
+          label: "Google Analytics",
+          collapsed: true,
+          items: [
+            {
+              type: "doc",
+              id: "kb/google-analytics/google-big-query-bq-troubleshooting",
+              label: "BigQuery Troubleshooting",
+            },
+            {
+              type: "doc",
+              id: "kb/google-analytics/google-analytics-ga4-troubleshooting",
+              label: "GA4 Troubleshooting",
+            },
+            {
+              type: "doc",
+              id: "kb/google-analytics/google-tag-manager-gtm-troubleshooting",
+              label: "GTM Troubleshooting",
             },
           ],
         },
