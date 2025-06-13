@@ -12,7 +12,7 @@ import {
   SavedQuery,
   QueryExecutionResult,
 } from "back-end/src/validators/saved-queries";
-import { Box, Flex, Text, Tooltip } from "@radix-ui/themes";
+import { Box, Flex, Text } from "@radix-ui/themes";
 import { getValidDate } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -38,6 +38,7 @@ import {
 } from "@/components/ResizablePanels";
 import Modal from "../Modal";
 import SelectField from "../Forms/SelectField";
+import Tooltip from "../Tooltip/Tooltip";
 import SchemaBrowser from "./SchemaBrowser";
 import styles from "./EditSqlModal.module.scss";
 
@@ -411,7 +412,7 @@ export default function SqlExplorerModal({
                           {!readOnlyMode ? (
                             <Flex gap="3">
                               {formatError && (
-                                <Tooltip content={formatError}>
+                                <Tooltip body={formatError}>
                                   <span>
                                     <FaExclamationTriangle className="text-danger" />
                                   </span>
@@ -426,11 +427,8 @@ export default function SqlExplorerModal({
                                 Format
                               </Button>
                               <Tooltip
-                                content={
-                                  form.watch("datasourceId") === ""
-                                    ? "Select a Data Dource to run your query"
-                                    : undefined
-                                }
+                                body="Select a Data Source to run your query"
+                                shouldDisplay={!form.watch("datasourceId")}
                               >
                                 <Button
                                   size="xs"
