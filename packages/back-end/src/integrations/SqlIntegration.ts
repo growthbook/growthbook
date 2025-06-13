@@ -284,10 +284,6 @@ export default abstract class SqlIntegration
   dateDiff(startCol: string, endCol: string) {
     return `datediff(day, ${startCol}, ${endCol})`;
   }
-  // eslint-disable-next-line
-  convertDate(fromDB: any): Date {
-    return getValidDate(fromDB);
-  }
   formatDate(col: string): string {
     return col;
   }
@@ -490,9 +486,9 @@ export default abstract class SqlIntegration
           variation_id: row.variation_id ?? "",
           variation_name: row.variation_name,
           users: parseInt(row.users) || 0,
-          end_date: this.convertDate(row.end_date).toISOString(),
-          start_date: this.convertDate(row.start_date).toISOString(),
-          latest_data: this.convertDate(row.latest_data).toISOString(),
+          end_date: getValidDate(row.end_date).toISOString(),
+          start_date: getValidDate(row.start_date).toISOString(),
+          latest_data: getValidDate(row.latest_data).toISOString(),
         };
       }),
       statistics: statistics,
@@ -1131,7 +1127,7 @@ export default abstract class SqlIntegration
         } = row;
 
         const ret: MetricAnalysisQueryResponseRow = {
-          date: date ? this.convertDate(date).toISOString() : "",
+          date: date ? getValidDate(date).toISOString() : "",
           data_type: data_type ?? "",
           capped: (capped ?? "uncapped") == "capped",
           units: parseFloat(units) || 0,
@@ -1386,7 +1382,7 @@ export default abstract class SqlIntegration
         const { date, count, main_sum, main_sum_squares } = row;
 
         const ret: MetricValueQueryResponseRow = {
-          date: date ? this.convertDate(date).toISOString() : "",
+          date: date ? getValidDate(date).toISOString() : "",
           count: parseFloat(count) || 0,
           main_sum: parseFloat(main_sum) || 0,
           main_sum_squares: parseFloat(main_sum_squares) || 0,
@@ -1445,7 +1441,7 @@ export default abstract class SqlIntegration
       results.rows.forEach((row) => {
         timestampCols.forEach((col) => {
           if (row[col]) {
-            row[col] = this.convertDate(row[col]);
+            row[col] = getValidDate(row[col]);
           }
         });
       });
