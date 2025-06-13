@@ -493,7 +493,7 @@ export default function SqlExplorerModal({
                       <Panel
                         id="query-results"
                         order={2}
-                        defaultSize={queryExecution ? 70 : 0}
+                        defaultSize={form.watch("results").results ? 70 : 0}
                         minSize={10}
                       >
                         <DisplayTestQueryResults
@@ -572,7 +572,8 @@ export default function SqlExplorerModal({
           </TabsContent>
 
           <TabsContent value="visualization" style={{ flex: 1 }}>
-            {!queryExecution?.results || queryExecution.results.length === 0 ? (
+            {!form.watch("results").results ||
+            form.watch("results").results.length === 0 ? (
               <Flex justify="center" align="center" height="100%">
                 <Text align="center">
                   No results to visualize.
@@ -582,7 +583,7 @@ export default function SqlExplorerModal({
               </Flex>
             ) : (
               <SqlExplorerDataVisualization
-                rows={queryExecution.results}
+                rows={form.watch("results").results}
                 dataVizConfig={form.watch("dataVizConfig")?.[0] || {}}
                 onDataVizConfigChange={(updatedConfig) => {
                   setDirty(true);
