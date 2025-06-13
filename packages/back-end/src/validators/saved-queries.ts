@@ -1,26 +1,33 @@
 import { z } from "zod";
 import { CreateProps, UpdateProps } from "back-end/types/models";
 
-const axisConfigurationValidator = z.object({
+const xAxisConfigurationValidator = z.object({
   fieldName: z.string(),
   type: z.enum(["string", "number", "date"]),
-  aggregation: z.enum(["none", "sum", "count", "average"]),
   sort: z.enum(["none", "asc", "desc"]),
 });
-export type AxisConfiguration = z.infer<typeof axisConfigurationValidator>;
+export type xAxisConfiguration = z.infer<typeof xAxisConfigurationValidator>;
+
+const yAxisConfigurationValidator = z.object({
+  fieldName: z.string(),
+  aggregation: z.enum(["none", "sum", "count", "average"]),
+});
+export type yAxisConfiguration = z.infer<typeof yAxisConfigurationValidator>;
+
+const dimensionAxisConfigurationValidator = z.object({
+  fieldName: z.string(),
+  display: z.enum(["grouped", "stacked"]),
+  sort: z.enum(["none", "asc", "desc"]),
+});
+export type dimensionAxisConfiguration = z.infer<
+  typeof dimensionAxisConfigurationValidator
+>;
 
 export const dataVizConfigValidator = z.object({
-  xAxis: axisConfigurationValidator,
-  yAxis: z.array(axisConfigurationValidator).nonempty(),
   chartType: z.enum(["bar", "line", "area", "scatter"]),
-  dimension: z
-    .array(
-      axisConfigurationValidator.extend({
-        display: z.enum(["grouped", "stacked"]),
-      })
-    )
-    .nonempty()
-    .optional(),
+  xAxis: xAxisConfigurationValidator,
+  yAxis: z.array(yAxisConfigurationValidator).nonempty(),
+  dimension: z.array(dimensionAxisConfigurationValidator).nonempty().optional(),
 });
 
 export const testQueryRowSchema = z.record(z.any());

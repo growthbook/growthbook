@@ -34,7 +34,7 @@ export default function SqlExplorerDataVisualization({
 
   const parsedRows = useMemo(() => {
     const xType = dataVizConfig.xAxis?.type;
-    const yType = dataVizConfig.yAxis?.[0]?.type;
+    // const yType = "number";
 
     const xField = dataVizConfig.xAxis?.fieldName;
     const yField = dataVizConfig.yAxis?.[0]?.fieldName;
@@ -64,23 +64,23 @@ export default function SqlExplorerDataVisualization({
         // For category/string type, keep as is
       }
 
-      // Cast yField value based on yType
-      if (yField in newRow) {
-        const yValue = newRow[yField];
-        if (yType === "number" && yValue !== null && yValue !== undefined) {
-          newRow[yField] =
-            typeof yValue === "string"
-              ? parseFloat(yValue) || 0
-              : Number(yValue);
-        } else if (
-          yType === "date" &&
-          yValue !== null &&
-          yValue !== undefined
-        ) {
-          newRow[yField] = new Date(yValue);
-        }
-        // For category/string type, keep as is
-      }
+      // // Cast yField value based on yType
+      // if (yField in newRow) {
+      //   const yValue = newRow[yField];
+      //   if (yType === "number" && yValue !== null && yValue !== undefined) {
+      //     newRow[yField] =
+      //       typeof yValue === "string"
+      //         ? parseFloat(yValue) || 0
+      //         : Number(yValue);
+      //   } else if (
+      //     yType === "date" &&
+      //     yValue !== null &&
+      //     yValue !== undefined
+      //   ) {
+      //     newRow[yField] = new Date(yValue);
+      //   }
+      // For category/string type, keep as is
+      // }
 
       return newRow;
     });
@@ -207,6 +207,11 @@ export default function SqlExplorerDataVisualization({
       xAxis: {
         name: dataVizConfig.xAxis?.fieldName,
         nameLocation: "middle",
+        nameTextStyle: {
+          fontSize: 14,
+          fontWeight: "bold",
+          padding: [20, 0],
+        },
         type:
           dataVizConfig.xAxis?.type === "date"
             ? "time"
@@ -218,6 +223,11 @@ export default function SqlExplorerDataVisualization({
       yAxis: {
         name: dataVizConfig.yAxis?.[0]?.fieldName,
         nameLocation: "middle",
+        nameTextStyle: {
+          fontSize: 14,
+          fontWeight: "bold",
+          padding: [20, 0],
+        },
       },
       series,
     };
