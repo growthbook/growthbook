@@ -1,13 +1,26 @@
 import { z } from "zod";
 import { CreateProps, UpdateProps } from "back-end/types/models";
 
+const axisConfigurationValidator = z.object({
+  fieldName: z.string(),
+  type: z.enum(["string", "number", "date"]),
+  aggregation: z.enum(["none", "sum", "count", "average"]),
+  sort: z.enum(["none", "asc", "desc"]),
+});
+export type AxisConfiguration = z.infer<typeof axisConfigurationValidator>;
+
 export const dataVizConfigValidator = z.object({
-  chartType: z.enum(["bar", "line", "pie", "scatter", "area", "donut"]),
-  xAxis: z.string(),
-  yAxis: z.string(),
-  // TODO: Make specific types depending on chart type
-  aggregation: z.enum(["stacked", "grouped"]).optional(),
-  aggregationAxis: z.string().optional(),
+  xAxis: axisConfigurationValidator,
+  yAxis: z.array(axisConfigurationValidator).nonempty(),
+  chartType: z.enum(["bar", "line", "area", "scatter"]),
+  dimension: z
+    .array(
+      axisConfigurationValidator.extend({
+        display: z.enum(["grouped", "stacked"]),
+      })
+    )
+    .nonempty()
+    .optional(),
 });
 
 export const testQueryRowSchema = z.record(z.any());
@@ -33,7 +46,6 @@ export const savedQueryValidator = z
     results: queryExecutionResultValidator,
   })
   .strict();
-
 export type SavedQuery = z.infer<typeof savedQueryValidator>;
 export type SavedQueryCreateProps = CreateProps<SavedQuery>;
 export type SavedQueryUpdateProps = UpdateProps<SavedQuery>;

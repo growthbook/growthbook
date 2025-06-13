@@ -1,115 +1,231 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
-import { DataVizConfig } from "back-end/src/validators/saved-queries";
+import * as echarts from "echarts";
+import { aggregate } from "echarts-simple-transform";
+import {
+  DataVizConfig,
+  dataVizConfigValidator,
+} from "back-end/src/validators/saved-queries";
 import { Panel, PanelGroup, PanelResizeHandle } from "../ResizablePanels";
 import { AreaWithHeader } from "../SchemaBrowser/SqlExplorerModal";
 import DataVizConfigPanel from "./DataVizConfigPanel";
 
-// We need to use any here because the rows are not typed
+// We need to use any here because the rows are defined only in runtime
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type Rows = any[];
 
-export default function SqlExplorerDataVisualization({ rows }: { rows: Rows }) {
-  const [config, setConfig] = useState<DataVizConfig>({
-    chartType: "line",
-    xAxis: "",
-    yAxis: "",
-  });
+export default function SqlExplorerDataVisualization({
+  rows,
+  dataVizConfig,
+  onDataVizConfigChange,
+}: {
+  rows: Rows;
+  dataVizConfig: Partial<DataVizConfig>;
+  onDataVizConfigChange: (dataVizConfig: Partial<DataVizConfig>) => void;
+}) {
+  echarts.registerTransform(aggregate);
 
-  const isConfigValid = config.xAxis && config.yAxis;
+  const isConfigValid = useMemo(() => {
+    const parsed = dataVizConfigValidator.strip().safeParse(dataVizConfig);
+    console.log(parsed);
+    return parsed.success;
+  }, [dataVizConfig]);
 
-  const series = useMemo(() => {
-    if (!config.xAxis || !config.yAxis) return [];
+  const parsedRows = useMemo(() => {
+    const xType = dataVizConfig.xAxis?.type;
+    const yType = dataVizConfig.yAxis?.[0]?.type;
 
-    let groupedRows: { name: string; rows: Rows }[] = rows;
-    if (config.aggregation === "stacked" && config.aggregationAxis) {
-      const groupedData = new Map<string, Rows>();
+    const xField = dataVizConfig.xAxis?.fieldName;
+    const yField = dataVizConfig.yAxis?.[0]?.fieldName;
 
-      rows.forEach((row) => {
-        const groupKey = String(row[config.aggregationAxis!]);
-        if (!groupedData.has(groupKey)) {
-          groupedData.set(groupKey, []);
+    if (!xField || !yField) {
+      return rows;
+    }
+
+    return rows.map((row) => {
+      const newRow = { ...row };
+
+      // Cast xField value based on xType
+      if (xField in newRow) {
+        const xValue = newRow[xField];
+        if (xType === "number" && xValue !== null && xValue !== undefined) {
+          newRow[xField] =
+            typeof xValue === "string"
+              ? parseFloat(xValue) || 0
+              : Number(xValue);
+        } else if (
+          xType === "date" &&
+          xValue !== null &&
+          xValue !== undefined
+        ) {
+          newRow[xField] = new Date(xValue);
         }
-        groupedData.get(groupKey)!.push(row);
-      });
+        // For category/string type, keep as is
+      }
 
-      groupedRows = Array.from(groupedData.entries()).map(([name, rows]) => ({
-        name,
-        rows,
-      }));
-    } else {
-      groupedRows = [{ name: "Total", rows }];
-    }
+      // Cast yField value based on yType
+      if (yField in newRow) {
+        const yValue = newRow[yField];
+        if (yType === "number" && yValue !== null && yValue !== undefined) {
+          newRow[yField] =
+            typeof yValue === "string"
+              ? parseFloat(yValue) || 0
+              : Number(yValue);
+        } else if (
+          yType === "date" &&
+          yValue !== null &&
+          yValue !== undefined
+        ) {
+          newRow[yField] = new Date(yValue);
+        }
+        // For category/string type, keep as is
+      }
 
-    // Handle regular aggregation (grouped by x-axis)
-    if (config.aggregation === "grouped") {
-      const perGroupAggregated = new Map<string, Map<unknown, number>>();
-      const aggregated = new Map<unknown, number>();
-      groupedRows.forEach(({ name, rows }) => {
-        rows.map((row) => {
-          const x = row[config.xAxis!];
-          const y = row[config.yAxis!];
-          const currentSum = aggregated.get(x) || 0;
-          aggregated.set(x, currentSum + (Number(y) || 0));
-        });
-        perGroupAggregated.set(name, aggregated);
-      });
-
-      // groupedRows = Array.from(perGroupAggregated.entries()).map(
-      //   ([name, aggregated]) => ({
-      //     name,
-      //     rows: aggregated,
-      //   })
-      // );
-    }
-
-    // Return single series for non-aggregationAxis case
-    return groupedRows.map(({ name, rows }) => ({
-      name,
-      data: rows
-        .map((row) => [row[config.xAxis!], row[config.yAxis!]])
-        .sort((a, b) => {
-          if (a[0] < b[0]) return -1;
-          if (a[0] > b[0]) return 1;
-          return 0;
-        }),
-      type: config.chartType === "area" ? "line" : config.chartType,
-      areaStyle: config.chartType === "area" ? {} : undefined,
-    }));
+      return newRow;
+    });
   }, [
+    dataVizConfig.xAxis?.fieldName,
+    dataVizConfig.xAxis?.type,
+    dataVizConfig.yAxis,
     rows,
-    config.chartType,
-    config.xAxis,
-    config.yAxis,
-    config.aggregation,
-    config.aggregationAxis,
   ]);
 
-  const option = {
-    // TODO: Define the types based on the data
-    tooltip: {
-      trigger: "axis",
-      axisPointer: {
-        label: {
-          backgroundColor: "#6a7985",
+  const dataset = useMemo(() => {
+    // TODO: Get type from echarts if possible
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const transform: any[] = [];
+
+    if (dataVizConfig.xAxis?.sort) {
+      transform.push({
+        print: true,
+        type: "sort",
+        config: {
+          dimension: dataVizConfig.xAxis!.fieldName,
+          order: dataVizConfig.xAxis!.sort,
+        },
+      });
+    }
+
+    // if (dataVizConfig.yAxis?.[0]?.sort) {
+    //   transform.push({
+    //     type: "sort",
+    //     config: {
+    //       dimension: dataVizConfig.yAxis![0]!.fieldName,
+    //       order: dataVizConfig.yAxis![0]!.sort,
+    //     },
+    //   });
+    // }
+
+    const yAxisConfig = dataVizConfig.yAxis?.[0];
+    if (yAxisConfig && yAxisConfig.aggregation !== "none") {
+      transform.push({
+        type: "ecSimpleTransform:aggregate",
+        config: {
+          resultDimensions: [
+            // by default, use the same name with `from`.
+            { from: yAxisConfig.fieldName, method: yAxisConfig.aggregation },
+            { from: dataVizConfig.xAxis!.fieldName },
+          ],
+          groupBy: dataVizConfig.xAxis!.fieldName,
+        },
+        print: true,
+      });
+    }
+
+    console.log(transform);
+
+    // const dimensionConfig = dataVizConfig.dimension?.[0];
+    // if (dimensionConfig) {
+    //   transform.push({
+    //     type: "ecSimpleTransform:aggregate",
+    //     config: {
+    //       resultDimensions: [
+    //         // by default, use the same name with `from`.
+    //         { from: "Global_Sales", method: "sum" },
+    //         { from: "Year" },
+    //       ],
+    //       groupBy: "Year",
+    //     },
+    //     print: true,
+    //   });
+    // }
+
+    return [
+      {
+        source: parsedRows,
+      },
+      ...(transform.length > 0
+        ? [
+            {
+              transform,
+            },
+          ]
+        : []),
+    ];
+  }, [parsedRows, dataVizConfig.xAxis, dataVizConfig.yAxis]);
+
+  const series = useMemo(() => {
+    return [
+      {
+        type:
+          dataVizConfig.chartType === "area" ? "line" : dataVizConfig.chartType,
+        areaStyle: {},
+        encode: {
+          x: dataVizConfig.xAxis!.fieldName,
+          y: dataVizConfig.yAxis![0].fieldName,
+        },
+        datasetIndex: 1,
+      },
+    ];
+
+    // TODO(adriel): Implement dimension
+    // const dimensionSeries = new Set(
+    //   parsedRows.map((row) => row[dimensionConfig.fieldName])
+    // )
+    //   .values()
+    //   .map((value) => {
+    //     return {
+    //       name: value,
+    //       type: config.chartType === "area" ? "line" : "bar",
+    //       encode: { x: config.xAxis!.fieldName, y: config.yAxis![0].fieldName },
+    //     };
+    //   });
+
+    // return dimensionSeries;
+  }, [dataVizConfig.chartType, dataVizConfig.xAxis, dataVizConfig.yAxis]);
+
+  const option = useMemo(() => {
+    return {
+      dataset,
+      tooltip: {
+        trigger: "axis",
+        axisPointer: {
+          type: "shadow",
         },
       },
-    },
-    xAxis: {
-      type: "time",
-      // TODO: Generate domain?
-      // data: resultToRender.map((row) => row[config.xKey]),
-    },
-    yAxis: {
-      type: "value",
-    },
-    series,
-  };
+      xAxis: {
+        name: dataVizConfig.xAxis?.fieldName,
+        nameLocation: "middle",
+        type:
+          dataVizConfig.xAxis?.type === "date"
+            ? "time"
+            : dataVizConfig.xAxis?.type === "number"
+            ? "value"
+            : "category",
+        // axisLabel: { interval: 0, rotate: 30 },
+      },
+      yAxis: {
+        name: dataVizConfig.yAxis?.[0]?.fieldName,
+        nameLocation: "middle",
+      },
+      series,
+    };
+  }, [dataset, series, dataVizConfig]);
 
   return (
     <PanelGroup direction="horizontal">
-      <Panel>
+      <Panel defaultSize={75}>
         <AreaWithHeader
           header={
             <Text style={{ color: "var(--color-text-mid)", fontWeight: 500 }}>
@@ -117,27 +233,24 @@ export default function SqlExplorerDataVisualization({ rows }: { rows: Rows }) {
             </Text>
           }
         >
-          {!rows.length && (
+          {isConfigValid ? (
             <Flex justify="center" align="center" height="100%">
-              This query has no results. Update the query to create a chart.
+              <EChartsReact
+                option={option}
+                style={{ width: "100%", height: "80%" }}
+                echarts={echarts}
+              />
             </Flex>
-          )}
-
-          {!isConfigValid && (
+          ) : (
             <Flex justify="center" align="center" height="100%">
               Select X and Y axis on the side panel to visualize your data.
             </Flex>
           )}
-
-          {isConfigValid && (
-            <EChartsReact
-              option={option}
-              style={{ width: "100%", height: "300px" }}
-            />
-          )}
         </AreaWithHeader>
       </Panel>
+
       <PanelResizeHandle />
+
       <Panel defaultSize={25}>
         <AreaWithHeader
           header={
@@ -146,11 +259,11 @@ export default function SqlExplorerDataVisualization({ rows }: { rows: Rows }) {
             </Text>
           }
         >
-          <Box p="4">
+          <Box p="4" style={{ overflow: "scroll", height: "100%" }}>
             <DataVizConfigPanel
-              rows={rows}
-              config={config}
-              onConfigChange={setConfig}
+              sampleRow={rows[0]}
+              dataVizConfig={dataVizConfig}
+              onDataVizConfigChange={onDataVizConfigChange}
             />
           </Box>
         </AreaWithHeader>

@@ -159,7 +159,12 @@ export default function SchemaBrowser({
   return (
     <div className="d-flex flex-column h-100">
       <PanelGroup direction="vertical">
-        <Panel defaultSize={50} minSize={11}>
+        <Panel
+          id="schema-browser"
+          order={1}
+          defaultSize={currentTable ? 50 : 100}
+          minSize={11}
+        >
           <SchemaBrowserWrapper
             datasourceName={datasource.name}
             datasourceId={datasource.id}
@@ -321,7 +326,7 @@ export default function SchemaBrowser({
         {currentTable && (
           <>
             <PanelResizeHandle />
-            <Panel minSize={5}>
+            <Panel id="table-data" order={2} defaultSize={50} minSize={5}>
               <DatasourceTableData
                 datasource={datasource}
                 canRunQueries={canRunQueries}
