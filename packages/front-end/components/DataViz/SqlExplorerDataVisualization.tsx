@@ -28,18 +28,16 @@ export default function SqlExplorerDataVisualization({
 
   const isConfigValid = useMemo(() => {
     const parsed = dataVizConfigValidator.strip().safeParse(dataVizConfig);
-    console.log(parsed);
     return parsed.success;
   }, [dataVizConfig]);
 
   const parsedRows = useMemo(() => {
     const xType = dataVizConfig.xAxis?.type;
-    // const yType = "number";
 
     const xField = dataVizConfig.xAxis?.fieldName;
     const yField = dataVizConfig.yAxis?.[0]?.fieldName;
 
-    if (!xField || !yField) {
+    if (!xField && !yField) {
       return rows;
     }
 
@@ -47,7 +45,7 @@ export default function SqlExplorerDataVisualization({
       const newRow = { ...row };
 
       // Cast xField value based on xType
-      if (xField in newRow) {
+      if (xField && xField in newRow) {
         const xValue = newRow[xField];
         if (xType === "number" && xValue !== null && xValue !== undefined) {
           newRow[xField] =
@@ -60,27 +58,17 @@ export default function SqlExplorerDataVisualization({
           xValue !== undefined
         ) {
           newRow[xField] = new Date(xValue);
+        } else if (xType === "string" && typeof xValue !== "string") {
+          newRow[xField] = xValue.toString();
         }
-        // For category/string type, keep as is
       }
 
-      // // Cast yField value based on yType
-      // if (yField in newRow) {
-      //   const yValue = newRow[yField];
-      //   if (yType === "number" && yValue !== null && yValue !== undefined) {
-      //     newRow[yField] =
-      //       typeof yValue === "string"
-      //         ? parseFloat(yValue) || 0
-      //         : Number(yValue);
-      //   } else if (
-      //     yType === "date" &&
-      //     yValue !== null &&
-      //     yValue !== undefined
-      //   ) {
-      //     newRow[yField] = new Date(yValue);
-      //   }
-      // For category/string type, keep as is
-      // }
+      // Cast yField to number
+      if (yField && yField in newRow) {
+        const yValue = newRow[yField];
+        newRow[yField] =
+          typeof yValue === "string" ? parseFloat(yValue) || 1 : Number(yValue);
+      }
 
       return newRow;
     });
@@ -96,60 +84,31 @@ export default function SqlExplorerDataVisualization({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const transform: any[] = [];
 
-    if (dataVizConfig.xAxis?.sort) {
-      transform.push({
-        print: true,
-        type: "sort",
-        config: {
-          dimension: dataVizConfig.xAxis!.fieldName,
-          order: dataVizConfig.xAxis!.sort,
-        },
-      });
-    }
-
-    // if (dataVizConfig.yAxis?.[0]?.sort) {
-    //   transform.push({
-    //     type: "sort",
-    //     config: {
-    //       dimension: dataVizConfig.yAxis![0]!.fieldName,
-    //       order: dataVizConfig.yAxis![0]!.sort,
-    //     },
-    //   });
-    // }
-
     const yAxisConfig = dataVizConfig.yAxis?.[0];
     if (yAxisConfig && yAxisConfig.aggregation !== "none") {
       transform.push({
         type: "ecSimpleTransform:aggregate",
         config: {
           resultDimensions: [
-            // by default, use the same name with `from`.
             { from: yAxisConfig.fieldName, method: yAxisConfig.aggregation },
             { from: dataVizConfig.xAxis!.fieldName },
           ],
           groupBy: dataVizConfig.xAxis!.fieldName,
         },
-        print: true,
       });
     }
 
-    console.log(transform);
-
-    // const dimensionConfig = dataVizConfig.dimension?.[0];
-    // if (dimensionConfig) {
-    //   transform.push({
-    //     type: "ecSimpleTransform:aggregate",
-    //     config: {
-    //       resultDimensions: [
-    //         // by default, use the same name with `from`.
-    //         { from: "Global_Sales", method: "sum" },
-    //         { from: "Year" },
-    //       ],
-    //       groupBy: "Year",
-    //     },
-    //     print: true,
-    //   });
-    // }
+    const xAxisSort = dataVizConfig.xAxis?.sort;
+    if (xAxisSort && xAxisSort !== "none") {
+      transform.push({
+        type: "sort",
+        config: {
+          dimension: dataVizConfig.xAxis!.fieldName,
+          order: xAxisSort,
+          ...(dataVizConfig.xAxis?.type === "date" && { parser: "time" }),
+        },
+      });
+    }
 
     return [
       {
@@ -166,11 +125,13 @@ export default function SqlExplorerDataVisualization({
   }, [parsedRows, dataVizConfig.xAxis, dataVizConfig.yAxis]);
 
   const series = useMemo(() => {
+    // const dimensionConfig = dataVizConfig.dimension?.[0];
+    // if (!dimensionConfig) {
     return [
       {
         type:
           dataVizConfig.chartType === "area" ? "line" : dataVizConfig.chartType,
-        areaStyle: {},
+        ...(dataVizConfig.chartType === "area" && { areaStyle: {} }),
         encode: {
           x: dataVizConfig.xAxis!.fieldName,
           y: dataVizConfig.yAxis![0].fieldName,
@@ -178,8 +139,8 @@ export default function SqlExplorerDataVisualization({
         datasetIndex: 1,
       },
     ];
+    // }
 
-    // TODO(adriel): Implement dimension
     // const dimensionSeries = new Set(
     //   parsedRows.map((row) => row[dimensionConfig.fieldName])
     // )
@@ -246,6 +207,7 @@ export default function SqlExplorerDataVisualization({
           {isConfigValid ? (
             <Flex justify="center" align="center" height="100%">
               <EChartsReact
+                key={JSON.stringify(option)}
                 option={option}
                 style={{ width: "100%", height: "80%" }}
                 echarts={echarts}
