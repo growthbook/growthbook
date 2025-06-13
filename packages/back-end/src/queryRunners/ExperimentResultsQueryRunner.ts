@@ -80,10 +80,15 @@ export const UNITS_TABLE_PREFIX = "growthbook_tmp_units";
 export const MAX_METRICS_PER_QUERY = 20;
 
 export function getFactMetricGroup(metric: FactMetricInterface) {
-  // Ratio metrics must have the same numerator and denominator fact table to be grouped
+  // all fact metrics go into a group, even if it's a group of 1
+
+  // Ratio metrics with different numerator and denominator fact tables are only grouped 
+  // if they have the same numerator and denominator fact table to be grouped
   if (isRatioMetric(metric)) {
     if (metric.numerator.factTableId !== metric.denominator?.factTableId) {
-      return "";
+      return metric.denominator?.factTableId
+        ? `${metric.numerator.factTableId} ${metric.denominator.factTableId} (cross-table ratio metrics)`
+        : metric.id;
     }
   }
 
@@ -91,9 +96,9 @@ export function getFactMetricGroup(metric: FactMetricInterface) {
   if (quantileMetricType(metric)) {
     return metric.numerator.factTableId
       ? `${metric.numerator.factTableId} (quantile metrics)`
-      : "";
+      : metric.id;
   }
-  return metric.numerator.factTableId || "";
+  return metric.numerator.factTableId || metric.id;
 }
 
 export interface GroupedMetrics {

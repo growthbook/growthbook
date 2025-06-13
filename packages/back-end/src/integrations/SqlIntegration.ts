@@ -2572,6 +2572,7 @@ export default abstract class SqlIntegration
     if (!factTable) {
       throw new Error("Could not find fact table");
     }
+    // todo store alias in fact metric data
     // data used for cross-table fact metrics, which can be grouped together
     // if and only if multiple metrics have the same numerator and denominator fact tables
     let crossFactTableData:
@@ -2810,7 +2811,7 @@ export default abstract class SqlIntegration
       })})
       ${
         crossFactTableData
-          ? `, __denominatorFactTable as (${this.getDenominatorFactMetricCTE({
+          ? `, __denominatorFactTable AS (${this.getDenominatorFactMetricCTE({
               metricsWithCrossFactTableDenominatorIndices:
                 crossFactTableData.metricIndices, // TODO use alias instead
               metricsWithCrossFactTableDenominators: crossFactTableData.metrics,
@@ -2820,16 +2821,66 @@ export default abstract class SqlIntegration
               startDate: metricStart,
               factTableMap,
               experimentId: settings.experimentId,
-            })})`
-          : ""
-      }
-      ${
-        cumulativeDate
-          ? `, __dateRange AS (
-        ${this.getDateTable(
-          dateStringArrayBetweenDates(startDate, endDate || new Date())
-        )}
-      )`
+            })})
+            -- parameterize
+            , __userDenominatorJoin AS (
+              SELECT
+                d.variation AS variation,
+                d.dimension AS dimension,
+                ${banditDates?.length ? `d.bandit_period AS bandit_period,` : ""}
+                d.${baseIdType} AS ${baseIdType},
+                ${metricData
+                  .map(
+                    (data) =>
+                      data.ratioMetric
+                          ? `, ${this.addCaseWhenTimeFilter(
+                              `${data.alias}_denominator`,
+                              "m",
+                              data.metric,
+                              data.overrideConversionWindows,
+                              settings.endDate,
+                              cumulativeDate
+                            )} as ${data.alias}_denominator`
+                          : ""
+                  )
+                  .filter(sql => sql !== "")
+                  .join(",")}
+                FROM
+                  __distinctUsers d
+                LEFT JOIN __denominatorFactTable m ON (
+                  m.${baseIdType} = d.${baseIdType}
+                )
+            ),
+            __denominatorMetricAgg AS (
+              -- Add in the aggregate metric value for each user
+              SELECT
+                udj.variation,
+                udj.dimension,
+                ${banditDates?.length ? `udj.bandit_period AS bandit_period,` : ""}
+                udj.${baseIdType},
+                ${metricData
+                  .map(
+                    (data) =>
+                      data.ratioMetric
+                          ? `, ${this.getAggregateMetricColumn({
+                              metric: data.metric,
+                              useDenominator: true,
+                              valueColumn: `udj.${data.alias}_denominator`,
+                              quantileColumn: `qm.${data.alias}_quantile`,
+                            })} AS ${data.alias}_denominator`
+                          : ""
+                  )
+                  .filter(sql => sql !== "")
+                  .join(",\n")}
+              FROM
+                __userDenominatorJoin udj
+              GROUP BY
+                udj.variation,
+                udj.dimension,
+                ${banditDates?.length ? `udj.bandit_period,` : ""}
+                udj.${baseIdType}
+            )
+                `
           : ""
       }
       , __userMetricJoin as (
@@ -2837,13 +2888,13 @@ export default abstract class SqlIntegration
           d.variation AS variation,
           d.dimension AS dimension,
           ${banditDates?.length ? `d.bandit_period AS bandit_period,` : ""}
-          ${cumulativeDate ? `dr.day AS day,` : ""}
           d.${baseIdType} AS ${baseIdType},
           ${metricData
             .map(
               (data) =>
                 `${this.addCaseWhenTimeFilter(
-                  `m.${data.alias}_value`,
+                  `${data.alias}_value`,
+                  "m",
                   data.metric,
                   data.overrideConversionWindows,
                   settings.endDate,
@@ -2853,9 +2904,8 @@ export default abstract class SqlIntegration
                 ${
                   data.ratioMetric
                     ? `, ${this.addCaseWhenTimeFilter(
-                        `m${crossFactTableData ? "2" : ""}.${
-                          data.alias
-                        }_denominator`,
+                        `${data.alias}_denominator`,
+                        "m",
                         data.metric,
                         data.overrideConversionWindows,
                         settings.endDate,
@@ -2872,23 +2922,6 @@ export default abstract class SqlIntegration
         LEFT JOIN __factTable m ON (
           m.${baseIdType} = d.${baseIdType}
         )
-        ${
-          crossFactTableData
-            ? `
-        LEFT JOIN __denominatorFactTable m2 ON (
-          m2.${baseIdType} = d.${baseIdType}
-        )
-        `
-            : ""
-        }
-        ${
-          cumulativeDate
-            ? `
-            CROSS JOIN __dateRange dr
-            WHERE d.first_exposure_date <= dr.day
-          `
-            : ""
-        }
       )
       ${
         eventQuantileData.length
@@ -2919,7 +2952,6 @@ export default abstract class SqlIntegration
           umj.variation,
           umj.dimension,
           ${banditDates?.length ? `umj.bandit_period AS bandit_period,` : ""}
-          ${cumulativeDate ? "umj.day," : ""}
           umj.${baseIdType},
           ${metricData
             .map(
@@ -2931,7 +2963,7 @@ export default abstract class SqlIntegration
                   quantileColumn: `qm.${data.alias}_quantile`,
                 })} AS ${data.alias}_value
                 ${
-                  data.ratioMetric
+                  data.ratioMetric && !crossFactTableData
                     ? `, ${this.getAggregateMetricColumn({
                         metric: data.metric,
                         useDenominator: true,
@@ -2960,10 +2992,10 @@ export default abstract class SqlIntegration
         GROUP BY
           umj.variation,
           umj.dimension,
-          ${cumulativeDate ? "umj.day," : ""}
           ${banditDates?.length ? `umj.bandit_period,` : ""}
           umj.${baseIdType}
-      )
+      ), 
+      -- TODO denominator capping
       ${
         percentileData.length > 0
           ? `
@@ -2973,7 +3005,8 @@ export default abstract class SqlIntegration
         `
           : ""
       }
-      ${
+      -- TODO user covariate metric for ratio
+      ${ 
         regressionAdjustedMetrics.length > 0
           ? `
         , __userCovariateMetric as (
@@ -3000,7 +3033,7 @@ export default abstract class SqlIntegration
                             useDenominator: true,
                             valueColumn: this.ifElse(
                               `m.timestamp >= d.${metric.alias}_preexposure_start AND m.timestamp < d.${metric.alias}_preexposure_end`,
-                              `${metric.alias}_denominator`,
+                              `m${crossFactTableData ? "2" : ""}.${metric.alias}_denominator`,
                               "NULL"
                             ),
                           })} AS ${metric.alias}_denominator`
@@ -3013,6 +3046,15 @@ export default abstract class SqlIntegration
           JOIN __factTable m ON (
             m.${baseIdType} = d.${baseIdType}
           )
+          ${
+            crossFactTableData
+              ? `
+          LEFT JOIN __denominatorFactTable m2 ON (
+            m2.${baseIdType} = d.${baseIdType}
+          )
+          `
+              : ""
+          }
           WHERE 
             m.timestamp >= d.min_preexposure_start
             AND m.timestamp < d.max_preexposure_end
@@ -3037,9 +3079,7 @@ export default abstract class SqlIntegration
       -- One row per variation/dimension with aggregations
       SELECT
         m.variation AS variation,
-        ${
-          cumulativeDate ? `${this.formatDate("m.day")}` : "m.dimension"
-        } AS dimension,
+        m.dimension AS dimension,
         COUNT(*) AS users,
         ${metricData.map((data) => {
           return `
@@ -3139,6 +3179,7 @@ export default abstract class SqlIntegration
             )`
             : ""
         }
+            -- TODO left join new denominator tables here
       ${
         regressionAdjustedMetrics.length > 0
           ? `
@@ -3150,12 +3191,11 @@ export default abstract class SqlIntegration
       ${percentileData.length > 0 ? `CROSS JOIN __capValue cap` : ""}
       GROUP BY
         m.variation
-        , ${cumulativeDate ? `${this.formatDate("m.day")}` : "m.dimension"}
+        , m.dimension
     `
       }`,
       this.getFormatDialect()
     );
-    // TODO cumulativeDate in more places
   }
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string {
     const {
@@ -3464,7 +3504,8 @@ export default abstract class SqlIntegration
           ${cumulativeDate ? `dr.day AS day,` : ""}
           d.${baseIdType} AS ${baseIdType},
           ${this.addCaseWhenTimeFilter(
-            "m.value",
+            "value",
+            "m",
             metric,
             overrideConversionWindows,
             settings.endDate,
@@ -4817,14 +4858,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         filterWhere.push(`(${filters.join("\n AND ")})`);
       }
 
-      // Add denominator column if there is one
-      if (isRatioMetric(m) && m.denominator) {
-        if (m.denominator.factTableId !== factTable.id) {
-          throw new Error(
-            `Only supports ratio metrics where the denominator is in the same fact table as the numerator: ${m.denominator.factTableId} <> ${factTable.id}`
-          );
-        }
-
+      // Add denominator column if there is one and it is in the same fact table as the numerator
+      if (isRatioMetric(m) && m.denominator && m.denominator.factTableId === factTable.id) {
         const value = this.getMetricColumns(m, factTableMap, "m", true).value;
         const filters = getColumnRefWhereClause(
           factTable,
@@ -5342,6 +5377,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
 
   private addCaseWhenTimeFilter(
     col: string,
+    colPrefix: string,
     metric: ExperimentMetricInterface,
     overrideConversionWindows: boolean,
     endDate: Date,
@@ -5351,7 +5387,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     return `${this.ifElse(
       `${this.getConversionWindowClause(
         "d.timestamp",
-        "m.timestamp",
+        `${colPrefix}.timestamp`,
         metric,
         endDate,
         cumulativeDate,
@@ -5359,10 +5395,10 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       )}
         ${metricQuantileSettings?.ignoreZeros ? `AND ${col} != 0` : ""}
         ${
-          cumulativeDate ? `AND ${this.dateTrunc("m.timestamp")} <= dr.day` : ""
+          cumulativeDate ? `AND ${this.dateTrunc(`${colPrefix}.timestamp`)} <= dr.day` : ""
         }
       `,
-      `${col}`,
+      `${colPrefix}.${col}`,
       `NULL`
     )}`;
   }
