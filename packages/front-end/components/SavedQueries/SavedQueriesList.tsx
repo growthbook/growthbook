@@ -60,20 +60,6 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
     });
   }, []);
 
-  const handleRowClick = useCallback(
-    (query: SavedQuery) => {
-      // Only allow row click for queries the user can edit
-      const datasource = getDatasourceById(query.datasourceId);
-      if (
-        datasource &&
-        permissionsUtil.canUpdateSqlExplorerQueries(datasource)
-      ) {
-        handleEdit(query);
-      }
-    },
-    [getDatasourceById, permissionsUtil, handleEdit]
-  );
-
   const canEdit = useCallback(
     (query: SavedQuery) => {
       const datasource = getDatasourceById(query.datasourceId);
@@ -151,7 +137,7 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                 return (
                   <tr
                     key={query.id}
-                    onClick={() => handleRowClick(query)}
+                    onClick={() => setSelectedSavedQuery(query)}
                     style={{
                       cursor: canEditQuery ? "pointer" : "default",
                     }}
@@ -169,7 +155,7 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                         ? "Yes"
                         : "No"}
                     </td>
-                    <td>{query.results?.length}</td>
+                    <td>{query.results?.rows?.length || 0}</td>
                     <td>
                       {query.dateLastRan ? (
                         <span title={datetime(query.dateLastRan)}>

@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
   FaPlay,
@@ -7,12 +7,13 @@ import {
   FaTimes,
 } from "react-icons/fa";
 import { PiCaretDoubleRight, PiPencilSimpleFill } from "react-icons/pi";
-import { TestQueryRow } from "back-end/src/types/Integration";
 import {
   DataVizConfig,
   SavedQuery,
+  QueryExecutionResult,
 } from "back-end/src/validators/saved-queries";
 import { Box, Flex, Text, Tooltip } from "@radix-ui/themes";
+import { getValidDate } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -40,19 +41,13 @@ import SelectField from "../Forms/SelectField";
 import SchemaBrowser from "./SchemaBrowser";
 import styles from "./EditSqlModal.module.scss";
 
-type QueryExecutionResult = {
-  results: TestQueryRow[];
-  error?: string;
-  duration?: string;
-  sql?: string;
-};
-
 export interface Props {
   close: () => void;
   sql?: string;
   name?: string;
   datasourceId?: string;
-  results?: TestQueryRow[];
+  results?: QueryExecutionResult;
+  dateLastRan?: string;
   dataVizConfig?: DataVizConfig[];
   id?: string;
   mutate: () => void;
@@ -65,6 +60,7 @@ export default function SqlExplorerModal({
   datasourceId,
   results,
   dataVizConfig,
+  dateLastRan,
   id,
   mutate,
 }: Props) {
@@ -75,10 +71,6 @@ export default function SqlExplorerModal({
   const [dirty, setDirty] = useState(name ? false : true);
   const [loading, setLoading] = useState(false);
   const [isRunningQuery, setIsRunningQuery] = useState(false);
-  const [
-    queryExecution,
-    setQueryExecution,
-  ] = useState<QueryExecutionResult | null>(null);
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempName, setTempName] = useState("");
 
@@ -86,10 +78,15 @@ export default function SqlExplorerModal({
     defaultValues: {
       name: name || "",
       sql: sql || "",
-      dateLastRan: undefined,
+      dateLastRan: getValidDate(dateLastRan) || undefined,
       dataVizConfig: dataVizConfig || undefined,
       datasourceId: datasourceId || "",
-      results: results || [],
+      results: results || {
+        rows: [],
+        error: undefined,
+        duration: undefined,
+        sql: undefined,
+      },
     },
   });
 
@@ -104,9 +101,18 @@ export default function SqlExplorerModal({
   const canRunQueries = datasource
     ? permissionsUtil.canRunSqlExplorerQueries(datasource)
     : false;
-  const canCreateQueries = datasource
+
+  const hasUpdatePermissions = datasource
+    ? permissionsUtil.canUpdateSqlExplorerQueries(datasource)
+    : false;
+
+  // Should we check for canCreate and canUpdate here?
+  const hasCreatePermissions = datasource
     ? permissionsUtil.canCreateSqlExplorerQueries(datasource)
     : false;
+
+  const hasPermission = id ? hasUpdatePermissions : hasCreatePermissions;
+
   const supportsSchemaBrowser =
     datasource?.properties?.supportsInformationSchema;
 
@@ -115,19 +121,20 @@ export default function SqlExplorerModal({
   // Check if the organization has the feature to save queries
   const canSaveQueries = hasCommercialFeature("saveSqlExplorerQueries");
 
+  const hasSuccessfulResults = form.watch("results").error === undefined;
+
   const canSave: boolean =
-    canCreateQueries &&
+    hasPermission &&
     canSaveQueries &&
-    !!queryExecution?.results &&
+    !!hasSuccessfulResults &&
     !!form.watch("sql").trim() &&
     dirty;
 
   const runQuery = useCallback(
     async (sql: string) => {
-      setQueryExecution(null);
       validateSQL(sql, []);
       form.setValue("dateLastRan", new Date());
-      const res: QueryExecutionResult = await apiCall("/query/run", {
+      const res = await apiCall<QueryExecutionResult>("/query/run", {
         method: "POST",
         body: JSON.stringify({
           query: sql,
@@ -215,20 +222,20 @@ export default function SqlExplorerModal({
     setDirty(true);
     setIsRunningQuery(true);
     try {
-      const res = await runQuery(form.watch("sql"));
-      setQueryExecution({
-        results: res.results || [],
-        error: res.error || "",
-        duration: res.duration,
-        sql: res.sql,
-      });
+      const results = await runQuery(form.watch("sql"));
       // Update the form's results field
-      form.setValue("results", res.results || []);
+      form.setValue("results", {
+        rows: results.rows || [],
+        error: results.error,
+        duration: results.duration,
+        sql: results.sql,
+      });
     } catch (e) {
-      setQueryExecution({
-        results: [],
+      form.setValue("results", {
+        rows: [],
         error: e.message,
         sql: form.watch("sql"),
+        duration: e.duration || 0,
       });
     }
     setIsRunningQuery(false);
@@ -248,16 +255,6 @@ export default function SqlExplorerModal({
   const validDatasources = datasources.filter(
     (d) => d.type !== "google_analytics"
   );
-
-  // Pre-fill results if we're editing a saved query with existing results
-  useEffect(() => {
-    if (results && results.length > 0) {
-      setQueryExecution({
-        results,
-        sql,
-      });
-    }
-  }, [results, sql]);
 
   return (
     <Modal
@@ -392,7 +389,10 @@ export default function SqlExplorerModal({
             <PanelGroup direction="horizontal">
               <Panel defaultSize={60}>
                 <PanelGroup direction="vertical">
-                  <Panel defaultSize={queryExecution ? 30 : 100} minSize={7}>
+                  <Panel
+                    defaultSize={form.watch("results").sql ? 30 : 100}
+                    minSize={7}
+                  >
                     <AreaWithHeader
                       header={
                         <Flex align="center" justify="between">
@@ -459,19 +459,20 @@ export default function SqlExplorerModal({
                         fullHeight
                         setCursorData={setCursorData}
                         onCtrlEnter={handleQuery}
-                        resizeDependency={!!queryExecution}
+                        // MKTODO: Test if we need this resizeDependency
+                        // resizeDependency={!!queryExecutionResults}
                       />
                     </AreaWithHeader>
                   </Panel>
-                  {queryExecution && (
+                  {form.watch("results").sql && (
                     <>
                       <PanelResizeHandle />
                       <Panel minSize={10}>
                         <DisplayTestQueryResults
-                          duration={parseInt(queryExecution.duration || "0")}
-                          results={queryExecution.results}
-                          sql={queryExecution.sql || ""}
-                          error={queryExecution.error || ""}
+                          duration={form.watch("results").duration || 0}
+                          results={form.watch("results").rows || []}
+                          sql={form.watch("results").sql || ""}
+                          error={form.watch("results").error || ""}
                           allowDownload={true}
                         />
                       </Panel>
