@@ -27,7 +27,7 @@ from gbstats.power.midexperimentpower import (
     MidExperimentPowerConfig,
 )
 
-from gbstats.models.tests import BaseConfig
+from gbstats.models.tests import BaseConfig, EffectMoments, EffectMomentsConfig
 
 from gbstats.frequentist.tests import (
     FrequentistConfig,
@@ -228,6 +228,9 @@ def get_configured_test(
 
     stat_a = variation_statistic_from_metric_row(row, "baseline", metric)
     stat_b = variation_statistic_from_metric_row(row, f"v{test_index}", metric)
+    moment_result = EffectMoments(
+        stat_a, stat_b, EffectMomentsConfig(difference_type=analysis.difference_type)
+    ).compute_result()
 
     base_config = {
         "total_users": row["total_users"],
@@ -245,14 +248,14 @@ def get_configured_test(
             if analysis.one_sided_intervals:
                 if metric.inverse:
                     return SequentialOneSidedTreatmentGreaterTTest(
-                        stat_a, stat_b, sequential_config
+                        moment_result, sequential_config
                     )
                 else:
                     return SequentialOneSidedTreatmentLesserTTest(
-                        stat_a, stat_b, sequential_config
+                        moment_result, sequential_config
                     )
             else:
-                return SequentialTwoSidedTTest(stat_a, stat_b, sequential_config)
+                return SequentialTwoSidedTTest(moment_result, sequential_config)
         else:
             config = FrequentistConfig(
                 **base_config,
@@ -260,11 +263,11 @@ def get_configured_test(
             )
             if analysis.one_sided_intervals:
                 if metric.inverse:
-                    return OneSidedTreatmentGreaterTTest(stat_a, stat_b, config)
+                    return OneSidedTreatmentGreaterTTest(moment_result, config)
                 else:
-                    return OneSidedTreatmentLesserTTest(stat_a, stat_b, config)
+                    return OneSidedTreatmentLesserTTest(moment_result, config)
             else:
-                return TwoSidedTTest(stat_a, stat_b, config)
+                return TwoSidedTTest(moment_result, config)
     else:
         assert type(stat_a) is type(stat_b), "stat_a and stat_b must be of same type."
         prior = GaussianPrior(
@@ -273,8 +276,7 @@ def get_configured_test(
             proper=metric.prior_proper,
         )
         return EffectBayesianABTest(
-            stat_a,
-            stat_b,
+            moment_result,
             EffectBayesianConfig(
                 **base_config,
                 inverse=metric.inverse,
@@ -371,37 +373,37 @@ def analyze_metric_df(
                     sequential_tuning_parameter=analysis.sequential_tuning_parameter,
                 )
                 mid_experiment_power = MidExperimentPower(
-                    test.stat_a, test.stat_b, res, config, power_config
+                    test.result.stat_a, test.result.stat_b, res, config, power_config
                 )
 
-                s[f"v{i}_first_period_pairwise_users"] = (
-                    mid_experiment_power.pairwise_sample_size
-                )
+                s[
+                    f"v{i}_first_period_pairwise_users"
+                ] = mid_experiment_power.pairwise_sample_size
                 s[f"v{i}_target_mde"] = metric.target_mde
                 s[f"v{i}_sigmahat_2_delta"] = mid_experiment_power.sigmahat_2_delta
                 if mid_experiment_power.prior_effect:
                     s[f"v{i}_prior_proper"] = mid_experiment_power.prior_effect.proper
                     s[f"v{i}_prior_lift_mean"] = mid_experiment_power.prior_effect.mean
-                    s[f"v{i}_prior_lift_variance"] = (
-                        mid_experiment_power.prior_effect.variance
-                    )
+                    s[
+                        f"v{i}_prior_lift_variance"
+                    ] = mid_experiment_power.prior_effect.variance
                 mid_experiment_power_result = (
                     mid_experiment_power.calculate_sample_size()
                 )
                 s[f"v{i}_power_status"] = mid_experiment_power_result.update_message
                 s[f"v{i}_power_error_message"] = mid_experiment_power_result.error
-                s[f"v{i}_power_upper_bound_achieved"] = (
-                    mid_experiment_power_result.upper_bound_achieved
-                )
+                s[
+                    f"v{i}_power_upper_bound_achieved"
+                ] = mid_experiment_power_result.upper_bound_achieved
                 s[f"v{i}_scaling_factor"] = mid_experiment_power_result.scaling_factor
 
-            s["baseline_cr"] = test.stat_a.unadjusted_mean
-            s["baseline_mean"] = test.stat_a.unadjusted_mean
-            s["baseline_stddev"] = test.stat_a.stddev
+            s["baseline_cr"] = test.result.stat_a.unadjusted_mean
+            s["baseline_mean"] = test.result.stat_a.unadjusted_mean
+            s["baseline_stddev"] = test.result.stat_a.stddev
 
-            s[f"v{i}_cr"] = test.stat_b.unadjusted_mean
-            s[f"v{i}_mean"] = test.stat_b.unadjusted_mean
-            s[f"v{i}_stddev"] = test.stat_b.stddev
+            s[f"v{i}_cr"] = test.result.stat_b.unadjusted_mean
+            s[f"v{i}_mean"] = test.result.stat_b.unadjusted_mean
+            s[f"v{i}_stddev"] = test.result.stat_b.stddev
 
             # Unpack result in Pandas row
             if isinstance(res, BayesianTestResult):
@@ -413,14 +415,14 @@ def analyze_metric_df(
                     s[f"v{i}_p_value"] = res.p_value
                 else:
                     s[f"v{i}_p_value_error_message"] = res.p_value_error_message
-            if test.stat_a.unadjusted_mean <= 0:
+            if test.result.stat_a.unadjusted_mean <= 0:
                 # negative or missing control mean
                 s[f"v{i}_expected"] = 0
             elif res.expected == 0:
                 # if result is not valid, try to return at least the diff
                 s[f"v{i}_expected"] = (
-                    test.stat_b.mean - test.stat_a.mean
-                ) / test.stat_a.unadjusted_mean
+                    test.result.stat_b.mean - test.result.stat_a.mean
+                ) / test.result.stat_a.unadjusted_mean
             else:
                 # return adjusted/prior-affected guess of expectation
                 s[f"v{i}_expected"] = res.expected
