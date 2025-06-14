@@ -333,6 +333,10 @@ export interface paths {
     /** Get a single query */
     get: operations["getQuery"];
   };
+  "/organization-defaults": {
+    /** Get organization defaults */
+    get: operations["getOrganizationDefaults"];
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -2403,6 +2407,36 @@ export interface components {
       externalId: string;
       dependencies: (string)[];
       runAtEnd: boolean;
+    };
+    OrganizationDefaults: {
+      id: string;
+      statsEngine: string | null;
+      metricAnalysisDays: number | null;
+      northStar: {
+        name?: string;
+        metricIds?: (string)[];
+      } | null;
+      srmThreshold: number | null;
+      multipleExposureMinPercent: number | null;
+      confidenceLevel: number | null;
+      metricDefaults: ({
+        priorSettings?: {
+          override: boolean;
+          proper: boolean;
+          mean: number;
+          stddev: number;
+        };
+        minimumSampleSize?: number | null;
+        maxPercentageChange?: number | null;
+        minPercentageChange?: number | null;
+        targetMDE?: number | null;
+      }) | null;
+      pValueThreshold: number | null;
+      pValueCorrection: string | null;
+      regressionAdjustmentEnabled?: boolean | null;
+      regressionAdjustmentDays: number | null;
+      sequentialTestingEnabled: boolean | null;
+      sequentialTestingTuningParameter: number | null;
     };
   };
   responses: {
@@ -9506,6 +9540,47 @@ export interface operations {
       };
     };
   };
+  getOrganizationDefaults: {
+    /** Get organization defaults */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            organizationDefaults: {
+              id: string;
+              statsEngine: string | null;
+              metricAnalysisDays: number | null;
+              northStar: {
+                name?: string;
+                metricIds?: (string)[];
+              } | null;
+              srmThreshold: number | null;
+              multipleExposureMinPercent: number | null;
+              confidenceLevel: number | null;
+              metricDefaults: ({
+                priorSettings?: {
+                  override: boolean;
+                  proper: boolean;
+                  mean: number;
+                  stddev: number;
+                };
+                minimumSampleSize?: number | null;
+                maxPercentageChange?: number | null;
+                minPercentageChange?: number | null;
+                targetMDE?: number | null;
+              }) | null;
+              pValueThreshold: number | null;
+              pValueCorrection: string | null;
+              regressionAdjustmentEnabled?: boolean | null;
+              regressionAdjustmentDays: number | null;
+              sequentialTestingEnabled: boolean | null;
+              sequentialTestingTuningParameter: number | null;
+            };
+          };
+        };
+      };
+    };
+  };
 }
 import { z } from "zod";
 import * as openApiValidators from "back-end/src/validators/openapi";
@@ -9546,6 +9621,7 @@ export type ApiFactMetric = z.infer<typeof openApiValidators.apiFactMetricValida
 export type ApiMember = z.infer<typeof openApiValidators.apiMemberValidator>;
 export type ApiArchetype = z.infer<typeof openApiValidators.apiArchetypeValidator>;
 export type ApiQuery = z.infer<typeof openApiValidators.apiQueryValidator>;
+export type ApiOrganizationDefaults = z.infer<typeof openApiValidators.apiOrganizationDefaultsValidator>;
 
 // Operations
 export type ListFeaturesResponse = operations["listFeatures"]["responses"]["200"]["content"]["application/json"];
@@ -9632,3 +9708,4 @@ export type DeleteFactMetricResponse = operations["deleteFactMetric"]["responses
 export type PostBulkImportFactsResponse = operations["postBulkImportFacts"]["responses"]["200"]["content"]["application/json"];
 export type PostCodeRefsResponse = operations["postCodeRefs"]["responses"]["200"]["content"]["application/json"];
 export type GetQueryResponse = operations["getQuery"]["responses"]["200"]["content"]["application/json"];
+export type GetOrganizationDefaultsResponse = operations["getOrganizationDefaults"]["responses"]["200"]["content"]["application/json"];
