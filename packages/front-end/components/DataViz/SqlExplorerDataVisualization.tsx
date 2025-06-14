@@ -434,11 +434,16 @@ export default function SqlExplorerDataVisualization({
           }
         >
           {isConfigValid ? (
-            <Flex justify="center" align="center" height="100%">
+            <Flex
+              justify="center"
+              align="center"
+              height="100%"
+              overflowY="auto"
+            >
               <EChartsReact
                 key={JSON.stringify(option)}
                 option={option}
-                style={{ width: "100%", height: "80%" }}
+                style={{ width: "100%", minHeight: "350px", height: "80%" }}
                 echarts={echarts}
               />
             </Flex>

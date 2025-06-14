@@ -478,7 +478,7 @@ export default function SqlExplorerModal({
             ) : null}
           </Flex>
 
-          <TabsContent value="sql" style={{ flex: 1 }}>
+          <TabsContent value="sql" style={{ flex: 1, overflow: "hidden" }}>
             <PanelGroup direction="horizontal">
               <Panel id="main" order={1} defaultSize={showSidePanel ? 70 : 100}>
                 <PanelGroup direction="vertical">
@@ -643,9 +643,9 @@ export default function SqlExplorerModal({
 
           {dataVizConfig.map((config, index) => (
             <TabsContent
-              value={`visualization-${index}`}
-              style={{ flex: 1 }}
               key={index}
+              value={`visualization-${index}`}
+              style={{ flex: 1, overflow: "hidden" }}
             >
               {!form.watch("results").results ||
               form.watch("results").results.length === 0 ? (
@@ -707,7 +707,7 @@ export function AreaWithHeader({
       }}
     >
       <Box style={headerStyles}>{header}</Box>
-      <Box flexGrow="1" style={{ overflow: "hidden", minHeight: 0 }}>
+      <Box flexGrow="1" style={{ overflowY: "auto" }}>
         {children}
       </Box>
     </Flex>
