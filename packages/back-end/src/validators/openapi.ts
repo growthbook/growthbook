@@ -76,6 +76,8 @@ export const apiArchetypeValidator = z.object({ "id": z.string(), "dateCreated":
 
 export const apiQueryValidator = z.object({ "id": z.string(), "organization": z.string(), "datasource": z.string(), "language": z.string(), "query": z.string(), "queryType": z.string(), "createdAt": z.string(), "startedAt": z.string(), "status": z.enum(["running","queued","failed","partially-succeeded","succeeded"]), "externalId": z.string(), "dependencies": z.array(z.string()), "runAtEnd": z.boolean() }).strict()
 
+export const apiOrganizationDefaultsValidator = z.object({ "id": z.string(), "statsEngine": z.string().nullable(), "metricAnalysisDays": z.coerce.number().int().nullable(), "northStar": z.object({ "name": z.string().optional(), "metricIds": z.array(z.string()).optional() }).nullable(), "srmThreshold": z.coerce.number().nullable(), "multipleExposureMinPercent": z.coerce.number().nullable(), "confidenceLevel": z.coerce.number().nullable(), "metricDefaults": z.object({ "priorSettings": z.object({ "override": z.boolean(), "proper": z.boolean(), "mean": z.coerce.number(), "stddev": z.coerce.number() }).optional(), "minimumSampleSize": z.coerce.number().int().nullable().optional(), "maxPercentageChange": z.coerce.number().nullable().optional(), "minPercentageChange": z.coerce.number().nullable().optional(), "targetMDE": z.coerce.number().nullable().optional() }).nullable(), "pValueThreshold": z.coerce.number().nullable(), "pValueCorrection": z.string().nullable(), "regressionAdjustmentEnabled": z.boolean().nullable().optional(), "regressionAdjustmentDays": z.coerce.number().int().nullable(), "sequentialTestingEnabled": z.boolean().nullable(), "sequentialTestingTuningParameter": z.coerce.number().nullable() }).strict()
+
 export const listFeaturesValidator = {
   bodySchema: z.never(),
   querySchema: z.object({ "limit": z.coerce.number().int().default(10), "offset": z.coerce.number().int().default(0), "projectId": z.string().optional(), "clientKey": z.string().optional() }).strict(),
@@ -578,4 +580,10 @@ export const getQueryValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
   paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
+export const getOrganizationDefaultsValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.never(),
 };

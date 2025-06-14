@@ -114,6 +114,9 @@ tags:
   - name: queries
     x-displayName: Queries
     description: Retrieve queries used in experiments to calculate results.
+  - name: organization-defaults
+    x-displayName: Organization Defaults
+    description: Organization Defaults are the default settings for an organization.
   - name: Archetype_model
     x-displayName: Archetype
     description: <SchemaDefinition schemaRef="#/components/schemas/Archetype" />
@@ -195,6 +198,9 @@ tags:
   - name: Organization_model
     x-displayName: Organization
     description: <SchemaDefinition schemaRef="#/components/schemas/Organization" />
+  - name: OrganizationDefaults_model
+    x-displayName: OrganizationDefaults
+    description: <SchemaDefinition schemaRef="#/components/schemas/OrganizationDefaults" />
   - name: PaginationFields_model
     x-displayName: PaginationFields
     description: <SchemaDefinition schemaRef="#/components/schemas/PaginationFields" />
@@ -5085,6 +5091,28 @@ paths:
                 properties:
                   query:
                     $ref: '#/components/schemas/Query'
+  /organization-defaults:
+    get:
+      summary: Get organization defaults
+      tags:
+        - organization-defaults
+      operationId: getOrganizationDefaults
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/organization-defaults \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - organizationDefaults
+                properties:
+                  organizationDefaults:
+                    $ref: '#/components/schemas/OrganizationDefaults'
 components:
   parameters:
     id:
@@ -7440,6 +7468,101 @@ components:
             type: string
         runAtEnd:
           type: boolean
+    OrganizationDefaults:
+      type: object
+      required:
+        - id
+        - statsEngine
+        - metricAnalysisDays
+        - northStar
+        - metricDefaults
+        - srmThreshold
+        - multipleExposureMinPercent
+        - confidenceLevel
+        - pValueThreshold
+        - pValueCorrection
+        - regresionAdjustmentEnabled
+        - regressionAdjustmentDays
+        - sequentialTestingEnabled
+        - sequentialTestingTuningParameter
+      properties:
+        id:
+          type: string
+        statsEngine:
+          type: string
+          nullable: true
+        metricAnalysisDays:
+          type: integer
+          nullable: true
+        northStar:
+          type: object
+          nullable: true
+          properties:
+            name:
+              type: string
+            metricIds:
+              type: array
+              items:
+                type: string
+        srmThreshold:
+          type: number
+          nullable: true
+        multipleExposureMinPercent:
+          type: number
+          nullable: true
+        confidenceLevel:
+          type: number
+          nullable: true
+        metricDefaults:
+          type: object
+          nullable: true
+          properties:
+            priorSettings:
+              type: object
+              required:
+                - override
+                - proper
+                - mean
+                - stddev
+              properties:
+                override:
+                  type: boolean
+                proper:
+                  type: boolean
+                mean:
+                  type: number
+                stddev:
+                  type: number
+            minimumSampleSize:
+              type: integer
+              nullable: true
+            maxPercentageChange:
+              type: number
+              nullable: true
+            minPercentageChange:
+              type: number
+              nullable: true
+            targetMDE:
+              type: number
+              nullable: true
+        pValueThreshold:
+          type: number
+          nullable: true
+        pValueCorrection:
+          type: string
+          nullable: true
+        regressionAdjustmentEnabled:
+          type: boolean
+          nullable: true
+        regressionAdjustmentDays:
+          type: integer
+          nullable: true
+        sequentialTestingEnabled:
+          type: boolean
+          nullable: true
+        sequentialTestingTuningParameter:
+          type: number
+          nullable: true
   securitySchemes:
     bearerAuth:
       type: http
@@ -7495,6 +7618,7 @@ x-tagGroups:
       - code-references
       - archetypes
       - queries
+      - organization-defaults
   - name: Models
     tags:
       - Archetype_model
@@ -7524,6 +7648,7 @@ x-tagGroups:
       - Member_model
       - Metric_model
       - Organization_model
+      - OrganizationDefaults_model
       - PaginationFields_model
       - Project_model
       - Query_model
