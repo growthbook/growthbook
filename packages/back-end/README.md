@@ -582,8 +582,8 @@ FROM
    SELECT
      anonymous_id,
      timestamp as timestamp,
-     experimentId as experiment_id,
-     variationId as variation_id,
+     experiment_id as experiment_id,
+     variation_id as variation_id,
      browser,
      country
    FROM
