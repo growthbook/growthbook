@@ -1,8 +1,10 @@
 import { useMemo, useCallback, useEffect } from "react";
-import { Flex, Separator, Text } from "@radix-ui/themes";
+import { Box, Flex, Separator, Text, TextField } from "@radix-ui/themes";
 import {
   DataVizConfig,
   xAxisConfiguration,
+  XAxisDateAggregationUnit,
+  YAxisAggregationType,
 } from "back-end/src/validators/saved-queries";
 import { Select, SelectItem } from "@/components/Radix/Select";
 
@@ -37,7 +39,11 @@ export default function DataVizConfigPanel({
         }
 
         const cleanValue = value.replace(/,|\./g, "");
-        if (!isNaN(Number(cleanValue)) && isFinite(Number(cleanValue))) {
+        if (
+          cleanValue &&
+          !isNaN(Number(cleanValue)) &&
+          isFinite(Number(cleanValue))
+        ) {
           return "number";
         }
       }
@@ -73,6 +79,33 @@ export default function DataVizConfigPanel({
 
   return (
     <Flex direction="column" gap="4">
+      <Flex direction="column">
+        <Text as="label" size="3" weight="medium">
+          Title
+        </Text>
+        <TextField.Root
+          size="3"
+          placeholder=""
+          defaultValue={dataVizConfig.title || ""}
+          onBlur={(e) => {
+            onDataVizConfigChange({
+              ...dataVizConfig,
+              title: e.target.value,
+            });
+          }}
+          onKeyDown={(e) => {
+            // Ignore enter
+            if (e.key === "Enter") {
+              e.stopPropagation();
+              e.preventDefault();
+              onDataVizConfigChange({
+                ...dataVizConfig,
+                title: e.target.value,
+              });
+            }
+          }}
+        />
+      </Flex>
       <Select
         label="Graph type"
         value={dataVizConfig.chartType}
@@ -90,7 +123,7 @@ export default function DataVizConfigPanel({
         <SelectItem value="scatter">Scatter</SelectItem>
       </Select>
 
-      <Separator size="4" />
+      <Separator size="4" my={"2"} />
 
       <Select
         label="X Axis"
@@ -146,6 +179,42 @@ export default function DataVizConfigPanel({
             </Select>
           </Flex>
 
+          {dataVizConfig.xAxis.type === "date" && (
+            <>
+              <Flex direction="row" align="center">
+                <Box flexGrow="1">
+                  <Text as="label" size="2" mr="2">
+                    Granularity
+                  </Text>
+                </Box>
+                <Select
+                  value={dataVizConfig.xAxis.dateAggregationUnit}
+                  style={{ flex: 1 }}
+                  setValue={(v) => {
+                    if (!dataVizConfig.xAxis) return;
+                    onDataVizConfigChange({
+                      ...dataVizConfig,
+                      xAxis: {
+                        ...dataVizConfig.xAxis,
+                        dateAggregationUnit: v as XAxisDateAggregationUnit,
+                      },
+                    });
+                  }}
+                  size="2"
+                  placeholder="Select date aggregation"
+                >
+                  <SelectItem value="second">Second</SelectItem>
+                  <SelectItem value="minute">Minute</SelectItem>
+                  <SelectItem value="hour">Hour</SelectItem>
+                  <SelectItem value="day">Day</SelectItem>
+                  <SelectItem value="week">Week</SelectItem>
+                  <SelectItem value="month">Month</SelectItem>
+                  <SelectItem value="year">Year</SelectItem>
+                </Select>
+              </Flex>
+            </>
+          )}
+
           {dataVizConfig.xAxis.type === "string" && (
             <Flex direction="row" justify="between" align="center">
               <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
@@ -175,6 +244,8 @@ export default function DataVizConfigPanel({
           )}
         </Flex>
       )}
+
+      <Separator size="4" my={"2"} />
 
       <Select
         label="Y Axis"
@@ -221,7 +292,7 @@ export default function DataVizConfigPanel({
                   yAxis: [
                     {
                       ...dataVizConfig.yAxis?.[0],
-                      aggregation: v as "none" | "sum" | "count" | "average",
+                      aggregation: v as YAxisAggregationType,
                     },
                   ],
                 });
@@ -229,20 +300,25 @@ export default function DataVizConfigPanel({
               size="2"
               placeholder="Select aggregation"
             >
-              {yAxisInferredType !== "string" ? (
-                <SelectItem value="none">None</SelectItem>
+              {yAxisInferredType === "number" ? (
+                <>
+                  <SelectItem value="none">None</SelectItem>
+                  <SelectItem value="sum">Sum</SelectItem>
+                  <SelectItem value="average">Average</SelectItem>
+                  <SelectItem value="min">Min</SelectItem>
+                  <SelectItem value="max">Max</SelectItem>
+                  <SelectItem value="first">First</SelectItem>
+                  <SelectItem value="last">Last</SelectItem>
+                  <SelectItem value="countDistinct">Count Distinct</SelectItem>
+                </>
               ) : null}
               <SelectItem value="count">Count</SelectItem>
-              {yAxisInferredType !== "string" ? (
-                <SelectItem value="sum">Sum</SelectItem>
-              ) : null}
-              {yAxisInferredType !== "string" ? (
-                <SelectItem value="average">Average</SelectItem>
-              ) : null}
             </Select>
           </Flex>
         </Flex>
       )}
+
+      <Separator size="4" my={"2"} />
 
       <Select
         label="Dimension"
@@ -309,36 +385,6 @@ export default function DataVizConfigPanel({
                   <SelectItem value="stacked">Stacked</SelectItem>
                 </Select>
               </Flex>
-
-              {dataVizConfig.dimension?.[0]?.display === "grouped" && (
-                <Flex direction="row" justify="between" align="center">
-                  <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
-                    Sort
-                  </Text>
-                  <Select
-                    value={dataVizConfig.dimension?.[0]?.sort}
-                    style={{ flex: 1 }}
-                    setValue={(v) => {
-                      if (!dataVizConfig.dimension) return;
-                      onDataVizConfigChange({
-                        ...dataVizConfig,
-                        dimension: [
-                          {
-                            ...dataVizConfig.dimension?.[0],
-                            sort: v as "none" | "asc" | "desc",
-                          },
-                        ],
-                      });
-                    }}
-                    size="2"
-                    placeholder="Select sort"
-                  >
-                    <SelectItem value="none">None</SelectItem>
-                    <SelectItem value="asc">Ascending</SelectItem>
-                    <SelectItem value="desc">Descending</SelectItem>
-                  </Select>
-                </Flex>
-              )}
             </>
           )}
         </Flex>

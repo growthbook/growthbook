@@ -1,18 +1,44 @@
 import { z } from "zod";
 import { CreateProps, UpdateProps } from "back-end/types/models";
 
+const dateAggregationEnum = z.enum([
+  "none",
+  "second",
+  "minute",
+  "hour",
+  "day",
+  "week",
+  "month",
+  "year",
+]);
+
 const xAxisConfigurationValidator = z.object({
   fieldName: z.string(),
   type: z.enum(["string", "number", "date"]),
   sort: z.enum(["none", "asc", "desc"]),
+  dateAggregationUnit: dateAggregationEnum.optional(),
 });
+export type XAxisDateAggregationUnit = z.infer<typeof dateAggregationEnum>;
 export type xAxisConfiguration = z.infer<typeof xAxisConfigurationValidator>;
+
+const aggregationEnum = z.enum([
+  "none",
+  "min",
+  "max",
+  "first",
+  "last",
+  "sum",
+  "count",
+  "countDistinct",
+  "average",
+]);
 
 const yAxisConfigurationValidator = z.object({
   fieldName: z.string(),
-  aggregation: z.enum(["none", "sum", "count", "average"]),
+  aggregation: aggregationEnum,
 });
 export type yAxisConfiguration = z.infer<typeof yAxisConfigurationValidator>;
+export type YAxisAggregationType = z.infer<typeof aggregationEnum>;
 
 const dimensionAxisConfigurationValidator = z.object({
   fieldName: z.string(),
@@ -24,6 +50,7 @@ export type dimensionAxisConfiguration = z.infer<
 >;
 
 export const dataVizConfigValidator = z.object({
+  title: z.string().optional(),
   chartType: z.enum(["bar", "line", "area", "scatter"]),
   xAxis: xAxisConfigurationValidator,
   yAxis: z.array(yAxisConfigurationValidator).nonempty(),
