@@ -9,8 +9,9 @@ toc_max_heading_level: 5
 import ExternalLink from '@site/src/components/ExternalLink';
 import Pill from '@site/src/components/Pill';
 import SdkResources from '@site/src/components/SdkResources';
+import SdkSupportedFeatures from '@site/src/components/SdkSupportedFeatures';
 
-# GrowthBook Edge App for other providers <Pill>beta</Pill>
+# GrowthBook Edge App for other providers <Pill title="beta" pillType="beta" />
 
 <SdkResources sdk="edgeUtils" />
 
@@ -367,3 +368,7 @@ For key-val stored payloads (1), we eliminate network requests from edge to Grow
 6. Set the **Payload format** to "SDK Payload only".
 
 Now whenever feature and experiment values change, your edge worker will have immediate access to the latest values. You can also test the webhook by using the "Test Webhook" button on the SDK Connection page.
+
+## Supported Features
+
+<SdkSupportedFeatures sdk="edgeUtils" />

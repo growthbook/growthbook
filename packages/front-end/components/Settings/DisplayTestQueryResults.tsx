@@ -1,7 +1,7 @@
 import { FaExclamationTriangle } from "react-icons/fa";
-import { PiArrowLineDownThin, PiInfo } from "react-icons/pi";
-import { Flex } from "@radix-ui/themes";
-import { useState } from "react";
+import { PiArrowLineDownThin, PiCaretLeft, PiCaretRight } from "react-icons/pi";
+import { Flex, Separator } from "@radix-ui/themes";
+import { useRef, useState } from "react";
 import Code from "@/components/SyntaxHighlighting/Code";
 import {
   Tabs,
@@ -23,6 +23,7 @@ export type Props = {
   close?: () => void;
   expandable?: boolean;
   allowDownload?: boolean;
+  showSampleHeader?: boolean;
 };
 
 export default function DisplayTestQueryResults({
@@ -33,11 +34,18 @@ export default function DisplayTestQueryResults({
   close,
   expandable,
   allowDownload,
+  showSampleHeader = true,
 }: Props) {
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const cols = Object.keys(results?.[0] || {});
 
   const forceShowSql = error || !results.length;
+
+  const [page, setPage] = useState(1);
+  const pageSize = 100;
+  const totalPages = Math.ceil(results.length / pageSize);
+
+  const tableBodyScrollRef = useRef<HTMLDivElement>(null);
 
   // Match the line number from the error message that
   // either has "line <line number>" in it,
@@ -112,50 +120,89 @@ export default function DisplayTestQueryResults({
                   <Callout status="error">{downloadError}</Callout>
                 </div>
               ) : null}
-              <Flex align="center" justify="between">
-                <Flex align="center">
-                  <strong className="pr-1">
-                    Sample {results?.length} Rows
-                  </strong>
-                  {results.length === 1000 ? (
-                    <Tooltip
-                      body={
-                        "GrowthBook automatically limits the results to 1,000 rows"
-                      }
-                    >
-                      <PiInfo
-                        size={16}
-                        className="mb-1"
-                        style={{ color: "var(--violet-11)" }}
-                      />
-                    </Tooltip>
-                  ) : null}
+              <Flex align="center" gap="4">
+                <Flex align="center" flexGrow={"1"}>
                   <span className="font-weight-light pl-2">
                     Succeeded in {duration}ms
                   </span>
                 </Flex>
+                {totalPages > 1 ? (
+                  <Flex align="center">
+                    <div className="mr-1">
+                      Showing {page * pageSize - pageSize + 1} -{" "}
+                      {Math.min(page * pageSize, results.length)} of{" "}
+                      <Tooltip
+                        body={"GrowthBook limits the result to 1,000 rows max"}
+                        shouldDisplay={results.length >= 1000}
+                      >
+                        <strong>{results.length}</strong> rows
+                      </Tooltip>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      disabled={page <= 1}
+                      onClick={() => {
+                        setPage((p) => Math.max(p - 1, 1));
+                        // Scroll to top
+                        tableBodyScrollRef.current?.scrollTo({
+                          top: 0,
+                          behavior: "instant",
+                        });
+                      }}
+                    >
+                      <PiCaretLeft size={16} />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      disabled={page >= totalPages}
+                      onClick={() => {
+                        setPage((p) => Math.min(p + 1, totalPages));
+                        // Scroll to top
+                        tableBodyScrollRef.current?.scrollTo({
+                          top: 0,
+                          behavior: "instant",
+                        });
+                      }}
+                    >
+                      <PiCaretRight size={16} />
+                    </Button>
+                  </Flex>
+                ) : (
+                  <Flex align="center">
+                    <strong className="pr-1">
+                      {showSampleHeader ? "Sample " : ""}
+                      {results?.length} Rows
+                    </strong>
+                  </Flex>
+                )}
                 {allowDownload ? (
-                  <Button
-                    variant="ghost"
-                    size="xs"
-                    disabled={!results.length}
-                    onClick={() => handleDownload(results)}
-                    setError={setDownloadError}
-                  >
-                    <PiArrowLineDownThin size={16} /> Download CSV
-                  </Button>
+                  <>
+                    <Separator orientation="vertical" />
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      disabled={!results.length}
+                      onClick={() => handleDownload(results)}
+                      setError={setDownloadError}
+                    >
+                      <PiArrowLineDownThin size={16} /> Download CSV
+                    </Button>
+                  </>
                 ) : null}
               </Flex>
             </div>
             <div
               style={{ width: "100%", overflow: "auto", flexGrow: 1 }}
               className="mb-3"
+              ref={tableBodyScrollRef}
             >
               <table className="table table-bordered appbox gbtable table-hover mb-0">
                 <thead
                   style={{
                     position: "sticky",
-                    top: 0,
+                    top: -1,
                     zIndex: 2,
                     backgroundColor: "var(--color-panel-solid)",
                   }}
@@ -167,13 +214,15 @@ export default function DisplayTestQueryResults({
                   </tr>
                 </thead>
                 <tbody>
-                  {results.map((result, i) => (
-                    <tr key={i}>
-                      {Object.values(result).map((val, j) => (
-                        <td key={j}>{JSON.stringify(val)}</td>
-                      ))}
-                    </tr>
-                  ))}
+                  {results
+                    .slice((page - 1) * pageSize, page * pageSize)
+                    .map((result, i) => (
+                      <tr key={i}>
+                        {Object.values(result).map((val, j) => (
+                          <td key={j}>{JSON.stringify(val)}</td>
+                        ))}
+                      </tr>
+                    ))}
                 </tbody>
               </table>
             </div>

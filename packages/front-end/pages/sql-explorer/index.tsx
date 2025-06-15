@@ -71,10 +71,10 @@ export default function SqlExplorer() {
       {!hasSavedQueries ? (
         <>
           <div className="appbox p-5 text-center">
-            <h2>Easily Explore Your Data Sources</h2>
+            <h2>Explore Your Data</h2>
             <p>
-              Our SQL Explorer allows you to easily explore your data sources,
-              write one-off queries and build visualizations from the results.
+              Write SQL, view results, create visualizations, and share with
+              your team.
             </p>
             <div className="mt-3">
               {!hasDatasource ? (
@@ -85,14 +85,22 @@ export default function SqlExplorer() {
                 </Button>
               ) : null}
             </div>
+
+            <div className="mt-5">
+              <img
+                src="/images/empty-states/sql-explorer.png"
+                alt={"SQL Explorer"}
+                style={{ width: "100%", maxWidth: "900px", height: "auto" }}
+              />
+            </div>
           </div>
         </>
       ) : (
         <div>
           <div className="mb-3">
             <p className="text-muted">
-              Explore your Data Sources with adhoc SQL queries. Save your
-              commonly run queries and build visualizations from the results.
+              Write SQL, view results, create visualizations, and share with
+              your team.
             </p>
           </div>
           <SavedQueriesList savedQueries={savedQueries} mutate={mutate} />
