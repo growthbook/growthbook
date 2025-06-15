@@ -144,6 +144,9 @@ def get_metric_df(
     dimensions = {}
     # Each row in the raw SQL result is a dimension/variation combo
     # We want to end up with one row per dimension
+
+    rows.to_csv("/Users/lukesmith/Desktop/rows_browser.csv", index=False)
+
     for row in dfc.itertuples(index=False):
         # TODO fix dimensionname
         dim = getattr(row, "dim_exp_" + dimension) if dimension else ""

@@ -83,3 +83,17 @@ def isinstance_union(obj, union):
 
 def is_statistically_significant(ci: List[float]) -> bool:
     return ci[0] > 0 or ci[1] < 0
+
+
+# given X ~ multinomial(1, nu), what is the covariance matrix of X?
+def multinomial_covariance(nu: np.ndarray) -> np.ndarray:
+    """
+    Calculate the covariance matrix for a multinomial distribution.
+
+    Args:
+        nu: A numpy array of probabilities that sum to 1
+
+    Returns:
+        A numpy array representing the covariance matrix
+    """
+    return np.diag(nu) - np.outer(nu, nu)
