@@ -76,6 +76,7 @@ const organizationSchema = new mongoose.Schema({
       ...baseMemberFields,
       id: String,
       lastLoginDate: Date,
+      disabled: Boolean,
     },
   ],
   invites: [

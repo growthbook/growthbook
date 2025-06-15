@@ -19,6 +19,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { useSearch } from "@/services/search";
 import Field from "@/components/Forms/Field";
 import Button from "@/components/Radix/Button";
+import Modal from "@/components/Modal";
 
 const MemberList: FC<{
   mutate: () => void;
@@ -26,17 +27,23 @@ const MemberList: FC<{
   canEditRoles?: boolean;
   canDeleteMembers?: boolean;
   canInviteMembers?: boolean;
+  canToggleMemberAccess?: boolean;
 }> = ({
   mutate,
   project,
   canEditRoles = true,
   canDeleteMembers = true,
   canInviteMembers = true,
+  canToggleMemberAccess = true,
 }) => {
   const [inviting, setInviting] = useState(!!router.query["just-subscribed"]);
   const { apiCall } = useAuth();
   const { userId, users, organization } = useUser();
   const [roleModal, setRoleModal] = useState<string>("");
+  const [confirmDisable, setConfirmDisable] = useState<ExpandedMember | null>(
+    null
+  );
+
   const [
     passwordResetModal,
     setPasswordResetModal,
@@ -83,6 +90,26 @@ const MemberList: FC<{
   });
   return (
     <>
+      {confirmDisable && (
+        <Modal
+          open={true}
+          close={() => setConfirmDisable(null)}
+          header="Disable Member"
+          cta="Disable"
+          submitColor="danger"
+          submit={async () => {
+            await apiCall(`/member/${confirmDisable.id}/true`, {
+              method: "PUT",
+            });
+            setConfirmDisable(null);
+            mutate();
+          }}
+          trackingEventModalType=""
+        >
+          Are you sure you want to disable <b>{confirmDisable.email}</b>?<br />
+          This member will not be able to log in until re-enabled.
+        </Modal>
+      )}
       {canInviteMembers && inviting && (
         <InviteModal close={() => setInviting(false)} mutate={mutate} />
       )}
@@ -144,6 +171,7 @@ const MemberList: FC<{
                 <SortableTH field="lastLoginDate">Last Login</SortableTH>
                 <th>{project ? "Project Role" : "Global Role"}</th>
                 {!project && <th>Project Roles</th>}
+                {<th>Status</th>}
                 {environments.map((env) => (
                   <th key={env.id}>{env.id}</th>
                 ))}
@@ -199,6 +227,7 @@ const MemberList: FC<{
                         })}
                       </td>
                     )}
+                    <td>{member.disabled ? "Disabled" : "Active"}</td>
                     {environments.map((env) => {
                       const access = roleHasAccessToEnv(
                         roleInfo,
@@ -243,6 +272,31 @@ const MemberList: FC<{
                               >
                                 Reset Password
                               </button>
+                            )}
+                            {canToggleMemberAccess && !member.managedByIdp && (
+                              <>
+                                {member.disabled ? (
+                                  <button
+                                    className="dropdown-item"
+                                    onClick={async () => {
+                                      await apiCall(
+                                        `/member/${member.id}/false`,
+                                        { method: "PUT" }
+                                      );
+                                      mutate();
+                                    }}
+                                  >
+                                    Enable User
+                                  </button>
+                                ) : (
+                                  <button
+                                    className="dropdown-item"
+                                    onClick={() => setConfirmDisable(member)}
+                                  >
+                                    Disable User
+                                  </button>
+                                )}
+                              </>
                             )}
                             {canDeleteMembers && !member.managedByIdp && (
                               <DeleteButton
