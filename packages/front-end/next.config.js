@@ -31,4 +31,5 @@ module.exports = {
       ],
     },
   ],
+  transpilePackages: ["echarts", "zrender"],
 };
