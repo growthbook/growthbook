@@ -14,10 +14,10 @@ import {
 } from "back-end/src/validators/saved-queries";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { getValidDate } from "shared/dates";
+import { isReadOnlySQL } from "shared/sql";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
-import { validateSQL } from "@/services/datasources";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import { CursorData } from "@/components/Segments/SegmentForm";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
@@ -36,6 +36,7 @@ import {
   PanelGroup,
   PanelResizeHandle,
 } from "@/components/ResizablePanels";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import Modal from "../Modal";
 import SelectField from "../Forms/SelectField";
 import Tooltip from "../Tooltip/Tooltip";
@@ -72,6 +73,13 @@ export default function SqlExplorerModal({
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempName, setTempName] = useState("");
 
+  const { getDatasourceById, datasources } = useDefinitions();
+  const { defaultDataSource } = useOrgSettings();
+
+  if (!initialDatasourceId) {
+    initialDatasourceId = defaultDataSource || datasources[0]?.id;
+  }
+
   const form = useForm<Omit<SavedQuery, "dateCreated" | "dateUpdated">>({
     defaultValues: {
       name: name || "",
@@ -91,7 +99,6 @@ export default function SqlExplorerModal({
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
-  const { getDatasourceById, datasources } = useDefinitions();
   const [cursorData, setCursorData] = useState<null | CursorData>(null);
   const [formatError, setFormatError] = useState<string | null>(null);
 
@@ -128,7 +135,10 @@ export default function SqlExplorerModal({
 
   const runQuery = useCallback(
     async (sql: string) => {
-      validateSQL(sql, []);
+      if (!isReadOnlySQL(sql)) {
+        throw new Error("Only SELECT queries are allowed.");
+      }
+
       form.setValue("dateLastRan", new Date());
       const res = await apiCall<QueryExecutionResult>("/query/run", {
         method: "POST",
@@ -237,9 +247,12 @@ export default function SqlExplorerModal({
         sql,
       });
     } catch (e) {
-      throw new Error(
-        `Unable to run query. ${e.message ? `Reason: ${e.message}` : ""}`
-      );
+      form.setValue("results", {
+        results: [],
+        error: e.message,
+        duration: undefined,
+        sql: form.watch("sql"),
+      });
     }
     setIsRunningQuery(false);
   }, [form, runQuery]);
@@ -281,7 +294,7 @@ export default function SqlExplorerModal({
       header={`${id ? "Update" : "Create"} SQL Query`}
       headerClassName={styles["modal-header-backgroundless"]}
       open={true}
-      showHeaderCloseButton={false}
+      showHeaderCloseButton={true}
       size="max"
       autoCloseOnSubmit={false}
       submit={async () => await handleSubmit()}
@@ -457,7 +470,6 @@ export default function SqlExplorerModal({
                           form.setValue("sql", v);
                           setDirty(true);
                         }}
-                        placeholder="Select a Data Source to get started..."
                         helpText={""}
                         fullHeight
                         setCursorData={setCursorData}
@@ -475,7 +487,8 @@ export default function SqlExplorerModal({
                           results={form.watch("results").results || []}
                           sql={form.watch("results").sql || ""}
                           error={form.watch("results").error || ""}
-                          allowDownload={!readOnlyMode}
+                          allowDownload={true}
+                          showSampleHeader={false}
                         />
                       </Panel>
                     </>
