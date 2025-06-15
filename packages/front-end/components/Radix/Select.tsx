@@ -13,6 +13,7 @@ type SelectProps = {
   setValue: (value: string) => void;
   children: React.ReactNode;
   size?: "1" | "2" | "3";
+  placeholder?: string;
 } & MarginProps;
 
 export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
@@ -26,6 +27,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
     value,
     setValue,
     size = "3",
+    placeholder,
     ...containerProps
   }: SelectProps,
   ref
@@ -45,6 +47,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
         onValueChange={setValue}
       >
         <RadixSelect.Trigger
+          placeholder={placeholder}
           className={error ? "error" : undefined}
           disabled={disabled}
           variant="surface"

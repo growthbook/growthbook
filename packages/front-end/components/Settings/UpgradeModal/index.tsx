@@ -343,6 +343,8 @@ export default function UpgradeModal({
     "require-approvals":
       "Reduce errors by requiring approval flows when changing feature flag values",
     "audit-logging": "Easily export historical audit logs",
+    saveSqlExplorerQueries:
+      "Save query results and visualizations from the SQL Explorer.",
   };
 
   const upgradeHeader = (

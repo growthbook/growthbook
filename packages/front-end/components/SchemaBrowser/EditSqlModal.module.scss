@@ -1,23 +1,16 @@
-.left {
-  width: calc(100% - 5px);
-  max-width: calc(100% - 5px);
-  flex: 1;
-}
-.right {
-  display: none;
+// Hack to increase specificity and override .modal .modal-header
+.modal-header-backgroundless.modal-header-backgroundless {
+  background-color: transparent;
 }
 
-@media (min-width: 997px) {
-  .with-schema-browser {
-    .left {
-      width: calc(100% - 350px);
-      max-width: calc(100% - 350px);
-    }
-    .right {
-      width: 350px;
-      min-width: 350px;
-      max-width: 350px;
-      display: block;
-    }
+.sql-editor-wrapper {
+  border-top-left-radius: 0 !important;
+  border-top-right-radius: 0 !important;
+  border-bottom-left-radius: 6px !important;
+  border-bottom-right-radius: 6px !important;
+
+  > div {
+    border-bottom-left-radius: 5px !important;
+    border-bottom-right-radius: 5px !important;
   }
 }
