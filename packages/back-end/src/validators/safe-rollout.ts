@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "zod/v4";
 import { baseSchema } from "back-end/src/models/BaseModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { experimentAnalysisSummary } from "back-end/src/validators/experiments";

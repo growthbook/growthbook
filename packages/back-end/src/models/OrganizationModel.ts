@@ -3,7 +3,7 @@ import uniqid from "uniqid";
 import { cloneDeep } from "lodash";
 import { OWNER_JOB_TITLES, USAGE_INTENTS } from "shared/constants";
 import { POLICIES, RESERVED_ROLE_IDS } from "shared/permissions";
-import { z } from "zod";
+import { z } from "zod/v4";
 import { TeamInterface } from "back-end/types/team";
 import {
   DemographicData,

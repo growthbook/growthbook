@@ -85,7 +85,7 @@ Everything starts from a single Zod schema, representing the whole object:
 
 ```ts
 // File: back-end/src/validators/foo.ts
-import { z } from "zod";
+import { z } from "zod/v4";
 
 export fooSchema = z.object({
   id: z.string(),
@@ -102,7 +102,7 @@ From this, you can export types to use throughout the front-end and back-end. Th
 
 ```ts
 // File: back-end/types/foo.d.ts
-import { z } from "zod";
+import { z } from "zod/v4";
 import type { fooSchema } from "back-end/src/validators/foo";
 import { CreateProps, UpdateProps } from "./models";
 

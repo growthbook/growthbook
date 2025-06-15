@@ -129,6 +129,7 @@ export class SafeRolloutResultsQueryRunner extends QueryRunner<
 
       result.health = {
         traffic: trafficHealth,
+        power: undefined,
       };
     }
     // TODO: Add functionality to dynamically update coverage here
