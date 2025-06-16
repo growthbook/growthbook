@@ -5,6 +5,7 @@ import {
   deleteMetricById,
 } from "back-end/src/models/MetricModel";
 import { DeleteMetricResponse } from "back-end/types/openapi";
+import { auditDetailsDelete } from "back-end/src/services/audit";
 
 export const deleteMetricHandler = createApiRequestHandler(getMetricValidator)(
   async (req): Promise<DeleteMetricResponse> => {
@@ -19,6 +20,15 @@ export const deleteMetricHandler = createApiRequestHandler(getMetricValidator)(
     }
 
     await deleteMetricById(req.context, metric);
+
+    await req.audit({
+      event: "metric.delete",
+      entity: {
+        object: "metric",
+        id: req.params.id,
+      },
+      details: auditDetailsDelete(metric, {}),
+    });
 
     return {
       deletedId: req.params.id,

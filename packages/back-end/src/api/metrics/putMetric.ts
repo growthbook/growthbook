@@ -1,7 +1,8 @@
+import { putMetricValidator } from "back-end/src/validators/openapi";
+import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getMetricById, updateMetric } from "back-end/src/models/MetricModel";
 import { PutMetricResponse } from "back-end/types/openapi";
-import { putMetricValidator } from "back-end/src/validators/openapi";
 import {
   putMetricApiPayloadIsValid,
   putMetricApiPayloadToMetricInterface,
@@ -32,6 +33,17 @@ export const putMetric = createApiRequestHandler(putMetricValidator)(
     }
 
     await updateMetric(req.context, metric, updated);
+
+    if (updated.id !== undefined) {
+      await req.audit({
+        event: "metric.update",
+        entity: {
+          object: "metric",
+          id: updated.id,
+        },
+        details: auditDetailsUpdate(metric, updated, {}),
+      });
+    }
 
     return {
       updatedId: req.params.id,

@@ -1,12 +1,12 @@
 import { PostMetricResponse } from "back-end/types/openapi";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { postMetricValidator } from "back-end/src/validators/openapi";
 import {
   createMetric,
   postMetricApiPayloadIsValid,
   postMetricApiPayloadToMetricInterface,
   toMetricApiInterface,
 } from "back-end/src/services/experiments";
+import { auditDetailsCreate } from "back-end/src/services/audit";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 
 export const postMetric = createApiRequestHandler(postMetricValidator)(
@@ -38,6 +38,15 @@ export const postMetric = createApiRequestHandler(postMetricValidator)(
     }
 
     const createdMetric = await createMetric(metric);
+
+    await req.audit({
+      event: "metric.create",
+      entity: {
+        object: "metric",
+        id: createdMetric.id,
+      },
+      details: auditDetailsCreate(metric, {}),
+    });
 
     return {
       metric: toMetricApiInterface(req.organization, createdMetric, datasource),
