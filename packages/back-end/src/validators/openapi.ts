@@ -286,6 +286,12 @@ export const postMetricValidator = {
   paramsSchema: z.never(),
 };
 
+export const deleteMetricsValidator = {
+  bodySchema: z.object({ "ids": z.array(z.string()) }).strict(),
+  querySchema: z.object({ "delete": z.boolean().default(false) }).strict(),
+  paramsSchema: z.never(),
+};
+
 export const getMetricValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),

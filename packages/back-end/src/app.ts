@@ -481,6 +481,7 @@ app.get("/ideas/recent/:num", ideasController.getRecentIdeas);
 // Metrics
 app.get("/metrics", metricsController.getMetrics);
 app.post("/metrics", metricsController.postMetrics);
+app.delete("/metrics", metricsController.deleteMetrics);
 app.post(
   "/metrics/tracked-events/:datasourceId",
   metricsController.getMetricsFromTrackedEvents
