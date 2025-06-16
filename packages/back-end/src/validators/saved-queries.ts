@@ -35,6 +35,7 @@ const aggregationEnum = z.enum([
 
 const yAxisConfigurationValidator = z.object({
   fieldName: z.string(),
+  type: z.enum(["string", "number", "date"]),
   aggregation: aggregationEnum,
 });
 export type yAxisConfiguration = z.infer<typeof yAxisConfigurationValidator>;

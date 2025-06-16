@@ -8,6 +8,7 @@ import {
   xAxisDateAggregationUnit,
   yAxisAggregationType,
 } from "back-end/src/validators/saved-queries";
+import { getValidDate } from "shared/dates";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { Panel, PanelGroup, PanelResizeHandle } from "../ResizablePanels";
 import { AreaWithHeader } from "../SchemaBrowser/SqlExplorerModal";
@@ -305,6 +306,18 @@ export default function SqlExplorerDataVisualization({
           return 0;
         }
       });
+    } else if (xConfig?.type === "number" || xConfig?.type === "date") {
+      // Always sort in ascending order
+      aggregatedRows.sort((a, b) => {
+        if (xConfig.type === "date") {
+          return (
+            getValidDate(a.x as string).getTime() -
+            getValidDate(b.x as string).getTime()
+          );
+        } else {
+          return (a.x as number) * 1 - (b.x as number) * 1;
+        }
+      });
     }
 
     return aggregatedRows;
@@ -419,7 +432,7 @@ export default function SqlExplorerDataVisualization({
         : null),
       xAxis: {
         name:
-          xConfig?.type === "date"
+          xConfig?.type === "date" && xConfig?.dateAggregationUnit !== "none"
             ? `${xConfig.dateAggregationUnit} (${xField})`
             : xField,
         nameLocation: "middle",

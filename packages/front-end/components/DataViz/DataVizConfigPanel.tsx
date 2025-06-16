@@ -21,6 +21,10 @@ export default function DataVizConfigPanel({
     (fieldName: string): xAxisConfiguration["type"] => {
       const value = sampleRow[fieldName];
 
+      if (value == null) {
+        return "string"; // Default to string if value is null or undefined
+      }
+
       if (value instanceof Date) {
         return "date";
       }
@@ -71,11 +75,6 @@ export default function DataVizConfigPanel({
       }
     }
   }, [dataVizConfig, onDataVizConfigChange]);
-
-  const yAxisInferredType = useMemo(() => {
-    if (!dataVizConfig.yAxis) return;
-    return getInferredFieldType(dataVizConfig.yAxis[0].fieldName);
-  }, [dataVizConfig.yAxis, getInferredFieldType]);
 
   return (
     <Flex direction="column" gap="4">
@@ -205,6 +204,7 @@ export default function DataVizConfigPanel({
                   size="2"
                   placeholder="Select granularity"
                 >
+                  <SelectItem value="none">None</SelectItem>
                   <SelectItem value="second">Second</SelectItem>
                   <SelectItem value="minute">Minute</SelectItem>
                   <SelectItem value="hour">Hour</SelectItem>
@@ -262,11 +262,13 @@ export default function DataVizConfigPanel({
         setValue={(v) => {
           if (!v) return;
           const type = getInferredFieldType(v);
+
           onDataVizConfigChange({
             ...dataVizConfig,
             yAxis: [
               {
                 fieldName: v,
+                type,
                 aggregation:
                   type === "string"
                     ? "count"
@@ -285,8 +287,35 @@ export default function DataVizConfigPanel({
         ))}
       </Select>
 
-      {dataVizConfig.yAxis && (
+      {dataVizConfig.yAxis?.[0] && (
         <Flex direction="column" gap="2">
+          <Flex direction="row" justify="between" align="center">
+            <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
+              Type
+            </Text>
+            <Select
+              style={{ flex: 1 }}
+              value={dataVizConfig.yAxis?.[0]?.type}
+              setValue={(v) => {
+                if (!v || !dataVizConfig.yAxis?.[0]) return;
+                onDataVizConfigChange({
+                  ...dataVizConfig,
+                  yAxis: [
+                    {
+                      ...dataVizConfig.yAxis[0],
+                      type: v as "string" | "number" | "date",
+                    },
+                  ],
+                });
+              }}
+              size="2"
+              placeholder="Select type"
+            >
+              <SelectItem value="string">String</SelectItem>
+              <SelectItem value="number">Number</SelectItem>
+              <SelectItem value="date">Date</SelectItem>
+            </Select>
+          </Flex>
           <Flex direction="row" justify="between" align="center">
             <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
               Aggregation
@@ -307,11 +336,12 @@ export default function DataVizConfigPanel({
                 });
               }}
               size="2"
-              placeholder="Select aggregation"
+              placeholder="Select"
             >
-              {yAxisInferredType === "number" ? (
+              {dataVizConfig.yAxis?.[0].type === "number" ? (
                 <>
-                  {dataVizConfig.xAxis?.type !== "date" && (
+                  {(dataVizConfig.xAxis?.type !== "date" ||
+                    dataVizConfig.xAxis?.dateAggregationUnit === "none") && (
                     <SelectItem value="none">None</SelectItem>
                   )}
                   <SelectItem value="sum">Sum</SelectItem>
@@ -348,7 +378,7 @@ export default function DataVizConfigPanel({
                   {
                     fieldName: v,
                     display,
-                    maxValues: 5,
+                    maxValues: dataVizConfig.dimension?.[0]?.maxValues || 5,
                   },
                 ],
           });
@@ -408,10 +438,10 @@ export default function DataVizConfigPanel({
                 max="10"
                 step="1"
                 type="number"
-                value={
+                defaultValue={
                   dataVizConfig.dimension?.[0]?.maxValues?.toString() || "5"
                 }
-                onChange={(e) => {
+                onBlur={(e) => {
                   const maxValues = parseInt(e.target.value, 10);
                   if (isNaN(maxValues)) return;
                   if (!dataVizConfig.dimension) return;
@@ -424,6 +454,26 @@ export default function DataVizConfigPanel({
                       },
                     ],
                   });
+                }}
+                onKeyDown={(e) => {
+                  // Ignore enter
+                  if (e.key === "Enter") {
+                    e.stopPropagation();
+                    e.preventDefault();
+
+                    const maxValues = parseInt(e.target.value, 10);
+                    if (isNaN(maxValues)) return;
+                    if (!dataVizConfig.dimension) return;
+                    onDataVizConfigChange({
+                      ...dataVizConfig,
+                      dimension: [
+                        {
+                          ...dataVizConfig.dimension?.[0],
+                          maxValues,
+                        },
+                      ],
+                    });
+                  }
                 }}
               />
             </Flex>
