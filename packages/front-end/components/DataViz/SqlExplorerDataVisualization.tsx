@@ -390,6 +390,7 @@ export default function SqlExplorerDataVisualization({
     return {
       dataset,
       tooltip: {
+        appendTo: "body",
         trigger: "axis",
         axisPointer: {
           type: "shadow",
