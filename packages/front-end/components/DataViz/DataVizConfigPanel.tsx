@@ -262,6 +262,7 @@ export default function DataVizConfigPanel({
         setValue={(v) => {
           if (!v) return;
           const type = getInferredFieldType(v);
+          const oldType = dataVizConfig.yAxis?.[0]?.type;
 
           onDataVizConfigChange({
             ...dataVizConfig,
@@ -270,8 +271,10 @@ export default function DataVizConfigPanel({
                 fieldName: v,
                 type,
                 aggregation:
-                  type === "string"
+                  type === "string" || type === "date"
                     ? "count"
+                    : oldType !== "number" && type === "number"
+                    ? "sum"
                     : dataVizConfig.yAxis?.[0]?.aggregation || "sum",
               },
             ],
@@ -321,6 +324,7 @@ export default function DataVizConfigPanel({
               Aggregation
             </Text>
             <Select
+              key={`aggregation-${dataVizConfig.yAxis?.[0]?.type}`}
               value={dataVizConfig.yAxis?.[0]?.aggregation}
               style={{ flex: 1 }}
               setValue={(v) => {
