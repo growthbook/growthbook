@@ -1,8 +1,13 @@
 import mongoose, { FilterQuery, QueryOptions } from "mongoose";
 import { omit } from "lodash";
 import uniqid from "uniqid";
-import { AuditInterface } from "back-end/types/audit";
-import { EntityType } from "back-end/src/types/Audit";
+import {
+  AuditInterface,
+  AuditUserLoggedIn,
+  AuditUserApiKey,
+  AuditUserSystem,
+} from "back-end/types/audit";
+import { EntityType, EventTypes } from "back-end/src/types/Audit";
 
 const auditSchema = new mongoose.Schema({
   id: {
@@ -46,10 +51,34 @@ const AuditModel = mongoose.model<AuditInterface>("Audit", auditSchema);
  * @param doc
  */
 const toInterface = (doc: AuditDocument): AuditInterface => {
-  return (omit(doc.toJSON<AuditDocument>(), [
-    "__v",
-    "_id",
-  ]) as unknown) as AuditInterface;
+  const json = doc.toJSON<AuditDocument>();
+
+  // Use type assertion to handle the user field
+  const user = json.user as any;
+
+  const transformed = {
+    id: json.id,
+    organization: json.organization,
+    user,
+    event: json.event,
+    entity: json.entity
+      ? {
+          object: json.entity.object,
+          id: json.entity.id,
+          name: json.entity.name,
+        }
+      : undefined,
+    parent: json.parent
+      ? {
+          object: json.parent.object,
+          id: json.parent.id,
+        }
+      : undefined,
+    reason: json.reason,
+    details: json.details,
+    dateCreated: json.dateCreated,
+  };
+  return transformed as AuditInterface;
 };
 
 export async function insertAudit(
@@ -60,6 +89,27 @@ export async function insertAudit(
     id: uniqid("aud_"),
   });
   return toInterface(auditDoc);
+}
+
+/**
+ * find all audits by user id and organization
+ * @param userId
+ * @param organization
+ * @param options
+ */
+export async function findAuditByUserIdAndOrganization(
+  userId: string,
+  organization: string,
+  options?: QueryOptions
+): Promise<AuditInterface[]> {
+  // Then try to find any audit records for this user
+  const userAudits = await AuditModel.find({
+    "user.id": userId,
+    organization,
+    ...options,
+  }).limit(100);
+  const transformed = userAudits.map((doc) => toInterface(doc));
+  return transformed;
 }
 
 export async function findAuditByOrganization(
@@ -88,7 +138,7 @@ export async function findAuditByEntity(
       "entity.id": id,
     },
     options
-  );
+  ).limit(100);
   return auditDocs.map((doc) => toInterface(doc));
 }
 

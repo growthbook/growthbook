@@ -11,6 +11,7 @@ import { SNAPSHOT_TIMEOUT } from "back-end/src/controllers/experiments";
 import { MetricTimeSeries } from "back-end/src/validators/metric-time-series";
 import {
   CreateSafeRolloutInterface,
+  SafeRolloutInterface,
   validateCreateSafeRolloutFields,
 } from "back-end/src/validators/safe-rollout";
 
@@ -259,3 +260,22 @@ export const getSafeRolloutTimeSeries = async (
   });
 };
 // endregion GET /safe-rollout/:id/time-series
+
+// region GET /safe-rollout
+/**
+ * GET /safe-rollout
+ * Get all safe rollout rules
+ */
+export const getSafeRollouts = async (
+  req: AuthRequest<null, { environment: string }>,
+  res: Response<{ status: 200; safeRollouts: SafeRolloutInterface[] }>
+) => {
+  const context = getContextFromReq(req);
+
+  const safeRollouts = await context.models.safeRollout.getAll();
+  res.status(200).json({
+    status: 200,
+    safeRollouts,
+  });
+};
+// endregion GET /safe-rollout

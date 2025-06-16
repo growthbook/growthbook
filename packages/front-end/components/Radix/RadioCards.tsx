@@ -18,8 +18,10 @@ export type Props = {
   width?: string;
   options: RadioOptions;
   align?: "start" | "center" | "end";
+  icon?: ReactElement;
   value: string;
   setValue: (value: string) => void;
+  onClick?: () => void;
 } & MarginProps;
 
 export default forwardRef<HTMLDivElement, Props>(function RadioCards(
@@ -31,6 +33,7 @@ export default forwardRef<HTMLDivElement, Props>(function RadioCards(
     value,
     setValue,
     align,
+    onClick,
     ...containerProps
   }: Props,
   ref
@@ -43,6 +46,7 @@ export default forwardRef<HTMLDivElement, Props>(function RadioCards(
           onValueChange={(val) => setValue(val)}
           disabled={disabled}
           columns={columns}
+          onClick={onClick}
         >
           {options.map(
             ({ value, label, avatar, description, disabled, badge }) => {
