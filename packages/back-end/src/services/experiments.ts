@@ -686,7 +686,7 @@ export async function parseDimension(
   organization: string
 ): Promise<Dimension | null> {
   if (dimension) {
-    if (dimension.match(/^exp:/)) {
+    if (dimension.match(/^exp_/)) {
       return {
         type: "experiment",
         id: dimension.substr(4),

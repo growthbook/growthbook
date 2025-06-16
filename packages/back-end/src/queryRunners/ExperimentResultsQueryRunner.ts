@@ -217,15 +217,13 @@ export const startExperimentResultQueries = async (
   const exposureQuery = (settings?.queries?.exposure || []).find(
     (q) => q.id === snapshotSettings.exposureQueryId
   );
-
   const dimensionObjs: Dimension[] = (
     await Promise.all(
       snapshotSettings.dimensions.map(
-        async (d) => await parseDimension("exp:" + d.id, d.levels, org.id)
+        async (d) => await parseDimension("exp_" + d.id, d.levels, org.id)
       )
     )
   ).filter((d): d is Dimension => d !== null);
-
   const queries: Queries = [];
 
   // Settings for units table
@@ -493,7 +491,8 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
         relativeAnalysis &&
         this.model.settings.banditSettings === undefined &&
         rows &&
-        rows.length;
+        rows.length &&
+        relativeAnalysis.settings.dimensions.length === 0;
 
       if (isEligibleForMidExperimentPowerAnalysis) {
         const today = new Date();
