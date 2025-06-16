@@ -25,7 +25,7 @@ import {
   BANDIT_SRM_DIMENSION_NAME,
   SAFE_ROLLOUT_TRACKING_KEY_PREFIX,
 } from "shared/constants";
-import { format } from "shared/sql";
+import { ensureLimit, format } from "shared/sql";
 import { FormatDialect } from "shared/src/types";
 import { MetricAnalysisSettings } from "back-end/types/metric-analysis";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
@@ -310,6 +310,10 @@ export default abstract class SqlIntegration
   }
   selectStarLimit(table: string, limit: number): string {
     return `SELECT * FROM ${table} LIMIT ${limit}`;
+  }
+
+  ensureMaxLimit(sql: string, limit: number): string {
+    return ensureLimit(sql, limit);
   }
 
   hasQuantileTesting(): boolean {
@@ -1406,6 +1410,11 @@ export default abstract class SqlIntegration
       testDays: testDays ?? DEFAULT_TEST_QUERY_DAYS,
       limit: 1,
     });
+  }
+
+  getFreeFormQuery(sql: string, limit?: number): string {
+    const limitedQuery = this.ensureMaxLimit(sql, limit ?? 1000);
+    return format(limitedQuery, this.getFormatDialect());
   }
 
   getTestQuery(params: TestQueryParams): string {

@@ -2,6 +2,7 @@ const cspHeader = `
     frame-ancestors 'none';
 `;
 
+/** @type {import('next').NextConfig} */
 module.exports = {
   // We already run eslint and typescript in CI/CD
   // Disable here to speed up production builds
