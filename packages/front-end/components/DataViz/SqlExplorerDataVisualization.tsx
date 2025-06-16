@@ -1,13 +1,12 @@
 import { useMemo } from "react";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
-import * as echarts from "echarts";
 import Decimal from "decimal.js";
 import {
   DataVizConfig,
   dataVizConfigValidator,
-  XAxisDateAggregationUnit,
-  YAxisAggregationType,
+  xAxisDateAggregationUnit,
+  yAxisAggregationType,
 } from "back-end/src/validators/saved-queries";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { Panel, PanelGroup, PanelResizeHandle } from "../ResizablePanels";
@@ -20,7 +19,7 @@ export type Rows = any[];
 
 function aggregate(
   values: (string | number)[],
-  aggregation: YAxisAggregationType
+  aggregation: yAxisAggregationType
 ): number {
   const numericValues = values
     .map((v) => {
@@ -62,7 +61,7 @@ function aggregate(
   }
 }
 
-function roundDate(date: Date, unit: XAxisDateAggregationUnit): Date {
+function roundDate(date: Date, unit: xAxisDateAggregationUnit): Date {
   const d = new Date(date.getTime()); // clone the date
 
   switch (unit) {
@@ -79,7 +78,6 @@ function roundDate(date: Date, unit: XAxisDateAggregationUnit): Date {
       d.setUTCHours(0, 0, 0, 0); // Round to the start of the day
       return d;
     }
-
     case "week": {
       const day = d.getUTCDay(); // Sunday = 0
       const startOfWeek = new Date(
@@ -475,7 +473,12 @@ export default function SqlExplorerDataVisualization({
 
   return (
     <PanelGroup direction="horizontal">
-      <Panel defaultSize={showPanel ? 75 : 100}>
+      <Panel
+        id="graph"
+        order={1}
+        defaultSize={showPanel ? 75 : 100}
+        minSize={55}
+      >
         <AreaWithHeader
           header={
             <Text style={{ color: "var(--color-text-mid)", fontWeight: 500 }}>
@@ -494,7 +497,6 @@ export default function SqlExplorerDataVisualization({
                 key={JSON.stringify(option)}
                 option={option}
                 style={{ width: "100%", minHeight: "350px", height: "80%" }}
-                echarts={echarts}
               />
             </Flex>
           ) : (
@@ -507,7 +509,7 @@ export default function SqlExplorerDataVisualization({
       {showPanel ? (
         <>
           <PanelResizeHandle />
-          <Panel defaultSize={25}>
+          <Panel id="graph-config" order={2} defaultSize={25} minSize={20}>
             <AreaWithHeader
               header={
                 <Text

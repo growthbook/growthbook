@@ -71,7 +71,9 @@ export default function SqlExplorerModal({
   const [isRunningQuery, setIsRunningQuery] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempName, setTempName] = useState("");
-  const [tab, setTab] = useState("sql");
+  const [tab, setTab] = useState(
+    initial?.dataVizConfig?.length ? "visualization-0" : "sql"
+  );
 
   const { getDatasourceById, datasources } = useDefinitions();
   const { defaultDataSource } = useOrgSettings();
@@ -441,7 +443,10 @@ export default function SqlExplorerModal({
                 onClick={() => {
                   setDirty(true);
                   const currentConfig = [...dataVizConfig];
-                  form.setValue("dataVizConfig", [...currentConfig, {}]);
+                  form.setValue("dataVizConfig", [
+                    ...currentConfig,
+                    { chartType: "bar" },
+                  ]);
                   setTab(`visualization-${currentConfig.length}`);
                   setSidePanel(true);
                 }}

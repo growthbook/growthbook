@@ -3,8 +3,8 @@ import { Box, Flex, Separator, Text, TextField } from "@radix-ui/themes";
 import {
   DataVizConfig,
   xAxisConfiguration,
-  XAxisDateAggregationUnit,
-  YAxisAggregationType,
+  xAxisDateAggregationUnit,
+  yAxisAggregationType,
 } from "back-end/src/validators/saved-queries";
 import { Select, SelectItem } from "@/components/Radix/Select";
 
@@ -198,7 +198,7 @@ export default function DataVizConfigPanel({
                       ...dataVizConfig,
                       xAxis: {
                         ...dataVizConfig.xAxis,
-                        dateAggregationUnit: v as XAxisDateAggregationUnit,
+                        dateAggregationUnit: v as xAxisDateAggregationUnit,
                       },
                     });
                   }}
@@ -301,7 +301,7 @@ export default function DataVizConfigPanel({
                   yAxis: [
                     {
                       ...dataVizConfig.yAxis?.[0],
-                      aggregation: v as YAxisAggregationType,
+                      aggregation: v as yAxisAggregationType,
                     },
                   ],
                 });
