@@ -18,30 +18,41 @@ import DataVizConfigPanel from "./DataVizConfigPanel";
 export type Rows = any[];
 
 function aggregate(
-  values: number[],
+  values: (string | number)[],
   aggregation: YAxisAggregationType
 ): number {
+  const numericValues = values
+    .map((v) => {
+      if (typeof v === "string") {
+        const parsed = parseFloat(v);
+        return parsed;
+      }
+      return typeof v === "number" ? v : 0;
+    })
+    .filter((v) => !isNaN(v));
+
   switch (aggregation) {
     case "min":
-      return Math.min(...values) || 0;
+      return Math.min(...numericValues) || 0;
     case "max":
-      return Math.max(...values) || 0;
+      return Math.max(...numericValues) || 0;
     case "first":
-      return values[0] || 0;
+      return numericValues[0] || 0;
     case "last":
-      return values[values.length - 1] || 0;
+      return numericValues[numericValues.length - 1] || 0;
     case "count":
       return values.length;
     case "countDistinct":
       return new Set(values).size;
     case "average":
-      return values.length > 0
-        ? values.reduce((sum, value) => sum + value, 0) / values.length
+      return numericValues.length > 0
+        ? numericValues.reduce((sum, value) => sum + value, 0) /
+            numericValues.length
         : 0;
     case "sum":
-      return values.reduce((sum, value) => sum + value, 0);
+      return numericValues.reduce((sum, value) => sum + value, 0);
     case "none":
-      return values[0] || 0;
+      return numericValues[0] || 0;
   }
 }
 
@@ -116,9 +127,9 @@ export default function SqlExplorerDataVisualization({
   const textColor = theme === "dark" ? "#FFFFFF" : "#1F2D5C";
 
   // If using a dimension, get top 10 dimension values
-  const dimensionValues = useMemo(() => {
+  const { dimensionValues, hasOtherDimension } = useMemo(() => {
     if (!dimensionField) {
-      return [];
+      return { dimensionValues: [], hasOtherDimension: false };
     }
 
     const dimensionValueCounts: Map<string, number> = new Map();
@@ -130,13 +141,26 @@ export default function SqlExplorerDataVisualization({
       );
     });
 
-    return Array.from(dimensionValueCounts.entries())
+    const dimensionValues = Array.from(dimensionValueCounts.entries())
       .sort((a, b) => {
         return b[1] - a[1];
       })
-      .slice(0, 10)
       .map(([value]) => value);
-  }, [dimensionField, rows]);
+
+    const maxValues = dimensionConfig?.maxValues || 5;
+    // If there are at least 2 overflow values
+    if (dimensionValues.length > maxValues + 1) {
+      return {
+        dimensionValues: dimensionValues.slice(0, maxValues),
+        hasOtherDimension: true,
+      };
+    }
+
+    return {
+      dimensionValues,
+      hasOtherDimension: false,
+    };
+  }, [dimensionField, rows, dimensionConfig?.maxValues]);
 
   const aggregatedRows = useMemo(() => {
     const xType = xConfig?.type;
@@ -147,25 +171,23 @@ export default function SqlExplorerDataVisualization({
     const parsedRows = rows.map((row) => {
       const newRow: {
         x?: number | Date | string;
-        y?: number;
+        y?: string | number;
         dimensions?: Record<string, string>;
       } = {};
 
       // Cast xField value based on xType
       if (xField && xField in row) {
         const xValue = row[xField];
-        if (xType === "number" && xValue !== null && xValue !== undefined) {
+        if (xValue == null) {
+          newRow.x = undefined;
+        } else if (xType === "number") {
           newRow.x =
             typeof xValue === "string"
               ? parseFloat(xValue) || 0
               : Number(xValue);
-        } else if (
-          xType === "date" &&
-          xValue !== null &&
-          xValue !== undefined
-        ) {
+        } else if (xType === "date") {
           newRow.x = new Date(xValue);
-        } else if (xType === "string" && typeof xValue !== "string") {
+        } else if (xType === "string") {
           newRow.x = xValue + "";
         }
       }
@@ -173,13 +195,19 @@ export default function SqlExplorerDataVisualization({
       // Cast yField to number
       if (yField && yField in row) {
         const yValue = row[yField];
-        // TODO: support count distinct aggregation for strings, not just count
-        newRow.y = typeof yValue === "string" ? 1 : Number(yValue);
+        if (aggregation === "countDistinct") {
+          newRow.y = yValue + "";
+        } else {
+          newRow.y = typeof yValue === "string" ? 1 : Number(yValue);
+        }
       }
 
       if (dimensionField) {
+        const dimensionValue = row[dimensionField] + "";
         newRow.dimensions = {
-          [dimensionField]: row[dimensionField] + "",
+          [dimensionField]: dimensionValues.includes(dimensionValue)
+            ? dimensionValue
+            : "(other)",
         };
       }
 
@@ -193,8 +221,8 @@ export default function SqlExplorerDataVisualization({
       string,
       {
         x: number | Date | string;
-        dimensions: Record<string, number[]>;
-        y: number[];
+        dimensions: Record<string, (string | number)[]>;
+        y: (string | number)[];
       }
     > = {};
     parsedRows.forEach((row, i) => {
@@ -254,18 +282,33 @@ export default function SqlExplorerDataVisualization({
       return row;
     });
 
-    console.log({
-      dimensionValues,
-      parsedRows,
-      groupedRows,
-      aggregatedRows,
-    });
+    if (
+      xConfig?.type === "string" &&
+      xConfig?.sort &&
+      xConfig?.sort !== "none"
+    ) {
+      // Sort by x value if specified
+      aggregatedRows.sort((a, b) => {
+        if (xConfig.sort === "asc") {
+          return (a.x + "").localeCompare(b.x + "");
+        } else if (xConfig.sort === "desc") {
+          return (b.x + "").localeCompare(a.x + "");
+        } else if (xConfig.sort === "valueAsc") {
+          return (a.y as number) - (b.y as number);
+        } else if (xConfig.sort === "valueDesc") {
+          return (b.y as number) - (a.y as number);
+        } else {
+          return 0;
+        }
+      });
+    }
 
     return aggregatedRows;
   }, [
     xField,
     xConfig?.type,
     xConfig?.dateAggregationUnit,
+    xConfig?.sort,
     aggregation,
     yField,
     dimensionField,
@@ -274,28 +317,12 @@ export default function SqlExplorerDataVisualization({
   ]);
 
   const dataset = useMemo(() => {
-    // TODO: Get type from echarts if possible
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const transform: any[] = [];
-
-    if (!window && xConfig?.sort && xConfig?.sort !== "none") {
-      transform.push({
-        type: "sort",
-        config: {
-          dimension: "x",
-          order: xConfig.sort,
-          ...(xConfig.type === "date" && { parser: "time" }),
-        },
-      });
-    }
-
     return [
       {
         source: aggregatedRows,
-        //transform,
       },
     ];
-  }, [aggregatedRows, xConfig?.type, xConfig?.sort]);
+  }, [aggregatedRows]);
 
   const series = useMemo(() => {
     if (!dimensionField || dimensionValues.length === 0) {
@@ -320,6 +347,7 @@ export default function SqlExplorerDataVisualization({
         name: value,
         type:
           dataVizConfig.chartType === "area" ? "line" : dataVizConfig.chartType,
+        ...(dataVizConfig.chartType === "area" && { areaStyle: {} }),
         stack: dimensionConfig?.display === "stacked" ? "stack" : undefined,
         encode: {
           x: "x",
@@ -327,7 +355,21 @@ export default function SqlExplorerDataVisualization({
         },
       };
     });
-    console.log({ dimensionSeries });
+
+    if (hasOtherDimension) {
+      dimensionSeries.push({
+        name: "(other)",
+        type:
+          dataVizConfig.chartType === "area" ? "line" : dataVizConfig.chartType,
+        ...(dataVizConfig.chartType === "area" && { areaStyle: {} }),
+        stack: dimensionConfig?.display === "stacked" ? "stack" : undefined,
+        encode: {
+          x: "x",
+          y: `${dimensionField}: (other)`,
+        },
+      });
+    }
+
     return dimensionSeries;
   }, [
     dataVizConfig.chartType,
@@ -335,6 +377,7 @@ export default function SqlExplorerDataVisualization({
     dimensionField,
     dimensionValues,
     dimensionConfig?.display,
+    hasOtherDimension,
   ]);
 
   const option = useMemo(() => {

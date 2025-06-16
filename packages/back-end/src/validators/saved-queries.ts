@@ -15,7 +15,7 @@ const dateAggregationEnum = z.enum([
 const xAxisConfigurationValidator = z.object({
   fieldName: z.string(),
   type: z.enum(["string", "number", "date"]),
-  sort: z.enum(["none", "asc", "desc"]),
+  sort: z.enum(["none", "asc", "desc", "valueAsc", "valueDesc"]),
   dateAggregationUnit: dateAggregationEnum.optional(),
 });
 export type XAxisDateAggregationUnit = z.infer<typeof dateAggregationEnum>;
@@ -43,7 +43,7 @@ export type YAxisAggregationType = z.infer<typeof aggregationEnum>;
 const dimensionAxisConfigurationValidator = z.object({
   fieldName: z.string(),
   display: z.enum(["grouped", "stacked"]),
-  sort: z.enum(["none", "asc", "desc"]),
+  maxValues: z.number().optional(),
 });
 export type dimensionAxisConfiguration = z.infer<
   typeof dimensionAxisConfigurationValidator

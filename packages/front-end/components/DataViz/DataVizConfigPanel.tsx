@@ -138,6 +138,8 @@ export default function DataVizConfigPanel({
               type,
               sort:
                 type !== "string" ? "asc" : dataVizConfig.xAxis?.sort || "none",
+              // TODO: infer date aggregation unit based on data
+              dateAggregationUnit: "day",
             },
           });
         }}
@@ -201,7 +203,7 @@ export default function DataVizConfigPanel({
                     });
                   }}
                   size="2"
-                  placeholder="Select date aggregation"
+                  placeholder="Select granularity"
                 >
                   <SelectItem value="second">Second</SelectItem>
                   <SelectItem value="minute">Minute</SelectItem>
@@ -229,7 +231,12 @@ export default function DataVizConfigPanel({
                     ...dataVizConfig,
                     xAxis: {
                       ...dataVizConfig.xAxis,
-                      sort: v as "none" | "asc" | "desc",
+                      sort: v as
+                        | "none"
+                        | "asc"
+                        | "desc"
+                        | "valueAsc"
+                        | "valueDesc",
                     },
                   });
                 }}
@@ -237,8 +244,10 @@ export default function DataVizConfigPanel({
                 placeholder="Select sort"
               >
                 <SelectItem value="none">None</SelectItem>
-                <SelectItem value="asc">Ascending</SelectItem>
-                <SelectItem value="desc">Descending</SelectItem>
+                <SelectItem value="asc">A to Z</SelectItem>
+                <SelectItem value="desc">Z to A</SelectItem>
+                <SelectItem value="valueAsc">Small to Big</SelectItem>
+                <SelectItem value="valueDesc">Big to Small</SelectItem>
               </Select>
             </Flex>
           )}
@@ -302,16 +311,18 @@ export default function DataVizConfigPanel({
             >
               {yAxisInferredType === "number" ? (
                 <>
-                  <SelectItem value="none">None</SelectItem>
+                  {dataVizConfig.xAxis?.type !== "date" && (
+                    <SelectItem value="none">None</SelectItem>
+                  )}
                   <SelectItem value="sum">Sum</SelectItem>
                   <SelectItem value="average">Average</SelectItem>
                   <SelectItem value="min">Min</SelectItem>
                   <SelectItem value="max">Max</SelectItem>
                   <SelectItem value="first">First</SelectItem>
                   <SelectItem value="last">Last</SelectItem>
-                  <SelectItem value="countDistinct">Count Distinct</SelectItem>
                 </>
               ) : null}
+              <SelectItem value="countDistinct">Count Distinct</SelectItem>
               <SelectItem value="count">Count</SelectItem>
             </Select>
           </Flex>
@@ -329,7 +340,6 @@ export default function DataVizConfigPanel({
             dataVizConfig.chartType !== "bar"
               ? "grouped"
               : dataVizConfig.dimension?.[0]?.display || "grouped";
-          const sort = display === "grouped" ? "asc" : "none";
           onDataVizConfigChange({
             ...dataVizConfig,
             dimension: shouldRemove
@@ -338,7 +348,7 @@ export default function DataVizConfigPanel({
                   {
                     fieldName: v,
                     display,
-                    sort,
+                    maxValues: 5,
                   },
                 ],
           });
@@ -357,9 +367,10 @@ export default function DataVizConfigPanel({
       </Select>
 
       {dataVizConfig.dimension && (
-        <Flex direction="column" gap="2">
-          {dataVizConfig.chartType === "bar" && (
-            <>
+        <>
+          <Flex direction="column" gap="2">
+            {(dataVizConfig.chartType === "bar" ||
+              dataVizConfig.chartType === "area") && (
               <Flex direction="row" justify="between" align="center">
                 <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
                   Display
@@ -385,9 +396,39 @@ export default function DataVizConfigPanel({
                   <SelectItem value="stacked">Stacked</SelectItem>
                 </Select>
               </Flex>
-            </>
-          )}
-        </Flex>
+            )}
+            <Flex direction="row" justify="between" align="center">
+              <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
+                Max Values
+              </Text>
+              <TextField.Root
+                style={{ flex: 1 }}
+                size="2"
+                min="1"
+                max="10"
+                step="1"
+                type="number"
+                value={
+                  dataVizConfig.dimension?.[0]?.maxValues?.toString() || "5"
+                }
+                onChange={(e) => {
+                  const maxValues = parseInt(e.target.value, 10);
+                  if (isNaN(maxValues)) return;
+                  if (!dataVizConfig.dimension) return;
+                  onDataVizConfigChange({
+                    ...dataVizConfig,
+                    dimension: [
+                      {
+                        ...dataVizConfig.dimension?.[0],
+                        maxValues,
+                      },
+                    ],
+                  });
+                }}
+              />
+            </Flex>
+          </Flex>
+        </>
       )}
     </Flex>
   );
