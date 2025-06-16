@@ -6,7 +6,7 @@ import {
   FaCheck,
   FaTimes,
 } from "react-icons/fa";
-import { PiCaretDoubleRight, PiPencilSimpleFill } from "react-icons/pi";
+import { PiCaretDoubleRight, PiPencilSimpleFill, PiX } from "react-icons/pi";
 import {
   DataVizConfig,
   SavedQuery,
@@ -37,6 +37,8 @@ import {
   PanelResizeHandle,
 } from "@/components/ResizablePanels";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { VisualizationAddIcon } from "@/components/Icons";
+import SqlExplorerDataVisualization from "../DataViz/SqlExplorerDataVisualization";
 import Modal from "../Modal";
 import SelectField from "../Forms/SelectField";
 import Tooltip from "../Tooltip/Tooltip";
@@ -45,49 +47,54 @@ import styles from "./EditSqlModal.module.scss";
 
 export interface Props {
   close: () => void;
-  sql?: string;
-  name?: string;
-  initialDatasourceId?: string;
-  results?: QueryExecutionResult;
-  dateLastRan?: string;
-  dataVizConfig?: DataVizConfig[];
+  initial?: {
+    sql?: string;
+    name?: string;
+    datasourceId?: string;
+    results?: QueryExecutionResult;
+    dateLastRan?: Date | string;
+    dataVizConfig?: DataVizConfig[];
+  };
   id?: string;
   mutate: () => void;
 }
 
 export default function SqlExplorerModal({
   close,
-  sql,
-  name,
-  initialDatasourceId,
-  results,
-  dataVizConfig,
-  dateLastRan,
+  initial,
   id,
   mutate,
 }: Props) {
-  const [showDataSourcesPanel, setShowDataSourcesPanel] = useState(true);
-  const [dirty, setDirty] = useState(name ? false : true);
+  const [showSidePanel, setSidePanel] = useState(true);
+  const [dirty, setDirty] = useState(id ? false : true);
   const [loading, setLoading] = useState(false);
   const [isRunningQuery, setIsRunningQuery] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempName, setTempName] = useState("");
+  const [tab, setTab] = useState(
+    initial?.dataVizConfig?.length ? "visualization-0" : "sql"
+  );
 
   const { getDatasourceById, datasources } = useDefinitions();
   const { defaultDataSource } = useOrgSettings();
 
-  if (!initialDatasourceId) {
-    initialDatasourceId = defaultDataSource || datasources[0]?.id;
-  }
+  const initialDatasourceId =
+    initial?.datasourceId || defaultDataSource || datasources[0]?.id;
 
-  const form = useForm<Omit<SavedQuery, "dateCreated" | "dateUpdated">>({
+  const form = useForm<
+    Omit<SavedQuery, "dateCreated" | "dateUpdated" | "dataVizConfig"> & {
+      dataVizConfig?: Partial<DataVizConfig>[];
+    }
+  >({
     defaultValues: {
-      name: name || "",
-      sql: sql || "",
-      dateLastRan: getValidDate(dateLastRan) || undefined,
-      dataVizConfig: dataVizConfig || undefined,
+      name: initial?.name || "",
+      sql: initial?.sql || "",
+      dateLastRan: initial?.dateLastRan
+        ? getValidDate(initial?.dateLastRan)
+        : undefined,
+      dataVizConfig: initial?.dataVizConfig || [],
       datasourceId: initialDatasourceId || "",
-      results: results || {
+      results: initial?.results || {
         results: [],
         error: undefined,
         duration: undefined,
@@ -174,6 +181,12 @@ export default function SqlExplorerModal({
       );
     }
 
+    // If we have an empty object for dataVizConfig, set it to undefined
+    let dataVizConfig = form.watch("dataVizConfig");
+    if (dataVizConfig && Object.keys(dataVizConfig[0]).length === 0) {
+      dataVizConfig = undefined;
+    }
+
     // If it's a new query (no savedQuery.id), always save
     if (!id) {
       try {
@@ -185,7 +198,7 @@ export default function SqlExplorerModal({
             datasourceId: form.watch("datasourceId"),
             dateLastRan: form.watch("dateLastRan"),
             results: form.watch("results"),
-            dataVizConfig: undefined, // New queries don't have viz config yet
+            dataVizConfig,
           }),
         });
         mutate();
@@ -213,7 +226,7 @@ export default function SqlExplorerModal({
           sql: form.watch("sql"),
           datasourceId: form.watch("datasourceId"),
           dateLastRan: form.watch("dateLastRan"),
-          dataVizConfig: form.watch("dataVizConfig"),
+          dataVizConfig,
           results: form.watch("results"),
         }),
       });
@@ -275,6 +288,8 @@ export default function SqlExplorerModal({
       permissionsUtil.canRunSqlExplorerQueries(d)
   );
 
+  const dataVizConfig = form.watch("dataVizConfig") || [];
+
   return (
     <Modal
       bodyClassName="p-0"
@@ -311,13 +326,20 @@ export default function SqlExplorerModal({
         }}
       >
         <Tabs
-          defaultValue={dataVizConfig?.length ? "visualization" : "sql"}
+          value={tab}
+          onValueChange={(newTab) => {
+            // If old tab is sql and switching to visualization, show the side panel
+            if (tab === "sql") {
+              setSidePanel(true);
+            }
+            setTab(newTab);
+          }}
           style={{ display: "flex", flexDirection: "column", height: "100%" }}
         >
           <Flex
             align="center"
-            justify="between"
             mb="4"
+            gap="3"
             style={{ borderBottom: "1px solid var(--gray-a6)" }}
           >
             <TabsList>
@@ -384,16 +406,74 @@ export default function SqlExplorerModal({
                   )}
                 </Flex>
               </TabsTrigger>
+              {dataVizConfig.map((config, index) => (
+                <TabsTrigger value={`visualization-${index}`} key={index}>
+                  <Flex align="center" gap="2">
+                    {config.title || `Visualization ${index + 1}`}
+                    {!readOnlyMode && tab === `visualization-${index}` ? (
+                      <Button
+                        variant="ghost"
+                        size="xs"
+                        onClick={() => {
+                          setDirty(true);
+                          const currentConfig = [...dataVizConfig];
+                          currentConfig.splice(index, 1);
+                          form.setValue("dataVizConfig", currentConfig);
+                          setTab(
+                            index < dataVizConfig.length - 1
+                              ? `visualization-${index}`
+                              : index > 0
+                              ? `visualization-${index - 1}`
+                              : "sql"
+                          );
+                        }}
+                        title="Delete Visualization"
+                      >
+                        <PiX />
+                      </Button>
+                    ) : null}
+                  </Flex>
+                </TabsTrigger>
+              ))}
             </TabsList>
+            {!readOnlyMode && dataVizConfig.length < 3 ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setDirty(true);
+                  const currentConfig = [...dataVizConfig];
+                  form.setValue("dataVizConfig", [
+                    ...currentConfig,
+                    { chartType: "bar" },
+                  ]);
+                  setTab(`visualization-${currentConfig.length}`);
+                  setSidePanel(true);
+                }}
+                title="Add Visualization"
+                disabled={
+                  !form.watch("results").results ||
+                  form.watch("results").results.length === 0
+                }
+              >
+                <VisualizationAddIcon />{" "}
+                {!dataVizConfig.length ? (
+                  <span className="ml-1">Add Visualization</span>
+                ) : (
+                  ""
+                )}
+              </Button>
+            ) : null}
+            <div className="ml-auto" />
             {!readOnlyMode ? (
               <Button
                 variant="outline"
                 size="xs"
-                onClick={() => setShowDataSourcesPanel(!showDataSourcesPanel)}
+                onClick={() => setSidePanel(!showSidePanel)}
               >
                 <PiCaretDoubleRight
                   style={{
-                    transform: showDataSourcesPanel
+                    transform: showSidePanel
                       ? "rotate(0deg)"
                       : "rotate(180deg)",
                     transition: "transform 0.5s ease",
@@ -402,11 +482,14 @@ export default function SqlExplorerModal({
               </Button>
             ) : null}
           </Flex>
-          <TabsContent value="sql" style={{ flex: 1 }}>
+
+          <TabsContent value="sql" style={{ flex: 1, overflow: "hidden" }}>
             <PanelGroup direction="horizontal">
-              <Panel defaultSize={60}>
+              <Panel id="main" order={1} defaultSize={showSidePanel ? 70 : 100}>
                 <PanelGroup direction="vertical">
                   <Panel
+                    id="sql-editor"
+                    order={1}
                     defaultSize={form.watch("results").sql ? 30 : 100}
                     minSize={7}
                   >
@@ -475,13 +558,19 @@ export default function SqlExplorerModal({
                         setCursorData={setCursorData}
                         onCtrlEnter={handleQuery}
                         resizeDependency={!!form.watch("results")}
+                        disabled={readOnlyMode}
                       />
                     </AreaWithHeader>
                   </Panel>
                   {form.watch("results").sql && (
                     <>
                       <PanelResizeHandle />
-                      <Panel minSize={10}>
+                      <Panel
+                        id="query-results"
+                        order={2}
+                        defaultSize={form.watch("results").results ? 70 : 0}
+                        minSize={10}
+                      >
                         <DisplayTestQueryResults
                           duration={form.watch("results").duration || 0}
                           results={form.watch("results").results || []}
@@ -496,11 +585,13 @@ export default function SqlExplorerModal({
                 </PanelGroup>
               </Panel>
 
-              {showDataSourcesPanel && !readOnlyMode ? (
+              {showSidePanel && !readOnlyMode ? (
                 <>
                   <PanelResizeHandle />
                   <Panel
-                    defaultSize={showDataSourcesPanel ? 25 : 0}
+                    id="sidebar"
+                    order={2}
+                    defaultSize={30}
                     minSize={20}
                     maxSize={80}
                   >
@@ -555,6 +646,37 @@ export default function SqlExplorerModal({
               ) : null}
             </PanelGroup>
           </TabsContent>
+
+          {dataVizConfig.map((config, index) => (
+            <TabsContent
+              key={index}
+              value={`visualization-${index}`}
+              style={{ flex: 1, overflow: "hidden" }}
+            >
+              {!form.watch("results").results ||
+              form.watch("results").results.length === 0 ? (
+                <Flex justify="center" align="center" height="100%">
+                  <Text align="center">
+                    No results to visualize.
+                    <br />
+                    Ensure your query has results to add a visualization.
+                  </Text>
+                </Flex>
+              ) : (
+                <SqlExplorerDataVisualization
+                  rows={form.watch("results").results}
+                  dataVizConfig={config}
+                  onDataVizConfigChange={(updatedConfig) => {
+                    const newDataVizConfig = [...dataVizConfig];
+                    newDataVizConfig[index] = updatedConfig;
+                    setDirty(true);
+                    form.setValue("dataVizConfig", newDataVizConfig);
+                  }}
+                  showPanel={showSidePanel && !readOnlyMode}
+                />
+              )}
+            </TabsContent>
+          ))}
         </Tabs>
       </Box>
     </Modal>
@@ -591,7 +713,7 @@ export function AreaWithHeader({
       }}
     >
       <Box style={headerStyles}>{header}</Box>
-      <Box flexGrow="1" style={{ overflow: "hidden", minHeight: 0 }}>
+      <Box flexGrow="1" style={{ overflowY: "auto" }}>
         {children}
       </Box>
     </Flex>

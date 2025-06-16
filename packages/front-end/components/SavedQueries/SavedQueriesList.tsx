@@ -87,11 +87,7 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
           close={() => {
             setSelectedSavedQuery(undefined);
           }}
-          sql={selectedSavedQuery?.sql}
-          name={selectedSavedQuery?.name}
-          initialDatasourceId={selectedSavedQuery?.datasourceId}
-          results={selectedSavedQuery?.results}
-          dataVizConfig={selectedSavedQuery?.dataVizConfig}
+          initial={selectedSavedQuery}
           id={selectedSavedQuery?.id}
           mutate={mutate}
         />
