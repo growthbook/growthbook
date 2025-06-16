@@ -10,7 +10,7 @@ type SelectProps = {
   error?: string;
   errorLevel?: "error" | "warning";
   value: string | undefined;
-  setValue: (value: string | undefined) => void;
+  setValue: (value: string) => void;
   children: React.ReactNode;
   size?: "1" | "2" | "3";
   placeholder?: string;
