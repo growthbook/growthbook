@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
 import * as echarts from "echarts";
+import Decimal from "decimal.js";
 import {
   DataVizConfig,
   dataVizConfigValidator,
@@ -44,13 +45,18 @@ function aggregate(
       return values.length;
     case "countDistinct":
       return new Set(values).size;
-    case "average":
-      return numericValues.length > 0
-        ? numericValues.reduce((sum, value) => sum + value, 0) /
-            numericValues.length
-        : 0;
+    case "average": {
+      if (numericValues.length === 0) return 0;
+      const sum = numericValues.reduce(
+        (acc, value) => acc.plus(value),
+        new Decimal(0)
+      );
+      return sum.dividedBy(numericValues.length).toNumber();
+    }
     case "sum":
-      return numericValues.reduce((sum, value) => sum + value, 0);
+      return numericValues
+        .reduce((acc, value) => acc.plus(value), new Decimal(0))
+        .toNumber();
     case "none":
       return numericValues[0] || 0;
   }
