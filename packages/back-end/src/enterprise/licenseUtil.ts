@@ -73,6 +73,7 @@ type MinimalOrganization = {
   enterprise?: boolean;
   restrictAuthSubPrefix?: string;
   restrictLoginMethod?: string;
+  isVercelIntegration?: boolean;
   subscription?: {
     status: Stripe.Subscription.Status;
   };
@@ -116,6 +117,8 @@ export function getAccountPlan(org: MinimalOrganization): AccountPlan {
     if (org.licenseKey) {
       return getLicense(org.licenseKey)?.plan || "starter";
     }
+    // Vercel starter orgs have the `restrictLoginMethod` set, but they're not pro_sso
+    if (org.isVercelIntegration) return "starter";
     if (org.enterprise) return "enterprise";
     if (org.restrictAuthSubPrefix || org.restrictLoginMethod) return "pro_sso";
     return "starter";
