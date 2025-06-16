@@ -3668,7 +3668,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/id'
       tags:
-        - member
+        - members
       operationId: deleteMember
       x-codeSamples:
         - lang: cURL
