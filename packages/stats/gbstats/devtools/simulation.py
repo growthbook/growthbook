@@ -17,8 +17,6 @@ from gbstats.models.statistics import (
 from gbstats.models.tests import (
     BaseABTest,
     BaseConfig,
-    EffectMoments,
-    EffectMomentsConfig,
 )
 
 ##############################################
@@ -53,13 +51,8 @@ class SimulationStudy(ABC):
     def run_iteration(self, i):
         np.random.seed(self.seed + i)
         stat_a, stat_b, estimand = self.generate_data()
-        moment_result = EffectMoments(
-            stat_a,
-            stat_b,
-            EffectMomentsConfig(difference_type=self.configs[0].difference_type),
-        ).compute_result()
         for j, test in enumerate(self.tests):
-            t = test(moment_result, self.configs[j])
+            t = test([(stat_a, stat_b)], self.configs[j])
             test_result = t.compute_result()
             self.pt[i, j] = test_result.expected
             self.se[i, j] = test_result.uplift.stddev

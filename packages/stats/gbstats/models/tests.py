@@ -1,7 +1,10 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from pydantic.dataclasses import dataclass
 import numpy as np
+import operator
+from functools import reduce
+
 
 from gbstats.messages import (
     ZERO_NEGATIVE_VARIANCE_MESSAGE,
@@ -28,23 +31,20 @@ class EffectMomentsConfig:
 
 
 @dataclass
-class BaseConfig(EffectMomentsConfig):
+class BaseConfig:
+    difference_type: DifferenceType = "relative"
     traffic_percentage: float = 1
     phase_length_days: float = 1
     total_users: Optional[int] = None
     alpha: float = 0.05
+    post_stratify: bool = False
 
 
 # Results
 @dataclass
 class EffectMomentsResult:
-    stat_a: TestStatistic
-    stat_b: TestStatistic
-    degrees_of_freedom: float
-    unadjusted_baseline_mean: float
     point_estimate: float
     standard_error: float
-    scaled_impact_eligible: bool
     error_message: Optional[str]
 
 
@@ -166,13 +166,8 @@ class EffectMoments:
         adequately
         """
         return EffectMomentsResult(
-            stat_a=self.stat_a,
-            stat_b=self.stat_b,
-            degrees_of_freedom=0,
-            unadjusted_baseline_mean=self.stat_a.unadjusted_mean,
             point_estimate=0,
             standard_error=0,
-            scaled_impact_eligible=False,
             error_message=error_message,
         )
 
@@ -266,13 +261,8 @@ class EffectMoments:
                 self.stat_b.theta = theta
 
         return EffectMomentsResult(
-            stat_a=self.stat_a,
-            stat_b=self.stat_b,
-            degrees_of_freedom=self.dof,
-            unadjusted_baseline_mean=self.stat_a.unadjusted_mean,
             point_estimate=self.point_estimate,
             standard_error=np.sqrt(self.variance),
-            scaled_impact_eligible=self.scaled_impact_eligible,
             error_message=None,
         )
 
@@ -281,23 +271,43 @@ class EffectMoments:
 class BaseABTest(ABC):
     def __init__(
         self,
-        result: EffectMomentsResult,
+        stats: List[Tuple[TestStatistic, TestStatistic]],
         config: BaseConfig = BaseConfig(),
     ):
-        self.result = result
+        self.stats = stats
+        stats_a, stats_b = zip(*self.stats)
+        self.stat_a = reduce(operator.add, stats_a)
+        self.stat_b = reduce(operator.add, stats_b)
         self.config = config
-        self.n = result.stat_a.n + result.stat_b.n
-        self.point_estimate = result.point_estimate
-        self.standard_error = result.standard_error
-        self.unadjusted_baseline_mean = result.unadjusted_baseline_mean
-        self.scaled_impact_eligible = result.scaled_impact_eligible
-        self.moments_error_message = result.error_message
         self.alpha = config.alpha
         self.relative = config.difference_type == "relative"
         self.scaled = config.difference_type == "scaled"
         self.traffic_percentage = config.traffic_percentage
         self.total_users = config.total_users
         self.phase_length_days = config.phase_length_days
+        self.moments_result = self.compute_moments_result()
+
+    def compute_moments_result(self) -> EffectMomentsResult:
+        if self.config.post_stratify:
+            raise NotImplementedError("Post-stratification not implemented")
+        else:
+            return EffectMoments(
+                self.stat_a,
+                self.stat_b,
+                EffectMomentsConfig(
+                    difference_type="relative" if self.relative else "absolute"
+                ),
+            ).compute_result()
+
+    @property
+    def n(self) -> int:
+        return self.stat_a.n + self.stat_b.n
+
+    @property
+    def scaled_impact_eligible(self) -> bool:
+        return isinstance_union(
+            self.stat_a, ScaledImpactStatistic
+        ) and isinstance_union(self.stat_b, ScaledImpactStatistic)
 
     @abstractmethod
     def compute_result(self) -> TestResult:

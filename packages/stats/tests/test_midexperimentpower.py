@@ -6,7 +6,7 @@ import numpy as np
 from scipy.stats import norm
 import copy
 
-from gbstats.models.tests import BaseConfig, EffectMoments
+from gbstats.models.tests import BaseConfig
 
 from gbstats.frequentist.tests import (
     FrequentistConfig,
@@ -63,15 +63,14 @@ class TestMidExperimentPower(TestCase):
         self.stat_b = SampleMeanStatistic(
             n=500, sum=525.0000000000008, sum_squares=1551.2499999999998
         )
-        self.moment_result = EffectMoments(self.stat_a, self.stat_b).compute_result()
         self.res_freq = TwoSidedTTest(
-            self.moment_result, FrequentistConfig(alpha=self.alpha)
+            [(self.stat_a, self.stat_b)], FrequentistConfig(alpha=self.alpha)
         ).compute_result()
         self.res_seq = SequentialTwoSidedTTest(
-            self.moment_result, SequentialConfig(alpha=self.alpha)
+            [(self.stat_a, self.stat_b)], SequentialConfig(alpha=self.alpha)
         ).compute_result()
         self.res_bayes = EffectBayesianABTest(
-            self.moment_result,
+            [(self.stat_a, self.stat_b)],
             EffectBayesianConfig(prior_effect=self.prior_effect, alpha=self.alpha),
         ).compute_result()
         self.m_freq = MidExperimentPower(

@@ -1,6 +1,6 @@
 from abc import abstractmethod
 from dataclasses import field
-from typing import List, Literal, Optional
+from typing import List, Literal, Optional, Tuple
 
 import numpy as np
 from pydantic.dataclasses import dataclass
@@ -14,7 +14,7 @@ from gbstats.messages import (
 from gbstats.models.tests import (
     BaseConfig,
     BaseABTest,
-    EffectMomentsResult,
+    TestStatistic,
 )
 from gbstats.frequentist.tests import (
     TestResult,
@@ -59,10 +59,10 @@ class BayesianTestResult(TestResult):
 class BayesianABTest(BaseABTest):
     def __init__(
         self,
-        result: EffectMomentsResult,
+        stats: List[Tuple[TestStatistic, TestStatistic]],
         config: BayesianConfig = BayesianConfig(),
     ):
-        super().__init__(result)
+        super().__init__(stats, config)
         self.alpha = config.alpha
         self.inverse = config.inverse
         self.relative = config.difference_type == "relative"
@@ -90,9 +90,6 @@ class BayesianABTest(BaseABTest):
             error_message=error_message,
             risk_type="relative" if self.relative else "absolute",
         )
-
-    def has_empty_input(self):
-        return self.result.stat_a.n == 0 or self.result.stat_b.n == 0
 
     def chance_to_win(self, mean_diff: float, std_diff: float) -> float:
         if self.inverse:
@@ -133,39 +130,37 @@ class BayesianABTest(BaseABTest):
 class EffectBayesianABTest(BayesianABTest):
     def __init__(
         self,
-        result: EffectMomentsResult,
+        stats: List[Tuple[TestStatistic, TestStatistic]],
         config: EffectBayesianConfig = EffectBayesianConfig(),
     ):
-        super().__init__(result, config)
+        super().__init__(stats, config)
         self.config = config
 
     @property
     def data_mean(self):
-        return self.point_estimate
+        return self.moments_result.point_estimate
 
     @property
     def data_variance(self):
-        return self.standard_error**2
+        return self.moments_result.standard_error**2
 
     def compute_result(self):
-        if self.moments_error_message is not None:
-            return self._default_output(self.moments_error_message)
+        if self.moments_result.error_message is not None:
+            return self._default_output(self.moments_result.error_message)
 
         scaled_prior_effect = self.config.prior_effect
         if self.relative and self.config == "absolute":
             scaled_prior_effect = GaussianPrior(
-                self.config.prior_effect.mean / abs(self.unadjusted_baseline_mean),
-                self.config.prior_effect.variance
-                / pow(self.unadjusted_baseline_mean, 2),
+                self.config.prior_effect.mean / abs(self.stat_a.unadjusted_mean),
+                self.config.prior_effect.variance / pow(self.stat_a.unadjusted_mean, 2),
                 self.config.prior_effect.proper,
             )
         elif not self.relative and self.config.prior_type == "relative":
-            if self.config.prior_effect.proper and self.unadjusted_baseline_mean == 0:
+            if self.config.prior_effect.proper and self.stat_a.unadjusted_mean == 0:
                 return self._default_output(BASELINE_VARIATION_ZERO_MESSAGE)
             scaled_prior_effect = GaussianPrior(
-                self.config.prior_effect.mean * abs(self.unadjusted_baseline_mean),
-                self.config.prior_effect.variance
-                * pow(self.unadjusted_baseline_mean, 2),
+                self.config.prior_effect.mean * abs(self.stat_a.unadjusted_mean),
+                self.config.prior_effect.variance * pow(self.stat_a.unadjusted_mean, 2),
                 self.config.prior_effect.proper,
             )
         if self.data_variance:

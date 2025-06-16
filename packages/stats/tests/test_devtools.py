@@ -7,7 +7,6 @@ from scipy.stats import norm
 import copy
 
 from gbstats.frequentist.tests import FrequentistConfig, TwoSidedTTest
-from gbstats.models.tests import EffectMoments, EffectMomentsConfig
 from gbstats.models.settings import (
     MetricSettingsForStatsEngine,
     AnalysisSettingsForStatsEngine,
@@ -128,22 +127,12 @@ class TestCreateRows(TestCase):
 
         difference_type = "absolute"
 
-        moments_config = EffectMomentsConfig(difference_type=difference_type)
-        moment_result_1 = EffectMoments(
-            stat_a_1, stat_b_1, moments_config
-        ).compute_result()
-        moment_result_2 = EffectMoments(
-            stat_a_2, stat_b_2, moments_config
-        ).compute_result()
-        moment_result_3 = EffectMoments(
-            stat_a_3, stat_b_3, moments_config
-        ).compute_result()
-
         config = FrequentistConfig(difference_type=difference_type)
+        print(["tristan", stat_a_1, stat_b_1])
 
-        self.res_1 = TwoSidedTTest(moment_result_1, config).compute_result()
-        self.res_2 = TwoSidedTTest(moment_result_2, config).compute_result()
-        self.res_3 = TwoSidedTTest(moment_result_3, config).compute_result()
+        self.res_1 = TwoSidedTTest([(stat_a_1, stat_b_1)], config).compute_result()
+        self.res_2 = TwoSidedTTest([(stat_a_2, stat_b_2)], config).compute_result()
+        self.res_3 = TwoSidedTTest([(stat_a_3, stat_b_3)], config).compute_result()
 
         query_output = [query_output_1, query_output_3]
         metric_settings = [metric_settings_1, metric_settings_2]
