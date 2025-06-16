@@ -1,6 +1,8 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { DashboardBlockData } from "back-end/src/enterprise/models/DashboardBlockModel";
-import { DashboardBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
+import {
+  DashboardBlockData,
+  DashboardBlockInterface,
+} from "back-end/src/enterprise/validators/dashboard-block";
 import SnapshotProvider from "@/components/Experiment/SnapshotProvider";
 import MarkdownBlock from "./MarkdownBlock";
 import MetadataBlock from "./MetadataBlock";

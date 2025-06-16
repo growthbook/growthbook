@@ -41,7 +41,6 @@ import {
   updateVercelExperimentationItemFromExperiment,
   deleteVercelExperimentationItemFromExperiment,
 } from "back-end/src/services/vercel-native-integration.service";
-import { dashboardInstanceSchema } from "back-end/src/enterprise/models/DashboardInstanceModel";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";
@@ -304,7 +303,6 @@ const experimentSchema = new mongoose.Schema({
     },
   },
   dismissedWarnings: [String],
-  dashboards: [dashboardInstanceSchema],
 });
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;

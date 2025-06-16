@@ -593,14 +593,6 @@ app.post(
   experimentsController.postSnapshotNotebook
 );
 app.post(
-  "/experiments/:id/dashboards/",
-  experimentsController.postExperimentDashboard
-);
-app.put(
-  "/experiments/:id/dashboards/:dashboardId",
-  experimentsController.putExperimentDashboard
-);
-app.post(
   "/experiments/report/:snapshot",
   reportsController.postReportFromSnapshot
 );

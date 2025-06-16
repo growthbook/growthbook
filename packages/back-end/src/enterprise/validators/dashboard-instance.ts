@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { dashboardBlockInterface } from "./dashboard-block";
 
-const dashboardSettingsInterface = z
+export const dashboardSettingsInterface = z
   .object({
     baselineRow: z.number(),
     dateStart: z.date(),
@@ -13,11 +13,19 @@ const dashboardSettingsInterface = z
   })
   .strict();
 
+export const dashboardSettingsStringDates = dashboardSettingsInterface
+  .omit({ dateStart: true, dateEnd: true })
+  .extend({ dateStart: z.string(), dateEnd: z.string() })
+  .strict();
+
 export const dashboardInstanceInterface = z
   .object({
     id: z.string(),
     organization: z.string(),
+    experimentId: z.string().optional(),
+    owner: z.string(),
     title: z.string(),
+    description: z.string(),
     blocks: z.array(dashboardBlockInterface),
     dateCreated: z.date(),
     dateUpdated: z.date(),
@@ -27,6 +35,10 @@ export const dashboardInstanceInterface = z
 
 export type DashboardSettingsInterface = z.infer<
   typeof dashboardSettingsInterface
+>;
+
+export type DashboardSettingsStringDates = z.infer<
+  typeof dashboardSettingsStringDates
 >;
 
 export type DashboardInstanceInterface = z.infer<

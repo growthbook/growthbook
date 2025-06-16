@@ -1,16 +1,14 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { v4 as uuidv4 } from "uuid";
-import { DashboardBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
+import {
+  CreateDashboardBlockInterface,
+  DashboardBlockInterface,
+} from "back-end/src/enterprise/validators/dashboard-block";
 import {
   removeMongooseFields,
   ToInterface,
 } from "back-end/src/util/mongo.util";
-import { DistributiveOmit } from "back-end/src/util/types";
-
-export type DashboardBlockData<
-  T extends DashboardBlockInterface
-> = DistributiveOmit<T, "id" | "uid" | "organization">;
 
 export const dashboardBlockSchema = new mongoose.Schema(
   {
@@ -85,13 +83,13 @@ DashboardBlockModel.discriminator("metric", metricBlockSchema);
 DashboardBlockModel.discriminator("dimension", dimensionBlockSchema);
 DashboardBlockModel.discriminator("time-series", timeSeriesBlockSchema);
 
-const toInterface: ToInterface<DashboardBlockInterface> = (doc) => {
+export const toInterface: ToInterface<DashboardBlockInterface> = (doc) => {
   return removeMongooseFields<DashboardBlockInterface>(doc);
 };
 
 export async function createDashboardBlock(
   organization: string,
-  initialValue: DashboardBlockData<DashboardBlockInterface>
+  initialValue: CreateDashboardBlockInterface
 ) {
   const block = await DashboardBlockModel.create({
     ...initialValue,

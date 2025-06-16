@@ -6,8 +6,10 @@ import {
   DashboardInstanceInterface,
   DashboardSettingsInterface,
 } from "back-end/src/enterprise/validators/dashboard-instance";
-import { DashboardBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
-import { DashboardBlockData } from "back-end/src/enterprise/models/DashboardBlockModel";
+import {
+  DashboardBlockData,
+  DashboardBlockInterface,
+} from "back-end/src/enterprise/validators/dashboard-block";
 import Button from "@/components/Radix/Button";
 import {
   DropdownMenu,
@@ -76,6 +78,7 @@ interface Props {
   cancel: () => void;
   submit: (dashboard: {
     title: string;
+    description: string;
     blocks: DashboardBlockData<DashboardBlockInterface>[];
     settings: DashboardSettingsInterface;
   }) => Promise<void>;
@@ -98,7 +101,8 @@ export default function DashboardEditor({
   const [blocks, setBlocks] = useState<
     DashboardBlockData<DashboardBlockInterface>[]
   >(dashboard?.blocks || []);
-  const [title, setTitle] = useState<string>(dashboard?.title || "");
+  const [title, setTitle] = useState(dashboard?.title || "");
+  const [description, setDescription] = useState(dashboard?.description || "");
   const [settings, setSettings] = useState<DashboardSettingsInterface>(
     dashboard ? dashboard.settings : defaultSettings
   );
@@ -135,43 +139,53 @@ export default function DashboardEditor({
               )}
             </div>
             {isEditing ? (
-              <div className="d-flex justify-content-between align-items-center mb-3">
-                <h3 className="mb-0">
+              <div className="mb-3">
+                <div className="d-flex justify-content-between align-items-center mb-1">
+                  <h3 className="mb-0">
+                    <Field
+                      placeholder="Dashboard Title"
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                    />
+                  </h3>
+                  <div className="d-flex gap-2">
+                    <Button color="gray" onClick={cancel}>
+                      Cancel
+                    </Button>
+                    <Button
+                      color="violet"
+                      variant="outline"
+                      onClick={() => setLocalEditing(!localEditing)}
+                    >
+                      {localEditing ? "Preview" : "Edit"}
+                    </Button>
+                    <Button
+                      color="violet"
+                      onClick={() => {
+                        if (canSubmit)
+                          submit({
+                            title,
+                            description,
+                            blocks,
+                            settings,
+                          });
+                      }}
+                      disabled={!canSubmit}
+                    >
+                      Save
+                    </Button>
+                  </div>
+                </div>
+                <div>
                   <Field
-                    placeholder="Dashboard Title"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="Description"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    textarea
                   />
-                </h3>
-                <div className="d-flex gap-2">
-                  <Button color="gray" onClick={cancel}>
-                    Cancel
-                  </Button>
-                  <Button
-                    color="violet"
-                    variant="outline"
-                    onClick={() => setLocalEditing(!localEditing)}
-                  >
-                    {localEditing ? "Preview" : "Edit"}
-                  </Button>
-                  <Button
-                    color="violet"
-                    onClick={() => {
-                      if (canSubmit)
-                        submit({
-                          title,
-                          blocks,
-                          settings,
-                        });
-                    }}
-                    disabled={!canSubmit}
-                  >
-                    Save
-                  </Button>
                 </div>
               </div>
             ) : null}
-
             <div className="">
               <div>
                 <DashboardSettingsHeader

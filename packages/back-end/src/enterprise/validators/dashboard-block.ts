@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { DistributiveOmit } from "back-end/src/util/types";
 
 const baseBlockInterface = z
   .object({
@@ -87,3 +88,33 @@ export const dashboardBlockInterface = z.discriminatedUnion("type", [
 ]);
 
 export type DashboardBlockInterface = z.infer<typeof dashboardBlockInterface>;
+
+// Utility types for the discriminated union without the backend-generated fields and a generic
+// type for individual block types
+const createOmits = {
+  id: true,
+  uid: true,
+  organization: true,
+} as const;
+export const createDashboardBlockInterface = z.discriminatedUnion("type", [
+  markdownBlockInterface.omit(createOmits),
+  metadataBlockInterface.omit(createOmits),
+  variationImageBlockInterface.omit(createOmits),
+  metricBlockInterface.omit(createOmits),
+  dimensionBlockInterface.omit(createOmits),
+  timeSeriesBlockInterface.omit(createOmits),
+]);
+
+export type CreateDashboardBlockInterface = z.infer<
+  typeof createDashboardBlockInterface
+>;
+export type DashboardBlockData<
+  T extends DashboardBlockInterface
+> = DistributiveOmit<T, "id" | "uid" | "organization">;
+
+export function isPersistedDashboardBlock(
+  data: CreateDashboardBlockInterface | DashboardBlockInterface
+): data is DashboardBlockInterface {
+  if ((data as DashboardBlockInterface).id) return true;
+  return false;
+}
