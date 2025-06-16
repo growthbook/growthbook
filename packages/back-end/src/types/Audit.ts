@@ -20,6 +20,8 @@ export const entityEvents = {
     "phase.delete",
     "screenshot.delete",
     "screenshot.create",
+    "dashboard.create",
+    "dashboard.update",
   ],
   project: ["create", "update", "delete"],
   environment: ["create", "update", "delete"],
@@ -54,6 +56,7 @@ export const entityEvents = {
   safeRollout: ["create", "update", "delete"],
   decisionCriteria: ["create", "update", "delete"],
   execReport: ["create", "update", "delete"],
+  dashboardInstance: ["create", "update", "delete"],
 } as const;
 
 export type EntityEvents = typeof entityEvents;
