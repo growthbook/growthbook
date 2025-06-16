@@ -173,6 +173,8 @@ export default function SqlExplorerDataVisualization({
       return [];
     }
 
+    const yType = yConfig?.type || "number";
+
     const parsedRows = rows.map((row) => {
       const newRow: {
         x?: number | Date | string;
@@ -200,10 +202,12 @@ export default function SqlExplorerDataVisualization({
       // Cast yField to number
       if (yField && yField in row) {
         const yValue = row[yField];
-        if (aggregation === "countDistinct") {
+        if (yType === "string") {
           newRow.y = yValue + "";
+        } else if (yType === "date") {
+          newRow.y = getValidDate(yValue).toISOString();
         } else {
-          newRow.y = typeof yValue === "string" ? 1 : Number(yValue);
+          newRow.y = yValue * 1;
         }
       }
 
@@ -328,6 +332,7 @@ export default function SqlExplorerDataVisualization({
     xConfig?.sort,
     aggregation,
     yField,
+    yConfig?.type,
     dimensionField,
     dimensionValues,
     rows,
