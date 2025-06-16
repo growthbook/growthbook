@@ -80,6 +80,7 @@ export const savedQueryValidator = z
     results: queryExecutionResultValidator,
   })
   .strict();
+
 export type SavedQuery = z.infer<typeof savedQueryValidator>;
 export type SavedQueryCreateProps = CreateProps<SavedQuery>;
 export type SavedQueryUpdateProps = UpdateProps<SavedQuery>;

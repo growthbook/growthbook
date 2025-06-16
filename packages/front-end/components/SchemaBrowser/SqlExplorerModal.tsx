@@ -38,8 +38,8 @@ import {
 } from "@/components/ResizablePanels";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { VisualizationAddIcon } from "@/components/Icons";
-import Modal from "../Modal";
 import SqlExplorerDataVisualization from "../DataViz/SqlExplorerDataVisualization";
+import Modal from "../Modal";
 import SelectField from "../Forms/SelectField";
 import Tooltip from "../Tooltip/Tooltip";
 import SchemaBrowser from "./SchemaBrowser";
