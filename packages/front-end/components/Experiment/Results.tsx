@@ -1,5 +1,5 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import React, { FC, useEffect } from "react";
+import React, { FC, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { DifferenceType, StatsEngine } from "back-end/types/stats";
 import { getValidDate, ago, relativeDate } from "shared/dates";
@@ -24,6 +24,8 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { trackSnapshot } from "@/services/track";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/components/Radix/Callout";
+import ControlledTabs from "../Tabs/ControlledTabs";
+import Tab from "../Tabs/Tab";
 import { ExperimentTab } from "./TabbedPage";
 
 const BreakDownResults = dynamic(
@@ -110,9 +112,29 @@ const Results: FC<{
   }, [experiment.phases.length, setPhase]);
 
   const permissionsUtil = usePermissionsUtil();
-  const { getDatasourceById } = useDefinitions();
+  const { getDatasourceById, metricGroups } = useDefinitions();
 
-  const { status } = getQueryStatus(latest?.queries || [], latest?.error);
+  const [activeMetricGroup, setActiveMetricGroup] = useState<string>("all");
+
+  const metricGroupTabs = [
+    { id: "all", display: "All Metrics" },
+    ...(metricGroups.map((g) => ({ id: g.id, display: g.name })) || []),
+  ];
+
+  const filterMetricsByGroup = (metrics: string[]) => {
+    if (activeMetricGroup === "all") return metrics;
+    const group = metricGroups.find((g) => g.id === activeMetricGroup);
+    return group
+      ? metrics.filter(
+          (m) => group.metrics.includes(m) || activeMetricGroup === m // or condition allows selecting a metric group as a single metric as well
+        )
+      : [];
+  };
+
+  // Filtered metrics for each type
+  const goalMetrics = filterMetricsByGroup(experiment.goalMetrics);
+  const secondaryMetrics = filterMetricsByGroup(experiment.secondaryMetrics);
+  const guardrailMetrics = filterMetricsByGroup(experiment.guardrailMetrics);
 
   const hasData =
     (analysis?.results?.[0]?.variations?.length ?? 0) > 0 &&
@@ -182,6 +204,11 @@ const Results: FC<{
     experiment.goalMetrics.length > 0 ||
     experiment.secondaryMetrics.length > 0 ||
     experiment.guardrailMetrics.length > 0;
+
+  const hasMetricsInGroup =
+    goalMetrics.length > 0 ||
+    secondaryMetrics.length > 0 ||
+    guardrailMetrics.length > 0;
 
   const isBandit = experiment.type === "multi-armed-bandit";
 
@@ -313,12 +340,42 @@ const Results: FC<{
           project={experiment.project}
         />
       )}
-
+      {hasMetrics && (
+        <div className="mb-3 mx-3">
+          <div className="uppercase-title text-muted">Select Metric Group</div>
+          <ControlledTabs
+            defaultTab="all"
+            active={activeMetricGroup}
+            setActive={(tab) => setActiveMetricGroup(tab || "all")}
+            newStyle={true}
+            className="metric-group-tabs"
+            tabContentsClassName="p-0"
+            navClassName="mb-2"
+          >
+            {metricGroupTabs.map((tab) => (
+              <Tab
+                key={tab.id}
+                id={tab.id}
+                display={tab.display}
+                padding={false}
+                visible={true}
+              >
+                <></>
+              </Tab>
+            ))}
+          </ControlledTabs>
+        </div>
+      )}
+      {hasMetrics && !hasMetricsInGroup && (
+        <div className="alert alert-info m-3">
+          No results for this metric group.
+        </div>
+      )}
       {showDateResults ? (
         <DateResults
-          goalMetrics={experiment.goalMetrics}
-          secondaryMetrics={experiment.secondaryMetrics}
-          guardrailMetrics={experiment.guardrailMetrics}
+          goalMetrics={goalMetrics}
+          secondaryMetrics={secondaryMetrics}
+          guardrailMetrics={guardrailMetrics}
           results={analysis?.results ?? []}
           seriestype={snapshot.dimension ?? ""}
           variations={variations}
@@ -333,9 +390,9 @@ const Results: FC<{
           variations={variations}
           variationFilter={variationFilter}
           baselineRow={baselineRow}
-          goalMetrics={experiment.goalMetrics}
-          secondaryMetrics={experiment.secondaryMetrics}
-          guardrailMetrics={experiment.guardrailMetrics}
+          goalMetrics={goalMetrics}
+          secondaryMetrics={secondaryMetrics}
+          guardrailMetrics={guardrailMetrics}
           metricOverrides={experiment.metricOverrides ?? []}
           dimensionId={snapshot.dimension ?? ""}
           isLatestPhase={phase === experiment.phases.length - 1}
@@ -378,9 +435,9 @@ const Results: FC<{
             endDate={phaseObj?.dateEnded ?? ""}
             isLatestPhase={phase === experiment.phases.length - 1}
             status={experiment.status}
-            goalMetrics={experiment.goalMetrics}
-            secondaryMetrics={experiment.secondaryMetrics}
-            guardrailMetrics={experiment.guardrailMetrics}
+            goalMetrics={goalMetrics}
+            secondaryMetrics={secondaryMetrics}
+            guardrailMetrics={guardrailMetrics}
             metricOverrides={experiment.metricOverrides ?? []}
             id={experiment.id}
             statsEngine={analysis.settings.statsEngine}
