@@ -376,7 +376,7 @@ const backgroundShade = (color: string) => {
 const Layout = (): React.ReactElement => {
   const [open, setOpen] = useState(false);
   const settings = useOrgSettings();
-  const { accountPlan, license, subscription, organization } = useUser();
+  const { accountPlan, license, subscription } = useUser();
   const growthbook = useGrowthBook<AppFeatures>();
 
   // holdout aa-test, dogfooding
@@ -386,8 +386,7 @@ const Layout = (): React.ReactElement => {
 
   const [upgradeModal, setUpgradeModal] = useState(false);
   const showUpgradeButton =
-    (["oss", "starter"].includes(accountPlan || "") &&
-      !organization.isVercelIntegration) ||
+    ["oss", "starter"].includes(accountPlan || "") ||
     (license?.isTrial && !subscription?.hasPaymentMethod) ||
     (["pro", "pro_sso"].includes(accountPlan || "") &&
       subscription?.status === "canceled");
