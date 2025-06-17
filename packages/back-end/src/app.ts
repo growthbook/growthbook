@@ -106,6 +106,7 @@ import { customFieldsRouter } from "./routers/custom-fields/custom-fields.router
 import { segmentRouter } from "./routers/segment/segment.router";
 import { dimensionRouter } from "./routers/dimension/dimension.router";
 import { sdkConnectionRouter } from "./routers/sdk-connection/sdk-connection.router";
+import { savedQueriesRouter } from "./routers/saved-queries/saved-queries.router";
 import { projectRouter } from "./routers/project/project.router";
 import { vercelRouter } from "./routers/vercel-native-integration/vercel-native-integration.router";
 import { factTableRouter } from "./routers/fact-table/fact-table.router";
@@ -445,6 +446,7 @@ app.post(
 
 app.get("/queries/:ids", datasourcesController.getQueries);
 app.post("/query/test", datasourcesController.testLimitedQuery);
+app.post("/query/run", datasourcesController.runQuery);
 app.post("/dimension-slices", datasourcesController.postDimensionSlices);
 app.get("/dimension-slices/:id", datasourcesController.getDimensionSlices);
 app.post(
@@ -668,6 +670,8 @@ app.use("/segments", segmentRouter);
 app.use("/dimensions", dimensionRouter);
 
 app.use("/sdk-connections", sdkConnectionRouter);
+
+app.use("/saved-queries", savedQueriesRouter);
 
 app.use("/projects", projectRouter);
 
@@ -898,7 +902,7 @@ const errorHandler: ErrorRequestHandler = (
   req,
   res: Response & { sentry?: string },
   // eslint-disable-next-line
-  next,
+  next
 ) => {
   const status = err.status || 400;
 

@@ -1449,7 +1449,7 @@ export async function generateExperimentEmbeddings(
       const exp = batch[j];
       // save the embeddings back to the experiment:
       try {
-        await context.models.experimentVectors.addOrUpdate(exp.id, {
+        await context.models.vectors.addOrUpdateExperimentVector(exp.id, {
           embeddings: embeddings.data[j].embedding,
         });
       } catch (error) {
@@ -1478,7 +1478,7 @@ export async function generateExperimentKeywords(
   });
   const keywordsArr = keywords.split(",").map((k) => k.trim());
   // save the keywords back to the experiment:
-  await context.models.experimentVectors.updateById(exp.id, {
+  await context.models.vectors.addOrUpdateExperimentVector(exp.id, {
     keywords: keywordsArr,
   });
 }

@@ -58,6 +58,7 @@ export type CommercialFeature =
   | "unlimited-cdn-usage"
   | "safe-rollout"
   | "require-project-for-features-setting"
+  | "saveSqlExplorerQueries"
   | "metric-effects"
   | "metric-correlations";
 
@@ -200,6 +201,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "historical-power",
     "decision-framework",
     "safe-rollout",
+    "saveSqlExplorerQueries",
   ]),
   pro_sso: new Set<CommercialFeature>([
     "sso",
@@ -228,6 +230,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "historical-power",
     "decision-framework",
     "safe-rollout",
+    "saveSqlExplorerQueries",
   ]),
   enterprise: new Set<CommercialFeature>([
     "ai-suggestions",
@@ -277,6 +280,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "decision-framework",
     "safe-rollout",
     "require-project-for-features-setting",
+    "saveSqlExplorerQueries",
     "metric-effects",
     "metric-correlations",
   ]),

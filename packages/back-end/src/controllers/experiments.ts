@@ -436,13 +436,13 @@ export async function postSimilarExperiments(
   }
   // get Experiment embeddings/vectors.
   const experimentIds = filteredPreviousExps.map((e) => e.id);
-  let existingVectors = await context.models.experimentVectors.getByExperimentIds(
+  let existingVectors = await context.models.vectors.getByExperimentIds(
     experimentIds
   );
   // check to see if we need to generate any missing vectors/embeddings:
   if (existingVectors.length !== experimentIds.length) {
     // get the ids of the existing vectors:
-    const existingVectorIds = existingVectors.map((v) => v.experimentId);
+    const existingVectorIds = existingVectors.map((v) => v.joinId);
     // check to see if there are any experiments that do not have an entry in the ExperimentVectorsModel, or don't have embeddings:
     const missingVectors = filteredPreviousExps.filter(
       (exp) => !existingVectorIds.includes(exp.id)
@@ -451,7 +451,7 @@ export async function postSimilarExperiments(
     if (missingVectors.length > 0) {
       await generateExperimentEmbeddings(context, missingVectors);
       // now fetch the updated vectors:
-      existingVectors = await context.models.experimentVectors.getByExperimentIds(
+      existingVectors = await context.models.vectors.getByExperimentIds(
         experimentIds
       );
     }
@@ -461,9 +461,7 @@ export async function postSimilarExperiments(
   const experimentsToSearch = [];
   for (const exp of filteredPreviousExps) {
     // get the existing vector for the experiment:
-    const existingVector = existingVectors.find(
-      (v) => v.experimentId === exp.id
-    );
+    const existingVector = existingVectors.find((v) => v.joinId === exp.id);
     if (!existingVector) continue;
     experimentsToSearch.push({
       id: exp.id,

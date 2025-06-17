@@ -40,14 +40,19 @@ import { SafeRolloutSnapshotModel } from "back-end/src/models/SafeRolloutSnapsho
 import { DecisionCriteriaModel } from "back-end/src/enterprise/models/DecisionCriteriaModel";
 import { MetricTimeSeriesModel } from "back-end/src/models/MetricTimeSeriesModel";
 import { WebhookSecretDataModel } from "back-end/src/models/WebhookSecretModel";
+import { SavedQueryDataModel } from "back-end/src/models/SavedQueryDataModel";
+import { FeatureRevisionLogModel } from "back-end/src/models/FeatureRevisionLogModel";
+import { FeatureInterface } from "back-end/types/feature";
+import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { AiPromptModel } from "back-end/src/models/AIPromptModel";
-import { ExperimentVectorsModel } from "back-end/src/enterprise/models/ExperimentVectorsModel";
+import { VectorsModel } from "back-end/src/enterprise/models/VectorsModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
   experiment: ExperimentInterface;
   datasource: DataSourceInterface;
   metric: ExperimentMetricInterface;
+  feature: FeatureInterface;
 };
 
 export class ReqContextClass {
@@ -56,14 +61,16 @@ export class ReqContextClass {
     aiPrompts: AiPromptModel;
     customFields: CustomFieldModel;
     factMetrics: FactMetricModel;
+    featureRevisionLogs: FeatureRevisionLogModel;
     projects: ProjectModel;
     urlRedirects: UrlRedirectModel;
     metricAnalysis: MetricAnalysisModel;
     populationData: PopulationDataModel;
+    savedQueries: SavedQueryDataModel;
     metricGroups: MetricGroupModel;
     segments: SegmentModel;
     experimentTemplates: ExperimentTemplatesModel;
-    experimentVectors: ExperimentVectorsModel;
+    vectors: VectorsModel;
     safeRollout: SafeRolloutModel;
     safeRolloutSnapshots: SafeRolloutSnapshotModel;
     decisionCriteria: DecisionCriteriaModel;
@@ -75,14 +82,16 @@ export class ReqContextClass {
       aiPrompts: new AiPromptModel(this),
       customFields: new CustomFieldModel(this),
       factMetrics: new FactMetricModel(this),
+      featureRevisionLogs: new FeatureRevisionLogModel(this),
       projects: new ProjectModel(this),
       urlRedirects: new UrlRedirectModel(this),
       metricAnalysis: new MetricAnalysisModel(this),
       populationData: new PopulationDataModel(this),
+      savedQueries: new SavedQueryDataModel(this),
       metricGroups: new MetricGroupModel(this),
       segments: new SegmentModel(this),
       experimentTemplates: new ExperimentTemplatesModel(this),
-      experimentVectors: new ExperimentVectorsModel(this),
+      vectors: new VectorsModel(this),
       safeRollout: new SafeRolloutModel(this),
       safeRolloutSnapshots: new SafeRolloutSnapshotModel(this),
       decisionCriteria: new DecisionCriteriaModel(this),
@@ -236,11 +245,13 @@ export class ReqContextClass {
     experiment: new Map(),
     datasource: new Map(),
     metric: new Map(),
+    feature: new Map(),
   };
   public async populateForeignRefs({
     experiment,
     datasource,
     metric,
+    feature,
   }: ForeignRefsCacheKeys) {
     await this.addMissingForeignRefs("experiment", experiment, (ids) =>
       getExperimentsByIds(this, ids)
@@ -251,6 +262,9 @@ export class ReqContextClass {
     );
     await this.addMissingForeignRefs("metric", metric, (ids) =>
       getExperimentMetricsByIds(this, ids)
+    );
+    await this.addMissingForeignRefs("feature", feature, (ids) =>
+      getFeaturesByIds(this, ids)
     );
   }
   private async addMissingForeignRefs<K extends keyof ForeignRefsCache>(

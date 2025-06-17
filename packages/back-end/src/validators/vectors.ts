@@ -1,10 +1,11 @@
 import { z } from "zod";
 
-export const experimentVectors = z
+export const vectors = z
   .object({
     id: z.string(),
-    experimentId: z.string(),
+    joinId: z.string(),
     organization: z.string(),
+    type: z.enum(["experiment", "metric"]),
     embeddings: z.array(z.number()),
     keywords: z.array(z.string()).optional(),
     dateCreated: z.date(),
@@ -12,4 +13,4 @@ export const experimentVectors = z
   })
   .strict();
 
-export type ExperimentVectors = z.infer<typeof experimentVectors>;
+export type Vectors = z.infer<typeof vectors>;
