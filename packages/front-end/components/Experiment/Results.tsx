@@ -364,11 +364,11 @@ const Results: FC<{
               </Tab>
             ))}
           </ControlledTabs>
-        </div>
-      )}
-      {hasMetrics && !hasMetricsInGroup && (
-        <div className="alert alert-info m-3">
-          No results for this metric group.
+          {!hasMetricsInGroup && (
+            <div className="alert alert-info m-3">
+              No results for the selected metric group.
+            </div>
+          )}
         </div>
       )}
       {showDateResults ? (
