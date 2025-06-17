@@ -163,3 +163,40 @@ export const simpleCompletion = async ({
 
   return response.choices[0].message?.content || "";
 };
+
+export const generateEmbeddings = async ({
+  context,
+  input,
+}: {
+  context: ReqContext | ApiReqContext;
+  input: string[];
+}) => {
+  const openai = getOpenAI(context);
+
+  if (openai == null) {
+    throw new Error("OpenAI not enabled or key not set");
+  }
+
+  if (!input) {
+    throw new Error("No input provided for embeddings generation.");
+  }
+
+  try {
+    return await openai.embeddings.create({
+      model: "text-embedding-3-small",
+      input,
+    });
+  } catch (error) {
+    throw new Error("Failed to generate embeddings: " + error);
+  }
+};
+
+export function cosineSimilarity(vec1: number[], vec2: number[]): number {
+  if (vec1.length !== vec2.length) {
+    throw new Error("Vectors must be of the same length");
+  }
+  const dot = vec1.reduce((sum, val, i) => sum + val * vec2[i], 0);
+  const normA = Math.sqrt(vec1.reduce((sum, val) => sum + val * val, 0));
+  const normB = Math.sqrt(vec2.reduce((sum, val) => sum + val * val, 0));
+  return dot / (normA * normB);
+}

@@ -41,6 +41,7 @@ import { DecisionCriteriaModel } from "back-end/src/enterprise/models/DecisionCr
 import { MetricTimeSeriesModel } from "back-end/src/models/MetricTimeSeriesModel";
 import { WebhookSecretDataModel } from "back-end/src/models/WebhookSecretModel";
 import { AiPromptModel } from "back-end/src/models/AIPromptModel";
+import { ExperimentVectorsModel } from "back-end/src/enterprise/models/ExperimentVectorsModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
@@ -62,6 +63,7 @@ export class ReqContextClass {
     metricGroups: MetricGroupModel;
     segments: SegmentModel;
     experimentTemplates: ExperimentTemplatesModel;
+    experimentVectors: ExperimentVectorsModel;
     safeRollout: SafeRolloutModel;
     safeRolloutSnapshots: SafeRolloutSnapshotModel;
     decisionCriteria: DecisionCriteriaModel;
@@ -80,6 +82,7 @@ export class ReqContextClass {
       metricGroups: new MetricGroupModel(this),
       segments: new SegmentModel(this),
       experimentTemplates: new ExperimentTemplatesModel(this),
+      experimentVectors: new ExperimentVectorsModel(this),
       safeRollout: new SafeRolloutModel(this),
       safeRolloutSnapshots: new SafeRolloutSnapshotModel(this),
       decisionCriteria: new DecisionCriteriaModel(this),

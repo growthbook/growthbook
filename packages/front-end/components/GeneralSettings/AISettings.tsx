@@ -1,13 +1,15 @@
-import React, { useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { useFormContext, UseFormReturn } from "react-hook-form";
 import { AIPromptDefaults, AIPromptInterface } from "shared/ai";
+import { useAuth } from "@/services/auth";
 import Frame from "@/components/Radix/Frame";
 import Field from "@/components/Forms/Field";
 import Checkbox from "@/components/Radix/Checkbox";
 import SelectField from "@/components/Forms/SelectField";
 import { isCloud } from "@/services/env";
 import useApi from "@/hooks/useApi";
+import Button from "@/components/Radix/Button";
 
 // create a temp function which is passed a project and returns an array of prompts (promptId, promptName, promptDescription, promptValue)
 function getPrompts(data: {
@@ -75,6 +77,23 @@ export default function AISettings({
   promptForm: UseFormReturn;
 }) {
   const form = useFormContext();
+  const { apiCall } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [embeddingMsg, setEmbeddingMsg] = useState("");
+
+  const handleRegenerate = async () => {
+    setLoading(true);
+    try {
+      await apiCall("/experiments/regenerate-embeddings", {
+        method: "POST",
+      });
+      setEmbeddingMsg("Embeddings have been regenerated successfully.");
+    } catch (error) {
+      console.error("Error regenerating embeddings:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const { data, isLoading } = useApi<{
     prompts: AIPromptInterface[];
@@ -168,74 +187,113 @@ export default function AISettings({
 
       {/* Prompts Section */}
       {form.watch("aiEnabled") && (
-        <Frame>
-          <Flex gap="4">
-            <Box width="220px" flexShrink="0">
-              <Heading size="4" as="h4">
-                Prompts
-              </Heading>
-            </Box>
+        <>
+          <Frame>
+            <Flex gap="4">
+              <Box width="220px" flexShrink="0">
+                <Heading size="4" as="h4">
+                  Prompts
+                </Heading>
+              </Box>
 
-            <Flex align="start" direction="column" flexGrow="1" pt="6">
-              <>
-                <Box mb="6" width="100%">
-                  <>
-                    {prompts.map((prompt, index) => (
-                      <Box key={index} mb="6" width="100%">
-                        <Box>
-                          <Text
-                            size="3"
-                            className="font-weight-semibold"
-                            mb="1"
-                          >
-                            {prompt.promptName}
-                          </Text>
-                        </Box>
-                        <Box mb="2">
-                          <Text size="2" mb="2">
-                            {prompt.promptDescription}
-                          </Text>
-                        </Box>
-                        <Field
-                          textarea={true}
-                          id={`prompt-${prompt.promptType}`}
-                          placeholder=""
-                          helpText={prompt.promptHelpText}
-                          {...promptForm.register(prompt.promptType)}
-                        />
-                        {prompt.promptDefaultValue !==
-                          promptForm.watch(prompt.promptType) && (
-                          <Box style={{ position: "relative" }}>
-                            <Box
-                              style={{
-                                position: "absolute",
-                                right: "0",
-                                top: "-14px",
-                              }}
+              <Flex align="start" direction="column" flexGrow="1" pt="6">
+                <>
+                  <Box mb="6" width="100%">
+                    <>
+                      {prompts.map((prompt, index) => (
+                        <Box key={index} mb="6" width="100%">
+                          <Box>
+                            <Text
+                              size="3"
+                              className="font-weight-semibold"
+                              mb="1"
                             >
-                              <a
-                                href="#"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  promptForm.setValue(
-                                    prompt.promptType,
-                                    prompt.promptDefaultValue
-                                  );
+                              {prompt.promptName}
+                            </Text>
+                          </Box>
+                          <Box mb="2">
+                            <Text size="2" mb="2">
+                              {prompt.promptDescription}
+                            </Text>
+                          </Box>
+                          <Field
+                            textarea={true}
+                            id={`prompt-${prompt.promptType}`}
+                            placeholder=""
+                            helpText={prompt.promptHelpText}
+                            {...promptForm.register(prompt.promptType)}
+                          />
+                          {prompt.promptDefaultValue !==
+                            promptForm.watch(prompt.promptType) && (
+                            <Box style={{ position: "relative" }}>
+                              <Box
+                                style={{
+                                  position: "absolute",
+                                  right: "0",
+                                  top: prompt.promptHelpText ? "-14px" : "-1px",
                                 }}
                               >
-                                reset
-                              </a>
+                                <a
+                                  href="#"
+                                  title="Reset to the default AI prompt"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    promptForm.setValue(
+                                      prompt.promptType,
+                                      prompt.promptDefaultValue
+                                    );
+                                  }}
+                                >
+                                  reset
+                                </a>
+                              </Box>
                             </Box>
-                          </Box>
-                        )}
-                      </Box>
-                    ))}
-                  </>
-                </Box>
-              </>
+                          )}
+                        </Box>
+                      ))}
+                    </>
+                  </Box>
+                </>
+              </Flex>
             </Flex>
-          </Flex>
-        </Frame>
+          </Frame>
+          <Frame>
+            <Flex gap="4">
+              <Box width="220px" flexShrink="0">
+                <Heading size="4" as="h4">
+                  Embeddings
+                </Heading>
+              </Box>
+
+              <Flex align="start" direction="column" flexGrow="1" pt="6">
+                <>
+                  <Box mb="6" width="100%">
+                    <>
+                      <p>
+                        GrowthBook can use AI to analyze your experiments for
+                        semantic meaning. This is used to help you find related
+                        experiments, and to generate summaries of your
+                        experiments.
+                      </p>
+                      <p>
+                        These similarity scores are automatically updated, but
+                        if the results seem off, you can regenerate them here.
+                      </p>
+                      <Button
+                        onClick={handleRegenerate}
+                        disabled={loading}
+                        variant="solid"
+                      >
+                        {loading ? "Regenerating..." : "Regenerate all"}
+                      </Button>
+                    </>
+                    <Box mt="3">{embeddingMsg}</Box>
+                  </Box>
+                </>
+              </Flex>
+            </Flex>
+          </Frame>
+        </>
       )}
     </>
   );

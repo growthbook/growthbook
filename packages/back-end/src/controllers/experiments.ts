@@ -48,6 +48,7 @@ import {
   getPastExperimentsByDatasource,
   hasArchivedExperiments,
   updateExperiment,
+  generateExperimentEmbeddings,
 } from "back-end/src/models/ExperimentModel";
 import {
   createVisualChangeset,
@@ -67,6 +68,7 @@ import {
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import {
+  getAISettingsForOrg,
   getContextForAgendaJobByOrgId,
   getContextFromReq,
 } from "back-end/src/services/organizations";
@@ -125,6 +127,8 @@ import { logger } from "back-end/src/util/logger";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { generateExperimentReportSSRData } from "back-end/src/services/reports";
 import {
+  cosineSimilarity,
+  generateEmbeddings,
   hasExceededUsageQuota,
   simpleCompletion,
 } from "back-end/src/services/openai";
@@ -370,6 +374,195 @@ export async function postAIExperimentAnalysis(
     data: {
       description: aiResults,
     },
+  });
+}
+
+export async function postSimilarExperiments(
+  req: AuthRequest<{
+    hypothesis: string;
+    name: string;
+    description?: string;
+    project?: string;
+    full?: boolean;
+  }>,
+  res: Response<{
+    status: number;
+    message?: string;
+    similar?: {
+      experiment: ExperimentInterface;
+      similarity: number;
+    }[];
+  }>
+) {
+  const context = getContextFromReq(req);
+  const { hypothesis, name, description, project, full } = req.body;
+  const aiSettings = getAISettingsForOrg(context);
+
+  if (!req.organization) {
+    return res.status(404).json({
+      status: 404,
+      message: "Organization not found",
+    });
+  }
+  if (!aiSettings.aiEnabled) {
+    return res.status(404).json({
+      status: 404,
+      message: "AI configuration not set",
+    });
+  }
+  if (await hasExceededUsageQuota(req.organization)) {
+    return res.status(404).json({
+      status: 403,
+      message: "Over AI usage limits",
+    });
+  }
+
+  const previousExperiments: ExperimentInterface[] = await getAllExperiments(
+    context,
+    {
+      project: project ? project : "",
+      includeArchived: false,
+    }
+  );
+  // filter to only experiments that have hypothesises
+  const filteredPreviousExps = previousExperiments.filter((e) => {
+    return !!e?.hypothesis?.length; // && e.status !== "draft";
+  });
+  if (filteredPreviousExps.length === 0) {
+    return res.status(200).json({
+      status: 200,
+      message: "No previous experiments found with hypothesis",
+    });
+  }
+  // get Experiment embeddings/vectors.
+  const experimentIds = filteredPreviousExps.map((e) => e.id);
+  let existingVectors = await context.models.experimentVectors.getByExperimentIds(
+    experimentIds
+  );
+  // check to see if we need to generate any missing vectors/embeddings:
+  if (existingVectors.length !== experimentIds.length) {
+    // get the ids of the existing vectors:
+    const existingVectorIds = existingVectors.map((v) => v.experimentId);
+    // check to see if there are any experiments that do not have an entry in the ExperimentVectorsModel, or don't have embeddings:
+    const missingVectors = filteredPreviousExps.filter(
+      (exp) => !existingVectorIds.includes(exp.id)
+    );
+    // if there are any missing vectors, we need to generate them:
+    if (missingVectors.length > 0) {
+      await generateExperimentEmbeddings(context, missingVectors);
+      // now fetch the updated vectors:
+      existingVectors = await context.models.experimentVectors.getByExperimentIds(
+        experimentIds
+      );
+    }
+  }
+
+  // get the existing vectors that have embeddings with the text to search by:
+  const experimentsToSearch = [];
+  for (const exp of filteredPreviousExps) {
+    // get the existing vector for the experiment:
+    const existingVector = existingVectors.find(
+      (v) => v.experimentId === exp.id
+    );
+    if (!existingVector) continue;
+    experimentsToSearch.push({
+      id: exp.id,
+      embeddings: existingVector.embeddings || [],
+    });
+  }
+  // Now we have all the existing experiments with embeddings, we can search for similar experiments
+  // Create the text to search by for the new experiment
+  const newExperimentText = `Name: ${name}\nHypothesis: ${hypothesis}\nDescription: ${
+    description || ""
+  }`;
+
+  // Generate embeddings for the new experiment
+  const newExperimentEmbeddingResponse = await generateEmbeddings({
+    context,
+    input: [newExperimentText],
+  });
+  const newEmbedding = newExperimentEmbeddingResponse.data[0].embedding;
+  // Call to calculate cosine similarity between the new experiment and existing experiments: cosineSimilarity
+  const similarities = experimentsToSearch
+    .map((exp) => {
+      if (!exp.embeddings) return null;
+      const similarity = cosineSimilarity(newEmbedding, exp.embeddings);
+      return {
+        id: exp.id,
+        similarity,
+      };
+    })
+    .filter(isDefined);
+
+  // Sort and filter
+  const SIMILARITY_THRESHOLD = full ? 0 : 0.55;
+  const similarExperiments = similarities
+    .filter((s) => s && s.similarity && s.similarity >= SIMILARITY_THRESHOLD)
+    .sort((a, b) => (b?.similarity ?? 0) - (a?.similarity ?? 0))
+    .slice(0, full ? 100 : 5); // Get top 5 similar experiments
+
+  // loop through similarExperiments and get the full experiment object
+  const similarExperimentIds = similarExperiments.map((s) => s.id);
+  const similarExperimentObjects = await getExperimentsByIds(
+    context,
+    similarExperimentIds
+  );
+  const similarExperimentsWithDetails = similarExperiments
+    .map((s) => {
+      if (!s) return null; // Ensure `s` is not null
+      const experiment =
+        similarExperimentObjects.find((exp) => exp.id === s.id) || null;
+      return experiment ? { experiment, similarity: s.similarity } : null;
+    })
+    .filter(
+      (item): item is { experiment: ExperimentInterface; similarity: number } =>
+        item !== null
+    );
+
+  return res.status(200).json({
+    status: 200,
+    similar: similarExperimentsWithDetails,
+  });
+}
+
+export async function postRegenerateEmbeddings(
+  req: AuthRequest<null, null, { project?: string }>,
+  res: ResponseWithStatusAndError<{ message: string }>
+) {
+  const context = getContextFromReq(req);
+  const project =
+    typeof req.query?.project === "string" ? req.query.project : "";
+  const aiSettings = getAISettingsForOrg(context);
+
+  if (!req.organization) {
+    return res.status(404).json({
+      status: 404,
+      message: "Organization not found",
+    });
+  }
+  if (!aiSettings.aiEnabled) {
+    return res.status(404).json({
+      status: 404,
+      message: "AI configuration not set",
+    });
+  }
+  if (await hasExceededUsageQuota(req.organization)) {
+    return res.status(404).json({
+      status: 403,
+      message: "Over AI usage limits",
+    });
+  }
+
+  const experiments = await getAllExperiments(context, {
+    project,
+    includeArchived: true,
+  });
+
+  await generateExperimentEmbeddings(context, experiments);
+
+  return res.status(200).json({
+    status: 200,
+    message: "Embeddings regenerated successfully",
   });
 }
 
@@ -1105,6 +1298,7 @@ export async function postExperiment(
   const { phaseStartDate, phaseEndDate, currentPhase, ...data } = req.body;
 
   const experiment = await getExperimentById(context, id);
+  const aiSettings = getAISettingsForOrg(context);
 
   if (!experiment) {
     res.status(403).json({
@@ -1422,6 +1616,13 @@ export async function postExperiment(
         )
       );
     }
+  }
+  if (
+    aiSettings.aiEnabled &&
+    (changes.name || changes.description || changes.hypothesis)
+  ) {
+    // If name, description or hypothesis changed, update the vectors:
+    await generateExperimentEmbeddings(context, [updated]);
   }
 
   await req.audit({

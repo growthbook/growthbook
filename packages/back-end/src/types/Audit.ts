@@ -54,6 +54,7 @@ export const entityEvents = {
   safeRollout: ["create", "update", "delete"],
   decisionCriteria: ["create", "update", "delete"],
   execReport: ["create", "update", "delete"],
+  experimentVector: ["create", "update", "delete"],
 } as const;
 
 export type EntityEvents = typeof entityEvents;

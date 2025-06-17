@@ -545,6 +545,8 @@ app.post(
   "/experiments/snapshots/scaled",
   experimentsController.postSnapshotsWithScaledImpactAnalysis
 );
+app.post("/experiments/similar", experimentsController.postSimilarExperiments);
+app.post("/experiments/regenerate-embeddings", experimentsController.postRegenerateEmbeddings);
 app.post("/experiment/:id", experimentsController.postExperiment);
 app.delete("/experiment/:id", experimentsController.deleteExperiment);
 app.get("/experiment/:id/watchers", experimentsController.getWatchingUsers);
