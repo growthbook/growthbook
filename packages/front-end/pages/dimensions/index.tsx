@@ -1,9 +1,12 @@
-import React, { FC, useEffect, useState } from "react";
+import React, { FC, useState } from "react";
 import { FaPencilAlt } from "react-icons/fa";
 import { DimensionInterface } from "back-end/types/dimension";
 import clsx from "clsx";
 import Link from "next/link";
 import { ago } from "shared/dates";
+import { Box, Flex } from "@radix-ui/themes";
+import router from "next/router";
+import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Button from "@/components/Radix/Button";
 import DimensionForm from "@/components/Dimensions/DimensionForm";
@@ -15,60 +18,58 @@ import { DocLink } from "@/components/DocLink";
 import Code, { Language } from "@/components/SyntaxHighlighting/Code";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { Box, Flex, Text } from "@radix-ui/themes";
 import { useSearch } from "@/services/search";
-import Table, { TableBody, TableCell, TableHeader, TableRow } from "@/components/Radix/Table";
+import Table, {
+  TableBody,
+  TableCell,
+  TableHeader,
+  TableRow,
+} from "@/components/Radix/Table";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
-import Modal from "@/components/Modal";
-import router from "next/router";
 import { EAQ_ANCHOR_ID } from "@/pages/datasources/[did]";
-import { UpdateDimensionMetadataModal } from "@/components/Settings/EditDataSource/DimensionMetadata/UpdateDimensionMetadata";
-import { DataSourceInterfaceWithParams, ExposureQuery } from "back-end/types/datasource";
-import cloneDeep from "lodash/cloneDeep";
 
-const ExposureQueryModal: FC<{
+type ExperimentDimensionItem = {
+  dimension: string;
+  datasourceName: string;
   datasourceId: string;
-  exposureQueryId: string;
-  close: () => void;
-}> = ({ datasourceId, exposureQueryId, close }) => {
-  const {
-    getDatasourceById,
-  } = useDefinitions();
-
-  const datasource = getDatasourceById(datasourceId);
-  if (!datasource) {
-    return null;
-  }
-
-  const exposureQuery = datasource.settings.queries?.exposure?.find(eq => eq.id === exposureQueryId);
-  if (!exposureQuery) {
-    return null;
-  }
-
-  // TODO allow editing with AddEditExperimentAssignmentQueryModal
-
-  return <Modal
-  trackingEventModalType=""
-  open={true}
-  close={close}
-  includeCloseCta={false}
-  
-  header="Exposure Query"
-  >
-    <Flex direction={"column"} gap="3">
-      <Flex gapX={"1"}>
-      <Text weight="bold">Data Source:</Text> {datasource.name}
-      </Flex>
-      <Flex gapX={"1"}>
-      <Text weight="bold">Exposure Query:</Text> {exposureQuery.name}
-      </Flex>
-    </Flex>
-    <Box mt="3">
-    <Code language="sql" code={exposureQuery.query} />
-    </Box>
-  </Modal>
+  identifierTypes: string[];
 };
 
+function getExperimentDimensions(
+  datasources: DataSourceInterfaceWithParams[]
+): ExperimentDimensionItem[] {
+  const collapsedExperimentDimensions: Record<
+    string,
+    ExperimentDimensionItem
+  > = {};
+
+  datasources.forEach((ds) => {
+    ds.settings.queries?.exposure?.forEach((eq) => {
+      eq.dimensions.forEach((d) => {
+        const key = `${d}-${ds.id}`;
+        if (!collapsedExperimentDimensions[key]) {
+          collapsedExperimentDimensions[key] = {
+            dimension: d,
+            datasourceName: ds.name,
+            datasourceId: ds.id,
+            identifierTypes: [eq.userIdType],
+          };
+        } else if (
+          !collapsedExperimentDimensions[key].identifierTypes.includes(
+            eq.userIdType
+          )
+        ) {
+          collapsedExperimentDimensions[key].identifierTypes.push(
+            eq.userIdType
+          );
+        }
+      });
+    });
+  });
+
+  const experimentDimensions = Object.values(collapsedExperimentDimensions);
+  return experimentDimensions;
+}
 
 const DimensionsPage: FC = () => {
   const {
@@ -91,6 +92,22 @@ const DimensionsPage: FC = () => {
   ] = useState<null | Partial<DimensionInterface>>(null);
 
   const { apiCall } = useAuth();
+
+  const experimentDimensions = getExperimentDimensions(datasources);
+
+  const { items, SortableTH, pagination } = useSearch({
+    items: experimentDimensions,
+    localStorageKey: "dimensions",
+    defaultSortField: "dimension",
+    defaultSortDir: 1,
+    searchFields: [
+      "dimension",
+      "datasourceName",
+      "datasourceId",
+      "identifierTypes",
+    ],
+    pageSize: 10,
+  });
 
   if (!error && !ready) {
     return <LoadingOverlay />;
@@ -132,53 +149,6 @@ const DimensionsPage: FC = () => {
     );
   }
 
-  const collapsedExperimentDimensions: Record<string, {
-    dimension: string;
-    datasourceName: string;
-    datasourceId: string;
-    identifierTypes: string[];
-  }> = {};
-
-  datasources.forEach(ds => {
-    ds.settings.queries?.exposure?.forEach(eq => {
-      eq.dimensions.forEach(d => {
-        const key = `${d}-${ds.id}`;
-        if (!collapsedExperimentDimensions[key]) {
-          collapsedExperimentDimensions[key] = {
-            dimension: d,
-            datasourceName: ds.name,
-            datasourceId: ds.id,
-            identifierTypes: [eq.userIdType],
-          };
-        } else {
-          collapsedExperimentDimensions[key].identifierTypes.push(eq.userIdType);
-        }
-      })
-    })
-  })
-
-  const experimentDimensions = Object.values(collapsedExperimentDimensions);
-
-  const {
-    items,
-    searchInputProps,
-    isFiltered,
-    SortableTH,
-    pagination,
-  } = useSearch({
-    items: experimentDimensions,
-    localStorageKey: "dimensions",
-    defaultSortField: "dimension",
-    defaultSortDir: 1,
-    searchFields: [
-      "dimension",
-      "datasourceName",
-      "datasourceId",
-      "identifierTypes",
-    ],
-    pageSize: 10,
-  });
-
   return (
     <div className="p-3 container-fluid pagecontents">
       {dimensionForm && (
@@ -194,8 +164,8 @@ const DimensionsPage: FC = () => {
         <Box mb="3">
           Experiment Dimensions are specific to the point-in-time that a unit is
           put into an experiment - for example, &quot;browser&quot; or
-          &quot;referrer&quot;. They are defined via the experiment assignment queries
-          and are the preferred way to specify dimensions.
+          &quot;referrer&quot;. They are defined via the experiment assignment
+          queries and are the preferred way to specify dimensions.
         </Box>
         <Table className="appbox table gbtable responsive-table">
           <TableHeader>
@@ -209,27 +179,40 @@ const DimensionsPage: FC = () => {
           <TableBody>
             {items.map((item) => {
               return (
-              <TableRow key={`${item.dimension}-${item.datasourceId}`} className="hover-highlight">
-                <TableCell>{item.dimension}</TableCell>
-                <TableCell><Link href={`/datasources/${item.datasourceId}`}>
-                              {item.datasourceName ?? item.datasourceId}
-                            </Link></TableCell>
-                <TableCell>{item.identifierTypes.join(", ")}</TableCell>
-               <TableCell>
-                <MoreMenu useRadix={true}>
-                <a
-                  className="dropdown-item"
-                  href={`/datasources/${item.datasourceId}#${EAQ_ANCHOR_ID}`}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    router.push(`/datasources/${item.datasourceId}#${EAQ_ANCHOR_ID}`);
-                  }}
+                <TableRow
+                  key={`${item.dimension}-${item.datasourceId}`}
+                  className="hover-highlight"
                 >
-                  Manage via Data Source
-                </a>
-                </MoreMenu></TableCell>
-              </TableRow>
-            )})}
+                  <TableCell>{item.dimension}</TableCell>
+                  <TableCell>
+                    <Link href={`/datasources/${item.datasourceId}`}>
+                      {item.datasourceName ?? item.datasourceId}
+                    </Link>
+                  </TableCell>
+                  <TableCell
+                    style={{ maxWidth: "20ch", wordWrap: "break-word" }}
+                  >
+                    {item.identifierTypes.join(", ")}
+                  </TableCell>
+                  <TableCell>
+                    <MoreMenu useRadix={true}>
+                      <a
+                        className="dropdown-item"
+                        href={`/datasources/${item.datasourceId}#${EAQ_ANCHOR_ID}`}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          router.push(
+                            `/datasources/${item.datasourceId}#${EAQ_ANCHOR_ID}`
+                          );
+                        }}
+                      >
+                        Manage via Data Source
+                      </a>
+                    </MoreMenu>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
         {pagination}
@@ -257,7 +240,7 @@ const DimensionsPage: FC = () => {
             <p>
               Unit Dimensions are attributes of your units - for example,
               &quot;subscription plan&quot; or &quot;age group&quot;. GrowthBook
-              will join these dimensions to your units in the exposure query to 
+              will join these dimensions to your units in the exposure query to
               let you drill down into experiment results.
             </p>
             <table

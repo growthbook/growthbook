@@ -1,16 +1,23 @@
-import React, { FC, Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  FC,
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import {
   DataSourceInterfaceWithParams,
   ExposureQuery,
   ExperimentDimensionMetadata,
 } from "back-end/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
-import { ago, datetime } from "shared/dates";
+import { ago } from "shared/dates";
 import { QueryStatus } from "back-end/types/query";
 import { DimensionSlicesInterface } from "back-end/types/dimension";
-import { BsArrowRepeat, BsGear } from "react-icons/bs";
+import { BsGear } from "react-icons/bs";
 import { useForm } from "react-hook-form";
-import { Box, Button, Flex, Text } from "@radix-ui/themes";
+import { Flex, Text } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import RunQueriesButton, {
@@ -20,12 +27,9 @@ import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton"
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import track from "@/services/track";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Link from "@/components/Radix/Link";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { InputField } from "@/components/PowerCalculation/PowerCalculationSettingsModal/MetricInputs";
-import { Select } from "@/components/Radix/Select";
 import SelectField from "@/components/Forms/SelectField";
 
 const smallPercentFormatter = new Intl.NumberFormat(undefined, {
@@ -82,7 +86,9 @@ export const UpdateDimensionMetadataModal: FC<UpdateDimensionMetadataModalProps>
   const [id, setId] = useState<string | null>(
     exposureQuery.dimensionSlicesId || null
   );
-  const [localExposureQuery, setLocalExposureQuery] = useState<ExposureQuery>(cloneDeep(exposureQuery));
+  const [localExposureQuery, setLocalExposureQuery] = useState<ExposureQuery>(
+    cloneDeep(exposureQuery)
+  );
   const { data, error, mutate } = useApi<{
     dimensionSlices: DimensionSlicesInterface;
     lastSuccessfulSlices: DimensionSlicesInterface;
@@ -138,7 +144,7 @@ export const UpdateDimensionMetadataModal: FC<UpdateDimensionMetadataModalProps>
         }
       }}
     >
-      Save Dimension Slices
+      Save Dimension Values
     </button>
   );
 
@@ -154,11 +160,11 @@ export const UpdateDimensionMetadataModal: FC<UpdateDimensionMetadataModalProps>
       >
         <Flex direction="column" gap="2">
           <Text>
-            Experiment Dimensions are additional columns made available in the Experiment Assignment Query. These columns
-            can be used for dimension-based analysis without additional joins.
-            
-            Dimension values can be defined in this modal to ensure
-            consistency, reliability, and query performance.
+            Experiment Dimensions are additional columns made available in the
+            Experiment Assignment Query. These columns can be used for
+            dimension-based analysis without additional joins. Dimension values
+            can be defined in this modal to ensure consistency, reliability, and
+            query performance.
           </Text>
           <DimensionSlicesRunner
             dimensionSlices={data?.dimensionSlices}
@@ -248,79 +254,86 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
           onSave={onSave}
         />
 
-
-<Flex direction="column" gap="1" mt="2">
-
+        <Flex direction="column" gap="1" mt="2">
           <RefreshData
             dimensionSlices={dimensionSlices}
             refreshDimension={refreshDimension}
             mutate={mutate}
             setError={setError}
           />
-{(status === "failed" || error !== "") && dimensionSlices ? (
-          <div className="alert alert-danger mt-2">
-            <strong>Error updating data</strong>
-            {error ? `: ${error}` : null}
-          </div>
-        ) : null}
-        {status === "succeeded" && dimensionSlices?.results.length === 0 ? (
-          <div className="alert alert-warning mt-2">
-            <p className="mb-0">
-              <strong>
-                No experiment assignment rows found in data source.
-              </strong>{" "}
-            </p>{" "}
-            <p className="mb-0">
-              Ensure that
-              your Experiment Assignment Query is correctly specified or increase 
-              the lookback window.
-            </p>
-            {openLookbackField ? (
-                  <div className="d-inline-flex align-items-center mt-1">
-                    <label className="mb-0 mr-2 small">Days to look back</label>
-                    <Field
-                      type="number"
-                      style={{ width: 70 }}
-                      {...form.register("lookbackDays", {
-                        valueAsNumber: true,
-                        min: 1,
-                      })}
-                    />
-                  </div>
-                ) : (
-                  <span className="mt-1 small">
-                    <a
-                      role="button"
-                      className="a"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setOpenLookbackField(!openLookbackField);
-                      }}
-                    >
-                      <BsGear />
-                    </a>{" "}
-                    {form.getValues("lookbackDays")} days to look back
-                  </span>
-                )}
-          </div>
-        ) : null}
-        
-        {dimensionSlices?.queries && (
-            <ViewAsyncQueriesButton
-              queries={
-                dimensionSlices.queries?.length > 0
-                  ? dimensionSlices.queries.map((q) => q.query)
-                  : []
-              }
-              error={dimensionSlices.error}
-              inline={true}
-              status={status}
-              display={<Text className="small text-muted">View Queries</Text>}
-              icon={null}
-            />
-        )}
-</Flex>
-</div>
+          {(status === "failed" || error !== "") && dimensionSlices ? (
+            <div className="alert alert-danger mt-2">
+              <strong>Error updating data</strong>
+              {error ? `: ${error}` : null}
+
+              {dimensionSlices?.queries && (
+                <ViewAsyncQueriesButton
+                  queries={
+                    dimensionSlices.queries?.length > 0
+                      ? dimensionSlices.queries.map((q) => q.query)
+                      : []
+                  }
+                  error={dimensionSlices.error}
+                  inline={true}
+                  status={status}
+                />
+              )}
+            </div>
+          ) : null}
+          {status === "succeeded" && dimensionSlices?.results.length === 0 ? (
+            <div className="alert alert-warning mt-2">
+              <p className="mb-0">
+                <strong>
+                  No experiment assignment rows found in data source.
+                </strong>{" "}
+              </p>{" "}
+              <p className="mb-0">
+                Ensure that your Experiment Assignment Query is correctly
+                specified or increase the lookback window.
+              </p>
+              {openLookbackField ? (
+                <div className="d-inline-flex align-items-center mt-1">
+                  <label className="mb-0 mr-2 small">Days to look back</label>
+                  <Field
+                    type="number"
+                    style={{ width: 70 }}
+                    {...form.register("lookbackDays", {
+                      valueAsNumber: true,
+                      min: 1,
+                    })}
+                  />
+                </div>
+              ) : (
+                <span className="mt-1 small">
+                  <a
+                    role="button"
+                    className="a"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setOpenLookbackField(!openLookbackField);
+                    }}
+                  >
+                    <BsGear />
+                  </a>{" "}
+                  {form.getValues("lookbackDays")} days to look back
+                </span>
+              )}
+              {dimensionSlices?.queries && (
+                <ViewAsyncQueriesButton
+                  queries={
+                    dimensionSlices.queries?.length > 0
+                      ? dimensionSlices.queries.map((q) => q.query)
+                      : []
+                  }
+                  error={dimensionSlices.error}
+                  inline={true}
+                  status={status}
+                />
+              )}
+            </div>
+          ) : null}
+        </Flex>
+      </div>
     </>
   );
 };
@@ -334,9 +347,20 @@ type DimensionSlicesProps = {
   onSave: (exposureQuery: ExposureQuery) => void;
 };
 
-const RefreshData = ({ dimensionSlices, refreshDimension, mutate, setError }: { dimensionSlices: DimensionSlicesInterface | undefined, refreshDimension: () => Promise<void>, mutate: () => void, setError: (error: string) => void }) => {
-  return <Flex direction="column" gap="1">
-      <Box>
+const RefreshData = ({
+  dimensionSlices,
+  refreshDimension,
+  mutate,
+  setError,
+}: {
+  dimensionSlices: DimensionSlicesInterface | undefined;
+  refreshDimension: () => Promise<void>;
+  mutate: () => void;
+  setError: (error: string) => void;
+}) => {
+  return (
+    <Flex direction="column" gap="1">
+      <Flex direction="row" gap="1">
         <form
           onSubmit={async (e) => {
             e.preventDefault();
@@ -350,27 +374,30 @@ const RefreshData = ({ dimensionSlices, refreshDimension, mutate, setError }: { 
           }}
         >
           <RunQueriesButton
-            cta={`${
-              dimensionSlices ? "Refresh" : "Query"
-            } Traffic Data`}
+            cta={`${dimensionSlices ? "Refresh" : "Query"} Traffic Data`}
             icon={dimensionSlices ? "refresh" : "run"}
-            position={"left"}
             mutate={mutate}
-            model={
-              dimensionSlices ?? { queries: [], runStarted: undefined }
-            }
+            model={dimensionSlices ?? { queries: [], runStarted: undefined }}
             cancelEndpoint={`/dimension-slices/${dimensionSlices?.id}/cancel`}
             color={`${dimensionSlices ? "outline-" : ""}primary`}
           />
         </form>
-      </Box>
-      {dimensionSlices?.runStarted ? <Text className="small text-muted">{`Last updated: ${ago(dimensionSlices.runStarted)}`}</Text> : null}
+        {dimensionSlices?.runStarted ? (
+          <Flex ml="2" direction="column" gap="">
+            <Text className="small text-muted">Last updated</Text>
+            <Text className="small text-muted">
+              {ago(dimensionSlices.runStarted)}
+            </Text>
+          </Flex>
+        ) : null}
+      </Flex>
     </Flex>
+  );
 };
 
 type ExperimentDimensionMetadataWithPriority = ExperimentDimensionMetadata & {
   priority: number;
-}
+};
 
 export const DimensionSlicesResults: FC<DimensionSlicesProps> = ({
   dimensions,
@@ -379,103 +406,116 @@ export const DimensionSlicesResults: FC<DimensionSlicesProps> = ({
   exposureQuery,
   onSave,
 }) => {
-  const [localExposureQuery, setLocalExposureQuery] = useState<ExposureQuery>(cloneDeep(exposureQuery));
+  const [localExposureQuery, setLocalExposureQuery] = useState<ExposureQuery>(
+    cloneDeep(exposureQuery)
+  );
 
-  const dimensionMetadata: Record<string, ExperimentDimensionMetadataWithPriority> = useMemo(() => {
-    return localExposureQuery.dimensionMetadata?.reduce((acc, m, i) => {
-      acc[m.dimension] = m;
-      acc[m.dimension].priority = i + 1;
-      return acc;
-    }, {}) || {};
+  const dimensionMetadata: Record<
+    string,
+    ExperimentDimensionMetadataWithPriority
+  > = useMemo(() => {
+    return (
+      localExposureQuery.dimensionMetadata?.reduce((acc, m, i) => {
+        acc[m.dimension] = m;
+        acc[m.dimension].priority = i + 1;
+        return acc;
+      }, {}) || {}
+    );
   }, [localExposureQuery.dimensionMetadata]);
 
   // Update traffic values when dimension slices change, but preserve custom values
   useEffect(() => {
     if (dimensionSlices?.results) {
-      const newMetadata = localExposureQuery.dimensionMetadata?.map(m => {
-        const trafficResult = dimensionSlices.results.find(r => r.dimension === m.dimension);
-        if (!trafficResult) return m;
+      const newMetadata =
+        localExposureQuery.dimensionMetadata?.map((m) => {
+          const trafficResult = dimensionSlices.results.find(
+            (r) => r.dimension === m.dimension
+          );
+          if (!trafficResult) return m;
 
-        return {
-          ...m,
-          specifiedSlices: m.customSlices ? m.specifiedSlices : trafficResult.dimensionSlices.map(s => s.name)
-        };
-      }) || [];
+          return {
+            ...m,
+            specifiedSlices: m.customSlices
+              ? m.specifiedSlices
+              : trafficResult.dimensionSlices.map((s) => s.name),
+          };
+        }) || [];
 
-      setLocalExposureQuery(prev => ({
+      setLocalExposureQuery((prev) => ({
         ...prev,
-        dimensionMetadata: newMetadata
+        dimensionMetadata: newMetadata,
       }));
     }
-  }, [dimensionSlices?.results]);
+  }, [localExposureQuery.dimensionMetadata, dimensionSlices?.results]);
 
   const updateSelectedSlices = (dimension: string, values: string[]) => {
     // Update the local exposure query
-    const newMetadata = localExposureQuery.dimensionMetadata?.map(m => 
-      m.dimension === dimension 
-        ? { ...m, specifiedSlices: values, customSlices: true }
-        : m
-    ) || [];
-    
-    setLocalExposureQuery(prev => ({
+    const newMetadata =
+      localExposureQuery.dimensionMetadata?.map((m) =>
+        m.dimension === dimension
+          ? { ...m, specifiedSlices: values, customSlices: true }
+          : m
+      ) || [];
+
+    setLocalExposureQuery((prev) => ({
       ...prev,
-      dimensionMetadata: newMetadata
+      dimensionMetadata: newMetadata,
     }));
   };
 
   const updatePriority = (dimension: string, priority: number) => {
     console.log("updatePriority", dimension, priority);
     const oldPriority = dimensionMetadata[dimension].priority;
-    
-    const newMetadata: ExperimentDimensionMetadataWithPriority[] = Object.values(dimensionMetadata).map((m, i) => {
-      console.log(m, i);
+
+    const newMetadata: ExperimentDimensionMetadataWithPriority[] = Object.values(
+      dimensionMetadata
+    ).map((m) => {
       if (dimension === m.dimension) {
-        console.log("set priority", priority)
         return { ...m, priority };
       }
       if (m.priority >= priority && m.priority < oldPriority) {
-        console.log("increment", m.priority)
         return { ...m, priority: m.priority + 1 };
       }
       if (m.priority > oldPriority && m.priority <= priority) {
-        console.log("decrement", m.priority)
         return { ...m, priority: m.priority - 1 };
       }
-      console.log("no change")
       return m;
     });
-    console.log(newMetadata);
     const sortedMetadata = newMetadata.sort((a, b) => a.priority - b.priority);
-    console.log(sortedMetadata);
-    setLocalExposureQuery(prev => ({
+    setLocalExposureQuery((prev) => ({
       ...prev,
-      dimensionMetadata: sortedMetadata
+      dimensionMetadata: sortedMetadata,
     }));
   };
+
   const toggleCustomDimension = (dimension: string) => {
-    const trafficValues = dimensionSlices?.results.find(
-      (d) => d.dimension === dimension
-    )?.dimensionSlices.map(s => s.name) || [];
+    const trafficValues =
+      dimensionSlices?.results
+        .find((d) => d.dimension === dimension)
+        ?.dimensionSlices.map((s) => s.name) || [];
 
-    const metadata = localExposureQuery.dimensionMetadata?.find(m => m.dimension === dimension);
+    const metadata = localExposureQuery.dimensionMetadata?.find(
+      (m) => m.dimension === dimension
+    );
 
-    const newMetadata: ExperimentDimensionMetadata = metadata ? {
-      ...metadata,
-      specifiedSlices: trafficValues,
-      customSlices: !metadata.customSlices
-    } : {
-      dimension,
-      specifiedSlices: trafficValues,
-      customSlices: true
-    }
-           
-    setLocalExposureQuery(prev => ({
+    const newMetadata: ExperimentDimensionMetadata = metadata
+      ? {
+          ...metadata,
+          specifiedSlices: trafficValues,
+          customSlices: !metadata.customSlices,
+        }
+      : {
+          dimension,
+          specifiedSlices: trafficValues,
+          customSlices: true,
+        };
+
+    setLocalExposureQuery((prev) => ({
       ...prev,
-      dimensionMetadata: localExposureQuery.dimensionMetadata?.map(m => 
-        m.dimension === dimension 
-          ? newMetadata
-          : m
-      ) || []
+      dimensionMetadata:
+        localExposureQuery.dimensionMetadata?.map((m) =>
+          m.dimension === dimension ? newMetadata : m
+        ) || [],
     }));
   };
 
@@ -491,8 +531,14 @@ export const DimensionSlicesResults: FC<DimensionSlicesProps> = ({
           <tr>
             <th>Dimension</th>
             <th>% of Traffic</th>
-            <th>Dimension Values{" "}<Tooltip body="Dimension values are the levels of a dimension used for pre-computed slicing and dicing. Values not in this list will be grouped into the '__Other__' bucket."></Tooltip></th>
-            <th>Priority{" "}<Tooltip body="Higher priority dimensions are used first when choosing which dimensions to pre-compute for fast slicing and dicing."></Tooltip></th>
+            <th>
+              Dimension Values{" "}
+              <Tooltip body="Dimension values are the levels of a dimension used for pre-computed slicing and dicing. Values not in this list will be grouped into the '__Other__' bucket."></Tooltip>
+            </th>
+            <th>
+              Priority{" "}
+              <Tooltip body="Higher priority dimensions are used first when choosing which dimensions to pre-compute for fast slicing and dicing."></Tooltip>
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -553,42 +599,50 @@ export const DimensionSlicesResults: FC<DimensionSlicesProps> = ({
                 </td>
                 <td>
                   <div className="d-flex flex-column">
-                      {dimensionMetadata[r]?.customSlices ? (
-                        <>
-                          <MultiSelectField
-                            value={dimensionMetadata[r]?.specifiedSlices || []}
-                            onChange={(values) => updateSelectedSlices(r, values)}
-                            options={(dimensionValueResult?.dimensionSlices.map((d) => d.name) ?? []).concat(dimensionMetadata[r]?.specifiedSlices || []).map((v) => ({
+                    {dimensionMetadata[r]?.customSlices ? (
+                      <>
+                        <MultiSelectField
+                          value={dimensionMetadata[r]?.specifiedSlices || []}
+                          onChange={(values) => updateSelectedSlices(r, values)}
+                          options={(
+                            dimensionValueResult?.dimensionSlices.map(
+                              (d) => d.name
+                            ) ?? []
+                          )
+                            .concat(dimensionMetadata[r]?.specifiedSlices || [])
+                            .map((v) => ({
                               value: v,
                               label: v,
                             }))}
-                            max={20}
-                            placeholder="Select dimension values..."
-                            creatable={true}
-                            closeMenuOnSelect={false}
-                          />
-                          <Text className="text-muted">
-                            {dimensionMetadata[r]?.specifiedSlices?.length === 20 ? "20 values max" : ""}
-                          </Text>
-                          <Link
-                            className="mt-1 small"
-                            onClick={() => toggleCustomDimension(r)}
-                          >
-                            Use traffic values
-                          </Link>
-                        </>
-                      ) : (
-                        <Flex direction="column" gap="1">
-                          <Text>Using values found in traffic</Text>
-                          <Link
-                            className="small"
-                            onClick={() => toggleCustomDimension(r)}
-                          >
-                            Customize values
-                          </Link>
-                        </Flex>
-                      )}
-                    </div>
+                          max={20}
+                          placeholder="Select dimension values..."
+                          creatable={true}
+                          closeMenuOnSelect={false}
+                        />
+                        <Text className="text-muted">
+                          {dimensionMetadata[r]?.specifiedSlices?.length === 20
+                            ? "20 values max"
+                            : ""}
+                        </Text>
+                        <Link
+                          className="mt-1 small"
+                          onClick={() => toggleCustomDimension(r)}
+                        >
+                          Use traffic values
+                        </Link>
+                      </>
+                    ) : (
+                      <Flex direction="column" gap="1">
+                        <Text>Using values found in traffic</Text>
+                        <Link
+                          className="small"
+                          onClick={() => toggleCustomDimension(r)}
+                        >
+                          Customize values
+                        </Link>
+                      </Flex>
+                    )}
+                  </div>
                 </td>
                 <td>
                   <SelectField
