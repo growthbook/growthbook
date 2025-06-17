@@ -1428,8 +1428,10 @@ export const getAllURLRedirectExperiments = async (
   return exps;
 };
 
-export const getTextForEmbedding = (exp: ExperimentInterface): string => {
-  return `Name: ${exp.name}\nId: ${exp.id}\nHypothesis: ${exp.hypothesis}\nDescription: ${exp.description}\nAnalysis: ${exp.analysis}`;
+const getTextForEmbedding = (exp: ExperimentInterface): string => {
+  return `Name: ${exp.name}\nHypothesis: ${exp.hypothesis}\nDescription: ${
+    exp.description
+  }\n${exp.analysis ? "\nAnalysis: " + exp.analysis : ""}`;
 };
 
 export async function generateExperimentEmbeddings(

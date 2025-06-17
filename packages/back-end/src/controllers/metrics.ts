@@ -1,7 +1,11 @@
 import { Response } from "express";
 import { isFactMetricId } from "shared/experiments";
 import { daysBetween } from "shared/dates";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { isDefined } from "shared/util";
+import {
+  AuthRequest,
+  ResponseWithStatusAndError,
+} from "back-end/src/types/AuthRequest";
 import {
   _getSnapshots,
   createMetric,
@@ -23,6 +27,8 @@ import {
   getMetricById,
   updateMetric,
   getMetricsByDatasource,
+  generateMetricEmbeddings,
+  getMetricsByIds,
 } from "back-end/src/models/MetricModel";
 import { IdeaInterface } from "back-end/types/idea";
 
@@ -48,6 +54,8 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { MetricAnalysisInterface } from "back-end/types/metric-analysis";
 import { getFactTable } from "back-end/src/models/FactTableModel";
 import {
+  cosineSimilarity,
+  generateEmbeddings,
   hasExceededUsageQuota,
   simpleCompletion,
 } from "back-end/src/services/openai";
@@ -924,3 +932,165 @@ export const getGeneratedDescription = async (
     });
   }
 };
+
+export async function postSimilarMetrics(
+  req: AuthRequest<{
+    name: string;
+    description?: string;
+    project?: string;
+    full?: boolean;
+  }>,
+  res: Response<{
+    status: number;
+    message?: string;
+    similar?: {
+      metric: MetricInterface;
+      similarity: number;
+    }[];
+  }>
+) {
+  const context = getContextFromReq(req);
+  const { name, description, full } = req.body;
+  const aiSettings = getAISettingsForOrg(context);
+
+  if (!req.organization) {
+    return res.status(404).json({
+      status: 404,
+      message: "Organization not found",
+    });
+  }
+  if (!aiSettings.aiEnabled) {
+    return res.status(404).json({
+      status: 404,
+      message: "AI configuration not set",
+    });
+  }
+  if (await hasExceededUsageQuota(req.organization)) {
+    return res.status(404).json({
+      status: 403,
+      message: "Over AI usage limits",
+    });
+  }
+  const allMetrics = await getMetricsByOrganization(context);
+
+  if (allMetrics.length === 0) {
+    return res.status(200).json({
+      status: 200,
+      message: "No previous metrics found",
+    });
+  }
+  // get metric embeddings/vectors.
+  const metricIds = allMetrics.map((m) => m.id);
+  let existingVectors = await context.models.vectors.getByMetricIds(metricIds);
+  // check to see if we need to generate any missing vectors/embeddings:
+  if (existingVectors.length !== metricIds.length) {
+    // get the ids of the existing vectors:
+    const existingVectorIds = existingVectors.map((v) => v.joinId);
+    // check to see if there are any metrics that do not have an entry in the VectorsModel, or don't have embeddings:
+    const missingVectors = allMetrics.filter(
+      (m) => !existingVectorIds.includes(m.id)
+    );
+    // if there are any missing vectors, we need to generate them:
+    if (missingVectors.length > 0) {
+      await generateMetricEmbeddings(context, missingVectors);
+      // now fetch the updated vectors:
+      existingVectors = await context.models.vectors.getByMetricIds(metricIds);
+    }
+  }
+
+  // get the existing vectors that have embeddings with the text to search by:
+  const metricsToSearch = [];
+  for (const exp of allMetrics) {
+    // get the existing vector for the metric:
+    const existingVector = existingVectors.find((v) => v.joinId === exp.id);
+    if (!existingVector) continue;
+    metricsToSearch.push({
+      id: exp.id,
+      embeddings: existingVector.embeddings || [],
+    });
+  }
+  // Now we have all the existing metrics with embeddings, we can search for similar metrics
+  // Create the text to search by for the new metric
+  const newMetric = `Name: ${name}\nDescription: ${description || ""}`;
+
+  // Generate embeddings for the new metric
+  const newMetricEmbeddingResponse = await generateEmbeddings({
+    context,
+    input: [newMetric],
+  });
+  const newEmbedding = newMetricEmbeddingResponse.data[0].embedding;
+  // Call to calculate cosine similarity between the new metric and existing metrics: cosineSimilarity
+  const similarities = metricsToSearch
+    .map((mv) => {
+      if (!mv.embeddings) return null;
+      const similarity = cosineSimilarity(newEmbedding, mv.embeddings);
+      return {
+        id: mv.id,
+        similarity,
+      };
+    })
+    .filter(isDefined);
+
+  // Sort and filter
+  const SIMILARITY_THRESHOLD = full ? 0 : 0.55;
+  const similarMetrics = similarities
+    .filter((s) => s && s.similarity && s.similarity >= SIMILARITY_THRESHOLD)
+    .sort((a, b) => (b?.similarity ?? 0) - (a?.similarity ?? 0))
+    .slice(0, full ? 100 : 5); // Get top 5 similar experiments
+
+  // loop through similarMetrics and get the full experiment object
+  const similarMetricIds = similarMetrics.map((s) => s.id);
+  const similarMetricObjects = await getMetricsByIds(context, similarMetricIds);
+  const similarMetricWithDetails = similarMetrics
+    .map((s) => {
+      if (!s) return null; // Ensure `s` is not null
+      const met = similarMetricObjects.find((m) => m.id === s.id) || null;
+      return met ? { metric: met, similarity: s.similarity } : null;
+    })
+    .filter(
+      (item): item is { metric: MetricInterface; similarity: number } =>
+        item !== null
+    );
+
+  return res.status(200).json({
+    status: 200,
+    similar: similarMetricWithDetails,
+  });
+}
+
+export async function postRegenerateEmbeddings(
+  req: AuthRequest<null, null, { project?: string }>,
+  res: ResponseWithStatusAndError<{ message: string }>
+) {
+  const context = getContextFromReq(req);
+
+  const aiSettings = getAISettingsForOrg(context);
+
+  if (!req.organization) {
+    return res.status(404).json({
+      status: 404,
+      message: "Organization not found",
+    });
+  }
+  if (!aiSettings.aiEnabled) {
+    return res.status(404).json({
+      status: 404,
+      message: "AI configuration not set",
+    });
+  }
+  if (await hasExceededUsageQuota(req.organization)) {
+    return res.status(404).json({
+      status: 403,
+      message: "Over AI usage limits",
+    });
+  }
+
+  const allMetrics = await getMetricsByOrganization(context);
+
+  await generateMetricEmbeddings(context, allMetrics);
+
+  return res.status(200).json({
+    status: 200,
+    message: "Embeddings regenerated successfully",
+  });
+}
