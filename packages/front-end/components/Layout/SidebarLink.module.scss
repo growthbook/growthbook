@@ -39,8 +39,12 @@ $topbarheight: 60px;
   }
 
   &:hover {
-    background-color: color-mix(in srgb, var(--violet-9) 30%, transparent);
-
+    background-color: $violet-9-30;
+    @supports (
+      background-color: color-mix(in srgb, var(--violet-9) 30%, transparent)
+    ) {
+      background-color: color-mix(in srgb, var(--violet-9) 30%, transparent);
+    }
     a {
       margin-left: 0px;
       text-decoration: none !important;
@@ -83,7 +87,12 @@ $topbarheight: 60px;
       }
     }
     &:hover {
-      background-color: color-mix(in srgb, var(--violet-9) 30%, transparent);
+      background-color: $violet-9-30;
+      @supports (
+        background-color: color-mix(in srgb, var(--violet-9) 30%, transparent)
+      ) {
+        background-color: color-mix(in srgb, var(--violet-9) 30%, transparent);
+      }
     }
     .icon {
       font-size: 1.3em;
