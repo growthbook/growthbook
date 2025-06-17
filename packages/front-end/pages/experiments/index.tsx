@@ -104,7 +104,7 @@ const ExperimentsPage = (): React.ReactElement => {
 
   const filtered = useMemo(() => {
     return tab !== "all" ? items.filter((item) => item.tab === tab) : items;
-  }, [tabs, items]);
+  }, [tab, items]);
 
   if (error) {
     return (
