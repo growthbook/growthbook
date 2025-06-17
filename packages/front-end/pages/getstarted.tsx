@@ -193,13 +193,6 @@ const GetStartedPage = (): React.ReactElement => {
                 </Grid>
               </Card>
             </Box>
-
-            {/* <Text size="1">
-              Finished setting up?{" "}
-              <Link weight="bold" href="#" underline="none">
-                Turn off the guide to hide this page
-              </Link>
-            </Text> */}
           </Box>
 
           <Box>
