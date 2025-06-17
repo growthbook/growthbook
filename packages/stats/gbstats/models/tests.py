@@ -16,6 +16,7 @@ from gbstats.models.statistics import (
     RegressionAdjustedRatioStatistic,
     RatioStatistic,
     ScaledImpactStatistic,
+    SummableStatistic,
     TestStatistic,
     compute_theta,
     compute_theta_regression_adjusted_ratio,
@@ -150,12 +151,10 @@ def frequentist_variance_all_cases(
 class EffectMoments:
     def __init__(
         self,
-        stat_a: TestStatistic,
-        stat_b: TestStatistic,
+        stats: List[Tuple[TestStatistic, TestStatistic]],
         config: EffectMomentsConfig = EffectMomentsConfig(),
     ):
-        self.stat_a = stat_a
-        self.stat_b = stat_b
+        self.stat_a, self.stat_b = sum_stats(stats)
         self.relative = config.difference_type == "relative"
 
     def _default_output(
@@ -187,18 +186,6 @@ class EffectMoments:
     @property
     def variance(self) -> float:
         return frequentist_variance_all_cases(self.stat_a, self.stat_b, self.relative)
-
-    @property
-    def dof(self) -> float:
-        # welch-satterthwaite approx
-        return pow(
-            self.stat_b.variance / self.stat_b.n + self.stat_a.variance / self.stat_a.n,
-            2,
-        ) / (
-            pow(self.stat_b.variance, 2) / (pow(self.stat_b.n, 2) * (self.stat_b.n - 1))
-            + pow(self.stat_a.variance, 2)
-            / (pow(self.stat_a.n, 2) * (self.stat_a.n - 1))
-        )
 
     @property
     def scaled_impact_eligible(self) -> bool:
@@ -267,6 +254,19 @@ class EffectMoments:
         )
 
 
+def sum_stats(
+    stats: List[Tuple[TestStatistic, TestStatistic]]
+) -> Tuple[TestStatistic, TestStatistic]:
+    stats_a, stats_b = zip(*stats)
+    summable_check_a = all(isinstance(stat_a, SummableStatistic) for stat_a in stats_a)
+    summable_check_b = all(isinstance(stat_b, SummableStatistic) for stat_b in stats_b)
+    if len(stats_a) > 1 and (not summable_check_a or not summable_check_b):
+        raise ValueError("Non-summable statistics must be of length one.")
+    stat_a = reduce(operator.add, stats_a)
+    stat_b = reduce(operator.add, stats_b)
+    return stat_a, stat_b
+
+
 # Tests
 class BaseABTest(ABC):
     def __init__(
@@ -275,9 +275,7 @@ class BaseABTest(ABC):
         config: BaseConfig = BaseConfig(),
     ):
         self.stats = stats
-        stats_a, stats_b = zip(*self.stats)
-        self.stat_a = reduce(operator.add, stats_a)
-        self.stat_b = reduce(operator.add, stats_b)
+        self.stat_a, self.stat_b = sum_stats(self.stats)
         self.config = config
         self.alpha = config.alpha
         self.relative = config.difference_type == "relative"
@@ -292,8 +290,7 @@ class BaseABTest(ABC):
             raise NotImplementedError("Post-stratification not implemented")
         else:
             return EffectMoments(
-                self.stat_a,
-                self.stat_b,
+                self.stats,
                 EffectMomentsConfig(
                     difference_type="relative" if self.relative else "absolute"
                 ),
