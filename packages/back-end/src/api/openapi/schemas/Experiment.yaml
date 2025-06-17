@@ -226,3 +226,6 @@ properties:
     type: boolean
   hasURLRedirects:
     type: boolean
+  customFields:
+    type: object
+    additionalProperties: true
