@@ -1,4 +1,5 @@
 import {
+  AddressElement,
   PaymentElement,
   useElements,
   useStripe,
@@ -18,7 +19,7 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const { clientSecret } = useStripeContext();
-  const { refreshOrganization } = useUser();
+  const { refreshOrganization, organization } = useUser();
   const { apiCall } = useAuth();
   const elements = useElements();
   const stripe = useStripe();
@@ -91,6 +92,21 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
               current month and it will renew automatically on the 1st of each
               subsequent month. Cancel anytime.
             </p>
+            <AddressElement
+              className="pb-2"
+              options={{
+                mode: "billing",
+                fields: {
+                  phone: "never",
+                },
+                display: {
+                  name: "organization",
+                },
+                defaultValues: {
+                  name: organization.name,
+                },
+              }}
+            />
             <PaymentElement />
           </>
         )}
