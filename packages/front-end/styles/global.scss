@@ -3570,3 +3570,11 @@ input:disabled {
     background-color: var(--accent-indicator);
   }
 }
+
+// Ace Editor theme overrides
+.ace_editor {
+  background-color: var(--color-background) !important;
+}
+.ace_editor .ace_gutter {
+  background: var(--color-panel-solid) !important;
+}

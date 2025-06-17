@@ -163,6 +163,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
         </td>
         <td className="text-gray">
           <Tooltip
+            delay={0}
             tipPosition="bottom"
             state={showReferences === i}
             popperStyle={{ marginLeft: 50, marginTop: 15 }}
