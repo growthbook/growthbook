@@ -50,11 +50,13 @@ export class CustomFieldModel extends BaseClass {
     if (!customFields) {
       return null;
     }
-    return customFields.fields.find((field) => {
-      if (field.id === customFieldId) {
-        return field;
-      }
-    });
+    return (
+      customFields.fields.find((field) => {
+        if (field.id === customFieldId) {
+          return field;
+        }
+      }) || null
+    );
   }
 
   /**
