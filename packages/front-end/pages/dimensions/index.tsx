@@ -1,4 +1,4 @@
-import React, { FC, useState } from "react";
+import React, { FC, useEffect, useState } from "react";
 import { FaPencilAlt } from "react-icons/fa";
 import { DimensionInterface } from "back-end/types/dimension";
 import clsx from "clsx";
@@ -22,6 +22,9 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Modal from "@/components/Modal";
 import router from "next/router";
 import { EAQ_ANCHOR_ID } from "@/pages/datasources/[did]";
+import { UpdateDimensionMetadataModal } from "@/components/Settings/EditDataSource/DimensionMetadata/UpdateDimensionMetadata";
+import { DataSourceInterfaceWithParams, ExposureQuery } from "back-end/types/datasource";
+import cloneDeep from "lodash/cloneDeep";
 
 const ExposureQueryModal: FC<{
   datasourceId: string;
@@ -69,7 +72,6 @@ const ExposureQueryModal: FC<{
 
 const DimensionsPage: FC = () => {
   const {
-    experimentDimensions,
     dimensions,
     datasources,
     getDatasourceById,
@@ -88,11 +90,6 @@ const DimensionsPage: FC = () => {
     setDimensionForm,
   ] = useState<null | Partial<DimensionInterface>>(null);
 
-  const [exposureQueryData, setExposureQueryData] = useState<{
-    datasourceId: string;
-    exposureQueryId: string;
-  } | null>(null);
-  const [showEditDimensionValues, setShowEditDimensionValues] = useState(false);
   const { apiCall } = useAuth();
 
   if (!error && !ready) {
@@ -135,6 +132,33 @@ const DimensionsPage: FC = () => {
     );
   }
 
+  const collapsedExperimentDimensions: Record<string, {
+    dimension: string;
+    datasourceName: string;
+    datasourceId: string;
+    identifierTypes: string[];
+  }> = {};
+
+  datasources.forEach(ds => {
+    ds.settings.queries?.exposure?.forEach(eq => {
+      eq.dimensions.forEach(d => {
+        const key = `${d}-${ds.id}`;
+        if (!collapsedExperimentDimensions[key]) {
+          collapsedExperimentDimensions[key] = {
+            dimension: d,
+            datasourceName: ds.name,
+            datasourceId: ds.id,
+            identifierTypes: [eq.userIdType],
+          };
+        } else {
+          collapsedExperimentDimensions[key].identifierTypes.push(eq.userIdType);
+        }
+      })
+    })
+  })
+
+  const experimentDimensions = Object.values(collapsedExperimentDimensions);
+
   const {
     items,
     searchInputProps,
@@ -142,24 +166,18 @@ const DimensionsPage: FC = () => {
     SortableTH,
     pagination,
   } = useSearch({
-    items: experimentDimensions.map(d => {
-      const datasource = getDatasourceById(d.datasourceId);
-      return {
-      ...d,
-      datasource: datasource,
-    }}),
+    items: experimentDimensions,
     localStorageKey: "dimensions",
-    defaultSortField: "dimensionPriority",
+    defaultSortField: "dimension",
     defaultSortDir: 1,
     searchFields: [
-      "identifierType",
       "dimension",
-      "exposureQueryName",
-      //"dimensionMetadata.specifiedSlices",
+      "datasourceName",
+      "datasourceId",
+      "identifierTypes",
     ],
     pageSize: 10,
   });
-  // compute slices
 
   return (
     <div className="p-3 container-fluid pagecontents">
@@ -167,12 +185,6 @@ const DimensionsPage: FC = () => {
         <DimensionForm
           close={() => setDimensionForm(null)}
           current={dimensionForm}
-        />
-      )}
-      {exposureQueryData && (
-        <ExposureQueryModal
-          {...exposureQueryData}
-          close={() => setExposureQueryData(null)}
         />
       )}
       <Flex mb="3" direction="column">
@@ -189,33 +201,20 @@ const DimensionsPage: FC = () => {
           <TableHeader>
             <TableRow>
               <SortableTH field="dimension">Name</SortableTH>
-              <SortableTH field="datasourceId">Data Source</SortableTH>
-              <SortableTH field="exposureQueryName">Exposure Query</SortableTH>
-              <SortableTH field="identifierType">Identifier Type</SortableTH>
-              <SortableTH field="dimensionPriority">Values</SortableTH>
+              <SortableTH field="datasourceName">Data Source</SortableTH>
+              <SortableTH field="identifierTypes">Identifier Types</SortableTH>
               <th></th>
-              {/* <SortableTH field="dimensionMetadata.specifiedSlices">Specified Slices</SortableTH> */}
             </TableRow>
           </TableHeader>
           <TableBody>
             {items.map((item) => {
               return (
-              <TableRow key={item.id} className="hover-highlight">
+              <TableRow key={`${item.dimension}-${item.datasourceId}`} className="hover-highlight">
                 <TableCell>{item.dimension}</TableCell>
-                <TableCell>{item.datasource && (
-                          <>
-                            <Link href={`/datasources/${item.datasource.id}`}>
-                              {item.datasource.name}
-                            </Link>{" "}
-                            {item.datasource.description ? (
-                              <Tooltip body={item.datasource.description} />
-                            ) : null}
-                          </>
-                        )}</TableCell>
-                <TableCell>{item.exposureQueryName}</TableCell>
-                <TableCell>{item.identifierType}</TableCell>
-                <TableCell>{(item.dimensionValues?.length ?? 0) > 0 ? `${item.dimensionValues?.slice(0, 4).join(", ")}${(item.dimensionValues?.length ?? 0) > 4 ? ", ..." : ""}` : ""}</TableCell>
-
+                <TableCell><Link href={`/datasources/${item.datasourceId}`}>
+                              {item.datasourceName ?? item.datasourceId}
+                            </Link></TableCell>
+                <TableCell>{item.identifierTypes.join(", ")}</TableCell>
                <TableCell>
                 <MoreMenu useRadix={true}>
                 <a
@@ -226,7 +225,7 @@ const DimensionsPage: FC = () => {
                     router.push(`/datasources/${item.datasourceId}#${EAQ_ANCHOR_ID}`);
                   }}
                 >
-                  Edit Via Data Source
+                  Manage via Data Source
                 </a>
                 </MoreMenu></TableCell>
               </TableRow>

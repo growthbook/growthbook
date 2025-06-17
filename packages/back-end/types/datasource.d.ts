@@ -153,6 +153,7 @@ export type IdentityJoinQuery = {
 export interface ExperimentDimensionMetadata {
   dimension: string;
   specifiedSlices: string[];
+  customSlices?: boolean;
 }
 
 export interface ExposureQuery {

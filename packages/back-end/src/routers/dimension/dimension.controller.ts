@@ -3,7 +3,7 @@ import uniqid from "uniqid";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { PrivateApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { DimensionInterface, ExperimentDimensionInterface } from "back-end/types/dimension";
+import { DimensionInterface } from "back-end/types/dimension";
 import {
   createDimension,
   deleteDimensionById,
@@ -11,8 +11,7 @@ import {
   findDimensionsByOrganization,
   updateDimension,
 } from "back-end/src/models/DimensionModel";
-import { getDataSourceById, getDataSourcesByOrganization } from "back-end/src/models/DataSourceModel";
-import { getExperimentDimensionsByOrganization } from "back-end/src/services/experimentDimensions";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 
 // region GET /dimensions
 

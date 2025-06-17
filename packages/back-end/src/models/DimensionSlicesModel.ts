@@ -77,7 +77,8 @@ export async function getDimensionSlicesById(
 export async function getLatestDimensionSlices(
   organization: string,
   datasource: string,
-  exposureQueryId: string
+  exposureQueryId: string,
+  succeeded: boolean
 ): Promise<DimensionSlicesInterface | null> {
   const doc = await DimensionSlicesModel.find(
     { organization, datasource, exposureQueryId },
