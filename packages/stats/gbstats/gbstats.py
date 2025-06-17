@@ -145,9 +145,11 @@ def get_metric_df(
     # Each row in the raw SQL result is a dimension/variation combo
     # We want to end up with one row per dimension
 
+    rows.to_csv("/Users/lukesmith/Desktop/rows_browser.csv", index=False)
+
     for row in dfc.itertuples(index=False):
         # TODO fix dimensionname
-        dim = getattr(row, "dim_" + dimension.replace(":", "_")) if dimension else ""
+        dim = getattr(row, "dim_exp_" + dimension) if dimension else ""
         # If this is the first time we're seeing this dimension, create an empty dict
         if dim not in dimensions:
             # Overall columns
@@ -280,6 +282,7 @@ def analyze_metric_df(
     analysis: AnalysisSettingsForStatsEngine,
 ) -> pd.DataFrame:
     num_variations = df.at[0, "variations"]
+
     # Add new columns to the dataframe with placeholder values
     df["srm_p"] = 0
     df["engine"] = analysis.stats_engine
@@ -657,6 +660,7 @@ def process_analysis(
     # If we're doing a daily time series, we need to diff the data
     if analysis.dimension == "pre:datedaily":
         rows = diff_for_daily_time_series(rows)
+
     # Convert raw SQL result into a dataframe of dimensions
     df = get_metric_df(
         rows=rows,
@@ -677,12 +681,14 @@ def process_analysis(
         max=max_dimensions,
         keep_other=keep_other,
     )
+
     # Run the analysis for each variation and dimension
     result = analyze_metric_df(
         df=reduced,
         metric=metric,
         analysis=analysis,
     )
+
     return result
 
 
@@ -710,6 +716,7 @@ def process_single_metric(
         )
     pdrows = pd.DataFrame(rows)
     # TODO validate data in rows matches metric settings
+
     # Detect any variations that are not in the returned metric rows
     all_var_ids: Set[str] = set([v for a in analyses for v in a.var_ids])
     unknown_var_ids = detect_unknown_variations(rows=pdrows, var_ids=all_var_ids)
