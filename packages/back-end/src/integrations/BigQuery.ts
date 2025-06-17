@@ -1,7 +1,8 @@
 import * as bq from "@google-cloud/bigquery";
 import { bigQueryCreateTableOptions } from "shared/enterprise";
 import { getValidDate } from "shared/dates";
-import { format, FormatDialect } from "back-end/src/util/sql";
+import { FormatDialect } from "shared/src/types";
+import { format } from "shared/sql";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { BigQueryConnectionParams } from "back-end/types/integrations/bigquery";
 import { IS_CLOUD } from "back-end/src/util/secrets";

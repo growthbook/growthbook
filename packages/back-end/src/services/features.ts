@@ -1573,6 +1573,7 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
           variationId: v.variationId,
           value: validateFeatureValue(feature, v.value),
         })),
+        ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
       };
       return experimentRefRule;
     } else if (r.type === "experiment") {
@@ -1591,6 +1592,7 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
         enabled: r.enabled != null ? r.enabled : true,
         description: r.description ?? "",
         values: values,
+        ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
       };
       return experimentRule;
     } else if (r.type === "force") {
@@ -1606,6 +1608,7 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
           match: s.matchType,
         })),
         enabled: r.enabled != null ? r.enabled : true,
+        ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
       };
       return forceRule;
     }
@@ -1623,6 +1626,7 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
         match: s.matchType,
       })),
       enabled: r.enabled != null ? r.enabled : true,
+      ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
     };
     return rolloutRule;
   });

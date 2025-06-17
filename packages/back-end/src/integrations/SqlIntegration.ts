@@ -25,6 +25,8 @@ import {
   BANDIT_SRM_DIMENSION_NAME,
   SAFE_ROLLOUT_TRACKING_KEY_PREFIX,
 } from "shared/constants";
+import { format } from "shared/sql";
+import { FormatDialect } from "shared/src/types";
 import { MetricAnalysisSettings } from "back-end/types/metric-analysis";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { ReqContext } from "back-end/types/organization";
@@ -89,8 +91,6 @@ import { SegmentInterface } from "back-end/types/segment";
 import {
   getBaseIdTypeAndJoins,
   compileSqlTemplate,
-  format,
-  FormatDialect,
   replaceCountStar,
 } from "back-end/src/util/sql";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
@@ -718,7 +718,7 @@ export default abstract class SqlIntegration
         SELECT
           ${settings.userIdType}
           , MIN(${timestampDateTimeColumn}) AS first_exposure_timestamp
-          , '' as variation
+          , ${this.castToString("''")} as variation
         FROM
           __source
         WHERE
@@ -995,7 +995,9 @@ export default abstract class SqlIntegration
           SELECT
             date
             , MAX(${this.castToString("'date'")}) AS data_type
-            , '${metric.cappingSettings.type ? "capped" : "uncapped"}' AS capped
+            , ${this.castToString(
+              `'${metric.cappingSettings.type ? "capped" : "uncapped"}'`
+            )} AS capped
             ${this.getMetricAnalysisStatisticClauses(
               finalDailyValueColumn,
               finalDailyDenominatorColumn,
@@ -1020,7 +1022,9 @@ export default abstract class SqlIntegration
           SELECT
             ${this.castToDate("NULL")} AS date
             , MAX(${this.castToString("'overall'")}) AS data_type
-            , '${metric.cappingSettings.type ? "capped" : "uncapped"}' AS capped
+            , ${this.castToString(
+              `'${metric.cappingSettings.type ? "capped" : "uncapped"}'`
+            )} AS capped
             ${this.getMetricAnalysisStatisticClauses(
               finalOverallValueColumn,
               finalOverallDenominatorColumn,
@@ -2187,7 +2191,7 @@ export default abstract class SqlIntegration
             .map(
               (w) => `
             SELECT
-              '${w.variationId}' AS variation
+              ${this.castToString(`'${w.variationId}'`)} AS variation
               , ${this.toTimestamp(w.date)} AS bandit_period
               , ${w.weight} AS weight
           `
@@ -2219,7 +2223,7 @@ export default abstract class SqlIntegration
         , __expectedUnitsByVariationBanditPeriod AS (
           SELECT
             u.variation AS variation
-            , MAX('') AS constant
+            , MAX(${this.castToString("''")}) AS constant
             , SUM(u.units) AS units
             , SUM(t.total_units * u.weight) AS expected_units
           FROM __unitsByVariationBanditPeriod u
@@ -2232,9 +2236,11 @@ export default abstract class SqlIntegration
         )
         , __banditSrm AS (
           SELECT
-            MAX('') AS variation
-            , MAX('') AS dimension_value
-            , MAX('${BANDIT_SRM_DIMENSION_NAME}') AS dimension_name
+            MAX(${this.castToString("''")}) AS variation
+            , MAX(${this.castToString("''")}) AS dimension_value
+            , MAX(${this.castToString(
+              `'${BANDIT_SRM_DIMENSION_NAME}'`
+            )}) AS dimension_name
             , SUM(POW(expected_units - units, 2) / expected_units) AS units
           FROM __expectedUnitsByVariationBanditPeriod
           GROUP BY
@@ -2968,7 +2974,7 @@ export default abstract class SqlIntegration
         COUNT(*) AS users,
         ${metricData.map((data) => {
           return `
-           '${data.id}' as ${data.alias}_id,
+           ${this.castToString(`'${data.id}'`)} as ${data.alias}_id,
             ${
               data.isPercentileCapped
                 ? `MAX(COALESCE(cap.${data.alias}_value_cap, 0)) as ${data.alias}_main_cap_value,`
@@ -3880,7 +3886,7 @@ export default abstract class SqlIntegration
       .map((data) => {
         const alias = data.alias + (factMetrics ? "_" : "");
         return `
-    , '${data.id}' as ${alias}id
+    , ${this.castToString(`'${data.id}'`)} as ${alias}id
     , SUM(bpw.weight * bps.${alias}main_sum / bps.users) * SUM(bps.users) AS ${alias}main_sum
     , SUM(bps.users) * (SUM(
       ${this.ifElse(

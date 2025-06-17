@@ -59,6 +59,10 @@ Triggered when a feature is created
                             id: string;
                             condition: string;
                         }[] | undefined;
+                        scheduleRules?: {
+                            enabled: boolean;
+                            timestamp: string | null;
+                        }[] | undefined;
                         id: string;
                         enabled: boolean;
                         type: "force";
@@ -69,6 +73,10 @@ Triggered when a feature is created
                         savedGroupTargeting?: {
                             matchType: "all" | "any" | "none";
                             savedGroups: string[];
+                        }[] | undefined;
+                        scheduleRules?: {
+                            enabled: boolean;
+                            timestamp: string | null;
                         }[] | undefined;
                         id: string;
                         enabled: boolean;
@@ -94,6 +102,10 @@ Triggered when a feature is created
                             range: number[];
                         } | undefined;
                         coverage?: number | undefined;
+                        scheduleRules?: {
+                            enabled: boolean;
+                            timestamp: string | null;
+                        }[] | undefined;
                         value?: {
                             value: string;
                             weight: number;
@@ -105,6 +117,10 @@ Triggered when a feature is created
                         enabled: boolean;
                         type: "experiment-ref";
                         condition?: string | undefined;
+                        scheduleRules?: {
+                            enabled: boolean;
+                            timestamp: string | null;
+                        }[] | undefined;
                         variations: {
                             value: string;
                             variationId: string;
@@ -149,6 +165,10 @@ Triggered when a feature is created
                                 id: string;
                                 condition: string;
                             }[] | undefined;
+                            scheduleRules?: {
+                                enabled: boolean;
+                                timestamp: string | null;
+                            }[] | undefined;
                             id: string;
                             enabled: boolean;
                             type: "force";
@@ -159,6 +179,10 @@ Triggered when a feature is created
                             savedGroupTargeting?: {
                                 matchType: "all" | "any" | "none";
                                 savedGroups: string[];
+                            }[] | undefined;
+                            scheduleRules?: {
+                                enabled: boolean;
+                                timestamp: string | null;
                             }[] | undefined;
                             id: string;
                             enabled: boolean;
@@ -184,6 +208,10 @@ Triggered when a feature is created
                                 range: number[];
                             } | undefined;
                             coverage?: number | undefined;
+                            scheduleRules?: {
+                                enabled: boolean;
+                                timestamp: string | null;
+                            }[] | undefined;
                             value?: {
                                 value: string;
                                 weight: number;
@@ -195,6 +223,10 @@ Triggered when a feature is created
                             enabled: boolean;
                             type: "experiment-ref";
                             condition?: string | undefined;
+                            scheduleRules?: {
+                                enabled: boolean;
+                                timestamp: string | null;
+                            }[] | undefined;
                             variations: {
                                 value: string;
                                 variationId: string;
@@ -298,6 +330,10 @@ Triggered when a feature is updated
                             id: string;
                             condition: string;
                         }[] | undefined;
+                        scheduleRules?: {
+                            enabled: boolean;
+                            timestamp: string | null;
+                        }[] | undefined;
                         id: string;
                         enabled: boolean;
                         type: "force";
@@ -308,6 +344,10 @@ Triggered when a feature is updated
                         savedGroupTargeting?: {
                             matchType: "all" | "any" | "none";
                             savedGroups: string[];
+                        }[] | undefined;
+                        scheduleRules?: {
+                            enabled: boolean;
+                            timestamp: string | null;
                         }[] | undefined;
                         id: string;
                         enabled: boolean;
@@ -333,6 +373,10 @@ Triggered when a feature is updated
                             range: number[];
                         } | undefined;
                         coverage?: number | undefined;
+                        scheduleRules?: {
+                            enabled: boolean;
+                            timestamp: string | null;
+                        }[] | undefined;
                         value?: {
                             value: string;
                             weight: number;
@@ -344,6 +388,10 @@ Triggered when a feature is updated
                         enabled: boolean;
                         type: "experiment-ref";
                         condition?: string | undefined;
+                        scheduleRules?: {
+                            enabled: boolean;
+                            timestamp: string | null;
+                        }[] | undefined;
                         variations: {
                             value: string;
                             variationId: string;
@@ -388,6 +436,10 @@ Triggered when a feature is updated
                                 id: string;
                                 condition: string;
                             }[] | undefined;
+                            scheduleRules?: {
+                                enabled: boolean;
+                                timestamp: string | null;
+                            }[] | undefined;
                             id: string;
                             enabled: boolean;
                             type: "force";
@@ -398,6 +450,10 @@ Triggered when a feature is updated
                             savedGroupTargeting?: {
                                 matchType: "all" | "any" | "none";
                                 savedGroups: string[];
+                            }[] | undefined;
+                            scheduleRules?: {
+                                enabled: boolean;
+                                timestamp: string | null;
                             }[] | undefined;
                             id: string;
                             enabled: boolean;
@@ -423,6 +479,10 @@ Triggered when a feature is updated
                                 range: number[];
                             } | undefined;
                             coverage?: number | undefined;
+                            scheduleRules?: {
+                                enabled: boolean;
+                                timestamp: string | null;
+                            }[] | undefined;
                             value?: {
                                 value: string;
                                 weight: number;
@@ -434,6 +494,10 @@ Triggered when a feature is updated
                             enabled: boolean;
                             type: "experiment-ref";
                             condition?: string | undefined;
+                            scheduleRules?: {
+                                enabled: boolean;
+                                timestamp: string | null;
+                            }[] | undefined;
                             variations: {
                                 value: string;
                                 variationId: string;
@@ -505,6 +569,10 @@ Triggered when a feature is updated
                             id: string;
                             condition: string;
                         }[] | undefined;
+                        scheduleRules?: {
+                            enabled: boolean;
+                            timestamp: string | null;
+                        }[] | undefined;
                         id: string;
                         enabled: boolean;
                         type: "force";
@@ -515,6 +583,10 @@ Triggered when a feature is updated
                         savedGroupTargeting?: {
                             matchType: "all" | "any" | "none";
                             savedGroups: string[];
+                        }[] | undefined;
+                        scheduleRules?: {
+                            enabled: boolean;
+                            timestamp: string | null;
                         }[] | undefined;
                         id: string;
                         enabled: boolean;
@@ -540,6 +612,10 @@ Triggered when a feature is updated
                             range: number[];
                         } | undefined;
                         coverage?: number | undefined;
+                        scheduleRules?: {
+                            enabled: boolean;
+                            timestamp: string | null;
+                        }[] | undefined;
                         value?: {
                             value: string;
                             weight: number;
@@ -551,6 +627,10 @@ Triggered when a feature is updated
                         enabled: boolean;
                         type: "experiment-ref";
                         condition?: string | undefined;
+                        scheduleRules?: {
+                            enabled: boolean;
+                            timestamp: string | null;
+                        }[] | undefined;
                         variations: {
                             value: string;
                             variationId: string;
@@ -595,6 +675,10 @@ Triggered when a feature is updated
                                 id: string;
                                 condition: string;
                             }[] | undefined;
+                            scheduleRules?: {
+                                enabled: boolean;
+                                timestamp: string | null;
+                            }[] | undefined;
                             id: string;
                             enabled: boolean;
                             type: "force";
@@ -605,6 +689,10 @@ Triggered when a feature is updated
                             savedGroupTargeting?: {
                                 matchType: "all" | "any" | "none";
                                 savedGroups: string[];
+                            }[] | undefined;
+                            scheduleRules?: {
+                                enabled: boolean;
+                                timestamp: string | null;
                             }[] | undefined;
                             id: string;
                             enabled: boolean;
@@ -630,6 +718,10 @@ Triggered when a feature is updated
                                 range: number[];
                             } | undefined;
                             coverage?: number | undefined;
+                            scheduleRules?: {
+                                enabled: boolean;
+                                timestamp: string | null;
+                            }[] | undefined;
                             value?: {
                                 value: string;
                                 weight: number;
@@ -641,6 +733,10 @@ Triggered when a feature is updated
                             enabled: boolean;
                             type: "experiment-ref";
                             condition?: string | undefined;
+                            scheduleRules?: {
+                                enabled: boolean;
+                                timestamp: string | null;
+                            }[] | undefined;
                             variations: {
                                 value: string;
                                 variationId: string;
@@ -744,6 +840,10 @@ Triggered when a feature is deleted
                             id: string;
                             condition: string;
                         }[] | undefined;
+                        scheduleRules?: {
+                            enabled: boolean;
+                            timestamp: string | null;
+                        }[] | undefined;
                         id: string;
                         enabled: boolean;
                         type: "force";
@@ -754,6 +854,10 @@ Triggered when a feature is deleted
                         savedGroupTargeting?: {
                             matchType: "all" | "any" | "none";
                             savedGroups: string[];
+                        }[] | undefined;
+                        scheduleRules?: {
+                            enabled: boolean;
+                            timestamp: string | null;
                         }[] | undefined;
                         id: string;
                         enabled: boolean;
@@ -779,6 +883,10 @@ Triggered when a feature is deleted
                             range: number[];
                         } | undefined;
                         coverage?: number | undefined;
+                        scheduleRules?: {
+                            enabled: boolean;
+                            timestamp: string | null;
+                        }[] | undefined;
                         value?: {
                             value: string;
                             weight: number;
@@ -790,6 +898,10 @@ Triggered when a feature is deleted
                         enabled: boolean;
                         type: "experiment-ref";
                         condition?: string | undefined;
+                        scheduleRules?: {
+                            enabled: boolean;
+                            timestamp: string | null;
+                        }[] | undefined;
                         variations: {
                             value: string;
                             variationId: string;
@@ -834,6 +946,10 @@ Triggered when a feature is deleted
                                 id: string;
                                 condition: string;
                             }[] | undefined;
+                            scheduleRules?: {
+                                enabled: boolean;
+                                timestamp: string | null;
+                            }[] | undefined;
                             id: string;
                             enabled: boolean;
                             type: "force";
@@ -844,6 +960,10 @@ Triggered when a feature is deleted
                             savedGroupTargeting?: {
                                 matchType: "all" | "any" | "none";
                                 savedGroups: string[];
+                            }[] | undefined;
+                            scheduleRules?: {
+                                enabled: boolean;
+                                timestamp: string | null;
                             }[] | undefined;
                             id: string;
                             enabled: boolean;
@@ -869,6 +989,10 @@ Triggered when a feature is deleted
                                 range: number[];
                             } | undefined;
                             coverage?: number | undefined;
+                            scheduleRules?: {
+                                enabled: boolean;
+                                timestamp: string | null;
+                            }[] | undefined;
                             value?: {
                                 value: string;
                                 weight: number;
@@ -880,6 +1004,10 @@ Triggered when a feature is deleted
                             enabled: boolean;
                             type: "experiment-ref";
                             condition?: string | undefined;
+                            scheduleRules?: {
+                                enabled: boolean;
+                                timestamp: string | null;
+                            }[] | undefined;
                             variations: {
                                 value: string;
                                 variationId: string;

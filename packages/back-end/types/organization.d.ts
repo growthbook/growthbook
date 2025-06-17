@@ -250,7 +250,6 @@ export interface OrganizationSettings {
 
 export interface OrganizationConnections {
   slack?: SlackConnection;
-  vercel?: VercelConnection;
 }
 
 export interface SlackConnection {
@@ -297,6 +296,7 @@ export interface OrganizationInterface {
   stripeCustomerId?: string;
   restrictLoginMethod?: string;
   restrictAuthSubPrefix?: string;
+  isVercelIntegration?: boolean;
   freeSeats?: number;
   discountCode?: string;
   priceId?: string;

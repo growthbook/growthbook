@@ -7,6 +7,8 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import EventTrackerSelector, {
   pluginSupportedTrackers,
 } from "@/components/SyntaxHighlighting/Snippets/EventTrackerSelector";
+import ClickToCopy from "@/components/Settings/ClickToCopy";
+import { getAppOrigin, isCloud } from "@/services/env";
 
 function indentLines(code: string, indent: number | string = 2) {
   const spaces = typeof indent === "string" ? indent : " ".repeat(indent);
@@ -271,6 +273,114 @@ app.use(function(req, res, next) {
   }
     .then(() => next())
 })
+`.trim()}
+        />
+      </>
+    );
+  }
+  if (language === "nextjs") {
+    return (
+      <>
+        Import the default adapter instance, which is configured by your
+        environment variables.
+        <Code
+          containerClassName="mb-4"
+          language="typescript"
+          code={`
+import { growthbookAdapter } from "@flags-sdk/growthbook";
+  `.trim()}
+        />
+        <div className="h4 mt-4 mb-2">Environment variables</div>
+        <table className="table w-auto gbtable table-sm table-bordered bg-light my-2">
+          <thead>
+            <tr>
+              <th className="px-3 py-2">Environment variable</th>
+              <th className="px-3 py-2" />
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td className="px-3">
+                <code>GROWTHBOOK_CLIENT_KEY</code>
+              </td>
+              <td className="px-3">
+                <ClickToCopy>{apiKey}</ClickToCopy>
+              </td>
+            </tr>
+            <tr>
+              <td className="px-3">
+                <code>GROWTHBOOK_API_HOST</code>
+                {isCloud() && (
+                  <span className="text-muted small ml-2">(optional)</span>
+                )}
+              </td>
+              <td className="px-3">
+                <ClickToCopy>{apiHost}</ClickToCopy>
+              </td>
+            </tr>
+            <tr>
+              <td className="px-3">
+                <code>GROWTHBOOK_APP_ORIGIN</code>
+                <span className="text-muted small ml-2">(optional)</span>
+              </td>
+              <td className="px-3">
+                <ClickToCopy>{getAppOrigin()}</ClickToCopy>
+              </td>
+            </tr>
+            <tr>
+              <td className="px-3" colSpan={2}>
+                <span className="uppercase-title">Edge Config</span>
+                <span className="text-muted small ml-2">(optional)</span>
+              </td>
+            </tr>
+            <tr>
+              <td className="px-3">
+                <div>
+                  <code>GROWTHBOOK_EDGE_CONNECTION_STRING</code>
+                  <span className="ml-2">or</span>
+                </div>
+                <div>
+                  <code>EXPERIMENTATION_CONFIG</code>
+                </div>
+              </td>
+              <td className="px-3">
+                <span className="text-muted">
+                  Edge Config connection string
+                </span>
+              </td>
+            </tr>
+            <tr>
+              <td className="px-3">
+                <code>GROWTHBOOK_EDGE_CONFIG_ITEM_KEY</code>
+                <span className="text-muted small ml-2">(optional)</span>
+              </td>
+              <td className="px-3">
+                <span className="text-muted">
+                  Defaults to your client key if not provided
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div className="h4 mt-4 mb-2">Experiment tracking</div>
+        Define a server-side tracking callback. Note: Client-side tracking is
+        also available but requires additional setup.
+        <Code
+          filename="flags.ts"
+          language="typescript"
+          code={`
+import { growthbookAdapter } from '@flags-sdk/growthbook';
+import { after } from 'next/server';
+ 
+growthbookAdapter.setTrackingCallback((experiment, result) => {
+  // Safely fire and forget async calls (Next.js)
+  after(async () => {
+    console.log('Viewed Experiment', {
+      experimentId: experiment.key,
+      variationId: result.key,
+    });
+  });
+});
 `.trim()}
         />
       </>
