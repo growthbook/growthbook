@@ -18,6 +18,7 @@ import { DimensionSlicesInterface } from "back-end/types/dimension";
 import { BsGear } from "react-icons/bs";
 import { useForm } from "react-hook-form";
 import { Flex, Text } from "@radix-ui/themes";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import RunQueriesButton, {
@@ -31,6 +32,7 @@ import Link from "@/components/Radix/Link";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
+import { AppFeatures } from "@/types/app-features";
 
 const smallPercentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -239,6 +241,18 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
       });
   }, [dataSource.id, exposureQuery.id, form, source, mutate, apiCall, setId]);
 
+  const asyncQueriesButton = dimensionSlices?.queries ? (
+    <ViewAsyncQueriesButton
+      queries={
+        dimensionSlices.queries?.length > 0
+          ? dimensionSlices.queries.map((q) => q.query)
+          : []
+      }
+      error={dimensionSlices.error}
+      inline={true}
+      status={status}
+    />
+  ) : null;
   return (
     <>
       <div className="col-12">
@@ -318,18 +332,7 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
                   {form.getValues("lookbackDays")} days to look back
                 </span>
               )}
-              {dimensionSlices?.queries && (
-                <ViewAsyncQueriesButton
-                  queries={
-                    dimensionSlices.queries?.length > 0
-                      ? dimensionSlices.queries.map((q) => q.query)
-                      : []
-                  }
-                  error={dimensionSlices.error}
-                  inline={true}
-                  status={status}
-                />
-              )}
+              {asyncQueriesButton}
             </div>
           ) : null}
         </Flex>
@@ -406,6 +409,8 @@ export const DimensionSlicesResults: FC<DimensionSlicesProps> = ({
   exposureQuery,
   onSave,
 }) => {
+  const growthbook = useGrowthBook<AppFeatures>();
+
   const [localExposureQuery, setLocalExposureQuery] = useState<ExposureQuery>(
     cloneDeep(exposureQuery)
   );
@@ -533,12 +538,14 @@ export const DimensionSlicesResults: FC<DimensionSlicesProps> = ({
             <th>% of Traffic</th>
             <th>
               Dimension Values{" "}
-              <Tooltip body="Dimension values are the levels of a dimension used for pre-computed slicing and dicing. Values not in this list will be grouped into the '__Other__' bucket."></Tooltip>
+              <Tooltip body="Dimension values are the levels of a dimension used for pre-computed dimension analysis (currently only used on the Experiment Health Tab). Values not in this list will be grouped into the '__Other__' bucket."></Tooltip>
             </th>
-            <th>
-              Priority{" "}
-              <Tooltip body="Higher priority dimensions are used first when choosing which dimensions to pre-compute for fast slicing and dicing."></Tooltip>
-            </th>
+            {growthbook.isOn("pre-computed-dimensions") ? (
+              <th>
+                Priority{" "}
+                <Tooltip body="Higher priority dimensions are used first when choosing which dimensions to pre-compute for fast slicing and dicing."></Tooltip>
+              </th>
+            ) : null}
           </tr>
         </thead>
         <tbody>
@@ -644,16 +651,18 @@ export const DimensionSlicesResults: FC<DimensionSlicesProps> = ({
                     )}
                   </div>
                 </td>
-                <td>
-                  <SelectField
-                    value={dimensionMetadata[r]?.priority?.toString()}
-                    onChange={(value) => updatePriority(r, parseInt(value))}
-                    options={Object.values(dimensionMetadata).map((_, i) => ({
-                      value: (i + 1).toString(),
-                      label: (i + 1).toString(),
-                    }))}
-                  />
-                </td>
+                {growthbook.isOn("pre-computed-dimensions") ? (
+                  <td>
+                    <SelectField
+                      value={dimensionMetadata[r]?.priority?.toString()}
+                      onChange={(value) => updatePriority(r, parseInt(value))}
+                      options={Object.values(dimensionMetadata).map((_, i) => ({
+                        value: (i + 1).toString(),
+                        label: (i + 1).toString(),
+                      }))}
+                    />
+                  </td>
+                ) : null}
               </tr>
             );
           })}

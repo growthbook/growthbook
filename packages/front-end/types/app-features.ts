@@ -73,4 +73,5 @@ export type AppFeatures = {
   "safe-rollout-auto-rollback": boolean;
   "aa-test-holdout": boolean;
   "new-exec-reports": boolean;
+  "pre-computed-dimensions": boolean;
 };
