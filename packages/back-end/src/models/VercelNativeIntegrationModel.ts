@@ -17,7 +17,6 @@ const upsertDataValidator = z
 const installationResourceValidator = resourceValidator.extend({
   projectId: z.string(),
   sdkConnectionId: z.string(),
-  teamId: z.string(),
 });
 
 export type Resource = z.infer<typeof installationResourceValidator>;

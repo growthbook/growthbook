@@ -9,7 +9,13 @@ export const factTableColumnTypeValidator = z.enum([
   "",
 ]);
 
-export const numberFormatValidator = z.enum(["", "currency", "time:seconds"]);
+export const numberFormatValidator = z.enum([
+  "",
+  "currency",
+  "time:seconds",
+  "memory:bytes",
+  "memory:kilobytes",
+]);
 
 export const jsonColumnFieldsValidator = z.record(
   z.object({ datatype: factTableColumnTypeValidator })

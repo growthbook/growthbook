@@ -450,6 +450,11 @@ const sidebars = {
       ],
     },
     {
+      type: "doc",
+      id: "insights",
+      label: "Insights",
+    },
+    {
       type: "category",
       label: "SDKs",
       collapsed: false,
@@ -553,11 +558,6 @@ const sidebars = {
     },
     { type: "doc", id: "api-overview", label: "API" },
     {
-      type: "doc",
-      id: "dashboard",
-      label: "Management Dashboard",
-    },
-    {
       type: "category",
       collapsed: true,
       label: "Webhooks",
@@ -598,6 +598,14 @@ const sidebars = {
           label: "MCP Server",
           className: "pill-new",
         },
+        /*
+        {
+          type: "doc",
+          id: "integrations/vercel",
+          label: "Vercel",
+          className: "pill-new",
+        },
+        */
         {
           type: "doc",
           id: "integrations/framer",

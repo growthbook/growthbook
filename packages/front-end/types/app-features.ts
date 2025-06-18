@@ -74,4 +74,6 @@ export type AppFeatures = {
   "aa-test-holdout": boolean;
   "new-exec-reports": boolean;
   "pre-computed-dimensions": boolean;
+  insights: boolean;
+  "sql-explorer": boolean;
 };

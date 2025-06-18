@@ -101,7 +101,7 @@ const vercelFeatureExperimentationItem = ({
   dateCreated,
   dateUpdated,
 }: FeatureInterface): VercelExperimentationItem => ({
-  id,
+  id: `features:${id}`,
   slug,
   origin: `${APP_ORIGIN}/features/${id}`,
   category: "flag",
@@ -119,7 +119,7 @@ const vercelExperimentExperimentationItem = ({
   dateCreated,
   dateUpdated,
 }: ExperimentInterface): VercelExperimentationItem => ({
-  id,
+  id: `experiment:${id}`,
   slug,
   origin: `${APP_ORIGIN}/experiment/${id}`,
   category: "experiment",
@@ -423,11 +423,17 @@ export const syncVercelSdkConnection = async (organization: string) => {
           value: nativeIntegration.upsertData.payload.credentials.access_token,
         });
 
-        try {
-          await fireSdkWebhook(context, createdWebhook);
-        } catch (err) {
-          logger.error("Error while firing webhook", err);
-        }
+        // Webhook needs to fire after returning so that vercel
+        // can be properly setup with the edge config enabled.
+        // Otherwise, this may fire before vercel has finished its
+        // edge configuration callback.
+        setTimeout(async () => {
+          try {
+            await fireSdkWebhook(context, createdWebhook);
+          } catch (err) {
+            logger.error("Error while firing webhook", err);
+          }
+        }, 1000);
       }
     }
   });

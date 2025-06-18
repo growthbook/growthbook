@@ -56,7 +56,10 @@ export type CommercialFeature =
   | "decision-framework"
   | "unlimited-cdn-usage"
   | "safe-rollout"
-  | "require-project-for-features-setting";
+  | "require-project-for-features-setting"
+  | "saveSqlExplorerQueries"
+  | "metric-effects"
+  | "metric-correlations";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
@@ -70,6 +73,7 @@ export type SubscriptionInfo = {
   dateToBeCanceled: string;
   cancelationDate: string;
   pendingCancelation: boolean;
+  isVercelIntegration: boolean;
 };
 
 export interface LicenseInterface {
@@ -196,6 +200,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "historical-power",
     "decision-framework",
     "safe-rollout",
+    "saveSqlExplorerQueries",
   ]),
   pro_sso: new Set<CommercialFeature>([
     "sso",
@@ -224,6 +229,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "historical-power",
     "decision-framework",
     "safe-rollout",
+    "saveSqlExplorerQueries",
   ]),
   enterprise: new Set<CommercialFeature>([
     "scim",
@@ -272,6 +278,9 @@ export const accountFeatures: CommercialFeaturesMap = {
     "decision-framework",
     "safe-rollout",
     "require-project-for-features-setting",
+    "saveSqlExplorerQueries",
+    "metric-effects",
+    "metric-correlations",
   ]),
 };
 
