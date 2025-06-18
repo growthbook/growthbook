@@ -11,12 +11,15 @@ import { FaMarkdown } from "react-icons/fa";
 import ReactTextareaAutocomplete from "@webscopeio/react-textarea-autocomplete";
 import emoji from "@jukben/emoji-search";
 import { useDropzone } from "react-dropzone";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, Heading } from "@radix-ui/themes";
+import { PiArrowClockwise, PiClipboard, PiTrash } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import { uploadFile } from "@/services/files";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Button from "@/components/Radix/Button";
 import { useAISettings } from "@/hooks/useOrgSettings";
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../Radix/Tabs";
 import Markdown from "./Markdown";
 
@@ -58,6 +61,11 @@ const MarkdownInput: FC<{
   const [aiSuggestionText, setAiSuggestionText] = useState("");
   const [loading, setLoading] = useState(false);
   const [aiError, setAiError] = useState("");
+
+  const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
+    timeout: 1500,
+  });
+
   useEffect(() => {
     if (autofocus && textareaRef.current) {
       textareaRef.current.focus();
@@ -100,6 +108,28 @@ const MarkdownInput: FC<{
     HTMLAttributes<HTMLDivElement>,
     HTMLDivElement
   >;
+
+  const doAISuggestion = async () => {
+    if (aiSuggestFunction && aiEnabled) {
+      setAiError("");
+      try {
+        setLoading(true);
+        // make sure it's on the right tab:
+        setActiveControlledTab("write");
+        const suggestedText = await aiSuggestFunction();
+        if (suggestedText) {
+          setAiSuggestionText(suggestedText);
+          setLoading(false);
+        } else {
+          setLoading(false);
+          setAiError("Failed to get AI suggestion");
+        }
+      } catch (e) {
+        setLoading(false);
+        setAiError("Failed to get AI suggestion. API request error");
+      }
+    }
+  };
 
   return (
     <Box className="">
@@ -222,29 +252,7 @@ const MarkdownInput: FC<{
                     : ""
                 }
                 disabled={!aiEnabled || !aiSuggestFunction || loading}
-                onClick={async () => {
-                  if (aiEnabled) {
-                    setAiError("");
-                    try {
-                      setLoading(true);
-                      // make sure it's on the right tab:
-                      setActiveControlledTab("write");
-                      const suggestedText = await aiSuggestFunction();
-                      if (suggestedText) {
-                        setAiSuggestionText(suggestedText);
-                        setLoading(false);
-                      } else {
-                        setLoading(false);
-                        setAiError("Failed to get AI suggestion");
-                      }
-                    } catch (e) {
-                      setLoading(false);
-                      setAiError(
-                        "Failed to get AI suggestion. API request error"
-                      );
-                    }
-                  }
-                }}
+                onClick={doAISuggestion}
               >
                 <BsStars /> {loading ? "Generating..." : aiButtonText}
               </Button>
@@ -252,7 +260,41 @@ const MarkdownInput: FC<{
           )}
           {aiSuggestionText && (
             <div className="mt-2">
-              <h4>Suggested Description</h4>
+              <Flex align="center" justify="between" my="4">
+                <Heading size="2" weight="medium">
+                  Suggested Hypothesis:
+                </Heading>
+                <Flex gap="2">
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setValue("");
+                    }}
+                  >
+                    <PiTrash /> Clear
+                  </Button>
+                  {copySupported && (
+                    <Box style={{ position: "relative" }}>
+                      <Button
+                        variant="ghost"
+                        onClick={() => {
+                          performCopy(aiSuggestionText || "");
+                        }}
+                      >
+                        <PiClipboard /> Copy
+                      </Button>
+                      {copySuccess ? (
+                        <SimpleTooltip position="right">
+                          Copied to clipboard!
+                        </SimpleTooltip>
+                      ) : null}
+                    </Box>
+                  )}
+                  <Button variant="ghost" onClick={doAISuggestion}>
+                    <PiArrowClockwise /> Try Again
+                  </Button>
+                </Flex>
+              </Flex>
               <Box className="appbox" p="3">
                 <Markdown className="card-text mb-2">
                   {aiSuggestionText}
