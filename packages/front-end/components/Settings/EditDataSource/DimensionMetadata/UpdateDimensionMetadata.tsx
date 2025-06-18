@@ -192,7 +192,7 @@ type DimensionSlicesRunnerProps = {
   dataSource: DataSourceInterfaceWithParams;
   exposureQuery: ExposureQuery;
   source: string;
-  onSave: (exposureQuery: ExposureQuery) => void | undefined;
+  onSave: ((exposureQuery: ExposureQuery) => void) | undefined;
 };
 
 export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
@@ -347,7 +347,7 @@ type DimensionSlicesProps = {
   dimensionSlices?: DimensionSlicesInterface;
   refreshDimension: () => Promise<void>;
   exposureQuery: ExposureQuery;
-  onSave: (exposureQuery: ExposureQuery) => void;
+  onSave: ((exposureQuery: ExposureQuery) => void) | undefined;
 };
 
 const RefreshData = ({
@@ -525,7 +525,9 @@ export const DimensionSlicesResults: FC<DimensionSlicesProps> = ({
 
   // Notify parent of changes
   useEffect(() => {
-    onSave(localExposureQuery);
+    if (onSave) {
+      onSave(localExposureQuery);
+    }
   }, [localExposureQuery, onSave]);
 
   return (
