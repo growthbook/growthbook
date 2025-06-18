@@ -43,7 +43,10 @@ export default function Home(): React.ReactElement {
     } else if (hasExperiments) {
       router.replace("/experiments");
     } else {
-      if (gb.isOn("use-new-setup-flow-2")) {
+      if (
+        gb.isOn("use-new-setup-flow-2") &&
+        !organization.isVercelIntegration
+      ) {
         router.replace("/setup");
       } else {
         router.replace("/getstarted");
