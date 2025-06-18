@@ -209,11 +209,14 @@ def two_sided_confidence_interval(
 class TwoSidedTTest(TTest):
     @property
     def p_value(self) -> float:
-        return 2 * (1 - t.cdf(abs(self.critical_value), self.dof))  # type: ignore
+        return 2 * (1 - float(t.cdf(abs(self.critical_value), self.dof)))
 
     @property
     def confidence_interval(self) -> List[float]:
-        halfwidth: float = t.ppf(1 - self.alpha / 2, self.dof) * self.moments_result.standard_error  # type: ignore
+        halfwidth: float = (
+            float(t.ppf(1 - self.alpha / 2, self.dof))
+            * self.moments_result.standard_error
+        )
         return two_sided_confidence_interval(
             self.moments_result.point_estimate, halfwidth
         )
@@ -222,11 +225,13 @@ class TwoSidedTTest(TTest):
 class OneSidedTreatmentGreaterTTest(TTest):
     @property
     def p_value(self) -> float:
-        return 1 - t.cdf(self.critical_value, self.dof)  # type: ignore
+        return 1 - float(t.cdf(self.critical_value, self.dof))
 
     @property
     def confidence_interval(self) -> List[float]:
-        halfwidth: float = t.ppf(1 - self.alpha, self.dof) * self.moments_result.standard_error  # type: ignore
+        halfwidth: float = (
+            float(t.ppf(1 - self.alpha, self.dof)) * self.moments_result.standard_error
+        )
         return one_sided_confidence_interval(
             self.moments_result.point_estimate, halfwidth, lesser=False
         )
@@ -235,11 +240,13 @@ class OneSidedTreatmentGreaterTTest(TTest):
 class OneSidedTreatmentLesserTTest(TTest):
     @property
     def p_value(self) -> float:
-        return t.cdf(self.critical_value, self.dof)  # type: ignore
+        return float(t.cdf(self.critical_value, self.dof))
 
     @property
     def confidence_interval(self) -> List[float]:
-        halfwidth: float = t.ppf(1 - self.alpha, self.dof) * self.moments_result.standard_error  # type: ignore
+        halfwidth: float = (
+            float(t.ppf(1 - self.alpha, self.dof)) * self.moments_result.standard_error
+        )
         return one_sided_confidence_interval(
             self.moments_result.point_estimate, halfwidth, lesser=True
         )

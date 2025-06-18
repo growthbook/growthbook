@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Literal
 from pydantic.dataclasses import dataclass
 import numpy as np
 import operator
@@ -28,7 +28,7 @@ from gbstats.utils import isinstance_union, frequentist_diff, frequentist_varian
 # Configs
 @dataclass
 class EffectMomentsConfig:
-    difference_type: DifferenceType = "relative"
+    difference_type: Literal["relative", "absolute"] = "relative"
 
 
 @dataclass
