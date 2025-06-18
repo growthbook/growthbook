@@ -104,7 +104,10 @@ import {
 } from "back-end/src/util/secrets";
 import { upsertWatch } from "back-end/src/models/WatchModel";
 import { getSurrogateKeysFromEnvironments } from "back-end/src/util/cdn.util";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import {
+  FeatureRevisionInterface,
+  RevisionLog,
+} from "back-end/types/feature-revision";
 import {
   addLinkedFeatureToExperiment,
   getAllPayloadExperiments,
@@ -636,6 +639,7 @@ export async function postFeatureRebase(
     newRules[env] = mergeResult.result.rules?.[env] || live.rules[env] || [];
   });
   await updateRevision(
+    context,
     revision,
     {
       baseVersion: live.version,
@@ -687,7 +691,12 @@ export async function postFeatureRequestReview(
   if (revision.status !== "draft") {
     throw new Error("Can only request review if is a draft");
   }
-  await markRevisionAsReviewRequested(revision, res.locals.eventAudit, comment);
+  await markRevisionAsReviewRequested(
+    context,
+    revision,
+    res.locals.eventAudit,
+    comment
+  );
   res.status(200).json({
     status: 200,
   });
@@ -741,6 +750,7 @@ export async function postFeatureReviewOrComment(
     throw new Error("Can only review if review is requested");
   }
   await submitReviewAndComments(
+    context,
     revision,
     res.locals.eventAudit,
     review,
@@ -1042,7 +1052,12 @@ export async function postFeatureRevert(
     changes
   );
 
-  await markRevisionAsPublished(revision, res.locals.eventAudit, comment);
+  await markRevisionAsPublished(
+    context,
+    revision,
+    res.locals.eventAudit,
+    comment
+  );
 
   await req.audit({
     event: "feature.revert",
@@ -1146,7 +1161,7 @@ export async function postFeatureDiscard(
     context.permissions.throwPermissionError();
   }
 
-  await discardRevision(revision, res.locals.eventAudit);
+  await discardRevision(context, revision, res.locals.eventAudit);
 
   const hasDrafts = await hasDraft(org.id, feature, [revision.version]);
 
@@ -1241,6 +1256,7 @@ export async function postFeatureRule(
     settings: org?.settings,
   });
   await addFeatureRule(
+    context,
     revision,
     environment,
     rule,
@@ -1593,6 +1609,7 @@ export async function putRevisionComment(
   }
 
   await updateRevision(
+    context,
     revision,
     {},
     {
@@ -1638,6 +1655,7 @@ export async function postFeatureDefaultValue(
     settings: org?.settings,
   });
   await setDefaultValue(
+    context,
     revision,
     defaultValue,
     res.locals.eventAudit,
@@ -1718,6 +1736,7 @@ export async function putSafeRolloutStatus(
   });
 
   await editFeatureRule(
+    context,
     revision,
     environment,
     i,
@@ -1906,6 +1925,7 @@ export async function putFeatureRule(
   });
 
   await editFeatureRule(
+    context,
     revision,
     environment,
     i,
@@ -2019,6 +2039,7 @@ export async function postFeatureMoveRule(
     settings: org?.settings,
   });
   await updateRevision(
+    context,
     revision,
     changes,
     {
@@ -2098,6 +2119,7 @@ export async function deleteFeatureRule(
     settings: org?.settings,
   });
   await updateRevision(
+    context,
     revision,
     changes,
     {
@@ -2446,7 +2468,7 @@ export async function getFeatures(
 
 export async function getRevisionLog(
   req: AuthRequest<null, { id: string; version: string }>,
-  res: Response
+  res: Response<{ status: 200; log: RevisionLog[] }, EventUserForResponseLocals>
 ) {
   const context = getContextFromReq(req);
   const { id, version } = req.params;
@@ -2456,6 +2478,7 @@ export async function getRevisionLog(
     throw new Error("Could not find feature");
   }
 
+  // In the past logs were stored on the revisions.
   const revision = await getRevision({
     context,
     organization: context.org.id,
@@ -2467,9 +2490,29 @@ export async function getRevisionLog(
     throw new Error("Could not find feature revision");
   }
 
+  // But now we store logs in a separate table as they are too large
+  const revisionLogs = await context.models.featureRevisionLogs.getAllByFeatureIdAndVersion(
+    {
+      featureId: id,
+      version: parseInt(version),
+    }
+  );
+
+  // revisionLogs use dateCreated as the timestamp, so we need to convert it to a RevisionLog as that is what the front end expects
+  const revisionLogsFormatted: RevisionLog[] = revisionLogs.map((log) => ({
+    timestamp: log.dateCreated,
+    user: log.user,
+    action: log.action,
+    subject: log.subject,
+    value: log.value,
+  }));
+
+  // We merge old logs on revisions with revisionLogs. The front end will sort them as needed
+  const log = [...(revision.log || []), ...revisionLogsFormatted];
+
   res.json({
     status: 200,
-    log: revision.log || [],
+    log: log,
   });
 }
 
@@ -2997,6 +3040,7 @@ export async function postCopyEnvironmentRules(
   });
 
   await copyFeatureEnvironmentRules(
+    context,
     revision,
     sourceEnv,
     targetEnv,

@@ -19,6 +19,7 @@ import {
   LicenseUserCodes,
   SubscriptionInfo,
 } from "shared/enterprise";
+import { OrganizationInterface } from "back-end/types/organization";
 import { getLicenseByKey, LicenseModel } from "./models/licenseModel";
 import { LICENSE_PUBLIC_KEY } from "./public-key";
 
@@ -62,6 +63,7 @@ export function getSubscriptionFromLicense(
     dateToBeCanceled: new Date((sub.cancel_at || 0) * 1000).toDateString(),
     cancelationDate: new Date((sub.canceled_at || 0) * 1000).toDateString(),
     pendingCancelation: sub.status !== "canceled" && !!sub.cancel_at_period_end,
+    isVercelIntegration: !!license.vercelInstallationId,
   };
 }
 
@@ -71,6 +73,7 @@ type MinimalOrganization = {
   enterprise?: boolean;
   restrictAuthSubPrefix?: string;
   restrictLoginMethod?: string;
+  isVercelIntegration?: boolean;
   subscription?: {
     status: Stripe.Subscription.Status;
   };
@@ -114,6 +117,8 @@ export function getAccountPlan(org: MinimalOrganization): AccountPlan {
     if (org.licenseKey) {
       return getLicense(org.licenseKey)?.plan || "starter";
     }
+    // Vercel starter orgs have the `restrictLoginMethod` set, but they're not pro_sso
+    if (org.isVercelIntegration) return "starter";
     if (org.enterprise) return "enterprise";
     if (org.restrictAuthSubPrefix || org.restrictLoginMethod) return "pro_sso";
     return "starter";
@@ -412,6 +417,29 @@ export async function postNewInlineSubscriptionToLicenseServer(
       cloudSecret: process.env.CLOUD_SECRET,
       organizationId,
       nonInviteSeatQty,
+    }),
+  });
+
+  verifyAndSetServerLicenseData(license);
+  return license;
+}
+
+export async function postNewVercelSubscriptionToLicenseServer(
+  organization: OrganizationInterface,
+  installationId: string,
+  userName: string
+): Promise<LicenseInterface> {
+  const url = `${LICENSE_SERVER_URL}subscription/new-vercel-native-subscription`;
+  const license = await callLicenseServer({
+    url,
+    body: JSON.stringify({
+      cloudSecret: process.env.CLOUD_SECRET,
+      organizationId: organization.id,
+      companyName: organization.name,
+      ownerEmail: organization.ownerEmail,
+      name: userName,
+      nonInviteSeatQty: organization.members.length,
+      installationId,
     }),
   });
 

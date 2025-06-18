@@ -689,6 +689,7 @@ export async function getOrganization(
     messages,
     externalId,
     setupEventTracker,
+    isVercelIntegration,
   } = org;
 
   let license: Partial<LicenseInterface> | null = null;
@@ -788,6 +789,7 @@ export async function getOrganization(
       discountCode: org.discountCode || "",
       customRoles: org.customRoles,
       deactivatedRoles: org.deactivatedRoles,
+      isVercelIntegration,
       settings: {
         ...settings,
         attributeSchema: filteredAttributes,
@@ -1415,16 +1417,6 @@ export async function putOrganization(
         ...settings,
       };
       orig.settings = org.settings;
-    }
-    if (connections?.vercel) {
-      const { token, configurationId, teamId } = connections.vercel;
-      if (token && configurationId) {
-        updates.connections = {
-          ...updates.connections,
-          vercel: { token, configurationId, teamId },
-        };
-        orig.connections = org.connections;
-      }
     }
 
     if (licenseKey && licenseKey.trim() !== org.licenseKey) {
