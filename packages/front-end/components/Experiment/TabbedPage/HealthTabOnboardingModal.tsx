@@ -247,12 +247,12 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
               <DimensionSlicesRunner
                 dimensionSlices={data?.dimensionSlices}
                 status={status}
-                id={id}
                 setId={setId}
                 mutate={mutate}
                 dataSource={dataSource}
                 exposureQuery={exposureQuery}
                 source={source}
+                onSave={undefined}
               />
             </div>
           </div>

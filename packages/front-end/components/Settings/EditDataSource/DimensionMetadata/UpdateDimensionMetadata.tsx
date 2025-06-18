@@ -192,7 +192,7 @@ type DimensionSlicesRunnerProps = {
   dataSource: DataSourceInterfaceWithParams;
   exposureQuery: ExposureQuery;
   source: string;
-  onSave: (exposureQuery: ExposureQuery) => void;
+  onSave: (exposureQuery: ExposureQuery) => void | undefined;
 };
 
 export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
@@ -469,7 +469,6 @@ export const DimensionSlicesResults: FC<DimensionSlicesProps> = ({
   };
 
   const updatePriority = (dimension: string, priority: number) => {
-    console.log("updatePriority", dimension, priority);
     const oldPriority = dimensionMetadata[dimension].priority;
 
     const newMetadata: ExperimentDimensionMetadataWithPriority[] = Object.values(
