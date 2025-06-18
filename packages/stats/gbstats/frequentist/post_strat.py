@@ -808,6 +808,7 @@ class PostStratificationSummary:
         adequately
         """
         return EffectMomentsResult(
+            n=self.n_total,
             point_estimate=0,
             standard_error=0,
             error_message=error_message,
@@ -823,6 +824,7 @@ class PostStratificationSummary:
         if self.unadjusted_baseline_mean == 0:
             return self._default_output(error_message=BASELINE_VARIATION_ZERO_MESSAGE)
         return EffectMomentsResult(
+            n=self.n_total,
             point_estimate=self.point_estimate,
             standard_error=np.sqrt(self.estimated_variance),
             error_message=None,
@@ -919,6 +921,7 @@ class PostStratification:
     ) -> EffectMomentsResult:
         """Return uninformative output when AB test analysis can't be performed adequately"""
         return EffectMomentsResult(
+            n=0,
             point_estimate=0,
             standard_error=0,
             error_message=error_message,

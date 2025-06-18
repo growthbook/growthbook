@@ -44,6 +44,7 @@ class BaseConfig:
 # Results
 @dataclass
 class EffectMomentsResult:
+    n: int
     point_estimate: float
     standard_error: float
     error_message: Optional[str]
@@ -80,7 +81,9 @@ def frequentist_variance_relative_cuped(
     )
     v_trt = num_trt / den_trt
     const = -stat_b.post_statistic.mean
-    num_a = stat_a.post_statistic.variance * const**2 / (stat_a.post_statistic.mean**2)
+    num_a = (
+        stat_a.post_statistic.variance * const**2 / (stat_a.post_statistic.mean**2)
+    )
     num_b = 2 * theta * stat_a.covariance * const / stat_a.post_statistic.mean
     num_c = theta**2 * stat_a.pre_statistic.variance
     v_ctrl = (num_a + num_b + num_c) / den_ctrl
@@ -163,6 +166,7 @@ class EffectMoments:
         adequately
         """
         return EffectMomentsResult(
+            n=0,
             point_estimate=0,
             standard_error=0,
             error_message=error_message,
@@ -246,6 +250,7 @@ class EffectMoments:
                 self.stat_b.theta = theta
 
         return EffectMomentsResult(
+            n=self.stat_a.n + self.stat_b.n,
             point_estimate=self.point_estimate,
             standard_error=np.sqrt(self.variance),
             error_message=None,

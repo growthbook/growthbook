@@ -4,16 +4,12 @@ import numpy as np
 from pydantic.dataclasses import dataclass
 from scipy.stats import norm
 
-from gbstats.models.tests import TestResult, frequentist_variance_all_cases
+from gbstats.models.tests import TestResult, EffectMomentsResult
 from gbstats.frequentist.tests import (
     sequential_interval_halfwidth,
 )
 from gbstats.bayesian.tests import GaussianPrior
-from gbstats.models.tests import BaseConfig, TestStatistic
-from gbstats.messages import (
-    ZERO_NEGATIVE_VARIANCE_MESSAGE,
-    BASELINE_VARIATION_ZERO_MESSAGE,
-)
+from gbstats.models.tests import BaseConfig
 
 
 @dataclass
@@ -49,15 +45,13 @@ class ScalingFactorResult:
 class MidExperimentPower:
     def __init__(
         self,
-        stat_a: TestStatistic,
-        stat_b: TestStatistic,
+        moments_result: EffectMomentsResult,
         test_result: TestResult,
         config: BaseConfig = BaseConfig(),
         power_config: MidExperimentPowerConfig = MidExperimentPowerConfig(),
     ):
-        self.stat_a = stat_a
-        self.stat_b = stat_b
         self.relative = config.difference_type == "relative"
+        self.moments_result = moments_result
         self.test_result = test_result
         self.alpha = config.alpha
         self.num_goal_metrics = power_config.num_goal_metrics
@@ -73,13 +67,6 @@ class MidExperimentPower:
         self.prior_effect = power_config.prior_effect
         self.sequential = power_config.sequential
         self.sequential_tuning_parameter = power_config.sequential_tuning_parameter
-
-    def _has_zero_variance(self) -> bool:
-        """Check if any variance is 0 or negative"""
-        return self.stat_a._has_zero_variance or self.stat_b._has_zero_variance
-
-    def _control_mean_zero(self) -> bool:
-        return self.stat_a.mean == 0
 
     def _default_output(
         self, error_message: Optional[str] = None, update_message: Optional[str] = None
@@ -97,10 +84,6 @@ class MidExperimentPower:
     def calculate_sample_size(self) -> AdditionalSampleSizeNeededResult:
         if self.test_result.error_message:
             return self._default_output(self.test_result.error_message, "unsuccessful")
-        if self._control_mean_zero():
-            return self._default_output(BASELINE_VARIATION_ZERO_MESSAGE, "unsuccessful")
-        if self._has_zero_variance():
-            return self._default_output(ZERO_NEGATIVE_VARIANCE_MESSAGE, "unsuccessful")
 
         scaling_factor_result = self.calculate_scaling_factor()
         if scaling_factor_result.scaling_factor:
@@ -151,7 +134,7 @@ class MidExperimentPower:
 
     @property
     def pairwise_sample_size(self) -> int:
-        return self.stat_a.n + self.stat_b.n
+        return self.moments_result.n
 
     # maximum number of iterations for bisection search for power estimation
     @property
@@ -167,7 +150,7 @@ class MidExperimentPower:
     def sigmahat_2_delta(self) -> float:
         if self.test_result.error_message is not None:
             return 0
-        return frequentist_variance_all_cases(self.stat_a, self.stat_b, self.relative)
+        return self.moments_result.standard_error**2
 
     def power(self, scaling_factor) -> float:
         """Calculates the power of a hypothesis test.
@@ -212,7 +195,9 @@ class MidExperimentPower:
             part_pos = 1 - norm.cdf(
                 (halfwidth - self.target_mde) / adjusted_variance**0.5
             )
-            part_neg = norm.cdf(-(halfwidth + self.target_mde) / adjusted_variance**0.5)
+            part_neg = norm.cdf(
+                -(halfwidth + self.target_mde) / adjusted_variance**0.5
+            )
         return float(part_pos + part_neg)
 
     def calculate_scaling_factor(self) -> ScalingFactorResult:
