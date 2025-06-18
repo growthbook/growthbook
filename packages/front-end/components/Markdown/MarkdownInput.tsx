@@ -32,7 +32,9 @@ const MarkdownInput: FC<{
   id?: string;
   placeholder?: string;
   aiSuggestFunction?: () => Promise<string>;
+  aiButtonText?: string;
   onCancel?: () => void;
+  showButtons?: boolean;
 }> = ({
   value,
   setValue,
@@ -43,6 +45,8 @@ const MarkdownInput: FC<{
   onCancel,
   placeholder,
   aiSuggestFunction,
+  aiButtonText = "Get AI Suggestion",
+  showButtons = true,
 }) => {
   const { aiEnabled } = useAISettings();
   const [activeControlledTab, setActiveControlledTab] = useState<
@@ -113,46 +117,6 @@ const MarkdownInput: FC<{
               Preview
             </TabsTrigger>
           </TabsList>
-
-          {aiSuggestFunction && (
-            <Flex justify="end">
-              <Button
-                variant="ghost"
-                title={
-                  !aiEnabled
-                    ? "AI is disabled for your organization. Adjust in settings."
-                    : ""
-                }
-                disabled={!aiEnabled || !aiSuggestFunction || loading}
-                onClick={async () => {
-                  if (aiEnabled) {
-                    setAiError("");
-                    try {
-                      setLoading(true);
-                      // make sure it's on the right tab:
-                      setActiveControlledTab("write");
-                      const suggestedText = await aiSuggestFunction();
-                      if (suggestedText) {
-                        setAiSuggestionText(suggestedText);
-                        setLoading(false);
-                      } else {
-                        setLoading(false);
-                        setAiError("Failed to get AI suggestion");
-                      }
-                    } catch (e) {
-                      setLoading(false);
-                      setAiError(
-                        "Failed to get AI suggestion. API request error"
-                      );
-                    }
-                  }
-                }}
-              >
-                {loading ? "Generating..." : "Get AI Suggestion "}
-                <BsStars />
-              </Button>
-            </Flex>
-          )}
         </Flex>
 
         <Box pt="2">
@@ -223,52 +187,89 @@ const MarkdownInput: FC<{
                 ""
               )}
               <div style={{ flex: 1 }} />
-              <div className="col-auto">
-                {onCancel && (
-                  <button
-                    className="btn btn-link mr-2 ml-3"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      onCancel();
-                    }}
-                  >
-                    cancel
-                  </button>
-                )}
-                {cta && (
-                  <button type="submit" className="btn btn-primary">
-                    {cta}
-                  </button>
-                )}
-              </div>
+              {showButtons && (
+                <div className="col-auto">
+                  {onCancel && (
+                    <button
+                      className="btn btn-link mr-2 ml-3"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        onCancel();
+                      }}
+                    >
+                      cancel
+                    </button>
+                  )}
+                  {cta && (
+                    <button type="submit" className="btn btn-primary">
+                      {cta}
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
-            {aiSuggestionText && (
-              <div className="mt-2">
-                <hr />
-                <h4>AI Suggestion</h4>
-                <Box className="appbox" p="3">
-                  <Markdown className="card-text mb-2">
-                    {aiSuggestionText}
-                  </Markdown>
-                </Box>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setValue(aiSuggestionText);
-                    setAiSuggestionText("");
-                  }}
-                >
-                  Use this suggestion
-                </Button>
-              </div>
-            )}
-            {aiError && (
-              <div className="alert alert-danger mt-2">{aiError}</div>
-            )}
           </TabsContent>
           <TabsContent value="preview">
             <Markdown className="card-text px-2">{value}</Markdown>
           </TabsContent>
+          {aiSuggestFunction && !aiSuggestionText && (
+            <Flex pt={"5"}>
+              <Button
+                variant="soft"
+                title={
+                  !aiEnabled
+                    ? "AI is disabled for your organization. Adjust in settings."
+                    : ""
+                }
+                disabled={!aiEnabled || !aiSuggestFunction || loading}
+                onClick={async () => {
+                  if (aiEnabled) {
+                    setAiError("");
+                    try {
+                      setLoading(true);
+                      // make sure it's on the right tab:
+                      setActiveControlledTab("write");
+                      const suggestedText = await aiSuggestFunction();
+                      if (suggestedText) {
+                        setAiSuggestionText(suggestedText);
+                        setLoading(false);
+                      } else {
+                        setLoading(false);
+                        setAiError("Failed to get AI suggestion");
+                      }
+                    } catch (e) {
+                      setLoading(false);
+                      setAiError(
+                        "Failed to get AI suggestion. API request error"
+                      );
+                    }
+                  }
+                }}
+              >
+                <BsStars /> {loading ? "Generating..." : aiButtonText}
+              </Button>
+            </Flex>
+          )}
+          {aiSuggestionText && (
+            <div className="mt-2">
+              <h4>Suggested Description</h4>
+              <Box className="appbox" p="3">
+                <Markdown className="card-text mb-2">
+                  {aiSuggestionText}
+                </Markdown>
+              </Box>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setValue(aiSuggestionText);
+                  setAiSuggestionText("");
+                }}
+              >
+                Use this suggestion
+              </Button>
+            </div>
+          )}
+          {aiError && <div className="alert alert-danger mt-2">{aiError}</div>}
         </Box>
       </Tabs>
     </Box>

@@ -17,7 +17,9 @@ type Props = {
   containerClassName?: string;
   header?: string | JSX.Element;
   headerClassName?: string;
+  emptyHelperText?: string;
   aiSuggestFunction?: () => Promise<string>;
+  aiButtonText?: string;
 };
 
 export default function MarkdownInlineEdit({
@@ -30,7 +32,9 @@ export default function MarkdownInlineEdit({
   containerClassName = "",
   header = "",
   headerClassName = "h3",
+  emptyHelperText,
   aiSuggestFunction,
+  aiButtonText = "AI Suggest",
 }: Props) {
   const [edit, setEdit] = useState(false);
   const [val, setVal] = useState("");
@@ -55,7 +59,29 @@ export default function MarkdownInlineEdit({
           setLoading(false);
         }}
       >
-        {header && <div className={headerClassName}>{header}</div>}
+        {header && (
+          <Flex align={"center"} justify="between">
+            <div className={headerClassName}>{header}</div>{" "}
+            {aiSuggestFunction && (
+              <Flex gap="2">
+                <div className="col-auto">
+                  <button
+                    className="btn btn-link mr-2 ml-3"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setEdit(false);
+                    }}
+                  >
+                    cancel
+                  </button>
+                  <button type="submit" className="btn btn-primary">
+                    Save
+                  </button>
+                </div>
+              </Flex>
+            )}
+          </Flex>
+        )}
         {loading && <LoadingOverlay />}
         <MarkdownInput
           value={val}
@@ -65,6 +91,8 @@ export default function MarkdownInlineEdit({
           autofocus={true}
           onCancel={() => setEdit(false)}
           aiSuggestFunction={aiSuggestFunction}
+          aiButtonText={aiButtonText}
+          showButtons={!aiSuggestFunction}
         />
       </form>
     );
@@ -98,49 +126,55 @@ export default function MarkdownInlineEdit({
           {value ? (
             <Markdown className="card-text">{value}</Markdown>
           ) : (
-            <Flex className="card-text" gap="5">
+            <Box className="card-text">
               {canCreate ? (
                 <>
-                  <a
-                    role="button"
-                    className="link-purple"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setVal(value || "");
-                      setEdit(true);
-                    }}
-                  >
-                    <em>Add {label}</em>
-                  </a>
-                  {aiSuggestFunction && (
-                    <a
-                      href="#"
-                      className="link-purple"
-                      onClick={async (e) => {
-                        e.preventDefault();
-                        setError(null);
-                        setLoading(true);
-                        try {
-                          const suggestion = await aiSuggestFunction();
-                          if (suggestion) {
-                            setVal(suggestion);
-                          }
-                          setLoading(false);
+                  <Box pt={"3"}>
+                    {emptyHelperText ? (
+                      <em>{emptyHelperText}</em>
+                    ) : (
+                      <a
+                        role="button"
+                        className="link-purple"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setVal(value || "");
                           setEdit(true);
-                        } catch (e) {
-                          setLoading(false);
-                          setError(e.message);
-                        }
-                      }}
-                    >
-                      Suggest Description <BsStars />
-                    </a>
+                        }}
+                      >
+                        <em>Add {label}</em>
+                      </a>
+                    )}
+                  </Box>
+                  {aiSuggestFunction && (
+                    <Box pt={"5"}>
+                      <Button
+                        variant="soft"
+                        onClick={async () => {
+                          setError(null);
+                          setLoading(true);
+                          try {
+                            const suggestion = await aiSuggestFunction();
+                            if (suggestion) {
+                              setVal(suggestion);
+                            }
+                            setLoading(false);
+                            setEdit(true);
+                          } catch (e) {
+                            setLoading(false);
+                            setError(e.message);
+                          }
+                        }}
+                      >
+                        {aiButtonText} <BsStars />
+                      </Button>
+                    </Box>
                   )}
                 </>
               ) : (
                 <em>No {label}</em>
               )}
-            </Flex>
+            </Box>
           )}
         </Box>
         {value && canEdit && !header && (
