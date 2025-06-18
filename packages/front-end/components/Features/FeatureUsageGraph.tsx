@@ -66,27 +66,56 @@ export function FeatureUsageProvider({
     {
       withData: 0,
       withoutData: 0,
+      unfocused: 0,
     }
   );
 
   useEffect(() => {
     if (!featureUsage) return;
     if (lookback !== "15minute") return;
-    const hasData = featureUsage.usage?.overall?.total > 0;
-    const interval = hasData
-      ? featureUsageAutoRefreshInterval["withData"]
-      : featureUsageAutoRefreshInterval["withoutData"];
 
-    if (interval === 0) return;
+    let timer: NodeJS.Timeout;
 
-    const timer = setInterval(
-      () => {
-        mutateFeatureUsage();
-      },
-      // We might want to update slower when there's no data yet
-      interval
-    );
-    return () => clearInterval(timer);
+    const updateInterval = (focused = true) => {
+      const hasData = featureUsage.usage?.overall?.total > 0;
+      let interval = featureUsageAutoRefreshInterval["withoutData"];
+      if (hasData) {
+        interval = featureUsageAutoRefreshInterval["withData"];
+      }
+      if (!document.hasFocus || !focused) {
+        interval = featureUsageAutoRefreshInterval["unfocused"];
+      }
+
+      clearInterval(timer);
+      if (!document.hidden && interval > 0) {
+        timer = setInterval(mutateFeatureUsage, interval);
+      }
+    };
+
+    updateInterval();
+
+    const handleFocus = () => {
+      updateInterval(true);
+    };
+
+    const handleBlur = () => {
+      updateInterval(false);
+    };
+
+    document.addEventListener("visibilitychange", () => {
+      updateInterval();
+    });
+    window.addEventListener("focus", handleFocus);
+    window.addEventListener("blur", handleBlur);
+
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", () => {
+        updateInterval(true);
+      });
+      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("blur", handleBlur);
+    };
   }, [
     lookback,
     featureUsage,
