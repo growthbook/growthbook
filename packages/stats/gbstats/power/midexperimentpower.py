@@ -212,9 +212,7 @@ class MidExperimentPower:
             part_pos = 1 - norm.cdf(
                 (halfwidth - self.target_mde) / adjusted_variance**0.5
             )
-            part_neg = norm.cdf(
-                -(halfwidth + self.target_mde) / adjusted_variance**0.5
-            )
+            part_neg = norm.cdf(-(halfwidth + self.target_mde) / adjusted_variance**0.5)
         return float(part_pos + part_neg)
 
     def calculate_scaling_factor(self) -> ScalingFactorResult:
