@@ -41,6 +41,8 @@ export const AIPromptDefaults: Record<AIPromptType, string> = {
     "Write a concise description in markdown of the metric that will be helpful for other users who may want to use this metric in their AB tests. Paraphrase what this metric is used to show or measure.",
   "experiment-hypothesis":
     "A hypothesis is a statement that can be tested. It should be clear, concise, specific, and falsifiable. It should include how the user or product behaviour is expected to change, and what metrics we're trying to move with this experiment. It does not need a title.",
+  "similar-experiments": "", // STOPSHIP(Graham): This doesn't seem to be used anywhere yet in current branch?
+  "generate-experiment-keywords": "", // Always uses the default prompt set in ExperimentModel.ts
   "visual-changeset-copy-transform-energetic": "", // Always uses the default prompt set in postCopyTransform.ts
   "visual-changeset-copy-transform-concise": "", // Always uses the default prompt set in postCopyTransform.ts
   "visual-changeset-copy-transform-humorous": "", // Always uses the default prompt set in postCopyTransform.ts
