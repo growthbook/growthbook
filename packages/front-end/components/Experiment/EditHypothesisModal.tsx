@@ -1,13 +1,18 @@
 import { useForm } from "react-hook-form";
-import { Box, Flex, Heading } from "@radix-ui/themes";
+import { Box, Flex, Heading, Text, Tooltip } from "@radix-ui/themes";
 import { BsStars } from "react-icons/bs";
 import { useState } from "react";
+import { PiArrowClockwise, PiClipboard, PiTrash } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import Button from "@/components/Radix/Button";
 import { useAISettings } from "@/hooks/useOrgSettings";
 import Markdown from "@/components/Markdown/Markdown";
-import Modal from "../Modal";
+import Checkbox from "@/components/Radix/Checkbox";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
 import Field from "../Forms/Field";
+import Modal from "../Modal";
 
 interface Props {
   source: string;
@@ -29,11 +34,41 @@ export default function EditHypothesisModal({
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [aiResponse, setAiResponse] = useState<string | null>(null);
-  const form = useForm<{ hypothesis: string }>({
+  const form = useForm<{ hypothesis: string; useThisHypothesis: boolean }>({
     defaultValues: {
       hypothesis: initialValue || "",
+      useThisHypothesis: false,
     },
   });
+
+  const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
+    timeout: 1500,
+  });
+
+  const checkHypothesis = async () => {
+    if (aiEnabled) {
+      setError(null);
+      setLoading(true);
+      apiCall(`/ai/reformat`, {
+        method: "POST",
+        body: JSON.stringify({
+          type: "experiment-hypothesis",
+          text: form.watch("hypothesis"),
+        }),
+      })
+        .then((res: { data: { output: string } }) => {
+          setAiResponse(res.data.output);
+        })
+        .catch(() => {
+          // handle error
+          setError("Error getting AI suggestion");
+          setLoading(false);
+        })
+        .finally(() => {
+          setLoading(false);
+        });
+    }
+  };
 
   return (
     <Modal
@@ -46,7 +81,12 @@ export default function EditHypothesisModal({
       submit={form.handleSubmit(async (data) => {
         await apiCall(`/experiment/${experimentId}`, {
           method: "POST",
-          body: JSON.stringify({ hypothesis: data.hypothesis }),
+          body: JSON.stringify({
+            hypothesis:
+              form.getValues("useThisHypothesis") && aiResponse
+                ? aiResponse
+                : data.hypothesis,
+          }),
         });
         mutate();
       })}
@@ -55,6 +95,7 @@ export default function EditHypothesisModal({
     >
       <div style={{ paddingBottom: "4px" }}>
         <Field
+          disabled={form.watch("useThisHypothesis")}
           label="Hypothesis"
           textarea
           minRows={1}
@@ -64,66 +105,98 @@ export default function EditHypothesisModal({
         />
       </div>
       <Box>
-        <Flex align="start" justify="end">
-          <Button
-            disabled={
-              !aiEnabled || loading || form.watch("hypothesis").trim() === ""
+        <Flex align="start" justify="start">
+          <Tooltip
+            content={
+              aiEnabled ? (
+                "Check hypothesis against orgniaztion standards."
+              ) : (
+                <>
+                  Org admins can set hypothesis formatting standards for the
+                  organization in <u>General Settings</u>.
+                </>
+              )
             }
-            variant="ghost"
-            onClick={() => {
-              if (aiEnabled) {
-                setError(null);
-                setLoading(true);
-                apiCall(`/ai/reformat`, {
-                  method: "POST",
-                  body: JSON.stringify({
-                    type: "experiment-hypothesis",
-                    text: form.watch("hypothesis"),
-                  }),
-                })
-                  .then((res: { data: { output: string } }) => {
-                    setAiResponse(res.data.output);
-                  })
-                  .catch(() => {
-                    // handle error
-                    setError("Error getting AI suggestion");
-                    setLoading(false);
-                  })
-                  .finally(() => {
-                    setLoading(false);
-                  });
-              }
-            }}
-            stopPropagation={true}
+            side="bottom"
           >
-            Check hypothesis <BsStars />
-          </Button>
+            <Button
+              disabled={
+                !aiEnabled || loading || form.watch("hypothesis").trim() === ""
+              }
+              variant="soft"
+              onClick={checkHypothesis}
+              stopPropagation={true}
+            >
+              <BsStars /> Check hypothesis
+            </Button>
+          </Tooltip>
         </Flex>
         {error && (
           <Box my="4">
             <p className="text-danger">{error}</p>
           </Box>
         )}
-        {aiResponse && (
-          <Box>
-            <Heading size="2" weight="medium">
-              AI Response:
-            </Heading>
-            <Box className="appbox" p="3" mb="2">
-              <Markdown>{aiResponse}</Markdown>
-            </Box>
-            <Box>
-              <Flex justify="end">
+        {(loading || aiResponse) && (
+          <Box my="4">
+            <Flex align="center" justify="between" my="4">
+              <Heading size="2" weight="medium">
+                Suggested Hypothesis:
+              </Heading>
+              <Flex gap="2">
                 <Button
                   variant="ghost"
                   onClick={() => {
-                    form.setValue("hypothesis", aiResponse);
-                    setAiResponse(null);
+                    form.setValue("hypothesis", "");
                   }}
                 >
-                  Use this hypothesis
+                  <PiTrash /> Clear
+                </Button>
+                {copySupported && (
+                  <Box style={{ position: "relative" }}>
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        performCopy(aiResponse || "");
+                      }}
+                    >
+                      <PiClipboard /> Copy
+                    </Button>
+                    {copySuccess ? (
+                      <SimpleTooltip position="right">
+                        Copied to clipboard!
+                      </SimpleTooltip>
+                    ) : null}
+                  </Box>
+                )}
+                <Button variant="ghost" onClick={checkHypothesis}>
+                  <PiArrowClockwise /> Try Again
                 </Button>
               </Flex>
+            </Flex>
+            <Box>
+              {loading && (
+                <Text color="gray">
+                  <LoadingSpinner /> Loading...
+                </Text>
+              )}
+              {!loading && aiResponse && (
+                <>
+                  <Box className="appbox" p="3" mb="2">
+                    <Markdown>
+                      {aiResponse || "No suggestion available."}
+                    </Markdown>
+                  </Box>
+                  <Flex justify="start">
+                    <Checkbox
+                      label="Use this hypothesis"
+                      value={!!form.watch("useThisHypothesis")}
+                      setValue={(v) => {
+                        form.setValue("useThisHypothesis", v === true);
+                      }}
+                    />
+                  </Flex>
+                </>
+              )}
             </Box>
           </Box>
         )}
