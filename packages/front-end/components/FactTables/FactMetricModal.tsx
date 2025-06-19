@@ -8,7 +8,6 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
 } from "shared/constants";
-import { isProjectListValidForProject } from "shared/util";
 import {
   CreateFactMetricProps,
   FactMetricInterface,
@@ -72,6 +71,7 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import HelperText from "@/components/Radix/HelperText";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
+import { useProjectDefinitions } from "@/hooks/useProjectDefinitions";
 
 export interface Props {
   close?: () => void;
@@ -1446,11 +1446,11 @@ export default function FactMetricModal({
     getFactTableById,
     mutateDefinitions,
   } = useDefinitions();
+  const { projectDataSources } = useProjectDefinitions(project);
 
   const { apiCall } = useAuth();
 
-  const validDatasources = datasources
-    .filter((d) => isProjectListValidForProject(d.projects, project))
+  const validDatasources = projectDataSources
     .filter((d) => d.properties?.queryLanguage === "sql")
     .filter((d) => !datasource || d.id === datasource);
 
