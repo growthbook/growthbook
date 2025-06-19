@@ -45,7 +45,7 @@ interface MetricAnalysisProps {
 
 interface Props {
   experimentsWithSnapshot: ExperimentWithSnapshot[];
-  metrics: ExperimentMetricInterface[];
+  metric: ExperimentMetricInterface;
   bandits?: boolean;
   numPerPage?: number;
   differenceType?: DifferenceType;
@@ -79,9 +79,9 @@ export interface MetricExperimentData {
 
 const NUM_PER_PAGE = 50;
 
-export function MetricExperimentResultTab({
+function MetricExperimentResultTab({
   experimentsWithSnapshot,
-  metrics,
+  metric,
   bandits,
   numPerPage = NUM_PER_PAGE,
   differenceType = "relative",

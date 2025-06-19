@@ -440,7 +440,7 @@ const MetricCorrelationCard = ({
         setMetricData({
           correlationData: newCorrelationData,
         });
-        setFilteredExperiments(filteredExperimentsWithSnapshot);
+        setFilteredExperiments(Object.values(filteredExperimentsWithSnapshot));
       } else {
         setMetricData({
           correlationData: [],
