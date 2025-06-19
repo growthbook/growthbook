@@ -1,9 +1,16 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import React, { useMemo, useState } from "react";
-import { DashboardInstanceInterface } from "back-end/src/enterprise/validators/dashboard-instance";
+import React, { useCallback, useMemo, useState } from "react";
+import {
+  DashboardInstanceInterface,
+  DashboardSettingsInterface,
+} from "back-end/src/enterprise/validators/dashboard-instance";
 import { getDefaultDashboardSettingsForExperiment } from "shared/enterprise";
 import { ago } from "shared/dates";
 import { FaMagnifyingGlass } from "react-icons/fa6";
+import {
+  DashboardBlockData,
+  DashboardBlockInterface,
+} from "back-end/src/enterprise/validators/dashboard-block";
 import Button from "@/components/Radix/Button";
 import { useAuth } from "@/services/auth";
 import Link from "@/components/Radix/Link";
@@ -48,6 +55,36 @@ export default function DashboardsTab({ experiment }: Props) {
     permissionsUtil.canSuperDeleteReport();
   const canCreate = permissionsUtil.canCreateReport(experiment);
 
+  const dashboardId = dashboard?.id || "";
+
+  const submitDashboard = useCallback(
+    async (dashboardData: {
+      title: string;
+      description: string;
+      blocks: DashboardBlockData<DashboardBlockInterface>[];
+      settings: DashboardSettingsInterface;
+    }) => {
+      const res = await apiCall<{
+        status: number;
+        dashboard: DashboardInstanceInterface;
+      }>(`/dashboards/${dashboardId}`, {
+        method: dashboardId ? "PUT" : "POST",
+        body: JSON.stringify(
+          dashboardId
+            ? dashboardData
+            : { ...dashboardData, experimentId: experiment.id }
+        ),
+      });
+      if (res.status === 200) {
+        setDashboard(res.dashboard);
+        mutate();
+      } else {
+        console.error(res);
+      }
+    },
+    [apiCall, dashboardId, experiment.id, mutate]
+  );
+
   if (isEditing || dashboard) {
     return (
       <DashboardEditor
@@ -57,26 +94,7 @@ export default function DashboardsTab({ experiment }: Props) {
         }}
         cancel={() => setIsEditing(false)}
         setEditing={setIsEditing}
-        submit={async (dashboardData) => {
-          const res = await apiCall<{
-            status: number;
-            dashboard: DashboardInstanceInterface;
-          }>(`/dashboards/${dashboard?.id || ""}`, {
-            method: dashboard ? "PUT" : "POST",
-            body: JSON.stringify(
-              dashboard
-                ? dashboardData
-                : { ...dashboardData, experimentId: experiment.id }
-            ),
-          });
-          if (res.status === 200) {
-            setDashboard(res.dashboard);
-            setIsEditing(false);
-            mutate();
-          } else {
-            console.error(res);
-          }
-        }}
+        submitCallback={submitDashboard}
         experiment={experiment}
         dashboard={dashboard}
         defaultSettings={getDefaultDashboardSettingsForExperiment(experiment)}

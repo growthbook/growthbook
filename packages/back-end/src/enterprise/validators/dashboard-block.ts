@@ -108,13 +108,6 @@ export const createDashboardBlockInterface = z.discriminatedUnion("type", [
 export type CreateDashboardBlockInterface = z.infer<
   typeof createDashboardBlockInterface
 >;
-export type DashboardBlockData<
-  T extends DashboardBlockInterface
-> = DistributiveOmit<T, "id" | "uid" | "organization">;
-
-export function isPersistedDashboardBlock(
-  data: CreateDashboardBlockInterface | DashboardBlockInterface
-): data is DashboardBlockInterface {
-  if ((data as DashboardBlockInterface).id) return true;
-  return false;
-}
+export type DashboardBlockData<T extends DashboardBlockInterface> =
+  | T
+  | DistributiveOmit<T, "id" | "uid" | "organization">;

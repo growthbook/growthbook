@@ -1,5 +1,7 @@
 import { getValidDate } from "shared/dates";
 import { z } from "zod";
+import { isMatch } from "lodash";
+import { isPersistedDashboardBlock } from "shared/enterprise";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -12,7 +14,13 @@ import {
   DashboardSettingsStringDates,
 } from "back-end/src/enterprise/validators/dashboard-instance";
 import { createDashboardBlock } from "back-end/src/enterprise/models/DashboardBlockModel";
-import { isPersistedDashboardBlock } from "back-end/src/enterprise/validators/dashboard-block";
+import { computeSnapshotSettings } from "back-end/src/enterprise/models/DashboardInstanceModel";
+import { getLatestSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
+import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import {
+  createSnapshot,
+  createSnapshotAnalyses,
+} from "back-end/src/services/experiments";
 import { createDashboardBody, updateDashboardBody } from "./dashboards.router";
 
 interface GetSnapshotsResponse {
@@ -34,8 +42,70 @@ export async function getSnapshotsForDashboard(
   if (!dashboard) {
     return res.status(404).json({ status: 404, message: "Not Found" });
   }
-  // const uids = dashboard.blocks.map((b) => b.uid);
-  return res.status(200).json({ status: 200, snapshots: {} });
+  const experiment = await getExperimentById(context, dashboard.experimentId);
+  if (!experiment) {
+    return res.status(404).json({ status: 404, message: "Not Found" });
+  }
+  const snapshotSettingsInfo = await computeSnapshotSettings(
+    dashboard,
+    experiment
+  );
+  const snapshotsWithBlocks = await Promise.all(
+    snapshotSettingsInfo.map(
+      async ({
+        snapshotSettings,
+        analysisSettingsList,
+        blockUids,
+      }): Promise<[ExperimentSnapshotInterface, string[]]> => {
+        let snapshot = await getLatestSnapshot({
+          experiment: dashboard.experimentId,
+          phase: experiment.phases.length - 1,
+          dimension: snapshotSettings.dimensions[0]?.id,
+        });
+        if (snapshot) {
+          // Create any necessary analyses that don't already exist on the snapshot
+          const newAnalysisSettings = analysisSettingsList.filter(
+            (analysisSettings) =>
+              !snapshot!.analyses.find((analysis) =>
+                isMatch(analysis.settings, analysisSettings)
+              )
+          );
+          await createSnapshotAnalyses(
+            newAnalysisSettings.map((analysisSettings) => ({
+              experiment,
+              organization: context.org,
+              analysisSettings,
+              metricMap: new Map(),
+              snapshot: snapshot!,
+            })),
+            context
+          );
+        } else {
+          const queryRunner = await createSnapshot({
+            experiment,
+            context,
+            type: "report",
+            triggeredBy: "manual",
+            phaseIndex: experiment.phases.length - 1,
+            defaultAnalysisSettings: analysisSettingsList[0],
+            additionalAnalysisSettings: analysisSettingsList.slice(1),
+            settingsForSnapshotMetrics: [],
+            metricMap: new Map(),
+            factTableMap: new Map(),
+          });
+          snapshot = queryRunner.model;
+        }
+        return [snapshot, blockUids];
+      }
+    )
+  );
+  const snapshots = Object.fromEntries(
+    snapshotsWithBlocks.flatMap(([snapshot, blockUids]) =>
+      blockUids.map((uid) => [uid, snapshot])
+    )
+  );
+
+  return res.status(200).json({ status: 200, snapshots });
 }
 
 export async function createDashboard(

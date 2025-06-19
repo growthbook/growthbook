@@ -51,7 +51,9 @@ export default function DashboardSnapshotProvider({
     mutate: dashboardMutate,
   } = useApi<{
     snapshots: Record<string, ExperimentSnapshotInterface>;
-  }>(`/dashboards/${dashboardId}/snapshots/`);
+  }>(`/dashboards/${dashboardId}/snapshots/`, {
+    shouldRun: () => !!dashboardId,
+  });
 
   const snapshotEntries = useMemo(
     () =>

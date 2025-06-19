@@ -1,5 +1,6 @@
 import { DifferenceType } from "back-end/types/stats";
 import { DimensionBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
+import { isPersistedDashboardBlock } from "shared/enterprise";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import BaselineChooser from "@/components/Experiment/BaselineChooser";
@@ -8,31 +9,46 @@ import ResultsTable from "@/components/Experiment/ResultsTable";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { ExperimentMetricSelector } from "../DashboardSettingsHeader";
 import { useDashboardSnapshot } from "../../DashboardSnapshotProvider";
+import { useDashboardSettings } from "../../DashboardSettingsProvider";
 import { withExperiment, BlockProps } from ".";
 
-export default function DimensionBlock({
-  dimensionId,
-  dimensionValues,
-  baselineRow,
-  variationIds,
-  metricId,
-  isEditing,
-  setBlock,
-  experiment,
-  differenceType,
-}: withExperiment<BlockProps<DimensionBlockInterface>>) {
-  variationIds ||= [];
-  baselineRow ||= 0;
-  metricId ||= "";
-  dimensionId ||= "";
+export default function DimensionBlock(
+  props: withExperiment<BlockProps<DimensionBlockInterface>>
+) {
+  const {
+    dimensionId: dimensionidOverride,
+    dimensionValues,
+    baselineRow: baselineRowOverride,
+    variationIds: variationIdsOverride,
+    metricId: metricIdOverride,
+    isEditing,
+    setBlock,
+    experiment,
+    differenceType,
+  } = props;
+  let uid: string | undefined = undefined;
+  if (isPersistedDashboardBlock(props)) {
+    uid = props.uid;
+  }
   const {
     snapshot,
     analysis,
     mutateSnapshot,
     analysisSettings,
-  } = useDashboardSnapshot();
+  } = useDashboardSnapshot(uid);
+  const {
+    defaultSnapshotSettings: { dimensionId: defaultDimensionId },
+    defaultAnalysisSettings: { baselineVariationIndex: defaultBaselineRow },
+    defaultMetricId,
+    defaultVariationIds,
+  } = useDashboardSettings();
   const orgSettings = useOrgSettings();
   const pValueCorrection = orgSettings?.pValueCorrection;
+
+  const metricId = metricIdOverride || defaultMetricId;
+  const baselineRow = baselineRowOverride || defaultBaselineRow;
+  const variationIds = variationIdsOverride || defaultVariationIds;
+  const dimensionId = dimensionidOverride || defaultDimensionId;
 
   const { getExperimentMetricById } = useDefinitions();
 
