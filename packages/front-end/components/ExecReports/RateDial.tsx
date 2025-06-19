@@ -41,6 +41,7 @@ const RateDial: React.FC<RateDialProps> = ({
   const tickColor = "rgba(128,186,252,0.55)";
 
   const margin = { top: 20, right: 20, bottom: 20, left: 20 };
+  const numDecimals = 0;
 
   return (
     <Box>
@@ -188,7 +189,7 @@ const RateDial: React.FC<RateDialProps> = ({
                   fill="var(--slate-12)"
                   dy={0}
                 >
-                  {winRate.toFixed(1) + "%"}
+                  {winRate.toFixed(numDecimals) + "%"}
                 </Text>
               </Group>
             </svg>

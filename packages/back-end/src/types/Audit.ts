@@ -32,6 +32,7 @@ export const entityEvents = {
     "archive",
     "delete",
   ],
+  featureRevisionLog: ["create", "update", "delete"],
   urlRedirect: ["create", "update", "delete"],
   metric: ["autocreate", "create", "update", "delete", "analysis"],
   metricAnalysis: ["create", "update", "delete"],
@@ -54,6 +55,7 @@ export const entityEvents = {
   decisionCriteria: ["create", "update", "delete"],
   execReport: ["create", "update", "delete"],
   holdout: ["create", "update", "delete"],
+  savedQuery: ["create", "update", "delete"],
 } as const;
 
 export type EntityEvents = typeof entityEvents;

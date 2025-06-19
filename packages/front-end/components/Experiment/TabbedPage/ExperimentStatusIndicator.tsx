@@ -9,12 +9,17 @@ type LabelFormat = "full" | "status-only" | "detail-only";
 export default function ExperimentStatusIndicator({
   experimentData,
   labelFormat = "full",
+  skipArchived = false,
 }: {
   experimentData: ExperimentDataForStatusStringDates;
   labelFormat?: LabelFormat;
+  skipArchived?: boolean;
 }) {
   const getExperimentStatusIndicator = useExperimentStatusIndicator();
-  const statusIndicatorData = getExperimentStatusIndicator(experimentData);
+  const statusIndicatorData = getExperimentStatusIndicator(
+    experimentData,
+    skipArchived
+  );
 
   return (
     <RawExperimentStatusIndicator

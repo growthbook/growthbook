@@ -41,6 +41,19 @@ properties:
           description: "Feature ID"
         condition:
           type: string
+  scheduleRules:
+    type: array
+    items:
+      type: object
+      required:
+        - enabled
+        - timestamp
+      properties:
+        enabled:
+          type: boolean
+        timestamp:
+          type: string
+          nullable: true
   id:
     type: string
   enabled:
