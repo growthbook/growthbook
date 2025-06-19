@@ -15,6 +15,7 @@ import { DocLink } from "@/components/DocLink";
 import Code, { Language } from "@/components/SyntaxHighlighting/Code";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import ProjectBadges from "@/components/ProjectBadges";
 
 const DimensionsPage: FC = () => {
   const {
@@ -24,12 +25,13 @@ const DimensionsPage: FC = () => {
     ready,
     error,
     mutateDefinitions,
+    project,
   } = useDefinitions();
 
   const permissionsUtil = usePermissionsUtil();
-  const canCreateDimension = permissionsUtil.canCreateDimension();
-  const canEditDimension = permissionsUtil.canUpdateDimension();
-  const canDeleteDimension = permissionsUtil.canDeleteDimension();
+  const canCreateDimension = permissionsUtil.canCreateDimension({
+    projects: [project],
+  });
 
   const [
     dimensionForm,
@@ -126,6 +128,7 @@ const DimensionsPage: FC = () => {
                 <tr>
                   <th>Name</th>
                   <th>Owner</th>
+                  <th>Projects</th>
                   <th className="d-none d-sm-table-cell">Data Source</th>
                   <th className="d-none d-md-table-cell">Identifier Type</th>
                   <th className="d-none d-lg-table-cell">Definition</th>
@@ -150,6 +153,16 @@ const DimensionsPage: FC = () => {
                         </>
                       </td>
                       <td>{s.owner}</td>
+                      <td className="col-2">
+                        {s && (s.projects || []).length > 0 ? (
+                          <ProjectBadges
+                            resourceType="segment"
+                            projectIds={s.projects}
+                          />
+                        ) : (
+                          <ProjectBadges resourceType="segment" />
+                        )}
+                      </td>
                       <td className="d-none d-sm-table-cell">
                         {datasource && (
                           <>
@@ -181,7 +194,7 @@ const DimensionsPage: FC = () => {
                       {!hasFileConfig() && <td>{ago(s.dateUpdated)}</td>}
                       {!hasFileConfig() && (
                         <td>
-                          {canEditDimension ? (
+                          {permissionsUtil.canUpdateDimension(s, {}) ? (
                             <a
                               href="#"
                               className="tr-hover text-primary mr-3"
@@ -194,7 +207,7 @@ const DimensionsPage: FC = () => {
                               <FaPencilAlt />
                             </a>
                           ) : null}
-                          {canDeleteDimension ? (
+                          {permissionsUtil.canDeleteDimension(s) ? (
                             <DeleteButton
                               link={true}
                               className={"tr-hover text-primary"}
