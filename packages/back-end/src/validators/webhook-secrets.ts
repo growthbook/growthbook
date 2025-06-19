@@ -9,6 +9,7 @@ export const webhookSecretSchema = z
     dateUpdated: z.date(),
     key: z.string(),
     value: z.string(),
+    allowedOrigins: z.array(z.string()).optional(),
     description: z.string().optional(),
   })
   .strict();

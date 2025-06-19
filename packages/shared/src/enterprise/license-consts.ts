@@ -57,7 +57,10 @@ export type CommercialFeature =
   | "unlimited-cdn-usage"
   | "managed-clickhouse"
   | "safe-rollout"
-  | "require-project-for-features-setting";
+  | "require-project-for-features-setting"
+  | "saveSqlExplorerQueries"
+  | "metric-effects"
+  | "metric-correlations";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
@@ -71,6 +74,7 @@ export type SubscriptionInfo = {
   dateToBeCanceled: string;
   cancelationDate: string;
   pendingCancelation: boolean;
+  isVercelIntegration: boolean;
 };
 
 export interface LicenseInterface {
@@ -94,6 +98,7 @@ export interface LicenseInterface {
     tooltipText: string; // The text to show in the tooltip
     showAllUsers: boolean; // True if all users should see the notice rather than just the admins
   };
+  vercelInstallationId?: string;
   stripeSubscription?: {
     id: string;
     qty: number;
@@ -197,6 +202,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "decision-framework",
     "safe-rollout",
     "managed-clickhouse",
+    "saveSqlExplorerQueries",
   ]),
   pro_sso: new Set<CommercialFeature>([
     "sso",
@@ -226,6 +232,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "decision-framework",
     "safe-rollout",
     "managed-clickhouse",
+    "saveSqlExplorerQueries",
   ]),
   enterprise: new Set<CommercialFeature>([
     "scim",
@@ -275,6 +282,9 @@ export const accountFeatures: CommercialFeaturesMap = {
     "safe-rollout",
     "managed-clickhouse",
     "require-project-for-features-setting",
+    "saveSqlExplorerQueries",
+    "metric-effects",
+    "metric-correlations",
   ]),
 };
 
