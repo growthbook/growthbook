@@ -1,7 +1,10 @@
 import React, { useEffect, useCallback, useState, useMemo } from "react";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { ExperimentSnapshotInterface, ExperimentWithSnapshot } from "back-end/types/experiment-snapshot";
+import {
+  ExperimentSnapshotInterface,
+  ExperimentWithSnapshot,
+} from "back-end/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { DifferenceType } from "back-end/types/stats";
@@ -49,6 +52,10 @@ type MetricCorrelationParams = {
   m1: string;
   m2: string;
   diff: DifferenceType;
+  excludedExperimentVariations: {
+    experimentId: string;
+    variationIndex: number;
+  }[];
 };
 
 type MetricCorrelationTooltipData = {
@@ -77,13 +84,36 @@ const parseQueryParams = (
     const groupId = idx.toString();
 
     if (!paramGroups.has(groupId)) {
-      paramGroups.set(groupId, { idx, m1: "", m2: "", diff: "relative" });
+      paramGroups.set(groupId, {
+        idx,
+        m1: "",
+        m2: "",
+        diff: "relative",
+        excludedExperimentVariations: [],
+      });
     }
 
     const group = paramGroups.get(groupId)!;
     if (paramType === "m1") group.m1 = value;
     else if (paramType === "m2") group.m2 = value;
     else if (paramType === "diff") group.diff = value as DifferenceType;
+    else if (paramType === "excludedExperimentVariations") {
+      const evs = value.split(",");
+      const excludedExperimentVariations: {
+        experimentId: string;
+        variationIndex: number;
+      }[] = [];
+      evs.forEach((ev) => {
+        const [experimentId, variationIndex] = ev.split("_");
+        if (experimentId !== undefined && variationIndex !== undefined) {
+          excludedExperimentVariations.push({
+            experimentId: experimentId,
+            variationIndex: Number(variationIndex),
+          });
+        }
+      });
+      group.excludedExperimentVariations = excludedExperimentVariations;
+    }
   });
 
   // Convert groups to array and filter out incomplete groups
@@ -220,8 +250,13 @@ const MetricCorrelationCard = ({
   }>({
     correlationData: [],
   });
-  const [filteredExperiments, setFilteredExperiments] = useState<ExperimentWithSnapshot[]>([]);
-  const [excludedExperimentVariations, setExcludedExperimentVariations] = useState<{experimentId: string, variationIndex: number}[]>([]);
+  const [filteredExperiments, setFilteredExperiments] = useState<
+    ExperimentWithSnapshot[]
+  >([]);
+  const [
+    excludedExperimentVariations,
+    setExcludedExperimentVariations,
+  ] = useState<{ experimentId: string; variationIndex: number }[]>([]);
 
   const metric1OptionCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -307,12 +342,18 @@ const MetricCorrelationCard = ({
       metric2
     );
 
-    let filteredExperimentsWithSnapshot: ExperimentWithSnapshot[] = [];
+    const filteredExperimentsWithSnapshot: Record<
+      string,
+      ExperimentWithSnapshot
+    > = {};
 
     setSearchParams({
       [`m1_0`]: metric1,
       [`m2_0`]: metric2,
       [`diff_0`]: differenceType,
+      [`excludedExperimentVariations_0`]: excludedExperimentVariations
+        .map((ev) => `${ev.experimentId}_${ev.variationIndex}`)
+        .join(","),
     });
 
     const queryIds = filteredExperiments
@@ -347,11 +388,6 @@ const MetricCorrelationCard = ({
           const result = analysis.results[0];
           if (!result) return;
 
-          filteredExperimentsWithSnapshot.push({
-            ...experiment,
-            snapshot: snapshot,
-          });
-
           result.variations.forEach((variation, variationIndex) => {
             if (variationIndex === 0) return; // Skip baseline
 
@@ -363,7 +399,21 @@ const MetricCorrelationCard = ({
             }
 
             if (metric1Data && metric2Data) {
-              if (excludedExperimentVariations.some((ev) => ev.experimentId === experiment.id && ev.variationIndex === variationIndex)) {
+              // add to data for table
+              if (!filteredExperimentsWithSnapshot[experiment.id]) {
+                filteredExperimentsWithSnapshot[experiment.id] = {
+                  ...experiment,
+                  snapshot: snapshot,
+                };
+              }
+
+              if (
+                excludedExperimentVariations.some(
+                  (ev) =>
+                    ev.experimentId === experiment.id &&
+                    ev.variationIndex === variationIndex
+                )
+              ) {
                 return;
               }
 
@@ -434,8 +484,7 @@ const MetricCorrelationCard = ({
       />
     );
   }
-  console.log(metric1Obj, metric2Obj);
-  console.log(experiments);
+
   return (
     <>
       <Box className="appbox appbox-light p-3">
@@ -520,63 +569,66 @@ const MetricCorrelationCard = ({
               <LoadingSpinner />
             </Box>
           </Flex>
-        ) : metricData.correlationData.length > 0 ? (
+        ) : metricData.correlationData.length > 0 ||
+          filteredExperiments.length > 0 ? (
           <Flex direction="column" gap="4">
-          <Box mt="4">
-            <Flex mt="2" align="center" justify="center" p="3">
-              <ScatterPlotGraph
-                data={metricData.correlationData}
-                width={800}
-                height={500}
-                xFormatter={formatterM1}
-                yFormatter={formatterM2}
-                xLabel={metric1Name}
-                yLabel={metric2Name}
-                generateTooltipContent={(data) => (
-                  <Flex direction="column" gap="2">
-                    <Flex justify="between" gapX="2">
-                      <Text weight="bold">Experiment:</Text>
-                      <Text>{data.otherData.experimentName}</Text>
+            <Box mt="4">
+              <Flex mt="2" align="center" justify="center" p="3">
+                <ScatterPlotGraph
+                  data={metricData.correlationData}
+                  width={800}
+                  height={500}
+                  xFormatter={formatterM1}
+                  yFormatter={formatterM2}
+                  xLabel={metric1Name}
+                  yLabel={metric2Name}
+                  generateTooltipContent={(data) => (
+                    <Flex direction="column" gap="2">
+                      <Flex justify="between" gapX="2">
+                        <Text weight="bold">Experiment:</Text>
+                        <Text>{data.otherData.experimentName}</Text>
+                      </Flex>
+                      <Flex justify="between" gapX="2">
+                        <Text weight="bold">Variation:</Text>
+                        <Text>{data.otherData.variationName}</Text>
+                      </Flex>
+                      <Flex justify="between" gapX="2">
+                        <Text weight="bold">{data.otherData.xMetricName}</Text>
+                        <Text>
+                          {formatterM1(data.x)} ({formatterM1(data.xmin)} -{" "}
+                          {formatterM1(data.xmax)})
+                        </Text>
+                      </Flex>
+                      <Flex justify="between" gapX="2">
+                        <Text weight="bold">{data.otherData.yMetricName}</Text>
+                        <Text>
+                          {formatterM2(data.y)} ({formatterM2(data.ymin)} -{" "}
+                          {formatterM2(data.ymax)})
+                        </Text>
+                      </Flex>
+                      <Flex justify="between" gapX="2">
+                        <Text weight="bold">Units:</Text>
+                        <Text>{data.units.toLocaleString()}</Text>
+                      </Flex>
                     </Flex>
-                    <Flex justify="between" gapX="2">
-                      <Text weight="bold">Variation:</Text>
-                      <Text>{data.otherData.variationName}</Text>
-                    </Flex>
-                    <Flex justify="between" gapX="2">
-                      <Text weight="bold">{data.otherData.xMetricName}</Text>
-                      <Text>
-                        {formatterM1(data.x)} ({formatterM1(data.xmin)} -{" "}
-                        {formatterM1(data.xmax)})
-                      </Text>
-                    </Flex>
-                    <Flex justify="between" gapX="2">
-                      <Text weight="bold">{data.otherData.yMetricName}</Text>
-                      <Text>
-                        {formatterM2(data.y)} ({formatterM2(data.ymin)} -{" "}
-                        {formatterM2(data.ymax)})
-                      </Text>
-                    </Flex>
-                    <Flex justify="between" gapX="2">
-                      <Text weight="bold">Units:</Text>
-                      <Text>{data.units.toLocaleString()}</Text>
-                    </Flex>
-                  </Flex>
-                )}
+                  )}
+                />
+              </Flex>
+            </Box>
+            {metric1Obj && metric2Obj ? (
+              <MetricCorrelationsExperimentTable
+                experimentsWithSnapshot={filteredExperiments}
+                metrics={[metric1Obj, metric2Obj]}
+                bandits={false}
+                numPerPage={50}
+                differenceType={differenceType}
+                excludedExperimentVariations={excludedExperimentVariations}
+                setExcludedExperimentVariations={
+                  setExcludedExperimentVariations
+                }
               />
-            </Flex>
-          </Box>
-          {metric1Obj && metric2Obj ? (
-            <MetricCorrelationsExperimentTable
-              experimentsWithSnapshot={filteredExperiments}
-              metrics={[metric1Obj, metric2Obj]}
-              bandits={false}
-              numPerPage={50}
-              differenceType={differenceType}
-              excludedExperimentVariations={excludedExperimentVariations}
-              setExcludedExperimentVariations={setExcludedExperimentVariations}
-            />
-          ) : null}
-            </Flex>
+            ) : null}
+          </Flex>
         ) : (
           <Box mt="4">
             <Callout status="info">
