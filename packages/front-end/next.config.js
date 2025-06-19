@@ -1,9 +1,14 @@
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const withBundleAnalyzer = require("@next/bundle-analyzer")({
+  enabled: process.env.ANALYZE === "true",
+});
+
 const cspHeader = `
     frame-ancestors 'none';
 `;
 
 /** @type {import('next').NextConfig} */
-module.exports = {
+const nextConfig = {
   // We already run eslint and typescript in CI/CD
   // Disable here to speed up production builds
   eslint: {
@@ -33,3 +38,5 @@ module.exports = {
   ],
   transpilePackages: ["echarts", "zrender"],
 };
+
+module.exports = withBundleAnalyzer(nextConfig);
