@@ -20,28 +20,17 @@ import {
   ExperimentStatus,
   Variation,
 } from "back-end/types/experiment";
-import useApi from "@/hooks/useApi";
-import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
-import ChangeColumn from "@/components/Experiment/ChangeColumn";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import Pagination from "@/components/Pagination";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { experimentDate } from "@/pages/experiments";
 import { useSearch } from "@/services/search";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import { formatNumber } from "@/services/metrics";
-import track from "@/services/track";
-
-interface MetricAnalysisProps {
-  metric: ExperimentMetricInterface;
-  outerClassName?: string;
-  bandits?: boolean;
-  includeOnlyResults?: boolean;
-  dataWithSnapshot?: ExperimentWithSnapshot[];
-  numPerPage?: number;
-  differenceType?: DifferenceType;
-}
+import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
+import ChangeColumn from "@/components/Experiment/ChangeColumn";
+import Pagination from "@/components/Pagination";
+import Checkbox from "@/components/Radix/Checkbox";
 
 interface Props {
   experimentsWithSnapshot: ExperimentWithSnapshot[];
@@ -49,6 +38,8 @@ interface Props {
   bandits?: boolean;
   numPerPage?: number;
   differenceType?: DifferenceType;
+  excludedExperimentVariations: {experimentId: string, variationIndex: number}[];
+  setExcludedExperimentVariations: (experimentVariations: {experimentId: string, variationIndex: number}[]) => void;
 }
 
 export interface MetricExperimentData {
@@ -60,15 +51,17 @@ export interface MetricExperimentData {
   archived: boolean;
   variations: Variation[];
   statsEngine: StatsEngine;
-  variationId: number;
+  variationIndex: number;
   variationName: string;
-  variationResults?: SnapshotMetric;
-  significant?: boolean;
-  lift?: number | undefined;
+  metricResults: {
+    results: SnapshotMetric;
+    significant: boolean;
+    lift: number | undefined;
+    resultsStatus?: string;
+    directionalStatus?: "winning" | "losing";
+  }[];
   users?: number;
   shipped?: boolean;
-  resultsStatus?: string;
-  directionalStatus?: "winning" | "losing";
   phases: ExperimentPhaseStringDates[];
   guardrailMetrics: string[];
   goalMetrics: string[];
@@ -79,13 +72,15 @@ export interface MetricExperimentData {
 
 const NUM_PER_PAGE = 50;
 
-export function MetricExperimentResultTab({
+const ExperimentWithMetricsTable: FC<Props> = ({
   experimentsWithSnapshot,
   metrics,
   bandits,
   numPerPage = NUM_PER_PAGE,
   differenceType = "relative",
-}: Props) {
+  excludedExperimentVariations,
+  setExcludedExperimentVariations,
+}: Props) => {
   const [currentPage, setCurrentPage] = useState(1);
   const start = (currentPage - 1) * numPerPage;
   const end = start + numPerPage;
@@ -96,7 +91,7 @@ export function MetricExperimentResultTab({
 
   const expData: MetricExperimentData[] = [];
   experimentsWithSnapshot.forEach((e) => {
-    let variationResults: SnapshotMetric[] = [];
+    let variationResults: SnapshotMetric[][] = [];
     let statsEngine: StatsEngine = "bayesian";
     let differenceType: DifferenceType = "relative";
     if (e.snapshot) {
@@ -105,13 +100,13 @@ export function MetricExperimentResultTab({
         statsEngine = snapshot.settings.statsEngine;
         differenceType = snapshot.settings.differenceType;
         variationResults = snapshot.results?.[0]?.variations.map((v) => {
-          return v.metrics?.[metric.id];
+          return metrics.map((m) => v.metrics?.[m.id]);
         });
       }
     }
     const baseline = variationResults?.[0];
-    e.variations.forEach((v, i) => {
-      if (i === 0) return;
+    e.variations.forEach((v, variationIndex) => {
+      if (variationIndex === 0) return;
       let expVariationData: MetricExperimentData = {
         id: e.id,
         date: experimentDate(e),
@@ -121,48 +116,56 @@ export function MetricExperimentResultTab({
         archived: e.archived,
         variations: e.variations,
         statsEngine: statsEngine,
-        variationId: i,
+        variationIndex: variationIndex,
         variationName: v.name,
+        metricResults: [],
         phases: e.phases,
         goalMetrics: e.goalMetrics,
         guardrailMetrics: e.guardrailMetrics,
         secondaryMetrics: e.secondaryMetrics,
         datasource: e.datasource,
         decisionFrameworkSettings: e.decisionFrameworkSettings,
+        users: undefined,
       };
-      if (!bandits && baseline && variationResults[i]) {
-        const {
-          significant,
-          resultsStatus,
-          directionalStatus,
-        } = getMetricResultStatus({
-          metric: metric,
-          metricDefaults,
-          baseline: baseline,
-          stats: variationResults[i],
-          ciLower,
-          ciUpper,
-          pValueThreshold,
-          statsEngine,
-          differenceType,
-        });
-        expVariationData = {
-          ...expVariationData,
-          variationResults: variationResults[i],
-          lift: variationResults[i].uplift?.mean ?? undefined,
-          users: variationResults[i].users,
-          shipped: e.results === "won" && e.winner == i,
-          significant: significant,
-          resultsStatus: resultsStatus,
-          directionalStatus: directionalStatus,
-        };
-      }
+      metrics.forEach((m, metricIndex) => {
+        if (!bandits && baseline?.[metricIndex] && variationResults[variationIndex][metricIndex]) {
+          const {
+            significant,
+            resultsStatus,
+            directionalStatus,
+          } = getMetricResultStatus({
+            metric: m,
+            metricDefaults,
+            baseline: baseline[metricIndex],
+            stats: variationResults[variationIndex][metricIndex],
+            ciLower,
+            ciUpper,
+            pValueThreshold,
+            statsEngine,
+            differenceType,
+          });
+          expVariationData.metricResults.push({
+            results: variationResults[variationIndex][metricIndex],
+            significant,
+            lift: variationResults[variationIndex][metricIndex].uplift?.mean ?? undefined,
+            resultsStatus,
+            directionalStatus,
+          });
+          expVariationData.users = Math.max(expVariationData.users ?? 0, variationResults[variationIndex][metricIndex].users);
+        }
+      });
+      expVariationData.shipped = e.results === "won" && e.winner === variationIndex;
       expData.push(expVariationData);
     });
   });
 
   const { items, SortableTH } = useSearch({
-    items: expData,
+    items: expData.map((e) => ({
+      ...e,
+      lift1: e.metricResults[0]?.lift,
+      lift2: e.metricResults[1]?.lift,
+      included: !excludedExperimentVariations.some((ev) => ev.experimentId === e.id && ev.variationIndex === e.variationIndex),
+    })),
     localStorageKey: "metricExperiments",
     defaultSortField: "date",
     defaultSortDir: -1,
@@ -171,15 +174,19 @@ export function MetricExperimentResultTab({
   });
 
   const expRows = items.slice(start, end).map((e) => {
-    const resultsHighlightClassname = clsx(e.resultsStatus, {
-      "non-significant": !e.significant,
-      hover: false,
-    });
+
     return (
       <tr
-        key={`${e.id}-${e.variationId}`}
+        key={`${e.id}-${e.variationIndex}`}
         className="hover-highlight impact-results"
       >
+        <td>
+          <Checkbox 
+            value={!excludedExperimentVariations.some((ev) => ev.experimentId === e.id && ev.variationIndex === e.variationIndex)} 
+            setValue={(value) => {
+            setExcludedExperimentVariations(value ? excludedExperimentVariations.filter((ev) => ev.experimentId !== e.id || ev.variationIndex !== e.variationIndex) : [...excludedExperimentVariations, {experimentId: e.id, variationIndex: e.variationIndex}]);
+          }} />
+        </td>
         <td>
           <div className="my-1">
             <Link className="font-weight-bold" href={`/experiment/${e.id}`}>
@@ -190,11 +197,11 @@ export function MetricExperimentResultTab({
 
         <td>
           <div
-            key={`var-experiment${e.id}-variation${e.variationId}`}
-            className={`variation variation${e.variationId} with-variation-label d-flex my-1`}
+            key={`var-experiment${e.id}-variation${e.variationIndex}`}
+            className={`variation variation${e.variationIndex} with-variation-label d-flex my-1`}
           >
             <span className="label" style={{ width: 20, height: 20 }}>
-              {e.variationId}
+              {e.variationIndex}
             </span>
             <span
               className="d-inline-block text-ellipsis hover"
@@ -228,24 +235,28 @@ export function MetricExperimentResultTab({
         </td>
         <td>{e.users ? formatNumber(e.users) : ""}</td>
         {!bandits ? (
-          e.variationResults ? (
-            <ChangeColumn
-              metric={metric}
-              stats={e.variationResults}
-              rowResults={{
-                enoughData: true,
-                directionalStatus: e.directionalStatus ?? "losing",
-                hasScaledImpact: true,
-              }}
-              showPlusMinus={false}
-              statsEngine={e.statsEngine}
-              differenceType={differenceType}
-              showCI={true}
-              className={resultsHighlightClassname}
-            />
-          ) : (
-            <td>No results available</td>
-          )
+          e.metricResults.map((m, i) => {
+            const resultsHighlightClassname = clsx(m.resultsStatus, {
+              "non-significant": !m.significant,
+              hover: false,
+            });
+            return (
+              <ChangeColumn
+                metric={metrics[i]}
+                stats={m.results}
+                rowResults={{
+                  enoughData: true,
+                  directionalStatus: m.directionalStatus ?? "losing",
+                  hasScaledImpact: true,
+                }}
+                showPlusMinus={false}
+                statsEngine={e.statsEngine}
+                differenceType={differenceType}
+                showCI={true}
+                className={resultsHighlightClassname}
+              />
+            );
+          })
         ) : null}
       </tr>
     );
@@ -256,13 +267,14 @@ export function MetricExperimentResultTab({
       <table className="table appbox">
         <thead className="bg-light">
           <tr>
+            <SortableTH field="included">Include</SortableTH>
             <SortableTH field="name">Experiment</SortableTH>
-            <SortableTH field="variationId">Variation</SortableTH>
+            <SortableTH field="variationIndex">Variation</SortableTH>
             <SortableTH field="date">Date</SortableTH>
             <SortableTH field="status">Status</SortableTH>
             <SortableTH field="users">Variation Users</SortableTH>
-            {/* <th>Won/lost</th> */}
-            {!bandits && <SortableTH field="lift">Lift</SortableTH>}
+            <SortableTH field={`lift1`}>Lift {metrics[0].name}</SortableTH>
+            <SortableTH field={`lift2`}>Lift {metrics[1].name}</SortableTH>
           </tr>
         </thead>
         <tbody>{expRows}</tbody>
@@ -277,66 +289,6 @@ export function MetricExperimentResultTab({
       )}
     </div>
   );
-}
-
-const MetricExperiments: FC<MetricAnalysisProps> = ({
-  metric,
-  outerClassName,
-  bandits = false,
-  includeOnlyResults = false,
-  dataWithSnapshot,
-  numPerPage = NUM_PER_PAGE,
-  differenceType = "relative",
-}) => {
-  const { data } = useApi<{
-    data: ExperimentWithSnapshot[];
-  }>(`/metrics/${metric.id}/experiments`, {
-    shouldRun: dataWithSnapshot ? () => false : undefined,
-  });
-
-  const metricExperiments = (dataWithSnapshot ?? data?.data ?? []).filter(
-    (e) =>
-      (bandits
-        ? e.type === "multi-armed-bandit"
-        : e.type !== "multi-armed-bandit") &&
-      (includeOnlyResults
-        ? e.status !== "draft" && e.snapshot?.status === "success"
-        : true)
-  );
-
-  const body = !metricExperiments?.length ? (
-    <div className={`mt-2 alert alert-warning`}>
-      <span style={{ fontSize: "1.2em" }}>
-        0 {bandits ? "bandits" : "experiments"} with this metric found.
-      </span>
-    </div>
-  ) : (
-    <MetricExperimentResultTab
-      experimentsWithSnapshot={metricExperiments}
-      metric={metric}
-      bandits={bandits}
-      numPerPage={numPerPage}
-      differenceType={differenceType}
-    />
-  );
-
-  useEffect(() => {
-    track(`Load Metric ${bandits ? "Bandits" : "Experiments"}`, {
-      type: isFactMetric(metric) ? "fact" : "classic",
-    });
-  }, [metric, bandits]);
-
-  return (
-    <div
-      className={
-        outerClassName !== undefined ? outerClassName : "appbox p-3 mb-3"
-      }
-    >
-      <div className="mt-1" style={{ maxHeight: 800, overflowY: "auto" }}>
-        {body}
-      </div>
-    </div>
-  );
 };
 
-export default MetricExperiments;
+export default ExperimentWithMetricsTable;

@@ -1,7 +1,7 @@
 import React, { useEffect, useCallback, useState, useMemo } from "react";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import { ExperimentSnapshotInterface, ExperimentWithSnapshot } from "back-end/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { DifferenceType } from "back-end/types/stats";
@@ -25,6 +25,7 @@ import PremiumEmptyState from "@/components/PremiumEmptyState";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import EmptyState from "@/components/EmptyState";
 import LinkButton from "@/components/Radix/LinkButton";
+import MetricCorrelationsExperimentTable from "@/enterprise/components/Insights/MetricCorrelations/MetricCorrelationsExperimentTable";
 
 export const filterExperimentsByMetrics = (
   experiments: ExperimentInterfaceStringDates[],
@@ -219,6 +220,8 @@ const MetricCorrelationCard = ({
   }>({
     correlationData: [],
   });
+  const [filteredExperiments, setFilteredExperiments] = useState<ExperimentWithSnapshot[]>([]);
+  const [excludedExperimentVariations, setExcludedExperimentVariations] = useState<{experimentId: string, variationIndex: number}[]>([]);
 
   const metric1OptionCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -304,6 +307,8 @@ const MetricCorrelationCard = ({
       metric2
     );
 
+    let filteredExperimentsWithSnapshot: ExperimentWithSnapshot[] = [];
+
     setSearchParams({
       [`m1_0`]: metric1,
       [`m2_0`]: metric2,
@@ -342,6 +347,11 @@ const MetricCorrelationCard = ({
           const result = analysis.results[0];
           if (!result) return;
 
+          filteredExperimentsWithSnapshot.push({
+            ...experiment,
+            snapshot: snapshot,
+          });
+
           result.variations.forEach((variation, variationIndex) => {
             if (variationIndex === 0) return; // Skip baseline
 
@@ -353,6 +363,10 @@ const MetricCorrelationCard = ({
             }
 
             if (metric1Data && metric2Data) {
+              if (excludedExperimentVariations.some((ev) => ev.experimentId === experiment.id && ev.variationIndex === variationIndex)) {
+                return;
+              }
+
               newCorrelationData.push({
                 id: `${experiment.id}_var_${variationIndex}`,
                 x: metric1Data.uplift?.mean || 0,
@@ -376,6 +390,7 @@ const MetricCorrelationCard = ({
         setMetricData({
           correlationData: newCorrelationData,
         });
+        setFilteredExperiments(filteredExperimentsWithSnapshot);
       } else {
         setMetricData({
           correlationData: [],
@@ -398,6 +413,7 @@ const MetricCorrelationCard = ({
     differenceType,
     setSearchParams,
     apiCall,
+    excludedExperimentVariations,
   ]);
 
   useEffect(() => {
@@ -418,6 +434,8 @@ const MetricCorrelationCard = ({
       />
     );
   }
+  console.log(metric1Obj, metric2Obj);
+  console.log(experiments);
   return (
     <>
       <Box className="appbox appbox-light p-3">
@@ -503,6 +521,7 @@ const MetricCorrelationCard = ({
             </Box>
           </Flex>
         ) : metricData.correlationData.length > 0 ? (
+          <Flex direction="column" gap="4">
           <Box mt="4">
             <Flex mt="2" align="center" justify="center" p="3">
               <ScatterPlotGraph
@@ -546,6 +565,18 @@ const MetricCorrelationCard = ({
               />
             </Flex>
           </Box>
+          {metric1Obj && metric2Obj ? (
+            <MetricCorrelationsExperimentTable
+              experimentsWithSnapshot={filteredExperiments}
+              metrics={[metric1Obj, metric2Obj]}
+              bandits={false}
+              numPerPage={50}
+              differenceType={differenceType}
+              excludedExperimentVariations={excludedExperimentVariations}
+              setExcludedExperimentVariations={setExcludedExperimentVariations}
+            />
+          ) : null}
+            </Flex>
         ) : (
           <Box mt="4">
             <Callout status="info">
