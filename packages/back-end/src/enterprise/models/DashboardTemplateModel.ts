@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import { DashboardTemplateInterface } from "back-end/src/enterprise/validators/dashboard-template";
-import { blockSchema } from "./DashboardBlockModel";
+import { dashboardBlockSchema } from "./DashboardBlockModel";
 
 export const dashboardTemplateSchema = new mongoose.Schema({
   id: {
@@ -11,7 +11,7 @@ export const dashboardTemplateSchema = new mongoose.Schema({
   dateCreated: Date,
   dateUpdated: Date,
   title: String,
-  blocks: [blockSchema],
+  blocks: [dashboardBlockSchema],
 });
 
 dashboardTemplateSchema.index({

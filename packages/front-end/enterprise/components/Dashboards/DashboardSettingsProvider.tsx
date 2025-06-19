@@ -1,15 +1,22 @@
 import { DashboardSettingsInterface } from "back-end/src/enterprise/validators/dashboard-instance";
+import { DifferenceType } from "back-end/types/stats";
 import React, { createContext, useContext } from "react";
 
 interface DashboardSettingsContext {
-  baselineRow: number;
+  defaultSnapshotSettings: {
+    dimensionId: string;
+  };
+  defaultAnalysisSettings: {
+    baselineVariationIndex: number;
+    differenceType: DifferenceType;
+  };
   dateStart: Date;
   dateEnd: Date;
   defaultMetricId: string;
   defaultVariationIds: string[];
-  defaultDimensionId: string;
   defaultDimensionValues: string[];
   setBaselineRow: React.Dispatch<number>;
+  setDifferenceType: React.Dispatch<DifferenceType>;
   setDateStart: React.Dispatch<Date>;
   setDateEnd: React.Dispatch<Date>;
   setDefaultMetricId: React.Dispatch<string>;
@@ -32,7 +39,21 @@ export default function DashboardSettingsProvider({
   setSettings: (s: DashboardSettingsInterface) => void;
 }) {
   const setBaselineRow = (r: number) =>
-    setSettings({ ...settings, baselineRow: r });
+    setSettings({
+      ...settings,
+      defaultAnalysisSettings: {
+        ...settings.defaultAnalysisSettings,
+        baselineVariationIndex: r,
+      },
+    });
+  const setDifferenceType = (t: DifferenceType) =>
+    setSettings({
+      ...settings,
+      defaultAnalysisSettings: {
+        ...settings.defaultAnalysisSettings,
+        differenceType: t,
+      },
+    });
   const setDateStart = (d: Date) => setSettings({ ...settings, dateStart: d });
   const setDateEnd = (d: Date) => setSettings({ ...settings, dateEnd: d });
   const setDefaultMetricId = (mid: string) =>
@@ -40,7 +61,13 @@ export default function DashboardSettingsProvider({
   const setDefaultVariationIds = (vids: string[]) =>
     setSettings({ ...settings, defaultVariationIds: vids });
   const setDefaultDimensionId = (did: string) =>
-    setSettings({ ...settings, defaultDimensionId: did });
+    setSettings({
+      ...settings,
+      defaultSnapshotSettings: {
+        ...settings.defaultSnapshotSettings,
+        dimensionId: did,
+      },
+    });
   const setDefaultDimensionValues = (dvals: string[]) =>
     setSettings({ ...settings, defaultDimensionValues: dvals });
 
@@ -49,6 +76,7 @@ export default function DashboardSettingsProvider({
       value={{
         ...settings,
         setBaselineRow,
+        setDifferenceType,
         setDateStart,
         setDateEnd,
         setDefaultMetricId,

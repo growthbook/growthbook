@@ -19,8 +19,8 @@ export default function MetricBlock({
   experiment,
 }: withExperiment<BlockProps<MetricBlockInterface>>) {
   const {
+    defaultAnalysisSettings: { baselineVariationIndex: defaultBaselineRow },
     defaultMetricId,
-    baselineRow: defaultBaselineRow,
     defaultVariationIds,
   } = useDashboardSettings();
   const metricId = metricIdOverride || defaultMetricId;

@@ -1,5 +1,5 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { PiArrowLeft, PiCaretDownFill, PiTrashFill } from "react-icons/pi";
 import { Flex } from "@radix-ui/themes";
 import {
@@ -10,13 +10,15 @@ import {
   DashboardBlockData,
   DashboardBlockInterface,
 } from "back-end/src/enterprise/validators/dashboard-block";
+import { debounce } from "lodash";
 import Button from "@/components/Radix/Button";
 import {
   DropdownMenu,
   DropdownMenuItem,
 } from "@/components/Radix/DropdownMenu";
 import Field from "@/components/Forms/Field";
-import DashboardProvider from "../DashboardSnapshotProvider";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import DashboardSnapshotProvider from "../DashboardSnapshotProvider";
 import DashboardSettingsProvider from "../DashboardSettingsProvider";
 import DashboardBlock from "./DashboardBlock";
 import DashboardSettingsHeader from "./DashboardSettingsHeader";
@@ -76,7 +78,7 @@ interface Props {
   defaultSettings: DashboardSettingsInterface;
   back: () => void;
   cancel: () => void;
-  submit: (dashboard: {
+  submitCallback: (dashboard: {
     title: string;
     description: string;
     blocks: DashboardBlockData<DashboardBlockInterface>[];
@@ -93,7 +95,7 @@ export default function DashboardEditor({
   defaultSettings,
   back,
   cancel,
-  submit,
+  submitCallback,
   isEditing,
   setEditing,
   mutate,
@@ -106,6 +108,8 @@ export default function DashboardEditor({
   const [settings, setSettings] = useState<DashboardSettingsInterface>(
     dashboard ? dashboard.settings : defaultSettings
   );
+  const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const [localEditing, setLocalEditing] = useState<boolean>(isEditing);
   const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
@@ -113,10 +117,31 @@ export default function DashboardEditor({
     setLocalEditing(isEditing);
   }, [isEditing]);
 
-  const canSubmit = blocks.length > 0 && title;
+  const debouncedSubmit = useMemo(() => {
+    return debounce(
+      async (
+        title: string,
+        description: string,
+        blocks: DashboardBlockData<DashboardBlockInterface>[],
+        settings: DashboardSettingsInterface
+      ) => {
+        setSaving(true);
+        await submitCallback({ title, description, blocks, settings });
+        setDirty(false);
+        setSaving(false);
+      },
+      2000
+    );
+  }, [submitCallback]);
+
+  useEffect(() => {
+    if (isEditing && dirty) {
+      debouncedSubmit(title, description, blocks, settings);
+    }
+  }, [isEditing, dirty, debouncedSubmit, title, description, blocks, settings]);
 
   return (
-    <DashboardProvider
+    <DashboardSnapshotProvider
       dashboardId={dashboard?.id || ""}
       experiment={experiment}
     >
@@ -128,7 +153,15 @@ export default function DashboardEditor({
                 <PiArrowLeft />
                 Back
               </Button>
-              {!isEditing && (
+              {isEditing ? (
+                <div>
+                  {saving ? (
+                    <LoadingSpinner />
+                  ) : dirty ? (
+                    "Unsaved Changes"
+                  ) : null}
+                </div>
+              ) : (
                 <Button
                   color="violet"
                   variant="outline"
@@ -145,7 +178,10 @@ export default function DashboardEditor({
                     <Field
                       placeholder="Dashboard Title"
                       value={title}
-                      onChange={(e) => setTitle(e.target.value)}
+                      onChange={(e) => {
+                        setDirty(true);
+                        setTitle(e.target.value);
+                      }}
                     />
                   </h3>
                   <div className="d-flex gap-2">
@@ -159,40 +195,27 @@ export default function DashboardEditor({
                     >
                       {localEditing ? "Preview" : "Edit"}
                     </Button>
-                    <Button
-                      color="violet"
-                      onClick={() => {
-                        if (canSubmit)
-                          submit({
-                            title,
-                            description,
-                            blocks,
-                            settings,
-                          });
-                      }}
-                      disabled={!canSubmit}
-                    >
-                      Save
-                    </Button>
                   </div>
                 </div>
                 <div>
                   <Field
                     placeholder="Description"
                     value={description}
-                    onChange={(e) => setDescription(e.target.value)}
+                    onChange={(e) => {
+                      setDirty(true);
+                      setDescription(e.target.value);
+                    }}
                     textarea
                   />
                 </div>
               </div>
             ) : null}
             <div className="">
-              <div>
-                <DashboardSettingsHeader
-                  isEditing={localEditing}
-                  experiment={experiment}
-                />
-              </div>
+              {localEditing && (
+                <div>
+                  <DashboardSettingsHeader experiment={experiment} />
+                </div>
+              )}
               {blocks.map((block, i) => (
                 <div key={i} className="appbox p-4">
                   {localEditing && (
@@ -203,6 +226,7 @@ export default function DashboardEditor({
                       <Button
                         color="red"
                         onClick={() => {
+                          setDirty(true);
                           setBlocks(blocks.filter((_, j) => j !== i));
                         }}
                       >
@@ -216,6 +240,7 @@ export default function DashboardEditor({
                     experiment={experiment}
                     isEditing={localEditing}
                     setBlock={(block: DashboardBlockInterface) => {
+                      setDirty(true);
                       setBlocks(blocks.map((b, j) => (j === i ? block : b)));
                     }}
                     mutate={mutate}
@@ -243,6 +268,7 @@ export default function DashboardEditor({
                       key={bType}
                       onClick={() => {
                         setDropdownOpen(false);
+                        setDirty(true);
                         setBlocks([
                           ...blocks,
                           bInfo.createDefaultBlock({
@@ -260,6 +286,6 @@ export default function DashboardEditor({
           </div>
         </div>
       </DashboardSettingsProvider>
-    </DashboardProvider>
+    </DashboardSnapshotProvider>
   );
 }

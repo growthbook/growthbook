@@ -3,12 +3,21 @@ import { dashboardBlockInterface } from "./dashboard-block";
 
 export const dashboardSettingsInterface = z
   .object({
-    baselineRow: z.number(),
+    defaultSnapshotSettings: z
+      .object({
+        dimensionId: z.string(),
+      })
+      .strict(),
+    defaultAnalysisSettings: z
+      .object({
+        baselineVariationIndex: z.number(),
+        differenceType: z.enum(["relative", "absolute", "scaled"]),
+      })
+      .strict(),
     dateStart: z.date(),
     dateEnd: z.date(),
     defaultMetricId: z.string(),
     defaultVariationIds: z.array(z.string()),
-    defaultDimensionId: z.string(),
     defaultDimensionValues: z.array(z.string()),
   })
   .strict();
@@ -22,7 +31,7 @@ export const dashboardInstanceInterface = z
   .object({
     id: z.string(),
     organization: z.string(),
-    experimentId: z.string().optional(),
+    experimentId: z.string(),
     owner: z.string(),
     title: z.string(),
     description: z.string(),

@@ -1,9 +1,10 @@
-import React, { useMemo } from "react";
+import React from "react";
 import { Flex } from "@radix-ui/themes";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import SelectField from "@/components/Forms/SelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import { useDashboardSettings } from "../DashboardSettingsProvider";
 
 export function ExperimentMetricSelector({
@@ -46,10 +47,11 @@ export function ExperimentMetricSelector({
   ];
 
   return (
-    <div className="mb-3">
+    <div>
+      <div className="uppercase-title text-muted">{label}</div>
       <SelectField
         disabled={disabled}
-        label={label}
+        containerClassName="select-dropdown-underline"
         value={metricId}
         placeholder="Select a Metric"
         options={metricOptions}
@@ -60,40 +62,44 @@ export function ExperimentMetricSelector({
 }
 
 export default function DashboardSettingsHeader({
-  isEditing,
   experiment,
 }: {
-  isEditing: boolean;
   experiment: ExperimentInterfaceStringDates;
 }) {
-  const { dimensions } = useDefinitions();
   const {
     defaultMetricId,
+    defaultSnapshotSettings: { dimensionId },
     setDefaultMetricId,
-    defaultDimensionId,
     setDefaultDimensionId,
+    setBaselineRow,
+    setDifferenceType,
   } = useDashboardSettings();
-  const dimensionOptions = useMemo(
-    () => dimensions.map(({ id, name }) => ({ label: name, value: id })),
-    [dimensions]
-  );
 
   return (
-    <Flex align="center" gap="1">
-      <ExperimentMetricSelector
-        disabled={!isEditing}
-        label="Default Metric"
-        metricId={defaultMetricId}
-        experiment={experiment}
-        setMetricId={setDefaultMetricId}
-      />
-      <SelectField
-        disabled={!isEditing}
-        label="Default Dimension"
-        value={defaultDimensionId}
-        options={dimensionOptions}
-        onChange={setDefaultDimensionId}
-      />
-    </Flex>
+    <div className="appbox p-4">
+      <h4 className="text-capitalize">Dashboard Settings</h4>
+      <Flex align="center" gap="3">
+        <ExperimentMetricSelector
+          label="Default Metric"
+          metricId={defaultMetricId}
+          experiment={experiment}
+          setMetricId={setDefaultMetricId}
+        />
+        <DimensionChooser
+          value={dimensionId}
+          setValue={setDefaultDimensionId}
+          datasourceId={experiment.datasource}
+          exposureQueryId={experiment.exposureQueryId}
+          newUi={true}
+          // setVariationFilter={setVariationFilter}
+          setBaselineRow={setBaselineRow}
+          setDifferenceType={setDifferenceType}
+          // setAnalysisSettings={(
+          //   settings: ExperimentSnapshotAnalysisSettings | null
+          // ) => {}}
+          // ssrPolyfills?={SSRPolyfills}
+        />
+      </Flex>
+    </div>
   );
 }
