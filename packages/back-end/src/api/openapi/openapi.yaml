@@ -117,6 +117,9 @@ tags:
   - name: queries
     x-displayName: Queries
     description: Retrieve queries used in experiments to calculate results.
+  - name: metric-groups
+    x-displayName: Metric Groups
+    description: Metric Groups allow you to group multiple metrics together for easier management and analysis.
 paths:
   /features:
     get:
@@ -323,6 +326,18 @@ paths:
     get:
       $ref: "./paths/getQuery.yaml"
   # PLOP_INSERT_PATHS_HERE
+  /metric-groups:
+    get:
+      $ref: "./paths/listMetricGroups.yaml"
+    post:
+      $ref: "./paths/postMetricGroup.yaml"
+  /metric-groups/{id}:
+    get:
+      $ref: "./paths/getMetricGroup.yaml"
+    post:
+      $ref: "./paths/updateMetricGroup.yaml"
+    delete:
+      $ref: "./paths/deleteMetricGroup.yaml"
 components:
   parameters:
     $ref: "./parameters.yaml"

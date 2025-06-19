@@ -76,6 +76,8 @@ export const apiArchetypeValidator = z.object({ "id": z.string(), "dateCreated":
 
 export const apiQueryValidator = z.object({ "id": z.string(), "organization": z.string(), "datasource": z.string(), "language": z.string(), "query": z.string(), "queryType": z.string(), "createdAt": z.string(), "startedAt": z.string(), "status": z.enum(["running","queued","failed","partially-succeeded","succeeded"]), "externalId": z.string(), "dependencies": z.array(z.string()), "runAtEnd": z.boolean() }).strict()
 
+export const apiMetricGroupValidator = z.object({ "id": z.string().describe("Unique identifier for the metric group"), "organization": z.string().describe("Organization id"), "owner": z.string().describe("Owner of the metric group").optional(), "dateCreated": z.string().describe("Date the metric group was created"), "dateUpdated": z.string().describe("Date the metric group was last updated"), "name": z.string().describe("Name of the metric group"), "description": z.string().describe("Description of the metric group").optional(), "tags": z.array(z.string()).describe("Tags associated with the metric group").optional(), "projects": z.array(z.string()).describe("Project ids associated with the metric group").optional(), "metrics": z.array(z.string()).describe("List of metric ids in the group"), "datasource": z.string().describe("Datasource id for the metric group"), "archived": z.boolean().describe("Whether the metric group is archived").optional() }).strict()
+
 export const listFeaturesValidator = {
   bodySchema: z.never(),
   querySchema: z.object({ "limit": z.coerce.number().int().default(10), "offset": z.coerce.number().int().default(0), "projectId": z.string().optional(), "clientKey": z.string().optional() }).strict(),
@@ -575,6 +577,36 @@ export const postCodeRefsValidator = {
 };
 
 export const getQueryValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
+export const listMetricGroupsValidator = {
+  bodySchema: z.never(),
+  querySchema: z.object({ "limit": z.coerce.number().int().default(10), "offset": z.coerce.number().int().default(0) }).strict(),
+  paramsSchema: z.never(),
+};
+
+export const postMetricGroupValidator = {
+  bodySchema: z.object({ "name": z.string().describe("Name of the metric group"), "description": z.string().describe("Description of the metric group").optional(), "datasource": z.string().describe("Datasource id for the metric group"), "metrics": z.array(z.string()).describe("List of metric ids in the group").optional(), "owner": z.string().describe("Owner of the metric group").optional(), "projects": z.array(z.string()).describe("Project ids associated with the metric group").optional(), "tags": z.array(z.string()).describe("Tags associated with the metric group").optional(), "archived": z.boolean().describe("Whether the metric group is archived").optional() }).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.never(),
+};
+
+export const getMetricGroupValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
+export const updateMetricGroupValidator = {
+  bodySchema: z.object({ "name": z.string().describe("Name of the metric group").optional(), "metrics": z.array(z.string()).describe("List of metric ids in the group").optional(), "datasource": z.string().describe("Datasource id for the metric group").optional(), "description": z.string().describe("Description of the metric group").optional(), "owner": z.string().describe("Owner of the metric group").optional(), "projects": z.array(z.string()).describe("Project ids associated with the metric group").optional(), "tags": z.array(z.string()).describe("Tags associated with the metric group").optional(), "archived": z.boolean().describe("Whether the metric group is archived").optional() }).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
+export const deleteMetricGroupValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
   paramsSchema: z.object({ "id": z.string() }).strict(),

@@ -68,3 +68,5 @@ Archetype:
   $ref: "./Archetype.yaml"
 Query:
   $ref: "./Query.yaml"
+MetricGroup:
+  $ref: './MetricGroup.yaml'
