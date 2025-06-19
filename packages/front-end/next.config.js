@@ -37,6 +37,13 @@ const nextConfig = {
     },
   ],
   transpilePackages: ["echarts", "zrender"],
+  webpack: (config) => {
+    config.module.rules.push({
+      test: /ace-builds.*\/worker-.*$/,
+      type: "asset/resource",
+    });
+    return config;
+  },
 };
 
 module.exports = withBundleAnalyzer(nextConfig);
