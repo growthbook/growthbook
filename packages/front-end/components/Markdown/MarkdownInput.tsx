@@ -36,6 +36,7 @@ const MarkdownInput: FC<{
   placeholder?: string;
   aiSuggestFunction?: () => Promise<string>;
   aiButtonText?: string;
+  aiSuggestionHeader?: string;
   onCancel?: () => void;
   showButtons?: boolean;
 }> = ({
@@ -49,6 +50,7 @@ const MarkdownInput: FC<{
   placeholder,
   aiSuggestFunction,
   aiButtonText = "Get AI Suggestion",
+  aiSuggestionHeader = "Suggestion",
   showButtons = true,
 }) => {
   const { aiEnabled } = useAISettings();
@@ -118,7 +120,11 @@ const MarkdownInput: FC<{
         setActiveControlledTab("write");
         const suggestedText = await aiSuggestFunction();
         if (suggestedText) {
-          setAiSuggestionText(suggestedText);
+          if (!value || !value.trim()) {
+            setValue(suggestedText);
+          } else {
+            setAiSuggestionText(suggestedText);
+          }
           setLoading(false);
         } else {
           setLoading(false);
@@ -126,7 +132,7 @@ const MarkdownInput: FC<{
         }
       } catch (e) {
         setLoading(false);
-        setAiError("Failed to get AI suggestion. API request error");
+        setAiError("Failed to get AI suggestion. API request error" + e);
       }
     }
   };
@@ -262,7 +268,7 @@ const MarkdownInput: FC<{
             <div className="mt-2">
               <Flex align="center" justify="between" my="4">
                 <Heading size="2" weight="medium">
-                  Suggested Hypothesis:
+                  {aiSuggestionHeader}:
                 </Heading>
                 <Flex gap="2">
                   <Button

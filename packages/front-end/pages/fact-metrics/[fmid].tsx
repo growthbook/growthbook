@@ -635,6 +635,7 @@ export default function FactMetricPage() {
                 return res.data.description;
               }}
               aiButtonText="Suggest Description"
+              aiSuggestionHeader="Suggested Description"
               emptyHelperText="Add  a description to keep your team informed about how to apply this metric."
               save={async (description) => {
                 await apiCall(`/fact-metrics/${factMetric.id}`, {

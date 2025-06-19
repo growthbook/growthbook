@@ -570,6 +570,8 @@ const MetricPage: FC = () => {
                           }
                           return res.data.description;
                         }}
+                        aiButtonText="Generate Description"
+                        aiSuggestionHeader="Suggested Description"
                         value={metric.description}
                         canCreate={canEditMetric}
                         canEdit={canEditMetric}

@@ -20,6 +20,7 @@ type Props = {
   emptyHelperText?: string;
   aiSuggestFunction?: () => Promise<string>;
   aiButtonText?: string;
+  aiSuggestionHeader?: string;
 };
 
 export default function MarkdownInlineEdit({
@@ -34,7 +35,8 @@ export default function MarkdownInlineEdit({
   headerClassName = "h3",
   emptyHelperText,
   aiSuggestFunction,
-  aiButtonText = "AI Suggest",
+  aiButtonText = "Get AI Suggestion",
+  aiSuggestionHeader = "Suggestion",
 }: Props) {
   const [edit, setEdit] = useState(false);
   const [val, setVal] = useState("");
@@ -92,6 +94,7 @@ export default function MarkdownInlineEdit({
           onCancel={() => setEdit(false)}
           aiSuggestFunction={aiSuggestFunction}
           aiButtonText={aiButtonText}
+          aiSuggestionHeader={aiSuggestionHeader}
           showButtons={!aiSuggestFunction}
         />
       </form>
