@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useState } from "react";
+import React, { FC, useState } from "react";
 import { FaShippingFast } from "react-icons/fa";
 import clsx from "clsx";
 import Link from "next/link";
@@ -6,7 +6,6 @@ import { date, datetime } from "shared/dates";
 import {
   ExperimentMetricInterface,
   getMetricResultStatus,
-  isFactMetric,
 } from "shared/experiments";
 import { DifferenceType, StatsEngine } from "back-end/types/stats";
 import {
@@ -20,6 +19,7 @@ import {
   ExperimentStatus,
   Variation,
 } from "back-end/types/experiment";
+import { Box } from "@radix-ui/themes";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
@@ -38,8 +38,13 @@ interface Props {
   bandits?: boolean;
   numPerPage?: number;
   differenceType?: DifferenceType;
-  excludedExperimentVariations: {experimentId: string, variationIndex: number}[];
-  setExcludedExperimentVariations: (experimentVariations: {experimentId: string, variationIndex: number}[]) => void;
+  excludedExperimentVariations: {
+    experimentId: string;
+    variationIndex: number;
+  }[];
+  setExcludedExperimentVariations: (
+    experimentVariations: { experimentId: string; variationIndex: number }[]
+  ) => void;
 }
 
 export interface MetricExperimentData {
@@ -107,7 +112,7 @@ const ExperimentWithMetricsTable: FC<Props> = ({
     const baseline = variationResults?.[0];
     e.variations.forEach((v, variationIndex) => {
       if (variationIndex === 0) return;
-      let expVariationData: MetricExperimentData = {
+      const expVariationData: MetricExperimentData = {
         id: e.id,
         date: experimentDate(e),
         name: e.name,
@@ -128,7 +133,11 @@ const ExperimentWithMetricsTable: FC<Props> = ({
         users: undefined,
       };
       metrics.forEach((m, metricIndex) => {
-        if (!bandits && baseline?.[metricIndex] && variationResults[variationIndex][metricIndex]) {
+        if (
+          !bandits &&
+          baseline?.[metricIndex] &&
+          variationResults[variationIndex][metricIndex]
+        ) {
           const {
             significant,
             resultsStatus,
@@ -147,14 +156,20 @@ const ExperimentWithMetricsTable: FC<Props> = ({
           expVariationData.metricResults.push({
             results: variationResults[variationIndex][metricIndex],
             significant,
-            lift: variationResults[variationIndex][metricIndex].uplift?.mean ?? undefined,
+            lift:
+              variationResults[variationIndex][metricIndex].uplift?.mean ??
+              undefined,
             resultsStatus,
             directionalStatus,
           });
-          expVariationData.users = Math.max(expVariationData.users ?? 0, variationResults[variationIndex][metricIndex].users);
+          expVariationData.users = Math.max(
+            expVariationData.users ?? 0,
+            variationResults[variationIndex][metricIndex].users
+          );
         }
       });
-      expVariationData.shipped = e.results === "won" && e.winner === variationIndex;
+      expVariationData.shipped =
+        e.results === "won" && e.winner === variationIndex;
       expData.push(expVariationData);
     });
   });
@@ -164,7 +179,10 @@ const ExperimentWithMetricsTable: FC<Props> = ({
       ...e,
       lift1: e.metricResults[0]?.lift,
       lift2: e.metricResults[1]?.lift,
-      included: !excludedExperimentVariations.some((ev) => ev.experimentId === e.id && ev.variationIndex === e.variationIndex),
+      included: !excludedExperimentVariations.some(
+        (ev) =>
+          ev.experimentId === e.id && ev.variationIndex === e.variationIndex
+      ),
     })),
     localStorageKey: "metricExperiments",
     defaultSortField: "date",
@@ -174,18 +192,35 @@ const ExperimentWithMetricsTable: FC<Props> = ({
   });
 
   const expRows = items.slice(start, end).map((e) => {
-
     return (
       <tr
         key={`${e.id}-${e.variationIndex}`}
         className="hover-highlight impact-results"
       >
         <td>
-          <Checkbox 
-            value={!excludedExperimentVariations.some((ev) => ev.experimentId === e.id && ev.variationIndex === e.variationIndex)} 
+          <Checkbox
+            value={
+              !excludedExperimentVariations.some(
+                (ev) =>
+                  ev.experimentId === e.id &&
+                  ev.variationIndex === e.variationIndex
+              )
+            }
             setValue={(value) => {
-            setExcludedExperimentVariations(value ? excludedExperimentVariations.filter((ev) => ev.experimentId !== e.id || ev.variationIndex !== e.variationIndex) : [...excludedExperimentVariations, {experimentId: e.id, variationIndex: e.variationIndex}]);
-          }} />
+              setExcludedExperimentVariations(
+                value
+                  ? excludedExperimentVariations.filter(
+                      (ev) =>
+                        ev.experimentId !== e.id ||
+                        ev.variationIndex !== e.variationIndex
+                    )
+                  : [
+                      ...excludedExperimentVariations,
+                      { experimentId: e.id, variationIndex: e.variationIndex },
+                    ]
+              );
+            }}
+          />
         </td>
         <td>
           <div className="my-1">
@@ -234,30 +269,32 @@ const ExperimentWithMetricsTable: FC<Props> = ({
           </div>
         </td>
         <td>{e.users ? formatNumber(e.users) : ""}</td>
-        {!bandits ? (
-          e.metricResults.map((m, i) => {
-            const resultsHighlightClassname = clsx(m.resultsStatus, {
-              "non-significant": !m.significant,
-              hover: false,
-            });
-            return (
-              <ChangeColumn
-                metric={metrics[i]}
-                stats={m.results}
-                rowResults={{
-                  enoughData: true,
-                  directionalStatus: m.directionalStatus ?? "losing",
-                  hasScaledImpact: true,
-                }}
-                showPlusMinus={false}
-                statsEngine={e.statsEngine}
-                differenceType={differenceType}
-                showCI={true}
-                className={resultsHighlightClassname}
-              />
-            );
-          })
-        ) : null}
+        {!bandits
+          ? e.metricResults.map((m, i) => {
+              const resultsHighlightClassname = clsx(m.resultsStatus, {
+                "non-significant": !m.significant,
+                hover: false,
+              });
+              return (
+                <Box key={`${e.id}-${e.variationIndex}-${i}`}>
+                  <ChangeColumn
+                    metric={metrics[i]}
+                    stats={m.results}
+                    rowResults={{
+                      enoughData: true,
+                      directionalStatus: m.directionalStatus ?? "losing",
+                      hasScaledImpact: true,
+                    }}
+                    showPlusMinus={false}
+                    statsEngine={e.statsEngine}
+                    differenceType={differenceType}
+                    showCI={true}
+                    className={resultsHighlightClassname}
+                  />
+                </Box>
+              );
+            })
+          : null}
       </tr>
     );
   });
