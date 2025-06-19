@@ -19,6 +19,7 @@ import {
   LicenseUserCodes,
   SubscriptionInfo,
 } from "shared/enterprise";
+import { StripeAddress, TaxIdType } from "shared/src/types";
 import { OrganizationInterface } from "back-end/types/organization";
 import { getLicenseByKey, LicenseModel } from "./models/licenseModel";
 import { LICENSE_PUBLIC_KEY } from "./public-key";
@@ -408,7 +409,12 @@ export async function postNewProSubscriptionToLicenseServer(
 
 export async function postNewInlineSubscriptionToLicenseServer(
   organizationId: string,
-  nonInviteSeatQty: number
+  nonInviteSeatQty: number,
+  email: string,
+  additionalEmails: string[],
+  taxConfig: { type: TaxIdType; value: string },
+  name: string,
+  address: StripeAddress
 ) {
   const url = `${LICENSE_SERVER_URL}subscription/start-new-pro`;
   const license = await callLicenseServer({
@@ -417,6 +423,11 @@ export async function postNewInlineSubscriptionToLicenseServer(
       cloudSecret: process.env.CLOUD_SECRET,
       organizationId,
       nonInviteSeatQty,
+      email,
+      additionalEmails,
+      taxConfig,
+      name,
+      address,
     }),
   });
 

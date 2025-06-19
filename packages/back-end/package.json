@@ -102,7 +102,7 @@
     "snowflake-sdk": "1.10.1",
     "ssrf-req-filter": "^1.1.1",
     "string-env-interpolation": "^1.0.1",
-    "stripe": "^13.1.0",
+    "stripe": "^17.4.0",
     "uniqid": "^5.3.0",
     "uuid": "^9.0.0",
     "zod": "^3.22.4"
