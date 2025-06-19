@@ -4,7 +4,7 @@ import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { isProjectListValidForProject } from "shared/util";
 import { useRouter } from "next/router";
 import { PiCursor, PiCursorClick } from "react-icons/pi";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex, Separator, Text } from "@radix-ui/themes";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { DocLink } from "@/components/DocLink";
 import DataSources from "@/components/Settings/DataSources";
@@ -48,7 +48,9 @@ function ManagedClickhouseForm({ close }: { close: () => void }) {
       trackingEventModalType="managed-clickhouse"
       close={close}
       submit={async () => {
-        if (!agree) return;
+        if (!agree) {
+          throw new Error("You must agree to the terms and conditions");
+        }
 
         const res = await apiCall<{
           status: number;
@@ -63,7 +65,6 @@ function ManagedClickhouseForm({ close }: { close: () => void }) {
         }
       }}
       cta="Create"
-      ctaEnabled={agree}
     >
       <p>
         GrowthBook Cloud offers a fully-managed version of ClickHouse, an
@@ -105,22 +106,34 @@ function ManagedClickhouseForm({ close }: { close: () => void }) {
         </p>
       </div>
 
-      <Checkbox
-        value={agree}
-        setValue={setAgree}
-        label={
-          <>
-            I agree to the{" "}
-            <a
-              href="https://www.growthbook.io/legal"
-              target="_blank"
-              rel="noreferrer"
-            >
-              terms and conditions
-            </a>
-          </>
-        }
-      />
+      <Separator size="4" my="4" />
+
+      <Box>
+        <Checkbox
+          value={agree}
+          setValue={setAgree}
+          label={
+            <>
+              I agree to the{" "}
+              <a
+                href="https://www.growthbook.io/legal"
+                target="_blank"
+                rel="noreferrer"
+              >
+                terms and conditions
+              </a>
+            </>
+          }
+          required
+        />
+        <Box mt="2">
+          <Text size="1" mb="2">
+            Do not include any sensitive or regulated personal data in your
+            analytics events unless it is properly de-identified in accordance
+            with applicable legal standards.
+          </Text>
+        </Box>
+      </Box>
     </Modal>
   );
 }
