@@ -1,6 +1,7 @@
 import { Response } from "express";
 import { Stripe } from "stripe";
 import { PaymentMethod } from "shared/src/types/subscriptions";
+import { StripeAddress, TaxIdType } from "shared/src/types";
 import {
   LicenseServerError,
   getLicense,
@@ -147,7 +148,16 @@ export const postNewProSubscription = withLicenseServerErrorHandling(
 );
 
 export const postInlineProSubscription = withLicenseServerErrorHandling(
-  async function (req: AuthRequest, res: Response) {
+  async function (
+    req: AuthRequest<{
+      email: string;
+      additionalEmails: string[];
+      taxConfig: { type: TaxIdType; value: string };
+      name: string;
+      address: StripeAddress;
+    }>,
+    res: Response
+  ) {
     const context = getContextFromReq(req);
 
     if (!context.permissions.canManageBilling()) {
@@ -166,7 +176,12 @@ export const postInlineProSubscription = withLicenseServerErrorHandling(
 
     const result = await postNewInlineSubscriptionToLicenseServer(
       org.id,
-      nonInviteSeatQty
+      nonInviteSeatQty,
+      req.body.email,
+      req.body.additionalEmails,
+      req.body.taxConfig,
+      req.body.name,
+      req.body.address
     );
 
     res.status(200).json(result);
