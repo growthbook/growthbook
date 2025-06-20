@@ -20,11 +20,15 @@ export const dashboardBlockSchema = new mongoose.Schema(
       required: true,
       enum: [
         "markdown",
-        "metadata",
-        "image",
+        "metadata-description",
+        "metadata-hypothesis",
+        "variation-image",
         "metric",
         "dimension",
         "time-series",
+        "traffic-table",
+        "traffic-graph",
+        "sql-explorer",
       ],
     },
   },
@@ -35,25 +39,28 @@ const markdownBlockSchema = new mongoose.Schema({
   content: String,
 });
 
-const metadataBlockSchema = new mongoose.Schema({
-  subtype: {
-    type: String,
-    required: true,
-    enum: ["description", "hypothesis"],
-  },
+const descriptionBlockSchema = new mongoose.Schema({
+  experimentId: String,
+});
+
+const hypothesisBlockSchema = new mongoose.Schema({
+  experimentId: String,
 });
 
 const variationImageBlockSchema = new mongoose.Schema({
+  experimentId: String,
   variationIds: [String],
 });
 
 const metricBlockSchema = new mongoose.Schema({
+  experimentId: String,
   metricId: String,
   baselineRow: Number,
   variationIds: [String],
 });
 
 const dimensionBlockSchema = new mongoose.Schema({
+  experimentId: String,
   dimensionId: String,
   dimensionValues: [String],
   metricId: String,
@@ -61,11 +68,22 @@ const dimensionBlockSchema = new mongoose.Schema({
 });
 
 const timeSeriesBlockSchema = new mongoose.Schema({
+  experimentId: String,
   metricId: String,
   variationIds: [String],
   dateStart: Date,
   dateEnd: Date,
 });
+
+const trafficTableBlockSchema = new mongoose.Schema({
+  experimentId: String,
+});
+
+const trafficGraphBlockSchema = new mongoose.Schema({
+  experimentId: String,
+});
+
+const sqlExplorerBlockSchema = new mongoose.Schema({});
 
 dashboardBlockSchema.index({
   uid: 1,
@@ -77,11 +95,18 @@ export const DashboardBlockModel = mongoose.model(
 );
 
 DashboardBlockModel.discriminator("markdown", markdownBlockSchema);
-DashboardBlockModel.discriminator("metadata", metadataBlockSchema);
+DashboardBlockModel.discriminator(
+  "metadata-description",
+  descriptionBlockSchema
+);
+DashboardBlockModel.discriminator("metadata-hypothesis", hypothesisBlockSchema);
 DashboardBlockModel.discriminator("variation-image", variationImageBlockSchema);
 DashboardBlockModel.discriminator("metric", metricBlockSchema);
 DashboardBlockModel.discriminator("dimension", dimensionBlockSchema);
 DashboardBlockModel.discriminator("time-series", timeSeriesBlockSchema);
+DashboardBlockModel.discriminator("traffic-table", trafficTableBlockSchema);
+DashboardBlockModel.discriminator("traffic-graph", trafficGraphBlockSchema);
+DashboardBlockModel.discriminator("sql-explorer", sqlExplorerBlockSchema);
 
 export const toInterface: ToInterface<DashboardBlockInterface> = (doc) => {
   return removeMongooseFields<DashboardBlockInterface>(doc);

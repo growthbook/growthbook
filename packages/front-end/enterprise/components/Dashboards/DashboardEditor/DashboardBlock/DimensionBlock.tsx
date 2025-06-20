@@ -7,13 +7,14 @@ import BaselineChooser from "@/components/Experiment/BaselineChooser";
 import VariationChooser from "@/components/Experiment/VariationChooser";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { useExperiments } from "@/hooks/useExperiments";
 import { ExperimentMetricSelector } from "../DashboardSettingsHeader";
 import { useDashboardSnapshot } from "../../DashboardSnapshotProvider";
 import { useDashboardSettings } from "../../DashboardSettingsProvider";
-import { withExperiment, BlockProps } from ".";
+import { BlockProps } from ".";
 
 export default function DimensionBlock(
-  props: withExperiment<BlockProps<DimensionBlockInterface>>
+  props: BlockProps<DimensionBlockInterface>
 ) {
   const {
     dimensionId: dimensionidOverride,
@@ -23,10 +24,13 @@ export default function DimensionBlock(
     metricId: metricIdOverride,
     isEditing,
     setBlock,
-    experiment,
+    experimentId,
     differenceType,
   } = props;
   let uid: string | undefined = undefined;
+  const { experimentsMap } = useExperiments();
+  const experiment = experimentsMap.get(experimentId);
+
   if (isPersistedDashboardBlock(props)) {
     uid = props.uid;
   }
@@ -55,9 +59,10 @@ export default function DimensionBlock(
   const setMetricId = (value: string) =>
     setBlock({
       type: "dimension",
+      experimentId,
       metricId: value,
       dimensionId: "",
-      variationIds: experiment.variations.map((v) => v.key || ""),
+      variationIds: experiment?.variations.map((v) => v.key || ""),
       dimensionValues: [],
       baselineRow,
       differenceType,
@@ -66,6 +71,7 @@ export default function DimensionBlock(
   const updateDimensionId = (value: string) => {
     setBlock({
       type: "dimension",
+      experimentId,
       metricId,
       dimensionId: value,
       variationIds: variationIds,
@@ -78,6 +84,7 @@ export default function DimensionBlock(
   const setVariationFilter = (variations: number[]) => {
     setBlock({
       type: "dimension",
+      experimentId,
       metricId,
       dimensionId,
       variationIds: variations.map(toString),
@@ -90,6 +97,7 @@ export default function DimensionBlock(
   const setBaselineRow = (row: number) =>
     setBlock({
       type: "dimension",
+      experimentId,
       metricId,
       dimensionId,
       variationIds,
@@ -101,6 +109,7 @@ export default function DimensionBlock(
   const setDifferenceType = (value: DifferenceType) =>
     setBlock({
       type: "dimension",
+      experimentId,
       metricId,
       dimensionId,
       variationIds,
@@ -110,6 +119,8 @@ export default function DimensionBlock(
     });
 
   const metric = getExperimentMetricById(metricId);
+
+  if (!experiment) return null;
 
   if (!metric && isEditing) {
     return (

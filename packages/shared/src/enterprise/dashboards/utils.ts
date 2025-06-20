@@ -1,12 +1,16 @@
 import {
   DashboardBlockInterface,
   MarkdownBlockInterface,
-  MetadataBlockInterface,
   VariationImageBlockInterface,
   MetricBlockInterface,
   DimensionBlockInterface,
   TimeSeriesBlockInterface,
   DashboardBlockData,
+  HypothesisBlockInterface,
+  DescriptionBlockInterface,
+  SqlExplorerBlockInterface,
+  TrafficGraphBlockInterface,
+  TrafficTableBlockInterface,
 } from "back-end/src/enterprise/validators/dashboard-block";
 import { DashboardSettingsInterface } from "back-end/src/enterprise/validators/dashboard-instance";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
@@ -34,10 +38,16 @@ export function isMarkdownBlock(
   return block.type === "markdown";
 }
 
-export function isMetadataBlock(
+export function isDescriptionBlock(
   block: DashboardBlockInterface
-): block is MetadataBlockInterface {
-  return block.type === "metadata";
+): block is DescriptionBlockInterface {
+  return block.type === "metadata-description";
+}
+
+export function isHypothesisBlock(
+  block: DashboardBlockInterface
+): block is HypothesisBlockInterface {
+  return block.type === "metadata-hypothesis";
 }
 
 export function isVariationImageBlock(
@@ -62,6 +72,24 @@ export function isTimeSeriesBlock(
   block: DashboardBlockInterface
 ): block is TimeSeriesBlockInterface {
   return block.type === "time-series";
+}
+
+export function isTrafficTableBlock(
+  block: DashboardBlockInterface
+): block is TrafficTableBlockInterface {
+  return block.type === "traffic-table";
+}
+
+export function isTrafficGraphBlock(
+  block: DashboardBlockInterface
+): block is TrafficGraphBlockInterface {
+  return block.type === "traffic-graph";
+}
+
+export function isSqlExplorerBlock(
+  block: DashboardBlockInterface
+): block is SqlExplorerBlockInterface {
+  return block.type === "sql-explorer";
 }
 
 export function isPersistedDashboardBlock(

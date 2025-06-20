@@ -1,7 +1,12 @@
 import { getValidDate } from "shared/dates";
 import { z } from "zod";
-import { isMatch } from "lodash";
+import { isMatch, uniq } from "lodash";
 import { isPersistedDashboardBlock } from "shared/enterprise";
+import {
+  getAllMetricIdsFromExperiment,
+  getAllMetricSettingsForSnapshot,
+} from "shared/experiments";
+import { isDefined } from "shared/util";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -21,6 +26,10 @@ import {
   createSnapshot,
   createSnapshotAnalyses,
 } from "back-end/src/services/experiments";
+import { getMetricMap } from "back-end/src/models/MetricModel";
+import { MetricInterface } from "back-end/types/metric";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { createDashboardBody, updateDashboardBody } from "./dashboards.router";
 
 interface GetSnapshotsResponse {
@@ -57,6 +66,7 @@ export async function getSnapshotsForDashboard(
         analysisSettingsList,
         blockUids,
       }): Promise<[ExperimentSnapshotInterface, string[]]> => {
+        const metricMap = await getMetricMap(context);
         let snapshot = await getLatestSnapshot({
           experiment: dashboard.experimentId,
           phase: experiment.phases.length - 1,
@@ -75,12 +85,43 @@ export async function getSnapshotsForDashboard(
               experiment,
               organization: context.org,
               analysisSettings,
-              metricMap: new Map(),
+              metricMap,
               snapshot: snapshot!,
             })),
             context
           );
         } else {
+          const metricIds = getAllMetricIdsFromExperiment(experiment, false);
+          const allExperimentMetrics = metricIds.map(
+            (m) => metricMap.get(m) || null
+          );
+          const denominatorMetricIds = uniq<string>(
+            allExperimentMetrics
+              .map((m) => m?.denominator)
+              .filter((d) => d && typeof d === "string") as string[]
+          );
+          const denominatorMetrics = denominatorMetricIds
+            .map((m) => metricMap.get(m) || null)
+            .filter(isDefined) as MetricInterface[];
+          const datasource = await getDataSourceById(
+            context,
+            experiment.datasource
+          );
+          const factTableMap = await getFactTableMap(context);
+
+          const {
+            settingsForSnapshotMetrics,
+          } = getAllMetricSettingsForSnapshot({
+            allExperimentMetrics,
+            denominatorMetrics,
+            orgSettings: context.org.settings!,
+            experimentRegressionAdjustmentEnabled:
+              experiment.regressionAdjustmentEnabled,
+            experimentMetricOverrides: experiment.metricOverrides,
+            datasourceType: datasource?.type,
+            hasRegressionAdjustmentFeature: true,
+          });
+
           const queryRunner = await createSnapshot({
             experiment,
             context,
@@ -89,9 +130,9 @@ export async function getSnapshotsForDashboard(
             phaseIndex: experiment.phases.length - 1,
             defaultAnalysisSettings: analysisSettingsList[0],
             additionalAnalysisSettings: analysisSettingsList.slice(1),
-            settingsForSnapshotMetrics: [],
-            metricMap: new Map(),
-            factTableMap: new Map(),
+            settingsForSnapshotMetrics,
+            metricMap,
+            factTableMap,
           });
           snapshot = queryRunner.model;
         }
