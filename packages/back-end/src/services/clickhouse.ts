@@ -119,6 +119,18 @@ function getClickhouseExtractFn(columnType: FactTableColumnType) {
   }
 }
 
+export function getReservedColumnNames(): Set<string> {
+  return new Set(
+    [
+      "timestamp",
+      "client_key",
+      "event_name",
+      "properties_json",
+      ...Object.keys(REMAINING_COLUMNS_SCHEMA),
+    ].map((col) => col.toLowerCase())
+  );
+}
+
 export async function createClickhouseUser(
   context: ReqContext,
   datasourceId: string

@@ -56,6 +56,7 @@ import {
 } from "back-end/src/types/Integration";
 import {
   createClickhouseUser,
+  getReservedColumnNames,
   updateMaterializedColumns,
 } from "back-end/src/services/clickhouse";
 import { FactTableColumnType } from "back-end/types/fact-table";
@@ -1173,11 +1174,25 @@ function sanitizeMatColumnInput(userInput: MaterializedColumn) {
 }
 
 function sanitizeMatColumnSourceField(userInput: string) {
+  // Invalid characters
   if (!/^[a-zA-Z0-9 _-]*$/.test(userInput)) {
     throw new Error(
       "Invalid input. Source field must only use alphanumeric characters, ' ', '_', or '-'"
     );
   }
+  // Must have at least 1 alpha character
+  if (!/[a-zA-Z]/.test(userInput)) {
+    throw new Error(
+      "Invalid input. Source field must contain at least one letter"
+    );
+  }
+  // Must not have leading or trailing spaces
+  if (userInput.startsWith(" ") || userInput.endsWith(" ")) {
+    throw new Error(
+      "Invalid input. Source field must not have leading or trailing spaces"
+    );
+  }
+
   return userInput;
 }
 
@@ -1187,5 +1202,67 @@ function sanitizeMatColumnName(userInput: string) {
       "Invalid input. Column names must start with a letter or underscore and only use alphanumeric characters or '_'"
     );
   }
+
+  const cmp = userInput.toLowerCase();
+
+  // Make sure the columns don't overwrite default ones we define
+  const reservedCols = getReservedColumnNames();
+  if (reservedCols.has(cmp)) {
+    throw new Error(
+      `Column name "${userInput}" is reserved and cannot be used`
+    );
+  }
+
+  // Most of these technically work as column names in ClickHouse,
+  // but they would be confusing when writing and viewing SQL
+  const sqlKeywords = new Set([
+    "select",
+    "from",
+    "where",
+    "order",
+    "having",
+    "limit",
+    "offset",
+    "join",
+    "on",
+    "using",
+    "as",
+    "distinct",
+    "union",
+    "if",
+    "then",
+    "else",
+    "end",
+    "case",
+    "when",
+    "and",
+    "or",
+    "not",
+    "true",
+    "false",
+    "null",
+    "is",
+    "in",
+    "between",
+    "exists",
+    "like",
+    "array",
+    "tuple",
+    "map",
+    "cast",
+    "inf",
+    "infinity",
+    "nan",
+    "default",
+    "current_date",
+    "current_timestamp",
+    "sysdate",
+  ]);
+  if (sqlKeywords.has(cmp)) {
+    throw new Error(
+      `Column name "${userInput}" is a SQL keyword and cannot be used`
+    );
+  }
+
   return userInput;
 }
