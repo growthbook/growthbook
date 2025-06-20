@@ -1,7 +1,6 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React, { useEffect, useMemo, useState } from "react";
-import { PiArrowLeft, PiCaretDownFill, PiTrashFill } from "react-icons/pi";
-import { Flex } from "@radix-ui/themes";
+import { PiArrowLeft, PiCaretDownFill } from "react-icons/pi";
 import {
   DashboardInstanceInterface,
   DashboardSettingsInterface,
@@ -9,22 +8,24 @@ import {
 import {
   DashboardBlockData,
   DashboardBlockInterface,
+  DashboardBlockType,
 } from "back-end/src/enterprise/validators/dashboard-block";
 import { debounce } from "lodash";
+import { isDefined } from "shared/util";
 import Button from "@/components/Radix/Button";
 import {
   DropdownMenu,
   DropdownMenuItem,
+  DropdownSubMenu,
 } from "@/components/Radix/DropdownMenu";
 import Field from "@/components/Forms/Field";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import DashboardSnapshotProvider from "../DashboardSnapshotProvider";
 import DashboardSettingsProvider from "../DashboardSettingsProvider";
 import DashboardBlock from "./DashboardBlock";
-import DashboardSettingsHeader from "./DashboardSettingsHeader";
 
-const BLOCK_TYPE_INFO: Record<
-  DashboardBlockInterface["type"],
+export const BLOCK_TYPE_INFO: Record<
+  DashboardBlockType,
   {
     name: string;
     createDefaultBlock: (args: {
@@ -36,11 +37,17 @@ const BLOCK_TYPE_INFO: Record<
     name: "Custom Markdown",
     createDefaultBlock: () => ({ type: "markdown", content: "" }),
   },
-  metadata: {
-    name: "Experiment Metadata",
+  "metadata-description": {
+    name: "Experiment Description",
     createDefaultBlock: ({ experimentId }) => ({
-      type: "metadata",
-      subtype: "description",
+      type: "metadata-description",
+      experimentId,
+    }),
+  },
+  "metadata-hypothesis": {
+    name: "Experiment Hypothesis",
+    createDefaultBlock: ({ experimentId }) => ({
+      type: "metadata-hypothesis",
       experimentId,
     }),
   },
@@ -49,27 +56,61 @@ const BLOCK_TYPE_INFO: Record<
     createDefaultBlock: ({ experimentId }) => ({
       type: "variation-image",
       variationIds: [],
-      experiment: experimentId,
+      experimentId,
     }),
   },
   metric: {
     name: "Metric Analysis",
-    createDefaultBlock: () => ({
+    createDefaultBlock: ({ experimentId }) => ({
       type: "metric",
+      experimentId,
     }),
   },
   dimension: {
     name: "Metric Dimensional Analysis",
-    createDefaultBlock: () => ({
+    createDefaultBlock: ({ experimentId }) => ({
       type: "dimension",
+      experimentId,
     }),
   },
   "time-series": {
     name: "Results Time Series",
-    createDefaultBlock: () => ({
+    createDefaultBlock: ({ experimentId }) => ({
       type: "time-series",
+      experimentId,
     }),
   },
+  "traffic-graph": {
+    name: "Experiment Traffic over Time",
+    createDefaultBlock: ({ experimentId }) => ({
+      type: "traffic-graph",
+      experimentId: experimentId,
+    }),
+  },
+  "traffic-table": {
+    name: "Total Experiment Traffic",
+    createDefaultBlock: ({ experimentId }) => ({
+      type: "traffic-table",
+      experimentId: experimentId,
+    }),
+  },
+  "sql-explorer": {
+    name: "SQL Explorer",
+    createDefaultBlock: () => ({
+      type: "sql-explorer",
+    }),
+  },
+};
+
+const BLOCK_SUBGROUPS: Record<string, DashboardBlockType[]> = {
+  "Metric Results": ["metric", "dimension", "time-series"],
+  "Experiment Traffic": ["traffic-table", "traffic-graph"],
+  "Experiment Overview": [
+    "metadata-description",
+    "metadata-hypothesis",
+    "variation-image",
+  ],
+  "Customizable Blocks": ["markdown", "sql-explorer"],
 };
 
 interface Props {
@@ -111,6 +152,16 @@ export default function DashboardEditor({
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  const setBlocksAndDirty = useMemo(
+    () => (
+      blocks: (DashboardBlockData<DashboardBlockInterface> | undefined)[]
+    ) => {
+      setBlocks(blocks.filter(isDefined));
+      setDirty(true);
+    },
+    [setBlocks, setDirty]
+  );
+
   const [localEditing, setLocalEditing] = useState<boolean>(isEditing);
   const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
   useEffect(() => {
@@ -135,7 +186,7 @@ export default function DashboardEditor({
   }, [submitCallback]);
 
   useEffect(() => {
-    if (isEditing && dirty) {
+    if (isEditing && dirty && title) {
       debouncedSubmit(title, description, blocks, settings);
     }
   }, [isEditing, dirty, debouncedSubmit, title, description, blocks, settings]);
@@ -213,39 +264,22 @@ export default function DashboardEditor({
             <div className="">
               {localEditing && (
                 <div>
-                  <DashboardSettingsHeader experiment={experiment} />
+                  {/* <DashboardSettingsHeader experiment={experiment} /> */}
                 </div>
               )}
               {blocks.map((block, i) => (
-                <div key={i} className="appbox p-4">
-                  {localEditing && (
-                    <Flex align="center" justify="between">
-                      <h4 className="text-capitalize">
-                        {BLOCK_TYPE_INFO[block.type].name}
-                      </h4>
-                      <Button
-                        color="red"
-                        onClick={() => {
-                          setDirty(true);
-                          setBlocks(blocks.filter((_, j) => j !== i));
-                        }}
-                      >
-                        <PiTrashFill />
-                      </Button>
-                    </Flex>
-                  )}
-
-                  <DashboardBlock
-                    block={block}
-                    experiment={experiment}
-                    isEditing={localEditing}
-                    setBlock={(block: DashboardBlockInterface) => {
-                      setDirty(true);
-                      setBlocks(blocks.map((b, j) => (j === i ? block : b)));
-                    }}
-                    mutate={mutate}
-                  />
-                </div>
+                <DashboardBlock
+                  key={i}
+                  block={block}
+                  experiment={experiment}
+                  isEditing={localEditing}
+                  setBlock={(block: DashboardBlockInterface) => {
+                    setBlocksAndDirty(
+                      blocks.map((b, j) => (j === i ? block : b))
+                    );
+                  }}
+                  mutate={mutate}
+                />
               ))}
               {localEditing && (
                 <DropdownMenu
@@ -263,23 +297,29 @@ export default function DashboardEditor({
                     </Button>
                   }
                 >
-                  {Object.entries(BLOCK_TYPE_INFO).map(([bType, bInfo]) => (
-                    <DropdownMenuItem
-                      key={bType}
-                      onClick={() => {
-                        setDropdownOpen(false);
-                        setDirty(true);
-                        setBlocks([
-                          ...blocks,
-                          bInfo.createDefaultBlock({
-                            experimentId: experiment.id,
-                          }),
-                        ]);
-                      }}
-                    >
-                      {bInfo.name}
-                    </DropdownMenuItem>
-                  ))}
+                  {Object.entries(BLOCK_SUBGROUPS).map(
+                    ([subgroup, blockTypes]) => (
+                      <DropdownSubMenu key={subgroup} trigger={subgroup}>
+                        {blockTypes.map((bType) => (
+                          <DropdownMenuItem
+                            key={bType}
+                            onClick={() => {
+                              setDropdownOpen(false);
+                              setDirty(true);
+                              setBlocks([
+                                ...blocks,
+                                BLOCK_TYPE_INFO[bType].createDefaultBlock({
+                                  experimentId: experiment.id,
+                                }),
+                              ]);
+                            }}
+                          >
+                            {BLOCK_TYPE_INFO[bType].name}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownSubMenu>
+                    )
+                  )}
                 </DropdownMenu>
               )}
             </div>

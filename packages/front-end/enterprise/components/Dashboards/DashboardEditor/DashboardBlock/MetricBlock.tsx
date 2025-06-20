@@ -5,10 +5,11 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import BaselineChooser from "@/components/Experiment/BaselineChooser";
 import VariationChooser from "@/components/Experiment/VariationChooser";
+import { useExperiments } from "@/hooks/useExperiments";
 import { useDashboardSettings } from "../../DashboardSettingsProvider";
 import { ExperimentMetricSelector } from "../DashboardSettingsHeader";
 import { useDashboardSnapshot } from "../../DashboardSnapshotProvider";
-import { BlockProps, withExperiment } from ".";
+import { BlockProps } from ".";
 
 export default function MetricBlock({
   metricId: metricIdOverride,
@@ -16,8 +17,11 @@ export default function MetricBlock({
   baselineRow: baselineRowOverride,
   isEditing,
   setBlock,
-  experiment,
-}: withExperiment<BlockProps<MetricBlockInterface>>) {
+  experimentId,
+}: BlockProps<MetricBlockInterface>) {
+  const { experimentsMap } = useExperiments();
+  const experiment = experimentsMap.get(experimentId);
+
   const {
     defaultAnalysisSettings: { baselineVariationIndex: defaultBaselineRow },
     defaultMetricId,
@@ -44,6 +48,7 @@ export default function MetricBlock({
       metricId: value,
       variationIds: variationIdsOverride,
       baselineRow: baselineRowOverride,
+      experimentId,
     });
 
   const setVariationFilter = (variations: number[]) => {
@@ -52,6 +57,7 @@ export default function MetricBlock({
       metricId: metricIdOverride,
       variationIds: variations.map(toString),
       baselineRow: baselineRowOverride,
+      experimentId,
     });
   };
 
@@ -61,7 +67,10 @@ export default function MetricBlock({
       metricId: metricIdOverride,
       variationIds: variationIdsOverride,
       baselineRow: row,
+      experimentId,
     });
+
+  if (!experiment) return null;
 
   if (!metric && isEditing) {
     return (
