@@ -24,7 +24,7 @@ import { getScopedSettings } from "shared/settings";
 import { generateTrackingKey, getEqualWeights } from "shared/experiments";
 import { kebabCase, debounce } from "lodash";
 import { Box, Flex, Text, Heading } from "@radix-ui/themes";
-import { FaExternalLinkAlt } from "react-icons/fa";
+import { FaExclamationCircle, FaExternalLinkAlt } from "react-icons/fa";
 import { useWatching } from "@/services/WatchProvider";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -751,80 +751,89 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               />
             )}
             {similarExperiments && similarExperiments.length > 0 && (
-              <Callout status="info" mb="3" contentsAs="div">
-                <>
-                  <Box width="100%">
-                    <a
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setExpandSimilarResults(!expandSimilarResults);
-                      }}
-                    >
-                      {expandSimilarResults ? "Hide the" : "Found"}{" "}
-                      {similarExperiments.length} similar experiment
-                      {similarExperiments.length === 1 ? "" : "s"}
-                    </a>
-                    {expandSimilarResults && (
-                      <Box mt="3">
-                        {similarExperiments.map((s, i) => (
-                          <Box
-                            key={`similar-${i}`}
-                            mb="2"
-                            className="appbox"
-                            p="3"
-                            width="100%"
-                            style={{
-                              maxHeight: "150px",
-                              overflowY: "auto",
-                              color: "var(--text-color-main)",
-                            }}
-                          >
-                            <Flex direction="column" gap="3" justify="start">
-                              <Flex gap="3" justify="between">
-                                <Flex gap="3" align="start">
-                                  <Link
-                                    href="/experiment/[id]"
-                                    as={`/experiment/${s.experiment.id}`}
-                                    target="_blank"
-                                  >
-                                    <Heading size="2">
-                                      {s.experiment.name}
-                                    </Heading>
-                                  </Link>
-                                  <span style={{ fontSize: "0.8rem" }}>
-                                    <FaExternalLinkAlt />
-                                  </span>
-                                </Flex>
-                                <Flex gap="3" align="center">
-                                  <Text size="1" className="text-muted">
-                                    {date(s.experiment.dateCreated)}
-                                  </Text>
-                                  <ExperimentStatusIndicator
-                                    experimentData={s.experiment}
-                                  />
-                                </Flex>
+              <Flex
+                gap="3"
+                mb="3"
+                p="3"
+                align="start"
+                justify="start"
+                style={{
+                  backgroundColor: "var(--accent-a3)",
+                  borderRadius: "4px",
+                }}
+              >
+                <Box flexShrink="1" style={{ color: "var(--accent-a11)" }}>
+                  <FaExclamationCircle />
+                </Box>
+                <Box width="100%" flexGrow="1">
+                  <a
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setExpandSimilarResults(!expandSimilarResults);
+                    }}
+                  >
+                    {expandSimilarResults ? "Hide the" : "Found"}{" "}
+                    {similarExperiments.length} similar experiment
+                    {similarExperiments.length === 1 ? "" : "s"}
+                  </a>
+                  {expandSimilarResults && (
+                    <Box mt="3">
+                      {similarExperiments.map((s, i) => (
+                        <Box
+                          key={`similar-${i}`}
+                          mb="2"
+                          className="appbox"
+                          p="3"
+                          width="100%"
+                          style={{
+                            maxHeight: "150px",
+                            overflowY: "auto",
+                            color: "var(--text-color-main)",
+                          }}
+                        >
+                          <Flex direction="column" gap="3" justify="start">
+                            <Flex gap="3" justify="between">
+                              <Flex gap="3" align="start">
+                                <Link
+                                  href="/experiment/[id]"
+                                  as={`/experiment/${s.experiment.id}`}
+                                  target="_blank"
+                                >
+                                  <Heading size="2">
+                                    {s.experiment.name}
+                                  </Heading>
+                                </Link>
+                                <span style={{ fontSize: "0.8rem" }}>
+                                  <FaExternalLinkAlt />
+                                </span>
                               </Flex>
-                              {s.experiment.description && (
-                                <Box style={{ fontSize: "0.9em" }}>
-                                  <strong>Description:</strong>{" "}
-                                  <Markdown>
-                                    {s.experiment.description}
-                                  </Markdown>
-                                </Box>
-                              )}
-                              <Box style={{ fontSize: "0.9em" }}>
-                                <strong>Hypothesis:</strong>{" "}
-                                <Markdown>{s.experiment.hypothesis}</Markdown>
-                              </Box>
+                              <Flex gap="3" align="center">
+                                <Text size="1" className="text-muted">
+                                  {date(s.experiment.dateCreated)}
+                                </Text>
+                                <ExperimentStatusIndicator
+                                  experimentData={s.experiment}
+                                />
+                              </Flex>
                             </Flex>
-                          </Box>
-                        ))}
-                      </Box>
-                    )}
-                  </Box>
-                </>
-              </Callout>
+                            {s.experiment.description && (
+                              <Box style={{ fontSize: "0.9em" }}>
+                                <strong>Description:</strong>{" "}
+                                <Markdown>{s.experiment.description}</Markdown>
+                              </Box>
+                            )}
+                            <Box style={{ fontSize: "0.9em" }}>
+                              <strong>Hypothesis:</strong>{" "}
+                              <Markdown>{s.experiment.hypothesis}</Markdown>
+                            </Box>
+                          </Flex>
+                        </Box>
+                      ))}
+                    </Box>
+                  )}
+                </Box>
+              </Flex>
             )}
             <div className="form-group">
               <label>Tags</label>
