@@ -17,6 +17,7 @@ import { uploadFile } from "@/services/files";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Button from "@/components/Radix/Button";
 import { useAISettings } from "@/hooks/useOrgSettings";
+import OptInModal from "@/components/License/OptInModal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../Radix/Tabs";
 import Markdown from "./Markdown";
 
@@ -44,7 +45,7 @@ const MarkdownInput: FC<{
   placeholder,
   aiSuggestFunction,
 }) => {
-  const { aiEnabled } = useAISettings();
+  const { aiEnabled, aiAgreedTo } = useAISettings();
   const [activeControlledTab, setActiveControlledTab] = useState<
     "write" | "preview"
   >("write");
@@ -54,6 +55,7 @@ const MarkdownInput: FC<{
   const [aiSuggestionText, setAiSuggestionText] = useState("");
   const [loading, setLoading] = useState(false);
   const [aiError, setAiError] = useState("");
+  const [aiAgreementModal, setAiAgreementModal] = useState(false);
   useEffect(() => {
     if (autofocus && textareaRef.current) {
       textareaRef.current.focus();
@@ -116,41 +118,58 @@ const MarkdownInput: FC<{
 
           {aiSuggestFunction && (
             <Flex justify="end">
-              <Button
-                variant="ghost"
-                title={
-                  !aiEnabled
-                    ? "AI is disabled for your organization. Adjust in settings."
-                    : ""
-                }
-                disabled={!aiEnabled || !aiSuggestFunction || loading}
-                onClick={async () => {
-                  if (aiEnabled) {
-                    setAiError("");
-                    try {
-                      setLoading(true);
-                      // make sure it's on the right tab:
-                      setActiveControlledTab("write");
-                      const suggestedText = await aiSuggestFunction();
-                      if (suggestedText) {
-                        setAiSuggestionText(suggestedText);
+              {aiAgreedTo ? (
+                <Button
+                  variant="ghost"
+                  title={
+                    !aiEnabled
+                      ? "AI is disabled for your organization. Adjust in settings."
+                      : ""
+                  }
+                  disabled={!aiSuggestFunction || loading}
+                  onClick={async () => {
+                    if (aiEnabled) {
+                      setAiError("");
+                      try {
+                        setLoading(true);
+                        // make sure it's on the right tab:
+                        setActiveControlledTab("write");
+                        const suggestedText = await aiSuggestFunction();
+                        if (suggestedText) {
+                          setAiSuggestionText(suggestedText);
+                          setLoading(false);
+                        } else {
+                          setLoading(false);
+                          setAiError("Failed to get AI suggestion");
+                        }
+                      } catch (e) {
                         setLoading(false);
-                      } else {
-                        setLoading(false);
-                        setAiError("Failed to get AI suggestion");
+                        setAiError(
+                          "Failed to get AI suggestion. API request error"
+                        );
                       }
-                    } catch (e) {
-                      setLoading(false);
+                    } else {
                       setAiError(
-                        "Failed to get AI suggestion. API request error"
+                        "AI is disabled for your organization. Adjust in settings."
                       );
                     }
-                  }
-                }}
-              >
-                {loading ? "Generating..." : "Get AI Suggestion "}
-                <BsStars />
-              </Button>
+                  }}
+                >
+                  {loading ? "Generating..." : "Get AI Suggestion "}
+                  <BsStars />
+                </Button>
+              ) : (
+                <Button
+                  variant="ghost"
+                  disabled={loading}
+                  onClick={async () => {
+                    setAiAgreementModal(true);
+                  }}
+                >
+                  {loading ? "Agreement required..." : "Get AI Suggestion "}
+                  <BsStars />
+                </Button>
+              )}
             </Flex>
           )}
         </Flex>
@@ -271,6 +290,9 @@ const MarkdownInput: FC<{
           </TabsContent>
         </Box>
       </Tabs>
+      {aiAgreementModal && (
+        <OptInModal agreement="ai" onClose={() => setAiAgreementModal(false)} />
+      )}
     </Box>
   );
 };

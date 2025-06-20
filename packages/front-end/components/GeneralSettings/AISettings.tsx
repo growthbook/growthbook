@@ -10,6 +10,8 @@ import SelectField from "@/components/Forms/SelectField";
 import { isCloud } from "@/services/env";
 import useApi from "@/hooks/useApi";
 import Button from "@/components/Radix/Button";
+import { useAISettings } from "@/hooks/useOrgSettings";
+import OptInModal from "@/components/License/OptInModal";
 
 // create a temp function which is passed a project and returns an array of prompts (promptId, promptName, promptDescription, promptValue)
 function getPrompts(data: {
@@ -78,6 +80,8 @@ export default function AISettings({
 }) {
   const form = useFormContext();
   const { apiCall } = useAuth();
+  const { aiAgreedTo } = useAISettings();
+  const [optInModal, setOptInModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [embeddingMsg, setEmbeddingMsg] = useState("");
 
@@ -127,8 +131,15 @@ export default function AISettings({
             <Flex align="start" gap="3" mb="6">
               <Box>
                 <Checkbox
-                  value={form.watch("aiEnabled")}
-                  setValue={(v) => form.setValue("aiEnabled", v)}
+                  value={form.watch("aiEnabled") && aiAgreedTo}
+                  setValue={(v) => {
+                    console.log("checked... ", v);
+                    if (v && !aiAgreedTo) {
+                      setOptInModal(true);
+                      return;
+                    }
+                    form.setValue("aiEnabled", v);
+                  }}
                   id="toggle-aiEnabled"
                   mt="1"
                 />
@@ -294,6 +305,9 @@ export default function AISettings({
             </Flex>
           </Frame>
         </>
+      )}
+      {optInModal && (
+        <OptInModal agreement="ai" onClose={() => setOptInModal(false)} />
       )}
     </>
   );

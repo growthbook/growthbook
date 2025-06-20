@@ -143,6 +143,7 @@ import {
   getSubscriptionFromLicense,
 } from "back-end/src/enterprise";
 import { getUsageFromCache } from "back-end/src/enterprise/billing";
+import { AgreementType } from "back-end/src/validators/agreements";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
@@ -748,6 +749,10 @@ export async function getOrganization(
     org,
     teams || []
   );
+  const agreements = await context.models.agreements.getAgreementsForOrg();
+  const agreementsAgreed = Array.from(
+    new Set(agreements.map((a) => a.agreement as AgreementType))
+  );
   const seatsInUse = getNumberOfUniqueMembersAndInvites(org);
 
   const watch = await getWatchedByUser(org.id, userId);
@@ -769,6 +774,7 @@ export async function getOrganization(
     teams: teamsWithMembers,
     license,
     subscription: license ? getSubscriptionFromLicense(license) : null,
+    agreements: agreementsAgreed || [],
     watching: {
       experiments: watch?.experiments || [],
       features: watch?.features || [],
@@ -2281,4 +2287,40 @@ export async function activateRole(
   res.status(200).json({
     status: 200,
   });
+}
+
+export async function postAgreeToAgreement(
+  req: AuthRequest<{ agreement: AgreementType; version: string }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageOrgSettings()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const { agreement, version } = req.body;
+  try {
+    const existing = await context.models.agreements.getAgreementForOrg(
+      agreement
+    );
+    if (existing) {
+      // hard to get into this state, but if the user/org has already agreed to this agreement, we can just return success
+      return res.status(200).json({ status: 200 });
+    }
+    // there is no existing agreement, so we create a new one
+    await context.models.agreements.create({
+      agreement,
+      version,
+      userId: context.userId,
+      userName: context.userName,
+      userEmail: context.email,
+      dateSigned: new Date(),
+    });
+    return res.status(200).json({
+      status: 200,
+    });
+  } catch (e) {
+    return res.status(500).json({ status: 500, message: e.message });
+  }
 }

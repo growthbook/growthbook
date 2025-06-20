@@ -1,4 +1,5 @@
 export const entityEvents = {
+  agreement: ["create", "update", "delete"],
   aiPrompt: ["create", "update", "delete"],
   attribute: ["create", "update", "delete"],
   experiment: [

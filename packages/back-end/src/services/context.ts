@@ -46,6 +46,7 @@ import { FeatureInterface } from "back-end/types/feature";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { AiPromptModel } from "back-end/src/models/AIPromptModel";
 import { VectorsModel } from "back-end/src/enterprise/models/VectorsModel";
+import { AgreementModel } from "back-end/src/models/AgreementModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
@@ -58,6 +59,7 @@ export type ForeignRefTypes = {
 export class ReqContextClass {
   // Models
   public models!: {
+    agreements: AgreementModel;
     aiPrompts: AiPromptModel;
     customFields: CustomFieldModel;
     factMetrics: FactMetricModel;
@@ -79,6 +81,7 @@ export class ReqContextClass {
   };
   private initModels() {
     this.models = {
+      agreements: new AgreementModel(this),
       aiPrompts: new AiPromptModel(this),
       customFields: new CustomFieldModel(this),
       factMetrics: new FactMetricModel(this),

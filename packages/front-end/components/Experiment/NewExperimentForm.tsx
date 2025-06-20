@@ -719,7 +719,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     queueCheckForSimilar(); // Debounced call
                   },
                   onBlur: () => {
-                    console.log("Hypothesis input blurred");
                     // cancel any pending debounced calls
                     if (hypothesisTimeout.current) {
                       clearTimeout(hypothesisTimeout.current);
@@ -754,7 +753,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             {similarExperiments && similarExperiments.length > 0 && (
               <Callout status="info" mb="3" contentsAs="div">
                 <>
-                  <Box>
+                  <Box width="100%">
                     <a
                       href="#"
                       onClick={(e) => {
@@ -774,6 +773,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                             mb="2"
                             className="appbox"
                             p="3"
+                            width="100%"
                             style={{
                               maxHeight: "150px",
                               overflowY: "auto",

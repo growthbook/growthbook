@@ -417,6 +417,15 @@ export async function postSimilarExperiments(
     });
   }
 
+  // make sure we have enough words in the hypothesis and name for good results:
+  const words =
+    (hypothesis || "").split(" ").length + (name || "").split(" ").length;
+  if (words < 4) {
+    return res.status(200).json({
+      status: 200,
+      message: "Need more words for quality results",
+    });
+  }
   const previousExperiments: ExperimentInterface[] = await getAllExperiments(
     context,
     {
@@ -424,9 +433,11 @@ export async function postSimilarExperiments(
       includeArchived: false,
     }
   );
-  // filter to only experiments that have hypothesises
+  // filter to only experiments that have hypothesises, and enough words to make a good search:
   const filteredPreviousExps = previousExperiments.filter((e) => {
-    return !!e?.hypothesis?.length; // && e.status !== "draft";
+    const words =
+      (e.hypothesis || "").split(" ").length + (e.name || "").split(" ").length;
+    return words >= 4;
   });
   if (filteredPreviousExps.length === 0) {
     return res.status(200).json({
@@ -470,8 +481,9 @@ export async function postSimilarExperiments(
   }
   // Now we have all the existing experiments with embeddings, we can search for similar experiments
   // Create the text to search by for the new experiment
-  const newExperimentText = `Name: ${name}\nHypothesis: ${hypothesis}\nDescription: ${
-    description || ""
+  const newExperimentText = `Name: ${name}\nHypothesis: ${hypothesis}${
+    description && description !== "" ? "\nDescription: " + description : ""
+  }
   }`;
 
   // Generate embeddings for the new experiment
@@ -493,7 +505,7 @@ export async function postSimilarExperiments(
     .filter(isDefined);
 
   // Sort and filter
-  const SIMILARITY_THRESHOLD = full ? 0 : 0.55;
+  const SIMILARITY_THRESHOLD = full ? 0 : 0.6;
   const similarExperiments = similarities
     .filter((s) => s && s.similarity && s.similarity >= SIMILARITY_THRESHOLD)
     .sort((a, b) => (b?.similarity ?? 0) - (a?.similarity ?? 0))
@@ -556,7 +568,13 @@ export async function postRegenerateEmbeddings(
     includeArchived: true,
   });
 
-  await generateExperimentEmbeddings(context, experiments);
+  // filter to only experiments that have enough words in the hypothesis and name for good results:
+  const filteredExperiments = experiments.filter((e) => {
+    const words =
+      (e.hypothesis || "").split(" ").length + (e.name || "").split(" ").length;
+    return words >= 4;
+  });
+  await generateExperimentEmbeddings(context, filteredExperiments);
 
   return res.status(200).json({
     status: 200,

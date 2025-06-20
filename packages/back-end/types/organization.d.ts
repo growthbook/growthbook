@@ -27,6 +27,7 @@ import {
   MetricPriorSettings,
   MetricWindowSettings,
 } from "./fact-table";
+import { AgreementType } from "back-end/src/validators/agreements";
 
 export type EnvScopedPermission = typeof ENV_SCOPED_PERMISSIONS[number];
 export type ProjectScopedPermission = typeof PROJECT_SCOPED_PERMISSIONS[number];
@@ -357,6 +358,7 @@ export type GetOrganizationResponse = {
   members: ExpandedMember[];
   seatsInUse: number;
   roles: Role[];
+  agreements: AgreementType[];
   apiKeys: ApiKeyInterface[];
   enterpriseSSO: Partial<SSOConnectionInterface> | null;
   accountPlan: AccountPlan;
