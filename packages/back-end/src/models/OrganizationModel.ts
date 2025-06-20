@@ -16,7 +16,10 @@ import {
   Role,
 } from "back-end/types/organization";
 import { upgradeOrganizationDoc } from "back-end/src/util/migrations";
-import { ApiOrganization } from "back-end/types/openapi";
+import {
+  ApiOrganization,
+  ApiOrganizationDefaults,
+} from "back-end/types/openapi";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   ToInterface,
@@ -446,6 +449,30 @@ export function toOrganizationApiInterface(
     name,
     ownerEmail,
     dateCreated: dateCreated?.toISOString() || "",
+  };
+}
+
+export async function toOrganizationDefaultsApiInterface(
+  org: OrganizationInterface
+): Promise<ApiOrganizationDefaults> {
+  return {
+    id: org.id,
+    statsEngine: org.settings?.statsEngine || null,
+    metricAnalysisDays: org.settings?.metricAnalysisDays || null,
+    northStar: org.settings?.northStar || null,
+    metricDefaults: org.settings?.metricDefaults || null,
+    srmThreshold: org.settings?.srmThreshold || null,
+    multipleExposureMinPercent:
+      org.settings?.multipleExposureMinPercent || null,
+    confidenceLevel: org.settings?.confidenceLevel || null,
+    pValueThreshold: org.settings?.pValueThreshold || null,
+    pValueCorrection: org.settings?.pValueCorrection || null,
+    regressionAdjustmentEnabled:
+      org.settings?.regressionAdjustmentEnabled || null,
+    regressionAdjustmentDays: org.settings?.regressionAdjustmentDays || null,
+    sequentialTestingEnabled: org.settings?.sequentialTestingEnabled || null,
+    sequentialTestingTuningParameter:
+      org.settings?.sequentialTestingTuningParameter || null,
   };
 }
 

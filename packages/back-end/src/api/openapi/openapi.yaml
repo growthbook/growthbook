@@ -117,6 +117,9 @@ tags:
   - name: queries
     x-displayName: Queries
     description: Retrieve queries used in experiments to calculate results.
+  - name: organization-defaults
+    x-displayName: Organization Defaults
+    description: Organization Defaults are the default settings for an organization.
 paths:
   /features:
     get:
@@ -322,6 +325,9 @@ paths:
   /queries/{id}:
     get:
       $ref: "./paths/getQuery.yaml"
+  /organization-defaults:
+    get:
+      $ref: "./paths/getOrganizationDefaults.yaml"
   # PLOP_INSERT_PATHS_HERE
 components:
   parameters:
