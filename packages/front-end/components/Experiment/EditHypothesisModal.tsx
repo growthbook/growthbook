@@ -143,7 +143,11 @@ export default function EditHypothesisModal({
               side="bottom"
             >
               <Button
-                disabled={loading || form.watch("hypothesis").trim() === ""}
+                disabled={
+                  !aiEnabled ||
+                  loading ||
+                  form.watch("hypothesis").trim() === ""
+                }
                 variant="soft"
                 onClick={checkHypothesis}
                 stopPropagation={true}
