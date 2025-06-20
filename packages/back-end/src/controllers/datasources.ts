@@ -21,7 +21,6 @@ import {
   encryptParams,
   testQuery,
   getIntegrationFromDatasourceId,
-  isDataSourceType,
 } from "back-end/src/services/datasource";
 import { getOauth2Client } from "back-end/src/integrations/GoogleAnalytics";
 import {
@@ -894,12 +893,7 @@ export async function postMaterializedColumn(
     context.permissions.throwPermissionError();
   }
 
-  if (
-    !isDataSourceType<GrowthbookClickhouseDataSource>(
-      datasource,
-      "growthbook_clickhouse"
-    )
-  ) {
+  if (datasource.type !== "growthbook_clickhouse") {
     throw new Error(
       "Can only create materialized columns for growthbook-clickhouse datasources"
     );
@@ -970,12 +964,7 @@ export async function updateMaterializedColumn(
     context.permissions.throwPermissionError();
   }
 
-  if (
-    !isDataSourceType<GrowthbookClickhouseDataSource>(
-      datasource,
-      "growthbook_clickhouse"
-    )
-  ) {
+  if (datasource.type !== "growthbook_clickhouse") {
     throw new Error(
       "Can only manage materialized columns for growthbook-clickhouse datasources"
     );
@@ -1078,12 +1067,7 @@ export async function deleteMaterializedColumn(
     context.permissions.throwPermissionError();
   }
 
-  if (
-    !isDataSourceType<GrowthbookClickhouseDataSource>(
-      datasource,
-      "growthbook_clickhouse"
-    )
-  ) {
+  if (datasource.type !== "growthbook_clickhouse") {
     throw new Error(
       "Can only manage materialized columns for growthbook-clickhouse datasources"
     );

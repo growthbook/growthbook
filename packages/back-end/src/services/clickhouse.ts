@@ -19,8 +19,15 @@ import { logger } from "back-end/src/util/logger";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import { FactTableColumnType } from "back-end/types/fact-table";
 
-const REMAINING_COLUMNS_SCHEMA = {
-  environment: "String",
+type ClickHouseDataType =
+  | "DateTime"
+  | "Float64"
+  | "Boolean"
+  | "String"
+  | "LowCardinality(String)";
+
+const REMAINING_COLUMNS_SCHEMA: Record<string, ClickHouseDataType> = {
+  environment: "LowCardinality(String)",
   user_id: "String",
   context_json: "String",
   url: "String",
@@ -31,8 +38,8 @@ const REMAINING_COLUMNS_SCHEMA = {
   device_id: "String",
   page_id: "String",
   session_id: "String",
-  sdk_language: "String",
-  sdk_version: "String",
+  sdk_language: "LowCardinality(String)",
+  sdk_version: "LowCardinality(String)",
   page_title: "String",
   utm_source: "String",
   utm_medium: "String",
@@ -41,7 +48,7 @@ const REMAINING_COLUMNS_SCHEMA = {
   utm_content: "String",
   event_uuid: "String",
   ip: "String",
-  geo_country: "String",
+  geo_country: "LowCardinality(String)",
   geo_city: "String",
   geo_lat: "Float64",
   geo_lon: "Float64",
@@ -86,7 +93,9 @@ function createAdminClickhouseClient() {
   });
 }
 
-function getClickhouseDatatype(columnType: FactTableColumnType) {
+function getClickhouseDatatype(
+  columnType: FactTableColumnType
+): ClickHouseDataType {
   switch (columnType) {
     case "date":
       return "DateTime";
