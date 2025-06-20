@@ -227,13 +227,6 @@ export async function postAIExperimentAnalysis(
       type: "standard",
     })) || undefined;
 
-  if (!snapshot) {
-    return res.status(404).json({
-      status: 404,
-      message: "Snapshot not found",
-    });
-  }
-
   const winnerVariationName = experiment.variations[winner].name;
   const releasedVariationName =
     experiment.variations.find((v) => v.id === releasedVariationId)?.name || "";
@@ -340,6 +333,7 @@ export async function postAIExperimentAnalysis(
     "\n- `pValue`: The p-value for the metric, indicating statistical significance." +
     "\nThe `experimentMetrics` map provides the detailed results for each metric, which are used to analyze the performance of the variations in the experiment." +
     "\nThe keys in the `experimentMetrics` map refer to the ids mentioned in the `goalMetrics`, `guardrailMetrics`, and `secondaryMetrics` fields of the experiment." +
+    "\nIf the snapshot is undefined then the experiment probably never started." +
     "\n- the experiment data is: " +
     JSON.stringify(experiment) +
     "\n- the latest snapshot is: " +

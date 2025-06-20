@@ -9,6 +9,7 @@ import { useForm } from "react-hook-form";
 import { experimentHasLinkedChanges } from "shared/util";
 import { datetime } from "shared/dates";
 import { Flex } from "@radix-ui/themes";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import SelectField from "@/components/Forms/SelectField";
@@ -19,9 +20,8 @@ import { DocLink } from "@/components/DocLink";
 import DatePicker from "@/components/DatePicker";
 import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
 import Callout from "@/components/Radix/Callout";
-import { Results } from "./ResultsIndicator";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import { AppFeatures } from "@/types/app-features";
+import { Results } from "./ResultsIndicator";
 
 const StopExperimentForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -374,6 +374,8 @@ const StopExperimentForm: FC<{
               value={form.watch("analysis")}
               setValue={(val) => form.setValue("analysis", val)}
               aiSuggestFunction={aiSuggestFunction}
+              aiButtonText="Generate Analysis"
+              aiSuggestionHeader="Suggested Summary"
             />
           </div>
         </div>

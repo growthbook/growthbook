@@ -616,6 +616,7 @@ export default function FactMetricPage() {
         <div className="col-12 col-md-8">
           <div className="appbox p-3 mb-5">
             <MarkdownInlineEdit
+              header={"Description"}
               canCreate={canEdit}
               canEdit={canEdit}
               value={factMetric.description}
@@ -633,6 +634,9 @@ export default function FactMetricPage() {
                 }
                 return res.data.description;
               }}
+              aiButtonText="Suggest Description"
+              aiSuggestionHeader="Suggested Description"
+              emptyHelperText="Add  a description to keep your team informed about how to apply this metric."
               save={async (description) => {
                 await apiCall(`/fact-metrics/${factMetric.id}`, {
                   method: "PUT",
