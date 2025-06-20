@@ -78,13 +78,17 @@ const numTokensFromMessages = (messages: ChatCompletionRequestMessage[]) => {
   return numTokens;
 };
 
-export const hasExceededUsageQuota = async (
+export const secondsUntilAICanBeUsedAgain = async (
   organization: OrganizationInterface
 ) => {
-  const { numTokensUsed, dailyLimit } = await getTokensUsedByOrganization(
-    organization
-  );
-  return numTokensUsed > dailyLimit;
+  const {
+    numTokensUsed,
+    dailyLimit,
+    nextResetAt,
+  } = await getTokensUsedByOrganization(organization);
+  return numTokensUsed > dailyLimit
+    ? (nextResetAt - new Date().getTime()) / 1000
+    : 0;
 };
 
 export const simpleCompletion = async ({

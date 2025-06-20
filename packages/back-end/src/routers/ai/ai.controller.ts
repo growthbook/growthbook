@@ -2,7 +2,10 @@ import type { Response } from "express";
 import { AIPromptInterface, AIPromptType } from "shared/ai";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { simpleCompletion } from "back-end/src/services/openai";
+import {
+  secondsUntilAICanBeUsedAgain,
+  simpleCompletion,
+} from "back-end/src/services/openai";
 
 type GetAIPromptResponse = {
   status: 200;
@@ -56,6 +59,31 @@ export async function postReformat(
   res: Response
 ) {
   const context = getContextFromReq(req);
+
+  if (!process.env.OPENAI_API_KEY) {
+    return res.status(404).json({
+      status: 404,
+      message: "AI configuration not set",
+    });
+  }
+
+  if (!req.organization) {
+    return res.status(404).json({
+      status: 404,
+      message: "Organization not found",
+    });
+  }
+
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(
+    req.organization
+  );
+  if (secondsUntilReset > 0) {
+    return res.status(429).json({
+      status: 429,
+      message: "Over AI usage limits",
+      retryAfter: secondsUntilReset,
+    });
+  }
 
   const {
     prompt,

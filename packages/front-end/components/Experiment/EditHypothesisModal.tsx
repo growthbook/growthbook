@@ -54,20 +54,34 @@ export default function EditHypothesisModal({
       if (aiEnabled) {
         setError(null);
         setLoading(true);
-        apiCall(`/ai/reformat`, {
-          method: "POST",
-          body: JSON.stringify({
-            type: "experiment-hypothesis",
-            text: form.watch("hypothesis"),
-          }),
-        })
+        apiCall(
+          `/ai/reformat`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              type: "experiment-hypothesis",
+              text: form.watch("hypothesis"),
+            }),
+          },
+          (responseData) => {
+            if (responseData.status === 429) {
+              const retryAfter = parseInt(responseData.retryAfter);
+              const hours = Math.floor(retryAfter / 3600);
+              const minutes = Math.floor((retryAfter % 3600) / 60);
+              setError(
+                `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`
+              );
+            } else {
+              setError("Error getting AI suggestion");
+            }
+            setLoading(false);
+          }
+        )
           .then((res: { data: { output: string } }) => {
             setAiResponse(res.data.output);
           })
           .catch(() => {
-            // handle error
-            setError("Error getting AI suggestion");
-            setLoading(false);
+            // Error handling is done by the apiCall errorHandler
           })
           .finally(() => {
             setLoading(false);

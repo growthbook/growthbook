@@ -626,9 +626,24 @@ export default function FactMetricPage() {
                   data: {
                     description: string;
                   };
-                }>(`/metrics/${factMetric.id}/gen-description`, {
-                  method: "GET",
-                });
+                }>(
+                  `/metrics/${factMetric.id}/gen-description`,
+                  {
+                    method: "GET",
+                  },
+                  (responseData) => {
+                    if (responseData.status === 429) {
+                      const retryAfter = parseInt(responseData.retryAfter);
+                      const hours = Math.floor(retryAfter / 3600);
+                      const minutes = Math.floor((retryAfter % 3600) / 60);
+                      throw new Error(
+                        `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`
+                      );
+                    } else {
+                      throw new Error("Error getting AI suggestion");
+                    }
+                  }
+                );
                 if (res?.status !== 200) {
                   throw new Error("Could not load AI suggestions");
                 }

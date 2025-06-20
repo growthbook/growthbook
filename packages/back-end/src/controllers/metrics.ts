@@ -56,7 +56,7 @@ import { getFactTable } from "back-end/src/models/FactTableModel";
 import {
   cosineSimilarity,
   generateEmbeddings,
-  hasExceededUsageQuota,
+  secondsUntilAICanBeUsedAgain,
   simpleCompletion,
 } from "back-end/src/services/openai";
 
@@ -715,6 +715,7 @@ export const getGeneratedDescription = async (
   res: Response<{
     status: number;
     message?: string;
+    retryAfter?: number;
     data?: {
       description: string;
     };
@@ -735,10 +736,14 @@ export const getGeneratedDescription = async (
       message: "AI configuration not set",
     });
   }
-  if (await hasExceededUsageQuota(req.organization)) {
-    return res.status(404).json({
-      status: 403,
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(
+    req.organization
+  );
+  if (secondsUntilReset > 0) {
+    return res.status(429).json({
+      status: 429,
       message: "Over AI usage limits",
+      retryAfter: secondsUntilReset,
     });
   }
 
@@ -943,6 +948,7 @@ export async function postSimilarMetrics(
   res: Response<{
     status: number;
     message?: string;
+    retryAfter?: number;
     similar?: {
       metric: MetricInterface;
       similarity: number;
@@ -965,10 +971,14 @@ export async function postSimilarMetrics(
       message: "AI configuration not set",
     });
   }
-  if (await hasExceededUsageQuota(req.organization)) {
-    return res.status(404).json({
-      status: 403,
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(
+    req.organization
+  );
+  if (secondsUntilReset > 0) {
+    return res.status(429).json({
+      status: 429,
       message: "Over AI usage limits",
+      retryAfter: secondsUntilReset,
     });
   }
   const allMetrics = await getMetricsByOrganization(context);
@@ -1078,10 +1088,14 @@ export async function postRegenerateEmbeddings(
       message: "AI configuration not set",
     });
   }
-  if (await hasExceededUsageQuota(req.organization)) {
-    return res.status(404).json({
-      status: 403,
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(
+    req.organization
+  );
+  if (secondsUntilReset > 0) {
+    return res.status(429).json({
+      status: 429,
       message: "Over AI usage limits",
+      retryAfter: secondsUntilReset,
     });
   }
 

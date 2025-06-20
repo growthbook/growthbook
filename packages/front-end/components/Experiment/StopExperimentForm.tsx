@@ -53,14 +53,29 @@ const StopExperimentForm: FC<{
           data: {
             description: string;
           };
-        }>(`/experiment/${experiment.id}/analysis/ai-suggest`, {
-          method: "POST",
-          body: JSON.stringify({
-            results: form.watch("results"),
-            winner: form.watch("winner"),
-            releasedVariationId: form.watch("releasedVariationId"),
-          }),
-        });
+        }>(
+          `/experiment/${experiment.id}/analysis/ai-suggest`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              results: form.watch("results"),
+              winner: form.watch("winner"),
+              releasedVariationId: form.watch("releasedVariationId"),
+            }),
+          },
+          (responseData) => {
+            if (responseData.status === 429) {
+              const retryAfter = parseInt(responseData.retryAfter);
+              const hours = Math.floor(retryAfter / 3600);
+              const minutes = Math.floor((retryAfter % 3600) / 60);
+              throw new Error(
+                `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`
+              );
+            } else {
+              throw new Error("Error getting AI suggestion");
+            }
+          }
+        );
         return response.data.description;
       }
     : undefined;

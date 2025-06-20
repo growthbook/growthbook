@@ -44,7 +44,7 @@ const MarkdownInput: FC<{
   value,
   setValue,
   autofocus = false,
-  error,
+  error: externalError,
   cta,
   id,
   onCancel,
@@ -63,7 +63,7 @@ const MarkdownInput: FC<{
   const [uploading, setUploading] = useState(false);
   const [aiSuggestionText, setAiSuggestionText] = useState("");
   const [loading, setLoading] = useState(false);
-  const [aiError, setAiError] = useState("");
+  const [error, setError] = useState(externalError || "");
 
   const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
     timeout: 1500,
@@ -115,7 +115,7 @@ const MarkdownInput: FC<{
 
   const doAISuggestion = async () => {
     if (aiSuggestFunction && aiEnabled) {
-      setAiError("");
+      setError("");
       try {
         setLoading(true);
         // make sure it's on the right tab:
@@ -130,14 +130,18 @@ const MarkdownInput: FC<{
           setLoading(false);
         } else {
           setLoading(false);
-          setAiError("Failed to get AI suggestion");
+          setError("Failed to get AI suggestion");
         }
       } catch (e) {
         setLoading(false);
-        setAiError("Failed to get AI suggestion. API request error" + e);
+        if (e.message) {
+          setError(e.message);
+        } else {
+          setError("Failed to get AI suggestion. API request error");
+        }
       }
     } else {
-      setAiError("AI is disabled for your organization. Adjust in settings.");
+      setError("AI is disabled for your organization. Adjust in settings.");
     }
   };
 
@@ -218,16 +222,17 @@ const MarkdownInput: FC<{
                 </div>
               </div>
             </div>
-            <div className="row">
-              {error ? (
-                <div className="col-auto">
-                  <span className="text-danger">{error}</span>
-                </div>
-              ) : (
-                ""
-              )}
-              <div style={{ flex: 1 }} />
-              {showButtons && (
+            {showButtons && (
+              <div className="row">
+                {error ? (
+                  <div className="col-auto">
+                    <span className="text-danger">{error}</span>
+                  </div>
+                ) : (
+                  ""
+                )}
+                <div style={{ flex: 1 }} />
+
                 <div className="col-auto">
                   {onCancel && (
                     <button
@@ -246,99 +251,101 @@ const MarkdownInput: FC<{
                     </button>
                   )}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
+            {aiSuggestFunction && !aiSuggestionText && (
+              <Flex pt={"5"}>
+                {aiAgreedTo ? (
+                  <Button
+                    variant="soft"
+                    title={
+                      !aiEnabled
+                        ? "AI is disabled for your organization. Adjust in settings."
+                        : ""
+                    }
+                    disabled={!aiEnabled || !aiSuggestFunction || loading}
+                    onClick={doAISuggestion}
+                  >
+                    <BsStars /> {loading ? "Generating..." : aiButtonText}
+                  </Button>
+                ) : (
+                  <Button
+                    variant="soft"
+                    title={
+                      !aiEnabled
+                        ? "AI is disabled for your organization. Adjust in settings."
+                        : ""
+                    }
+                    disabled={loading}
+                    onClick={() => {
+                      setAiAgreementModal(true);
+                    }}
+                  >
+                    <BsStars /> {loading ? "Generating..." : aiButtonText}
+                  </Button>
+                )}
+              </Flex>
+            )}
+            {aiSuggestionText && (
+              <div className="mt-2">
+                <Flex align="center" justify="between" my="4">
+                  <Heading size="2" weight="medium">
+                    {aiSuggestionHeader}:
+                  </Heading>
+                  <Flex gap="2">
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        setValue("");
+                      }}
+                    >
+                      <PiTrash /> Clear
+                    </Button>
+                    {copySupported && (
+                      <Box style={{ position: "relative" }}>
+                        <Button
+                          variant="ghost"
+                          onClick={() => {
+                            performCopy(aiSuggestionText || "");
+                          }}
+                        >
+                          <PiClipboard /> Copy
+                        </Button>
+                        {copySuccess ? (
+                          <SimpleTooltip position="right">
+                            Copied to clipboard!
+                          </SimpleTooltip>
+                        ) : null}
+                      </Box>
+                    )}
+                    <Button variant="ghost" onClick={doAISuggestion}>
+                      <PiArrowClockwise /> Try Again
+                    </Button>
+                  </Flex>
+                </Flex>
+                <Box className="appbox" p="3">
+                  <Markdown className="card-text mb-2">
+                    {aiSuggestionText}
+                  </Markdown>
+                </Box>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setValue(aiSuggestionText);
+                    setAiSuggestionText("");
+                  }}
+                >
+                  Use this suggestion
+                </Button>
+              </div>
+            )}
+            {!showButtons && error && (
+              <div className="alert alert-danger mt-2">{error}</div>
+            )}
           </TabsContent>
           <TabsContent value="preview">
             <Markdown className="card-text px-2">{value}</Markdown>
           </TabsContent>
-          {aiSuggestFunction && !aiSuggestionText && (
-            <Flex pt={"5"}>
-              {aiAgreedTo ? (
-                <Button
-                  variant="soft"
-                  title={
-                    !aiEnabled
-                      ? "AI is disabled for your organization. Adjust in settings."
-                      : ""
-                  }
-                  disabled={!aiEnabled || !aiSuggestFunction || loading}
-                  onClick={doAISuggestion}
-                >
-                  <BsStars /> {loading ? "Generating..." : aiButtonText}
-                </Button>
-              ) : (
-                <Button
-                  variant="soft"
-                  title={
-                    !aiEnabled
-                      ? "AI is disabled for your organization. Adjust in settings."
-                      : ""
-                  }
-                  disabled={loading}
-                  onClick={() => {
-                    setAiAgreementModal(true);
-                  }}
-                >
-                  <BsStars /> {loading ? "Generating..." : aiButtonText}
-                </Button>
-              )}
-            </Flex>
-          )}
-          {aiSuggestionText && (
-            <div className="mt-2">
-              <Flex align="center" justify="between" my="4">
-                <Heading size="2" weight="medium">
-                  {aiSuggestionHeader}:
-                </Heading>
-                <Flex gap="2">
-                  <Button
-                    variant="ghost"
-                    onClick={() => {
-                      setValue("");
-                    }}
-                  >
-                    <PiTrash /> Clear
-                  </Button>
-                  {copySupported && (
-                    <Box style={{ position: "relative" }}>
-                      <Button
-                        variant="ghost"
-                        onClick={() => {
-                          performCopy(aiSuggestionText || "");
-                        }}
-                      >
-                        <PiClipboard /> Copy
-                      </Button>
-                      {copySuccess ? (
-                        <SimpleTooltip position="right">
-                          Copied to clipboard!
-                        </SimpleTooltip>
-                      ) : null}
-                    </Box>
-                  )}
-                  <Button variant="ghost" onClick={doAISuggestion}>
-                    <PiArrowClockwise /> Try Again
-                  </Button>
-                </Flex>
-              </Flex>
-              <Box className="appbox" p="3">
-                <Markdown className="card-text mb-2">
-                  {aiSuggestionText}
-                </Markdown>
-              </Box>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setValue(aiSuggestionText);
-                  setAiSuggestionText("");
-                }}
-              >
-                Use this suggestion
-              </Button>
-            </div>
-          )}
-          {aiError && <div className="alert alert-danger mt-2">{aiError}</div>}
         </Box>
       </Tabs>
       {aiAgreementModal && (

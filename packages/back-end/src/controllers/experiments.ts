@@ -129,7 +129,7 @@ import { generateExperimentReportSSRData } from "back-end/src/services/reports";
 import {
   cosineSimilarity,
   generateEmbeddings,
-  hasExceededUsageQuota,
+  secondsUntilAICanBeUsedAgain,
   simpleCompletion,
 } from "back-end/src/services/openai";
 
@@ -183,6 +183,7 @@ export async function postAIExperimentAnalysis(
   res: Response<{
     status: number;
     message?: string;
+    retryAfter?: number;
     data?: {
       description: string;
     };
@@ -212,10 +213,14 @@ export async function postAIExperimentAnalysis(
       message: "Organization not found",
     });
   }
-  if (await hasExceededUsageQuota(req.organization)) {
-    return res.status(404).json({
-      status: 403,
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(
+    req.organization
+  );
+  if (secondsUntilReset > 0) {
+    return res.status(429).json({
+      status: 429,
       message: "Over AI usage limits",
+      retryAfter: secondsUntilReset,
     });
   }
 
@@ -382,6 +387,7 @@ export async function postSimilarExperiments(
   res: Response<{
     status: number;
     message?: string;
+    retryAfter?: number;
     similar?: {
       experiment: ExperimentInterface;
       similarity: number;
@@ -404,10 +410,14 @@ export async function postSimilarExperiments(
       message: "AI configuration not set",
     });
   }
-  if (await hasExceededUsageQuota(req.organization)) {
-    return res.status(404).json({
-      status: 403,
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(
+    req.organization
+  );
+  if (secondsUntilReset > 0) {
+    return res.status(429).json({
+      status: 429,
       message: "Over AI usage limits",
+      retryAfter: secondsUntilReset,
     });
   }
 
@@ -531,7 +541,9 @@ export async function postSimilarExperiments(
 
 export async function postRegenerateEmbeddings(
   req: AuthRequest<null, null, { project?: string }>,
-  res: ResponseWithStatusAndError<{ message: string }>
+  res: ResponseWithStatusAndError<{
+    message: string;
+  }>
 ) {
   const context = getContextFromReq(req);
   const project =
@@ -550,10 +562,14 @@ export async function postRegenerateEmbeddings(
       message: "AI configuration not set",
     });
   }
-  if (await hasExceededUsageQuota(req.organization)) {
-    return res.status(404).json({
-      status: 403,
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(
+    req.organization
+  );
+  if (secondsUntilReset > 0) {
+    return res.status(429).json({
+      status: 429,
       message: "Over AI usage limits",
+      retryAfter: secondsUntilReset,
     });
   }
 

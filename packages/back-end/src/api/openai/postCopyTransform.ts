@@ -5,7 +5,7 @@ import {
   toVisualChangesetApiInterface,
 } from "back-end/src/models/VisualChangesetModel";
 import {
-  hasExceededUsageQuota,
+  secondsUntilAICanBeUsedAgain,
   simpleCompletion,
 } from "back-end/src/services/openai";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -58,7 +58,7 @@ export const postCopyTransform = createApiRequestHandler(validation)(
 
     if (!visualChangeset) throw new Error("Visual Changeset not found");
 
-    if (await hasExceededUsageQuota(req.organization)) {
+    if (await secondsUntilAICanBeUsedAgain(req.organization)) {
       return {
         visualChangeset: toVisualChangesetApiInterface(visualChangeset),
         original: copy,

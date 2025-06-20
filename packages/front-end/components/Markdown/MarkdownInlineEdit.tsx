@@ -173,6 +173,7 @@ export default function MarkdownInlineEdit({
                             } catch (e) {
                               setLoading(false);
                               setError(e.message);
+                              setEdit(true); // Error is only shown in edit mode
                             }
                           }
                         }}

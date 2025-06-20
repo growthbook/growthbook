@@ -84,13 +84,30 @@ export default function AISettings({
   const [optInModal, setOptInModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [embeddingMsg, setEmbeddingMsg] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   const handleRegenerate = async () => {
     setLoading(true);
+    setError(null);
     try {
-      await apiCall("/experiments/regenerate-embeddings", {
-        method: "POST",
-      });
+      await apiCall(
+        "/experiments/regenerate-embeddings",
+        {
+          method: "POST",
+        },
+        (responseData) => {
+          if (responseData.status === 429) {
+            const retryAfter = parseInt(responseData.retryAfter);
+            const hours = Math.floor(retryAfter / 3600);
+            const minutes = Math.floor((retryAfter % 3600) / 60);
+            setError(
+              `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`
+            );
+          } else {
+            setError("Error getting AI suggestion");
+          }
+        }
+      );
       setEmbeddingMsg("Embeddings have been regenerated successfully.");
     } catch (error) {
       console.error("Error regenerating embeddings:", error);
@@ -296,6 +313,11 @@ export default function AISettings({
                       >
                         {loading ? "Regenerating..." : "Regenerate all"}
                       </Button>
+                      {error && (
+                        <Box className="col-auto pt-3">
+                          <div className="alert alert-danger">{error}</div>
+                        </Box>
+                      )}
                     </>
                     <Box mt="3">{embeddingMsg}</Box>
                   </Box>

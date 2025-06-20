@@ -61,10 +61,29 @@ const SearchExperimentsPage: React.FC = () => {
           experiment: ExperimentInterfaceStringDates;
           similarity: number;
         }[];
-      }>(`/experiments/similar`, {
-        method: "POST",
-        body: JSON.stringify({ name: searchTerm, full: true }),
-      });
+      }>(
+        `/experiments/similar`,
+        {
+          method: "POST",
+          body: JSON.stringify({ name: searchTerm, full: true }),
+        },
+        (responseData) => {
+          if (responseData.status === 429) {
+            const retryAfter = parseInt(responseData.retryAfter);
+            const hours = Math.floor(retryAfter / 3600);
+            const minutes = Math.floor((retryAfter % 3600) / 60);
+            setError(
+              `You have reached the request limit for search. Try again in ${hours} hours and ${minutes} minutes.`
+            );
+          } else {
+            console.error(
+              "Error fetching similar experiments:",
+              responseData.message
+            );
+            setError("Error fetching similar experiments");
+          }
+        }
+      );
 
       if (response?.status === 200 && response.similar?.length) {
         setResults(response.similar);
@@ -131,7 +150,7 @@ const SearchExperimentsPage: React.FC = () => {
               experiments={allSimilarExperiments}
             />
           </Flex>
-          {error && <p className="error">{error}</p>}
+          {error && <p className="alert alert-danger">{error}</p>}
           <Box className="results" style={{ position: "relative" }}>
             {filteredItems.length > 0 ? (
               <>
