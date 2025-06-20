@@ -1,21 +1,52 @@
 import React, { useCallback, useState } from "react";
 import { Box, Text } from "@radix-ui/themes";
-import { AgreementType } from "back-end/src/validators/agreements";
+import {
+  AgreementType,
+  AgreementType,
+} from "back-end/src/validators/agreements";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Modal from "@/components/Modal";
 import { useUser } from "@/services/UserContext";
 
 // hard coded agreements for now:
-const agreements = {
+const agreements: Record<
+  AgreementType,
+  {
+    title: string;
+    subtitle: string;
+    terms: React.ReactNode;
+    noPermission: React.ReactNode;
+    version: string;
+  }
+> = {
   ai: {
     title: "Enable AI features?",
     subtitle: "Please read and agree to the terms before proceeding.",
     terms: (
       <>
-        GrowthBook supports the use of AI / LLMs to enhance your experience and
-        provide advanced functionality. By agreeing, you consent to the use of
-        AI features in accordance with our privacy policy and OpenAI&apos;s{" "}
+        This feature involves artificial intelligence technologies, which may
+        include, but are not limited to, sharing information with trusted
+        third-party providers, automated recommendations, content generation, or
+        data analysis.
+        <br />
+        Please select an option below:
+        <br />
+        <ul style={{ marginTop: "10px" }}>
+          <li>
+            I Agree (Opt-In): I consent to the use of artificial intelligence.
+          </li>
+          <li>No thanks (Opt-Out): I do not consent.</li>
+        </ul>
+        For more information about how your data is used, please review our{" "}
+        <a
+          href="https://www.growthbook.io/legal/privacy-policy/06-19-2025"
+          target="_blank"
+          rel="noreferrer"
+        >
+          Privacy Notice
+        </a>{" "}
+        and OpenAI&apos;s{" "}
         <a
           href="https://openai.com/enterprise-privacy/"
           target="_blank"
@@ -23,11 +54,7 @@ const agreements = {
         >
           privacy policy
         </a>
-        . When you use AI features in GrowthBook, some data related to the
-        functionality will be sent to OpenAI in order to provide the feature.
-        This may include summary experiment results, metric SQL, and similar
-        data as required. This data is only used to provide the AI features. You
-        can disable these features at any time in your account settings.
+        . You can disable these features at any time in your account settings.
       </>
     ),
     noPermission: (

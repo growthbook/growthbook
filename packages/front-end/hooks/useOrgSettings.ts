@@ -17,13 +17,15 @@ export const useAISettings = (
 } => {
   const { settings, agreements } = useUser();
 
-  const aiEnabled = isCloud()
+  const openAIAPIKey =
+    settings?.openAIAPIKey || process.env.OPENAI_API_KEY || "";
+  const aiEnabled = !isCloud()
     ? settings?.aiEnabled !== false && !!agreements?.includes(AGREEMENT_TYPE_AI)
-    : !!(settings?.aiEnabled && settings?.openAIAPIKey);
-  const aiAgreedTo = isCloud()
+    : !!(settings?.aiEnabled && openAIAPIKey);
+  const aiAgreedTo = !isCloud()
     ? !!agreements?.includes(AGREEMENT_TYPE_AI)
     : true;
   const openAIDefaultModel = settings?.openAIDefaultModel || "gpt-4o-mini";
-  const openAIKey = includeKey ? settings?.openAIAPIKey || "" : "";
+  const openAIKey = includeKey ? openAIAPIKey : "";
   return { aiEnabled, openAIDefaultModel, openAIKey, aiAgreedTo };
 };
