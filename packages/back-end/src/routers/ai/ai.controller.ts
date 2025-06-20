@@ -1,6 +1,9 @@
 import type { Response } from "express";
 import { AIPromptInterface, AIPromptType } from "shared/ai";
-import { getContextFromReq } from "back-end/src/services/organizations";
+import {
+  getAISettingsForOrg,
+  getContextFromReq,
+} from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   secondsUntilAICanBeUsedAgain,
@@ -59,11 +62,12 @@ export async function postReformat(
   res: Response
 ) {
   const context = getContextFromReq(req);
+  const { openAIAPIKey, aiEnabled } = getAISettingsForOrg(context);
 
-  if (!process.env.OPENAI_API_KEY) {
+  if (!openAIAPIKey || !aiEnabled) {
     return res.status(404).json({
       status: 404,
-      message: "AI configuration not set",
+      message: "AI configuration not set or enabled",
     });
   }
 

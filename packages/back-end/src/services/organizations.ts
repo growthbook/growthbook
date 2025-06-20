@@ -185,15 +185,15 @@ export function getAISettingsForOrg(
   openAIAPIKey: string;
   openAIDefaultModel: TiktokenModel;
 } {
+  const openAIKey =
+    context.org.settings?.openAIAPIKey || process.env.OPENAI_API_KEY || "";
   const aiEnabled = IS_CLOUD
     ? context.org.settings?.aiEnabled !== false
-    : !!(context.org.settings?.aiEnabled && context.org.settings?.openAIAPIKey);
+    : !!(context.org.settings?.aiEnabled && openAIKey);
 
   return {
     aiEnabled,
-    openAIAPIKey: includeKey
-      ? context.org.settings?.openAIAPIKey || process.env.OPENAI_API_KEY || ""
-      : "",
+    openAIAPIKey: includeKey ? openAIKey : "",
     openAIDefaultModel:
       context.org.settings?.openAIDefaultModel || "gpt-4o-mini",
   };

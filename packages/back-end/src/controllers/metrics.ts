@@ -723,17 +723,18 @@ export const getGeneratedDescription = async (
 ) => {
   const context = getContextFromReq(req);
   const { id } = req.params;
-  const aiSettings = getAISettingsForOrg(context);
+  const { openAIAPIKey, aiEnabled } = getAISettingsForOrg(context);
+
   if (!req.organization) {
     return res.status(404).json({
       status: 404,
       message: "Organization not found",
     });
   }
-  if (!aiSettings.aiEnabled) {
+  if (!aiEnabled || !openAIAPIKey) {
     return res.status(404).json({
       status: 404,
-      message: "AI configuration not set",
+      message: "AI configuration not set or enabled",
     });
   }
   const secondsUntilReset = await secondsUntilAICanBeUsedAgain(
@@ -957,7 +958,7 @@ export async function postSimilarMetrics(
 ) {
   const context = getContextFromReq(req);
   const { name, description, full } = req.body;
-  const aiSettings = getAISettingsForOrg(context);
+  const { openAIAPIKey, aiEnabled } = getAISettingsForOrg(context);
 
   if (!req.organization) {
     return res.status(404).json({
@@ -965,10 +966,10 @@ export async function postSimilarMetrics(
       message: "Organization not found",
     });
   }
-  if (!aiSettings.aiEnabled) {
+  if (!openAIAPIKey || !aiEnabled) {
     return res.status(404).json({
       status: 404,
-      message: "AI configuration not set",
+      message: "AI configuration not set or enabled",
     });
   }
   const secondsUntilReset = await secondsUntilAICanBeUsedAgain(
@@ -1074,7 +1075,7 @@ export async function postRegenerateEmbeddings(
 ) {
   const context = getContextFromReq(req);
 
-  const aiSettings = getAISettingsForOrg(context);
+  const { openAIAPIKey, aiEnabled } = getAISettingsForOrg(context);
 
   if (!req.organization) {
     return res.status(404).json({
@@ -1082,10 +1083,10 @@ export async function postRegenerateEmbeddings(
       message: "Organization not found",
     });
   }
-  if (!aiSettings.aiEnabled) {
+  if (!openAIAPIKey || !aiEnabled) {
     return res.status(404).json({
       status: 404,
-      message: "AI configuration not set",
+      message: "AI configuration not set or enabled",
     });
   }
   const secondsUntilReset = await secondsUntilAICanBeUsedAgain(

@@ -200,11 +200,12 @@ export async function postAIExperimentAnalysis(
       message: "Experiment not found",
     });
   }
+  const { openAIAPIKey, aiEnabled } = getAISettingsForOrg(context);
 
-  if (!process.env.OPENAI_API_KEY) {
+  if (!openAIAPIKey || !aiEnabled) {
     return res.status(404).json({
       status: 404,
-      message: "AI configuration not set",
+      message: "AI configuration not set or enabled",
     });
   }
   if (!req.organization) {
@@ -396,7 +397,7 @@ export async function postSimilarExperiments(
 ) {
   const context = getContextFromReq(req);
   const { hypothesis, name, description, project, full } = req.body;
-  const aiSettings = getAISettingsForOrg(context);
+  const { openAIAPIKey, aiEnabled } = getAISettingsForOrg(context);
 
   if (!req.organization) {
     return res.status(404).json({
@@ -404,10 +405,10 @@ export async function postSimilarExperiments(
       message: "Organization not found",
     });
   }
-  if (!aiSettings.aiEnabled) {
+  if (!openAIAPIKey || !aiEnabled) {
     return res.status(404).json({
       status: 404,
-      message: "AI configuration not set",
+      message: "AI configuration not set or enabled",
     });
   }
   const secondsUntilReset = await secondsUntilAICanBeUsedAgain(
@@ -548,7 +549,7 @@ export async function postRegenerateEmbeddings(
   const context = getContextFromReq(req);
   const project =
     typeof req.query?.project === "string" ? req.query.project : "";
-  const aiSettings = getAISettingsForOrg(context);
+  const { openAIAPIKey, aiEnabled } = getAISettingsForOrg(context);
 
   if (!req.organization) {
     return res.status(404).json({
@@ -556,10 +557,10 @@ export async function postRegenerateEmbeddings(
       message: "Organization not found",
     });
   }
-  if (!aiSettings.aiEnabled) {
+  if (!openAIAPIKey || !aiEnabled) {
     return res.status(404).json({
       status: 404,
-      message: "AI configuration not set",
+      message: "AI configuration not set or enabled",
     });
   }
   const secondsUntilReset = await secondsUntilAICanBeUsedAgain(
