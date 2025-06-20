@@ -48,7 +48,7 @@ export default function EditHypothesisModal({
   });
 
   const checkHypothesis = async () => {
-    if (aiAgreedTo) {
+    if (!aiAgreedTo) {
       setAiAgreementModal(true);
     } else {
       if (aiEnabled) {

@@ -4,6 +4,8 @@ import { BsStars } from "react-icons/bs";
 import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Button from "@/components/Radix/Button";
+import { useAISettings } from "@/hooks/useOrgSettings";
+import OptInModal from "@/components/License/OptInModal";
 import Markdown from "./Markdown";
 import MarkdownInput from "./MarkdownInput";
 
@@ -42,6 +44,8 @@ export default function MarkdownInlineEdit({
   const [val, setVal] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [aiAgreementModal, setAiAgreementModal] = useState(false);
+  const { aiAgreedTo } = useAISettings();
 
   if (edit) {
     return (
@@ -154,18 +158,22 @@ export default function MarkdownInlineEdit({
                       <Button
                         variant="soft"
                         onClick={async () => {
-                          setError(null);
-                          setLoading(true);
-                          try {
-                            const suggestion = await aiSuggestFunction();
-                            if (suggestion) {
-                              setVal(suggestion);
+                          if (!aiAgreedTo) {
+                            setAiAgreementModal(true);
+                          } else {
+                            setError(null);
+                            setLoading(true);
+                            try {
+                              const suggestion = await aiSuggestFunction();
+                              if (suggestion) {
+                                setVal(suggestion);
+                              }
+                              setLoading(false);
+                              setEdit(true);
+                            } catch (e) {
+                              setLoading(false);
+                              setError(e.message);
                             }
-                            setLoading(false);
-                            setEdit(true);
-                          } catch (e) {
-                            setLoading(false);
-                            setError(e.message);
                           }
                         }}
                       >
@@ -196,6 +204,9 @@ export default function MarkdownInlineEdit({
           </Box>
         )}
       </Flex>
+      {aiAgreementModal && (
+        <OptInModal agreement="ai" onClose={() => setAiAgreementModal(false)} />
+      )}
     </Box>
   );
 }
