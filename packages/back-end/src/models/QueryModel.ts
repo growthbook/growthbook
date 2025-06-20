@@ -4,6 +4,9 @@ import uniqid from "uniqid";
 import { QueryInterface, QueryType } from "back-end/types/query";
 import { QUERY_CACHE_TTL_MINS } from "back-end/src/util/secrets";
 import { QueryLanguage } from "back-end/types/datasource";
+import { ApiQuery } from "back-end/types/openapi";
+import type { ReqContext } from "back-end/types/organization";
+import type { ApiReqContext } from "back-end/types/api";
 
 export const queriesSchema = [
   {
@@ -60,6 +63,17 @@ export async function getQueriesByIds(organization: string, ids: string[]) {
   if (!ids.length) return [];
   const docs = await QueryModel.find({ organization, id: { $in: ids } });
   return docs.map((doc) => toInterface(doc));
+}
+
+export async function getQueryById(
+  context: ReqContext | ApiReqContext,
+  id: string
+) {
+  const doc = await QueryModel.findOne({
+    organization: context.org.id,
+    id: id,
+  });
+  return doc ? toInterface(doc) : null;
 }
 
 export async function getQueriesByDatasource(
@@ -230,4 +244,21 @@ export async function createNewQueryFromCached({
   };
   const doc = await QueryModel.create(data);
   return toInterface(doc);
+}
+
+export function toQueryApiInterface(query: QueryInterface): ApiQuery {
+  return {
+    id: query.id,
+    organization: query.organization,
+    datasource: query.datasource,
+    language: query.language,
+    query: query.query,
+    queryType: query.queryType || "",
+    createdAt: query.createdAt?.toISOString() || "",
+    startedAt: query.startedAt?.toISOString() || "",
+    status: query.status,
+    externalId: query.externalId ? query.externalId : "",
+    dependencies: query.dependencies ? query.dependencies : [],
+    runAtEnd: query.runAtEnd ? query.runAtEnd : false,
+  };
 }

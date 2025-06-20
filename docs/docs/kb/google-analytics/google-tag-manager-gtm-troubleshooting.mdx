@@ -17,7 +17,7 @@ Please watch the [How GrowthBook Works with Your Data](https://youtu.be/hboLeUbp
 
 ### GA4 and GrowthBook's HTML Script Tag SDK
 
-GrowthBook's HTML Script Tag SDK provides [automatic experiment tracking](https://docs.growthbook.io/lib/script-tag#tracking-experiment-views) if it detects Google Tag Manager (GTM) and/or Google Analytics (GA4) on the webpage.
+GrowthBook's HTML Script Tag SDK provides [automatic experiment tracking](/lib/script-tag#tracking-experiment-views) if it detects Google Tag Manager (GTM) and/or Google Analytics (GA4) on the webpage.
 
 For each experiment view, the HTML SDK sends an event with the `experiment_id` and any `variation_id`s to these analytics tools if they are present on the webpage.
 
@@ -27,7 +27,7 @@ If you need to define a custom `trackingCallback` you can do so with the `window
 
 ### GA4 and GrowthBook's JavaScript SDK
 
-Similar to the details above regarding the HTML SDK, the JavaScript SDK can accommodate [an optional plugin](https://docs.growthbook.io/lib/js#third-party-tracking) that will automatically send `experiment_viewed` events to GTM and/or GA4 if configured. The plugin is **not** enabled by default and must be imported and then added to the `plugins` array when constructing the `growthbook` instance.
+Similar to the details above regarding the HTML SDK, the JavaScript SDK can accommodate [an optional plugin](/lib/js#third-party-tracking) that will automatically send `experiment_viewed` events to GTM and/or GA4 if configured. The plugin is **not** enabled by default and must be imported and then added to the `plugins` array when constructing the `growthbook` instance.
 
 :::
 
@@ -53,7 +53,7 @@ If the GA4 Event Tag in GTM is not set to fire on the `experiment_viewed` event,
 
 The GA4 Measurement ID is a unique identifier for your GA4 property that's used to send data from your website or app to the correct GA4 account. It looks like "G-XXXXXXXXXX" and is required when configuring GA4 tags in Google Tag Manager or when sending events directly to GA4.
 
-You can see how the Measurement ID is used in the [GrowthBook and GTM integration](/guide/google-tag-manager-and-growthbook#4-tracking-via-dataLayer-and-gtm) documentation, where it is entered as a configuration value for sending experiment events to GA4.
+You can see how the Measurement ID is used in the [GrowthBook and GTM integration](/guide/google-tag-manager-and-growthbook#4-tracking-via-datalayer-and-gtm) documentation, where it is entered as a configuration value for sending experiment events to GA4.
 
 ### Missing or incorrect `dataLayer` push
 

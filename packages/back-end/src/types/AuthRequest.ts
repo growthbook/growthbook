@@ -39,6 +39,7 @@ export type AuthRequest<
   loginMethod?: SSOConnectionInterface;
   authSubject?: string;
   name?: string;
+  vercelInstallationId?: string;
   superAdmin?: boolean;
   organization?: OrganizationInterface;
   teams: TeamInterface[];

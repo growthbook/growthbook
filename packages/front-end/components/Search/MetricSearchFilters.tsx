@@ -106,7 +106,7 @@ const MetricSearchFilters: FC<
         setOpen={setDropdownFilterOpen}
         items={availableTags.map((t) => {
           return {
-            name: <Tag tag={t} key={t} skipMargin={true} />,
+            name: <Tag tag={t} key={t} skipMargin={true} variant="dot" />,
             id: t,
             searchValue: t,
           };

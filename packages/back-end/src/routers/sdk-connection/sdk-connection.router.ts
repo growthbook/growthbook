@@ -12,6 +12,8 @@ router.post("/", sdkConnectionController.postSDKConnection);
 
 router.put("/:id", sdkConnectionController.putSDKConnection);
 
+router.get("/webhooks", sdkConnectionController.getSDKConnectionsWebhooks);
+
 router.get("/:id/webhooks", sdkConnectionController.getSDKConnectionWebhooks);
 
 router.post("/:id/webhooks", sdkConnectionController.postSDKConnectionWebhook);

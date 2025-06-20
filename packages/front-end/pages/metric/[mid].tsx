@@ -363,6 +363,7 @@ const MetricPage: FC = () => {
                 projects,
               }),
             });
+            mutateDefinitions({});
           }}
         />
       )}

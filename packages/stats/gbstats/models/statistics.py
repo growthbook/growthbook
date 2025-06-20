@@ -570,6 +570,14 @@ TestStatistic = Union[
     RegressionAdjustedRatioStatistic,
 ]
 
+SummableStatistic = Union[
+    ProportionStatistic,
+    SampleMeanStatistic,
+    RegressionAdjustedStatistic,
+    RatioStatistic,
+    RegressionAdjustedRatioStatistic,
+]
+
 BanditStatistic = Union[
     SampleMeanStatistic,
     RatioStatistic,

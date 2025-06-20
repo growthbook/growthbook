@@ -7,6 +7,7 @@ toc_max_heading_level: 5
 
 import ExternalLink from '@site/src/components/ExternalLink'
 import SdkResources from '@site/src/components/SdkResources';
+import SdkSupportedFeatures from '@site/src/components/SdkSupportedFeatures';
 
 # Node.js
 
@@ -174,7 +175,7 @@ The return value of init has 3 properties:
 
 - **success** - `true` if the GrowthBook instance was populated with features/experiments. Otherwise `false`
 - **source** - Where this result came from. One of the following values: `network`, `cache`, `init`, `error`, or `timeout`
-- **error** - If status is `false`, this will contain an `Error` object with more details about the error
+- **error** - If success is `false`, this will contain an `Error` object with more details about the error
 
 ### Custom Integration
 
@@ -995,3 +996,7 @@ Similar to the Express and Next.js middleware examples above, you can generate y
 ## Examples
 
 - [Typescript example app with strict typing <ExternalLink />](https://github.com/growthbook/examples/tree/main/vanilla-typescript).
+
+## Supported Features
+
+<SdkSupportedFeatures sdk="node" />

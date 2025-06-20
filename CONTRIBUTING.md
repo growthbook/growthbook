@@ -157,7 +157,7 @@ Releasing SDK updates is a very manual process right now. It requires bumping ve
 1. Create a branch from the latest main
 2. Run `yarn bump-sdk-version patch` (or `minor` or `major`)
 3. Add new entry to `packages/sdk-js/CHANGELOG.md`
-4. If any new capabilities were added, update relevant `packages/shared/src/sdk-versioning/sdk-versions/` files (javascript, nodejs, react, nocode)
+4. If any new capabilities were added, update relevant `packages/shared/src/sdk-versioning/sdk-versions/` files (javascript, nodejs, react, nocode). Also re-generate the sdk-info in docs.
 5. Do a global search for the old version string to make sure nothing was missed. Update the `bump-version.js` script if you find anything.
 6. Create a PR and let CI complete successfully. Use the changelog entry as the PR description.
 7. Publish the Javascript SDK
