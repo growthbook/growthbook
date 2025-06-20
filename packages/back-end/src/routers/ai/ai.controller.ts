@@ -62,9 +62,9 @@ export async function postReformat(
   res: Response
 ) {
   const context = getContextFromReq(req);
-  const { openAIAPIKey, aiEnabled } = getAISettingsForOrg(context);
+  const { aiEnabled } = getAISettingsForOrg(context);
 
-  if (!openAIAPIKey || !aiEnabled) {
+  if (!aiEnabled) {
     return res.status(404).json({
       status: 404,
       message: "AI configuration not set or enabled",

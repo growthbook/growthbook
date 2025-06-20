@@ -200,9 +200,9 @@ export async function postAIExperimentAnalysis(
       message: "Experiment not found",
     });
   }
-  const { openAIAPIKey, aiEnabled } = getAISettingsForOrg(context);
+  const { aiEnabled } = getAISettingsForOrg(context);
 
-  if (!openAIAPIKey || !aiEnabled) {
+  if (!aiEnabled) {
     return res.status(404).json({
       status: 404,
       message: "AI configuration not set or enabled",
@@ -397,7 +397,7 @@ export async function postSimilarExperiments(
 ) {
   const context = getContextFromReq(req);
   const { hypothesis, name, description, project, full } = req.body;
-  const { openAIAPIKey, aiEnabled } = getAISettingsForOrg(context);
+  const { aiEnabled } = getAISettingsForOrg(context);
 
   if (!req.organization) {
     return res.status(404).json({
@@ -405,7 +405,7 @@ export async function postSimilarExperiments(
       message: "Organization not found",
     });
   }
-  if (!openAIAPIKey || !aiEnabled) {
+  if (!aiEnabled) {
     return res.status(404).json({
       status: 404,
       message: "AI configuration not set or enabled",
@@ -549,7 +549,7 @@ export async function postRegenerateEmbeddings(
   const context = getContextFromReq(req);
   const project =
     typeof req.query?.project === "string" ? req.query.project : "";
-  const { openAIAPIKey, aiEnabled } = getAISettingsForOrg(context);
+  const { aiEnabled } = getAISettingsForOrg(context);
 
   if (!req.organization) {
     return res.status(404).json({
@@ -557,7 +557,7 @@ export async function postRegenerateEmbeddings(
       message: "Organization not found",
     });
   }
-  if (!openAIAPIKey || !aiEnabled) {
+  if (!aiEnabled) {
     return res.status(404).json({
       status: 404,
       message: "AI configuration not set or enabled",
