@@ -173,7 +173,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       requireProjectForFeatures:
         settings.requireProjectForFeatures ??
         DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
-      aiEnabled: settings.aiEnabled ?? true,
+      aiEnabled: settings.aiEnabled ?? false,
       openAIAPIKey: settings.openAIAPIKey || "",
       openAIDefaultModel: settings.openAIDefaultModel || "gpt-4o-mini",
     },

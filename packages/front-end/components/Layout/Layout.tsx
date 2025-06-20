@@ -14,6 +14,7 @@ import { getGrowthBookBuild } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import {
+  GBBandit,
   GBDatabase,
   GBExperiment,
   GBLibrary,
@@ -44,52 +45,18 @@ const navlinks: SidebarLinkProps[] = [
     path: /^(features)/,
   },
   {
-    name: "Experimentation",
+    name: "Experiments",
     href: "/experiments",
-    path: /^(experiments$|experiment\/|bandit|namespaces)/,
+    path: /^experiment/,
     Icon: GBExperiment,
-    subLinks: [
-      {
-        name: "Experiments",
-        href: "/experiments",
-        path: /^(experiments(\/(?!templates|explore)|$)|experiment\/)/,
-      },
-      {
-        name: "Bandits",
-        href: "/bandits",
-        //Icon: GBBandit,
-        path: /^bandit/,
-        filter: ({ gb }) => !!gb?.isOn("bandits"),
-      },
-      {
-        name: "Templates",
-        href: "/experiments/templates",
-        path: /^experiments\/templates/,
-      },
-      {
-        name: "Power Calculator",
-        href: "/power-calculator",
-        path: /^power-calculator/,
-      },
-      {
-        name: "Namespaces",
-        href: "/namespaces",
-        path: /^namespaces/,
-      },
-      // {
-      //   name: "Search",
-      //   href: "/experiments/explore",
-      //   path: /^experiments\/explore/,
-      // },
-    ],
   },
-  // {
-  //   name: "Bandits",
-  //   href: "/bandits",
-  //   Icon: GBBandit,
-  //   path: /^bandit/,
-  //   filter: ({ gb }) => !!gb?.isOn("bandits"),
-  // },
+  {
+    name: "Bandits",
+    href: "/bandits",
+    Icon: GBBandit,
+    path: /^bandit/,
+    filter: ({ gb }) => !!gb?.isOn("bandits"),
+  },
   {
     name: "Metrics and Data",
     href: "/metrics",
@@ -202,7 +169,7 @@ const navlinks: SidebarLinkProps[] = [
   {
     name: "SDK Configuration",
     href: "/sdks",
-    path: /^(attributes|environments|saved-groups|sdks|archetypes)/,
+    path: /^(attributes|namespaces|environments|saved-groups|sdks|archetypes)/,
     autoClose: true,
     Icon: BsCodeSlash,
     subLinks: [
