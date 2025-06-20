@@ -103,7 +103,6 @@ const SearchExperimentsPage: React.FC = () => {
                 if (loading) return;
                 setError("");
                 setLoading(true);
-                console.log("Searching for similar experiments... submit?");
                 try {
                   await checkForSimilar();
                 } catch (e) {

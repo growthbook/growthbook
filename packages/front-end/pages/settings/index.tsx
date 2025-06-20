@@ -316,14 +316,12 @@ const GeneralSettingsPage = (): React.ReactElement => {
     hasChanges(value, originalValue) || promptForm.formState.isDirty;
 
   const savePrompts = promptForm.handleSubmit(async (promptValues) => {
-    console.log("Before formatting prompts: ", promptValues);
     const formattedPrompts = Object.entries(promptValues).map(
       ([key, value]) => ({
         type: key,
         prompt: value,
       })
     );
-    console.log("Formatted Prompts: ", formattedPrompts);
 
     await apiCall(`/ai/prompts`, {
       method: "POST",

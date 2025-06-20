@@ -133,7 +133,6 @@ export default function AISettings({
                 <Checkbox
                   value={form.watch("aiEnabled") && aiAgreedTo}
                   setValue={(v) => {
-                    console.log("checked... ", v);
                     if (v && !aiAgreedTo) {
                       setOptInModal(true);
                       return;
