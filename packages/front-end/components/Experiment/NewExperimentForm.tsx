@@ -25,6 +25,7 @@ import { generateTrackingKey, getEqualWeights } from "shared/experiments";
 import { kebabCase, debounce } from "lodash";
 import { Box, Flex, Text, Heading } from "@radix-ui/themes";
 import { FaExclamationCircle, FaExternalLinkAlt } from "react-icons/fa";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useWatching } from "@/services/WatchProvider";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -77,6 +78,7 @@ import { convertTemplateToExperiment } from "@/services/experiments";
 import Link from "@/components/Radix/Link";
 import Markdown from "@/components/Markdown/Markdown";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
+import { AppFeatures } from "@/types/app-features";
 import PremiumTooltip from "../Marketing/PremiumTooltip";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 
@@ -183,6 +185,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     projects,
   } = useDefinitions();
   const { aiEnabled } = useAISettings();
+  const gb = useGrowthBook<AppFeatures>();
+  const useCheckForSimilar = gb?.isOn("similar-experiments");
   const [similarExperiments, setSimilarExperiments] = useState<
     { experiment: ExperimentInterfaceStringDates; similarity: number }[]
   >([]);
@@ -518,8 +522,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const trackingKeyFieldHandlers = form.register("trackingKey");
 
   const checkForSimilar = useCallback(async () => {
-    if (!aiEnabled) return;
-    //if (!form.watch("name")) return;
+    if (!aiEnabled || !useCheckForSimilar) return;
+
     try {
       if (hypothesisTimeout.current) {
         clearTimeout(hypothesisTimeout.current);
