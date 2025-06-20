@@ -1,5 +1,8 @@
 import React, { useEffect, useCallback, useState, useMemo } from "react";
-import { getAllMetricIdsFromExperiment } from "shared/experiments";
+import {
+  ExperimentMetricInterface,
+  getAllMetricIdsFromExperiment,
+} from "shared/experiments";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import {
   ExperimentSnapshotInterface,
@@ -29,6 +32,7 @@ import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import EmptyState from "@/components/EmptyState";
 import LinkButton from "@/components/Radix/LinkButton";
 import MetricCorrelationsExperimentTable from "@/enterprise/components/Insights/MetricCorrelations/MetricCorrelationsExperimentTable";
+import { useCurrency } from "@/hooks/useCurrency";
 
 export const filterExperimentsByMetrics = (
   experiments: ExperimentInterfaceStringDates[],
@@ -75,7 +79,9 @@ const parseQueryParams = (
   Object.entries(query).forEach(([key, value]) => {
     if (typeof value !== "string") return;
 
-    const match = key.match(/^(m1|m2|diff)(?:_(.+))?$/);
+    const match = key.match(
+      /^(m1|m2|diff|excludedExperimentVariations)(?:_(.+))?$/
+    );
     if (!match) return;
 
     const [, paramType, id] = match;
@@ -104,7 +110,7 @@ const parseQueryParams = (
         variationIndex: number;
       }[] = [];
       evs.forEach((ev) => {
-        const [experimentId, variationIndex] = ev.split("_");
+        const [experimentId, variationIndex] = ev.split("-");
         if (experimentId !== undefined && variationIndex !== undefined) {
           excludedExperimentVariations.push({
             experimentId: experimentId,
@@ -216,6 +222,14 @@ export const updateSearchParams = (
   }
 };
 
+const formattedValueWithCI = (
+  value: number,
+  ci: [number, number],
+  formatter: (value: number) => string
+) => {
+  return `${formatter(value)} (${formatter(ci[0])} - ${formatter(ci[1])})`;
+};
+
 const MetricCorrelationCard = ({
   experiments,
   params,
@@ -233,7 +247,7 @@ const MetricCorrelationCard = ({
   } = useDefinitions();
   const { theme } = useAppearanceUITheme();
   const computedTheme = theme === "light" ? "light" : "dark";
-  //const displayCurrency = useCurrency();
+  const displayCurrency = useCurrency();
 
   const [loading, setLoading] = useState<boolean>(false);
 
@@ -256,7 +270,9 @@ const MetricCorrelationCard = ({
   const [
     excludedExperimentVariations,
     setExcludedExperimentVariations,
-  ] = useState<{ experimentId: string; variationIndex: number }[]>([]);
+  ] = useState<{ experimentId: string; variationIndex: number }[]>(
+    params?.excludedExperimentVariations || []
+  );
 
   const metric1OptionCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -311,24 +327,30 @@ const MetricCorrelationCard = ({
     }
   }, [metric1Obj, metric2Obj, differenceType]);
 
-  const formatterM1 = !metric1Obj
-    ? formatPercent
-    : differenceType === "relative"
-    ? formatPercent
-    : getExperimentMetricFormatter(
-        metric1Obj,
-        getFactTableById,
-        differenceType === "absolute" ? "percentagePoints" : "number"
-      );
-  const formatterM2 = !metric2Obj
-    ? formatPercent
-    : differenceType === "relative"
-    ? formatPercent
-    : getExperimentMetricFormatter(
-        metric2Obj,
-        getFactTableById,
-        differenceType === "absolute" ? "percentagePoints" : "number"
-      );
+  const getLiftFormatter = useCallback(
+    (
+      metric: ExperimentMetricInterface | null,
+      differenceType: DifferenceType
+    ) => {
+      if (!metric) {
+        return (value: number) => formatPercent(value);
+      }
+      if (differenceType === "relative") {
+        return (value: number) => formatPercent(value);
+      }
+      return (value: number) =>
+        getExperimentMetricFormatter(
+          metric,
+          getFactTableById,
+          differenceType === "absolute" ? "percentagePoints" : "number"
+        )(value, { currency: displayCurrency });
+    },
+    [getFactTableById, displayCurrency]
+  );
+
+  const formatterM1 = getLiftFormatter(metric1Obj, differenceType);
+  const formatterM2 = getLiftFormatter(metric2Obj, differenceType);
+
   const handleFetchCorrelations = useCallback(async () => {
     if (!metric1 || !metric2) {
       return;
@@ -352,7 +374,7 @@ const MetricCorrelationCard = ({
       [`m2_0`]: metric2,
       [`diff_0`]: differenceType,
       [`excludedExperimentVariations_0`]: excludedExperimentVariations
-        .map((ev) => `${ev.experimentId}_${ev.variationIndex}`)
+        .map((ev) => `${ev.experimentId}-${ev.variationIndex}`)
         .join(","),
     });
 
@@ -595,15 +617,21 @@ const MetricCorrelationCard = ({
                       <Flex justify="between" gapX="2">
                         <Text weight="bold">{data.otherData.xMetricName}</Text>
                         <Text>
-                          {formatterM1(data.x)} ({formatterM1(data.xmin)} -{" "}
-                          {formatterM1(data.xmax)})
+                          {formattedValueWithCI(
+                            data.x,
+                            [data.xmin, data.xmax],
+                            formatterM1
+                          )}
                         </Text>
                       </Flex>
                       <Flex justify="between" gapX="2">
                         <Text weight="bold">{data.otherData.yMetricName}</Text>
                         <Text>
-                          {formatterM2(data.y)} ({formatterM2(data.ymin)} -{" "}
-                          {formatterM2(data.ymax)})
+                          {formattedValueWithCI(
+                            data.y,
+                            [data.ymin, data.ymax],
+                            formatterM2
+                          )}
                         </Text>
                       </Flex>
                       <Flex justify="between" gapX="2">

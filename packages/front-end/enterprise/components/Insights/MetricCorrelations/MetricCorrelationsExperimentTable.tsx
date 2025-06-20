@@ -19,12 +19,11 @@ import {
   ExperimentStatus,
   Variation,
 } from "back-end/types/experiment";
-import { Box } from "@radix-ui/themes";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { experimentDate } from "@/pages/experiments";
-import { useSearch } from "@/services/search";
+import { useAddComputedFields, useSearch } from "@/services/search";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { formatNumber } from "@/services/metrics";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
@@ -61,7 +60,7 @@ export interface MetricExperimentData {
   metricResults: {
     results: SnapshotMetric;
     significant: boolean;
-    lift: number | undefined;
+    lift?: number;
     resultsStatus?: string;
     directionalStatus?: "winning" | "losing";
   }[];
@@ -73,6 +72,15 @@ export interface MetricExperimentData {
   secondaryMetrics: string[];
   datasource: string;
   decisionFrameworkSettings: ExperimentDecisionFrameworkSettings;
+}
+
+// Interface for computed data with dynamic lift fields
+export interface ComputedMetricExperimentData extends MetricExperimentData {
+  // only show lift for first 2 metrics
+  // TODO generalize to more metrics
+  lift0?: number;
+  lift1?: number;
+  included: boolean;
 }
 
 const NUM_PER_PAGE = 50;
@@ -174,16 +182,29 @@ const ExperimentWithMetricsTable: FC<Props> = ({
     });
   });
 
+  const computedExpData = useAddComputedFields<
+    MetricExperimentData,
+    ComputedMetricExperimentData
+  >(
+    expData,
+    (e) => {
+      return {
+        ...e,
+        // Only show lift for first 2 metrics
+        // TODO generalize to more metrics
+        lift0: e.metricResults[0]?.lift,
+        lift1: e.metricResults[1]?.lift,
+        included: !excludedExperimentVariations.some(
+          (ev) =>
+            ev.experimentId === e.id && ev.variationIndex === e.variationIndex
+        ),
+      };
+    },
+    [excludedExperimentVariations, metrics]
+  );
+
   const { items, SortableTH } = useSearch({
-    items: expData.map((e) => ({
-      ...e,
-      lift1: e.metricResults[0]?.lift,
-      lift2: e.metricResults[1]?.lift,
-      included: !excludedExperimentVariations.some(
-        (ev) =>
-          ev.experimentId === e.id && ev.variationIndex === e.variationIndex
-      ),
-    })),
+    items: computedExpData,
     localStorageKey: "metricExperiments",
     defaultSortField: "date",
     defaultSortDir: -1,
@@ -270,28 +291,29 @@ const ExperimentWithMetricsTable: FC<Props> = ({
         </td>
         <td>{e.users ? formatNumber(e.users) : ""}</td>
         {!bandits
-          ? e.metricResults.map((m, i) => {
-              const resultsHighlightClassname = clsx(m.resultsStatus, {
-                "non-significant": !m.significant,
+          ? metrics.slice(0, 2).map((m, i) => {
+              const mr = e.metricResults[i];
+              if (!mr) return <td key={`${e.id}-${e.variationIndex}-${i}`} />;
+              const resultsHighlightClassname = clsx(mr.resultsStatus, {
+                "non-significant": !mr.significant,
                 hover: false,
               });
               return (
-                <Box key={`${e.id}-${e.variationIndex}-${i}`}>
-                  <ChangeColumn
-                    metric={metrics[i]}
-                    stats={m.results}
-                    rowResults={{
-                      enoughData: true,
-                      directionalStatus: m.directionalStatus ?? "losing",
-                      hasScaledImpact: true,
-                    }}
-                    showPlusMinus={false}
-                    statsEngine={e.statsEngine}
-                    differenceType={differenceType}
-                    showCI={true}
-                    className={resultsHighlightClassname}
-                  />
-                </Box>
+                <ChangeColumn
+                  metric={m}
+                  stats={mr.results}
+                  rowResults={{
+                    enoughData: true,
+                    directionalStatus: mr.directionalStatus ?? "losing",
+                    hasScaledImpact: true,
+                  }}
+                  showPlusMinus={false}
+                  statsEngine={e.statsEngine}
+                  differenceType={differenceType}
+                  showCI={true}
+                  className={resultsHighlightClassname}
+                  key={`${e.id}-${e.variationIndex}-${i}`}
+                />
               );
             })
           : null}
@@ -310,8 +332,12 @@ const ExperimentWithMetricsTable: FC<Props> = ({
             <SortableTH field="date">Date</SortableTH>
             <SortableTH field="status">Status</SortableTH>
             <SortableTH field="users">Variation Users</SortableTH>
-            <SortableTH field={`lift1`}>Lift {metrics[0].name}</SortableTH>
-            <SortableTH field={`lift2`}>Lift {metrics[1].name}</SortableTH>
+            {metrics[0] && (
+              <SortableTH field="lift0">Lift {metrics[0].name}</SortableTH>
+            )}
+            {metrics[1] && (
+              <SortableTH field="lift1">Lift {metrics[1].name}</SortableTH>
+            )}
           </tr>
         </thead>
         <tbody>{expRows}</tbody>
