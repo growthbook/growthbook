@@ -20,6 +20,7 @@ import { attributeDataTypes } from "back-end/src/util/organization.util";
 import { ApiKeyInterface } from "back-end/types/apikey";
 import { SSOConnectionInterface } from "back-end/types/sso-connection";
 import { TeamInterface } from "back-end/types/team";
+import { AgreementType } from "back-end/src/validators/agreements";
 import { AttributionModel, ImplementationType } from "./experiment";
 import type { PValueCorrection, StatsEngine } from "./stats";
 import {
@@ -27,7 +28,6 @@ import {
   MetricPriorSettings,
   MetricWindowSettings,
 } from "./fact-table";
-import { AgreementType } from "back-end/src/validators/agreements";
 
 export type EnvScopedPermission = typeof ENV_SCOPED_PERMISSIONS[number];
 export type ProjectScopedPermission = typeof PROJECT_SCOPED_PERMISSIONS[number];
