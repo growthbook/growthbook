@@ -26,10 +26,9 @@ type ClickHouseDataType =
   | "String"
   | "LowCardinality(String)";
 
-const REMAINING_COLUMNS_SCHEMA: Record<string, ClickHouseDataType> = {
-  environment: "LowCardinality(String)",
+// These will eventually move to be inside of attributes
+const tempTopLevelFields: Record<string, ClickHouseDataType> = {
   user_id: "String",
-  context_json: "String",
   url: "String",
   url_path: "String",
   url_host: "String",
@@ -38,30 +37,32 @@ const REMAINING_COLUMNS_SCHEMA: Record<string, ClickHouseDataType> = {
   device_id: "String",
   page_id: "String",
   session_id: "String",
-  sdk_language: "LowCardinality(String)",
-  sdk_version: "LowCardinality(String)",
   page_title: "String",
   utm_source: "String",
   utm_medium: "String",
   utm_campaign: "String",
   utm_term: "String",
   utm_content: "String",
-  event_uuid: "String",
-  ip: "String",
-  geo_country: "LowCardinality(String)",
+  geo_country: "String",
   geo_city: "String",
   geo_lat: "Float64",
   geo_lon: "Float64",
   ua: "String",
-  ua_browser: "LowCardinality(String)",
-  ua_os: "LowCardinality(String)",
-  ua_device_type: "LowCardinality(String)",
+  ua_browser: "String",
+  ua_os: "String",
+  ua_device_type: "String",
 };
 
-function clickhouseUserId(orgId: string, datasourceId: string) {
-  return ENVIRONMENT === "production"
-    ? `${orgId}_${datasourceId}`
-    : `test_${orgId}_${datasourceId}`;
+const REMAINING_COLUMNS_SCHEMA: Record<string, ClickHouseDataType> = {
+  environment: "LowCardinality(String)",
+  sdk_language: "LowCardinality(String)",
+  sdk_version: "LowCardinality(String)",
+  event_uuid: "String",
+  ip: "String",
+};
+
+function clickhouseUserId(orgId: string) {
+  return ENVIRONMENT === "production" ? `${orgId}` : `test_${orgId}`;
 }
 
 function ensureClickhouseEnvVars() {
@@ -108,14 +109,33 @@ function getClickhouseDatatype(
   }
 }
 
-function getClickhouseExtractFn(columnType: FactTableColumnType) {
+function getClickhouseExtractClause(
+  sourceField: string,
+  columnType: FactTableColumnType
+) {
+  // Some fields will eventually be inside attributes instead of top-level
+  // This is a temp workaround until then
+  if (tempTopLevelFields[sourceField]) {
+    const desiredDataType = getClickhouseDatatype(
+      tempTopLevelFields[sourceField] as FactTableColumnType
+    );
+
+    // If the desired data type is different from the actual type, need to cast it
+    if (desiredDataType !== tempTopLevelFields[sourceField]) {
+      return `CAST(${sourceField} AS ${desiredDataType})`;
+    }
+
+    // Otherwise, just return the column name
+    return sourceField;
+  }
+
   switch (columnType) {
     case "number":
-      return "JSONExtractFloat";
+      return `JSONExtractFloat(context_json, '${sourceField}')`;
     case "boolean":
-      return "JSONExtractBool";
+      return `JSONExtractBool(context_json, '${sourceField}')`;
     default:
-      return "JSONExtractString";
+      return `JSONExtractString(context_json, '${sourceField}')`;
   }
 }
 
@@ -125,20 +145,43 @@ export function getReservedColumnNames(): Set<string> {
       "timestamp",
       "client_key",
       "event_name",
-      "properties_json",
+      "properties",
+      "attributes",
       ...Object.keys(REMAINING_COLUMNS_SCHEMA),
     ].map((col) => col.toLowerCase())
   );
 }
 
+function getEventMaterializedViewSQL(
+  orgId: string,
+  materializedColumns: MaterializedColumn[]
+) {
+  const select: string[] = [
+    "timestamp",
+    "client_key",
+    "event_name",
+    "properties_json as properties",
+    "context_json as attributes",
+    ...materializedColumns.map(
+      ({ columnName, datatype, sourceField }) =>
+        `${getClickhouseExtractClause(sourceField, datatype)} as ${columnName}`
+    ),
+    ...Object.keys(REMAINING_COLUMNS_SCHEMA),
+  ];
+
+  return `SELECT ${select.join(", ")}
+    FROM ${CLICKHOUSE_MAIN_TABLE} 
+    WHERE (organization = '${orgId}') AND (event_name != 'Feature Evaluated')`;
+}
+
 export async function createClickhouseUser(
   context: ReqContext,
-  datasourceId: string
+  materializedColumns: MaterializedColumn[] = []
 ): Promise<DataSourceParams> {
   const client = createAdminClickhouseClient();
 
   const orgId = context.org.id;
-  const user = clickhouseUserId(orgId, datasourceId);
+  const user = clickhouseUserId(orgId);
   const password = generator.generate({
     length: 30,
     numbers: true,
@@ -165,39 +208,40 @@ export async function createClickhouseUser(
   });
 
   logger.info(`Creating Clickhouse table ${eventsTableName}`);
+  const tableCols: string[] = [
+    "timestamp DateTime",
+    "client_key String",
+    "event_name String",
+    "properties String",
+    "attributes String",
+    ...Object.entries(REMAINING_COLUMNS_SCHEMA).map(
+      ([colName, colType]) => `${colName} ${colType}`
+    ),
+    ...materializedColumns.map(
+      ({ columnName, datatype }) =>
+        `${columnName} ${getClickhouseDatatype(datatype)}`
+    ),
+  ];
   await client.command({
     query: `CREATE TABLE ${eventsTableName} (
-timestamp DateTime,
-client_key String,
-event_name String,
-properties_json String,
-${Object.entries(REMAINING_COLUMNS_SCHEMA)
-  .map(([colName, colType]) => `${colName} ${colType}`)
-  .join(",")}
+  ${tableCols.join(",\n  ")}
 ) ENGINE = MergeTree()
 PARTITION BY toYYYYMM(timestamp) 
 ORDER BY (timestamp)`,
   });
 
-  const eventsMaterializedViewSql = `SELECT 
-    timestamp,
-    client_key,
-    event_name,
-    properties_json,
-    ${Object.keys(REMAINING_COLUMNS_SCHEMA).join(",")}
-FROM ${CLICKHOUSE_MAIN_TABLE} 
-WHERE (organization = '${orgId}') AND (event_name != 'Feature Evaluated')`;
+  const eventsViewSQL = getEventMaterializedViewSQL(orgId, materializedColumns);
+
+  logger.info(`Copying existing data to the events table`);
+  await client.command({
+    query: `INSERT INTO ${eventsTableName} ${eventsViewSQL}`,
+  });
 
   logger.info(`Creating Clickhouse events materialized view ${eventsViewName}`);
   await client.command({
     query: `CREATE MATERIALIZED VIEW ${eventsViewName} TO ${eventsTableName} 
 DEFINER=CURRENT_USER SQL SECURITY DEFINER
-AS ${eventsMaterializedViewSql}`,
-  });
-
-  logger.info(`Copying existing data to the events materialized view`);
-  await client.command({
-    query: `INSERT INTO ${eventsViewName} ${eventsMaterializedViewSql}`,
+AS ${eventsViewSQL}`,
   });
 
   logger.info(`Creating ${featureUsageTableName} table`);
@@ -211,6 +255,7 @@ source String,
 value String,
 ruleId String,
 variationId String,
+attributes String,
  ${Object.entries(REMAINING_COLUMNS_SCHEMA)
    .map(([colName, colType]) => `${colName} ${colType}`)
    .join(",")}
@@ -230,20 +275,21 @@ ORDER BY timestamp
     JSONExtractString(properties_json, 'value') as value,
     JSONExtractString(properties_json, 'ruleId') as ruleId,
     JSONExtractString(properties_json, 'variationId') as variationId,
+    context_json as attributes,
     ${Object.keys(REMAINING_COLUMNS_SCHEMA).join(",")}
 FROM ${CLICKHOUSE_MAIN_TABLE}
 WHERE (organization = '${orgId}') AND (event_name = 'Feature Evaluated')`;
+
+  logger.info(`Copying existing data to the feature usage table`);
+  await client.command({
+    query: `INSERT INTO ${featureUsageTableName} ${featureUsageMaterializedViewSql}`,
+  });
 
   logger.info(`Creating ${featureUsageViewName} materialized view`);
   await client.command({
     query: `CREATE MATERIALIZED VIEW ${featureUsageViewName} TO ${featureUsageTableName}
 DEFINER=CURRENT_USER SQL SECURITY DEFINER
 AS ${featureUsageMaterializedViewSql}`,
-  });
-
-  logger.info(`Copying existing data to the feature usage materialized view`);
-  await client.command({
-    query: `INSERT INTO ${featureUsageViewName} ${featureUsageMaterializedViewSql}`,
   });
 
   logger.info(`Granting select permissions on ${database}.* to ${user}`);
@@ -274,12 +320,9 @@ AS ${featureUsageMaterializedViewSql}`,
   return params;
 }
 
-export async function deleteClickhouseUser(
-  datasourceId: string,
-  organization: string
-) {
+export async function deleteClickhouseUser(organization: string) {
   const client = createAdminClickhouseClient();
-  const user = clickhouseUserId(organization, datasourceId);
+  const user = clickhouseUserId(organization);
 
   logger.info(`Deleting Clickhouse user ${user}`);
   await client.command({
@@ -389,7 +432,7 @@ export async function updateMaterializedColumns({
   const client = createAdminClickhouseClient();
 
   const orgId = datasource.organization;
-  const database = clickhouseUserId(orgId, datasource.id);
+  const database = clickhouseUserId(orgId);
   const eventsTableName = `${database}.events`;
   const eventsViewName = `${database}.events_mv`;
 
@@ -433,27 +476,11 @@ export async function updateMaterializedColumns({
     err = e;
   } finally {
     logger.info(`Recreating materialized view ${eventsViewName}`);
+    const eventsViewSQL = getEventMaterializedViewSQL(orgId, viewColumns);
     await client.command({
-      query: `CREATE MATERIALIZED VIEW ${eventsViewName} TO ${eventsTableName}
+      query: `CREATE MATERIALIZED VIEW ${eventsViewName} TO ${eventsTableName} 
 DEFINER=CURRENT_USER SQL SECURITY DEFINER
-AS SELECT 
-    timestamp,
-    client_key,
-    event_name,
-    properties_json,
-    ${
-      viewColumns
-        .map(
-          ({ columnName, datatype, sourceField }) =>
-            `${getClickhouseExtractFn(
-              datatype
-            )}(context_json, '${sourceField}') as ${columnName}`
-        )
-        .join(", ") + (viewColumns.length > 0 ? "," : "")
-    }
-${Object.keys(REMAINING_COLUMNS_SCHEMA).join(",")}
-FROM ${CLICKHOUSE_MAIN_TABLE} 
-WHERE (organization = '${orgId}') AND (event_name != 'Feature Evaluated')`,
+AS ${eventsViewSQL}`,
     });
   }
   if (err) {

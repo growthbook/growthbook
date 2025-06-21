@@ -169,7 +169,7 @@ export async function deleteDatasource(
     throw new Error("Cannot delete. Data sources managed by config.yml");
   }
   if (datasource.type === "growthbook_clickhouse") {
-    await deleteClickhouseUser(datasource.id, organization);
+    await deleteClickhouseUser(organization);
   }
   await DataSourceModel.deleteOne({
     id: datasource.id,

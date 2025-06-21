@@ -189,10 +189,13 @@ export type DataSourcePipelineSettings = {
   unitsTableDeletion?: boolean;
 };
 
+export type MaterializedColumnType = "" | "identifier" | "dimension";
+
 export type MaterializedColumn = {
   columnName: string;
   sourceField: string;
   datatype: FactTableColumnType;
+  type?: MaterializedColumnType;
 };
 
 export type DataSourceSettings = {

@@ -1,7 +1,6 @@
 import { Response } from "express";
 import cloneDeep from "lodash/cloneDeep";
 import * as bq from "@google-cloud/bigquery";
-import uniqid from "uniqid";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {
@@ -13,6 +12,8 @@ import {
   DataSourceInterfaceWithParams,
   GrowthbookClickhouseDataSource,
   MaterializedColumn,
+  MaterializedColumnType,
+  GrowthbookClickhouseSettings,
 } from "back-end/types/datasource";
 import {
   getSourceIntegrationObject,
@@ -293,86 +294,50 @@ export async function postManagedClickHouse(
     });
   }
 
-  const new_datasource_id = uniqid("ds_");
-  const params = await createClickhouseUser(context, new_datasource_id);
-  const datasourceSettings: DataSourceSettings = {
-    userIdTypes: [
-      {
-        userIdType: "device_id",
-      },
-      {
-        userIdType: "user_id",
-      },
-    ],
-    queries: {
-      exposure: [
-        {
-          id: "device_id",
-          dimensions: [
-            "country",
-            "browser",
-            "os",
-            "device_type",
-            "source",
-            "medium",
-            "campaign",
-          ],
-          name: "Device Id Experiments",
-          query: `         
-SELECT 
-  device_id,
-  timestamp,
-  simpleJSONExtractString(properties_json, 'experimentId') as experiment_id,
-  simpleJSONExtractString(properties_json, 'variationId') as variation_id,
-  geo_country as country,
-  ua_browser as browser,
-  ua_os as os,
-  ua_device_type as device_type,
-  utm_source as source,
-  utm_medium as medium,
-  utm_campaign as campaign
-FROM events
-WHERE
-  event_name = 'Experiment Viewed'
-  AND timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'
-              `.trim(),
-          userIdType: "device_id",
-        },
-        {
-          id: "user_id",
-          dimensions: [
-            "country",
-            "browser",
-            "os",
-            "device_type",
-            "source",
-            "medium",
-            "campaign",
-          ],
-          name: "Logged in User Id Experiments",
-          query: `         
-SELECT 
-  user_id,
-  timestamp,
-  simpleJSONExtractString(properties_json, 'experimentId') as experiment_id,
-  simpleJSONExtractString(properties_json, 'variationId') as variation_id,
-  geo_country as country,
-  ua_browser as browser,
-  ua_os as os,
-  ua_device_type as device_type,
-  utm_source as source,
-  utm_medium as medium,
-  utm_campaign as campaign
-FROM events
-WHERE
-  event_name = 'Experiment Viewed'
-  AND timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'
-              `.trim(),
-          userIdType: "user_id",
-        },
-      ],
+  // Start out with some default materialized columns
+  // These can be changed by the user later
+  const identifiers = ["device_id", "user_id"];
+  const dimensions = [
+    "geo_country",
+    "ua_browser",
+    "ua_os",
+    "ua_device_type",
+    "utm_source",
+    "utm_medium",
+    "utm_campaign",
+  ];
+  const materializedColumns: MaterializedColumn[] = [
+    ...identifiers.map(
+      (id) =>
+        ({
+          sourceField: id,
+          columnName: id,
+          datatype: "string",
+          type: "identifier",
+        } as const)
+    ),
+    ...dimensions.map(
+      (dim) =>
+        ({
+          sourceField: dim,
+          columnName: dim,
+          datatype: "string",
+          type: "dimension",
+        } as const)
+    ),
+    {
+      sourceField: "url_path",
+      columnName: "url_path",
+      datatype: "string",
+      type: "",
     },
-  };
+  ];
+
+  const params = await createClickhouseUser(context, materializedColumns);
+  const datasourceSettings = getManagedClickHouseSettings(
+    materializedColumns,
+    {}
+  );
 
   await createDataSource(
     context,
@@ -380,11 +345,11 @@ WHERE
     "growthbook_clickhouse",
     params,
     datasourceSettings,
-    new_datasource_id
+    "managed_clickhouse"
   );
   res.status(200).json({
     status: 200,
-    id: new_datasource_id,
+    id: "managed_clickhouse",
   });
 }
 
@@ -918,7 +883,12 @@ export async function fetchBigQueryDatasets(
 
 export async function postMaterializedColumn(
   req: AuthRequest<
-    { sourceField: string; columnName: string; datatype: FactTableColumnType },
+    {
+      sourceField: string;
+      columnName: string;
+      datatype: FactTableColumnType;
+      type?: MaterializedColumnType;
+    },
     { datasourceId: string }
   >,
   res: Response
@@ -944,11 +914,20 @@ export async function postMaterializedColumn(
 
   const originalColumns = datasource.settings.materializedColumns || [];
   const finalColumns = [...originalColumns, newColumn];
-  const updates: Pick<GrowthbookClickhouseDataSource, "settings"> = {
-    settings: {
-      ...datasource.settings,
-      materializedColumns: finalColumns,
-    },
+
+  // Make sure it doesn't exist already
+  if (
+    originalColumns.some(
+      (col) =>
+        col.columnName === newColumn.columnName ||
+        col.sourceField === newColumn.sourceField
+    )
+  ) {
+    throw new Error(`That materialized column already exists`);
+  }
+
+  const updates = {
+    settings: getManagedClickHouseSettings(finalColumns, datasource.settings),
   };
 
   try {
@@ -963,6 +942,7 @@ export async function postMaterializedColumn(
 
     await updateDataSource(context, datasource, updates);
 
+    // TODO: schedule a background job for this
     const factTables = await getFactTablesForDatasource(context, datasource.id);
     for (const ft of factTables) {
       const columns = await runRefreshColumnsQuery(context, datasource, ft);
@@ -989,7 +969,12 @@ export async function postMaterializedColumn(
 
 export async function updateMaterializedColumn(
   req: AuthRequest<
-    { sourceField: string; columnName: string; datatype: FactTableColumnType },
+    {
+      sourceField: string;
+      columnName: string;
+      datatype: FactTableColumnType;
+      type?: MaterializedColumnType;
+    },
     { datasourceId: string; matColumnName: string }
   >,
   res: Response
@@ -1012,11 +997,6 @@ export async function updateMaterializedColumn(
       "Can only manage materialized columns for growthbook-clickhouse datasources"
     );
   }
-  if (matColumnName === newColumn.columnName) {
-    throw new Error(
-      "Cannot modify a column while keeping the same name. Delete the column and create it again instead"
-    );
-  }
 
   const originalColumns = datasource.settings.materializedColumns || [];
 
@@ -1034,19 +1014,43 @@ export async function updateMaterializedColumn(
     ...originalColumns.slice(originalIdx + 1),
   ];
 
-  const updates: Pick<GrowthbookClickhouseDataSource, "settings"> = {
-    settings: {
-      ...datasource.settings,
-      materializedColumns: finalColumns,
-    },
+  // Make sure there is only 1 column with this source field or name
+  if (
+    finalColumns.filter(
+      (col) =>
+        col.sourceField === newColumn.sourceField ||
+        col.columnName === newColumn.columnName
+    ).length > 1
+  ) {
+    throw new Error(`A materialized column for that attribute already exists`);
+  }
+
+  const updates = {
+    settings: getManagedClickHouseSettings(finalColumns, datasource.settings),
   };
 
   try {
     if (
-      originalColumn.datatype === newColumn.datatype &&
-      originalColumn.sourceField === newColumn.sourceField
+      originalColumn.datatype !== newColumn.datatype ||
+      originalColumn.sourceField !== newColumn.sourceField
     ) {
-      // Simple rename
+      if (matColumnName === newColumn.columnName) {
+        throw new Error(
+          "Cannot modify a column while keeping the same name. Delete the column and create it again instead"
+        );
+      }
+
+      // Drop original column and recreate
+      await updateMaterializedColumns({
+        datasource,
+        columnsToAdd: [newColumn],
+        columnsToDelete: [originalColumn.columnName],
+        columnsToRename: [],
+        finalColumns,
+        originalColumns,
+      });
+    } else if (originalColumn.columnName !== newColumn.columnName) {
+      // Rename column
       await updateMaterializedColumns({
         datasource,
         columnsToAdd: [],
@@ -1057,19 +1061,11 @@ export async function updateMaterializedColumn(
         finalColumns,
         originalColumns,
       });
-    } else {
-      // Drop original column and recreate
-      await updateMaterializedColumns({
-        datasource,
-        columnsToAdd: [newColumn],
-        columnsToDelete: [originalColumn.columnName],
-        columnsToRename: [],
-        finalColumns,
-        originalColumns,
-      });
     }
+
     await updateDataSource(context, datasource, updates);
 
+    // TODO: schedule a background job for this
     const factTables = await getFactTablesForDatasource(context, datasource.id);
     for (const ft of factTables) {
       const columns = await runRefreshColumnsQuery(context, datasource, ft);
@@ -1129,11 +1125,8 @@ export async function deleteMaterializedColumn(
     ...originalColumns.slice(originalIdx + 1),
   ];
 
-  const updates: Pick<GrowthbookClickhouseDataSource, "settings"> = {
-    settings: {
-      ...datasource.settings,
-      materializedColumns: finalColumns,
-    },
+  const updates = {
+    settings: getManagedClickHouseSettings(finalColumns, datasource.settings),
   };
 
   try {
@@ -1165,16 +1158,34 @@ export async function deleteMaterializedColumn(
   }
 }
 
-function sanitizeMatColumnInput(userInput: MaterializedColumn) {
+function sanitizeMatColumnInput(
+  userInput: MaterializedColumn
+): MaterializedColumn {
   if (!factTableColumnTypes.includes(userInput.datatype)) {
     throw new Error("Invalid datatype");
   }
   const sourceField = sanitizeMatColumnSourceField(userInput.sourceField);
   const columnName = sanitizeMatColumnName(userInput.columnName);
+
+  let type = userInput.type;
+  if (type === "dimension") {
+    if (!["string", "number", "boolean"].includes(userInput.datatype)) {
+      type = "";
+    }
+  } else if (type === "identifier") {
+    if (!["string", "number"].includes(userInput.datatype)) {
+      type = "";
+    }
+  } else {
+    // In case some other unexpected string was passed in
+    type = "";
+  }
+
   return {
     datatype: userInput.datatype,
     sourceField,
     columnName,
+    type,
   };
 }
 
@@ -1270,4 +1281,65 @@ function sanitizeMatColumnName(userInput: string) {
   }
 
   return userInput;
+}
+
+function getManagedClickHouseSettings(
+  materializedColumns: MaterializedColumn[],
+  existing: GrowthbookClickhouseDataSource["settings"]
+): GrowthbookClickhouseSettings {
+  // Require at least 1 identifier type
+  if (!materializedColumns.some((c) => c.type === "identifier")) {
+    throw new Error("Must have at least 1 identifier");
+  }
+
+  return {
+    ...existing,
+    materializedColumns,
+    userIdTypes: materializedColumns
+      .filter((c) => c.type === "identifier")
+      .map((c) => ({
+        userIdType: c.columnName,
+        description: "",
+      })),
+    queries: {
+      ...existing.queries,
+      exposure: generateManagedClickHouseExposureQueries(materializedColumns),
+    },
+  };
+}
+
+function generateManagedClickHouseExposureQueries(
+  materializedColumns: MaterializedColumn[]
+): ExposureQuery[] {
+  const identifiers = materializedColumns
+    .filter((c) => c.type === "identifier")
+    .map((c) => c.columnName);
+
+  const dimensions = materializedColumns
+    .filter((c) => c.type === "dimension")
+    .map((c) => c.columnName);
+
+  return identifiers.map((identifier) => {
+    const cols = [
+      identifier,
+      "timestamp",
+      "simpleJSONExtractString(properties, 'experimentId') as experiment_id",
+      "simpleJSONExtractString(properties, 'variationId') as variation_id",
+      ...dimensions,
+    ];
+
+    return {
+      id: identifier,
+      dimensions,
+      name: identifier,
+      userIdType: identifier,
+      query: `
+SELECT 
+  ${cols.join(",\n  ")}
+FROM events
+WHERE
+  event_name = 'Experiment Viewed'
+  AND timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'`.trim(),
+    };
+  });
 }
