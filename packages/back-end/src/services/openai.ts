@@ -32,12 +32,11 @@ export const getOpenAI = (context: ReqContext | ApiReqContext) => {
       context,
       true
     );
-    // use the org settings if they exist, otherwise use the env var
-    const openAIKey = openAIAPIKey || process.env.OPENAI_API_KEY;
+
     _openAIModel = openAIDefaultModel;
-    if (openAIKey && aiEnabled) {
+    if (openAIAPIKey && aiEnabled) {
       _openai = new OpenAI({
-        apiKey: openAIKey || "",
+        apiKey: openAIAPIKey || "",
       });
     }
   }

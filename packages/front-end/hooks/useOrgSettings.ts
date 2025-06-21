@@ -19,10 +19,10 @@ export const useAISettings = (
 
   const openAIAPIKey =
     settings?.openAIAPIKey || process.env.OPENAI_API_KEY || "";
-  const aiEnabled = !isCloud()
+  const aiEnabled = isCloud()
     ? settings?.aiEnabled !== false && !!agreements?.includes(AGREEMENT_TYPE_AI)
     : !!(settings?.aiEnabled && openAIAPIKey);
-  const aiAgreedTo = !isCloud()
+  const aiAgreedTo = isCloud()
     ? !!agreements?.includes(AGREEMENT_TYPE_AI)
     : true;
   const openAIDefaultModel = settings?.openAIDefaultModel || "gpt-4o-mini";
