@@ -54,6 +54,7 @@ import {
   AutoMetricToCreate,
   SourceIntegrationInterface,
 } from "back-end/src/types/Integration";
+import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   createClickhouseUser,
   getReservedColumnNames,
@@ -257,22 +258,12 @@ export async function postDataSources(
   }
 }
 
-export async function postInbuiltDataSource(
-  req: AuthRequest<
-    {
-      name?: string;
-      description?: string;
-      type?: DataSourceType;
-      params?: DataSourceParams;
-      settings?: DataSourceSettings;
-      projects?: string[];
-    },
-    { id: string }
-  >,
+export async function postManagedClickHouse(
+  req: AuthRequest,
   res: Response<
     | {
         status: 200;
-        datasource: DataSourceInterface;
+        id: string;
       }
     | {
         status: 400 | 403 | 404;
@@ -280,15 +271,29 @@ export async function postInbuiltDataSource(
       }
   >
 ) {
-  if (!req.superAdmin) {
+  if (!IS_CLOUD) {
     return res.status(403).json({
       status: 403,
-      message: "Only super admins can add a datasource for now.",
+      message: "This endpoint is only available in GrowthBook Cloud",
     });
   }
 
   const context = getContextFromReq(req);
-  const new_datasource_id = req.params.id || uniqid("ds_");
+
+  if (
+    !context.permissions.canCreateDataSource({ type: "growthbook_clickhouse" })
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  if (!context.hasPremiumFeature("managed-clickhouse")) {
+    return res.status(403).json({
+      status: 403,
+      message: "This requires a Pro account.",
+    });
+  }
+
+  const new_datasource_id = uniqid("ds_");
   const params = await createClickhouseUser(context, new_datasource_id);
   const datasourceSettings: DataSourceSettings = {
     userIdTypes: [
@@ -369,9 +374,9 @@ WHERE
     },
   };
 
-  const newDatasource = await createDataSource(
+  await createDataSource(
     context,
-    "Growthbook ClickHouse",
+    "Managed ClickHouse",
     "growthbook_clickhouse",
     params,
     datasourceSettings,
@@ -379,7 +384,7 @@ WHERE
   );
   res.status(200).json({
     status: 200,
-    datasource: newDatasource,
+    id: new_datasource_id,
   });
 }
 
