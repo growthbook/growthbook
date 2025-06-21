@@ -71,6 +71,7 @@ export interface SearchReturn<T> {
   items: T[];
   unpaginatedItems: T[];
   isFiltered: boolean;
+  filteredItems: T[];
   clear: () => void;
   syntaxFilters: SyntaxFilter[];
   searchInputProps: {
@@ -305,6 +306,7 @@ export function useSearch<T>({
     items: paginated,
     unpaginatedItems: sorted,
     isFiltered,
+    filteredItems: filtered,
     clear,
     syntaxFilters,
     searchInputProps: {

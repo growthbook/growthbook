@@ -75,4 +75,6 @@ export type AppFeatures = {
   "new-exec-reports": boolean;
   insights: boolean;
   "sql-explorer": boolean;
+  "ai-suggestions-for-experiment-analysis-input": boolean;
+  "similar-experiments": boolean;
 };

@@ -15,6 +15,7 @@ import {
   getCollection,
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";
+import { generateEmbeddings } from "back-end/src/services/openai";
 import { queriesSchema } from "./QueryModel";
 import { ImpactEstimateModel } from "./ImpactEstimateModel";
 import { removeMetricFromExperiments } from "./ExperimentModel";
@@ -550,3 +551,33 @@ export async function removeTagInMetrics(organization: string, tag: string) {
     }
   );
 }
+
+export async function generateMetricEmbeddings(
+  context: ReqContext | ApiReqContext,
+  metricsToGenerateEmbeddings: MetricInterface[]
+) {
+  const batchSize = 15;
+  for (let i = 0; i < metricsToGenerateEmbeddings.length; i += batchSize) {
+    const batch = metricsToGenerateEmbeddings.slice(i, i + batchSize);
+    const input = batch.map((m) => getTextForEmbedding(m));
+    const embeddings = await generateEmbeddings({
+      context,
+      input,
+    });
+
+    for (let j = 0; j < batch.length; j++) {
+      const m = batch[j];
+      // save the embeddings back to the experiment:
+      try {
+        await context.models.vectors.addOrUpdateMetricVector(m.id, {
+          embeddings: embeddings.data[j].embedding,
+        });
+      } catch (error) {
+        throw new Error("Error updating embeddings");
+      }
+    }
+  }
+}
+const getTextForEmbedding = (metric: MetricInterface): string => {
+  return `Name: ${metric.name}\nDescription: ${metric.description}`;
+};
