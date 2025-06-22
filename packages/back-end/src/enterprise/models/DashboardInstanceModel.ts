@@ -16,40 +16,7 @@ import {
 } from "back-end/types/experiment-snapshot";
 import { getLatestSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import { ExperimentInterface } from "back-end/types/experiment";
-import {
-  dashboardBlockSchema,
-  toInterface as blockToInterface,
-} from "./DashboardBlockModel";
-
-export const dashboardInstanceSchema = new mongoose.Schema({
-  id: {
-    type: String,
-    unique: true,
-  },
-  organizationId: String,
-  experimentId: String,
-  dateCreated: Date,
-  dateUpdated: Date,
-  owner: String,
-  title: String,
-  description: String,
-  blocks: [dashboardBlockSchema],
-  settings: {
-    baselineRow: Number,
-    dateStart: Date,
-    dateEnd: Date,
-    defaultMetricId: String,
-    defaultVariationIds: [String],
-    defaultDimensionId: String,
-    defaultDimensionValues: [String],
-  },
-});
-
-dashboardInstanceSchema.index({
-  organizationId: 1,
-  experimentId: 1,
-  dateCreated: -1,
-});
+import { toInterface as blockToInterface } from "./DashboardBlockModel";
 
 export type DashboardInstanceDocument = mongoose.Document &
   DashboardInstanceInterface;
