@@ -147,6 +147,8 @@ export function getReservedColumnNames(): Set<string> {
       "event_name",
       "properties",
       "attributes",
+      "experiment_id",
+      "variation_id",
       ...Object.keys(REMAINING_COLUMNS_SCHEMA),
     ].map((col) => col.toLowerCase())
   );
@@ -171,7 +173,30 @@ function getEventMaterializedViewSQL(
 
   return `SELECT ${select.join(", ")}
     FROM ${CLICKHOUSE_MAIN_TABLE} 
-    WHERE (organization = '${orgId}') AND (event_name != 'Feature Evaluated')`;
+    WHERE (organization = '${orgId}') AND (event_name NOT IN ('Feature Evaluated', 'Experiment Viewed'))`;
+}
+
+function getExposureMaterializedViewSQL(
+  orgId: string,
+  materializedColumns: MaterializedColumn[]
+) {
+  const select: string[] = [
+    "timestamp",
+    "client_key",
+    "simpleJSONExtractString(properties_json, 'experimentId') as experiment_id",
+    "simpleJSONExtractString(properties_json, 'variationId') as variation_id",
+    "properties_json as properties",
+    "context_json as attributes",
+    ...materializedColumns.map(
+      ({ columnName, datatype, sourceField }) =>
+        `${getClickhouseExtractClause(sourceField, datatype)} as ${columnName}`
+    ),
+    ...Object.keys(REMAINING_COLUMNS_SCHEMA),
+  ];
+
+  return `SELECT ${select.join(", ")}
+    FROM ${CLICKHOUSE_MAIN_TABLE} 
+    WHERE (organization = '${orgId}') AND (event_name = 'Experiment Viewed')`;
 }
 
 export async function createClickhouseUser(
@@ -196,6 +221,8 @@ export async function createClickhouseUser(
   const eventsViewName = `${database}.events_mv`;
   const featureUsageTableName = `${database}.feature_usage`;
   const featureUsageViewName = `${database}.feature_usage_mv`;
+  const exposureTableName = `${database}.experiment_views`;
+  const exposureViewName = `${database}.experiment_views_mv`;
 
   logger.info(`creating Clickhouse database ${database}`);
   await client.command({
@@ -207,6 +234,7 @@ export async function createClickhouseUser(
     query: `CREATE USER ${user} IDENTIFIED WITH sha256_hash BY '${hashedPassword}' DEFAULT DATABASE ${database}`,
   });
 
+  // Main events table
   logger.info(`Creating Clickhouse table ${eventsTableName}`);
   const tableCols: string[] = [
     "timestamp DateTime",
@@ -227,7 +255,7 @@ export async function createClickhouseUser(
   ${tableCols.join(",\n  ")}
 ) ENGINE = MergeTree()
 PARTITION BY toYYYYMM(timestamp) 
-ORDER BY (timestamp)`,
+ORDER BY (event_name, timestamp)`,
   });
 
   const eventsViewSQL = getEventMaterializedViewSQL(orgId, materializedColumns);
@@ -244,6 +272,52 @@ DEFINER=CURRENT_USER SQL SECURITY DEFINER
 AS ${eventsViewSQL}`,
   });
 
+  // Experiment views table
+  logger.info(`Creating ${exposureTableName} table`);
+  await client.command({
+    query: `CREATE TABLE ${exposureTableName} (
+timestamp DateTime,
+client_key String,
+experiment_id String,
+variation_id String,
+properties String,
+attributes String,
+${Object.entries(REMAINING_COLUMNS_SCHEMA)
+  .map(([colName, colType]) => `${colName} ${colType}`)
+  .join(",")}
+${materializedColumns
+  .map(
+    ({ columnName, datatype }) =>
+      `${columnName} ${getClickhouseDatatype(datatype)}`
+  )
+  .join(",")}
+      )
+  ENGINE = MergeTree
+PARTITION BY toYYYYMM(timestamp)
+ORDER BY (experiment_id, timestamp)
+    `,
+  });
+
+  const exposureViewSQL = getExposureMaterializedViewSQL(
+    orgId,
+    materializedColumns
+  );
+
+  logger.info(`Copying existing data to the experiment views table`);
+  await client.command({
+    query: `INSERT INTO ${exposureTableName} ${exposureViewSQL}`,
+  });
+
+  logger.info(
+    `Creating ${exposureViewName} materialized view for experiment views`
+  );
+  await client.command({
+    query: `CREATE MATERIALIZED VIEW ${exposureViewName} TO ${exposureTableName} 
+DEFINER=CURRENT_USER SQL SECURITY DEFINER
+AS ${exposureViewSQL}`,
+  });
+
+  // Feature Usage table
   logger.info(`Creating ${featureUsageTableName} table`);
   await client.command({
     query: `CREATE TABLE ${featureUsageTableName} (
@@ -262,7 +336,7 @@ attributes String,
       )
   ENGINE = MergeTree
 PARTITION BY toYYYYMM(timestamp)
-ORDER BY timestamp
+ORDER BY (feature, timestamp)
     `,
   });
 
@@ -435,37 +509,40 @@ export async function updateMaterializedColumns({
   const database = clickhouseUserId(orgId);
   const eventsTableName = `${database}.events`;
   const eventsViewName = `${database}.events_mv`;
+  const exposureTableName = `${database}.experiment_views`;
+  const exposureViewName = `${database}.experiment_views_mv`;
+
+  const addClauses = columnsToAdd
+    .map(
+      ({ columnName, datatype }) =>
+        `ADD COLUMN IF NOT EXISTS ${columnName} ${getClickhouseDatatype(
+          datatype
+        )}`
+    )
+    .join(", ");
+  const dropClauses = columnsToDelete
+    .map((columnName) => `DROP COLUMN IF EXISTS ${columnName}`)
+    .join(", ");
+  const renameClauses = columnsToRename
+    .map(({ from, to }) => `RENAME COLUMN ${from} to ${to}`)
+    .join(", ");
+  const clauses = `${addClauses}${
+    columnsToAdd.length > 0 &&
+    columnsToDelete.length + columnsToRename.length > 0
+      ? ", "
+      : ""
+  }${dropClauses}${
+    columnsToDelete.length > 0 && columnsToRename.length > 0 ? ", " : ""
+  }${renameClauses}`;
 
   // Track which columns the view should be recreated with in case of an error
   let viewColumns = originalColumns;
 
+  // First update the main events table
   logger.info(`Updating materialized columns; dropping view ${eventsViewName}`);
   await client.command({ query: `DROP VIEW IF EXISTS ${eventsViewName}` });
-
   let err = undefined;
   try {
-    const addClauses = columnsToAdd
-      .map(
-        ({ columnName, datatype }) =>
-          `ADD COLUMN IF NOT EXISTS ${columnName} ${getClickhouseDatatype(
-            datatype
-          )}`
-      )
-      .join(", ");
-    const dropClauses = columnsToDelete
-      .map((columnName) => `DROP COLUMN IF EXISTS ${columnName}`)
-      .join(", ");
-    const renameClauses = columnsToRename
-      .map(({ from, to }) => `RENAME COLUMN ${from} to ${to}`)
-      .join(", ");
-    const clauses = `${addClauses}${
-      columnsToAdd.length > 0 &&
-      columnsToDelete.length + columnsToRename.length > 0
-        ? ", "
-        : ""
-    }${dropClauses}${
-      columnsToDelete.length > 0 && columnsToRename.length > 0 ? ", " : ""
-    }${renameClauses}`;
     logger.info(`Updating table schema for ${eventsTableName}`);
     await client.command({
       query: `ALTER TABLE ${eventsTableName} ${clauses}`,
@@ -481,6 +558,34 @@ export async function updateMaterializedColumns({
       query: `CREATE MATERIALIZED VIEW ${eventsViewName} TO ${eventsTableName} 
 DEFINER=CURRENT_USER SQL SECURITY DEFINER
 AS ${eventsViewSQL}`,
+    });
+  }
+  if (err) {
+    throw err;
+  }
+
+  // Now update the experiment views table
+  logger.info(
+    `Updating materialized columns; dropping view ${exposureViewName}`
+  );
+  await client.command({ query: `DROP VIEW IF EXISTS ${exposureViewName}` });
+  err = undefined;
+  viewColumns = originalColumns;
+  try {
+    logger.info(`Updating table schema for ${exposureTableName}`);
+    await client.command({
+      query: `ALTER TABLE ${exposureTableName} ${clauses}`,
+    });
+    viewColumns = finalColumns;
+  } catch (e) {
+    logger.error(e);
+    err = e;
+  } finally {
+    logger.info(`Recreating materialized view ${exposureViewName}`);
+    const exposureViewSQL = getExposureMaterializedViewSQL(orgId, viewColumns);
+    await client.command({
+      query: `CREATE MATERIALIZED VIEW ${exposureViewName} TO ${exposureTableName}
+AS ${exposureViewSQL}`,
     });
   }
   if (err) {

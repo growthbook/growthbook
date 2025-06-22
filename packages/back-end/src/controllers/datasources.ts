@@ -1323,8 +1323,8 @@ function generateManagedClickHouseExposureQueries(
     const cols = [
       identifier,
       "timestamp",
-      "simpleJSONExtractString(properties, 'experimentId') as experiment_id",
-      "simpleJSONExtractString(properties, 'variationId') as variation_id",
+      "experiment_id",
+      "variation_id",
       ...dimensions,
     ];
 
@@ -1336,9 +1336,9 @@ function generateManagedClickHouseExposureQueries(
       query: `
 SELECT 
   ${cols.join(",\n  ")}
-FROM events
+FROM experiment_views
 WHERE
-  event_name = 'Experiment Viewed'
+  experiment_id LIKE '{{ experimentId }}'
   AND timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'`.trim(),
     };
   });
