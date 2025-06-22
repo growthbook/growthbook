@@ -221,9 +221,18 @@ export async function createFactTables(
 export async function updateFactTable(
   context: ReqContext | ApiReqContext,
   factTable: FactTableInterface,
-  changes: UpdateFactTableProps
+  changes: UpdateFactTableProps,
+  {
+    bypassManagedByCheck,
+  }: {
+    bypassManagedByCheck?: boolean;
+  } = {}
 ) {
-  if (factTable.managedBy === "api" && context.auditUser?.type !== "api_key") {
+  if (
+    !bypassManagedByCheck &&
+    factTable.managedBy === "api" &&
+    context.auditUser?.type !== "api_key"
+  ) {
     throw new Error("This fact table is managed by the API");
   }
 

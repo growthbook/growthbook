@@ -18,6 +18,10 @@ import { DailyUsage, ReqContext } from "back-end/types/organization";
 import { logger } from "back-end/src/util/logger";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import { FactTableColumnType } from "back-end/types/fact-table";
+import {
+  getFactTablesForDatasource,
+  updateFactTable,
+} from "back-end/src/models/FactTableModel";
 
 type ClickHouseDataType =
   | "DateTime"
@@ -489,6 +493,7 @@ WITH FILL
 }
 
 export async function updateMaterializedColumns({
+  context,
   datasource,
   columnsToAdd,
   columnsToDelete,
@@ -496,6 +501,7 @@ export async function updateMaterializedColumns({
   finalColumns,
   originalColumns,
 }: {
+  context: ReqContext;
   datasource: GrowthbookClickhouseDataSource;
   columnsToAdd: MaterializedColumn[];
   columnsToDelete: string[];
@@ -590,5 +596,50 @@ AS ${exposureViewSQL}`,
   }
   if (err) {
     throw err;
+  }
+
+  // Update the main events fact table with the new columns
+  const factTables = await getFactTablesForDatasource(context, datasource.id);
+  const ft = factTables.find((ft) => ft.id === "ch_events");
+  if (ft) {
+    const newColumns = [...ft.columns];
+    columnsToAdd.forEach((col) => {
+      if (!newColumns.find((c) => c.column === col.columnName)) {
+        newColumns.push({
+          column: col.columnName,
+          name: col.columnName,
+          datatype: col.datatype,
+          dateCreated: new Date(),
+          dateUpdated: new Date(),
+          deleted: false,
+          description: "",
+          numberFormat: "",
+        });
+      }
+    });
+    columnsToRename.forEach(({ from, to }) => {
+      const col = newColumns.find((c) => c.column === from);
+      if (col) {
+        col.column = to;
+        col.name = to;
+        col.dateUpdated = new Date();
+      }
+    });
+    columnsToDelete.forEach((name) => {
+      const col = newColumns.find((c) => c.column === name);
+      if (col) {
+        col.deleted = true;
+        col.dateUpdated = new Date();
+      }
+    });
+
+    await updateFactTable(
+      context,
+      ft,
+      { columns: newColumns },
+      {
+        bypassManagedByCheck: true,
+      }
+    );
   }
 }

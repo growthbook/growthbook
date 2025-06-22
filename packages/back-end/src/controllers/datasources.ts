@@ -63,11 +63,6 @@ import {
 } from "back-end/src/services/clickhouse";
 import { FactTableColumnType } from "back-end/types/fact-table";
 import { factTableColumnTypes } from "back-end/src/routers/fact-table/fact-table.validators";
-import {
-  getFactTablesForDatasource,
-  updateFactTable,
-} from "back-end/src/models/FactTableModel";
-import { runRefreshColumnsQuery } from "back-end/src/jobs/refreshFactTableColumns";
 
 export async function deleteDataSource(
   req: AuthRequest<null, { id: string }>,
@@ -932,6 +927,7 @@ export async function postMaterializedColumn(
 
   try {
     await updateMaterializedColumns({
+      context,
       datasource,
       columnsToAdd: [newColumn],
       columnsToDelete: [],
@@ -941,13 +937,6 @@ export async function postMaterializedColumn(
     });
 
     await updateDataSource(context, datasource, updates);
-
-    // TODO: schedule a background job for this
-    const factTables = await getFactTablesForDatasource(context, datasource.id);
-    for (const ft of factTables) {
-      const columns = await runRefreshColumnsQuery(context, datasource, ft);
-      await updateFactTable(context, ft, { columns });
-    }
 
     const integration = getSourceIntegrationObject(context, {
       ...datasource,
@@ -1042,6 +1031,7 @@ export async function updateMaterializedColumn(
 
       // Drop original column and recreate
       await updateMaterializedColumns({
+        context,
         datasource,
         columnsToAdd: [newColumn],
         columnsToDelete: [originalColumn.columnName],
@@ -1052,6 +1042,7 @@ export async function updateMaterializedColumn(
     } else if (originalColumn.columnName !== newColumn.columnName) {
       // Rename column
       await updateMaterializedColumns({
+        context,
         datasource,
         columnsToAdd: [],
         columnsToDelete: [],
@@ -1064,13 +1055,6 @@ export async function updateMaterializedColumn(
     }
 
     await updateDataSource(context, datasource, updates);
-
-    // TODO: schedule a background job for this
-    const factTables = await getFactTablesForDatasource(context, datasource.id);
-    for (const ft of factTables) {
-      const columns = await runRefreshColumnsQuery(context, datasource, ft);
-      await updateFactTable(context, ft, { columns });
-    }
 
     const integration = getSourceIntegrationObject(context, {
       ...datasource,
@@ -1131,6 +1115,7 @@ export async function deleteMaterializedColumn(
 
   try {
     await updateMaterializedColumns({
+      context,
       datasource,
       columnsToAdd: [],
       columnsToDelete: [matColumnName],
