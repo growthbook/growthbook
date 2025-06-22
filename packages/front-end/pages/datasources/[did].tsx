@@ -332,15 +332,15 @@ mixpanel.init('YOUR PROJECT TOKEN', {
             {isManagedClickHouse ? (
               <>
                 <Frame>
-                  <Heading as="h3" size="4" mb="0">
+                  <Heading as="h3" size="4" mb="2">
                     How to Track Events
                   </Heading>
                   <Text>
-                    The best way to send events to GrowthBook depends on which
-                    SDK you are using.
+                    Pick your SDK below to see instructions for sending events
+                    to your warehouse.
                   </Text>
-                  <Tabs>
-                    <TabsList>
+                  <Tabs mt="2">
+                    <TabsList mb="3">
                       <TabsTrigger value="html">HTML Script Tag</TabsTrigger>
                       <TabsTrigger value="js">JS / React</TabsTrigger>
                       <TabsTrigger value="node">Node.js</TabsTrigger>
@@ -386,8 +386,8 @@ mixpanel.init('YOUR PROJECT TOKEN', {
       },
     });
   }
-  </script>
-  <button onclick="handleClick()">Sign Up</button>
+</script>
+<button onclick="handleClick()">Sign Up</button>
   `}
                       />
                     </TabsContent>
@@ -418,7 +418,7 @@ const gb = new GrowthBook({
                         experiment events. All of the attributes you set in the
                         GrowthBook instance will also be sent along with the
                         events by default, so make sure you don&apos;t include
-                        any sensitive information!
+                        any sensitive information.
                       </p>
                       <p>
                         There is a <code>logEvent</code> method you can call
@@ -447,9 +447,7 @@ gb.logEvent("Button Click", {
                         language="javascript"
                         expandable={true}
                         code={`import { GrowthBookClient } from "@growthbook/growthbook";
-import { 
-  growthbookTrackingPlugin
-} from "@growthbook/growthbook-tracking";
+import { growthbookTrackingPlugin } from "@growthbook/growthbook-tracking";
 
 const gbClient = new GrowthBookClient({
   // ... other options
@@ -472,15 +470,13 @@ const gbClient = new GrowthBookClient({
                         language="javascript"
                         expandable={true}
                         code={`// Event with custom properties
-gb.logEvent("Button Click", {
-  buttonText: "Sign Up",
-  buttonColor: "blue"
+gb.logEvent("Sign Up", {
+  accountPlan: "pro"
 }, userContext);
 
 // If you have a scoped instance, you don't need to pass userContext
-req.growthbook.logEvent("Button Click", {
-  buttonText: "Sign Up",
-  buttonColor: "blue"
+req.growthbook.logEvent("Sign Up", {
+  accountPlan: "pro"
 });`}
                       />
                     </TabsContent>
@@ -510,9 +506,8 @@ def track_event(client_key, event_name, properties=None):
     response = requests.post(url, data=json.dumps(payload), headers=headers)
     return response.status_code
 
-track_event("YOUR_CLIENT_KEY", "Button Click", {
-    "buttonText": "Sign Up",
-    "buttonColor": "blue"
+track_event("YOUR_CLIENT_KEY", "Sign Up", {
+    "accountPlan": "pro"
 })`}
                       />
                       <p>

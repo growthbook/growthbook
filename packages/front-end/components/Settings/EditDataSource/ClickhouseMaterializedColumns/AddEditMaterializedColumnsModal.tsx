@@ -3,7 +3,6 @@ import { cloneDeep } from "lodash";
 import { useForm } from "react-hook-form";
 import { useMemo, useState } from "react";
 import { JSONColumnFields } from "back-end/types/fact-table";
-import { factTableColumnTypes } from "back-end/src/routers/fact-table/fact-table.validators";
 import { Flex, Text, Tooltip } from "@radix-ui/themes";
 import { PiArrowClockwise, PiSpinner } from "react-icons/pi";
 import Modal from "@/components/Modal";
@@ -103,8 +102,6 @@ export default function AddMaterializedColumnsModal({
     ];
   }, [factTables, getDatasourceById]);
 
-  const selectableColumnTypes = factTableColumnTypes.filter((t) => t !== "");
-
   const typeOptions = [{ label: "Other", value: "" }];
 
   const datatype = form.watch("datatype");
@@ -174,7 +171,12 @@ export default function AddMaterializedColumnsModal({
           form.setValue("columnName", value);
 
           if (contextJsonFields && value in contextJsonFields) {
-            const datatype = contextJsonFields[value].datatype;
+            let datatype = contextJsonFields[value].datatype;
+
+            if (!["string", "number", "boolean"].includes(datatype)) {
+              datatype = "other";
+            }
+
             form.setValue("datatype", datatype);
             form.setValue("type", "");
           } else {
@@ -189,10 +191,24 @@ export default function AddMaterializedColumnsModal({
           <SelectField
             label="Data type"
             value={form.watch("datatype")}
-            options={selectableColumnTypes.map((opt) => ({
-              label: opt,
-              value: opt,
-            }))}
+            options={[
+              {
+                label: "String",
+                value: "string",
+              },
+              {
+                label: "Number",
+                value: "number",
+              },
+              {
+                label: "Boolean",
+                value: "boolean",
+              },
+              {
+                label: "Other",
+                value: "other",
+              },
+            ]}
             onChange={(value) => {
               form.setValue(
                 "datatype",
