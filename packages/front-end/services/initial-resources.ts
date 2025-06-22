@@ -57,13 +57,14 @@ function getBuiltInWarehouseResources(): InitialDatasourceResources {
       // Events
       {
         factTable: {
-          name: "Clickhouse Events",
+          // Give it a known id so we can reference it easily
+          id: "ch_events",
+          name: "Events",
           description: "",
-          sql: `SELECT *
-FROM events
-WHERE
-  event_name <> 'Experiment Viewed'
-  AND timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'`,
+          sql: `SELECT * FROM events
+WHERE timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'`,
+          // Mark the fact table as Official and block editing/deleting in the UI
+          managedBy: "api",
           columns: generateColumns({
             timestamp: { datatype: "date" },
             user_id: { datatype: "string" },
