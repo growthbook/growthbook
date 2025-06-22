@@ -45,6 +45,7 @@ const dataSourceSchema = new mongoose.Schema<DataSourceDocument>({
     index: true,
   },
   settings: {},
+  lockUntil: Date,
 });
 dataSourceSchema.index({ id: 1, organization: 1 }, { unique: true });
 type DataSourceDocument = mongoose.Document & DataSourceInterface;
@@ -343,6 +344,63 @@ export async function updateDataSource(
     },
     {
       $set: updates,
+    }
+  );
+}
+
+function isLocked(datasource: DataSourceInterface): boolean {
+  if (usingFileConfig() || !datasource.lockUntil) return false;
+  return datasource.lockUntil > new Date();
+}
+
+export async function lockDataSource(
+  context: ReqContext | ApiReqContext,
+  datasource: DataSourceInterface,
+  seconds: number
+) {
+  if (usingFileConfig()) {
+    throw new Error("Cannot lock. Data sources managed by config.yml");
+  }
+  if (datasource.organization !== context.org.id) {
+    throw new Error("Cannot lock data source from another organization");
+  }
+
+  // Already locked, throw error
+  if (isLocked(datasource)) {
+    throw new Error(
+      "Data source is currently being modified. Please try again later."
+    );
+  }
+
+  await DataSourceModel.updateOne(
+    {
+      id: datasource.id,
+      organization: context.org.id,
+    },
+    {
+      $set: { lockUntil: new Date(Date.now() + seconds * 1000) },
+    }
+  );
+}
+
+export async function unlockDataSource(
+  context: ReqContext | ApiReqContext,
+  datasource: DataSourceInterface
+) {
+  if (usingFileConfig()) {
+    throw new Error("Cannot unlock. Data sources managed by config.yml");
+  }
+  if (datasource.organization !== context.org.id) {
+    throw new Error("Cannot unlock data source from another organization");
+  }
+
+  await DataSourceModel.updateOne(
+    {
+      id: datasource.id,
+      organization: context.org.id,
+    },
+    {
+      $set: { lockUntil: null },
     }
   );
 }
