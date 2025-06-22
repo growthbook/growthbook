@@ -381,6 +381,38 @@ export async function createClickhouseUser(
     `CREATE USER ${user} IDENTIFIED WITH sha256_hash BY '${hashedPassword}' DEFAULT DATABASE ${database}`
   );
 
+  await createClickhouseTables(client, orgId, materializedColumns);
+
+  logger.info(
+    `Granting select permissions on information_schema.columns to ${user}`
+  );
+  // For schema browser.  They can only see info on tables that they have select permissions on.
+  await runCommand(
+    client,
+    `GRANT SELECT(data_type, table_name, table_catalog, table_schema, column_name) ON information_schema.columns TO ${user}`
+  );
+
+  const url = new URL(CLICKHOUSE_HOST);
+
+  const params = {
+    port: parseInt(url.port) || 9000,
+    url: url.toString(),
+    user: user,
+    password: password,
+    database: database,
+  };
+
+  return params;
+}
+
+export async function createClickhouseTables(
+  client: ReturnType<typeof createAdminClickhouseClient>,
+  orgId: string,
+  materializedColumns: MaterializedColumn[] = []
+): Promise<void> {
+  const user = clickhouseUserId(orgId);
+  const database = user;
+
   // Events table
   const eventsSQL = getEventsSQL(orgId, materializedColumns);
   logger.info(`Creating table ${eventsSQL.tableName}`);
@@ -410,40 +442,49 @@ export async function createClickhouseUser(
 
   logger.info(`Granting select permissions on ${database}.* to ${user}`);
   await runCommand(client, `GRANT SELECT ON ${database}.* TO ${user}`);
+}
 
-  logger.info(
-    `Granting select permissions on information_schema.columns to ${user}`
-  );
-  // For schema browser.  They can only see info on tables that they have select permissions on.
-  await runCommand(
-    client,
-    `GRANT SELECT(data_type, table_name, table_catalog, table_schema, column_name) ON information_schema.columns TO ${user}`
-  );
+export async function _dangerousRecreateClickhouseTables(
+  context: ReqContext,
+  datasource: GrowthbookClickhouseDataSource
+): Promise<void> {
+  const client = createAdminClickhouseClient();
 
-  const url = new URL(CLICKHOUSE_HOST);
+  const orgId = context.org.id;
+  const user = clickhouseUserId(orgId);
+  const database = user;
 
-  const params = {
-    port: parseInt(url.port) || 9000,
-    url: url.toString(),
-    user: user,
-    password: password,
-    database: database,
-  };
+  // Backfilling data can take a while, so lock the datasource for 30 minutes
+  await lockDataSource(context, datasource, 1800);
 
-  return params;
+  try {
+    // Drop the entire database and recreate it
+    logger.info(`Dropping Clickhouse database ${database}`);
+    await runCommand(client, `DROP DATABASE ${database} IF EXISTS`);
+
+    logger.info(`Creating Clickhouse database ${database}`);
+    await runCommand(client, `CREATE DATABASE ${database}`);
+
+    await createClickhouseTables(
+      client,
+      orgId,
+      datasource.settings.materializedColumns || []
+    );
+  } finally {
+    await unlockDataSource(context, datasource);
+  }
 }
 
 export async function deleteClickhouseUser(organization: string) {
   const client = createAdminClickhouseClient();
   const user = clickhouseUserId(organization);
+  const database = user;
 
   logger.info(`Deleting Clickhouse user ${user}`);
   await runCommand(client, `DROP USER ${user}`);
 
-  logger.info(`Deleting Clickhouse database ${user}`);
-  await runCommand(client, `DROP DATABASE ${user}`);
-
-  logger.info(`Clickhouse user ${user} deleted`);
+  logger.info(`Deleting Clickhouse database ${database}`);
+  await runCommand(client, `DROP DATABASE ${database}`);
 }
 
 export async function addCloudSDKMapping(connection: SDKConnectionInterface) {

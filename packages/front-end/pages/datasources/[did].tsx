@@ -40,6 +40,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/Radix/Tabs";
+import ConfirmButton from "@/components/Modal/ConfirmButton";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -63,7 +64,7 @@ const DataSourcePage: FC = () => {
   const { did } = router.query as { did: string };
   const d = getDatasourceById(did);
   const { apiCall } = useAuth();
-  const { organization, hasCommercialFeature } = useUser();
+  const { organization, hasCommercialFeature, superAdmin } = useUser();
 
   const isManagedClickHouse = d?.type === "growthbook_clickhouse";
 
@@ -331,9 +332,35 @@ mixpanel.init('YOUR PROJECT TOKEN', {
           <>
             {isManagedClickHouse ? (
               <>
+                {superAdmin ? (
+                  <Frame>
+                    <ConfirmButton
+                      onClick={async () => {
+                        await apiCall(
+                          `/datasource/${d.id}/recreate-managed-clickhouse`,
+                          {
+                            method: "POST",
+                          }
+                        );
+                        await mutateDefinitions({});
+                      }}
+                      confirmationText={
+                        <span>
+                          Are you sure? This may take several minutes and all
+                          queries during this time will fail.
+                        </span>
+                      }
+                      modalHeader="Drop and Recreate Managed ClickHouse Database"
+                    >
+                      <button className="btn btn-danger">
+                        Drop and Recreate Database
+                      </button>
+                    </ConfirmButton>
+                  </Frame>
+                ) : null}
                 <Frame>
                   <Heading as="h3" size="4" mb="2">
-                    How to Track Events
+                    Event Tracking Instructions
                   </Heading>
                   <Text>
                     Pick your SDK below to see instructions for sending events

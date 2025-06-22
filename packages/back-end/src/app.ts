@@ -768,6 +768,10 @@ app.delete(
   "/datasource/:datasourceId/materializedColumn/:matColumnName",
   datasourcesController.deleteMaterializedColumn
 );
+app.post(
+  "/datasource/:datasourceId/recreate-managed-clickhouse",
+  datasourcesController.postRecreateManagedClickHouse
+);
 
 if (IS_CLOUD) {
   app.post(

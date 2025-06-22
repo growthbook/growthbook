@@ -57,6 +57,7 @@ import {
 } from "back-end/src/types/Integration";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
+  _dangerousRecreateClickhouseTables,
   createClickhouseUser,
   getReservedColumnNames,
   updateMaterializedColumns,
@@ -1141,6 +1142,38 @@ export async function deleteMaterializedColumn(
       message: e.message || "An error occurred",
     });
   }
+}
+
+export async function postRecreateManagedClickHouse(
+  req: AuthRequest<null, { datasourceId: string }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+
+  // Escape hatch for super admins to re-generate the database and backfill data
+  if (!context.superAdmin) {
+    throw new Error(
+      "You must be a super admin to recreate a Managed ClickHouse datasource"
+    );
+  }
+
+  const { datasourceId } = req.params;
+  const datasource = await getDataSourceById(context, datasourceId);
+  if (!datasource) {
+    throw new Error("Cannot find datasource");
+  }
+
+  if (datasource.type !== "growthbook_clickhouse") {
+    throw new Error(
+      "Can only recreate a Managed ClickHouse datasource, not other types"
+    );
+  }
+
+  await _dangerousRecreateClickhouseTables(context, datasource);
+
+  res.status(200).json({
+    status: 200,
+  });
 }
 
 function sanitizeMatColumnInput(
