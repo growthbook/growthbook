@@ -296,8 +296,8 @@ const sidebars = {
         },
         {
           type: "doc",
-          id: "experimentation-analysis/managed-clickhouse",
-          label: "Managed ClickHouse",
+          id: "experimentation-analysis/managed-warehouse",
+          label: "Managed Warehouse",
           className: "pill-new",
         },
       ],

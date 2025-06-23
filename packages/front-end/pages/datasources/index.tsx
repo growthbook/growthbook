@@ -29,13 +29,13 @@ import Modal from "@/components/Modal";
 import SelectField from "@/components/Forms/SelectField";
 import Checkbox from "../../components/Radix/Checkbox";
 
-function ManagedClickhouseForm({ close }: { close: () => void }) {
+function ManagedWarehouseForm({ close }: { close: () => void }) {
   const { apiCall } = useAuth();
   const { mutateDefinitions } = useDefinitions();
   const router = useRouter();
 
   const { hasCommercialFeature } = useUser();
-  const hasAccess = hasCommercialFeature("managed-clickhouse");
+  const hasAccess = hasCommercialFeature("managed-warehouse");
   const [agree, setAgree] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
 
@@ -43,7 +43,7 @@ function ManagedClickhouseForm({ close }: { close: () => void }) {
     return (
       <UpgradeModal
         close={() => setUpgradeOpen(false)}
-        commercialFeature="managed-clickhouse"
+        commercialFeature="managed-warehouse"
         source="datasource-list"
       />
     );
@@ -54,11 +54,10 @@ function ManagedClickhouseForm({ close }: { close: () => void }) {
       open={true}
       header={
         <>
-          Managed ClickHouse{" "}
-          <Badge label="New!" color="violet" variant="soft" />
+          Managed Warehouse <Badge label="New!" color="violet" variant="soft" />
         </>
       }
-      trackingEventModalType="managed-clickhouse"
+      trackingEventModalType="managed-warehouse"
       close={close}
       submit={async () => {
         if (!hasAccess) {
@@ -71,7 +70,7 @@ function ManagedClickhouseForm({ close }: { close: () => void }) {
         const res = await apiCall<{
           status: number;
           id: string;
-        }>("/datasources/managed-clickhouse", {
+        }>("/datasources/managed-warehouse", {
           method: "POST",
         });
 
@@ -165,10 +164,10 @@ function ManagedClickhouseForm({ close }: { close: () => void }) {
   );
 }
 
-function ManagedClickhouseDriver() {
+function ManagedWarehouseDriver() {
   const { hasCommercialFeature } = useUser();
   const [open, setOpen] = useState(false);
-  const hasAccess = hasCommercialFeature("managed-clickhouse");
+  const hasAccess = hasCommercialFeature("managed-warehouse");
 
   const cursors: {
     top: number;
@@ -198,7 +197,7 @@ function ManagedClickhouseDriver() {
 
   return (
     <>
-      {open ? <ManagedClickhouseForm close={() => setOpen(false)} /> : null}
+      {open ? <ManagedWarehouseForm close={() => setOpen(false)} /> : null}
       <Flex
         style={{
           position: "relative",
@@ -246,7 +245,7 @@ function ManagedClickhouseDriver() {
           {hasAccess ? (
             <Badge label="New!" color="violet" variant="soft" />
           ) : (
-            <PaidFeatureBadge commercialFeature="managed-clickhouse" />
+            <PaidFeatureBadge commercialFeature="managed-warehouse" />
           )}
           <h3 className="mb-3 mt-2">
             Use GrowthBook Cloud&apos;s fully-managed warehouse to get started
@@ -296,11 +295,11 @@ const DataSourcesPage: FC = () => {
   const { hasCommercialFeature, license } = useUser();
 
   // Cloud, no data sources yet, has permissions, and is either free OR on a usage-based paid plan
-  const showManagedClickhouse =
+  const showManagedWarehouse =
     isCloud() &&
     filteredDatasources.length === 0 &&
     permissionsUtil.canViewCreateDataSourceModal(project) &&
-    (!hasCommercialFeature("managed-clickhouse") ||
+    (!hasCommercialFeature("managed-warehouse") ||
       !!license?.orbSubscription) &&
     gb.isOn("inbuilt-data-warehouse");
 
@@ -382,13 +381,13 @@ const DataSourcesPage: FC = () => {
               This approach is cheaper, more secure, and more flexible.
             </p>
           </div>
-          {showManagedClickhouse ? <ManagedClickhouseDriver /> : null}
+          {showManagedWarehouse ? <ManagedWarehouseDriver /> : null}
 
           <hr className="my-4" />
           <div className="mb-3 d-flex flex-column align-items-center justify-content-center w-100">
             <div className="mb-3">
               <h3>
-                {showManagedClickhouse ? "Or connect" : "Connect"} to your
+                {showManagedWarehouse ? "Or connect" : "Connect"} to your
                 existing data warehouse:
               </h3>
             </div>
@@ -413,7 +412,7 @@ const DataSourcesPage: FC = () => {
               }}
             />
 
-            {!showManagedClickhouse ? (
+            {!showManagedWarehouse ? (
               <Callout status="info" mt="5">
                 Don&apos;t have a data warehouse yet? We recommend using
                 BigQuery with Google Analytics.{" "}

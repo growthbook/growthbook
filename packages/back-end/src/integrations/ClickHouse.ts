@@ -130,7 +130,7 @@ export default class ClickHouse extends SqlIntegration {
         "No database name provided in ClickHouse connection. Please add a database by editing the connection settings."
       );
 
-    // For Managed ClickHouse, filter out materialized views
+    // For Managed Warehouse, filter out materialized views
     const extraWhere =
       this.datasource.type === "growthbook_clickhouse"
         ? " AND table_name NOT LIKE '%_mv'"

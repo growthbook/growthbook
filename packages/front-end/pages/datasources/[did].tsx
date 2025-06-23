@@ -59,14 +59,14 @@ const DataSourcePage: FC = () => {
   const { apiCall } = useAuth();
   const { organization, hasCommercialFeature } = useUser();
 
-  const isManagedClickHouse = d?.type === "growthbook_clickhouse";
+  const isManagedWarehouse = d?.type === "growthbook_clickhouse";
 
   const canDelete =
     (d && permissionsUtil.canDeleteDataSource(d) && !hasFileConfig()) || false;
 
   const canUpdateConnectionParams =
     (d &&
-      !isManagedClickHouse &&
+      !isManagedWarehouse &&
       permissionsUtil.canUpdateDataSourceParams(d) &&
       !hasFileConfig()) ||
     false;
@@ -323,14 +323,14 @@ mixpanel.init('YOUR PROJECT TOKEN', {
         )}
         {supportsSQL && (
           <>
-            {isManagedClickHouse ? (
+            {isManagedWarehouse ? (
               <>
                 <Frame>
                   <Heading as="h3" size="4" mb="2">
                     Sending Events
                   </Heading>
                   <Text>
-                    <DocLink docSection="managedClickhouseTracking">
+                    <DocLink docSection="managedWarehouseTracking">
                       Read our full docs
                     </DocLink>{" "}
                     with language-specific instructions on how to send events

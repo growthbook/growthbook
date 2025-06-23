@@ -343,8 +343,8 @@ export default function UpgradeModal({
     "require-approvals":
       "Reduce errors by requiring approval flows when changing feature flag values",
     "audit-logging": "Easily export historical audit logs",
-    "managed-clickhouse":
-      "Fully managed ClickHouse and event tracking pipeline in GrowthBook Cloud",
+    "managed-warehouse":
+      "Fully managed data warehouse and event tracking pipeline in GrowthBook Cloud",
     saveSqlExplorerQueries:
       "Save query results and visualizations from the SQL Explorer.",
   };
@@ -565,10 +565,10 @@ export default function UpgradeModal({
                   </tr>
                 </thead>
                 <tbody>
-                  {commercialFeature === "managed-clickhouse" && (
+                  {commercialFeature === "managed-warehouse" && (
                     <tr>
                       <td>
-                        Managed ClickHouse{" "}
+                        Managed Warehouse{" "}
                         <Tooltip
                           body={
                             <>

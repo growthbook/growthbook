@@ -255,7 +255,7 @@ export async function postDataSources(
   }
 }
 
-export async function postManagedClickHouse(
+export async function postManagedWarehouse(
   req: AuthRequest,
   res: Response<
     | {
@@ -278,12 +278,13 @@ export async function postManagedClickHouse(
   const context = getContextFromReq(req);
 
   if (
+    !context.superAdmin &&
     !context.permissions.canCreateDataSource({ type: "growthbook_clickhouse" })
   ) {
     context.permissions.throwPermissionError();
   }
 
-  if (!context.hasPremiumFeature("managed-clickhouse")) {
+  if (!context.hasPremiumFeature("managed-warehouse")) {
     return res.status(403).json({
       status: 403,
       message: "This requires a Pro account.",
@@ -330,22 +331,22 @@ export async function postManagedClickHouse(
   ];
 
   const params = await createClickhouseUser(context, materializedColumns);
-  const datasourceSettings = getManagedClickHouseSettings(
+  const datasourceSettings = getManagedWarehouseSettings(
     materializedColumns,
     {}
   );
 
   await createDataSource(
     context,
-    "Managed ClickHouse",
+    "Managed Warehouse",
     "growthbook_clickhouse",
     params,
     datasourceSettings,
-    "managed_clickhouse"
+    "managed_warehouse"
   );
   res.status(200).json({
     status: 200,
-    id: "managed_clickhouse",
+    id: "managed_warehouse",
   });
 }
 
@@ -923,7 +924,7 @@ export async function postMaterializedColumn(
   }
 
   const updates = {
-    settings: getManagedClickHouseSettings(finalColumns, datasource.settings),
+    settings: getManagedWarehouseSettings(finalColumns, datasource.settings),
   };
 
   try {
@@ -1028,7 +1029,7 @@ export async function updateMaterializedColumn(
   }
 
   const updates = {
-    settings: getManagedClickHouseSettings(finalColumns, datasource.settings),
+    settings: getManagedWarehouseSettings(finalColumns, datasource.settings),
   };
 
   try {
@@ -1120,7 +1121,7 @@ export async function deleteMaterializedColumn(
   ];
 
   const updates = {
-    settings: getManagedClickHouseSettings(finalColumns, datasource.settings),
+    settings: getManagedWarehouseSettings(finalColumns, datasource.settings),
   };
 
   try {
@@ -1153,7 +1154,7 @@ export async function deleteMaterializedColumn(
   }
 }
 
-export async function postRecreateManagedClickHouse(
+export async function postRecreateManagedWarehouse(
   req: AuthRequest<null, { datasourceId: string }>,
   res: Response
 ) {
@@ -1162,7 +1163,7 @@ export async function postRecreateManagedClickHouse(
   // Escape hatch for super admins to re-generate the database and backfill data
   if (!context.superAdmin) {
     throw new Error(
-      "You must be a super admin to recreate a Managed ClickHouse datasource"
+      "You must be a super admin to recreate a Managed Warehouse datasource"
     );
   }
 
@@ -1174,7 +1175,7 @@ export async function postRecreateManagedClickHouse(
 
   if (datasource.type !== "growthbook_clickhouse") {
     throw new Error(
-      "Can only recreate a Managed ClickHouse datasource, not other types"
+      "Can only recreate a Managed Warehouse datasource, not other types"
     );
   }
 
@@ -1310,7 +1311,7 @@ function sanitizeMatColumnName(userInput: string) {
   return userInput;
 }
 
-function getManagedClickHouseSettings(
+function getManagedWarehouseSettings(
   materializedColumns: MaterializedColumn[],
   existing: GrowthbookClickhouseDataSource["settings"]
 ): GrowthbookClickhouseSettings {
@@ -1330,12 +1331,12 @@ function getManagedClickHouseSettings(
       })),
     queries: {
       ...existing.queries,
-      exposure: generateManagedClickHouseExposureQueries(materializedColumns),
+      exposure: generateManagedWarehouseExposureQueries(materializedColumns),
     },
   };
 }
 
-function generateManagedClickHouseExposureQueries(
+function generateManagedWarehouseExposureQueries(
   materializedColumns: MaterializedColumn[]
 ): ExposureQuery[] {
   const identifiers = materializedColumns

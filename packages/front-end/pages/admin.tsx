@@ -83,8 +83,8 @@ function OrganizationRow({
   const [licenseLoading, setLicenseLoading] = useState(false);
   const { apiCall } = useAuth();
   const [clickhouseModalOpen, setClickhouseModalOpen] = useState(false);
-  const [hasGrowthbookClickhouse, setHasGrowthbookClickhouse] = useState(
-    datasources.find((ds) => ds.type === "growthbook_clickhouse") ? true : false
+  const [managedWarehouseId, setManagedWarehouseId] = useState(
+    datasources.find((ds) => ds.type === "growthbook_clickhouse")?.id || null
   );
 
   useEffect(() => {
@@ -132,12 +132,15 @@ function OrganizationRow({
   }, [expanded, apiCall, orgMembers, organization]);
 
   const createClickhouseDatasource = async () => {
-    await apiCall(`/datasources/managed-clickhouse`, {
-      method: "POST",
-      headers: { "X-Organization": organization.id },
-    });
+    const { id } = await apiCall<{ id: string }>(
+      `/datasources/managed-warehouse`,
+      {
+        method: "POST",
+        headers: { "X-Organization": organization.id },
+      }
+    );
     setClickhouseModalOpen(false);
-    setHasGrowthbookClickhouse(true);
+    setManagedWarehouseId(id);
   };
 
   return (
@@ -160,7 +163,7 @@ function OrganizationRow({
           cta="Yes"
           trackingEventModalType=""
         >
-          Are you sure you want to create a Managed Clickhouse data source for
+          Are you sure you want to create a Managed Warehouse data source for
           this organization?
         </Modal>
       )}
@@ -317,13 +320,13 @@ function OrganizationRow({
                       </div>
                     ))}
                   <div className="row">
-                    <div className="col-2 text-right">Managed ClickHouse</div>
+                    <div className="col-2 text-right">Managed Warehouse</div>
                     <div className="col-auto">
-                      {hasGrowthbookClickhouse ? (
+                      {managedWarehouseId ? (
                         <ConfirmButton
                           onClick={async () => {
                             await apiCall(
-                              `/datasource/managed_clickhouse/recreate-managed-clickhouse`,
+                              `/datasource/${managedWarehouseId}/recreate-managed-warehouse`,
                               {
                                 method: "POST",
                                 headers: { "X-Organization": organization.id },
@@ -336,7 +339,7 @@ function OrganizationRow({
                               all queries during this time will fail.
                             </span>
                           }
-                          modalHeader="Drop and Recreate Managed ClickHouse Database"
+                          modalHeader="Drop and Recreate Managed Warehouse"
                         >
                           <button className="btn btn-danger">
                             Drop and Recreate Database
@@ -348,9 +351,7 @@ function OrganizationRow({
                           className={"btn btn-primary"}
                           onClick={(e) => {
                             e.preventDefault();
-                            if (!hasGrowthbookClickhouse) {
-                              setClickhouseModalOpen(true);
-                            }
+                            setClickhouseModalOpen(true);
                           }}
                         >
                           Create Database

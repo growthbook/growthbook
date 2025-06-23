@@ -769,14 +769,14 @@ app.delete(
   datasourcesController.deleteMaterializedColumn
 );
 app.post(
-  "/datasource/:datasourceId/recreate-managed-clickhouse",
-  datasourcesController.postRecreateManagedClickHouse
+  "/datasource/:datasourceId/recreate-managed-warehouse",
+  datasourcesController.postRecreateManagedWarehouse
 );
 
 if (IS_CLOUD) {
   app.post(
-    "/datasources/managed-clickhouse",
-    datasourcesController.postManagedClickHouse
+    "/datasources/managed-warehouse",
+    datasourcesController.postManagedWarehouse
   );
 }
 

@@ -1,13 +1,13 @@
 ---
-title: Managed ClickHouse
-description: Learn about GrowthBook Cloud's Managed ClickHouse service
-sidebar_label: Managed ClickHouse
-slug: /app/managed-clickhouse
+title: Managed Warehouse
+description: Learn about GrowthBook Cloud's Managed Warehouse service
+sidebar_label: Managed Warehouse
+slug: /app/managed-warehouse
 ---
 
-# Managed ClickHouse
+# Managed Warehouse
 
-GrowthBook Cloud offers a fully managed ClickHouse database and event tracking pipeline. This is primarily intended for users who want to use GrowthBook's experimentation and analysis features without needing to set up their own data warehouse.
+GrowthBook Cloud offers a fully managed data warehouse and event tracking pipeline. This is primarily intended for users who want to use GrowthBook's experimentation and analysis features without needing to set up their own data warehouse.
 
 ## Benefits
 
@@ -17,13 +17,15 @@ GrowthBook Cloud offers a fully managed ClickHouse database and event tracking p
 
 ## How it Works
 
+We use ClickHouse, a database optimized for real-time analytics, to store your event data. The process is simple:
+
 1. You send analytics events to our scalable ingestion API
 2. We enrich and store them in ClickHouse within seconds
 3. You can query the data with SQL, define metrics, and analyze experiment results with our powerful stats engine.
 
 ## Sending Events
 
-There are 2 ways to send events to GrowthBook Cloud's Managed ClickHouse:
+There are 2 ways to send events to GrowthBook Cloud's Managed Warehouse:
 
 1. With our [SDKs](#with-sdks) (limited language support)
 2. With our [Ingestion API](#ingestion-api)
