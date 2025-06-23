@@ -12,7 +12,6 @@ import {
   FaPlus,
   FaSearch,
   FaSpinner,
-  FaDatabase,
 } from "react-icons/fa";
 import { date } from "shared/dates";
 import stringify from "json-stringify-pretty-compact";
@@ -39,7 +38,7 @@ import {
 import Modal from "@/components/Modal";
 import Toggle from "@/components/Forms/Toggle";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import ConfirmButton from "@/components/Modal/ConfirmButton";
 
 interface memberOrgProps {
   id: string;
@@ -212,37 +211,6 @@ function OrganizationRow({
             <FaPencilAlt />
           </a>
         </td>
-        {isCloud() && (
-          <td className="p-0 text-center">
-            <Tooltip
-              body={
-                hasGrowthbookClickhouse
-                  ? "Already has an Inbuilt Growthbook Datasource"
-                  : "Create Inbuilt Growthbook Clickhouse DataSource"
-              }
-            >
-              <a
-                href="#"
-                className={clsx("d-block w-100 h-100", {
-                  "text-muted": hasGrowthbookClickhouse,
-                })}
-                onClick={(e) => {
-                  e.preventDefault();
-                  if (!hasGrowthbookClickhouse) {
-                    setClickhouseModalOpen(true);
-                  }
-                }}
-                style={{
-                  lineHeight: "40px",
-                  pointerEvents: hasGrowthbookClickhouse ? "none" : "auto",
-                }}
-                title={"Create Clickhouse Data Source"}
-              >
-                <FaDatabase />
-              </a>
-            </Tooltip>
-          </td>
-        )}
         <td style={{ width: 40 }} className="p-0 text-center">
           <a
             href="#"
@@ -348,6 +316,48 @@ function OrganizationRow({
                         </div>
                       </div>
                     ))}
+                  <div className="row">
+                    <div className="col-2 text-right">Managed ClickHouse</div>
+                    <div className="col-auto">
+                      {hasGrowthbookClickhouse ? (
+                        <ConfirmButton
+                          onClick={async () => {
+                            await apiCall(
+                              `/datasource/managed_clickhouse/recreate-managed-clickhouse`,
+                              {
+                                method: "POST",
+                                headers: { "X-Organization": organization.id },
+                              }
+                            );
+                          }}
+                          confirmationText={
+                            <span>
+                              Are you sure? This may take several minutes and
+                              all queries during this time will fail.
+                            </span>
+                          }
+                          modalHeader="Drop and Recreate Managed ClickHouse Database"
+                        >
+                          <button className="btn btn-danger">
+                            Drop and Recreate Database
+                          </button>
+                        </ConfirmButton>
+                      ) : (
+                        <a
+                          href="#"
+                          className={"btn btn-primary"}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            if (!hasGrowthbookClickhouse) {
+                              setClickhouseModalOpen(true);
+                            }
+                          }}
+                        >
+                          Create Database
+                        </a>
+                      )}
+                    </div>
+                  </div>
                 </>
               )}
             </div>
@@ -714,7 +724,6 @@ const Admin: FC = () => {
                   {!isCloud() && <th>External Id</th>}
                   <th style={{ width: "120px" }}>Members</th>
                   <th style={{ width: "14px" }}></th>
-                  {isCloud() && <th style={{ width: "14px" }}></th>}
                   <th style={{ width: "40px" }}></th>
                 </tr>
               </thead>

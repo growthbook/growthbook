@@ -234,7 +234,7 @@ export default function AddMaterializedColumnsModal({
           />
           <Field
             label="Column Name"
-            helpText="This SQL column the attribute will be stored in. Must start with a letter or underscore and use only alphanumeric characters and '_'"
+            helpText="The SQL column the attribute will be stored in. Must start with a letter or underscore and use only alphanumeric characters and '_'"
             {...form.register("columnName")}
             pattern="^[a-zA-Z_][a-zA-Z0-9_]*$"
           />

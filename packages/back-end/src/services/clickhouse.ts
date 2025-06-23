@@ -460,7 +460,7 @@ export async function _dangerousRecreateClickhouseTables(
   try {
     // Drop the entire database and recreate it
     logger.info(`Dropping Clickhouse database ${database}`);
-    await runCommand(client, `DROP DATABASE ${database} IF EXISTS`);
+    await runCommand(client, `DROP DATABASE IF EXISTS ${database}`);
 
     logger.info(`Creating Clickhouse database ${database}`);
     await runCommand(client, `CREATE DATABASE ${database}`);
