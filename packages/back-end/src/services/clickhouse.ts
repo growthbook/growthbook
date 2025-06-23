@@ -129,9 +129,7 @@ function getClickhouseExtractClause(
   // Some fields will eventually be inside attributes instead of top-level
   // This is a temp workaround until then
   if (tempTopLevelFields[sourceField]) {
-    const desiredDataType = getClickhouseDatatype(
-      tempTopLevelFields[sourceField] as FactTableColumnType
-    );
+    const desiredDataType = getClickhouseDatatype(columnType);
 
     // If the desired data type is different from the actual type, need to cast it
     if (desiredDataType !== tempTopLevelFields[sourceField]) {
@@ -180,7 +178,8 @@ function getCreateTableColumnList(columns: ColumnDef[]): string[] {
 }
 function getSelectColumnList(columns: ColumnDef[]): string[] {
   return columns.map(
-    ({ source, alias }) => `${source}${alias ? ` as ${alias}` : ""}`
+    ({ source, alias }) =>
+      `${source}${alias && alias !== source ? ` as ${alias}` : ""}`
   );
 }
 
