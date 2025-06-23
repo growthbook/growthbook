@@ -79,6 +79,7 @@ export default function SubscriptionInfo() {
       {updateOrbSubscriptionModal && (
         <StripeProvider>
           <UpdateOrbSubscriptionModal
+            subscription={subscription || undefined}
             close={() => setUpdateOrbSubscriptionModal(false)}
           />
         </StripeProvider>

@@ -348,6 +348,51 @@ export async function postVerifyEmailToLicenseServer(
   });
 }
 
+export async function getCustomerDataFromServer(
+  organizationId: string
+): Promise<{
+  customerData: {
+    name: string;
+    email: string;
+    address: {
+      line1: string;
+      line2: string;
+      city: string;
+      state: string;
+      postal_code: string;
+      country: string;
+    };
+    taxConfig: {
+      type: TaxIdType;
+      value: string;
+    };
+  };
+}> {
+  const url = `${LICENSE_SERVER_URL}subscription/customer-data`;
+  return callLicenseServer({
+    url,
+    body: JSON.stringify({
+      organizationId,
+      cloudSecret: process.env.CLOUD_SECRET,
+    }),
+  });
+}
+
+export async function updateCustomerDataFromServer(
+  organizationId: string,
+  taxConfig: { type: TaxIdType; value: string }
+) {
+  const url = `${LICENSE_SERVER_URL}subscription/update-customer-data`;
+  return callLicenseServer({
+    url,
+    body: JSON.stringify({
+      organizationId,
+      taxConfig,
+      cloudSecret: process.env.CLOUD_SECRET,
+    }),
+  });
+}
+
 export async function getPortalUrlFromServer(
   organizationId: string
 ): Promise<{ portalUrl: string }> {

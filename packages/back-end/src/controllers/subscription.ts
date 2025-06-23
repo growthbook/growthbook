@@ -14,6 +14,8 @@ import {
   postNewInlineSubscriptionToLicenseServer,
   postCancelSubscriptionToLicenseServer,
   getPortalUrlFromServer,
+  getCustomerDataFromServer,
+  updateCustomerDataFromServer,
 } from "back-end/src/enterprise";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
@@ -447,6 +449,25 @@ export async function getUsage(
   res.json({ status: 200, cdnUsage, limits: { cdnRequests, cdnBandwidth } });
 }
 
+export async function getCustomerData(
+  req: AuthRequest<null, null>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageBilling()) {
+    context.permissions.throwPermissionError();
+  }
+
+  try {
+    const customerData = await getCustomerDataFromServer(context.org.id);
+
+    return res.status(200).json(customerData);
+  } catch (e) {
+    return res.status(400).json({ status: 400, message: e.message });
+  }
+}
+
 export async function getPortalUrl(
   req: AuthRequest<null, null>,
   res: Response<{ status: number; portalUrl?: string; message?: string }>
@@ -466,6 +487,25 @@ export async function getPortalUrl(
       status: 200,
       portalUrl: data.portalUrl,
     });
+  } catch (e) {
+    return res.status(400).json({ status: 400, message: e.message });
+  }
+}
+
+export async function updateCustomerData(
+  req: AuthRequest<{ taxConfig: { type: TaxIdType; value: string } }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+
+  const { org } = context;
+
+  if (!context.permissions.canViewUsage()) {
+    context.permissions.throwPermissionError();
+  }
+
+  try {
+    await updateCustomerDataFromServer(org.id, req.body.taxConfig);
   } catch (e) {
     return res.status(400).json({ status: 400, message: e.message });
   }
