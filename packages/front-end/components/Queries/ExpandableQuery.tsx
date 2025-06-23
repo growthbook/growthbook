@@ -91,16 +91,18 @@ const ExpandableQuery: FC<{
         <>
           {query.rawResult?.[0] ? (
             <div style={{ maxHeight: 300, overflowY: "auto" }}>
-              <table className="table table-bordered table-sm">
+              <table className="table table-bordered table-sm query-table">
                 <thead>
                   <tr
-                    style={{ position: "sticky", top: 0 }}
-                    className="bg-light"
+                    style={{
+                      position: "sticky",
+                      top: -1,
+                    }}
                   >
                     <th></th>
-                    {Object.keys(query.rawResult[0]).map((k) => {
-                      return <th key={k}>{k}</th>;
-                    })}
+                    {Object.keys(query.rawResult[0]).map((k) => (
+                      <th key={k}>{k}</th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>

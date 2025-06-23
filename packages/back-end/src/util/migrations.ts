@@ -609,6 +609,10 @@ export function upgradeExperimentDoc(
     });
   }
 
+  if (experiment.decisionFrameworkSettings === undefined) {
+    experiment.decisionFrameworkSettings = {};
+  }
+
   // releasedVariationId
   if (!("releasedVariationId" in experiment)) {
     if (experiment.status === "stopped") {
@@ -664,6 +668,7 @@ export function migrateExperimentReport(
         : attributionModel,
     goalMetrics: otherArgs.goalMetrics || metrics || [],
     guardrailMetrics: otherArgs.guardrailMetrics || guardrails || [],
+    decisionFrameworkSettings: otherArgs.decisionFrameworkSettings || {},
   };
 
   if (
@@ -812,6 +817,7 @@ export function migrateSnapshot(
           ),
           regressionAdjustmentAvailable: !!regressionSettings?.regressionAdjustmentAvailable,
           regressionAdjustmentReason: regressionSettings?.reason || "",
+          targetMDE: undefined,
         },
       };
     });

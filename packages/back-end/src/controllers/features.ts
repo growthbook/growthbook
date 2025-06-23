@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { evaluateFeatures } from "@growthbook/proxy-eval";
-import { isEqual } from "lodash";
+import { isEqual, omit } from "lodash";
+import { v4 as uuidv4 } from "uuid";
 import {
   autoMerge,
   filterEnvironmentsByFeature,
@@ -11,6 +12,7 @@ import {
   resetReviewOnChange,
   getAffectedEnvsForExperiment,
 } from "shared/util";
+import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import {
   getConnectionSDKCapabilities,
   SDKCapability,
@@ -23,7 +25,7 @@ import {
   FeatureTestResult,
   JSONSchemaDef,
   FeatureUsageData,
-  FeatureUsageTimeSeries,
+  FeatureUsageDataPoint,
 } from "back-end/types/feature";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
@@ -102,7 +104,10 @@ import {
 } from "back-end/src/util/secrets";
 import { upsertWatch } from "back-end/src/models/WatchModel";
 import { getSurrogateKeysFromEnvironments } from "back-end/src/util/cdn.util";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import {
+  FeatureRevisionInterface,
+  RevisionLog,
+} from "back-end/types/feature-revision";
 import {
   addLinkedFeatureToExperiment,
   getAllPayloadExperiments,
@@ -119,6 +124,16 @@ import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
 import { FeatureUsageLookback } from "back-end/src/types/Integration";
 import { getChangesToStartExperiment } from "back-end/src/services/experiments";
+import {
+  SafeRolloutInterface,
+  validateCreateSafeRolloutFields,
+} from "back-end/src/validators/safe-rollout";
+import {
+  PostFeatureRuleBody,
+  PutFeatureRuleBody,
+} from "back-end/types/feature-rule";
+import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
+import { SafeRolloutRule } from "back-end/src/validators/features";
 
 class UnrecoverableApiError extends Error {
   constructor(message: string) {
@@ -447,6 +462,15 @@ export async function postFeatures(
       "Feature keys can only include letters, numbers, hyphens, and underscores."
     );
   }
+
+  if (org.settings?.requireProjectForFeatures && !otherProps.project) {
+    throw new Error("Must specify a project for new features");
+  }
+  // Validate projects - We can remove this validation when FeatureModel is migrated to BaseModel
+  if (otherProps.project) {
+    await context.models.projects.ensureProjectsExist([otherProps.project]);
+  }
+
   const existing = await getFeature(context, id);
   if (existing) {
     throw new Error(
@@ -615,6 +639,7 @@ export async function postFeatureRebase(
     newRules[env] = mergeResult.result.rules?.[env] || live.rules[env] || [];
   });
   await updateRevision(
+    context,
     revision,
     {
       baseVersion: live.version,
@@ -666,7 +691,12 @@ export async function postFeatureRequestReview(
   if (revision.status !== "draft") {
     throw new Error("Can only request review if is a draft");
   }
-  await markRevisionAsReviewRequested(revision, res.locals.eventAudit, comment);
+  await markRevisionAsReviewRequested(
+    context,
+    revision,
+    res.locals.eventAudit,
+    comment
+  );
   res.status(200).json({
     status: 200,
   });
@@ -720,6 +750,7 @@ export async function postFeatureReviewOrComment(
     throw new Error("Can only review if review is requested");
   }
   await submitReviewAndComments(
+    context,
     revision,
     res.locals.eventAudit,
     review,
@@ -1021,7 +1052,12 @@ export async function postFeatureRevert(
     changes
   );
 
-  await markRevisionAsPublished(revision, res.locals.eventAudit, comment);
+  await markRevisionAsPublished(
+    context,
+    revision,
+    res.locals.eventAudit,
+    comment
+  );
 
   await req.audit({
     event: "feature.revert",
@@ -1125,7 +1161,7 @@ export async function postFeatureDiscard(
     context.permissions.throwPermissionError();
   }
 
-  await discardRevision(revision, res.locals.eventAudit);
+  await discardRevision(context, revision, res.locals.eventAudit);
 
   const hasDrafts = await hasDraft(org.id, feature, [revision.version]);
 
@@ -1141,16 +1177,13 @@ export async function postFeatureDiscard(
 }
 
 export async function postFeatureRule(
-  req: AuthRequest<
-    { rule: FeatureRule; environment: string },
-    { id: string; version: string }
-  >,
+  req: AuthRequest<PostFeatureRuleBody, { id: string; version: string }>,
   res: Response<{ status: 200; version: number }, EventUserForResponseLocals>
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
   const { id, version } = req.params;
-  const { environment, rule } = req.body;
+  const { environment, rule, safeRolloutFields } = req.body;
 
   const feature = await getFeature(context, id);
   if (!feature) {
@@ -1172,6 +1205,49 @@ export async function postFeatureRule(
     context.permissions.throwPermissionError();
   }
 
+  if (rule.type === "safe-rollout") {
+    if (!context.hasPremiumFeature("safe-rollout")) {
+      throw new Error(`Safe Rollout rules is a premium feature.`);
+    }
+
+    const validatedSafeRolloutFields = await validateCreateSafeRolloutFields(
+      omit(safeRolloutFields, "rampUpSchedule"),
+      context
+    );
+
+    // Set default status for safe rollout rule
+    rule.status = "running";
+    rule.seed = rule.seed || uuidv4();
+    rule.trackingKey =
+      rule.trackingKey || `${SAFE_ROLLOUT_TRACKING_KEY_PREFIX}${uuidv4()}`;
+
+    const safeRollout = await context.models.safeRollout.create({
+      ...validatedSafeRolloutFields,
+      environment,
+      featureId: feature.id,
+      status: rule.status,
+      autoSnapshots: true,
+      rampUpSchedule: {
+        enabled: safeRolloutFields?.rampUpSchedule?.enabled ?? false, // this is used so that we can disable the ramp up schedule using feature Flag
+        step: 0,
+        steps: [
+          { percent: 0.1 },
+          { percent: 0.25 },
+          { percent: 0.5 },
+          { percent: 0.75 },
+          { percent: 1 },
+        ],
+        rampUpCompleted: false,
+        nextUpdate: undefined, // this is set with the rule is enabled
+      },
+    });
+
+    if (!safeRollout) {
+      throw new Error("Failed to create safe rollout");
+    }
+    rule.safeRolloutId = safeRollout.id;
+  }
+
   const revision = await getDraftRevision(context, feature, parseInt(version));
   const resetReview = resetReviewOnChange({
     feature,
@@ -1180,6 +1256,7 @@ export async function postFeatureRule(
     settings: org?.settings,
   });
   await addFeatureRule(
+    context,
     revision,
     environment,
     rule,
@@ -1532,6 +1609,7 @@ export async function putRevisionComment(
   }
 
   await updateRevision(
+    context,
     revision,
     {},
     {
@@ -1577,6 +1655,7 @@ export async function postFeatureDefaultValue(
     settings: org?.settings,
   });
   await setDefaultValue(
+    context,
     revision,
     defaultValue,
     res.locals.eventAudit,
@@ -1625,11 +1704,142 @@ export async function postFeatureSchema(
   });
 }
 
-export async function putFeatureRule(
+export async function putSafeRolloutStatus(
   req: AuthRequest<
-    { rule: Partial<FeatureRule>; environment: string; i: number },
-    { id: string; version: string }
+    { status: SafeRolloutRule["status"]; environment: string; i: number },
+    { id: string }
   >,
+  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  const { status, environment, i } = req.body;
+  const { org } = context;
+  const feature = await getFeature(context, id);
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  const revision = await createRevision({
+    context,
+    feature,
+    user: context.auditUser,
+    environments: getEnvironmentIdsFromOrg(context.org),
+    baseVersion: feature.version,
+    org,
+  });
+  const resetReview = resetReviewOnChange({
+    feature,
+    changedEnvironments: [environment],
+    defaultValueChanged: false,
+    settings: org?.settings,
+  });
+
+  await editFeatureRule(
+    context,
+    revision,
+    environment,
+    i,
+    { status },
+    res.locals.eventAudit,
+    resetReview
+  );
+
+  const live = await getRevision({
+    context,
+    organization: org.id,
+    featureId: feature.id,
+    version: feature.version,
+  });
+  if (!live) {
+    throw new Error("Could not lookup feature history");
+  }
+
+  const base =
+    revision.baseVersion === live.version
+      ? live
+      : await getRevision({
+          context,
+          organization: org.id,
+          featureId: feature.id,
+          version: revision.baseVersion,
+        });
+  if (!base) {
+    throw new Error("Could not lookup feature history");
+  }
+  const allEnvironments = getEnvironments(org);
+  const environments = filterEnvironmentsByFeature(allEnvironments, feature);
+  const environmentIds = environments.map((e) => e.id);
+
+  if (!context.permissions.canUpdateFeature(feature, {})) {
+    context.permissions.throwPermissionError();
+  }
+  const requiresReview = checkIfRevisionNeedsReview({
+    feature,
+    baseRevision: base,
+    revision,
+    allEnvironments: environmentIds,
+    settings: org.settings,
+  });
+  if (!requiresReview) {
+    const mergeResult = autoMerge(live, base, revision, environmentIds, {});
+
+    if (!mergeResult.success) {
+      throw new Error("Please resolve conflicts before publishing");
+    }
+
+    // If changing the default value, it affects all enabled environments
+    if (mergeResult.result.defaultValue !== undefined) {
+      if (
+        !context.permissions.canPublishFeature(
+          feature,
+          Array.from(getEnabledEnvironments(feature, environmentIds))
+        )
+      ) {
+        context.permissions.throwPermissionError();
+      }
+    }
+    // Otherwise, only the environments with rule changes are affected
+    else {
+      const changedEnvs = Object.keys(mergeResult.result.rules || {});
+      if (changedEnvs.length > 0) {
+        if (!context.permissions.canPublishFeature(feature, changedEnvs)) {
+          context.permissions.throwPermissionError();
+        }
+      }
+    }
+    const updatedFeature = await publishRevision(
+      context,
+      feature,
+      revision,
+      mergeResult.result,
+      "auto-publish status change"
+    );
+
+    await req.audit({
+      event: "feature.publish",
+      entity: {
+        object: "feature",
+        id: feature.id,
+      },
+      details: auditDetailsUpdate(feature, updatedFeature, {
+        revision: revision.version,
+        comment: "auto-publish status change",
+      }),
+    });
+  } else {
+    await updateFeature(context, feature, {
+      hasDrafts: true,
+    });
+  }
+  res.status(200).json({
+    status: 200,
+    version: revision.version,
+  });
+}
+
+export async function putFeatureRule(
+  req: AuthRequest<PutFeatureRuleBody, { id: string; version: string }>,
   res: Response<{ status: 200; version: number }, EventUserForResponseLocals>
 ) {
   const context = getContextFromReq(req);
@@ -1657,6 +1867,55 @@ export async function putFeatureRule(
     context.permissions.throwPermissionError();
   }
 
+  if (rule.type === "safe-rollout") {
+    if (!rule.safeRolloutId) {
+      throw new Error("Safe Rollout rule must have a safeRolloutId");
+    }
+    const existingSafeRollout = await context.models.safeRollout.getById(
+      rule.safeRolloutId
+    );
+    if (!existingSafeRollout) {
+      throw new Error("Safe Rollout must exist");
+    }
+
+    const hasSafeRolloutStarted = existingSafeRollout.startedAt !== undefined;
+    if (hasSafeRolloutStarted) {
+      const existingRule = getSafeRolloutRuleFromFeature(
+        feature,
+        rule.safeRolloutId
+      );
+      if (!existingRule) {
+        throw new Error("Unable to update rule that does not exist.");
+      }
+
+      const fieldsThatCannotBeUpdated = [
+        "controlValue",
+        "variationValue",
+        "safeRolloutId",
+        "hashAttribute",
+        "seed",
+        "trackingKey",
+      ];
+      const fieldsBeingUpdated = Object.entries(rule).filter(
+        ([k, v]) => !isEqual(existingRule[k as keyof SafeRolloutRule], v)
+      );
+
+      // Check if any of the fields that cannot be updated are being updated
+      const fieldsBeingUpdatedThatCannotBeUpdated = fieldsBeingUpdated.filter(
+        ([fieldName]) => fieldsThatCannotBeUpdated.includes(fieldName)
+      );
+
+      if (fieldsBeingUpdatedThatCannotBeUpdated.length > 0) {
+        const fieldNames = fieldsBeingUpdatedThatCannotBeUpdated
+          .map(([fieldName]) => fieldName)
+          .join(", ");
+        throw new Error(
+          `Cannot update the following fields after a Safe Rollout has started: ${fieldNames}`
+        );
+      }
+    }
+  }
+
   const revision = await getDraftRevision(context, feature, parseInt(version));
   const resetReview = resetReviewOnChange({
     feature,
@@ -1664,7 +1923,9 @@ export async function putFeatureRule(
     defaultValueChanged: false,
     settings: org?.settings,
   });
+
   await editFeatureRule(
+    context,
     revision,
     environment,
     i,
@@ -1778,6 +2039,7 @@ export async function postFeatureMoveRule(
     settings: org?.settings,
   });
   await updateRevision(
+    context,
     revision,
     changes,
     {
@@ -1857,6 +2119,7 @@ export async function deleteFeatureRule(
     settings: org?.settings,
   });
   await updateRevision(
+    context,
     revision,
     changes,
     {
@@ -1893,6 +2156,19 @@ export async function putFeature(
   const updates = req.body;
   if (!context.permissions.canUpdateFeature(feature, updates)) {
     context.permissions.throwPermissionError();
+  }
+
+  // For a feature created before requireProjectForFeatures was enabled, allow updates to happen until the feature is associated with a project
+  if (
+    org.settings?.requireProjectForFeatures &&
+    feature.project &&
+    updates.project === ""
+  ) {
+    throw new Error("Must specify a project");
+  }
+  // Validate projects - We can remove this validation when FeatureModel is migrated to BaseModel
+  if (updates.project && feature.project !== updates.project) {
+    await context.models.projects.ensureProjectsExist([updates.project]);
   }
 
   // Changing the project can affect whether or not it's published if using project-scoped api keys
@@ -2033,6 +2309,7 @@ export async function postFeatureEvaluate(
   const experimentMap = await getAllPayloadExperiments(context);
   const allEnvironments = getEnvironments(org);
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
+  const safeRolloutMap = await context.models.safeRollout.getAllPayloadSafeRollouts();
   const results = evaluateFeature({
     feature,
     revision,
@@ -2043,6 +2320,7 @@ export async function postFeatureEvaluate(
     scrubPrerequisites,
     skipRulesWithPrerequisites,
     date,
+    safeRolloutMap,
   });
 
   res.status(200).json({
@@ -2088,12 +2366,14 @@ export async function postFeaturesEvaluate(
     environment !== ""
       ? [allEnvironments.find((obj) => obj.id === environment)]
       : getEnvironments(context.org);
+  const safeRolloutMap = await context.models.safeRollout.getAllPayloadSafeRollouts();
   const featureResults = await evaluateAllFeatures({
     features,
     context,
     attributeValues: attributes,
     groupMap: await getSavedGroupMap(context.org),
     environments: environments,
+    safeRolloutMap,
   });
   res.status(200).json({
     status: 200,
@@ -2188,7 +2468,7 @@ export async function getFeatures(
 
 export async function getRevisionLog(
   req: AuthRequest<null, { id: string; version: string }>,
-  res: Response
+  res: Response<{ status: 200; log: RevisionLog[] }, EventUserForResponseLocals>
 ) {
   const context = getContextFromReq(req);
   const { id, version } = req.params;
@@ -2198,19 +2478,41 @@ export async function getRevisionLog(
     throw new Error("Could not find feature");
   }
 
+  // In the past logs were stored on the revisions.
   const revision = await getRevision({
     context,
     organization: context.org.id,
     featureId: feature.id,
     version: parseInt(version),
+    includeLog: true,
   });
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
 
+  // But now we store logs in a separate table as they are too large
+  const revisionLogs = await context.models.featureRevisionLogs.getAllByFeatureIdAndVersion(
+    {
+      featureId: id,
+      version: parseInt(version),
+    }
+  );
+
+  // revisionLogs use dateCreated as the timestamp, so we need to convert it to a RevisionLog as that is what the front end expects
+  const revisionLogsFormatted: RevisionLog[] = revisionLogs.map((log) => ({
+    timestamp: log.dateCreated,
+    user: log.user,
+    action: log.action,
+    subject: log.subject,
+    value: log.value,
+  }));
+
+  // We merge old logs on revisions with revisionLogs. The front end will sort them as needed
+  const log = [...(revision.log || []), ...revisionLogsFormatted];
+
   res.json({
     status: 200,
-    log: revision.log || [],
+    log: log,
   });
 }
 
@@ -2294,10 +2596,10 @@ export async function getFeatureById(
     }
   }
 
-  // Get all linked experiments
+  // Get all linked experiments and  saferollouts
   const experimentIds = new Set<string>();
   const trackingKeys = new Set<string>();
-
+  let hasSafeRollout = false;
   revisions.forEach((revision) => {
     environments.forEach((env) => {
       const rules = revision.rules[env];
@@ -2310,11 +2612,14 @@ export async function getFeatureById(
         // Old rules store the trackingKey
         else if (rule.type === "experiment") {
           trackingKeys.add(rule.trackingKey || feature.id);
+        } else if (rule.type === "safe-rollout") {
+          hasSafeRollout = true;
         }
       });
     });
   });
   const experimentsMap: Map<string, ExperimentInterface> = new Map();
+  const safeRolloutMap: Map<string, SafeRolloutInterface> = new Map();
   if (trackingKeys.size) {
     const exps = await getExperimentsByTrackingKeys(context, [...trackingKeys]);
     exps.forEach((exp) => {
@@ -2326,6 +2631,14 @@ export async function getFeatureById(
     const exps = await getExperimentsByIds(context, [...experimentIds]);
     exps.forEach((exp) => {
       experimentsMap.set(exp.id, exp);
+    });
+  }
+  if (hasSafeRollout) {
+    const safeRollouts = await context.models.safeRollout.getAllByFeatureId(
+      feature.id
+    );
+    safeRollouts.forEach((safeRollout: SafeRolloutInterface) => {
+      safeRolloutMap.set(safeRollout.id, safeRollout);
     });
   }
 
@@ -2357,31 +2670,14 @@ export async function getFeatureById(
     feature: feature.id,
     organization: org,
   });
-
   res.status(200).json({
     status: 200,
     feature,
     revisions,
     experiments: [...experimentsMap.values()],
+    safeRollouts: [...safeRolloutMap.values()],
     codeRefs,
   });
-}
-
-function getLookbackNumBuckets(
-  lookback: FeatureUsageLookback
-): { width: number; buckets: number } {
-  switch (lookback) {
-    case "15minute":
-      return { width: 60 * 1000, buckets: 15 };
-    case "hour":
-      return { width: 5 * 60 * 1000, buckets: 12 };
-    case "day":
-      return { width: 60 * 60 * 1000, buckets: 24 };
-    case "week":
-      return { width: 6 * 60 * 60 * 1000, buckets: 28 };
-    default:
-      throw new Error(`Invalid lookback: ${lookback}`);
-  }
 }
 
 export async function getFeatureUsage(
@@ -2398,7 +2694,9 @@ export async function getFeatureUsage(
     throw new Error("Could not find feature");
   }
 
-  const environments = getEnvironments(org);
+  const allEnvironments = getEnvironments(org);
+
+  const environments = filterEnvironmentsByFeature(allEnvironments, feature);
 
   //TODO: handle multiple datasources with feature tracking
   const ds = await getGrowthbookDatasource(context);
@@ -2413,99 +2711,79 @@ export async function getFeatureUsage(
 
   const lookback = req.query.lookback || "15minute";
 
-  const { buckets, width } = getLookbackNumBuckets(lookback);
-  const createEmptyRecord = () => {
-    return {
-      total: 0,
-      ts: new Array(buckets).fill(0).map((_, i) => ({
-        t: i,
-        v: 0,
-      })),
-    };
-  };
-
   const { start, rows } = await integration.getFeatureUsage(
     feature.id,
     lookback
   );
 
-  const getTSIndex = (timestamp: Date) => {
-    const ts = timestamp.getTime();
-    const diff = ts - start;
-    const bucket = Math.floor(diff / width);
+  function createTimeseries() {
+    const datapoints: FeatureUsageDataPoint[] = [];
+    for (let i = 0; i < 50; i++) {
+      const ts = new Date(start);
+      if (lookback === "15minute") {
+        ts.setMinutes(ts.getMinutes() + i);
+      } else if (lookback === "hour") {
+        ts.setMinutes(ts.getMinutes() + 5 * i);
+      } else if (lookback === "day") {
+        ts.setHours(ts.getHours() + i);
+      } else {
+        ts.setHours(ts.getHours() + 6 * i);
+      }
 
-    return Math.min(buckets - 1, Math.max(bucket, 0));
+      if (ts > new Date()) {
+        break;
+      }
+
+      datapoints.push({
+        t: ts.getTime(),
+        v: {},
+      });
+    }
+    return datapoints;
+  }
+
+  const getTSIndex = (timestamp: Date, data: FeatureUsageDataPoint[]) => {
+    const t = timestamp.getTime();
+
+    for (let i = 0; i < data.length; i++) {
+      if (data[i].t > t) {
+        return i - 1;
+      }
+    }
+    // If we get here, the timestamp is in the future
+    return data.length - 1;
   };
 
   const usage: FeatureUsageData = {
-    overall: createEmptyRecord(),
-    sources: {},
-    values: {},
-    defaultValue: createEmptyRecord(),
-    environments: {},
+    byRuleId: createTimeseries(),
+    bySource: createTimeseries(),
+    byValue: createTimeseries(),
+    total: 0,
   };
 
   const validEnvs = new Set(environments.map((e) => e.id));
 
-  const updateRecord = (
-    record: FeatureUsageTimeSeries,
-    data: { timestamp: Date; evaluations: number }
-  ) => {
-    const i = getTSIndex(data.timestamp);
-    const v = data.evaluations;
-
-    record.total += v;
-    record.ts[i].v += v;
-  };
+  function updateRecord(
+    data: FeatureUsageDataPoint[],
+    key: string,
+    ts: Date,
+    evaluations: number
+  ) {
+    const idx = getTSIndex(ts, data);
+    if (!data[idx]) return;
+    data[idx].v[key] = (data[idx].v[key] || 0) + evaluations;
+  }
 
   rows.forEach((d) => {
     // Skip invalid environments (sanity check)
     if (!d.environment || !validEnvs.has(d.environment)) return;
 
-    // Overall evaluation counts
-    updateRecord(usage.overall, d);
-
-    // Sources
-    usage.sources[d.source] = usage.sources[d.source] || 0;
-    usage.sources[d.source] += d.evaluations;
-
-    // Values
-    usage.values[d.value] = usage.values[d.value] || 0;
-    usage.values[d.value] += d.evaluations;
-
-    if (!usage.environments[d.environment]) {
-      usage.environments[d.environment] = { ...createEmptyRecord(), rules: {} };
-    }
-    updateRecord(usage.environments[d.environment], d);
-
-    if (d.source === "defaultValue") {
-      updateRecord(usage.defaultValue, d);
-    } else if (d.ruleId) {
-      if (!usage.environments[d.environment].rules[d.ruleId]) {
-        usage.environments[d.environment].rules[d.ruleId] = {
-          ...createEmptyRecord(),
-          variations: {},
-        };
-      }
-      updateRecord(usage.environments[d.environment].rules[d.ruleId], d);
-
-      if (d.variationId) {
-        if (
-          !usage.environments[d.environment].rules[d.ruleId].variations[
-            d.variationId
-          ]
-        ) {
-          usage.environments[d.environment].rules[d.ruleId].variations[
-            d.variationId
-          ] = createEmptyRecord();
-        }
-        updateRecord(
-          usage.environments[d.environment].rules[d.ruleId].variations[
-            d.variationId
-          ],
-          d
-        );
-      }
+    // Overall
+    usage.total += d.evaluations;
+    updateRecord(usage.bySource, d.source, d.timestamp, d.evaluations);
+    updateRecord(usage.byValue, d.value, d.timestamp, d.evaluations);
+    if (d.ruleId) {
+      updateRecord(usage.byRuleId, d.ruleId, d.timestamp, d.evaluations);
     }
   });
 
@@ -2762,6 +3040,7 @@ export async function postCopyEnvironmentRules(
   });
 
   await copyFeatureEnvironmentRules(
+    context,
     revision,
     sourceEnv,
     targetEnv,

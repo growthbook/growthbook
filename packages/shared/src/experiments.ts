@@ -1,6 +1,6 @@
+import normal from "@stdlib/stats/base/dists/normal";
 import { MetricInterface } from "back-end/types/metric";
 import {
-  ColumnInterface,
   ColumnRef,
   FactMetricInterface,
   FactTableColumnType,
@@ -15,18 +15,15 @@ import {
   OrganizationSettings,
 } from "back-end/types/organization";
 import {
-  DecisionFrameworkExperimentRecommendationStatus,
-  ExperimentAnalysisSummaryResultsStatus,
-  ExperimentHealthSettings,
   ExperimentInterface,
   ExperimentInterfaceStringDates,
-  ExperimentDataForStatus,
   MetricOverride,
-  ExperimentResultStatusData,
-  ExperimentUnhealthyData,
-  ExperimentDataForStatusStringDates,
 } from "back-end/types/experiment";
-import { MetricSnapshotSettings } from "back-end/types/report";
+import {
+  ExperimentReportResultDimension,
+  MetricSnapshotSettings,
+} from "back-end/types/report";
+import { DEFAULT_GUARDRAIL_ALPHA } from "shared/constants";
 import cloneDeep from "lodash/cloneDeep";
 import {
   DataSourceInterfaceWithParams,
@@ -34,23 +31,19 @@ import {
   ExperimentDimensionMetadata,
 } from "back-end/types/datasource";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
-import { StatsEngine } from "back-end/types/stats";
+import {
+  DifferenceType,
+  IndexedPValue,
+  PValueCorrection,
+  StatsEngine,
+} from "back-end/types/stats";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import uniqid from "uniqid";
 import {
-  DEFAULT_DECISION_FRAMEWORK_ENABLED,
-  DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
-  DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
-  DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-  DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
-  DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
-  DEFAULT_SRM_THRESHOLD,
 } from "./constants";
-import { daysBetween } from "./dates";
-import { getMultipleExposureHealthData, getSRMHealthData } from "./health";
 
 export type ExperimentMetricInterface = MetricInterface | FactMetricInterface;
 
@@ -69,23 +62,53 @@ export function isFactMetric(
 }
 
 export function canInlineFilterColumn(
-  factTable: Pick<FactTableInterface, "userIdTypes">,
-  column: Pick<ColumnInterface, "column" | "datatype" | "deleted">
+  factTable: Pick<FactTableInterface, "userIdTypes" | "columns">,
+  column: string
 ): boolean {
-  if (column.deleted) return false;
-
-  if (column.datatype !== "string") return false;
-
   // If the column is one of the identifier columns, it is not eligible for prompting
-  if (factTable.userIdTypes.includes(column.column)) return false;
+  if (factTable.userIdTypes.includes(column)) return false;
+
+  if (
+    getSelectedColumnDatatype({ factTable, column, excludeDeleted: true }) !==
+    "string"
+  ) {
+    return false;
+  }
 
   return true;
+}
+
+export function getColumnExpression(
+  column: string,
+  factTable: Pick<FactTableInterface, "columns">,
+  jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string,
+  alias: string = ""
+): string {
+  const parts = column.split(".");
+  if (parts.length > 1) {
+    const col = factTable.columns.find((c) => c.column === parts[0]);
+    if (col?.datatype === "json") {
+      const path = parts.slice(1).join(".");
+
+      const field = col.jsonFields?.[path];
+      const isNumeric = field?.datatype === "number";
+
+      return jsonExtract(
+        alias ? `${alias}.${parts[0]}` : parts[0],
+        path,
+        isNumeric
+      );
+    }
+  }
+
+  return alias ? `${alias}.${column}` : column;
 }
 
 export function getColumnRefWhereClause(
   factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">,
   columnRef: ColumnRef,
   escapeStringLiteral: (s: string) => string,
+  jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string,
   showSourceComment = false
 ): string[] {
   const inlineFilters = columnRef.inlineFilters || {};
@@ -101,12 +124,14 @@ export function getColumnRefWhereClause(
         .map((v) => "'" + escapeStringLiteral(v) + "'")
     );
 
+    const columnExpr = getColumnExpression(column, factTable, jsonExtract);
+
     if (!escapedValues.size) {
       return;
     } else if (escapedValues.size === 1) {
-      where.add(`${column} = ${[...escapedValues][0]}`);
+      where.add(`${columnExpr} = ${[...escapedValues][0]}`);
     } else {
-      where.add(`${column} IN (\n  ${[...escapedValues].join(",\n  ")}\n)`);
+      where.add(`${columnExpr} IN (\n  ${[...escapedValues].join(",\n  ")}\n)`);
     }
   });
 
@@ -255,12 +280,29 @@ export function getDelayWindowHours(
 export function getSelectedColumnDatatype({
   factTable,
   column,
+  excludeDeleted = false,
 }: {
-  factTable: FactTableInterface | null;
+  factTable: Pick<FactTableInterface, "columns"> | null;
   column: string;
+  excludeDeleted?: boolean;
 }): FactTableColumnType | undefined {
   if (!factTable) return undefined;
+
+  // Might be a JSON column, look at nested field
+  const parts = column.split(".");
+  if (parts.length > 1) {
+    const col = factTable.columns.find((c) => c.column === parts[0]);
+    if (col?.datatype === "json" && (!excludeDeleted || !col?.deleted)) {
+      const field = col.jsonFields?.[parts.slice(1).join(".")];
+      if (field) {
+        return field.datatype;
+      }
+    }
+  }
+
   const col = factTable.columns.find((c) => c.column === column);
+  if (excludeDeleted && (!col || col.deleted)) return undefined;
+
   return col?.datatype;
 }
 
@@ -585,28 +627,56 @@ export function isSuspiciousUplift(
   baseline: SnapshotMetric,
   stats: SnapshotMetric,
   metric: { maxPercentChange?: number },
-  metricDefaults: MetricDefaults
+  metricDefaults: MetricDefaults,
+  differenceType: DifferenceType
 ): boolean {
-  if (!baseline?.cr || !stats?.cr) return false;
+  if (!baseline?.cr || !stats?.cr || !stats?.expected) return false;
 
   const maxPercentChange =
     metric.maxPercentChange ?? metricDefaults?.maxPercentageChange ?? 0;
 
-  return Math.abs(baseline.cr - stats.cr) / baseline.cr >= maxPercentChange;
+  if (differenceType === "relative") {
+    return Math.abs(stats.expected) >= maxPercentChange;
+  } else if (differenceType === "absolute") {
+    return (
+      Math.abs(stats.expected ?? 0) / Math.abs(baseline.cr) >= maxPercentChange
+    );
+  } else {
+    // This means scaled impact could show up as suspicious even when
+    // it doesn't show up for other difference types if CUPED is applied
+    // and CUPED causes the value to cross the threshold
+    return (
+      Math.abs(stats.cr - baseline.cr) / Math.abs(baseline.cr) >=
+      maxPercentChange
+    );
+  }
 }
 
 export function isBelowMinChange(
   baseline: SnapshotMetric,
   stats: SnapshotMetric,
   metric: { minPercentChange?: number },
-  metricDefaults: MetricDefaults
+  metricDefaults: MetricDefaults,
+  differenceType: DifferenceType
 ): boolean {
-  if (!baseline?.cr || !stats?.cr) return false;
+  if (!baseline?.cr || !stats?.cr || !stats?.expected) return false;
 
   const minPercentChange =
     metric.minPercentChange ?? metricDefaults.minPercentageChange ?? 0;
 
-  return Math.abs(baseline.cr - stats.cr) / baseline.cr < minPercentChange;
+  if (differenceType === "relative") {
+    return Math.abs(stats.expected) < minPercentChange;
+  } else if (differenceType === "absolute") {
+    return Math.abs(stats.expected) / Math.abs(baseline.cr) < minPercentChange;
+  } else {
+    // This means scaled impact could show up as too small even it is
+    // large enough for other difference types if CUPED is applied
+    // and CUPED causes the value to cross the threshold
+    return (
+      Math.abs(stats.cr - baseline.cr) / Math.abs(baseline.cr) <
+      minPercentChange
+    );
+  }
 }
 
 export function getMetricResultStatus({
@@ -618,6 +688,7 @@ export function getMetricResultStatus({
   ciUpper,
   pValueThreshold,
   statsEngine,
+  differenceType,
 }: {
   metric: ExperimentMetricInterface;
   metricDefaults: MetricDefaults;
@@ -627,6 +698,7 @@ export function getMetricResultStatus({
   ciUpper: number;
   pValueThreshold: number;
   statsEngine: StatsEngine;
+  differenceType: DifferenceType;
 }) {
   const directionalStatus: "winning" | "losing" =
     (stats.expected ?? 0) * (metric.inverse ? -1 : 1) > 0
@@ -638,7 +710,8 @@ export function getMetricResultStatus({
     baseline,
     stats,
     metric,
-    metricDefaults
+    metricDefaults,
+    differenceType
   );
   const _shouldHighlight = shouldHighlight({
     metric,
@@ -727,6 +800,21 @@ export function getMetricResultStatus({
       clearSignalResultsStatus = "lost";
     }
   }
+  let guardrailSafeStatus = false;
+  if (stats.ci) {
+    const ciLowerGuardrail = stats.ci?.[0] ?? Number.NEGATIVE_INFINITY;
+    const ciUpperGuardrail = stats.ci?.[1] ?? Number.POSITIVE_INFINITY;
+    const guardrailChanceToWin =
+      stats.chanceToWin ??
+      chanceToWinFlatPrior(
+        stats.expected ?? 0,
+        ciLowerGuardrail,
+        ciUpperGuardrail,
+        pValueThreshold,
+        metric.inverse
+      );
+    guardrailSafeStatus = guardrailChanceToWin > 1 - DEFAULT_GUARDRAIL_ALPHA;
+  }
   return {
     shouldHighlight: _shouldHighlight,
     belowMinChange,
@@ -735,7 +823,50 @@ export function getMetricResultStatus({
     directionalStatus,
     resultsStatus,
     clearSignalResultsStatus,
+    guardrailSafeStatus,
   };
+}
+
+export function chanceToWinFlatPrior(
+  expected: number,
+  lower: number,
+  upper: number,
+  pValueThreshold: number,
+  inverse: boolean = false
+): number {
+  if (
+    lower === Number.NEGATIVE_INFINITY &&
+    upper === Number.POSITIVE_INFINITY
+  ) {
+    return 0;
+  }
+  const confidenceIntervalType =
+    lower === Number.NEGATIVE_INFINITY
+      ? "oneSidedLesser"
+      : upper === Number.POSITIVE_INFINITY
+      ? "oneSidedGreater"
+      : "twoSided";
+  const halfwidth =
+    confidenceIntervalType === "twoSided"
+      ? 0.5 * (upper - lower)
+      : confidenceIntervalType === "oneSidedGreater"
+      ? expected - lower
+      : upper - expected;
+  const numTails = confidenceIntervalType === "twoSided" ? 2 : 1;
+  const zScore = normal.quantile(1 - pValueThreshold / numTails, 0, 1);
+  const s = halfwidth / zScore;
+  if (s === 0) {
+    if (expected === 0) {
+      return 0;
+    }
+    const chanceToWin = expected > 0;
+    return inverse ? 1 - +chanceToWin : +chanceToWin;
+  }
+  const ctwInverse = normal.cdf(-expected / s, 0, 1);
+  if (inverse) {
+    return ctwInverse;
+  }
+  return 1 - ctwInverse;
 }
 
 export function getAllMetricIdsFromExperiment(
@@ -888,323 +1019,162 @@ export function isMetricJoinable(
   return false;
 }
 
-export function getHealthSettings(
-  settings?: OrganizationSettings,
-  hasDecisionFramework?: boolean
-): ExperimentHealthSettings {
-  return {
-    decisionFrameworkEnabled:
-      (settings?.decisionFrameworkEnabled ??
-        DEFAULT_DECISION_FRAMEWORK_ENABLED) &&
-      !!hasDecisionFramework,
-    experimentMinLengthDays:
-      settings?.experimentMinLengthDays ?? DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
-    srmThreshold: settings?.srmThreshold ?? DEFAULT_SRM_THRESHOLD,
-    multipleExposureMinPercent:
-      settings?.multipleExposureMinPercent ??
-      DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,
-  };
+export function adjustPValuesBenjaminiHochberg(
+  indexedPValues: IndexedPValue[]
+): IndexedPValue[] {
+  const newIndexedPValues = cloneDeep<IndexedPValue[]>(indexedPValues);
+  const m = newIndexedPValues.length;
+
+  newIndexedPValues.sort((a, b) => {
+    return b.pValue - a.pValue;
+  });
+  newIndexedPValues.forEach((p, i) => {
+    newIndexedPValues[i].pValue = Math.min((p.pValue * m) / (m - i), 1);
+  });
+
+  let tempval = newIndexedPValues[0].pValue;
+  for (let i = 1; i < m; i++) {
+    if (newIndexedPValues[i].pValue < tempval) {
+      tempval = newIndexedPValues[i].pValue;
+    } else {
+      newIndexedPValues[i].pValue = tempval;
+    }
+  }
+  return newIndexedPValues;
 }
 
-export function getDecisionFrameworkStatus({
-  resultsStatus,
-  goalMetrics,
-  guardrailMetrics,
-  daysNeeded,
-}: {
-  resultsStatus: ExperimentAnalysisSummaryResultsStatus;
-  goalMetrics: string[];
-  guardrailMetrics: string[];
-  daysNeeded?: number;
-}): ExperimentResultStatusData | undefined {
-  const powerReached = daysNeeded === 0;
-  const sequentialTesting = resultsStatus?.settings?.sequentialTesting;
+export function adjustPValuesHolmBonferroni(
+  indexedPValues: IndexedPValue[]
+): IndexedPValue[] {
+  const newIndexedPValues = cloneDeep<IndexedPValue[]>(indexedPValues);
+  const m = newIndexedPValues.length;
+  newIndexedPValues.sort((a, b) => {
+    return a.pValue - b.pValue;
+  });
+  newIndexedPValues.forEach((p, i) => {
+    newIndexedPValues[i].pValue = Math.min(p.pValue * (m - i), 1);
+  });
 
-  // Rendering a decision with regular stat sig metrics is only valid
-  // if you have reached your needed power or if you used sequential testing
-  const decisionReady = powerReached || sequentialTesting;
-
-  let hasWinner = false;
-  let hasWinnerWithGuardrailFailure = false;
-  let hasSuperStatsigWinner = false;
-  let hasSuperStatsigWinnerWithGuardrailFailure = false;
-  let nVariationsLosing = 0;
-  let nVariationsWithSuperStatSigLoser = 0;
-  // if any variation is a clear winner with no guardrail issues, ship now
-  for (const variationResult of resultsStatus.variations) {
-    const allSuperStatSigWon = goalMetrics.every(
-      (m) => variationResult.goalMetrics?.[m]?.superStatSigStatus === "won"
-    );
-    const anyGuardrailFailure = guardrailMetrics.some(
-      (m) => variationResult.guardrailMetrics?.[m]?.status === "lost"
-    );
-
-    if (decisionReady) {
-      const allStatSigGood = goalMetrics.every(
-        (m) => variationResult.goalMetrics?.[m]?.status === "won"
-      );
-      if (allStatSigGood && !anyGuardrailFailure) {
-        hasWinner = true;
-      }
-
-      if (allStatSigGood && anyGuardrailFailure) {
-        hasWinnerWithGuardrailFailure = true;
-      }
-
-      if (
-        goalMetrics.every(
-          (m) => variationResult.goalMetrics?.[m]?.status === "lost"
-        )
-      ) {
-        nVariationsLosing += 1;
-      }
-    }
-
-    if (allSuperStatSigWon && !anyGuardrailFailure) {
-      hasSuperStatsigWinner = true;
-    }
-
-    if (allSuperStatSigWon && anyGuardrailFailure) {
-      hasSuperStatsigWinnerWithGuardrailFailure = true;
-    }
-
-    if (
-      goalMetrics.every(
-        (m) => variationResult.goalMetrics?.[m]?.superStatSigStatus === "lost"
-      )
-    ) {
-      nVariationsWithSuperStatSigLoser += 1;
+  let tempval = newIndexedPValues[0].pValue;
+  for (let i = 1; i < m; i++) {
+    if (newIndexedPValues[i].pValue > tempval) {
+      tempval = newIndexedPValues[i].pValue;
+    } else {
+      newIndexedPValues[i].pValue = tempval;
     }
   }
-
-  const tooltipLanguage = powerReached
-    ? ` and experiment has reached the target statistical power.`
-    : sequentialTesting
-    ? ` and sequential testing is enabled, allowing decisions as soon as statistical significance is reached.`
-    : ".";
-
-  if (hasWinner) {
-    return {
-      status: "ship-now",
-      tooltip: `All goal metrics are statistically significant in the desired direction for a test variation${tooltipLanguage}`,
-    };
-  }
-
-  // if no winner without guardrail failure, call out a winner with a guardrail failure
-  if (hasWinnerWithGuardrailFailure) {
-    return {
-      status: "ready-for-review",
-      tooltip: `All goal metrics are statistically significant in the desired direction for a test variation${tooltipLanguage} However, one or more guardrails are failing`,
-    };
-  }
-
-  // If all variations failing, roll back now
-  if (
-    nVariationsLosing === resultsStatus.variations.length &&
-    nVariationsLosing > 0
-  ) {
-    return {
-      status: "rollback-now",
-      tooltip: `All goal metrics are statistically significant in the undesired direction${tooltipLanguage}`,
-    };
-  }
-
-  // TODO if super stat sig enabled
-  if (hasSuperStatsigWinner) {
-    return {
-      status: "ship-now",
-      tooltip: `The experiment has not yet reached the target statistical power, however, the goal metrics have clear, statistically significant lifts in the desired direction.`,
-    };
-  }
-
-  // if no winner without guardrail failure, call out a winner with a guardrail failure
-  if (hasSuperStatsigWinnerWithGuardrailFailure) {
-    return {
-      status: "ready-for-review",
-      tooltip: `All goal metrics have clear, statistically significant lifts in the desired direction for a test variation. However, one or more guardrails are failing`,
-    };
-  }
-
-  if (
-    nVariationsWithSuperStatSigLoser === resultsStatus.variations.length &&
-    nVariationsWithSuperStatSigLoser > 0
-  ) {
-    return {
-      status: "rollback-now",
-      tooltip: `The experiment has not yet reached the target statistical power, however, the goal metrics have clear, statistically significant lifts in the undesired direction.`,
-    };
-  }
-
-  if (powerReached) {
-    return {
-      status: "ready-for-review",
-      tooltip: `The experiment has reached the target statistical power, but does not have conclusive results.`,
-    };
-  }
+  return newIndexedPValues;
 }
 
-function getDaysLeftStatus({
-  daysNeeded,
-}: {
-  daysNeeded: number;
-}): DecisionFrameworkExperimentRecommendationStatus | undefined {
-  // TODO: Right now midExperimentPowerEnable is controlling the whole "Days Left" status
-  // but we should probably split it when considering Experiment Runtime length without power
-  if (daysNeeded > 0) {
-    return {
-      status: "days-left",
-      daysLeft: daysNeeded,
-    };
+export function setAdjustedPValuesOnResults(
+  results: ExperimentReportResultDimension[],
+  nonGuardrailMetrics: string[],
+  adjustment: PValueCorrection
+): void {
+  if (!adjustment) {
+    return;
   }
-}
 
-export function getExperimentResultStatus({
-  experimentData,
-  healthSettings,
-}: {
-  experimentData: ExperimentDataForStatus | ExperimentDataForStatusStringDates;
-  healthSettings: ExperimentHealthSettings;
-}): ExperimentResultStatusData | undefined {
-  const unhealthyData: ExperimentUnhealthyData = {};
-  const healthSummary = experimentData.analysisSummary?.health;
-  const resultsStatus = experimentData.analysisSummary?.resultsStatus;
-
-  const lastPhase = experimentData.phases[experimentData.phases.length - 1];
-
-  const beforeMinDuration =
-    lastPhase?.dateStarted &&
-    daysBetween(lastPhase.dateStarted, new Date()) <
-      healthSettings.experimentMinLengthDays;
-
-  const withinFirstDay = lastPhase?.dateStarted
-    ? daysBetween(lastPhase.dateStarted, new Date()) < 1
-    : false;
-
-  const isLowPowered =
-    healthSummary?.power?.type === "success"
-      ? healthSummary.power.isLowPowered
-      : undefined;
-  const daysNeeded =
-    healthSummary?.power?.type === "success"
-      ? healthSummary.power.additionalDaysNeeded
-      : undefined;
-
-  const decisionStatus = resultsStatus
-    ? getDecisionFrameworkStatus({
-        resultsStatus,
-        goalMetrics: experimentData.goalMetrics,
-        guardrailMetrics: experimentData.guardrailMetrics,
-        daysNeeded,
-      })
-    : undefined;
-
-  const daysLeftStatus = daysNeeded
-    ? getDaysLeftStatus({ daysNeeded })
-    : undefined;
-
-  if (healthSummary?.totalUsers) {
-    const srmHealthData = getSRMHealthData({
-      srm: healthSummary.srm,
-      srmThreshold: healthSettings.srmThreshold,
-      totalUsersCount: healthSummary.totalUsers,
-      numOfVariations: experimentData.variations.length,
-      minUsersPerVariation:
-        experimentData.type === "multi-armed-bandit"
-          ? DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION
-          : DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
+  let indexedPValues: IndexedPValue[] = [];
+  results.forEach((r, i) => {
+    r.variations.forEach((v, j) => {
+      nonGuardrailMetrics.forEach((m) => {
+        const pValue = v.metrics[m]?.pValue;
+        if (pValue !== undefined) {
+          indexedPValues.push({
+            pValue: pValue,
+            index: [i, j, m],
+          });
+        }
+      });
     });
+  });
 
-    if (srmHealthData === "unhealthy") {
-      unhealthyData.srm = true;
-    }
+  if (indexedPValues.length === 0) {
+    return;
+  }
 
-    const multipleExposuresHealthData = getMultipleExposureHealthData({
-      multipleExposuresCount: healthSummary.multipleExposures,
-      totalUsersCount: healthSummary.totalUsers,
-      minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
-      minPercentThreshold: healthSettings.multipleExposureMinPercent,
+  if (adjustment === "benjamini-hochberg") {
+    indexedPValues = adjustPValuesBenjaminiHochberg(indexedPValues);
+  } else if (adjustment === "holm-bonferroni") {
+    indexedPValues = adjustPValuesHolmBonferroni(indexedPValues);
+  }
+
+  // modify results in place
+  indexedPValues.forEach((ip) => {
+    const ijk = ip.index;
+    results[ijk[0]].variations[ijk[1]].metrics[ijk[2]].pValueAdjusted =
+      ip.pValue;
+  });
+  return;
+}
+
+export function adjustedCI(
+  adjustedPValue: number,
+  lift: number | undefined,
+  pValueThreshold: number
+): [number, number] {
+  if (!lift) return [0, 0];
+  const zScore = normal.quantile(1 - pValueThreshold / 2, 0, 1);
+  const adjStdDev = Math.abs(
+    lift / normal.quantile(1 - adjustedPValue / 2, 0, 1)
+  );
+  const width = zScore * adjStdDev;
+  return [lift - width, lift + width];
+}
+
+export function setAdjustedCIs(
+  results: ExperimentReportResultDimension[],
+  pValueThreshold: number
+): void {
+  results.forEach((r) => {
+    r.variations.forEach((v) => {
+      for (const key in v.metrics) {
+        const pValueAdjusted = v.metrics[key].pValueAdjusted;
+        const uplift = v.metrics[key].uplift;
+        const ci = v.metrics[key].ci;
+        if (
+          pValueAdjusted === undefined ||
+          uplift === undefined ||
+          ci === undefined
+        ) {
+          continue;
+        }
+
+        const adjCI = getAdjustedCI(
+          pValueAdjusted,
+          uplift.mean,
+          pValueThreshold,
+          ci
+        );
+        if (adjCI) {
+          v.metrics[key].ciAdjusted = adjCI;
+        } else {
+          v.metrics[key].ciAdjusted = ci;
+        }
+      }
     });
+  });
+  return;
+}
 
-    if (multipleExposuresHealthData.status === "unhealthy") {
-      unhealthyData.multipleExposures = {
-        rawDecimal: multipleExposuresHealthData.rawDecimal,
-        multipleExposedUsers: healthSummary.multipleExposures,
-      };
-    }
-
-    if (
-      isLowPowered &&
-      healthSettings.decisionFrameworkEnabled &&
-      // override low powered status if shipping criteria are ready
-      // or before min duration
-      !decisionStatus &&
-      !beforeMinDuration &&
-      // ignore if user has dismissed the warning
-      !experimentData.dismissedWarnings?.includes("low-power")
-    ) {
-      unhealthyData.lowPowered = true;
-    }
+export function getAdjustedCI(
+  pValueAdjusted: number,
+  lift: number | undefined,
+  pValueThreshold: number,
+  ci: [number, number]
+): [number, number] | undefined {
+  // set to Inf if adjusted pValue is 1
+  if (pValueAdjusted > 0.999999) {
+    return [-Infinity, Infinity];
   }
 
-  const unhealthyStatuses = [
-    ...(unhealthyData.srm ? ["SRM"] : []),
-    ...(unhealthyData.multipleExposures ? ["Multiple exposures"] : []),
-    ...(unhealthyData.lowPowered ? ["Low powered"] : []),
-  ];
-  // 1. Always show unhealthy status if they exist
-  if (unhealthyStatuses.length > 0) {
-    return {
-      status: "unhealthy",
-      unhealthyData: unhealthyData,
-      tooltip: unhealthyStatuses.join(", "),
-    };
-  }
-
-  // 2. Show no data if no data is present
-  if (healthSummary?.totalUsers === 0 && !withinFirstDay) {
-    return {
-      status: "no-data",
-    };
-  }
-
-  // 2.5 - No data source configured for experiment
-  if (!experimentData.datasource) {
-    return {
-      status: "no-data",
-      tooltip: "No data source configured for experiment",
-    };
-  }
-
-  // 2.6 - No metrics configured for experiment
-  if (
-    !experimentData.goalMetrics?.length &&
-    !experimentData.secondaryMetrics?.length &&
-    !experimentData.guardrailMetrics?.length
-  ) {
-    return {
-      status: "no-data",
-      tooltip: "No metrics configured for experiment yet",
-    };
-  }
-
-  // 3. If early in the experiment, just say running with a tooltip
-  if (beforeMinDuration) {
-    return {
-      status: "before-min-duration",
-      tooltip: `Estimated days left or decision recommendations will appear after the minimum experiment duration of ${healthSettings.experimentMinLengthDays} is reached.`,
-    };
-  }
-
-  if (healthSettings.decisionFrameworkEnabled) {
-    // 4. if clear shipping status, show it
-    if (decisionStatus) {
-      return decisionStatus;
-    }
-
-    // 5. If no unhealthy status or clear shipping criteria, show days left data
-    if (daysLeftStatus) {
-      return daysLeftStatus;
-    }
+  const adjCI = adjustedCI(pValueAdjusted, lift, pValueThreshold);
+  // only update if CI got wider, should never get more narrow
+  if (adjCI[0] < ci[0] && adjCI[1] > ci[1]) {
+    return adjCI;
+  } else {
+    return ci;
   }
 }
 

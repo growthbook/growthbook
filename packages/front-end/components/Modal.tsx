@@ -22,6 +22,7 @@ import { DocLink, DocSection } from "./DocLink";
 type ModalProps = {
   header?: "logo" | string | ReactNode | boolean;
   subHeader?: string | ReactNode;
+  showHeaderCloseButton?: boolean;
   open: boolean;
   hideCta?: boolean;
   // An empty string will prevent firing a tracking event, but the prop is still required to encourage developers to add tracking
@@ -61,15 +62,19 @@ type ModalProps = {
   successMessage?: string;
   children: ReactNode;
   bodyClassName?: string;
+  headerClassName?: string;
   formRef?: React.RefObject<HTMLFormElement>;
   customValidation?: () => Promise<boolean> | boolean;
   increasedElevation?: boolean;
   stickyFooter?: boolean;
   useRadixButton?: boolean;
+  borderlessHeader?: boolean;
+  borderlessFooter?: boolean;
 };
 const Modal: FC<ModalProps> = ({
   header = "logo",
   subHeader = "",
+  showHeaderCloseButton = true,
   children,
   close,
   submit,
@@ -100,6 +105,7 @@ const Modal: FC<ModalProps> = ({
   backCTA,
   successMessage,
   bodyClassName = "",
+  headerClassName = "",
   formRef,
   customValidation,
   increasedElevation,
@@ -110,6 +116,8 @@ const Modal: FC<ModalProps> = ({
   modalUuid: _modalUuid,
   trackOnSubmit = true,
   useRadixButton,
+  borderlessHeader = false,
+  borderlessFooter = false,
 }) => {
   const [modalUuid] = useState(_modalUuid || uuidv4());
   const [loading, setLoading] = useState(false);
@@ -148,15 +156,18 @@ const Modal: FC<ModalProps> = ({
 
   const contents = (
     <div
-      className={`modal-content ${className}`}
+      className={clsx("modal-content", className, {
+        "modal-borderless-header": borderlessHeader,
+        "modal-borderless-footer": borderlessFooter,
+      })}
       style={{
-        height: sizeY === "max" ? "93vh" : "",
-        maxHeight: sizeY ? "" : size === "fill" ? "" : "93vh",
+        height: sizeY === "max" ? "95vh" : "",
+        maxHeight: sizeY ? "" : size === "fill" ? "" : "95vh",
       }}
     >
       {loading && <LoadingOverlay />}
       {header ? (
-        <div className="modal-header">
+        <div className={clsx("modal-header", headerClassName)}>
           <div>
             <h4 className="modal-title">
               {header === "logo" ? (
@@ -176,7 +187,7 @@ const Modal: FC<ModalProps> = ({
             </h4>
             {subHeader ? <div className="mt-1">{subHeader}</div> : null}
           </div>
-          {close && (
+          {close && showHeaderCloseButton && (
             <button
               type="button"
               className="close"
@@ -192,7 +203,7 @@ const Modal: FC<ModalProps> = ({
         </div>
       ) : (
         <>
-          {close && (
+          {close && showHeaderCloseButton && (
             <Flex justify="end">
               <button
                 type="button"

@@ -28,6 +28,10 @@ import {
   trackLoginForUser,
 } from "back-end/src/services/users";
 import { getHttpOptions } from "back-end/src/util/http.util";
+import {
+  VERCEL_CLIENT_ID,
+  VERCEL_CLIENT_SECRET,
+} from "back-end/src/services/vercel-native-integration.service";
 import { AuthConnection, TokensResponse } from "./AuthConnection";
 
 type AuthChecks = {
@@ -61,7 +65,11 @@ export class OpenIdAuthConnection implements AuthConnection {
     res: Response,
     refreshToken: string
   ): Promise<TokensResponse> {
-    const { client } = await getConnectionFromRequest(req, res);
+    const { client, connection } = await getConnectionFromRequest(req, res);
+
+    if (connection.id?.startsWith("vercel:")) {
+      throw new Error("Session expired. Must re-authenticate in Vercel.");
+    }
 
     const tokenSet = await client.refresh(refreshToken);
 
@@ -214,6 +222,14 @@ export class OpenIdAuthConnection implements AuthConnection {
     req: Request,
     res: Response
   ) {
+    // Vercel has a provider-initiated SSO flow that differs from the normal OAuth flow
+    if (ssoConnection.id?.startsWith("vercel:")) {
+      const installationId = ssoConnection.id.split(":")[1];
+      return `https://vercel.com/sso/integrations/${
+        process.env.VERCEL_INTEGRATION_SLUG || "growthbook"
+      }/${installationId}`;
+    }
+
     const code_verifier = generators.codeVerifier();
     const code_challenge = generators.codeChallenge(code_verifier);
 
@@ -274,7 +290,20 @@ async function getConnectionFromRequest(req: Request, res: Response) {
   }
 
   let connection: SSOConnectionInterface;
-  if (IS_CLOUD && ssoConnectionId) {
+  if (IS_CLOUD && ssoConnectionId.startsWith("vercel:")) {
+    connection = {
+      id: ssoConnectionId,
+      clientId: VERCEL_CLIENT_ID,
+      clientSecret: VERCEL_CLIENT_SECRET,
+      metadata: {
+        issuer: "https://marketplace.vercel.com",
+        jwks_uri: "https://marketplace.vercel.com/.well-known/jwks",
+        id_token_signing_alg_values_supported: ["RS256"],
+        authorization_endpoint: "https://api.vercel.com/oauth/authorize",
+        token_endpoint: "https://api.vercel.com/oauth/access_token",
+      },
+    };
+  } else if (IS_CLOUD && ssoConnectionId) {
     connection = await ssoConnectionCache.get(ssoConnectionId);
   } else if (SSO_CONFIG) {
     connection = SSO_CONFIG;

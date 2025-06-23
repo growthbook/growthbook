@@ -4,6 +4,9 @@
   | **[feature.created](#featurecreated)** | Triggered when a feature is created |
 | **[feature.updated](#featureupdated)** | Triggered when a feature is updated |
 | **[feature.deleted](#featuredeleted)** | Triggered when a feature is deleted |
+| **[feature.saferollout.ship](#featuresaferolloutship)** | Triggered when a safe rollout is completed and safe to rollout to 100%. |
+| **[feature.saferollout.rollback](#featuresaferolloutrollback)** | Triggered when a safe rollout has a failing guardrail and should be reverted. |
+| **[feature.saferollout.unhealthy](#featuresaferolloutunhealthy)** | Triggered when a safe rollout is failing a health check and may not be working as expected. |
 | **[experiment.created](#experimentcreated)** | Triggered when an experiment is created |
 | **[experiment.updated](#experimentupdated)** | Triggered when an experiment is updated |
 | **[experiment.deleted](#experimentdeleted)** | Triggered when an experiment is deleted |
@@ -56,6 +59,10 @@ Triggered when a feature is created
                             id: string;
                             condition: string;
                         }[] | undefined;
+                        scheduleRules?: {
+                            enabled: boolean;
+                            timestamp: string | null;
+                        }[] | undefined;
                         id: string;
                         enabled: boolean;
                         type: "force";
@@ -66,6 +73,10 @@ Triggered when a feature is created
                         savedGroupTargeting?: {
                             matchType: "all" | "any" | "none";
                             savedGroups: string[];
+                        }[] | undefined;
+                        scheduleRules?: {
+                            enabled: boolean;
+                            timestamp: string | null;
                         }[] | undefined;
                         id: string;
                         enabled: boolean;
@@ -91,6 +102,10 @@ Triggered when a feature is created
                             range: number[];
                         } | undefined;
                         coverage?: number | undefined;
+                        scheduleRules?: {
+                            enabled: boolean;
+                            timestamp: string | null;
+                        }[] | undefined;
                         value?: {
                             value: string;
                             weight: number;
@@ -102,11 +117,36 @@ Triggered when a feature is created
                         enabled: boolean;
                         type: "experiment-ref";
                         condition?: string | undefined;
+                        scheduleRules?: {
+                            enabled: boolean;
+                            timestamp: string | null;
+                        }[] | undefined;
                         variations: {
                             value: string;
                             variationId: string;
                         }[];
                         experimentId: string;
+                    } | {
+                        condition: string;
+                        savedGroupTargeting?: {
+                            matchType: "all" | "any" | "none";
+                            savedGroups: string[];
+                        }[] | undefined;
+                        prerequisites?: {
+                            /** Feature ID */
+                            id: string;
+                            condition: string;
+                        }[] | undefined;
+                        id: string;
+                        trackingKey?: string | undefined;
+                        enabled: boolean;
+                        type: "safe-rollout";
+                        controlValue: string;
+                        variationValue: string;
+                        seed?: string | undefined;
+                        hashAttribute?: string | undefined;
+                        safeRolloutId?: string | undefined;
+                        status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
                     })[];
                     /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string | undefined;
@@ -125,6 +165,10 @@ Triggered when a feature is created
                                 id: string;
                                 condition: string;
                             }[] | undefined;
+                            scheduleRules?: {
+                                enabled: boolean;
+                                timestamp: string | null;
+                            }[] | undefined;
                             id: string;
                             enabled: boolean;
                             type: "force";
@@ -135,6 +179,10 @@ Triggered when a feature is created
                             savedGroupTargeting?: {
                                 matchType: "all" | "any" | "none";
                                 savedGroups: string[];
+                            }[] | undefined;
+                            scheduleRules?: {
+                                enabled: boolean;
+                                timestamp: string | null;
                             }[] | undefined;
                             id: string;
                             enabled: boolean;
@@ -160,6 +208,10 @@ Triggered when a feature is created
                                 range: number[];
                             } | undefined;
                             coverage?: number | undefined;
+                            scheduleRules?: {
+                                enabled: boolean;
+                                timestamp: string | null;
+                            }[] | undefined;
                             value?: {
                                 value: string;
                                 weight: number;
@@ -171,11 +223,36 @@ Triggered when a feature is created
                             enabled: boolean;
                             type: "experiment-ref";
                             condition?: string | undefined;
+                            scheduleRules?: {
+                                enabled: boolean;
+                                timestamp: string | null;
+                            }[] | undefined;
                             variations: {
                                 value: string;
                                 variationId: string;
                             }[];
                             experimentId: string;
+                        } | {
+                            condition: string;
+                            savedGroupTargeting?: {
+                                matchType: "all" | "any" | "none";
+                                savedGroups: string[];
+                            }[] | undefined;
+                            prerequisites?: {
+                                /** Feature ID */
+                                id: string;
+                                condition: string;
+                            }[] | undefined;
+                            id: string;
+                            trackingKey?: string | undefined;
+                            enabled: boolean;
+                            type: "safe-rollout";
+                            controlValue: string;
+                            variationValue: string;
+                            seed?: string | undefined;
+                            hashAttribute?: string | undefined;
+                            safeRolloutId?: string | undefined;
+                            status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
                         })[];
                         /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                         definition?: string | undefined;
@@ -190,6 +267,9 @@ Triggered when a feature is created
                 date: string;
                 publishedBy: string;
             };
+            customFields?: {
+                [x: string]: any;
+            } | undefined;
         };
     };
     user: {
@@ -250,6 +330,10 @@ Triggered when a feature is updated
                             id: string;
                             condition: string;
                         }[] | undefined;
+                        scheduleRules?: {
+                            enabled: boolean;
+                            timestamp: string | null;
+                        }[] | undefined;
                         id: string;
                         enabled: boolean;
                         type: "force";
@@ -260,6 +344,10 @@ Triggered when a feature is updated
                         savedGroupTargeting?: {
                             matchType: "all" | "any" | "none";
                             savedGroups: string[];
+                        }[] | undefined;
+                        scheduleRules?: {
+                            enabled: boolean;
+                            timestamp: string | null;
                         }[] | undefined;
                         id: string;
                         enabled: boolean;
@@ -285,6 +373,10 @@ Triggered when a feature is updated
                             range: number[];
                         } | undefined;
                         coverage?: number | undefined;
+                        scheduleRules?: {
+                            enabled: boolean;
+                            timestamp: string | null;
+                        }[] | undefined;
                         value?: {
                             value: string;
                             weight: number;
@@ -296,11 +388,36 @@ Triggered when a feature is updated
                         enabled: boolean;
                         type: "experiment-ref";
                         condition?: string | undefined;
+                        scheduleRules?: {
+                            enabled: boolean;
+                            timestamp: string | null;
+                        }[] | undefined;
                         variations: {
                             value: string;
                             variationId: string;
                         }[];
                         experimentId: string;
+                    } | {
+                        condition: string;
+                        savedGroupTargeting?: {
+                            matchType: "all" | "any" | "none";
+                            savedGroups: string[];
+                        }[] | undefined;
+                        prerequisites?: {
+                            /** Feature ID */
+                            id: string;
+                            condition: string;
+                        }[] | undefined;
+                        id: string;
+                        trackingKey?: string | undefined;
+                        enabled: boolean;
+                        type: "safe-rollout";
+                        controlValue: string;
+                        variationValue: string;
+                        seed?: string | undefined;
+                        hashAttribute?: string | undefined;
+                        safeRolloutId?: string | undefined;
+                        status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
                     })[];
                     /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string | undefined;
@@ -319,6 +436,10 @@ Triggered when a feature is updated
                                 id: string;
                                 condition: string;
                             }[] | undefined;
+                            scheduleRules?: {
+                                enabled: boolean;
+                                timestamp: string | null;
+                            }[] | undefined;
                             id: string;
                             enabled: boolean;
                             type: "force";
@@ -329,6 +450,10 @@ Triggered when a feature is updated
                             savedGroupTargeting?: {
                                 matchType: "all" | "any" | "none";
                                 savedGroups: string[];
+                            }[] | undefined;
+                            scheduleRules?: {
+                                enabled: boolean;
+                                timestamp: string | null;
                             }[] | undefined;
                             id: string;
                             enabled: boolean;
@@ -354,6 +479,10 @@ Triggered when a feature is updated
                                 range: number[];
                             } | undefined;
                             coverage?: number | undefined;
+                            scheduleRules?: {
+                                enabled: boolean;
+                                timestamp: string | null;
+                            }[] | undefined;
                             value?: {
                                 value: string;
                                 weight: number;
@@ -365,11 +494,36 @@ Triggered when a feature is updated
                             enabled: boolean;
                             type: "experiment-ref";
                             condition?: string | undefined;
+                            scheduleRules?: {
+                                enabled: boolean;
+                                timestamp: string | null;
+                            }[] | undefined;
                             variations: {
                                 value: string;
                                 variationId: string;
                             }[];
                             experimentId: string;
+                        } | {
+                            condition: string;
+                            savedGroupTargeting?: {
+                                matchType: "all" | "any" | "none";
+                                savedGroups: string[];
+                            }[] | undefined;
+                            prerequisites?: {
+                                /** Feature ID */
+                                id: string;
+                                condition: string;
+                            }[] | undefined;
+                            id: string;
+                            trackingKey?: string | undefined;
+                            enabled: boolean;
+                            type: "safe-rollout";
+                            controlValue: string;
+                            variationValue: string;
+                            seed?: string | undefined;
+                            hashAttribute?: string | undefined;
+                            safeRolloutId?: string | undefined;
+                            status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
                         })[];
                         /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                         definition?: string | undefined;
@@ -384,6 +538,9 @@ Triggered when a feature is updated
                 date: string;
                 publishedBy: string;
             };
+            customFields?: {
+                [x: string]: any;
+            } | undefined;
         };
         previous_attributes: {
             id?: string | undefined;
@@ -412,6 +569,10 @@ Triggered when a feature is updated
                             id: string;
                             condition: string;
                         }[] | undefined;
+                        scheduleRules?: {
+                            enabled: boolean;
+                            timestamp: string | null;
+                        }[] | undefined;
                         id: string;
                         enabled: boolean;
                         type: "force";
@@ -422,6 +583,10 @@ Triggered when a feature is updated
                         savedGroupTargeting?: {
                             matchType: "all" | "any" | "none";
                             savedGroups: string[];
+                        }[] | undefined;
+                        scheduleRules?: {
+                            enabled: boolean;
+                            timestamp: string | null;
                         }[] | undefined;
                         id: string;
                         enabled: boolean;
@@ -447,6 +612,10 @@ Triggered when a feature is updated
                             range: number[];
                         } | undefined;
                         coverage?: number | undefined;
+                        scheduleRules?: {
+                            enabled: boolean;
+                            timestamp: string | null;
+                        }[] | undefined;
                         value?: {
                             value: string;
                             weight: number;
@@ -458,11 +627,36 @@ Triggered when a feature is updated
                         enabled: boolean;
                         type: "experiment-ref";
                         condition?: string | undefined;
+                        scheduleRules?: {
+                            enabled: boolean;
+                            timestamp: string | null;
+                        }[] | undefined;
                         variations: {
                             value: string;
                             variationId: string;
                         }[];
                         experimentId: string;
+                    } | {
+                        condition: string;
+                        savedGroupTargeting?: {
+                            matchType: "all" | "any" | "none";
+                            savedGroups: string[];
+                        }[] | undefined;
+                        prerequisites?: {
+                            /** Feature ID */
+                            id: string;
+                            condition: string;
+                        }[] | undefined;
+                        id: string;
+                        trackingKey?: string | undefined;
+                        enabled: boolean;
+                        type: "safe-rollout";
+                        controlValue: string;
+                        variationValue: string;
+                        seed?: string | undefined;
+                        hashAttribute?: string | undefined;
+                        safeRolloutId?: string | undefined;
+                        status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
                     })[];
                     /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string | undefined;
@@ -481,6 +675,10 @@ Triggered when a feature is updated
                                 id: string;
                                 condition: string;
                             }[] | undefined;
+                            scheduleRules?: {
+                                enabled: boolean;
+                                timestamp: string | null;
+                            }[] | undefined;
                             id: string;
                             enabled: boolean;
                             type: "force";
@@ -491,6 +689,10 @@ Triggered when a feature is updated
                             savedGroupTargeting?: {
                                 matchType: "all" | "any" | "none";
                                 savedGroups: string[];
+                            }[] | undefined;
+                            scheduleRules?: {
+                                enabled: boolean;
+                                timestamp: string | null;
                             }[] | undefined;
                             id: string;
                             enabled: boolean;
@@ -516,6 +718,10 @@ Triggered when a feature is updated
                                 range: number[];
                             } | undefined;
                             coverage?: number | undefined;
+                            scheduleRules?: {
+                                enabled: boolean;
+                                timestamp: string | null;
+                            }[] | undefined;
                             value?: {
                                 value: string;
                                 weight: number;
@@ -527,11 +733,36 @@ Triggered when a feature is updated
                             enabled: boolean;
                             type: "experiment-ref";
                             condition?: string | undefined;
+                            scheduleRules?: {
+                                enabled: boolean;
+                                timestamp: string | null;
+                            }[] | undefined;
                             variations: {
                                 value: string;
                                 variationId: string;
                             }[];
                             experimentId: string;
+                        } | {
+                            condition: string;
+                            savedGroupTargeting?: {
+                                matchType: "all" | "any" | "none";
+                                savedGroups: string[];
+                            }[] | undefined;
+                            prerequisites?: {
+                                /** Feature ID */
+                                id: string;
+                                condition: string;
+                            }[] | undefined;
+                            id: string;
+                            trackingKey?: string | undefined;
+                            enabled: boolean;
+                            type: "safe-rollout";
+                            controlValue: string;
+                            variationValue: string;
+                            seed?: string | undefined;
+                            hashAttribute?: string | undefined;
+                            safeRolloutId?: string | undefined;
+                            status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
                         })[];
                         /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                         definition?: string | undefined;
@@ -546,6 +777,9 @@ Triggered when a feature is updated
                 date: string;
                 publishedBy: string;
             } | undefined;
+            customFields?: ({
+                [x: string]: any;
+            } | undefined) | undefined;
         };
     };
     user: {
@@ -606,6 +840,10 @@ Triggered when a feature is deleted
                             id: string;
                             condition: string;
                         }[] | undefined;
+                        scheduleRules?: {
+                            enabled: boolean;
+                            timestamp: string | null;
+                        }[] | undefined;
                         id: string;
                         enabled: boolean;
                         type: "force";
@@ -616,6 +854,10 @@ Triggered when a feature is deleted
                         savedGroupTargeting?: {
                             matchType: "all" | "any" | "none";
                             savedGroups: string[];
+                        }[] | undefined;
+                        scheduleRules?: {
+                            enabled: boolean;
+                            timestamp: string | null;
                         }[] | undefined;
                         id: string;
                         enabled: boolean;
@@ -641,6 +883,10 @@ Triggered when a feature is deleted
                             range: number[];
                         } | undefined;
                         coverage?: number | undefined;
+                        scheduleRules?: {
+                            enabled: boolean;
+                            timestamp: string | null;
+                        }[] | undefined;
                         value?: {
                             value: string;
                             weight: number;
@@ -652,11 +898,36 @@ Triggered when a feature is deleted
                         enabled: boolean;
                         type: "experiment-ref";
                         condition?: string | undefined;
+                        scheduleRules?: {
+                            enabled: boolean;
+                            timestamp: string | null;
+                        }[] | undefined;
                         variations: {
                             value: string;
                             variationId: string;
                         }[];
                         experimentId: string;
+                    } | {
+                        condition: string;
+                        savedGroupTargeting?: {
+                            matchType: "all" | "any" | "none";
+                            savedGroups: string[];
+                        }[] | undefined;
+                        prerequisites?: {
+                            /** Feature ID */
+                            id: string;
+                            condition: string;
+                        }[] | undefined;
+                        id: string;
+                        trackingKey?: string | undefined;
+                        enabled: boolean;
+                        type: "safe-rollout";
+                        controlValue: string;
+                        variationValue: string;
+                        seed?: string | undefined;
+                        hashAttribute?: string | undefined;
+                        safeRolloutId?: string | undefined;
+                        status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
                     })[];
                     /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string | undefined;
@@ -675,6 +946,10 @@ Triggered when a feature is deleted
                                 id: string;
                                 condition: string;
                             }[] | undefined;
+                            scheduleRules?: {
+                                enabled: boolean;
+                                timestamp: string | null;
+                            }[] | undefined;
                             id: string;
                             enabled: boolean;
                             type: "force";
@@ -685,6 +960,10 @@ Triggered when a feature is deleted
                             savedGroupTargeting?: {
                                 matchType: "all" | "any" | "none";
                                 savedGroups: string[];
+                            }[] | undefined;
+                            scheduleRules?: {
+                                enabled: boolean;
+                                timestamp: string | null;
                             }[] | undefined;
                             id: string;
                             enabled: boolean;
@@ -710,6 +989,10 @@ Triggered when a feature is deleted
                                 range: number[];
                             } | undefined;
                             coverage?: number | undefined;
+                            scheduleRules?: {
+                                enabled: boolean;
+                                timestamp: string | null;
+                            }[] | undefined;
                             value?: {
                                 value: string;
                                 weight: number;
@@ -721,11 +1004,36 @@ Triggered when a feature is deleted
                             enabled: boolean;
                             type: "experiment-ref";
                             condition?: string | undefined;
+                            scheduleRules?: {
+                                enabled: boolean;
+                                timestamp: string | null;
+                            }[] | undefined;
                             variations: {
                                 value: string;
                                 variationId: string;
                             }[];
                             experimentId: string;
+                        } | {
+                            condition: string;
+                            savedGroupTargeting?: {
+                                matchType: "all" | "any" | "none";
+                                savedGroups: string[];
+                            }[] | undefined;
+                            prerequisites?: {
+                                /** Feature ID */
+                                id: string;
+                                condition: string;
+                            }[] | undefined;
+                            id: string;
+                            trackingKey?: string | undefined;
+                            enabled: boolean;
+                            type: "safe-rollout";
+                            controlValue: string;
+                            variationValue: string;
+                            seed?: string | undefined;
+                            hashAttribute?: string | undefined;
+                            safeRolloutId?: string | undefined;
+                            status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
                         })[];
                         /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                         definition?: string | undefined;
@@ -740,6 +1048,121 @@ Triggered when a feature is deleted
                 date: string;
                 publishedBy: string;
             };
+            customFields?: {
+                [x: string]: any;
+            } | undefined;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.saferollout.ship
+
+Triggered when a safe rollout is completed and safe to rollout to 100%.
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.saferollout.ship";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            featureId: string;
+            safeRolloutId: string;
+            environment: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.saferollout.rollback
+
+Triggered when a safe rollout has a failing guardrail and should be reverted.
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.saferollout.rollback";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            featureId: string;
+            safeRolloutId: string;
+            environment: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.saferollout.unhealthy
+
+Triggered when a safe rollout is failing a health check and may not be working as expected.
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.saferollout.unhealthy";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            featureId: string;
+            safeRolloutId: string;
+            environment: string;
+            unhealthyReason: ("srm" | "multipleExposures")[];
         };
     };
     user: {
@@ -893,6 +1316,12 @@ Triggered when an experiment is created
             banditScheduleUnit?: ("days" | "hours") | undefined;
             banditBurnInValue?: number | undefined;
             banditBurnInUnit?: ("days" | "hours") | undefined;
+            linkedFeatures?: string[] | undefined;
+            hasVisualChangesets?: boolean | undefined;
+            hasURLRedirects?: boolean | undefined;
+            customFields?: {
+                [x: string]: any;
+            } | undefined;
         };
     };
     user: {
@@ -1046,6 +1475,12 @@ Triggered when an experiment is updated
             banditScheduleUnit?: ("days" | "hours") | undefined;
             banditBurnInValue?: number | undefined;
             banditBurnInUnit?: ("days" | "hours") | undefined;
+            linkedFeatures?: string[] | undefined;
+            hasVisualChangesets?: boolean | undefined;
+            hasURLRedirects?: boolean | undefined;
+            customFields?: {
+                [x: string]: any;
+            } | undefined;
         };
         previous_attributes: {
             id?: string | undefined;
@@ -1167,6 +1602,12 @@ Triggered when an experiment is updated
             banditScheduleUnit?: (("days" | "hours") | undefined) | undefined;
             banditBurnInValue?: (number | undefined) | undefined;
             banditBurnInUnit?: (("days" | "hours") | undefined) | undefined;
+            linkedFeatures?: (string[] | undefined) | undefined;
+            hasVisualChangesets?: (boolean | undefined) | undefined;
+            hasURLRedirects?: (boolean | undefined) | undefined;
+            customFields?: ({
+                [x: string]: any;
+            } | undefined) | undefined;
         };
     };
     user: {
@@ -1320,6 +1761,12 @@ Triggered when an experiment is deleted
             banditScheduleUnit?: ("days" | "hours") | undefined;
             banditBurnInValue?: number | undefined;
             banditBurnInUnit?: ("days" | "hours") | undefined;
+            linkedFeatures?: string[] | undefined;
+            hasVisualChangesets?: boolean | undefined;
+            hasURLRedirects?: boolean | undefined;
+            customFields?: {
+                [x: string]: any;
+            } | undefined;
         };
     };
     user: {

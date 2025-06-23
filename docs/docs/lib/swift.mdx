@@ -6,6 +6,7 @@ slug: swift
 ---
 
 import SdkResources from '@site/src/components/SdkResources';
+import SdkSupportedFeatures from '@site/src/components/SdkSupportedFeatures';
 
 # Swift (iOS)
 
@@ -50,14 +51,23 @@ dependencies: [
 ## Quick Usage
 
 ```swift
-// First, create a GrowthBook instance using your unique features endpoint
+// First, create a GrowthBook instance using your unique API host and client key
 var gb: GrowthBookSDK = GrowthBookBuilder(
-  // Your GrowthBook feature flag endpoint
-  url: "https://cdn.growthbook.io/api/features/sdk-abc123"
+  // Your GrowthBook API host
+  apiHost: "https://cdn.growthbook.io",
+  // Your client key
+  clientKey: "sdk-abc123",
+  // User attributes for targeting
+  attributes: [:],
+  // Tracking callback for experiments
+  trackingCallback: { experiment, result in
+    // Track experiment exposures
+  },
+  // Enable/disable background sync for real-time updates
+  backgroundSync: false
 ).initializer()
 
 // Then, add targeting attributes so you can control the release of your features
-// TODO: Replace with your real targeting attributes
 var attrs = [
   "id": "12345",
   "deviceId": "abc123",
@@ -69,12 +79,13 @@ gb.setAttributes(attrs)
 // Finally, start feature flagging!
 
 // Boolean (On/Off) Feature Flag
-if (gb.isOn("feature-usage-code")) {
+if gb.isOn(feature: "feature-usage-code") {
   // Feature is enabled!
 }
 
 // String/Number/JSON Feature Flag with a fallback
-var value = gb.getFeatureValue("button-color", "blue")
+import Foundation // For JSON type
+var value = gb.getFeatureValue(feature: "button-color", default: JSON("blue"))
 print(value)
 ```
 
@@ -84,14 +95,24 @@ In order for the GrowthBook SDK to work, it needs to have feature definitions fr
 
 ### Built-in Fetching and Caching
 
-If you pass a `url` into GrowthBookBuilder, it will handle the network requests, caching, retry logic, etc. for you automatically. If your feature payload is encrypted, you can also pass in an `encryptionKey` and it will decrypt feature flags automatically.
+If you pass an `apiHost` and `clientKey` into GrowthBookBuilder, it will handle the network requests, caching, retry logic, etc. for you automatically. If your feature payload is encrypted, you can also pass in an `encryptionKey` and it will decrypt feature flags automatically.
 
 ```swift
 var gb: GrowthBookSDK = GrowthBookBuilder(
-  // Your feature flag endpoint
-  url: "https://cdn.growthbook.io/api/features/sdk-abc123",
-  // View your encryption key on the Features → SDKs page
-  encryptionKey: "abcdef98765"
+  // Your GrowthBook API host
+  apiHost: "https://cdn.growthbook.io",
+  // Your client key
+  clientKey: "sdk-abc123",
+  // Encryption key if your features are encrypted
+  encryptionKey: "abcdef98765",
+  // Required user attributes for targeting (can be empty initially)
+  attributes: [:],
+  // Required tracking callback for experiments
+  trackingCallback: { experiment, result in
+    // Track experiments
+  },
+  // Enable/disable background sync with SSE
+  backgroundSync: false
 ).initializer()
 ```
 
@@ -102,10 +123,28 @@ If you want to refresh the features at any time (e.g. when a navigation event oc
 If you prefer to handle the network and caching logic yourself, you can instead pass in a features JSON object directly. For example, you might store features in Postgres on your back-end and send it down to your app as part of an initial bootstrap API call.
 
 ```swift
+// Create JSON data for features
+let featuresJSON = """
+{
+  "feature1": {
+    "defaultValue": true
+  }
+}
+"""
+let featuresData = featuresJSON.data(using: .utf8)!
+
+// Initialize with features data
 var gb: GrowthBookSDK = GrowthBookBuilder(
-  features: [
-    "feature1": Feature(defaultValue: true)
-  ]
+  // Your feature definitions as Data object
+  features: featuresData,
+  // Required user attributes for targeting (can be empty initially)
+  attributes: [:],
+  // Required tracking callback for experiments
+  trackingCallback: { experiment, result in
+    // Track experiments
+  },
+  // Enable/disable background sync
+  backgroundSync: false
 ).initializer()
 ```
 
@@ -115,18 +154,60 @@ In order to run A/B tests on your feature flags, you need to set up a tracking c
 
 ```swift
 var gb: GrowthBookSDK = GrowthBookBuilder(
-  // Your feature flag endpoint
-  url: "https://cdn.growthbook.io/api/features/sdk-abc123",
+  // Your GrowthBook API host
+  apiHost: "https://cdn.growthbook.io",
+  // Your client key
+  clientKey: "sdk-abc123",
+  // Required user attributes for targeting (can be empty initially)
+  attributes: [:],
   // Called whenever someone is put into an experiment
   trackingCallback: { experiment, experimentResult in
     // TODO: Track in your real analytics system
     print("Viewed Experiment")
     print("Experiment Id: ", experiment.key)
     print("Variation Id: ", experimentResult.variationId)
-  }
+  },
+  // Enable/disable background sync
+  backgroundSync: false
+).initializer()
+```
+
+## Background Sync
+
+The Swift SDK supports real-time feature flag updates using Server-Sent Events (SSE). This is controlled through the `backgroundSync` parameter when initializing the SDK.
+
+When `backgroundSync` is set to `true`, the SDK will establish an SSE connection to receive real-time updates whenever your feature flags change. This eliminates the need to manually refresh the cache.
+
+When `backgroundSync` is set to `false`, you'll need to call `gb.refreshCache()` manually whenever you want to fetch the latest feature flags.
+
+### Refresh Handler
+
+You can set a refresh handler to be notified when features are updated, either through background sync or manual refresh:
+
+```swift
+var gb: GrowthBookSDK = GrowthBookBuilder(
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  attributes: [:],
+  trackingCallback: { experiment, result in
+    // Track experiments
+  },
+  // Callback when features are refreshed
+  refreshHandler: { success in
+    if success {
+      print("Features refreshed successfully")
+    } else {
+      print("Failed to refresh features")
+    }
+  },
+  backgroundSync: true
 ).initializer()
 ```
 
 ## Reference
 
 View detailed docs on the [GitHub Repo](https://github.com/growthbook/growthbook-swift)
+
+## Supported Features
+
+<SdkSupportedFeatures sdk="swift" />

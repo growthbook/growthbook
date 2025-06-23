@@ -227,6 +227,7 @@ export default function ResultsTab({
             setBaselineRow={(b: number) => setBaselineRow(b)}
             setPrecomputedDimension={setPrecomputedDimension}
             setDifferenceType={setDifferenceType}
+            differenceType={differenceType}
             reportArgs={reportArgs}
           />
           {experiment.status === "draft" ? (

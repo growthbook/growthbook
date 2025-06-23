@@ -48,6 +48,10 @@ jobs:
           push: true
           context: .
           project: vmp2ssvj9r
+          build-args: |
+            DD_GIT_COMMIT_SHA=${{ github.sha }}
+            DD_GIT_REPOSITORY_URL=https://github.com/growthbook/growthbook.git
+            DD_VERSION=${{ github.sha }}
           tags: |
             growthbook/growthbook:latest
             growthbook/growthbook:git-${{ steps.metadata.outputs.docker_sha }}

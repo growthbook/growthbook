@@ -1,6 +1,10 @@
 // @ts-check
 // Note: type annotations allow type checking and IDEs autocompletion
 
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import { themes } from "prism-react-renderer";
+
 /** @type {import('@docusaurus/types').Config} */
 const config = {
   title: "GrowthBook Docs",
@@ -23,6 +27,10 @@ const config = {
   i18n: {
     defaultLocale: "en",
     locales: ["en"],
+  },
+
+  future: {
+    experimental_faster: true,
   },
 
   // Kapa.ai chat bot on Docs page
@@ -54,9 +62,9 @@ const config = {
           breadcrumbs: true,
           remarkPlugins: [
             [require("@docusaurus/remark-plugin-npm2yarn"), { sync: true }],
-            require("remark-math"),
+            remarkMath,
           ],
-          rehypePlugins: [require("rehype-katex")],
+          rehypePlugins: [rehypeKatex],
           sidebarPath: require.resolve("./sidebars.js"),
           routeBasePath: "/", // Serve the docs at the site's root
           // Please change this to your repo.
@@ -184,8 +192,8 @@ const config = {
         },
       ],
       prism: {
-        theme: require("prism-react-renderer").themes.github,
-        darkTheme: require("prism-react-renderer").themes.dracula,
+        theme: themes.github,
+        darkTheme: themes.dracula,
         additionalLanguages: [
           "csharp",
           "ruby",

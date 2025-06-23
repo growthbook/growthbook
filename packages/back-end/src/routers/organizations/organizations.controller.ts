@@ -142,6 +142,7 @@ import {
   getLicenseError,
   getSubscriptionFromLicense,
 } from "back-end/src/enterprise";
+import { getUsageFromCache } from "back-end/src/enterprise/billing";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
@@ -162,6 +163,8 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     projects,
     factTables,
     factMetrics,
+    decisionCriteria,
+    webhookSecrets,
   ] = await Promise.all([
     getMetricsByOrganization(context),
     getDataSourcesByOrganization(context),
@@ -174,6 +177,8 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     context.models.projects.getAll(),
     getAllFactTablesForOrganization(context),
     context.models.factMetrics.getAll(),
+    context.models.decisionCriteria.getAll(),
+    context.models.webhookSecrets.getAllForFrontEnd(),
   ]);
 
   return res.status(200).json({
@@ -204,6 +209,8 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     projects,
     factTables,
     factMetrics,
+    decisionCriteria,
+    webhookSecrets,
   });
 }
 
@@ -682,6 +689,7 @@ export async function getOrganization(
     messages,
     externalId,
     setupEventTracker,
+    isVercelIntegration,
   } = org;
 
   let license: Partial<LicenseInterface> | null = null;
@@ -781,6 +789,7 @@ export async function getOrganization(
       discountCode: org.discountCode || "",
       customRoles: org.customRoles,
       deactivatedRoles: org.deactivatedRoles,
+      isVercelIntegration,
       settings: {
         ...settings,
         attributeSchema: filteredAttributes,
@@ -795,6 +804,7 @@ export async function getOrganization(
       dateCreated: org.dateCreated,
     },
     seatsInUse,
+    usage: getUsageFromCache(org),
   });
 }
 
@@ -1407,16 +1417,6 @@ export async function putOrganization(
         ...settings,
       };
       orig.settings = org.settings;
-    }
-    if (connections?.vercel) {
-      const { token, configurationId, teamId } = connections.vercel;
-      if (token && configurationId) {
-        updates.connections = {
-          ...updates.connections,
-          vercel: { token, configurationId, teamId },
-        };
-        orig.connections = org.connections;
-      }
     }
 
     if (licenseKey && licenseKey.trim() !== org.licenseKey) {

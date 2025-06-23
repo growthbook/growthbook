@@ -24,10 +24,11 @@ import {
 } from "back-end/types/organization";
 import { ExperimentInterface } from "back-end/types/experiment";
 import { FeatureDefinitionWithProject } from "back-end/types/api";
+import { SafeRolloutInterface } from "../types/safe-rollout";
 
 const groupMap: GroupMap = new Map();
 const experimentMap = new Map();
-
+const safeRolloutMap = new Map();
 const baseFeature: FeatureInterface = {
   id: "feature",
   dateCreated: new Date(),
@@ -1245,8 +1246,37 @@ describe("SDK Payloads", () => {
       linkedFeatures: ["feature"],
       excludeFromPayload: false,
     };
+    const safeRollout: SafeRolloutInterface = {
+      id: "sr_123",
+      organization: "123",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      featureId: "feature",
+      environment: "production",
+      datasourceId: "ds_123",
+      exposureQueryId: "eq_123",
+      guardrailMetricIds: [],
+      maxDuration: {
+        amount: 7,
+        unit: "days",
+      },
+      autoRollback: true,
+      status: "running",
+      autoSnapshots: true,
+      startedAt: new Date(),
+      lastSnapshotAttempt: new Date(),
+      nextSnapshotAttempt: new Date(),
+      analysisSummary: undefined,
+      pastNotifications: [],
+      rampUpSchedule: {
+        enabled: true,
+        step: 1,
+        steps: [0.1, 0.25, 0.5],
+        rampUpCompleted: false,
+      },
+    };
     const experimentMap = new Map([["exp_123", exp]]);
-
+    const safeRolloutMap = new Map([["sr_123", safeRollout]]);
     // Includes the experiment
     expect(
       getFeatureDefinition({
@@ -1254,6 +1284,7 @@ describe("SDK Payloads", () => {
         environment: "production",
         groupMap: groupMap,
         experimentMap: experimentMap,
+        safeRolloutMap: safeRolloutMap,
       })
     ).toEqual({
       defaultValue: true,
@@ -1295,6 +1326,7 @@ describe("SDK Payloads", () => {
         environment: "production",
         groupMap: groupMap,
         experimentMap: experimentMap,
+        safeRolloutMap: safeRolloutMap,
       })
     ).toEqual({
       defaultValue: true,
@@ -1309,6 +1341,7 @@ describe("SDK Payloads", () => {
         environment: "production",
         groupMap: groupMap,
         experimentMap: experimentMap,
+        safeRolloutMap: safeRolloutMap,
       })
     ).toEqual({
       defaultValue: true,
@@ -1322,6 +1355,7 @@ describe("SDK Payloads", () => {
         environment: "production",
         groupMap: groupMap,
         experimentMap: experimentMap,
+        safeRolloutMap: safeRolloutMap,
       })
     ).toEqual({
       defaultValue: true,
@@ -1349,9 +1383,143 @@ describe("SDK Payloads", () => {
         environment: "production",
         groupMap: groupMap,
         experimentMap: experimentMap,
+        safeRolloutMap: safeRolloutMap,
       })
     ).toEqual({
       defaultValue: true,
+    });
+  });
+
+  it("Uses safe rollouts to build feature definitions", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "safe-rollout",
+        controlValue: "false",
+        variationValue: "true",
+        safeRolloutId: "sr_123",
+        status: "running",
+        hashAttribute: "user_id",
+        seed: "testing",
+        trackingKey: "exp-key",
+        description: "",
+        id: "abc",
+        enabled: true,
+      },
+    ];
+
+    // Includes the running safe rollout as an experiment with the right preset coverage
+    // and weights
+
+    expect(
+      getFeatureDefinition({
+        feature,
+        environment: "production",
+        groupMap: groupMap,
+        experimentMap: experimentMap,
+        safeRolloutMap: safeRolloutMap,
+      })
+    ).toEqual({
+      defaultValue: true,
+      project: undefined,
+      rules: [
+        {
+          id: "abc",
+          key: "exp-key",
+          coverage: 1,
+          hashAttribute: "user_id",
+          hashVersion: 2,
+          meta: [
+            {
+              key: "0",
+              name: "Control",
+            },
+            {
+              key: "1",
+              name: "Variation",
+            },
+          ],
+          name: "feature - Safe Rollout",
+          phase: "0",
+          seed: "testing",
+          variations: [false, true],
+          weights: [0.5, 0.5],
+        },
+      ],
+    });
+
+    const feature2 = cloneDeep(baseFeature);
+    feature2.environmentSettings["production"].rules = [
+      {
+        type: "safe-rollout",
+        controlValue: "false",
+        variationValue: "true",
+        safeRolloutId: "sr_123",
+        status: "rolled-back",
+        hashAttribute: "user_id",
+        seed: "testing",
+        trackingKey: "exp-key",
+        description: "",
+        id: "abc",
+        enabled: true,
+      },
+    ];
+
+    // Includes the rolled-back safe rollout as a force rule with the control value
+    expect(
+      getFeatureDefinition({
+        feature: feature2,
+        environment: "production",
+        groupMap: groupMap,
+        experimentMap: experimentMap,
+        safeRolloutMap: safeRolloutMap,
+      })
+    ).toEqual({
+      defaultValue: true,
+      project: undefined,
+      rules: [
+        {
+          id: "abc",
+          force: false,
+        },
+      ],
+    });
+
+    const feature3 = cloneDeep(baseFeature);
+    feature3.environmentSettings["production"].rules = [
+      {
+        type: "safe-rollout",
+        controlValue: "false",
+        variationValue: "true",
+        safeRolloutId: "sr_123",
+        status: "released",
+        hashAttribute: "user_id",
+        seed: "testing",
+        trackingKey: "exp-key",
+        description: "",
+        id: "abc",
+        enabled: true,
+      },
+    ];
+
+    // Includes the released safe rollout as a force rule with the variation value
+    expect(
+      getFeatureDefinition({
+        feature: feature3,
+        environment: "production",
+        groupMap: groupMap,
+        experimentMap: experimentMap,
+        safeRolloutMap: safeRolloutMap,
+      })
+    ).toEqual({
+      defaultValue: true,
+      project: undefined,
+      rules: [
+        {
+          id: "abc",
+          force: true,
+        },
+      ],
     });
   });
 
@@ -1364,6 +1532,7 @@ describe("SDK Payloads", () => {
         environment: "production",
         groupMap: groupMap,
         experimentMap: experimentMap,
+        safeRolloutMap: safeRolloutMap,
       })
     ).toEqual({
       defaultValue: true,
@@ -1377,6 +1546,7 @@ describe("SDK Payloads", () => {
         environment: "production",
         groupMap: groupMap,
         experimentMap: experimentMap,
+        safeRolloutMap: safeRolloutMap,
       })
     ).toEqual(null);
 
@@ -1386,6 +1556,7 @@ describe("SDK Payloads", () => {
         environment: "unknown",
         groupMap: groupMap,
         experimentMap: experimentMap,
+        safeRolloutMap: safeRolloutMap,
       })
     ).toEqual(null);
 
@@ -1460,6 +1631,7 @@ describe("SDK Payloads", () => {
         environment: "dev",
         groupMap: groupMap,
         experimentMap: experimentMap,
+        safeRolloutMap: safeRolloutMap,
       })
     ).toEqual({
       defaultValue: true,

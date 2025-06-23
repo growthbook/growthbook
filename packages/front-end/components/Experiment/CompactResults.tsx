@@ -22,14 +22,14 @@ import {
   expandMetricGroups,
   ExperimentMetricInterface,
   getMetricLink,
+  setAdjustedCIs,
+  setAdjustedPValuesOnResults,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
-  setAdjustedPValuesOnResults,
   ExperimentTableRow,
-  setAdjustedCIs,
 } from "@/services/experiments";
 import { GBCuped } from "@/components/Icons";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
@@ -61,6 +61,7 @@ const CompactResults: FC<{
   queryStatusData?: QueryStatusData;
   reportDate: Date;
   startDate: string;
+  endDate: string;
   isLatestPhase: boolean;
   status: ExperimentStatus;
   goalMetrics: string[];
@@ -84,6 +85,7 @@ const CompactResults: FC<{
   experimentType?: ExperimentType;
   ssrPolyfills?: SSRPolyfills;
   hideDetails?: boolean;
+  disableTimeSeriesButton?: boolean;
 }> = ({
   editMetrics,
   variations,
@@ -94,6 +96,7 @@ const CompactResults: FC<{
   queryStatusData,
   reportDate,
   startDate,
+  endDate,
   isLatestPhase,
   status,
   goalMetrics,
@@ -117,6 +120,7 @@ const CompactResults: FC<{
   experimentType,
   ssrPolyfills,
   hideDetails,
+  disableTimeSeriesButton,
 }) => {
   const { getExperimentMetricById, metricGroups, ready } = useDefinitions();
 
@@ -343,6 +347,7 @@ const CompactResults: FC<{
           dateCreated={reportDate}
           isLatestPhase={isLatestPhase}
           startDate={startDate}
+          endDate={endDate}
           status={status}
           queryStatusData={queryStatusData}
           variations={variations}
@@ -383,6 +388,7 @@ const CompactResults: FC<{
           isBandit={isBandit}
           isGoalMetrics={true}
           ssrPolyfills={ssrPolyfills}
+          disableTimeSeriesButton={disableTimeSeriesButton}
         />
       ) : null}
 
@@ -392,6 +398,7 @@ const CompactResults: FC<{
             dateCreated={reportDate}
             isLatestPhase={isLatestPhase}
             startDate={startDate}
+            endDate={endDate}
             status={status}
             queryStatusData={queryStatusData}
             variations={variations}
@@ -419,6 +426,7 @@ const CompactResults: FC<{
             noTooltip={noTooltip}
             isBandit={isBandit}
             ssrPolyfills={ssrPolyfills}
+            disableTimeSeriesButton={disableTimeSeriesButton}
           />
         </div>
       ) : null}
@@ -429,6 +437,7 @@ const CompactResults: FC<{
             dateCreated={reportDate}
             isLatestPhase={isLatestPhase}
             startDate={startDate}
+            endDate={endDate}
             status={status}
             queryStatusData={queryStatusData}
             variations={variations}
@@ -456,6 +465,7 @@ const CompactResults: FC<{
             noTooltip={noTooltip}
             isBandit={isBandit}
             ssrPolyfills={ssrPolyfills}
+            disableTimeSeriesButton={disableTimeSeriesButton}
           />
         </div>
       ) : (

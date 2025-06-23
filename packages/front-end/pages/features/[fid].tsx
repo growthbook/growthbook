@@ -10,6 +10,7 @@ import {
   getDependentFeatures,
   mergeRevision,
 } from "shared/util";
+import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useApi from "@/hooks/useApi";
 import PageHead from "@/components/Layout/PageHead";
@@ -54,13 +55,15 @@ export default function FeaturePage() {
     feature: FeatureInterface;
     revisions: FeatureRevisionInterface[];
     experiments: ExperimentInterfaceStringDates[];
+    safeRollouts: SafeRolloutInterface[];
     codeRefs: FeatureCodeRefsInterface[];
   }>(`/feature/${fid}${extraQueryString}`);
+
   const baseFeature = data?.feature;
   const baseFeatureVersion = baseFeature?.version;
   const revisions = data?.revisions;
   const experiments = data?.experiments;
-
+  const safeRollouts = data?.safeRollouts;
   const [tab, setTab] = useLocalStorage<FeatureTab>(
     `tabbedPageTab__${fid}`,
     "overview"
@@ -133,7 +136,6 @@ export default function FeaturePage() {
     environments.forEach((env) => {
       rules[env.id] = baseFeature.environmentSettings?.[env.id]?.rules || [];
     });
-
     return {
       baseVersion: baseFeature.version,
       comment: "",
@@ -188,7 +190,7 @@ export default function FeaturePage() {
   }
 
   return (
-    <FeatureUsageProvider featureId={feature.id}>
+    <FeatureUsageProvider feature={feature}>
       <PageHead
         breadcrumb={[
           { display: "Features", href: "/features" },
@@ -213,6 +215,7 @@ export default function FeaturePage() {
           revision={revision}
           revisions={data.revisions}
           experiments={experiments}
+          safeRollouts={safeRollouts}
           mutate={mutate}
           editProjectModal={editProjectModal}
           setEditProjectModal={setEditProjectModal}

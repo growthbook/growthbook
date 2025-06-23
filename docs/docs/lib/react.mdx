@@ -8,6 +8,7 @@ toc_max_heading_level: 5
 
 import ExternalLink from '@site/src/components/ExternalLink'
 import SdkResources from '@site/src/components/SdkResources';
+import SdkSupportedFeatures from '@site/src/components/SdkSupportedFeatures';
 
 # ReactJS
 
@@ -310,7 +311,7 @@ There is a alternate synchronous version of init named `initSync`, which can be 
 
 - You MUST pass in `payload`
 - The `payload` MUST NOT have encrypted features or experiments
-- If you use sticky bucketing, you MUST pass `stickyBucketAssignmentDocs` into your GrowthBook constructor
+- If using sticky bucketing, you should use an instance of `StickyBucketServiceSync`, such as `BrowserCookieStickyBucketService`.
 - The return value is the GrowthBook instance to enable easy method chaining
 
 ## Waiting for Features to Load
@@ -1123,3 +1124,7 @@ const isDarkModeOn = useFeatureIsOn("dark_mode");
 - [Next.js <ExternalLink />](https://github.com/growthbook/examples/tree/main/next-js)
 - [React Native <ExternalLink />](https://github.com/growthbook/examples/tree/main/react-native-cli)
 - [Typescript example app with strict typing <ExternalLink />](https://github.com/growthbook/examples/tree/main/vanilla-typescript).
+
+## Supported Features
+
+<SdkSupportedFeatures sdk="react" />

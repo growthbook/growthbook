@@ -40,7 +40,6 @@ export default function InAppHelp() {
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
-          reason="To get access to live chat support,"
           source="in-app-help"
           commercialFeature="livechat"
         />
@@ -103,7 +102,7 @@ export default function InAppHelp() {
                   className="btn btn-premium font-weight-normal my-2 w-100"
                   onClick={() => setUpgradeModal(true)}
                 >
-                  Start Free Trial <GBPremiumBadge />
+                  Upgrade Now <GBPremiumBadge />
                 </button>
               </div>
             )}

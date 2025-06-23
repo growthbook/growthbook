@@ -2,6 +2,7 @@ import { useEffect, useMemo } from "react";
 import {
   Environment,
   NamespaceUsage,
+  OrganizationSettings,
   SDKAttributeFormat,
   SDKAttributeSchema,
   SDKAttributeType,
@@ -26,6 +27,7 @@ import {
   featuresReferencingSavedGroups,
   generateVariationId,
   getMatchingRules,
+  StaleFeatureReason,
   validateAndFixCondition,
   validateFeatureValue,
 } from "shared/util";
@@ -33,6 +35,8 @@ import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import isEqual from "lodash/isEqual";
 import { ExperimentLaunchChecklistInterface } from "back-end/types/experimentLaunchChecklist";
 import { SavedGroupInterface } from "shared/src/types";
+import { SafeRolloutRule } from "back-end/src/validators/features";
+import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
@@ -46,6 +50,7 @@ import {
   CheckListItem,
   getChecklistItems,
 } from "@/components/Experiment/PreLaunchChecklist";
+import { SafeRolloutRuleCreateFields } from "@/components/Features/RuleModal";
 import { useDefinitions } from "./DefinitionsContext";
 
 export { generateVariationId } from "shared/util";
@@ -112,6 +117,7 @@ export function useFeatureSearch({
   filterResults,
   environments,
   localStorageKey = "features",
+  staleFeatures,
 }: {
   allFeatures: FeatureInterface[];
   defaultSortField?:
@@ -124,6 +130,10 @@ export function useFeatureSearch({
   filterResults?: (items: FeatureInterface[]) => FeatureInterface[];
   environments: Environment[];
   localStorageKey?: string;
+  staleFeatures?: Record<
+    string,
+    { stale: boolean; reason?: StaleFeatureReason }
+  >;
 }) {
   const { getUserDisplay } = useUser();
   const { getProjectById, getSavedGroupById, savedGroups } = useDefinitions();
@@ -180,6 +190,11 @@ export function useFeatureSearch({
         const is: string[] = [item.valueType];
         if (item.archived) is.push("archived");
         if (item.hasDrafts) is.push("draft");
+        if (item.valueType === "json") is.push("json");
+        if (item.valueType === "string") is.push("string");
+        if (item.valueType === "number") is.push("number");
+        if (item.valueType === "boolean") is.push("boolean");
+        if (staleFeatures?.[item.id]?.stale) is.push("stale");
         return is;
       },
       has: (item) => {
@@ -228,6 +243,7 @@ export function useFeatureSearch({
       revision: (item) => item.version,
       owner: (item) => item.owner,
       tag: (item) => item.tags,
+      type: (item) => item.valueType,
       rules: (item) => {
         const rules = getMatchingRules(
           item,
@@ -316,7 +332,11 @@ export function isRuleInactive(
   if (scheduleCompletedAndDisabled) {
     return true;
   }
-
+  if (rule.type === "safe-rollout") {
+    if (rule.status === "stopped") {
+      return true;
+    }
+  }
   // Linked experiment is missing, archived, or stopped with no temp rollout
   if (rule.type === "experiment-ref") {
     const linkedExperiment = experimentsMap.get(rule.experimentId);
@@ -469,7 +489,7 @@ export function useAttributeSchema(
 
 export function validateFeatureRule(
   rule: FeatureRule,
-  feature: FeatureInterface
+  feature: Pick<FeatureInterface, "valueType" | "jsonSchema">
 ): null | FeatureRule {
   let hasChanges = false;
   const ruleCopy = cloneDeep(rule);
@@ -541,6 +561,25 @@ export function validateFeatureRule(
         (ruleCopy as ExperimentRefRule).variations[i].value = newValue;
       }
     });
+  } else if (rule.type === "safe-rollout") {
+    const newVariationValue = validateFeatureValue(
+      feature,
+      rule.variationValue,
+      "Value to Rollout"
+    );
+    if (newVariationValue !== rule.variationValue) {
+      hasChanges = true;
+      (ruleCopy as SafeRolloutRule).variationValue = newVariationValue;
+    }
+    const newControlValue = validateFeatureValue(
+      feature,
+      rule.controlValue,
+      "Control Value"
+    );
+    if (newControlValue !== rule.controlValue) {
+      hasChanges = true;
+      (ruleCopy as SafeRolloutRule).controlValue = newControlValue;
+    }
   } else {
     const newValue = validateFeatureValue(
       feature,
@@ -623,32 +662,49 @@ export function getDefaultVariationValue(defaultValue: string) {
   };
   return defaultValue in map ? map[defaultValue] : defaultValue;
 }
-
+type safeRolloutFields = Omit<
+  SafeRolloutRuleCreateFields,
+  "safeRolloutFields"
+> & {
+  safeRolloutFields: Omit<
+    SafeRolloutRuleCreateFields["safeRolloutFields"],
+    "maxDuration"
+  >;
+};
 export function getDefaultRuleValue({
   defaultValue,
   attributeSchema,
   ruleType,
+  settings,
+  datasources,
+  isSafeRolloutAutoRollbackEnabled = false,
 }: {
   defaultValue: string;
   attributeSchema?: SDKAttributeSchema;
   ruleType: string;
-}): FeatureRule | NewExperimentRefRule {
+  settings?: OrganizationSettings;
+  datasources?: DataSourceInterfaceWithParams[];
+  isSafeRolloutAutoRollbackEnabled?: boolean;
+}): FeatureRule | NewExperimentRefRule | safeRolloutFields {
   const hashAttributes =
     attributeSchema?.filter((a) => a.hashAttribute)?.map((a) => a.property) ||
     [];
+
   const hashAttribute = hashAttributes.includes("id")
     ? "id"
     : hashAttributes[0] || "id";
-
+  let defaultDataSource = settings?.defaultDataSource;
+  if (datasources && !defaultDataSource && datasources.length === 1) {
+    defaultDataSource = datasources[0].id;
+  }
   const value = getDefaultVariationValue(defaultValue);
-
   if (ruleType === "rollout") {
     return {
       type: "rollout",
       description: "",
       id: "",
       value,
-      coverage: 0.5,
+      coverage: 1, // we are hardcoding the coverage to 1 for now
       condition: "",
       enabled: true,
       hashAttribute,
@@ -662,6 +718,29 @@ export function getDefaultRuleValue({
           timestamp: null,
         },
       ],
+    };
+  }
+  if (ruleType === "safe-rollout") {
+    return {
+      type: "safe-rollout",
+      description: "",
+      id: "",
+      condition: "",
+      safeRolloutId: "",
+      enabled: true,
+      prerequisites: [],
+      controlValue: defaultValue,
+      variationValue: value,
+      hashAttribute: "id",
+      trackingKey: "",
+      seed: "",
+      status: "running",
+      safeRolloutFields: {
+        datasourceId: defaultDataSource || "",
+        exposureQueryId: "",
+        guardrailMetricIds: [],
+        autoRollback: isSafeRolloutAutoRollbackEnabled,
+      },
     };
   }
   if (ruleType === "experiment") {

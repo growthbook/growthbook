@@ -114,6 +114,9 @@ tags:
   - name: archetypes
     x-displayName: Archetypes
     description: Archetypes allow you to simulate the result of targeting rules on pre-set user attributes
+  - name: queries
+    x-displayName: Queries
+    description: Retrieve queries used in experiments to calculate results.
 paths:
   /features:
     get:
@@ -176,6 +179,9 @@ paths:
       $ref: "./paths/listExperiments.yaml"
     post:
       $ref: "./paths/postExperiment.yaml"
+  /experiment-names:
+    get:
+      $ref: "./paths/getExperimentNames.yaml"
   /experiments/{id}:
     get:
       $ref: "./paths/getExperiment.yaml"
@@ -313,6 +319,9 @@ paths:
   /code-refs:
     post:
       $ref: "./paths/postCodeRefs.yaml"
+  /queries/{id}:
+    get:
+      $ref: "./paths/getQuery.yaml"
   # PLOP_INSERT_PATHS_HERE
 components:
   parameters:

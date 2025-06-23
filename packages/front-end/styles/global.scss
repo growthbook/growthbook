@@ -656,11 +656,12 @@ pre {
 .experiment-results,
 .bandit-summary-results {
   tbody {
-    .results-label-row {
-      background-color: var(--slate-a2);
-    }
     tr:not(.noborder) {
       box-shadow: rgba(102, 102, 102, 0.125) 0 -1px inset;
+
+      &:last-of-type {
+        box-shadow: rgba(102, 102, 102, 0.125) 0 -2px inset;
+      }
 
       &:not(.results-label-row) {
         td:not(.graph-cell):not(:last-child) {
@@ -1009,6 +1010,20 @@ main.main {
   td {
     vertical-align: middle;
   }
+
+  .dark &.decision-criteria-table {
+    tbody {
+      tr {
+        background-color: #1b2339;
+        td {
+          color: var(--text-color-main);
+        }
+      }
+    }
+    .hover-highlight:hover {
+      background-color: rgba(124, 69, 234, 0.06);
+    }
+  }
 }
 .dark .gbtable {
   thead {
@@ -1018,6 +1033,24 @@ main.main {
   }
   td {
     vertical-align: middle;
+  }
+}
+
+.query-table {
+  thead {
+    th {
+      background-color: var(--slate-2);
+    }
+  }
+}
+
+.dark .query-table {
+  thead {
+    th {
+      // hard coded to match slate-a2 on the background color
+      // opaque to prevent table header from showing through
+      background-color: rgba(36, 43, 61, 1);
+    }
   }
 }
 
@@ -1424,6 +1457,8 @@ main.main {
   font-size: 13px;
   text-transform: initial;
   font-weight: normal;
+  opacity: 0;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
 
   .arrow {
     position: absolute;
@@ -1465,6 +1500,14 @@ main.main {
     color: var(--text-color-premium);
   }
 
+  &.tooltip-visible {
+    opacity: 1;
+    visibility: visible;
+  }
+  &.tooltip-hidden {
+    opacity: 0;
+    visibility: hidden;
+  }
   &[data-popper-placement^="top"] > .arrow {
     bottom: -4px;
     margin-left: -4px;
@@ -3226,6 +3269,9 @@ td.disabled {
 .form-group.error input[type="text"] {
   border-color: colors.$danger !important;
 }
+.gb-select-wrapper.warning .gb-select__control {
+  border-color: var(--amber-11) !important;
+}
 
 .gb-select--is-disabled,
 .gb-multi-select--is-disabled {
@@ -3523,4 +3569,12 @@ input:disabled {
     right: 0;
     background-color: var(--accent-indicator);
   }
+}
+
+// Ace Editor theme overrides
+.ace_editor {
+  background-color: var(--color-background) !important;
+}
+.ace_editor .ace_gutter {
+  background: var(--color-panel-solid) !important;
 }

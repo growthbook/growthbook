@@ -16,13 +16,17 @@ import {
   getAggregateFilters,
   isBinomialMetric,
   getDelayWindowHours,
+  getColumnExpression,
 } from "shared/experiments";
 import {
   AUTOMATIC_DIMENSION_OTHER_NAME,
   DEFAULT_TEST_QUERY_DAYS,
   DEFAULT_METRIC_HISTOGRAM_BINS,
   BANDIT_SRM_DIMENSION_NAME,
+  SAFE_ROLLOUT_TRACKING_KEY_PREFIX,
 } from "shared/constants";
+import { ensureLimit, format } from "shared/sql";
+import { FormatDialect } from "shared/src/types";
 import { MetricAnalysisSettings } from "back-end/types/metric-analysis";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { ReqContext } from "back-end/types/organization";
@@ -87,8 +91,6 @@ import { SegmentInterface } from "back-end/types/segment";
 import {
   getBaseIdTypeAndJoins,
   compileSqlTemplate,
-  format,
-  FormatDialect,
   replaceCountStar,
 } from "back-end/src/util/sql";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
@@ -282,10 +284,6 @@ export default abstract class SqlIntegration
   dateDiff(startCol: string, endCol: string) {
     return `datediff(day, ${startCol}, ${endCol})`;
   }
-  // eslint-disable-next-line
-  convertDate(fromDB: any): Date {
-    return getValidDate(fromDB);
-  }
   formatDate(col: string): string {
     return col;
   }
@@ -314,6 +312,10 @@ export default abstract class SqlIntegration
     return `SELECT * FROM ${table} LIMIT ${limit}`;
   }
 
+  ensureMaxLimit(sql: string, limit: number): string {
+    return ensureLimit(sql, limit);
+  }
+
   hasQuantileTesting(): boolean {
     return true;
   }
@@ -340,6 +342,11 @@ export default abstract class SqlIntegration
     throw new Error(
       "COUNT DISTINCT is not supported for fact metrics in this data source."
     );
+  }
+
+  extractJSONField(jsonCol: string, path: string, isNumeric: boolean): string {
+    const raw = `json_extract_scalar(${jsonCol}, '$.${path}')`;
+    return isNumeric ? this.ensureFloat(raw) : raw;
   }
 
   private getExposureQuery(
@@ -401,6 +408,9 @@ export default abstract class SqlIntegration
           WHERE
             timestamp > ${this.toTimestamp(params.from)}
             AND timestamp <= ${this.toTimestamp(end)}
+            AND SUBSTRING(experiment_id, 1, ${
+              SAFE_ROLLOUT_TRACKING_KEY_PREFIX.length
+            }) != '${SAFE_ROLLOUT_TRACKING_KEY_PREFIX}'
           GROUP BY
             experiment_id,
             variation_id,
@@ -480,9 +490,9 @@ export default abstract class SqlIntegration
           variation_id: row.variation_id ?? "",
           variation_name: row.variation_name,
           users: parseInt(row.users) || 0,
-          end_date: this.convertDate(row.end_date).toISOString(),
-          start_date: this.convertDate(row.start_date).toISOString(),
-          latest_data: this.convertDate(row.latest_data).toISOString(),
+          end_date: getValidDate(row.end_date).toISOString(),
+          start_date: getValidDate(row.start_date).toISOString(),
+          latest_data: getValidDate(row.latest_data).toISOString(),
         };
       }),
       statistics: statistics,
@@ -708,7 +718,7 @@ export default abstract class SqlIntegration
         SELECT
           ${settings.userIdType}
           , MIN(${timestampDateTimeColumn}) AS first_exposure_timestamp
-          , '' as variation
+          , ${this.castToString("''")} as variation
         FROM
           __source
         WHERE
@@ -985,7 +995,9 @@ export default abstract class SqlIntegration
           SELECT
             date
             , MAX(${this.castToString("'date'")}) AS data_type
-            , '${metric.cappingSettings.type ? "capped" : "uncapped"}' AS capped
+            , ${this.castToString(
+              `'${metric.cappingSettings.type ? "capped" : "uncapped"}'`
+            )} AS capped
             ${this.getMetricAnalysisStatisticClauses(
               finalDailyValueColumn,
               finalDailyDenominatorColumn,
@@ -1010,7 +1022,9 @@ export default abstract class SqlIntegration
           SELECT
             ${this.castToDate("NULL")} AS date
             , MAX(${this.castToString("'overall'")}) AS data_type
-            , '${metric.cappingSettings.type ? "capped" : "uncapped"}' AS capped
+            , ${this.castToString(
+              `'${metric.cappingSettings.type ? "capped" : "uncapped"}'`
+            )} AS capped
             ${this.getMetricAnalysisStatisticClauses(
               finalOverallValueColumn,
               finalOverallDenominatorColumn,
@@ -1117,7 +1131,7 @@ export default abstract class SqlIntegration
         } = row;
 
         const ret: MetricAnalysisQueryResponseRow = {
-          date: date ? this.convertDate(date).toISOString() : "",
+          date: date ? getValidDate(date).toISOString() : "",
           data_type: data_type ?? "",
           capped: (capped ?? "uncapped") == "capped",
           units: parseFloat(units) || 0,
@@ -1385,7 +1399,7 @@ export default abstract class SqlIntegration
         const { date, count, main_sum, main_sum_squares } = row;
 
         const ret: MetricValueQueryResponseRow = {
-          date: date ? this.convertDate(date).toISOString() : "",
+          date: date ? getValidDate(date).toISOString() : "",
           count: parseFloat(count) || 0,
           main_sum: parseFloat(main_sum) || 0,
           main_sum_squares: parseFloat(main_sum_squares) || 0,
@@ -1409,6 +1423,11 @@ export default abstract class SqlIntegration
       testDays: testDays ?? DEFAULT_TEST_QUERY_DAYS,
       limit: 1,
     });
+  }
+
+  getFreeFormQuery(sql: string, limit?: number): string {
+    const limitedQuery = this.ensureMaxLimit(sql, limit ?? 1000);
+    return format(limitedQuery, this.getFormatDialect());
   }
 
   getTestQuery(params: TestQueryParams): string {
@@ -1444,7 +1463,7 @@ export default abstract class SqlIntegration
       results.rows.forEach((row) => {
         timestampCols.forEach((col) => {
           if (row[col]) {
-            row[col] = this.convertDate(row[col]);
+            row[col] = getValidDate(row[col]);
           }
         });
       });
@@ -2193,7 +2212,7 @@ export default abstract class SqlIntegration
             .map(
               (w) => `
             SELECT
-              '${w.variationId}' AS variation
+              ${this.castToString(`'${w.variationId}'`)} AS variation
               , ${this.toTimestamp(w.date)} AS bandit_period
               , ${w.weight} AS weight
           `
@@ -2225,7 +2244,7 @@ export default abstract class SqlIntegration
         , __expectedUnitsByVariationBanditPeriod AS (
           SELECT
             u.variation AS variation
-            , MAX('') AS constant
+            , MAX(${this.castToString("''")}) AS constant
             , SUM(u.units) AS units
             , SUM(t.total_units * u.weight) AS expected_units
           FROM __unitsByVariationBanditPeriod u
@@ -2238,9 +2257,11 @@ export default abstract class SqlIntegration
         )
         , __banditSrm AS (
           SELECT
-            MAX('') AS variation
-            , MAX('') AS dimension_value
-            , MAX('${BANDIT_SRM_DIMENSION_NAME}') AS dimension_name
+            MAX(${this.castToString("''")}) AS variation
+            , MAX(${this.castToString("''")}) AS dimension_value
+            , MAX(${this.castToString(
+              `'${BANDIT_SRM_DIMENSION_NAME}'`
+            )}) AS dimension_name
             , SUM(POW(expected_units - units, 2) / expected_units) AS units
           FROM __expectedUnitsByVariationBanditPeriod
           GROUP BY
@@ -2956,13 +2977,12 @@ export default abstract class SqlIntegration
           : `
       -- One row per variation/dimension with aggregations
       SELECT
-        m.variation AS variation
+        m.variation AS variation,
         , ${dimensionCols.map((c) => `m.${c} AS ${c}`).join(", ")}
-        , COUNT(*) AS users
-        ${metricData
-          .map((data) => {
-            return `
-           , '${data.id}' as ${data.alias}_id
+        COUNT(*) AS users,
+        ${metricData.map((data) => {
+          return `
+           ${this.castToString(`'${data.id}'`)} as ${data.alias}_id,
             ${
               data.isPercentileCapped
                 ? `, MAX(COALESCE(cap.${data.alias}_value_cap, 0)) as ${data.alias}_main_cap_value`
@@ -3894,7 +3914,7 @@ export default abstract class SqlIntegration
       .map((data) => {
         const alias = data.alias + (factMetrics ? "_" : "");
         return `
-    , '${data.id}' as ${alias}id
+    , ${this.castToString(`'${data.id}'`)} as ${alias}id
     , SUM(bpw.weight * bps.${alias}main_sum / bps.users) * SUM(bps.users) AS ${alias}main_sum
     , SUM(bps.users) * (SUM(
       ${this.ifElse(
@@ -4737,8 +4757,11 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
 
       // Numerator column
       const value = this.getMetricColumns(m, factTableMap, "m", false).value;
-      const filters = getColumnRefWhereClause(factTable, m.numerator, (s) =>
-        this.escapeStringLiteral(s)
+      const filters = getColumnRefWhereClause(
+        factTable,
+        m.numerator,
+        this.escapeStringLiteral.bind(this),
+        this.extractJSONField.bind(this)
       );
 
       const column =
@@ -4762,8 +4785,11 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         }
 
         const value = this.getMetricColumns(m, factTableMap, "m", true).value;
-        const filters = getColumnRefWhereClause(factTable, m.denominator, (s) =>
-          this.escapeStringLiteral(s)
+        const filters = getColumnRefWhereClause(
+          factTable,
+          m.denominator,
+          this.escapeStringLiteral.bind(this),
+          this.extractJSONField.bind(this)
         );
         const column =
           filters.length > 0
@@ -4957,8 +4983,11 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
 
     // Add filters from the Metric
     if (isFact && factTable && columnRef) {
-      getColumnRefWhereClause(factTable, columnRef, (s) =>
-        this.escapeStringLiteral(s)
+      getColumnRefWhereClause(
+        factTable,
+        columnRef,
+        this.escapeStringLiteral.bind(this),
+        this.extractJSONField.bind(this)
       ).forEach((filterSQL) => {
         where.push(filterSQL);
       });
@@ -5338,7 +5367,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     factTableMap: FactTableMap,
     alias = "m",
     useDenominator?: boolean
-  ) {
+  ): { userIds: Record<string, string>; timestamp: string; value: string } {
     if (isFactMetric(metric)) {
       const userIds: Record<string, string> = {};
       getUserIdTypes(metric, factTableMap, useDenominator).forEach(
@@ -5348,6 +5377,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       );
 
       const columnRef = useDenominator ? metric.denominator : metric.numerator;
+
+      const factTable = factTableMap.get(columnRef?.factTableId || "");
 
       const hasAggregateFilter =
         getAggregateFilters({
@@ -5366,6 +5397,13 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         column === "$$distinctUsers" ||
         column === "$$count"
           ? "1"
+          : factTable && column
+          ? getColumnExpression(
+              column,
+              factTable,
+              this.extractJSONField.bind(this),
+              alias
+            )
           : `${alias}.${column}`;
 
       return {

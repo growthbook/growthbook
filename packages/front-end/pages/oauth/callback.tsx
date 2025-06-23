@@ -1,8 +1,7 @@
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
-import Button from "@/components/Button";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { redirectWithTimeout, safeLogout } from "@/services/auth";
+import { OAuthError } from "@/components/OAuthError";
 import { getApiHost } from "@/services/env";
 
 export default function OAuthCallbackPage() {
@@ -46,37 +45,7 @@ export default function OAuthCallbackPage() {
 
   return (
     <div className="container py-4">
-      {error ? (
-        <div>
-          <div className="mt-5 alert alert-danger">
-            <strong>OAuth Error:</strong> {error}
-          </div>
-          <div className="row">
-            <div className="col-auto">
-              <Button
-                color="primary"
-                onClick={async () => {
-                  await redirectWithTimeout(window.location.origin);
-                }}
-              >
-                Retry
-              </Button>
-            </div>
-            <div className="col-auto">
-              <Button
-                color="outline-primary"
-                onClick={async () => {
-                  await safeLogout();
-                }}
-              >
-                Logout
-              </Button>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <LoadingOverlay />
-      )}
+      {error ? <OAuthError error={error} /> : <LoadingOverlay />}
     </div>
   );
 }

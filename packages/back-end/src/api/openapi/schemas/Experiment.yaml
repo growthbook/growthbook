@@ -218,3 +218,14 @@ properties:
     enum:
       - "days"
       - "hours"
+  linkedFeatures:
+    type: array
+    items:
+      type: string
+  hasVisualChangesets:
+    type: boolean
+  hasURLRedirects:
+    type: boolean
+  customFields:
+    type: object
+    additionalProperties: true

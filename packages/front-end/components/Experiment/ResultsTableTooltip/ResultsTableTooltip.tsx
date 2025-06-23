@@ -41,6 +41,7 @@ import {
   formatPercent,
   getColumnRefFormatter,
   getExperimentMetricFormatter,
+  getMetricFormatter,
   getPercentileLabel,
 } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -228,8 +229,8 @@ export default function ResultsTableTooltip({
     ? data.metric.quantileSettings?.quantile
     : undefined;
   // Lift units
-  const ci1 = data.stats?.ciAdjusted?.[1] ?? data.stats?.ci?.[1] ?? 0;
-  const ci0 = data.stats?.ciAdjusted?.[0] ?? data.stats?.ci?.[0] ?? 0;
+  const ci1 = data.stats?.ciAdjusted?.[1] ?? data.stats?.ci?.[1] ?? Infinity;
+  const ci0 = data.stats?.ciAdjusted?.[0] ?? data.stats?.ci?.[0] ?? -Infinity;
   const ciRangeText =
     data.stats?.ciAdjusted?.[0] !== undefined ? (
       <>
@@ -239,14 +240,24 @@ export default function ResultsTableTooltip({
         </div>
         <div className="text-muted font-weight-normal">
           (unadj.:&nbsp; [
-          {deltaFormatter(data.stats.ci?.[0] ?? 0, deltaFormatterOptions)},{" "}
-          {deltaFormatter(data.stats.ci?.[1] ?? 0, deltaFormatterOptions)}] )
+          {deltaFormatter(
+            data.stats.ci?.[0] ?? -Infinity,
+            deltaFormatterOptions
+          )}
+          ,{" "}
+          {deltaFormatter(
+            data.stats.ci?.[1] ?? Infinity,
+            deltaFormatterOptions
+          )}
+          ] )
         </div>
       </>
     ) : (
       <>
-        [{deltaFormatter(data.stats.ci?.[0] ?? 0, deltaFormatterOptions)},{" "}
-        {deltaFormatter(data.stats.ci?.[1] ?? 0, deltaFormatterOptions)}]
+        [
+        {deltaFormatter(data.stats.ci?.[0] ?? -Infinity, deltaFormatterOptions)}
+        ,{" "}
+        {deltaFormatter(data.stats.ci?.[1] ?? Infinity, deltaFormatterOptions)}]
       </>
     );
 
@@ -569,7 +580,7 @@ export default function ResultsTableTooltip({
                 {!data.rowResults.enoughData ? (
                   <Tooltip
                     className="cursor-pointer"
-                    body={data.rowResults.enoughDataMeta.reason}
+                    body={data.rowResults.enoughDataMeta.reasonText}
                   >
                     <div className="flagged d-flex border rounded p-1 flagged-not-enough-data">
                       <BsHourglassSplit
@@ -744,11 +755,17 @@ export default function ResultsTableTooltip({
 
                       {!quantileMetric ? (
                         <td>
-                          {getExperimentMetricFormatter(
-                            data.metric,
-                            ssrPolyfills?.getFactTableById || getFactTableById,
-                            "number"
-                          )(row.value, { currency: displayCurrency })}
+                          {isFactMetric(data.metric)
+                            ? getColumnRefFormatter(
+                                data.metric.numerator,
+                                ssrPolyfills?.getFactTableById ||
+                                  getFactTableById
+                              )(row.value, { currency: displayCurrency })
+                            : getMetricFormatter(
+                                data.metric.type === "binomial"
+                                  ? "count"
+                                  : data.metric.type
+                              )(row.value, { currency: displayCurrency })}
                         </td>
                       ) : null}
                       {hasCustomDenominator ? (

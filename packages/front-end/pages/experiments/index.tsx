@@ -6,15 +6,14 @@ import { useRouter } from "next/router";
 import { BsFlag } from "react-icons/bs";
 import clsx from "clsx";
 import { PiCaretDown, PiShuffle } from "react-icons/pi";
-import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import {
+  ComputedExperimentInterface,
   ExperimentInterfaceStringDates,
   ExperimentTemplateInterface,
 } from "back-end/types/experiment";
 import { Box, Switch, Text } from "@radix-ui/themes";
 import { isEmpty } from "lodash";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { useAddComputedFields, useSearch } from "@/services/search";
 import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Pagination from "@/components/Pagination";
@@ -54,7 +53,9 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import ViewSampleDataButton from "@/components/GetStarted/ViewSampleDataButton";
 import EmptyState from "@/components/EmptyState";
 import Callout from "@/components/Radix/Callout";
-import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
+import ExperimentTemplatePromoCard from "@/enterprise/components/feature-promos/ExperimentTemplatePromoCard";
+import { useTemplates } from "@/hooks/useTemplates";
+import { useExperimentSearch } from "@/services/experiments";
 
 const NUM_PER_PAGE = 20;
 
@@ -71,14 +72,9 @@ export function experimentDate(exp: ExperimentInterfaceStringDates): string {
 }
 
 const ExperimentsPage = (): React.ReactElement => {
-  const {
-    ready,
-    project,
-    getExperimentMetricById,
-    getProjectById,
-    getDatasourceById,
-    getSavedGroupById,
-  } = useDefinitions();
+  const { ready, project } = useDefinitions();
+
+  const { templates } = useTemplates();
 
   const [tabs, setTabs] = useLocalStorage<string[]>("experiment_tabs", []);
   const analyzeExisting = useRouter().query?.analyzeExisting === "true";
@@ -106,53 +102,15 @@ const ExperimentsPage = (): React.ReactElement => {
     Partial<ExperimentTemplateInterface> | undefined
   >(undefined);
 
-  const { getUserDisplay, userId, hasCommercialFeature } = useUser();
+  const { userId, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
-  const getExperimentStatusIndicator = useExperimentStatusIndicator();
 
   const [currentPage, setCurrentPage] = useState(1);
-
-  const experiments = useAddComputedFields(
-    allExperiments,
-    (exp) => {
-      const projectId = exp.project;
-      const projectName = projectId ? getProjectById(projectId)?.name : "";
-      const projectIsDeReferenced = projectId && !projectName;
-      const statusIndicator = getExperimentStatusIndicator(exp);
-      const statusSortOrder = statusIndicator.sortOrder;
-      const lastPhase = exp.phases?.[exp.phases?.length - 1] || {};
-      const rawSavedGroup = lastPhase?.savedGroups || [];
-      const savedGroupIds = rawSavedGroup.map((g) => g.ids).flat();
-
-      return {
-        ownerName: getUserDisplay(exp.owner, false) || "",
-        metricNames: exp.goalMetrics
-          .map((m) => getExperimentMetricById(m)?.name)
-          .filter(Boolean),
-        datasource: getDatasourceById(exp.datasource)?.name || "",
-        savedGroups: savedGroupIds.map(
-          (id) => getSavedGroupById(id)?.groupName
-        ),
-        projectId,
-        projectName,
-        projectIsDeReferenced,
-        tab: exp.archived
-          ? "archived"
-          : exp.status === "draft"
-          ? "drafts"
-          : exp.status,
-        date: experimentDate(exp),
-        statusIndicator,
-        statusSortOrder,
-      };
-    },
-    [getExperimentMetricById, getProjectById, getUserDisplay]
-  );
 
   const { watchedExperiments } = useWatching();
 
   const filterResults = useCallback(
-    (items: typeof experiments) => {
+    (items: ComputedExperimentInterface[]) => {
       if (showMineOnly) {
         items = items.filter(
           (item) =>
@@ -167,86 +125,13 @@ const ExperimentsPage = (): React.ReactElement => {
     [showMineOnly, userId, tagsFilter.tags, watchedExperiments]
   );
 
-  const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
-    items: experiments,
-    localStorageKey: "experiments",
-    defaultSortField: "date",
-    defaultSortDir: -1,
-    updateSearchQueryOnChange: true,
-    searchFields: [
-      "name^3",
-      "trackingKey^2",
-      "id",
-      "hypothesis^2",
-      "description",
-      "tags",
-      "status",
-      "ownerName",
-      "metricNames",
-      "results",
-      "analysis",
-    ],
-    searchTermFilters: {
-      is: (item) => {
-        const is: string[] = [];
-        if (item.archived) is.push("archived");
-        if (item.status === "draft") is.push("draft");
-        if (item.status === "running") is.push("running");
-        if (item.status === "stopped") is.push("stopped");
-        if (item.results === "won") is.push("winner");
-        if (item.results === "lost") is.push("loser");
-        if (item.results === "inconclusive") is.push("inconclusive");
-        if (item.hasVisualChangesets) is.push("visual");
-        if (item.hasURLRedirects) is.push("redirect");
-        return is;
-      },
-      has: (item) => {
-        const has: string[] = [];
-        if (item.project) has.push("project");
-        if (item.hasVisualChangesets) {
-          has.push("visualChange", "visualChanges");
-        }
-        if (item.hasURLRedirects) has.push("redirect", "redirects");
-        if (item.linkedFeatures?.length) has.push("features", "feature");
-        if (item.hypothesis?.trim()?.length) has.push("hypothesis");
-        if (item.description?.trim()?.length) has.push("description");
-        if (item.variations.some((v) => !!v.screenshots?.length)) {
-          has.push("screenshots");
-        }
-        if (
-          item.status === "stopped" &&
-          !item.excludeFromPayload &&
-          (item.linkedFeatures?.length ||
-            item.hasURLRedirects ||
-            item.hasVisualChangesets)
-        ) {
-          has.push("rollout", "tempRollout");
-        }
-        return has;
-      },
-      variations: (item) => item.variations.length,
-      variation: (item) => item.variations.map((v) => v.name),
-      created: (item) => new Date(item.dateCreated),
-      updated: (item) => new Date(item.dateUpdated),
-      name: (item) => item.name,
-      key: (item) => item.trackingKey,
-      trackingKey: (item) => item.trackingKey,
-      id: (item) => [item.id, item.trackingKey],
-      status: (item) => item.status,
-      result: (item) =>
-        item.status === "stopped" ? item.results || "unfinished" : "unfinished",
-      owner: (item) => [item.owner, item.ownerName],
-      tag: (item) => item.tags,
-      project: (item) => [item.project, item.projectName],
-      feature: (item) => item.linkedFeatures || [],
-      datasource: (item) => item.datasource,
-      metric: (item) => [
-        ...item.metricNames,
-        ...getAllMetricIdsFromExperiment(item),
-      ],
-      savedgroup: (item) => item.savedGroups || [],
-      goal: (item) => [...item.metricNames, ...item.goalMetrics],
-    },
+  const {
+    items,
+    searchInputProps,
+    isFiltered,
+    SortableTH,
+  } = useExperimentSearch({
+    allExperiments,
     filterResults,
   });
 
@@ -328,10 +213,10 @@ const ExperimentsPage = (): React.ReactElement => {
     return <LoadingOverlay />;
   }
 
-  const hasExperiments = experiments.length > 0;
+  const hasExperiments = allExperiments.length > 0;
 
   // Show the View Sample Button if none of the experiments have an attached datasource
-  const showViewSampleButton = !experiments.some((e) => e.datasource);
+  const showViewSampleButton = !allExperiments.some((e) => e.datasource);
 
   const hasTemplatesFeature = hasCommercialFeature("templates");
 
@@ -415,7 +300,8 @@ const ExperimentsPage = (): React.ReactElement => {
               <TabsList>
                 <TabsTrigger value="experiments">Experiments</TabsTrigger>
                 <TabsTrigger value="templates">
-                  Templates <PaidFeatureBadge commercialFeature="templates" />
+                  Templates{" "}
+                  <PaidFeatureBadge commercialFeature="templates" mx="2" />
                 </TabsTrigger>
               </TabsList>
             </Box>
@@ -725,6 +611,16 @@ const ExperimentsPage = (): React.ReactElement => {
                         onPageChange={setCurrentPage}
                       />
                     )}
+                    {canAddTemplate &&
+                    !templates.length &&
+                    allExperiments.length >= 5 ? (
+                      <div className="row justify-content-center m-3">
+                        <ExperimentTemplatePromoCard
+                          hasFeature={hasTemplatesFeature}
+                          onClick={() => setOpenTemplateModal({})}
+                        />
+                      </div>
+                    ) : null}
                   </>
                 )
               )}

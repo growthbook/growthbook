@@ -3,6 +3,7 @@ import Agenda, { Job } from "agenda";
 import md5 from "md5";
 import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
 import { filterProjectsByEnvironmentWithNull } from "shared/util";
+import { Promise as BluebirdPromise } from "bluebird";
 import { getFeatureDefinitions } from "back-end/src/services/features";
 import { CRON_ENABLED, WEBHOOKS } from "back-end/src/util/secrets";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
@@ -30,7 +31,7 @@ import {
 } from "back-end/src/services/organizations";
 import { ReqContext } from "back-end/types/organization";
 import { ApiReqContext } from "back-end/types/api";
-import { trackJob } from "back-end/src/services/otel";
+import { trackJob } from "back-end/src/services/tracing";
 
 const SDK_WEBHOOKS_JOB_NAME = "fireWebhooks";
 type SDKWebhookJob = Job<{
@@ -41,6 +42,7 @@ const sendPayloadFormats: WebhookPayloadFormat[] = [
   "standard",
   "sdkPayload",
   "edgeConfig",
+  "vercelNativeIntegration",
 ];
 
 const fireWebhooks = trackJob(
@@ -158,11 +160,13 @@ async function runWebhookFetch({
   key,
   payload,
   global,
+  context,
 }: {
   webhook: WebhookInterface;
   key: string;
-  payload: string;
+  payload: Record<string, unknown>;
   global?: boolean;
+  context: ReqContext;
 }) {
   const webhookId = webhook.id;
   const url = webhook.endpoint;
@@ -174,13 +178,14 @@ async function runWebhookFetch({
   const organizationId = webhook.organization;
   const requestTimeout = 30000;
   const maxContentSize = 1000;
+  const jsonPayload = JSON.stringify(payload);
 
   const sendPayload =
     method !== "GET" && sendPayloadFormats.includes(payloadFormat);
 
   const date = new Date();
   const signature = createHmac("sha256", signingKey)
-    .update(sendPayload ? payload : "")
+    .update(sendPayload ? jsonPayload : "")
     .digest("hex");
   const secret = `whsec_${signature}`;
   const webhookID = `msg_${md5(key + date.getTime()).substr(0, 16)}`;
@@ -191,7 +196,7 @@ async function runWebhookFetch({
   const standardBody = JSON.stringify({
     type: "payload.changed",
     timestamp: date.toISOString(),
-    data: { payload },
+    data: { payload: jsonPayload },
   });
   let invalidValue: never;
 
@@ -207,7 +212,7 @@ async function runWebhookFetch({
         });
         break;
       case "sdkPayload":
-        body = payload;
+        body = jsonPayload;
         break;
       case "standard":
         body = standardBody;
@@ -218,9 +223,16 @@ async function runWebhookFetch({
             {
               operation: "upsert",
               key: payloadKey || "gb_payload",
-              value: payload,
+              value: jsonPayload,
             },
           ],
+        });
+        break;
+      case "vercelNativeIntegration":
+        body = JSON.stringify({
+          data: {
+            [payloadKey || "gb_payload"]: payload,
+          },
         });
         break;
       default:
@@ -240,17 +252,22 @@ async function runWebhookFetch({
   let res: CancellableFetchReturn | undefined = undefined;
 
   try {
+    const origin = new URL(url).origin;
+    const applySecrets = await context.models.webhookSecrets.getBackEndSecretsReplacer(
+      origin
+    );
+
     let customHeaders: Record<string, string> | undefined;
     if (headers) {
       try {
-        customHeaders = JSON.parse(headers);
+        customHeaders = applySecrets(JSON.parse(headers));
       } catch (error) {
         throw new Error("Failed to parse custom headers: " + error.message);
       }
     }
 
     res = await cancellableFetch(
-      url,
+      applySecrets(url, { encode: encodeURIComponent }),
       {
         headers: {
           ...customHeaders,
@@ -313,20 +330,27 @@ export async function fireSdkWebhook(
 ) {
   const webhookContext = getContextForAgendaJobByOrgObject(context.org);
 
-  const connections = await findSDKConnectionsByIds(context, webhook?.sdks);
-  for (const connection of connections) {
-    if (!connection) {
-      logger.error("SDK webhook: Could not find sdk connection", {
-        webhookId: webhook.id,
-      });
-      continue;
-    }
+  const sendPayload =
+    webhook.httpMethod !== "GET" &&
+    sendPayloadFormats.includes(webhook.payloadFormat ?? "standard");
 
-    let payload = "";
-    const sendPayload =
-      webhook.httpMethod !== "GET" &&
-      sendPayloadFormats.includes(webhook.payloadFormat ?? "standard");
-    if (sendPayload) {
+  const connections = await findSDKConnectionsByIds(context, webhook?.sdks);
+
+  if (!connections.length) {
+    logger.error("SDK webhook: Could not find sdk connections", {
+      webhookId: webhook.id,
+    });
+    return;
+  }
+
+  const payloads: [
+    string,
+    Record<string, unknown>
+  ][] = await BluebirdPromise.reduce(
+    connections,
+    async (payloads: [string, Record<string, unknown>][], connection) => {
+      if (!sendPayload) return [[connection.key, {}], ...payloads];
+
       const environmentDoc = webhookContext.org?.settings?.environments?.find(
         (e) => e.id === connection.environment
       );
@@ -351,14 +375,20 @@ export async function fireSdkWebhook(
         includeRuleIds: connection.includeRuleIds,
         hashSecureAttributes: connection.hashSecureAttributes,
       });
-      payload = JSON.stringify(defs);
-    }
-    return await runWebhookFetch({
+
+      return [[connection.key, defs], ...payloads];
+    },
+    []
+  );
+
+  await BluebirdPromise.each(payloads, ([key, payload]) =>
+    runWebhookFetch({
       webhook,
-      key: connection.key,
+      key,
       payload,
-    });
-  }
+      context: webhookContext,
+    })
+  );
 }
 
 export async function getSDKConnectionsByPayloadKeys(
@@ -424,7 +454,7 @@ export async function fireGlobalSdkWebhooks(
       true
     );
 
-    const defs = await getFeatureDefinitions({
+    const payload = await getFeatureDefinitions({
       context,
       capabilities: getConnectionSDKCapabilities(connection),
       environment: connection.environment,
@@ -440,8 +470,6 @@ export async function fireGlobalSdkWebhooks(
       includeRuleIds: connection.includeRuleIds,
       hashSecureAttributes: connection.hashSecureAttributes,
     });
-
-    const payload = JSON.stringify(defs);
 
     WEBHOOKS.forEach((webhook) => {
       const {
@@ -489,6 +517,7 @@ export async function fireGlobalSdkWebhooks(
         key: connection.key,
         payload,
         global: true,
+        context: context,
       }).catch((e) => {
         logger.error(e, "Failed to fire global webhook");
       });

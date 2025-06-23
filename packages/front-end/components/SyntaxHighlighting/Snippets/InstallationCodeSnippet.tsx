@@ -137,11 +137,20 @@ yarn add @growthbook/growthbook-react`.trim()}
       if (language === "nodejs") {
         return (
           <Code
-            language="sh"
-            code={`
-npm i --save @growthbook/growthbook
-# OR
-yarn add @growthbook/growthbook`.trim()}
+            language="bash"
+            code={`npm install @growthbook/growthbook
+# or
+yarn add @growthbook/growthbook`}
+          />
+        );
+      }
+      if (language === "nextjs") {
+        return (
+          <Code
+            language="bash"
+            code={`npm install @flags-sdk/growthbook
+# or
+yarn add @flags-sdk/growthbook`}
           />
         );
       }

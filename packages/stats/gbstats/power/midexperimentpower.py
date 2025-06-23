@@ -4,18 +4,12 @@ import numpy as np
 from pydantic.dataclasses import dataclass
 from scipy.stats import norm
 
-from gbstats.models.tests import TestResult
-from gbstats.models.statistics import (
-    TestStatistic,
-    RegressionAdjustedStatistic,
-)
+from gbstats.models.tests import TestResult, frequentist_variance_all_cases
 from gbstats.frequentist.tests import (
-    frequentist_variance,
-    frequentist_variance_relative_cuped,
     sequential_interval_halfwidth,
 )
 from gbstats.bayesian.tests import GaussianPrior
-from gbstats.models.tests import BaseConfig
+from gbstats.models.tests import BaseConfig, TestStatistic
 from gbstats.messages import (
     ZERO_NEGATIVE_VARIANCE_MESSAGE,
     BASELINE_VARIATION_ZERO_MESSAGE,
@@ -171,24 +165,9 @@ class MidExperimentPower:
 
     @property
     def sigmahat_2_delta(self) -> float:
-        if self._has_zero_variance() or self._control_mean_zero():
+        if self.test_result.error_message is not None:
             return 0
-        elif (
-            isinstance(self.stat_a, RegressionAdjustedStatistic)
-            and isinstance(self.stat_b, RegressionAdjustedStatistic)
-            and self.relative
-        ):
-            return frequentist_variance_relative_cuped(self.stat_a, self.stat_b)
-        else:
-            return frequentist_variance(
-                self.stat_a.variance,
-                self.stat_a.unadjusted_mean,
-                self.stat_a.n,
-                self.stat_b.variance,
-                self.stat_b.unadjusted_mean,
-                self.stat_b.n,
-                self.relative,
-            )
+        return frequentist_variance_all_cases(self.stat_a, self.stat_b, self.relative)
 
     def power(self, scaling_factor) -> float:
         """Calculates the power of a hypothesis test.
@@ -233,9 +212,7 @@ class MidExperimentPower:
             part_pos = 1 - norm.cdf(
                 (halfwidth - self.target_mde) / adjusted_variance**0.5
             )
-            part_neg = norm.cdf(
-                -(halfwidth + self.target_mde) / adjusted_variance**0.5
-            )
+            part_neg = norm.cdf(-(halfwidth + self.target_mde) / adjusted_variance**0.5)
         return float(part_pos + part_neg)
 
     def calculate_scaling_factor(self) -> ScalingFactorResult:

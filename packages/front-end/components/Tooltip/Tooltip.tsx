@@ -5,6 +5,8 @@ import {
   useState,
   useEffect,
   CSSProperties,
+  useRef,
+  useCallback,
 } from "react";
 import { usePopper } from "react-popper";
 import clsx from "clsx";
@@ -28,6 +30,7 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
   // must be set for tracking event to fire on hover
   trackingEventTooltipType?: string;
   trackingEventTooltipSource?: string;
+  delay?: number; // Delay in milliseconds before showing the tooltip
 }
 const Tooltip: FC<Props> = ({
   body,
@@ -43,19 +46,45 @@ const Tooltip: FC<Props> = ({
   state,
   trackingEventTooltipType,
   trackingEventTooltipSource,
+  delay = 300,
   ...otherProps
 }) => {
-  const [trigger, setTrigger] = useState(null);
-  const [tooltip, setTooltip] = useState(null);
-  const [arrow, setArrow] = useState(null);
   const [open, setOpen] = useState(state ?? false);
+  const [fadeIn, setFadeIn] = useState(false);
   const [alreadyHovered, setAlreadyHovered] = useState(false);
 
-  useEffect(() => {
-    if (state !== undefined) {
-      setOpen(state);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const clearTimeouts = useCallback(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
     }
-  }, [state, setOpen]);
+  }, [timeoutRef]);
+
+  const handleMouseEnter = useCallback(() => {
+    clearTimeouts();
+    timeoutRef.current = setTimeout(() => {
+      setOpen(true);
+      setTimeout(() => setFadeIn(true), 50);
+    }, delay);
+  }, [clearTimeouts, timeoutRef, setOpen, setFadeIn, delay]);
+
+  const handleMouseLeave = useCallback(() => {
+    clearTimeouts();
+    timeoutRef.current = setTimeout(() => {
+      setFadeIn(false);
+      setTimeout(() => setOpen(false), 300);
+    }, 200);
+  }, [clearTimeouts]);
+
+  useEffect(() => {
+    if (state === true) {
+      handleMouseEnter();
+    } else if (state === false) {
+      handleMouseLeave();
+    }
+  }, [state, handleMouseEnter, handleMouseLeave]);
 
   useEffect(() => {
     if (open && !alreadyHovered && trackingEventTooltipType) {
@@ -65,60 +94,72 @@ const Tooltip: FC<Props> = ({
         source: trackingEventTooltipSource,
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, alreadyHovered, trackingEventTooltipType]);
+  }, [
+    open,
+    alreadyHovered,
+    trackingEventTooltipType,
+    trackingEventTooltipSource,
+  ]);
 
-  const { styles, attributes } = usePopper(trigger, tooltip, {
-    modifiers: [
-      { name: "arrow", options: { element: arrow } },
-      {
-        name: "offset",
-        options: {
-          offset: [0, 10],
-        },
-      },
-    ],
-    placement: tipPosition,
-    strategy: "fixed",
-  });
+  const triggerRef = useRef<HTMLSpanElement | null>(null);
+  const tooltipRef = useRef<HTMLDivElement | null>(null);
+  const arrowRef = useRef<HTMLDivElement | null>(null);
+
+  const { styles, attributes } = usePopper(
+    triggerRef.current,
+    tooltipRef.current,
+    {
+      modifiers: [
+        { name: "arrow", options: { element: arrowRef.current } },
+        { name: "offset", options: { offset: [0, 10] } },
+      ],
+      placement: tipPosition,
+      strategy: "fixed",
+    }
+  );
 
   if (!children && children !== 0) children = <GBInfo />;
   const el = (
     <span
-      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'Dispatch<SetStateAction<null>>' is not assig... Remove this comment to see the full error message
-      ref={setTrigger}
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-      onPointerLeave={() => setOpen(false)}
+      ref={triggerRef}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       className={`${className}`}
       {...otherProps}
     >
       {children}
     </span>
   );
+
   const popper = (
     <>
       {open && body && shouldDisplay && (
-        <RadixTheme flip={true}>
-          <Box
-            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'Dispatch<SetStateAction<null>>' is not assig... Remove this comment to see the full error message
-            ref={setTooltip}
-            style={{
-              ...styles.popper,
-              minWidth: tipMinWidth,
-              maxWidth: 400,
-              zIndex: 10000,
-              ...popperStyle,
-            }}
-            {...attributes.popper}
-            className={clsx("shadow-lg gb-tooltip", popperClassName)}
-            role="tooltip"
-          >
-            <div className={`body ${innerClassName}`}>{body}</div>
-            {/* @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'Dispatch<SetStateAction<null>>' is not assig... Remove this comment to see the full error message */}
-            <div ref={setArrow} style={styles.arrow} className="arrow" />
-          </Box>
-        </RadixTheme>
+        <Box style={{ position: "absolute" }}>
+          <RadixTheme flip={true}>
+            <Box
+              ref={tooltipRef}
+              onMouseEnter={handleMouseEnter}
+              onMouseLeave={handleMouseLeave}
+              style={{
+                ...styles.popper,
+                minWidth: tipMinWidth,
+                maxWidth: 400,
+                zIndex: 10000,
+                ...popperStyle,
+              }}
+              {...attributes.popper}
+              className={clsx(
+                "shadow-lg gb-tooltip",
+                fadeIn ? "tooltip-visible" : "tooltip-hidden",
+                popperClassName
+              )}
+              role="tooltip"
+            >
+              <div className={`body ${innerClassName}`}>{body}</div>
+              <div ref={arrowRef} style={styles.arrow} className="arrow" />
+            </Box>
+          </RadixTheme>
+        </Box>
       )}
     </>
   );

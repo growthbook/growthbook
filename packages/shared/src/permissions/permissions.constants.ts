@@ -42,6 +42,8 @@ export const POLICIES = [
   "CustomRolesFullAccess",
   "CustomFieldsFullAccess",
   "TemplatesFullAccess",
+  "DecisionCriteriaFullAccess",
+  "SqlExplorerFullAccess",
 ] as const;
 
 export type Policy = typeof POLICIES[number];
@@ -104,6 +106,7 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
     "manageSDKConnections",
     "manageSDKWebhooks",
   ],
+  DecisionCriteriaFullAccess: ["readData", "manageDecisionCriteria"],
   AttributesFullAccess: ["readData", "manageTargetingAttributes"],
   EnvironmentsFullAccess: ["readData", "manageEnvironments"],
   NamespacesFullAccess: ["readData", "manageNamespaces"],
@@ -121,6 +124,7 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   CustomRolesFullAccess: ["readData", "manageTeam", "manageCustomRoles"],
   CustomFieldsFullAccess: ["readData", "manageCustomFields"],
   TemplatesFullAccess: ["readData", "manageTemplates"],
+  SqlExplorerFullAccess: ["readData", "runSqlExplorerQueries"],
 };
 
 export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
@@ -151,6 +155,7 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
       "DataSourcesFullAccess",
       "DataSourceConfiguration",
       "RunQueries",
+      "SqlExplorerFullAccess",
       "MetricsFullAccess",
       "FactTablesFullAccess",
       "FactMetricsFullAccess",
@@ -188,6 +193,7 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
       "EventWebhooksFullAccess",
       "BillingFullAccess",
       "AuditLogsFullAccess",
+      "DecisionCriteriaFullAccess",
     ],
   },
 ];
@@ -248,7 +254,11 @@ export const POLICY_METADATA_MAP: Record<
   RunQueries: {
     displayName: "Run Queries",
     description:
-      "Execute queries against data sources. Required to refresh experiment results.",
+      "Execute queries against data sources. Required to refresh experiment results. Does not include SQL Explorer access.",
+  },
+  SqlExplorerFullAccess: {
+    displayName: "SQL Explorer Full Access",
+    description: "Create, run, edit, and delete SQL Explorer queries",
   },
   MetricsFullAccess: {
     displayName: "Metrics Full Access",
@@ -362,6 +372,11 @@ export const POLICY_METADATA_MAP: Record<
     displayName: "Manage Templates",
     description: "Create, edit, and delete experiment templates",
   },
+  DecisionCriteriaFullAccess: {
+    displayName: "Decision Criteria Full Access",
+    description:
+      "Create, edit, and delete decision criteria, part of the experiment decision framework.",
+  },
 };
 
 export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
@@ -418,6 +433,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "ReadData",
       "Comments",
       "RunQueries",
+      "SqlExplorerFullAccess",
       "MetricsFullAccess",
       "ExperimentsFullAccess",
       "VisualEditorFullAccess",
@@ -430,6 +446,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "TagsFullAccess",
       "DataSourceConfiguration",
       "TemplatesFullAccess",
+      "DecisionCriteriaFullAccess",
     ],
   },
   experimenter: {
@@ -443,6 +460,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "VisualEditorFullAccess",
       "ArchetypesFullAccess",
       "RunQueries",
+      "SqlExplorerFullAccess",
       "MetricsFullAccess",
       "FactTablesFullAccess",
       "FactMetricsFullAccess",
@@ -459,6 +477,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "TagsFullAccess",
       "DataSourceConfiguration",
       "TemplatesFullAccess",
+      "DecisionCriteriaFullAccess",
     ],
   },
   admin: {
@@ -505,11 +524,13 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "createDatasources",
   "editDatasourceSettings",
   "runQueries",
+  "runSqlExplorerQueries",
   "manageTargetingAttributes",
   "manageVisualChanges",
   "manageSavedGroups",
   "manageCustomFields",
   "manageTemplates",
+  "manageExecReports",
 ] as const;
 
 export const GLOBAL_PERMISSIONS = [
@@ -526,6 +547,7 @@ export const GLOBAL_PERMISSIONS = [
   "manageEventWebhooks",
   "manageBilling",
   "manageNorthStarMetric",
+  "manageDecisionCriteria",
   "manageNamespaces",
   "manageCustomRoles",
   "manageCustomFields",
@@ -542,5 +564,6 @@ export const READ_ONLY_PERMISSIONS = [
   "readData",
   "viewAuditLog",
   "runQueries",
+  "runSqlExplorerQueries",
   "addComments",
 ];

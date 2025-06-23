@@ -1,5 +1,6 @@
 import { BigQueryTimestamp } from "@google-cloud/bigquery";
 import { ExperimentMetricInterface } from "shared/experiments";
+import { FormatDialect } from "shared/src/types";
 import { MetricAnalysisSettings } from "back-end/types/metric-analysis";
 import { ReqContext } from "back-end/types/organization";
 import {
@@ -13,7 +14,6 @@ import { ExperimentSnapshotSettings } from "back-end/types/experiment-snapshot";
 import { MetricInterface, MetricType } from "back-end/types/metric";
 import { QueryStatistics } from "back-end/types/query";
 import { SegmentInterface } from "back-end/types/segment";
-import { FormatDialect } from "back-end/src/util/sql";
 import { TemplateVariables } from "back-end/types/sql";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import {
@@ -581,6 +581,7 @@ export interface SourceIntegrationInterface {
     templateVariables?: TemplateVariables
   ): string;
   getTestQuery?(params: TestQueryParams): string;
+  getFreeFormQuery?(query: string, limit?: number): string;
   runTestQuery?(
     sql: string,
     timestampCols?: string[]

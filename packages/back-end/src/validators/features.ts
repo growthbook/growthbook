@@ -1,5 +1,11 @@
 import { z } from "zod";
 import { statsEngines } from "back-end/src/util/constants";
+import { safeRolloutStatusArray } from "back-end/src/validators/safe-rollout";
+import {
+  featurePrerequisite,
+  namespaceValue,
+  savedGroupTargeting,
+} from "back-end/src/validators/shared";
 import { eventUser } from "./events";
 
 export const simpleSchemaFieldValidator = z.object({
@@ -18,15 +24,6 @@ export const simpleSchemaValidator = z.object({
   fields: z.array(simpleSchemaFieldValidator),
 });
 
-export const savedGroupTargeting = z
-  .object({
-    match: z.enum(["all", "none", "any"]),
-    ids: z.array(z.string()),
-  })
-  .strict();
-
-export type SavedGroupTargeting = z.infer<typeof savedGroupTargeting>;
-
 export const featureValueType = [
   "boolean",
   "string",
@@ -44,15 +41,6 @@ const scheduleRule = z
   .strict();
 
 export type ScheduleRule = z.infer<typeof scheduleRule>;
-
-export const featurePrerequisite = z
-  .object({
-    id: z.string(),
-    condition: z.string(),
-  })
-  .strict();
-
-export type FeaturePrerequisite = z.infer<typeof featurePrerequisite>;
 
 export const baseRule = z
   .object({
@@ -95,16 +83,6 @@ const experimentValue = z
   .strict();
 
 export type ExperimentValue = z.infer<typeof experimentValue>;
-
-export const namespaceValue = z
-  .object({
-    enabled: z.boolean(),
-    name: z.string(),
-    range: z.tuple([z.number(), z.number()]),
-  })
-  .strict();
-
-export type NamespaceValue = z.infer<typeof namespaceValue>;
 
 export const experimentType = ["standard", "multi-armed-bandit"] as const;
 export const banditStageType = ["explore", "exploit", "paused"] as const;
@@ -168,11 +146,26 @@ const experimentRefRule = baseRule
 
 export type ExperimentRefRule = z.infer<typeof experimentRefRule>;
 
+export const safeRolloutRule = baseRule
+  .extend({
+    type: z.literal("safe-rollout"),
+    controlValue: z.string(),
+    variationValue: z.string(),
+    safeRolloutId: z.string(),
+    status: z.enum(safeRolloutStatusArray).default("running"),
+    hashAttribute: z.string(),
+    seed: z.string(),
+    trackingKey: z.string(),
+  })
+  .strict();
+
+export type SafeRolloutRule = z.infer<typeof safeRolloutRule>;
 export const featureRule = z.union([
   forceRule,
   rolloutRule,
   experimentRule,
   experimentRefRule,
+  safeRolloutRule,
 ]);
 
 export type FeatureRule = z.infer<typeof featureRule>;
@@ -200,7 +193,6 @@ export const JSONSchemaDef = z
 const revisionLog = z
   .object({
     user: eventUser,
-    approvedBy: eventUser.optional(),
     timestamp: z.date(),
     action: z.string(),
     subject: z.string(),
@@ -209,6 +201,9 @@ const revisionLog = z
   .strict();
 
 export type RevisionLog = z.infer<typeof revisionLog>;
+
+const revisionRulesSchema = z.record(z.string(), z.array(featureRule));
+export type RevisionRules = z.infer<typeof revisionRulesSchema>;
 
 const featureRevisionInterface = z
   .object({
@@ -231,8 +226,8 @@ const featureRevisionInterface = z
       "pending-review",
     ]),
     defaultValue: z.string(),
-    rules: z.record(z.string(), z.array(featureRule)),
-    log: z.array(revisionLog).optional(),
+    rules: revisionRulesSchema,
+    log: z.array(revisionLog).optional(), // This is deprecated in favor of using FeatureRevisionLog due to it being too large
   })
   .strict();
 

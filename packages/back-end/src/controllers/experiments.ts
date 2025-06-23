@@ -754,6 +754,7 @@ export async function postExperiments(
     customFields: data.customFields || undefined,
     templateId: data.templateId || undefined,
     shareLevel: data.shareLevel || "organization",
+    decisionFrameworkSettings: data.decisionFrameworkSettings || {},
   };
 
   const { settings } = getScopedSettings({
@@ -1012,6 +1013,7 @@ export async function postExperiment(
     "secondaryMetrics",
     "guardrailMetrics",
     "metricOverrides",
+    "decisionFrameworkSettings",
     "variations",
     "status",
     "results",
@@ -3221,5 +3223,46 @@ export async function findOrCreateVisualEditorToken(
 
   res.status(200).json({
     key: visualEditorKey.key,
+  });
+}
+
+export async function getExperimentTimeSeries(
+  req: AuthRequest<
+    null,
+    { id: string },
+    { phase: string; metricIds: string[] }
+  >,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  const { phase, metricIds } = req.query;
+  const phaseIndex = parseInt(phase, 10);
+
+  const experiment = await getExperimentById(context, id);
+  if (!experiment) {
+    throw new Error("Experiment not found");
+  }
+
+  if (metricIds.length === 0) {
+    throw new Error("metricIds is required");
+  }
+
+  if (isNaN(phaseIndex)) {
+    throw new Error("Invalid phase");
+  }
+
+  const timeSeries = await context.models.metricTimeSeries.getBySourceAndMetricIds(
+    {
+      source: "experiment",
+      sourceId: id,
+      sourcePhase: phaseIndex,
+      metricIds,
+    }
+  );
+
+  res.status(200).json({
+    status: 200,
+    timeSeries,
   });
 }

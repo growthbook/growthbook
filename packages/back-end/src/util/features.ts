@@ -6,7 +6,7 @@ import {
 } from "@growthbook/growthbook";
 import { includeExperimentInPayload, isDefined } from "shared/util";
 import { GroupMap } from "shared/src/types";
-import { cloneDeep } from "lodash";
+import { cloneDeep, isNil } from "lodash";
 import {
   FeatureInterface,
   FeatureRule,
@@ -18,6 +18,7 @@ import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { ExperimentInterface } from "back-end/types/experiment";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { Environment } from "back-end/types/organization";
+import { SafeRolloutInterface } from "back-end/types/safe-rollout";
 import { getCurrentEnabledState } from "./scheduleRules";
 
 function getSavedGroupCondition(
@@ -320,6 +321,7 @@ export function getFeatureDefinition({
   experimentMap,
   revision,
   date,
+  safeRolloutMap,
 }: {
   feature: FeatureInterface;
   environment: string;
@@ -327,6 +329,7 @@ export function getFeatureDefinition({
   experimentMap: Map<string, ExperimentInterface>;
   revision?: FeatureRevisionInterface;
   date?: Date;
+  safeRolloutMap: Map<string, SafeRolloutInterface>;
 }): FeatureDefinitionWithProject | null {
   const settings = feature.environmentSettings?.[environment];
 
@@ -557,6 +560,54 @@ export function getFeatureDefinition({
 
           if (r.hashAttribute) {
             rule.hashAttribute = r.hashAttribute;
+          }
+        } else if (r.type === "safe-rollout") {
+          const safeRollout = safeRolloutMap.get(r.safeRolloutId);
+
+          if (r.status === "released") {
+            const variationValue = r.variationValue;
+            if (isNil(variationValue)) return null;
+
+            // If a variation has been rolled out to 100%
+            rule.force = getJSONValue(feature.valueType, variationValue);
+          } else if (r.status === "rolled-back") {
+            const controlValue = r.controlValue;
+            if (isNil(controlValue)) return null;
+
+            // Return control value if rolled back. Feature default value might not be the same as the control value.
+            rule.force = getJSONValue(feature.valueType, controlValue);
+          } else {
+            if (
+              safeRollout?.rampUpSchedule.rampUpCompleted ||
+              !safeRollout?.rampUpSchedule.enabled
+            ) {
+              rule.coverage = 1; // Always 100% right now
+            } else {
+              rule.coverage =
+                safeRollout?.rampUpSchedule?.steps[
+                  safeRollout?.rampUpSchedule.step
+                ]?.percent ?? 1;
+            }
+
+            rule.hashAttribute = r.hashAttribute;
+
+            rule.seed = r.seed;
+
+            rule.hashVersion = 2;
+
+            rule.variations = [
+              getJSONValue(feature.valueType, r.controlValue),
+              getJSONValue(feature.valueType, r.variationValue),
+            ];
+            const varWeights = 0.5;
+            rule.weights = [varWeights, varWeights];
+            rule.key = r.trackingKey;
+            rule.meta = [
+              { key: "0", name: "Control" },
+              { key: "1", name: "Variation" },
+            ];
+            rule.phase = "0";
+            rule.name = `${feature.id} - Safe Rollout`;
           }
         }
         return rule;

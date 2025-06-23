@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import Link from "@/components/Radix/Link";
 
 const docSections = {
   //Pages
@@ -12,18 +13,19 @@ const docSections = {
   factTables: "/app/metrics",
   dimensions: "/app/dimensions",
   datasources: "/app/datasources",
-  dashboard: "/app/experiment-configuration",
+  insights: "/app/insights",
   powerCalculator: "/statistics/power",
   api: "/app/api",
   eventWebhooks: "/app/webhooks/event-webhooks",
   sdkWebhooks: "/app/webhooks/sdk-webhooks",
   "sdkWebhooks#payload-format": "/app/webhooks/sdk-webhooks#payload-format",
+  webhookSecrets: "/app/webhooks#webhook-secrets",
   bandits: "/bandits/overview",
   targeting: "/features/targeting",
   namespaces: "/features/rules#namespaces",
   environments: "/features/environments",
   archetypes: "/features/rules#archetype",
-  team: "/account/user-permissions",
+  team: "/account/user-permissions#teams",
   //DataSourceType
   athena: "/app/datasources#aws-athena",
   mixpanel: "/guide/mixpanel",
@@ -44,6 +46,7 @@ const docSections = {
   javascript: "/lib/js",
   javascriptAutoAttributes: "/lib/js#auto-attributes",
   tsx: "/lib/react",
+  nextjs: "/lib/nextjs",
   go: "/lib/go",
   kotlin: "/lib/kotlin",
   swift: "/lib/swift",
@@ -80,6 +83,7 @@ const docSections = {
   prerequisites: "/features/prerequisites",
   statisticsSequential: "/statistics/sequential",
   customMarkdown: "/using/growthbook-best-practices#custom-markdown",
+  customMetadata: "/using/growthbook-best-practices#custom-fields",
   savedGroups: "/features/targeting#saved-groups",
   ga4BigQuery: "/guide/GA4-google-analytics",
   gtmSetup: "/guide/google-tag-manager-and-growthbook",
@@ -88,6 +92,7 @@ const docSections = {
   apiPostEnvironment: "/api#tag/environments/operation/postEnvironment",
   idLists: "/features/targeting#id-lists",
   queryOptimization: "/app/query-optimization",
+  metricGroups: "/app/metrics#metric-groups",
 };
 
 export type DocSection = keyof typeof docSections;
@@ -107,7 +112,11 @@ const urlPathMapping: Record<string, DocSection> = {
   "/segments": "datasources",
   "/dimensions": "dimensions",
   "/datasources": "datasources",
-  "/dashboard": "experimentConfiguration",
+  "/dashboard": "insights",
+  "/learnings": "insights",
+  "/timeline": "insights",
+  "/metric-effects": "insights",
+  "/correlations": "insights",
   "/settings/keys": "api",
   "/account/personal-access-tokens": "api",
   "/environments": "environments",
@@ -151,6 +160,7 @@ interface DocLinkProps {
   fallBackSection?: DocSection;
   className?: string;
   children: ReactNode;
+  useRadix?: boolean;
 }
 
 export const docUrl = (docSection: DocSection, fallBackSection = "home") => {
@@ -167,8 +177,22 @@ export function DocLink({
   docSection,
   fallBackSection = "home",
   className = "",
+  useRadix,
   children,
 }: DocLinkProps) {
+  if (useRadix) {
+    return (
+      <Link
+        href={docUrl(docSection, fallBackSection)}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={className}
+      >
+        {children}
+      </Link>
+    );
+  }
+
   return (
     <a
       href={docUrl(docSection, fallBackSection)}

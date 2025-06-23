@@ -1,27 +1,93 @@
 import {
   getHealthSettings,
   getExperimentResultStatus,
-} from "shared/experiments";
+  PRESET_DECISION_CRITERIA,
+  PRESET_DECISION_CRITERIAS,
+  getStatusIndicatorData,
+} from "shared/enterprise";
 import {
-  ExperimentHealthSettings,
+  DecisionCriteriaData,
+  DecisionCriteriaInterface,
   ExperimentDataForStatusStringDates,
-  ExperimentResultStatusData,
+  ExperimentHealthSettings,
 } from "back-end/types/experiment";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
-export type StatusIndicatorData = {
-  color: "amber" | "green" | "red" | "gold" | "indigo" | "gray" | "pink";
-  status: "Running" | "Stopped" | "Draft" | "Archived";
-  detailedStatus?: string;
-  needsAttention?: boolean;
-  tooltip?: string;
-  // Most actionable status have higher numbers
-  sortOrder: number;
-};
+function getExperimentDecisionCriteria({
+  orgCustomDecisionCriterias,
+  experimentDecisionCriteriaId,
+  defaultDecisionCriteriaId,
+}: {
+  orgCustomDecisionCriterias: DecisionCriteriaInterface[];
+  experimentDecisionCriteriaId?: string;
+  defaultDecisionCriteriaId?: string;
+}): DecisionCriteriaData {
+  // If the experiment has a decision criteria id, use that. Otherwise, use the org's default
+  const decisionCriteriaToGet =
+    experimentDecisionCriteriaId ?? defaultDecisionCriteriaId;
+
+  // return default if no decision criteria id is provided
+  if (!decisionCriteriaToGet) {
+    return PRESET_DECISION_CRITERIA;
+  }
+
+  const presetDecisionCriteria = PRESET_DECISION_CRITERIAS.find(
+    (dc) => dc.id === decisionCriteriaToGet
+  );
+  // if decision criteria is one of the presets, use that
+  if (presetDecisionCriteria) {
+    return presetDecisionCriteria;
+  }
+
+  // if the decision criteria is a custom one, use that
+  const customDecisionCriteria = orgCustomDecisionCriterias.find(
+    (dc) => dc.id === decisionCriteriaToGet
+  );
+  if (customDecisionCriteria) {
+    return customDecisionCriteria;
+  }
+
+  // Always fall back to main preset
+  return PRESET_DECISION_CRITERIA;
+}
+
+export function useRunningExperimentStatus() {
+  const { hasCommercialFeature } = useUser();
+  const { decisionCriteria } = useDefinitions();
+  const settings = useOrgSettings();
+  const healthSettings = getHealthSettings(
+    settings,
+    hasCommercialFeature("decision-framework")
+  );
+
+  return {
+    getDecisionCriteria: (experimentDecisionCriteriaId?: string) =>
+      getExperimentDecisionCriteria({
+        orgCustomDecisionCriterias: decisionCriteria,
+        experimentDecisionCriteriaId,
+        defaultDecisionCriteriaId: settings?.defaultDecisionCriteriaId,
+      }),
+    getRunningExperimentResultStatus: (
+      experimentData: ExperimentDataForStatusStringDates
+    ) =>
+      getRunningExperimentResultStatus({
+        experimentData,
+        healthSettings,
+        decisionCriteria: getExperimentDecisionCriteria({
+          orgCustomDecisionCriterias: decisionCriteria,
+          experimentDecisionCriteriaId:
+            experimentData.decisionFrameworkSettings?.decisionCriteriaId,
+          defaultDecisionCriteriaId: settings?.defaultDecisionCriteriaId,
+        }),
+      }),
+  };
+}
 
 export function useExperimentStatusIndicator() {
   const { hasCommercialFeature } = useUser();
+  const { decisionCriteria } = useDefinitions();
   const settings = useOrgSettings();
   const healthSettings = getHealthSettings(
     settings,
@@ -31,172 +97,35 @@ export function useExperimentStatusIndicator() {
   return (
     experimentData: ExperimentDataForStatusStringDates,
     skipArchived: boolean = false
-  ) => getStatusIndicatorData(experimentData, skipArchived, healthSettings);
-}
-
-function getDetailedRunningStatusIndicatorData(
-  decisionData: ExperimentResultStatusData
-): StatusIndicatorData {
-  switch (decisionData.status) {
-    case "rollback-now":
-      return {
-        color: "amber",
-        status: "Running",
-        detailedStatus: "Roll back now",
-        tooltip: decisionData.tooltip,
-        needsAttention: true,
-        sortOrder: 13,
-      };
-    case "ship-now":
-      return {
-        color: "amber",
-        status: "Running",
-        detailedStatus: "Ship now",
-        tooltip: decisionData.tooltip,
-        needsAttention: true,
-        sortOrder: 12,
-      };
-    case "ready-for-review":
-      return {
-        color: "amber",
-        status: "Running",
-        detailedStatus: "Ready for review",
-        tooltip: decisionData.tooltip,
-        needsAttention: true,
-        sortOrder: 11,
-      };
-    case "no-data":
-      return {
-        color: "amber",
-        status: "Running",
-        detailedStatus: "No data",
-        tooltip: decisionData.tooltip,
-        needsAttention: true,
-        sortOrder: 10,
-      };
-    case "unhealthy":
-      return {
-        color: "amber",
-        status: "Running",
-        detailedStatus: "Unhealthy",
-        tooltip: decisionData.tooltip,
-        needsAttention: true,
-        sortOrder: 9,
-      };
-    case "days-left": {
-      const cappedPowerAdditionalDaysNeeded = Math.min(
-        decisionData.daysLeft,
-        90
-      );
-
-      // Fewer days left = higher sortOrder
-      const sortOrderDecimal = 1 - cappedPowerAdditionalDaysNeeded / 90;
-
-      return {
-        color: "indigo",
-        status: "Running",
-        detailedStatus: `${
-          decisionData.daysLeft !== cappedPowerAdditionalDaysNeeded ? ">" : ""
-        }${cappedPowerAdditionalDaysNeeded} days left`,
-        tooltip: decisionData.tooltip
-          ? decisionData.tooltip
-          : `The experiment needs more data to reliably detect the target minimum detectable effect for all goal metrics. At recent traffic levels, the experiment will take ~${decisionData.daysLeft} more days to collect enough data.`,
-        sortOrder: 8 + sortOrderDecimal,
-      };
-    }
-    case "before-min-duration":
-      return {
-        color: "indigo",
-        status: "Running",
-        tooltip: decisionData.tooltip,
-        sortOrder: 7,
-      };
-  }
-}
-
-export function getStatusIndicatorData(
-  experimentData: ExperimentDataForStatusStringDates,
-  skipArchived: boolean,
-  healthSettings: ExperimentHealthSettings
-): StatusIndicatorData {
-  if (!skipArchived && experimentData.archived) {
-    return {
-      color: "gold",
-      status: "Archived",
-      sortOrder: 0,
-    };
-  }
-
-  if (experimentData.status === "draft") {
-    return {
-      color: "pink",
-      status: "Draft",
-      sortOrder: 6,
-    };
-  }
-
-  if (experimentData.status == "running") {
-    const runningStatusData = getExperimentResultStatus({
+  ) =>
+    getStatusIndicatorData(
       experimentData,
+      skipArchived,
       healthSettings,
-    });
-    if (runningStatusData) {
-      return getDetailedRunningStatusIndicatorData(runningStatusData);
-    }
+      getExperimentDecisionCriteria({
+        orgCustomDecisionCriterias: decisionCriteria,
+        experimentDecisionCriteriaId:
+          experimentData.decisionFrameworkSettings?.decisionCriteriaId,
+        defaultDecisionCriteriaId: settings?.defaultDecisionCriteriaId,
+      })
+    );
+}
 
-    // 6. Otherwise, show running status
-    return {
-      color: "indigo",
-      status: "Running",
-      sortOrder: 7,
-    };
+function getRunningExperimentResultStatus({
+  experimentData,
+  healthSettings,
+  decisionCriteria,
+}: {
+  experimentData: ExperimentDataForStatusStringDates;
+  healthSettings: ExperimentHealthSettings;
+  decisionCriteria: DecisionCriteriaData;
+}) {
+  if (experimentData.status !== "running") {
+    return undefined;
   }
-
-  if (experimentData.status === "stopped") {
-    switch (experimentData.results) {
-      case "won":
-        return {
-          color: "green",
-          status: "Stopped",
-          detailedStatus: "Won",
-          sortOrder: 4,
-        };
-      case "lost":
-        return {
-          color: "red",
-          status: "Stopped",
-          detailedStatus: "Lost",
-          sortOrder: 3,
-          tooltip: "There are no real losers in A/B testing, only learnings.",
-        };
-      case "inconclusive":
-        return {
-          color: "gray",
-          status: "Stopped",
-          detailedStatus: "Inconclusive",
-          sortOrder: 2,
-        };
-      case "dnf":
-        return {
-          color: "gray",
-          status: "Stopped",
-          detailedStatus: "Didn't finish",
-          sortOrder: 1,
-        };
-      default:
-        return {
-          color: "amber",
-          status: "Stopped",
-          detailedStatus: "Awaiting decision",
-          needsAttention: true,
-          sortOrder: 5,
-        };
-    }
-  }
-
-  // TODO: Future statuses
-  // return ["indigo", "soft", "Scheduled"];
-
-  // FIXME: How can we make this rely on the typechecker instead of throwing an error?
-  throw new Error(`Unknown experiment status`);
+  return getExperimentResultStatus({
+    experimentData,
+    healthSettings,
+    decisionCriteria,
+  });
 }

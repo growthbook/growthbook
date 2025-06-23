@@ -37,6 +37,8 @@ import {
   isFactMetric,
   isFactMetricId,
   isMetricJoinable,
+  setAdjustedCIs,
+  setAdjustedPValuesOnResults,
 } from "shared/experiments";
 import { hoursBetween } from "shared/dates";
 import { v4 as uuidv4 } from "uuid";
@@ -44,6 +46,7 @@ import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { MetricPriorSettings } from "back-end/types/fact-table";
 import {
   ExperimentAnalysisSummaryVariationStatus,
+  BanditResult,
   ExperimentAnalysisSummary,
   ExperimentAnalysisSummaryResultsStatus,
   GoalMetricResult,
@@ -51,15 +54,6 @@ import {
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { Context } from "back-end/src/models/BaseModel";
-import {
-  BanditResult,
-  Changeset,
-  ExperimentInterface,
-  ExperimentPhase,
-  LinkedFeatureEnvState,
-  LinkedFeatureInfo,
-  LinkedFeatureState,
-} from "back-end/types/experiment";
 import {
   ExperimentAnalysisParamsContextData,
   ExperimentSnapshotAnalysis,
@@ -94,6 +88,14 @@ import {
   Operator,
 } from "back-end/types/metric";
 import { SegmentInterface } from "back-end/types/segment";
+import {
+  Changeset,
+  ExperimentInterface,
+  ExperimentPhase,
+  LinkedFeatureEnvState,
+  LinkedFeatureInfo,
+  LinkedFeatureState,
+} from "back-end/types/experiment";
 import { findDimensionById } from "back-end/src/models/DimensionModel";
 import {
   APP_ORIGIN,
@@ -139,6 +141,8 @@ import { ApiReqContext } from "back-end/types/api";
 import { ProjectInterface } from "back-end/types/project";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
+import { SafeRolloutSnapshotAnalysis } from "back-end/src/validators/safe-rollout-snapshot";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import {
   getIntegrationFromDatasourceId,
@@ -158,6 +162,7 @@ import {
   getConfidenceLevelsForOrg,
   getEnvironmentIdsFromOrg,
   getMetricDefaultsForOrg,
+  getPValueCorrectionForOrg,
   getPValueThresholdForOrg,
 } from "./organizations";
 
@@ -324,8 +329,17 @@ export async function getManualSnapshotData(
     const res = analyses[0];
     const data = res.dimensions[0];
     if (!data) return;
+
+    // If the value inside the ci is null from gbstats
+    // it actually means Infinity, so handle that case
     data.variations.map((v, i) => {
-      variations[i].metrics[metric] = v;
+      const ci: [number, number] | undefined = v.ci
+        ? [v.ci[0] ?? -Infinity, v.ci[1] ?? Infinity]
+        : undefined;
+      variations[i].metrics[metric] = {
+        ...v,
+        ci,
+      };
     });
   });
 
@@ -538,12 +552,13 @@ export function getSnapshotSettings({
     metricGroups
   )
     .map((m) =>
-      getMetricForSnapshot(
-        m,
+      getMetricForSnapshot({
+        id: m,
         metricMap,
         settingsForSnapshotMetrics,
-        experiment.metricOverrides
-      )
+        metricOverrides: experiment.metricOverrides,
+        decisionFrameworkSettings: experiment.decisionFrameworkSettings,
+      })
     )
     .filter(isDefined);
 
@@ -1489,6 +1504,10 @@ export async function toExperimentApiInterface(
           banditBurnInUnit: experiment.banditBurnInUnit ?? "days",
         }
       : null),
+    linkedFeatures: experiment.linkedFeatures || [],
+    hasVisualChangesets: experiment.hasVisualChangesets || false,
+    hasURLRedirects: experiment.hasURLRedirects || false,
+    customFields: experiment.customFields ?? {},
   };
 }
 
@@ -2490,6 +2509,7 @@ export function postExperimentApiPayloadToInterface(
     guardrailMetrics: payload.guardrailMetrics || [],
     activationMetric: payload.activationMetric || "",
     metricOverrides: [],
+    decisionFrameworkSettings: {},
     segment: payload.segmentId || "",
     queryFilter: payload.queryFilter || "",
     skipPartialData: payload.inProgressConversions === "strict",
@@ -2896,7 +2916,7 @@ export async function getLinkedFeatureInfo(
     return info;
   });
 
-  return linkedFeatureInfo.filter((info) => info.state !== "discarded");
+  return linkedFeatureInfo;
 }
 
 export async function getChangesToStartExperiment(
@@ -3033,13 +3053,14 @@ export async function getExperimentAnalysisSummary({
     (v) => v.settings.differenceType === "relative"
   );
 
+  // by default, we compute experiment results status on relative analysis
   if (relativeAnalysis) {
     const overallResults = relativeAnalysis.results?.[0];
     // redundant check for dimension
     if (overallResults && overallResults.name === "") {
       const resultsStatus = await computeResultsStatus({
         context,
-        relativeAnalysis,
+        analysis: relativeAnalysis,
         experiment,
       });
 
@@ -3076,22 +3097,49 @@ export async function updateExperimentAnalysisSummary({
   });
 }
 
-async function computeResultsStatus({
+function getVariationId(
+  experiment: ExperimentInterface | SafeRolloutInterface,
+  i: number
+): string {
+  if ("variations" in experiment) {
+    return experiment.variations?.[i]?.id;
+  }
+  return i + "";
+}
+
+export async function computeResultsStatus({
   context,
-  relativeAnalysis,
+  analysis,
   experiment,
 }: {
   context: ReqContext;
-  relativeAnalysis: ExperimentSnapshotAnalysis;
-  experiment: ExperimentInterface;
+  analysis: ExperimentSnapshotAnalysis | SafeRolloutSnapshotAnalysis;
+  experiment: ExperimentInterface | SafeRolloutInterface;
 }): Promise<ExperimentAnalysisSummaryResultsStatus | undefined> {
-  const statsEngine = relativeAnalysis.settings.statsEngine;
+  const statsEngine = analysis.settings.statsEngine;
+  const pValueCorrection = getPValueCorrectionForOrg(context);
   const { ciUpper, ciLower } = getConfidenceLevelsForOrg(context);
   const metricDefaults = getMetricDefaultsForOrg(context);
   const pValueThreshold = getPValueThresholdForOrg(context);
   const metricMap = await getMetricMap(context);
+  const metricGroups = await context.models.metricGroups.getAll();
 
-  const variations = relativeAnalysis.results[0]?.variations;
+  const expandedGoalMetrics =
+    "goalMetrics" in experiment
+      ? expandMetricGroups(experiment.goalMetrics, metricGroups)
+      : [];
+  const expandedGuardrailMetrics =
+    "guardrailMetrics" in experiment
+      ? expandMetricGroups(experiment.guardrailMetrics, metricGroups)
+      : expandMetricGroups(experiment.guardrailMetricIds, metricGroups);
+
+  const results = cloneDeep(analysis.results);
+
+  // modifies results in place
+  setAdjustedPValuesOnResults(results, expandedGoalMetrics, pValueCorrection);
+  setAdjustedCIs(results, pValueThreshold);
+
+  const variations = results[0]?.variations;
   if (!variations || !variations.length) {
     return;
   }
@@ -3101,24 +3149,22 @@ async function computeResultsStatus({
 
   for (let i = 1; i < variations.length; i++) {
     // try to get id from experiment object
-    const variationId = experiment.variations?.[i]?.id;
+    const variationId = getVariationId(experiment, i);
     const currentVariation = variations[i];
     const variationStatus: ExperimentAnalysisSummaryVariationStatus = {
-      variationId: variationId ?? i + "",
+      variationId,
       goalMetrics: {},
       guardrailMetrics: {},
     };
     for (const m in currentVariation.metrics) {
-      const goalMetric = experiment.goalMetrics.includes(m);
-      const guardrailMetric = experiment.guardrailMetrics.includes(m);
+      const goalMetric = expandedGoalMetrics.includes(m);
+      const guardrailMetric = expandedGuardrailMetrics.includes(m);
       if (goalMetric || guardrailMetric) {
         const baselineMetric = baselineVariation.metrics?.[m];
         const currentMetric = currentVariation.metrics?.[m];
         if (!currentMetric || !baselineMetric) continue;
-
         const metric = metricMap.get(m);
         if (!metric) continue;
-
         const resultsStatus = getMetricResultStatus({
           metric,
           metricDefaults,
@@ -3128,6 +3174,10 @@ async function computeResultsStatus({
           ciUpper,
           pValueThreshold,
           statsEngine: statsEngine,
+          differenceType:
+            "differenceType" in analysis.settings
+              ? analysis.settings.differenceType
+              : "relative",
         });
 
         if (goalMetric) {
@@ -3156,9 +3206,16 @@ async function computeResultsStatus({
           if (!variationStatus.guardrailMetrics) {
             variationStatus.guardrailMetrics = {};
           }
-          variationStatus.guardrailMetrics[metric.id] = {
-            status: resultsStatus.resultsStatus === "lost" ? "lost" : "neutral",
-          };
+          if (resultsStatus.guardrailSafeStatus) {
+            variationStatus.guardrailMetrics[metric.id] = {
+              status: "safe",
+            };
+          } else {
+            variationStatus.guardrailMetrics[metric.id] = {
+              status:
+                resultsStatus.resultsStatus === "lost" ? "lost" : "neutral",
+            };
+          }
         }
       }
     }
@@ -3168,7 +3225,7 @@ async function computeResultsStatus({
   return {
     variations: variationStatuses,
     settings: {
-      sequentialTesting: relativeAnalysis.settings.sequentialTesting ?? false,
+      sequentialTesting: analysis.settings.sequentialTesting ?? false,
     },
   };
 }

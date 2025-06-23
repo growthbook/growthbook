@@ -16,6 +16,11 @@ import { ExperimentReportVariation } from "back-end/types/report";
 import { VisualChange } from "back-end/types/visual-changeset";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { Environment } from "back-end/types/organization";
+import {
+  SafeRolloutSnapshotAnalysis,
+  SafeRolloutSnapshotAnalysisSettings,
+  SafeRolloutSnapshotInterface,
+} from "back-end/src/validators/safe-rollout-snapshot";
 import { SavedGroupInterface } from "../types";
 import { featureHasEnvironment } from "./features";
 
@@ -94,6 +99,16 @@ export function getSnapshotAnalysis(
   );
 }
 
+export function getSafeRolloutSnapshotAnalysis(
+  snapshot: SafeRolloutSnapshotInterface,
+  analysisSettings?: SafeRolloutSnapshotAnalysisSettings | null
+): SafeRolloutSnapshotAnalysis | null {
+  return (
+    (analysisSettings
+      ? snapshot?.analyses?.find((a) => isEqual(a.settings, analysisSettings))
+      : snapshot?.analyses?.[0]) || null
+  );
+}
 export function putBaselineVariationFirst(
   variations: ExperimentReportVariation[],
   baselineVariationIndex: number | null
@@ -326,16 +341,26 @@ export function truncateString(s: string, numChars: number) {
   return s;
 }
 
-export function formatByteSizeString(numBytes: number, decimalPlaces = 1) {
+export function getNumberFormatDigits(value: number) {
+  const absValue = Math.abs(value);
+  const digits =
+    absValue > 1000 ? 0 : absValue > 100 ? 1 : absValue > 10 ? 2 : 3;
+  return digits;
+}
+
+export function formatByteSizeString(numBytes: number, inferDigits = false) {
   if (numBytes == 0) return "0 Bytes";
   const k = 1024,
     sizes = ["Bytes", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"],
     i = Math.floor(Math.log(numBytes) / Math.log(k));
-  return (
-    parseFloat((numBytes / Math.pow(k, i)).toFixed(decimalPlaces)) +
-    " " +
-    sizes[i]
-  );
+  const value = numBytes / Math.pow(k, i);
+
+  const options = {
+    maximumFractionDigits: inferDigits ? getNumberFormatDigits(value) : 1,
+    minimumFractionDigits: 0,
+  };
+
+  return Intl.NumberFormat(undefined, options).format(value) + " " + sizes[i];
 }
 
 export function meanVarianceFromSums(

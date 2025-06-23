@@ -27,6 +27,7 @@ import WorkspaceLinks from "@/components/GetStarted/WorkspaceLinks";
 import Callout from "@/components/Radix/Callout";
 import Link from "@/components/Radix/Link";
 import useSDKConnections from "@/hooks/useSDKConnections";
+import { useUser } from "@/services/UserContext";
 
 const GetStartedPage = (): React.ReactElement => {
   const [showVideoId, setShowVideoId] = useState<string>("");
@@ -35,6 +36,7 @@ const GetStartedPage = (): React.ReactElement => {
 
   const permissionsUtils = usePermissionsUtil();
   const { project } = useDefinitions();
+  const { organization } = useUser();
 
   const canUseSetupFlow =
     permissionsUtils.canCreateSDKConnection({
@@ -50,6 +52,7 @@ const GetStartedPage = (): React.ReactElement => {
   const showSetUpFlow =
     canUseSetupFlow &&
     sdkConnectionData &&
+    !organization.isVercelIntegration &&
     !sdkConnectionData.connections.some((c) => c.connected);
 
   // If they view the guide, clear the current step
@@ -65,7 +68,6 @@ const GetStartedPage = (): React.ReactElement => {
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
-          reason=""
           source="get-started"
           commercialFeature={null}
         />
@@ -136,8 +138,12 @@ const GetStartedPage = (): React.ReactElement => {
             >
               <FeatureFlagFeatureCard />
               <ExperimentFeatureCard />
-              <LaunchDarklyImportFeatureCard />
-              <AnalyzeExperimentFeatureCard />
+              {!organization.isVercelIntegration ? (
+                <>
+                  <LaunchDarklyImportFeatureCard />
+                  <AnalyzeExperimentFeatureCard />
+                </>
+              ) : null}
             </Grid>
 
             <Separator my="5" size="4" />
@@ -166,9 +172,9 @@ const GetStartedPage = (): React.ReactElement => {
                 />
 
                 <OverviewCard
-                  imgUrl="/images/get-started/thumbnails/3.5-release.webp"
+                  imgUrl="/images/get-started/thumbnails/3.6-release.svg"
                   hoverText="View Blog Post"
-                  href="https://blog.growthbook.io/growthbook-version-3-5/"
+                  href="https://blog.growthbook.io/growthbook-version-3-6/"
                   type="link"
                 />
               </Flex>
@@ -187,13 +193,6 @@ const GetStartedPage = (): React.ReactElement => {
                 </Grid>
               </Card>
             </Box>
-
-            {/* <Text size="1">
-              Finished setting up?{" "}
-              <Link weight="bold" href="#" underline="none">
-                Turn off the guide to hide this page
-              </Link>
-            </Text> */}
           </Box>
 
           <Box>

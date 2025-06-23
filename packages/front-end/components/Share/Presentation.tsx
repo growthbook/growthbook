@@ -292,6 +292,7 @@ const Presentation = ({
               results={snapshot?.analyses[0]?.results?.[0]}
               reportDate={snapshot.dateCreated}
               startDate={phase?.dateStarted ?? ""}
+              endDate={phase?.dateEnded ?? ""}
               isLatestPhase={snapshot.phase === experiment.phases.length - 1}
               status={experiment.status}
               goalMetrics={experiment.goalMetrics}

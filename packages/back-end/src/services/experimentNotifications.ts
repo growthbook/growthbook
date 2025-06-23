@@ -1,9 +1,11 @@
 import { includeExperimentInPayload, getSnapshotAnalysis } from "shared/util";
+import { getMetricResultStatus } from "shared/experiments";
 import {
-  getHealthSettings,
-  getMetricResultStatus,
+  PRESET_DECISION_CRITERIA,
+  PRESET_DECISION_CRITERIAS,
   getExperimentResultStatus,
-} from "shared/experiments";
+  getHealthSettings,
+} from "shared/enterprise";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { StatsEngine } from "back-end/types/stats";
 import { Context } from "back-end/src/models/BaseModel";
@@ -34,7 +36,6 @@ import {
 import { isEmailEnabled, sendExperimentChangesEmail } from "./email";
 
 // This ensures that the two types remain equal.
-
 const dispatchEvent = async <T extends ResourceEvents<"experiment">>({
   context,
   experiment,
@@ -323,6 +324,7 @@ export const computeExperimentChanges = async ({
         ciUpper,
         pValueThreshold,
         statsEngine: statsEngine,
+        differenceType: currentAnalysis.settings.differenceType,
       });
 
       const { resultsStatus: lastResultsStatus } =
@@ -336,6 +338,7 @@ export const computeExperimentChanges = async ({
               ciUpper,
               pValueThreshold,
               statsEngine: lastAnalysis.settings.statsEngine,
+              differenceType: lastAnalysis.settings.differenceType,
             })
           : { resultsStatus: "" };
 
@@ -461,6 +464,32 @@ export const notifyDecision = async ({
   return false;
 };
 
+async function getDecisionCriteria(
+  context: Context,
+  decisionCriteriaId?: string
+) {
+  if (!decisionCriteriaId) {
+    return PRESET_DECISION_CRITERIA;
+  }
+
+  const usedPresetCriteria = PRESET_DECISION_CRITERIAS.find(
+    (dc) => dc.id === decisionCriteriaId
+  );
+  if (usedPresetCriteria) {
+    return usedPresetCriteria;
+  }
+
+  const decisionCriteria = await context.models.decisionCriteria.getById(
+    decisionCriteriaId
+  );
+
+  if (!decisionCriteria) {
+    return PRESET_DECISION_CRITERIA;
+  }
+
+  return decisionCriteria;
+}
+
 export const notifyExperimentChange = async ({
   context,
   experiment,
@@ -484,9 +513,17 @@ export const notifyExperimentChange = async ({
     context.org.settings,
     orgHasPremiumFeature(context.org, "decision-framework")
   );
+
+  const decisionCriteria = await getDecisionCriteria(
+    context,
+    experiment.decisionFrameworkSettings?.decisionCriteriaId ??
+      context.org.settings?.defaultDecisionCriteriaId
+  );
+
   const currentStatus = getExperimentResultStatus({
     experimentData: experiment,
     healthSettings,
+    decisionCriteria,
   });
 
   if (currentStatus) {
@@ -519,6 +556,7 @@ export const notifyExperimentChange = async ({
           : undefined,
       },
       healthSettings,
+      decisionCriteria,
     });
     const triggeredDecision = await notifyDecision({
       context,
