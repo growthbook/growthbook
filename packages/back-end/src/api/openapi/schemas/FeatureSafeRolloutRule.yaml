@@ -66,3 +66,7 @@ properties:
       - "released"
       - "rolled-back"
       - "stopped"
+  scheduleRules:
+    type: array
+    items:
+      $ref: "./ScheduleRule.yaml"

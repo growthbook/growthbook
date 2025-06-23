@@ -507,6 +507,17 @@ export interface components {
       factTableId?: string;
       filters?: (string)[];
     };
+    /** @description An array of schedule rules to turn on/off a feature rule at specific times. The array must contain exactly 2 elements (start rule and end rule). The first element is the start rule. */
+    ScheduleRule: {
+      /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+      enabled: boolean;
+      /**
+       * Format: date-time 
+       * @description ISO timestamp when the rule should activate. 
+       * @example 2025-06-23T16:09:37.769Z
+       */
+      timestamp: string | null;
+    };
     Feature: {
       id: string;
       /** Format: date-time */
@@ -538,11 +549,12 @@ export interface components {
                   id: string;
                   condition: string;
                 })[];
-              /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
               scheduleRules?: ({
+                  /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                   enabled: boolean;
                   /**
-                   * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                   * Format: date-time 
+                   * @description ISO timestamp when the rule should activate. 
                    * @example 2025-06-23T16:09:37.769Z
                    */
                   timestamp: string | null;
@@ -560,11 +572,12 @@ export interface components {
                   matchType: "all" | "any" | "none";
                   savedGroups: (string)[];
                 })[];
-              /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
               scheduleRules?: ({
+                  /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                   enabled: boolean;
                   /**
-                   * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                   * Format: date-time 
+                   * @description ISO timestamp when the rule should activate. 
                    * @example 2025-06-23T16:09:37.769Z
                    */
                   timestamp: string | null;
@@ -595,11 +608,12 @@ export interface components {
                 range: (number)[];
               };
               coverage?: number;
-              /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
               scheduleRules?: ({
+                  /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                   enabled: boolean;
                   /**
-                   * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                   * Format: date-time 
+                   * @description ISO timestamp when the rule should activate. 
                    * @example 2025-06-23T16:09:37.769Z
                    */
                   timestamp: string | null;
@@ -616,11 +630,12 @@ export interface components {
               /** @enum {string} */
               type: "experiment-ref";
               condition?: string;
-              /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
               scheduleRules?: ({
+                  /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                   enabled: boolean;
                   /**
-                   * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                   * Format: date-time 
+                   * @description ISO timestamp when the rule should activate. 
                    * @example 2025-06-23T16:09:37.769Z
                    */
                   timestamp: string | null;
@@ -654,6 +669,16 @@ export interface components {
               safeRolloutId?: string;
               /** @enum {string} */
               status?: "running" | "released" | "rolled-back" | "stopped";
+              scheduleRules?: ({
+                  /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                  enabled: boolean;
+                  /**
+                   * Format: date-time 
+                   * @description ISO timestamp when the rule should activate. 
+                   * @example 2025-06-23T16:09:37.769Z
+                   */
+                  timestamp: string | null;
+                })[];
             }))[];
           /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
           definition?: string;
@@ -673,11 +698,12 @@ export interface components {
                     id: string;
                     condition: string;
                   })[];
-                /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                 scheduleRules?: ({
+                    /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                     enabled: boolean;
                     /**
-                     * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                     * Format: date-time 
+                     * @description ISO timestamp when the rule should activate. 
                      * @example 2025-06-23T16:09:37.769Z
                      */
                     timestamp: string | null;
@@ -695,11 +721,12 @@ export interface components {
                     matchType: "all" | "any" | "none";
                     savedGroups: (string)[];
                   })[];
-                /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                 scheduleRules?: ({
+                    /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                     enabled: boolean;
                     /**
-                     * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                     * Format: date-time 
+                     * @description ISO timestamp when the rule should activate. 
                      * @example 2025-06-23T16:09:37.769Z
                      */
                     timestamp: string | null;
@@ -730,11 +757,12 @@ export interface components {
                   range: (number)[];
                 };
                 coverage?: number;
-                /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                 scheduleRules?: ({
+                    /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                     enabled: boolean;
                     /**
-                     * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                     * Format: date-time 
+                     * @description ISO timestamp when the rule should activate. 
                      * @example 2025-06-23T16:09:37.769Z
                      */
                     timestamp: string | null;
@@ -751,11 +779,12 @@ export interface components {
                 /** @enum {string} */
                 type: "experiment-ref";
                 condition?: string;
-                /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                 scheduleRules?: ({
+                    /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                     enabled: boolean;
                     /**
-                     * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                     * Format: date-time 
+                     * @description ISO timestamp when the rule should activate. 
                      * @example 2025-06-23T16:09:37.769Z
                      */
                     timestamp: string | null;
@@ -789,6 +818,16 @@ export interface components {
                 safeRolloutId?: string;
                 /** @enum {string} */
                 status?: "running" | "released" | "rolled-back" | "stopped";
+                scheduleRules?: ({
+                    /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                    enabled: boolean;
+                    /**
+                     * Format: date-time 
+                     * @description ISO timestamp when the rule should activate. 
+                     * @example 2025-06-23T16:09:37.769Z
+                     */
+                    timestamp: string | null;
+                  })[];
               }))[];
             /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
             definition?: string;
@@ -839,11 +878,12 @@ export interface components {
                   id: string;
                   condition: string;
                 })[];
-              /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
               scheduleRules?: ({
+                  /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                   enabled: boolean;
                   /**
-                   * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                   * Format: date-time 
+                   * @description ISO timestamp when the rule should activate. 
                    * @example 2025-06-23T16:09:37.769Z
                    */
                   timestamp: string | null;
@@ -861,11 +901,12 @@ export interface components {
                   matchType: "all" | "any" | "none";
                   savedGroups: (string)[];
                 })[];
-              /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
               scheduleRules?: ({
+                  /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                   enabled: boolean;
                   /**
-                   * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                   * Format: date-time 
+                   * @description ISO timestamp when the rule should activate. 
                    * @example 2025-06-23T16:09:37.769Z
                    */
                   timestamp: string | null;
@@ -896,11 +937,12 @@ export interface components {
                 range: (number)[];
               };
               coverage?: number;
-              /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
               scheduleRules?: ({
+                  /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                   enabled: boolean;
                   /**
-                   * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                   * Format: date-time 
+                   * @description ISO timestamp when the rule should activate. 
                    * @example 2025-06-23T16:09:37.769Z
                    */
                   timestamp: string | null;
@@ -917,11 +959,12 @@ export interface components {
               /** @enum {string} */
               type: "experiment-ref";
               condition?: string;
-              /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
               scheduleRules?: ({
+                  /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                   enabled: boolean;
                   /**
-                   * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                   * Format: date-time 
+                   * @description ISO timestamp when the rule should activate. 
                    * @example 2025-06-23T16:09:37.769Z
                    */
                   timestamp: string | null;
@@ -955,6 +998,16 @@ export interface components {
               safeRolloutId?: string;
               /** @enum {string} */
               status?: "running" | "released" | "rolled-back" | "stopped";
+              scheduleRules?: ({
+                  /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                  enabled: boolean;
+                  /**
+                   * Format: date-time 
+                   * @description ISO timestamp when the rule should activate. 
+                   * @example 2025-06-23T16:09:37.769Z
+                   */
+                  timestamp: string | null;
+                })[];
             }))[];
           /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
           definition?: string;
@@ -974,11 +1027,12 @@ export interface components {
                     id: string;
                     condition: string;
                   })[];
-                /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                 scheduleRules?: ({
+                    /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                     enabled: boolean;
                     /**
-                     * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                     * Format: date-time 
+                     * @description ISO timestamp when the rule should activate. 
                      * @example 2025-06-23T16:09:37.769Z
                      */
                     timestamp: string | null;
@@ -996,11 +1050,12 @@ export interface components {
                     matchType: "all" | "any" | "none";
                     savedGroups: (string)[];
                   })[];
-                /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                 scheduleRules?: ({
+                    /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                     enabled: boolean;
                     /**
-                     * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                     * Format: date-time 
+                     * @description ISO timestamp when the rule should activate. 
                      * @example 2025-06-23T16:09:37.769Z
                      */
                     timestamp: string | null;
@@ -1031,11 +1086,12 @@ export interface components {
                   range: (number)[];
                 };
                 coverage?: number;
-                /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                 scheduleRules?: ({
+                    /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                     enabled: boolean;
                     /**
-                     * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                     * Format: date-time 
+                     * @description ISO timestamp when the rule should activate. 
                      * @example 2025-06-23T16:09:37.769Z
                      */
                     timestamp: string | null;
@@ -1052,11 +1108,12 @@ export interface components {
                 /** @enum {string} */
                 type: "experiment-ref";
                 condition?: string;
-                /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                 scheduleRules?: ({
+                    /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                     enabled: boolean;
                     /**
-                     * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                     * Format: date-time 
+                     * @description ISO timestamp when the rule should activate. 
                      * @example 2025-06-23T16:09:37.769Z
                      */
                     timestamp: string | null;
@@ -1090,6 +1147,16 @@ export interface components {
                 safeRolloutId?: string;
                 /** @enum {string} */
                 status?: "running" | "released" | "rolled-back" | "stopped";
+                scheduleRules?: ({
+                    /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                    enabled: boolean;
+                    /**
+                     * Format: date-time 
+                     * @description ISO timestamp when the rule should activate. 
+                     * @example 2025-06-23T16:09:37.769Z
+                     */
+                    timestamp: string | null;
+                  })[];
               }))[];
             /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
             definition?: string;
@@ -1131,11 +1198,12 @@ export interface components {
                     id: string;
                     condition: string;
                   })[];
-                /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                 scheduleRules?: ({
+                    /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                     enabled: boolean;
                     /**
-                     * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                     * Format: date-time 
+                     * @description ISO timestamp when the rule should activate. 
                      * @example 2025-06-23T16:09:37.769Z
                      */
                     timestamp: string | null;
@@ -1153,11 +1221,12 @@ export interface components {
                     matchType: "all" | "any" | "none";
                     savedGroups: (string)[];
                   })[];
-                /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                 scheduleRules?: ({
+                    /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                     enabled: boolean;
                     /**
-                     * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                     * Format: date-time 
+                     * @description ISO timestamp when the rule should activate. 
                      * @example 2025-06-23T16:09:37.769Z
                      */
                     timestamp: string | null;
@@ -1188,11 +1257,12 @@ export interface components {
                   range: (number)[];
                 };
                 coverage?: number;
-                /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                 scheduleRules?: ({
+                    /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                     enabled: boolean;
                     /**
-                     * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                     * Format: date-time 
+                     * @description ISO timestamp when the rule should activate. 
                      * @example 2025-06-23T16:09:37.769Z
                      */
                     timestamp: string | null;
@@ -1209,11 +1279,12 @@ export interface components {
                 /** @enum {string} */
                 type: "experiment-ref";
                 condition?: string;
-                /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                 scheduleRules?: ({
+                    /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                     enabled: boolean;
                     /**
-                     * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                     * Format: date-time 
+                     * @description ISO timestamp when the rule should activate. 
                      * @example 2025-06-23T16:09:37.769Z
                      */
                     timestamp: string | null;
@@ -1247,6 +1318,16 @@ export interface components {
                 safeRolloutId?: string;
                 /** @enum {string} */
                 status?: "running" | "released" | "rolled-back" | "stopped";
+                scheduleRules?: ({
+                    /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                    enabled: boolean;
+                    /**
+                     * Format: date-time 
+                     * @description ISO timestamp when the rule should activate. 
+                     * @example 2025-06-23T16:09:37.769Z
+                     */
+                    timestamp: string | null;
+                  })[];
               }))[]) | undefined;
           };
           definitions?: {
@@ -1270,11 +1351,12 @@ export interface components {
               id: string;
               condition: string;
             })[];
-          /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
           scheduleRules?: ({
+              /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
               enabled: boolean;
               /**
-               * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+               * Format: date-time 
+               * @description ISO timestamp when the rule should activate. 
                * @example 2025-06-23T16:09:37.769Z
                */
               timestamp: string | null;
@@ -1292,11 +1374,12 @@ export interface components {
               matchType: "all" | "any" | "none";
               savedGroups: (string)[];
             })[];
-          /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
           scheduleRules?: ({
+              /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
               enabled: boolean;
               /**
-               * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+               * Format: date-time 
+               * @description ISO timestamp when the rule should activate. 
                * @example 2025-06-23T16:09:37.769Z
                */
               timestamp: string | null;
@@ -1327,11 +1410,12 @@ export interface components {
             range: (number)[];
           };
           coverage?: number;
-          /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
           scheduleRules?: ({
+              /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
               enabled: boolean;
               /**
-               * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+               * Format: date-time 
+               * @description ISO timestamp when the rule should activate. 
                * @example 2025-06-23T16:09:37.769Z
                */
               timestamp: string | null;
@@ -1348,11 +1432,12 @@ export interface components {
           /** @enum {string} */
           type: "experiment-ref";
           condition?: string;
-          /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
           scheduleRules?: ({
+              /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
               enabled: boolean;
               /**
-               * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+               * Format: date-time 
+               * @description ISO timestamp when the rule should activate. 
                * @example 2025-06-23T16:09:37.769Z
                */
               timestamp: string | null;
@@ -1386,6 +1471,16 @@ export interface components {
           safeRolloutId?: string;
           /** @enum {string} */
           status?: "running" | "released" | "rolled-back" | "stopped";
+          scheduleRules?: ({
+              /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+              enabled: boolean;
+              /**
+               * Format: date-time 
+               * @description ISO timestamp when the rule should activate. 
+               * @example 2025-06-23T16:09:37.769Z
+               */
+              timestamp: string | null;
+            })[];
         }))[];
       /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
       definition?: string;
@@ -1405,11 +1500,12 @@ export interface components {
                 id: string;
                 condition: string;
               })[];
-            /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
             scheduleRules?: ({
+                /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                 enabled: boolean;
                 /**
-                 * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                 * Format: date-time 
+                 * @description ISO timestamp when the rule should activate. 
                  * @example 2025-06-23T16:09:37.769Z
                  */
                 timestamp: string | null;
@@ -1427,11 +1523,12 @@ export interface components {
                 matchType: "all" | "any" | "none";
                 savedGroups: (string)[];
               })[];
-            /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
             scheduleRules?: ({
+                /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                 enabled: boolean;
                 /**
-                 * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                 * Format: date-time 
+                 * @description ISO timestamp when the rule should activate. 
                  * @example 2025-06-23T16:09:37.769Z
                  */
                 timestamp: string | null;
@@ -1462,11 +1559,12 @@ export interface components {
               range: (number)[];
             };
             coverage?: number;
-            /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
             scheduleRules?: ({
+                /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                 enabled: boolean;
                 /**
-                 * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                 * Format: date-time 
+                 * @description ISO timestamp when the rule should activate. 
                  * @example 2025-06-23T16:09:37.769Z
                  */
                 timestamp: string | null;
@@ -1483,11 +1581,12 @@ export interface components {
             /** @enum {string} */
             type: "experiment-ref";
             condition?: string;
-            /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
             scheduleRules?: ({
+                /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                 enabled: boolean;
                 /**
-                 * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                 * Format: date-time 
+                 * @description ISO timestamp when the rule should activate. 
                  * @example 2025-06-23T16:09:37.769Z
                  */
                 timestamp: string | null;
@@ -1521,6 +1620,16 @@ export interface components {
             safeRolloutId?: string;
             /** @enum {string} */
             status?: "running" | "released" | "rolled-back" | "stopped";
+            scheduleRules?: ({
+                /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                enabled: boolean;
+                /**
+                 * Format: date-time 
+                 * @description ISO timestamp when the rule should activate. 
+                 * @example 2025-06-23T16:09:37.769Z
+                 */
+                timestamp: string | null;
+              })[];
           }))[];
         /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
         definition?: string;
@@ -1539,11 +1648,12 @@ export interface components {
           id: string;
           condition: string;
         })[];
-      /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
       scheduleRules?: ({
+          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
           enabled: boolean;
           /**
-           * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+           * Format: date-time 
+           * @description ISO timestamp when the rule should activate. 
            * @example 2025-06-23T16:09:37.769Z
            */
           timestamp: string | null;
@@ -1561,11 +1671,12 @@ export interface components {
           matchType: "all" | "any" | "none";
           savedGroups: (string)[];
         })[];
-      /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
       scheduleRules?: ({
+          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
           enabled: boolean;
           /**
-           * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+           * Format: date-time 
+           * @description ISO timestamp when the rule should activate. 
            * @example 2025-06-23T16:09:37.769Z
            */
           timestamp: string | null;
@@ -1596,11 +1707,12 @@ export interface components {
         range: (number)[];
       };
       coverage?: number;
-      /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
       scheduleRules?: ({
+          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
           enabled: boolean;
           /**
-           * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+           * Format: date-time 
+           * @description ISO timestamp when the rule should activate. 
            * @example 2025-06-23T16:09:37.769Z
            */
           timestamp: string | null;
@@ -1617,11 +1729,12 @@ export interface components {
       /** @enum {string} */
       type: "experiment-ref";
       condition?: string;
-      /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
       scheduleRules?: ({
+          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
           enabled: boolean;
           /**
-           * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+           * Format: date-time 
+           * @description ISO timestamp when the rule should activate. 
            * @example 2025-06-23T16:09:37.769Z
            */
           timestamp: string | null;
@@ -1655,6 +1768,16 @@ export interface components {
       safeRolloutId?: string;
       /** @enum {string} */
       status?: "running" | "released" | "rolled-back" | "stopped";
+      scheduleRules?: ({
+          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+          enabled: boolean;
+          /**
+           * Format: date-time 
+           * @description ISO timestamp when the rule should activate. 
+           * @example 2025-06-23T16:09:37.769Z
+           */
+          timestamp: string | null;
+        })[];
     });
     FeatureDefinition: {
       defaultValue: OneOf<[string, number, (unknown)[], any, null]>;
@@ -1684,11 +1807,12 @@ export interface components {
           id: string;
           condition: string;
         })[];
-      /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
       scheduleRules?: ({
+          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
           enabled: boolean;
           /**
-           * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+           * Format: date-time 
+           * @description ISO timestamp when the rule should activate. 
            * @example 2025-06-23T16:09:37.769Z
            */
           timestamp: string | null;
@@ -1707,11 +1831,12 @@ export interface components {
           matchType: "all" | "any" | "none";
           savedGroups: (string)[];
         })[];
-      /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
       scheduleRules?: ({
+          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
           enabled: boolean;
           /**
-           * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+           * Format: date-time 
+           * @description ISO timestamp when the rule should activate. 
            * @example 2025-06-23T16:09:37.769Z
            */
           timestamp: string | null;
@@ -1748,6 +1873,16 @@ export interface components {
       safeRolloutId?: string;
       /** @enum {string} */
       status?: "running" | "released" | "rolled-back" | "stopped";
+      scheduleRules?: ({
+          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+          enabled: boolean;
+          /**
+           * Format: date-time 
+           * @description ISO timestamp when the rule should activate. 
+           * @example 2025-06-23T16:09:37.769Z
+           */
+          timestamp: string | null;
+        })[];
     };
     FeatureExperimentRule: {
       description: string;
@@ -1768,11 +1903,12 @@ export interface components {
         range: (number)[];
       };
       coverage?: number;
-      /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
       scheduleRules?: ({
+          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
           enabled: boolean;
           /**
-           * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+           * Format: date-time 
+           * @description ISO timestamp when the rule should activate. 
            * @example 2025-06-23T16:09:37.769Z
            */
           timestamp: string | null;
@@ -1790,11 +1926,12 @@ export interface components {
       /** @enum {string} */
       type: "experiment-ref";
       condition?: string;
-      /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
       scheduleRules?: ({
+          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
           enabled: boolean;
           /**
-           * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+           * Format: date-time 
+           * @description ISO timestamp when the rule should activate. 
            * @example 2025-06-23T16:09:37.769Z
            */
           timestamp: string | null;
@@ -2688,11 +2825,12 @@ export interface operations {
                             id: string;
                             condition: string;
                           })[];
-                        /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                         scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
                             /**
-                             * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
                              * @example 2025-06-23T16:09:37.769Z
                              */
                             timestamp: string | null;
@@ -2710,11 +2848,12 @@ export interface operations {
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
-                        /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                         scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
                             /**
-                             * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
                              * @example 2025-06-23T16:09:37.769Z
                              */
                             timestamp: string | null;
@@ -2745,11 +2884,12 @@ export interface operations {
                           range: (number)[];
                         };
                         coverage?: number;
-                        /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                         scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
                             /**
-                             * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
                              * @example 2025-06-23T16:09:37.769Z
                              */
                             timestamp: string | null;
@@ -2766,11 +2906,12 @@ export interface operations {
                         /** @enum {string} */
                         type: "experiment-ref";
                         condition?: string;
-                        /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                         scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
                             /**
-                             * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
                              * @example 2025-06-23T16:09:37.769Z
                              */
                             timestamp: string | null;
@@ -2804,6 +2945,16 @@ export interface operations {
                         safeRolloutId?: string;
                         /** @enum {string} */
                         status?: "running" | "released" | "rolled-back" | "stopped";
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
                       }))[];
                     /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string;
@@ -2823,11 +2974,12 @@ export interface operations {
                               id: string;
                               condition: string;
                             })[];
-                          /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                           scheduleRules?: ({
+                              /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                               enabled: boolean;
                               /**
-                               * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                               * Format: date-time 
+                               * @description ISO timestamp when the rule should activate. 
                                * @example 2025-06-23T16:09:37.769Z
                                */
                               timestamp: string | null;
@@ -2845,11 +2997,12 @@ export interface operations {
                               matchType: "all" | "any" | "none";
                               savedGroups: (string)[];
                             })[];
-                          /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                           scheduleRules?: ({
+                              /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                               enabled: boolean;
                               /**
-                               * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                               * Format: date-time 
+                               * @description ISO timestamp when the rule should activate. 
                                * @example 2025-06-23T16:09:37.769Z
                                */
                               timestamp: string | null;
@@ -2880,11 +3033,12 @@ export interface operations {
                             range: (number)[];
                           };
                           coverage?: number;
-                          /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                           scheduleRules?: ({
+                              /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                               enabled: boolean;
                               /**
-                               * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                               * Format: date-time 
+                               * @description ISO timestamp when the rule should activate. 
                                * @example 2025-06-23T16:09:37.769Z
                                */
                               timestamp: string | null;
@@ -2901,11 +3055,12 @@ export interface operations {
                           /** @enum {string} */
                           type: "experiment-ref";
                           condition?: string;
-                          /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                           scheduleRules?: ({
+                              /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                               enabled: boolean;
                               /**
-                               * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                               * Format: date-time 
+                               * @description ISO timestamp when the rule should activate. 
                                * @example 2025-06-23T16:09:37.769Z
                                */
                               timestamp: string | null;
@@ -2939,6 +3094,16 @@ export interface operations {
                           safeRolloutId?: string;
                           /** @enum {string} */
                           status?: "running" | "released" | "rolled-back" | "stopped";
+                          scheduleRules?: ({
+                              /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                              enabled: boolean;
+                              /**
+                               * Format: date-time 
+                               * @description ISO timestamp when the rule should activate. 
+                               * @example 2025-06-23T16:09:37.769Z
+                               */
+                              timestamp: string | null;
+                            })[];
                         }))[];
                       /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                       definition?: string;
@@ -3006,11 +3171,12 @@ export interface operations {
                       matchType: "all" | "any" | "none";
                       savedGroups: (string)[];
                     })[];
-                  /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                   scheduleRules?: ({
+                      /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                       enabled: boolean;
                       /**
-                       * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                       * Format: date-time 
+                       * @description ISO timestamp when the rule should activate. 
                        * @example 2025-06-23T16:09:37.769Z
                        */
                       timestamp: string | null;
@@ -3035,11 +3201,12 @@ export interface operations {
                       id: string;
                       condition: string;
                     })[];
-                  /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                   scheduleRules?: ({
+                      /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                       enabled: boolean;
                       /**
-                       * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                       * Format: date-time 
+                       * @description ISO timestamp when the rule should activate. 
                        * @example 2025-06-23T16:09:37.769Z
                        */
                       timestamp: string | null;
@@ -3071,11 +3238,12 @@ export interface operations {
                       id: string;
                       condition: string;
                     })[];
-                  /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                   scheduleRules?: ({
+                      /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                       enabled: boolean;
                       /**
-                       * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                       * Format: date-time 
+                       * @description ISO timestamp when the rule should activate. 
                        * @example 2025-06-23T16:09:37.769Z
                        */
                       timestamp: string | null;
@@ -3105,11 +3273,12 @@ export interface operations {
                     range: (number)[];
                   };
                   coverage?: number;
-                  /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                   scheduleRules?: ({
+                      /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                       enabled: boolean;
                       /**
-                       * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                       * Format: date-time 
+                       * @description ISO timestamp when the rule should activate. 
                        * @example 2025-06-23T16:09:37.769Z
                        */
                       timestamp: string | null;
@@ -3143,11 +3312,12 @@ export interface operations {
                         matchType: "all" | "any" | "none";
                         savedGroups: (string)[];
                       })[];
-                    /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                     scheduleRules?: ({
+                        /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                         enabled: boolean;
                         /**
-                         * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                         * Format: date-time 
+                         * @description ISO timestamp when the rule should activate. 
                          * @example 2025-06-23T16:09:37.769Z
                          */
                         timestamp: string | null;
@@ -3172,11 +3342,12 @@ export interface operations {
                         id: string;
                         condition: string;
                       })[];
-                    /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                     scheduleRules?: ({
+                        /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                         enabled: boolean;
                         /**
-                         * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                         * Format: date-time 
+                         * @description ISO timestamp when the rule should activate. 
                          * @example 2025-06-23T16:09:37.769Z
                          */
                         timestamp: string | null;
@@ -3208,11 +3379,12 @@ export interface operations {
                         id: string;
                         condition: string;
                       })[];
-                    /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                     scheduleRules?: ({
+                        /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                         enabled: boolean;
                         /**
-                         * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                         * Format: date-time 
+                         * @description ISO timestamp when the rule should activate. 
                          * @example 2025-06-23T16:09:37.769Z
                          */
                         timestamp: string | null;
@@ -3242,11 +3414,12 @@ export interface operations {
                       range: (number)[];
                     };
                     coverage?: number;
-                    /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                     scheduleRules?: ({
+                        /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                         enabled: boolean;
                         /**
-                         * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                         * Format: date-time 
+                         * @description ISO timestamp when the rule should activate. 
                          * @example 2025-06-23T16:09:37.769Z
                          */
                         timestamp: string | null;
@@ -3313,11 +3486,12 @@ export interface operations {
                           id: string;
                           condition: string;
                         })[];
-                      /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                       scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                           enabled: boolean;
                           /**
-                           * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
                            * @example 2025-06-23T16:09:37.769Z
                            */
                           timestamp: string | null;
@@ -3335,11 +3509,12 @@ export interface operations {
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
-                      /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                       scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                           enabled: boolean;
                           /**
-                           * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
                            * @example 2025-06-23T16:09:37.769Z
                            */
                           timestamp: string | null;
@@ -3370,11 +3545,12 @@ export interface operations {
                         range: (number)[];
                       };
                       coverage?: number;
-                      /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                       scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                           enabled: boolean;
                           /**
-                           * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
                            * @example 2025-06-23T16:09:37.769Z
                            */
                           timestamp: string | null;
@@ -3391,11 +3567,12 @@ export interface operations {
                       /** @enum {string} */
                       type: "experiment-ref";
                       condition?: string;
-                      /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                       scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                           enabled: boolean;
                           /**
-                           * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
                            * @example 2025-06-23T16:09:37.769Z
                            */
                           timestamp: string | null;
@@ -3429,6 +3606,16 @@ export interface operations {
                       safeRolloutId?: string;
                       /** @enum {string} */
                       status?: "running" | "released" | "rolled-back" | "stopped";
+                      scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                          enabled: boolean;
+                          /**
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
+                           * @example 2025-06-23T16:09:37.769Z
+                           */
+                          timestamp: string | null;
+                        })[];
                     }))[];
                   /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                   definition?: string;
@@ -3448,11 +3635,12 @@ export interface operations {
                             id: string;
                             condition: string;
                           })[];
-                        /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                         scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
                             /**
-                             * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
                              * @example 2025-06-23T16:09:37.769Z
                              */
                             timestamp: string | null;
@@ -3470,11 +3658,12 @@ export interface operations {
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
-                        /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                         scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
                             /**
-                             * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
                              * @example 2025-06-23T16:09:37.769Z
                              */
                             timestamp: string | null;
@@ -3505,11 +3694,12 @@ export interface operations {
                           range: (number)[];
                         };
                         coverage?: number;
-                        /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                         scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
                             /**
-                             * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
                              * @example 2025-06-23T16:09:37.769Z
                              */
                             timestamp: string | null;
@@ -3526,11 +3716,12 @@ export interface operations {
                         /** @enum {string} */
                         type: "experiment-ref";
                         condition?: string;
-                        /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                         scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
                             /**
-                             * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
                              * @example 2025-06-23T16:09:37.769Z
                              */
                             timestamp: string | null;
@@ -3564,6 +3755,16 @@ export interface operations {
                         safeRolloutId?: string;
                         /** @enum {string} */
                         status?: "running" | "released" | "rolled-back" | "stopped";
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
                       }))[];
                     /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string;
@@ -3635,11 +3836,12 @@ export interface operations {
                           id: string;
                           condition: string;
                         })[];
-                      /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                       scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                           enabled: boolean;
                           /**
-                           * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
                            * @example 2025-06-23T16:09:37.769Z
                            */
                           timestamp: string | null;
@@ -3657,11 +3859,12 @@ export interface operations {
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
-                      /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                       scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                           enabled: boolean;
                           /**
-                           * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
                            * @example 2025-06-23T16:09:37.769Z
                            */
                           timestamp: string | null;
@@ -3692,11 +3895,12 @@ export interface operations {
                         range: (number)[];
                       };
                       coverage?: number;
-                      /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                       scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                           enabled: boolean;
                           /**
-                           * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
                            * @example 2025-06-23T16:09:37.769Z
                            */
                           timestamp: string | null;
@@ -3713,11 +3917,12 @@ export interface operations {
                       /** @enum {string} */
                       type: "experiment-ref";
                       condition?: string;
-                      /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                       scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                           enabled: boolean;
                           /**
-                           * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
                            * @example 2025-06-23T16:09:37.769Z
                            */
                           timestamp: string | null;
@@ -3751,6 +3956,16 @@ export interface operations {
                       safeRolloutId?: string;
                       /** @enum {string} */
                       status?: "running" | "released" | "rolled-back" | "stopped";
+                      scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                          enabled: boolean;
+                          /**
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
+                           * @example 2025-06-23T16:09:37.769Z
+                           */
+                          timestamp: string | null;
+                        })[];
                     }))[];
                   /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                   definition?: string;
@@ -3770,11 +3985,12 @@ export interface operations {
                             id: string;
                             condition: string;
                           })[];
-                        /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                         scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
                             /**
-                             * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
                              * @example 2025-06-23T16:09:37.769Z
                              */
                             timestamp: string | null;
@@ -3792,11 +4008,12 @@ export interface operations {
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
-                        /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                         scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
                             /**
-                             * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
                              * @example 2025-06-23T16:09:37.769Z
                              */
                             timestamp: string | null;
@@ -3827,11 +4044,12 @@ export interface operations {
                           range: (number)[];
                         };
                         coverage?: number;
-                        /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                         scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
                             /**
-                             * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
                              * @example 2025-06-23T16:09:37.769Z
                              */
                             timestamp: string | null;
@@ -3848,11 +4066,12 @@ export interface operations {
                         /** @enum {string} */
                         type: "experiment-ref";
                         condition?: string;
-                        /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                         scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
                             /**
-                             * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
                              * @example 2025-06-23T16:09:37.769Z
                              */
                             timestamp: string | null;
@@ -3886,6 +4105,16 @@ export interface operations {
                         safeRolloutId?: string;
                         /** @enum {string} */
                         status?: "running" | "released" | "rolled-back" | "stopped";
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
                       }))[];
                     /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string;
@@ -3927,11 +4156,12 @@ export interface operations {
                             id: string;
                             condition: string;
                           })[];
-                        /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                         scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
                             /**
-                             * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
                              * @example 2025-06-23T16:09:37.769Z
                              */
                             timestamp: string | null;
@@ -3949,11 +4179,12 @@ export interface operations {
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
-                        /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                         scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
                             /**
-                             * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
                              * @example 2025-06-23T16:09:37.769Z
                              */
                             timestamp: string | null;
@@ -3984,11 +4215,12 @@ export interface operations {
                           range: (number)[];
                         };
                         coverage?: number;
-                        /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                         scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
                             /**
-                             * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
                              * @example 2025-06-23T16:09:37.769Z
                              */
                             timestamp: string | null;
@@ -4005,11 +4237,12 @@ export interface operations {
                         /** @enum {string} */
                         type: "experiment-ref";
                         condition?: string;
-                        /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                         scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
                             /**
-                             * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
                              * @example 2025-06-23T16:09:37.769Z
                              */
                             timestamp: string | null;
@@ -4043,6 +4276,16 @@ export interface operations {
                         safeRolloutId?: string;
                         /** @enum {string} */
                         status?: "running" | "released" | "rolled-back" | "stopped";
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
                       }))[]) | undefined;
                   };
                   definitions?: {
@@ -4087,11 +4330,12 @@ export interface operations {
                       matchType: "all" | "any" | "none";
                       savedGroups: (string)[];
                     })[];
-                  /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                   scheduleRules?: ({
+                      /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                       enabled: boolean;
                       /**
-                       * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                       * Format: date-time 
+                       * @description ISO timestamp when the rule should activate. 
                        * @example 2025-06-23T16:09:37.769Z
                        */
                       timestamp: string | null;
@@ -4116,11 +4360,12 @@ export interface operations {
                       id: string;
                       condition: string;
                     })[];
-                  /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                   scheduleRules?: ({
+                      /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                       enabled: boolean;
                       /**
-                       * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                       * Format: date-time 
+                       * @description ISO timestamp when the rule should activate. 
                        * @example 2025-06-23T16:09:37.769Z
                        */
                       timestamp: string | null;
@@ -4152,11 +4397,12 @@ export interface operations {
                       id: string;
                       condition: string;
                     })[];
-                  /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                   scheduleRules?: ({
+                      /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                       enabled: boolean;
                       /**
-                       * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                       * Format: date-time 
+                       * @description ISO timestamp when the rule should activate. 
                        * @example 2025-06-23T16:09:37.769Z
                        */
                       timestamp: string | null;
@@ -4186,11 +4432,12 @@ export interface operations {
                     range: (number)[];
                   };
                   coverage?: number;
-                  /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                   scheduleRules?: ({
+                      /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                       enabled: boolean;
                       /**
-                       * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                       * Format: date-time 
+                       * @description ISO timestamp when the rule should activate. 
                        * @example 2025-06-23T16:09:37.769Z
                        */
                       timestamp: string | null;
@@ -4224,11 +4471,12 @@ export interface operations {
                         matchType: "all" | "any" | "none";
                         savedGroups: (string)[];
                       })[];
-                    /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                     scheduleRules?: ({
+                        /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                         enabled: boolean;
                         /**
-                         * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                         * Format: date-time 
+                         * @description ISO timestamp when the rule should activate. 
                          * @example 2025-06-23T16:09:37.769Z
                          */
                         timestamp: string | null;
@@ -4253,11 +4501,12 @@ export interface operations {
                         id: string;
                         condition: string;
                       })[];
-                    /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                     scheduleRules?: ({
+                        /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                         enabled: boolean;
                         /**
-                         * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                         * Format: date-time 
+                         * @description ISO timestamp when the rule should activate. 
                          * @example 2025-06-23T16:09:37.769Z
                          */
                         timestamp: string | null;
@@ -4289,11 +4538,12 @@ export interface operations {
                         id: string;
                         condition: string;
                       })[];
-                    /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                     scheduleRules?: ({
+                        /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                         enabled: boolean;
                         /**
-                         * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                         * Format: date-time 
+                         * @description ISO timestamp when the rule should activate. 
                          * @example 2025-06-23T16:09:37.769Z
                          */
                         timestamp: string | null;
@@ -4323,11 +4573,12 @@ export interface operations {
                       range: (number)[];
                     };
                     coverage?: number;
-                    /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                     scheduleRules?: ({
+                        /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                         enabled: boolean;
                         /**
-                         * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                         * Format: date-time 
+                         * @description ISO timestamp when the rule should activate. 
                          * @example 2025-06-23T16:09:37.769Z
                          */
                         timestamp: string | null;
@@ -4394,11 +4645,12 @@ export interface operations {
                           id: string;
                           condition: string;
                         })[];
-                      /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                       scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                           enabled: boolean;
                           /**
-                           * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
                            * @example 2025-06-23T16:09:37.769Z
                            */
                           timestamp: string | null;
@@ -4416,11 +4668,12 @@ export interface operations {
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
-                      /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                       scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                           enabled: boolean;
                           /**
-                           * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
                            * @example 2025-06-23T16:09:37.769Z
                            */
                           timestamp: string | null;
@@ -4451,11 +4704,12 @@ export interface operations {
                         range: (number)[];
                       };
                       coverage?: number;
-                      /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                       scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                           enabled: boolean;
                           /**
-                           * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
                            * @example 2025-06-23T16:09:37.769Z
                            */
                           timestamp: string | null;
@@ -4472,11 +4726,12 @@ export interface operations {
                       /** @enum {string} */
                       type: "experiment-ref";
                       condition?: string;
-                      /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                       scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                           enabled: boolean;
                           /**
-                           * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
                            * @example 2025-06-23T16:09:37.769Z
                            */
                           timestamp: string | null;
@@ -4510,6 +4765,16 @@ export interface operations {
                       safeRolloutId?: string;
                       /** @enum {string} */
                       status?: "running" | "released" | "rolled-back" | "stopped";
+                      scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                          enabled: boolean;
+                          /**
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
+                           * @example 2025-06-23T16:09:37.769Z
+                           */
+                          timestamp: string | null;
+                        })[];
                     }))[];
                   /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                   definition?: string;
@@ -4529,11 +4794,12 @@ export interface operations {
                             id: string;
                             condition: string;
                           })[];
-                        /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                         scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
                             /**
-                             * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
                              * @example 2025-06-23T16:09:37.769Z
                              */
                             timestamp: string | null;
@@ -4551,11 +4817,12 @@ export interface operations {
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
-                        /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                         scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
                             /**
-                             * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
                              * @example 2025-06-23T16:09:37.769Z
                              */
                             timestamp: string | null;
@@ -4586,11 +4853,12 @@ export interface operations {
                           range: (number)[];
                         };
                         coverage?: number;
-                        /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                         scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
                             /**
-                             * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
                              * @example 2025-06-23T16:09:37.769Z
                              */
                             timestamp: string | null;
@@ -4607,11 +4875,12 @@ export interface operations {
                         /** @enum {string} */
                         type: "experiment-ref";
                         condition?: string;
-                        /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                         scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
                             /**
-                             * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
                              * @example 2025-06-23T16:09:37.769Z
                              */
                             timestamp: string | null;
@@ -4645,6 +4914,16 @@ export interface operations {
                         safeRolloutId?: string;
                         /** @enum {string} */
                         status?: "running" | "released" | "rolled-back" | "stopped";
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
                       }))[];
                     /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string;
@@ -4738,11 +5017,12 @@ export interface operations {
                           id: string;
                           condition: string;
                         })[];
-                      /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                       scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                           enabled: boolean;
                           /**
-                           * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
                            * @example 2025-06-23T16:09:37.769Z
                            */
                           timestamp: string | null;
@@ -4760,11 +5040,12 @@ export interface operations {
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
-                      /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                       scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                           enabled: boolean;
                           /**
-                           * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
                            * @example 2025-06-23T16:09:37.769Z
                            */
                           timestamp: string | null;
@@ -4795,11 +5076,12 @@ export interface operations {
                         range: (number)[];
                       };
                       coverage?: number;
-                      /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                       scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                           enabled: boolean;
                           /**
-                           * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
                            * @example 2025-06-23T16:09:37.769Z
                            */
                           timestamp: string | null;
@@ -4816,11 +5098,12 @@ export interface operations {
                       /** @enum {string} */
                       type: "experiment-ref";
                       condition?: string;
-                      /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                       scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                           enabled: boolean;
                           /**
-                           * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
                            * @example 2025-06-23T16:09:37.769Z
                            */
                           timestamp: string | null;
@@ -4854,6 +5137,16 @@ export interface operations {
                       safeRolloutId?: string;
                       /** @enum {string} */
                       status?: "running" | "released" | "rolled-back" | "stopped";
+                      scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                          enabled: boolean;
+                          /**
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
+                           * @example 2025-06-23T16:09:37.769Z
+                           */
+                          timestamp: string | null;
+                        })[];
                     }))[];
                   /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                   definition?: string;
@@ -4873,11 +5166,12 @@ export interface operations {
                             id: string;
                             condition: string;
                           })[];
-                        /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                         scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
                             /**
-                             * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
                              * @example 2025-06-23T16:09:37.769Z
                              */
                             timestamp: string | null;
@@ -4895,11 +5189,12 @@ export interface operations {
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
-                        /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                         scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
                             /**
-                             * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
                              * @example 2025-06-23T16:09:37.769Z
                              */
                             timestamp: string | null;
@@ -4930,11 +5225,12 @@ export interface operations {
                           range: (number)[];
                         };
                         coverage?: number;
-                        /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                         scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
                             /**
-                             * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
                              * @example 2025-06-23T16:09:37.769Z
                              */
                             timestamp: string | null;
@@ -4951,11 +5247,12 @@ export interface operations {
                         /** @enum {string} */
                         type: "experiment-ref";
                         condition?: string;
-                        /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                         scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
                             /**
-                             * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
                              * @example 2025-06-23T16:09:37.769Z
                              */
                             timestamp: string | null;
@@ -4989,6 +5286,16 @@ export interface operations {
                         safeRolloutId?: string;
                         /** @enum {string} */
                         status?: "running" | "released" | "rolled-back" | "stopped";
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
                       }))[];
                     /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string;
@@ -10040,6 +10347,7 @@ export type ApiProject = z.infer<typeof openApiValidators.apiProjectValidator>;
 export type ApiEnvironment = z.infer<typeof openApiValidators.apiEnvironmentValidator>;
 export type ApiAttribute = z.infer<typeof openApiValidators.apiAttributeValidator>;
 export type ApiSegment = z.infer<typeof openApiValidators.apiSegmentValidator>;
+export type ApiScheduleRule = z.infer<typeof openApiValidators.apiScheduleRuleValidator>;
 export type ApiFeature = z.infer<typeof openApiValidators.apiFeatureValidator>;
 export type ApiFeatureWithRevisions = z.infer<typeof openApiValidators.apiFeatureWithRevisionsValidator>;
 export type ApiFeatureEnvironment = z.infer<typeof openApiValidators.apiFeatureEnvironmentValidator>;
