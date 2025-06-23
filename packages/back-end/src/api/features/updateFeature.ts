@@ -93,6 +93,12 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
           if (envSettings.rules) {
             envSettings.rules.forEach((rule, ruleIndex) => {
               if (rule.scheduleRules) {
+                // Validate that the org has access to schedule rules
+                if (!req.context.hasPremiumFeature("schedule-feature-flag")) {
+                  throw new Error(
+                    "This organization does not have access to schedule rules. Upgrade to Pro or Enterprise."
+                  );
+                }
                 try {
                   validateScheduleRules(rule.scheduleRules);
                 } catch (error) {
