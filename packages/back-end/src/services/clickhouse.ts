@@ -70,6 +70,11 @@ const REMAINING_COLUMNS_SCHEMA: Record<string, ClickHouseDataType> = {
 };
 
 function clickhouseUserId(orgId: string) {
+  // Sanity check. An orgId of `default` or another reserved word would seriously mess things up
+  if (!orgId.startsWith("org_")) {
+    throw new Error("Invalid organization id");
+  }
+
   return ENVIRONMENT === "production" ? `${orgId}` : `test_${orgId}`;
 }
 
