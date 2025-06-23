@@ -19,7 +19,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBInfo } from "@/components/Icons";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 
-const taxIdTypeOptions: { label: string; value: TaxIdType }[] = [
+export const taxIdTypeOptions: { label: string; value: TaxIdType }[] = [
   { label: "US EIN", value: "us_ein" },
   { label: "AD NRT", value: "ad_nrt" },
   { label: "AE TRN", value: "ae_trn" },
