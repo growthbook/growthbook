@@ -177,7 +177,12 @@ export async function getExperiments(
 experiment based on the id, and the suggested results, winner and releasedVariationId*/
 export async function postAIExperimentAnalysis(
   req: AuthRequest<
-    { results: string; winner: number; releasedVariationId: string },
+    {
+      results: string;
+      winner: number;
+      releasedVariationId: string;
+      temperature?: number;
+    },
     { id: string }
   >,
   res: Response<{
@@ -191,7 +196,7 @@ export async function postAIExperimentAnalysis(
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
-  const { results, winner, releasedVariationId } = req.body;
+  const { results, winner, releasedVariationId, temperature } = req.body;
 
   const experiment = await getExperimentById(context, id);
   if (!experiment) {
@@ -365,7 +370,7 @@ export async function postAIExperimentAnalysis(
     prompt: prompt,
     type,
     isDefaultPrompt,
-    temperature: 0.1,
+    temperature: temperature ?? 0.1,
   });
 
   res.status(200).json({

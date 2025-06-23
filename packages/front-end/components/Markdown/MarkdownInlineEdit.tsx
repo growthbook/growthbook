@@ -6,6 +6,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import Button from "@/components/Radix/Button";
 import { useAISettings } from "@/hooks/useOrgSettings";
 import OptInModal from "@/components/License/OptInModal";
+import track from "@/services/track";
 import Markdown from "./Markdown";
 import MarkdownInput from "./MarkdownInput";
 
@@ -161,6 +162,9 @@ export default function MarkdownInlineEdit({
                           if (!aiAgreedTo) {
                             setAiAgreementModal(true);
                           } else {
+                            track("ai-suggestion-requested", {
+                              source: "markdown-inline-edit",
+                            });
                             setError(null);
                             setLoading(true);
                             try {

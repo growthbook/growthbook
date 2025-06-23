@@ -3,6 +3,7 @@ import { Box, Flex, Heading, Text, Tooltip } from "@radix-ui/themes";
 import { BsStars } from "react-icons/bs";
 import { useState } from "react";
 import { PiArrowClockwise, PiClipboard, PiTrash } from "react-icons/pi";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useAuth } from "@/services/auth";
 import Button from "@/components/Radix/Button";
 import { useAISettings } from "@/hooks/useOrgSettings";
@@ -12,8 +13,11 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
 import OptInModal from "@/components/License/OptInModal";
-import Modal from "../Modal";
+import { AppFeatures } from "@/types/app-features";
+import { AIData, computeAIUsageData } from "@/services/utils";
+import track from "@/services/track";
 import Field from "../Forms/Field";
+import Modal from "../Modal";
 
 interface Props {
   source: string;
@@ -32,10 +36,13 @@ export default function EditHypothesisModal({
 }: Props) {
   const { apiCall } = useAuth();
   const { aiEnabled, aiAgreedTo } = useAISettings();
+  const growthbook = useGrowthBook<AppFeatures>();
+
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [aiResponse, setAiResponse] = useState<string | null>(null);
   const [aiAgreementModal, setAiAgreementModal] = useState<boolean>(false);
+  const [aiSuggestionData, setAiSuggestionData] = useState<AIData>({});
   const form = useForm<{ hypothesis: string; useThisHypothesis: boolean }>({
     defaultValues: {
       hypothesis: initialValue || "",
@@ -54,6 +61,14 @@ export default function EditHypothesisModal({
       if (aiEnabled) {
         setError(null);
         setLoading(true);
+        const temperature = growthbook.getFeatureValue(
+          "ai-suggestions-temperature",
+          0.1
+        );
+        setAiSuggestionData({
+          ...aiSuggestionData,
+          temperature,
+        });
         apiCall(
           `/ai/reformat`,
           {
@@ -61,6 +76,7 @@ export default function EditHypothesisModal({
             body: JSON.stringify({
               type: "experiment-hypothesis",
               text: form.watch("hypothesis"),
+              temperature,
             }),
           },
           (responseData) => {
@@ -79,6 +95,10 @@ export default function EditHypothesisModal({
         )
           .then((res: { data: { output: string } }) => {
             setAiResponse(res.data.output);
+            setAiSuggestionData({
+              ...aiSuggestionData,
+              text: res.data.output,
+            });
           })
           .catch(() => {
             // Error handling is done by the apiCall errorHandler
@@ -102,14 +122,25 @@ export default function EditHypothesisModal({
         open={true}
         close={close}
         submit={form.handleSubmit(async (data) => {
+          const hypothesis =
+            form.getValues("useThisHypothesis") && aiResponse
+              ? aiResponse
+              : data.hypothesis;
+
           await apiCall(`/experiment/${experimentId}`, {
             method: "POST",
             body: JSON.stringify({
-              hypothesis:
-                form.getValues("useThisHypothesis") && aiResponse
-                  ? aiResponse
-                  : data.hypothesis,
+              hypothesis,
             }),
+          });
+
+          const aiUsageData = computeAIUsageData({
+            value: hypothesis,
+            aiSuggestionText: aiSuggestionData.text ?? undefined,
+            aiSuggestionTemperature: aiSuggestionData.temperature ?? undefined,
+          });
+          track("experiment-hypothesis-updated", {
+            ...aiUsageData,
           });
           mutate();
         })}

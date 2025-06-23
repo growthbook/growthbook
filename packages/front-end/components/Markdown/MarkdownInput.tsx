@@ -21,6 +21,7 @@ import { useAISettings } from "@/hooks/useOrgSettings";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
 import OptInModal from "@/components/License/OptInModal";
+import track from "@/services/track";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../Radix/Tabs";
 import Markdown from "./Markdown";
 
@@ -116,6 +117,9 @@ const MarkdownInput: FC<{
   const doAISuggestion = async () => {
     if (aiSuggestFunction && aiEnabled) {
       setError("");
+      track("ai-suggestion-requested", {
+        source: "markdown-input",
+      });
       try {
         setLoading(true);
         // make sure it's on the right tab:

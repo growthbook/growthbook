@@ -281,3 +281,61 @@ export function planNameFromAccountPlan(accountPlan?: AccountPlan) {
 
   return capitalizeFirstLetter(accountPlan);
 }
+
+// AI data helpers
+function jaccardSimilarity(text1: string, text2: string): number {
+  const set1 = new Set(text1.toLowerCase().split(/\s+/));
+  const set2 = new Set(text2.toLowerCase().split(/\s+/));
+
+  const intersection = new Set([...set1].filter((word) => set2.has(word)));
+
+  const union = new Set([...set1, ...set2]);
+
+  if (union.size === 0) {
+    return 0;
+  }
+
+  return intersection.size / union.size;
+}
+
+export type AIData = {
+  temperature?: number;
+  text?: string;
+};
+
+export type AIUsageData = {
+  fieldExists?: boolean;
+  fieldAISimilarity?: number;
+  fieldMatchesAI?: boolean;
+  fieldLength?: number;
+  suggestionExists?: boolean;
+  temperature?: number;
+  potentialAIField?: boolean;
+};
+
+export function computeAIUsageData({
+  value,
+  aiSuggestionText,
+  aiSuggestionTemperature,
+}: {
+  value: string;
+  aiSuggestionText?: string;
+  aiSuggestionTemperature?: number;
+}): AIUsageData {
+  const analysisAISimilarity =
+    aiSuggestionText && value
+      ? jaccardSimilarity(value, aiSuggestionText)
+      : undefined;
+  return {
+    fieldAISimilarity: analysisAISimilarity,
+    fieldMatchesAI:
+      aiSuggestionText && value
+        ? value.toLowerCase().includes(aiSuggestionText.toLowerCase())
+        : undefined,
+    fieldLength: value?.length,
+    fieldExists: !!value,
+    suggestionExists: !!aiSuggestionText,
+    temperature: aiSuggestionTemperature,
+    potentialAIField: true,
+  };
+}
