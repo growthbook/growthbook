@@ -34,12 +34,6 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Callout from "@/components/Radix/Callout";
 import Frame from "@/components/Radix/Frame";
 import ClickhouseMaterializedColumns from "@/components/Settings/EditDataSource/ClickhouseMaterializedColumns";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/Radix/Tabs";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -333,193 +327,15 @@ mixpanel.init('YOUR PROJECT TOKEN', {
               <>
                 <Frame>
                   <Heading as="h3" size="4" mb="2">
-                    Event Tracking Instructions
+                    Sending Events
                   </Heading>
                   <Text>
-                    Pick your SDK below to see instructions for sending events
-                    to your warehouse.
+                    <DocLink docSection="managedClickhouseTracking">
+                      Read our full docs
+                    </DocLink>{" "}
+                    with language-specific instructions on how to send events
+                    from your app to GrowthBook.
                   </Text>
-                  <Tabs mt="2">
-                    <TabsList mb="3">
-                      <TabsTrigger value="html">HTML Script Tag</TabsTrigger>
-                      <TabsTrigger value="js">JS / React</TabsTrigger>
-                      <TabsTrigger value="node">Node.js</TabsTrigger>
-                      <TabsTrigger value="other">Other</TabsTrigger>
-                    </TabsList>
-                    <TabsContent value="html">
-                      <p>
-                        Simply add{" "}
-                        <code>data-tracking=&quot;growthbook&quot;</code> to the
-                        GrowthBook script tag. For example:
-                      </p>
-                      <Code
-                        language="html"
-                        expandable={true}
-                        code={`<script async
-  data-client-key="YOUR_CLIENT_KEY"
-  data-tracking="growthbook"
-  src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js"
-></script>`}
-                      />
-                      <p>
-                        Feature usage and experiment events will be sent
-                        automatically. You can use <code>window.gbEvents</code>{" "}
-                        to track custom events. Here is an example:
-                      </p>
-                      <Code
-                        language="html"
-                        expandable={true}
-                        code={`<script>
-  // Initialize the global events array
-  window.gbEvents = window.gbEvents || [];
-
-  // Track a simple page view event
-  window.gbEvents.push("Page View");
-
-  // Example tracking a button click with custom properties
-  function handleClick() {
-    window.gbEvents.push({
-      eventName: "Button Click",
-      properties: {
-        buttonText: "Sign Up",
-        buttonColor: "blue",
-      },
-    });
-  }
-</script>
-<button onclick="handleClick()">Sign Up</button>
-  `}
-                      />
-                    </TabsContent>
-                    <TabsContent value="js">
-                      <p>
-                        With SDK version 1.4.0 and higher, you can use the
-                        built-in plugins. Here&apos;s an example:
-                      </p>
-                      <Code
-                        language="javascript"
-                        expandable={true}
-                        code={`import { GrowthBook } from "@growthbook/growthbook";
-import { 
-  growthbookTrackingPlugin, 
-  autoAttributesPlugin 
-} from "@growthbook/growthbook-tracking";
-
-const gb = new GrowthBook({
-  // ... other options
-  plugins: [
-    growthbookTrackingPlugin(),
-    autoAttributesPlugin()
-  ]
-});   `.trim()}
-                      />
-                      <p>
-                        This will automatically track feature usage and
-                        experiment events. All of the attributes you set in the
-                        GrowthBook instance will also be sent along with the
-                        events by default, so make sure you don&apos;t include
-                        any sensitive information.
-                      </p>
-                      <p>
-                        There is a <code>logEvent</code> method you can call
-                        from anywhere to track custom events. Here is an
-                        example:
-                      </p>
-                      <Code
-                        language="javascript"
-                        expandable={true}
-                        code={`// Simple event with no properties
-gb.logEvent("Page View");
-
-// Event with custom properties
-gb.logEvent("Button Click", {
-  buttonText: "Sign Up",
-  buttonColor: "blue"
-});`}
-                      />
-                    </TabsContent>
-                    <TabsContent value="node">
-                      <p>
-                        With SDK version 1.4.0 and higher, you can use the
-                        built-in plugin. Here&apos;s an example:
-                      </p>
-                      <Code
-                        language="javascript"
-                        expandable={true}
-                        code={`import { GrowthBookClient } from "@growthbook/growthbook";
-import { growthbookTrackingPlugin } from "@growthbook/growthbook-tracking";
-
-const gbClient = new GrowthBookClient({
-  // ... other options
-  plugins: [growthbookTrackingPlugin()]
-});`}
-                      />
-                      <p>
-                        This will automatically track feature usage and
-                        experiment events. All of the attributes you set in the
-                        GrowthBook instance will also be sent along with the
-                        events by default, so make sure you don&apos;t include
-                        any sensitive information!
-                      </p>
-                      <p>
-                        There is a <code>logEvent</code> method you can call
-                        from anywhere to track custom events. Here is an
-                        example:
-                      </p>
-                      <Code
-                        language="javascript"
-                        expandable={true}
-                        code={`// Event with custom properties
-gb.logEvent("Sign Up", {
-  accountPlan: "pro"
-}, userContext);
-
-// If you have a scoped instance, you don't need to pass userContext
-req.growthbook.logEvent("Sign Up", {
-  accountPlan: "pro"
-});`}
-                      />
-                    </TabsContent>
-                    <TabsContent value="other">
-                      <p>
-                        Tracking an event is as simple as making a POST request.
-                        Here&apos;s an example using Python, but other languages
-                        should be similar:
-                      </p>
-                      <Code
-                        language="python"
-                        expandable={true}
-                        code={`import requests
-import json
-def track_event(client_key, event_name, properties=None):
-    url = f"https://us1.gb-ingest.com/track?client_key={client_key}"
-    payload = {
-        "event_name": event_name,
-        "properties_json": properties or {},
-        # Include user attributes and dimensions in context_json
-        "context_json": {},
-        "sdk_language": "python"
-    }
-    headers = {
-        "Content-Type": "application/json"
-    }
-    response = requests.post(url, data=json.dumps(payload), headers=headers)
-    return response.status_code
-
-track_event("YOUR_CLIENT_KEY", "Sign Up", {
-    "accountPlan": "pro"
-})`}
-                      />
-                      <p>
-                        For best performance, you can batch multiple events
-                        together by passing in an array as the payload.
-                      </p>
-                      <p>
-                        We are adding built-in support for more of our SDKs
-                        soon, so stay tuned!
-                      </p>
-                    </TabsContent>
-                  </Tabs>
                 </Frame>
                 <Frame>
                   <ClickhouseMaterializedColumns

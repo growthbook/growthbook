@@ -40,6 +40,7 @@ const docSections = {
   mssql: "/warehouses/ms-sql-or-sql-server",
   redshift: "/warehouses/redshift",
   google_analytics: "/app/datasources#google-analytics",
+  growthbook_clickhouse: "/app/managed-clickhouse",
   //Language
   buildYourOwn: "/lib/build-your-own",
   sdks: "/lib",
@@ -93,6 +94,7 @@ const docSections = {
   idLists: "/features/targeting#id-lists",
   queryOptimization: "/app/query-optimization",
   metricGroups: "/app/metrics#metric-groups",
+  managedClickhouseTracking: "/app/managed-clickhouse#sending-events",
 };
 
 export type DocSection = keyof typeof docSections;
