@@ -99,9 +99,9 @@ const GetStartedPage = (): React.ReactElement => {
           Explore Advanced Features
         </Text>
         <Grid columns={{ initial: "1fr", sm: "1fr 1fr 1fr" }} gap="4" mt="3">
-          {advancedFeatures.map((feature, i) => (
+          {advancedFeatures.map((feature) => (
             <Link
-              key={i}
+              key={feature.href}
               href={feature.href}
               target={isExternalUrl(feature.href) ? "_blank" : undefined}
               rel={isExternalUrl(feature.href) ? "noopener noreferrer" : undefined}
