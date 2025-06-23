@@ -485,10 +485,10 @@ export async function deleteClickhouseUser(organization: string) {
   const database = user;
 
   logger.info(`Deleting Clickhouse user ${user}`);
-  await runCommand(client, `DROP USER ${user}`);
+  await runCommand(client, `DROP USER IF EXISTS ${user}`);
 
   logger.info(`Deleting Clickhouse database ${database}`);
-  await runCommand(client, `DROP DATABASE ${database}`);
+  await runCommand(client, `DROP DATABASE IF EXISTS ${database}`);
 }
 
 export async function addCloudSDKMapping(connection: SDKConnectionInterface) {
