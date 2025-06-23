@@ -998,11 +998,23 @@ export async function updateMaterializedColumn(
   }
   const originalColumn = originalColumns[originalIdx];
 
-  const finalColumns = [
-    ...originalColumns.slice(0, originalIdx),
-    newColumn,
-    ...originalColumns.slice(originalIdx + 1),
-  ];
+  const requiresDropAdd =
+    originalColumn.datatype !== newColumn.datatype ||
+    originalColumn.sourceField !== newColumn.sourceField;
+
+  // When doing drop/add the column gets added to the end of the list
+  // Otherwise it gets replaced in the same position
+  const finalColumns = requiresDropAdd
+    ? [
+        ...originalColumns.slice(0, originalIdx),
+        ...originalColumns.slice(originalIdx + 1),
+        newColumn,
+      ]
+    : [
+        ...originalColumns.slice(0, originalIdx),
+        newColumn,
+        ...originalColumns.slice(originalIdx + 1),
+      ];
 
   // Make sure there is only 1 column with this source field or name
   if (
@@ -1020,10 +1032,7 @@ export async function updateMaterializedColumn(
   };
 
   try {
-    if (
-      originalColumn.datatype !== newColumn.datatype ||
-      originalColumn.sourceField !== newColumn.sourceField
-    ) {
+    if (requiresDropAdd) {
       if (matColumnName === newColumn.columnName) {
         throw new Error(
           "Cannot modify a column while keeping the same name. Delete the column and create it again instead"
