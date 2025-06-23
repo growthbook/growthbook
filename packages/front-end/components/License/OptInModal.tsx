@@ -1,9 +1,6 @@
 import React, { useCallback, useState } from "react";
 import { Box, Text } from "@radix-ui/themes";
-import {
-  AgreementType,
-  AgreementType,
-} from "back-end/src/validators/agreements";
+import { AgreementType } from "back-end/src/validators/agreements";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Modal from "@/components/Modal";
@@ -55,6 +52,41 @@ const agreements: Record<
           privacy policy
         </a>
         . You can disable these features at any time in your account settings.
+      </>
+    ),
+    noPermission: (
+      <>
+        You must be an administrator to enable this feature. Please contact your
+        administrator.
+      </>
+    ),
+    version: "2025-06-19",
+  },
+  "managed-warehouse": {
+    title: "Enable AI features?",
+    subtitle: "Please read and agree to the terms before proceeding.",
+    terms: (
+      <>
+        This feature stores data in a managed warehouse on your behalf. By
+        enabling this feature you are agreeing to the terms of service of
+        GrowthBook and Clickhouse, and allowing us to store your event data
+        passed to us.
+        <a
+          href="https://www.growthbook.io/legal/privacy-policy/06-19-2025"
+          target="_blank"
+          rel="noreferrer"
+        >
+          Privacy Notice
+        </a>{" "}
+        and Clickhouse&apos;s{" "}
+        <a
+          href="https://clickhouse.com/legal/privacy-policy"
+          target="_blank"
+          rel="noreferrer"
+        >
+          Privacy Policy
+        </a>
+        .
       </>
     ),
     noPermission: (
