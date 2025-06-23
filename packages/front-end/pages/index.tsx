@@ -35,19 +35,15 @@ export default function Home(): React.ReactElement {
       organization.id || ""
     );
 
+    // has features and experiments that are not demo projects
     const hasFeatures = features.some((f) => f.project !== demoProjectId);
     const hasExperiments = experiments.some((e) => e.project !== demoProjectId);
+    const hasFeatureAndExperiment = hasFeatures && hasExperiments;
 
-    if (hasFeatures) {
-      router.replace("/features");
-    } else if (hasExperiments) {
-      router.replace("/experiments");
+    if (gb.isOn("use-new-setup-flow-2") && !hasFeatureAndExperiment) {
+      router.replace("/setup");
     } else {
-      if (gb.isOn("use-new-setup-flow-2")) {
-        router.replace("/setup");
-      } else {
-        router.replace("/getstarted");
-      }
+      router.replace("/getstarted");
     }
   }, [
     organization,

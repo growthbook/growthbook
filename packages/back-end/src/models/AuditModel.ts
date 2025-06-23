@@ -1,13 +1,7 @@
 import mongoose, { FilterQuery, QueryOptions } from "mongoose";
-import { omit } from "lodash";
 import uniqid from "uniqid";
-import {
-  AuditInterface,
-  AuditUserLoggedIn,
-  AuditUserApiKey,
-  AuditUserSystem,
-} from "back-end/types/audit";
-import { EntityType, EventTypes } from "back-end/src/types/Audit";
+import { AuditInterface } from "back-end/types/audit";
+import { EntityType } from "back-end/src/types/Audit";
 
 const auditSchema = new mongoose.Schema({
   id: {
@@ -54,7 +48,7 @@ const toInterface = (doc: AuditDocument): AuditInterface => {
   const json = doc.toJSON<AuditDocument>();
 
   // Use type assertion to handle the user field
-  const user = json.user as any;
+  const user = json.user as unknown;
 
   const transformed = {
     id: json.id,
@@ -107,7 +101,9 @@ export async function findAuditByUserIdAndOrganization(
     "user.id": userId,
     organization,
     ...options,
-  }).limit(100);
+  })
+    .limit(100)
+    .sort({ dateCreated: -1 });
   const transformed = userAudits.map((doc) => toInterface(doc));
   return transformed;
 }

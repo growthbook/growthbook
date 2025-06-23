@@ -73,12 +73,6 @@ router.get(
   }),
   safeRolloutController.getSafeRolloutTimeSeries
 );
-router.get(
-  "/",
-  validateRequestMiddleware({
-    query: z.object({ environment: z.string() }).optional(),
-  }),
-  safeRolloutController.getSafeRollouts
-);
+router.get("/", safeRolloutController.getSafeRollouts);
 
 export { router as safeRolloutRouter };

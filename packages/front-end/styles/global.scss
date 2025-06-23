@@ -3578,3 +3578,116 @@ input:disabled {
 .ace_editor .ace_gutter {
   background: var(--color-panel-solid) !important;
 }
+
+/* Radix-style pagination for ReactPaginate */
+.pagination-radix-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  list-style: none !important;
+  list-style-type: none !important;
+  padding: 0;
+  margin: 0;
+  flex-direction: row;
+}
+.pagination-radix-container li {
+  list-style: none !important;
+  list-style-type: none !important;
+  margin: 0;
+  padding: 0;
+}
+.pagination-page {
+  margin: 0;
+}
+.pagination-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--gray-11);
+  font-size: 14px;
+  font-weight: 400;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+.pagination-link:hover {
+  background: var(--gray-4);
+  color: var(--gray-12);
+}
+.pagination-active .pagination-link {
+  background: var(--violet-9);
+  color: white;
+  font-weight: 600;
+}
+.pagination-active .pagination-link:hover {
+  background: var(--violet-10);
+}
+.pagination-arrow-container {
+  margin: 0;
+}
+.pagination-link-arrow {
+  display: flex;
+  align-items: left;
+  justify-content: left;
+  min-width: 32px;
+  height: 32px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--gray-11);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+.pagination-link-arrow:hover {
+  background: var(--gray-4);
+  color: var(--gray-12);
+}
+.pagination-disabled .pagination-link-arrow {
+  color: var(--gray-6);
+  cursor: not-allowed;
+}
+.pagination-disabled .pagination-link-arrow:hover {
+  background: transparent;
+  color: var(--gray-6);
+}
+.pagination-break {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+  color: var(--gray-9);
+  font-size: 14px;
+}
+.pagination-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pagination-area-radix {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 0;
+}
+
+.needs-attentions-table {
+  thead th {
+    font-weight: 600;
+  }
+  tbody td {
+    font-weight: 400;
+  }
+}
