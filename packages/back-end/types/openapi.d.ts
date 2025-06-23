@@ -507,7 +507,19 @@ export interface components {
       factTableId?: string;
       filters?: (string)[];
     };
-    /** @description An array of schedule rules to turn on/off a feature rule at specific times. The array must contain exactly 2 elements (start rule and end rule). The first element is the start rule. */
+    /**
+     * @description An array of schedule rules to turn on/off a feature rule at specific times. The array must contain exactly 2 elements (start rule and end rule). The first element is the start rule. 
+     * @example [
+     *   {
+     *     "enabled": true,
+     *     "timestamp": null
+     *   },
+     *   {
+     *     "enabled": false,
+     *     "timestamp": "2025-06-23T16:09:37.769Z"
+     *   }
+     * ]
+     */
     ScheduleRule: {
       /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
       enabled: boolean;
@@ -549,6 +561,18 @@ export interface components {
                   id: string;
                   condition: string;
                 })[];
+              /**
+               * @example [
+               *   {
+               *     "enabled": true,
+               *     "timestamp": null
+               *   },
+               *   {
+               *     "enabled": false,
+               *     "timestamp": "2025-06-23T16:09:37.769Z"
+               *   }
+               * ]
+               */
               scheduleRules?: ({
                   /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                   enabled: boolean;
@@ -572,6 +596,18 @@ export interface components {
                   matchType: "all" | "any" | "none";
                   savedGroups: (string)[];
                 })[];
+              /**
+               * @example [
+               *   {
+               *     "enabled": true,
+               *     "timestamp": null
+               *   },
+               *   {
+               *     "enabled": false,
+               *     "timestamp": "2025-06-23T16:09:37.769Z"
+               *   }
+               * ]
+               */
               scheduleRules?: ({
                   /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                   enabled: boolean;
@@ -608,6 +644,18 @@ export interface components {
                 range: (number)[];
               };
               coverage?: number;
+              /**
+               * @example [
+               *   {
+               *     "enabled": true,
+               *     "timestamp": null
+               *   },
+               *   {
+               *     "enabled": false,
+               *     "timestamp": "2025-06-23T16:09:37.769Z"
+               *   }
+               * ]
+               */
               scheduleRules?: ({
                   /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                   enabled: boolean;
@@ -630,6 +678,18 @@ export interface components {
               /** @enum {string} */
               type: "experiment-ref";
               condition?: string;
+              /**
+               * @example [
+               *   {
+               *     "enabled": true,
+               *     "timestamp": null
+               *   },
+               *   {
+               *     "enabled": false,
+               *     "timestamp": "2025-06-23T16:09:37.769Z"
+               *   }
+               * ]
+               */
               scheduleRules?: ({
                   /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                   enabled: boolean;
@@ -669,6 +729,18 @@ export interface components {
               safeRolloutId?: string;
               /** @enum {string} */
               status?: "running" | "released" | "rolled-back" | "stopped";
+              /**
+               * @example [
+               *   {
+               *     "enabled": true,
+               *     "timestamp": null
+               *   },
+               *   {
+               *     "enabled": false,
+               *     "timestamp": "2025-06-23T16:09:37.769Z"
+               *   }
+               * ]
+               */
               scheduleRules?: ({
                   /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                   enabled: boolean;
@@ -698,6 +770,18 @@ export interface components {
                     id: string;
                     condition: string;
                   })[];
+                /**
+                 * @example [
+                 *   {
+                 *     "enabled": true,
+                 *     "timestamp": null
+                 *   },
+                 *   {
+                 *     "enabled": false,
+                 *     "timestamp": "2025-06-23T16:09:37.769Z"
+                 *   }
+                 * ]
+                 */
                 scheduleRules?: ({
                     /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                     enabled: boolean;
@@ -721,6 +805,18 @@ export interface components {
                     matchType: "all" | "any" | "none";
                     savedGroups: (string)[];
                   })[];
+                /**
+                 * @example [
+                 *   {
+                 *     "enabled": true,
+                 *     "timestamp": null
+                 *   },
+                 *   {
+                 *     "enabled": false,
+                 *     "timestamp": "2025-06-23T16:09:37.769Z"
+                 *   }
+                 * ]
+                 */
                 scheduleRules?: ({
                     /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                     enabled: boolean;
@@ -757,6 +853,18 @@ export interface components {
                   range: (number)[];
                 };
                 coverage?: number;
+                /**
+                 * @example [
+                 *   {
+                 *     "enabled": true,
+                 *     "timestamp": null
+                 *   },
+                 *   {
+                 *     "enabled": false,
+                 *     "timestamp": "2025-06-23T16:09:37.769Z"
+                 *   }
+                 * ]
+                 */
                 scheduleRules?: ({
                     /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                     enabled: boolean;
@@ -779,6 +887,18 @@ export interface components {
                 /** @enum {string} */
                 type: "experiment-ref";
                 condition?: string;
+                /**
+                 * @example [
+                 *   {
+                 *     "enabled": true,
+                 *     "timestamp": null
+                 *   },
+                 *   {
+                 *     "enabled": false,
+                 *     "timestamp": "2025-06-23T16:09:37.769Z"
+                 *   }
+                 * ]
+                 */
                 scheduleRules?: ({
                     /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                     enabled: boolean;
@@ -818,6 +938,18 @@ export interface components {
                 safeRolloutId?: string;
                 /** @enum {string} */
                 status?: "running" | "released" | "rolled-back" | "stopped";
+                /**
+                 * @example [
+                 *   {
+                 *     "enabled": true,
+                 *     "timestamp": null
+                 *   },
+                 *   {
+                 *     "enabled": false,
+                 *     "timestamp": "2025-06-23T16:09:37.769Z"
+                 *   }
+                 * ]
+                 */
                 scheduleRules?: ({
                     /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                     enabled: boolean;
@@ -878,6 +1010,18 @@ export interface components {
                   id: string;
                   condition: string;
                 })[];
+              /**
+               * @example [
+               *   {
+               *     "enabled": true,
+               *     "timestamp": null
+               *   },
+               *   {
+               *     "enabled": false,
+               *     "timestamp": "2025-06-23T16:09:37.769Z"
+               *   }
+               * ]
+               */
               scheduleRules?: ({
                   /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                   enabled: boolean;
@@ -901,6 +1045,18 @@ export interface components {
                   matchType: "all" | "any" | "none";
                   savedGroups: (string)[];
                 })[];
+              /**
+               * @example [
+               *   {
+               *     "enabled": true,
+               *     "timestamp": null
+               *   },
+               *   {
+               *     "enabled": false,
+               *     "timestamp": "2025-06-23T16:09:37.769Z"
+               *   }
+               * ]
+               */
               scheduleRules?: ({
                   /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                   enabled: boolean;
@@ -937,6 +1093,18 @@ export interface components {
                 range: (number)[];
               };
               coverage?: number;
+              /**
+               * @example [
+               *   {
+               *     "enabled": true,
+               *     "timestamp": null
+               *   },
+               *   {
+               *     "enabled": false,
+               *     "timestamp": "2025-06-23T16:09:37.769Z"
+               *   }
+               * ]
+               */
               scheduleRules?: ({
                   /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                   enabled: boolean;
@@ -959,6 +1127,18 @@ export interface components {
               /** @enum {string} */
               type: "experiment-ref";
               condition?: string;
+              /**
+               * @example [
+               *   {
+               *     "enabled": true,
+               *     "timestamp": null
+               *   },
+               *   {
+               *     "enabled": false,
+               *     "timestamp": "2025-06-23T16:09:37.769Z"
+               *   }
+               * ]
+               */
               scheduleRules?: ({
                   /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                   enabled: boolean;
@@ -998,6 +1178,18 @@ export interface components {
               safeRolloutId?: string;
               /** @enum {string} */
               status?: "running" | "released" | "rolled-back" | "stopped";
+              /**
+               * @example [
+               *   {
+               *     "enabled": true,
+               *     "timestamp": null
+               *   },
+               *   {
+               *     "enabled": false,
+               *     "timestamp": "2025-06-23T16:09:37.769Z"
+               *   }
+               * ]
+               */
               scheduleRules?: ({
                   /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                   enabled: boolean;
@@ -1027,6 +1219,18 @@ export interface components {
                     id: string;
                     condition: string;
                   })[];
+                /**
+                 * @example [
+                 *   {
+                 *     "enabled": true,
+                 *     "timestamp": null
+                 *   },
+                 *   {
+                 *     "enabled": false,
+                 *     "timestamp": "2025-06-23T16:09:37.769Z"
+                 *   }
+                 * ]
+                 */
                 scheduleRules?: ({
                     /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                     enabled: boolean;
@@ -1050,6 +1254,18 @@ export interface components {
                     matchType: "all" | "any" | "none";
                     savedGroups: (string)[];
                   })[];
+                /**
+                 * @example [
+                 *   {
+                 *     "enabled": true,
+                 *     "timestamp": null
+                 *   },
+                 *   {
+                 *     "enabled": false,
+                 *     "timestamp": "2025-06-23T16:09:37.769Z"
+                 *   }
+                 * ]
+                 */
                 scheduleRules?: ({
                     /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                     enabled: boolean;
@@ -1086,6 +1302,18 @@ export interface components {
                   range: (number)[];
                 };
                 coverage?: number;
+                /**
+                 * @example [
+                 *   {
+                 *     "enabled": true,
+                 *     "timestamp": null
+                 *   },
+                 *   {
+                 *     "enabled": false,
+                 *     "timestamp": "2025-06-23T16:09:37.769Z"
+                 *   }
+                 * ]
+                 */
                 scheduleRules?: ({
                     /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                     enabled: boolean;
@@ -1108,6 +1336,18 @@ export interface components {
                 /** @enum {string} */
                 type: "experiment-ref";
                 condition?: string;
+                /**
+                 * @example [
+                 *   {
+                 *     "enabled": true,
+                 *     "timestamp": null
+                 *   },
+                 *   {
+                 *     "enabled": false,
+                 *     "timestamp": "2025-06-23T16:09:37.769Z"
+                 *   }
+                 * ]
+                 */
                 scheduleRules?: ({
                     /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                     enabled: boolean;
@@ -1147,6 +1387,18 @@ export interface components {
                 safeRolloutId?: string;
                 /** @enum {string} */
                 status?: "running" | "released" | "rolled-back" | "stopped";
+                /**
+                 * @example [
+                 *   {
+                 *     "enabled": true,
+                 *     "timestamp": null
+                 *   },
+                 *   {
+                 *     "enabled": false,
+                 *     "timestamp": "2025-06-23T16:09:37.769Z"
+                 *   }
+                 * ]
+                 */
                 scheduleRules?: ({
                     /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                     enabled: boolean;
@@ -1198,6 +1450,18 @@ export interface components {
                     id: string;
                     condition: string;
                   })[];
+                /**
+                 * @example [
+                 *   {
+                 *     "enabled": true,
+                 *     "timestamp": null
+                 *   },
+                 *   {
+                 *     "enabled": false,
+                 *     "timestamp": "2025-06-23T16:09:37.769Z"
+                 *   }
+                 * ]
+                 */
                 scheduleRules?: ({
                     /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                     enabled: boolean;
@@ -1221,6 +1485,18 @@ export interface components {
                     matchType: "all" | "any" | "none";
                     savedGroups: (string)[];
                   })[];
+                /**
+                 * @example [
+                 *   {
+                 *     "enabled": true,
+                 *     "timestamp": null
+                 *   },
+                 *   {
+                 *     "enabled": false,
+                 *     "timestamp": "2025-06-23T16:09:37.769Z"
+                 *   }
+                 * ]
+                 */
                 scheduleRules?: ({
                     /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                     enabled: boolean;
@@ -1257,6 +1533,18 @@ export interface components {
                   range: (number)[];
                 };
                 coverage?: number;
+                /**
+                 * @example [
+                 *   {
+                 *     "enabled": true,
+                 *     "timestamp": null
+                 *   },
+                 *   {
+                 *     "enabled": false,
+                 *     "timestamp": "2025-06-23T16:09:37.769Z"
+                 *   }
+                 * ]
+                 */
                 scheduleRules?: ({
                     /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                     enabled: boolean;
@@ -1279,6 +1567,18 @@ export interface components {
                 /** @enum {string} */
                 type: "experiment-ref";
                 condition?: string;
+                /**
+                 * @example [
+                 *   {
+                 *     "enabled": true,
+                 *     "timestamp": null
+                 *   },
+                 *   {
+                 *     "enabled": false,
+                 *     "timestamp": "2025-06-23T16:09:37.769Z"
+                 *   }
+                 * ]
+                 */
                 scheduleRules?: ({
                     /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                     enabled: boolean;
@@ -1318,6 +1618,18 @@ export interface components {
                 safeRolloutId?: string;
                 /** @enum {string} */
                 status?: "running" | "released" | "rolled-back" | "stopped";
+                /**
+                 * @example [
+                 *   {
+                 *     "enabled": true,
+                 *     "timestamp": null
+                 *   },
+                 *   {
+                 *     "enabled": false,
+                 *     "timestamp": "2025-06-23T16:09:37.769Z"
+                 *   }
+                 * ]
+                 */
                 scheduleRules?: ({
                     /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                     enabled: boolean;
@@ -1351,6 +1663,18 @@ export interface components {
               id: string;
               condition: string;
             })[];
+          /**
+           * @example [
+           *   {
+           *     "enabled": true,
+           *     "timestamp": null
+           *   },
+           *   {
+           *     "enabled": false,
+           *     "timestamp": "2025-06-23T16:09:37.769Z"
+           *   }
+           * ]
+           */
           scheduleRules?: ({
               /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
               enabled: boolean;
@@ -1374,6 +1698,18 @@ export interface components {
               matchType: "all" | "any" | "none";
               savedGroups: (string)[];
             })[];
+          /**
+           * @example [
+           *   {
+           *     "enabled": true,
+           *     "timestamp": null
+           *   },
+           *   {
+           *     "enabled": false,
+           *     "timestamp": "2025-06-23T16:09:37.769Z"
+           *   }
+           * ]
+           */
           scheduleRules?: ({
               /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
               enabled: boolean;
@@ -1410,6 +1746,18 @@ export interface components {
             range: (number)[];
           };
           coverage?: number;
+          /**
+           * @example [
+           *   {
+           *     "enabled": true,
+           *     "timestamp": null
+           *   },
+           *   {
+           *     "enabled": false,
+           *     "timestamp": "2025-06-23T16:09:37.769Z"
+           *   }
+           * ]
+           */
           scheduleRules?: ({
               /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
               enabled: boolean;
@@ -1432,6 +1780,18 @@ export interface components {
           /** @enum {string} */
           type: "experiment-ref";
           condition?: string;
+          /**
+           * @example [
+           *   {
+           *     "enabled": true,
+           *     "timestamp": null
+           *   },
+           *   {
+           *     "enabled": false,
+           *     "timestamp": "2025-06-23T16:09:37.769Z"
+           *   }
+           * ]
+           */
           scheduleRules?: ({
               /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
               enabled: boolean;
@@ -1471,6 +1831,18 @@ export interface components {
           safeRolloutId?: string;
           /** @enum {string} */
           status?: "running" | "released" | "rolled-back" | "stopped";
+          /**
+           * @example [
+           *   {
+           *     "enabled": true,
+           *     "timestamp": null
+           *   },
+           *   {
+           *     "enabled": false,
+           *     "timestamp": "2025-06-23T16:09:37.769Z"
+           *   }
+           * ]
+           */
           scheduleRules?: ({
               /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
               enabled: boolean;
@@ -1500,6 +1872,18 @@ export interface components {
                 id: string;
                 condition: string;
               })[];
+            /**
+             * @example [
+             *   {
+             *     "enabled": true,
+             *     "timestamp": null
+             *   },
+             *   {
+             *     "enabled": false,
+             *     "timestamp": "2025-06-23T16:09:37.769Z"
+             *   }
+             * ]
+             */
             scheduleRules?: ({
                 /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                 enabled: boolean;
@@ -1523,6 +1907,18 @@ export interface components {
                 matchType: "all" | "any" | "none";
                 savedGroups: (string)[];
               })[];
+            /**
+             * @example [
+             *   {
+             *     "enabled": true,
+             *     "timestamp": null
+             *   },
+             *   {
+             *     "enabled": false,
+             *     "timestamp": "2025-06-23T16:09:37.769Z"
+             *   }
+             * ]
+             */
             scheduleRules?: ({
                 /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                 enabled: boolean;
@@ -1559,6 +1955,18 @@ export interface components {
               range: (number)[];
             };
             coverage?: number;
+            /**
+             * @example [
+             *   {
+             *     "enabled": true,
+             *     "timestamp": null
+             *   },
+             *   {
+             *     "enabled": false,
+             *     "timestamp": "2025-06-23T16:09:37.769Z"
+             *   }
+             * ]
+             */
             scheduleRules?: ({
                 /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                 enabled: boolean;
@@ -1581,6 +1989,18 @@ export interface components {
             /** @enum {string} */
             type: "experiment-ref";
             condition?: string;
+            /**
+             * @example [
+             *   {
+             *     "enabled": true,
+             *     "timestamp": null
+             *   },
+             *   {
+             *     "enabled": false,
+             *     "timestamp": "2025-06-23T16:09:37.769Z"
+             *   }
+             * ]
+             */
             scheduleRules?: ({
                 /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                 enabled: boolean;
@@ -1620,6 +2040,18 @@ export interface components {
             safeRolloutId?: string;
             /** @enum {string} */
             status?: "running" | "released" | "rolled-back" | "stopped";
+            /**
+             * @example [
+             *   {
+             *     "enabled": true,
+             *     "timestamp": null
+             *   },
+             *   {
+             *     "enabled": false,
+             *     "timestamp": "2025-06-23T16:09:37.769Z"
+             *   }
+             * ]
+             */
             scheduleRules?: ({
                 /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                 enabled: boolean;
@@ -1648,6 +2080,18 @@ export interface components {
           id: string;
           condition: string;
         })[];
+      /**
+       * @example [
+       *   {
+       *     "enabled": true,
+       *     "timestamp": null
+       *   },
+       *   {
+       *     "enabled": false,
+       *     "timestamp": "2025-06-23T16:09:37.769Z"
+       *   }
+       * ]
+       */
       scheduleRules?: ({
           /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
           enabled: boolean;
@@ -1671,6 +2115,18 @@ export interface components {
           matchType: "all" | "any" | "none";
           savedGroups: (string)[];
         })[];
+      /**
+       * @example [
+       *   {
+       *     "enabled": true,
+       *     "timestamp": null
+       *   },
+       *   {
+       *     "enabled": false,
+       *     "timestamp": "2025-06-23T16:09:37.769Z"
+       *   }
+       * ]
+       */
       scheduleRules?: ({
           /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
           enabled: boolean;
@@ -1707,6 +2163,18 @@ export interface components {
         range: (number)[];
       };
       coverage?: number;
+      /**
+       * @example [
+       *   {
+       *     "enabled": true,
+       *     "timestamp": null
+       *   },
+       *   {
+       *     "enabled": false,
+       *     "timestamp": "2025-06-23T16:09:37.769Z"
+       *   }
+       * ]
+       */
       scheduleRules?: ({
           /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
           enabled: boolean;
@@ -1729,6 +2197,18 @@ export interface components {
       /** @enum {string} */
       type: "experiment-ref";
       condition?: string;
+      /**
+       * @example [
+       *   {
+       *     "enabled": true,
+       *     "timestamp": null
+       *   },
+       *   {
+       *     "enabled": false,
+       *     "timestamp": "2025-06-23T16:09:37.769Z"
+       *   }
+       * ]
+       */
       scheduleRules?: ({
           /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
           enabled: boolean;
@@ -1768,6 +2248,18 @@ export interface components {
       safeRolloutId?: string;
       /** @enum {string} */
       status?: "running" | "released" | "rolled-back" | "stopped";
+      /**
+       * @example [
+       *   {
+       *     "enabled": true,
+       *     "timestamp": null
+       *   },
+       *   {
+       *     "enabled": false,
+       *     "timestamp": "2025-06-23T16:09:37.769Z"
+       *   }
+       * ]
+       */
       scheduleRules?: ({
           /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
           enabled: boolean;
@@ -1807,6 +2299,18 @@ export interface components {
           id: string;
           condition: string;
         })[];
+      /**
+       * @example [
+       *   {
+       *     "enabled": true,
+       *     "timestamp": null
+       *   },
+       *   {
+       *     "enabled": false,
+       *     "timestamp": "2025-06-23T16:09:37.769Z"
+       *   }
+       * ]
+       */
       scheduleRules?: ({
           /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
           enabled: boolean;
@@ -1831,6 +2335,18 @@ export interface components {
           matchType: "all" | "any" | "none";
           savedGroups: (string)[];
         })[];
+      /**
+       * @example [
+       *   {
+       *     "enabled": true,
+       *     "timestamp": null
+       *   },
+       *   {
+       *     "enabled": false,
+       *     "timestamp": "2025-06-23T16:09:37.769Z"
+       *   }
+       * ]
+       */
       scheduleRules?: ({
           /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
           enabled: boolean;
@@ -1873,6 +2389,18 @@ export interface components {
       safeRolloutId?: string;
       /** @enum {string} */
       status?: "running" | "released" | "rolled-back" | "stopped";
+      /**
+       * @example [
+       *   {
+       *     "enabled": true,
+       *     "timestamp": null
+       *   },
+       *   {
+       *     "enabled": false,
+       *     "timestamp": "2025-06-23T16:09:37.769Z"
+       *   }
+       * ]
+       */
       scheduleRules?: ({
           /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
           enabled: boolean;
@@ -1903,6 +2431,18 @@ export interface components {
         range: (number)[];
       };
       coverage?: number;
+      /**
+       * @example [
+       *   {
+       *     "enabled": true,
+       *     "timestamp": null
+       *   },
+       *   {
+       *     "enabled": false,
+       *     "timestamp": "2025-06-23T16:09:37.769Z"
+       *   }
+       * ]
+       */
       scheduleRules?: ({
           /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
           enabled: boolean;
@@ -1926,6 +2466,18 @@ export interface components {
       /** @enum {string} */
       type: "experiment-ref";
       condition?: string;
+      /**
+       * @example [
+       *   {
+       *     "enabled": true,
+       *     "timestamp": null
+       *   },
+       *   {
+       *     "enabled": false,
+       *     "timestamp": "2025-06-23T16:09:37.769Z"
+       *   }
+       * ]
+       */
       scheduleRules?: ({
           /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
           enabled: boolean;
@@ -2825,6 +3377,18 @@ export interface operations {
                             id: string;
                             condition: string;
                           })[];
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
                         scheduleRules?: ({
                             /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
@@ -2848,6 +3412,18 @@ export interface operations {
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
                         scheduleRules?: ({
                             /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
@@ -2884,6 +3460,18 @@ export interface operations {
                           range: (number)[];
                         };
                         coverage?: number;
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
                         scheduleRules?: ({
                             /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
@@ -2906,6 +3494,18 @@ export interface operations {
                         /** @enum {string} */
                         type: "experiment-ref";
                         condition?: string;
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
                         scheduleRules?: ({
                             /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
@@ -2945,6 +3545,18 @@ export interface operations {
                         safeRolloutId?: string;
                         /** @enum {string} */
                         status?: "running" | "released" | "rolled-back" | "stopped";
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
                         scheduleRules?: ({
                             /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
@@ -2974,6 +3586,18 @@ export interface operations {
                               id: string;
                               condition: string;
                             })[];
+                          /**
+                           * @example [
+                           *   {
+                           *     "enabled": true,
+                           *     "timestamp": null
+                           *   },
+                           *   {
+                           *     "enabled": false,
+                           *     "timestamp": "2025-06-23T16:09:37.769Z"
+                           *   }
+                           * ]
+                           */
                           scheduleRules?: ({
                               /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                               enabled: boolean;
@@ -2997,6 +3621,18 @@ export interface operations {
                               matchType: "all" | "any" | "none";
                               savedGroups: (string)[];
                             })[];
+                          /**
+                           * @example [
+                           *   {
+                           *     "enabled": true,
+                           *     "timestamp": null
+                           *   },
+                           *   {
+                           *     "enabled": false,
+                           *     "timestamp": "2025-06-23T16:09:37.769Z"
+                           *   }
+                           * ]
+                           */
                           scheduleRules?: ({
                               /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                               enabled: boolean;
@@ -3033,6 +3669,18 @@ export interface operations {
                             range: (number)[];
                           };
                           coverage?: number;
+                          /**
+                           * @example [
+                           *   {
+                           *     "enabled": true,
+                           *     "timestamp": null
+                           *   },
+                           *   {
+                           *     "enabled": false,
+                           *     "timestamp": "2025-06-23T16:09:37.769Z"
+                           *   }
+                           * ]
+                           */
                           scheduleRules?: ({
                               /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                               enabled: boolean;
@@ -3055,6 +3703,18 @@ export interface operations {
                           /** @enum {string} */
                           type: "experiment-ref";
                           condition?: string;
+                          /**
+                           * @example [
+                           *   {
+                           *     "enabled": true,
+                           *     "timestamp": null
+                           *   },
+                           *   {
+                           *     "enabled": false,
+                           *     "timestamp": "2025-06-23T16:09:37.769Z"
+                           *   }
+                           * ]
+                           */
                           scheduleRules?: ({
                               /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                               enabled: boolean;
@@ -3094,6 +3754,18 @@ export interface operations {
                           safeRolloutId?: string;
                           /** @enum {string} */
                           status?: "running" | "released" | "rolled-back" | "stopped";
+                          /**
+                           * @example [
+                           *   {
+                           *     "enabled": true,
+                           *     "timestamp": null
+                           *   },
+                           *   {
+                           *     "enabled": false,
+                           *     "timestamp": "2025-06-23T16:09:37.769Z"
+                           *   }
+                           * ]
+                           */
                           scheduleRules?: ({
                               /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                               enabled: boolean;
@@ -3171,6 +3843,18 @@ export interface operations {
                       matchType: "all" | "any" | "none";
                       savedGroups: (string)[];
                     })[];
+                  /**
+                   * @example [
+                   *   {
+                   *     "enabled": true,
+                   *     "timestamp": null
+                   *   },
+                   *   {
+                   *     "enabled": false,
+                   *     "timestamp": "2025-06-23T16:09:37.769Z"
+                   *   }
+                   * ]
+                   */
                   scheduleRules?: ({
                       /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                       enabled: boolean;
@@ -3201,6 +3885,18 @@ export interface operations {
                       id: string;
                       condition: string;
                     })[];
+                  /**
+                   * @example [
+                   *   {
+                   *     "enabled": true,
+                   *     "timestamp": null
+                   *   },
+                   *   {
+                   *     "enabled": false,
+                   *     "timestamp": "2025-06-23T16:09:37.769Z"
+                   *   }
+                   * ]
+                   */
                   scheduleRules?: ({
                       /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                       enabled: boolean;
@@ -3238,6 +3934,18 @@ export interface operations {
                       id: string;
                       condition: string;
                     })[];
+                  /**
+                   * @example [
+                   *   {
+                   *     "enabled": true,
+                   *     "timestamp": null
+                   *   },
+                   *   {
+                   *     "enabled": false,
+                   *     "timestamp": "2025-06-23T16:09:37.769Z"
+                   *   }
+                   * ]
+                   */
                   scheduleRules?: ({
                       /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                       enabled: boolean;
@@ -3273,6 +3981,18 @@ export interface operations {
                     range: (number)[];
                   };
                   coverage?: number;
+                  /**
+                   * @example [
+                   *   {
+                   *     "enabled": true,
+                   *     "timestamp": null
+                   *   },
+                   *   {
+                   *     "enabled": false,
+                   *     "timestamp": "2025-06-23T16:09:37.769Z"
+                   *   }
+                   * ]
+                   */
                   scheduleRules?: ({
                       /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                       enabled: boolean;
@@ -3312,6 +4032,18 @@ export interface operations {
                         matchType: "all" | "any" | "none";
                         savedGroups: (string)[];
                       })[];
+                    /**
+                     * @example [
+                     *   {
+                     *     "enabled": true,
+                     *     "timestamp": null
+                     *   },
+                     *   {
+                     *     "enabled": false,
+                     *     "timestamp": "2025-06-23T16:09:37.769Z"
+                     *   }
+                     * ]
+                     */
                     scheduleRules?: ({
                         /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                         enabled: boolean;
@@ -3342,6 +4074,18 @@ export interface operations {
                         id: string;
                         condition: string;
                       })[];
+                    /**
+                     * @example [
+                     *   {
+                     *     "enabled": true,
+                     *     "timestamp": null
+                     *   },
+                     *   {
+                     *     "enabled": false,
+                     *     "timestamp": "2025-06-23T16:09:37.769Z"
+                     *   }
+                     * ]
+                     */
                     scheduleRules?: ({
                         /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                         enabled: boolean;
@@ -3379,6 +4123,18 @@ export interface operations {
                         id: string;
                         condition: string;
                       })[];
+                    /**
+                     * @example [
+                     *   {
+                     *     "enabled": true,
+                     *     "timestamp": null
+                     *   },
+                     *   {
+                     *     "enabled": false,
+                     *     "timestamp": "2025-06-23T16:09:37.769Z"
+                     *   }
+                     * ]
+                     */
                     scheduleRules?: ({
                         /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                         enabled: boolean;
@@ -3414,6 +4170,18 @@ export interface operations {
                       range: (number)[];
                     };
                     coverage?: number;
+                    /**
+                     * @example [
+                     *   {
+                     *     "enabled": true,
+                     *     "timestamp": null
+                     *   },
+                     *   {
+                     *     "enabled": false,
+                     *     "timestamp": "2025-06-23T16:09:37.769Z"
+                     *   }
+                     * ]
+                     */
                     scheduleRules?: ({
                         /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                         enabled: boolean;
@@ -3486,6 +4254,18 @@ export interface operations {
                           id: string;
                           condition: string;
                         })[];
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
                       scheduleRules?: ({
                           /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                           enabled: boolean;
@@ -3509,6 +4289,18 @@ export interface operations {
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
                       scheduleRules?: ({
                           /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                           enabled: boolean;
@@ -3545,6 +4337,18 @@ export interface operations {
                         range: (number)[];
                       };
                       coverage?: number;
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
                       scheduleRules?: ({
                           /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                           enabled: boolean;
@@ -3567,6 +4371,18 @@ export interface operations {
                       /** @enum {string} */
                       type: "experiment-ref";
                       condition?: string;
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
                       scheduleRules?: ({
                           /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                           enabled: boolean;
@@ -3606,6 +4422,18 @@ export interface operations {
                       safeRolloutId?: string;
                       /** @enum {string} */
                       status?: "running" | "released" | "rolled-back" | "stopped";
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
                       scheduleRules?: ({
                           /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                           enabled: boolean;
@@ -3635,6 +4463,18 @@ export interface operations {
                             id: string;
                             condition: string;
                           })[];
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
                         scheduleRules?: ({
                             /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
@@ -3658,6 +4498,18 @@ export interface operations {
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
                         scheduleRules?: ({
                             /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
@@ -3694,6 +4546,18 @@ export interface operations {
                           range: (number)[];
                         };
                         coverage?: number;
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
                         scheduleRules?: ({
                             /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
@@ -3716,6 +4580,18 @@ export interface operations {
                         /** @enum {string} */
                         type: "experiment-ref";
                         condition?: string;
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
                         scheduleRules?: ({
                             /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
@@ -3755,6 +4631,18 @@ export interface operations {
                         safeRolloutId?: string;
                         /** @enum {string} */
                         status?: "running" | "released" | "rolled-back" | "stopped";
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
                         scheduleRules?: ({
                             /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
@@ -3836,6 +4724,18 @@ export interface operations {
                           id: string;
                           condition: string;
                         })[];
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
                       scheduleRules?: ({
                           /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                           enabled: boolean;
@@ -3859,6 +4759,18 @@ export interface operations {
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
                       scheduleRules?: ({
                           /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                           enabled: boolean;
@@ -3895,6 +4807,18 @@ export interface operations {
                         range: (number)[];
                       };
                       coverage?: number;
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
                       scheduleRules?: ({
                           /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                           enabled: boolean;
@@ -3917,6 +4841,18 @@ export interface operations {
                       /** @enum {string} */
                       type: "experiment-ref";
                       condition?: string;
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
                       scheduleRules?: ({
                           /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                           enabled: boolean;
@@ -3956,6 +4892,18 @@ export interface operations {
                       safeRolloutId?: string;
                       /** @enum {string} */
                       status?: "running" | "released" | "rolled-back" | "stopped";
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
                       scheduleRules?: ({
                           /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                           enabled: boolean;
@@ -3985,6 +4933,18 @@ export interface operations {
                             id: string;
                             condition: string;
                           })[];
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
                         scheduleRules?: ({
                             /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
@@ -4008,6 +4968,18 @@ export interface operations {
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
                         scheduleRules?: ({
                             /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
@@ -4044,6 +5016,18 @@ export interface operations {
                           range: (number)[];
                         };
                         coverage?: number;
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
                         scheduleRules?: ({
                             /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
@@ -4066,6 +5050,18 @@ export interface operations {
                         /** @enum {string} */
                         type: "experiment-ref";
                         condition?: string;
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
                         scheduleRules?: ({
                             /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
@@ -4105,6 +5101,18 @@ export interface operations {
                         safeRolloutId?: string;
                         /** @enum {string} */
                         status?: "running" | "released" | "rolled-back" | "stopped";
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
                         scheduleRules?: ({
                             /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
@@ -4156,6 +5164,18 @@ export interface operations {
                             id: string;
                             condition: string;
                           })[];
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
                         scheduleRules?: ({
                             /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
@@ -4179,6 +5199,18 @@ export interface operations {
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
                         scheduleRules?: ({
                             /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
@@ -4215,6 +5247,18 @@ export interface operations {
                           range: (number)[];
                         };
                         coverage?: number;
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
                         scheduleRules?: ({
                             /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
@@ -4237,6 +5281,18 @@ export interface operations {
                         /** @enum {string} */
                         type: "experiment-ref";
                         condition?: string;
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
                         scheduleRules?: ({
                             /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
@@ -4276,6 +5332,18 @@ export interface operations {
                         safeRolloutId?: string;
                         /** @enum {string} */
                         status?: "running" | "released" | "rolled-back" | "stopped";
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
                         scheduleRules?: ({
                             /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
@@ -4330,6 +5398,18 @@ export interface operations {
                       matchType: "all" | "any" | "none";
                       savedGroups: (string)[];
                     })[];
+                  /**
+                   * @example [
+                   *   {
+                   *     "enabled": true,
+                   *     "timestamp": null
+                   *   },
+                   *   {
+                   *     "enabled": false,
+                   *     "timestamp": "2025-06-23T16:09:37.769Z"
+                   *   }
+                   * ]
+                   */
                   scheduleRules?: ({
                       /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                       enabled: boolean;
@@ -4360,6 +5440,18 @@ export interface operations {
                       id: string;
                       condition: string;
                     })[];
+                  /**
+                   * @example [
+                   *   {
+                   *     "enabled": true,
+                   *     "timestamp": null
+                   *   },
+                   *   {
+                   *     "enabled": false,
+                   *     "timestamp": "2025-06-23T16:09:37.769Z"
+                   *   }
+                   * ]
+                   */
                   scheduleRules?: ({
                       /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                       enabled: boolean;
@@ -4397,6 +5489,18 @@ export interface operations {
                       id: string;
                       condition: string;
                     })[];
+                  /**
+                   * @example [
+                   *   {
+                   *     "enabled": true,
+                   *     "timestamp": null
+                   *   },
+                   *   {
+                   *     "enabled": false,
+                   *     "timestamp": "2025-06-23T16:09:37.769Z"
+                   *   }
+                   * ]
+                   */
                   scheduleRules?: ({
                       /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                       enabled: boolean;
@@ -4432,6 +5536,18 @@ export interface operations {
                     range: (number)[];
                   };
                   coverage?: number;
+                  /**
+                   * @example [
+                   *   {
+                   *     "enabled": true,
+                   *     "timestamp": null
+                   *   },
+                   *   {
+                   *     "enabled": false,
+                   *     "timestamp": "2025-06-23T16:09:37.769Z"
+                   *   }
+                   * ]
+                   */
                   scheduleRules?: ({
                       /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                       enabled: boolean;
@@ -4471,6 +5587,18 @@ export interface operations {
                         matchType: "all" | "any" | "none";
                         savedGroups: (string)[];
                       })[];
+                    /**
+                     * @example [
+                     *   {
+                     *     "enabled": true,
+                     *     "timestamp": null
+                     *   },
+                     *   {
+                     *     "enabled": false,
+                     *     "timestamp": "2025-06-23T16:09:37.769Z"
+                     *   }
+                     * ]
+                     */
                     scheduleRules?: ({
                         /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                         enabled: boolean;
@@ -4501,6 +5629,18 @@ export interface operations {
                         id: string;
                         condition: string;
                       })[];
+                    /**
+                     * @example [
+                     *   {
+                     *     "enabled": true,
+                     *     "timestamp": null
+                     *   },
+                     *   {
+                     *     "enabled": false,
+                     *     "timestamp": "2025-06-23T16:09:37.769Z"
+                     *   }
+                     * ]
+                     */
                     scheduleRules?: ({
                         /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                         enabled: boolean;
@@ -4538,6 +5678,18 @@ export interface operations {
                         id: string;
                         condition: string;
                       })[];
+                    /**
+                     * @example [
+                     *   {
+                     *     "enabled": true,
+                     *     "timestamp": null
+                     *   },
+                     *   {
+                     *     "enabled": false,
+                     *     "timestamp": "2025-06-23T16:09:37.769Z"
+                     *   }
+                     * ]
+                     */
                     scheduleRules?: ({
                         /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                         enabled: boolean;
@@ -4573,6 +5725,18 @@ export interface operations {
                       range: (number)[];
                     };
                     coverage?: number;
+                    /**
+                     * @example [
+                     *   {
+                     *     "enabled": true,
+                     *     "timestamp": null
+                     *   },
+                     *   {
+                     *     "enabled": false,
+                     *     "timestamp": "2025-06-23T16:09:37.769Z"
+                     *   }
+                     * ]
+                     */
                     scheduleRules?: ({
                         /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                         enabled: boolean;
@@ -4645,6 +5809,18 @@ export interface operations {
                           id: string;
                           condition: string;
                         })[];
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
                       scheduleRules?: ({
                           /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                           enabled: boolean;
@@ -4668,6 +5844,18 @@ export interface operations {
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
                       scheduleRules?: ({
                           /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                           enabled: boolean;
@@ -4704,6 +5892,18 @@ export interface operations {
                         range: (number)[];
                       };
                       coverage?: number;
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
                       scheduleRules?: ({
                           /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                           enabled: boolean;
@@ -4726,6 +5926,18 @@ export interface operations {
                       /** @enum {string} */
                       type: "experiment-ref";
                       condition?: string;
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
                       scheduleRules?: ({
                           /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                           enabled: boolean;
@@ -4765,6 +5977,18 @@ export interface operations {
                       safeRolloutId?: string;
                       /** @enum {string} */
                       status?: "running" | "released" | "rolled-back" | "stopped";
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
                       scheduleRules?: ({
                           /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                           enabled: boolean;
@@ -4794,6 +6018,18 @@ export interface operations {
                             id: string;
                             condition: string;
                           })[];
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
                         scheduleRules?: ({
                             /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
@@ -4817,6 +6053,18 @@ export interface operations {
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
                         scheduleRules?: ({
                             /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
@@ -4853,6 +6101,18 @@ export interface operations {
                           range: (number)[];
                         };
                         coverage?: number;
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
                         scheduleRules?: ({
                             /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
@@ -4875,6 +6135,18 @@ export interface operations {
                         /** @enum {string} */
                         type: "experiment-ref";
                         condition?: string;
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
                         scheduleRules?: ({
                             /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
@@ -4914,6 +6186,18 @@ export interface operations {
                         safeRolloutId?: string;
                         /** @enum {string} */
                         status?: "running" | "released" | "rolled-back" | "stopped";
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
                         scheduleRules?: ({
                             /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
@@ -5017,6 +6301,18 @@ export interface operations {
                           id: string;
                           condition: string;
                         })[];
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
                       scheduleRules?: ({
                           /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                           enabled: boolean;
@@ -5040,6 +6336,18 @@ export interface operations {
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
                       scheduleRules?: ({
                           /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                           enabled: boolean;
@@ -5076,6 +6384,18 @@ export interface operations {
                         range: (number)[];
                       };
                       coverage?: number;
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
                       scheduleRules?: ({
                           /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                           enabled: boolean;
@@ -5098,6 +6418,18 @@ export interface operations {
                       /** @enum {string} */
                       type: "experiment-ref";
                       condition?: string;
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
                       scheduleRules?: ({
                           /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                           enabled: boolean;
@@ -5137,6 +6469,18 @@ export interface operations {
                       safeRolloutId?: string;
                       /** @enum {string} */
                       status?: "running" | "released" | "rolled-back" | "stopped";
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
                       scheduleRules?: ({
                           /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                           enabled: boolean;
@@ -5166,6 +6510,18 @@ export interface operations {
                             id: string;
                             condition: string;
                           })[];
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
                         scheduleRules?: ({
                             /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
@@ -5189,6 +6545,18 @@ export interface operations {
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
                         scheduleRules?: ({
                             /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
@@ -5225,6 +6593,18 @@ export interface operations {
                           range: (number)[];
                         };
                         coverage?: number;
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
                         scheduleRules?: ({
                             /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
@@ -5247,6 +6627,18 @@ export interface operations {
                         /** @enum {string} */
                         type: "experiment-ref";
                         condition?: string;
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
                         scheduleRules?: ({
                             /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
@@ -5286,6 +6678,18 @@ export interface operations {
                         safeRolloutId?: string;
                         /** @enum {string} */
                         status?: "running" | "released" | "rolled-back" | "stopped";
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
                         scheduleRules?: ({
                             /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;

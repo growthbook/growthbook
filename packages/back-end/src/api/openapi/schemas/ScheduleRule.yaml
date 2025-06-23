@@ -15,3 +15,8 @@ properties:
     nullable: true
     description: "ISO timestamp when the rule should activate."
     example: "2025-06-23T16:09:37.769Z"
+example:
+  - enabled: true
+    timestamp: null
+  - enabled: false
+    timestamp: "2025-06-23T16:09:37.769Z"

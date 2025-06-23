@@ -357,6 +357,11 @@ paths:
                                   type: array
                                   items:
                                     $ref: '#/components/schemas/ScheduleRule'
+                                  example:
+                                    - enabled: true
+                                      timestamp: null
+                                    - enabled: false
+                                      timestamp: '2025-06-23T16:09:37.769Z'
                                 id:
                                   type: string
                                 enabled:
@@ -416,6 +421,11 @@ paths:
                                   type: array
                                   items:
                                     $ref: '#/components/schemas/ScheduleRule'
+                                  example:
+                                    - enabled: true
+                                      timestamp: null
+                                    - enabled: false
+                                      timestamp: '2025-06-23T16:09:37.769Z'
                                 id:
                                   type: string
                                 enabled:
@@ -487,6 +497,11 @@ paths:
                                   type: array
                                   items:
                                     $ref: '#/components/schemas/ScheduleRule'
+                                  example:
+                                    - enabled: true
+                                      timestamp: null
+                                    - enabled: false
+                                      timestamp: '2025-06-23T16:09:37.769Z'
                                 variations:
                                   type: array
                                   items:
@@ -556,6 +571,11 @@ paths:
                                   type: array
                                   items:
                                     $ref: '#/components/schemas/ScheduleRule'
+                                  example:
+                                    - enabled: true
+                                      timestamp: null
+                                    - enabled: false
+                                      timestamp: '2025-06-23T16:09:37.769Z'
                                 values:
                                   type: array
                                   items:
@@ -5608,6 +5628,11 @@ components:
           nullable: true
           description: ISO timestamp when the rule should activate.
           example: '2025-06-23T16:09:37.769Z'
+      example:
+        - enabled: true
+          timestamp: null
+        - enabled: false
+          timestamp: '2025-06-23T16:09:37.769Z'
     Feature:
       type: object
       required:
@@ -5877,6 +5902,11 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ScheduleRule'
+          example:
+            - enabled: true
+              timestamp: null
+            - enabled: false
+              timestamp: '2025-06-23T16:09:37.769Z'
         id:
           type: string
         enabled:
@@ -5925,6 +5955,11 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ScheduleRule'
+          example:
+            - enabled: true
+              timestamp: null
+            - enabled: false
+              timestamp: '2025-06-23T16:09:37.769Z'
         id:
           type: string
         enabled:
@@ -6013,6 +6048,11 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ScheduleRule'
+          example:
+            - enabled: true
+              timestamp: null
+            - enabled: false
+              timestamp: '2025-06-23T16:09:37.769Z'
     FeatureExperimentRule:
       type: object
       required:
@@ -6069,6 +6109,11 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ScheduleRule'
+          example:
+            - enabled: true
+              timestamp: null
+            - enabled: false
+              timestamp: '2025-06-23T16:09:37.769Z'
         value:
           type: array
           items:
@@ -6109,6 +6154,11 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ScheduleRule'
+          example:
+            - enabled: true
+              timestamp: null
+            - enabled: false
+              timestamp: '2025-06-23T16:09:37.769Z'
         variations:
           type: array
           items:
