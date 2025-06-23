@@ -45,6 +45,7 @@ properties:
     type: array
     items:
       type: object
+      description: "An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule)."
       required:
         - enabled
         - timestamp
@@ -54,6 +55,8 @@ properties:
         timestamp:
           type: string
           nullable: true
+          description: ISO 8601 timestamp when the rule should activate. Null means the rule is always active.
+          example: "2025-06-23T16:09:37.769Z"
   id:
     type: string
   enabled:

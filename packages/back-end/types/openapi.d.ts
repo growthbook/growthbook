@@ -3008,6 +3008,10 @@ export interface operations {
                     })[];
                   scheduleRules?: ({
                       enabled: boolean;
+                      /**
+                       * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                       * @example 2025-06-23T16:09:37.769Z
+                       */
                       timestamp: string | null;
                     })[];
                   id?: string;
@@ -3032,6 +3036,10 @@ export interface operations {
                     })[];
                   scheduleRules?: ({
                       enabled: boolean;
+                      /**
+                       * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                       * @example 2025-06-23T16:09:37.769Z
+                       */
                       timestamp: string | null;
                     })[];
                   id?: string;
@@ -3063,6 +3071,10 @@ export interface operations {
                     })[];
                   scheduleRules?: ({
                       enabled: boolean;
+                      /**
+                       * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                       * @example 2025-06-23T16:09:37.769Z
+                       */
                       timestamp: string | null;
                     })[];
                   variations: ({
@@ -3092,6 +3104,10 @@ export interface operations {
                   coverage?: number;
                   scheduleRules?: ({
                       enabled: boolean;
+                      /**
+                       * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                       * @example 2025-06-23T16:09:37.769Z
+                       */
                       timestamp: string | null;
                     })[];
                   values?: ({
@@ -3125,6 +3141,10 @@ export interface operations {
                       })[];
                     scheduleRules?: ({
                         enabled: boolean;
+                        /**
+                         * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                         * @example 2025-06-23T16:09:37.769Z
+                         */
                         timestamp: string | null;
                       })[];
                     id?: string;
@@ -3149,6 +3169,10 @@ export interface operations {
                       })[];
                     scheduleRules?: ({
                         enabled: boolean;
+                        /**
+                         * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                         * @example 2025-06-23T16:09:37.769Z
+                         */
                         timestamp: string | null;
                       })[];
                     id?: string;
@@ -3180,6 +3204,10 @@ export interface operations {
                       })[];
                     scheduleRules?: ({
                         enabled: boolean;
+                        /**
+                         * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                         * @example 2025-06-23T16:09:37.769Z
+                         */
                         timestamp: string | null;
                       })[];
                     variations: ({
@@ -3209,6 +3237,10 @@ export interface operations {
                     coverage?: number;
                     scheduleRules?: ({
                         enabled: boolean;
+                        /**
+                         * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                         * @example 2025-06-23T16:09:37.769Z
+                         */
                         timestamp: string | null;
                       })[];
                     values?: ({
@@ -4049,6 +4081,10 @@ export interface operations {
                     })[];
                   scheduleRules?: ({
                       enabled: boolean;
+                      /**
+                       * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                       * @example 2025-06-23T16:09:37.769Z
+                       */
                       timestamp: string | null;
                     })[];
                   id?: string;
@@ -4073,6 +4109,10 @@ export interface operations {
                     })[];
                   scheduleRules?: ({
                       enabled: boolean;
+                      /**
+                       * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                       * @example 2025-06-23T16:09:37.769Z
+                       */
                       timestamp: string | null;
                     })[];
                   id?: string;
@@ -4104,6 +4144,10 @@ export interface operations {
                     })[];
                   scheduleRules?: ({
                       enabled: boolean;
+                      /**
+                       * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                       * @example 2025-06-23T16:09:37.769Z
+                       */
                       timestamp: string | null;
                     })[];
                   variations: ({
@@ -4133,6 +4177,10 @@ export interface operations {
                   coverage?: number;
                   scheduleRules?: ({
                       enabled: boolean;
+                      /**
+                       * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                       * @example 2025-06-23T16:09:37.769Z
+                       */
                       timestamp: string | null;
                     })[];
                   values?: ({
@@ -4166,6 +4214,10 @@ export interface operations {
                       })[];
                     scheduleRules?: ({
                         enabled: boolean;
+                        /**
+                         * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                         * @example 2025-06-23T16:09:37.769Z
+                         */
                         timestamp: string | null;
                       })[];
                     id?: string;
@@ -4190,6 +4242,10 @@ export interface operations {
                       })[];
                     scheduleRules?: ({
                         enabled: boolean;
+                        /**
+                         * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                         * @example 2025-06-23T16:09:37.769Z
+                         */
                         timestamp: string | null;
                       })[];
                     id?: string;
@@ -4221,6 +4277,10 @@ export interface operations {
                       })[];
                     scheduleRules?: ({
                         enabled: boolean;
+                        /**
+                         * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                         * @example 2025-06-23T16:09:37.769Z
+                         */
                         timestamp: string | null;
                       })[];
                     variations: ({
@@ -4250,6 +4310,10 @@ export interface operations {
                     coverage?: number;
                     scheduleRules?: ({
                         enabled: boolean;
+                        /**
+                         * @description ISO 8601 timestamp when the rule should activate. Null means the rule is always active. 
+                         * @example 2025-06-23T16:09:37.769Z
+                         */
                         timestamp: string | null;
                       })[];
                     values?: ({
