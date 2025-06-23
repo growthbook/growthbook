@@ -1,9 +1,6 @@
 import React, { useCallback, useState } from "react";
 import { Box, Text } from "@radix-ui/themes";
-import {
-  AgreementType,
-  AgreementType,
-} from "back-end/src/validators/agreements";
+import { AgreementType } from "back-end/src/validators/agreements";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Modal from "@/components/Modal";
@@ -63,6 +60,14 @@ const agreements: Record<
         administrator.
       </>
     ),
+    version: "2025-06-19",
+  },
+  "managed-warehouse": {
+    // STOPSHIP(graham): Update this text to match the actual agreement
+    title: "Enable Managed Warehouse?",
+    subtitle: "Please read and agree to the terms before proceeding.",
+    terms: undefined,
+    noPermission: undefined,
     version: "2025-06-19",
   },
 };
