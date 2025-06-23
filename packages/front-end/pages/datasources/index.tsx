@@ -34,7 +34,20 @@ function ManagedClickhouseForm({ close }: { close: () => void }) {
   const { mutateDefinitions } = useDefinitions();
   const router = useRouter();
 
+  const { hasCommercialFeature } = useUser();
+  const hasAccess = hasCommercialFeature("managed-clickhouse");
   const [agree, setAgree] = useState(false);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+
+  if (upgradeOpen) {
+    return (
+      <UpgradeModal
+        close={() => setUpgradeOpen(false)}
+        commercialFeature="managed-clickhouse"
+        source="datasource-list"
+      />
+    );
+  }
 
   return (
     <Modal
@@ -48,6 +61,9 @@ function ManagedClickhouseForm({ close }: { close: () => void }) {
       trackingEventModalType="managed-clickhouse"
       close={close}
       submit={async () => {
+        if (!hasAccess) {
+          throw new Error("You must upgrade to use this feature");
+        }
         if (!agree) {
           throw new Error("You must agree to the terms and conditions");
         }
@@ -65,6 +81,7 @@ function ManagedClickhouseForm({ close }: { close: () => void }) {
         }
       }}
       cta="Create"
+      ctaEnabled={hasAccess}
     >
       <p>
         GrowthBook Cloud offers a fully-managed version of ClickHouse, an
@@ -106,34 +123,44 @@ function ManagedClickhouseForm({ close }: { close: () => void }) {
         </p>
       </div>
 
-      <Separator size="4" my="4" />
-
-      <Box>
-        <Checkbox
-          value={agree}
-          setValue={setAgree}
-          label={
-            <>
-              I agree to the{" "}
-              <a
-                href="https://www.growthbook.io/legal"
-                target="_blank"
-                rel="noreferrer"
-              >
-                terms and conditions
-              </a>
-            </>
-          }
-          required
-        />
-        <Box mt="2">
-          <Text size="1" mb="2">
-            Do not include any sensitive or regulated personal data in your
-            analytics events unless it is properly de-identified in accordance
-            with applicable legal standards.
-          </Text>
-        </Box>
-      </Box>
+      {hasAccess ? (
+        <>
+          <Separator size="4" my="4" />
+          <Box>
+            <Checkbox
+              value={agree}
+              setValue={setAgree}
+              label={
+                <>
+                  I agree to the{" "}
+                  <a
+                    href="https://www.growthbook.io/legal"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    terms and conditions
+                  </a>
+                </>
+              }
+              required
+            />
+            <Box mt="2">
+              <Text size="1" mb="2">
+                Do not include any sensitive or regulated personal data in your
+                analytics events unless it is properly de-identified in
+                accordance with applicable legal standards.
+              </Text>
+            </Box>
+          </Box>
+        </>
+      ) : (
+        <div className="appbox bg-light p-3 text-center">
+          <Text>You must upgrade to Pro to access this feature.</Text>
+          <Button variant="solid" mt="3" onClick={() => setUpgradeOpen(true)}>
+            Upgrade to Pro
+          </Button>
+        </div>
+      )}
     </Modal>
   );
 }
@@ -171,15 +198,7 @@ function ManagedClickhouseDriver() {
 
   return (
     <>
-      {open && hasAccess ? (
-        <ManagedClickhouseForm close={() => setOpen(false)} />
-      ) : open ? (
-        <UpgradeModal
-          close={() => setOpen(false)}
-          commercialFeature="managed-clickhouse"
-          source="datasource-list"
-        />
-      ) : null}
+      {open ? <ManagedClickhouseForm close={() => setOpen(false)} /> : null}
       <Flex
         style={{
           position: "relative",
