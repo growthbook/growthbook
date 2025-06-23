@@ -14,7 +14,7 @@ import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
 import OptInModal from "@/components/License/OptInModal";
 import { AppFeatures } from "@/types/app-features";
-import { AIData, computeAIUsageData } from "@/services/utils";
+import { AISuggestionData, computeAIUsageData } from "@/services/utils";
 import track from "@/services/track";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
@@ -42,7 +42,9 @@ export default function EditHypothesisModal({
   const [error, setError] = useState<string | null>(null);
   const [aiResponse, setAiResponse] = useState<string | null>(null);
   const [aiAgreementModal, setAiAgreementModal] = useState<boolean>(false);
-  const [aiSuggestionData, setAiSuggestionData] = useState<AIData>({});
+  const [aiSuggestionData, setAiSuggestionData] = useState<AISuggestionData>(
+    {}
+  );
   const form = useForm<{ hypothesis: string; useThisHypothesis: boolean }>({
     defaultValues: {
       hypothesis: initialValue || "",
@@ -65,10 +67,6 @@ export default function EditHypothesisModal({
           "ai-suggestions-temperature",
           0.1
         );
-        setAiSuggestionData({
-          ...aiSuggestionData,
-          temperature,
-        });
         apiCall(
           `/ai/reformat`,
           {
@@ -96,8 +94,8 @@ export default function EditHypothesisModal({
           .then((res: { data: { output: string } }) => {
             setAiResponse(res.data.output);
             setAiSuggestionData({
-              ...aiSuggestionData,
               text: res.data.output,
+              temperature,
             });
           })
           .catch(() => {

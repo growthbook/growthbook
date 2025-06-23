@@ -298,7 +298,7 @@ function jaccardSimilarity(text1: string, text2: string): number {
   return intersection.size / union.size;
 }
 
-export type AIData = {
+export type AISuggestionData = {
   temperature?: number;
   text?: string;
 };

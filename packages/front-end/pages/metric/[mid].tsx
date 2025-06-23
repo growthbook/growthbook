@@ -63,7 +63,11 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import { useUser } from "@/services/UserContext";
 import PageHead from "@/components/Layout/PageHead";
-import { capitalizeFirstLetter, computeAIUsageData } from "@/services/utils";
+import {
+  AISuggestionData,
+  capitalizeFirstLetter,
+  computeAIUsageData,
+} from "@/services/utils";
 import MetricName from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import MetricPriorRightRailSectionGroup from "@/components/Metrics/MetricPriorRightRailSectionGroup";
@@ -107,10 +111,9 @@ const MetricPage: FC = () => {
     storageKeySum,
     "day"
   );
-  const [aiSuggestionData, setAiSuggestionData] = useState<{
-    temperature?: number;
-    text?: string;
-  }>({});
+  const [aiSuggestionData, setAiSuggestionData] = useState<AISuggestionData>(
+    {}
+  );
 
   const [hoverDate, setHoverDate] = useState<number | null>(null);
   const onHoverCallback = (ret: { d: number | null }) => {
@@ -575,7 +578,7 @@ const MetricPage: FC = () => {
                           mutateDefinitions({});
                         }}
                         aiSuggestFunction={async () => {
-                          const aiSuggestedTemperature = growthbook.getFeatureValue(
+                          const temperature = growthbook.getFeatureValue(
                             "ai-suggestions-temperature",
                             0.1
                           );
@@ -615,7 +618,7 @@ const MetricPage: FC = () => {
                           }
                           setAiSuggestionData({
                             text: res.data.description,
-                            temperature: aiSuggestedTemperature ?? 0.1,
+                            temperature: temperature ?? 0.1,
                           });
                           return res.data.description;
                         }}

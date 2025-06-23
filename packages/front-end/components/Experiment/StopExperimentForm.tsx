@@ -21,7 +21,11 @@ import DatePicker from "@/components/DatePicker";
 import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
 import Callout from "@/components/Radix/Callout";
 import { AppFeatures } from "@/types/app-features";
-import { AIData, AIUsageData, computeAIUsageData } from "@/services/utils";
+import {
+  AISuggestionData,
+  AIUsageData,
+  computeAIUsageData,
+} from "@/services/utils";
 import { Results } from "./ResultsIndicator";
 
 type StopTrackProps = {
@@ -43,7 +47,9 @@ const StopExperimentForm: FC<{
   mutate,
   source,
 }) => {
-  const [aiSuggestionData, setAiSuggestionData] = useState<AIData>({});
+  const [aiSuggestionData, setAiSuggestionData] = useState<AISuggestionData>(
+    {}
+  );
   const [trackingData, setTrackingData] = useState<StopTrackProps>({});
   const isBandit = experiment.type == "multi-armed-bandit";
   const isStopped = experiment.status === "stopped";

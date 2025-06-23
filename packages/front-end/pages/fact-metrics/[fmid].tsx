@@ -38,7 +38,7 @@ import {
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import {
-  AIData,
+  AISuggestionData,
   capitalizeFirstLetter,
   computeAIUsageData,
 } from "@/services/utils";
@@ -169,7 +169,9 @@ export default function FactMetricPage() {
   const [auditModal, setAuditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [openDropdown, setOpenDropdown] = useState(false);
-  const [aiSuggestionData, setAiSuggestionData] = useState<AIData>({});
+  const [aiSuggestionData, setAiSuggestionData] = useState<AISuggestionData>(
+    {}
+  );
 
   const [tab, setTab] = useLocalStorage<string | null>(
     `metricTabbedPageTab__${fmid}`,
@@ -627,7 +629,7 @@ export default function FactMetricPage() {
               canEdit={canEdit}
               value={factMetric.description}
               aiSuggestFunction={async () => {
-                const aiSuggestedTemperature = growthbook.getFeatureValue(
+                const temperature = growthbook.getFeatureValue(
                   "ai-suggestions-temperature",
                   0.1
                 );
@@ -638,7 +640,7 @@ export default function FactMetricPage() {
                   };
                 }>(
                   `/metrics/${factMetric.id}/gen-description?temperature=${
-                    aiSuggestedTemperature ?? 0.1
+                    temperature ?? 0.1
                   }`,
                   {
                     method: "GET",
@@ -661,7 +663,7 @@ export default function FactMetricPage() {
                 }
                 setAiSuggestionData({
                   text: res.data.description,
-                  temperature: aiSuggestedTemperature ?? 0.1,
+                  temperature: temperature ?? 0.1,
                 });
                 return res.data.description;
               }}
