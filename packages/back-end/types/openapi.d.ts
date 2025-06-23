@@ -3006,6 +3006,7 @@ export interface operations {
                       matchType: "all" | "any" | "none";
                       savedGroups: (string)[];
                     })[];
+                  /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                   scheduleRules?: ({
                       enabled: boolean;
                       /**
@@ -3034,6 +3035,7 @@ export interface operations {
                       id: string;
                       condition: string;
                     })[];
+                  /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                   scheduleRules?: ({
                       enabled: boolean;
                       /**
@@ -3069,6 +3071,7 @@ export interface operations {
                       id: string;
                       condition: string;
                     })[];
+                  /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                   scheduleRules?: ({
                       enabled: boolean;
                       /**
@@ -3102,6 +3105,7 @@ export interface operations {
                     range: (number)[];
                   };
                   coverage?: number;
+                  /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                   scheduleRules?: ({
                       enabled: boolean;
                       /**
@@ -3139,6 +3143,7 @@ export interface operations {
                         matchType: "all" | "any" | "none";
                         savedGroups: (string)[];
                       })[];
+                    /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                     scheduleRules?: ({
                         enabled: boolean;
                         /**
@@ -3167,6 +3172,7 @@ export interface operations {
                         id: string;
                         condition: string;
                       })[];
+                    /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                     scheduleRules?: ({
                         enabled: boolean;
                         /**
@@ -3202,6 +3208,7 @@ export interface operations {
                         id: string;
                         condition: string;
                       })[];
+                    /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                     scheduleRules?: ({
                         enabled: boolean;
                         /**
@@ -3235,6 +3242,7 @@ export interface operations {
                       range: (number)[];
                     };
                     coverage?: number;
+                    /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                     scheduleRules?: ({
                         enabled: boolean;
                         /**
@@ -4079,6 +4087,7 @@ export interface operations {
                       matchType: "all" | "any" | "none";
                       savedGroups: (string)[];
                     })[];
+                  /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                   scheduleRules?: ({
                       enabled: boolean;
                       /**
@@ -4107,6 +4116,7 @@ export interface operations {
                       id: string;
                       condition: string;
                     })[];
+                  /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                   scheduleRules?: ({
                       enabled: boolean;
                       /**
@@ -4142,6 +4152,7 @@ export interface operations {
                       id: string;
                       condition: string;
                     })[];
+                  /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                   scheduleRules?: ({
                       enabled: boolean;
                       /**
@@ -4175,6 +4186,7 @@ export interface operations {
                     range: (number)[];
                   };
                   coverage?: number;
+                  /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                   scheduleRules?: ({
                       enabled: boolean;
                       /**
@@ -4212,6 +4224,7 @@ export interface operations {
                         matchType: "all" | "any" | "none";
                         savedGroups: (string)[];
                       })[];
+                    /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                     scheduleRules?: ({
                         enabled: boolean;
                         /**
@@ -4240,6 +4253,7 @@ export interface operations {
                         id: string;
                         condition: string;
                       })[];
+                    /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                     scheduleRules?: ({
                         enabled: boolean;
                         /**
@@ -4275,6 +4289,7 @@ export interface operations {
                         id: string;
                         condition: string;
                       })[];
+                    /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                     scheduleRules?: ({
                         enabled: boolean;
                         /**
@@ -4308,6 +4323,7 @@ export interface operations {
                       range: (number)[];
                     };
                     coverage?: number;
+                    /** @description An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule). */
                     scheduleRules?: ({
                         enabled: boolean;
                         /**

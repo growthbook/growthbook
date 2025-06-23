@@ -352,9 +352,9 @@ paths:
                                           type: string
                                 scheduleRules:
                                   type: array
+                                  description: An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule).
                                   items:
                                     type: object
-                                    description: An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule).
                                     required:
                                       - enabled
                                       - timestamp
@@ -423,9 +423,9 @@ paths:
                                         type: string
                                 scheduleRules:
                                   type: array
+                                  description: An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule).
                                   items:
                                     type: object
-                                    description: An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule).
                                     required:
                                       - enabled
                                       - timestamp
@@ -506,9 +506,9 @@ paths:
                                         type: string
                                 scheduleRules:
                                   type: array
+                                  description: An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule).
                                   items:
                                     type: object
-                                    description: An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule).
                                     required:
                                       - enabled
                                       - timestamp
@@ -587,9 +587,9 @@ paths:
                                   type: number
                                 scheduleRules:
                                   type: array
+                                  description: An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule).
                                   items:
                                     type: object
-                                    description: An optional array of schedule rules to enable/disable the rule at specific times. Must contain exactly 2 elements (start rule and end rule).
                                     required:
                                       - enabled
                                       - timestamp
