@@ -103,6 +103,8 @@ const GetStartedPage = (): React.ReactElement => {
             <Link
               key={i}
               href={feature.href}
+              target={isExternalUrl(feature.href) ? "_blank" : undefined}
+              rel={isExternalUrl(feature.href) ? "noopener noreferrer" : undefined}
               style={{ textDecoration: "none" }}
             >
               <Card
