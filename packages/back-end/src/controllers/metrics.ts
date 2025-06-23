@@ -711,7 +711,7 @@ export const getMetricNorthstarData = async (
 // metric based on the ID, based on the data source, project, SQL, any template
 // variables, and options. Supports both regular metrics and fact-table metrics.
 export const getGeneratedDescription = async (
-  req: AuthRequest<unknown, { id: string }>,
+  req: AuthRequest<unknown, { id: string }, { temperature?: number }>,
   res: Response<{
     status: number;
     message?: string;
@@ -855,7 +855,7 @@ export const getGeneratedDescription = async (
       context,
       prompt: prompt,
       instructions: priorKnowledge.join(".\n"),
-      temperature: 0.1,
+      temperature: req.query.temperature ?? 0.1,
       type,
       isDefaultPrompt,
     });
@@ -925,7 +925,7 @@ export const getGeneratedDescription = async (
       context,
       prompt: prompt,
       instructions: priorKnowledge.join(".\n"),
-      temperature: 0.1,
+      temperature: req.query.temperature ?? 0.1,
       type,
       isDefaultPrompt,
     });

@@ -1,4 +1,4 @@
-import { FC } from "react";
+import { FC, useEffect, useState } from "react";
 import {
   DecisionCriteriaData,
   ExperimentInterfaceStringDates,
@@ -21,7 +21,16 @@ import DatePicker from "@/components/DatePicker";
 import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
 import Callout from "@/components/Radix/Callout";
 import { AppFeatures } from "@/types/app-features";
+import {
+  AISuggestionData,
+  AIUsageData,
+  computeAIUsageData,
+} from "@/services/utils";
 import { Results } from "./ResultsIndicator";
+
+type StopTrackProps = {
+  result?: string;
+} & AIUsageData;
 
 const StopExperimentForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -38,6 +47,10 @@ const StopExperimentForm: FC<{
   mutate,
   source,
 }) => {
+  const [aiSuggestionData, setAiSuggestionData] = useState<AISuggestionData>(
+    {}
+  );
+  const [trackingData, setTrackingData] = useState<StopTrackProps>({});
   const isBandit = experiment.type == "multi-armed-bandit";
   const isStopped = experiment.status === "stopped";
 
@@ -48,6 +61,10 @@ const StopExperimentForm: FC<{
     "ai-suggestions-for-experiment-analysis-input"
   )
     ? async () => {
+        const aiSuggestionTemperature = gb.getFeatureValue(
+          "ai-suggestions-temperature",
+          0.1
+        );
         const response = await apiCall<{
           status: number;
           data: {
@@ -61,6 +78,9 @@ const StopExperimentForm: FC<{
               results: form.watch("results"),
               winner: form.watch("winner"),
               releasedVariationId: form.watch("releasedVariationId"),
+              ...(aiSuggestionTemperature !== undefined
+                ? { temperature: aiSuggestionTemperature }
+                : {}),
             }),
           },
           (responseData) => {
@@ -76,6 +96,10 @@ const StopExperimentForm: FC<{
             }
           }
         );
+        setAiSuggestionData({
+          text: response.data.description,
+          temperature: aiSuggestionTemperature ?? 0.1,
+        });
         return response.data.description;
       }
     : undefined;
@@ -201,10 +225,26 @@ const StopExperimentForm: FC<{
     mutate();
   });
 
+  const value = form.watch("analysis");
+  const result = form.watch("results");
+
+  useEffect(() => {
+    const aiUsageData = computeAIUsageData({
+      value,
+      aiSuggestionText: aiSuggestionData.text ?? undefined,
+      aiSuggestionTemperature: aiSuggestionData.temperature ?? undefined,
+    });
+    setTrackingData({
+      result,
+      ...aiUsageData,
+    });
+  }, [value, result, aiSuggestionData]);
+
   return (
     <Modal
       trackingEventModalType="stop-experiment-form"
       trackingEventModalSource={source}
+      allowlistedTrackingEventProps={trackingData}
       header={
         isStopped
           ? `Edit ${isBandit ? "Bandit" : "Experiment"} Results`

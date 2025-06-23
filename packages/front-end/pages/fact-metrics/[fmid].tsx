@@ -37,7 +37,11 @@ import {
 } from "@/services/metrics";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { capitalizeFirstLetter } from "@/services/utils";
+import {
+  AISuggestionData,
+  capitalizeFirstLetter,
+  computeAIUsageData,
+} from "@/services/utils";
 import MetricName from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import MetricPriorRightRailSectionGroup from "@/components/Metrics/MetricPriorRightRailSectionGroup";
@@ -61,6 +65,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/Radix/DropdownMenu";
+import track from "@/services/track";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -164,6 +169,9 @@ export default function FactMetricPage() {
   const [auditModal, setAuditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [openDropdown, setOpenDropdown] = useState(false);
+  const [aiSuggestionData, setAiSuggestionData] = useState<AISuggestionData>(
+    {}
+  );
 
   const [tab, setTab] = useLocalStorage<string | null>(
     `metricTabbedPageTab__${fmid}`,
@@ -621,13 +629,19 @@ export default function FactMetricPage() {
               canEdit={canEdit}
               value={factMetric.description}
               aiSuggestFunction={async () => {
+                const temperature = growthbook.getFeatureValue(
+                  "ai-suggestions-temperature",
+                  0.1
+                );
                 const res = await apiCall<{
                   status: number;
                   data: {
                     description: string;
                   };
                 }>(
-                  `/metrics/${factMetric.id}/gen-description`,
+                  `/metrics/${factMetric.id}/gen-description?temperature=${
+                    temperature ?? 0.1
+                  }`,
                   {
                     method: "GET",
                   },
@@ -647,6 +661,10 @@ export default function FactMetricPage() {
                 if (res?.status !== 200) {
                   throw new Error("Could not load AI suggestions");
                 }
+                setAiSuggestionData({
+                  text: res.data.description,
+                  temperature: temperature ?? 0.1,
+                });
                 return res.data.description;
               }}
               aiButtonText="Suggest Description"
@@ -659,6 +677,18 @@ export default function FactMetricPage() {
                     description,
                   }),
                 });
+
+                const aiUsageData = computeAIUsageData({
+                  value: description,
+                  aiSuggestionText: aiSuggestionData.text ?? undefined,
+                  aiSuggestionTemperature:
+                    aiSuggestionData.temperature ?? undefined,
+                });
+
+                track("fmid-description-updated", {
+                  ...aiUsageData,
+                });
+
                 mutateDefinitions();
               }}
             />

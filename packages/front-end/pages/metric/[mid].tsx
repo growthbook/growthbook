@@ -21,6 +21,7 @@ import {
 } from "shared/constants";
 import { Box } from "@radix-ui/themes";
 import { isBinomialMetric } from "shared/experiments";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import useApi from "@/hooks/useApi";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import DiscussionThread from "@/components/DiscussionThread";
@@ -62,13 +63,19 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import { useUser } from "@/services/UserContext";
 import PageHead from "@/components/Layout/PageHead";
-import { capitalizeFirstLetter } from "@/services/utils";
+import {
+  AISuggestionData,
+  capitalizeFirstLetter,
+  computeAIUsageData,
+} from "@/services/utils";
 import MetricName from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import MetricPriorRightRailSectionGroup from "@/components/Metrics/MetricPriorRightRailSectionGroup";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import MetricExperiments from "@/components/MetricExperiments/MetricExperiments";
 import { MetricModal } from "@/components/FactTables/NewMetricModal";
+import { AppFeatures } from "@/types/app-features";
+import track from "@/services/track";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -86,6 +93,7 @@ const MetricPage: FC = () => {
   } = useDefinitions();
   const settings = useOrgSettings();
   const { organization } = useUser();
+  const growthbook = useGrowthBook<AppFeatures>();
 
   const [editModalOpen, setEditModalOpen] = useState<boolean | number>(false);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState<boolean>(false);
@@ -102,6 +110,9 @@ const MetricPage: FC = () => {
   const [smoothBySum, setSmoothBySum] = useLocalStorage<"day" | "week">(
     storageKeySum,
     "day"
+  );
+  const [aiSuggestionData, setAiSuggestionData] = useState<AISuggestionData>(
+    {}
   );
 
   const [hoverDate, setHoverDate] = useState<number | null>(null);
@@ -552,16 +563,36 @@ const MetricPage: FC = () => {
                             }),
                           });
                           await mutate();
+
+                          const aiUsageData = computeAIUsageData({
+                            value: description,
+                            aiSuggestionText:
+                              aiSuggestionData.text ?? undefined,
+                            aiSuggestionTemperature:
+                              aiSuggestionData.temperature ?? undefined,
+                          });
+                          track("metric-description-updated", {
+                            ...aiUsageData,
+                          });
+
                           mutateDefinitions({});
                         }}
                         aiSuggestFunction={async () => {
+                          const temperature = growthbook.getFeatureValue(
+                            "ai-suggestions-temperature",
+                            0.1
+                          );
                           const res = await apiCall<{
                             status: number;
                             data: {
                               description: string;
                             };
                           }>(
-                            `/metrics/${metric.id}/gen-description`,
+                            `/metrics/${
+                              metric.id
+                            }/gen-description?temperature=${
+                              aiSuggestionData.temperature ?? 0.1
+                            }`,
                             {
                               method: "GET",
                             },
@@ -585,6 +616,10 @@ const MetricPage: FC = () => {
                           if (res?.status !== 200) {
                             throw new Error("Could not load AI suggestions");
                           }
+                          setAiSuggestionData({
+                            text: res.data.description,
+                            temperature: temperature ?? 0.1,
+                          });
                           return res.data.description;
                         }}
                         aiButtonText="Suggest Description"

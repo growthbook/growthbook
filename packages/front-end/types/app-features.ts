@@ -77,4 +77,5 @@ export type AppFeatures = {
   "sql-explorer": boolean;
   "ai-suggestions-for-experiment-analysis-input": boolean;
   "similar-experiments": boolean;
+  "ai-suggestions-temperature": number;
 };
