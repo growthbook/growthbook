@@ -1,4 +1,4 @@
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, Text, Separator } from "@radix-ui/themes";
 import {
   AddressElement,
   PaymentElement,
@@ -222,6 +222,7 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
     <PagedModal
       trackingEventModalType="upgrade-to-pro"
       trackingEventModalSource="upgrade-modal"
+      hideNav={true}
       close={() => {
         if (success) {
           closeParent();
@@ -232,6 +233,11 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
       size="lg"
       closeCta={success ? "Close" : "Cancel"}
       header={success ? "🎉 Welcome to GrowthBook Pro!" : "Upgrade to Pro"}
+      subHeader={
+        success
+          ? ""
+          : "Get instant access to advanced experimentation, permissioning and security features."
+      }
       submit={async () => await handleSubmit()}
       cta={cta}
       step={step}
@@ -240,15 +246,18 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
       loading={loading}
     >
       <Page display="Adjust Invoice Settings">
-        <p>Adjustments made here will be reflected on your monthly invoices.</p>
-        <Field
-          type="email"
-          required={true}
-          label="Primary Email"
-          helpText="The primary email address that will receive monthly invoice emails."
-          {...form.register("email")}
-          defaultValue={form.watch("email")}
-        />
+        <div className="mb-4">
+          <label>Billing Email</label>
+          <Text as="p" mb="2">
+            Monthly invoices will be sent to this address
+          </Text>
+          <Field
+            type="email"
+            required={true}
+            {...form.register("email")}
+            defaultValue={form.watch("email")}
+          />
+        </div>
         <Flex align="center" width="100%" gap="4">
           <Box style={{ width: "50%" }}>
             <SelectField
@@ -286,15 +295,15 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
       </Page>
       <Page display="Add Payment Method">
         <>
-          <p>
+          <PaymentElement />
+          <p className="pt-3" style={{ marginBottom: "12px" }}>
             The cost is <strong>$20 per seat per month</strong>. You will be
             charged a pro-rated amount immediately for the remainder of the
             current month and it will renew automatically on the 1st of each
             subsequent month. Cancel anytime.
           </p>
-          <PaymentElement />
-          <hr />
-          <div className="mb-2">
+          <Separator size="4" mb="3" />
+          <div className="mb-4">
             <Checkbox
               label="Customize Invoice"
               value={showAddress}
