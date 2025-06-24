@@ -157,7 +157,7 @@ export default function ClickhouseMaterializedColumns({
                   <Tooltip body="The attribute will be stored in this column and available for querying" />
                 </TableColumnHeader>
                 <TableColumnHeader>Treat As</TableColumnHeader>
-                <TableColumnHeader />
+                <TableColumnHeader style={{ width: 50 }} />
               </TableRow>
             </TableHeader>
             <TableBody>

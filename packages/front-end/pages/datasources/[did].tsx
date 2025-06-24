@@ -243,7 +243,8 @@ const DataSourcePage: FC = () => {
       )}
       <Flex align="center" gap="4" mt="3">
         <Text color="gray">
-          <Text weight="medium">Type:</Text> {d.type}
+          <Text weight="medium">Type:</Text>{" "}
+          {d.type === "growthbook_clickhouse" ? "managed" : d.type}
         </Text>
         <Text color="gray">
           <Text weight="medium">Last Updated:</Text>{" "}
@@ -333,8 +334,8 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                     <DocLink docSection="managedWarehouseTracking">
                       Read our full docs
                     </DocLink>{" "}
-                    with language-specific instructions on how to send events
-                    from your app to GrowthBook.
+                    with instructions on how to send events from your app to
+                    GrowthBook.
                   </Text>
                 </Frame>
                 <Frame>
