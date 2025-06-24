@@ -17,7 +17,7 @@ import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBInfo } from "@/components/Icons";
-import Toggle from "@/components/Forms/Toggle";
+import Checkbox from "@/components/Radix/Checkbox";
 
 export const taxIdTypeOptions: { label: string; value: TaxIdType }[] = [
   { label: "US EIN", value: "us_ein" },
@@ -294,15 +294,13 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
           </p>
           <PaymentElement />
           <hr />
-          <div className="d-flex align-items-center mb-2">
-            <Toggle
-              id="address-toggle"
+          <div className="mb-2">
+            <Checkbox
+              label="Customize Invoice"
               value={showAddress}
               setValue={setShowAddress}
+              description="Add a full billing address and optionally customize the name that will be displayed on invoices."
             />
-            <label htmlFor="address-toggle" className="mb-0 ml-2">
-              Add billing address (optional)
-            </label>
           </div>
 
           {showAddress && (
@@ -312,6 +310,9 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
                 mode: "billing",
                 fields: {
                   phone: "never",
+                },
+                display: {
+                  name: "organization",
                 },
                 defaultValues: {
                   name: organization.name,

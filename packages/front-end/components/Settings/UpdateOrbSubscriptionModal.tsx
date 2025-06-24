@@ -17,7 +17,7 @@ import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBInfo } from "@/components/Icons";
 import { taxIdTypeOptions } from "@/enterprise/components/Billing/CloudProUpgradeModal";
-import Toggle from "../Forms/Toggle";
+import Checkbox from "../Radix/Checkbox";
 
 interface StripeCustomerData {
   name: string;
@@ -257,16 +257,14 @@ export default function UpdateOrbSubscriptionModal({
           <>
             <div className="d-flex align-items-center mb-2">
               {!hasExistingAddress ? (
-                <>
-                  <Toggle
-                    id="address-toggle"
+                <div className="mb-2">
+                  <Checkbox
+                    label="Customize Invoice"
                     value={showAddress}
                     setValue={setShowAddress}
+                    description="Add a full billing address and optionally customize the name that will be displayed on invoices."
                   />
-                  <label htmlFor="address-toggle" className="mb-0 ml-2">
-                    Add billing address (optional)
-                  </label>
-                </>
+                </div>
               ) : null}
             </div>
 
@@ -277,6 +275,9 @@ export default function UpdateOrbSubscriptionModal({
                   mode: "billing",
                   fields: {
                     phone: "never",
+                  },
+                  display: {
+                    name: "organization",
                   },
                   defaultValues: {
                     name: organization.name,
