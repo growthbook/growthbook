@@ -2,15 +2,12 @@ import { useForm } from "react-hook-form";
 import { Box, Flex, Heading, Text, Tooltip } from "@radix-ui/themes";
 import { BsStars } from "react-icons/bs";
 import { useState } from "react";
-import { PiArrowClockwise, PiClipboard, PiTrash } from "react-icons/pi";
+import { PiArrowClockwise } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import Button from "@/components/Radix/Button";
 import { useAISettings } from "@/hooks/useOrgSettings";
 import Markdown from "@/components/Markdown/Markdown";
-import Checkbox from "@/components/Radix/Checkbox";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
-import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
 import OptInModal from "@/components/License/OptInModal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Modal from "../Modal";
@@ -37,19 +34,15 @@ export default function EditHypothesisModal({
   const [error, setError] = useState<string | null>(null);
   const [aiResponse, setAiResponse] = useState<string | null>(null);
   const [aiAgreementModal, setAiAgreementModal] = useState<boolean>(false);
-  const form = useForm<{ hypothesis: string; useThisHypothesis: boolean }>({
+  const [revertValue, setRevertValue] = useState<string | null>(null);
+  const form = useForm<{ hypothesis: string }>({
     defaultValues: {
       hypothesis: initialValue || "",
-      useThisHypothesis: false,
     },
   });
 
   const permissionsUtil = usePermissionsUtil();
   const isAdmin = permissionsUtil.canManageOrgSettings();
-
-  const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
-    timeout: 1500,
-  });
 
   const checkHypothesis = async () => {
     if (!aiAgreedTo || !aiEnabled) {
@@ -109,10 +102,7 @@ export default function EditHypothesisModal({
           await apiCall(`/experiment/${experimentId}`, {
             method: "POST",
             body: JSON.stringify({
-              hypothesis:
-                form.getValues("useThisHypothesis") && aiResponse
-                  ? aiResponse
-                  : data.hypothesis,
+              hypothesis: data.hypothesis,
             }),
           });
           mutate();
@@ -122,7 +112,6 @@ export default function EditHypothesisModal({
       >
         <div style={{ paddingBottom: "4px" }}>
           <Field
-            disabled={form.watch("useThisHypothesis")}
             label="Hypothesis"
             textarea
             minRows={3}
@@ -132,34 +121,36 @@ export default function EditHypothesisModal({
           />
         </div>
         <Box>
-          <Flex align="start" justify="start">
-            <Tooltip
-              content={
-                aiEnabled ? (
-                  "Check hypothesis against orgniaztion standards."
-                ) : (
-                  <>
-                    Org admins can set hypothesis formatting standards for the
-                    organization in <u>General Settings</u>.
-                  </>
-                )
-              }
-              side="bottom"
-            >
-              <Button
-                disabled={
-                  (!aiEnabled && !isAdmin) ||
-                  loading ||
-                  form.watch("hypothesis").trim() === ""
+          {!aiResponse && (
+            <Flex align="start" justify="start">
+              <Tooltip
+                content={
+                  aiEnabled ? (
+                    "Suggest new hypothesis using organization formatting standards"
+                  ) : (
+                    <>
+                      Org admins can set hypothesis formatting standards for the
+                      organization in <u>General Settings</u>.
+                    </>
+                  )
                 }
-                variant="soft"
-                onClick={checkHypothesis}
-                stopPropagation={true}
+                side="bottom"
               >
-                <BsStars /> Check hypothesis
-              </Button>
-            </Tooltip>
-          </Flex>
+                <Button
+                  disabled={
+                    (!aiEnabled && !isAdmin) ||
+                    loading ||
+                    form.watch("hypothesis").trim() === ""
+                  }
+                  variant="soft"
+                  onClick={checkHypothesis}
+                  stopPropagation={true}
+                >
+                  <BsStars /> Check hypothesis
+                </Button>
+              </Tooltip>
+            </Flex>
+          )}
           {error && (
             <Box my="4">
               <p className="text-danger">{error}</p>
@@ -172,34 +163,35 @@ export default function EditHypothesisModal({
                   Suggested Hypothesis:
                 </Heading>
                 <Flex gap="2">
-                  <Button
-                    variant="ghost"
-                    onClick={() => {
-                      form.setValue("hypothesis", "");
-                    }}
-                  >
-                    <PiTrash /> Clear
-                  </Button>
-                  {copySupported && (
-                    <Box style={{ position: "relative" }}>
-                      <Button
-                        variant="ghost"
-                        onClick={() => {
-                          performCopy(aiResponse || "");
-                        }}
-                      >
-                        <PiClipboard /> Copy
-                      </Button>
-                      {copySuccess ? (
-                        <SimpleTooltip position="right">
-                          Copied to clipboard!
-                        </SimpleTooltip>
-                      ) : null}
-                    </Box>
-                  )}
                   <Button variant="ghost" onClick={checkHypothesis}>
                     <PiArrowClockwise /> Try Again
                   </Button>
+                  {aiResponse && form.getValues("hypothesis") != aiResponse && (
+                    <Tooltip content="Overwrite content above with suggested content.">
+                      <Button
+                        variant="soft"
+                        onClick={() => {
+                          setRevertValue(form.getValues("hypothesis"));
+                          form.setValue("hypothesis", aiResponse);
+                        }}
+                      >
+                        Use Suggested
+                      </Button>
+                    </Tooltip>
+                  )}
+                  {revertValue && form.getValues("hypothesis") == aiResponse && (
+                    <Tooltip content="Revert to previous content.">
+                      <Button
+                        variant="soft"
+                        onClick={() => {
+                          form.setValue("hypothesis", revertValue);
+                          setRevertValue(null);
+                        }}
+                      >
+                        Revert
+                      </Button>
+                    </Tooltip>
+                  )}
                 </Flex>
               </Flex>
               <Box>
@@ -215,15 +207,6 @@ export default function EditHypothesisModal({
                         {aiResponse || "No suggestion available."}
                       </Markdown>
                     </Box>
-                    <Flex justify="start">
-                      <Checkbox
-                        label="Use this hypothesis"
-                        value={!!form.watch("useThisHypothesis")}
-                        setValue={(v) => {
-                          form.setValue("useThisHypothesis", v === true);
-                        }}
-                      />
-                    </Flex>
                   </>
                 )}
               </Box>
