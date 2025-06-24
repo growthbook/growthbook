@@ -200,10 +200,13 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
           name: form.watch("name"),
           address: form.watch("address"),
           email: form.watch("email"),
-          taxConfig: {
-            type: form.watch("taxIdType"),
-            value: form.watch("taxIdValue"),
-          },
+          taxConfig:
+            form.watch("taxIdType") && form.watch("taxIdValue")
+              ? {
+                  type: form.watch("taxIdType"),
+                  value: form.watch("taxIdValue"),
+                }
+              : undefined,
         }),
       });
       refreshOrganization();

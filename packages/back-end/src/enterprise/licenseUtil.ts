@@ -465,9 +465,9 @@ export async function postNewInlineSubscriptionToLicenseServer(
   nonInviteSeatQty: number,
   email: string,
   additionalEmails: string[],
-  taxConfig: { type: TaxIdType; value: string },
   name: string,
-  address: StripeAddress
+  address: StripeAddress,
+  taxConfig?: { type: TaxIdType; value: string }
 ) {
   const url = `${LICENSE_SERVER_URL}subscription/start-new-pro`;
   const license = await callLicenseServer({

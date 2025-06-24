@@ -154,7 +154,7 @@ export const postInlineProSubscription = withLicenseServerErrorHandling(
     req: AuthRequest<{
       email: string;
       additionalEmails: string[];
-      taxConfig: { type: TaxIdType; value: string };
+      taxConfig?: { type: TaxIdType; value: string };
       name: string;
       address: StripeAddress;
     }>,
@@ -181,9 +181,9 @@ export const postInlineProSubscription = withLicenseServerErrorHandling(
       nonInviteSeatQty,
       req.body.email,
       req.body.additionalEmails,
-      req.body.taxConfig,
       req.body.name,
-      req.body.address
+      req.body.address,
+      req.body.taxConfig
     );
 
     res.status(200).json(result);
