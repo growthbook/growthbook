@@ -45,7 +45,7 @@ export default function MarkdownInlineEdit({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [aiAgreementModal, setAiAgreementModal] = useState(false);
-  const { aiAgreedTo } = useAISettings();
+  const { aiAgreedTo, aiEnabled } = useAISettings();
 
   if (edit) {
     return (
@@ -158,7 +158,7 @@ export default function MarkdownInlineEdit({
                       <Button
                         variant="soft"
                         onClick={async () => {
-                          if (!aiAgreedTo) {
+                          if (!aiAgreedTo || !aiEnabled) {
                             setAiAgreementModal(true);
                           } else {
                             setError(null);

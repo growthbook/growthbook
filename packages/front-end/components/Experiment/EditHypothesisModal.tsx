@@ -12,6 +12,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
 import OptInModal from "@/components/License/OptInModal";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
 
@@ -43,12 +44,15 @@ export default function EditHypothesisModal({
     },
   });
 
+  const permissionsUtil = usePermissionsUtil();
+  const isAdmin = permissionsUtil.canManageOrgSettings();
+
   const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
     timeout: 1500,
   });
 
   const checkHypothesis = async () => {
-    if (!aiAgreedTo) {
+    if (!aiAgreedTo || !aiEnabled) {
       setAiAgreementModal(true);
     } else {
       if (aiEnabled) {
@@ -144,7 +148,7 @@ export default function EditHypothesisModal({
             >
               <Button
                 disabled={
-                  !aiEnabled ||
+                  (!aiEnabled && !isAdmin) ||
                   loading ||
                   form.watch("hypothesis").trim() === ""
                 }
