@@ -17,7 +17,7 @@ import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBInfo } from "@/components/Icons";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import Toggle from "@/components/Forms/Toggle";
 
 export const taxIdTypeOptions: { label: string; value: TaxIdType }[] = [
   { label: "US EIN", value: "us_ein" },
@@ -131,6 +131,7 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
   const [step, setStep] = useState(0);
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showAddress, setShowAddress] = useState(false);
   const { clientSecret } = useStripeContext();
   const { refreshOrganization, organization, email } = useUser();
   const { apiCall } = useAuth();
@@ -138,7 +139,7 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
   const stripe = useStripe();
 
   const form = useForm<{
-    address: StripeAddress;
+    address: StripeAddress | undefined;
     name: string; // This is what the user will see on their Invoices
     email: string;
     taxIdType?: TaxIdType;
@@ -149,14 +150,7 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
       email: email,
       taxIdType: undefined,
       taxIdValue: undefined,
-      address: {
-        line1: "",
-        line2: "",
-        city: "",
-        state: "",
-        postal_code: "",
-        country: "",
-      },
+      address: undefined,
     },
   });
 
@@ -173,17 +167,19 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
         );
       }
 
-      const addressElement = elements.getElement("address");
+      if (showAddress) {
+        const addressElement = elements.getElement("address");
 
-      if (!addressElement) {
-        throw new Error("Unable to get address element");
-      }
+        if (!addressElement) {
+          throw new Error("Unable to get address element");
+        }
 
-      const { complete, value } = await addressElement.getValue();
+        const { complete, value } = await addressElement.getValue();
 
-      if (complete && value) {
-        form.setValue("address", value.address);
-        form.setValue("name", value.name);
+        if (complete && value) {
+          form.setValue("name", value.name);
+          form.setValue("address", value.address);
+        }
       }
 
       // Add payment method to customer in stripe
@@ -297,24 +293,32 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
             subsequent month. Cancel anytime.
           </p>
           <PaymentElement />
-          {/* MKTODO: If the AddressElement is rendered, it can't be incomplete. We need to think through that experience
-          If we don't want to require an org to change their address, we can just not render the AddressElement
-          But then the org won't have the option of changing their organization name */}
-          <AddressElement
-            className="pb-2"
-            options={{
-              mode: "billing",
-              fields: {
-                phone: "never",
-              },
-              display: {
-                name: "organization",
-              },
-              defaultValues: {
-                name: organization.name,
-              },
-            }}
-          />
+          <hr />
+          <div className="d-flex align-items-center mb-2">
+            <Toggle
+              id="address-toggle"
+              value={showAddress}
+              setValue={setShowAddress}
+            />
+            <label htmlFor="address-toggle" className="mb-0 ml-2">
+              Add billing address (optional)
+            </label>
+          </div>
+
+          {showAddress && (
+            <AddressElement
+              className="pb-2"
+              options={{
+                mode: "billing",
+                fields: {
+                  phone: "never",
+                },
+                defaultValues: {
+                  name: organization.name,
+                },
+              }}
+            />
+          )}
         </>
       </Page>
     </PagedModal>

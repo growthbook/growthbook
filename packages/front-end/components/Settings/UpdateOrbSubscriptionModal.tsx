@@ -17,6 +17,7 @@ import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBInfo } from "@/components/Icons";
 import { taxIdTypeOptions } from "@/enterprise/components/Billing/CloudProUpgradeModal";
+import Toggle from "../Forms/Toggle";
 
 interface StripeCustomerData {
   name: string;
@@ -42,6 +43,8 @@ export default function UpdateOrbSubscriptionModal({
   const [customerDataError, setCustomerDataError] = useState<string | null>(
     null
   );
+  const [showAddress, setShowAddress] = useState(false);
+  const [hasExistingAddress, setHasExistingAddress] = useState(false);
   const { clientSecret } = useStripeContext();
   const { organization, email } = useUser();
   const { apiCall } = useAuth();
@@ -49,7 +52,7 @@ export default function UpdateOrbSubscriptionModal({
   const stripe = useStripe();
 
   const form = useForm<{
-    address: StripeAddress;
+    address?: StripeAddress;
     name: string;
     email: string;
     taxIdType?: TaxIdType;
@@ -60,14 +63,7 @@ export default function UpdateOrbSubscriptionModal({
       email: email,
       taxIdType: undefined,
       taxIdValue: undefined,
-      address: {
-        line1: "",
-        line2: "",
-        city: "",
-        state: "",
-        postal_code: "",
-        country: "",
-      },
+      address: undefined,
     },
   });
 
@@ -105,7 +101,12 @@ export default function UpdateOrbSubscriptionModal({
         if (customerData) {
           form.setValue("name", customerData.name);
           form.setValue("email", customerData.email);
-          form.setValue("address", customerData.address);
+
+          if (customerData.address) {
+            form.setValue("address", customerData.address);
+            setShowAddress(true);
+            setHasExistingAddress(true);
+          }
 
           if (customerData.taxConfig?.type) {
             form.setValue("taxIdType", customerData.taxConfig.type);
@@ -140,17 +141,24 @@ export default function UpdateOrbSubscriptionModal({
         );
       }
 
-      const addressElement = elements.getElement("address");
+      if (showAddress) {
+        const addressElement = elements.getElement("address");
 
-      if (!addressElement) {
-        throw new Error("Unable to get address element");
+        if (!addressElement) {
+          throw new Error("Unable to get address element");
+        }
+
+        const { complete, value } = await addressElement.getValue();
+
+        if (complete && value) {
+          form.setValue("address", value.address);
+          form.setValue("name", value.name);
+        }
       }
 
-      const { complete, value } = await addressElement.getValue();
-
-      if (complete && value) {
-        form.setValue("address", value.address);
-        form.setValue("name", value.name);
+      // If showAddress is false, clear the address to ignore address changes
+      if (!showAddress && form.watch("address")) {
+        form.setValue("address", undefined);
       }
 
       // Submit all customer data to our backend to update the subscription
@@ -209,7 +217,7 @@ export default function UpdateOrbSubscriptionModal({
           {...form.register("email")}
           defaultValue={form.watch("email")}
         />
-        <Flex align="center" width="100%" gap="4" className="mb-3">
+        <Flex align="center" width="100%" gap="4">
           <Box style={{ width: "50%" }}>
             <SelectField
               label={
@@ -243,36 +251,49 @@ export default function UpdateOrbSubscriptionModal({
             />
           </Box>
         </Flex>
-        <div className="mb-3">
-          <label className="form-label">Billing Address</label>
-          {!fetchingCustomerData && (
-            <AddressElement
-              options={{
-                mode: "billing",
-                fields: {
-                  phone: "never",
-                },
-                display: {
-                  name: "organization",
-                },
-                defaultValues: {
-                  name: form.watch("name"),
-                  address: {
-                    line1: form.watch("address").line1,
-                    line2: form.watch("address").line2,
-                    city: form.watch("address").city,
-                    state: form.watch("address").state,
-                    postal_code: form.watch("address").postal_code,
-                    country: form.watch("address").country || "",
+        <hr />
+
+        {!fetchingCustomerData ? (
+          <>
+            <div className="d-flex align-items-center mb-2">
+              {!hasExistingAddress ? (
+                <>
+                  <Toggle
+                    id="address-toggle"
+                    value={showAddress}
+                    setValue={setShowAddress}
+                  />
+                  <label htmlFor="address-toggle" className="mb-0 ml-2">
+                    Add billing address (optional)
+                  </label>
+                </>
+              ) : null}
+            </div>
+
+            {showAddress && (
+              <AddressElement
+                className="pb-2"
+                options={{
+                  mode: "billing",
+                  fields: {
+                    phone: "never",
                   },
-                },
-              }}
-            />
-          )}
-          {fetchingCustomerData && (
-            <div className="p-3 text-muted">Loading address data...</div>
-          )}
-        </div>
+                  defaultValues: {
+                    name: organization.name,
+                    address: {
+                      line1: form.watch("address")?.line1,
+                      line2: form.watch("address")?.line2,
+                      city: form.watch("address")?.city,
+                      state: form.watch("address")?.state,
+                      postal_code: form.watch("address")?.postal_code,
+                      country: form.watch("address")?.country || "",
+                    },
+                  },
+                }}
+              />
+            )}
+          </>
+        ) : null}
       </div>
     </Modal>
   );

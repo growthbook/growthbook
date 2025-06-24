@@ -156,7 +156,7 @@ export const postInlineProSubscription = withLicenseServerErrorHandling(
       additionalEmails: string[];
       taxConfig?: { type: TaxIdType; value: string };
       name: string;
-      address: StripeAddress;
+      address?: StripeAddress;
     }>,
     res: Response
   ) {
@@ -496,7 +496,7 @@ export async function updateCustomerData(
   req: AuthRequest<{
     name: string;
     email: string;
-    address: StripeAddress;
+    address?: StripeAddress;
     taxConfig: { type?: TaxIdType; value?: string };
   }>,
   res: Response

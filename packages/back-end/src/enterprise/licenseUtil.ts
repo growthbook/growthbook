@@ -383,7 +383,7 @@ export async function updateCustomerDataFromServer(
   customerData: {
     name: string;
     email: string;
-    address: StripeAddress;
+    address?: StripeAddress;
     taxConfig: { type?: TaxIdType; value?: string };
   }
 ) {
@@ -466,7 +466,7 @@ export async function postNewInlineSubscriptionToLicenseServer(
   email: string,
   additionalEmails: string[],
   name: string,
-  address: StripeAddress,
+  address?: StripeAddress,
   taxConfig?: { type: TaxIdType; value: string }
 ) {
   const url = `${LICENSE_SERVER_URL}subscription/start-new-pro`;
