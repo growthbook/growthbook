@@ -154,6 +154,7 @@ class EffectMoments:
     ):
         self.stat_a, self.stat_b = sum_stats(stats)
         self.relative = config.difference_type == "relative"
+        self.initialize_theta()
 
     def _default_output(
         self,
@@ -193,25 +194,7 @@ class EffectMoments:
     def scaled_impact_eligible(self) -> bool:
         return isinstance_union(self.stat_a, ScaledImpactStatistic)
 
-    def compute_result(self) -> EffectMomentsResult:
-        if self._has_zero_variance():
-            return self._default_output(ZERO_NEGATIVE_VARIANCE_MESSAGE)
-        if self.stat_a.mean == 0:
-            return self._default_output(BASELINE_VARIATION_ZERO_MESSAGE)
-        if self.stat_a.unadjusted_mean == 0:
-            return self._default_output(BASELINE_VARIATION_ZERO_MESSAGE)
-        if isinstance(self.stat_a, RegressionAdjustedStatistic):
-            if not isinstance(self.stat_b, RegressionAdjustedStatistic):
-                return self._default_output(
-                    error_message="If stat_a is a RegressionAdjustedStatistic, stat_b must be as well"
-                )
-
-        if isinstance(self.stat_b, RegressionAdjustedStatistic):
-            if not isinstance(self.stat_a, RegressionAdjustedStatistic):
-                return self._default_output(
-                    error_message="If stat_b is a RegressionAdjustedStatistic, stat_a must be as well"
-                )
-        # Ensure theta is set for regression adjusted statistics
+    def initialize_theta(self) -> None:
         if (
             isinstance(self.stat_b, RegressionAdjustedStatistic)
             and isinstance(self.stat_a, RegressionAdjustedStatistic)
@@ -249,9 +232,24 @@ class EffectMoments:
                 self.stat_a.theta = theta
                 self.stat_b.theta = theta
 
-        # Check again for zero variance as CUPED may have changed the statistics
+    def compute_result(self) -> EffectMomentsResult:
         if self._has_zero_variance():
             return self._default_output(ZERO_NEGATIVE_VARIANCE_MESSAGE)
+        if self.stat_a.mean == 0:
+            return self._default_output(BASELINE_VARIATION_ZERO_MESSAGE)
+        if self.stat_a.unadjusted_mean == 0:
+            return self._default_output(BASELINE_VARIATION_ZERO_MESSAGE)
+        if isinstance(self.stat_a, RegressionAdjustedStatistic):
+            if not isinstance(self.stat_b, RegressionAdjustedStatistic):
+                return self._default_output(
+                    error_message="If stat_a is a RegressionAdjustedStatistic, stat_b must be as well"
+                )
+
+        if isinstance(self.stat_b, RegressionAdjustedStatistic):
+            if not isinstance(self.stat_a, RegressionAdjustedStatistic):
+                return self._default_output(
+                    error_message="If stat_b is a RegressionAdjustedStatistic, stat_a must be as well"
+                )
 
         return EffectMomentsResult(
             point_estimate=self.point_estimate,
