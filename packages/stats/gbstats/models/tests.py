@@ -170,7 +170,11 @@ class EffectMoments:
 
     def _has_zero_variance(self) -> bool:
         """Check if any variance is 0 or negative"""
-        return self.stat_a._has_zero_variance or self.stat_b._has_zero_variance
+        return (
+            self.stat_a._has_zero_variance
+            or self.stat_b._has_zero_variance
+            or self.variance <= 0
+        )
 
     @property
     def point_estimate(self) -> float:
@@ -244,6 +248,10 @@ class EffectMoments:
             else:
                 self.stat_a.theta = theta
                 self.stat_b.theta = theta
+
+        # Check again for zero variance as CUPED may have changed the statistics
+        if self._has_zero_variance():
+            return self._default_output(ZERO_NEGATIVE_VARIANCE_MESSAGE)
 
         return EffectMomentsResult(
             point_estimate=self.point_estimate,
