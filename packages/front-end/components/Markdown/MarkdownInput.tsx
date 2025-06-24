@@ -11,15 +11,13 @@ import { FaMarkdown } from "react-icons/fa";
 import ReactTextareaAutocomplete from "@webscopeio/react-textarea-autocomplete";
 import emoji from "@jukben/emoji-search";
 import { useDropzone } from "react-dropzone";
-import { Box, Flex, Heading } from "@radix-ui/themes";
-import { PiArrowClockwise, PiClipboard, PiTrash } from "react-icons/pi";
+import { Box, Flex, Heading, Tooltip } from "@radix-ui/themes";
+import { PiArrowClockwise } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import { uploadFile } from "@/services/files";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Button from "@/components/Radix/Button";
 import { useAISettings } from "@/hooks/useOrgSettings";
-import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
-import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
 import OptInModal from "@/components/License/OptInModal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../Radix/Tabs";
 import Markdown from "./Markdown";
@@ -64,10 +62,7 @@ const MarkdownInput: FC<{
   const [aiSuggestionText, setAiSuggestionText] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(externalError || "");
-
-  const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
-    timeout: 1500,
-  });
+  const [revertValue, setRevertValue] = useState<string | null>(null);
 
   const [aiAgreementModal, setAiAgreementModal] = useState(false);
   useEffect(() => {
@@ -293,34 +288,35 @@ const MarkdownInput: FC<{
                     {aiSuggestionHeader}:
                   </Heading>
                   <Flex gap="2">
-                    <Button
-                      variant="ghost"
-                      onClick={() => {
-                        setValue("");
-                      }}
-                    >
-                      <PiTrash /> Clear
-                    </Button>
-                    {copySupported && (
-                      <Box style={{ position: "relative" }}>
-                        <Button
-                          variant="ghost"
-                          onClick={() => {
-                            performCopy(aiSuggestionText || "");
-                          }}
-                        >
-                          <PiClipboard /> Copy
-                        </Button>
-                        {copySuccess ? (
-                          <SimpleTooltip position="right">
-                            Copied to clipboard!
-                          </SimpleTooltip>
-                        ) : null}
-                      </Box>
-                    )}
                     <Button variant="ghost" onClick={doAISuggestion}>
                       <PiArrowClockwise /> Try Again
                     </Button>
+                    {aiSuggestionText && value != aiSuggestionText && (
+                      <Tooltip content="Overwrite content above with suggested content.">
+                        <Button
+                          variant="soft"
+                          onClick={() => {
+                            setRevertValue(value);
+                            setValue(aiSuggestionText);
+                          }}
+                        >
+                          Use Suggested
+                        </Button>
+                      </Tooltip>
+                    )}
+                    {revertValue && value == aiSuggestionText && (
+                      <Tooltip content="Revert to previous content.">
+                        <Button
+                          variant="soft"
+                          onClick={() => {
+                            setValue(revertValue);
+                            setRevertValue(null);
+                          }}
+                        >
+                          Revert
+                        </Button>
+                      </Tooltip>
+                    )}
                   </Flex>
                 </Flex>
                 <Box className="appbox" p="3">
@@ -328,15 +324,6 @@ const MarkdownInput: FC<{
                     {aiSuggestionText}
                   </Markdown>
                 </Box>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setValue(aiSuggestionText);
-                    setAiSuggestionText("");
-                  }}
-                >
-                  Use this suggestion
-                </Button>
               </div>
             )}
             {!showButtons && error && (
