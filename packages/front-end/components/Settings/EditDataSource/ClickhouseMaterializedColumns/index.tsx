@@ -18,6 +18,7 @@ import Table, {
   TableRow,
 } from "@/components/Radix/Table";
 import { useAuth } from "@/services/auth";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import { DataSourceQueryEditingModalBaseProps } from "../types";
 import AddEditMaterializedColumnsModal from "./AddEditMaterializedColumnsModal";
 
@@ -120,7 +121,7 @@ export default function ClickhouseMaterializedColumns({
           <Box>
             <Flex align="center" gap="3" mb="0">
               <Heading as="h3" size="4" mb="0">
-                Materialized Columns
+                Key Attributes
               </Heading>
               <Badge
                 label={materializedColumns.length + ""}
@@ -139,29 +140,38 @@ export default function ClickhouseMaterializedColumns({
           )}
         </Flex>
         <p>
-          Fields in the event payload to be materialized as separate columns to
-          improve ease of use. This also improves query performance for fields
-          frequently used for filters or aggregation
+          Mark certain custom attributes in your events as important. These key
+          attributes can be used as identifier types and dimensions in
+          experiments.
         </p>
 
         {materializedColumns.length === 0 ? (
-          <Callout status="info">No materialized columns</Callout>
+          <Callout status="info">No key attributes yet</Callout>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableColumnHeader>Source Field</TableColumnHeader>
-                <TableColumnHeader>Datatype</TableColumnHeader>
-                <TableColumnHeader>Destination Column</TableColumnHeader>
-                <TableColumnHeader />
+                <TableColumnHeader>Attribute</TableColumnHeader>
+                <TableColumnHeader>
+                  SQL Column{" "}
+                  <Tooltip body="The attribute will be stored in this column and available for querying" />
+                </TableColumnHeader>
+                <TableColumnHeader>Treat As</TableColumnHeader>
+                <TableColumnHeader style={{ width: 50 }} />
               </TableRow>
             </TableHeader>
             <TableBody>
               {materializedColumns.map((col, idx) => (
                 <TableRow key={col.sourceField}>
                   <TableCell>{col.sourceField}</TableCell>
-                  <TableCell>{col.datatype}</TableCell>
                   <TableCell>{col.columnName}</TableCell>
+                  <TableCell>
+                    {col.type === "identifier"
+                      ? "Identifier"
+                      : col.type === "dimension"
+                      ? "Dimension"
+                      : `Other (${col.datatype})`}
+                  </TableCell>
                   <TableCell>
                     {canEdit && (
                       <MoreMenu>
@@ -169,7 +179,7 @@ export default function ClickhouseMaterializedColumns({
                           className="dropdown-item py-2"
                           onClick={() => setEditColumnIdx(idx)}
                         >
-                          Edit Materialized Column
+                          Edit
                         </button>
                         <DeleteButton
                           onClick={() => deleteColumn(col.columnName)}
@@ -178,7 +188,7 @@ export default function ClickhouseMaterializedColumns({
                           style={{ borderRadius: 0 }}
                           useIcon={false}
                           displayName={col.columnName}
-                          deleteMessage={`Are you sure you want to delete materialized column ${col.columnName}?`}
+                          deleteMessage={`Are you sure you want to delete this key attribute?`}
                           title="Delete"
                           text="Delete"
                           outline={false}

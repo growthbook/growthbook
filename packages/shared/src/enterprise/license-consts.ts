@@ -55,7 +55,7 @@ export type CommercialFeature =
   | "historical-power"
   | "decision-framework"
   | "unlimited-cdn-usage"
-  | "managed-clickhouse"
+  | "managed-warehouse"
   | "safe-rollout"
   | "require-project-for-features-setting"
   | "saveSqlExplorerQueries"
@@ -201,7 +201,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "historical-power",
     "decision-framework",
     "safe-rollout",
-    "managed-clickhouse",
+    "managed-warehouse",
     "saveSqlExplorerQueries",
   ]),
   pro_sso: new Set<CommercialFeature>([
@@ -231,7 +231,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "historical-power",
     "decision-framework",
     "safe-rollout",
-    "managed-clickhouse",
+    "managed-warehouse",
     "saveSqlExplorerQueries",
   ]),
   enterprise: new Set<CommercialFeature>([
@@ -280,7 +280,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "historical-power",
     "decision-framework",
     "safe-rollout",
-    "managed-clickhouse",
+    "managed-warehouse",
     "require-project-for-features-setting",
     "saveSqlExplorerQueries",
     "metric-effects",

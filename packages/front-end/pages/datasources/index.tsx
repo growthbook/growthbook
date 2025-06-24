@@ -27,27 +27,93 @@ import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import Modal from "@/components/Modal";
 import SelectField from "@/components/Forms/SelectField";
-import Checkbox from "../../components/Radix/Checkbox";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+import Checkbox from "@/components/Radix/Checkbox";
+import {
+  createInitialResources,
+  getInitialDatasourceResources,
+} from "@/services/initial-resources";
 
-function ManagedClickhouseForm({ close }: { close: () => void }) {
+function ManagedWarehouseForm({ close }: { close: () => void }) {
   const { apiCall } = useAuth();
   const { mutateDefinitions } = useDefinitions();
   const router = useRouter();
 
+  const { hasCommercialFeature } = useUser();
+  const hasAccess = hasCommercialFeature("managed-warehouse");
   const [agree, setAgree] = useState(false);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+
+  const settings = useOrgSettings();
+  const { metricDefaults } = useOrganizationMetricDefaults();
+
+  // Progress for the resource creation screen (final screen)
+  const [resourceProgress, setResourceProgress] = useState(0);
+  const [creatingResources, setCreatingResources] = useState(false);
+
+  if (upgradeOpen) {
+    return (
+      <UpgradeModal
+        close={() => setUpgradeOpen(false)}
+        commercialFeature="managed-warehouse"
+        source="datasource-list"
+      />
+    );
+  }
+
+  const createResources = (ds: DataSourceInterfaceWithParams) => {
+    if (!ds) {
+      return;
+    }
+
+    const resources = getInitialDatasourceResources({ datasource: ds });
+    if (!resources.factTables.length) {
+      setCreatingResources(false);
+      return;
+    }
+
+    setCreatingResources(true);
+    return createInitialResources({
+      datasource: ds,
+      onProgress: (progress) => {
+        setResourceProgress(progress);
+      },
+      apiCall,
+      metricDefaults,
+      settings,
+      resources,
+    })
+      .then(() => {
+        track("Creating Datasource Resources", {
+          source: "managed-warehouse",
+          type: ds.type,
+          schema: ds.settings?.schemaFormat,
+        });
+      })
+      .catch((e) => {
+        console.error(e);
+      })
+      .finally(async () => {
+        await mutateDefinitions();
+        setCreatingResources(false);
+      });
+  };
 
   return (
     <Modal
       open={true}
       header={
         <>
-          Managed ClickHouse{" "}
-          <Badge label="New!" color="violet" variant="soft" />
+          Managed Warehouse <Badge label="New!" color="violet" variant="soft" />
         </>
       }
-      trackingEventModalType="managed-clickhouse"
+      trackingEventModalType="managed-warehouse"
       close={close}
       submit={async () => {
+        if (!hasAccess) {
+          throw new Error("You must upgrade to use this feature");
+        }
         if (!agree) {
           throw new Error("You must agree to the terms and conditions");
         }
@@ -55,16 +121,18 @@ function ManagedClickhouseForm({ close }: { close: () => void }) {
         const res = await apiCall<{
           status: number;
           id: string;
-        }>("/datasources/managed-clickhouse", {
+          datasource: DataSourceInterfaceWithParams;
+        }>("/datasources/managed-warehouse", {
           method: "POST",
         });
 
         if (res.id) {
-          await mutateDefinitions({});
+          await createResources(res.datasource);
           await router.push(`/datasources/${res.id}`);
         }
       }}
       cta="Create"
+      ctaEnabled={hasAccess}
     >
       <p>
         GrowthBook Cloud offers a fully-managed version of ClickHouse, an
@@ -106,42 +174,67 @@ function ManagedClickhouseForm({ close }: { close: () => void }) {
         </p>
       </div>
 
-      <Separator size="4" my="4" />
-
-      <Box>
-        <Checkbox
-          value={agree}
-          setValue={setAgree}
-          label={
-            <>
-              I agree to the{" "}
-              <a
-                href="https://www.growthbook.io/legal"
-                target="_blank"
-                rel="noreferrer"
-              >
-                terms and conditions
-              </a>
-            </>
-          }
-          required
-        />
-        <Box mt="2">
-          <Text size="1" mb="2">
-            Do not include any sensitive or regulated personal data in your
-            analytics events unless it is properly de-identified in accordance
-            with applicable legal standards.
-          </Text>
-        </Box>
-      </Box>
+      {hasAccess ? (
+        <>
+          <Separator size="4" my="4" />
+          <Box>
+            <Checkbox
+              value={agree}
+              setValue={setAgree}
+              label={
+                <>
+                  I agree to the{" "}
+                  <a
+                    href="https://www.growthbook.io/legal"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    terms and conditions
+                  </a>
+                </>
+              }
+              required
+            />
+            <Box mt="2">
+              <Text size="1" mb="2">
+                Do not include any sensitive or regulated personal data in your
+                analytics events unless it is properly de-identified in
+                accordance with applicable legal standards.
+              </Text>
+            </Box>
+          </Box>
+        </>
+      ) : (
+        <div className="appbox bg-light p-3 text-center">
+          <Text>You must upgrade to Pro to access this feature.</Text>
+          <Button variant="solid" mt="3" onClick={() => setUpgradeOpen(true)}>
+            Upgrade to Pro
+          </Button>
+        </div>
+      )}
+      {creatingResources ? (
+        <div className="mt-2">
+          <p>Creating some metrics to get you started.</p>
+          <div className="progress">
+            <div
+              className="progress-bar"
+              role="progressbar"
+              style={{ width: `${Math.floor(resourceProgress * 100)}%` }}
+              aria-valuenow={resourceProgress}
+              aria-valuemin={0}
+              aria-valuemax={100}
+            />
+          </div>
+        </div>
+      ) : null}
     </Modal>
   );
 }
 
-function ManagedClickhouseDriver() {
+function ManagedWarehouseDriver() {
   const { hasCommercialFeature } = useUser();
   const [open, setOpen] = useState(false);
-  const hasAccess = hasCommercialFeature("managed-clickhouse");
+  const hasAccess = hasCommercialFeature("managed-warehouse");
 
   const cursors: {
     top: number;
@@ -171,15 +264,7 @@ function ManagedClickhouseDriver() {
 
   return (
     <>
-      {open && hasAccess ? (
-        <ManagedClickhouseForm close={() => setOpen(false)} />
-      ) : open ? (
-        <UpgradeModal
-          close={() => setOpen(false)}
-          commercialFeature="managed-clickhouse"
-          source="datasource-list"
-        />
-      ) : null}
+      {open ? <ManagedWarehouseForm close={() => setOpen(false)} /> : null}
       <Flex
         style={{
           position: "relative",
@@ -227,7 +312,7 @@ function ManagedClickhouseDriver() {
           {hasAccess ? (
             <Badge label="New!" color="violet" variant="soft" />
           ) : (
-            <PaidFeatureBadge commercialFeature="managed-clickhouse" />
+            <PaidFeatureBadge commercialFeature="managed-warehouse" />
           )}
           <h3 className="mb-3 mt-2">
             Use GrowthBook Cloud&apos;s fully-managed warehouse to get started
@@ -277,11 +362,11 @@ const DataSourcesPage: FC = () => {
   const { hasCommercialFeature, license } = useUser();
 
   // Cloud, no data sources yet, has permissions, and is either free OR on a usage-based paid plan
-  const showManagedClickhouse =
+  const showManagedWarehouse =
     isCloud() &&
     filteredDatasources.length === 0 &&
     permissionsUtil.canViewCreateDataSourceModal(project) &&
-    (!hasCommercialFeature("managed-clickhouse") ||
+    (!hasCommercialFeature("managed-warehouse") ||
       !!license?.orbSubscription) &&
     gb.isOn("inbuilt-data-warehouse");
 
@@ -363,13 +448,13 @@ const DataSourcesPage: FC = () => {
               This approach is cheaper, more secure, and more flexible.
             </p>
           </div>
-          {showManagedClickhouse ? <ManagedClickhouseDriver /> : null}
+          {showManagedWarehouse ? <ManagedWarehouseDriver /> : null}
 
           <hr className="my-4" />
           <div className="mb-3 d-flex flex-column align-items-center justify-content-center w-100">
             <div className="mb-3">
               <h3>
-                {showManagedClickhouse ? "Or connect" : "Connect"} to your
+                {showManagedWarehouse ? "Or connect" : "Connect"} to your
                 existing data warehouse:
               </h3>
             </div>
@@ -394,7 +479,7 @@ const DataSourcesPage: FC = () => {
               }}
             />
 
-            {!showManagedClickhouse ? (
+            {!showManagedWarehouse ? (
               <Callout status="info" mt="5">
                 Don&apos;t have a data warehouse yet? We recommend using
                 BigQuery with Google Analytics.{" "}
