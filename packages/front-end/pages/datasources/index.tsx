@@ -27,7 +27,13 @@ import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import Modal from "@/components/Modal";
 import SelectField from "@/components/Forms/SelectField";
-import Checkbox from "../../components/Radix/Checkbox";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+import Checkbox from "@/components/Radix/Checkbox";
+import {
+  createInitialResources,
+  getInitialDatasourceResources,
+} from "@/services/initial-resources";
 
 function ManagedWarehouseForm({ close }: { close: () => void }) {
   const { apiCall } = useAuth();
@@ -39,6 +45,13 @@ function ManagedWarehouseForm({ close }: { close: () => void }) {
   const [agree, setAgree] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
 
+  const settings = useOrgSettings();
+  const { metricDefaults } = useOrganizationMetricDefaults();
+
+  // Progress for the resource creation screen (final screen)
+  const [resourceProgress, setResourceProgress] = useState(0);
+  const [creatingResources, setCreatingResources] = useState(false);
+
   if (upgradeOpen) {
     return (
       <UpgradeModal
@@ -48,6 +61,44 @@ function ManagedWarehouseForm({ close }: { close: () => void }) {
       />
     );
   }
+
+  const createResources = (ds: DataSourceInterfaceWithParams) => {
+    if (!ds) {
+      return;
+    }
+
+    const resources = getInitialDatasourceResources({ datasource: ds });
+    if (!resources.factTables.length) {
+      setCreatingResources(false);
+      return;
+    }
+
+    setCreatingResources(true);
+    return createInitialResources({
+      datasource: ds,
+      onProgress: (progress) => {
+        setResourceProgress(progress);
+      },
+      apiCall,
+      metricDefaults,
+      settings,
+      resources,
+    })
+      .then(() => {
+        track("Creating Datasource Resources", {
+          source: "managed-warehouse",
+          type: ds.type,
+          schema: ds.settings?.schemaFormat,
+        });
+      })
+      .catch((e) => {
+        console.error(e);
+      })
+      .finally(async () => {
+        await mutateDefinitions();
+        setCreatingResources(false);
+      });
+  };
 
   return (
     <Modal
@@ -70,12 +121,13 @@ function ManagedWarehouseForm({ close }: { close: () => void }) {
         const res = await apiCall<{
           status: number;
           id: string;
+          datasource: DataSourceInterfaceWithParams;
         }>("/datasources/managed-warehouse", {
           method: "POST",
         });
 
         if (res.id) {
-          await mutateDefinitions({});
+          await createResources(res.datasource);
           await router.push(`/datasources/${res.id}`);
         }
       }}
@@ -160,6 +212,21 @@ function ManagedWarehouseForm({ close }: { close: () => void }) {
           </Button>
         </div>
       )}
+      {creatingResources ? (
+        <div className="mt-2">
+          <p>Creating some metrics to get you started.</p>
+          <div className="progress">
+            <div
+              className="progress-bar"
+              role="progressbar"
+              style={{ width: `${Math.floor(resourceProgress * 100)}%` }}
+              aria-valuenow={resourceProgress}
+              aria-valuemin={0}
+              aria-valuemax={100}
+            />
+          </div>
+        </div>
+      ) : null}
     </Modal>
   );
 }

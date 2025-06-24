@@ -261,6 +261,7 @@ export async function postManagedWarehouse(
     | {
         status: 200;
         id: string;
+        datasource: DataSourceInterfaceWithParams;
       }
     | {
         status: 400 | 403 | 404;
@@ -284,7 +285,7 @@ export async function postManagedWarehouse(
     context.permissions.throwPermissionError();
   }
 
-  if (!context.hasPremiumFeature("managed-warehouse")) {
+  if (!context.superAdmin && !context.hasPremiumFeature("managed-warehouse")) {
     return res.status(403).json({
       status: 403,
       message: "This requires a Pro account.",
@@ -336,7 +337,7 @@ export async function postManagedWarehouse(
     {}
   );
 
-  await createDataSource(
+  const datasource = await createDataSource(
     context,
     "Managed Warehouse",
     "growthbook_clickhouse",
@@ -344,9 +345,13 @@ export async function postManagedWarehouse(
     datasourceSettings,
     "managed_warehouse"
   );
+
+  const integration = getSourceIntegrationObject(context, datasource);
+
   res.status(200).json({
     status: 200,
     id: "managed_warehouse",
+    datasource: getDataSourceWithParams(integration),
   });
 }
 
