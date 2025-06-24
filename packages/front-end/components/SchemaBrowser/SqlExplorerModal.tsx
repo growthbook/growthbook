@@ -46,7 +46,7 @@ import SchemaBrowser from "./SchemaBrowser";
 import styles from "./EditSqlModal.module.scss";
 
 export interface Props {
-  close: () => void;
+  close: (savedId?: string) => void;
   initial?: {
     sql?: string;
     name?: string;
@@ -206,19 +206,22 @@ export default function SqlExplorerModal({
     // If it's a new query (no savedQuery.id), always save
     if (!id) {
       try {
-        await apiCall("/saved-queries", {
-          method: "POST",
-          body: JSON.stringify({
-            name: currentName,
-            sql: form.watch("sql"),
-            datasourceId: form.watch("datasourceId"),
-            dateLastRan: form.watch("dateLastRan"),
-            results: form.watch("results"),
-            dataVizConfig,
-          }),
-        });
+        const res = await apiCall<{ savedQuery: SavedQuery }>(
+          "/saved-queries",
+          {
+            method: "POST",
+            body: JSON.stringify({
+              name: currentName,
+              sql: form.watch("sql"),
+              datasourceId: form.watch("datasourceId"),
+              dateLastRan: form.watch("dateLastRan"),
+              results: form.watch("results"),
+              dataVizConfig,
+            }),
+          }
+        );
         mutate();
-        close();
+        close(res.savedQuery.id);
       } catch (error) {
         setLoading(false);
         throw new Error("Failed to save the query. Reason: " + error);

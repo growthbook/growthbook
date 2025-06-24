@@ -116,6 +116,7 @@ export type TrafficGraphBlockInterface = z.infer<
 const sqlExplorerBlockInterface = baseBlockInterface
   .extend({
     type: z.literal("sql-explorer"),
+    savedQueryId: z.string().optional(),
   })
   .strict();
 

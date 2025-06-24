@@ -83,7 +83,9 @@ const trafficGraphBlockSchema = new mongoose.Schema({
   experimentId: String,
 });
 
-const sqlExplorerBlockSchema = new mongoose.Schema({});
+const sqlExplorerBlockSchema = new mongoose.Schema({
+  savedQueryId: String,
+});
 
 dashboardBlockSchema.index({
   uid: 1,
