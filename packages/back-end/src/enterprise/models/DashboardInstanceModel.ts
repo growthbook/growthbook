@@ -1,11 +1,11 @@
 import mongoose from "mongoose";
 import { isMatch } from "lodash";
-import { isDimensionBlock } from "shared/enterprise";
+import { isDimensionBlock, isSqlExplorerBlock } from "shared/enterprise";
 import {
   dashboardInstanceInterface,
   DashboardInstanceInterface,
 } from "back-end/src/enterprise/validators/dashboard-instance";
-import { MakeModelClass } from "back-end/src/models/BaseModel";
+import { MakeModelClass, UpdateProps } from "back-end/src/models/BaseModel";
 import {
   removeMongooseFields,
   ToInterface,
@@ -87,6 +87,67 @@ export class DashboardInstanceModel extends BaseClass {
   protected migrate(doc: unknown) {
     return toInterface(doc as DashboardInstanceDocument);
   }
+
+  protected async afterCreate(doc: DashboardInstanceDocument) {
+    const queryIdSet = getSavedQueryIds(doc);
+    for (const queryId of queryIdSet) {
+      await this.linkSavedQuery(queryId, doc);
+    }
+  }
+
+  protected async afterUpdate(
+    existing: DashboardInstanceDocument,
+    _updates: UpdateProps<DashboardInstanceDocument>,
+    newDoc: DashboardInstanceDocument
+  ) {
+    const initialQueryIdSet = getSavedQueryIds(existing);
+    const finalQueryIdSet = getSavedQueryIds(newDoc);
+    for (const queryId of initialQueryIdSet) {
+      if (finalQueryIdSet.has(queryId)) continue;
+      await this.unlinkSavedQuery(queryId, newDoc);
+    }
+    for (const queryId of finalQueryIdSet) {
+      if (initialQueryIdSet.has(queryId)) continue;
+      await this.linkSavedQuery(queryId, newDoc);
+    }
+  }
+
+  protected async afterDelete(doc: DashboardInstanceDocument) {
+    const queryIdSet = getSavedQueryIds(doc);
+    for (const queryId of queryIdSet) {
+      await this.unlinkSavedQuery(queryId, doc);
+    }
+  }
+
+  protected async linkSavedQuery(
+    queryId: string,
+    doc: DashboardInstanceDocument
+  ) {
+    const savedQuery = await this.context.models.savedQueries.getById(queryId);
+    if (savedQuery) {
+      const linkedDashboards = savedQuery.linkedDashboards || [];
+      if (!linkedDashboards.includes(doc.id)) linkedDashboards.push(doc.id);
+      await this.context.models.savedQueries.updateById(queryId, {
+        linkedDashboards,
+      });
+    }
+  }
+
+  protected async unlinkSavedQuery(
+    queryId: string,
+    doc: DashboardInstanceDocument
+  ) {
+    const savedQuery = await this.context.models.savedQueries.getById(queryId);
+    if (savedQuery) {
+      const linkedDashboards = (savedQuery.linkedDashboards || []).filter(
+        (dashId) => dashId !== doc.id
+      );
+
+      await this.context.models.savedQueries.updateById(queryId, {
+        linkedDashboards,
+      });
+    }
+  }
 }
 
 // Merges the individual blocks' overrides with the defaults for the dashboard
@@ -156,4 +217,14 @@ export async function computeSnapshotSettings(
     }
   });
   return snapshotInfo;
+}
+
+function getSavedQueryIds(doc: DashboardInstanceDocument): Set<string> {
+  const queryIdSet = new Set<string>();
+  doc.blocks.forEach((block) => {
+    if (isSqlExplorerBlock(block) && block.savedQueryId) {
+      queryIdSet.add(block.savedQueryId);
+    }
+  });
+  return queryIdSet;
 }
