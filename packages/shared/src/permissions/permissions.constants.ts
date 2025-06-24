@@ -43,6 +43,7 @@ export const POLICIES = [
   "CustomFieldsFullAccess",
   "TemplatesFullAccess",
   "DecisionCriteriaFullAccess",
+  "SqlExplorerFullAccess",
 ] as const;
 
 export type Policy = typeof POLICIES[number];
@@ -123,6 +124,7 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   CustomRolesFullAccess: ["readData", "manageTeam", "manageCustomRoles"],
   CustomFieldsFullAccess: ["readData", "manageCustomFields"],
   TemplatesFullAccess: ["readData", "manageTemplates"],
+  SqlExplorerFullAccess: ["readData", "runSqlExplorerQueries"],
 };
 
 export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
@@ -153,6 +155,7 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
       "DataSourcesFullAccess",
       "DataSourceConfiguration",
       "RunQueries",
+      "SqlExplorerFullAccess",
       "MetricsFullAccess",
       "FactTablesFullAccess",
       "FactMetricsFullAccess",
@@ -251,7 +254,11 @@ export const POLICY_METADATA_MAP: Record<
   RunQueries: {
     displayName: "Run Queries",
     description:
-      "Execute queries against data sources. Required to refresh experiment results.",
+      "Execute queries against data sources. Required to refresh experiment results. Does not include SQL Explorer access.",
+  },
+  SqlExplorerFullAccess: {
+    displayName: "SQL Explorer Full Access",
+    description: "Create, run, edit, and delete SQL Explorer queries",
   },
   MetricsFullAccess: {
     displayName: "Metrics Full Access",
@@ -426,6 +433,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "ReadData",
       "Comments",
       "RunQueries",
+      "SqlExplorerFullAccess",
       "MetricsFullAccess",
       "ExperimentsFullAccess",
       "VisualEditorFullAccess",
@@ -452,6 +460,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "VisualEditorFullAccess",
       "ArchetypesFullAccess",
       "RunQueries",
+      "SqlExplorerFullAccess",
       "MetricsFullAccess",
       "FactTablesFullAccess",
       "FactMetricsFullAccess",
@@ -515,6 +524,7 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "createDatasources",
   "editDatasourceSettings",
   "runQueries",
+  "runSqlExplorerQueries",
   "manageTargetingAttributes",
   "manageVisualChanges",
   "manageSavedGroups",
@@ -554,5 +564,6 @@ export const READ_ONLY_PERMISSIONS = [
   "readData",
   "viewAuditLog",
   "runQueries",
+  "runSqlExplorerQueries",
   "addComments",
 ];

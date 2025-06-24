@@ -245,14 +245,14 @@ def get_configured_test(
             if analysis.one_sided_intervals:
                 if metric.inverse:
                     return SequentialOneSidedTreatmentGreaterTTest(
-                        stat_a, stat_b, sequential_config
+                        [(stat_a, stat_b)], sequential_config
                     )
                 else:
                     return SequentialOneSidedTreatmentLesserTTest(
-                        stat_a, stat_b, sequential_config
+                        [(stat_a, stat_b)], sequential_config
                     )
             else:
-                return SequentialTwoSidedTTest(stat_a, stat_b, sequential_config)
+                return SequentialTwoSidedTTest([(stat_a, stat_b)], sequential_config)
         else:
             config = FrequentistConfig(
                 **base_config,
@@ -260,11 +260,11 @@ def get_configured_test(
             )
             if analysis.one_sided_intervals:
                 if metric.inverse:
-                    return OneSidedTreatmentGreaterTTest(stat_a, stat_b, config)
+                    return OneSidedTreatmentGreaterTTest([(stat_a, stat_b)], config)
                 else:
-                    return OneSidedTreatmentLesserTTest(stat_a, stat_b, config)
+                    return OneSidedTreatmentLesserTTest([(stat_a, stat_b)], config)
             else:
-                return TwoSidedTTest(stat_a, stat_b, config)
+                return TwoSidedTTest([(stat_a, stat_b)], config)
     else:
         assert type(stat_a) is type(stat_b), "stat_a and stat_b must be of same type."
         prior = GaussianPrior(
@@ -273,8 +273,7 @@ def get_configured_test(
             proper=metric.prior_proper,
         )
         return EffectBayesianABTest(
-            stat_a,
-            stat_b,
+            [(stat_a, stat_b)],
             EffectBayesianConfig(
                 **base_config,
                 inverse=metric.inverse,

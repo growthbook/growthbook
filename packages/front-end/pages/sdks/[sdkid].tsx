@@ -14,7 +14,7 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import { isCloud } from "@/services/env";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import PageHead from "@/components/Layout/PageHead";
-import SdkWebhooks from "@/pages/sdks/SdkWebhooks";
+import SdkWebhooks from "@/components/Features/SDKConnections/SdkWebhooks";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ConnectionDiagram from "@/components/Features/SDKConnections/ConnectionDiagram";
 import Badge from "@/components/Radix/Badge";

@@ -166,14 +166,13 @@ exec("yarn workspace shared generate-sdk-report", (err, stdout, stderr) => {
   console.log(stdout);
 });
 
-// Update docs SDKInfo.json
-console.log("Updating docs SDKInfo.json");
-const sdkInfo = require("../../../docs/src/data/SDKInfo.json");
-sdkInfo.js.version = newVersion;
-sdkInfo.react.version = newVersion;
-sdkInfo.node.version = newVersion;
-sdkInfo.reactNative.version = newVersion;
-fs.writeFileSync(
-  path.resolve(__dirname, "../../../docs/src/data/SDKInfo.json"),
-  JSON.stringify(sdkInfo, null, 2) + "\n"
-);
+// Update docs SDKInfo.ts
+exec("cd ../../docs && yarn gen-sdk-resources", (err, stdout, stderr) => {
+  console.log("Updating docs SDKInfo.ts");
+  if (err) {
+    console.error(err);
+    process.exit(1);
+  }
+  console.log(stdout);
+});
+

@@ -11,6 +11,8 @@ import {
   DataSourceInterface,
   ExposureQuery,
   DataSourceInterfaceWithParams,
+  GrowthbookClickhouseDataSource,
+  MaterializedColumn,
 } from "back-end/types/datasource";
 import {
   getSourceIntegrationObject,
@@ -19,6 +21,7 @@ import {
   encryptParams,
   testQuery,
   getIntegrationFromDatasourceId,
+  runFreeFormQuery,
 } from "back-end/src/services/datasource";
 import { getOauth2Client } from "back-end/src/integrations/GoogleAnalytics";
 import {
@@ -51,7 +54,18 @@ import {
   AutoMetricToCreate,
   SourceIntegrationInterface,
 } from "back-end/src/types/Integration";
-import { createClickhouseUser } from "back-end/src/services/clickhouse";
+import {
+  createClickhouseUser,
+  getReservedColumnNames,
+  updateMaterializedColumns,
+} from "back-end/src/services/clickhouse";
+import { FactTableColumnType } from "back-end/types/fact-table";
+import { factTableColumnTypes } from "back-end/src/routers/fact-table/fact-table.validators";
+import {
+  getFactTablesForDatasource,
+  updateFactTable,
+} from "back-end/src/models/FactTableModel";
+import { runRefreshColumnsQuery } from "back-end/src/jobs/refreshFactTableColumns";
 
 export async function deleteDataSource(
   req: AuthRequest<null, { id: string }>,
@@ -691,6 +705,42 @@ export async function testLimitedQuery(
   });
 }
 
+export async function runQuery(
+  req: AuthRequest<{
+    query: string;
+    datasourceId: string;
+    limit?: number;
+  }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+
+  const { query, datasourceId, limit } = req.body;
+
+  const datasource = await getDataSourceById(context, datasourceId);
+  if (!datasource) {
+    return res.status(404).json({
+      status: 404,
+      message: "Cannot find data source",
+    });
+  }
+
+  const { results, sql, duration, error } = await runFreeFormQuery(
+    context,
+    datasource,
+    query,
+    limit
+  );
+
+  res.status(200).json({
+    status: 200,
+    duration,
+    results,
+    sql,
+    error,
+  });
+}
+
 export async function getDataSourceMetrics(
   req: AuthRequest<null, { id: string }>,
   res: Response
@@ -859,4 +909,360 @@ export async function fetchBigQueryDatasets(
   } catch (e) {
     throw new Error(e.message);
   }
+}
+
+export async function postMaterializedColumn(
+  req: AuthRequest<
+    { sourceField: string; columnName: string; datatype: FactTableColumnType },
+    { datasourceId: string }
+  >,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const { datasourceId } = req.params;
+  const newColumn = sanitizeMatColumnInput(req.body);
+
+  const datasource = await getDataSourceById(context, datasourceId);
+  if (!datasource) {
+    throw new Error("Cannot find datasource");
+  }
+
+  if (!context.permissions.canUpdateDataSourceSettings(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
+  if (datasource.type !== "growthbook_clickhouse") {
+    throw new Error(
+      "Can only create materialized columns for growthbook-clickhouse datasources"
+    );
+  }
+
+  const originalColumns = datasource.settings.materializedColumns || [];
+  const finalColumns = [...originalColumns, newColumn];
+  const updates: Pick<GrowthbookClickhouseDataSource, "settings"> = {
+    settings: {
+      ...datasource.settings,
+      materializedColumns: finalColumns,
+    },
+  };
+
+  try {
+    await updateMaterializedColumns({
+      datasource,
+      columnsToAdd: [newColumn],
+      columnsToDelete: [],
+      columnsToRename: [],
+      finalColumns,
+      originalColumns,
+    });
+
+    await updateDataSource(context, datasource, updates);
+
+    const factTables = await getFactTablesForDatasource(context, datasource.id);
+    for (const ft of factTables) {
+      const columns = await runRefreshColumnsQuery(context, datasource, ft);
+      await updateFactTable(context, ft, { columns });
+    }
+
+    const integration = getSourceIntegrationObject(context, {
+      ...datasource,
+      ...updates,
+    });
+
+    res.status(200).json({
+      status: 200,
+      datasource: getDataSourceWithParams(integration),
+    });
+  } catch (e) {
+    req.log.error(e, "Failed to update data source");
+    res.status(500).json({
+      status: 500,
+      message: e.message || "An error occurred",
+    });
+  }
+}
+
+export async function updateMaterializedColumn(
+  req: AuthRequest<
+    { sourceField: string; columnName: string; datatype: FactTableColumnType },
+    { datasourceId: string; matColumnName: string }
+  >,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const { datasourceId, matColumnName } = req.params;
+  const newColumn = sanitizeMatColumnInput(req.body);
+
+  const datasource = await getDataSourceById(context, datasourceId);
+  if (!datasource) {
+    throw new Error("Cannot find datasource");
+  }
+
+  if (!context.permissions.canUpdateDataSourceSettings(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
+  if (datasource.type !== "growthbook_clickhouse") {
+    throw new Error(
+      "Can only manage materialized columns for growthbook-clickhouse datasources"
+    );
+  }
+  if (matColumnName === newColumn.columnName) {
+    throw new Error(
+      "Cannot modify a column while keeping the same name. Delete the column and create it again instead"
+    );
+  }
+
+  const originalColumns = datasource.settings.materializedColumns || [];
+
+  const originalIdx = originalColumns.findIndex(
+    (col) => col.columnName === matColumnName
+  );
+  if (originalIdx === -1) {
+    throw new Error(`Cannot find materialized column ${matColumnName}`);
+  }
+  const originalColumn = originalColumns[originalIdx];
+
+  const finalColumns = [
+    ...originalColumns.slice(0, originalIdx),
+    newColumn,
+    ...originalColumns.slice(originalIdx + 1),
+  ];
+
+  const updates: Pick<GrowthbookClickhouseDataSource, "settings"> = {
+    settings: {
+      ...datasource.settings,
+      materializedColumns: finalColumns,
+    },
+  };
+
+  try {
+    if (
+      originalColumn.datatype === newColumn.datatype &&
+      originalColumn.sourceField === newColumn.sourceField
+    ) {
+      // Simple rename
+      await updateMaterializedColumns({
+        datasource,
+        columnsToAdd: [],
+        columnsToDelete: [],
+        columnsToRename: [
+          { from: originalColumn.columnName, to: newColumn.columnName },
+        ],
+        finalColumns,
+        originalColumns,
+      });
+    } else {
+      // Drop original column and recreate
+      await updateMaterializedColumns({
+        datasource,
+        columnsToAdd: [newColumn],
+        columnsToDelete: [originalColumn.columnName],
+        columnsToRename: [],
+        finalColumns,
+        originalColumns,
+      });
+    }
+    await updateDataSource(context, datasource, updates);
+
+    const factTables = await getFactTablesForDatasource(context, datasource.id);
+    for (const ft of factTables) {
+      const columns = await runRefreshColumnsQuery(context, datasource, ft);
+      await updateFactTable(context, ft, { columns });
+    }
+
+    const integration = getSourceIntegrationObject(context, {
+      ...datasource,
+      ...updates,
+    });
+
+    res.status(200).json({
+      status: 200,
+      datasource: getDataSourceWithParams(integration),
+    });
+  } catch (e) {
+    req.log.error(e, "Failed to update data source");
+    res.status(500).json({
+      status: 500,
+      message: e.message || "An error occurred",
+    });
+  }
+}
+
+export async function deleteMaterializedColumn(
+  req: AuthRequest<null, { datasourceId: string; matColumnName: string }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const { datasourceId, matColumnName } = req.params;
+
+  const datasource = await getDataSourceById(context, datasourceId);
+  if (!datasource) {
+    throw new Error("Cannot find datasource");
+  }
+
+  if (!context.permissions.canUpdateDataSourceSettings(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
+  if (datasource.type !== "growthbook_clickhouse") {
+    throw new Error(
+      "Can only manage materialized columns for growthbook-clickhouse datasources"
+    );
+  }
+
+  const originalColumns = datasource.settings.materializedColumns || [];
+
+  const originalIdx = originalColumns.findIndex(
+    (col) => col.columnName === matColumnName
+  );
+  if (originalIdx === -1) {
+    throw new Error(`Cannot find materialized column ${matColumnName}`);
+  }
+  const finalColumns = [
+    ...originalColumns.slice(0, originalIdx),
+    ...originalColumns.slice(originalIdx + 1),
+  ];
+
+  const updates: Pick<GrowthbookClickhouseDataSource, "settings"> = {
+    settings: {
+      ...datasource.settings,
+      materializedColumns: finalColumns,
+    },
+  };
+
+  try {
+    await updateMaterializedColumns({
+      datasource,
+      columnsToAdd: [],
+      columnsToDelete: [matColumnName],
+      columnsToRename: [],
+      finalColumns,
+      originalColumns,
+    });
+    await updateDataSource(context, datasource, updates);
+
+    const integration = getSourceIntegrationObject(context, {
+      ...datasource,
+      ...updates,
+    });
+
+    res.status(200).json({
+      status: 200,
+      datasource: getDataSourceWithParams(integration),
+    });
+  } catch (e) {
+    req.log.error(e, "Failed to update data source");
+    res.status(500).json({
+      status: 500,
+      message: e.message || "An error occurred",
+    });
+  }
+}
+
+function sanitizeMatColumnInput(userInput: MaterializedColumn) {
+  if (!factTableColumnTypes.includes(userInput.datatype)) {
+    throw new Error("Invalid datatype");
+  }
+  const sourceField = sanitizeMatColumnSourceField(userInput.sourceField);
+  const columnName = sanitizeMatColumnName(userInput.columnName);
+  return {
+    datatype: userInput.datatype,
+    sourceField,
+    columnName,
+  };
+}
+
+function sanitizeMatColumnSourceField(userInput: string) {
+  // Invalid characters
+  if (!/^[a-zA-Z0-9 _-]*$/.test(userInput)) {
+    throw new Error(
+      "Invalid input. Source field must only use alphanumeric characters, ' ', '_', or '-'"
+    );
+  }
+  // Must have at least 1 alpha character
+  if (!/[a-zA-Z]/.test(userInput)) {
+    throw new Error(
+      "Invalid input. Source field must contain at least one letter"
+    );
+  }
+  // Must not have leading or trailing spaces
+  if (userInput.startsWith(" ") || userInput.endsWith(" ")) {
+    throw new Error(
+      "Invalid input. Source field must not have leading or trailing spaces"
+    );
+  }
+
+  return userInput;
+}
+
+function sanitizeMatColumnName(userInput: string) {
+  if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(userInput)) {
+    throw new Error(
+      "Invalid input. Column names must start with a letter or underscore and only use alphanumeric characters or '_'"
+    );
+  }
+
+  const cmp = userInput.toLowerCase();
+
+  // Make sure the columns don't overwrite default ones we define
+  const reservedCols = getReservedColumnNames();
+  if (reservedCols.has(cmp)) {
+    throw new Error(
+      `Column name "${userInput}" is reserved and cannot be used`
+    );
+  }
+
+  // Most of these technically work as column names in ClickHouse,
+  // but they would be confusing when writing and viewing SQL
+  const sqlKeywords = new Set([
+    "select",
+    "from",
+    "where",
+    "order",
+    "having",
+    "limit",
+    "offset",
+    "join",
+    "on",
+    "using",
+    "as",
+    "distinct",
+    "union",
+    "if",
+    "then",
+    "else",
+    "end",
+    "case",
+    "when",
+    "and",
+    "or",
+    "not",
+    "true",
+    "false",
+    "null",
+    "is",
+    "in",
+    "between",
+    "exists",
+    "like",
+    "array",
+    "tuple",
+    "map",
+    "cast",
+    "inf",
+    "infinity",
+    "nan",
+    "default",
+    "current_date",
+    "current_timestamp",
+    "sysdate",
+  ]);
+  if (sqlKeywords.has(cmp)) {
+    throw new Error(
+      `Column name "${userInput}" is a SQL keyword and cannot be used`
+    );
+  }
+
+  return userInput;
 }
