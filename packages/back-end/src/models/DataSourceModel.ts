@@ -27,6 +27,7 @@ import { ReqContext } from "back-end/types/organization";
 import { ApiReqContext } from "back-end/types/api";
 import { logger } from "back-end/src/util/logger";
 import { deleteClickhouseUser } from "back-end/src/services/clickhouse";
+import { deleteFactTable, getFactTable } from "./FactTableModel";
 
 const dataSourceSchema = new mongoose.Schema<DataSourceDocument>({
   id: String,
@@ -163,18 +164,28 @@ export async function removeProjectFromDatasources(
 }
 
 export async function deleteDatasource(
-  datasource: DataSourceInterface,
-  organization: string
+  context: ReqContext | ApiReqContext,
+  datasource: DataSourceInterface
 ) {
   if (usingFileConfig()) {
     throw new Error("Cannot delete. Data sources managed by config.yml");
   }
   if (datasource.type === "growthbook_clickhouse") {
-    await deleteClickhouseUser(organization);
+    await deleteClickhouseUser(context.org.id);
+
+    // Also delete the main events fact table
+    try {
+      const ft = await getFactTable(context, "ch_events");
+      if (ft) {
+        await deleteFactTable(context, ft, { bypassManagedByCheck: true });
+      }
+    } catch (e) {
+      logger.error("Error deleting clickhouse events fact table", e);
+    }
   }
   await DataSourceModel.deleteOne({
     id: datasource.id,
-    organization,
+    organization: context.org.id,
   });
 }
 

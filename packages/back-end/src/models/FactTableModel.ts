@@ -393,9 +393,18 @@ export async function updateFactFilter(
 
 export async function deleteFactTable(
   context: ReqContext | ApiReqContext,
-  factTable: FactTableInterface
+  factTable: FactTableInterface,
+  {
+    bypassManagedByCheck,
+  }: {
+    bypassManagedByCheck?: boolean;
+  } = {}
 ) {
-  if (factTable.managedBy === "api" && context.auditUser?.type !== "api_key") {
+  if (
+    !bypassManagedByCheck &&
+    factTable.managedBy === "api" &&
+    context.auditUser?.type !== "api_key"
+  ) {
     throw new Error("This fact table is managed by the API");
   }
 

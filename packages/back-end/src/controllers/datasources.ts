@@ -117,7 +117,7 @@ export async function deleteDataSource(
     );
   }
 
-  await deleteDatasource(datasource, org.id);
+  await deleteDatasource(context, datasource);
 
   if (datasource.settings?.informationSchemaId) {
     const informationSchemaId = datasource.settings.informationSchemaId;
