@@ -5694,6 +5694,9 @@ components:
               format: date-time
             publishedBy:
               type: string
+        customFields:
+          type: object
+          additionalProperties: true
     FeatureWithRevisions:
       allOf:
         - $ref: '#/components/schemas/Feature'
@@ -6471,6 +6474,9 @@ components:
           type: boolean
         hasURLRedirects:
           type: boolean
+        customFields:
+          type: object
+          additionalProperties: true
     ExperimentSnapshot:
       type: object
       required:
