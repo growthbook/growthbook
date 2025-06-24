@@ -132,7 +132,7 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const { clientSecret } = useStripeContext();
-  const { refreshOrganization, organization, email, users } = useUser();
+  const { refreshOrganization, organization, email } = useUser();
   const { apiCall } = useAuth();
   const elements = useElements();
   const stripe = useStripe();
@@ -141,14 +141,12 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
     address: StripeAddress;
     name: string; // This is what the user will see on their Invoices
     email: string;
-    additionalEmails: string[];
     taxIdType?: TaxIdType;
     taxIdValue?: string;
   }>({
     defaultValues: {
       name: organization.name,
       email: email,
-      additionalEmails: [],
       taxIdType: undefined,
       taxIdValue: undefined,
       address: {
@@ -167,12 +165,6 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
 
     setLoading(true);
     try {
-      // Validate inputs
-      // If there is a taxIdType, then there must be a taxIdValue
-      // If there is a taxIdValue, then there must be a taxIdType
-      // If there is a primaryEmail, then it must be a valid email
-      // If there are additionalEmails, then they must be valid emails
-
       // Validate inputs
       const { error: submitError } = await elements.submit();
       if (submitError) {
@@ -208,7 +200,6 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
           name: form.watch("name"),
           address: form.watch("address"),
           email: form.watch("email"),
-          additionalEmails: form.watch("additionalEmails"),
           taxConfig: {
             type: form.watch("taxIdType"),
             value: form.watch("taxIdValue"),
@@ -247,6 +238,7 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
       step={step}
       setStep={setStep}
       backButton={true}
+      loading={loading}
     >
       <Page display="Adjust Invoice Settings">
         <p>Adjustments made here will be reflected on your monthly invoices.</p>
@@ -257,34 +249,6 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
           helpText="The primary email address that will receive monthly invoice emails."
           {...form.register("email")}
           defaultValue={form.watch("email")}
-        />
-        <MultiSelectField
-          label="Additional Emails (Optional)"
-          helpText="Specify additional email addresses that will be CC'd on monthly invoice emails."
-          options={[
-            ...Array.from(users.values()).map((user) => ({
-              label: user.email,
-              value: user.email,
-            })),
-            // Add any additional emails that might not be in users but are in the form value
-            ...form
-              .watch("additionalEmails")
-              .filter(
-                (email) =>
-                  !Array.from(users.values()).some(
-                    (user) => user.email === email
-                  )
-              )
-              .map((email) => ({
-                label: email,
-                value: email,
-              })),
-          ]}
-          value={form.watch("additionalEmails")}
-          onChange={(value) => {
-            form.setValue("additionalEmails", value, { shouldValidate: true });
-          }}
-          creatable={true}
         />
         <Flex align="center" width="100%" gap="4">
           <Box style={{ width: "50%" }}>

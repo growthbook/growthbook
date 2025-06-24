@@ -27,6 +27,7 @@ type Props = {
   closeCta?: string;
   includeCloseCta?: boolean;
   disabledMessage?: string;
+  loading?: boolean;
   size?: "md" | "lg" | "max" | "fill";
   docSection?: DocSection;
   navStyle?: "pills" | "underlined" | "tabs" | "default";
@@ -77,6 +78,7 @@ const PagedModal: FC<Props> = (props) => {
     onSkip,
     skipped,
     hideNav,
+    loading,
     trackingEventModalType,
     trackingEventModalSource,
     allowlistedTrackingEventProps = {},
@@ -182,6 +184,7 @@ const PagedModal: FC<Props> = (props) => {
       size={size}
       disabledMessage={disabledMessage}
       open={true}
+      loading={loading}
       className={className}
       bodyClassName={bodyClassName}
       {...passThrough}

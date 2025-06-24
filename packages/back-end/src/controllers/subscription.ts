@@ -493,7 +493,12 @@ export async function getPortalUrl(
 }
 
 export async function updateCustomerData(
-  req: AuthRequest<{ taxConfig: { type: TaxIdType; value: string } }>,
+  req: AuthRequest<{
+    name: string;
+    email: string;
+    address: StripeAddress;
+    taxConfig: { type?: TaxIdType; value?: string };
+  }>,
   res: Response
 ) {
   const context = getContextFromReq(req);
@@ -505,7 +510,13 @@ export async function updateCustomerData(
   }
 
   try {
-    await updateCustomerDataFromServer(org.id, req.body.taxConfig);
+    await updateCustomerDataFromServer(org.id, {
+      name: req.body.name,
+      email: req.body.email,
+      address: req.body.address,
+      taxConfig: req.body.taxConfig,
+    });
+    return res.status(200).json({ status: 200 });
   } catch (e) {
     return res.status(400).json({ status: 400, message: e.message });
   }

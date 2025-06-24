@@ -14,7 +14,6 @@ import { useUser } from "@/services/UserContext";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBInfo } from "@/components/Icons";
 import { taxIdTypeOptions } from "@/enterprise/components/Billing/CloudProUpgradeModal";
@@ -40,12 +39,11 @@ export default function UpdateOrbSubscriptionModal({
 }: Props) {
   const [loading, setLoading] = useState(false);
   const [fetchingCustomerData, setFetchingCustomerData] = useState(false);
-  const [taxConfigChanged, setTaxConfigChanged] = useState(false);
   const [customerDataError, setCustomerDataError] = useState<string | null>(
     null
   );
   const { clientSecret } = useStripeContext();
-  const { organization, email, users } = useUser();
+  const { organization, email } = useUser();
   const { apiCall } = useAuth();
   const elements = useElements();
   const stripe = useStripe();
@@ -54,14 +52,12 @@ export default function UpdateOrbSubscriptionModal({
     address: StripeAddress;
     name: string;
     email: string;
-    additionalEmails: string[];
     taxIdType?: TaxIdType;
     taxIdValue?: string;
   }>({
     defaultValues: {
       name: organization.name,
       email: email,
-      additionalEmails: [],
       taxIdType: undefined,
       taxIdValue: undefined,
       address: {
@@ -157,18 +153,20 @@ export default function UpdateOrbSubscriptionModal({
         form.setValue("name", value.name);
       }
 
-      if (taxConfigChanged) {
-        // Check to see if the taxConfig was changed
-        await apiCall("subscription/update-customer-data", {
-          method: "POST",
-          body: JSON.stringify({
-            taxConfig: {
-              type: form.watch("taxIdType"),
-              value: form.watch("taxIdValue"),
-            },
-          }),
-        });
-      }
+      // Submit all customer data to our backend to update the subscription
+      await apiCall("/subscription/update-customer-data", {
+        method: "POST",
+        body: JSON.stringify({
+          name: form.watch("name"),
+          email: form.watch("email"),
+          address: form.watch("address"),
+          taxConfig: {
+            type: form.watch("taxIdType"),
+            value: form.watch("taxIdValue"),
+          },
+        }),
+      });
+
       setLoading(false);
       close();
     } catch (e) {
@@ -203,7 +201,6 @@ export default function UpdateOrbSubscriptionModal({
             </small>
           </div>
         )}
-
         <Field
           type="email"
           required={true}
@@ -212,36 +209,6 @@ export default function UpdateOrbSubscriptionModal({
           {...form.register("email")}
           defaultValue={form.watch("email")}
         />
-
-        <MultiSelectField
-          label="Additional Emails (Optional)"
-          helpText="Specify additional email addresses that will be CC'd on monthly invoice emails."
-          options={[
-            ...Array.from(users.values()).map((user) => ({
-              label: user.email,
-              value: user.email,
-            })),
-            // Add any additional emails that might not be in users but are in the form value
-            ...form
-              .watch("additionalEmails")
-              .filter(
-                (email) =>
-                  !Array.from(users.values()).some(
-                    (user) => user.email === email
-                  )
-              )
-              .map((email) => ({
-                label: email,
-                value: email,
-              })),
-          ]}
-          value={form.watch("additionalEmails")}
-          onChange={(value) => {
-            form.setValue("additionalEmails", value, { shouldValidate: true });
-          }}
-          creatable={true}
-        />
-
         <Flex align="center" width="100%" gap="4" className="mb-3">
           <Box style={{ width: "50%" }}>
             <SelectField
@@ -257,7 +224,6 @@ export default function UpdateOrbSubscriptionModal({
               value={form.watch("taxIdType") || ""}
               onChange={(value) => {
                 form.setValue("taxIdType", value as TaxIdType);
-                setTaxConfigChanged(true);
               }}
               isClearable={true}
             />
@@ -266,10 +232,6 @@ export default function UpdateOrbSubscriptionModal({
             <Field
               type="text"
               {...form.register("taxIdValue")}
-              onChange={(e) => {
-                form.setValue("taxIdValue", e.target.value);
-                setTaxConfigChanged(true);
-              }}
               label={
                 <span>
                   Tax ID{" "}
@@ -281,7 +243,6 @@ export default function UpdateOrbSubscriptionModal({
             />
           </Box>
         </Flex>
-
         <div className="mb-3">
           <label className="form-label">Billing Address</label>
           {!fetchingCustomerData && (

@@ -380,14 +380,22 @@ export async function getCustomerDataFromServer(
 
 export async function updateCustomerDataFromServer(
   organizationId: string,
-  taxConfig: { type: TaxIdType; value: string }
+  customerData: {
+    name: string;
+    email: string;
+    address: StripeAddress;
+    taxConfig: { type?: TaxIdType; value?: string };
+  }
 ) {
   const url = `${LICENSE_SERVER_URL}subscription/update-customer-data`;
   return callLicenseServer({
     url,
     body: JSON.stringify({
       organizationId,
-      taxConfig,
+      name: customerData.name,
+      email: customerData.email,
+      address: customerData.address,
+      taxConfig: customerData.taxConfig,
       cloudSecret: process.env.CLOUD_SECRET,
     }),
   });
