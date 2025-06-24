@@ -4,15 +4,18 @@ import { forwardRef, ReactNode } from "react";
 import HelperText from "./HelperText";
 
 type SelectProps = {
-  label?: string;
+  label?: ReactNode;
   defaultValue?: string;
   disabled?: boolean;
   error?: string;
   errorLevel?: "error" | "warning";
-  value: string;
+  value: string | undefined;
   setValue: (value: string) => void;
   children: React.ReactNode;
   size?: "1" | "2" | "3";
+  placeholder?: string;
+  variant?: "classic" | "surface" | "soft" | "ghost";
+  style?: React.CSSProperties;
 } & MarginProps;
 
 export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
@@ -26,17 +29,21 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
     value,
     setValue,
     size = "3",
+    placeholder,
+    variant = "surface",
     ...containerProps
   }: SelectProps,
   ref
 ) {
   return (
     <Flex direction="column" {...containerProps} ref={ref}>
-      {label !== undefined && (
+      {typeof label === "string" ? (
         <Text as="label" size="3" weight="medium">
           {label}
         </Text>
-      )}
+      ) : label !== undefined ? (
+        label
+      ) : null}
       <RadixSelect.Root
         defaultValue={defaultValue}
         size={size}
@@ -45,9 +52,10 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
         onValueChange={setValue}
       >
         <RadixSelect.Trigger
+          placeholder={placeholder}
           className={error ? "error" : undefined}
           disabled={disabled}
-          variant="surface"
+          variant={variant}
         />
         <RadixSelect.Content variant="soft" position="popper">
           {children}

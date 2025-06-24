@@ -538,6 +538,10 @@ export interface components {
                   id: string;
                   condition: string;
                 })[];
+              scheduleRules?: ({
+                  enabled: boolean;
+                  timestamp: string | null;
+                })[];
               id: string;
               enabled: boolean;
               /** @enum {string} */
@@ -551,6 +555,10 @@ export interface components {
                   matchType: "all" | "any" | "none";
                   savedGroups: (string)[];
                 })[];
+              scheduleRules?: ({
+                  enabled: boolean;
+                  timestamp: string | null;
+                })[];
               id: string;
               enabled: boolean;
               /** @enum {string} */
@@ -558,7 +566,7 @@ export interface components {
               value: string;
               coverage: number;
               hashAttribute: string;
-            }) | {
+            }) | ({
               description: string;
               condition: string;
               id: string;
@@ -577,24 +585,32 @@ export interface components {
                 range: (number)[];
               };
               coverage?: number;
+              scheduleRules?: ({
+                  enabled: boolean;
+                  timestamp: string | null;
+                })[];
               value?: ({
                   value: string;
                   weight: number;
                   name?: string;
                 })[];
-            } | {
+            }) | ({
               description: string;
               id: string;
               enabled: boolean;
               /** @enum {string} */
               type: "experiment-ref";
               condition?: string;
+              scheduleRules?: ({
+                  enabled: boolean;
+                  timestamp: string | null;
+                })[];
               variations: ({
                   value: string;
                   variationId: string;
                 })[];
               experimentId: string;
-            } | ({
+            }) | ({
               condition: string;
               savedGroupTargeting?: ({
                   /** @enum {string} */
@@ -637,6 +653,10 @@ export interface components {
                     id: string;
                     condition: string;
                   })[];
+                scheduleRules?: ({
+                    enabled: boolean;
+                    timestamp: string | null;
+                  })[];
                 id: string;
                 enabled: boolean;
                 /** @enum {string} */
@@ -650,6 +670,10 @@ export interface components {
                     matchType: "all" | "any" | "none";
                     savedGroups: (string)[];
                   })[];
+                scheduleRules?: ({
+                    enabled: boolean;
+                    timestamp: string | null;
+                  })[];
                 id: string;
                 enabled: boolean;
                 /** @enum {string} */
@@ -657,7 +681,7 @@ export interface components {
                 value: string;
                 coverage: number;
                 hashAttribute: string;
-              }) | {
+              }) | ({
                 description: string;
                 condition: string;
                 id: string;
@@ -676,24 +700,32 @@ export interface components {
                   range: (number)[];
                 };
                 coverage?: number;
+                scheduleRules?: ({
+                    enabled: boolean;
+                    timestamp: string | null;
+                  })[];
                 value?: ({
                     value: string;
                     weight: number;
                     name?: string;
                   })[];
-              } | {
+              }) | ({
                 description: string;
                 id: string;
                 enabled: boolean;
                 /** @enum {string} */
                 type: "experiment-ref";
                 condition?: string;
+                scheduleRules?: ({
+                    enabled: boolean;
+                    timestamp: string | null;
+                  })[];
                 variations: ({
                     value: string;
                     variationId: string;
                   })[];
                 experimentId: string;
-              } | ({
+              }) | ({
                 condition: string;
                 savedGroupTargeting?: ({
                     /** @enum {string} */
@@ -731,6 +763,9 @@ export interface components {
         /** Format: date-time */
         date: string;
         publishedBy: string;
+      };
+      customFields?: {
+        [key: string]: unknown | undefined;
       };
     };
     FeatureWithRevisions: ({
@@ -764,6 +799,10 @@ export interface components {
                   id: string;
                   condition: string;
                 })[];
+              scheduleRules?: ({
+                  enabled: boolean;
+                  timestamp: string | null;
+                })[];
               id: string;
               enabled: boolean;
               /** @enum {string} */
@@ -777,6 +816,10 @@ export interface components {
                   matchType: "all" | "any" | "none";
                   savedGroups: (string)[];
                 })[];
+              scheduleRules?: ({
+                  enabled: boolean;
+                  timestamp: string | null;
+                })[];
               id: string;
               enabled: boolean;
               /** @enum {string} */
@@ -784,7 +827,7 @@ export interface components {
               value: string;
               coverage: number;
               hashAttribute: string;
-            }) | {
+            }) | ({
               description: string;
               condition: string;
               id: string;
@@ -803,24 +846,32 @@ export interface components {
                 range: (number)[];
               };
               coverage?: number;
+              scheduleRules?: ({
+                  enabled: boolean;
+                  timestamp: string | null;
+                })[];
               value?: ({
                   value: string;
                   weight: number;
                   name?: string;
                 })[];
-            } | {
+            }) | ({
               description: string;
               id: string;
               enabled: boolean;
               /** @enum {string} */
               type: "experiment-ref";
               condition?: string;
+              scheduleRules?: ({
+                  enabled: boolean;
+                  timestamp: string | null;
+                })[];
               variations: ({
                   value: string;
                   variationId: string;
                 })[];
               experimentId: string;
-            } | ({
+            }) | ({
               condition: string;
               savedGroupTargeting?: ({
                   /** @enum {string} */
@@ -863,6 +914,10 @@ export interface components {
                     id: string;
                     condition: string;
                   })[];
+                scheduleRules?: ({
+                    enabled: boolean;
+                    timestamp: string | null;
+                  })[];
                 id: string;
                 enabled: boolean;
                 /** @enum {string} */
@@ -876,6 +931,10 @@ export interface components {
                     matchType: "all" | "any" | "none";
                     savedGroups: (string)[];
                   })[];
+                scheduleRules?: ({
+                    enabled: boolean;
+                    timestamp: string | null;
+                  })[];
                 id: string;
                 enabled: boolean;
                 /** @enum {string} */
@@ -883,7 +942,7 @@ export interface components {
                 value: string;
                 coverage: number;
                 hashAttribute: string;
-              }) | {
+              }) | ({
                 description: string;
                 condition: string;
                 id: string;
@@ -902,24 +961,32 @@ export interface components {
                   range: (number)[];
                 };
                 coverage?: number;
+                scheduleRules?: ({
+                    enabled: boolean;
+                    timestamp: string | null;
+                  })[];
                 value?: ({
                     value: string;
                     weight: number;
                     name?: string;
                   })[];
-              } | {
+              }) | ({
                 description: string;
                 id: string;
                 enabled: boolean;
                 /** @enum {string} */
                 type: "experiment-ref";
                 condition?: string;
+                scheduleRules?: ({
+                    enabled: boolean;
+                    timestamp: string | null;
+                  })[];
                 variations: ({
                     value: string;
                     variationId: string;
                   })[];
                 experimentId: string;
-              } | ({
+              }) | ({
                 condition: string;
                 savedGroupTargeting?: ({
                     /** @enum {string} */
@@ -958,6 +1025,9 @@ export interface components {
         date: string;
         publishedBy: string;
       };
+      customFields?: {
+        [key: string]: unknown | undefined;
+      };
     }) & ({
       revisions?: ({
           baseVersion: number;
@@ -981,6 +1051,10 @@ export interface components {
                     id: string;
                     condition: string;
                   })[];
+                scheduleRules?: ({
+                    enabled: boolean;
+                    timestamp: string | null;
+                  })[];
                 id: string;
                 enabled: boolean;
                 /** @enum {string} */
@@ -994,6 +1068,10 @@ export interface components {
                     matchType: "all" | "any" | "none";
                     savedGroups: (string)[];
                   })[];
+                scheduleRules?: ({
+                    enabled: boolean;
+                    timestamp: string | null;
+                  })[];
                 id: string;
                 enabled: boolean;
                 /** @enum {string} */
@@ -1001,7 +1079,7 @@ export interface components {
                 value: string;
                 coverage: number;
                 hashAttribute: string;
-              }) | {
+              }) | ({
                 description: string;
                 condition: string;
                 id: string;
@@ -1020,24 +1098,32 @@ export interface components {
                   range: (number)[];
                 };
                 coverage?: number;
+                scheduleRules?: ({
+                    enabled: boolean;
+                    timestamp: string | null;
+                  })[];
                 value?: ({
                     value: string;
                     weight: number;
                     name?: string;
                   })[];
-              } | {
+              }) | ({
                 description: string;
                 id: string;
                 enabled: boolean;
                 /** @enum {string} */
                 type: "experiment-ref";
                 condition?: string;
+                scheduleRules?: ({
+                    enabled: boolean;
+                    timestamp: string | null;
+                  })[];
                 variations: ({
                     value: string;
                     variationId: string;
                   })[];
                 experimentId: string;
-              } | ({
+              }) | ({
                 condition: string;
                 savedGroupTargeting?: ({
                     /** @enum {string} */
@@ -1084,6 +1170,10 @@ export interface components {
               id: string;
               condition: string;
             })[];
+          scheduleRules?: ({
+              enabled: boolean;
+              timestamp: string | null;
+            })[];
           id: string;
           enabled: boolean;
           /** @enum {string} */
@@ -1097,6 +1187,10 @@ export interface components {
               matchType: "all" | "any" | "none";
               savedGroups: (string)[];
             })[];
+          scheduleRules?: ({
+              enabled: boolean;
+              timestamp: string | null;
+            })[];
           id: string;
           enabled: boolean;
           /** @enum {string} */
@@ -1104,7 +1198,7 @@ export interface components {
           value: string;
           coverage: number;
           hashAttribute: string;
-        }) | {
+        }) | ({
           description: string;
           condition: string;
           id: string;
@@ -1123,24 +1217,32 @@ export interface components {
             range: (number)[];
           };
           coverage?: number;
+          scheduleRules?: ({
+              enabled: boolean;
+              timestamp: string | null;
+            })[];
           value?: ({
               value: string;
               weight: number;
               name?: string;
             })[];
-        } | {
+        }) | ({
           description: string;
           id: string;
           enabled: boolean;
           /** @enum {string} */
           type: "experiment-ref";
           condition?: string;
+          scheduleRules?: ({
+              enabled: boolean;
+              timestamp: string | null;
+            })[];
           variations: ({
               value: string;
               variationId: string;
             })[];
           experimentId: string;
-        } | ({
+        }) | ({
           condition: string;
           savedGroupTargeting?: ({
               /** @enum {string} */
@@ -1183,6 +1285,10 @@ export interface components {
                 id: string;
                 condition: string;
               })[];
+            scheduleRules?: ({
+                enabled: boolean;
+                timestamp: string | null;
+              })[];
             id: string;
             enabled: boolean;
             /** @enum {string} */
@@ -1196,6 +1302,10 @@ export interface components {
                 matchType: "all" | "any" | "none";
                 savedGroups: (string)[];
               })[];
+            scheduleRules?: ({
+                enabled: boolean;
+                timestamp: string | null;
+              })[];
             id: string;
             enabled: boolean;
             /** @enum {string} */
@@ -1203,7 +1313,7 @@ export interface components {
             value: string;
             coverage: number;
             hashAttribute: string;
-          }) | {
+          }) | ({
             description: string;
             condition: string;
             id: string;
@@ -1222,24 +1332,32 @@ export interface components {
               range: (number)[];
             };
             coverage?: number;
+            scheduleRules?: ({
+                enabled: boolean;
+                timestamp: string | null;
+              })[];
             value?: ({
                 value: string;
                 weight: number;
                 name?: string;
               })[];
-          } | {
+          }) | ({
             description: string;
             id: string;
             enabled: boolean;
             /** @enum {string} */
             type: "experiment-ref";
             condition?: string;
+            scheduleRules?: ({
+                enabled: boolean;
+                timestamp: string | null;
+              })[];
             variations: ({
                 value: string;
                 variationId: string;
               })[];
             experimentId: string;
-          } | ({
+          }) | ({
             condition: string;
             savedGroupTargeting?: ({
                 /** @enum {string} */
@@ -1281,6 +1399,10 @@ export interface components {
           id: string;
           condition: string;
         })[];
+      scheduleRules?: ({
+          enabled: boolean;
+          timestamp: string | null;
+        })[];
       id: string;
       enabled: boolean;
       /** @enum {string} */
@@ -1294,6 +1416,10 @@ export interface components {
           matchType: "all" | "any" | "none";
           savedGroups: (string)[];
         })[];
+      scheduleRules?: ({
+          enabled: boolean;
+          timestamp: string | null;
+        })[];
       id: string;
       enabled: boolean;
       /** @enum {string} */
@@ -1301,7 +1427,7 @@ export interface components {
       value: string;
       coverage: number;
       hashAttribute: string;
-    }) | {
+    }) | ({
       description: string;
       condition: string;
       id: string;
@@ -1320,24 +1446,32 @@ export interface components {
         range: (number)[];
       };
       coverage?: number;
+      scheduleRules?: ({
+          enabled: boolean;
+          timestamp: string | null;
+        })[];
       value?: ({
           value: string;
           weight: number;
           name?: string;
         })[];
-    } | {
+    }) | ({
       description: string;
       id: string;
       enabled: boolean;
       /** @enum {string} */
       type: "experiment-ref";
       condition?: string;
+      scheduleRules?: ({
+          enabled: boolean;
+          timestamp: string | null;
+        })[];
       variations: ({
           value: string;
           variationId: string;
         })[];
       experimentId: string;
-    } | ({
+    }) | ({
       condition: string;
       savedGroupTargeting?: ({
           /** @enum {string} */
@@ -1390,6 +1524,10 @@ export interface components {
           id: string;
           condition: string;
         })[];
+      scheduleRules?: ({
+          enabled: boolean;
+          timestamp: string | null;
+        })[];
       id: string;
       enabled: boolean;
       /** @enum {string} */
@@ -1403,6 +1541,10 @@ export interface components {
           /** @enum {string} */
           matchType: "all" | "any" | "none";
           savedGroups: (string)[];
+        })[];
+      scheduleRules?: ({
+          enabled: boolean;
+          timestamp: string | null;
         })[];
       id: string;
       enabled: boolean;
@@ -1456,6 +1598,10 @@ export interface components {
         range: (number)[];
       };
       coverage?: number;
+      scheduleRules?: ({
+          enabled: boolean;
+          timestamp: string | null;
+        })[];
       value?: ({
           value: string;
           weight: number;
@@ -1469,6 +1615,10 @@ export interface components {
       /** @enum {string} */
       type: "experiment-ref";
       condition?: string;
+      scheduleRules?: ({
+          enabled: boolean;
+          timestamp: string | null;
+        })[];
       variations: ({
           value: string;
           variationId: string;
@@ -1645,6 +1795,9 @@ export interface components {
       linkedFeatures?: (string)[];
       hasVisualChangesets?: boolean;
       hasURLRedirects?: boolean;
+      customFields?: {
+        [key: string]: unknown | undefined;
+      };
     };
     ExperimentSnapshot: {
       id: string;
@@ -1969,6 +2122,9 @@ export interface components {
       linkedFeatures?: (string)[];
       hasVisualChangesets?: boolean;
       hasURLRedirects?: boolean;
+      customFields?: {
+        [key: string]: unknown | undefined;
+      };
     }) & ({
       enhancedStatus?: {
         /** @enum {string} */
@@ -2352,6 +2508,10 @@ export interface operations {
                             id: string;
                             condition: string;
                           })[];
+                        scheduleRules?: ({
+                            enabled: boolean;
+                            timestamp: string | null;
+                          })[];
                         id: string;
                         enabled: boolean;
                         /** @enum {string} */
@@ -2365,6 +2525,10 @@ export interface operations {
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
+                        scheduleRules?: ({
+                            enabled: boolean;
+                            timestamp: string | null;
+                          })[];
                         id: string;
                         enabled: boolean;
                         /** @enum {string} */
@@ -2372,7 +2536,7 @@ export interface operations {
                         value: string;
                         coverage: number;
                         hashAttribute: string;
-                      }) | {
+                      }) | ({
                         description: string;
                         condition: string;
                         id: string;
@@ -2391,24 +2555,32 @@ export interface operations {
                           range: (number)[];
                         };
                         coverage?: number;
+                        scheduleRules?: ({
+                            enabled: boolean;
+                            timestamp: string | null;
+                          })[];
                         value?: ({
                             value: string;
                             weight: number;
                             name?: string;
                           })[];
-                      } | {
+                      }) | ({
                         description: string;
                         id: string;
                         enabled: boolean;
                         /** @enum {string} */
                         type: "experiment-ref";
                         condition?: string;
+                        scheduleRules?: ({
+                            enabled: boolean;
+                            timestamp: string | null;
+                          })[];
                         variations: ({
                             value: string;
                             variationId: string;
                           })[];
                         experimentId: string;
-                      } | ({
+                      }) | ({
                         condition: string;
                         savedGroupTargeting?: ({
                             /** @enum {string} */
@@ -2451,6 +2623,10 @@ export interface operations {
                               id: string;
                               condition: string;
                             })[];
+                          scheduleRules?: ({
+                              enabled: boolean;
+                              timestamp: string | null;
+                            })[];
                           id: string;
                           enabled: boolean;
                           /** @enum {string} */
@@ -2464,6 +2640,10 @@ export interface operations {
                               matchType: "all" | "any" | "none";
                               savedGroups: (string)[];
                             })[];
+                          scheduleRules?: ({
+                              enabled: boolean;
+                              timestamp: string | null;
+                            })[];
                           id: string;
                           enabled: boolean;
                           /** @enum {string} */
@@ -2471,7 +2651,7 @@ export interface operations {
                           value: string;
                           coverage: number;
                           hashAttribute: string;
-                        }) | {
+                        }) | ({
                           description: string;
                           condition: string;
                           id: string;
@@ -2490,24 +2670,32 @@ export interface operations {
                             range: (number)[];
                           };
                           coverage?: number;
+                          scheduleRules?: ({
+                              enabled: boolean;
+                              timestamp: string | null;
+                            })[];
                           value?: ({
                               value: string;
                               weight: number;
                               name?: string;
                             })[];
-                        } | {
+                        }) | ({
                           description: string;
                           id: string;
                           enabled: boolean;
                           /** @enum {string} */
                           type: "experiment-ref";
                           condition?: string;
+                          scheduleRules?: ({
+                              enabled: boolean;
+                              timestamp: string | null;
+                            })[];
                           variations: ({
                               value: string;
                               variationId: string;
                             })[];
                           experimentId: string;
-                        } | ({
+                        }) | ({
                           condition: string;
                           savedGroupTargeting?: ({
                               /** @enum {string} */
@@ -2545,6 +2733,9 @@ export interface operations {
                   /** Format: date-time */
                   date: string;
                   publishedBy: string;
+                };
+                customFields?: {
+                  [key: string]: unknown | undefined;
                 };
               })[];
           }) & {
@@ -2595,6 +2786,10 @@ export interface operations {
                       matchType: "all" | "any" | "none";
                       savedGroups: (string)[];
                     })[];
+                  scheduleRules?: ({
+                      enabled: boolean;
+                      timestamp: string | null;
+                    })[];
                   id?: string;
                   /** @description Enabled by default */
                   enabled?: boolean;
@@ -2614,6 +2809,10 @@ export interface operations {
                       /** @description Feature ID */
                       id: string;
                       condition: string;
+                    })[];
+                  scheduleRules?: ({
+                      enabled: boolean;
+                      timestamp: string | null;
                     })[];
                   id?: string;
                   /** @description Enabled by default */
@@ -2642,12 +2841,16 @@ export interface operations {
                       id: string;
                       condition: string;
                     })[];
+                  scheduleRules?: ({
+                      enabled: boolean;
+                      timestamp: string | null;
+                    })[];
                   variations: ({
                       value: string;
                       variationId: string;
                     })[];
                   experimentId: string;
-                }) | {
+                }) | ({
                   description?: string;
                   condition: string;
                   id?: string;
@@ -2667,6 +2870,10 @@ export interface operations {
                     range: (number)[];
                   };
                   coverage?: number;
+                  scheduleRules?: ({
+                      enabled: boolean;
+                      timestamp: string | null;
+                    })[];
                   values?: ({
                       value: string;
                       weight: number;
@@ -2681,7 +2888,7 @@ export interface operations {
                       weight: number;
                       name?: string;
                     })[];
-                })[];
+                }))[];
               /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
               definition?: string;
               /** @description Use to write draft changes without publishing them. */
@@ -2695,6 +2902,10 @@ export interface operations {
                         /** @enum {string} */
                         matchType: "all" | "any" | "none";
                         savedGroups: (string)[];
+                      })[];
+                    scheduleRules?: ({
+                        enabled: boolean;
+                        timestamp: string | null;
                       })[];
                     id?: string;
                     /** @description Enabled by default */
@@ -2715,6 +2926,10 @@ export interface operations {
                         /** @description Feature ID */
                         id: string;
                         condition: string;
+                      })[];
+                    scheduleRules?: ({
+                        enabled: boolean;
+                        timestamp: string | null;
                       })[];
                     id?: string;
                     /** @description Enabled by default */
@@ -2743,12 +2958,16 @@ export interface operations {
                         id: string;
                         condition: string;
                       })[];
+                    scheduleRules?: ({
+                        enabled: boolean;
+                        timestamp: string | null;
+                      })[];
                     variations: ({
                         value: string;
                         variationId: string;
                       })[];
                     experimentId: string;
-                  }) | {
+                  }) | ({
                     description?: string;
                     condition: string;
                     id?: string;
@@ -2768,6 +2987,10 @@ export interface operations {
                       range: (number)[];
                     };
                     coverage?: number;
+                    scheduleRules?: ({
+                        enabled: boolean;
+                        timestamp: string | null;
+                      })[];
                     values?: ({
                         value: string;
                         weight: number;
@@ -2782,7 +3005,7 @@ export interface operations {
                         weight: number;
                         name?: string;
                       })[];
-                  })[];
+                  }))[];
                 /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                 definition?: string;
               };
@@ -2830,6 +3053,10 @@ export interface operations {
                           id: string;
                           condition: string;
                         })[];
+                      scheduleRules?: ({
+                          enabled: boolean;
+                          timestamp: string | null;
+                        })[];
                       id: string;
                       enabled: boolean;
                       /** @enum {string} */
@@ -2843,6 +3070,10 @@ export interface operations {
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
+                      scheduleRules?: ({
+                          enabled: boolean;
+                          timestamp: string | null;
+                        })[];
                       id: string;
                       enabled: boolean;
                       /** @enum {string} */
@@ -2850,7 +3081,7 @@ export interface operations {
                       value: string;
                       coverage: number;
                       hashAttribute: string;
-                    }) | {
+                    }) | ({
                       description: string;
                       condition: string;
                       id: string;
@@ -2869,24 +3100,32 @@ export interface operations {
                         range: (number)[];
                       };
                       coverage?: number;
+                      scheduleRules?: ({
+                          enabled: boolean;
+                          timestamp: string | null;
+                        })[];
                       value?: ({
                           value: string;
                           weight: number;
                           name?: string;
                         })[];
-                    } | {
+                    }) | ({
                       description: string;
                       id: string;
                       enabled: boolean;
                       /** @enum {string} */
                       type: "experiment-ref";
                       condition?: string;
+                      scheduleRules?: ({
+                          enabled: boolean;
+                          timestamp: string | null;
+                        })[];
                       variations: ({
                           value: string;
                           variationId: string;
                         })[];
                       experimentId: string;
-                    } | ({
+                    }) | ({
                       condition: string;
                       savedGroupTargeting?: ({
                           /** @enum {string} */
@@ -2929,6 +3168,10 @@ export interface operations {
                             id: string;
                             condition: string;
                           })[];
+                        scheduleRules?: ({
+                            enabled: boolean;
+                            timestamp: string | null;
+                          })[];
                         id: string;
                         enabled: boolean;
                         /** @enum {string} */
@@ -2942,6 +3185,10 @@ export interface operations {
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
+                        scheduleRules?: ({
+                            enabled: boolean;
+                            timestamp: string | null;
+                          })[];
                         id: string;
                         enabled: boolean;
                         /** @enum {string} */
@@ -2949,7 +3196,7 @@ export interface operations {
                         value: string;
                         coverage: number;
                         hashAttribute: string;
-                      }) | {
+                      }) | ({
                         description: string;
                         condition: string;
                         id: string;
@@ -2968,24 +3215,32 @@ export interface operations {
                           range: (number)[];
                         };
                         coverage?: number;
+                        scheduleRules?: ({
+                            enabled: boolean;
+                            timestamp: string | null;
+                          })[];
                         value?: ({
                             value: string;
                             weight: number;
                             name?: string;
                           })[];
-                      } | {
+                      }) | ({
                         description: string;
                         id: string;
                         enabled: boolean;
                         /** @enum {string} */
                         type: "experiment-ref";
                         condition?: string;
+                        scheduleRules?: ({
+                            enabled: boolean;
+                            timestamp: string | null;
+                          })[];
                         variations: ({
                             value: string;
                             variationId: string;
                           })[];
                         experimentId: string;
-                      } | ({
+                      }) | ({
                         condition: string;
                         savedGroupTargeting?: ({
                             /** @enum {string} */
@@ -3023,6 +3278,9 @@ export interface operations {
                 /** Format: date-time */
                 date: string;
                 publishedBy: string;
+              };
+              customFields?: {
+                [key: string]: unknown | undefined;
               };
             };
           };
@@ -3077,6 +3335,10 @@ export interface operations {
                           id: string;
                           condition: string;
                         })[];
+                      scheduleRules?: ({
+                          enabled: boolean;
+                          timestamp: string | null;
+                        })[];
                       id: string;
                       enabled: boolean;
                       /** @enum {string} */
@@ -3090,6 +3352,10 @@ export interface operations {
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
+                      scheduleRules?: ({
+                          enabled: boolean;
+                          timestamp: string | null;
+                        })[];
                       id: string;
                       enabled: boolean;
                       /** @enum {string} */
@@ -3097,7 +3363,7 @@ export interface operations {
                       value: string;
                       coverage: number;
                       hashAttribute: string;
-                    }) | {
+                    }) | ({
                       description: string;
                       condition: string;
                       id: string;
@@ -3116,24 +3382,32 @@ export interface operations {
                         range: (number)[];
                       };
                       coverage?: number;
+                      scheduleRules?: ({
+                          enabled: boolean;
+                          timestamp: string | null;
+                        })[];
                       value?: ({
                           value: string;
                           weight: number;
                           name?: string;
                         })[];
-                    } | {
+                    }) | ({
                       description: string;
                       id: string;
                       enabled: boolean;
                       /** @enum {string} */
                       type: "experiment-ref";
                       condition?: string;
+                      scheduleRules?: ({
+                          enabled: boolean;
+                          timestamp: string | null;
+                        })[];
                       variations: ({
                           value: string;
                           variationId: string;
                         })[];
                       experimentId: string;
-                    } | ({
+                    }) | ({
                       condition: string;
                       savedGroupTargeting?: ({
                           /** @enum {string} */
@@ -3176,6 +3450,10 @@ export interface operations {
                             id: string;
                             condition: string;
                           })[];
+                        scheduleRules?: ({
+                            enabled: boolean;
+                            timestamp: string | null;
+                          })[];
                         id: string;
                         enabled: boolean;
                         /** @enum {string} */
@@ -3189,6 +3467,10 @@ export interface operations {
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
+                        scheduleRules?: ({
+                            enabled: boolean;
+                            timestamp: string | null;
+                          })[];
                         id: string;
                         enabled: boolean;
                         /** @enum {string} */
@@ -3196,7 +3478,7 @@ export interface operations {
                         value: string;
                         coverage: number;
                         hashAttribute: string;
-                      }) | {
+                      }) | ({
                         description: string;
                         condition: string;
                         id: string;
@@ -3215,24 +3497,32 @@ export interface operations {
                           range: (number)[];
                         };
                         coverage?: number;
+                        scheduleRules?: ({
+                            enabled: boolean;
+                            timestamp: string | null;
+                          })[];
                         value?: ({
                             value: string;
                             weight: number;
                             name?: string;
                           })[];
-                      } | {
+                      }) | ({
                         description: string;
                         id: string;
                         enabled: boolean;
                         /** @enum {string} */
                         type: "experiment-ref";
                         condition?: string;
+                        scheduleRules?: ({
+                            enabled: boolean;
+                            timestamp: string | null;
+                          })[];
                         variations: ({
                             value: string;
                             variationId: string;
                           })[];
                         experimentId: string;
-                      } | ({
+                      }) | ({
                         condition: string;
                         savedGroupTargeting?: ({
                             /** @enum {string} */
@@ -3271,6 +3561,9 @@ export interface operations {
                 date: string;
                 publishedBy: string;
               };
+              customFields?: {
+                [key: string]: unknown | undefined;
+              };
             }) & ({
               revisions?: ({
                   baseVersion: number;
@@ -3294,6 +3587,10 @@ export interface operations {
                             id: string;
                             condition: string;
                           })[];
+                        scheduleRules?: ({
+                            enabled: boolean;
+                            timestamp: string | null;
+                          })[];
                         id: string;
                         enabled: boolean;
                         /** @enum {string} */
@@ -3307,6 +3604,10 @@ export interface operations {
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
+                        scheduleRules?: ({
+                            enabled: boolean;
+                            timestamp: string | null;
+                          })[];
                         id: string;
                         enabled: boolean;
                         /** @enum {string} */
@@ -3314,7 +3615,7 @@ export interface operations {
                         value: string;
                         coverage: number;
                         hashAttribute: string;
-                      }) | {
+                      }) | ({
                         description: string;
                         condition: string;
                         id: string;
@@ -3333,24 +3634,32 @@ export interface operations {
                           range: (number)[];
                         };
                         coverage?: number;
+                        scheduleRules?: ({
+                            enabled: boolean;
+                            timestamp: string | null;
+                          })[];
                         value?: ({
                             value: string;
                             weight: number;
                             name?: string;
                           })[];
-                      } | {
+                      }) | ({
                         description: string;
                         id: string;
                         enabled: boolean;
                         /** @enum {string} */
                         type: "experiment-ref";
                         condition?: string;
+                        scheduleRules?: ({
+                            enabled: boolean;
+                            timestamp: string | null;
+                          })[];
                         variations: ({
                             value: string;
                             variationId: string;
                           })[];
                         experimentId: string;
-                      } | ({
+                      }) | ({
                         condition: string;
                         savedGroupTargeting?: ({
                             /** @enum {string} */
@@ -3418,6 +3727,10 @@ export interface operations {
                       matchType: "all" | "any" | "none";
                       savedGroups: (string)[];
                     })[];
+                  scheduleRules?: ({
+                      enabled: boolean;
+                      timestamp: string | null;
+                    })[];
                   id?: string;
                   /** @description Enabled by default */
                   enabled?: boolean;
@@ -3437,6 +3750,10 @@ export interface operations {
                       /** @description Feature ID */
                       id: string;
                       condition: string;
+                    })[];
+                  scheduleRules?: ({
+                      enabled: boolean;
+                      timestamp: string | null;
                     })[];
                   id?: string;
                   /** @description Enabled by default */
@@ -3465,12 +3782,16 @@ export interface operations {
                       id: string;
                       condition: string;
                     })[];
+                  scheduleRules?: ({
+                      enabled: boolean;
+                      timestamp: string | null;
+                    })[];
                   variations: ({
                       value: string;
                       variationId: string;
                     })[];
                   experimentId: string;
-                }) | {
+                }) | ({
                   description?: string;
                   condition: string;
                   id?: string;
@@ -3490,6 +3811,10 @@ export interface operations {
                     range: (number)[];
                   };
                   coverage?: number;
+                  scheduleRules?: ({
+                      enabled: boolean;
+                      timestamp: string | null;
+                    })[];
                   values?: ({
                       value: string;
                       weight: number;
@@ -3504,7 +3829,7 @@ export interface operations {
                       weight: number;
                       name?: string;
                     })[];
-                })[];
+                }))[];
               /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
               definition?: string;
               /** @description Use to write draft changes without publishing them. */
@@ -3518,6 +3843,10 @@ export interface operations {
                         /** @enum {string} */
                         matchType: "all" | "any" | "none";
                         savedGroups: (string)[];
+                      })[];
+                    scheduleRules?: ({
+                        enabled: boolean;
+                        timestamp: string | null;
                       })[];
                     id?: string;
                     /** @description Enabled by default */
@@ -3538,6 +3867,10 @@ export interface operations {
                         /** @description Feature ID */
                         id: string;
                         condition: string;
+                      })[];
+                    scheduleRules?: ({
+                        enabled: boolean;
+                        timestamp: string | null;
                       })[];
                     id?: string;
                     /** @description Enabled by default */
@@ -3566,12 +3899,16 @@ export interface operations {
                         id: string;
                         condition: string;
                       })[];
+                    scheduleRules?: ({
+                        enabled: boolean;
+                        timestamp: string | null;
+                      })[];
                     variations: ({
                         value: string;
                         variationId: string;
                       })[];
                     experimentId: string;
-                  }) | {
+                  }) | ({
                     description?: string;
                     condition: string;
                     id?: string;
@@ -3591,6 +3928,10 @@ export interface operations {
                       range: (number)[];
                     };
                     coverage?: number;
+                    scheduleRules?: ({
+                        enabled: boolean;
+                        timestamp: string | null;
+                      })[];
                     values?: ({
                         value: string;
                         weight: number;
@@ -3605,7 +3946,7 @@ export interface operations {
                         weight: number;
                         name?: string;
                       })[];
-                  })[];
+                  }))[];
                 /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                 definition?: string;
               };
@@ -3653,6 +3994,10 @@ export interface operations {
                           id: string;
                           condition: string;
                         })[];
+                      scheduleRules?: ({
+                          enabled: boolean;
+                          timestamp: string | null;
+                        })[];
                       id: string;
                       enabled: boolean;
                       /** @enum {string} */
@@ -3666,6 +4011,10 @@ export interface operations {
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
+                      scheduleRules?: ({
+                          enabled: boolean;
+                          timestamp: string | null;
+                        })[];
                       id: string;
                       enabled: boolean;
                       /** @enum {string} */
@@ -3673,7 +4022,7 @@ export interface operations {
                       value: string;
                       coverage: number;
                       hashAttribute: string;
-                    }) | {
+                    }) | ({
                       description: string;
                       condition: string;
                       id: string;
@@ -3692,24 +4041,32 @@ export interface operations {
                         range: (number)[];
                       };
                       coverage?: number;
+                      scheduleRules?: ({
+                          enabled: boolean;
+                          timestamp: string | null;
+                        })[];
                       value?: ({
                           value: string;
                           weight: number;
                           name?: string;
                         })[];
-                    } | {
+                    }) | ({
                       description: string;
                       id: string;
                       enabled: boolean;
                       /** @enum {string} */
                       type: "experiment-ref";
                       condition?: string;
+                      scheduleRules?: ({
+                          enabled: boolean;
+                          timestamp: string | null;
+                        })[];
                       variations: ({
                           value: string;
                           variationId: string;
                         })[];
                       experimentId: string;
-                    } | ({
+                    }) | ({
                       condition: string;
                       savedGroupTargeting?: ({
                           /** @enum {string} */
@@ -3752,6 +4109,10 @@ export interface operations {
                             id: string;
                             condition: string;
                           })[];
+                        scheduleRules?: ({
+                            enabled: boolean;
+                            timestamp: string | null;
+                          })[];
                         id: string;
                         enabled: boolean;
                         /** @enum {string} */
@@ -3765,6 +4126,10 @@ export interface operations {
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
+                        scheduleRules?: ({
+                            enabled: boolean;
+                            timestamp: string | null;
+                          })[];
                         id: string;
                         enabled: boolean;
                         /** @enum {string} */
@@ -3772,7 +4137,7 @@ export interface operations {
                         value: string;
                         coverage: number;
                         hashAttribute: string;
-                      }) | {
+                      }) | ({
                         description: string;
                         condition: string;
                         id: string;
@@ -3791,24 +4156,32 @@ export interface operations {
                           range: (number)[];
                         };
                         coverage?: number;
+                        scheduleRules?: ({
+                            enabled: boolean;
+                            timestamp: string | null;
+                          })[];
                         value?: ({
                             value: string;
                             weight: number;
                             name?: string;
                           })[];
-                      } | {
+                      }) | ({
                         description: string;
                         id: string;
                         enabled: boolean;
                         /** @enum {string} */
                         type: "experiment-ref";
                         condition?: string;
+                        scheduleRules?: ({
+                            enabled: boolean;
+                            timestamp: string | null;
+                          })[];
                         variations: ({
                             value: string;
                             variationId: string;
                           })[];
                         experimentId: string;
-                      } | ({
+                      }) | ({
                         condition: string;
                         savedGroupTargeting?: ({
                             /** @enum {string} */
@@ -3846,6 +4219,9 @@ export interface operations {
                 /** Format: date-time */
                 date: string;
                 publishedBy: string;
+              };
+              customFields?: {
+                [key: string]: unknown | undefined;
               };
             };
           };
@@ -3922,6 +4298,10 @@ export interface operations {
                           id: string;
                           condition: string;
                         })[];
+                      scheduleRules?: ({
+                          enabled: boolean;
+                          timestamp: string | null;
+                        })[];
                       id: string;
                       enabled: boolean;
                       /** @enum {string} */
@@ -3935,6 +4315,10 @@ export interface operations {
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
+                      scheduleRules?: ({
+                          enabled: boolean;
+                          timestamp: string | null;
+                        })[];
                       id: string;
                       enabled: boolean;
                       /** @enum {string} */
@@ -3942,7 +4326,7 @@ export interface operations {
                       value: string;
                       coverage: number;
                       hashAttribute: string;
-                    }) | {
+                    }) | ({
                       description: string;
                       condition: string;
                       id: string;
@@ -3961,24 +4345,32 @@ export interface operations {
                         range: (number)[];
                       };
                       coverage?: number;
+                      scheduleRules?: ({
+                          enabled: boolean;
+                          timestamp: string | null;
+                        })[];
                       value?: ({
                           value: string;
                           weight: number;
                           name?: string;
                         })[];
-                    } | {
+                    }) | ({
                       description: string;
                       id: string;
                       enabled: boolean;
                       /** @enum {string} */
                       type: "experiment-ref";
                       condition?: string;
+                      scheduleRules?: ({
+                          enabled: boolean;
+                          timestamp: string | null;
+                        })[];
                       variations: ({
                           value: string;
                           variationId: string;
                         })[];
                       experimentId: string;
-                    } | ({
+                    }) | ({
                       condition: string;
                       savedGroupTargeting?: ({
                           /** @enum {string} */
@@ -4021,6 +4413,10 @@ export interface operations {
                             id: string;
                             condition: string;
                           })[];
+                        scheduleRules?: ({
+                            enabled: boolean;
+                            timestamp: string | null;
+                          })[];
                         id: string;
                         enabled: boolean;
                         /** @enum {string} */
@@ -4034,6 +4430,10 @@ export interface operations {
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
+                        scheduleRules?: ({
+                            enabled: boolean;
+                            timestamp: string | null;
+                          })[];
                         id: string;
                         enabled: boolean;
                         /** @enum {string} */
@@ -4041,7 +4441,7 @@ export interface operations {
                         value: string;
                         coverage: number;
                         hashAttribute: string;
-                      }) | {
+                      }) | ({
                         description: string;
                         condition: string;
                         id: string;
@@ -4060,24 +4460,32 @@ export interface operations {
                           range: (number)[];
                         };
                         coverage?: number;
+                        scheduleRules?: ({
+                            enabled: boolean;
+                            timestamp: string | null;
+                          })[];
                         value?: ({
                             value: string;
                             weight: number;
                             name?: string;
                           })[];
-                      } | {
+                      }) | ({
                         description: string;
                         id: string;
                         enabled: boolean;
                         /** @enum {string} */
                         type: "experiment-ref";
                         condition?: string;
+                        scheduleRules?: ({
+                            enabled: boolean;
+                            timestamp: string | null;
+                          })[];
                         variations: ({
                             value: string;
                             variationId: string;
                           })[];
                         experimentId: string;
-                      } | ({
+                      }) | ({
                         condition: string;
                         savedGroupTargeting?: ({
                             /** @enum {string} */
@@ -4115,6 +4523,9 @@ export interface operations {
                 /** Format: date-time */
                 date: string;
                 publishedBy: string;
+              };
+              customFields?: {
+                [key: string]: unknown | undefined;
               };
             };
           };
@@ -5006,6 +5417,9 @@ export interface operations {
                 linkedFeatures?: (string)[];
                 hasVisualChangesets?: boolean;
                 hasURLRedirects?: boolean;
+                customFields?: {
+                  [key: string]: unknown | undefined;
+                };
               })[];
           }) & {
             limit: number;
@@ -5278,6 +5692,9 @@ export interface operations {
               linkedFeatures?: (string)[];
               hasVisualChangesets?: boolean;
               hasURLRedirects?: boolean;
+              customFields?: {
+                [key: string]: unknown | undefined;
+              };
             };
           };
         };
@@ -5457,6 +5874,9 @@ export interface operations {
               linkedFeatures?: (string)[];
               hasVisualChangesets?: boolean;
               hasURLRedirects?: boolean;
+              customFields?: {
+                [key: string]: unknown | undefined;
+              };
             }) & ({
               enhancedStatus?: {
                 /** @enum {string} */
@@ -5733,6 +6153,9 @@ export interface operations {
               linkedFeatures?: (string)[];
               hasVisualChangesets?: boolean;
               hasURLRedirects?: boolean;
+              customFields?: {
+                [key: string]: unknown | undefined;
+              };
             };
           };
         };
@@ -6822,6 +7245,9 @@ export interface operations {
               linkedFeatures?: (string)[];
               hasVisualChangesets?: boolean;
               hasURLRedirects?: boolean;
+              customFields?: {
+                [key: string]: unknown | undefined;
+              };
             };
           };
         };

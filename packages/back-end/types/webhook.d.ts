@@ -23,6 +23,11 @@ export interface WebhookInterface {
   managedBy?: ManagedBy;
 }
 
+export type WebhookSummary = Pick<
+  WebhookInterface,
+  "id" | "name" | "endpoint" | "lastSuccess" | "error" | "created"
+>;
+
 export type WebhookMethod =
   | "GET"
   | "PUT"

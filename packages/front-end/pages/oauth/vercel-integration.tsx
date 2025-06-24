@@ -1,14 +1,28 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { getApiHost } from "@/services/env";
 import { useProject } from "@/services/DefinitionsContext";
+import { OAuthError } from "@/components/OAuthError";
+
+type QueryParams = {
+  code?: string;
+  state?: string;
+  resource_id?: string;
+  experimentation_item_id?: string;
+};
 
 const VercelPage = () => {
   const router = useRouter();
   const [, setProject] = useProject();
+  const [error, setError] = useState<string | undefined>();
 
   useEffect(() => {
-    const { code, state, resource_id: resourceId } = router.query;
+    const {
+      code,
+      state,
+      resource_id: resourceId,
+      experimentation_item_id: experimentationItemId,
+    } = router.query as QueryParams;
 
     if (!code || !state) return;
 
@@ -27,18 +41,25 @@ const VercelPage = () => {
 
         const { organizationId, projectId } = await ret.json();
 
+        const urlRegex = /^(features|experiment):/;
+
+        const baseUrl =
+          "/" +
+          (experimentationItemId?.match(urlRegex)
+            ? experimentationItemId.replace(urlRegex, "/$1/")
+            : "");
+
         if (projectId) setProject(projectId);
-        router.push(`/?org=${organizationId}`);
+        router.push(`${baseUrl}?org=${organizationId}`);
       } catch (err) {
-        console.log("Ignored:", err);
-        router.push("/");
+        setError(String(err));
       }
     };
 
     fn();
   }, [setProject, router]);
 
-  return null;
+  return error ? <OAuthError error={error} /> : null;
 };
 
 VercelPage.noOrganization = true;

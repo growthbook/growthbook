@@ -5,7 +5,7 @@ import SelectField, { SelectFieldProps } from "@/components/Forms/SelectField";
 import MetricName from "@/components/Metrics/MetricName";
 import { useProjectDefinitions } from "@/hooks/useProjectDefinitions";
 
-type MetricOption = {
+export type MetricOption = {
   id: string;
   name: string;
   datasource: string;
@@ -25,6 +25,8 @@ const MetricSelector: FC<
     includeFacts?: boolean;
     availableIds?: string[];
     onlyBinomial?: boolean;
+    sortMetrics?: (a: MetricOption, b: MetricOption) => number;
+    filterMetrics?: (m: MetricOption) => boolean;
     onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
   }
 > = ({
@@ -36,6 +38,8 @@ const MetricSelector: FC<
   placeholder,
   availableIds,
   onlyBinomial,
+  sortMetrics,
+  filterMetrics,
   onPaste,
   ...selectProps
 }) => {
@@ -72,7 +76,12 @@ const MetricSelector: FC<
           isBinomial: isBinomialMetric(m),
         }))
       : []),
-  ];
+  ].filter((m) => (filterMetrics ? filterMetrics(m) : true));
+
+  if (sortMetrics) {
+    options.sort(sortMetrics);
+    selectProps.sort = false;
+  }
 
   // get data to help filter metrics to those with joinable userIdTypes to
   // the experiment assignment table
