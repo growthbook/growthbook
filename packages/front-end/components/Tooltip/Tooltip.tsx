@@ -6,6 +6,7 @@ import {
   useEffect,
   CSSProperties,
   useRef,
+  useCallback,
 } from "react";
 import { usePopper } from "react-popper";
 import clsx from "clsx";
@@ -54,11 +55,36 @@ const Tooltip: FC<Props> = ({
 
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
-    if (state !== undefined) {
-      setOpen(state);
+  const clearTimeouts = useCallback(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
     }
-  }, [state]);
+  }, [timeoutRef]);
+
+  const handleMouseEnter = useCallback(() => {
+    clearTimeouts();
+    timeoutRef.current = setTimeout(() => {
+      setOpen(true);
+      setTimeout(() => setFadeIn(true), 50);
+    }, delay);
+  }, [clearTimeouts, timeoutRef, setOpen, setFadeIn, delay]);
+
+  const handleMouseLeave = useCallback(() => {
+    clearTimeouts();
+    timeoutRef.current = setTimeout(() => {
+      setFadeIn(false);
+      setTimeout(() => setOpen(false), 300);
+    }, 200);
+  }, [clearTimeouts]);
+
+  useEffect(() => {
+    if (state === true) {
+      handleMouseEnter();
+    } else if (state === false) {
+      handleMouseLeave();
+    }
+  }, [state, handleMouseEnter, handleMouseLeave]);
 
   useEffect(() => {
     if (open && !alreadyHovered && trackingEventTooltipType) {
@@ -91,29 +117,6 @@ const Tooltip: FC<Props> = ({
       strategy: "fixed",
     }
   );
-
-  const clearTimeouts = () => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-  };
-
-  const handleMouseEnter = () => {
-    clearTimeouts();
-    timeoutRef.current = setTimeout(() => {
-      setOpen(true);
-      setTimeout(() => setFadeIn(true), 50);
-    }, delay);
-  };
-
-  const handleMouseLeave = () => {
-    clearTimeouts();
-    timeoutRef.current = setTimeout(() => {
-      setFadeIn(false);
-      setTimeout(() => setOpen(false), 300);
-    }, 200);
-  };
 
   if (!children && children !== 0) children = <GBInfo />;
   const el = (

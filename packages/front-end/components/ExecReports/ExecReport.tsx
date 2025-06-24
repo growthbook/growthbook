@@ -14,13 +14,12 @@ import { useExperimentSearch } from "@/services/experiments";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import NorthStar from "@/components/HomePage/NorthStar";
-import ExperimentList from "@/components/Experiment/ExperimentList";
 import Frame from "@/components/Radix/Frame";
-import ExperimentGraph from "@/components/Experiment/ExperimentGraph";
-import ActivityList from "@/components/ActivityList";
+import ExperimentList from "@/components/Experiment/ExperimentList";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import Callout from "@/components/Radix/Callout";
+import ExecExperimentImpact from "@/enterprise/components/ExecReports/ExecExperimentImpact";
 import ExperimentWinRate from "./ExperimentWinRate";
-import ExecExperimentImpact from "./ExecExperimentImpact";
 import ExecExperimentsGraph from "./ExecExperimentsGraph";
 
 const dateRanges = [
@@ -56,7 +55,7 @@ export default function ExecReport() {
     searchParams.get("dateRange") || "90"
   );
   const defaultStartDate = new Date();
-  defaultStartDate.setDate(defaultStartDate.getDate() - 30);
+  defaultStartDate.setDate(defaultStartDate.getDate() - parseInt(dateRange));
   const [startDate, setStartDate] = useState<Date>(
     searchParams.get("startDate")
       ? new Date(searchParams.get("startDate")!)
@@ -74,7 +73,7 @@ export default function ExecReport() {
       ""
   );
   const [experimentsToShow, setExperimentsToShow] = useState(
-    searchParams.get("show") || "won"
+    searchParams.get("show") || "all"
   );
 
   const { hasCommercialFeature } = useUser();
@@ -246,11 +245,11 @@ export default function ExecReport() {
 
   return (
     <Box>
-      <Heading as="h1" size="5" mb="4">
-        Program Overview
-      </Heading>
       <Flex justify="between" mb="4" gap="3">
         <Box>
+          <Heading as="h1" size="5" mb="4">
+            Completed Experiments
+          </Heading>
           <Box>Use filters to adjust data displayed in this section.</Box>
         </Box>
         <Flex gap="5">
@@ -343,90 +342,112 @@ export default function ExecReport() {
           </Flex>
         </Flex>
       )}
-      {hasCommercialFeature("experiment-impact") ? (
-        <Box className="appbox" p="4" px="4">
-          <ExecExperimentImpact
-            filteredExperiments={items}
-            allExperiments={allExperiments}
+      {items.length > 0 ? (
+        <>
+          {hasCommercialFeature("experiment-impact") ? (
+            <Box className="appbox" p="4" px="4">
+              <ExecExperimentImpact
+                allExperiments={items}
+                startDate={startDate}
+                endDate={endDate}
+                projects={selectedProjects}
+                metric={selectedMetric}
+                setMetric={setSelectedMetric}
+                experimentsToShow={experimentsToShow}
+                setExperimentsToShow={setExperimentsToShow}
+              />
+            </Box>
+          ) : (
+            <Box className="appbox" p="4" px="4">
+              <div className="pt-2">
+                <div className="row align-items-start mb-4">
+                  <div className="col-lg-auto">
+                    <Heading size="3" className="mt-2">
+                      Experiment Impact
+                    </Heading>
+                  </div>
+                </div>
+                <PremiumTooltip commercialFeature="experiment-impact">
+                  Experiment Impact is available to Enterprise customers
+                </PremiumTooltip>
+              </div>
+            </Box>
+          )}
+          <Flex gap="3" mb="3">
+            <Box
+              className="appbox"
+              p="4"
+              px="4"
+              flexBasis={
+                !selectedProjects?.length && projects.length ? "60%" : "50%"
+              }
+            >
+              <ExperimentWinRate
+                selectedProjects={selectedProjects ?? []}
+                experiments={items}
+                dateRange={dateRange}
+                startDate={startDate}
+                endDate={endDate}
+                showProjectWinRate={
+                  !selectedProjects?.length && projects.length > 0
+                }
+              />
+            </Box>
+            <Box
+              className="appbox"
+              p="4"
+              px="4"
+              flexBasis={
+                !selectedProjects?.length && projects.length ? "40%" : "50%"
+              }
+            >
+              <Box>
+                <ExecExperimentsGraph
+                  selectedProjects={selectedProjects}
+                  experiments={items}
+                  dateRange={dateRange}
+                  startDate={startDate}
+                  endDate={endDate}
+                />
+              </Box>
+            </Box>
+          </Flex>
+        </>
+      ) : (
+        <Callout status="info" mb="4">
+          No finished experiments found for the selected project and date range
+        </Callout>
+      )}
+
+      {settings?.northStar?.metricIds?.length ? (
+        <Box>
+          <Flex justify="between">
+            <Heading size="5">North Star Metrics</Heading>
+          </Flex>
+          <NorthStar
+            experiments={items}
+            showTitle={false}
             startDate={startDate}
             endDate={endDate}
-            projects={selectedProjects}
-            metric={selectedMetric}
-            setMetric={setSelectedMetric}
-            experimentsToShow={experimentsToShow}
-            setExperimentsToShow={setExperimentsToShow}
           />
         </Box>
       ) : (
-        <Box className="appbox" p="4" px="4">
-          <div className="pt-2">
-            <div className="row align-items-start mb-4">
-              <div className="col-lg-auto">
-                <Heading size="3" className="mt-2">
-                  Experiment Impact
-                </Heading>
-              </div>
-            </div>
-            <PremiumTooltip commercialFeature="experiment-impact">
-              Experiment Impact is available to Enterprise customers
-            </PremiumTooltip>
-          </div>
-        </Box>
+        <Frame>
+          <Flex justify="between" align="center">
+            <Heading size="5">North Star Metrics</Heading>
+            <Link href="/settings#metrics" className="h6">
+              Configure North Star Metrics
+            </Link>
+          </Flex>
+          <Text mt="2">
+            No North Star Metrics configured.{" "}
+            <Link href="/settings#metrics">Add one now.</Link>
+          </Text>
+        </Frame>
       )}
-      <Flex gap="3" mb="3">
-        <Box
-          className="appbox"
-          p="4"
-          px="4"
-          flexBasis={
-            !selectedProjects?.length && projects.length ? "60%" : "50%"
-          }
-        >
-          <ExperimentWinRate
-            selectedProjects={selectedProjects ?? []}
-            experiments={items}
-            dateRange={dateRange}
-            startDate={startDate}
-            endDate={endDate}
-            showProjectWinRate={
-              !selectedProjects?.length && projects.length > 0
-            }
-          />
-        </Box>
-        <Box
-          className="appbox"
-          p="4"
-          px="4"
-          flexBasis={
-            !selectedProjects?.length && projects.length ? "40%" : "50%"
-          }
-        >
-          <Box>
-            <ExecExperimentsGraph
-              selectedProjects={selectedProjects}
-              experiments={items}
-              dateRange={dateRange}
-              startDate={startDate}
-              endDate={endDate}
-            />
-          </Box>
-        </Box>
-      </Flex>
-      <Box>
+      <Box mt="6" mb="6">
         <Flex justify="between">
-          <Heading size="4">North Star Metric</Heading>
-        </Flex>
-        <NorthStar
-          experiments={items}
-          showTitle={false}
-          metrics={selectedMetric ? [selectedMetric] : []}
-          startDate={startDate}
-          endDate={endDate}
-        />
-      </Box>
-      <Box mt="6" mb="4">
-        <Flex justify="between">
-          <Heading size="4">Running Experiments</Heading>
+          <Heading size="5">Running Experiments</Heading>
           <Link href={`/experiments`} className="float-right h6">
             View all
           </Link>
@@ -439,31 +460,6 @@ export default function ExecReport() {
             as="table"
           />
         </Box>
-      </Box>
-      <Box>
-        <div className="row">
-          <div className="col-lg-12 col-md-12 col-xl-8">
-            <Frame className="fixed-height" height="100%">
-              <ExperimentGraph
-                resolution={"month"}
-                num={12}
-                height={220}
-                initialShowBy={"all"}
-              />
-            </Frame>
-          </div>
-          <div className="col-md-4">
-            <Frame className="overflow-auto fixed-height" height="100%">
-              <h4 className="">
-                Recent Activity{" "}
-                <Link href="/activity" className="float-right h6">
-                  See all
-                </Link>
-              </h4>
-              <ActivityList num={3} />
-            </Frame>
-          </div>
-        </div>
       </Box>
     </Box>
   );

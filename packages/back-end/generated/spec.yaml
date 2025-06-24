@@ -350,6 +350,19 @@ paths:
                                         type: array
                                         items:
                                           type: string
+                                scheduleRules:
+                                  type: array
+                                  items:
+                                    type: object
+                                    required:
+                                      - enabled
+                                      - timestamp
+                                    properties:
+                                      enabled:
+                                        type: boolean
+                                      timestamp:
+                                        type: string
+                                        nullable: true
                                 id:
                                   type: string
                                 enabled:
@@ -405,6 +418,19 @@ paths:
                                         description: Feature ID
                                       condition:
                                         type: string
+                                scheduleRules:
+                                  type: array
+                                  items:
+                                    type: object
+                                    required:
+                                      - enabled
+                                      - timestamp
+                                    properties:
+                                      enabled:
+                                        type: boolean
+                                      timestamp:
+                                        type: string
+                                        nullable: true
                                 id:
                                   type: string
                                 enabled:
@@ -472,6 +498,19 @@ paths:
                                         description: Feature ID
                                       condition:
                                         type: string
+                                scheduleRules:
+                                  type: array
+                                  items:
+                                    type: object
+                                    required:
+                                      - enabled
+                                      - timestamp
+                                    properties:
+                                      enabled:
+                                        type: boolean
+                                      timestamp:
+                                        type: string
+                                        nullable: true
                                 variations:
                                   type: array
                                   items:
@@ -537,6 +576,19 @@ paths:
                                       maxItems: 2
                                 coverage:
                                   type: number
+                                scheduleRules:
+                                  type: array
+                                  items:
+                                    type: object
+                                    required:
+                                      - enabled
+                                      - timestamp
+                                    properties:
+                                      enabled:
+                                        type: boolean
+                                      timestamp:
+                                        type: string
+                                        nullable: true
                                 values:
                                   type: array
                                   items:
@@ -5642,6 +5694,9 @@ components:
               format: date-time
             publishedBy:
               type: string
+        customFields:
+          type: object
+          additionalProperties: true
     FeatureWithRevisions:
       allOf:
         - $ref: '#/components/schemas/Feature'
@@ -5833,6 +5888,19 @@ components:
                 description: Feature ID
               condition:
                 type: string
+        scheduleRules:
+          type: array
+          items:
+            type: object
+            required:
+              - enabled
+              - timestamp
+            properties:
+              enabled:
+                type: boolean
+              timestamp:
+                type: string
+                nullable: true
         id:
           type: string
         enabled:
@@ -5877,6 +5945,19 @@ components:
                 type: array
                 items:
                   type: string
+        scheduleRules:
+          type: array
+          items:
+            type: object
+            required:
+              - enabled
+              - timestamp
+            properties:
+              enabled:
+                type: boolean
+              timestamp:
+                type: string
+                nullable: true
         id:
           type: string
         enabled:
@@ -6013,6 +6094,19 @@ components:
               maxItems: 2
         coverage:
           type: number
+        scheduleRules:
+          type: array
+          items:
+            type: object
+            required:
+              - enabled
+              - timestamp
+            properties:
+              enabled:
+                type: boolean
+              timestamp:
+                type: string
+                nullable: true
         value:
           type: array
           items:
@@ -6049,6 +6143,19 @@ components:
             - experiment-ref
         condition:
           type: string
+        scheduleRules:
+          type: array
+          items:
+            type: object
+            required:
+              - enabled
+              - timestamp
+            properties:
+              enabled:
+                type: boolean
+              timestamp:
+                type: string
+                nullable: true
         variations:
           type: array
           items:
@@ -6367,6 +6474,9 @@ components:
           type: boolean
         hasURLRedirects:
           type: boolean
+        customFields:
+          type: object
+          additionalProperties: true
     ExperimentSnapshot:
       type: object
       required:
