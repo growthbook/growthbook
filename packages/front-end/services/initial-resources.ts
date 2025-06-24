@@ -59,26 +59,7 @@ function getBuiltInWarehouseResources(): InitialDatasourceResources {
         factTable: {
           name: "Clickhouse Events",
           description: "",
-          sql: `SELECT
-  timestamp,
-  user_id,
-  device_id,
-  session_id,
-  page_id,
-  properties_json,
-  context_json,
-  event_name,
-  geo_country,
-  geo_city,
-  geo_lat,
-  geo_lon,
-  ua_device_type,
-  ua_browser,
-  ua_os,
-  utm_source,
-  utm_medium,
-  utm_campaign,
-  url_path
+          sql: `SELECT *
 FROM events
 WHERE
   event_name <> 'Experiment Viewed'
@@ -89,8 +70,8 @@ WHERE
             device_id: { datatype: "string" },
             session_id: { datatype: "string" },
             page_id: { datatype: "string" },
-            properties_json: { datatype: "string" },
-            context_json: { datatype: "string" },
+            properties_json: { datatype: "json" },
+            context_json: { datatype: "json" },
             event_name: { datatype: "string", alwaysInlineFilter: true },
             geo_country: { datatype: "string" },
             geo_city: { datatype: "string" },
@@ -160,28 +141,10 @@ WHERE
         factTable: {
           name: "Clickhouse Page Views",
           description: "",
-          sql: `SELECT
-  timestamp,
-  user_id,
-  device_id,
-  session_id,
-  page_id,
-  url_path,
-  properties_json,
-  context_json,
-  geo_country,
-  geo_city,
-  geo_lat,
-  geo_lon,
-  ua_device_type,
-  ua_browser,
-  ua_os,
-  utm_source,
-  utm_medium,
-  utm_campaign
+          sql: `SELECT *
 FROM events
 WHERE
-  event_name = 'Page View'
+  event_name = 'page-load'
   AND timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'`,
           columns: generateColumns({
             timestamp: { datatype: "date" },
@@ -190,8 +153,8 @@ WHERE
             session_id: { datatype: "string" },
             page_id: { datatype: "string" },
             url_path: { datatype: "string", alwaysInlineFilter: true },
-            properties_json: { datatype: "string" },
-            context_json: { datatype: "string" },
+            properties_json: { datatype: "json" },
+            context_json: { datatype: "json" },
             geo_country: { datatype: "string" },
             geo_city: { datatype: "string" },
             geo_lat: { datatype: "number" },
