@@ -154,6 +154,8 @@ class EffectMoments:
     ):
         self.stat_a, self.stat_b = sum_stats(stats)
         self.relative = config.difference_type == "relative"
+        # Set theta on init so all stats methods expect it to have
+        # the right value
         self.initialize_theta()
 
     def _default_output(
