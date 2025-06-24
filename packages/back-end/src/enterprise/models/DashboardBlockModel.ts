@@ -85,6 +85,7 @@ const trafficGraphBlockSchema = new mongoose.Schema({
 
 const sqlExplorerBlockSchema = new mongoose.Schema({
   savedQueryId: String,
+  dataVizConfigIndex: Number,
 });
 
 dashboardBlockSchema.index({

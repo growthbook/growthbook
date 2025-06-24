@@ -68,7 +68,13 @@ export default function DashboardBlock({
   return (
     <div
       className={
-        ["metadata-description", "metadata-hypothesis"].includes(block.type)
+        !isEditing &&
+        [
+          "metadata-description",
+          "metadata-hypothesis",
+          "sql-explorer",
+          "traffic-graph",
+        ].includes(block.type)
           ? ""
           : "appbox p-4"
       }

@@ -80,7 +80,7 @@ export async function postSavedQuery(
     throw new Error("Cannot find datasource");
   }
 
-  const created = await context.models.savedQueries.create({
+  await context.models.savedQueries.create({
     name,
     sql,
     datasourceId,
@@ -90,7 +90,6 @@ export async function postSavedQuery(
   });
   res.status(200).json({
     status: 200,
-    savedQuery: created,
   });
 }
 

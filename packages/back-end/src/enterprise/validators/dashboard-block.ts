@@ -117,6 +117,7 @@ const sqlExplorerBlockInterface = baseBlockInterface
   .extend({
     type: z.literal("sql-explorer"),
     savedQueryId: z.string().optional(),
+    dataVizConfigIndex: z.number(),
   })
   .strict();
 

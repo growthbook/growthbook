@@ -98,6 +98,7 @@ export const BLOCK_TYPE_INFO: Record<
     name: "SQL Explorer",
     createDefaultBlock: () => ({
       type: "sql-explorer",
+      dataVizConfigIndex: 0,
     }),
   },
 };
