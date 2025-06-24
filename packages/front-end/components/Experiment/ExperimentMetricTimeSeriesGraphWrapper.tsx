@@ -23,6 +23,7 @@ export default function ExperimentMetricTimeSeriesGraphWrapper({
   experimentStatus,
   metric,
   differenceType,
+  variationNames,
   showVariations,
   statsEngine,
   pValueAdjustmentEnabled,
@@ -32,6 +33,7 @@ export default function ExperimentMetricTimeSeriesGraphWrapper({
   experimentStatus: ExperimentStatus;
   metric: ExperimentMetricInterface;
   differenceType: DifferenceType;
+  variationNames: string[];
   showVariations: boolean[];
   statsEngine: StatsEngine;
   pValueAdjustmentEnabled: boolean;
@@ -103,14 +105,18 @@ export default function ExperimentMetricTimeSeriesGraphWrapper({
 
   const dataPoints = [
     ...timeSeries.dataPoints.map((point, idx) => {
-      const variations = point.variations.map((i) => {
+      // Preprocess variations to match variationNames order exactly with indices
+      const variations = variationNames.map((vName) => {
+        const variation = point.variations.find((v) => v.name === vName);
+        if (!variation) return null;
+
         // compute adjusted CI if we have all the data and adjustment exists
         // Note: pvalueAdjusted is undefined in the first version of time series
         // so this will not run until we handle adjustment
         let adjustedCI: [number, number] | undefined;
-        const pValueAdjusted = i[differenceType]?.pValueAdjusted;
-        const lift = i[differenceType]?.expected;
-        const ci = i[differenceType]?.ci;
+        const pValueAdjusted = variation[differenceType]?.pValueAdjusted;
+        const lift = variation[differenceType]?.expected;
+        const ci = variation[differenceType]?.ci;
         if (
           pValueAdjusted !== undefined &&
           lift !== undefined &&
@@ -120,19 +126,21 @@ export default function ExperimentMetricTimeSeriesGraphWrapper({
         }
 
         return {
-          v: i.stats?.mean ?? 0,
+          v: variation.stats?.mean ?? 0,
           v_formatted: metricValueFormatter(
-            i.stats?.mean ?? 0,
+            variation.stats?.mean ?? 0,
             formatterOptions
           ),
-          users: i.stats?.users ?? 0,
-          up: i[differenceType]?.expected ?? 0,
-          ctw: i[differenceType]?.chanceToWin ?? undefined,
-          ci: adjustedCI ?? i[differenceType]?.ci ?? undefined,
-          p: i[differenceType]?.pValueAdjusted ?? i[differenceType]?.pValue,
-          // TODO: What do we do with denominator?
+          users: variation.stats?.users ?? 0,
+          up: variation[differenceType]?.expected ?? 0,
+          ctw: variation[differenceType]?.chanceToWin ?? undefined,
+          ci: adjustedCI ?? variation[differenceType]?.ci ?? undefined,
+          p:
+            variation[differenceType]?.pValueAdjusted ??
+            variation[differenceType]?.pValue,
         };
       });
+
       const parsedPoint: ExperimentTimeSeriesGraphDataPoint = {
         d: new Date(point.date),
         variations,
@@ -157,11 +165,6 @@ export default function ExperimentMetricTimeSeriesGraphWrapper({
         return "Scaled Impact";
     }
   })();
-
-  // Use the last data points to get the latest variation names
-  const variationNames = timeSeries.dataPoints[
-    timeSeries.dataPoints.length - 1
-  ].variations.map((v) => v.name);
 
   return (
     <ExperimentTimeSeriesGraph

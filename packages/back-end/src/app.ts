@@ -764,6 +764,18 @@ app.post(
   "/datasources/fetch-bigquery-datasets",
   datasourcesController.fetchBigQueryDatasets
 );
+app.post(
+  "/datasource/:datasourceId/materializedColumn",
+  datasourcesController.postMaterializedColumn
+);
+app.put(
+  "/datasource/:datasourceId/materializedColumn/:matColumnName",
+  datasourcesController.updateMaterializedColumn
+);
+app.delete(
+  "/datasource/:datasourceId/materializedColumn/:matColumnName",
+  datasourcesController.deleteMaterializedColumn
+);
 
 if (IS_CLOUD) {
   app.post(
