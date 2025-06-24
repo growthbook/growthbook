@@ -41,6 +41,7 @@ export default function AddMaterializedColumnsModal({
   refreshColumns,
 }: Props) {
   const [refreshing, setRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
   const { factTables, getDatasourceById } = useDefinitions();
   const form = useForm<MaterializedColumn>({
     defaultValues:
@@ -124,26 +125,34 @@ export default function AddMaterializedColumnsModal({
         label={
           <Flex justify="between" align="center">
             <Text>Attribute</Text>
-            <Tooltip
-              content={
-                ftId
-                  ? "Refresh list of attributes"
-                  : "No Fact Tables found to load from"
-              }
-            >
-              <Button
-                size="xs"
-                variant="ghost"
-                disabled={refreshing || !ftId}
-                onClick={async () => {
-                  setRefreshing(true);
-                  await refreshColumns(ftId);
-                  setRefreshing(false);
-                }}
+            <div>
+              <span className="text-danger ml-2">{refreshError}</span>
+              <Tooltip
+                content={
+                  ftId
+                    ? "Refresh list of attributes"
+                    : "No Fact Tables found to load from"
+                }
               >
-                {refreshing ? <PiSpinner /> : <PiArrowClockwise />}
-              </Button>
-            </Tooltip>
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  disabled={refreshing || !ftId}
+                  onClick={async () => {
+                    setRefreshing(true);
+                    setRefreshError(null);
+                    try {
+                      await refreshColumns(ftId);
+                    } catch (e) {
+                      setRefreshError(e.message);
+                    }
+                    setRefreshing(false);
+                  }}
+                >
+                  {refreshing ? <PiSpinner /> : <PiArrowClockwise />}
+                </Button>
+              </Tooltip>
+            </div>
           </Flex>
         }
         placeholder={"Select or enter an attribute"}
