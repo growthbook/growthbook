@@ -7,6 +7,7 @@ const baseBlockInterface = z
     id: z.string(),
     uid: z.string(),
     type: z.string(),
+    snapshotId: z.string().optional(),
   })
   .strict();
 
@@ -58,6 +59,7 @@ const metricBlockInterface = baseBlockInterface
     metricId: z.string().optional(),
     variationIds: z.array(z.string()).optional(),
     baselineRow: z.number().optional(),
+    snapshotId: z.string(),
   })
   .strict();
 
@@ -73,6 +75,7 @@ const dimensionBlockInterface = baseBlockInterface
     variationIds: z.array(z.string()).optional(),
     baselineRow: z.number().optional(),
     differenceType: z.enum(["absolute", "relative", "scaled"]).optional(),
+    snapshotId: z.string(),
   })
   .strict();
 
@@ -86,6 +89,7 @@ const timeSeriesBlockInterface = baseBlockInterface
     variationIds: z.array(z.string()).optional(),
     dateStart: z.date().optional(),
     dateEnd: z.date().optional(),
+    snapshotId: z.string(),
   })
   .strict();
 
@@ -167,3 +171,10 @@ export type CreateDashboardBlockInterface = z.infer<
 export type DashboardBlockData<T extends DashboardBlockInterface> =
   | T
   | DistributiveOmit<T, "id" | "uid" | "organization">;
+
+export type DashboardBlockWithSnapshot = Extract<
+  DashboardBlockInterface,
+  {
+    snapshotId: string;
+  }
+>;

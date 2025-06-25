@@ -29,7 +29,7 @@ export const BLOCK_TYPE_INFO: Record<
   {
     name: string;
     createDefaultBlock: (args: {
-      experimentId: string;
+      experiment: ExperimentInterfaceStringDates;
     }) => DashboardBlockData<DashboardBlockInterface>;
   }
 > = {
@@ -39,59 +39,62 @@ export const BLOCK_TYPE_INFO: Record<
   },
   "metadata-description": {
     name: "Experiment Description",
-    createDefaultBlock: ({ experimentId }) => ({
+    createDefaultBlock: ({ experiment }) => ({
       type: "metadata-description",
-      experimentId,
+      experimentId: experiment.id,
     }),
   },
   "metadata-hypothesis": {
     name: "Experiment Hypothesis",
-    createDefaultBlock: ({ experimentId }) => ({
+    createDefaultBlock: ({ experiment }) => ({
       type: "metadata-hypothesis",
-      experimentId,
+      experimentId: experiment.id,
     }),
   },
   "variation-image": {
     name: "Variation Image",
-    createDefaultBlock: ({ experimentId }) => ({
+    createDefaultBlock: ({ experiment }) => ({
       type: "variation-image",
       variationIds: [],
-      experimentId,
+      experimentId: experiment.id,
     }),
   },
   metric: {
     name: "Metric Analysis",
-    createDefaultBlock: ({ experimentId }) => ({
+    createDefaultBlock: ({ experiment }) => ({
       type: "metric",
-      experimentId,
+      experimentId: experiment.id,
+      snapshotId: experiment.analysisSummary?.snapshotId || "",
     }),
   },
   dimension: {
     name: "Metric Dimensional Analysis",
-    createDefaultBlock: ({ experimentId }) => ({
+    createDefaultBlock: ({ experiment }) => ({
       type: "dimension",
-      experimentId,
+      experimentId: experiment.id,
+      snapshotId: experiment.analysisSummary?.snapshotId || "",
     }),
   },
   "time-series": {
     name: "Results Time Series",
-    createDefaultBlock: ({ experimentId }) => ({
+    createDefaultBlock: ({ experiment }) => ({
       type: "time-series",
-      experimentId,
+      experimentId: experiment.id,
+      snapshotId: experiment.analysisSummary?.snapshotId || "",
     }),
   },
   "traffic-graph": {
     name: "Experiment Traffic over Time",
-    createDefaultBlock: ({ experimentId }) => ({
+    createDefaultBlock: ({ experiment }) => ({
       type: "traffic-graph",
-      experimentId: experimentId,
+      experimentId: experiment.id,
     }),
   },
   "traffic-table": {
     name: "Total Experiment Traffic",
-    createDefaultBlock: ({ experimentId }) => ({
+    createDefaultBlock: ({ experiment }) => ({
       type: "traffic-table",
-      experimentId: experimentId,
+      experimentId: experiment.id,
     }),
   },
   "sql-explorer": {
@@ -310,7 +313,7 @@ export default function DashboardEditor({
                               setBlocks([
                                 ...blocks,
                                 BLOCK_TYPE_INFO[bType].createDefaultBlock({
-                                  experimentId: experiment.id,
+                                  experiment,
                                 }),
                               ]);
                             }}

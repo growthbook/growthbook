@@ -11,6 +11,7 @@ import {
   SqlExplorerBlockInterface,
   TrafficGraphBlockInterface,
   TrafficTableBlockInterface,
+  DashboardBlockWithSnapshot,
 } from "back-end/src/enterprise/validators/dashboard-block";
 import { DashboardSettingsInterface } from "back-end/src/enterprise/validators/dashboard-instance";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
@@ -97,4 +98,11 @@ export function isPersistedDashboardBlock(
 ): data is DashboardBlockInterface {
   const block = data as DashboardBlockInterface;
   return !!(block.id && block.uid && block.organization);
+}
+
+export function isDashboardBlockWithSnapshot(
+  data: DashboardBlockInterface
+): data is DashboardBlockWithSnapshot {
+  const block = data as DashboardBlockWithSnapshot;
+  return typeof block.snapshotId === "string";
 }

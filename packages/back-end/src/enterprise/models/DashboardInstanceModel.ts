@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import { isMatch } from "lodash";
-import { isDimensionBlock, isSqlExplorerBlock } from "shared/enterprise";
+import { isSqlExplorerBlock } from "shared/enterprise";
 import {
   dashboardInstanceInterface,
   DashboardInstanceInterface,
@@ -16,7 +16,11 @@ import {
 } from "back-end/types/experiment-snapshot";
 import { getLatestSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import { ExperimentInterface } from "back-end/types/experiment";
-import { toInterface as blockToInterface } from "./DashboardBlockModel";
+import {
+  toInterface as blockToInterface,
+  getBlockAnalysisSettings,
+  getBlockSnapshotSettings,
+} from "./DashboardBlockModel";
 
 export type DashboardInstanceDocument = mongoose.Document &
   DashboardInstanceInterface;
@@ -32,6 +36,9 @@ const BaseClass = MakeModelClass({
     deleteEvent: "dashboardInstance.delete",
   },
   globallyUniqueIds: true,
+  additionalIndexes: [
+    { fields: { organization: 1, experimentId: 1 }, unique: false },
+  ],
 });
 
 export const toInterface: ToInterface<DashboardInstanceInterface> = (doc) => {
@@ -41,6 +48,12 @@ export const toInterface: ToInterface<DashboardInstanceInterface> = (doc) => {
 };
 
 export class DashboardInstanceModel extends BaseClass {
+  public async findByExperiment(
+    experimentId: string
+  ): Promise<DashboardInstanceInterface[]> {
+    return this._find({ experimentId });
+  }
+
   protected canCreate(doc: DashboardInstanceInterface): boolean {
     if (!this.context.hasPremiumFeature("dashboards"))
       throw new Error(
@@ -177,23 +190,13 @@ export async function computeSnapshotSettings(
     blockUids: string[];
   }> = [];
   dashboard.blocks.forEach((block) => {
-    const blockSnapshotSettings: Partial<ExperimentSnapshotSettings> =
-      isDimensionBlock(block) && block.dimensionId
-        ? { dimensions: [{ id: block.dimensionId }] }
-        : {};
-    const blockAnalysisSettings: Partial<ExperimentSnapshotAnalysisSettings> =
-      isDimensionBlock(block) && block.dimensionId
-        ? {
-            dimensions: [block.dimensionId],
-          }
-        : {};
     const combinedSnapshotSettings = {
       ...experimentSnapshotSettings,
-      ...blockSnapshotSettings,
+      ...getBlockSnapshotSettings(block),
     };
     const combinedAnalysisSettings = {
       ...experimentAnalysisSettings,
-      ...blockAnalysisSettings,
+      ...getBlockAnalysisSettings(block),
     };
     let snapshotRecord = snapshotInfo.find(({ snapshotSettings }) =>
       isMatch(snapshotSettings, combinedSnapshotSettings)
