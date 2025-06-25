@@ -3,17 +3,20 @@ import { useRouter } from "next/router";
 import { SavedQuery } from "back-end/src/validators/saved-queries";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { ago, datetime } from "shared/dates";
+import Link from "next/link";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Button from "@/components/Radix/Button";
 import SqlExplorerModal from "@/components/SchemaBrowser/SqlExplorerModal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import SqlExplorerDataVisualization from "@/components/DataViz/SqlExplorerDataVisualization";
+import { DataVisualizationDisplay } from "@/components/DataViz/SqlExplorerDataVisualization";
 import Callout from "@/components/Radix/Callout";
 import PageHead from "@/components/Layout/PageHead";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import { useAuth } from "@/services/auth";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
 
 type RefreshResult = {
   results: Record<string, unknown>[];
@@ -58,6 +61,10 @@ export default function SqlQueryDetail() {
     ? permissionsUtil.canUpdateSqlExplorerQueries(datasource, {})
     : false;
 
+  const canDelete = datasource
+    ? permissionsUtil.canDeleteSqlExplorerQueries(datasource)
+    : false;
+
   return (
     <div className="container pagecontents">
       <PageHead
@@ -66,7 +73,7 @@ export default function SqlQueryDetail() {
           { display: savedQuery.name },
         ]}
       />
-      <Flex align="center" className="mb-4" gap="3">
+      <Flex align="center" gap="3" mb="2">
         <h1 className="mb-0">{savedQuery.name}</h1>
         <Box flexGrow="1" />
         <Box>
@@ -112,9 +119,36 @@ export default function SqlQueryDetail() {
             Edit
           </Button>
         )}
+        <MoreMenu useRadix={true}>
+          {canDelete && (
+            <DeleteButton
+              className="dropdown-item"
+              onClick={async () => {
+                await apiCall(`/saved-queries/${savedQuery.id}`, {
+                  method: "DELETE",
+                });
+                router.push("/sql-explorer");
+              }}
+              displayName="Saved Query"
+              useIcon={false}
+              text="Delete"
+            />
+          )}
+        </MoreMenu>
       </Flex>
 
-      <Flex direction="column" gap="3" mb="5">
+      {datasource ? (
+        <Flex gap="3" mb="3">
+          <Box>
+            Data Source:{" "}
+            <Link href={`/datasources/${datasource?.id}`}>
+              <strong>{datasource?.name}</strong>
+            </Link>
+          </Box>
+        </Flex>
+      ) : null}
+
+      <Flex direction="column" gap="4" mb="2">
         {debugResults && (
           <DisplayTestQueryResults
             duration={debugResults.duration}
@@ -129,11 +163,9 @@ export default function SqlQueryDetail() {
         )}
 
         {savedQuery.dataVizConfig?.map((config, index) => (
-          <Box key={index}>
-            <SqlExplorerDataVisualization
+          <Box key={index} className="appbox py-4 mb-0">
+            <DataVisualizationDisplay
               dataVizConfig={config}
-              onDataVizConfigChange={() => {}}
-              showPanel={false}
               rows={savedQuery.results?.results || []}
             />
           </Box>
@@ -142,7 +174,7 @@ export default function SqlQueryDetail() {
         {savedQuery.results ? (
           <Box
             style={{
-              maxHeight: 500,
+              height: 500,
               position: "relative",
               overflow: "auto",
             }}
