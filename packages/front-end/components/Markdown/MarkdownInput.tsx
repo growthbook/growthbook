@@ -36,6 +36,8 @@ const MarkdownInput: FC<{
   aiSuggestFunction?: () => Promise<string>;
   aiButtonText?: string;
   aiSuggestionHeader?: string;
+  onOptInModalOpen?: () => void;
+  onOptInModalClose?: () => void;
   onCancel?: () => void;
   showButtons?: boolean;
 }> = ({
@@ -50,6 +52,8 @@ const MarkdownInput: FC<{
   aiSuggestFunction,
   aiButtonText = "Get AI Suggestion",
   aiSuggestionHeader = "Suggestion",
+  onOptInModalOpen, // If this component is in Modal itself this can be used to close that modal when the OptInModal opens
+  onOptInModalClose, // ... And this can be used to open that modal when the OptInModal closes
   showButtons = true,
 }) => {
   const { aiEnabled, aiAgreedTo } = useAISettings();
@@ -250,15 +254,10 @@ const MarkdownInput: FC<{
             )}
             {aiSuggestFunction && !aiSuggestionText && (
               <Flex pt={"5"}>
-                {aiAgreedTo ? (
+                {aiAgreedTo && aiEnabled ? (
                   <Button
                     variant="soft"
-                    title={
-                      !aiEnabled
-                        ? "AI is disabled for your organization. Adjust in settings."
-                        : ""
-                    }
-                    disabled={!aiEnabled || !aiSuggestFunction || loading}
+                    disabled={loading}
                     onClick={doAISuggestion}
                   >
                     <BsStars /> {loading ? "Generating..." : aiButtonText}
@@ -271,12 +270,18 @@ const MarkdownInput: FC<{
                         ? "AI is disabled for your organization. Adjust in settings."
                         : ""
                     }
-                    disabled={loading}
                     onClick={() => {
                       setAiAgreementModal(true);
+                      if (onOptInModalOpen) {
+                        // Needs a timeout to avoid a flicker when the parent modal disappears and the OptInModal appears
+                        // This makes sure the OptInModal shows slightly before the parent modal and its backdrop disappears.
+                        setTimeout(() => {
+                          onOptInModalOpen();
+                        }, 0);
+                      }
                     }}
                   >
-                    <BsStars /> {loading ? "Generating..." : aiButtonText}
+                    <BsStars /> {aiButtonText}
                   </Button>
                 )}
               </Flex>
@@ -336,7 +341,15 @@ const MarkdownInput: FC<{
         </Box>
       </Tabs>
       {aiAgreementModal && (
-        <OptInModal agreement="ai" onClose={() => setAiAgreementModal(false)} />
+        <OptInModal
+          agreement="ai"
+          onClose={() => {
+            if (onOptInModalClose) {
+              onOptInModalClose();
+            }
+            setAiAgreementModal(false);
+          }}
+        />
       )}
     </Box>
   );

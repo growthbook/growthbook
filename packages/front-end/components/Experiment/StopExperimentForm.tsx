@@ -1,4 +1,4 @@
-import { FC } from "react";
+import { FC, useState } from "react";
 import {
   DecisionCriteriaData,
   ExperimentInterfaceStringDates,
@@ -38,6 +38,7 @@ const StopExperimentForm: FC<{
   mutate,
   source,
 }) => {
+  const [showModal, setShowModal] = useState(true);
   const isBandit = experiment.type == "multi-armed-bandit";
   const isStopped = experiment.status === "stopped";
 
@@ -212,7 +213,7 @@ const StopExperimentForm: FC<{
       }
       size="lg"
       close={close}
-      open={true}
+      open={showModal}
       submit={submit}
       cta={isStopped ? "Save" : "Stop"}
       submitColor={isStopped ? "primary" : "danger"}
@@ -391,6 +392,12 @@ const StopExperimentForm: FC<{
               aiSuggestFunction={aiSuggestFunction}
               aiButtonText="Generate Analysis"
               aiSuggestionHeader="Suggested Summary"
+              onOptInModalClose={() => {
+                setShowModal(true);
+              }}
+              onOptInModalOpen={() => {
+                setShowModal(false);
+              }}
             />
           </div>
         </div>

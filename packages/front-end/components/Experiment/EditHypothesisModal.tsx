@@ -9,7 +9,6 @@ import { useAISettings } from "@/hooks/useOrgSettings";
 import Markdown from "@/components/Markdown/Markdown";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import OptInModal from "@/components/License/OptInModal";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
 
@@ -35,18 +34,20 @@ export default function EditHypothesisModal({
   const [aiResponse, setAiResponse] = useState<string | null>(null);
   const [aiAgreementModal, setAiAgreementModal] = useState<boolean>(false);
   const [revertValue, setRevertValue] = useState<string | null>(null);
+  const [showModal, setShowModal] = useState<boolean>(true);
   const form = useForm<{ hypothesis: string }>({
     defaultValues: {
       hypothesis: initialValue || "",
     },
   });
 
-  const permissionsUtil = usePermissionsUtil();
-  const isAdmin = permissionsUtil.canManageOrgSettings();
-
   const checkHypothesis = async () => {
     if (!aiAgreedTo || !aiEnabled) {
       setAiAgreementModal(true);
+      // This needs a timeout to avoid a flicker if this modal disappears before the AI agreement modal appears.
+      setTimeout(() => {
+        setShowModal(false);
+      }, 0);
     } else {
       if (aiEnabled) {
         setError(null);
@@ -96,7 +97,7 @@ export default function EditHypothesisModal({
         trackingEventModalSource={source}
         header={"Edit Hypothesis"}
         size="lg"
-        open={true}
+        open={showModal}
         close={close}
         submit={form.handleSubmit(async (data) => {
           await apiCall(`/experiment/${experimentId}`, {
@@ -137,11 +138,7 @@ export default function EditHypothesisModal({
                 side="bottom"
               >
                 <Button
-                  disabled={
-                    (!aiEnabled && !isAdmin) ||
-                    loading ||
-                    form.watch("hypothesis").trim() === ""
-                  }
+                  disabled={loading || form.watch("hypothesis").trim() === ""}
                   variant="soft"
                   onClick={checkHypothesis}
                   stopPropagation={true}
@@ -215,7 +212,13 @@ export default function EditHypothesisModal({
         </Box>
       </Modal>
       {aiAgreementModal && (
-        <OptInModal agreement="ai" onClose={() => setAiAgreementModal(false)} />
+        <OptInModal
+          agreement="ai"
+          onClose={() => {
+            setShowModal(true);
+            setAiAgreementModal(false);
+          }}
+        />
       )}
     </>
   );
