@@ -183,8 +183,31 @@ export default function SqlExplorerModal({
 
     // If we have an empty object for dataVizConfig, set it to undefined
     let dataVizConfig = form.watch("dataVizConfig");
-    if (dataVizConfig && Object.keys(dataVizConfig[0]).length === 0) {
-      dataVizConfig = undefined;
+    if (dataVizConfig) {
+      if (
+        dataVizConfig.length === 0 ||
+        Object.keys(dataVizConfig[0]).length === 0
+      ) {
+        dataVizConfig = undefined;
+      } else {
+        // Validate each dataVizConfig object
+        dataVizConfig.forEach((config, index) => {
+          if (!config.xAxis) {
+            throw new Error(
+              `X axis is required for Visualization ${
+                config.title ? config.title : `${index + 1}`
+              }. Please add an X axis or remove the visualization to save the query.`
+            );
+          }
+          if (!config.yAxis) {
+            throw new Error(
+              `Y axis is required for Visualization ${
+                config.title ? config.title : `${index + 1}`
+              }. Please add a y axis or remove the visualization to save the query.`
+            );
+          }
+        });
+      }
     }
 
     // If it's a new query (no savedQuery.id), always save
