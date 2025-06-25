@@ -1,10 +1,12 @@
 import React, { useCallback, useState } from "react";
 import { Box, Text } from "@radix-ui/themes";
 import { AgreementType } from "back-end/src/validators/agreements";
+import { PiCaretRight } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Modal from "@/components/Modal";
 import { useUser } from "@/services/UserContext";
+import Checkbox from "@/components/Radix/Checkbox";
 
 // hard coded agreements for now:
 const agreements: Record<
@@ -13,12 +15,14 @@ const agreements: Record<
     title: string;
     subtitle: string;
     terms: React.ReactNode;
+    noPermissionTitle?: string;
     noPermission: React.ReactNode;
+    consentText: string;
     version: string;
   }
 > = {
   ai: {
-    title: "Enable AI features?",
+    title: "Enable AI for the Entire Organization",
     subtitle: "Please read and agree to the terms before proceeding.",
     terms: (
       <>
@@ -26,34 +30,29 @@ const agreements: Record<
         include, but are not limited to, sharing information with trusted
         third-party providers, automated recommendations, content generation, or
         data analysis.
-        <br />
-        Please select an option below:
-        <br />
-        <ul style={{ marginTop: "10px" }}>
-          <li>
-            I Agree (Opt-In): I consent to the use of artificial intelligence.
-          </li>
-          <li>No thanks (Opt-Out): I do not consent.</li>
-        </ul>
-        For more information about how your data is used, please review our{" "}
-        <a
-          href="https://www.growthbook.io/legal/privacy-policy/06-19-2025"
-          target="_blank"
-          rel="noreferrer"
-        >
-          Privacy Notice
-        </a>{" "}
-        and OpenAI&apos;s{" "}
-        <a
-          href="https://openai.com/enterprise-privacy/"
-          target="_blank"
-          rel="noreferrer"
-        >
-          privacy policy
-        </a>
-        . You can disable these features at any time in your account settings.
+        <Box mt="2">
+          For more information about how your data is used, please review our{" "}
+          <a
+            href="https://www.growthbook.io/legal/privacy-policy/06-19-2025"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Privacy Notice
+          </a>{" "}
+          and OpenAI&apos;s{" "}
+          <a
+            href="https://openai.com/enterprise-privacy/"
+            target="_blank"
+            rel="noreferrer"
+          >
+            privacy policy
+          </a>
+          . You can disable these features at any time in your account settings.
+        </Box>
       </>
     ),
+    consentText: "I consent to the use of artificial intelligence",
+    noPermissionTitle: "AI is Not Enabled for this Organization",
     noPermission: (
       <>
         You must be an administrator to enable this feature. Please contact your
@@ -89,6 +88,7 @@ const agreements: Record<
         .
       </>
     ),
+    consentText: "I consent to the use of the managed warehouse.",
     noPermission: (
       <>
         You must be an administrator to enable this feature. Please contact your
@@ -112,12 +112,20 @@ const OptInModal = ({
 }: Props): React.ReactElement => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [checked, setChecked] = useState(false);
   const { apiCall } = useAuth();
   const { refreshOrganization } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const isAdmin = permissionsUtil.canManageOrgSettings();
-  const { title, subtitle, terms, noPermission, version } =
-    agreements[agreement] || {};
+  const {
+    title,
+    subtitle,
+    terms,
+    noPermissionTitle,
+    noPermission,
+    version,
+    consentText,
+  } = agreements[agreement] || {};
   const logAgree = useCallback(async () => {
     setLoading(true);
     // send API call to log the agreement
@@ -161,32 +169,71 @@ const OptInModal = ({
       <Modal
         trackingEventModalType="modal-opt-in"
         open={true}
-        submit={logAgree}
+        submit={isAdmin ? logAgree : undefined}
         close={() => {
           if (onClose) onClose();
         }}
         size="lg"
-        header={title}
-        cta="I Agree"
-        ctaEnabled={isAdmin}
+        header={null}
+        showHeaderCloseButton={false}
+        cta={
+          <>
+            I Agree <PiCaretRight size={16} />
+          </>
+        }
+        ctaEnabled={isAdmin && checked}
         loading={loading}
         error={error}
         closeCta={isAdmin ? `No thanks` : `Close`}
+        useRadixButton={true}
       >
         <>
+          <Text
+            size="5"
+            weight="bold"
+            style={{ color: "var(--color-text-high)" }}
+          >
+            {isAdmin ? title : noPermissionTitle}
+          </Text>
           {isAdmin ? (
-            <>
+            <Box
+              style={{
+                fontSize: "var(--font-size-3)",
+                color: "var(--color-text-high)",
+              }}
+            >
               {subtitle !== "" && (
                 <Box mb="3">
-                  <Text size="2" weight="medium">
+                  <Text
+                    size="3"
+                    weight="regular"
+                    style={{ color: "var(--color-text-mid)" }}
+                  >
                     {subtitle}
                   </Text>
                 </Box>
               )}
-              <Box mb="3">{terms}</Box>
-            </>
+              <Box mt="5" mb="3">
+                {terms}
+              </Box>
+              <Checkbox
+                mt="2"
+                size="md"
+                label="I agree"
+                labelSize="3"
+                value={checked}
+                setValue={(v) => {
+                  setChecked(v);
+                }}
+              />
+              <Box ml="5">{consentText}</Box>
+            </Box>
           ) : (
-            <Box mb="3">{noPermission}</Box>
+            <Box mb="3" mt="5">
+              <Text size="3" style={{ color: "var(--color-text-high)" }}>
+                {noPermission}
+              </Text>
+            </Box>
           )}
         </>
       </Modal>
