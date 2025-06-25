@@ -8,6 +8,7 @@ import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import Collapsible from "react-collapsible";
 import { FaAngleRight } from "react-icons/fa";
 import { Box, Flex, ScrollArea, Heading } from "@radix-ui/themes";
+import { PiArrowSquareOut } from "react-icons/pi";
 import { PreLaunchChecklist } from "@/components/Experiment/PreLaunchChecklist";
 import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -17,8 +18,12 @@ import Frame from "@/components/Radix/Frame";
 import Button from "@/components/Radix/Button";
 import PremiumCallout from "@/components/Radix/PremiumCallout";
 import { useCustomFields } from "@/hooks/useCustomFields";
-import EditHypothesisModal from "../EditHypothesisModal";
+import Callout from "@/components/Radix/Callout";
+import Link from "@/components/Radix/Link";
+import { useAISettings } from "@/hooks/useOrgSettings";
+import OptInModal from "@/components/License/OptInModal";
 import EditDescriptionModal from "../EditDescriptionModal";
+import EditHypothesisModal from "../EditHypothesisModal";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -45,6 +50,8 @@ export default function SetupTabOverview({
   setChecklistItemsRemaining,
   envs,
 }: Props) {
+  const { aiEnabled, aiAgreedTo } = useAISettings();
+  const [showOptInModal, setShowOptInModal] = useState(false);
   const [showHypothesisModal, setShowHypothesisModal] = useState(false);
   const [showDescriptionModal, setShowDescriptionModal] = useState(false);
   const [expandDescription, setExpandDescription] = useLocalStorage(
@@ -66,6 +73,16 @@ export default function SetupTabOverview({
 
   return (
     <>
+      {showOptInModal && (
+        <OptInModal
+          agreement="ai"
+          onConfirm={() => {
+            setShowOptInModal(false);
+            setShowHypothesisModal(true);
+          }}
+          onClose={() => setShowOptInModal(false)}
+        />
+      )}
       {showHypothesisModal ? (
         <EditHypothesisModal
           source="experiment-setup-tab"
@@ -175,16 +192,16 @@ export default function SetupTabOverview({
               <Heading as="h4" size="3">
                 Hypothesis
               </Heading>
-              {canEditExperiment ? (
+              {canEditExperiment && (
                 <Button
                   variant="ghost"
                   onClick={() => setShowHypothesisModal(true)}
                 >
                   Edit
                 </Button>
-              ) : null}
+              )}
             </Flex>
-            <div>
+            <div className="mb-3">
               {!experiment.hypothesis ? (
                 <span className="font-italic text-muted">
                   Add a hypothesis statement to help focus the nature of your
@@ -194,6 +211,31 @@ export default function SetupTabOverview({
                 experiment.hypothesis
               )}
             </div>
+            <Callout status="wizard">
+              {aiEnabled && aiAgreedTo ? (
+                <span>
+                  Set hypothesis formatting standards for the organization in
+                  General Settings.{" "}
+                  <Link href="/settings/#ai" className="underline">
+                    Edit Hypothesis
+                  </Link>
+                  <PiArrowSquareOut className="ml-1" />
+                </span>
+              ) : (
+                <span>
+                  Improve your hypothesis with AI.{" "}
+                  <Link
+                    onClick={() => {
+                      setShowOptInModal(true);
+                    }}
+                    className="underline"
+                  >
+                    Enable AI
+                  </Link>
+                  <PiArrowSquareOut className="ml-1" />
+                </span>
+              )}
+            </Callout>
           </Frame>
         )}
         <CustomFieldDisplay
