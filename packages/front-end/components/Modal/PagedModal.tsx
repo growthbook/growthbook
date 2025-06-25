@@ -27,6 +27,7 @@ type Props = {
   closeCta?: string;
   includeCloseCta?: boolean;
   disabledMessage?: string;
+  autoCloseOnSubmit?: boolean;
   loading?: boolean;
   size?: "md" | "lg" | "max" | "fill";
   docSection?: DocSection;
@@ -69,6 +70,7 @@ const PagedModal: FC<Props> = (props) => {
     onBackFirstStep,
     cta,
     ctaEnabled = true,
+    autoCloseOnSubmit = true,
     forceCtaText,
     inline,
     secondaryCTA,
@@ -193,7 +195,7 @@ const PagedModal: FC<Props> = (props) => {
         await validateSteps(nextStep);
         if (!nextStep) {
           await submit();
-          if (props.close) {
+          if (props.close && autoCloseOnSubmit) {
             props.close();
           }
         } else if (steps[nextStep - 1].customNext) {

@@ -18,6 +18,7 @@ import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBInfo } from "@/components/Icons";
 import Checkbox from "@/components/Radix/Checkbox";
+import Modal from "@/components/Modal";
 
 export const taxIdTypeOptions: { label: string; value: TaxIdType }[] = [
   { label: "US EIN", value: "us_ein" },
@@ -155,6 +156,7 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
   });
 
   const handleSubmit = async () => {
+    console.log("handleSubmit");
     if (!stripe || !elements || !clientSecret) return;
 
     setLoading(true);
@@ -208,41 +210,54 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
       refreshOrganization();
       setLoading(false);
       setSuccess(true);
+      // setStep(step + 1);
     } catch (e) {
       setLoading(false);
       throw new Error(e.message);
     }
   };
 
-  let cta = "Adjust Invoice Settings";
+  let cta = "Add Payment Method";
   if (step === 1) {
     cta = "Start Subscription";
   }
+
+  if (success) {
+    return (
+      <Modal
+        header="🎉 Welcome to GrowthBook Pro!"
+        close={close}
+        closeCta="Close"
+        open={true}
+        size="lg"
+        trackingEventModalType="upgrade-to-pro"
+        trackingEventModalSource="upgrade-modal"
+      >
+        <div>
+          <span>
+            You&apos;re all set! Your organization now has access to all
+            GrowthBook Pro features.
+          </span>
+        </div>
+      </Modal>
+    );
+  }
+
   return (
     <PagedModal
       trackingEventModalType="upgrade-to-pro"
       trackingEventModalSource="upgrade-modal"
       hideNav={true}
-      close={() => {
-        if (success) {
-          closeParent();
-        } else {
-          close();
-        }
-      }}
+      close={close}
+      autoCloseOnSubmit={false}
       size="lg"
-      closeCta={success ? "Close" : "Cancel"}
-      header={success ? "🎉 Welcome to GrowthBook Pro!" : "Upgrade to Pro"}
-      subHeader={
-        success
-          ? ""
-          : "Get instant access to advanced experimentation, permissioning and security features."
-      }
+      header="Upgrade to Pro"
+      subHeader="Get instant access to advanced experimentation, permissioning and security features."
       submit={async () => await handleSubmit()}
       cta={cta}
       step={step}
+      forceCtaText={true}
       setStep={setStep}
-      backButton={true}
       loading={loading}
     >
       <Page display="Adjust Invoice Settings">
@@ -311,7 +326,6 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
               description="Add a full billing address and optionally customize the name that will be displayed on invoices."
             />
           </div>
-
           {showAddress && (
             <AddressElement
               className="pb-2"
