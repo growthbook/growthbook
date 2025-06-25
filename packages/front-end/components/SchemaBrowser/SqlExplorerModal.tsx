@@ -251,7 +251,7 @@ export default function SqlExplorerModal({
           sql: form.watch("sql"),
           datasourceId: form.watch("datasourceId"),
           dateLastRan: form.watch("dateLastRan"),
-          dataVizConfig,
+          dataVizConfig: dataVizConfig || [],
           results: form.watch("results"),
         }),
       });
