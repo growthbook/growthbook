@@ -193,6 +193,7 @@ export default function SqlExplorerModal({
         // Validate each dataVizConfig object
         dataVizConfig.forEach((config, index) => {
           if (!config.xAxis) {
+            setTab(`visualization-${index}`);
             throw new Error(
               `X axis is required for Visualization ${
                 config.title ? config.title : `${index + 1}`
@@ -200,6 +201,7 @@ export default function SqlExplorerModal({
             );
           }
           if (!config.yAxis) {
+            setTab(`visualization-${index}`);
             throw new Error(
               `Y axis is required for Visualization ${
                 config.title ? config.title : `${index + 1}`
