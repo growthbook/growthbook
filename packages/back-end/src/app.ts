@@ -454,7 +454,7 @@ app.post(
 );
 
 app.get(
-  "/dimension-slices/datasource/:datasourceId/:exposureQueryId",
+  "/dimension-slices/datasource/:datasourceId",
   datasourcesController.getLatestDimensionSlicesForDatasource
 );
 

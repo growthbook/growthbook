@@ -34,6 +34,7 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Callout from "@/components/Radix/Callout";
 import Frame from "@/components/Radix/Frame";
 import ClickhouseMaterializedColumns from "@/components/Settings/EditDataSource/ClickhouseMaterializedColumns";
+import { useDimensionSlices } from "@/hooks/useDimensionSlices";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -58,6 +59,7 @@ const DataSourcePage: FC = () => {
   } = useDefinitions();
   const { did } = router.query as { did: string };
   const d = getDatasourceById(did);
+  const dimensionSlices = useDimensionSlices(did);
   const { apiCall } = useAuth();
   const { organization, hasCommercialFeature } = useUser();
 

@@ -1,6 +1,7 @@
-import React, { FC, Fragment, useCallback, useMemo, useState } from "react";
+import React, { FC, Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import {
   DataSourceInterfaceWithParams,
+  ExperimentDimensionMetadata,
   ExposureQuery,
 } from "back-end/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
@@ -17,6 +18,11 @@ import { UpdateDimensionMetadataModal } from "@/components/Settings/EditDataSour
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Badge from "@/components/Radix/Badge";
 import Callout from "@/components/Radix/Callout";
+import { useDimensionSlices } from "@/hooks/useDimensionSlices";
+import { DimensionSlicesInterface } from "back-end/types/dimension";
+import track from "@/services/track";
+import useApi from "@/hooks/useApi";
+import { useAuth } from "@/services/auth";
 
 type ExperimentAssignmentQueriesProps = DataSourceQueryEditingModalBaseProps;
 type UIMode = "view" | "edit" | "add" | "dimension";
@@ -27,6 +33,8 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
   canEdit = true,
 }) => {
   const router = useRouter();
+  const dimensionSlices = useDimensionSlices(dataSource.id);
+
   let intitialOpenIndexes: boolean[] = [];
   if (router.query.openAll === "1") {
     intitialOpenIndexes = Array.from(
@@ -39,6 +47,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
   const [openIndexes, setOpenIndexes] = useState<boolean[]>(
     intitialOpenIndexes
   );
+  const [dimensionData, setDimensionData] = useState<{dimensionSlices?: DimensionSlicesInterface, dimensionMetadata?: ExperimentDimensionMetadata[]}>({});
 
   const permissionsUtil = usePermissionsUtil();
   canEdit = canEdit && permissionsUtil.canUpdateDataSourceSettings(dataSource);
@@ -64,6 +73,17 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
     () => dataSource.settings?.queries?.exposure || [],
     [dataSource.settings?.queries?.exposure]
   );
+
+  useEffect(() => {
+    const selectedQuery = experimentExposureQueries[editingIndex];
+    const selectedQueryDimensionSlice = dimensionSlices?.find((d) => d.exposureQueryId === selectedQuery?.id);
+    const selectedQueryDimensionMetadata = selectedQuery?.dimensionMetadata;
+    setDimensionData({
+      dimensionSlices: selectedQueryDimensionSlice,
+      dimensionMetadata: selectedQueryDimensionMetadata,
+    });
+  }, [dimensionSlices, experimentExposureQueries, editingIndex]);
+
 
   const handleAdd = useCallback(() => {
     setUiMode("add");
@@ -304,10 +324,17 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
 
       {uiMode === "dimension" ? (
         <UpdateDimensionMetadataModal
-          exposureQuery={experimentExposureQueries[editingIndex]}
-          dataSource={dataSource}
+          dimensionSlices={dimensionData.dimensionSlices}
+          dimensionMetadata={dimensionData.dimensionMetadata}
           close={() => setUiMode("view")}
-          onSave={handleSave(editingIndex)}
+          onSave={handleSaveDimensionMetadata(editingIndex, dataSource, onSave)}
+          onRefresh={(exposureQueryId: string, lookbackDays: number) => {
+            refreshDimensionSlices({
+              exposureQueryId,
+              datasourceId: dataSource.id,
+              lookbackDays,
+            });
+          }}
         />
       ) : null}
 
@@ -315,3 +342,44 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
     </Box>
   );
 };
+
+const handleSaveDimensionMetadata = (editingIndex: number, dataSource: DataSourceInterfaceWithParams, onSave: (dataSource: DataSourceInterfaceWithParams) => void) => async (dimensionMetadata: ExperimentDimensionMetadata[]) => {
+  const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
+  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+  copy.settings.queries.exposure[editingIndex].dimensionMetadata = dimensionMetadata;
+  await onSave(copy);
+}
+
+const refreshDimensionSlices = ({
+  exposureQueryId,
+  datasourceId,
+  lookbackDays,
+  mutate,
+  setError,
+}: {
+  exposureQueryId: string,
+  datasourceId: string,
+  lookbackDays: number,
+  mutate?: () => void,
+  setError?: (error: string) => void
+}) => {
+  const { apiCall } = useAuth();
+  apiCall<{
+    dimensionSlices: DimensionSlicesInterface;
+  }>("/dimension-slices", {
+    method: "POST",
+    body: JSON.stringify({
+      dataSourceId: datasourceId,
+      queryId: exposureQueryId,
+      lookbackDays: lookbackDays,
+    }),
+  })
+    .then((res) => {
+      // TODO
+      mutate?.();
+    })
+    .catch((e) => {
+      setError?.(e.message);
+      console.error(e.message);
+    });
+}
