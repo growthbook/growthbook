@@ -61,11 +61,16 @@ const DataSourcePage: FC = () => {
   const { apiCall } = useAuth();
   const { organization, hasCommercialFeature } = useUser();
 
+  const isManagedWarehouse = d?.type === "growthbook_clickhouse";
+
   const canDelete =
     (d && permissionsUtil.canDeleteDataSource(d) && !hasFileConfig()) || false;
 
   const canUpdateConnectionParams =
-    (d && permissionsUtil.canUpdateDataSourceParams(d) && !hasFileConfig()) ||
+    (d &&
+      !isManagedWarehouse &&
+      permissionsUtil.canUpdateDataSourceParams(d) &&
+      !hasFileConfig()) ||
     false;
 
   const canUpdateDataSourceSettings =
@@ -240,7 +245,8 @@ const DataSourcePage: FC = () => {
       )}
       <Flex align="center" gap="4" mt="3">
         <Text color="gray">
-          <Text weight="medium">Type:</Text> {d.type}
+          <Text weight="medium">Type:</Text>{" "}
+          {d.type === "growthbook_clickhouse" ? "managed" : d.type}
         </Text>
         <Text color="gray">
           <Text weight="medium">Last Updated:</Text>{" "}
@@ -320,66 +326,84 @@ mixpanel.init('YOUR PROJECT TOKEN', {
         )}
         {supportsSQL && (
           <>
-            {d.dateUpdated === d.dateCreated &&
-              d?.settings?.schemaFormat !== "custom" && (
-                <Callout status="info" mt="4">
-                  We have prefilled the identifiers and assignment queries
-                  below. These queries may require editing to fit your data
-                  structure.
-                </Callout>
-              )}
-            <Frame>
-              <DataSourceInlineEditIdentifierTypes
-                onSave={updateDataSourceSettings}
-                onCancel={() => undefined}
-                dataSource={d}
-                canEdit={canUpdateDataSourceSettings}
-              />
-            </Frame>
+            {isManagedWarehouse ? (
+              <>
+                <Frame>
+                  <Heading as="h3" size="4" mb="2">
+                    Sending Events
+                  </Heading>
+                  <Text>
+                    <DocLink docSection="managedWarehouseTracking">
+                      Read our full docs
+                    </DocLink>{" "}
+                    with instructions on how to send events from your app to
+                    GrowthBook.
+                  </Text>
+                </Frame>
+                <Frame>
+                  <ClickhouseMaterializedColumns
+                    dataSource={d}
+                    onCancel={() => undefined}
+                    canEdit={canUpdateDataSourceSettings}
+                    mutate={mutateDefinitions}
+                  />
+                </Frame>
+              </>
+            ) : (
+              <>
+                {d.dateUpdated === d.dateCreated &&
+                  d?.settings?.schemaFormat !== "custom" && (
+                    <Callout status="info" mt="4">
+                      We have prefilled the identifiers and assignment queries
+                      below. These queries may require editing to fit your data
+                      structure.
+                    </Callout>
+                  )}
 
-            {d.settings?.userIdTypes && d.settings.userIdTypes.length > 1 ? (
-              <Frame>
-                <DataSourceInlineEditIdentityJoins
-                  dataSource={d}
-                  onSave={updateDataSourceSettings}
-                  onCancel={() => undefined}
-                  canEdit={canUpdateDataSourceSettings}
-                />
-              </Frame>
-            ) : null}
+                <Frame>
+                  <DataSourceInlineEditIdentifierTypes
+                    onSave={updateDataSourceSettings}
+                    onCancel={() => undefined}
+                    dataSource={d}
+                    canEdit={canUpdateDataSourceSettings}
+                  />
+                </Frame>
 
-            <Frame id={EAQ_ANCHOR_ID}>
-              <ExperimentAssignmentQueries
-                dataSource={d}
-                onSave={updateDataSourceSettings}
-                onCancel={() => undefined}
-                canEdit={canUpdateDataSourceSettings}
-              />
-            </Frame>
+                {d.settings?.userIdTypes &&
+                d.settings.userIdTypes.length > 1 ? (
+                  <Frame>
+                    <DataSourceInlineEditIdentityJoins
+                      dataSource={d}
+                      onSave={updateDataSourceSettings}
+                      onCancel={() => undefined}
+                      canEdit={canUpdateDataSourceSettings}
+                    />
+                  </Frame>
+                ) : null}
 
-            {d.type === "growthbook_clickhouse" && (
-              <Frame>
-                <ClickhouseMaterializedColumns
-                  dataSource={d}
-                  onCancel={() => undefined}
-                  canEdit={canUpdateDataSourceSettings}
-                  mutate={mutateDefinitions}
-                />
-              </Frame>
+                <Frame id={EAQ_ANCHOR_ID}>
+                  <ExperimentAssignmentQueries
+                    dataSource={d}
+                    onSave={updateDataSourceSettings}
+                    onCancel={() => undefined}
+                    canEdit={canUpdateDataSourceSettings}
+                  />
+                </Frame>
+
+                <Frame>
+                  <DataSourceJupyterNotebookQuery
+                    dataSource={d}
+                    onSave={updateDataSourceSettings}
+                    onCancel={() => undefined}
+                    canEdit={canUpdateDataSourceSettings}
+                  />
+                </Frame>
+              </>
             )}
 
             <Frame>
               <DataSourceMetrics
                 dataSource={d}
-                canEdit={canUpdateDataSourceSettings}
-              />
-            </Frame>
-
-            <Frame>
-              <DataSourceJupyterNotebookQuery
-                dataSource={d}
-                onSave={updateDataSourceSettings}
-                onCancel={() => undefined}
                 canEdit={canUpdateDataSourceSettings}
               />
             </Frame>
