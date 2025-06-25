@@ -4,8 +4,9 @@ import {
 } from "back-end/types/experiment";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
-import React from "react";
+import React, { useState } from "react";
 import { Heading } from "@radix-ui/themes";
+import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import AddLinkedChanges from "@/components/Experiment/LinkedChanges/AddLinkedChanges";
 import RedirectLinkedChanges from "@/components/Experiment/LinkedChanges/RedirectLinkedChanges";
 import FeatureLinkedChanges from "@/components/Experiment/LinkedChanges/FeatureLinkedChanges";
@@ -16,9 +17,11 @@ import TrafficAndTargeting from "@/components/Experiment/TabbedPage/TrafficAndTa
 import AnalysisSettings from "@/components/Experiment/TabbedPage/AnalysisSettings";
 import Callout from "@/components/Radix/Callout";
 import Button from "@/components/Radix/Button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/Radix/Tabs";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
+  holdout?: HoldoutInterface;
   visualChangesets: VisualChangesetInterface[];
   urlRedirects: URLRedirectInterface[];
   mutate: () => void;
@@ -33,6 +36,7 @@ export interface Props {
 
 export default function Implementation({
   experiment,
+  holdout,
   visualChangesets,
   urlRedirects,
   mutate,
@@ -65,28 +69,32 @@ export default function Implementation({
 
   const showEditVariations = editVariations;
 
+  const [tab, setTab] = useState<"experiments" | "features">("experiments");
+
   return (
     <div className="my-4">
       <h2>Implementation</h2>
-      <div className="box my-3 mb-4 px-2 py-3">
-        <div className="d-flex flex-row align-items-center justify-content-between text-dark px-3 mb-3">
-          <Heading as="h4" size="3" mb="0">
-            Variations
-          </Heading>
-          <div className="flex-1" />
-          {showEditVariations ? (
-            <Button variant="ghost" onClick={editVariations}>
-              Edit
-            </Button>
-          ) : null}
-        </div>
+      {experiment.type !== "holdout" && (
+        <div className="box my-3 mb-4 px-2 py-3">
+          <div className="d-flex flex-row align-items-center justify-content-between text-dark px-3 mb-3">
+            <Heading as="h4" size="3" mb="0">
+              Variations
+            </Heading>
+            <div className="flex-1" />
+            {showEditVariations ? (
+              <Button variant="ghost" onClick={editVariations}>
+                Edit
+              </Button>
+            ) : null}
+          </div>
 
-        <VariationsTable
-          experiment={experiment}
-          canEditExperiment={canEditExperiment}
-          mutate={mutate}
-        />
-      </div>
+          <VariationsTable
+            experiment={experiment}
+            canEditExperiment={canEditExperiment}
+            mutate={mutate}
+          />
+        </div>
+      )}
       {hasLinkedChanges && experiment.type !== "holdout" ? (
         <>
           <VisualLinkedChanges
@@ -123,10 +131,20 @@ export default function Implementation({
         />
       )}
 
-      {experiment.type === "holdout" && (
+      {experiment.type === "holdout" && holdout && (
         <div className="box p-4 my-4">
-          <h3>Linked Experiments & Features</h3>
-          <p>Table goes here</p>
+          <h3>Included Experiments & Features</h3>
+          <Tabs
+            value={tab}
+            onValueChange={(value) =>
+              setTab(value as "experiments" | "features")
+            }
+          >
+            <TabsList size="2">
+              <TabsTrigger value="experiments">Experiments</TabsTrigger>
+              <TabsTrigger value="features">Features</TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
       )}
       {experiment.status !== "draft" &&

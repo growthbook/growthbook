@@ -102,6 +102,7 @@ import { triggerWebhookJobs } from "back-end/src/jobs/updateAllJobs";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { SafeRolloutInterface } from "back-end/types/safe-rollout";
+import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import {
   getContextForAgendaJobByOrgObject,
   getEnvironmentIdsFromOrg,
@@ -116,6 +117,7 @@ export function generateFeaturesPayload({
   groupMap,
   prereqStateCache = {},
   safeRolloutMap,
+  holdouts,
 }: {
   features: FeatureInterface[];
   experimentMap: Map<string, ExperimentInterface>;
@@ -123,6 +125,7 @@ export function generateFeaturesPayload({
   groupMap: GroupMap;
   prereqStateCache?: Record<string, Record<string, PrerequisiteStateResult>>;
   safeRolloutMap: Map<string, SafeRolloutInterface>;
+  holdouts: HoldoutInterface[];
 }): Record<string, FeatureDefinition> {
   prereqStateCache[environment] = prereqStateCache[environment] || {};
 
@@ -143,6 +146,36 @@ export function generateFeaturesPayload({
     if (def) {
       defs[feature.id] = def;
     }
+  });
+  holdouts.forEach((holdout) => {
+    const exp = experimentMap.get(holdout.experimentId);
+    if (!exp) return;
+
+    const def: FeatureDefinition = {
+      defaultValue: "genpop",
+      rules: [
+        {
+          id: `fr_${uuidv4()}`,
+          coverage: exp.phases[0].coverage,
+          hashAttribute: exp.hashAttribute,
+          seed: exp.phases[0].seed,
+          hashVersion: 2,
+          variations: ["holdoutcontrol", "holdouttreatment"],
+          weights: [0.5, 0.5],
+          key: exp.trackingKey,
+          phase: "0",
+          meta: [
+            {
+              key: "0",
+            },
+            {
+              key: "1",
+            },
+          ],
+        },
+      ],
+    };
+    defs[`holdout:${holdout.id}`] = def; // TODO: make sure this is unique. consider adding time create and hash maybe to make sure its unique
   });
 
   return defs;
@@ -456,6 +489,9 @@ export async function refreshSDKPayloadCache(
 
   const promises: (() => Promise<void>)[] = [];
   for (const environment of environments) {
+    const holdouts = await context.models.holdout.getAllPayloadHoldouts(
+      environment
+    );
     const featureDefinitions = generateFeaturesPayload({
       features: allFeatures,
       environment: environment,
@@ -463,6 +499,7 @@ export async function refreshSDKPayloadCache(
       experimentMap,
       prereqStateCache,
       safeRolloutMap,
+      holdouts,
     });
 
     const experimentsDefinitions = generateAutoExperimentsPayload({
@@ -810,62 +847,19 @@ export async function getFeatureDefinitions({
     environment
   );
 
-  // Create fake features for holdouts with an experiment ref rule
-  const holdoutFeatures: FeatureInterface[] = holdouts.map((h) => {
-    return {
-      id: h.id,
-      name: h.name,
-      organization: h.organization,
-      owner: "",
-      dateCreated: h.dateCreated,
-      dateUpdated: h.dateUpdated,
-      valueType: "string",
-      defaultValue: "genpop",
-      version: 1,
-      hasDrafts: false,
-      linkedExperiments: [h.experimentId],
-      environmentSettings: {
-        [environment]: {
-          enabled: true,
-          rules: [
-            {
-              id: `fr_${uuidv4()}`,
-              type: "experiment-ref",
-              description: "",
-              condition: "",
-              experimentId: h.experimentId,
-              scheduleRules: [],
-              variations: [
-                {
-                  value: "holdoutcontrol",
-                  variationId:
-                    experimentMap.get(h.experimentId)?.variations[0].id ?? "",
-                },
-                {
-                  value: "holdouttreatment",
-                  variationId:
-                    experimentMap.get(h.experimentId)?.variations[1].id ?? "",
-                },
-              ],
-            },
-          ],
-        },
-      },
-    };
-  });
-
   const prereqStateCache: Record<
     string,
     Record<string, PrerequisiteStateResult>
   > = {};
 
   const featureDefinitions = generateFeaturesPayload({
-    features: [...features, ...holdoutFeatures],
+    features,
     environment,
     groupMap,
     experimentMap,
     prereqStateCache,
     safeRolloutMap,
+    holdouts,
   });
 
   const allVisualExperiments = await getAllVisualExperiments(
@@ -1105,6 +1099,7 @@ export async function evaluateAllFeatures({
     if (!env) {
       continue;
     }
+    const holdouts = await context.models.holdout.getAllPayloadHoldouts(env.id);
 
     const featurePayload = generateFeaturesPayload({
       features: allFeaturesRaw,
@@ -1113,6 +1108,7 @@ export async function evaluateAllFeatures({
       groupMap,
       prereqStateCache: {},
       safeRolloutMap,
+      holdouts,
     });
 
     // now we have all the definitions, lets evaluate them

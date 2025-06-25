@@ -5,7 +5,10 @@ import Link from "next/link";
 import { BsFlag } from "react-icons/bs";
 import clsx from "clsx";
 import { PiShuffle } from "react-icons/pi";
-import { ComputedExperimentInterface } from "back-end/types/experiment";
+import {
+  ComputedExperimentInterface,
+  ExperimentInterfaceStringDates,
+} from "back-end/types/experiment";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -20,17 +23,15 @@ import TagsFilter, {
   filterByTags,
   useTagsFilter,
 } from "@/components/Tags/TagsFilter";
-import { useWatching } from "@/services/WatchProvider";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/components/Radix/Button";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import LinkButton from "@/components/Radix/LinkButton";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
-import { useExperimentSearch } from "@/services/experiments";
 import NewHoldoutForm from "@/components/Holdout/NewHoldoutForm";
+import { useAddComputedFields, useSearch } from "@/services/search";
 
 const NUM_PER_PAGE = 20;
 
@@ -44,46 +45,72 @@ const HoldoutsPage = (): React.ReactElement => {
     error,
     loading,
     hasArchived,
+    holdouts,
+    experimentsMap,
   } = useExperiments(project, tabs.includes("archived"), "holdout");
 
   const tagsFilter = useTagsFilter("experiments");
-  const [showMineOnly, setShowMineOnly] = useLocalStorage(
-    "showMyExperimentsOnly",
-    false
-  );
+
   const [openNewHoldoutModal, setOpenNewHoldoutModal] = useState(false);
 
-  const { userId, hasCommercialFeature } = useUser();
+  const { hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
 
   const [currentPage, setCurrentPage] = useState(1);
 
-  const { watchedExperiments } = useWatching();
+  const holdoutsWithExperiment = useMemo(() => {
+    return holdouts.map((holdout) => ({
+      ...holdout,
+      experiment: experimentsMap.get(
+        holdout.experimentId
+      ) as ExperimentInterfaceStringDates,
+    }));
+  }, [holdouts, experimentsMap]);
 
-  const filterResults = useCallback(
-    (items: ComputedExperimentInterface[]) => {
-      if (showMineOnly) {
-        items = items.filter(
-          (item) =>
-            item.owner === userId || watchedExperiments.includes(item.id)
-        );
-      }
+  console.log(holdoutsWithExperiment);
+  console.log(experimentsMap);
 
-      items = filterByTags(items, tagsFilter.tags);
+  const holdoutItems = useAddComputedFields(holdoutsWithExperiment, (item) => {
+    // If draft, set duration to --
+    // if running, set duration to start date to now
+    // if stopped, set duration to start date to end date
+    const durationString =
+      item.experiment?.status === "draft"
+        ? "--"
+        : item.experiment?.status === "running"
+        ? `${date(item.experiment.phases[0].dateStarted ?? "")} - now`
+        : item.experiment?.status === "stopped"
+        ? `${date(item.experiment.phases[0].dateStarted ?? "")} - ${date(
+            item.experiment.phases[0].dateEnded ?? ""
+          )}`
+        : null;
 
-      return items;
-    },
-    [showMineOnly, userId, tagsFilter.tags, watchedExperiments]
-  );
+    return {
+      name: item.name,
+      projects: item.projects,
+      tags: item.experiment?.tags,
+      duration: durationString,
+      numExperiments: item.linkedExperiments.length,
+      numFeatures: item.linkedFeatures.length,
+      // owner: item.experiment.owner,
+      hashAttribute: item.experiment?.hashAttribute,
+      status: item.experiment?.status,
+    };
+  });
 
-  const {
-    items,
-    searchInputProps,
-    isFiltered,
-    SortableTH,
-  } = useExperimentSearch({
-    allExperiments,
-    filterResults,
+  const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
+    items: holdoutItems,
+    searchFields: [
+      "name",
+      "projects",
+      "tags",
+      "owner",
+      "hashAttribute",
+      "status",
+    ],
+    localStorageKey: "holdout-search",
+    defaultSortField: "dateCreated",
+    defaultSortDir: -1,
   });
 
   const tabCounts = useMemo(() => {
@@ -176,8 +203,6 @@ const HoldoutsPage = (): React.ReactElement => {
               </div>
             )}
           </div>
-          {/* TODO: Add holdouts markdown? */}
-          {/* <CustomMarkdown page={"experimentList"} /> */}
           {!hasHoldouts ? (
             <div className="box py-5 text-center">
               <div className="mx-auto" style={{ maxWidth: 650 }}>
@@ -281,17 +306,6 @@ const HoldoutsPage = (): React.ReactElement => {
                 <div className="col-auto">
                   <TagsFilter filter={tagsFilter} items={items} />
                 </div>
-                <div className="col-auto ml-auto">
-                  <Toggle
-                    id="my-experiments-toggle"
-                    type="toggle"
-                    value={showMineOnly}
-                    setValue={(value) => {
-                      setShowMineOnly(value);
-                    }}
-                  />{" "}
-                  My Holdouts Only
-                </div>
               </div>
 
               <table className="appbox table experiment-table gbtable responsive-table">
@@ -299,14 +313,14 @@ const HoldoutsPage = (): React.ReactElement => {
                   <tr>
                     <th></th>
                     <SortableTH field="name" className="w-100">
-                      Holdout
+                      Holdout Name
                     </SortableTH>
                     {showProjectColumn && (
-                      <SortableTH field="projectName">Project</SortableTH>
+                      <SortableTH field="projects">Projects</SortableTH>
                     )}
                     <SortableTH field="tags">Tags</SortableTH>
-                    <SortableTH field="ownerName">Owner</SortableTH>
-                    <SortableTH field="date">Date</SortableTH>
+                    <SortableTH field="owner">Owner</SortableTH>
+                    <SortableTH field="duration">Date</SortableTH>
                     <SortableTH field="status">Status</SortableTH>
                   </tr>
                 </thead>
@@ -329,30 +343,6 @@ const HoldoutsPage = (): React.ReactElement => {
                             <div className="d-flex flex-column">
                               <div className="d-flex">
                                 <span className="testname">{e.name}</span>
-                                {e.hasVisualChangesets ? (
-                                  <Tooltip
-                                    className="d-flex align-items-center ml-2"
-                                    body="Visual experiment"
-                                  >
-                                    <RxDesktop className="text-blue" />
-                                  </Tooltip>
-                                ) : null}
-                                {(e.linkedFeatures || []).length > 0 ? (
-                                  <Tooltip
-                                    className="d-flex align-items-center ml-2"
-                                    body="Linked Feature Flag"
-                                  >
-                                    <BsFlag className="text-blue" />
-                                  </Tooltip>
-                                ) : null}
-                                {e.hasURLRedirects ? (
-                                  <Tooltip
-                                    className="d-flex align-items-center ml-2"
-                                    body="URL Redirect experiment"
-                                  >
-                                    <PiShuffle className="text-blue" />
-                                  </Tooltip>
-                                ) : null}
                               </div>
                               {isFiltered && e.trackingKey && (
                                 <span
@@ -387,7 +377,7 @@ const HoldoutsPage = (): React.ReactElement => {
 
                         <td data-title="Tags:" className="table-tags">
                           <SortedTags
-                            tags={Object.values(e.tags)}
+                            tags={Object.values(e.experiment.tags)}
                             useFlex={true}
                           />
                         </td>
@@ -407,7 +397,7 @@ const HoldoutsPage = (): React.ReactElement => {
                           {date(e.date)}
                         </td>
                         <td className="nowrap" data-title="Status:">
-                          <ExperimentStatusIndicator experimentData={e} />
+                          {/* <ExperimentStatusIndicator experimentData={e} /> */}
                         </td>
                       </tr>
                     );

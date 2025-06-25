@@ -330,7 +330,7 @@ export function getFeatureDefinition({
   experimentMap: Map<string, ExperimentInterface>;
   revision?: FeatureRevisionInterface;
   date?: Date;
-  safeRolloutMap: Map<string, SafeRolloutInterface>; // TODO: Check in to see if we need a holdoutMap
+  safeRolloutMap: Map<string, SafeRolloutInterface>;
 }): FeatureDefinitionWithProject | null {
   const settings = feature.environmentSettings?.[environment];
 
@@ -352,10 +352,10 @@ export function getFeatureDefinition({
   const holdoutRule: FeatureDefinitionRule[] = feature.holdout
     ? [
         {
-          id: uuidv4(),
+          id: `fr_${uuidv4()}`,
           parentConditions: [
             {
-              id: feature.holdout.id,
+              id: `holdout:${feature.holdout.id}`,
               condition: { value: "holdoutcontrol" },
             },
           ],

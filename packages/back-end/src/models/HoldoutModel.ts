@@ -23,7 +23,7 @@ export class HoldoutModel extends BaseClass {
     return true;
   }
   protected canRead(doc: HoldoutInterface): boolean {
-    return true;
+    return this.context.permissions.canReadMultiProjectResource(doc.projects);
   }
   protected canUpdate(
     existing: HoldoutInterface,

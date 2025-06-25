@@ -154,6 +154,8 @@ export async function getExperiments(
     type,
   });
 
+  const holdouts = await context.models.holdout.getAll();
+
   const hasArchived = includeArchived
     ? experiments.some((e) => e.archived)
     : await hasArchivedExperiments(context, project);
@@ -162,6 +164,7 @@ export async function getExperiments(
     status: 200,
     experiments,
     hasArchived,
+    holdouts,
   });
 }
 
@@ -799,7 +802,7 @@ export async function postExperiments(
     if (req.query.isHoldout) {
       const holdout = await context.models.holdout.create({
         experimentId: experiment.id,
-        projectId: experiment.project,
+        projects: experiment.project ? [experiment.project] : [],
         name: experiment.name,
         environments: [],
         analysisSettings: {},

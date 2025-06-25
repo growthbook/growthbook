@@ -3,11 +3,9 @@ import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "back-end/types/experiment";
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
-import { URLRedirectInterface } from "back-end/types/url-redirect";
 import React, { ReactElement, useEffect, useState } from "react";
-import { IdeaInterface } from "back-end/types/idea";
 import { includeExperimentInPayload } from "shared/util";
+import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";
@@ -46,13 +44,11 @@ const HoldoutPage = (): ReactElement => {
   >(null);
 
   const { data, error, mutate } = useApi<{
+    holdout: HoldoutInterface;
     experiment: ExperimentInterfaceStringDates;
-    idea?: IdeaInterface;
-    visualChangesets: VisualChangesetInterface[];
     linkedFeatures: LinkedFeatureInfo[];
     envs: string[];
-    urlRedirects: URLRedirectInterface[];
-  }>(`/experiment/${hid}`);
+  }>(`/holdout/${hid}`);
 
   const {
     getDecisionCriteria,
@@ -74,18 +70,12 @@ const HoldoutPage = (): ReactElement => {
   }, [data, router]);
 
   if (error) {
-    return <div>There was a problem loading the experiment</div>;
+    return <div>There was a problem loading the holdout</div>;
   }
   if (!data) {
     return <LoadingOverlay />;
   }
-  const {
-    experiment,
-    visualChangesets = [],
-    linkedFeatures = [],
-    urlRedirects = [],
-    envs = [],
-  } = data;
+  const { experiment, holdout, linkedFeatures = [], envs = [] } = data;
 
   const runningExperimentStatus = getRunningExperimentResultStatus(experiment);
 
@@ -232,10 +222,11 @@ const HoldoutPage = (): ReactElement => {
       <SnapshotProvider experiment={experiment}>
         <TabbedPage
           experiment={experiment}
+          holdout={holdout}
           linkedFeatures={linkedFeatures}
           mutate={mutate}
-          visualChangesets={visualChangesets}
-          urlRedirects={urlRedirects}
+          visualChangesets={[]}
+          urlRedirects={[]}
           editMetrics={editMetrics}
           editResult={editResult}
           editVariations={editVariations}

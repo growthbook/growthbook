@@ -11,6 +11,7 @@ import { useRouter } from "next/router";
 import { DifferenceType } from "back-end/types/stats";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
 import { FaChartBar } from "react-icons/fa";
+import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import FeatureFromExperimentModal from "@/components/Features/FeatureModal/FeatureFromExperimentModal";
 import Modal from "@/components/Modal";
@@ -48,6 +49,7 @@ export type ExperimentTab = typeof experimentTabs[number];
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
+  holdout?: HoldoutInterface;
   linkedFeatures: LinkedFeatureInfo[];
   mutate: () => void;
   duplicate?: (() => void) | null;
@@ -68,6 +70,7 @@ export interface Props {
 
 export default function TabbedPage({
   experiment,
+  holdout,
   linkedFeatures,
   mutate,
   duplicate,
@@ -369,6 +372,7 @@ export default function TabbedPage({
         >
           <SetupTabOverview
             experiment={experiment}
+            holdout={holdout}
             mutate={mutate}
             disableEditing={viewingOldPhase}
             linkedFeatures={linkedFeatures}
@@ -381,6 +385,7 @@ export default function TabbedPage({
           />
           <Implementation
             experiment={experiment}
+            holdout={holdout}
             mutate={mutate}
             editVariations={editVariations}
             setFeatureModal={setFeatureModal}
