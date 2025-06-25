@@ -189,10 +189,13 @@ export type DataSourcePipelineSettings = {
   unitsTableDeletion?: boolean;
 };
 
+export type MaterializedColumnType = "" | "identifier" | "dimension";
+
 export type MaterializedColumn = {
   columnName: string;
   sourceField: string;
   datatype: FactTableColumnType;
+  type?: MaterializedColumnType;
 };
 
 export type DataSourceSettings = {
@@ -252,6 +255,7 @@ interface DataSourceBase {
   params: string;
   projects?: string[];
   settings: DataSourceSettings;
+  lockUntil?: Date | null;
 }
 
 export interface GrowthbookClickhouseDataSource extends DataSourceBase {
