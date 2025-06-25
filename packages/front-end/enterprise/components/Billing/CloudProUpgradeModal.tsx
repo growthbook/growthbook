@@ -128,7 +128,7 @@ interface Props {
   closeParent: () => void;
 }
 
-export default function CloudProUpgradeModal({ close, closeParent }: Props) {
+export default function CloudProUpgradeModal({ close }: Props) {
   const [step, setStep] = useState(0);
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -156,7 +156,6 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
   });
 
   const handleSubmit = async () => {
-    console.log("handleSubmit");
     if (!stripe || !elements || !clientSecret) return;
 
     setLoading(true);
@@ -210,7 +209,6 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
       refreshOrganization();
       setLoading(false);
       setSuccess(true);
-      // setStep(step + 1);
     } catch (e) {
       setLoading(false);
       throw new Error(e.message);
@@ -323,7 +321,7 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
               label="Customize Invoice"
               value={showAddress}
               setValue={setShowAddress}
-              description="Add a full billing address and optionally customize the name that will be displayed on invoices."
+              description="Add a full billing address and optionally customize the name displayed on invoices."
             />
           </div>
           {showAddress && (

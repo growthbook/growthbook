@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, Text } from "@radix-ui/themes";
 import {
   AddressElement,
   useElements,
@@ -190,14 +190,13 @@ export default function UpdateOrbSubscriptionModal({
       close={close}
       size="lg"
       header="Update Subscription Details"
+      subHeader="Update your subscription billing details and preferences."
       cta="Update Details"
       submit={handleSubmit}
       loading={loading || fetchingCustomerData}
       autoCloseOnSubmit={false}
     >
       <div className="p-3">
-        <p>Update your subscription billing details and preferences.</p>
-
         {customerDataError && (
           <div className="alert alert-warning mb-3">{customerDataError}</div>
         )}
@@ -209,14 +208,18 @@ export default function UpdateOrbSubscriptionModal({
             </small>
           </div>
         )}
-        <Field
-          type="email"
-          required={true}
-          label="Primary Email"
-          helpText="The primary email address that will receive monthly invoice emails."
-          {...form.register("email")}
-          defaultValue={form.watch("email")}
-        />
+        <div className="mb-4">
+          <label>Billing Email</label>
+          <Text as="p" mb="2">
+            Monthly invoices will be sent to this address
+          </Text>
+          <Field
+            type="email"
+            required={true}
+            {...form.register("email")}
+            defaultValue={form.watch("email")}
+          />
+        </div>
         <Flex align="center" width="100%" gap="4">
           <Box style={{ width: "50%" }}>
             <SelectField
@@ -262,7 +265,7 @@ export default function UpdateOrbSubscriptionModal({
                     label="Customize Invoice"
                     value={showAddress}
                     setValue={setShowAddress}
-                    description="Add a full billing address and optionally customize the name that will be displayed on invoices."
+                    description="Add a full billing address and optionally customize the name displayed on invoices."
                   />
                 </div>
               ) : null}
