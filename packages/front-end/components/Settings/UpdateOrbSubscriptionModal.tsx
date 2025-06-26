@@ -22,7 +22,7 @@ import Checkbox from "../Radix/Checkbox";
 interface StripeCustomerData {
   name: string;
   email: string;
-  address: StripeAddress;
+  address?: StripeAddress;
   taxConfig: {
     type?: TaxIdType;
     value?: string;
@@ -39,7 +39,6 @@ export default function UpdateOrbSubscriptionModal({
   close,
 }: Props) {
   const [loading, setLoading] = useState(false);
-  const [fetchingCustomerData, setFetchingCustomerData] = useState(false);
   const [customerDataError, setCustomerDataError] = useState<string | null>(
     null
   );
@@ -70,7 +69,7 @@ export default function UpdateOrbSubscriptionModal({
   // Fetch customer data from Stripe when component mounts
   useEffect(() => {
     const fetchCustomerData = async () => {
-      setFetchingCustomerData(true);
+      setLoading(true);
       setCustomerDataError(null);
 
       try {
@@ -108,10 +107,10 @@ export default function UpdateOrbSubscriptionModal({
             setHasExistingAddress(true);
           }
 
-          if (customerData.taxConfig?.type) {
+          if (customerData.taxConfig.type) {
             form.setValue("taxIdType", customerData.taxConfig.type);
           }
-          if (customerData.taxConfig?.value) {
+          if (customerData.taxConfig.value) {
             form.setValue("taxIdValue", customerData.taxConfig.value);
           }
         }
@@ -121,7 +120,7 @@ export default function UpdateOrbSubscriptionModal({
           "Failed to load existing customer data from Stripe"
         );
       } finally {
-        setFetchingCustomerData(false);
+        setLoading(false);
       }
     };
 
@@ -156,11 +155,6 @@ export default function UpdateOrbSubscriptionModal({
         }
       }
 
-      // If showAddress is false, clear the address to ignore address changes
-      if (!showAddress && form.watch("address")) {
-        form.setValue("address", undefined);
-      }
-
       // Submit all customer data to our backend to update the subscription
       await apiCall("/subscription/update-customer-data", {
         method: "POST",
@@ -193,120 +187,109 @@ export default function UpdateOrbSubscriptionModal({
       header={null}
       submit={handleSubmit}
       showHeaderCloseButton={false}
-      loading={loading || fetchingCustomerData}
+      loading={loading}
       autoCloseOnSubmit={false}
     >
       <div className="container-fluid dashboard p-3 ">
         {customerDataError && (
           <div className="alert alert-warning mb-3">{customerDataError}</div>
         )}
-
-        {fetchingCustomerData ? (
-          <div className="mb-3">
-            <small className="text-muted">
-              Loading existing customer data...
-            </small>
-          </div>
-        ) : (
-          <>
-            <h3
-              className="mb-1"
-              style={{ color: "var(--color-text-high)", fontSize: "20px" }}
-            >
-              Upgrade to Pro
-            </h3>
-            <p
-              className="mb-0"
-              style={{ color: "var(--color-text-mid)", fontSize: "16px" }}
-            >
-              Get instant access to advanced experimentation, permissioning and
-              security features.
-            </p>
-            <div className="py-4">
-              <label>Billing Email</label>
-              <Text as="p" mb="2">
-                Monthly invoices will be sent to this address
-              </Text>
-              <Field
-                type="email"
-                required={true}
-                {...form.register("email")}
-                defaultValue={form.watch("email")}
+        <h3
+          className="mb-1"
+          style={{ color: "var(--color-text-high)", fontSize: "20px" }}
+        >
+          Upgrade to Pro
+        </h3>
+        <p
+          className="mb-0"
+          style={{ color: "var(--color-text-mid)", fontSize: "16px" }}
+        >
+          Get instant access to advanced experimentation, permissioning and
+          security features.
+        </p>
+        <div className="py-4">
+          <label>Billing Email</label>
+          <Text as="p" mb="2">
+            Monthly invoices will be sent to this address
+          </Text>
+          <Field
+            type="email"
+            required={true}
+            {...form.register("email")}
+            defaultValue={form.watch("email")}
+          />
+        </div>
+        <Flex align="center" width="100%" gap="4">
+          <Box style={{ width: "50%" }}>
+            <SelectField
+              label={
+                <span>
+                  Tax ID Type{" "}
+                  <Tooltip body="Select your tax id type here. E.G. US-EIN, GB-VAT, etc.">
+                    <GBInfo />
+                  </Tooltip>
+                </span>
+              }
+              options={taxIdTypeOptions}
+              value={form.watch("taxIdType") || ""}
+              onChange={(value) => {
+                form.setValue("taxIdType", value as TaxIdType);
+              }}
+              isClearable={true}
+            />
+          </Box>
+          <Box style={{ width: "50%" }}>
+            <Field
+              type="text"
+              {...form.register("taxIdValue")}
+              label={
+                <span>
+                  Tax ID{" "}
+                  <Tooltip body="Enter your tax id here. E.G. VAT or EIN">
+                    <GBInfo />
+                  </Tooltip>
+                </span>
+              }
+            />
+          </Box>
+        </Flex>
+        <hr />
+        <div className="d-flex align-items-center mb-2">
+          {!hasExistingAddress ? (
+            <div className="mb-2">
+              <Checkbox
+                label="Customize Invoice"
+                value={showAddress}
+                setValue={setShowAddress}
+                description="Add a full billing address and optionally customize the name displayed on invoices."
               />
             </div>
-            <Flex align="center" width="100%" gap="4">
-              <Box style={{ width: "50%" }}>
-                <SelectField
-                  label={
-                    <span>
-                      Tax ID Type{" "}
-                      <Tooltip body="Select your tax id type here. E.G. US-EIN, GB-VAT, etc.">
-                        <GBInfo />
-                      </Tooltip>
-                    </span>
-                  }
-                  options={taxIdTypeOptions}
-                  value={form.watch("taxIdType") || ""}
-                  onChange={(value) => {
-                    form.setValue("taxIdType", value as TaxIdType);
-                  }}
-                  isClearable={true}
-                />
-              </Box>
-              <Box style={{ width: "50%" }}>
-                <Field
-                  type="text"
-                  {...form.register("taxIdValue")}
-                  label={
-                    <span>
-                      Tax ID{" "}
-                      <Tooltip body="Enter your tax id here. E.G. VAT or EIN">
-                        <GBInfo />
-                      </Tooltip>
-                    </span>
-                  }
-                />
-              </Box>
-            </Flex>
-            <hr />
-            <div className="d-flex align-items-center mb-2">
-              {!hasExistingAddress ? (
-                <div className="mb-2">
-                  <Checkbox
-                    label="Customize Invoice"
-                    value={showAddress}
-                    setValue={setShowAddress}
-                    description="Add a full billing address and optionally customize the name displayed on invoices."
-                  />
-                </div>
-              ) : null}
-            </div>
-            {showAddress && (
-              <AddressElement
-                className="pb-2"
-                options={{
-                  mode: "billing",
-                  fields: {
-                    phone: "never",
-                  },
-                  display: {
-                    name: "organization",
-                  },
-                  defaultValues: {
-                    name: form.watch("name"),
-                    address: {
-                      line1: form.watch("address")?.line1,
-                      line2: form.watch("address")?.line2,
-                      city: form.watch("address")?.city,
-                      state: form.watch("address")?.state,
-                      postal_code: form.watch("address")?.postal_code,
-                      country: form.watch("address")?.country || "",
-                    },
-                  },
-                }}
-              />
-            )}
-          </>
+          ) : null}
+        </div>
+        {showAddress && (
+          <AddressElement
+            className="pb-2"
+            options={{
+              mode: "billing",
+              fields: {
+                phone: "never",
+              },
+              display: {
+                name: "organization",
+              },
+              defaultValues: {
+                name: form.watch("name"),
+                address: {
+                  line1: form.watch("address")?.line1,
+                  line2: form.watch("address")?.line2,
+                  city: form.watch("address")?.city,
+                  state: form.watch("address")?.state,
+                  postal_code: form.watch("address")?.postal_code,
+                  country: form.watch("address")?.country || "",
+                },
+              },
+            }}
+          />
         )}
       </div>
     </Modal>
