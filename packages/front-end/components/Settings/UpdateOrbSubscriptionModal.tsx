@@ -59,8 +59,8 @@ export default function UpdateOrbSubscriptionModal({
     taxIdValue?: string;
   }>({
     defaultValues: {
-      name: organization.name,
-      email: email,
+      name: "",
+      email: "",
       taxIdType: undefined,
       taxIdValue: undefined,
       address: undefined,
@@ -293,7 +293,7 @@ export default function UpdateOrbSubscriptionModal({
                     name: "organization",
                   },
                   defaultValues: {
-                    name: organization.name,
+                    name: form.watch("name"),
                     address: {
                       line1: form.watch("address")?.line1,
                       line2: form.watch("address")?.line2,
