@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { omit } from "lodash";
 import { FeatureCodeRefsInterface } from "back-end/types/code-refs";
+import { ApiCodeRef } from "back-end/types/openapi";
 import { OrganizationInterface } from "back-end/types/organization";
 
 const featureCodeRefsSchema = new mongoose.Schema({
@@ -38,6 +39,23 @@ const FeatureCodeRefsModel = mongoose.model<FeatureCodeRefsInterface>(
 function toInterface(doc: FeatureCodeRefsDocument): FeatureCodeRefsInterface {
   const ret = doc.toJSON<FeatureCodeRefsDocument>();
   return omit(ret, ["__v", "_id"]);
+}
+
+function toApiInterface(doc: FeatureCodeRefsDocument): ApiCodeRef {
+  return {
+    branch: doc.branch,
+    dateUpdated: doc.dateUpdated?.toISOString(),
+    feature: doc.feature,
+    organization: doc.organization,
+    platform: doc.platform,
+    refs: doc.refs.map((ref) => ({
+      filePath: ref.filePath,
+      startingLineNumber: ref.startingLineNumber,
+      lines: ref.lines,
+      flagKey: ref.flagKey,
+    })),
+    repo: doc.repo,
+  };
 }
 
 export const upsertFeatureCodeRefs = async ({
@@ -108,4 +126,14 @@ export const getAllCodeRefsForFeature = async ({
     feature,
     organization: organization.id,
   }).then((docs) => docs.map(toInterface));
+};
+
+export const getCodeRefsForFeature = async ({
+  feature,
+}: {
+  feature: string;
+}): Promise<ApiCodeRef[]> => {
+  return await FeatureCodeRefsModel.find({
+    feature,
+  }).then((docs) => docs.map(toApiInterface));
 };
