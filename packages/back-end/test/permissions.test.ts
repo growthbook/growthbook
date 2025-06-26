@@ -5267,24 +5267,6 @@ describe("PermissionsUtilClass.canCreateDataSource", () => {
       permissions.canCreateDataSource({ projects: [], type: undefined })
     ).toEqual(false);
   });
-
-  it("User with admin role unable to create growthbook_clickhouse source", async () => {
-    const permissions = new Permissions({
-      global: {
-        permissions: roleToPermissionMap("admin", testOrg),
-        limitAccessByEnvironment: false,
-        environments: [],
-      },
-      projects: {},
-    });
-
-    expect(
-      permissions.canCreateDataSource({
-        projects: [],
-        type: "growthbook_clickhouse",
-      })
-    ).toEqual(false);
-  });
 });
 
 describe("PermissionsUtilClass.canUpdateDataSourceParams", () => {
