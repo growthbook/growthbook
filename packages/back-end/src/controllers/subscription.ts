@@ -505,7 +505,7 @@ export async function updateCustomerData(
 
   const { org } = context;
 
-  if (!context.permissions.canViewUsage()) {
+  if (!context.permissions.canManageBilling()) {
     context.permissions.throwPermissionError();
   }
 
