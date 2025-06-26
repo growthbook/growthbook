@@ -5,7 +5,7 @@ import { useExperiments } from "@/hooks/useExperiments";
 import { BlockProps } from ".";
 
 export default function HypothesisBlock({
-  experimentId,
+  block: { experimentId },
   mutate,
 }: BlockProps<HypothesisBlockInterface>) {
   const { experimentsMap } = useExperiments();

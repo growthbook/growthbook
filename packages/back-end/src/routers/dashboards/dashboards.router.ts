@@ -2,7 +2,6 @@ import express from "express";
 import { z } from "zod";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
-import { dashboardSettingsStringDates } from "back-end/src/enterprise/validators/dashboard-instance";
 import {
   createDashboardBlockInterface,
   dashboardBlockInterface,
@@ -17,28 +16,20 @@ export const createDashboardBody = z
   .object({
     experimentId: z.string(),
     title: z.string(),
-    description: z.string(),
     blocks: z.array(createDashboardBlockInterface),
-    settings: dashboardSettingsStringDates,
+    // settings: dashboardSettingsStringDates,
   })
   .strict();
 
 export const updateDashboardBody = z
   .object({
     title: z.string().optional(),
-    description: z.string().optional(),
     blocks: z
       .array(z.union([createDashboardBlockInterface, dashboardBlockInterface]))
       .optional(),
-    settings: dashboardSettingsStringDates.optional(),
+    // settings: dashboardSettingsStringDates.optional(),
   })
   .strict();
-
-router.get(
-  "/:id/snapshots",
-  validateRequestMiddleware({ params: dashboardParams }),
-  dashboardsController.getSnapshotsForDashboard
-);
 
 router.post(
   "/",

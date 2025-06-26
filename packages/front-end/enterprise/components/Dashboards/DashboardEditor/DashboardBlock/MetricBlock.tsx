@@ -12,13 +12,16 @@ import { useDashboardSnapshot } from "../../DashboardSnapshotProvider";
 import { BlockProps } from ".";
 
 export default function MetricBlock({
-  metricId: metricIdOverride,
-  variationIds: variationIdsOverride,
-  baselineRow: baselineRowOverride,
   isEditing,
   setBlock,
-  experimentId,
+  block,
 }: BlockProps<MetricBlockInterface>) {
+  const {
+    metricId: metricIdOverride,
+    variationIds: variationIdsOverride,
+    baselineRow: baselineRowOverride,
+    experimentId,
+  } = block;
   const { experimentsMap } = useExperiments();
   const experiment = experimentsMap.get(experimentId);
 
@@ -36,7 +39,7 @@ export default function MetricBlock({
     analysis,
     mutateSnapshot,
     analysisSettings,
-  } = useDashboardSnapshot();
+  } = useDashboardSnapshot(block);
   const orgSettings = useOrgSettings();
   const pValueCorrection = orgSettings?.pValueCorrection;
 
@@ -44,30 +47,21 @@ export default function MetricBlock({
 
   const setMetricId = (value: string) =>
     setBlock({
-      type: "metric",
+      ...block,
       metricId: value,
-      variationIds: variationIdsOverride,
-      baselineRow: baselineRowOverride,
-      experimentId,
     });
 
   const setVariationFilter = (variations: number[]) => {
     setBlock({
-      type: "metric",
-      metricId: metricIdOverride,
+      ...block,
       variationIds: variations.map(toString),
-      baselineRow: baselineRowOverride,
-      experimentId,
     });
   };
 
   const setBaselineRow = (row: number) =>
     setBlock({
-      type: "metric",
-      metricId: metricIdOverride,
-      variationIds: variationIdsOverride,
+      ...block,
       baselineRow: row,
-      experimentId,
     });
 
   if (!experiment) return null;

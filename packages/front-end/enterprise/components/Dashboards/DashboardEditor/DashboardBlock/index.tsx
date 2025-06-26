@@ -21,9 +21,8 @@ import TrafficGraphBlock from "./TrafficGraphBlock";
 import TrafficTableBlock from "./TrafficTableBlock";
 import SqlExplorerBlock from "./SqlExplorerBlock";
 
-export type BlockProps<
-  T extends DashboardBlockInterface
-> = DashboardBlockData<T> & {
+export type BlockProps<T extends DashboardBlockInterface> = {
+  block: DashboardBlockData<T>;
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
   isEditing: boolean;
@@ -96,7 +95,7 @@ export default function DashboardBlock({
       )}
 
       <BlockComponent
-        {...block}
+        block={block}
         isEditing={isEditing}
         setBlock={setBlock}
         experiment={experiment}

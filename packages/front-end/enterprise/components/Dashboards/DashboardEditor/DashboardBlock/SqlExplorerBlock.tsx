@@ -6,7 +6,7 @@ import { Flex } from "@radix-ui/themes";
 import useApi from "@/hooks/useApi";
 import SqlExplorerModal from "@/components/SchemaBrowser/SqlExplorerModal";
 import Button from "@/components/Radix/Button";
-import SqlExplorerDataVisualization from "@/components/DataViz/SqlExplorerDataVisualization";
+import { SqlExplorerDataVisualization } from "@/components/DataViz/SqlExplorerDataVisualization";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Callout from "@/components/Radix/Callout";
 import SelectField from "@/components/Forms/SelectField";

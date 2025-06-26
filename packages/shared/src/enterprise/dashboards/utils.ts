@@ -101,8 +101,8 @@ export function isPersistedDashboardBlock(
 }
 
 export function isDashboardBlockWithSnapshot(
-  data: DashboardBlockInterface
-): data is DashboardBlockWithSnapshot {
-  const block = data as DashboardBlockWithSnapshot;
+  data: DashboardBlockData<DashboardBlockInterface>
+): data is DashboardBlockData<DashboardBlockWithSnapshot> {
+  const block = data as DashboardBlockData<DashboardBlockWithSnapshot>;
   return typeof block.snapshotId === "string";
 }

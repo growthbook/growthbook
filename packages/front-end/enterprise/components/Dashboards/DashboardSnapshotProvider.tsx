@@ -1,34 +1,26 @@
-import React, { ReactNode, useContext, useMemo } from "react";
-import {
-  ExperimentSnapshotAnalysis,
-  ExperimentSnapshotAnalysisSettings,
-  ExperimentSnapshotInterface,
-} from "back-end/types/experiment-snapshot";
-import { getSnapshotAnalysis } from "shared/util";
+import React, { ReactNode, useContext } from "react";
+import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import {
+  DashboardBlockData,
+  DashboardBlockInterface,
+} from "back-end/src/enterprise/validators/dashboard-block";
+import { isDashboardBlockWithSnapshot } from "shared/enterprise";
 import useApi from "@/hooks/useApi";
 
 const DashboardSnapshotContext = React.createContext<{
   defaultSnapshot?: ExperimentSnapshotInterface;
-  snapshotMap?: Record<string, ExperimentSnapshotInterface>;
-  analysisMap?: Record<string, ExperimentSnapshotAnalysis | undefined>;
-  mutateSnapshots: () => Promise<unknown>;
-  analysisSettingsMap?: Record<
-    string,
-    ExperimentSnapshotAnalysisSettings | undefined
-  >;
+  mutateSnapshot: () => Promise<unknown>;
   loading?: boolean;
   error?: Error;
 }>({
-  mutateSnapshots: async () => {},
+  mutateSnapshot: async () => {},
 });
 
 export default function DashboardSnapshotProvider({
-  dashboardId,
   experiment,
   children,
 }: {
-  dashboardId: string;
   experiment: ExperimentInterfaceStringDates;
   children: ReactNode;
 }) {
@@ -44,58 +36,16 @@ export default function DashboardSnapshotProvider({
       experiment.phases?.length - 1 || 0
     }`
   );
-  const {
-    data: dashboardData,
-    error: dashboardError,
-    isValidating: dashboardIsValidating,
-    mutate: dashboardMutate,
-  } = useApi<{
-    snapshots: Record<string, ExperimentSnapshotInterface>;
-  }>(`/dashboards/${dashboardId}/snapshots/`, {
-    shouldRun: () => !!dashboardId,
-  });
-
-  const snapshotEntries = useMemo(
-    () =>
-      dashboardData?.snapshots ? Object.entries(dashboardData.snapshots) : [],
-    [dashboardData]
-  );
-
-  const defaultAnalysisSettingsMap = dashboardData?.snapshots
-    ? Object.fromEntries(
-        snapshotEntries.map(([blockUid, snapshot]) => [
-          blockUid,
-          getSnapshotAnalysis(snapshot)?.settings,
-        ])
-      )
-    : undefined;
-
-  const analysisMap = useMemo(() => {
-    return snapshotEntries
-      ? Object.fromEntries(
-          snapshotEntries.map(([blockUid, snapshot]) => [
-            blockUid,
-            (getSnapshotAnalysis(
-              snapshot,
-              defaultAnalysisSettingsMap?.[blockUid]
-            ) as ExperimentSnapshotAnalysis) ?? undefined,
-          ])
-        )
-      : undefined;
-  }, [defaultAnalysisSettingsMap, snapshotEntries]);
 
   return (
     <DashboardSnapshotContext.Provider
       value={{
         defaultSnapshot: snapshotData?.snapshot,
-        snapshotMap: dashboardData?.snapshots,
-        analysisMap,
-        mutateSnapshots: async () => {
-          dashboardMutate();
+        mutateSnapshot: async () => {
           snapshotMutate();
         },
-        error: dashboardError || snapshotError,
-        loading: dashboardIsValidating || snapshotIsValidating,
+        error: snapshotError,
+        loading: snapshotIsValidating,
       }}
     >
       {children}
@@ -103,37 +53,43 @@ export default function DashboardSnapshotProvider({
   );
 }
 
-export function useDashboardSnapshot(dashboardBlockUid?: string) {
+export function useDashboardSnapshot(
+  block: DashboardBlockData<DashboardBlockInterface>
+) {
   const {
     defaultSnapshot,
-    snapshotMap,
-    analysisMap,
-    analysisSettingsMap,
-    loading,
-    error,
-    mutateSnapshots,
+    loading: defaultLoading,
+    error: defaultError,
+    mutateSnapshot: mutateDefault,
   } = useContext(DashboardSnapshotContext);
 
-  if (!dashboardBlockUid) {
-    const analysis = defaultSnapshot
-      ? getSnapshotAnalysis(defaultSnapshot) || undefined
-      : undefined;
-    return {
-      snapshot: defaultSnapshot,
-      analysis,
+  const blockSnapshotId = isDashboardBlockWithSnapshot(block)
+    ? block.snapshotId
+    : "";
 
-      analysisSettings: analysis?.settings,
-      loading,
-      error,
-      mutateSnapshot: mutateSnapshots,
-    };
-  }
+  const shouldRun = () => !!blockSnapshotId;
+
+  const {
+    data: blockSnapshotData,
+    isValidating: snapshotLoading,
+    error: snapshotError,
+    mutate,
+  } = useApi<{
+    snapshot: ExperimentSnapshotInterface;
+  }>(`/snapshots/${blockSnapshotId}`, {
+    shouldRun,
+  });
+
+  const snapshot = shouldRun() ? blockSnapshotData?.snapshot : defaultSnapshot;
+  const loading = shouldRun() ? snapshotLoading : defaultLoading;
+  const error = shouldRun() ? snapshotError : defaultError;
+  const mutateSnapshot = shouldRun() ? mutate : mutateDefault;
   return {
-    snapshot: snapshotMap?.[dashboardBlockUid],
-    analysis: analysisMap?.[dashboardBlockUid],
-    analysisSettings: analysisSettingsMap?.[dashboardBlockUid],
+    snapshot,
+    analysis: snapshot?.analyses?.[0],
+    analysisSettings: snapshot?.analyses?.[0]?.settings,
     loading,
     error,
-    mutateSnapshot: mutateSnapshots,
+    mutateSnapshot,
   };
 }

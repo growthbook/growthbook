@@ -7,12 +7,13 @@ import { useDashboardSnapshot } from "../../DashboardSnapshotProvider";
 import { BlockProps } from ".";
 
 export default function TrafficGraphBlock({
-  experimentId,
+  block,
   ssrPolyfills,
 }: BlockProps<TrafficGraphBlockInterface>) {
+  const { experimentId } = block;
   const { experimentsMap } = useExperiments();
   const experiment = experimentsMap.get(experimentId);
-  const { snapshot } = useDashboardSnapshot();
+  const { snapshot } = useDashboardSnapshot(block);
   const { runHealthTrafficQuery } = useOrgSettings();
 
   if (!experiment || !snapshot) return null;

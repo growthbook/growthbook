@@ -9,15 +9,11 @@ import { ExperimentMetricSelector } from "../DashboardSettingsHeader";
 import { BlockProps } from ".";
 
 export default function TimeSeriesBlock({
-  experimentId,
-  metricId,
-  variationIds,
-  dateStart,
-  dateEnd,
+  block,
   isEditing,
   setBlock,
 }: BlockProps<TimeSeriesBlockInterface>) {
-  metricId ||= "";
+  const { experimentId, metricId, variationIds, dateStart } = block;
   const { experimentsMap } = useExperiments();
   const experiment = experimentsMap.get(experimentId);
   const { snapshot, analysisSettings } = useSnapshot();
@@ -30,12 +26,9 @@ export default function TimeSeriesBlock({
 
   const setMetricId = (value: string) =>
     setBlock({
-      type: "time-series",
-      experimentId,
+      ...block,
       metricId: value,
       variationIds: experiment?.variations.map((v) => v.id || ""),
-      dateStart,
-      dateEnd,
     });
 
   const metric = getExperimentMetricById(metricId);
@@ -116,6 +109,7 @@ export default function TimeSeriesBlock({
         metric={metric}
         differenceType={analysisSettings?.differenceType || "relative"}
         showVariations={showVariations}
+        variationNames={[]} // TODO
         statsEngine={orgSettings?.statsEngine || "frequentist"}
         pValueAdjustmentEnabled={!!appliedPValueCorrection && rows.length > 1}
         firstDateToRender={getValidDate(dateStart)}

@@ -6,11 +6,12 @@ import { useDashboardSnapshot } from "../../DashboardSnapshotProvider";
 import { BlockProps } from ".";
 
 export default function TrafficTableBlock({
-  experimentId,
+  block,
 }: BlockProps<TrafficTableBlockInterface>) {
+  const { experimentId } = block;
   const { experimentsMap } = useExperiments();
   const experiment = experimentsMap.get(experimentId);
-  const { analysis } = useDashboardSnapshot();
+  const { analysis } = useDashboardSnapshot(block);
   const results = useMemo(() => analysis?.results[0], [analysis]);
 
   const [_totalUsers, variationUsers] = useMemo(() => {

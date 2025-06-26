@@ -85,7 +85,7 @@ const timeSeriesBlockInterface = baseBlockInterface
   .extend({
     type: z.literal("time-series"),
     experimentId: z.string(),
-    metricId: z.string().optional(),
+    metricId: z.string(),
     variationIds: z.array(z.string()).optional(),
     dateStart: z.date().optional(),
     dateEnd: z.date().optional(),

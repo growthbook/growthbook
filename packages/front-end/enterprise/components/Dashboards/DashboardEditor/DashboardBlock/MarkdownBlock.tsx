@@ -4,7 +4,7 @@ import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import { BlockProps } from ".";
 
 export default function MarkdownBlock({
-  content,
+  block: { content },
   isEditing,
   setBlock,
 }: BlockProps<MarkdownBlockInterface>) {

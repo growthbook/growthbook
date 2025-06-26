@@ -5,25 +5,17 @@ import { useExperiments } from "@/hooks/useExperiments";
 import { BlockProps } from ".";
 
 export default function DescriptionBlock({
-  experimentId,
+  block: { experimentId },
   mutate,
 }: BlockProps<DescriptionBlockInterface>) {
   const { experimentsMap } = useExperiments();
   const experiment = experimentsMap.get(experimentId);
   if (!experiment) return null;
   return (
-    <>
-      <div className="metadata-block">
-        <p>
-          {
-            <ExperimentDescription
-              experiment={experiment}
-              canEditExperiment={false}
-              mutate={mutate}
-            />
-          }
-        </p>
-      </div>
-    </>
+    <ExperimentDescription
+      experiment={experiment}
+      canEditExperiment={false}
+      mutate={mutate}
+    />
   );
 }

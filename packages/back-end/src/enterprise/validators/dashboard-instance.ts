@@ -34,11 +34,10 @@ export const dashboardInstanceInterface = z
     experimentId: z.string(),
     owner: z.string(),
     title: z.string(),
-    description: z.string(),
     blocks: z.array(dashboardBlockInterface),
     dateCreated: z.date(),
     dateUpdated: z.date(),
-    settings: dashboardSettingsInterface,
+    // settings: dashboardSettingsInterface,
   })
   .strict();
 
