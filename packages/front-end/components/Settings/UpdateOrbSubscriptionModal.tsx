@@ -189,75 +189,86 @@ export default function UpdateOrbSubscriptionModal({
       open={true}
       close={close}
       size="lg"
-      header="Update Subscription Details"
-      subHeader="Update your subscription billing details and preferences."
       cta="Update Details"
+      header={null}
       submit={handleSubmit}
+      showHeaderCloseButton={false}
       loading={loading || fetchingCustomerData}
       autoCloseOnSubmit={false}
     >
-      <div className="p-3">
+      <div className="container-fluid dashboard p-3 ">
         {customerDataError && (
           <div className="alert alert-warning mb-3">{customerDataError}</div>
         )}
 
-        {fetchingCustomerData && (
+        {fetchingCustomerData ? (
           <div className="mb-3">
             <small className="text-muted">
               Loading existing customer data...
             </small>
           </div>
-        )}
-        <div className="mb-4">
-          <label>Billing Email</label>
-          <Text as="p" mb="2">
-            Monthly invoices will be sent to this address
-          </Text>
-          <Field
-            type="email"
-            required={true}
-            {...form.register("email")}
-            defaultValue={form.watch("email")}
-          />
-        </div>
-        <Flex align="center" width="100%" gap="4">
-          <Box style={{ width: "50%" }}>
-            <SelectField
-              label={
-                <span>
-                  Tax ID Type{" "}
-                  <Tooltip body="Select your tax id type here. E.G. US-EIN, GB-VAT, etc.">
-                    <GBInfo />
-                  </Tooltip>
-                </span>
-              }
-              options={taxIdTypeOptions}
-              value={form.watch("taxIdType") || ""}
-              onChange={(value) => {
-                form.setValue("taxIdType", value as TaxIdType);
-              }}
-              isClearable={true}
-            />
-          </Box>
-          <Box style={{ width: "50%" }}>
-            <Field
-              type="text"
-              {...form.register("taxIdValue")}
-              label={
-                <span>
-                  Tax ID{" "}
-                  <Tooltip body="Enter your tax id here. E.G. VAT or EIN">
-                    <GBInfo />
-                  </Tooltip>
-                </span>
-              }
-            />
-          </Box>
-        </Flex>
-        <hr />
-
-        {!fetchingCustomerData ? (
+        ) : (
           <>
+            <h3
+              className="mb-1"
+              style={{ color: "var(--color-text-high)", fontSize: "20px" }}
+            >
+              Upgrade to Pro
+            </h3>
+            <p
+              className="mb-0"
+              style={{ color: "var(--color-text-mid)", fontSize: "16px" }}
+            >
+              Get instant access to advanced experimentation, permissioning and
+              security features.
+            </p>
+            <div className="py-4">
+              <label>Billing Email</label>
+              <Text as="p" mb="2">
+                Monthly invoices will be sent to this address
+              </Text>
+              <Field
+                type="email"
+                required={true}
+                {...form.register("email")}
+                defaultValue={form.watch("email")}
+              />
+            </div>
+            <Flex align="center" width="100%" gap="4">
+              <Box style={{ width: "50%" }}>
+                <SelectField
+                  label={
+                    <span>
+                      Tax ID Type{" "}
+                      <Tooltip body="Select your tax id type here. E.G. US-EIN, GB-VAT, etc.">
+                        <GBInfo />
+                      </Tooltip>
+                    </span>
+                  }
+                  options={taxIdTypeOptions}
+                  value={form.watch("taxIdType") || ""}
+                  onChange={(value) => {
+                    form.setValue("taxIdType", value as TaxIdType);
+                  }}
+                  isClearable={true}
+                />
+              </Box>
+              <Box style={{ width: "50%" }}>
+                <Field
+                  type="text"
+                  {...form.register("taxIdValue")}
+                  label={
+                    <span>
+                      Tax ID{" "}
+                      <Tooltip body="Enter your tax id here. E.G. VAT or EIN">
+                        <GBInfo />
+                      </Tooltip>
+                    </span>
+                  }
+                />
+              </Box>
+            </Flex>
+            <hr />
             <div className="d-flex align-items-center mb-2">
               {!hasExistingAddress ? (
                 <div className="mb-2">
@@ -270,7 +281,6 @@ export default function UpdateOrbSubscriptionModal({
                 </div>
               ) : null}
             </div>
-
             {showAddress && (
               <AddressElement
                 className="pb-2"
@@ -297,7 +307,7 @@ export default function UpdateOrbSubscriptionModal({
               />
             )}
           </>
-        ) : null}
+        )}
       </div>
     </Modal>
   );

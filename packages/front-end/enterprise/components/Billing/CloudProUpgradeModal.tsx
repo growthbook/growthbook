@@ -8,6 +8,7 @@ import {
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { TaxIdType, StripeAddress } from "shared/src/types";
+import { PiCaretRight } from "react-icons/pi";
 import { useStripeContext } from "@/hooks/useStripeContext";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
@@ -128,7 +129,7 @@ interface Props {
   closeParent: () => void;
 }
 
-export default function CloudProUpgradeModal({ close }: Props) {
+export default function CloudProUpgradeModal({ close, closeParent }: Props) {
   const [step, setStep] = useState(0);
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -215,23 +216,23 @@ export default function CloudProUpgradeModal({ close }: Props) {
     }
   };
 
-  let cta = "Add Payment Method";
-  if (step === 1) {
-    cta = "Start Subscription";
-  }
-
   if (success) {
     return (
       <Modal
-        header="🎉 Welcome to GrowthBook Pro!"
-        close={close}
+        header={null}
+        close={() => {
+          close();
+          closeParent();
+        }}
         closeCta="Close"
         open={true}
         size="lg"
         trackingEventModalType="upgrade-to-pro"
         trackingEventModalSource="upgrade-modal"
+        showHeaderCloseButton={false}
       >
-        <div>
+        <div className="container-fluid dashboard p-3 ">
+          <h3>Welcome to GrowthBook Pro!</h3>
           <span>
             You&apos;re all set! Your organization now has access to all
             GrowthBook Pro features.
@@ -241,107 +242,140 @@ export default function CloudProUpgradeModal({ close }: Props) {
     );
   }
 
+  function header() {
+    return (
+      <>
+        <h3
+          className="mb-1"
+          style={{ color: "var(--color-text-high)", fontSize: "20px" }}
+        >
+          Upgrade to Pro
+        </h3>
+        <p
+          className="mb-0"
+          style={{ color: "var(--color-text-mid)", fontSize: "16px" }}
+        >
+          Get instant access to advanced experimentation, permissioning and
+          security features.
+        </p>
+      </>
+    );
+  }
+
   return (
     <PagedModal
       trackingEventModalType="upgrade-to-pro"
       trackingEventModalSource="upgrade-modal"
       hideNav={true}
-      close={close}
+      close={() => {
+        close();
+        closeParent();
+      }}
       autoCloseOnSubmit={false}
       size="lg"
-      header="Upgrade to Pro"
-      subHeader="Get instant access to advanced experimentation, permissioning and security features."
+      header={null}
       submit={async () => await handleSubmit()}
-      cta={cta}
-      step={step}
-      forceCtaText={true}
-      setStep={setStep}
-      loading={loading}
-    >
-      <Page display="Adjust Invoice Settings">
-        <div className="mb-4">
-          <label>Billing Email</label>
-          <Text as="p" mb="2">
-            Monthly invoices will be sent to this address
-          </Text>
-          <Field
-            type="email"
-            required={true}
-            {...form.register("email")}
-            defaultValue={form.watch("email")}
-          />
-        </div>
-        <Flex align="center" width="100%" gap="4">
-          <Box style={{ width: "50%" }}>
-            <SelectField
-              label={
-                <span>
-                  Tax ID Type{" "}
-                  <Tooltip body="Select your tax id type here. E.G. US-EIN, GB-VAT, etc.">
-                    <GBInfo />
-                  </Tooltip>
-                </span>
-              }
-              options={taxIdTypeOptions}
-              value={form.watch("taxIdType") || ""}
-              onChange={(value) =>
-                form.setValue("taxIdType", value as TaxIdType)
-              }
-              isClearable={true}
-            />
-          </Box>
-          <Box style={{ width: "50%" }}>
-            <Field
-              type="text"
-              {...form.register("taxIdValue")}
-              label={
-                <span>
-                  Tax ID{" "}
-                  <Tooltip body="Enter your tax id here. E.G. VAT or EIN">
-                    <GBInfo />
-                  </Tooltip>
-                </span>
-              }
-            />
-          </Box>
-        </Flex>
-      </Page>
-      <Page display="Add Payment Method">
+      cta={
         <>
-          <PaymentElement />
-          <p className="pt-3" style={{ marginBottom: "12px" }}>
-            The cost is <strong>$20 per seat per month</strong>. You will be
-            charged a pro-rated amount immediately for the remainder of the
-            current month and it will renew automatically on the 1st of each
-            subsequent month. Cancel anytime.
-          </p>
-          <Separator size="4" mb="3" />
-          <div className="mb-4">
-            <Checkbox
-              label="Customize Invoice"
-              value={showAddress}
-              setValue={setShowAddress}
-              description="Add a full billing address and optionally customize the name displayed on invoices."
-            />
-          </div>
-          {showAddress && (
-            <AddressElement
-              className="pb-2"
-              options={{
-                mode: "billing",
-                fields: {
-                  phone: "never",
-                },
-                display: {
-                  name: "organization",
-                },
-                defaultValues: {
-                  name: organization.name,
-                },
-              }}
-            />
+          {step === 1 ? (
+            "Start subscription"
+          ) : (
+            <>
+              Next <PiCaretRight />
+            </>
           )}
         </>
+      }
+      step={step}
+      forceCtaText={true}
+      showHeaderCloseButton={false}
+      setStep={setStep}
+      loading={loading}
+      backButton={true}
+    >
+      <Page display="Adjust Invoice Settings">
+        <div className="container-fluid dashboard p-3 ">
+          {header()}
+          <div className="py-4">
+            <label>Billing Email</label>
+            <Text as="p" mb="2">
+              Monthly invoices will be sent to this address
+            </Text>
+            <Field
+              type="email"
+              required={true}
+              {...form.register("email")}
+              defaultValue={form.watch("email")}
+            />
+          </div>
+          <Flex align="center" width="100%" gap="4">
+            <Box style={{ width: "50%" }}>
+              <SelectField
+                label="Tax ID type"
+                options={taxIdTypeOptions}
+                value={form.watch("taxIdType") || ""}
+                onChange={(value) =>
+                  form.setValue("taxIdType", value as TaxIdType)
+                }
+                isClearable={true}
+              />
+            </Box>
+            <Box style={{ width: "50%" }}>
+              <Field
+                type="text"
+                {...form.register("taxIdValue")}
+                label={
+                  <Flex align="center">
+                    <span className="mr-1">Tax ID</span>
+                    <Tooltip body="Enter your tax id here. E.G. VAT or EIN">
+                      <GBInfo />
+                    </Tooltip>
+                  </Flex>
+                }
+              />
+            </Box>
+          </Flex>
+        </div>
+      </Page>
+      <Page display="Add Payment Method">
+        <div className="container-fluid dashboard p-3 ">
+          {header()}
+          <div className="py-4">
+            <PaymentElement />
+            <p className="pt-3" style={{ marginBottom: "12px" }}>
+              The cost is <strong>$20 per seat per month</strong>. You will be
+              charged a pro-rated amount immediately for the remainder of the
+              current month and it will renew automatically on the 1st of each
+              subsequent month. Cancel anytime.
+            </p>
+            <Separator size="4" mb="3" />
+            <div className="mb-4">
+              <Checkbox
+                label="Customize Invoice"
+                value={showAddress}
+                setValue={setShowAddress}
+                description="Add a full billing address and optionally customize the name displayed on invoices."
+              />
+            </div>
+            {showAddress && (
+              <AddressElement
+                className="pb-2"
+                options={{
+                  mode: "billing",
+                  fields: {
+                    phone: "never",
+                  },
+                  display: {
+                    name: "organization",
+                  },
+                  defaultValues: {
+                    name: organization.name,
+                  },
+                }}
+              />
+            )}
+          </div>
+        </div>
       </Page>
     </PagedModal>
   );

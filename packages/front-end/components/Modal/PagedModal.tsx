@@ -17,7 +17,7 @@ import { DocSection } from "@/components/DocLink";
 import track, { TrackEventProps } from "@/services/track";
 
 type Props = {
-  header: string;
+  header: string | null;
   subHeader?: string | ReactNode;
   submitColor?: string;
   hideCta?: boolean;
@@ -32,6 +32,7 @@ type Props = {
   size?: "md" | "lg" | "max" | "fill";
   docSection?: DocSection;
   navStyle?: "pills" | "underlined" | "tabs" | "default";
+  showHeaderCloseButton?: boolean;
   navFill?: boolean;
   inline?: boolean;
   close?: () => void;
@@ -71,6 +72,7 @@ const PagedModal: FC<Props> = (props) => {
     cta,
     ctaEnabled = true,
     autoCloseOnSubmit = true,
+    showHeaderCloseButton = true,
     forceCtaText,
     inline,
     secondaryCTA,
@@ -84,6 +86,7 @@ const PagedModal: FC<Props> = (props) => {
     trackingEventModalType,
     trackingEventModalSource,
     allowlistedTrackingEventProps = {},
+    header,
     ...passThrough
   } = props;
   const [modalUuid] = useState(uuidv4());
@@ -189,6 +192,8 @@ const PagedModal: FC<Props> = (props) => {
       loading={loading}
       className={className}
       bodyClassName={bodyClassName}
+      header={header}
+      showHeaderCloseButton={showHeaderCloseButton}
       {...passThrough}
       trackOnSubmit={!nextStep}
       submit={async () => {
