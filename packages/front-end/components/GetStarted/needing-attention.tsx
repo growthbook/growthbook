@@ -19,9 +19,7 @@ import {
 } from "shared/enterprise";
 import { AuditInterface } from "back-end/types/audit";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
-import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import YouTubeLightBox from "@/components/GetStarted/YoutubeLightbox";
 import RadioCards from "@/components/Radix/RadioCards";
 import Button from "@/components/Radix/Button";
 import Avatar from "@/components/Radix/Avatar";
@@ -46,8 +44,6 @@ type FeaturesAndRevisions = FeatureRevisionInterface & {
 };
 
 const NeedingAttentionPage = (): React.ReactElement | null => {
-  const [showVideoId, setShowVideoId] = useState<string>("");
-  const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
   const [experimentsPage, setExperimentsPage] = useState<number>(1);
   const [featureFlagsPage, setFeatureFlagsPage] = useState(1);
   const { snapshot: snapshotWithResults } = useSafeRolloutSnapshot();
@@ -251,7 +247,6 @@ const NeedingAttentionPage = (): React.ReactElement | null => {
           .replace(/([A-Z])/g, " $1")
           .trim()
           .replace(/^./, (str) => str.toUpperCase());
-        //find the feature or experiment by id
 
         // Determine the URL based on the type
         let url = "";
@@ -544,20 +539,6 @@ const NeedingAttentionPage = (): React.ReactElement | null => {
   const orgIsUsingFeatureAndExperiment = hasFeatures && hasExperiments;
   return !orgIsUsingFeatureAndExperiment ? null : (
     <>
-      {upgradeModal && (
-        <UpgradeModal
-          close={() => setUpgradeModal(false)}
-          source="get-started"
-          commercialFeature={null}
-        />
-      )}
-      {showVideoId && (
-        <YouTubeLightBox
-          close={() => setShowVideoId("")}
-          videoId={showVideoId}
-        />
-      )}
-
       <Container
         px={{ initial: "2", xs: "4", sm: "7" }}
         py={{ initial: "1", xs: "3", sm: "6" }}

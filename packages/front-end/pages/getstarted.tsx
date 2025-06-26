@@ -26,7 +26,7 @@ import WorkspaceLinks from "@/components/GetStarted/WorkspaceLinks";
 import Callout from "@/components/Radix/Callout";
 import Link from "@/components/Radix/Link";
 import useSDKConnections from "@/hooks/useSDKConnections";
-import NeedingAttentionPage from "@/pages/needing-attention";
+import NeedingAttentionPage from "@/components/GetStarted/needing-attention";
 import styles from "@/components/GetStarted/OverviewCard.module.scss";
 
 const GetStartedPage = (): React.ReactElement => {
@@ -103,8 +103,8 @@ const GetStartedPage = (): React.ReactElement => {
             <Link
               key={feature.href}
               href={feature.href}
-              target={isExternalUrl(feature.href) ? "_blank" : undefined}
-              rel={isExternalUrl(feature.href) ? "noopener noreferrer" : undefined}
+              target="_blank"
+              rel="noopener noreferrer"
               style={{ textDecoration: "none" }}
             >
               <Card

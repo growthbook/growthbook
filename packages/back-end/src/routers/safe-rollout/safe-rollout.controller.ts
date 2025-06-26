@@ -267,7 +267,7 @@ export const getSafeRolloutTimeSeries = async (
  * Get all safe rollout rules
  */
 export const getSafeRollouts = async (
-  req: AuthRequest<null, { environment: string }>,
+  req: AuthRequest<null, null>,
   res: Response<{ status: 200; safeRollouts: SafeRolloutInterface[] }>
 ) => {
   const context = getContextFromReq(req);

@@ -1,5 +1,6 @@
 import mongoose, { FilterQuery, QueryOptions } from "mongoose";
 import uniqid from "uniqid";
+import { omit } from "lodash";
 import { AuditInterface } from "back-end/types/audit";
 import { EntityType } from "back-end/src/types/Audit";
 
@@ -45,34 +46,10 @@ const AuditModel = mongoose.model<AuditInterface>("Audit", auditSchema);
  * @param doc
  */
 const toInterface = (doc: AuditDocument): AuditInterface => {
-  const json = doc.toJSON<AuditDocument>();
-
-  // Use type assertion to handle the user field
-  const user = json.user as unknown;
-
-  const transformed = {
-    id: json.id,
-    organization: json.organization,
-    user,
-    event: json.event,
-    entity: json.entity
-      ? {
-          object: json.entity.object,
-          id: json.entity.id,
-          name: json.entity.name,
-        }
-      : undefined,
-    parent: json.parent
-      ? {
-          object: json.parent.object,
-          id: json.parent.id,
-        }
-      : undefined,
-    reason: json.reason,
-    details: json.details,
-    dateCreated: json.dateCreated,
-  };
-  return transformed as AuditInterface;
+  return (omit(doc.toJSON<AuditDocument>(), [
+    "__v",
+    "_id",
+  ]) as unknown) as AuditInterface;
 };
 
 export async function insertAudit(
@@ -134,7 +111,7 @@ export async function findAuditByEntity(
       "entity.id": id,
     },
     options
-  ).limit(100);
+  );
   return auditDocs.map((doc) => toInterface(doc));
 }
 
