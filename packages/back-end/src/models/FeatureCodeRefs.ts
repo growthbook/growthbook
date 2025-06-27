@@ -2,7 +2,8 @@ import mongoose from "mongoose";
 import { omit } from "lodash";
 import { FeatureCodeRefsInterface } from "back-end/types/code-refs";
 import { ApiCodeRef } from "back-end/types/openapi";
-import { OrganizationInterface } from "back-end/types/organization";
+import { OrganizationInterface, ReqContext } from "back-end/types/organization";
+import { ApiReqContext } from "back-end/types/api";
 
 const featureCodeRefsSchema = new mongoose.Schema({
   organization: String,
@@ -129,11 +130,14 @@ export const getAllCodeRefsForFeature = async ({
 };
 
 export const getCodeRefsForFeature = async ({
+  context,
   feature,
 }: {
+  context: ReqContext | ApiReqContext
   feature: string;
 }): Promise<ApiCodeRef[]> => {
   return await FeatureCodeRefsModel.find({
+    organization: context.org.id,
     feature,
   }).then((docs) => docs.map(toApiInterface));
 };
