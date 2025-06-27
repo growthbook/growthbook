@@ -25,7 +25,7 @@ import {
   FeatureTestResult,
   JSONSchemaDef,
   FeatureUsageData,
-  FeatureUsageTimeSeries,
+  FeatureUsageDataPoint,
 } from "back-end/types/feature";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
@@ -105,7 +105,10 @@ import {
 } from "back-end/src/util/secrets";
 import { upsertWatch } from "back-end/src/models/WatchModel";
 import { getSurrogateKeysFromEnvironments } from "back-end/src/util/cdn.util";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import {
+  FeatureRevisionInterface,
+  RevisionLog,
+} from "back-end/types/feature-revision";
 import {
   addLinkedFeatureToExperiment,
   getAllPayloadExperiments,
@@ -637,6 +640,7 @@ export async function postFeatureRebase(
     newRules[env] = mergeResult.result.rules?.[env] || live.rules[env] || [];
   });
   await updateRevision(
+    context,
     revision,
     {
       baseVersion: live.version,
@@ -688,7 +692,12 @@ export async function postFeatureRequestReview(
   if (revision.status !== "draft") {
     throw new Error("Can only request review if is a draft");
   }
-  await markRevisionAsReviewRequested(revision, res.locals.eventAudit, comment);
+  await markRevisionAsReviewRequested(
+    context,
+    revision,
+    res.locals.eventAudit,
+    comment
+  );
   res.status(200).json({
     status: 200,
   });
@@ -742,6 +751,7 @@ export async function postFeatureReviewOrComment(
     throw new Error("Can only review if review is requested");
   }
   await submitReviewAndComments(
+    context,
     revision,
     res.locals.eventAudit,
     review,
@@ -1043,7 +1053,12 @@ export async function postFeatureRevert(
     changes
   );
 
-  await markRevisionAsPublished(revision, res.locals.eventAudit, comment);
+  await markRevisionAsPublished(
+    context,
+    revision,
+    res.locals.eventAudit,
+    comment
+  );
 
   await req.audit({
     event: "feature.revert",
@@ -1147,7 +1162,7 @@ export async function postFeatureDiscard(
     context.permissions.throwPermissionError();
   }
 
-  await discardRevision(revision, res.locals.eventAudit);
+  await discardRevision(context, revision, res.locals.eventAudit);
 
   const hasDrafts = await hasDraft(org.id, feature, [revision.version]);
 
@@ -1242,6 +1257,7 @@ export async function postFeatureRule(
     settings: org?.settings,
   });
   await addFeatureRule(
+    context,
     revision,
     environment,
     rule,
@@ -1594,6 +1610,7 @@ export async function putRevisionComment(
   }
 
   await updateRevision(
+    context,
     revision,
     {},
     {
@@ -1639,6 +1656,7 @@ export async function postFeatureDefaultValue(
     settings: org?.settings,
   });
   await setDefaultValue(
+    context,
     revision,
     defaultValue,
     res.locals.eventAudit,
@@ -1719,6 +1737,7 @@ export async function putSafeRolloutStatus(
   });
 
   await editFeatureRule(
+    context,
     revision,
     environment,
     i,
@@ -1907,6 +1926,7 @@ export async function putFeatureRule(
   });
 
   await editFeatureRule(
+    context,
     revision,
     environment,
     i,
@@ -2020,6 +2040,7 @@ export async function postFeatureMoveRule(
     settings: org?.settings,
   });
   await updateRevision(
+    context,
     revision,
     changes,
     {
@@ -2099,6 +2120,7 @@ export async function deleteFeatureRule(
     settings: org?.settings,
   });
   await updateRevision(
+    context,
     revision,
     changes,
     {
@@ -2447,7 +2469,7 @@ export async function getFeatures(
 
 export async function getRevisionLog(
   req: AuthRequest<null, { id: string; version: string }>,
-  res: Response
+  res: Response<{ status: 200; log: RevisionLog[] }, EventUserForResponseLocals>
 ) {
   const context = getContextFromReq(req);
   const { id, version } = req.params;
@@ -2457,6 +2479,7 @@ export async function getRevisionLog(
     throw new Error("Could not find feature");
   }
 
+  // In the past logs were stored on the revisions.
   const revision = await getRevision({
     context,
     organization: context.org.id,
@@ -2468,9 +2491,29 @@ export async function getRevisionLog(
     throw new Error("Could not find feature revision");
   }
 
+  // But now we store logs in a separate table as they are too large
+  const revisionLogs = await context.models.featureRevisionLogs.getAllByFeatureIdAndVersion(
+    {
+      featureId: id,
+      version: parseInt(version),
+    }
+  );
+
+  // revisionLogs use dateCreated as the timestamp, so we need to convert it to a RevisionLog as that is what the front end expects
+  const revisionLogsFormatted: RevisionLog[] = revisionLogs.map((log) => ({
+    timestamp: log.dateCreated,
+    user: log.user,
+    action: log.action,
+    subject: log.subject,
+    value: log.value,
+  }));
+
+  // We merge old logs on revisions with revisionLogs. The front end will sort them as needed
+  const log = [...(revision.log || []), ...revisionLogsFormatted];
+
   res.json({
     status: 200,
-    log: revision.log || [],
+    log: log,
   });
 }
 
@@ -2643,23 +2686,6 @@ export async function getFeatureById(
   });
 }
 
-function getLookbackNumBuckets(
-  lookback: FeatureUsageLookback
-): { width: number; buckets: number } {
-  switch (lookback) {
-    case "15minute":
-      return { width: 60 * 1000, buckets: 15 };
-    case "hour":
-      return { width: 5 * 60 * 1000, buckets: 12 };
-    case "day":
-      return { width: 60 * 60 * 1000, buckets: 24 };
-    case "week":
-      return { width: 6 * 60 * 60 * 1000, buckets: 28 };
-    default:
-      throw new Error(`Invalid lookback: ${lookback}`);
-  }
-}
-
 export async function getFeatureUsage(
   req: AuthRequest<null, { id: string }, { lookback?: FeatureUsageLookback }>,
   res: Response<{ status: 200; usage: FeatureUsageData }>
@@ -2674,7 +2700,9 @@ export async function getFeatureUsage(
     throw new Error("Could not find feature");
   }
 
-  const environments = getEnvironments(org);
+  const allEnvironments = getEnvironments(org);
+
+  const environments = filterEnvironmentsByFeature(allEnvironments, feature);
 
   //TODO: handle multiple datasources with feature tracking
   const ds = await getGrowthbookDatasource(context);
@@ -2689,99 +2717,79 @@ export async function getFeatureUsage(
 
   const lookback = req.query.lookback || "15minute";
 
-  const { buckets, width } = getLookbackNumBuckets(lookback);
-  const createEmptyRecord = () => {
-    return {
-      total: 0,
-      ts: new Array(buckets).fill(0).map((_, i) => ({
-        t: i,
-        v: 0,
-      })),
-    };
-  };
-
   const { start, rows } = await integration.getFeatureUsage(
     feature.id,
     lookback
   );
 
-  const getTSIndex = (timestamp: Date) => {
-    const ts = timestamp.getTime();
-    const diff = ts - start;
-    const bucket = Math.floor(diff / width);
+  function createTimeseries() {
+    const datapoints: FeatureUsageDataPoint[] = [];
+    for (let i = 0; i < 50; i++) {
+      const ts = new Date(start);
+      if (lookback === "15minute") {
+        ts.setMinutes(ts.getMinutes() + i);
+      } else if (lookback === "hour") {
+        ts.setMinutes(ts.getMinutes() + 5 * i);
+      } else if (lookback === "day") {
+        ts.setHours(ts.getHours() + i);
+      } else {
+        ts.setHours(ts.getHours() + 6 * i);
+      }
 
-    return Math.min(buckets - 1, Math.max(bucket, 0));
+      if (ts > new Date()) {
+        break;
+      }
+
+      datapoints.push({
+        t: ts.getTime(),
+        v: {},
+      });
+    }
+    return datapoints;
+  }
+
+  const getTSIndex = (timestamp: Date, data: FeatureUsageDataPoint[]) => {
+    const t = timestamp.getTime();
+
+    for (let i = 0; i < data.length; i++) {
+      if (data[i].t > t) {
+        return i - 1;
+      }
+    }
+    // If we get here, the timestamp is in the future
+    return data.length - 1;
   };
 
   const usage: FeatureUsageData = {
-    overall: createEmptyRecord(),
-    sources: {},
-    values: {},
-    defaultValue: createEmptyRecord(),
-    environments: {},
+    byRuleId: createTimeseries(),
+    bySource: createTimeseries(),
+    byValue: createTimeseries(),
+    total: 0,
   };
 
   const validEnvs = new Set(environments.map((e) => e.id));
 
-  const updateRecord = (
-    record: FeatureUsageTimeSeries,
-    data: { timestamp: Date; evaluations: number }
-  ) => {
-    const i = getTSIndex(data.timestamp);
-    const v = data.evaluations;
-
-    record.total += v;
-    record.ts[i].v += v;
-  };
+  function updateRecord(
+    data: FeatureUsageDataPoint[],
+    key: string,
+    ts: Date,
+    evaluations: number
+  ) {
+    const idx = getTSIndex(ts, data);
+    if (!data[idx]) return;
+    data[idx].v[key] = (data[idx].v[key] || 0) + evaluations;
+  }
 
   rows.forEach((d) => {
     // Skip invalid environments (sanity check)
     if (!d.environment || !validEnvs.has(d.environment)) return;
 
-    // Overall evaluation counts
-    updateRecord(usage.overall, d);
-
-    // Sources
-    usage.sources[d.source] = usage.sources[d.source] || 0;
-    usage.sources[d.source] += d.evaluations;
-
-    // Values
-    usage.values[d.value] = usage.values[d.value] || 0;
-    usage.values[d.value] += d.evaluations;
-
-    if (!usage.environments[d.environment]) {
-      usage.environments[d.environment] = { ...createEmptyRecord(), rules: {} };
-    }
-    updateRecord(usage.environments[d.environment], d);
-
-    if (d.source === "defaultValue") {
-      updateRecord(usage.defaultValue, d);
-    } else if (d.ruleId) {
-      if (!usage.environments[d.environment].rules[d.ruleId]) {
-        usage.environments[d.environment].rules[d.ruleId] = {
-          ...createEmptyRecord(),
-          variations: {},
-        };
-      }
-      updateRecord(usage.environments[d.environment].rules[d.ruleId], d);
-
-      if (d.variationId) {
-        if (
-          !usage.environments[d.environment].rules[d.ruleId].variations[
-            d.variationId
-          ]
-        ) {
-          usage.environments[d.environment].rules[d.ruleId].variations[
-            d.variationId
-          ] = createEmptyRecord();
-        }
-        updateRecord(
-          usage.environments[d.environment].rules[d.ruleId].variations[
-            d.variationId
-          ],
-          d
-        );
-      }
+    // Overall
+    usage.total += d.evaluations;
+    updateRecord(usage.bySource, d.source, d.timestamp, d.evaluations);
+    updateRecord(usage.byValue, d.value, d.timestamp, d.evaluations);
+    if (d.ruleId) {
+      updateRecord(usage.byRuleId, d.ruleId, d.timestamp, d.evaluations);
     }
   });
 
@@ -3038,6 +3046,7 @@ export async function postCopyEnvironmentRules(
   });
 
   await copyFeatureEnvironmentRules(
+    context,
     revision,
     sourceEnv,
     targetEnv,

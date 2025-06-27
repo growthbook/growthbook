@@ -11,6 +11,7 @@ import { OrganizationInterface, ReqContext } from "back-end/types/organization";
 import { ApiReqContext } from "back-end/types/api";
 import { applyEnvironmentInheritance } from "back-end/src/util/features";
 import { MinimalFeatureRevisionInterface } from "back-end/src/validators/features";
+import { logger } from "back-end/src/util/logger";
 
 export type ReviewSubmittedType = "Comment" | "Approved" | "Requested Changes";
 
@@ -33,7 +34,6 @@ const featureRevisionSchema = new mongoose.Schema({
     {
       _id: false,
       user: {},
-      approvedBy: {},
       timestamp: Date,
       action: String,
       subject: String,
@@ -289,18 +289,6 @@ export async function createRevision({
     }
   });
 
-  const log: RevisionLog = {
-    action: "new revision",
-    subject: `based on revision #${baseVersion || feature.version}`,
-    timestamp: new Date(),
-    user,
-    value: JSON.stringify({
-      status: publish ? "published" : "draft",
-      comment: comment || "",
-      defaultValue,
-      rules,
-    }),
-  };
   if (!baseVersion) baseVersion = lastRevision?.version;
   const baseRevision =
     lastRevision?.version === baseVersion
@@ -330,7 +318,6 @@ export async function createRevision({
     comment: comment || "",
     defaultValue,
     rules,
-    log: [log],
   } as FeatureRevisionInterface;
   const requiresReview = checkIfRevisionNeedsReview({
     feature,
@@ -349,10 +336,30 @@ export async function createRevision({
 
   const doc = await FeatureRevisionModel.create(revision);
 
+  // Fire and forget - no route that creates the revision expects the log to be there immediately
+  context.models.featureRevisionLogs
+    .create({
+      featureId: revision.featureId,
+      version: revision.version,
+      action: "new revision",
+      subject: `based on revision #${baseVersion || feature.version}`,
+      user,
+      value: JSON.stringify({
+        status: publish ? "published" : "draft",
+        comment: comment || "",
+        defaultValue,
+        rules,
+      }),
+    })
+    .catch((e) => {
+      logger.error("Error creating revisionlog", e);
+    });
+
   return toInterface(doc, context);
 }
 
 export async function updateRevision(
+  context: ReqContext | ApiReqContext,
   revision: FeatureRevisionInterface,
   changes: Partial<
     Pick<
@@ -385,6 +392,7 @@ export async function updateRevision(
   if (resetReview && revision.status === "approved") {
     status = "pending-review";
   }
+
   await FeatureRevisionModel.updateOne(
     {
       organization: revision.organization,
@@ -393,30 +401,29 @@ export async function updateRevision(
     },
     {
       $set: { ...changes, status, dateUpdated: new Date() },
-      $push: {
-        log: {
-          ...log,
-          timestamp: new Date(),
-        },
-      },
     }
   );
+
+  // Fire and forget - no route that updates the revision expects the log to be there immediately
+  context.models.featureRevisionLogs
+    .create({
+      ...log,
+      featureId: revision.featureId,
+      version: revision.version,
+    })
+    .catch((e) => {
+      logger.error("Error creating revisionlog", e);
+    });
 }
 
 export async function markRevisionAsPublished(
+  context: ReqContext | ApiReqContext,
   revision: FeatureRevisionInterface,
   user: EventUser,
   comment?: string
 ) {
   const action = revision.status === "draft" ? "publish" : "re-publish";
 
-  const log: RevisionLog = {
-    action,
-    subject: "",
-    timestamp: new Date(),
-    user,
-    value: JSON.stringify(comment ? { comment } : {}),
-  };
   const revisionComment = revision.comment ? revision.comment : comment;
   await FeatureRevisionModel.updateOne(
     {
@@ -432,27 +439,32 @@ export async function markRevisionAsPublished(
         dateUpdated: new Date(),
         comment: revisionComment,
       },
-      $push: {
-        log,
-      },
     }
   );
+
+  // Fire and forget - no route that marks the revision as published expects the log to be there immediately
+  context.models.featureRevisionLogs
+    .create({
+      featureId: revision.featureId,
+      version: revision.version,
+      action,
+      subject: "",
+      user,
+      value: JSON.stringify(comment ? { comment } : {}),
+    })
+    .catch((e) => {
+      logger.error("Error creating revisionlog", e);
+    });
 }
 
 export async function markRevisionAsReviewRequested(
+  context: ReqContext | ApiReqContext,
   revision: FeatureRevisionInterface,
   user: EventUser,
   comment?: string
 ) {
   const action = "Review Requested";
 
-  const log: RevisionLog = {
-    action,
-    subject: "",
-    timestamp: new Date(),
-    user,
-    value: JSON.stringify(comment ? { comment } : {}),
-  };
   await FeatureRevisionModel.updateOne(
     {
       organization: revision.organization,
@@ -466,14 +478,26 @@ export async function markRevisionAsReviewRequested(
         dateUpdated: new Date(),
         comment: comment,
       },
-      $push: {
-        log,
-      },
     }
   );
+
+  // Fire and forget - no route that marks the revision as Review Requested expects the log to be there immediately
+  context.models.featureRevisionLogs
+    .create({
+      featureId: revision.featureId,
+      version: revision.version,
+      action,
+      subject: "",
+      user,
+      value: JSON.stringify(comment ? { comment } : {}),
+    })
+    .catch((e) => {
+      logger.error("Error creating revisionlog", e);
+    });
 }
 
 export async function submitReviewAndComments(
+  context: ReqContext | ApiReqContext,
   revision: FeatureRevisionInterface,
   user: EventUser,
   reviewSubmittedType: ReviewSubmittedType,
@@ -492,13 +516,6 @@ export async function submitReviewAndComments(
       // we dont want comments to override approved state
       status = revision.status;
   }
-  const log: RevisionLog = {
-    action,
-    subject: "",
-    timestamp: new Date(),
-    user,
-    value: JSON.stringify(comment ? { comment } : {}),
-  };
 
   await FeatureRevisionModel.updateOne(
     {
@@ -512,28 +529,32 @@ export async function submitReviewAndComments(
         datePublished: null,
         dateUpdated: new Date(),
       },
-      $push: {
-        log,
-      },
     }
   );
+
+  // Fire and forget - no route that submits the review and comments expects the log to be there immediately
+  context.models.featureRevisionLogs
+    .create({
+      featureId: revision.featureId,
+      version: revision.version,
+      action,
+      subject: "",
+      user,
+      value: JSON.stringify(comment ? { comment } : {}),
+    })
+    .catch((e) => {
+      logger.error("Error creating revisionlog", e);
+    });
 }
 
 export async function discardRevision(
+  context: ReqContext | ApiReqContext,
   revision: FeatureRevisionInterface,
   user: EventUser
 ) {
   if (revision.status === "published" || revision.status === "discarded") {
     throw new Error(`Can not discard ${revision.status} revisions`);
   }
-
-  const log: RevisionLog = {
-    action: "discard",
-    subject: "",
-    timestamp: new Date(),
-    user,
-    value: JSON.stringify({}),
-  };
 
   await FeatureRevisionModel.updateOne(
     {
@@ -543,11 +564,22 @@ export async function discardRevision(
     },
     {
       $set: { status: "discarded", dateUpdated: new Date() },
-      $push: {
-        log,
-      },
     }
   );
+
+  // Fire and forget - no route that discards the revision expects the log to be there immediately
+  context.models.featureRevisionLogs
+    .create({
+      featureId: revision.featureId,
+      version: revision.version,
+      action: "discard",
+      subject: "",
+      user,
+      value: JSON.stringify({}),
+    })
+    .catch((e) => {
+      logger.error("Error creating revisionlog", e);
+    });
 }
 
 export async function getFeatureRevisionsByFeatureIds(

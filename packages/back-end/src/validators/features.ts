@@ -193,7 +193,6 @@ export const JSONSchemaDef = z
 const revisionLog = z
   .object({
     user: eventUser,
-    approvedBy: eventUser.optional(),
     timestamp: z.date(),
     action: z.string(),
     subject: z.string(),
@@ -237,7 +236,7 @@ const featureRevisionInterface = minimalFeatureRevisionInterface
     comment: z.string(),
     defaultValue: z.string(),
     rules: revisionRulesSchema,
-    log: z.array(revisionLog).optional(),
+    log: z.array(revisionLog).optional(), // This is deprecated in favor of using FeatureRevisionLog due to it being too large
   })
   .strict();
 

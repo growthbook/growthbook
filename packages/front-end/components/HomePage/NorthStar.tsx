@@ -16,7 +16,13 @@ import NorthStarMetricDisplay from "./NorthStarMetricDisplay";
 
 const NorthStar: FC<{
   experiments: ExperimentInterfaceStringDates[];
-}> = ({ experiments }) => {
+  title?: string;
+  showTitle?: boolean;
+  metrics?: string[];
+  startDate?: Date;
+  endDate?: Date;
+  showEdit?: boolean;
+}> = ({ experiments, metrics, title, showTitle = true, showEdit }) => {
   const { apiCall } = useAuth();
 
   const { refreshOrganization } = useUser();
@@ -28,16 +34,28 @@ const NorthStar: FC<{
     smoothByStorageKey,
     "week"
   );
+  const [selectedMetrics, setSelectedMetrics] = useState(metrics);
+  const [titleToShow, setTitleToShow] = useState(title);
 
   const form = useForm<{
     title: string;
     window: string | number;
     metrics: string[];
-  }>();
+  }>({
+    defaultValues: {
+      title: title || settings.northStar?.title || "",
+      window: "",
+      metrics: metrics || settings.northStar?.metricIds || [],
+    },
+  });
 
   useEffect(() => {
-    if (settings.northStar?.metricIds) {
+    if (settings.northStar?.metricIds && !metrics?.length) {
+      setSelectedMetrics(settings.northStar?.metricIds);
       form.setValue("metrics", settings.northStar?.metricIds || []);
+    }
+    if (settings.northStar?.title && !title) {
+      setTitleToShow(settings.northStar?.title);
       form.setValue("title", settings.northStar?.title || "");
     }
   }, [settings.northStar]);
@@ -57,13 +75,13 @@ const NorthStar: FC<{
   });
 
   const northStar = settings.northStar || null;
-  const hasNorthStar = northStar?.metricIds && northStar.metricIds.length > 0;
+  const hasNorthStar = (selectedMetrics?.length || 0) > 0;
 
   return (
     <>
       {hasNorthStar && (
         <Frame className="position-relative">
-          {permissionsUtil.canManageNorthStarMetric() && (
+          {showEdit && permissionsUtil.canManageNorthStarMetric() && (
             <a
               role="button"
               className="p-1"
@@ -83,16 +101,18 @@ const NorthStar: FC<{
           )}
           <div className="row">
             <div className="col">
-              <h2>
-                {northStar?.title
-                  ? northStar.title
-                  : `North Star Metric${
-                      northStar?.metricIds.length > 1 ? "s" : ""
-                    }`}
-              </h2>
+              {showTitle && (
+                <h2>
+                  {titleToShow
+                    ? titleToShow
+                    : `North Star Metric${
+                        (selectedMetrics?.length || 0) > 1 ? "s" : ""
+                      }`}
+                </h2>
+              )}
             </div>
             <div className="col" style={{ position: "relative" }}>
-              {northStar?.metricIds.length > 0 && (
+              {(selectedMetrics?.length || 0) > 0 && (
                 <div
                   className="float-right mr-3"
                   style={{ position: "relative", top: 40 }}
@@ -117,17 +137,18 @@ const NorthStar: FC<{
               )}
             </div>
           </div>
-          {northStar?.metricIds.map((mid) => (
-            <div key={mid}>
-              <NorthStarMetricDisplay
-                metricId={mid}
-                window={northStar?.window}
-                smoothBy={smoothBy}
-                hoverDate={northstarHoverDate}
-                onHoverCallback={onNorthstarHoverCallback}
-              />
-            </div>
-          ))}
+          {(selectedMetrics?.length || 0) > 0 &&
+            selectedMetrics?.map((mid) => (
+              <div key={mid}>
+                <NorthStarMetricDisplay
+                  metricId={mid}
+                  window={northStar?.window}
+                  smoothBy={smoothBy}
+                  hoverDate={northstarHoverDate}
+                  onHoverCallback={onNorthstarHoverCallback}
+                />
+              </div>
+            ))}
         </Frame>
       )}
       {openNorthStarModal && (

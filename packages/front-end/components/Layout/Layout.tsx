@@ -17,6 +17,7 @@ import {
   GBBandit,
   GBDatabase,
   GBExperiment,
+  GBLibrary,
   GBSettings,
 } from "@/components/Icons";
 import { inferDocUrl } from "@/components/DocLink";
@@ -59,14 +60,14 @@ const navlinks: SidebarLinkProps[] = [
   {
     name: "Metrics and Data",
     href: "/metrics",
-    path: /^(metric|segment|dimension|datasources|fact-|metric-group)/,
+    path: /^(metric\/|metrics|segment|dimension|datasources|fact-|metric-group|sql-explorer)/,
     autoClose: true,
     Icon: GBDatabase,
     subLinks: [
       {
         name: "Metrics",
         href: "/metrics",
-        path: /^(metric$|metrics|fact-metric|metric-group)/,
+        path: /^(metric\/|metrics|fact-metric|metric-group)/,
       },
       {
         name: "Fact Tables",
@@ -88,7 +89,57 @@ const navlinks: SidebarLinkProps[] = [
         href: "/datasources",
         path: /^datasources/,
       },
+      {
+        name: "SQL Explorer",
+        href: "/sql-explorer",
+        path: /^sql-explorer/,
+        filter: ({ gb }) => !!gb?.isOn("sql-explorer"),
+      },
     ],
+  },
+  {
+    name: "Insights",
+    href: "/dashboard",
+    Icon: GBLibrary,
+    path: /^(dashboard|learnings|timeline|metric-effect|correlations|presentation)/,
+    subLinks: [
+      {
+        name: "Dashboard",
+        href: "/dashboard",
+        path: /^dashboard/,
+      },
+      {
+        name: "Learnings",
+        href: "/learnings",
+        path: /^learnings/,
+      },
+      {
+        name: "Timeline",
+        href: "/timeline",
+        path: /^(timeline)/,
+      },
+      // {
+      //   name: "Interaction Effects",
+      //   href: "/interactions",
+      //   path: /^(interaction)/,
+      // },
+      {
+        name: "Metric Effects",
+        href: "/metric-effects",
+        path: /^(metric-effect)/,
+      },
+      {
+        name: "Metric Correlations",
+        href: "/correlations",
+        path: /^(correlations)/,
+      },
+      {
+        name: "Presentations",
+        href: "/presentations",
+        path: /^presentation/,
+      },
+    ],
+    filter: ({ gb }) => !!gb?.isOn("insights"),
   },
   {
     name: "Management",
@@ -113,6 +164,7 @@ const navlinks: SidebarLinkProps[] = [
         path: /^presentation/,
       },
     ],
+    filter: ({ gb }) => !gb?.isOn("insights"),
   },
   {
     name: "SDK Configuration",
@@ -296,20 +348,12 @@ const otherPageTitles = [
     title: "Personal Access Tokens",
   },
   {
-    path: /^integrations\/vercel/,
-    title: "Vercel Integration",
-  },
-  {
-    path: /^integrations\/vercel\/configure/,
-    title: "Vercel Integration Configuration",
-  },
-  {
     path: /^getstarted/,
     title: "Get Started",
   },
   {
     path: /^dashboard/,
-    title: "Program Management",
+    title: "Dashboard",
   },
 ];
 
@@ -335,9 +379,8 @@ const Layout = (): React.ReactElement => {
   const { accountPlan, license, subscription } = useUser();
   const growthbook = useGrowthBook<AppFeatures>();
 
-  // app wide a-a tests
-  growthbook?.isOn("gb-ax5-bandit");
-  growthbook?.isOn("gb-ax10-bandit");
+  // holdout aa-test, dogfooding
+  growthbook?.isOn("aa-test-holdout");
 
   const { breadcrumb } = usePageHead();
 

@@ -42,6 +42,11 @@ import { ResourceEvents } from "back-end/src/events/base-types";
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import { determineNextSafeRolloutSnapshotAttempt } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
 import {
+  createVercelExperimentationItemFromFeature,
+  updateVercelExperimentationItemFromFeature,
+  deleteVercelExperimentationItemFromFeature,
+} from "back-end/src/services/vercel-native-integration.service";
+import {
   createEvent,
   hasPreviousObject,
   CreateEventData,
@@ -357,6 +362,7 @@ export async function deleteFeature(
     id: feature.id,
   });
   await deleteAllRevisionsForFeature(context.org.id, feature.id);
+  await context.models.featureRevisionLogs.deleteAllByFeature(feature);
 
   if (feature.linkedExperiments) {
     await Promise.all(
@@ -550,6 +556,12 @@ async function onFeatureCreate(
   );
 
   await logFeatureCreatedEvent(context, feature);
+
+  if (context.org.isVercelIntegration)
+    await createVercelExperimentationItemFromFeature({
+      feature,
+      organization: context.org,
+    });
 }
 
 async function onFeatureDelete(
@@ -562,6 +574,12 @@ async function onFeatureDelete(
   );
 
   await logFeatureDeletedEvent(context, feature);
+
+  if (context.org.isVercelIntegration)
+    await deleteVercelExperimentationItemFromFeature({
+      feature,
+      organization: context.org,
+    });
 }
 
 export async function onFeatureUpdate(
@@ -586,6 +604,12 @@ export async function onFeatureUpdate(
 
   // New event-based webhooks
   await logFeatureUpdatedEvent(context, feature, updatedFeature);
+
+  if (context.org.isVercelIntegration)
+    await updateVercelExperimentationItemFromFeature({
+      feature: updatedFeature,
+      organization: context.org,
+    });
 }
 
 export async function updateFeature(
@@ -638,6 +662,7 @@ export async function updateFeature(
   onFeatureUpdate(context, feature, updatedFeature).catch((e) => {
     logger.error(e, "Error refreshing SDK Payload on feature update");
   });
+
   return updatedFeature;
 }
 
@@ -750,6 +775,7 @@ export async function toggleFeatureEnvironment(
 }
 
 export async function addFeatureRule(
+  context: ReqContext | ApiReqContext,
   revision: FeatureRevisionInterface,
   env: string,
   rule: FeatureRule,
@@ -767,6 +793,7 @@ export async function addFeatureRule(
   changes.rules[env] = changes.rules[env] || [];
   changes.rules[env].push(rule);
   await updateRevision(
+    context,
     revision,
     changes,
     {
@@ -780,6 +807,7 @@ export async function addFeatureRule(
 }
 
 export async function editFeatureRule(
+  context: ReqContext | ApiReqContext,
   revision: FeatureRevisionInterface,
   environment: string,
   i: number,
@@ -799,6 +827,7 @@ export async function editFeatureRule(
     ...updates,
   } as FeatureRule;
   await updateRevision(
+    context,
     revision,
     changes,
     {
@@ -812,6 +841,7 @@ export async function editFeatureRule(
 }
 
 export async function copyFeatureEnvironmentRules(
+  context: ReqContext | ApiReqContext,
   revision: FeatureRevisionInterface,
   sourceEnv: string,
   targetEnv: string,
@@ -824,6 +854,7 @@ export async function copyFeatureEnvironmentRules(
   };
   changes.rules[targetEnv] = changes.rules[sourceEnv] || [];
   await updateRevision(
+    context,
     revision,
     changes,
     {
@@ -885,12 +916,14 @@ export async function removeProjectFromFeatures(
 }
 
 export async function setDefaultValue(
+  context: ReqContext | ApiReqContext,
   revision: FeatureRevisionInterface,
   defaultValue: string,
   user: EventUser,
   requireReview: boolean
 ) {
   await updateRevision(
+    context,
     revision,
     { defaultValue },
     {
@@ -1041,7 +1074,7 @@ export async function publishRevision(
     result
   );
 
-  await markRevisionAsPublished(revision, context.auditUser, comment);
+  await markRevisionAsPublished(context, revision, context.auditUser, comment);
 
   return updatedFeature;
 }

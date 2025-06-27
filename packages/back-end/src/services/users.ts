@@ -83,19 +83,19 @@ export async function trackLoginForUser({
 }: Pick<UserLoginInterface, "userAgent" | "device" | "ip" | "os"> & {
   email: string;
 }): Promise<void> {
-  const user = await getUserByEmail(email);
-  if (!user) {
-    return;
-  }
-
-  const organizations = await findOrganizationsByMemberId(user.id);
-  if (!organizations) {
-    return;
-  }
-
-  const organizationIds = organizations.map((org) => org.id);
-
   try {
+    const user = await getUserByEmail(email);
+    if (!user) {
+      return;
+    }
+
+    const organizations = await findOrganizationsByMemberId(user.id);
+    if (!organizations) {
+      return;
+    }
+
+    const organizationIds = organizations.map((org) => org.id);
+
     // Create a login event for all of a user's organizations
     const eventCreatePromises = organizationIds.map((organizationId) =>
       createEventWithPayload({

@@ -64,17 +64,14 @@ class TestMidExperimentPower(TestCase):
             n=500, sum=525.0000000000008, sum_squares=1551.2499999999998
         )
         self.res_freq = TwoSidedTTest(
-            self.stat_a, self.stat_b, config=FrequentistConfig(alpha=self.alpha)
+            [(self.stat_a, self.stat_b)], FrequentistConfig(alpha=self.alpha)
         ).compute_result()
         self.res_seq = SequentialTwoSidedTTest(
-            self.stat_a, self.stat_b, config=SequentialConfig(alpha=self.alpha)
+            [(self.stat_a, self.stat_b)], SequentialConfig(alpha=self.alpha)
         ).compute_result()
         self.res_bayes = EffectBayesianABTest(
-            self.stat_a,
-            self.stat_b,
-            config=EffectBayesianConfig(
-                prior_effect=self.prior_effect, alpha=self.alpha
-            ),
+            [(self.stat_a, self.stat_b)],
+            EffectBayesianConfig(prior_effect=self.prior_effect, alpha=self.alpha),
         ).compute_result()
         self.m_freq = MidExperimentPower(
             self.stat_a, self.stat_b, self.res_freq, self.config, self.power_config_freq

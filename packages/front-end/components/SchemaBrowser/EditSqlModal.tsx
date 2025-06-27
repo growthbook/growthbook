@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import { FaPlay } from "react-icons/fa";
+import { FaPlay, FaExclamationTriangle } from "react-icons/fa";
 import { TestQueryRow } from "back-end/src/types/Integration";
-import clsx from "clsx";
 import { TemplateVariables } from "back-end/types/sql";
+import { Flex, Text, Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { validateSQL } from "@/services/datasources";
@@ -12,6 +12,7 @@ import Modal from "@/components/Modal";
 import { CursorData } from "@/components/Segments/SegmentForm";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import Button from "@/components/Button";
+import RadixButton from "@/components/Radix/Button";
 import {
   usesEventName,
   usesValueColumn,
@@ -19,7 +20,14 @@ import {
 import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { formatSql, canFormatSql } from "@/services/sqlFormatter";
+import {
+  Panel,
+  PanelGroup,
+  PanelResizeHandle,
+} from "@/components/ResizablePanels";
 import SchemaBrowser from "./SchemaBrowser";
+import { AreaWithHeader } from "./SqlExplorerModal";
 import styles from "./EditSqlModal.module.scss";
 
 export type TestQueryResults = {
@@ -65,14 +73,13 @@ export default function EditSqlModal({
       sql: value,
     },
   });
+
   const { getDatasourceById } = useDefinitions();
-
   const { apiCall } = useAuth();
-
   const [cursorData, setCursorData] = useState<null | CursorData>(null);
   const [testingQuery, setTestingQuery] = useState(false);
-
   const permissionsUtil = usePermissionsUtil();
+  const [formatError, setFormatError] = useState<string | null>(null);
 
   const validateRequiredColumns = useCallback(
     (result: TestQueryRow) => {
@@ -145,9 +152,20 @@ export default function EditSqlModal({
     : null;
   const supportsSchemaBrowser =
     datasource?.properties?.supportsInformationSchema;
+  const canFormat = datasource ? canFormatSql(datasource.type) : false;
 
   const hasEventName = usesEventName(form.watch("sql"));
   const hasValueCol = usesValueColumn(form.watch("sql"));
+
+  const handleFormatClick = () => {
+    const result = formatSql(form.watch("sql"), datasource?.type);
+    if (result.error) {
+      setFormatError(result.error);
+    } else if (result.formattedSql) {
+      form.setValue("sql", result.formattedSql);
+      setFormatError(null);
+    }
+  };
 
   useEffect(() => {
     if (!canRunQueries) setTestQueryBeforeSaving(false);
@@ -204,136 +222,228 @@ export default function EditSqlModal({
         </Tooltip>
       }
     >
-      <div
-        className={clsx("d-flex", {
-          [styles["with-schema-browser"]]: supportsSchemaBrowser,
-        })}
-        style={{
-          height: "calc(93vh - 140px)",
-        }}
-      >
-        <div className={styles.left}>
-          <div className="d-flex flex-column h-100">
-            <div className="bg-light p-1">
-              <div className="row align-items-center">
-                <div className="col-auto">
-                  <Tooltip
-                    body="You do not have permission to run test queries"
-                    shouldDisplay={!canRunQueries}
-                  >
-                    <Button
-                      color="primary"
-                      className="btn-sm"
-                      onClick={handleTestQuery}
-                      loading={testingQuery}
-                      disabled={!canRunQueries}
-                      type="button"
+      <Box p="2" style={{ height: "calc(93vh - 140px)" }}>
+        <PanelGroup direction="horizontal">
+          <Panel defaultSize={supportsSchemaBrowser ? 75 : 100}>
+            <PanelGroup direction="vertical">
+              <Panel defaultSize={testQueryResults ? 60 : 100} minSize={30}>
+                <AreaWithHeader
+                  header={
+                    <Flex align="center" justify="between">
+                      <Text
+                        weight="bold"
+                        style={{ color: "var(--color-text-mid)" }}
+                      >
+                        SQL
+                      </Text>
+                      <Flex gap="3">
+                        {formatError && (
+                          <Tooltip body={formatError}>
+                            <FaExclamationTriangle className="text-danger" />
+                          </Tooltip>
+                        )}
+                        {canFormat ? (
+                          <RadixButton
+                            size="xs"
+                            variant="ghost"
+                            onClick={handleFormatClick}
+                            disabled={!form.watch("sql")}
+                          >
+                            Format
+                          </RadixButton>
+                        ) : null}
+                        {!canRunQueries ? (
+                          <Tooltip
+                            body="You do not have permission to run test queries"
+                            shouldDisplay={true}
+                          >
+                            <Button
+                              color="primary"
+                              className="btn-sm"
+                              onClick={handleTestQuery}
+                              loading={testingQuery}
+                              disabled={!canRunQueries}
+                              type="button"
+                            >
+                              <span className="pr-2">
+                                <FaPlay />
+                              </span>
+                              Test Query
+                            </Button>
+                          </Tooltip>
+                        ) : (
+                          <Button
+                            color="primary"
+                            className="btn-sm"
+                            onClick={handleTestQuery}
+                            loading={testingQuery}
+                            disabled={!canRunQueries}
+                            type="button"
+                          >
+                            <span className="pr-2">
+                              <FaPlay />
+                            </span>
+                            Test Query
+                          </Button>
+                        )}
+                      </Flex>
+                    </Flex>
+                  }
+                >
+                  <Box style={{ position: "relative", height: "100%" }}>
+                    {Array.from(requiredColumns).length > 0 && (
+                      <Box
+                        p="2"
+                        style={{
+                          borderBottom: "1px solid var(--gray-a3)",
+                          backgroundColor: "var(--slate-a2)",
+                        }}
+                      >
+                        <Text size="2" weight="bold">
+                          Required Columns:
+                        </Text>
+                        {Array.from(requiredColumns).map((col) => (
+                          <code
+                            className="mx-1 border p-1"
+                            key={col}
+                            style={{
+                              backgroundColor: "var(--gray-a3)",
+                              borderRadius: "var(--radius-2)",
+                              fontSize: "12px",
+                            }}
+                          >
+                            {col}
+                          </code>
+                        ))}
+                      </Box>
+                    )}
+                    {setTemplateVariables && (hasEventName || hasValueCol) && (
+                      <Box
+                        p="2"
+                        style={{
+                          borderBottom: "1px solid var(--gray-a3)",
+                          backgroundColor: "var(--slate-a2)",
+                        }}
+                      >
+                        <Flex align="center" gap="4">
+                          <Text size="2" weight="bold">
+                            SQL Template Variables:
+                          </Text>
+                          {hasEventName && (
+                            <Field
+                              label="eventName"
+                              labelClassName="mr-2"
+                              value={templateVariables?.eventName || ""}
+                              onChange={(e) =>
+                                setTemplateVariables({
+                                  ...templateVariables,
+                                  eventName: e.target.value,
+                                })
+                              }
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" && e.ctrlKey) {
+                                  handleTestQuery();
+                                }
+                              }}
+                            />
+                          )}
+                          {hasValueCol && (
+                            <Field
+                              label="valueColumn"
+                              labelClassName="mr-2"
+                              value={templateVariables?.valueColumn || ""}
+                              onChange={(e) =>
+                                setTemplateVariables({
+                                  ...templateVariables,
+                                  valueColumn: e.target.value,
+                                })
+                              }
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" && e.ctrlKey) {
+                                  handleTestQuery();
+                                }
+                              }}
+                            />
+                          )}
+                        </Flex>
+                      </Box>
+                    )}
+                    <CodeTextArea
+                      wrapperClassName={styles["sql-editor-wrapper"]}
+                      required
+                      language="sql"
+                      value={form.watch("sql")}
+                      setValue={(v) => {
+                        if (formatError) {
+                          // If there is a format error, clear it when the user changes the SQL
+                          setFormatError(null);
+                        }
+                        form.setValue("sql", v);
+                      }}
+                      placeholder={placeholder}
+                      helpText={""}
+                      fullHeight
+                      setCursorData={setCursorData}
+                      onCtrlEnter={handleTestQuery}
+                      resizeDependency={!!testQueryResults}
+                    />
+                  </Box>
+                </AreaWithHeader>
+              </Panel>
+              {testQueryResults && (
+                <>
+                  <PanelResizeHandle />
+                  <Panel minSize={20}>
+                    <DisplayTestQueryResults
+                      duration={parseInt(testQueryResults.duration || "0")}
+                      results={testQueryResults.results || []}
+                      sql={testQueryResults.sql || ""}
+                      error={testQueryResults.error || ""}
+                      close={() => setTestQueryResults(null)}
+                    />
+                  </Panel>
+                </>
+              )}
+            </PanelGroup>
+          </Panel>
+          {supportsSchemaBrowser && (
+            <>
+              <PanelResizeHandle />
+              <Panel defaultSize={25} minSize={20} maxSize={50}>
+                <AreaWithHeader
+                  header={
+                    <Text
+                      weight="bold"
+                      style={{ color: "var(--color-text-high)" }}
                     >
-                      <span className="pr-2">
-                        <FaPlay />
-                      </span>
-                      Test Query
-                    </Button>
-                  </Tooltip>
-                </div>
-                {Array.from(requiredColumns).length > 0 && (
-                  <div className="col-auto ml-auto pr-3">
-                    <strong>Required Columns:</strong>
-                    {Array.from(requiredColumns).map((col) => (
-                      <code className="mx-1 border p-1" key={col}>
-                        {col}
-                      </code>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-            {setTemplateVariables && (hasEventName || hasValueCol) && (
-              <div className="bg-light px-3 py-1 border-top form-inline">
-                <div className="row align-items-center">
-                  <div className="col-auto">
-                    <strong>SQL Template Variables:</strong>
-                  </div>
-                  {hasEventName && (
-                    <div className="col-auto">
-                      <Field
-                        label="eventName"
-                        labelClassName="mr-2"
-                        value={templateVariables?.eventName || ""}
-                        onChange={(e) =>
-                          setTemplateVariables({
-                            ...templateVariables,
-                            eventName: e.target.value,
-                          })
-                        }
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && e.ctrlKey) {
-                            handleTestQuery();
-                          }
-                        }}
-                      />
-                    </div>
-                  )}
-                  {hasValueCol && (
-                    <div className="col-auto">
-                      <Field
-                        label="valueColumn"
-                        labelClassName="mr-2"
-                        value={templateVariables?.valueColumn || ""}
-                        onChange={(e) =>
-                          setTemplateVariables({
-                            ...templateVariables,
-                            valueColumn: e.target.value,
-                          })
-                        }
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && e.ctrlKey) {
-                            handleTestQuery();
-                          }
-                        }}
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-            <div className="" style={{ flex: 1 }}>
-              <CodeTextArea
-                required
-                language="sql"
-                value={form.watch("sql")}
-                setValue={(sql) => form.setValue("sql", sql)}
-                placeholder={placeholder}
-                helpText={""}
-                fullHeight
-                setCursorData={setCursorData}
-                onCtrlEnter={handleTestQuery}
-                resizeDependency={!!testQueryResults}
-              />
-            </div>
-            {testQueryResults && (
-              <DisplayTestQueryResults
-                duration={parseInt(testQueryResults.duration || "0")}
-                results={testQueryResults.results || []}
-                sql={testQueryResults.sql || ""}
-                error={testQueryResults.error || ""}
-                close={() => setTestQueryResults(null)}
-              />
-            )}
-          </div>
-        </div>
-        {supportsSchemaBrowser && (
-          <div className={styles.right + " border-left"}>
-            <SchemaBrowser
-              updateSqlInput={(sql: string) => {
-                form.setValue("sql", sql);
-              }}
-              datasource={datasource}
-              cursorData={cursorData || undefined}
-            />
-          </div>
-        )}
-      </div>
+                      Schema Browser
+                    </Text>
+                  }
+                >
+                  {/* <div> */}
+                  {/* <div
+                    style={{
+                      height: "100%",
+                      display: "flex",
+                      flexDirection: "column",
+                    }}
+                  > */}
+                  <Flex direction="column" height="100%" p="4">
+                    <SchemaBrowser
+                      updateSqlInput={(sql: string) => {
+                        form.setValue("sql", sql);
+                      }}
+                      datasource={datasource}
+                      cursorData={cursorData || undefined}
+                    />
+                  </Flex>
+                  {/* </div> */}
+                </AreaWithHeader>
+              </Panel>
+            </>
+          )}
+        </PanelGroup>
+      </Box>
     </Modal>
   );
 }

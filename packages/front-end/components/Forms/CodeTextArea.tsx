@@ -40,6 +40,7 @@ export type Props = Omit<
   fullHeight?: boolean;
   onCtrlEnter?: () => void;
   resizeDependency?: boolean;
+  wrapperClassName?: string;
 };
 
 const LIGHT_THEME = "textmate";
@@ -56,6 +57,7 @@ export default function CodeTextArea({
   fullHeight,
   onCtrlEnter,
   resizeDependency,
+  wrapperClassName,
   ...otherProps
 }: Props) {
   // eslint-disable-next-line
@@ -99,7 +101,11 @@ export default function CodeTextArea({
       render={(id) => {
         return (
           <>
-            <div className={`border rounded ${fullHeight ? "h-100" : ""}`}>
+            <div
+              className={`border rounded ${wrapperClassName} ${
+                fullHeight ? "h-100" : ""
+              }`}
+            >
               <AceEditor
                 name={id}
                 onLoad={(e) => setEditor(e)}

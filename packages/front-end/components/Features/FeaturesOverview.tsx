@@ -67,7 +67,6 @@ import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 import SelectField from "@/components/Forms/SelectField";
-import BarChart100 from "@/components/Features/BarChart100";
 import Callout from "@/components/Radix/Callout";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Badge from "@/components/Radix/Badge";
@@ -80,7 +79,7 @@ import PrerequisiteStatusRow, {
 import { PrerequisiteAlerts } from "./PrerequisiteTargetingField";
 import PrerequisiteModal from "./PrerequisiteModal";
 import RequestReviewModal from "./RequestReviewModal";
-import FeatureUsageGraph, { useFeatureUsage } from "./FeatureUsageGraph";
+import { FeatureUsageContainer, useFeatureUsage } from "./FeatureUsageGraph";
 import FeatureRules from "./FeatureRules";
 
 export default function FeaturesOverview({
@@ -577,12 +576,12 @@ export default function FeaturesOverview({
           <CustomMarkdown page={"feature"} variables={variables} />
 
           {showFeatureUsage && (
-            <div>
+            <div className="appbox mt-2 mb-4 px-4 pt-3 pb-3">
               <div className="row align-items-center">
                 <div className="col-auto">
-                  <h3 className="mb-0">Usage Analytics</h3>
+                  <h4 className="mb-0">Usage Analytics</h4>
                 </div>
-                <div className="col-auto">
+                <div className="col-auto ml-auto">
                   <SelectField
                     value={lookback}
                     onChange={(lookback) => {
@@ -599,46 +598,37 @@ export default function FeaturesOverview({
                       if (o.value !== "15minute") return o.label;
                       return (
                         <div>
-                          <span className="badge badge-success mr-1">
-                            <FaBoltLightning /> Live
-                          </span>
                           {o.label}
+                          <Badge
+                            label={
+                              <>
+                                <FaBoltLightning /> Live
+                              </>
+                            }
+                            color="teal"
+                            variant="solid"
+                            radius="full"
+                            ml="3"
+                          />
                         </div>
                       );
                     }}
                   />
                 </div>
               </div>
-              <div className="appbox mt-2 mb-4 px-4 pt-3 pb-3">
-                {!featureUsage ? (
-                  <Flex align="center" justify="center">
-                    <LoadingSpinner /> <Text ml="2">Loading...</Text>
-                  </Flex>
-                ) : featureUsage.overall.total === 0 ? (
-                  <em>No usage detected in the selected time frame</em>
-                ) : (
-                  <div className="row">
-                    <div className="col-12 col-md-4">
-                      <strong>Assigned Values</strong>
-                      <BarChart100 data={featureUsage.values} max={3} />
-                    </div>
-                    <div className="col-12 col-md-4">
-                      <strong>Sources</strong>
-                      <BarChart100 data={featureUsage.sources} max={3} />
-                    </div>
-                    <div className="col-12 col-md-4">
-                      <div className="mb-1">
-                        <strong>Usage Over Time</strong>
-                      </div>
-                      <FeatureUsageGraph
-                        data={featureUsage.overall}
-                        width="auto"
-                        height={80}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
+              {!featureUsage ? (
+                <Flex align="center" justify="center">
+                  <LoadingSpinner /> <Text ml="2">Loading...</Text>
+                </Flex>
+              ) : featureUsage.total === 0 ? (
+                <em>No usage detected in the selected time frame</em>
+              ) : (
+                <FeatureUsageContainer
+                  revision={revision}
+                  environments={envs}
+                  valueType={feature.valueType}
+                />
+              )}
             </div>
           )}
         </Box>
@@ -1045,11 +1035,6 @@ export default function FeaturesOverview({
                         feature={feature}
                       />
                     </Box>
-                    {featureUsage && (
-                      <Box className="ml-auto">
-                        <FeatureUsageGraph data={featureUsage?.defaultValue} />
-                      </Box>
-                    )}
                   </Flex>
                 </Box>
               </Box>
