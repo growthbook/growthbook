@@ -1,4 +1,7 @@
 summary: Get list of all code references for the current organization
+parameters:
+  - $ref: "../parameters.yaml#/limit"
+  - $ref: "../parameters.yaml#/offset"
 tags:
   - code-references
 operationId: listCodeRefs
@@ -12,6 +15,13 @@ responses:
     content:
       application/json:
         schema:
-          type: array
-          items:
-            $ref: "../schemas/CodeRef.yaml"
+          allOf:
+            - type: object
+              required:
+                - codeRefs
+              properties:
+                codeRefs:
+                  type: array
+                  items:
+                    $ref: "../schemas/CodeRef.yaml"
+            - $ref: "../schemas/PaginationFields.yaml"

@@ -1,4 +1,4 @@
-import { GetCodeRefsResponse } from "back-end/types/openapi";
+import { ListCodeRefsResponse } from "back-end/types/openapi";
 import {
   applyPagination,
   createApiRequestHandler,
@@ -11,7 +11,7 @@ import {
 } from "back-end/src/models/FeatureCodeRefs";
 
 export const listCodeRefs = createApiRequestHandler(listCodeRefsValidator)(
-  async (req): Promise<GetCodeRefsResponse> => {
+  async (req): Promise<ListCodeRefsResponse> => {
     const allCodeRefs = await getAllCodeRefsForOrg({
       context: req.context,
     });
