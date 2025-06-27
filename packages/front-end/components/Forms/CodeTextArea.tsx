@@ -1,5 +1,5 @@
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Ace } from "ace-builds";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { CursorData } from "@/components/Segments/SegmentForm";
@@ -39,7 +39,6 @@ export type Props = Omit<
   maxLines?: number;
   fullHeight?: boolean;
   onCtrlEnter?: () => void;
-  layoutVersion?: number; // Layout version number - increments when resize is needed
   wrapperClassName?: string;
 };
 
@@ -56,7 +55,6 @@ export default function CodeTextArea({
   setCursorData,
   fullHeight,
   onCtrlEnter,
-  layoutVersion,
   wrapperClassName,
   ...otherProps
 }: Props) {
@@ -66,6 +64,7 @@ export default function CodeTextArea({
   const { theme } = useAppearanceUITheme();
 
   const [editor, setEditor] = useState<null | Ace.Editor>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const heightProps = fullHeight ? { height: "100%" } : { minLines, maxLines };
 
@@ -86,12 +85,20 @@ export default function CodeTextArea({
     );
   }, [editor, onCtrlEnter]);
 
-  // Layout version is used to trigger a resize of the editor when the layout changes
+  // Auto-resize editor when container size changes
   useEffect(() => {
-    if (!editor || !fullHeight) return;
+    if (!editor || !containerRef.current || !fullHeight) return;
 
-    editor.resize();
-  }, [editor, layoutVersion, fullHeight]);
+    const resizeObserver = new ResizeObserver(() => {
+      editor.resize();
+    });
+
+    resizeObserver.observe(containerRef.current);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [editor, fullHeight]);
 
   return (
     <Field
@@ -101,6 +108,7 @@ export default function CodeTextArea({
         return (
           <>
             <div
+              ref={containerRef}
               className={`border rounded ${wrapperClassName} ${
                 fullHeight ? "h-100" : ""
               }`}
