@@ -4,7 +4,7 @@ import { FaChevronRight } from "react-icons/fa";
 import { ArchetypeInterface } from "back-end/types/archetype";
 import { FiAlertTriangle } from "react-icons/fi";
 import { Box, Flex, Heading, Switch, Text } from "@radix-ui/themes";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { MinimalFeatureRevisionInterface } from "back-end/types/feature-revision";
 import { useAuth } from "@/services/auth";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -29,7 +29,7 @@ export interface Props {
   project?: string;
   startOpen?: boolean;
   setVersion: (v: number) => void;
-  revisions: FeatureRevisionInterface[];
+  revisions?: MinimalFeatureRevisionInterface[];
   baseFeature: FeatureInterface;
 }
 
