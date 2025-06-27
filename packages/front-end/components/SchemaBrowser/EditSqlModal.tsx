@@ -80,6 +80,7 @@ export default function EditSqlModal({
   const [testingQuery, setTestingQuery] = useState(false);
   const permissionsUtil = usePermissionsUtil();
   const [formatError, setFormatError] = useState<string | null>(null);
+  const [layoutVersion, setLayoutVersion] = useState(0);
 
   const validateRequiredColumns = useCallback(
     (result: TestQueryRow) => {
@@ -226,7 +227,11 @@ export default function EditSqlModal({
         <PanelGroup direction="horizontal">
           <Panel defaultSize={supportsSchemaBrowser ? 75 : 100}>
             <PanelGroup direction="vertical">
-              <Panel defaultSize={testQueryResults ? 60 : 100} minSize={30}>
+              <Panel
+                defaultSize={testQueryResults ? 60 : 100}
+                minSize={30}
+                onResize={() => setLayoutVersion((c) => c + 1)}
+              >
                 <AreaWithHeader
                   header={
                     <Flex align="center" justify="between">
@@ -385,7 +390,7 @@ export default function EditSqlModal({
                       fullHeight
                       setCursorData={setCursorData}
                       onCtrlEnter={handleTestQuery}
-                      resizeDependency={!!testQueryResults}
+                      layoutVersion={layoutVersion}
                     />
                   </Box>
                 </AreaWithHeader>
@@ -420,14 +425,6 @@ export default function EditSqlModal({
                     </Text>
                   }
                 >
-                  {/* <div> */}
-                  {/* <div
-                    style={{
-                      height: "100%",
-                      display: "flex",
-                      flexDirection: "column",
-                    }}
-                  > */}
                   <Flex direction="column" height="100%" p="4">
                     <SchemaBrowser
                       updateSqlInput={(sql: string) => {

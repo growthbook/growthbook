@@ -39,7 +39,7 @@ export type Props = Omit<
   maxLines?: number;
   fullHeight?: boolean;
   onCtrlEnter?: () => void;
-  resizeDependency?: boolean;
+  layoutVersion?: number; // Layout version number - increments when resize is needed
   wrapperClassName?: string;
 };
 
@@ -56,7 +56,7 @@ export default function CodeTextArea({
   setCursorData,
   fullHeight,
   onCtrlEnter,
-  resizeDependency,
+  layoutVersion,
   wrapperClassName,
   ...otherProps
 }: Props) {
@@ -67,17 +67,9 @@ export default function CodeTextArea({
 
   const [editor, setEditor] = useState<null | Ace.Editor>(null);
 
-  // HACK: AceEditor doesn't automatically resize when the parent div resizes
-  // Also because we dynamically load the AceEditor component, we can't use
-  // useRef to get a reference to the editor object, which would allow us to
-  // call the resize() method on the editor object. So instead we change the
-  // height ever so slightly whenever the resizeDependency variable changes.
-  const heightProps = fullHeight
-    ? resizeDependency
-      ? { height: "99.999%" }
-      : { height: "100%" }
-    : { minLines, maxLines };
+  const heightProps = fullHeight ? { height: "100%" } : { minLines, maxLines };
 
+  // Handle Ctrl+Enter binding
   useEffect(() => {
     if (!editor) return;
     if (!onCtrlEnter) return;
@@ -93,6 +85,13 @@ export default function CodeTextArea({
       }
     );
   }, [editor, onCtrlEnter]);
+
+  // Layout version is used to trigger a resize of the editor when the layout changes
+  useEffect(() => {
+    if (!editor || !fullHeight) return;
+
+    editor.resize();
+  }, [editor, layoutVersion, fullHeight]);
 
   return (
     <Field

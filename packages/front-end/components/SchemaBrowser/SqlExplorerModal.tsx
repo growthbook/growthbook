@@ -74,6 +74,7 @@ export default function SqlExplorerModal({
   const [tab, setTab] = useState(
     initial?.dataVizConfig?.length ? "visualization-0" : "sql"
   );
+  const [layoutVersion, setLayoutVersion] = useState(0);
 
   const { getDatasourceById, datasources } = useDefinitions();
   const { defaultDataSource } = useOrgSettings();
@@ -508,6 +509,7 @@ export default function SqlExplorerModal({
                     order={1}
                     defaultSize={form.watch("results").sql ? 30 : 100}
                     minSize={7}
+                    onResize={() => setLayoutVersion((v) => v + 1)}
                   >
                     <AreaWithHeader
                       header={
@@ -573,7 +575,7 @@ export default function SqlExplorerModal({
                         fullHeight
                         setCursorData={setCursorData}
                         onCtrlEnter={handleQuery}
-                        resizeDependency={!!form.watch("results")}
+                        layoutVersion={layoutVersion}
                         disabled={readOnlyMode}
                       />
                     </AreaWithHeader>
