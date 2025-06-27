@@ -25,7 +25,7 @@ import {
   BANDIT_SRM_DIMENSION_NAME,
   SAFE_ROLLOUT_TRACKING_KEY_PREFIX,
 } from "shared/constants";
-import { format } from "shared/sql";
+import { ensureLimit, format } from "shared/sql";
 import { FormatDialect } from "shared/src/types";
 import { MetricAnalysisSettings } from "back-end/types/metric-analysis";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
@@ -284,10 +284,6 @@ export default abstract class SqlIntegration
   dateDiff(startCol: string, endCol: string) {
     return `datediff(day, ${startCol}, ${endCol})`;
   }
-  // eslint-disable-next-line
-  convertDate(fromDB: any): Date {
-    return getValidDate(fromDB);
-  }
   formatDate(col: string): string {
     return col;
   }
@@ -314,6 +310,10 @@ export default abstract class SqlIntegration
   }
   selectStarLimit(table: string, limit: number): string {
     return `SELECT * FROM ${table} LIMIT ${limit}`;
+  }
+
+  ensureMaxLimit(sql: string, limit: number): string {
+    return ensureLimit(sql, limit);
   }
 
   hasQuantileTesting(): boolean {
@@ -490,9 +490,9 @@ export default abstract class SqlIntegration
           variation_id: row.variation_id ?? "",
           variation_name: row.variation_name,
           users: parseInt(row.users) || 0,
-          end_date: this.convertDate(row.end_date).toISOString(),
-          start_date: this.convertDate(row.start_date).toISOString(),
-          latest_data: this.convertDate(row.latest_data).toISOString(),
+          end_date: getValidDate(row.end_date).toISOString(),
+          start_date: getValidDate(row.start_date).toISOString(),
+          latest_data: getValidDate(row.latest_data).toISOString(),
         };
       }),
       statistics: statistics,
@@ -1131,7 +1131,7 @@ export default abstract class SqlIntegration
         } = row;
 
         const ret: MetricAnalysisQueryResponseRow = {
-          date: date ? this.convertDate(date).toISOString() : "",
+          date: date ? getValidDate(date).toISOString() : "",
           data_type: data_type ?? "",
           capped: (capped ?? "uncapped") == "capped",
           units: parseFloat(units) || 0,
@@ -1386,7 +1386,7 @@ export default abstract class SqlIntegration
         const { date, count, main_sum, main_sum_squares } = row;
 
         const ret: MetricValueQueryResponseRow = {
-          date: date ? this.convertDate(date).toISOString() : "",
+          date: date ? getValidDate(date).toISOString() : "",
           count: parseFloat(count) || 0,
           main_sum: parseFloat(main_sum) || 0,
           main_sum_squares: parseFloat(main_sum_squares) || 0,
@@ -1410,6 +1410,11 @@ export default abstract class SqlIntegration
       testDays: testDays ?? DEFAULT_TEST_QUERY_DAYS,
       limit: 1,
     });
+  }
+
+  getFreeFormQuery(sql: string, limit?: number): string {
+    const limitedQuery = this.ensureMaxLimit(sql, limit ?? 1000);
+    return format(limitedQuery, this.getFormatDialect());
   }
 
   getTestQuery(params: TestQueryParams): string {
@@ -1445,7 +1450,7 @@ export default abstract class SqlIntegration
       results.rows.forEach((row) => {
         timestampCols.forEach((col) => {
           if (row[col]) {
-            row[col] = this.convertDate(row[col]);
+            row[col] = getValidDate(row[col]);
           }
         });
       });
@@ -3723,7 +3728,7 @@ export default abstract class SqlIntegration
       m.variation AS variation
       , m.dimension AS dimension
       , m.bandit_period AS bandit_period
-      , COUNT(*) AS users
+      , ${this.ensureFloat(`COUNT(*)`)} AS users
       ${metricData
         .map((data) => {
           const alias = data.alias + (factMetrics ? "_" : "");
@@ -3733,8 +3738,12 @@ export default abstract class SqlIntegration
             ? `, MAX(COALESCE(cap.${alias}value_cap, 0)) AS ${alias}main_cap_value`
             : ""
         }
-        , SUM(${data.capCoalesceMetric}) AS ${alias}main_sum
-        , SUM(POWER(${data.capCoalesceMetric}, 2)) AS ${alias}main_sum_squares
+        , ${this.ensureFloat(
+          `SUM(${data.capCoalesceMetric})`
+        )} AS ${alias}main_sum
+        , ${this.ensureFloat(
+          `SUM(POWER(${data.capCoalesceMetric}, 2))`
+        )} AS ${alias}main_sum_squares
         ${
           data.ratioMetric
             ? `
@@ -3744,22 +3753,30 @@ export default abstract class SqlIntegration
               ? `, MAX(COALESCE(capd.${alias}value_cap, 0)) as ${alias}denominator_cap_value`
               : ""
           }
-          , SUM(${data.capCoalesceDenominator}) AS ${alias}denominator_sum
-          , SUM(POWER(${
-            data.capCoalesceDenominator
-          }, 2)) AS ${alias}denominator_sum_squares
-          , SUM(${data.capCoalesceDenominator} * ${
-                data.capCoalesceMetric
-              }) AS ${alias}main_denominator_sum_product
+          , ${this.ensureFloat(
+            `SUM(${data.capCoalesceDenominator})`
+          )} AS ${alias}denominator_sum
+          , ${this.ensureFloat(
+            `SUM(POWER(${data.capCoalesceDenominator}, 2))`
+          )} AS ${alias}denominator_sum_squares
+          , ${this.ensureFloat(
+            `SUM(${data.capCoalesceDenominator} * ${data.capCoalesceMetric})`
+          )} AS ${alias}main_denominator_sum_product
         `
             : ""
         }
         ${
           data.regressionAdjusted
             ? `
-          , SUM(${data.capCoalesceCovariate}) AS ${alias}covariate_sum
-          , SUM(POWER(${data.capCoalesceCovariate}, 2)) AS ${alias}covariate_sum_squares
-          , SUM(${data.capCoalesceMetric} * ${data.capCoalesceCovariate}) AS ${alias}main_covariate_sum_product
+          , ${this.ensureFloat(
+            `SUM(${data.capCoalesceCovariate})`
+          )} AS ${alias}covariate_sum
+          , ${this.ensureFloat(
+            `SUM(POWER(${data.capCoalesceCovariate}, 2))`
+          )} AS ${alias}covariate_sum_squares
+          , ${this.ensureFloat(
+            `SUM(${data.capCoalesceMetric} * ${data.capCoalesceCovariate})`
+          )} AS ${alias}main_covariate_sum_product
           `
             : ""
         }`;
@@ -3797,7 +3814,7 @@ export default abstract class SqlIntegration
   __dimensionTotals AS (
     SELECT
       dimension
-      , SUM(users) AS total_users
+      , ${this.ensureFloat(`SUM(users)`)} AS total_users
     FROM 
       __banditPeriodStatistics
     GROUP BY

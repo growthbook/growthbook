@@ -105,6 +105,7 @@ import { customFieldsRouter } from "./routers/custom-fields/custom-fields.router
 import { segmentRouter } from "./routers/segment/segment.router";
 import { dimensionRouter } from "./routers/dimension/dimension.router";
 import { sdkConnectionRouter } from "./routers/sdk-connection/sdk-connection.router";
+import { savedQueriesRouter } from "./routers/saved-queries/saved-queries.router";
 import { projectRouter } from "./routers/project/project.router";
 import { vercelRouter } from "./routers/vercel-native-integration/vercel-native-integration.router";
 import { factTableRouter } from "./routers/fact-table/fact-table.router";
@@ -430,6 +431,14 @@ if (IS_CLOUD) {
   );
   app.post("/subscription/cancel", subscriptionController.cancelSubscription);
   app.get("/subscription/portal-url", subscriptionController.getPortalUrl);
+  app.get(
+    "/subscription/customer-data",
+    subscriptionController.getCustomerData
+  );
+  app.post(
+    "/subscription/update-customer-data",
+    subscriptionController.updateCustomerData
+  );
   app.get("/billing/usage", subscriptionController.getUsage);
 }
 app.post("/subscription/new", subscriptionController.postNewProSubscription);
@@ -444,6 +453,7 @@ app.post(
 
 app.get("/queries/:ids", datasourcesController.getQueries);
 app.post("/query/test", datasourcesController.testLimitedQuery);
+app.post("/query/run", datasourcesController.runQuery);
 app.post("/dimension-slices", datasourcesController.postDimensionSlices);
 app.get("/dimension-slices/:id", datasourcesController.getDimensionSlices);
 app.post(
@@ -658,6 +668,8 @@ app.use("/dimensions", dimensionRouter);
 
 app.use("/sdk-connections", sdkConnectionRouter);
 
+app.use("/saved-queries", savedQueriesRouter);
+
 app.use("/projects", projectRouter);
 
 app.use(factTableRouter);
@@ -752,11 +764,27 @@ app.post(
   "/datasources/fetch-bigquery-datasets",
   datasourcesController.fetchBigQueryDatasets
 );
+app.post(
+  "/datasource/:datasourceId/materializedColumn",
+  datasourcesController.postMaterializedColumn
+);
+app.put(
+  "/datasource/:datasourceId/materializedColumn/:matColumnName",
+  datasourcesController.updateMaterializedColumn
+);
+app.delete(
+  "/datasource/:datasourceId/materializedColumn/:matColumnName",
+  datasourcesController.deleteMaterializedColumn
+);
+app.post(
+  "/datasource/:datasourceId/recreate-managed-warehouse",
+  datasourcesController.postRecreateManagedWarehouse
+);
 
 if (IS_CLOUD) {
   app.post(
-    "/datasource/create-inbuilt",
-    datasourcesController.postInbuiltDataSource
+    "/datasources/managed-warehouse",
+    datasourcesController.postManagedWarehouse
   );
 }
 
@@ -885,7 +913,7 @@ const errorHandler: ErrorRequestHandler = (
   req,
   res: Response & { sentry?: string },
   // eslint-disable-next-line
-  next,
+  next
 ) => {
   const status = err.status || 400;
 
