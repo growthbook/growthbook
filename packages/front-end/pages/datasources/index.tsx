@@ -361,12 +361,13 @@ const DataSourcesPage: FC = () => {
   const permissionsUtil = usePermissionsUtil();
   const { hasCommercialFeature, license } = useUser();
 
-  // Cloud, no data sources yet, has permissions, and is either free OR on a usage-based paid plan
+  // Cloud, no data sources yet, has permissions, and is either free OR on a usage-based paid plan, or is on a trial
   const showManagedWarehouse =
     isCloud() &&
     filteredDatasources.length === 0 &&
     permissionsUtil.canViewCreateDataSourceModal(project) &&
     (!hasCommercialFeature("managed-warehouse") ||
+      license?.isTrial ||
       !!license?.orbSubscription) &&
     gb.isOn("inbuilt-data-warehouse");
 
