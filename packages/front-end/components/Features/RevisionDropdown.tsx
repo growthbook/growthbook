@@ -5,10 +5,12 @@ import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import SelectField from "@/components/Forms/SelectField";
 import EventUser from "@/components/Avatar/EventUser";
 import Badge from "@/components/Radix/Badge";
+import LoadingOverlay from "@/components/LoadingOverlay";
 
 export interface Props {
   feature: FeatureInterface;
   revisions: MinimalFeatureRevisionInterface[];
+  loading?: boolean;
   version: number;
   setVersion: (version: number) => void;
 }
@@ -16,6 +18,7 @@ export interface Props {
 export default function RevisionDropdown({
   feature,
   revisions,
+  loading = false,
   version,
   setVersion,
 }: Props) {
@@ -49,6 +52,7 @@ export default function RevisionDropdown({
 
         return (
           <Flex align="center" justify="between" gap="3">
+            {loading ? <LoadingOverlay /> : null}
             <Heading size="2" mb="0">
               Revision {value}
             </Heading>

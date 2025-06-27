@@ -37,6 +37,7 @@ export default function FeaturePage() {
   const [editTagsModal, setEditTagsModal] = useState(false);
   const [editFeatureInfoModal, setEditFeatureInfoModal] = useState(false);
   const [version, setVersion] = useState<number | null>(null);
+  const [loading, setLoading] = useState(false);
   const [lastDisplayedVersion, setLastDisplayedVersion] = useState<
     number | null
   >(null);
@@ -86,6 +87,8 @@ export default function FeaturePage() {
       };
 
       try {
+        setLoading(true);
+
         const response = await apiCall<{
           feature: FeatureInterface;
           revisionList: MinimalFeatureRevisionInterface[];
@@ -119,6 +122,8 @@ export default function FeaturePage() {
         setError(null);
       } catch (err) {
         setError(err.message || "An error occurred while fetching data.");
+      } finally {
+        setLoading(false);
       }
     },
     [fid, apiCall] // Dependencies of fetchData
@@ -308,6 +313,7 @@ export default function FeaturePage() {
           feature={feature}
           revision={revision}
           revisionList={data.revisionList}
+          loading={loading}
           revisions={data.revisions}
           experiments={experiments}
           safeRollouts={safeRollouts}
@@ -327,7 +333,7 @@ export default function FeaturePage() {
           baseFeature={baseFeature}
           feature={feature}
           revision={revision}
-          revisions={data.revisions}
+          revisions={data.revisionList}
           version={version}
           setVersion={setVersion}
         />

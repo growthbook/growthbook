@@ -87,6 +87,7 @@ export default function FeaturesOverview({
   feature,
   revision,
   revisionList,
+  loading,
   revisions,
   experiments,
   mutate,
@@ -103,6 +104,7 @@ export default function FeaturesOverview({
   feature: FeatureInterface;
   revision: FeatureRevisionInterface | null;
   revisionList: MinimalFeatureRevisionInterface[];
+  loading: boolean;
   revisions: FeatureRevisionInterface[];
   experiments: ExperimentInterfaceStringDates[] | undefined;
   safeRollouts: SafeRolloutInterface[] | undefined;
@@ -945,6 +947,7 @@ export default function FeaturesOverview({
                   <Box width="100%">
                     <RevisionDropdown
                       feature={feature}
+                      loading={loading}
                       version={currentVersion}
                       setVersion={setVersion}
                       revisions={revisionList || []}
