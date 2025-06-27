@@ -35,7 +35,7 @@
     "@dqbd/tiktoken": "^1.0.20",
     "@google-cloud/bigquery": "5",
     "@google-cloud/storage": "^5.20.5",
-    "@growthbook/growthbook": "^1.5.1",
+    "@growthbook/growthbook": "^1.6.0",
     "@growthbook/proxy-eval": "^1.0.3",
     "@octokit/auth-app": "^6.0.1",
     "@octokit/core": "^5.0.2",
@@ -102,7 +102,7 @@
     "snowflake-sdk": "1.10.1",
     "ssrf-req-filter": "^1.1.1",
     "string-env-interpolation": "^1.0.1",
-    "stripe": "^13.1.0",
+    "stripe": "^17.4.0",
     "uniqid": "^5.3.0",
     "uuid": "^9.0.0",
     "zod": "^3.22.4"

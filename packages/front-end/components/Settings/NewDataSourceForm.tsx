@@ -13,6 +13,8 @@ import {
 import { useForm } from "react-hook-form";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { FaExternalLinkAlt } from "react-icons/fa";
+import { useGrowthBook } from "@growthbook/growthbook-react";
+import { Text } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import {
@@ -38,6 +40,10 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import Callout from "@/components/Radix/Callout";
 import { DocLink } from "@/components/DocLink";
 import DataSourceTypeSelector from "@/components/Settings/DataSourceTypeSelector";
+import { isCloud } from "@/services/env";
+import { useUser } from "@/services/UserContext";
+import ManagedWarehouseModal from "@/components/InitialSetup/ManagedWarehouseModal";
+import Badge from "@/components/Radix/Badge";
 import EventSourceList from "./EventSourceList";
 import ConnectionSettings from "./ConnectionSettings";
 
@@ -67,12 +73,15 @@ const NewDataSourceForm: FC<{
   showBackButton = true,
 }) => {
   const {
+    datasources,
     projects: allProjects,
     project,
     mutateDefinitions,
   } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
   const { apiCall, orgId } = useAuth();
+  const { hasCommercialFeature, license } = useUser();
+  const gb = useGrowthBook();
 
   const settings = useOrgSettings();
   const { metricDefaults } = useOrganizationMetricDefaults();
@@ -98,6 +107,15 @@ const NewDataSourceForm: FC<{
     projects: project ? [project] : [],
     ...initial,
   });
+
+  // Cloud, no managed warehouse yet, and is either free OR on a usage-based paid plan
+  const showManagedWarehouse =
+    isCloud() &&
+    !datasources.some((d) => d.type === "growthbook_clickhouse") &&
+    (!hasCommercialFeature("managed-warehouse") ||
+      !!license?.orbSubscription) &&
+    gb.isOn("inbuilt-data-warehouse");
+  const [managedWarehouseOpen, setManagedWarehouseOpen] = useState(false);
 
   // Form data for the schema options screen
   const schemaOptionsForm = useForm<Record<string, string | number>>({
@@ -405,9 +423,8 @@ const NewDataSourceForm: FC<{
     stepContents = (
       <div>
         <p className="mb-4">
-          GrowthBook is <strong>Warehouse Native</strong>, which means we sit on
-          top of your existing data instead of storing our own copy. This
-          approach is cheaper, more secure, and more flexible.
+          GrowthBook is <strong>Warehouse Native</strong>, which means we can
+          sit on top of any SQL data without storing our own copy.
         </p>
         <div>
           <label>Where do you store your analytics data?</label>
@@ -443,14 +460,32 @@ const NewDataSourceForm: FC<{
               }
             }}
           />
-
-          <Callout status="info" mt="3">
-            Don&apos;t have a data warehouse yet? We recommend using BigQuery
-            with Google Analytics.{" "}
-            <DocLink docSection="ga4BigQuery">
-              Learn more <FaExternalLinkAlt />
-            </DocLink>
-          </Callout>
+          {showManagedWarehouse ? (
+            <Callout status="info" mt="3" icon={null}>
+              <Badge label="New!" color="violet" variant="solid" mr="3" />
+              <Text mr="3">
+                GrowthBook Cloud now offers a fully managed data warehouse
+                option.
+              </Text>
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setManagedWarehouseOpen(true);
+                }}
+              >
+                Try it now
+              </a>
+            </Callout>
+          ) : (
+            <Callout status="info" mt="3">
+              Don&apos;t have a data warehouse yet? We recommend using BigQuery
+              with Google Analytics.{" "}
+              <DocLink docSection="ga4BigQuery">
+                Learn more <FaExternalLinkAlt />
+              </DocLink>
+            </Callout>
+          )}
         </div>
       </div>
     );
@@ -701,6 +736,12 @@ const NewDataSourceForm: FC<{
 
   if (step === "initial" && !connectionInfo.type) {
     ctaEnabled = false;
+  }
+
+  if (managedWarehouseOpen) {
+    return (
+      <ManagedWarehouseModal close={() => setManagedWarehouseOpen(false)} />
+    );
   }
 
   return (

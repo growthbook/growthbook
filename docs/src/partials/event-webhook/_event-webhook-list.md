@@ -267,6 +267,9 @@ Triggered when a feature is created
                 date: string;
                 publishedBy: string;
             };
+            customFields?: {
+                [x: string]: any;
+            } | undefined;
         };
     };
     user: {
@@ -535,6 +538,9 @@ Triggered when a feature is updated
                 date: string;
                 publishedBy: string;
             };
+            customFields?: {
+                [x: string]: any;
+            } | undefined;
         };
         previous_attributes: {
             id?: string | undefined;
@@ -771,6 +777,9 @@ Triggered when a feature is updated
                 date: string;
                 publishedBy: string;
             } | undefined;
+            customFields?: ({
+                [x: string]: any;
+            } | undefined) | undefined;
         };
     };
     user: {
@@ -1039,6 +1048,9 @@ Triggered when a feature is deleted
                 date: string;
                 publishedBy: string;
             };
+            customFields?: {
+                [x: string]: any;
+            } | undefined;
         };
     };
     user: {
@@ -1307,6 +1319,9 @@ Triggered when an experiment is created
             linkedFeatures?: string[] | undefined;
             hasVisualChangesets?: boolean | undefined;
             hasURLRedirects?: boolean | undefined;
+            customFields?: {
+                [x: string]: any;
+            } | undefined;
         };
     };
     user: {
@@ -1463,6 +1478,9 @@ Triggered when an experiment is updated
             linkedFeatures?: string[] | undefined;
             hasVisualChangesets?: boolean | undefined;
             hasURLRedirects?: boolean | undefined;
+            customFields?: {
+                [x: string]: any;
+            } | undefined;
         };
         previous_attributes: {
             id?: string | undefined;
@@ -1587,6 +1605,9 @@ Triggered when an experiment is updated
             linkedFeatures?: (string[] | undefined) | undefined;
             hasVisualChangesets?: (boolean | undefined) | undefined;
             hasURLRedirects?: (boolean | undefined) | undefined;
+            customFields?: ({
+                [x: string]: any;
+            } | undefined) | undefined;
         };
     };
     user: {
@@ -1743,6 +1764,9 @@ Triggered when an experiment is deleted
             linkedFeatures?: string[] | undefined;
             hasVisualChangesets?: boolean | undefined;
             hasURLRedirects?: boolean | undefined;
+            customFields?: {
+                [x: string]: any;
+            } | undefined;
         };
     };
     user: {
