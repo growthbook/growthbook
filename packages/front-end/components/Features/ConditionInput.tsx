@@ -27,6 +27,7 @@ import CountrySelector, {
 } from "@/components/Forms/CountrySelector";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import DatePicker from "@/components/DatePicker";
+import Callout from "@/components/Radix/Callout";
 import styles from "./ConditionInput.module.scss";
 
 interface Props {
@@ -58,6 +59,10 @@ export default function ConditionInput(props: Props) {
   const [rawTextMode, setRawTextMode] = useState(false);
 
   const attributeSchema = useAttributeSchema(false, props.project);
+
+  const usingDisabledEqualityAttributes = conds.some(
+    (cond) => !!attributes.get(cond.field)?.disableEqualityConditions
+  );
 
   useEffect(() => {
     if (advanced) return;
@@ -624,6 +629,12 @@ export default function ConditionInput(props: Props) {
             <RxLoop /> Advanced mode
           </span>
         </div>
+        {usingDisabledEqualityAttributes && (
+          <Callout status="warning" mt="4">
+            Be careful not to include Personally Identifiable Information (PII)
+            in your targeting conditions.
+          </Callout>
+        )}
       </div>
     </div>
   );
