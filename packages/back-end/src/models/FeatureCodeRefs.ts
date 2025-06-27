@@ -133,7 +133,7 @@ export const getCodeRefsForFeature = async ({
   context,
   feature,
 }: {
-  context: ReqContext | ApiReqContext
+  context: ReqContext | ApiReqContext;
   feature: string;
 }): Promise<ApiCodeRef[]> => {
   return await FeatureCodeRefsModel.find({
