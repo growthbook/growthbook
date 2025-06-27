@@ -1,5 +1,8 @@
 import { FeatureInterface } from "back-end/types/feature";
-import { MinimalFeatureRevisionInterface } from "back-end/types/feature-revision";
+import {
+  FeatureRevisionInterface,
+  MinimalFeatureRevisionInterface,
+} from "back-end/types/feature-revision";
 import React from "react";
 import { Box } from "@radix-ui/themes";
 import LoadingOverlay from "@/components/LoadingOverlay";
