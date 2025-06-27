@@ -5,6 +5,9 @@ import { getCodeRefsForFeature as getCodeRefsFromDb } from "back-end/src/models/
 
 export const getCodeRefs = createApiRequestHandler(getCodeRefsValidator)(
   async (req): Promise<GetCodeRefsResponse> => {
-    return await getCodeRefsFromDb({ context: req.context, feature: req.params.id });
+    return await getCodeRefsFromDb({
+      context: req.context,
+      feature: req.params.id,
+    });
   }
 );
