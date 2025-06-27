@@ -9,6 +9,7 @@ import {
   ExperimentDecisionFrameworkSettings,
 } from "back-end/src/validators/experiments";
 import { DecisionCriteriaRule } from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.validators";
+import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import { ExperimentRefVariation, FeatureInterface } from "./feature";
 
 export {
@@ -179,6 +180,9 @@ export type ExperimentInterfaceStringDates = Omit<
   dateUpdated: string;
   phases: ExperimentPhaseStringDates[];
 };
+
+export type HoldoutExperimentInterface = ExperimentInterfaceStringDates &
+  Omit<HoldoutInterface, "experimentId" | "organization" | "owner">;
 
 export type ComputedExperimentInterface = ExperimentInterfaceStringDates & {
   ownerName: string;
