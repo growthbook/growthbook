@@ -147,7 +147,12 @@ export default function ConditionInput(props: Props) {
               setConds([
                 {
                   field: prop?.property || "",
-                  operator: prop?.datatype === "boolean" ? "$true" : "$eq",
+                  operator:
+                    prop?.datatype === "boolean"
+                      ? "$true"
+                      : prop?.disableEqualityConditions
+                      ? "$regex"
+                      : "$eq",
                   value: "",
                 },
               ]);
@@ -210,7 +215,7 @@ export default function ConditionInput(props: Props) {
               handleCondsChange(value, name);
             };
 
-            const operatorOptions =
+            let operatorOptions =
               attribute.datatype === "boolean"
                 ? [
                     { label: "is true", value: "$true" },
@@ -314,6 +319,13 @@ export default function ConditionInput(props: Props) {
                   ]
                 : [];
 
+            if (attribute.disableEqualityConditions) {
+              // Remove equality operators if the attribute has them disabled
+              operatorOptions = operatorOptions.filter(
+                (o) => !["$eq", "$ne", "$in", "$nin"].includes(o.value)
+              );
+            }
+
             let displayType:
               | "select-only"
               | "array-field"
@@ -378,7 +390,10 @@ export default function ConditionInput(props: Props) {
                         const newAttribute = attributes.get(value);
                         const hasAttrChanged =
                           newAttribute?.datatype !== attribute.datatype ||
-                          newAttribute?.array !== attribute.array;
+                          newAttribute?.array !== attribute.array ||
+                          !!newAttribute.disableEqualityConditions !==
+                            !!attribute.disableEqualityConditions;
+
                         if (hasAttrChanged && newAttribute) {
                           newConds[i]["operator"] = getDefaultOperator(
                             newAttribute
