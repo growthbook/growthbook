@@ -66,3 +66,12 @@ properties:
       - "released"
       - "rolled-back"
       - "stopped"
+  scheduleRules:
+    type: array
+    items:
+      $ref: "./ScheduleRule.yaml"
+    example:
+      - enabled: true
+        timestamp: null
+      - enabled: false
+        timestamp: "2025-06-23T16:09:37.769Z"

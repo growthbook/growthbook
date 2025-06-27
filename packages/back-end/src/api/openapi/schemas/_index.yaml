@@ -12,6 +12,8 @@ Attribute:
   $ref: "./Attribute.yaml"
 Segment:
   $ref: "./Segment.yaml"
+ScheduleRule:
+  $ref: "./ScheduleRule.yaml"
 Feature:
   $ref: "./Feature.yaml"
 FeatureWithRevisions:
