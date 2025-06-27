@@ -226,14 +226,8 @@ export default function UpdateOrbSubscriptionModal({
             <Flex align="center" width="100%" gap="4">
               <Box style={{ width: "50%" }}>
                 <SelectField
-                  label={
-                    <span>
-                      Tax ID Type{" "}
-                      <Tooltip body="Select your tax id type here. E.G. US-EIN, GB-VAT, etc.">
-                        <GBInfo />
-                      </Tooltip>
-                    </span>
-                  }
+                  label="Tax ID type"
+                  placeholder="(optional)"
                   options={taxIdTypeOptions}
                   value={form.watch("taxIdType") || ""}
                   onChange={(value) => {
@@ -245,6 +239,7 @@ export default function UpdateOrbSubscriptionModal({
               <Box style={{ width: "50%" }}>
                 <Field
                   type="text"
+                  placeholder="(optional)"
                   {...form.register("taxIdValue")}
                   label={
                     <span>

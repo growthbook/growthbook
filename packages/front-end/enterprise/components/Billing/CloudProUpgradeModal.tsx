@@ -314,6 +314,7 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
                 label="Tax ID type"
                 options={taxIdTypeOptions}
                 value={form.watch("taxIdType") || ""}
+                placeholder="(optional)"
                 onChange={(value) =>
                   form.setValue("taxIdType", value as TaxIdType)
                 }
@@ -324,6 +325,7 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
               <Field
                 type="text"
                 {...form.register("taxIdValue")}
+                placeholder="(optional)"
                 label={
                   <Flex align="center">
                     <span className="mr-1">Tax ID</span>
