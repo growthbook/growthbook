@@ -76,6 +76,8 @@ export const apiArchetypeValidator = z.object({ "id": z.string(), "dateCreated":
 
 export const apiQueryValidator = z.object({ "id": z.string(), "organization": z.string(), "datasource": z.string(), "language": z.string(), "query": z.string(), "queryType": z.string(), "createdAt": z.string(), "startedAt": z.string(), "status": z.enum(["running","queued","failed","partially-succeeded","succeeded"]), "externalId": z.string(), "dependencies": z.array(z.string()), "runAtEnd": z.boolean() }).strict()
 
+export const apiCodeRefValidator = z.object({ "organization": z.string().describe("The organization name"), "dateUpdated": z.string().describe("When the code references were last updated"), "feature": z.string().describe("Feature identifier"), "repo": z.string().describe("Repository name"), "branch": z.string().describe("Branch name"), "platform": z.enum(["github","gitlab","bitbucket"]).describe("Source control platform").optional(), "refs": z.array(z.object({ "filePath": z.string().describe("Path to the file containing the reference"), "startingLineNumber": z.coerce.number().int().describe("Line number where the reference starts"), "lines": z.string().describe("The code lines containing the reference"), "flagKey": z.string().describe("The feature flag key referenced") })) }).strict()
+
 export const apiMetricGroupValidator = z.object({ "id": z.string().describe("Unique identifier for the metric group"), "organization": z.string().describe("Organization id"), "owner": z.string().describe("Owner of the metric group").optional(), "dateCreated": z.string().describe("Date the metric group was created"), "dateUpdated": z.string().describe("Date the metric group was last updated"), "name": z.string().describe("Name of the metric group"), "description": z.string().describe("Description of the metric group").optional(), "tags": z.array(z.string()).describe("Tags associated with the metric group").optional(), "projects": z.array(z.string()).describe("Project ids associated with the metric group").optional(), "metrics": z.array(z.string()).describe("List of metric ids in the group"), "datasource": z.string().describe("Datasource id for the metric group"), "archived": z.boolean().describe("Whether the metric group is archived").optional() }).strict()
 
 export const listFeaturesValidator = {
@@ -574,6 +576,12 @@ export const postCodeRefsValidator = {
   bodySchema: z.object({ "branch": z.string(), "repoName": z.string(), "refs": z.array(z.object({ "filePath": z.string(), "startingLineNumber": z.number().int(), "lines": z.string(), "flagKey": z.string(), "contentHash": z.string() })) }).strict(),
   querySchema: z.never(),
   paramsSchema: z.never(),
+};
+
+export const getCodeRefsValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
 };
 
 export const getQueryValidator = {

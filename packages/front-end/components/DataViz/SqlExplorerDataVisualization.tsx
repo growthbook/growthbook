@@ -102,16 +102,12 @@ function roundDate(date: Date, unit: xAxisDateAggregationUnit): Date {
   }
 }
 
-export default function SqlExplorerDataVisualization({
+export function DataVisualizationDisplay({
   rows,
   dataVizConfig,
-  onDataVizConfigChange,
-  showPanel = true,
 }: {
   rows: Rows;
   dataVizConfig: Partial<DataVizConfig>;
-  onDataVizConfigChange: (dataVizConfig: Partial<DataVizConfig>) => void;
-  showPanel?: boolean;
 }) {
   const isConfigValid = useMemo(() => {
     const parsed = dataVizConfigValidator.strip().safeParse(dataVizConfig);
@@ -489,6 +485,36 @@ export default function SqlExplorerDataVisualization({
     textColor,
   ]);
 
+  if (isConfigValid) {
+    return (
+      <Flex justify="center" align="center" height="100%" overflowY="auto">
+        <EChartsReact
+          key={JSON.stringify(option)}
+          option={option}
+          style={{ width: "100%", minHeight: "350px", height: "80%" }}
+        />
+      </Flex>
+    );
+  } else {
+    return (
+      <Flex justify="center" align="center" height="100%">
+        Select X and Y axis on the side panel to visualize your data.
+      </Flex>
+    );
+  }
+}
+
+export function SqlExplorerDataVisualization({
+  rows,
+  dataVizConfig,
+  onDataVizConfigChange,
+  showPanel = true,
+}: {
+  rows: Rows;
+  dataVizConfig: Partial<DataVizConfig>;
+  onDataVizConfigChange: (dataVizConfig: Partial<DataVizConfig>) => void;
+  showPanel?: boolean;
+}) {
   return (
     <PanelGroup direction="horizontal">
       <Panel
@@ -504,24 +530,7 @@ export default function SqlExplorerDataVisualization({
             </Text>
           }
         >
-          {isConfigValid ? (
-            <Flex
-              justify="center"
-              align="center"
-              height="100%"
-              overflowY="auto"
-            >
-              <EChartsReact
-                key={JSON.stringify(option)}
-                option={option}
-                style={{ width: "100%", minHeight: "350px", height: "80%" }}
-              />
-            </Flex>
-          ) : (
-            <Flex justify="center" align="center" height="100%">
-              Select X and Y axis on the side panel to visualize your data.
-            </Flex>
-          )}
+          <DataVisualizationDisplay rows={rows} dataVizConfig={dataVizConfig} />
         </AreaWithHeader>
       </Panel>
       {showPanel ? (

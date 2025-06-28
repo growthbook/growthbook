@@ -322,6 +322,9 @@ paths:
   /code-refs:
     post:
       $ref: "./paths/postCodeRefs.yaml"
+  /code-refs/{id}:
+    get:
+      $ref: "./paths/getCodeRefs.yaml"
   /queries/{id}:
     get:
       $ref: "./paths/getQuery.yaml"

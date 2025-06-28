@@ -123,6 +123,9 @@ tags:
   - name: Attribute_model
     x-displayName: Attribute
     description: <SchemaDefinition schemaRef="#/components/schemas/Attribute" />
+  - name: CodeRef_model
+    x-displayName: CodeRef
+    description: <SchemaDefinition schemaRef="#/components/schemas/CodeRef" />
   - name: DataSource_model
     x-displayName: DataSource
     description: <SchemaDefinition schemaRef="#/components/schemas/DataSource" />
@@ -5067,6 +5070,27 @@ paths:
                     type: array
                     items:
                       type: string
+  '/code-refs/{id}':
+    get:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      summary: Get list of code references for a single feature id
+      tags:
+        - code-references
+      operationId: getCodeRefs
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/code-refs/my_feature \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CodeRef'
   '/queries/{id}':
     get:
       parameters:
@@ -7642,6 +7666,61 @@ components:
             type: string
         runAtEnd:
           type: boolean
+    CodeRef:
+      type: object
+      required:
+        - organization
+        - dateUpdated
+        - feature
+        - repo
+        - branch
+        - refs
+      properties:
+        organization:
+          type: string
+          description: The organization name
+        dateUpdated:
+          type: string
+          format: date-time
+          description: When the code references were last updated
+        feature:
+          type: string
+          description: Feature identifier
+        repo:
+          type: string
+          description: Repository name
+        branch:
+          type: string
+          description: Branch name
+        platform:
+          type: string
+          enum:
+            - github
+            - gitlab
+            - bitbucket
+          description: Source control platform
+        refs:
+          type: array
+          items:
+            type: object
+            required:
+              - filePath
+              - startingLineNumber
+              - lines
+              - flagKey
+            properties:
+              filePath:
+                type: string
+                description: Path to the file containing the reference
+              startingLineNumber:
+                type: integer
+                description: Line number where the reference starts
+              lines:
+                type: string
+                description: The code lines containing the reference
+              flagKey:
+                type: string
+                description: The feature flag key referenced
     MetricGroup:
       type: object
       required:
@@ -7757,6 +7836,7 @@ x-tagGroups:
     tags:
       - Archetype_model
       - Attribute_model
+      - CodeRef_model
       - DataSource_model
       - Dimension_model
       - Environment_model
