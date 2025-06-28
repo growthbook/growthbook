@@ -5,9 +5,11 @@ import Button from "@/components/Button";
 import { isCloud } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import { planNameFromAccountPlan } from "@/services/utils";
+import { StripeProvider } from "@/enterprise/components/Billing/StripeProvider";
 import Modal from "../Modal";
 import Callout from "../Radix/Callout";
 import UpgradeModal from "./UpgradeModal";
+import UpdateOrbSubscriptionModal from "./UpdateOrbSubscriptionModal";
 
 export default function SubscriptionInfo() {
   const { apiCall } = useAuth();
@@ -22,6 +24,9 @@ export default function SubscriptionInfo() {
 
   const [upgradeModal, setUpgradeModal] = useState(false);
   const [cancelSubscriptionModal, setCancelSubscriptionModal] = useState(false);
+  const [updateOrbSubscriptionModal, setUpdateOrbSubscriptionModal] = useState(
+    false
+  );
 
   // Orb subscriptions only count members, not members + invites like Stripe Subscriptions
   const subscriptionSeats =
@@ -70,6 +75,14 @@ export default function SubscriptionInfo() {
             </Callout>
           </>
         </Modal>
+      )}
+      {updateOrbSubscriptionModal && (
+        <StripeProvider>
+          <UpdateOrbSubscriptionModal
+            subscription={subscription || undefined}
+            close={() => setUpdateOrbSubscriptionModal(false)}
+          />
+        </StripeProvider>
       )}
       <div className="col-auto mb-3">
         <strong>Current Plan:</strong> {isCloud() ? "Cloud" : "Self-Hosted"} Pro
@@ -160,6 +173,17 @@ export default function SubscriptionInfo() {
               {subscription?.status !== "canceled"
                 ? "View Plan Details"
                 : "View Previous Invoices"}
+            </Button>
+          </div>
+        ) : null}
+        {subscription?.billingPlatform === "orb" &&
+        subscription?.status === "active" ? (
+          <div className="col-auto">
+            <Button
+              color="primary"
+              onClick={() => setUpdateOrbSubscriptionModal(true)}
+            >
+              Update Invoice Details
             </Button>
           </div>
         ) : null}
