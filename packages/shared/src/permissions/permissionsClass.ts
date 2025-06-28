@@ -694,8 +694,6 @@ export class Permissions {
     projects?: DataSourceInterface["projects"];
     type: DataSourceInterface["type"] | undefined;
   }): boolean => {
-    if (datasource?.type === "growthbook_clickhouse") return false;
-
     return this.checkProjectFilterPermission(datasource, "createDatasources");
   };
 

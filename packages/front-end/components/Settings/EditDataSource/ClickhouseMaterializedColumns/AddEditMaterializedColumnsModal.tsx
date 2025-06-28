@@ -1,9 +1,8 @@
 import { MaterializedColumn } from "back-end/types/datasource";
 import { cloneDeep } from "lodash";
 import { useForm } from "react-hook-form";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { JSONColumnFields } from "back-end/types/fact-table";
-import { factTableColumnTypes } from "back-end/src/routers/fact-table/fact-table.validators";
 import { Flex, Text, Tooltip } from "@radix-ui/themes";
 import { PiArrowClockwise, PiSpinner } from "react-icons/pi";
 import Modal from "@/components/Modal";
@@ -41,8 +40,8 @@ export default function AddMaterializedColumnsModal({
   onCancel,
   refreshColumns,
 }: Props) {
-  const [mounted, setMounted] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
   const { factTables, getDatasourceById } = useDefinitions();
   const form = useForm<MaterializedColumn>({
     defaultValues:
@@ -52,6 +51,7 @@ export default function AddMaterializedColumnsModal({
             columnName: "",
             sourceField: "",
             datatype: "string",
+            type: "",
           },
   });
 
@@ -62,6 +62,7 @@ export default function AddMaterializedColumnsModal({
       columnName: "",
       sourceField: "",
       datatype: "string",
+      type: "",
     });
   });
 
@@ -75,19 +76,12 @@ export default function AddMaterializedColumnsModal({
     if (!localSourceField) return [false, "Must specify a source field"];
     if (existingSourceFields.includes(localSourceField))
       return [false, `The field '${localSourceField}' is already in use`];
-    if (localColumnName === column?.columnName) {
-      return [
-        false,
-        "Cannot modify a column while keeping the same name. Delete the original column and create a replacement",
-      ];
-    }
     return [true, ""];
   }, [
     localColumnName,
     localSourceField,
     existingColumnNames,
     existingSourceFields,
-    column,
   ]);
 
   const [ftId, contextJsonFields]: [string, JSONColumnFields] = useMemo(() => {
@@ -97,31 +91,20 @@ export default function AddMaterializedColumnsModal({
     return [
       clickhouseFactTable?.id || "",
       (clickhouseFactTable?.columns || []).find(
-        (col) => col.column === "context_json"
+        (col) => col.column === "attributes"
       )?.jsonFields || {},
     ];
   }, [factTables, getDatasourceById]);
 
-  useEffect(() => {
-    if (
-      Object.prototype.hasOwnProperty.call(contextJsonFields, localSourceField)
-    ) {
-      form.setValue("datatype", contextJsonFields[localSourceField].datatype);
-    }
-  }, [contextJsonFields, localSourceField, form]);
+  const typeOptions = [{ label: "Other", value: "" }];
 
-  useEffect(() => {
-    if (mounted) {
-      form.setValue("columnName", localSourceField);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [localSourceField]);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const selectableColumnTypes = factTableColumnTypes.filter((t) => t !== "");
+  const datatype = form.watch("datatype");
+  if (["string", "number", "boolean"].includes(datatype)) {
+    typeOptions.push({ label: "Dimension", value: "dimension" });
+  }
+  if (["string", "number"].includes(datatype)) {
+    typeOptions.push({ label: "Identifier", value: "identifier" });
+  }
 
   return (
     <Modal
@@ -130,9 +113,7 @@ export default function AddMaterializedColumnsModal({
       submit={handleSubmit}
       close={onCancel}
       size="lg"
-      header={`${
-        mode.charAt(0).toUpperCase() + mode.slice(1)
-      } Materialized Column`}
+      header={`${mode.charAt(0).toUpperCase() + mode.slice(1)} Key Attribute`}
       cta="Save"
       ctaEnabled={saveEnabled}
       autoFocusSelector="#materialized-column-source-field-input"
@@ -143,36 +124,43 @@ export default function AddMaterializedColumnsModal({
         labelClassName="w-100"
         label={
           <Flex justify="between" align="center">
-            <Text>Source field</Text>
-            <Tooltip
-              content={
-                ftId
-                  ? "Refresh list of fields"
-                  : "No Fact Tables found to load from"
-              }
-            >
-              <Button
-                size="xs"
-                variant="ghost"
-                disabled={refreshing || !ftId}
-                onClick={async () => {
-                  setRefreshing(true);
-                  await refreshColumns(ftId);
-                  setRefreshing(false);
-                }}
+            <Text>Attribute</Text>
+            <div>
+              <span className="text-danger ml-2">{refreshError}</span>
+              <Tooltip
+                content={
+                  ftId
+                    ? "Refresh list of attributes"
+                    : "No Fact Tables found to load from"
+                }
               >
-                {refreshing ? <PiSpinner /> : <PiArrowClockwise />}
-              </Button>
-            </Tooltip>
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  disabled={refreshing || !ftId}
+                  onClick={async () => {
+                    setRefreshing(true);
+                    setRefreshError(null);
+                    try {
+                      await refreshColumns(ftId);
+                    } catch (e) {
+                      setRefreshError(e.message);
+                    }
+                    setRefreshing(false);
+                  }}
+                >
+                  {refreshing ? <PiSpinner /> : <PiArrowClockwise />}
+                </Button>
+              </Tooltip>
+            </div>
           </Flex>
         }
-        placeholder={"Select or enter a key"}
+        placeholder={"Select or enter an attribute"}
         formatCreateLabel={(fieldName) =>
           fieldName.length > 0
-            ? `Use field \`${fieldName}\``
-            : "...or enter a field not listed here"
+            ? `Use attribute \`${fieldName}\``
+            : "...or enter an attribute not listed here"
         }
-        helpText="The field (key) in the event json to materialize as its own column. Must use only alphanumeric characters and ' ', '_', or '-'"
         value={localSourceField}
         createable
         isClearable
@@ -182,6 +170,20 @@ export default function AddMaterializedColumnsModal({
         }))}
         onChange={(value) => {
           form.setValue("sourceField", value);
+          form.setValue("columnName", value);
+
+          if (contextJsonFields && value in contextJsonFields) {
+            let datatype = contextJsonFields[value].datatype;
+
+            if (!["string", "number", "boolean"].includes(datatype)) {
+              datatype = "other";
+            }
+
+            form.setValue("datatype", datatype);
+            form.setValue("type", "");
+          } else {
+            form.setValue("type", "");
+          }
         }}
         pattern="^[a-zA-Z0-9 _-]*$"
         forceUndefinedValueToNull
@@ -189,12 +191,26 @@ export default function AddMaterializedColumnsModal({
       {localSourceField && (
         <>
           <SelectField
-            label="Column type"
+            label="Data type"
             value={form.watch("datatype")}
-            options={selectableColumnTypes.map((opt) => ({
-              label: opt,
-              value: opt,
-            }))}
+            options={[
+              {
+                label: "String",
+                value: "string",
+              },
+              {
+                label: "Number",
+                value: "number",
+              },
+              {
+                label: "Boolean",
+                value: "boolean",
+              },
+              {
+                label: "Other",
+                value: "other",
+              },
+            ]}
             onChange={(value) => {
               form.setValue(
                 "datatype",
@@ -204,9 +220,25 @@ export default function AddMaterializedColumnsModal({
           />
           <Field
             label="Column Name"
-            helpText="This named column will be available in metric queries. Must start with a letter or underscore and use only alphanumeric characters and '_'"
+            helpText="The SQL column the attribute will be stored in. Must start with a letter or underscore and use only alphanumeric characters and '_'"
             {...form.register("columnName")}
-            pattern="^[a-zA-Z_][a-zA-Z0-9_]*"
+            pattern="^[a-zA-Z_][a-zA-Z0-9_]*$"
+          />
+          <SelectField
+            label="Treat As"
+            value={form.watch("type") || ""}
+            options={typeOptions}
+            onChange={(value: "" | "identifier" | "dimension") => {
+              form.setValue("type", value);
+            }}
+            helpText={
+              <>
+                <strong>Identifiers</strong> are your experiment units
+                (device_id, user_id, etc). <strong>Dimensions</strong> can be
+                used to slice and dice experiment results (account_type,
+                country, etc).
+              </>
+            }
           />
         </>
       )}
