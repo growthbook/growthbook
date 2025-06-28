@@ -36,6 +36,7 @@ import BanditSummaryResultsTab from "@/components/Experiment/TabbedPage/BanditSu
 import Button from "@/components/Radix/Button";
 import PremiumCallout from "@/components/Radix/PremiumCallout";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import DashboardsTab from "@/enterprise/components/Dashboards/DashboardsTab";
 import ExperimentHeader from "./ExperimentHeader";
 import SetupTabOverview from "./SetupTabOverview";
 import Implementation from "./Implementation";
@@ -43,7 +44,13 @@ import ResultsTab from "./ResultsTab";
 import StoppedExperimentBanner from "./StoppedExperimentBanner";
 import HealthTab from "./HealthTab";
 
-const experimentTabs = ["overview", "results", "explore", "health"] as const;
+const experimentTabs = [
+  "overview",
+  "results",
+  "explore",
+  "dashboards",
+  "health",
+] as const;
 export type ExperimentTab = typeof experimentTabs[number];
 
 export interface Props {
@@ -465,6 +472,14 @@ export default function TabbedPage({
           metricFilter={metricFilter}
           setMetricFilter={setMetricFilter}
         />
+      </div>
+      <div
+        className={clsx(
+          "pt-3",
+          tab === "dashboards" ? "d-block" : "d-none d-print-block"
+        )}
+      >
+        <DashboardsTab experiment={experiment} />
       </div>
       <div
         className={
