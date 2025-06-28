@@ -10,7 +10,7 @@ const QueriesNextRun: FC<{
       style={{ maxWidth: 130, fontSize: "0.8em" }}
     >
       <div className="font-weight-bold" style={{ lineHeight: 1.2 }}>
-        next schedule
+        next scheduled
       </div>
       <div className="d-flex align-items-center">
         <div style={{ lineHeight: 1 }} title={datetime(scheduledDate ?? "")}>
