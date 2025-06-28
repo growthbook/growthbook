@@ -1,7 +1,9 @@
 import mongoose from "mongoose";
 import { omit } from "lodash";
 import { FeatureCodeRefsInterface } from "back-end/types/code-refs";
-import { OrganizationInterface } from "back-end/types/organization";
+import { ApiCodeRef } from "back-end/types/openapi";
+import { OrganizationInterface, ReqContext } from "back-end/types/organization";
+import { ApiReqContext } from "back-end/types/api";
 
 const featureCodeRefsSchema = new mongoose.Schema({
   organization: String,
@@ -38,6 +40,23 @@ const FeatureCodeRefsModel = mongoose.model<FeatureCodeRefsInterface>(
 function toInterface(doc: FeatureCodeRefsDocument): FeatureCodeRefsInterface {
   const ret = doc.toJSON<FeatureCodeRefsDocument>();
   return omit(ret, ["__v", "_id"]);
+}
+
+function toApiInterface(doc: FeatureCodeRefsDocument): ApiCodeRef {
+  return {
+    branch: doc.branch,
+    dateUpdated: doc.dateUpdated?.toISOString(),
+    feature: doc.feature,
+    organization: doc.organization,
+    platform: doc.platform,
+    refs: doc.refs.map((ref) => ({
+      filePath: ref.filePath,
+      startingLineNumber: ref.startingLineNumber,
+      lines: ref.lines,
+      flagKey: ref.flagKey,
+    })),
+    repo: doc.repo,
+  };
 }
 
 export const upsertFeatureCodeRefs = async ({
@@ -108,4 +127,17 @@ export const getAllCodeRefsForFeature = async ({
     feature,
     organization: organization.id,
   }).then((docs) => docs.map(toInterface));
+};
+
+export const getCodeRefsForFeature = async ({
+  context,
+  feature,
+}: {
+  context: ReqContext | ApiReqContext;
+  feature: string;
+}): Promise<ApiCodeRef[]> => {
+  return await FeatureCodeRefsModel.find({
+    organization: context.org.id,
+    feature,
+  }).then((docs) => docs.map(toApiInterface));
 };

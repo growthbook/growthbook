@@ -329,6 +329,10 @@ export interface paths {
     /** Submit list of code references */
     post: operations["postCodeRefs"];
   };
+  "/code-refs/{id}": {
+    /** Get list of code references for a single feature id */
+    get: operations["getCodeRefs"];
+  };
   "/queries/{id}": {
     /** Get a single query */
     get: operations["getQuery"];
@@ -2415,6 +2419,36 @@ export interface components {
       externalId: string;
       dependencies: (string)[];
       runAtEnd: boolean;
+    };
+    CodeRef: {
+      /** @description The organization name */
+      organization: string;
+      /**
+       * Format: date-time 
+       * @description When the code references were last updated
+       */
+      dateUpdated: string;
+      /** @description Feature identifier */
+      feature: string;
+      /** @description Repository name */
+      repo: string;
+      /** @description Branch name */
+      branch: string;
+      /**
+       * @description Source control platform 
+       * @enum {string}
+       */
+      platform?: "github" | "gitlab" | "bitbucket";
+      refs: ({
+          /** @description Path to the file containing the reference */
+          filePath: string;
+          /** @description Line number where the reference starts */
+          startingLineNumber: number;
+          /** @description The code lines containing the reference */
+          lines: string;
+          /** @description The feature flag key referenced */
+          flagKey: string;
+        })[];
     };
   };
   responses: {
@@ -9516,6 +9550,51 @@ export interface operations {
       };
     };
   };
+  getCodeRefs: {
+    /** Get list of code references for a single feature id */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": ({
+              /** @description The organization name */
+              organization: string;
+              /**
+               * Format: date-time 
+               * @description When the code references were last updated
+               */
+              dateUpdated: string;
+              /** @description Feature identifier */
+              feature: string;
+              /** @description Repository name */
+              repo: string;
+              /** @description Branch name */
+              branch: string;
+              /**
+               * @description Source control platform 
+               * @enum {string}
+               */
+              platform?: "github" | "gitlab" | "bitbucket";
+              refs: ({
+                  /** @description Path to the file containing the reference */
+                  filePath: string;
+                  /** @description Line number where the reference starts */
+                  startingLineNumber: number;
+                  /** @description The code lines containing the reference */
+                  lines: string;
+                  /** @description The feature flag key referenced */
+                  flagKey: string;
+                })[];
+            })[];
+        };
+      };
+    };
+  };
   getQuery: {
     /** Get a single query */
     parameters: {
@@ -9588,6 +9667,7 @@ export type ApiFactMetric = z.infer<typeof openApiValidators.apiFactMetricValida
 export type ApiMember = z.infer<typeof openApiValidators.apiMemberValidator>;
 export type ApiArchetype = z.infer<typeof openApiValidators.apiArchetypeValidator>;
 export type ApiQuery = z.infer<typeof openApiValidators.apiQueryValidator>;
+export type ApiCodeRef = z.infer<typeof openApiValidators.apiCodeRefValidator>;
 
 // Operations
 export type ListFeaturesResponse = operations["listFeatures"]["responses"]["200"]["content"]["application/json"];
@@ -9673,4 +9753,5 @@ export type UpdateFactMetricResponse = operations["updateFactMetric"]["responses
 export type DeleteFactMetricResponse = operations["deleteFactMetric"]["responses"]["200"]["content"]["application/json"];
 export type PostBulkImportFactsResponse = operations["postBulkImportFacts"]["responses"]["200"]["content"]["application/json"];
 export type PostCodeRefsResponse = operations["postCodeRefs"]["responses"]["200"]["content"]["application/json"];
+export type GetCodeRefsResponse = operations["getCodeRefs"]["responses"]["200"]["content"]["application/json"];
 export type GetQueryResponse = operations["getQuery"]["responses"]["200"]["content"]["application/json"];

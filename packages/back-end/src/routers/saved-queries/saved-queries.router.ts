@@ -8,7 +8,11 @@ const savedQueriesController = wrapController(rawSavedQueriesController);
 
 router.get("/", savedQueriesController.getSavedQueries);
 
+router.get("/:id", savedQueriesController.getSavedQuery);
+
 router.post("/", savedQueriesController.postSavedQuery);
+
+router.post("/:id/refresh", savedQueriesController.refreshSavedQuery);
 
 router.put("/:id", savedQueriesController.putSavedQuery);
 
