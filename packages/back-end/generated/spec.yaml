@@ -5064,6 +5064,34 @@ paths:
                     type: array
                     items:
                       type: string
+    get:
+      summary: Get list of all code references for the current organization
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+      tags:
+        - code-references
+      operationId: listCodeRefs
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/code-refs/ \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - codeRefs
+                    properties:
+                      codeRefs:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/CodeRef'
+                  - $ref: '#/components/schemas/PaginationFields'
   '/code-refs/{id}':
     get:
       parameters:
@@ -5082,9 +5110,14 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/CodeRef'
+                type: object
+                required:
+                  - codeRefs
+                properties:
+                  codeRefs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CodeRef'
   '/queries/{id}':
     get:
       parameters:
