@@ -30,7 +30,6 @@ import stringify from "json-stringify-pretty-compact";
 import useApi from "@/hooks/useApi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { growthbook } from "@/services/utils";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   Tabs,
   TabsContent,
@@ -38,6 +37,7 @@ import {
   TabsTrigger,
 } from "@/components/Radix/Tabs";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
+import useManagedWarehouse from "@/hooks/useManagedWarehouse";
 
 function generateTimeSeries(lookback: FeatureUsageLookback, keys: string[]) {
   const now = new Date();
@@ -167,17 +167,10 @@ export function FeatureUsageProvider({
     "15minute"
   );
 
-  const { datasources } = useDefinitions();
-
-  const hasGrowthbookClickhouseDatasource = datasources.find(
-    (ds) => ds.type === "growthbook_clickhouse"
-  )
-    ? true
-    : false;
+  const { hasManagedWarehouse } = useManagedWarehouse();
 
   const showFeatureUsage =
-    useDummyData ||
-    (growthbook.isOn("feature-usage") && hasGrowthbookClickhouseDatasource);
+    useDummyData || (growthbook.isOn("feature-usage") && hasManagedWarehouse);
 
   const { data, mutate: mutateFeatureUsage } = useApi<{
     usage: FeatureUsageData;
