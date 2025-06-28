@@ -1,7 +1,7 @@
 import * as bq from "@google-cloud/bigquery";
 import { bigQueryCreateTableOptions } from "shared/enterprise";
-import { getValidDate } from "shared/dates";
-import { format, FormatDialect } from "back-end/src/util/sql";
+import { FormatDialect } from "shared/src/types";
+import { format } from "shared/sql";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { BigQueryConnectionParams } from "back-end/types/integrations/bigquery";
 import { IS_CLOUD } from "back-end/src/util/secrets";
@@ -92,6 +92,22 @@ export default class BigQuery extends SqlIntegration {
           ? metadata.statistics.query.totalPartitionsProcessed > 0
           : undefined,
     };
+
+    // BigQuery dates are stored nested in an object, so need to extract the value
+    for (const row of rows) {
+      for (const key in row) {
+        const value = row[key];
+        if (value instanceof bq.BigQueryDatetime) {
+          row[key] = value.value + "Z"; // Convert to ISO date
+        } else if (
+          value instanceof bq.BigQueryTimestamp ||
+          value instanceof bq.BigQueryDate
+        ) {
+          row[key] = value.value; // Already in ISO format
+        }
+      }
+    }
+
     return { rows, statistics };
   }
 
@@ -110,27 +126,6 @@ export default class BigQuery extends SqlIntegration {
     return `DATETIME_${
       sign === "+" ? "ADD" : "SUB"
     }(${col}, INTERVAL ${amount} ${unit.toUpperCase()})`;
-  }
-
-  // BigQueryDateTime: ISO Date string in UTC (Z at end)
-  // BigQueryDatetime: ISO Date string with no timezone
-  // BigQueryDate: YYYY-MM-DD
-  convertDate(
-    fromDB:
-      | bq.BigQueryDatetime
-      | bq.BigQueryTimestamp
-      | bq.BigQueryDate
-      | undefined
-  ) {
-    if (!fromDB?.value) return getValidDate(null);
-
-    // BigQueryTimestamp already has `Z` at the end, but the others don't
-    let value = fromDB.value;
-    if (!value.endsWith("Z")) {
-      value += "Z";
-    }
-
-    return getValidDate(value);
   }
   dateTrunc(col: string) {
     return `date_trunc(${col}, DAY)`;

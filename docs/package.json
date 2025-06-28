@@ -15,7 +15,7 @@
     "write-translations": "docusaurus write-translations",
     "write-heading-ids": "docusaurus write-heading-ids",
     "typecheck": "tsc",
-    "gen-sdk-resources": "ts-node --skipProject ./scripts/gen-sdk-resources.ts"
+    "gen-sdk-resources": "npx -y tsx ./scripts/gen-sdk-resources.ts"
   },
   "dependencies": {
     "@docusaurus/core": "3.7.0",
@@ -44,6 +44,7 @@
     "@docusaurus/types": "^3.4.0",
     "@types/node": "^22.15.19",
     "@types/react": "^19.1.4",
+    "docusaurus-plugin-llms": "^0.1.4",
     "docusaurus-plugin-module-alias": "^0.0.2",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",

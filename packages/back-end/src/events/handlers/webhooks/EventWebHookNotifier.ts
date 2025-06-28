@@ -166,7 +166,11 @@ export class EventWebHookNotifier implements Notifier {
 
     const context = getContextForAgendaJobByOrgObject(organization);
 
-    const applySecrets = await context.models.webhookSecrets.getBackEndSecretsReplacer();
+    const origin = new URL(eventWebHook.url).origin;
+
+    const applySecrets = await context.models.webhookSecrets.getBackEndSecretsReplacer(
+      origin
+    );
 
     const webHookResult = await EventWebHookNotifier.sendDataToWebHook({
       payload,

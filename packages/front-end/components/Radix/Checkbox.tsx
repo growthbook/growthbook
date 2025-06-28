@@ -29,6 +29,7 @@ export type Props = {
   description?: string;
   weight?: "bold" | "regular";
   setValue: (value: boolean) => void;
+  required?: boolean;
 } & MarginProps;
 
 export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
@@ -44,6 +45,7 @@ export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
     error,
     errorLevel = "error",
     weight = "bold",
+    required,
     ...containerProps
   }: Props,
   ref
@@ -82,6 +84,7 @@ export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
             color={checkboxColor}
             size={getRadixSize(size)}
             id={id}
+            required={required}
           />
           <Flex direction="column" gap="1">
             <Text weight={weight}>{label}</Text>

@@ -965,6 +965,9 @@ export default function ResultsTable({
                               experimentStatus={status}
                               metric={row.metric}
                               differenceType={differenceType}
+                              variationNames={orderedVariations.map(
+                                (v) => v.name
+                              )}
                               showVariations={showVariations}
                               statsEngine={statsEngine}
                               pValueAdjustmentEnabled={

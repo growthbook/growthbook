@@ -294,6 +294,12 @@ const sidebars = {
           id: "experimentation-analysis/data-pipeline",
           label: "Data Pipeline",
         },
+        {
+          type: "doc",
+          id: "experimentation-analysis/managed-warehouse",
+          label: "Managed Warehouse",
+          className: "pill-new",
+        },
       ],
     },
     {
@@ -450,6 +456,11 @@ const sidebars = {
       ],
     },
     {
+      type: "doc",
+      id: "insights",
+      label: "Insights",
+    },
+    {
       type: "category",
       label: "SDKs",
       collapsed: false,
@@ -464,6 +475,7 @@ const sidebars = {
           collapsed: true,
           items: [
             { type: "doc", id: "lib/node", label: "Node.js" },
+            { type: "doc", id: "lib/nextjs", label: "Next.js" },
             { type: "doc", id: "lib/php", label: "PHP" },
             { type: "doc", id: "lib/ruby", label: "Ruby" },
             { type: "doc", id: "lib/python", label: "Python" },
@@ -552,11 +564,6 @@ const sidebars = {
     },
     { type: "doc", id: "api-overview", label: "API" },
     {
-      type: "doc",
-      id: "dashboard",
-      label: "Management Dashboard",
-    },
-    {
       type: "category",
       collapsed: true,
       label: "Webhooks",
@@ -597,6 +604,14 @@ const sidebars = {
           label: "MCP Server",
           className: "pill-new",
         },
+        /*
+        {
+          type: "doc",
+          id: "integrations/vercel",
+          label: "Vercel",
+          className: "pill-new",
+        },
+        */
         {
           type: "doc",
           id: "integrations/framer",

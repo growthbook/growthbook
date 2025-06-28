@@ -114,7 +114,7 @@ export class SafeRolloutSnapshotModel extends BaseClass {
         }
       );
 
-      await notifySafeRolloutChange({
+      const notificationTriggered = await notifySafeRolloutChange({
         context: this.context,
         updatedSafeRollout,
         safeRolloutSnapshot: updatedDoc,
@@ -125,6 +125,7 @@ export class SafeRolloutSnapshotModel extends BaseClass {
           context: this.context,
           safeRollout: updatedSafeRollout,
           safeRolloutSnapshot: updatedDoc,
+          notificationTriggered,
         });
       } catch (e) {
         this.context.logger.error(

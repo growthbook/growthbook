@@ -1,8 +1,8 @@
 import mysql, { RowDataPacket } from "mysql2/promise";
 import { ConnectionOptions } from "mysql2";
+import { FormatDialect } from "shared/src/types";
 import { MysqlConnectionParams } from "back-end/types/integrations/mysql";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
-import { FormatDialect } from "back-end/src/util/sql";
 import { QueryResponse } from "back-end/src/types/Integration";
 import SqlIntegration from "./SqlIntegration";
 

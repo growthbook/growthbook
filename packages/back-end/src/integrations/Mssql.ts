@@ -1,6 +1,6 @@
+import { FormatDialect } from "shared/src/types";
 import { MssqlConnectionParams } from "back-end/types/integrations/mssql";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
-import { FormatDialect } from "back-end/src/util/sql";
 import { findOrCreateConnection } from "back-end/src/util/mssqlPoolManager";
 import { QueryResponse } from "back-end/src/types/Integration";
 import SqlIntegration from "./SqlIntegration";
@@ -38,6 +38,10 @@ export default class Mssql extends SqlIntegration {
   // (and OFFSET/FETCH only work when there is an ORDER BY clause)
   selectStarLimit(table: string, limit: number): string {
     return `SELECT TOP ${limit} * FROM ${table}`;
+  }
+
+  ensureMaxLimit(sql: string, limit: number): string {
+    return `WITH __table AS (\n${sql}\n) SELECT TOP ${limit} * FROM __table`;
   }
 
   addTime(
