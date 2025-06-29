@@ -1,0 +1,37 @@
+parameters:
+  - $ref: "../parameters.yaml#/id"
+post:
+  summary: Revert a feature to a specific revision
+  tags:
+    - features
+  operationId: revertFeature
+  x-codeSamples:
+    - lang: 'cURL'
+      source: |
+        curl -X POST https://api.growthbook.io/api/v1/features/my-feature/revert \
+          -d '{ "revision": 3, "comment": "Bug found" }' \
+          -u secret_abc123DEF456:
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - revision
+          properties:
+            revision:
+              type: number
+            comment:
+              type: string
+  responses:
+    "200":
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - feature
+            properties:
+              feature:
+                $ref: "../schemas/Feature.yaml"
