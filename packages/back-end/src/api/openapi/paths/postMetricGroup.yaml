@@ -1,0 +1,23 @@
+parameters: []
+tags:
+  - metric-groups
+summary: Create a metric group
+operationId: postMetricGroup
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "../payload-schemas/PostMetricGroupPayload.yaml"
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - metricGroup
+          properties:
+            metricGroup:
+              $ref: "../schemas/MetricGroup.yaml"
+
