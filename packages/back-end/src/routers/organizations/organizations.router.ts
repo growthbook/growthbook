@@ -46,6 +46,7 @@ router.put("/member", organizationsController.putMember);
 router.post("/member/:id/approve", organizationsController.postMemberApproval);
 router.delete("/member/:id", organizationsController.deleteMember);
 router.put("/member/:id/role", organizationsController.putMemberRole);
+router.put("/member/:id/:disable", organizationsController.putMemberAccess);
 router.put(
   "/member/:id/admin-password-reset",
   organizationsController.putAdminResetUserPassword
