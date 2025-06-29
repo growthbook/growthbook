@@ -385,7 +385,6 @@ export default function EditSqlModal({
                       fullHeight
                       setCursorData={setCursorData}
                       onCtrlEnter={handleTestQuery}
-                      resizeDependency={!!testQueryResults}
                     />
                   </Box>
                 </AreaWithHeader>
@@ -420,14 +419,6 @@ export default function EditSqlModal({
                     </Text>
                   }
                 >
-                  {/* <div> */}
-                  {/* <div
-                    style={{
-                      height: "100%",
-                      display: "flex",
-                      flexDirection: "column",
-                    }}
-                  > */}
                   <Flex direction="column" height="100%" p="4">
                     <SchemaBrowser
                       updateSqlInput={(sql: string) => {

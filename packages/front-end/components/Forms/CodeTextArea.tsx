@@ -1,5 +1,5 @@
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Ace } from "ace-builds";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { CursorData } from "@/components/Segments/SegmentForm";
@@ -39,7 +39,6 @@ export type Props = Omit<
   maxLines?: number;
   fullHeight?: boolean;
   onCtrlEnter?: () => void;
-  resizeDependency?: boolean;
   wrapperClassName?: string;
 };
 
@@ -56,7 +55,6 @@ export default function CodeTextArea({
   setCursorData,
   fullHeight,
   onCtrlEnter,
-  resizeDependency,
   wrapperClassName,
   ...otherProps
 }: Props) {
@@ -66,18 +64,11 @@ export default function CodeTextArea({
   const { theme } = useAppearanceUITheme();
 
   const [editor, setEditor] = useState<null | Ace.Editor>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  // HACK: AceEditor doesn't automatically resize when the parent div resizes
-  // Also because we dynamically load the AceEditor component, we can't use
-  // useRef to get a reference to the editor object, which would allow us to
-  // call the resize() method on the editor object. So instead we change the
-  // height ever so slightly whenever the resizeDependency variable changes.
-  const heightProps = fullHeight
-    ? resizeDependency
-      ? { height: "99.999%" }
-      : { height: "100%" }
-    : { minLines, maxLines };
+  const heightProps = fullHeight ? { height: "100%" } : { minLines, maxLines };
 
+  // Handle Ctrl+Enter binding
   useEffect(() => {
     if (!editor) return;
     if (!onCtrlEnter) return;
@@ -94,6 +85,21 @@ export default function CodeTextArea({
     );
   }, [editor, onCtrlEnter]);
 
+  // Auto-resize editor when container size changes
+  useEffect(() => {
+    if (!editor || !containerRef.current || !fullHeight) return;
+
+    const resizeObserver = new ResizeObserver(() => {
+      editor.resize();
+    });
+
+    resizeObserver.observe(containerRef.current);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [editor, fullHeight]);
+
   return (
     <Field
       {...fieldProps}
@@ -102,6 +108,7 @@ export default function CodeTextArea({
         return (
           <>
             <div
+              ref={containerRef}
               className={`border rounded ${wrapperClassName} ${
                 fullHeight ? "h-100" : ""
               }`}

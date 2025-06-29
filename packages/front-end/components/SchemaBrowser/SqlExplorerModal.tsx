@@ -573,7 +573,6 @@ export default function SqlExplorerModal({
                         fullHeight
                         setCursorData={setCursorData}
                         onCtrlEnter={handleQuery}
-                        resizeDependency={!!form.watch("results")}
                         disabled={readOnlyMode}
                       />
                     </AreaWithHeader>
