@@ -531,12 +531,12 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "manageCustomFields",
   "manageTemplates",
   "manageExecReports",
+  "createDimensions",
 ] as const;
 
 export const GLOBAL_PERMISSIONS = [
   "readData",
   "createPresentations",
-  "createDimensions",
   "createMetricGroups",
   "organizationSettings",
   "superDeleteReport",

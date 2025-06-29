@@ -2602,7 +2602,7 @@ describe("PermissionsUtilClass.canCreateDimension check", () => {
       projects: {},
     });
 
-    expect(permissions.canCreateDimension()).toEqual(false);
+    expect(permissions.canCreateDimension({ projects: [] })).toEqual(false);
   });
 
   it("User with global collaborator role can create dimension", async () => {
@@ -2615,7 +2615,7 @@ describe("PermissionsUtilClass.canCreateDimension check", () => {
       projects: {},
     });
 
-    expect(permissions.canCreateDimension()).toEqual(false);
+    expect(permissions.canCreateDimension({ projects: [] })).toEqual(false);
   });
 
   it("User with global analyst role can create dimension", async () => {
@@ -2628,7 +2628,7 @@ describe("PermissionsUtilClass.canCreateDimension check", () => {
       projects: {},
     });
 
-    expect(permissions.canCreateDimension()).toEqual(true);
+    expect(permissions.canCreateDimension({ projects: [] })).toEqual(true);
   });
 });
 
@@ -2670,7 +2670,9 @@ describe("PermissionsUtilClass.canUpdateDimension check", () => {
       projects: {},
     });
 
-    expect(permissions.canUpdateDimension()).toEqual(false);
+    expect(
+      permissions.canUpdateDimension({ projects: [] }, { projects: [] })
+    ).toEqual(false);
   });
 
   it("User with global collaborator role can update dimension", async () => {
@@ -2683,7 +2685,9 @@ describe("PermissionsUtilClass.canUpdateDimension check", () => {
       projects: {},
     });
 
-    expect(permissions.canUpdateDimension()).toEqual(false);
+    expect(
+      permissions.canUpdateDimension({ projects: [] }, { projects: [] })
+    ).toEqual(false);
   });
 
   it("User with global analyst role can update dimension", async () => {
@@ -2696,7 +2700,9 @@ describe("PermissionsUtilClass.canUpdateDimension check", () => {
       projects: {},
     });
 
-    expect(permissions.canUpdateDimension()).toEqual(true);
+    expect(
+      permissions.canUpdateDimension({ projects: [] }, { projects: [] })
+    ).toEqual(true);
   });
 });
 
@@ -2738,7 +2744,7 @@ describe("PermissionsUtilClass.canDeleteDimension check", () => {
       projects: {},
     });
 
-    expect(permissions.canDeleteDimension()).toEqual(false);
+    expect(permissions.canDeleteDimension({ projects: [] })).toEqual(false);
   });
 
   it("User with global collaborator role can delete dimension", async () => {
@@ -2751,7 +2757,7 @@ describe("PermissionsUtilClass.canDeleteDimension check", () => {
       projects: {},
     });
 
-    expect(permissions.canDeleteDimension()).toEqual(false);
+    expect(permissions.canDeleteDimension({ projects: [] })).toEqual(false);
   });
 
   it("User with global analyst role can delete dimension", async () => {
@@ -2764,7 +2770,34 @@ describe("PermissionsUtilClass.canDeleteDimension check", () => {
       projects: {},
     });
 
-    expect(permissions.canDeleteDimension()).toEqual(true);
+    expect(permissions.canDeleteDimension({ projects: [] })).toEqual(true);
+  });
+
+  it("User with global readonly role, but project level analyst role can not delete dimension in All Projects, but can delete a dimension in the project where they have analyst permissions", async () => {
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        ABC123: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        DEF456: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+      },
+    });
+
+    expect(permissions.canDeleteDimension({ projects: [] })).toEqual(false);
+    expect(permissions.canDeleteDimension({ projects: ["ABC123"] })).toEqual(
+      true
+    );
   });
 });
 

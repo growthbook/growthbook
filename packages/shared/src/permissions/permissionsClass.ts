@@ -26,6 +26,7 @@ import { UpdateProps } from "back-end/types/models";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import { ArchetypeInterface } from "back-end/types/archetype";
 import { SegmentInterface } from "back-end/types/segment";
+import { DimensionInterface } from "back-end/types/dimension";
 import { SavedGroupInterface } from "../types";
 import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
 class PermissionError extends Error {
@@ -59,16 +60,27 @@ export class Permissions {
     return this.checkGlobalPermission("createPresentations");
   };
 
-  public canCreateDimension = (): boolean => {
-    return this.checkGlobalPermission("createDimensions");
+  public canCreateDimension = (
+    dimension: Pick<DimensionInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(dimension, "createDimensions");
   };
 
-  public canUpdateDimension = (): boolean => {
-    return this.checkGlobalPermission("createDimensions");
+  public canUpdateDimension = (
+    existing: Pick<DimensionInterface, "projects">,
+    updates: Pick<DimensionInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      existing,
+      updates,
+      "createDimensions"
+    );
   };
 
-  public canDeleteDimension = (): boolean => {
-    return this.checkGlobalPermission("createDimensions");
+  public canDeleteDimension = (
+    dimension: Pick<DimensionInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(dimension, "createDimensions");
   };
 
   public canViewEventWebhook = (): boolean => {
