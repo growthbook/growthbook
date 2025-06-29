@@ -1,29 +1,44 @@
 import { OpenAI } from "openai";
-import { encoding_for_model, get_encoding } from "@dqbd/tiktoken";
+import {
+  encoding_for_model,
+  get_encoding,
+  TiktokenModel,
+} from "@dqbd/tiktoken";
+import { AIPromptType } from "shared/ai";
 import { logger } from "back-end/src/util/logger";
-import { OrganizationInterface } from "back-end/types/organization";
+import { OrganizationInterface, ReqContext } from "back-end/types/organization";
 import {
   getTokensUsedByOrganization,
   updateTokenUsage,
 } from "back-end/src/models/AITokenUsageModel";
-
-const MODEL = "gpt-4o-mini";
+import { ApiReqContext } from "back-end/types/api";
+import { getAISettingsForOrg } from "back-end/src/services/organizations";
+import { logCloudAIUsage } from "back-end/src/services/clickhouse";
 
 /**
  * The MODEL_TOKEN_LIMIT is the maximum number of tokens that can be sent to
  * the OpenAI API in a single request. This limit is imposed by OpenAI.
  *
  */
-const MODEL_TOKEN_LIMIT = 4096;
+const MODEL_TOKEN_LIMIT = 128000;
 // Require a minimum of 30 tokens for responses.
 const MESSAGE_TOKEN_LIMIT = MODEL_TOKEN_LIMIT - 30;
 
 let _openai: OpenAI | null = null;
-export const getOpenAI = () => {
+let _openAIModel: TiktokenModel = "gpt-4o-mini";
+export const getOpenAI = (context: ReqContext | ApiReqContext) => {
   if (_openai == null) {
-    _openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY || "",
-    });
+    const { aiEnabled, openAIAPIKey, openAIDefaultModel } = getAISettingsForOrg(
+      context,
+      true
+    );
+
+    _openAIModel = openAIDefaultModel;
+    if (openAIAPIKey && aiEnabled) {
+      _openai = new OpenAI({
+        apiKey: openAIAPIKey || "",
+      });
+    }
   }
   return _openai;
 };
@@ -42,10 +57,10 @@ type ChatCompletionRequestMessage = {
 const numTokensFromMessages = (messages: ChatCompletionRequestMessage[]) => {
   let encoding;
   try {
-    encoding = encoding_for_model(MODEL);
+    encoding = encoding_for_model(_openAIModel);
   } catch (e) {
     logger.warn(
-      `services/openai - Could not find encoding for model "${MODEL}"`
+      `services/openai - Could not find encoding for model "${_openAIModel}"`
     );
     encoding = get_encoding("cl100k_base");
   }
@@ -64,52 +79,56 @@ const numTokensFromMessages = (messages: ChatCompletionRequestMessage[]) => {
   return numTokens;
 };
 
-export const hasExceededUsageQuota = async (
+export const secondsUntilAICanBeUsedAgain = async (
   organization: OrganizationInterface
 ) => {
-  const { numTokensUsed, dailyLimit } = await getTokensUsedByOrganization(
-    organization
-  );
-  return numTokensUsed > dailyLimit;
+  const {
+    numTokensUsed,
+    dailyLimit,
+    nextResetAt,
+  } = await getTokensUsedByOrganization(organization);
+  return numTokensUsed > dailyLimit
+    ? (nextResetAt - new Date().getTime()) / 1000
+    : 0;
 };
 
 export const simpleCompletion = async ({
-  behavior,
+  context,
+  instructions,
   prompt,
   maxTokens,
-  organization,
   temperature,
-  priorKnowledge,
+  type,
+  isDefaultPrompt,
 }: {
-  behavior: string;
+  context: ReqContext | ApiReqContext;
+  instructions?: string;
   prompt: string;
-  priorKnowledge?: string[];
   maxTokens?: number;
   temperature?: number;
-  organization: OrganizationInterface;
+  type: AIPromptType;
+  isDefaultPrompt: boolean;
 }) => {
-  const openai = getOpenAI();
+  const openai = getOpenAI(context);
 
+  if (openai == null) {
+    throw new Error("OpenAI not enabled or key not set");
+  }
   // Content moderation check
   const moderationResponse = await openai.moderations.create({ input: prompt });
   if (moderationResponse.results.some((r) => r.flagged)) {
     throw new Error("Prompt was flagged by OpenAI moderation");
   }
 
-  const messages: ChatCompletionRequestMessage[] = [
-    {
-      role: "user",
-      content: behavior,
-    },
-    {
-      role: "user",
-      content: prompt,
-    },
-    ...(priorKnowledge || []).map<ChatCompletionRequestMessage>((message) => ({
-      role: "assistant",
-      content: message,
-    })),
-  ];
+  const messages: ChatCompletionRequestMessage[] = [];
+
+  if (instructions) {
+    messages.push({
+      role: "system",
+      content: instructions,
+    });
+  }
+  messages.push({ role: "user", content: prompt });
 
   const numTokens = numTokensFromMessages(messages);
   if (maxTokens != null && numTokens > maxTokens) {
@@ -124,13 +143,65 @@ export const simpleCompletion = async ({
   }
 
   const response = await openai.chat.completions.create({
-    model: MODEL,
+    model: _openAIModel,
     messages,
     ...(temperature != null ? { temperature } : {}),
   });
 
   const numTokensUsed = response.usage?.total_tokens ?? numTokens;
-  await updateTokenUsage({ numTokensUsed, organization });
+  try {
+    // Fire and forget
+    logCloudAIUsage({
+      organization: context.org.id,
+      type,
+      model: _openAIModel,
+      numPromptTokensUsed: response.usage?.prompt_tokens ?? 0,
+      numCompletionTokensUsed: response.usage?.completion_tokens ?? 0,
+      temperature,
+      usedDefaultPrompt: isDefaultPrompt,
+    });
+  } catch (e) {
+    logger.error(e, "Failed to log AI usage to Clickhouse");
+  }
+
+  await updateTokenUsage({ numTokensUsed, organization: context.org });
 
   return response.choices[0].message?.content || "";
 };
+
+export const generateEmbeddings = async ({
+  context,
+  input,
+}: {
+  context: ReqContext | ApiReqContext;
+  input: string[];
+}) => {
+  const openai = getOpenAI(context);
+
+  if (openai == null) {
+    throw new Error("OpenAI not enabled or key not set");
+  }
+
+  if (!input) {
+    throw new Error("No input provided for embeddings generation.");
+  }
+
+  try {
+    return await openai.embeddings.create({
+      model: "text-embedding-3-small",
+      input,
+    });
+  } catch (error) {
+    throw new Error("Failed to generate embeddings: " + error);
+  }
+};
+
+export function cosineSimilarity(vec1: number[], vec2: number[]): number {
+  if (vec1.length !== vec2.length) {
+    throw new Error("Vectors must be of the same length");
+  }
+  const dot = vec1.reduce((sum, val, i) => sum + val * vec2[i], 0);
+  const normA = Math.sqrt(vec1.reduce((sum, val) => sum + val * val, 0));
+  const normB = Math.sqrt(vec2.reduce((sum, val) => sum + val * val, 0));
+  return dot / (normA * normB);
+}

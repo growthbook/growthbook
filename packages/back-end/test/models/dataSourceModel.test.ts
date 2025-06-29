@@ -127,7 +127,7 @@ describe("dataSourceModel", () => {
         datasource,
         updates
       );
-      console.log("new updates", new_updates);
+
       expect(mockedTestQueryValidity).toHaveBeenCalled();
       expect(new_updates).toEqual({
         queries: {
