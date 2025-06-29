@@ -572,6 +572,12 @@ export const postBulkImportFactsValidator = {
   paramsSchema: z.never(),
 };
 
+export const listCodeRefsValidator = {
+  bodySchema: z.never(),
+  querySchema: z.object({ "limit": z.coerce.number().int().default(10), "offset": z.coerce.number().int().default(0) }).strict(),
+  paramsSchema: z.never(),
+};
+
 export const postCodeRefsValidator = {
   bodySchema: z.object({ "branch": z.string(), "repoName": z.string(), "refs": z.array(z.object({ "filePath": z.string(), "startingLineNumber": z.number().int(), "lines": z.string(), "flagKey": z.string(), "contentHash": z.string() })) }).strict(),
   querySchema: z.never(),

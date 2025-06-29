@@ -29,6 +29,10 @@ featureCodeRefsSchema.index(
   { organization: 1, repo: 1, branch: 1, feature: 1 },
   { unique: true }
 );
+// Helper for getting a unique string for sorting since the model has no id field
+export function uniqueId(codeRef: FeatureCodeRefsInterface) {
+  return `${codeRef.organization}/${codeRef.repo}/${codeRef.branch}/${codeRef.feature}`;
+}
 
 type FeatureCodeRefsDocument = mongoose.Document & FeatureCodeRefsInterface;
 
@@ -42,7 +46,7 @@ function toInterface(doc: FeatureCodeRefsDocument): FeatureCodeRefsInterface {
   return omit(ret, ["__v", "_id"]);
 }
 
-function toApiInterface(doc: FeatureCodeRefsDocument): ApiCodeRef {
+export function toApiInterface(doc: FeatureCodeRefsDocument): ApiCodeRef {
   return {
     branch: doc.branch,
     dateUpdated: doc.dateUpdated?.toISOString(),
@@ -129,15 +133,12 @@ export const getAllCodeRefsForFeature = async ({
   }).then((docs) => docs.map(toInterface));
 };
 
-export const getCodeRefsForFeature = async ({
+export const getAllCodeRefsForOrg = async ({
   context,
-  feature,
 }: {
   context: ReqContext | ApiReqContext;
-  feature: string;
-}): Promise<ApiCodeRef[]> => {
+}): Promise<FeatureCodeRefsInterface[]> => {
   return await FeatureCodeRefsModel.find({
     organization: context.org.id,
-    feature,
-  }).then((docs) => docs.map(toApiInterface));
+  }).then((docs) => docs.map(toInterface));
 };
