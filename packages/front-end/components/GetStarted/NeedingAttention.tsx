@@ -300,7 +300,7 @@ const NeedingAttentionPage = (): React.ReactElement | null => {
         <Text size="4" weight="medium" as="div">
           Recent
         </Text>
-        <Flex direction="row" gap="3" mt="3">
+        <Flex direction="row" gap="3" mt="3" wrap="wrap">
           {recentFeatures.map((feature) => (
             <RadioCards
               key={feature.value}
