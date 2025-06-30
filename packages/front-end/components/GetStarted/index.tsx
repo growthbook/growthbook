@@ -189,7 +189,7 @@ const GetStartedAndHomePage = (): React.ReactElement => {
                     open("fact-tables");
                   }}
                 >
-                  Fact Metric
+                  Fact Tables
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => {
