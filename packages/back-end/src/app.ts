@@ -461,11 +461,6 @@ app.post(
   datasourcesController.cancelDimensionSlices
 );
 
-app.get(
-  "/dimension-slices/datasource/:datasourceId/:exposureQueryId",
-  datasourcesController.getLatestDimensionSlicesForDatasource
-);
-
 app.use("/tag", tagRouter);
 
 app.use("/saved-groups", savedGroupRouter);

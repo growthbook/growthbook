@@ -7,6 +7,7 @@ import cloneDeep from "lodash/cloneDeep";
 import { FaChevronRight, FaPlus } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { Box, Card, Flex, Heading } from "@radix-ui/themes";
+import { DimensionSlicesInterface } from "back-end/types/dimension";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -17,6 +18,7 @@ import { UpdateDimensionMetadataModal } from "@/components/Settings/EditDataSour
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Badge from "@/components/Radix/Badge";
 import Callout from "@/components/Radix/Callout";
+import { CustomDimensionMetadata } from "@/components/Settings/EditDataSource/DimensionMetadata/DimensionSlicesRunner";
 
 type ExperimentAssignmentQueriesProps = DataSourceQueryEditingModalBaseProps;
 type UIMode = "view" | "edit" | "add" | "dimension";
@@ -27,6 +29,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
   canEdit = true,
 }) => {
   const router = useRouter();
+
   let intitialOpenIndexes: boolean[] = [];
   if (router.query.openAll === "1") {
     intitialOpenIndexes = Array.from(
@@ -242,7 +245,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
                         className="dropdown-item py-2"
                         onClick={handleActionClicked(idx, "dimension")}
                       >
-                        Configure Dimensions
+                        Edit Dimensions
                       </button>
                     ) : null}
 
@@ -305,13 +308,68 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
       {uiMode === "dimension" ? (
         <UpdateDimensionMetadataModal
           exposureQuery={experimentExposureQueries[editingIndex]}
-          dataSource={dataSource}
+          datasourceId={dataSource.id}
           close={() => setUiMode("view")}
-          onSave={handleSave(editingIndex)}
+          onSave={handleSaveDimensionMetadata(editingIndex, dataSource, onSave)}
         />
       ) : null}
 
       {/* endregion Add/Edit modal */}
     </Box>
   );
+};
+
+const handleSaveDimensionMetadata = (
+  editingIndex: number,
+  dataSource: DataSourceInterfaceWithParams,
+  onSave: (dataSource: DataSourceInterfaceWithParams) => void
+) => async (
+  customDimensionMetadata: CustomDimensionMetadata[],
+  dimensionSlices?: DimensionSlicesInterface
+) => {
+  const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
+  const exposureQuery = copy.settings?.queries?.exposure?.[editingIndex];
+
+  if (exposureQuery) {
+    exposureQuery.dimensionMetadata = exposureQuery.dimensions.map((d) => {
+      const existingMetadata = exposureQuery.dimensionMetadata?.find(
+        (m) => m.dimension === d
+      ) ?? {
+        dimension: d,
+        specifiedSlices: [],
+      };
+
+      const trafficSlices = dimensionSlices?.results
+        .find((r) => r.dimension === d)
+        ?.dimensionSlices.map((s) => s.name);
+
+      const customDimension = customDimensionMetadata?.find(
+        (m) => m.dimension === d
+      );
+
+      // if custom slices are defined, use them, otherwise use the traffic slices.
+      // If neither are defined, use fall back to the existing values.
+      const specifiedSlices = customDimension?.customSlicesArray?.length
+        ? customDimension.customSlicesArray
+        : trafficSlices ?? existingMetadata.specifiedSlices;
+
+      return {
+        ...existingMetadata,
+        specifiedSlices,
+        customSlices: !!customDimension?.customSlicesArray?.length,
+      };
+    });
+
+    // re-order the dimensions array based on the priority
+    exposureQuery.dimensions = exposureQuery.dimensions.sort((a, b) => {
+      const aMetadata = customDimensionMetadata?.find((m) => m.dimension === a);
+      const bMetadata = customDimensionMetadata?.find((m) => m.dimension === b);
+      // if missing metadata, put it at the end
+      if (!aMetadata) return 1;
+      if (!bMetadata) return -1;
+      return aMetadata.priority - bMetadata.priority;
+    });
+
+    await onSave(copy);
+  }
 };
