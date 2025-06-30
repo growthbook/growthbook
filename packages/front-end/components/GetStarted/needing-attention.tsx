@@ -539,14 +539,9 @@ const NeedingAttentionPage = (): React.ReactElement | null => {
   const orgIsUsingFeatureAndExperiment = hasFeatures && hasExperiments;
   return !orgIsUsingFeatureAndExperiment ? null : (
     <>
-      <Container
-        px={{ initial: "2", xs: "4", sm: "7" }}
-        py={{ initial: "1", xs: "3", sm: "6" }}
-      >
-        {displayRecentUsedFeatures()}
-        {displayExperimentsRequiringAttention()}
-        {displayFeatureFlagsRequiringAttention()}
-      </Container>
+      {displayRecentUsedFeatures()}
+      {displayExperimentsRequiringAttention()}
+      {displayFeatureFlagsRequiringAttention()}
     </>
   );
 };

@@ -8,7 +8,7 @@ import {
   Separator,
   Text,
 } from "@radix-ui/themes";
-import { PiArrowSquareOut } from "react-icons/pi";
+import { PiArrowSquareOut, PiCaretDownFill } from "react-icons/pi";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useGetStarted } from "@/services/GetStartedProvider";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -27,7 +27,11 @@ import Callout from "@/components/Radix/Callout";
 import Link from "@/components/Radix/Link";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import NeedingAttentionPage from "@/components/GetStarted/needing-attention";
-import styles from "@/components/GetStarted/OverviewCard.module.scss";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+} from "@/components/Radix/DropdownMenu";
+import Button from "@/components/Radix/Button";
 
 const GetStartedPage = (): React.ReactElement => {
   const [showVideoId, setShowVideoId] = useState<string>("");
@@ -46,6 +50,8 @@ const GetStartedPage = (): React.ReactElement => {
       projects: [project],
       id: "production",
     });
+
+  const [showGettingStarted, setShowGettingStarted] = useState(true);
 
   const { data: sdkConnectionData } = useSDKConnections();
   const showSetUpFlow =
@@ -92,60 +98,8 @@ const GetStartedPage = (): React.ReactElement => {
           commercialFeature={null}
         />
       )}
-      <NeedingAttentionPage />
       {/* Advanced Features Section */}
-      <Box px={{ initial: "2", xs: "4", sm: "7" }} mt="6" mb="2">
-        <Text size="3" weight="bold">
-          Explore Advanced Features
-        </Text>
-        <Grid columns={{ initial: "1fr", sm: "1fr 1fr 1fr" }} gap="4" mt="3">
-          {advancedFeatures.map((feature) => (
-            <Link
-              key={feature.href}
-              href={feature.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ textDecoration: "none" }}
-            >
-              <Card
-                className={styles.card}
-                style={{
-                  position: "relative",
-                  overflow: "hidden",
-                  minHeight: 200,
-                  cursor: "pointer",
-                }}
-              >
-                <Box
-                  className={styles.advancedFeatureImage}
-                  style={{ backgroundImage: `url(${feature.imgUrl})` }}
-                />
-                {/* Dark overlay for text readability */}
-                <Box className={styles.advancedFeatureOverlay} />
-                <Flex
-                  direction="column"
-                  justify="end"
-                  height="100%"
-                  style={{ position: "relative", zIndex: 3, minHeight: 200 }}
-                  p="4"
-                >
-                  <Text
-                    size="5"
-                    weight="bold"
-                    mb="1"
-                    style={{ color: "white" }}
-                  >
-                    {feature.title}
-                  </Text>
-                  <Text size="3" style={{ color: "white" }}>
-                    {feature.description}
-                  </Text>
-                </Flex>
-              </Card>
-            </Link>
-          ))}
-        </Grid>
-      </Box>
+
       {showVideoId && (
         <YouTubeLightBox
           close={() => setShowVideoId("")}
@@ -157,8 +111,8 @@ const GetStartedPage = (): React.ReactElement => {
         px={{ initial: "2", xs: "4", sm: "7" }}
         py={{ initial: "1", xs: "3", sm: "6" }}
       >
-        <Text size="4" weight="medium" mb="3" as="div">
-          Get Started
+        <Text size="5" weight="medium" mb="3" as="div">
+          Home
         </Text>
         {showSetUpFlow && (
           <Grid
@@ -192,79 +146,160 @@ const GetStartedPage = (): React.ReactElement => {
           gapX="4"
         >
           <Box>
-            <Grid
-              gapX="4"
-              gapY="3"
-              columns={{ initial: "1fr", sm: "1fr 1fr" }}
-              rows="auto auto"
-            >
-              <FeatureFlagFeatureCard />
-              <ExperimentFeatureCard />
-              <LaunchDarklyImportFeatureCard />
-              <AnalyzeExperimentFeatureCard />
-            </Grid>
-
-            <Separator my="5" size="4" />
-
-            <Box mb="6">
+            <NeedingAttentionPage />
+            <Box mt="6" mb="2">
               <Box mb="3">
-                <Text size="1" weight="bold">
-                  PRODUCT OVERVIEW
-                </Text>
+                <Text size="3">Explore Advanced Features</Text>
               </Box>
-
               <Flex direction={{ initial: "column", sm: "row" }} gap="4">
-                <OverviewCard
-                  imgUrl="/images/get-started/thumbnails/intro-to-growthbook.svg"
-                  hoverText="Launch Video Player"
-                  onClick={() => setShowVideoId("b4xUnDGRKRQ")}
-                  playTime={5}
-                  type="video"
-                />
-
-                <OverviewCard
-                  imgUrl="/images/get-started/thumbnails/quantile-metrics-blog.png"
-                  hoverText="View Blog Post"
-                  href="https://blog.growthbook.io/measuring-a-b-test-impacts-on-website-latency-using-quantile-metrics-in-growthbook/"
-                  type="link"
-                />
-
-                <OverviewCard
-                  imgUrl="/images/get-started/thumbnails/3.6-release.svg"
-                  hoverText="View Blog Post"
-                  href="https://blog.growthbook.io/growthbook-version-3-6/"
-                  type="link"
-                />
+                {advancedFeatures.map((feature) => (
+                  <OverviewCard
+                    key={feature.title}
+                    imgUrl={feature.imgUrl}
+                    href={feature.href}
+                    type="link"
+                    title={feature.title}
+                    description={feature.description}
+                  />
+                ))}
               </Flex>
             </Box>
-
-            <Box mb="6">
-              <Box mb="3">
-                <Text size="1" weight="bold">
-                  SET UP YOUR WORKSPACE
-                </Text>
-              </Box>
-
-              <Card>
-                <Grid columns={{ initial: "1fr", md: "1fr 1fr" }} pb="2">
-                  <WorkspaceLinks />
+            <Flex direction="row" justify="between" mt="7">
+              <Text size="4" weight="medium" mb="3" as="div">
+                Getting Started
+              </Text>
+              <Button
+                variant="ghost"
+                onClick={() => setShowGettingStarted(!showGettingStarted)}
+              >
+                {showGettingStarted ? "Hide Details" : "Show Details"}
+              </Button>
+            </Flex>
+            {showGettingStarted && (
+              <>
+                <Grid
+                  gapX="4"
+                  gapY="3"
+                  columns={{ initial: "1fr", sm: "1fr 1fr" }}
+                  rows="auto auto"
+                >
+                  <FeatureFlagFeatureCard />
+                  <ExperimentFeatureCard />
+                  <LaunchDarklyImportFeatureCard />
+                  <AnalyzeExperimentFeatureCard />
                 </Grid>
-              </Card>
-            </Box>
 
-            {/* <Text size="1">
+                <Separator my="5" size="4" />
+
+                <Box mb="6">
+                  <Box mb="3">
+                    <Text size="1" weight="bold">
+                      PRODUCT OVERVIEW
+                    </Text>
+                  </Box>
+
+                  <Flex direction={{ initial: "column", sm: "row" }} gap="4">
+                    <OverviewCard
+                      imgUrl="/images/get-started/thumbnails/intro-to-growthbook.svg"
+                      hoverText="Launch Video Player"
+                      onClick={() => setShowVideoId("b4xUnDGRKRQ")}
+                      playTime={5}
+                      type="video"
+                    />
+
+                    <OverviewCard
+                      imgUrl="/images/get-started/thumbnails/quantile-metrics-blog.png"
+                      hoverText="View Blog Post"
+                      href="https://blog.growthbook.io/measuring-a-b-test-impacts-on-website-latency-using-quantile-metrics-in-growthbook/"
+                      type="link"
+                    />
+
+                    <OverviewCard
+                      imgUrl="/images/get-started/thumbnails/3.6-release.svg"
+                      hoverText="View Blog Post"
+                      href="https://blog.growthbook.io/growthbook-version-3-6/"
+                      type="link"
+                    />
+                  </Flex>
+                </Box>
+
+                <Box mb="6">
+                  <Box mb="3">
+                    <Text size="1" weight="bold">
+                      SET UP YOUR WORKSPACE
+                    </Text>
+                  </Box>
+
+                  <Card>
+                    <Grid columns={{ initial: "1fr", md: "1fr 1fr" }} pb="2">
+                      <WorkspaceLinks />
+                    </Grid>
+                  </Card>
+
+                  {/* <Text size="1">
               Finished setting up?{" "}
               <Link weight="bold" href="#" underline="none">
                 Turn off the guide to hide this page
               </Link>
             </Text> */}
+                </Box>
+              </>
+            )}
           </Box>
 
           <Box>
-            <DocumentationSidebar
-              setUpgradeModal={setUpgradeModal}
-              type="get-started"
-            />
+            <Flex direction="column" gap="3">
+              <div>
+                <DropdownMenu
+                  trigger={
+                    <Button icon={<PiCaretDownFill />} iconPosition="right">
+                      Create
+                    </Button>
+                  }
+                >
+                  <DropdownMenuItem
+                    onClick={() => {
+                      open("feature-flags");
+                    }}
+                  >
+                    Feature Flag
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      open("experiments");
+                    }}
+                  >
+                    Experiment
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      open("datasources");
+                    }}
+                  >
+                    Datasource
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      open("fact-tables");
+                    }}
+                  >
+                    Fact Metric
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      open("archetypes");
+                    }}
+                  >
+                    Archetype
+                  </DropdownMenuItem>
+                </DropdownMenu>
+              </div>
+
+              <DocumentationSidebar
+                setUpgradeModal={setUpgradeModal}
+                type="get-started"
+              />
+            </Flex>
           </Box>
         </Grid>
       </Container>
