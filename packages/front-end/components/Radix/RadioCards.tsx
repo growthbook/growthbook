@@ -59,15 +59,29 @@ export default forwardRef<HTMLDivElement, Props>(function RadioCards(
                 >
                   <Flex direction="row" width="100%" gap="3" align={align}>
                     {avatar}
-                    <Flex direction="column" gap="1">
+                    <Flex
+                      direction="column"
+                      gap="1"
+                      style={{ minWidth: 0, flex: 1 }}
+                    >
                       <Flex direction="row" gap="3">
-                        <Text weight="bold" size="3" className="main-text">
+                        <Text
+                          weight="bold"
+                          size="3"
+                          className="main-text truncate"
+                          style={{ minWidth: 0 }}
+                        >
                           {label || value}
                         </Text>
                         {badge ? <Badge label={badge} /> : null}
                       </Flex>
                       {description ? (
-                        <Text weight="regular" size="2">
+                        <Text
+                          weight="regular"
+                          size="2"
+                          className="truncate"
+                          style={{ minWidth: 0 }}
+                        >
                           {description}
                         </Text>
                       ) : null}

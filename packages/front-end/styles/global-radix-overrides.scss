@@ -357,3 +357,17 @@ p.rt-TooltipText {
     box-shadow: none;
   }
 }
+
+// Utility classes
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-items-container {
+  .rt-Text {
+    min-width: 200px;
+    flex: 1 1 calc(25% - 0.75rem);
+  }
+}

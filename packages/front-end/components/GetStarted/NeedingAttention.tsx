@@ -151,8 +151,8 @@ const NeedingAttentionPage = (): React.ReactElement | null => {
   } => {
     const recentlyUsed = {};
     historyData?.events.filter((event) => {
-      // break out if we get 5
-      if (Object.keys(recentlyUsed).length >= 5) {
+      // break out if we get
+      if (Object.keys(recentlyUsed).length >= 4) {
         return false;
       }
       if (!recentlyUsed[event.entity.id]) {
@@ -296,15 +296,16 @@ const NeedingAttentionPage = (): React.ReactElement | null => {
     );
 
     return (
-      <Container>
+      <Container className="recent-items-container">
         <Text size="4" weight="medium" as="div">
           Recent
         </Text>
-        <Flex direction="row" gap="3" mt="3" wrap="wrap">
+        <Flex direction="row" gap="3" mt="3">
           {recentFeatures.map((feature) => (
             <RadioCards
               key={feature.value}
               align="center"
+              width="calc(25% - 0.75rem)"
               options={[
                 {
                   value: feature.value,
