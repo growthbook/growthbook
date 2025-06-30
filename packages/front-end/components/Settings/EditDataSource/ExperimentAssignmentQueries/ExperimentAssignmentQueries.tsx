@@ -331,10 +331,9 @@ const handleSaveDimensionMetadata = (
   const exposureQuery = copy.settings?.queries?.exposure?.[editingIndex];
 
   if (!exposureQuery) {
-    console.error(
+    throw new Error(
       "Exposure queries out of sync. Refresh the page and try again."
     );
-    return;
   }
 
   exposureQuery.dimensionMetadata = exposureQuery.dimensions.map((d) => {
