@@ -129,7 +129,7 @@ const GetStartedAndHomePage = (): React.ReactElement => {
         py={{ initial: "1", xs: "3", sm: "6" }}
       >
         {orgIsUsingFeatureOrExperiment && (
-          <Text size="5" weight="medium" mb="3" as="div">
+          <Text size="7" weight="regular" mb="5" as="div">
             Home
           </Text>
         )}
