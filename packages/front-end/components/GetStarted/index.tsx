@@ -177,7 +177,7 @@ const GetStartedAndHomePage = (): React.ReactElement => {
                 >
                   Experiment
                 </DropdownMenuItem>
-                <DropdownMenuItem
+                {/* <DropdownMenuItem
                   onClick={() => {
                     open("datasources");
                   }}
@@ -197,7 +197,7 @@ const GetStartedAndHomePage = (): React.ReactElement => {
                   }}
                 >
                   Archetype
-                </DropdownMenuItem>
+                </DropdownMenuItem> */}
               </DropdownMenu>
             </Flex>
           </Grid>
