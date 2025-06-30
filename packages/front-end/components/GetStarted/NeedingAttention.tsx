@@ -143,51 +143,54 @@ const NeedingAttentionPage = (): React.ReactElement | null => {
     events: AuditInterface[];
   }>(`/user/history`);
 
-  const getRecentlyUsedFeatures = useCallback(() => {
-    let featureId: string | null = null;
-    let experimentId: string | null = null;
-    let datasourceId: string | null = null;
-    let metricId: string | null = null;
-    let attributeId: string | null = null;
+  const getRecentlyUsedFeatures = useCallback((): {
+    [key: string]: {
+      type: string;
+      id: string;
+    };
+  } => {
+    const recentlyUsed = {};
     historyData?.events.filter((event) => {
-      switch (event.entity?.object) {
-        case "feature":
-          if (!featureId) {
-            featureId = event.entity.id;
-          }
-          break;
-        case "experiment":
-          if (!experimentId) {
-            experimentId = event.entity.id;
-          }
-          break;
-        case "datasource":
-          if (!datasourceId) {
-            datasourceId = event.entity.id;
-          }
-          break;
-        case "metric":
-          if (!metricId) {
-            metricId = event.entity.id;
-          }
-          break;
-        case "attribute":
-          if (!attributeId) {
-            attributeId = event.entity.id;
-          }
-          break;
-        case "urlRedirect":
-        default:
-          break;
+      // break out if we get 5
+      if (Object.keys(recentlyUsed).length >= 5) {
+        return false;
+      }
+      if (!recentlyUsed[event.entity.id]) {
+        switch (event.entity?.object) {
+          case "feature":
+            recentlyUsed[event.entity.id] = {
+              type: "feature",
+              id: event.entity.id,
+            };
+            break;
+          case "experiment":
+            recentlyUsed[event.entity.id] = {
+              type: "experiment",
+              id: event.entity.id,
+            };
+            break;
+          case "datasource":
+            recentlyUsed[event.entity.id] = {
+              type: "datasource",
+              id: event.entity.id,
+            };
+            break;
+          case "metric":
+            recentlyUsed[event.entity.id] = {
+              type: "metric",
+              id: event.entity.id,
+            };
+            break;
+          case "attribute":
+            recentlyUsed[event.entity.id] = {
+              type: "attribute",
+              id: event.entity.id,
+            };
+            break;
+        }
       }
     });
-    return {
-      featureId,
-      experimentId,
-      datasourceId,
-      metricId,
-      attributeId,
-    };
+    return recentlyUsed;
   }, [historyData]);
 
   const featuresAndRevisions = revisionsData?.revisions.reduce<
@@ -249,37 +252,30 @@ const NeedingAttentionPage = (): React.ReactElement | null => {
   // Also used for the `Launch Setup Flow`
   const displayRecentUsedFeatures = () => {
     const recentlyUsed = getRecentlyUsedFeatures();
-
-    const recentFeatures = Object.entries(recentlyUsed)
-      .filter(([_, id]) => id !== null)
-      .map(([key, id]) => {
-        let label = key
-          .replace("Id", "")
-          .replace(/([A-Z])/g, " $1")
-          .trim()
-          .replace(/^./, (str) => str.toUpperCase());
-
+    const recentFeatures = Object.entries(recentlyUsed).map(
+      ([key, { type, id }]) => {
+        let label = type.charAt(0).toUpperCase() + type.slice(1);
         // Determine the URL based on the type
         let url = "";
         let avatar = <PiFlag />;
         // check if it is a fact metric
-        switch (key) {
-          case "featureId":
+        switch (type) {
+          case "feature":
             label = features.find((f) => f.id === id)?.id || label;
             url = `/features/${id}`;
             avatar = <PiFlagBold />;
             break;
-          case "experimentId":
+          case "experiment":
             label = experiments.find((e) => e.id === id)?.name || label;
             url = `/experiment/${id}`;
             avatar = <PiFlaskBold />;
             break;
-          case "datasourceId":
+          case "datasource":
             label = getDatasourceById(id || "")?.name || label;
             url = `/datasources/${id}`;
             avatar = <PiDatabaseBold />;
             break;
-          case "metricId":
+          case "metric":
             label =
               getMetricById(id || "")?.name ||
               getFactMetricById(id || "")?.name ||
@@ -296,7 +292,8 @@ const NeedingAttentionPage = (): React.ReactElement | null => {
           avatar,
           url,
         };
-      });
+      }
+    );
 
     return (
       <Container>
