@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { Container, Flex, Text } from "@radix-ui/themes";
+import { Container, Flex, Grid, Text } from "@radix-ui/themes";
 import {
   PiFlag,
   PiFlagBold,
@@ -19,6 +19,7 @@ import {
 } from "shared/enterprise";
 import { AuditInterface } from "back-end/types/audit";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { Box } from "spectacle";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import RadioCards from "@/components/Radix/RadioCards";
 import Button from "@/components/Radix/Button";
@@ -300,12 +301,22 @@ const NeedingAttentionPage = (): React.ReactElement | null => {
         <Text size="4" weight="medium" as="div">
           Recent
         </Text>
-        <Flex direction="row" gap="3" mt="3">
+        <Grid
+          columns={{
+            initial: "1fr",
+            sm: "minmax(0, 1fr) minmax(0, 1fr)",
+            md: "minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr)",
+          }}
+          gap="3"
+          mt="3"
+        >
           {recentFeatures.map((feature) => (
             <RadioCards
               key={feature.value}
               align="center"
-              width="calc(25% - 0.75rem)"
+              width="100%"
+              labelSize="1"
+              labelWeight="medium"
               options={[
                 {
                   value: feature.value,
@@ -320,7 +331,7 @@ const NeedingAttentionPage = (): React.ReactElement | null => {
               }}
             />
           ))}
-        </Flex>
+        </Grid>
       </Container>
     );
   };
@@ -548,11 +559,11 @@ const NeedingAttentionPage = (): React.ReactElement | null => {
   const hasExperiments = experiments.some((e) => e.project !== demoProjectId);
   const orgIsUsingFeatureAndExperiment = hasFeatures || hasExperiments;
   return !orgIsUsingFeatureAndExperiment ? null : (
-    <>
+    <Box>
       {displayRecentUsedFeatures()}
       {displayExperimentsRequiringAttention()}
       {displayFeatureFlagsRequiringAttention()}
-    </>
+    </Box>
   );
 };
 

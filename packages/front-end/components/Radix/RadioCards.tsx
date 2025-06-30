@@ -1,4 +1,9 @@
-import { Flex, Text, RadioCards as RadixRadioCards } from "@radix-ui/themes";
+import {
+  Flex,
+  Text,
+  RadioCards as RadixRadioCards,
+  TextProps,
+} from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { forwardRef, ReactElement } from "react";
 import Badge from "@/components/Radix/Badge";
@@ -22,6 +27,10 @@ export type Props = {
   value: string;
   setValue: (value: string) => void;
   onClick?: () => void;
+  labelSize?: TextProps["size"];
+  labelWeight?: TextProps["weight"];
+  descriptionSize?: TextProps["size"];
+  descriptionWeight?: TextProps["weight"];
 } & MarginProps;
 
 export default forwardRef<HTMLDivElement, Props>(function RadioCards(
@@ -34,6 +43,10 @@ export default forwardRef<HTMLDivElement, Props>(function RadioCards(
     setValue,
     align,
     onClick,
+    labelSize = "3",
+    labelWeight = "bold",
+    descriptionSize = "2",
+    descriptionWeight = "regular",
     ...containerProps
   }: Props,
   ref
@@ -66,8 +79,8 @@ export default forwardRef<HTMLDivElement, Props>(function RadioCards(
                     >
                       <Flex direction="row" gap="3">
                         <Text
-                          weight="bold"
-                          size="3"
+                          weight={labelWeight}
+                          size={labelSize}
                           className="main-text truncate"
                           style={{ minWidth: 0 }}
                         >
@@ -77,8 +90,8 @@ export default forwardRef<HTMLDivElement, Props>(function RadioCards(
                       </Flex>
                       {description ? (
                         <Text
-                          weight="regular"
-                          size="2"
+                          weight={descriptionWeight}
+                          size={descriptionSize}
                           className="truncate"
                           style={{ minWidth: 0 }}
                         >

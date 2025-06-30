@@ -36,6 +36,7 @@ import Button from "@/components/Radix/Button";
 import { useFeaturesList } from "@/services/features";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useUser } from "@/services/UserContext";
+import AdvancedFeaturesCard from "@/components/GetStarted/AdvancedFeaturesCard";
 
 const GetStartedAndHomePage = (): React.ReactElement => {
   const [showVideoId, setShowVideoId] = useState<string>("");
@@ -74,7 +75,6 @@ const GetStartedAndHomePage = (): React.ReactElement => {
   const showSetUpFlow =
     canUseSetupFlow &&
     sdkConnectionData &&
-    !organization.isVercelIntegration &&
     !sdkConnectionData.connections.some((c) => c.connected);
 
   // If they view the guide, clear the current step
@@ -116,7 +116,6 @@ const GetStartedAndHomePage = (): React.ReactElement => {
           commercialFeature={null}
         />
       )}
-      {/* Advanced Features Section */}
 
       {showVideoId && (
         <YouTubeLightBox
@@ -129,16 +128,11 @@ const GetStartedAndHomePage = (): React.ReactElement => {
         px={{ initial: "2", xs: "4", sm: "7" }}
         py={{ initial: "1", xs: "3", sm: "6" }}
       >
-        {orgIsUsingFeatureOrExperiment && (
-          <Text size="7" weight="regular" mb="5" as="div">
-            Home
-          </Text>
-        )}
         {showSetUpFlow && (
           <Grid
             columns={{
               initial: "1fr",
-              xs: `1fr ${DOCUMENTATION_SIDEBAR_WIDTH}`,
+              sm: `minmax(0, 1fr) ${DOCUMENTATION_SIDEBAR_WIDTH}`,
             }}
             gapX="4"
             mb="6"
@@ -156,177 +150,189 @@ const GetStartedAndHomePage = (): React.ReactElement => {
             </Callout>
           </Grid>
         )}
+        {orgIsUsingFeatureOrExperiment && (
+          <Grid columns={`minmax(0, 1fr) ${DOCUMENTATION_SIDEBAR_WIDTH}`}>
+            <Text size="7" weight="regular" mb="5" as="div">
+              Home
+            </Text>
+            <Flex justify={{ initial: "end", sm: "start" }} align="center">
+              <DropdownMenu
+                trigger={
+                  <Button icon={<PiCaretDownFill />} iconPosition="right">
+                    Create
+                  </Button>
+                }
+              >
+                <DropdownMenuItem
+                  onClick={() => {
+                    open("feature-flags");
+                  }}
+                >
+                  Feature Flag
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    open("experiments");
+                  }}
+                >
+                  Experiment
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    open("datasources");
+                  }}
+                >
+                  Datasource
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    open("fact-tables");
+                  }}
+                >
+                  Fact Metric
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    open("archetypes");
+                  }}
+                >
+                  Archetype
+                </DropdownMenuItem>
+              </DropdownMenu>
+            </Flex>
+          </Grid>
+        )}
 
         <Grid
           columns={{
             initial: "1fr",
-            xs: `1fr ${DOCUMENTATION_SIDEBAR_WIDTH}`,
+            sm: `minmax(0, 1fr) ${DOCUMENTATION_SIDEBAR_WIDTH}`,
           }}
           mb="3"
           gapX="4"
+          rows="auto 1fr"
         >
           <Box>
-            {orgIsUsingFeatureOrExperiment && (
-              <>
-                <NeedingAttentionPage />
-                <Box mt="6" mb="2">
-                  <Box mb="3">
-                    <Text size="3">Explore Advanced Features</Text>
-                  </Box>
-                  <Flex direction={{ initial: "column", sm: "row" }} gap="4">
-                    {advancedFeatures.map((feature) => (
-                      <OverviewCard
-                        key={feature.title}
-                        imgUrl={feature.imgUrl}
-                        href={feature.href}
-                        type="link"
-                        title={feature.title}
-                        description={feature.description}
-                      />
-                    ))}
-                  </Flex>
-                </Box>
-              </>
-            )}
-            <Flex direction="row" justify="between" mt="7">
-              <Text size="4" weight="medium" mb="3" as="div">
-                Getting Started
-              </Text>
+            <Box>
               {orgIsUsingFeatureOrExperiment && (
-                <Button
-                  variant="ghost"
-                  onClick={() => setShowGettingStarted(!showGettingStarted)}
-                >
-                  {showGettingStarted ? "Hide Details" : "Show Details"}
-                </Button>
+                <Box>
+                  <NeedingAttentionPage />
+                  <Box mt="6" mb="2">
+                    <Box mb="3">
+                      <Text
+                        size="1"
+                        weight="medium"
+                        style={{ color: "var(--color-text-mid)" }}
+                      >
+                        Explore Advanced Features
+                      </Text>
+                    </Box>
+                    <Flex direction={{ initial: "column", sm: "row" }} gap="4">
+                      {advancedFeatures.map((feature) => (
+                        <AdvancedFeaturesCard
+                          key={feature.title}
+                          imgUrl={feature.imgUrl}
+                          href={feature.href}
+                          title={feature.title}
+                          description={feature.description}
+                        />
+                      ))}
+                    </Flex>
+                  </Box>
+                </Box>
               )}
-            </Flex>
-            {!showGettingStarted && (
-              <Callout status="info" size="md">
-                <Text size="3">
-                  Customize your account setup and learn how to get started with
-                  GrowthBook.
+              <Flex direction="row" justify="between" mt="7">
+                <Text size="4" weight="medium" mb="3" as="div">
+                  Getting Started
                 </Text>
-              </Callout>
-            )}
-            {showGettingStarted && (
-              <>
-                <Grid
-                  gapX="4"
-                  gapY="3"
-                  columns={{ initial: "1fr", sm: "1fr 1fr" }}
-                  rows="auto auto"
-                >
-                  <FeatureFlagFeatureCard />
-                  <ExperimentFeatureCard />
-                  <LaunchDarklyImportFeatureCard />
-                  <AnalyzeExperimentFeatureCard />
-                </Grid>
+                {orgIsUsingFeatureOrExperiment && (
+                  <Button
+                    variant="ghost"
+                    onClick={() => setShowGettingStarted(!showGettingStarted)}
+                  >
+                    {showGettingStarted ? "Hide Details" : "Show Details"}
+                  </Button>
+                )}
+              </Flex>
+              {!showGettingStarted && (
+                <Callout status="info" size="md">
+                  <Text size="3">
+                    Customize your account setup and learn how to get started
+                    with GrowthBook.
+                  </Text>
+                </Callout>
+              )}
+              {showGettingStarted && (
+                <>
+                  <Grid
+                    gapX="4"
+                    gapY="3"
+                    columns={{ initial: "1fr", sm: "1fr 1fr" }}
+                    rows="auto auto"
+                  >
+                    <FeatureFlagFeatureCard />
+                    <ExperimentFeatureCard />
+                    <LaunchDarklyImportFeatureCard />
+                    <AnalyzeExperimentFeatureCard />
+                  </Grid>
 
-                <Separator my="5" size="4" />
+                  <Separator my="5" size="4" />
 
-                <Box mb="6">
-                  <Box mb="3">
-                    <Text size="1" weight="bold">
-                      PRODUCT OVERVIEW
-                    </Text>
+                  <Box mb="6">
+                    <Box mb="3">
+                      <Text size="1" weight="bold">
+                        PRODUCT OVERVIEW
+                      </Text>
+                    </Box>
+
+                    <Flex direction={{ initial: "column", sm: "row" }} gap="4">
+                      <OverviewCard
+                        imgUrl="/images/get-started/thumbnails/intro-to-growthbook.svg"
+                        hoverText="Launch Video Player"
+                        onClick={() => setShowVideoId("b4xUnDGRKRQ")}
+                        playTime={5}
+                        type="video"
+                      />
+
+                      <OverviewCard
+                        imgUrl="/images/get-started/thumbnails/quantile-metrics-blog.png"
+                        hoverText="View Blog Post"
+                        href="https://blog.growthbook.io/measuring-a-b-test-impacts-on-website-latency-using-quantile-metrics-in-growthbook/"
+                        type="link"
+                      />
+
+                      <OverviewCard
+                        imgUrl="/images/get-started/thumbnails/3.6-release.svg"
+                        hoverText="View Blog Post"
+                        href="https://blog.growthbook.io/growthbook-version-3-6/"
+                        type="link"
+                      />
+                    </Flex>
                   </Box>
 
-                  <Flex direction={{ initial: "column", sm: "row" }} gap="4">
-                    <OverviewCard
-                      imgUrl="/images/get-started/thumbnails/intro-to-growthbook.svg"
-                      hoverText="Launch Video Player"
-                      onClick={() => setShowVideoId("b4xUnDGRKRQ")}
-                      playTime={5}
-                      type="video"
-                    />
+                  <Box mb="6">
+                    <Box mb="3">
+                      <Text size="1" weight="bold">
+                        SET UP YOUR WORKSPACE
+                      </Text>
+                    </Box>
 
-                    <OverviewCard
-                      imgUrl="/images/get-started/thumbnails/quantile-metrics-blog.png"
-                      hoverText="View Blog Post"
-                      href="https://blog.growthbook.io/measuring-a-b-test-impacts-on-website-latency-using-quantile-metrics-in-growthbook/"
-                      type="link"
-                    />
-
-                    <OverviewCard
-                      imgUrl="/images/get-started/thumbnails/3.6-release.svg"
-                      hoverText="View Blog Post"
-                      href="https://blog.growthbook.io/growthbook-version-3-6/"
-                      type="link"
-                    />
-                  </Flex>
-                </Box>
-
-                <Box mb="6">
-                  <Box mb="3">
-                    <Text size="1" weight="bold">
-                      SET UP YOUR WORKSPACE
-                    </Text>
+                    <Card>
+                      <Grid columns={{ initial: "1fr", md: "1fr 1fr" }} pb="2">
+                        <WorkspaceLinks />
+                      </Grid>
+                    </Card>
                   </Box>
-
-                  <Card>
-                    <Grid columns={{ initial: "1fr", md: "1fr 1fr" }} pb="2">
-                      <WorkspaceLinks />
-                    </Grid>
-                  </Card>
-                </Box>
-              </>
-            )}
+                </>
+              )}
+            </Box>
           </Box>
 
-          <Box>
-            <Flex direction="column" gap="3">
-              <div>
-                <DropdownMenu
-                  trigger={
-                    <Button icon={<PiCaretDownFill />} iconPosition="right">
-                      Create
-                    </Button>
-                  }
-                >
-                  <DropdownMenuItem
-                    onClick={() => {
-                      open("feature-flags");
-                    }}
-                  >
-                    Feature Flag
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      open("experiments");
-                    }}
-                  >
-                    Experiment
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      open("datasources");
-                    }}
-                  >
-                    Datasource
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      open("fact-tables");
-                    }}
-                  >
-                    Fact Metric
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      open("archetypes");
-                    }}
-                  >
-                    Archetype
-                  </DropdownMenuItem>
-                </DropdownMenu>
-              </div>
-
-              <DocumentationSidebar
-                setUpgradeModal={setUpgradeModal}
-                type="get-started"
-              />
-            </Flex>
+          <Box mt={{ initial: "0", sm: "37px" }}>
+            <DocumentationSidebar
+              setUpgradeModal={setUpgradeModal}
+              type="get-started"
+            />
           </Box>
         </Grid>
       </Container>
