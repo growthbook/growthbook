@@ -27,6 +27,7 @@ import { ReqContext } from "back-end/types/organization";
 import { ApiReqContext } from "back-end/types/api";
 import { logger } from "back-end/src/util/logger";
 import { deleteClickhouseUser } from "back-end/src/services/clickhouse";
+import { deleteFactTable, getFactTable } from "./FactTableModel";
 
 const dataSourceSchema = new mongoose.Schema<DataSourceDocument>({
   id: String,
@@ -45,6 +46,7 @@ const dataSourceSchema = new mongoose.Schema<DataSourceDocument>({
     index: true,
   },
   settings: {},
+  lockUntil: Date,
 });
 dataSourceSchema.index({ id: 1, organization: 1 }, { unique: true });
 type DataSourceDocument = mongoose.Document & DataSourceInterface;
@@ -162,18 +164,28 @@ export async function removeProjectFromDatasources(
 }
 
 export async function deleteDatasource(
-  datasource: DataSourceInterface,
-  organization: string
+  context: ReqContext | ApiReqContext,
+  datasource: DataSourceInterface
 ) {
   if (usingFileConfig()) {
     throw new Error("Cannot delete. Data sources managed by config.yml");
   }
   if (datasource.type === "growthbook_clickhouse") {
-    await deleteClickhouseUser(datasource.id, organization);
+    await deleteClickhouseUser(context.org.id);
+
+    // Also delete the main events fact table
+    try {
+      const ft = await getFactTable(context, "ch_events");
+      if (ft) {
+        await deleteFactTable(context, ft, { bypassManagedByCheck: true });
+      }
+    } catch (e) {
+      logger.error("Error deleting clickhouse events fact table", e);
+    }
   }
   await DataSourceModel.deleteOne({
     id: datasource.id,
-    organization,
+    organization: context.org.id,
   });
 }
 
@@ -343,6 +355,63 @@ export async function updateDataSource(
     },
     {
       $set: updates,
+    }
+  );
+}
+
+function isLocked(datasource: DataSourceInterface): boolean {
+  if (usingFileConfig() || !datasource.lockUntil) return false;
+  return datasource.lockUntil > new Date();
+}
+
+export async function lockDataSource(
+  context: ReqContext | ApiReqContext,
+  datasource: DataSourceInterface,
+  seconds: number
+) {
+  if (usingFileConfig()) {
+    throw new Error("Cannot lock. Data sources managed by config.yml");
+  }
+  if (datasource.organization !== context.org.id) {
+    throw new Error("Cannot lock data source from another organization");
+  }
+
+  // Already locked, throw error
+  if (isLocked(datasource)) {
+    throw new Error(
+      "Data source is currently being modified. Please try again later."
+    );
+  }
+
+  await DataSourceModel.updateOne(
+    {
+      id: datasource.id,
+      organization: context.org.id,
+    },
+    {
+      $set: { lockUntil: new Date(Date.now() + seconds * 1000) },
+    }
+  );
+}
+
+export async function unlockDataSource(
+  context: ReqContext | ApiReqContext,
+  datasource: DataSourceInterface
+) {
+  if (usingFileConfig()) {
+    throw new Error("Cannot unlock. Data sources managed by config.yml");
+  }
+  if (datasource.organization !== context.org.id) {
+    throw new Error("Cannot unlock data source from another organization");
+  }
+
+  await DataSourceModel.updateOne(
+    {
+      id: datasource.id,
+      organization: context.org.id,
+    },
+    {
+      $set: { lockUntil: null },
     }
   );
 }

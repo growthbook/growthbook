@@ -17,7 +17,7 @@ import { DocSection } from "@/components/DocLink";
 import track, { TrackEventProps } from "@/services/track";
 
 type Props = {
-  header: string;
+  header: string | null;
   subHeader?: string | ReactNode;
   submitColor?: string;
   hideCta?: boolean;
@@ -27,9 +27,12 @@ type Props = {
   closeCta?: string;
   includeCloseCta?: boolean;
   disabledMessage?: string;
+  autoCloseOnSubmit?: boolean;
+  loading?: boolean;
   size?: "md" | "lg" | "max" | "fill";
   docSection?: DocSection;
   navStyle?: "pills" | "underlined" | "tabs" | "default";
+  showHeaderCloseButton?: boolean;
   navFill?: boolean;
   inline?: boolean;
   close?: () => void;
@@ -68,6 +71,8 @@ const PagedModal: FC<Props> = (props) => {
     onBackFirstStep,
     cta,
     ctaEnabled = true,
+    autoCloseOnSubmit = true,
+    showHeaderCloseButton = true,
     forceCtaText,
     inline,
     secondaryCTA,
@@ -77,9 +82,11 @@ const PagedModal: FC<Props> = (props) => {
     onSkip,
     skipped,
     hideNav,
+    loading,
     trackingEventModalType,
     trackingEventModalSource,
     allowlistedTrackingEventProps = {},
+    header,
     ...passThrough
   } = props;
   const [modalUuid] = useState(uuidv4());
@@ -182,15 +189,18 @@ const PagedModal: FC<Props> = (props) => {
       size={size}
       disabledMessage={disabledMessage}
       open={true}
+      loading={loading}
       className={className}
       bodyClassName={bodyClassName}
+      header={header}
+      showHeaderCloseButton={showHeaderCloseButton}
       {...passThrough}
       trackOnSubmit={!nextStep}
       submit={async () => {
         await validateSteps(nextStep);
         if (!nextStep) {
           await submit();
-          if (props.close) {
+          if (props.close && autoCloseOnSubmit) {
             props.close();
           }
         } else if (steps[nextStep - 1].customNext) {

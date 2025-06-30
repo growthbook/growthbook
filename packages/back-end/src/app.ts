@@ -431,6 +431,14 @@ if (IS_CLOUD) {
   );
   app.post("/subscription/cancel", subscriptionController.cancelSubscription);
   app.get("/subscription/portal-url", subscriptionController.getPortalUrl);
+  app.get(
+    "/subscription/customer-data",
+    subscriptionController.getCustomerData
+  );
+  app.post(
+    "/subscription/update-customer-data",
+    subscriptionController.updateCustomerData
+  );
   app.get("/billing/usage", subscriptionController.getUsage);
 }
 app.post("/subscription/new", subscriptionController.postNewProSubscription);
@@ -768,11 +776,15 @@ app.delete(
   "/datasource/:datasourceId/materializedColumn/:matColumnName",
   datasourcesController.deleteMaterializedColumn
 );
+app.post(
+  "/datasource/:datasourceId/recreate-managed-warehouse",
+  datasourcesController.postRecreateManagedWarehouse
+);
 
 if (IS_CLOUD) {
   app.post(
-    "/datasource/create-inbuilt",
-    datasourcesController.postInbuiltDataSource
+    "/datasources/managed-warehouse",
+    datasourcesController.postManagedWarehouse
   );
 }
 

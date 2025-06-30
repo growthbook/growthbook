@@ -1,0 +1,51 @@
+type: object
+required:
+  - organization
+  - dateUpdated
+  - feature
+  - repo
+  - branch
+  - refs
+properties:
+  organization:
+    type: string
+    description: The organization name
+  dateUpdated:
+    type: string
+    format: date-time
+    description: When the code references were last updated
+  feature:
+    type: string
+    description: Feature identifier
+  repo:
+    type: string
+    description: Repository name
+  branch:
+    type: string
+    description: Branch name
+  platform:
+    type: string
+    enum: [github, gitlab, bitbucket]
+    description: Source control platform
+  refs:
+    type: array
+    items:
+      type: object
+      required:
+        - filePath
+        - startingLineNumber
+        - lines
+        - flagKey
+      properties:
+        filePath:
+          type: string
+          description: Path to the file containing the reference
+        startingLineNumber:
+          type: integer
+          description: Line number where the reference starts
+        lines:
+          type: string
+          description: The code lines containing the reference
+        flagKey:
+          type: string
+          description: The feature flag key referenced
