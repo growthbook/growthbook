@@ -90,7 +90,7 @@ const GetStartedAndHomePage = (): React.ReactElement => {
       imgUrl: "/images/get-started/advanced/metrics.jpg",
       title: "Metric Groups",
       description: "Easily reuse sets of metrics",
-      href: "/metrics",
+      href: "/metrics#metricgroups",
     },
     {
       imgUrl: "/images/get-started/advanced/features.jpg",
