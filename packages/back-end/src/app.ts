@@ -455,7 +455,7 @@ app.post(
 
 app.get(
   "/dimension-slices/datasource/:datasourceId",
-  datasourcesController.getLatestDimensionSlicesForDatasource
+  datasourcesController.getDimensionSlicesForDatasource
 );
 
 app.use("/tag", tagRouter);

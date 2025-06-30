@@ -1,83 +1,80 @@
-import React, { FC, useEffect, useState } from "react";
-import {
-  DataSourceInterfaceWithParams,
-  ExperimentDimensionMetadata,
-  ExposureQuery,
-} from "back-end/types/datasource";
-import cloneDeep from "lodash/cloneDeep";
+import React, { FC, useState } from "react";
+import { ExposureQuery } from "back-end/types/datasource";
 import { DimensionSlicesInterface } from "back-end/types/dimension";
 import { Flex, Text } from "@radix-ui/themes";
-import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
-import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import Modal from "@/components/Modal";
-import track from "@/services/track";
-import { DimensionSlicesRunner } from "@/components/Settings/EditDataSource/DimensionMetadata/DimensionSlicesRunner";
-
-export function getLatestDimensionSlices(
-  dataSourceId: string,
-  exposureQueryId: string,
-  metadataId: string | undefined,
-  apiCall: <T>(
-    url: string | null,
-    options?: RequestInit | undefined
-  ) => Promise<T>,
-  setId: (id: string) => void,
-  mutate: () => void
-): void {
-  if (!dataSourceId || !exposureQueryId) return;
-  if (metadataId) {
-    setId(metadataId);
-    mutate();
-    return;
-  } else {
-    apiCall<{ dimensionSlices: DimensionSlicesInterface }>(
-      `/dimension-slices/datasource/${dataSourceId}/${exposureQueryId}`
-    )
-      .then((res) => {
-        if (res?.dimensionSlices?.id) {
-          setId(res.dimensionSlices.id);
-          mutate();
-        }
-      })
-      .catch((e) => {
-        console.error(e);
-      });
-  }
-}
+import {
+  CustomDimensionMetadata,
+  DimensionSlicesRunner,
+} from "@/components/Settings/EditDataSource/DimensionMetadata/DimensionSlicesRunner";
 
 type UpdateDimensionMetadataModalProps = {
-  dimensionMetadata?: ExperimentDimensionMetadata[];
-  dimensionSlices?: DimensionSlicesInterface;
+  exposureQuery: Pick<
+    ExposureQuery,
+    "id" | "dimensions" | "dimensionMetadata" | "dimensionSlicesId"
+  >;
+  datasourceId: string;
   close: () => void;
-  onRefresh: (exposureQueryId: string, lookbackDays: number) => void;
-  onSave: (dimensionMetadata: ExperimentDimensionMetadata[]) => void;
+  onSave: (
+    customDimensionMetadata: CustomDimensionMetadata[],
+    dimensionSlices?: DimensionSlicesInterface
+  ) => void;
 };
 
 export const UpdateDimensionMetadataModal: FC<UpdateDimensionMetadataModalProps> = ({
-  dimensionMetadata,
-  dimensionSlices,
+  exposureQuery,
+  datasourceId,
   close,
-  onRefresh,
   onSave,
 }) => {
-  const saveEnabled = dimensionMetadata && dimensionSlices; // TODO
+  const [dimensionSlicesId, setDimensionSlicesId] = useState<
+    string | undefined
+  >(exposureQuery.dimensionSlicesId);
+  const { data, mutate: mutateDimensionSlices } = useApi<{
+    dimensionSlices: DimensionSlicesInterface;
+  }>(`/dimension-slices/${dimensionSlicesId}`, {
+    shouldRun: () => !!dimensionSlicesId,
+  });
+  const dimensionSlices = data?.dimensionSlices;
+
+  // track custom slices + priority locally
+  const [customDimensionMetadata, setCustomDimensionMetadata] = useState<
+    CustomDimensionMetadata[]
+  >(
+    exposureQuery.dimensions?.map((d, i) => {
+      const existingMetadata = exposureQuery.dimensionMetadata?.find(
+        (m) => m.dimension === d
+      );
+      return {
+        dimension: d,
+        customSlicesArray: existingMetadata?.customSlices
+          ? existingMetadata.specifiedSlices
+          : undefined,
+        priority: i + 1,
+      };
+    }) ?? []
+  );
 
   const secondaryCTA = (
     <button
       className={`btn btn-primary`}
       type="submit"
-      disabled={!saveEnabled}
       onClick={async () => {
-          // TODO only save if dimensionMetadata is defined?
-          await onSave(newDimensionMetadata);
-          close();
-        }
-      }
+        await onSave(customDimensionMetadata, dimensionSlices);
+        close();
+      }}
     >
       Save Dimension Values
     </button>
   );
+
+  if (!exposureQuery) {
+    console.error(
+      "ImplementationError: exposureQuery is required for Edit mode"
+    );
+    return null;
+  }
 
   return (
     <>
@@ -98,14 +95,13 @@ export const UpdateDimensionMetadataModal: FC<UpdateDimensionMetadataModalProps>
             query performance.
           </Text>
           <DimensionSlicesRunner
+            exposureQueryId={exposureQuery.id}
+            datasourceId={datasourceId}
+            customDimensionMetadata={customDimensionMetadata}
+            setCustomDimensionMetadata={setCustomDimensionMetadata}
             dimensionSlices={dimensionSlices}
-            status={status}
-            setId={setId}
-            mutate={mutate}
-            dataSource={dataSource}
-            exposureQuery={exposureQuery}
-            source={source}
-            onSave={setLocalExposureQuery}
+            mutateDimensionSlices={mutateDimensionSlices}
+            setDimensionSlicesId={setDimensionSlicesId}
           />
         </Flex>
       </Modal>

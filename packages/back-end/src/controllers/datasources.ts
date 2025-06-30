@@ -47,7 +47,6 @@ import { getUserById } from "back-end/src/models/UserModel";
 import { AuditUserLoggedIn } from "back-end/types/audit";
 import {
   createDimensionSlices,
-  getLatestDimensionSlices,
   getDimensionSlicesById,
 } from "back-end/src/models/DimensionSlicesModel";
 import { DimensionSlicesQueryRunner } from "back-end/src/queryRunners/DimensionSlicesQueryRunner";
@@ -769,7 +768,7 @@ export async function getDimensionSlices(
   });
 }
 
-export async function getLatestDimensionSlicesForDatasource(
+export async function getDimensionSlicesForDatasource(
   req: AuthRequest<null, { datasourceId: string }>,
   res: Response<{
     status: 200;
@@ -786,13 +785,18 @@ export async function getLatestDimensionSlicesForDatasource(
 
   const exposureQueries = datasource.settings.queries?.exposure || [];
 
-  const dimensionSlices = await Promise.all(exposureQueries.map(async (exposureQuery) => {
-    return await getLatestDimensionSlices(
-      context.org.id,
-      datasourceId,
-      exposureQuery.id
-    );
-  }));
+  const dimensionSlices = await Promise.all(
+    exposureQueries.map(async (exposureQuery) => {
+      // get the linked dimension slice if one exists
+      if (exposureQuery.dimensionSlicesId) {
+        return await getDimensionSlicesById(
+          context.org.id,
+          exposureQuery.dimensionSlicesId
+        );
+      }
+      return null;
+    })
+  );
 
   res.status(200).json({
     status: 200,
