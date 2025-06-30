@@ -54,7 +54,6 @@ const NeedingAttentionPage = (): React.ReactElement | null => {
     getMetricById,
     getFactMetricById,
   } = useDefinitions();
-  const { user } = useUser();
 
   // fetch the experiments
   const { experiments } = useExperiments();
@@ -85,7 +84,7 @@ const NeedingAttentionPage = (): React.ReactElement | null => {
   }, []);
 
   const { features } = useFeaturesList();
-  const { hasCommercialFeature, organization } = useUser();
+  const { hasCommercialFeature, organization, user } = useUser();
   const {
     items: experimentsNeedingAttention,
     SortableTH: SortableTHExperiments,
