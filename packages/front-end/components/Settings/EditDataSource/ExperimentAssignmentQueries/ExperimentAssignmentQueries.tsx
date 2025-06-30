@@ -330,7 +330,10 @@ const handleSaveDimensionMetadata = (
   const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
   const exposureQuery = copy.settings?.queries?.exposure?.[editingIndex];
 
-  if (exposureQuery) {
+  if (!exposureQuery) {
+    throw new Error("Exposure queries out of sync. Refresh the page and try again.");
+  }
+
     exposureQuery.dimensionMetadata = exposureQuery.dimensions.map((d) => {
       const existingMetadata = exposureQuery.dimensionMetadata?.find(
         (m) => m.dimension === d
@@ -370,6 +373,5 @@ const handleSaveDimensionMetadata = (
       return aMetadata.priority - bMetadata.priority;
     });
 
-    await onSave(copy);
-  }
+  await onSave(copy);
 };

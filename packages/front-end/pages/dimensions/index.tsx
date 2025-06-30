@@ -5,7 +5,6 @@ import clsx from "clsx";
 import Link from "next/link";
 import { ago } from "shared/dates";
 import { Box, Flex } from "@radix-ui/themes";
-import router from "next/router";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Button from "@/components/Radix/Button";
@@ -196,18 +195,12 @@ const DimensionsPage: FC = () => {
                   </TableCell>
                   <TableCell>
                     <MoreMenu useRadix={true}>
-                      <a
+                      <Link
                         className="dropdown-item"
                         href={`/datasources/${item.datasourceId}#${EAQ_ANCHOR_ID}`}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          router.push(
-                            `/datasources/${item.datasourceId}#${EAQ_ANCHOR_ID}`
-                          );
-                        }}
                       >
                         Manage via Data Source
-                      </a>
+                      </Link>
                     </MoreMenu>
                   </TableCell>
                 </TableRow>

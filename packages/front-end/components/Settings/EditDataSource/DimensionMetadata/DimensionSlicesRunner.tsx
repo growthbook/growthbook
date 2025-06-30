@@ -203,18 +203,6 @@ const RefreshData = ({
             </Text>
           </Flex>
         ) : null}
-        <form
-          onSubmit={async (e) => {
-            e.preventDefault();
-            try {
-              setError("");
-              await refreshDimensionSlices();
-            } catch (e) {
-              setError(e.message);
-              console.error(e);
-            }
-          }}
-        >
           <RunQueriesButton
             cta={`${dimensionSlices ? "Refresh" : "Query"} Traffic Data`}
             icon={dimensionSlices ? "refresh" : "run"}
@@ -222,8 +210,16 @@ const RefreshData = ({
             model={dimensionSlices ?? { queries: [], runStarted: undefined }}
             cancelEndpoint={`/dimension-slices/${dimensionSlices?.id}/cancel`}
             color={`${dimensionSlices ? "outline-" : ""}primary`}
+            onSubmit={async () => {
+              try {
+                setError("");
+                await refreshDimensionSlices();
+              } catch (e) {
+                setError(e.message);
+                console.error(e);
+              }
+            }}
           />
-        </form>
       </Flex>
     </Flex>
   );
