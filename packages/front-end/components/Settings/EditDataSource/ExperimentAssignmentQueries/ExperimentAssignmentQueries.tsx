@@ -331,47 +331,50 @@ const handleSaveDimensionMetadata = (
   const exposureQuery = copy.settings?.queries?.exposure?.[editingIndex];
 
   if (!exposureQuery) {
-    throw new Error("Exposure queries out of sync. Refresh the page and try again.");
+    console.error(
+      "Exposure queries out of sync. Refresh the page and try again."
+    );
+    return;
   }
 
-    exposureQuery.dimensionMetadata = exposureQuery.dimensions.map((d) => {
-      const existingMetadata = exposureQuery.dimensionMetadata?.find(
-        (m) => m.dimension === d
-      ) ?? {
-        dimension: d,
-        specifiedSlices: [],
-      };
+  exposureQuery.dimensionMetadata = exposureQuery.dimensions.map((d) => {
+    const existingMetadata = exposureQuery.dimensionMetadata?.find(
+      (m) => m.dimension === d
+    ) ?? {
+      dimension: d,
+      specifiedSlices: [],
+    };
 
-      const trafficSlices = dimensionSlices?.results
-        .find((r) => r.dimension === d)
-        ?.dimensionSlices.map((s) => s.name);
+    const trafficSlices = dimensionSlices?.results
+      .find((r) => r.dimension === d)
+      ?.dimensionSlices.map((s) => s.name);
 
-      const customDimension = customDimensionMetadata?.find(
-        (m) => m.dimension === d
-      );
+    const customDimension = customDimensionMetadata?.find(
+      (m) => m.dimension === d
+    );
 
-      // if custom slices are defined, use them, otherwise use the traffic slices.
-      // If neither are defined, use fall back to the existing values.
-      const specifiedSlices = customDimension?.customSlicesArray?.length
-        ? customDimension.customSlicesArray
-        : trafficSlices ?? existingMetadata.specifiedSlices;
+    // if custom slices are defined, use them, otherwise use the traffic slices.
+    // If neither are defined, use fall back to the existing values.
+    const specifiedSlices = customDimension?.customSlicesArray?.length
+      ? customDimension.customSlicesArray
+      : trafficSlices ?? existingMetadata.specifiedSlices;
 
-      return {
-        ...existingMetadata,
-        specifiedSlices,
-        customSlices: !!customDimension?.customSlicesArray?.length,
-      };
-    });
+    return {
+      ...existingMetadata,
+      specifiedSlices,
+      customSlices: !!customDimension?.customSlicesArray?.length,
+    };
+  });
 
-    // re-order the dimensions array based on the priority
-    exposureQuery.dimensions = exposureQuery.dimensions.sort((a, b) => {
-      const aMetadata = customDimensionMetadata?.find((m) => m.dimension === a);
-      const bMetadata = customDimensionMetadata?.find((m) => m.dimension === b);
-      // if missing metadata, put it at the end
-      if (!aMetadata) return 1;
-      if (!bMetadata) return -1;
-      return aMetadata.priority - bMetadata.priority;
-    });
+  // re-order the dimensions array based on the priority
+  exposureQuery.dimensions = exposureQuery.dimensions.sort((a, b) => {
+    const aMetadata = customDimensionMetadata?.find((m) => m.dimension === a);
+    const bMetadata = customDimensionMetadata?.find((m) => m.dimension === b);
+    // if missing metadata, put it at the end
+    if (!aMetadata) return 1;
+    if (!bMetadata) return -1;
+    return aMetadata.priority - bMetadata.priority;
+  });
 
   await onSave(copy);
 };
