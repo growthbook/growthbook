@@ -1,8 +1,9 @@
 import { useForm } from "react-hook-form";
-import { Box, Flex, Heading, Text, Tooltip } from "@radix-ui/themes";
+import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { BsStars } from "react-icons/bs";
 import { useState } from "react";
 import { PiArrowClockwise } from "react-icons/pi";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
 import Button from "@/components/Radix/Button";
 import { useAISettings } from "@/hooks/useOrgSettings";
@@ -42,7 +43,7 @@ export default function EditHypothesisModal({
   });
 
   const checkHypothesis = async () => {
-    if (!aiAgreedTo || !aiEnabled) {
+    if (!aiAgreedTo) {
       setAiAgreementModal(true);
       // This needs a timeout to avoid a flicker if this modal disappears before the AI agreement modal appears.
       setTimeout(() => {
@@ -125,17 +126,16 @@ export default function EditHypothesisModal({
           {!aiResponse && (
             <Flex align="start" justify="start">
               <Tooltip
-                content={
+                body={
                   aiEnabled ? (
                     "Suggest new hypothesis using organization formatting standards"
                   ) : (
                     <>
                       Org admins can set hypothesis formatting standards for the
-                      organization in <u>General Settings</u>.
+                      organization in <strong>General Settings</strong>.
                     </>
                   )
                 }
-                side="bottom"
               >
                 <Button
                   disabled={loading || form.watch("hypothesis").trim() === ""}
@@ -164,7 +164,7 @@ export default function EditHypothesisModal({
                     <PiArrowClockwise /> Try Again
                   </Button>
                   {aiResponse && form.getValues("hypothesis") != aiResponse && (
-                    <Tooltip content="Overwrite content above with suggested content.">
+                    <Tooltip body="Overwrite content above with suggested content.">
                       <Button
                         variant="soft"
                         onClick={() => {
@@ -177,7 +177,7 @@ export default function EditHypothesisModal({
                     </Tooltip>
                   )}
                   {revertValue && form.getValues("hypothesis") == aiResponse && (
-                    <Tooltip content="Revert to previous content.">
+                    <Tooltip body="Revert to previous content.">
                       <Button
                         variant="soft"
                         onClick={() => {

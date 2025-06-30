@@ -211,13 +211,31 @@ export default function SetupTabOverview({
                 experiment.hypothesis
               )}
             </div>
-            <Callout status="wizard">
+            <Callout status="wizard" contentsAs="div">
               {aiEnabled && aiAgreedTo ? (
                 <span>
                   Set hypothesis formatting standards for the organization in
                   General Settings.{" "}
-                  <Link href="/settings/#ai" className="underline">
+                  <Link
+                    href="/settings/#ai"
+                    className="underline"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
                     Edit Hypothesis
+                  </Link>
+                  <PiArrowSquareOut className="ml-1" />
+                </span>
+              ) : !aiEnabled && aiAgreedTo ? (
+                <span>
+                  Improve your hypothesis with AI.{" "}
+                  <Link
+                    href="/settings/#ai"
+                    className="underline"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Enable AI from General Settings
                   </Link>
                   <PiArrowSquareOut className="ml-1" />
                 </span>

@@ -158,8 +158,12 @@ export default function MarkdownInlineEdit({
                       <Button
                         variant="soft"
                         onClick={async () => {
-                          if (!aiAgreedTo || !aiEnabled) {
+                          if (!aiAgreedTo) {
                             setAiAgreementModal(true);
+                          } else if (!aiEnabled) {
+                            setError(
+                              "AI suggestions are not enabled for your organization. Enable it in settings."
+                            );
                           } else {
                             setError(null);
                             setLoading(true);

@@ -185,7 +185,7 @@ export default function AISettings({
                     id="openaiAPIKey"
                     {...form.register("openAIAPIKey")}
                     placeholder=""
-                    helpText="Your OpenAI API key to use when generating AI responses."
+                    helpText="Your OpenAI API key to use when generating AI responses. Data from GrowthBook will be sent to OpenAI for processing in order to provide AI features."
                   />
                 </Box>
                 <Box mb="6" width="100%">

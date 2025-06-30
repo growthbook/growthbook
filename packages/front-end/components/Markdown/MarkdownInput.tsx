@@ -11,7 +11,7 @@ import { FaMarkdown } from "react-icons/fa";
 import ReactTextareaAutocomplete from "@webscopeio/react-textarea-autocomplete";
 import emoji from "@jukben/emoji-search";
 import { useDropzone } from "react-dropzone";
-import { Box, Flex, Heading, Tooltip } from "@radix-ui/themes";
+import { Box, Flex, Heading } from "@radix-ui/themes";
 import { PiArrowClockwise } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import { uploadFile } from "@/services/files";
@@ -19,6 +19,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import Button from "@/components/Radix/Button";
 import { useAISettings } from "@/hooks/useOrgSettings";
 import OptInModal from "@/components/License/OptInModal";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../Radix/Tabs";
 import Markdown from "./Markdown";
 
@@ -263,26 +264,35 @@ const MarkdownInput: FC<{
                     <BsStars /> {loading ? "Generating..." : aiButtonText}
                   </Button>
                 ) : (
-                  <Button
-                    variant="soft"
-                    title={
+                  <Tooltip
+                    body={
                       !aiEnabled
                         ? "AI is disabled for your organization. Adjust in settings."
                         : ""
                     }
-                    onClick={() => {
-                      setAiAgreementModal(true);
-                      if (onOptInModalOpen) {
-                        // Needs a timeout to avoid a flicker when the parent modal disappears and the OptInModal appears
-                        // This makes sure the OptInModal shows slightly before the parent modal and its backdrop disappears.
-                        setTimeout(() => {
-                          onOptInModalOpen();
-                        }, 0);
-                      }
-                    }}
                   >
-                    <BsStars /> {aiButtonText}
-                  </Button>
+                    <Button
+                      variant="soft"
+                      onClick={() => {
+                        if (!aiAgreedTo) {
+                          setAiAgreementModal(true);
+                          if (onOptInModalOpen) {
+                            // Needs a timeout to avoid a flicker when the parent modal disappears and the OptInModal appears
+                            // This makes sure the OptInModal shows slightly before the parent modal and its backdrop disappears.
+                            setTimeout(() => {
+                              onOptInModalOpen();
+                            }, 0);
+                          }
+                        } else {
+                          setError(
+                            "AI is disabled for your organization. Adjust in settings."
+                          );
+                        }
+                      }}
+                    >
+                      <BsStars /> {aiButtonText}
+                    </Button>
+                  </Tooltip>
                 )}
               </Flex>
             )}
@@ -297,7 +307,7 @@ const MarkdownInput: FC<{
                       <PiArrowClockwise /> Try Again
                     </Button>
                     {aiSuggestionText && value != aiSuggestionText && (
-                      <Tooltip content="Overwrite content above with suggested content.">
+                      <Tooltip body="Overwrite content above with suggested content.">
                         <Button
                           variant="soft"
                           onClick={() => {
@@ -310,7 +320,7 @@ const MarkdownInput: FC<{
                       </Tooltip>
                     )}
                     {revertValue && value == aiSuggestionText && (
-                      <Tooltip content="Revert to previous content.">
+                      <Tooltip body="Revert to previous content.">
                         <Button
                           variant="soft"
                           onClick={() => {
