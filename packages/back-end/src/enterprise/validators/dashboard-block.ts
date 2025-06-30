@@ -7,6 +7,8 @@ const baseBlockInterface = z
     id: z.string(),
     uid: z.string(),
     type: z.string(),
+    title: z.string(),
+    description: z.string().optional(),
     snapshotId: z.string().optional(),
   })
   .strict();
@@ -56,9 +58,10 @@ const metricBlockInterface = baseBlockInterface
   .extend({
     type: z.literal("metric"),
     experimentId: z.string(),
-    metricId: z.string().optional(),
+    metricIds: z.array(z.string()),
     variationIds: z.array(z.string()).optional(),
     baselineRow: z.number().optional(),
+    differenceType: z.enum(["absolute", "relative", "scaled"]),
     snapshotId: z.string(),
   })
   .strict();
@@ -71,10 +74,10 @@ const dimensionBlockInterface = baseBlockInterface
     experimentId: z.string(),
     dimensionId: z.string().optional(),
     dimensionValues: z.array(z.string()).optional(),
-    metricId: z.string().optional(),
+    metricIds: z.array(z.string()),
     variationIds: z.array(z.string()).optional(),
     baselineRow: z.number().optional(),
-    differenceType: z.enum(["absolute", "relative", "scaled"]).optional(),
+    differenceType: z.enum(["absolute", "relative", "scaled"]),
     snapshotId: z.string(),
   })
   .strict();

@@ -1,108 +1,29 @@
-import { DifferenceType } from "back-end/types/stats";
 import { DimensionBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import DimensionChooser from "@/components/Dimensions/DimensionChooser";
-import BaselineChooser from "@/components/Experiment/BaselineChooser";
-import VariationChooser from "@/components/Experiment/VariationChooser";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useExperiments } from "@/hooks/useExperiments";
-import { ExperimentMetricSelector } from "../DashboardSettingsHeader";
 import { useDashboardSnapshot } from "../../DashboardSnapshotProvider";
-import { useDashboardSettings } from "../../DashboardSettingsProvider";
 import { BlockProps } from ".";
 
 export default function DimensionBlock({
-  isEditing,
-  setBlock,
   block,
 }: BlockProps<DimensionBlockInterface>) {
-  const {
-    dimensionId: dimensionidOverride,
-    baselineRow: baselineRowOverride,
-    variationIds: variationIdsOverride,
-    metricId: metricIdOverride,
-    experimentId,
-  } = block;
+  const { metricId: metricIdOverride, experimentId } = block;
   const { experimentsMap } = useExperiments();
   const experiment = experimentsMap.get(experimentId);
 
-  const {
-    snapshot,
-    analysis,
-    mutateSnapshot,
-    analysisSettings,
-  } = useDashboardSnapshot(block);
-  const {
-    defaultSnapshotSettings: { dimensionId: defaultDimensionId },
-    defaultAnalysisSettings: { baselineVariationIndex: defaultBaselineRow },
-    defaultMetricId,
-    defaultVariationIds,
-  } = useDashboardSettings();
+  const { snapshot, analysisSettings } = useDashboardSnapshot(block);
   const orgSettings = useOrgSettings();
   const pValueCorrection = orgSettings?.pValueCorrection;
 
-  const metricId = metricIdOverride || defaultMetricId;
-  const baselineRow = baselineRowOverride || defaultBaselineRow;
-  const variationIds = variationIdsOverride || defaultVariationIds;
-  const dimensionId = dimensionidOverride || defaultDimensionId;
+  const metricId = metricIdOverride || "";
 
   const { getExperimentMetricById } = useDefinitions();
 
-  const setMetricId = (value: string) =>
-    setBlock({
-      ...block,
-      metricId: value,
-      dimensionId: "",
-      variationIds: experiment?.variations.map((v) => v.key || ""),
-      dimensionValues: [],
-    });
-
-  const updateDimensionId = (value: string) => {
-    setBlock({
-      ...block,
-      dimensionId: value,
-      variationIds: variationIds,
-      dimensionValues: [], // todo - get all dimension values
-    });
-  };
-
-  const setVariationFilter = (variations: number[]) => {
-    setBlock({
-      ...block,
-      variationIds: variations.map(toString),
-    });
-  };
-
-  const setBaselineRow = (row: number) =>
-    setBlock({
-      ...block,
-      baselineRow: row,
-    });
-
-  const setDifferenceType = (value: DifferenceType) =>
-    setBlock({
-      ...block,
-      differenceType: value,
-    });
-
   const metric = getExperimentMetricById(metricId);
 
-  if (!experiment) return null;
-
-  if (!metric && isEditing) {
-    return (
-      <ExperimentMetricSelector
-        metricId={metricId}
-        setMetricId={setMetricId}
-        experiment={experiment}
-      />
-    );
-  }
-
-  if (!metric) {
-    return null;
-  }
+  if (!experiment || !metric) return null;
 
   const variations = experiment.variations.map((v, i) => ({
     id: v.key || i + "",
@@ -154,50 +75,6 @@ export default function DimensionBlock({
 
   return (
     <div className="dimension-block">
-      {isEditing && (
-        <ExperimentMetricSelector
-          metricId={metricId}
-          setMetricId={setMetricId}
-          experiment={experiment}
-        />
-      )}
-
-      <div className="col-auto form-inline">
-        <BaselineChooser
-          dropdownEnabled={isEditing}
-          variations={experiment.variations}
-          setVariationFilter={setVariationFilter}
-          setAnalysisSettings={() => {}}
-          baselineRow={baselineRow}
-          setBaselineRow={setBaselineRow}
-          snapshot={snapshot}
-          analysis={analysis}
-          mutate={mutateSnapshot}
-        />
-        <em className="text-muted mx-3" style={{ marginTop: 15 }}>
-          vs
-        </em>
-        <VariationChooser
-          dropdownEnabled={isEditing}
-          variations={experiment.variations}
-          variationFilter={variationIds.map(parseInt)}
-          setVariationFilter={setVariationFilter}
-          baselineRow={baselineRow}
-        />
-        <DimensionChooser
-          value={dimensionId}
-          setValue={updateDimensionId}
-          activationMetric={!!experiment.activationMetric}
-          datasourceId={experiment.datasource}
-          exposureQueryId={experiment.exposureQueryId}
-          userIdType={experiment.userIdType}
-          labelClassName="mr-2"
-          setVariationFilter={setVariationFilter}
-          setBaselineRow={setBaselineRow}
-          setDifferenceType={setDifferenceType}
-          setAnalysisSettings={() => {}}
-        />
-      </div>
       <ResultsTable
         id={experiment.id}
         variations={variations}

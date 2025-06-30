@@ -23,7 +23,7 @@ export async function createDashboard(
     throw new Error("Must have a commercial License Key to create Dashboards");
   }
 
-  const { experimentId, title, blocks } = req.body;
+  const { experimentId, editLevel, title, blocks } = req.body;
 
   const createdBlocks = await Promise.all(
     blocks.map((blockData) => createDashboardBlock(context.org.id, blockData))
@@ -32,6 +32,8 @@ export async function createDashboard(
 
   const dashboard = await context.models.dashboards.create({
     owner: context.userName,
+    userId: context.userId,
+    editLevel,
     experimentId,
     title,
     blocks: createdBlocks,
@@ -94,16 +96,3 @@ export async function deleteDashboard(
   await context.models.dashboards.deleteById(id);
   return res.status(200).json({ status: 200 });
 }
-
-// function sanitizeUserSettings(
-//   userSettings: DashboardSettingsStringDates
-// ): DashboardSettingsInterface {
-//   return {
-//     ...userSettings,
-//     dateStart: getValidDate(
-//       userSettings.dateStart,
-//       new Date(Date.now() - 30 * 1000 * 3600 * 24)
-//     ),
-//     dateEnd: getValidDate(userSettings.dateEnd, new Date()),
-//   };
-// }

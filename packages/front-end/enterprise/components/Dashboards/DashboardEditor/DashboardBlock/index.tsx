@@ -5,11 +5,16 @@ import {
   DashboardBlockInterface,
   DashboardBlockType,
 } from "back-end/src/enterprise/validators/dashboard-block";
-import { Flex } from "@radix-ui/themes";
-import { PiTrashFill } from "react-icons/pi";
+import { Flex, Text } from "@radix-ui/themes";
+import { PiCaretDown } from "react-icons/pi";
+import clsx from "clsx";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import Button from "@/components/Radix/Button";
-import { BLOCK_TYPE_INFO } from "..";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/Radix/DropdownMenu";
 import MarkdownBlock from "./MarkdownBlock";
 import DescriptionBlock from "./DescriptionBlock";
 import MetricBlock from "./MetricBlock";
@@ -26,16 +31,16 @@ export type BlockProps<T extends DashboardBlockInterface> = {
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
   isEditing: boolean;
-  setBlock: (block: DashboardBlockData<T>) => void;
   ssrPolyfills?: SSRPolyfills;
 };
 
 interface Props {
   block: DashboardBlockData<DashboardBlockInterface>;
   isEditing: boolean;
-  setBlock: (
-    block: DashboardBlockData<DashboardBlockInterface> | undefined
-  ) => void;
+  editingBlock: boolean;
+  disableBlock: boolean;
+  editBlock: () => void;
+  deleteBlock: () => void;
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
 }
@@ -58,46 +63,58 @@ const BLOCK_COMPONENTS: Record<
 
 export default function DashboardBlock({
   block,
-  isEditing,
-  setBlock,
   experiment,
+  isEditing,
+  editingBlock,
+  disableBlock,
+  editBlock,
+  deleteBlock,
   mutate,
 }: Props) {
   const BlockComponent = BLOCK_COMPONENTS[block.type];
   return (
     <div
-      className={
-        !isEditing &&
-        [
-          "metadata-description",
-          "metadata-hypothesis",
-          "sql-explorer",
-          "traffic-graph",
-        ].includes(block.type)
-          ? ""
-          : "appbox p-4"
-      }
+      className={clsx("appbox p-4", {
+        "border-violet": editingBlock,
+        "dashboard-disabled": disableBlock,
+      })}
     >
-      {isEditing && (
-        <Flex align="center" justify="between">
-          <h4 className="text-capitalize">
-            {BLOCK_TYPE_INFO[block.type].name}
-          </h4>
-          <Button
-            color="red"
-            onClick={() => {
-              setBlock(undefined);
-            }}
-          >
-            <PiTrashFill />
-          </Button>
-        </Flex>
-      )}
+      <Flex align="center" justify="between">
+        <h4>{block.title}</h4>
+        {isEditing && (
+          <div>
+            {editingBlock ? (
+              <Text color="gray">Editing</Text>
+            ) : (
+              <DropdownMenu
+                trigger={
+                  <Button
+                    icon={<PiCaretDown />}
+                    iconPosition="right"
+                    variant="ghost"
+                    size="xs"
+                  >
+                    Edit
+                  </Button>
+                }
+              >
+                <DropdownMenuItem onClick={editBlock}>
+                  Edit Contents
+                </DropdownMenuItem>
+                <DropdownMenuItem>Duplicate</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={deleteBlock}>
+                  <Text color="red">Delete</Text>
+                </DropdownMenuItem>
+              </DropdownMenu>
+            )}
+          </div>
+        )}
+      </Flex>
 
       <BlockComponent
         block={block}
         isEditing={isEditing}
-        setBlock={setBlock}
         experiment={experiment}
         mutate={mutate}
       />

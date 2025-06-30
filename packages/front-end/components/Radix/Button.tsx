@@ -28,7 +28,7 @@ export type Props = {
   style?: CSSProperties;
   tabIndex?: number;
 } & MarginProps &
-  Pick<ButtonProps, "title" | "type" | "aria-label">;
+  Pick<ButtonProps, "title" | "type" | "aria-label" | "className">;
 
 export function getRadixSize(size: Size): Responsive<"1" | "2" | "3" | "4"> {
   switch (size) {

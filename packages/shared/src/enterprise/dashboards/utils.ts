@@ -13,25 +13,6 @@ import {
   TrafficTableBlockInterface,
   DashboardBlockWithSnapshot,
 } from "back-end/src/enterprise/validators/dashboard-block";
-import { DashboardSettingsInterface } from "back-end/src/enterprise/validators/dashboard-instance";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-
-export function getDefaultDashboardSettingsForExperiment(
-  experiment: ExperimentInterfaceStringDates
-): DashboardSettingsInterface {
-  return {
-    defaultSnapshotSettings: { dimensionId: "" },
-    defaultAnalysisSettings: {
-      baselineVariationIndex: 0,
-      differenceType: "relative",
-    },
-    dateStart: new Date(Date.now() - 30 * 1000 * 3600 * 24),
-    dateEnd: new Date(),
-    defaultMetricId: experiment.goalMetrics[0],
-    defaultVariationIds: experiment.variations.map(({ id }) => id),
-    defaultDimensionValues: [],
-  };
-}
 
 export function isMarkdownBlock(
   block: DashboardBlockInterface
@@ -105,4 +86,24 @@ export function isDashboardBlockWithSnapshot(
 ): data is DashboardBlockData<DashboardBlockWithSnapshot> {
   const block = data as DashboardBlockData<DashboardBlockWithSnapshot>;
   return typeof block.snapshotId === "string";
+}
+
+export function isDashboardBlockWithMetricIds(
+  data: DashboardBlockData<DashboardBlockInterface>
+): data is Extract<
+  DashboardBlockData<DashboardBlockInterface>,
+  { metricIds: string[] }
+> {
+  const block = data as { metricIds: string[] };
+  return Array.isArray(block.metricIds);
+}
+
+export function isDashboardBlockWithDifferenceType(
+  data: DashboardBlockData<DashboardBlockInterface>
+): data is Extract<
+  DashboardBlockData<DashboardBlockInterface>,
+  { differenceType: string }
+> {
+  const block = data as { differenceType: string };
+  return typeof block.differenceType === "string";
 }

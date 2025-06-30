@@ -1,14 +1,14 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { DashboardInstanceInterface } from "back-end/src/enterprise/validators/dashboard-instance";
-import { getDefaultDashboardSettingsForExperiment } from "shared/enterprise";
 import {
   DashboardBlockData,
   DashboardBlockInterface,
 } from "back-end/src/enterprise/validators/dashboard-block";
-import { Flex, IconButton } from "@radix-ui/themes";
+import { Flex, Heading, IconButton, Text } from "@radix-ui/themes";
 import { PiPencil, PiPlus } from "react-icons/pi";
 import { useForm } from "react-hook-form";
+import clsx from "clsx";
 import Button from "@/components/Radix/Button";
 import { useAuth } from "@/services/auth";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -20,6 +20,8 @@ import Field from "@/components/Forms/Field";
 import EditButton from "@/components/EditButton/EditButton";
 import { Select, SelectItem } from "@/components/Radix/Select";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { useUser } from "@/services/UserContext";
+import Checkbox from "@/components/Radix/Checkbox";
 import DashboardEditor from "./DashboardEditor";
 
 export type SubmitDashboard = (
@@ -36,14 +38,22 @@ function CreateDashboardModal({
   close: () => void;
   submit: SubmitDashboard;
 }) {
-  const form = useForm<{ title: string }>();
+  const form = useForm<{
+    title: string;
+    editLevel: "organization" | "private";
+  }>({
+    defaultValues: {
+      title: "",
+      editLevel: "private",
+    },
+  });
   return (
     <Modal
       open={true}
       trackingEventModalType="create-dashboard"
       header="Create New Dashboard"
       cta="Create"
-      submit={() => submit({ title: form.getValues("title") })}
+      submit={() => submit(form.getValues())}
       ctaEnabled={!!form.watch("title")}
       close={close}
       closeCta="Cancel"
@@ -52,6 +62,13 @@ function CreateDashboardModal({
         label="Name"
         placeholder="Dashboard name"
         {...form.register("title")}
+      />
+      <Checkbox
+        label="Allow editing by organization members"
+        value={form.watch("editLevel") === "organization"}
+        setValue={(checked) => {
+          form.setValue("editLevel", checked ? "organization" : "private");
+        }}
       />
     </Modal>
   );
@@ -70,6 +87,7 @@ export default function DashboardsTab({ experiment }: Props) {
     () => allDashboards.filter((d) => d.experimentId === experiment.id),
     [allDashboards, experiment.id]
   );
+  const { userId } = useUser();
   const [isEditing, setIsEditing] = useState(false);
   const [dashboard, setDashboard] = useState<
     DashboardInstanceInterface | undefined
@@ -77,12 +95,26 @@ export default function DashboardsTab({ experiment }: Props) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const { apiCall } = useAuth();
   const [title, setTitle] = useState("");
+  const [editingBlock, setEditingBlock] = useState<number | undefined>(
+    undefined
+  );
+
+  useEffect(() => {
+    if (!isEditing) setEditingBlock(undefined);
+  }, [isEditing]);
 
   const permissionsUtil = usePermissionsUtil();
-  const canDelete =
-    permissionsUtil.canDeleteReport(experiment) ||
-    permissionsUtil.canSuperDeleteReport();
   const canCreate = permissionsUtil.canCreateReport(experiment);
+  const canUpdateReport = experiment
+    ? permissionsUtil.canViewReportModal(experiment.project)
+    : false;
+  const isOwner = userId === dashboard?.userId || !dashboard?.userId;
+  const isAdmin = permissionsUtil.canSuperDeleteReport();
+  const canEdit =
+    isOwner ||
+    isAdmin ||
+    (dashboard.editLevel === "organization" && canUpdateReport);
+  const canDelete = isOwner || isAdmin;
 
   useEffect(() => {
     if (!dashboard && dashboards.length > 0) setDashboard(dashboards[0]);
@@ -134,98 +166,159 @@ export default function DashboardsTab({ experiment }: Props) {
         />
       )}
       <div className="mx-3 p-4">
-        <Flex align="center" justify="between" mb="1">
-          <Flex gap="1" align="center">
-            {isEditing ? (
-              <Field
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                append={<PiPencil />}
-              />
-            ) : (
-              <Select
-                value={dashboardId}
-                setValue={(value) => {
-                  setDashboard(dashboards.find((dash) => dash.id === value));
-                }}
+        {dashboards.length === 0 ? (
+          <Flex
+            direction="column"
+            align="center"
+            justify="center"
+            px="80px"
+            pt="60px"
+            pb="70px"
+            className="appbox"
+            gap="5"
+          >
+            <Heading weight="medium" align="center">
+              Build a Custom Dashboard
+            </Heading>
+            <Text align="center">
+              Customize your reporting to tell a story with experiment data.
+            </Text>
+            <Flex align="center" justify="center">
+              <Button
+                size="md"
+                icon={<PiPlus />}
+                iconPosition="right"
+                onClick={() => setShowCreateModal(true)}
               >
-                {dashboards.map((dash) => (
-                  <SelectItem key={dash.id} value={dash.id}>
-                    {dash.title}
-                  </SelectItem>
-                ))}
-              </Select>
-            )}
-
-            {canCreate && !isEditing && (
-              <Tooltip body="Create new dashboard" tipPosition="top">
-                <IconButton
-                  onClick={() => {
-                    setShowCreateModal(true);
-                  }}
-                  variant="soft"
-                  size="2"
-                >
-                  <PiPlus />
-                </IconButton>
-              </Tooltip>
-            )}
+                Create Dashboard
+              </Button>
+            </Flex>
           </Flex>
-          {dashboard && (
-            <>
-              {isEditing ? (
-                <Button
-                  onClick={async () => {
-                    await submitDashboard("PUT", { title });
-                    setIsEditing(false);
-                  }}
-                >
-                  Save & Close
-                </Button>
-              ) : (
-                <MoreMenu>
-                  <EditButton
-                    useIcon={false}
-                    className="dropdown-item"
-                    onClick={() => {
-                      setIsEditing(true);
-                    }}
+        ) : (
+          <>
+            <Flex align="center" justify="between" mb="1">
+              <Flex gap="1" align="center">
+                {isEditing ? (
+                  <Field
+                    disabled={editingBlock !== undefined}
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    append={<PiPencil />}
                   />
-                  <div className="dropdown-item">Share</div>
-                  <div className="dropdown-item">Duplicate</div>
-                  <DeleteButton
-                    displayName="Dashboard"
-                    className="dropdown-item text-danger"
-                    useIcon={false}
-                    text="Delete"
-                    title="Delete Dashboard"
-                    onClick={async () => {
-                      await apiCall(`/dashboards/${dashboard.id}`, {
-                        method: "DELETE",
-                      });
-                      mutateDashboardList();
-                      setDashboard(undefined);
-                    }}
-                    canDelete={canDelete}
-                  />
-                </MoreMenu>
+                ) : dashboards.length > 0 ? (
+                  <>
+                    <Select
+                      value={dashboardId}
+                      setValue={(value) => {
+                        setDashboard(
+                          dashboards.find((dash) => dash.id === value)
+                        );
+                      }}
+                    >
+                      {dashboards.map((dash) => (
+                        <SelectItem key={dash.id} value={dash.id}>
+                          {dash.title}
+                        </SelectItem>
+                      ))}
+                    </Select>
+                    {canCreate && (
+                      <Tooltip body="Create new dashboard" tipPosition="top">
+                        <IconButton
+                          onClick={() => {
+                            setShowCreateModal(true);
+                          }}
+                          variant="soft"
+                          size="2"
+                        >
+                          <PiPlus />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                  </>
+                ) : (
+                  <></>
+                )}
+              </Flex>
+              {dashboard && (
+                <>
+                  {isEditing ? (
+                    <Flex gap="1">
+                      <Button
+                        className={clsx({
+                          "dashboard-disabled": editingBlock !== undefined,
+                        })}
+                        onClick={() => {
+                          setDashboard(
+                            dashboards.find((dash) => dash.id === dashboard.id)
+                          );
+                          setIsEditing(false);
+                        }}
+                        variant="ghost"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        className={clsx({
+                          "dashboard-disabled": editingBlock !== undefined,
+                        })}
+                        onClick={async () => {
+                          await submitDashboard("PUT", { title });
+                          setIsEditing(false);
+                        }}
+                      >
+                        Save & Close
+                      </Button>
+                    </Flex>
+                  ) : (
+                    <MoreMenu>
+                      {canEdit && (
+                        <EditButton
+                          useIcon={false}
+                          className="dropdown-item"
+                          onClick={() => {
+                            setIsEditing(true);
+                          }}
+                        />
+                      )}
+                      <div className="dropdown-item">Share</div>
+                      {canCreate && (
+                        <div className="dropdown-item">Duplicate</div>
+                      )}
+                      {canDelete && (
+                        <DeleteButton
+                          displayName="Dashboard"
+                          className="dropdown-item text-danger"
+                          useIcon={false}
+                          text="Delete"
+                          title="Delete Dashboard"
+                          onClick={async () => {
+                            await apiCall(`/dashboards/${dashboard.id}`, {
+                              method: "DELETE",
+                            });
+                            mutateDashboardList();
+                            setDashboard(undefined);
+                          }}
+                          canDelete={canDelete}
+                        />
+                      )}
+                    </MoreMenu>
+                  )}
+                </>
               )}
-            </>
-          )}
-        </Flex>
-        {dashboard && (
-          <DashboardEditor
-            submitCallback={(data) =>
-              submitDashboard("PUT", { title, ...data })
-            }
-            experiment={experiment}
-            dashboard={dashboard}
-            defaultSettings={getDefaultDashboardSettingsForExperiment(
-              experiment
+            </Flex>
+            {dashboard && (
+              <DashboardEditor
+                experiment={experiment}
+                dashboard={dashboard}
+                canEdit={canEdit}
+                isEditing={isEditing}
+                editingBlock={editingBlock}
+                setIsEditing={setIsEditing}
+                setEditingBlock={setEditingBlock}
+                mutate={mutateDashboardList}
+              />
             )}
-            isEditing={isEditing}
-            mutate={mutateDashboardList}
-          />
+          </>
         )}
       </div>
     </div>

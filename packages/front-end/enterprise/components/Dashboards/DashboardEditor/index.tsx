@@ -1,18 +1,15 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import React, { Fragment, useEffect, useMemo, useState } from "react";
+import React, { Fragment, useState } from "react";
 import { PiCaretDownFill, PiPlus } from "react-icons/pi";
-import {
-  DashboardInstanceInterface,
-  DashboardSettingsInterface,
-} from "back-end/src/enterprise/validators/dashboard-instance";
+import { DashboardInstanceInterface } from "back-end/src/enterprise/validators/dashboard-instance";
 import {
   DashboardBlockData,
   DashboardBlockInterface,
   DashboardBlockType,
 } from "back-end/src/enterprise/validators/dashboard-block";
-import { debounce } from "lodash";
 import { isDefined } from "shared/util";
 import { Flex, Heading, IconButton, Text } from "@radix-ui/themes";
+import clsx from "clsx";
 import Button from "@/components/Radix/Button";
 import {
   DropdownMenu,
@@ -21,8 +18,8 @@ import {
   DropdownMenuSeparator,
 } from "@/components/Radix/DropdownMenu";
 import DashboardSnapshotProvider from "../DashboardSnapshotProvider";
-import { SubmitDashboard } from "../DashboardsTab";
 import DashboardBlock from "./DashboardBlock";
+import DashboardBlockEditDrawer from "./DashboardBlockEditDrawer";
 
 export const BLOCK_TYPE_INFO: Record<
   DashboardBlockType,
@@ -35,12 +32,13 @@ export const BLOCK_TYPE_INFO: Record<
 > = {
   markdown: {
     name: "Custom Markdown",
-    createDefaultBlock: () => ({ type: "markdown", content: "" }),
+    createDefaultBlock: () => ({ type: "markdown", title: "", content: "" }),
   },
   "metadata-description": {
     name: "Description",
     createDefaultBlock: ({ experiment }) => ({
       type: "metadata-description",
+      title: "Description",
       experimentId: experiment.id,
     }),
   },
@@ -48,6 +46,7 @@ export const BLOCK_TYPE_INFO: Record<
     name: "Hypothesis",
     createDefaultBlock: ({ experiment }) => ({
       type: "metadata-hypothesis",
+      title: "Hypothesis",
       experimentId: experiment.id,
     }),
   },
@@ -55,30 +54,38 @@ export const BLOCK_TYPE_INFO: Record<
     name: "Variations / Screenshots",
     createDefaultBlock: ({ experiment }) => ({
       type: "variation-image",
+      title: "Variations",
       variationIds: [],
       experimentId: experiment.id,
     }),
   },
   metric: {
-    name: "Overall results",
+    name: "Metric Results",
     createDefaultBlock: ({ experiment }) => ({
       type: "metric",
+      title: "Overall Results",
       experimentId: experiment.id,
+      metricIds: experiment.goalMetrics,
       snapshotId: experiment.analysisSummary?.snapshotId || "",
+      differenceType: "relative",
     }),
   },
   dimension: {
-    name: "Dimension results",
+    name: "Dimension Results",
     createDefaultBlock: ({ experiment }) => ({
       type: "dimension",
+      title: "Dimension Results",
       experimentId: experiment.id,
+      metricIds: experiment.goalMetrics,
       snapshotId: experiment.analysisSummary?.snapshotId || "",
+      differenceType: "relative",
     }),
   },
   "time-series": {
     name: "Time Series",
     createDefaultBlock: ({ experiment }) => ({
       type: "time-series",
+      title: "Time Series",
       experimentId: experiment.id,
       metricId: "",
       snapshotId: experiment.analysisSummary?.snapshotId || "",
@@ -88,6 +95,7 @@ export const BLOCK_TYPE_INFO: Record<
     name: "Traffic over Time",
     createDefaultBlock: ({ experiment }) => ({
       type: "traffic-graph",
+      title: "Traffic over Time",
       experimentId: experiment.id,
     }),
   },
@@ -95,6 +103,7 @@ export const BLOCK_TYPE_INFO: Record<
     name: "Traffic",
     createDefaultBlock: ({ experiment }) => ({
       type: "traffic-table",
+      title: "Total Traffic",
       experimentId: experiment.id,
     }),
   },
@@ -102,6 +111,7 @@ export const BLOCK_TYPE_INFO: Record<
     name: "SQL Explorer",
     createDefaultBlock: () => ({
       type: "sql-explorer",
+      title: "Custom Query",
       dataVizConfigIndex: 0,
     }),
   },
@@ -120,9 +130,11 @@ const BLOCK_SUBGROUPS: [string, DashboardBlockType[]][] = [
 function AddBlockDropdown({
   trigger,
   addBlockType,
+  setIsEditing,
 }: {
   trigger: React.ReactNode;
   addBlockType: (bType: DashboardBlockType) => void;
+  setIsEditing?: React.Dispatch<boolean>;
 }) {
   const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
 
@@ -146,6 +158,7 @@ function AddBlockDropdown({
               onClick={() => {
                 setDropdownOpen(false);
                 addBlockType(bType);
+                setIsEditing?.(true);
               }}
             >
               {BLOCK_TYPE_INFO[bType].name}
@@ -161,53 +174,30 @@ function AddBlockDropdown({
 interface Props {
   experiment: ExperimentInterfaceStringDates;
   dashboard?: DashboardInstanceInterface;
-  defaultSettings: DashboardSettingsInterface;
-  submitCallback: SubmitDashboard;
+  canEdit: boolean;
   isEditing: boolean;
+  editingBlock: number | undefined;
+  setIsEditing: React.Dispatch<boolean>;
+  setEditingBlock: React.Dispatch<number | undefined>;
   mutate: () => void;
 }
 
 export default function DashboardEditor({
   experiment,
   dashboard,
-  submitCallback,
+  canEdit,
   isEditing,
+  editingBlock,
+  setIsEditing,
+  setEditingBlock,
   mutate,
 }: Props) {
   const [blocks, setBlocks] = useState<
     DashboardBlockData<DashboardBlockInterface>[]
   >(dashboard?.blocks || []);
-  const [dirty, setDirty] = useState(false);
-
-  const setBlocksAndDirty = useMemo(
-    () => (
-      blocks: (DashboardBlockData<DashboardBlockInterface> | undefined)[]
-    ) => {
-      setBlocks(blocks.filter(isDefined));
-      setDirty(true);
-    },
-    [setBlocks, setDirty]
-  );
-
-  const debouncedSubmit = useMemo(() => {
-    return debounce(
-      async (blocks: DashboardBlockData<DashboardBlockInterface>[]) => {
-        await submitCallback({ blocks });
-        setDirty(false);
-      },
-      2000
-    );
-  }, [submitCallback]);
-
-  useEffect(() => {
-    if (isEditing && dirty) {
-      debouncedSubmit(blocks);
-    }
-  }, [isEditing, dirty, debouncedSubmit, blocks]);
 
   const addBlockType = (bType: DashboardBlockType, index?: number) => {
     index = index ?? blocks.length;
-    setDirty(true);
     setBlocks([
       ...blocks.slice(0, index),
       BLOCK_TYPE_INFO[bType].createDefaultBlock({
@@ -238,14 +228,17 @@ export default function DashboardEditor({
             with experiment data.
           </Text>
         </Flex>
-        <AddBlockDropdown
-          addBlockType={addBlockType}
-          trigger={
-            <Button icon={<PiCaretDownFill />} iconPosition="right">
-              Add block
-            </Button>
-          }
-        />
+        {canEdit && (
+          <AddBlockDropdown
+            addBlockType={addBlockType}
+            trigger={
+              <Button icon={<PiCaretDownFill />} iconPosition="right">
+                Add block
+              </Button>
+            }
+            setIsEditing={setIsEditing}
+          />
+        )}
       </Flex>
     );
   }
@@ -258,7 +251,13 @@ export default function DashboardEditor({
             {isEditing && (
               <AddBlockDropdown
                 trigger={
-                  <Button icon={<PiCaretDownFill />} iconPosition="right">
+                  <Button
+                    className={clsx({
+                      "dashboard-disabled": editingBlock !== undefined,
+                    })}
+                    icon={<PiCaretDownFill />}
+                    iconPosition="right"
+                  >
                     Add block
                   </Button>
                 }
@@ -270,15 +269,19 @@ export default function DashboardEditor({
 
         <div className="">
           {blocks.map((block, i) => (
+            // TODO: the key being index causes issues with not re-rendering on deletion
             <Flex direction="column" key={i}>
               <DashboardBlock
                 block={block}
                 experiment={experiment}
                 isEditing={isEditing}
-                setBlock={(block: DashboardBlockInterface) => {
-                  setBlocksAndDirty(
-                    blocks.map((b, j) => (j === i ? block : b))
-                  );
+                editingBlock={editingBlock === i}
+                disableBlock={(editingBlock ?? i) !== i}
+                editBlock={() => {
+                  setEditingBlock(i);
+                }}
+                deleteBlock={() => {
+                  setBlocks([...blocks.slice(0, i), ...blocks.slice(i + 1)]);
                 }}
                 mutate={mutate}
               />
@@ -286,7 +289,12 @@ export default function DashboardEditor({
                 <Flex justify="center" mb="2">
                   <AddBlockDropdown
                     trigger={
-                      <IconButton size="1">
+                      <IconButton
+                        className={clsx({
+                          "dashboard-disabled": editingBlock !== undefined,
+                        })}
+                        size="1"
+                      >
                         <PiPlus size="10" />
                       </IconButton>
                     }
@@ -300,6 +308,21 @@ export default function DashboardEditor({
           ))}
         </div>
       </div>
+
+      <DashboardBlockEditDrawer
+        experiment={experiment}
+        open={isDefined(editingBlock)}
+        close={() => setEditingBlock(undefined)}
+        block={blocks[editingBlock || 0]}
+        setBlock={(block) => {
+          if (editingBlock === undefined) return;
+          setBlocks([
+            ...blocks.slice(0, editingBlock),
+            block,
+            ...blocks.slice(editingBlock + 1),
+          ]);
+        }}
+      />
     </DashboardSnapshotProvider>
   );
 }

@@ -36,6 +36,8 @@ export const dashboardBlockSchema = new mongoose.Schema(
         "sql-explorer",
       ],
     },
+    title: String,
+    snapshotId: String,
   },
   { discriminatorKey: "type" }
 );
@@ -59,17 +61,20 @@ const variationImageBlockSchema = new mongoose.Schema({
 
 const metricBlockSchema = new mongoose.Schema({
   experimentId: String,
-  metricId: String,
-  baselineRow: Number,
+  metricIds: [String],
   variationIds: [String],
+  baselineRow: Number,
+  differenceType: String,
 });
 
 const dimensionBlockSchema = new mongoose.Schema({
   experimentId: String,
+  metricIds: [String],
   dimensionId: String,
   dimensionValues: [String],
-  metricId: String,
   variationIds: [String],
+  baselineRow: Number,
+  differenceType: String,
 });
 
 const timeSeriesBlockSchema = new mongoose.Schema({

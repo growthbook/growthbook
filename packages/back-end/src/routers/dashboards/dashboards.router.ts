@@ -16,18 +16,18 @@ export const createDashboardBody = z
   .object({
     experimentId: z.string(),
     title: z.string(),
+    editLevel: z.enum(["organization", "private"]),
     blocks: z.array(createDashboardBlockInterface),
-    // settings: dashboardSettingsStringDates,
   })
   .strict();
 
 export const updateDashboardBody = z
   .object({
     title: z.string().optional(),
+    editLevel: z.enum(["organization", "private"]).optional(),
     blocks: z
       .array(z.union([createDashboardBlockInterface, dashboardBlockInterface]))
       .optional(),
-    // settings: dashboardSettingsStringDates.optional(),
   })
   .strict();
 

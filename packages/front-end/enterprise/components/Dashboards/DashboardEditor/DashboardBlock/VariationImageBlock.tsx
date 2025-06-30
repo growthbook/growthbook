@@ -6,10 +6,9 @@ import { useExperiments } from "@/hooks/useExperiments";
 import { BlockProps } from "./index";
 
 export default function VariationImageBlock({
-  variationIds,
+  block: { variationIds, experimentId },
   isEditing,
   setBlock,
-  experimentId,
 }: BlockProps<VariationImageBlockInterface>) {
   const { experimentsMap } = useExperiments();
   const experiment = experimentsMap.get(experimentId);
@@ -30,7 +29,7 @@ export default function VariationImageBlock({
               setBlock({
                 type: "variation-image",
                 variationIds: values || [],
-                experimentId: experimentId,
+                experimentId: experiment.id,
               });
             }}
             placeholder="Select variations to display..."

@@ -13,8 +13,7 @@ import SelectField from "@/components/Forms/SelectField";
 import { BlockProps } from ".";
 
 export default function SqlExplorerBlock({
-  savedQueryId,
-  dataVizConfigIndex,
+  block: { savedQueryId, dataVizConfigIndex },
   isEditing,
   setBlock,
 }: BlockProps<SqlExplorerBlockInterface>) {

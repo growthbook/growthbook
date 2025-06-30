@@ -5,13 +5,10 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useExperiments } from "@/hooks/useExperiments";
-import { ExperimentMetricSelector } from "../DashboardSettingsHeader";
 import { BlockProps } from ".";
 
 export default function TimeSeriesBlock({
   block,
-  isEditing,
-  setBlock,
 }: BlockProps<TimeSeriesBlockInterface>) {
   const { experimentId, metricId, variationIds, dateStart } = block;
   const { experimentsMap } = useExperiments();
@@ -24,30 +21,9 @@ export default function TimeSeriesBlock({
     (v) => !variationIds || variationIds.includes(v.id)
   );
 
-  const setMetricId = (value: string) =>
-    setBlock({
-      ...block,
-      metricId: value,
-      variationIds: experiment?.variations.map((v) => v.id || ""),
-    });
-
   const metric = getExperimentMetricById(metricId);
 
-  if (!experiment) return null;
-
-  if (!metric && isEditing) {
-    return (
-      <ExperimentMetricSelector
-        metricId={metricId}
-        setMetricId={setMetricId}
-        experiment={experiment}
-      />
-    );
-  }
-
-  if (!metric) {
-    return null;
-  }
+  if (!experiment || !metric) return null;
 
   const latestResults = snapshot?.analyses?.[0]?.results?.[0];
 
@@ -96,13 +72,6 @@ export default function TimeSeriesBlock({
 
   return (
     <div className="time-series-block">
-      {isEditing && (
-        <ExperimentMetricSelector
-          metricId={metricId}
-          setMetricId={setMetricId}
-          experiment={experiment}
-        />
-      )}
       <ExperimentMetricTimeSeriesGraphWrapper
         experimentId={experiment.id}
         experimentStatus={experiment.status}
