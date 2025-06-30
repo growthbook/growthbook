@@ -145,37 +145,36 @@ export function DataVisualizationDisplay({
 
   const textColor = theme === "dark" ? "#FFFFFF" : "#1F2D5C";
 
-  // If using a dimension, get top 10 dimension values
+  // If using a dimension, get top X dimension values
   const { dimensionValues, hasOtherDimension } = useMemo(() => {
     if (!dimensionField) {
       return { dimensionValues: [], hasOtherDimension: false };
     }
 
+    // For each dimension value (e.g. "chrome", "firefox"), build a list of all y-values
     const dimensionValueCounts: Map<string, (number | string)[]> = new Map();
     rows.forEach((row) => {
       const dimensionValue = row[dimensionField] + "";
-
       const yValue = parseYValue(row, yField, yConfig?.type || "number");
-
       if (yValue !== undefined) {
-        const existingValues = dimensionValueCounts.get(dimensionValue) || [];
-        existingValues.push(yValue);
-
-        dimensionValueCounts.set(dimensionValue, existingValues);
+        dimensionValueCounts.set(dimensionValue, [
+          ...(dimensionValueCounts.get(dimensionValue) || []),
+          yValue,
+        ]);
       }
     });
 
+    // Sort the dimension values by their aggregate y-value descending
     const dimensionValues = Array.from(dimensionValueCounts.entries())
-      .map(([value, values]) => {
-        return [value, aggregate(values, aggregation)] as [string, number];
-      })
-      .sort((a, b) => {
-        return b[1] - a[1];
-      })
-      .map(([value]) => value);
+      .map(([dimensionValue, values]) => ({
+        dimensionValue,
+        value: aggregate(values, aggregation),
+      }))
+      .sort((a, b) => b.value - a.value)
+      .map(({ dimensionValue }) => dimensionValue);
 
     const maxValues = dimensionConfig?.maxValues || 5;
-    // If there are at least 2 overflow values
+    // If there are at least 2 overflow values, add an "(other)" group
     if (dimensionValues.length > maxValues + 1) {
       return {
         dimensionValues: dimensionValues.slice(0, maxValues),
