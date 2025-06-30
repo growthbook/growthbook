@@ -74,25 +74,6 @@ export async function getDimensionSlicesById(
   return doc ? toInterface(doc) : null;
 }
 
-export async function getLatestDimensionSlices(
-  organization: string,
-  datasource: string,
-  exposureQueryId: string
-): Promise<DimensionSlicesInterface | null> {
-  const doc = await DimensionSlicesModel.find(
-    { organization, datasource, exposureQueryId },
-    null,
-    {
-      sort: { runStarted: -1 },
-      limit: 1,
-    }
-  ).exec();
-  if (doc[0]) {
-    return toInterface(doc[0]);
-  }
-  return null;
-}
-
 export async function createDimensionSlices({
   organization,
   dataSourceId,
