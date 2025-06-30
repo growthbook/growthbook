@@ -17,6 +17,7 @@ export const postAttribute = async (
     format,
     enum: enumValue,
     hashAttribute,
+    disableEqualityConditions,
   } = req.body;
   const context = getContextFromReq(req);
 
@@ -31,21 +32,21 @@ export const postAttribute = async (
     throw new Error("An attribute with that name already exists");
   }
 
+  const newAttribute: SDKAttribute = {
+    property,
+    description,
+    datatype,
+    projects,
+    format,
+    enum: enumValue,
+    hashAttribute,
+    disableEqualityConditions,
+  };
+
   await updateOrganization(org.id, {
     settings: {
       ...org.settings,
-      attributeSchema: [
-        ...attributeSchema,
-        {
-          property,
-          description,
-          datatype,
-          projects,
-          format,
-          enum: enumValue,
-          hashAttribute,
-        },
-      ],
+      attributeSchema: [...attributeSchema, newAttribute],
     },
   });
 
@@ -59,18 +60,7 @@ export const postAttribute = async (
       { settings: { attributeSchema } },
       {
         settings: {
-          attributeSchema: [
-            ...attributeSchema,
-            {
-              property,
-              description,
-              datatype,
-              projects,
-              format,
-              enum: enumValue,
-              hashAttribute,
-            },
-          ],
+          attributeSchema: [...attributeSchema, newAttribute],
         },
       }
     ),
@@ -93,6 +83,7 @@ export const putAttribute = async (
     enum: enumValue,
     hashAttribute,
     archived,
+    disableEqualityConditions,
     previousName,
   } = req.body;
   const context = getContextFromReq(req);
@@ -134,6 +125,7 @@ export const putAttribute = async (
     enum: enumValue,
     hashAttribute,
     archived,
+    disableEqualityConditions,
   };
 
   await updateOrganization(org.id, {

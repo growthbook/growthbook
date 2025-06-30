@@ -70,3 +70,5 @@ Archetype:
   $ref: "./Archetype.yaml"
 Query:
   $ref: "./Query.yaml"
+CodeRef:
+  $ref: "./CodeRef.yaml"
