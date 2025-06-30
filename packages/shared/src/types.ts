@@ -1,4 +1,5 @@
 import { FormatOptions } from "sql-formatter";
+import { Stripe } from "stripe";
 
 // The data going out in an sdk payload to map from a saved group ID to its array of values
 export type SavedGroupsValues = Record<string, (string | number)[]>;
@@ -37,3 +38,7 @@ export interface FormatError {
   error: Error;
   originalSql: string;
 }
+
+export type TaxIdType = Stripe.CustomerCreateTaxIdParams.Type;
+
+export type StripeAddress = Stripe.Address;

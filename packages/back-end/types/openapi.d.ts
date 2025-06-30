@@ -326,8 +326,14 @@ export interface paths {
     post: operations["postBulkImportFacts"];
   };
   "/code-refs": {
+    /** Get list of all code references for the current organization */
+    get: operations["listCodeRefs"];
     /** Submit list of code references */
     post: operations["postCodeRefs"];
+  };
+  "/code-refs/{id}": {
+    /** Get list of code references for a single feature id */
+    get: operations["getCodeRefs"];
   };
   "/queries/{id}": {
     /** Get a single query */
@@ -2415,6 +2421,36 @@ export interface components {
       externalId: string;
       dependencies: (string)[];
       runAtEnd: boolean;
+    };
+    CodeRef: {
+      /** @description The organization name */
+      organization: string;
+      /**
+       * Format: date-time 
+       * @description When the code references were last updated
+       */
+      dateUpdated: string;
+      /** @description Feature identifier */
+      feature: string;
+      /** @description Repository name */
+      repo: string;
+      /** @description Branch name */
+      branch: string;
+      /**
+       * @description Source control platform 
+       * @enum {string}
+       */
+      platform?: "github" | "gitlab" | "bitbucket";
+      refs: ({
+          /** @description Path to the file containing the reference */
+          filePath: string;
+          /** @description Line number where the reference starts */
+          startingLineNumber: number;
+          /** @description The code lines containing the reference */
+          lines: string;
+          /** @description The feature flag key referenced */
+          flagKey: string;
+        })[];
     };
   };
   responses: {
@@ -9489,6 +9525,62 @@ export interface operations {
       };
     };
   };
+  listCodeRefs: {
+    /** Get list of all code references for the current organization */
+    parameters: {
+        /** @description The number of items to return */
+        /** @description How many items to skip (use in conjunction with limit for pagination) */
+      query: {
+        limit?: number;
+        offset?: number;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": ({
+            codeRefs: ({
+                /** @description The organization name */
+                organization: string;
+                /**
+                 * Format: date-time 
+                 * @description When the code references were last updated
+                 */
+                dateUpdated: string;
+                /** @description Feature identifier */
+                feature: string;
+                /** @description Repository name */
+                repo: string;
+                /** @description Branch name */
+                branch: string;
+                /**
+                 * @description Source control platform 
+                 * @enum {string}
+                 */
+                platform?: "github" | "gitlab" | "bitbucket";
+                refs: ({
+                    /** @description Path to the file containing the reference */
+                    filePath: string;
+                    /** @description Line number where the reference starts */
+                    startingLineNumber: number;
+                    /** @description The code lines containing the reference */
+                    lines: string;
+                    /** @description The feature flag key referenced */
+                    flagKey: string;
+                  })[];
+              })[];
+          }) & {
+            limit: number;
+            offset: number;
+            count: number;
+            total: number;
+            hasMore: boolean;
+            nextOffset: OneOf<[number, null]>;
+          };
+        };
+      };
+    };
+  };
   postCodeRefs: {
     /** Submit list of code references */
     requestBody: {
@@ -9511,6 +9603,53 @@ export interface operations {
         content: {
           "application/json": {
             featuresUpdated?: (string)[];
+          };
+        };
+      };
+    };
+  };
+  getCodeRefs: {
+    /** Get list of code references for a single feature id */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            codeRefs: ({
+                /** @description The organization name */
+                organization: string;
+                /**
+                 * Format: date-time 
+                 * @description When the code references were last updated
+                 */
+                dateUpdated: string;
+                /** @description Feature identifier */
+                feature: string;
+                /** @description Repository name */
+                repo: string;
+                /** @description Branch name */
+                branch: string;
+                /**
+                 * @description Source control platform 
+                 * @enum {string}
+                 */
+                platform?: "github" | "gitlab" | "bitbucket";
+                refs: ({
+                    /** @description Path to the file containing the reference */
+                    filePath: string;
+                    /** @description Line number where the reference starts */
+                    startingLineNumber: number;
+                    /** @description The code lines containing the reference */
+                    lines: string;
+                    /** @description The feature flag key referenced */
+                    flagKey: string;
+                  })[];
+              })[];
           };
         };
       };
@@ -9588,6 +9727,7 @@ export type ApiFactMetric = z.infer<typeof openApiValidators.apiFactMetricValida
 export type ApiMember = z.infer<typeof openApiValidators.apiMemberValidator>;
 export type ApiArchetype = z.infer<typeof openApiValidators.apiArchetypeValidator>;
 export type ApiQuery = z.infer<typeof openApiValidators.apiQueryValidator>;
+export type ApiCodeRef = z.infer<typeof openApiValidators.apiCodeRefValidator>;
 
 // Operations
 export type ListFeaturesResponse = operations["listFeatures"]["responses"]["200"]["content"]["application/json"];
@@ -9672,5 +9812,7 @@ export type GetFactMetricResponse = operations["getFactMetric"]["responses"]["20
 export type UpdateFactMetricResponse = operations["updateFactMetric"]["responses"]["200"]["content"]["application/json"];
 export type DeleteFactMetricResponse = operations["deleteFactMetric"]["responses"]["200"]["content"]["application/json"];
 export type PostBulkImportFactsResponse = operations["postBulkImportFacts"]["responses"]["200"]["content"]["application/json"];
+export type ListCodeRefsResponse = operations["listCodeRefs"]["responses"]["200"]["content"]["application/json"];
 export type PostCodeRefsResponse = operations["postCodeRefs"]["responses"]["200"]["content"]["application/json"];
+export type GetCodeRefsResponse = operations["getCodeRefs"]["responses"]["200"]["content"]["application/json"];
 export type GetQueryResponse = operations["getQuery"]["responses"]["200"]["content"]["application/json"];

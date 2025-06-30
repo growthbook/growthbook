@@ -3751,7 +3751,7 @@ export default abstract class SqlIntegration
       m.variation AS variation
       , m.dimension AS dimension
       , m.bandit_period AS bandit_period
-      , COUNT(*) AS users
+      , ${this.ensureFloat(`COUNT(*)`)} AS users
       ${metricData
         .map((data) => {
           const alias = data.alias + (factMetrics ? "_" : "");
@@ -3761,8 +3761,12 @@ export default abstract class SqlIntegration
             ? `, MAX(COALESCE(cap.${alias}value_cap, 0)) AS ${alias}main_cap_value`
             : ""
         }
-        , SUM(${data.capCoalesceMetric}) AS ${alias}main_sum
-        , SUM(POWER(${data.capCoalesceMetric}, 2)) AS ${alias}main_sum_squares
+        , ${this.ensureFloat(
+          `SUM(${data.capCoalesceMetric})`
+        )} AS ${alias}main_sum
+        , ${this.ensureFloat(
+          `SUM(POWER(${data.capCoalesceMetric}, 2))`
+        )} AS ${alias}main_sum_squares
         ${
           data.ratioMetric
             ? `
@@ -3772,22 +3776,30 @@ export default abstract class SqlIntegration
               ? `, MAX(COALESCE(capd.${alias}value_cap, 0)) as ${alias}denominator_cap_value`
               : ""
           }
-          , SUM(${data.capCoalesceDenominator}) AS ${alias}denominator_sum
-          , SUM(POWER(${
-            data.capCoalesceDenominator
-          }, 2)) AS ${alias}denominator_sum_squares
-          , SUM(${data.capCoalesceDenominator} * ${
-                data.capCoalesceMetric
-              }) AS ${alias}main_denominator_sum_product
+          , ${this.ensureFloat(
+            `SUM(${data.capCoalesceDenominator})`
+          )} AS ${alias}denominator_sum
+          , ${this.ensureFloat(
+            `SUM(POWER(${data.capCoalesceDenominator}, 2))`
+          )} AS ${alias}denominator_sum_squares
+          , ${this.ensureFloat(
+            `SUM(${data.capCoalesceDenominator} * ${data.capCoalesceMetric})`
+          )} AS ${alias}main_denominator_sum_product
         `
             : ""
         }
         ${
           data.regressionAdjusted
             ? `
-          , SUM(${data.capCoalesceCovariate}) AS ${alias}covariate_sum
-          , SUM(POWER(${data.capCoalesceCovariate}, 2)) AS ${alias}covariate_sum_squares
-          , SUM(${data.capCoalesceMetric} * ${data.capCoalesceCovariate}) AS ${alias}main_covariate_sum_product
+          , ${this.ensureFloat(
+            `SUM(${data.capCoalesceCovariate})`
+          )} AS ${alias}covariate_sum
+          , ${this.ensureFloat(
+            `SUM(POWER(${data.capCoalesceCovariate}, 2))`
+          )} AS ${alias}covariate_sum_squares
+          , ${this.ensureFloat(
+            `SUM(${data.capCoalesceMetric} * ${data.capCoalesceCovariate})`
+          )} AS ${alias}main_covariate_sum_product
           `
             : ""
         }`;
@@ -3825,7 +3837,7 @@ export default abstract class SqlIntegration
   __dimensionTotals AS (
     SELECT
       dimension
-      , SUM(users) AS total_users
+      , ${this.ensureFloat(`SUM(users)`)} AS total_users
     FROM 
       __banditPeriodStatistics
     GROUP BY

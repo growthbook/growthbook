@@ -1,0 +1,27 @@
+summary: Get list of all code references for the current organization
+parameters:
+  - $ref: "../parameters.yaml#/limit"
+  - $ref: "../parameters.yaml#/offset"
+tags:
+  - code-references
+operationId: listCodeRefs
+x-codeSamples:
+  - lang: "cURL"
+    source: |
+      curl https://api.growthbook.io/api/v1/code-refs/ \
+        -u secret_abc123DEF456:
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          allOf:
+            - type: object
+              required:
+                - codeRefs
+              properties:
+                codeRefs:
+                  type: array
+                  items:
+                    $ref: "../schemas/CodeRef.yaml"
+            - $ref: "../schemas/PaginationFields.yaml"
