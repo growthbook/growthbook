@@ -54,6 +54,7 @@ const NeedingAttentionPage = (): React.ReactElement | null => {
     getMetricById,
     getFactMetricById,
   } = useDefinitions();
+  const { user } = useUser();
 
   // fetch the experiments
   const { experiments } = useExperiments();
@@ -115,18 +116,28 @@ const NeedingAttentionPage = (): React.ReactElement | null => {
           safeRolloutDecisionStatus = safeRolloutStatus;
           hasDaysLeft = daysLeft > 0;
         }
+        const requiresReview = item.status === "pending-review";
         const inProgress =
-          item.status === "pending-review" ||
-          item.status === "changes-requested" ||
-          item.status === "approved" ||
-          item.status === "draft";
+          (item.status === "changes-requested" ||
+            item.status === "approved" ||
+            item.status === "draft") &&
+          item.createdBy?.type === "dashboard" &&
+          item.createdBy?.id === user?.id;
         const isArchived = item.feature.archived;
         const safeRolloutRequiresAttention =
           safeRolloutDecisionStatus?.status === "unhealthy" || !hasDaysLeft;
-        return (inProgress || safeRolloutRequiresAttention) && !isArchived;
+        return (
+          (inProgress || requiresReview || safeRolloutRequiresAttention) &&
+          !isArchived
+        );
       });
     },
-    [snapshotWithResults, organization?.settings, hasCommercialFeature]
+    [
+      user?.id,
+      snapshotWithResults,
+      organization?.settings,
+      hasCommercialFeature,
+    ]
   );
   const { data: safeRolloutData } = useApi<{
     status: number;
