@@ -255,7 +255,7 @@ const GetStartedAndHomePage = (): React.ReactElement => {
                 )}
               </Flex>
               {!showGettingStarted && (
-                <Callout status="info" size="md">
+                <Callout status="info" size="md" mb="4">
                   <Text size="3">
                     Customize your account setup and learn how to get started
                     with GrowthBook.
