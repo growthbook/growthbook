@@ -42,7 +42,7 @@ export default function OverviewCard({
           </Text>
         )}
       </div>
-      <div className={styles.backgroundOverlay} />
+      {(title || description) && <div className={styles.backgroundOverlay} />}
       <div className={styles.content}>
         {title && (
           <Text size="1" weight="medium" className={styles.title} as="div">
