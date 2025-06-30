@@ -10,17 +10,13 @@ export default function OverviewCard({
   imgUrl,
   type,
   hoverText,
-  title,
-  description,
 }: {
   onClick?: MouseEventHandler<HTMLDivElement>;
   href?: string;
   playTime?: number;
   imgUrl: string;
-  hoverText?: string;
+  hoverText: string;
   type: "video" | "link";
-  title?: string;
-  description?: string;
 }) {
   const card = (
     <div
@@ -36,24 +32,9 @@ export default function OverviewCard({
       )}
 
       <div className={styles.hoverBackground}>
-        {hoverText && (
-          <Text size="1" weight="medium" className={styles.hoverText}>
-            {hoverText} {type === "link" && <PiArrowSquareOut size={13} />}
-          </Text>
-        )}
-      </div>
-      {(title || description) && <div className={styles.backgroundOverlay} />}
-      <div className={styles.content}>
-        {title && (
-          <Text size="1" weight="medium" className={styles.title} as="div">
-            {title}
-          </Text>
-        )}
-        {description && (
-          <Text size="1" weight="medium" className={styles.description}>
-            {description}
-          </Text>
-        )}
+        <Text size="1" weight="medium" className={styles.hoverText}>
+          {hoverText} {type === "link" && <PiArrowSquareOut size={13} />}
+        </Text>
       </div>
     </div>
   );

@@ -250,7 +250,6 @@ const NeedingAttentionPage = (): React.ReactElement | null => {
     filterResults: filterResultsFeatureFlags,
   });
 
-  // Also used for the `Launch Setup Flow`
   const displayRecentUsedFeatures = () => {
     const recentlyUsed = getRecentlyUsedFeatures();
     const recentFeatures = Object.entries(recentlyUsed).map(
@@ -259,7 +258,6 @@ const NeedingAttentionPage = (): React.ReactElement | null => {
         // Determine the URL based on the type
         let url = "";
         let avatar = <PiFlag />;
-        // check if it is a fact metric
         switch (type) {
           case "feature":
             label = features.find((f) => f.id === id)?.id || label;
