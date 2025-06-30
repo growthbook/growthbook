@@ -319,6 +319,8 @@ paths:
   /code-refs:
     post:
       $ref: "./paths/postCodeRefs.yaml"
+    get:
+      $ref: "./paths/listCodeRefs.yaml"
   /code-refs/{id}:
     get:
       $ref: "./paths/getCodeRefs.yaml"
