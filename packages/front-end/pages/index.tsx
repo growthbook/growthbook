@@ -4,8 +4,8 @@ import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasourc
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useUser } from "@/services/UserContext";
-import LoadingOverlay from "@/components/LoadingOverlay";
 import { useFeaturesList } from "@/services/features";
+import GetStartedAndHomePage from "@/components/GetStarted";
 
 export default function Home(): React.ReactElement {
   const router = useRouter();
@@ -39,10 +39,9 @@ export default function Home(): React.ReactElement {
     const hasFeatures = features.some((f) => f.project !== demoProjectId);
     const hasExperiments = experiments.some((e) => e.project !== demoProjectId);
     const hasFeatureAndExperiment = hasFeatures && hasExperiments;
-
     if (gb.isOn("use-new-setup-flow-2") && !hasFeatureAndExperiment) {
       router.replace("/setup");
-    } else {
+    } else if (!hasFeatureAndExperiment) {
       router.replace("/getstarted");
     }
   }, [
@@ -63,5 +62,5 @@ export default function Home(): React.ReactElement {
     );
   }
 
-  return <LoadingOverlay />;
+  return <GetStartedAndHomePage />;
 }

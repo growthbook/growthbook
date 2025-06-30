@@ -47,7 +47,12 @@ const NeedingAttentionPage = (): React.ReactElement | null => {
   const [experimentsPage, setExperimentsPage] = useState<number>(1);
   const [featureFlagsPage, setFeatureFlagsPage] = useState(1);
   const { snapshot: snapshotWithResults } = useSafeRolloutSnapshot();
-  const { datasources, metrics, factMetrics } = useDefinitions();
+  const {
+    getProjectById,
+    getDatasourceById,
+    getMetricById,
+    getFactMetricById,
+  } = useDefinitions();
 
   // fetch the experiments
   const { experiments } = useExperiments();
@@ -92,6 +97,7 @@ const NeedingAttentionPage = (): React.ReactElement | null => {
     (items: FeaturesAndRevisions[]) => {
       return items.filter((item) => {
         let safeRolloutDecisionStatus;
+        let hasDaysLeft = true;
         if (item.safeRollout) {
           const daysLeft = getSafeRolloutDaysLeft({
             safeRollout: item.safeRollout,
@@ -106,12 +112,17 @@ const NeedingAttentionPage = (): React.ReactElement | null => {
             daysLeft,
           });
           safeRolloutDecisionStatus = safeRolloutStatus;
+          hasDaysLeft = daysLeft > 0;
         }
-        const isPendingReview = item.status === "pending-review";
+        const inProgress =
+          item.status === "pending-review" ||
+          item.status === "changes-requested" ||
+          item.status === "approved" ||
+          item.status === "draft";
         const isArchived = item.feature.archived;
         const safeRolloutRequiresAttention =
-          safeRolloutDecisionStatus?.status === "unhealthy";
-        return (isPendingReview || safeRolloutRequiresAttention) && !isArchived;
+          safeRolloutDecisionStatus?.status === "unhealthy" || !hasDaysLeft;
+        return (inProgress || safeRolloutRequiresAttention) && !isArchived;
       });
     },
     [snapshotWithResults, organization?.settings, hasCommercialFeature]
@@ -251,6 +262,7 @@ const NeedingAttentionPage = (): React.ReactElement | null => {
         // Determine the URL based on the type
         let url = "";
         let avatar = <PiFlag />;
+        // check if it is a fact metric
         switch (key) {
           case "featureId":
             label = features.find((f) => f.id === id)?.id || label;
@@ -263,14 +275,14 @@ const NeedingAttentionPage = (): React.ReactElement | null => {
             avatar = <PiFlaskBold />;
             break;
           case "datasourceId":
-            label = datasources.find((d) => d.id === id)?.name || label;
+            label = getDatasourceById(id || "")?.name || label;
             url = `/datasources/${id}`;
             avatar = <PiDatabaseBold />;
             break;
           case "metricId":
             label =
-              factMetrics.find((m) => m.id === id)?.name ||
-              metrics.find((m) => m.id === id)?.name ||
+              getMetricById(id || "")?.name ||
+              getFactMetricById(id || "")?.name ||
               label;
             url = `/metric/${id}`;
             avatar = <PiChartLineBold />;
@@ -369,7 +381,7 @@ const NeedingAttentionPage = (): React.ReactElement | null => {
                   }}
                 >
                   <td>{item.name}</td>
-                  <td>{item.project}</td>
+                  <td>{getProjectById(item?.project || "")?.name}</td>
                   <td className="text-nowrap">
                     {getAvatarAndName(item.ownerName)}
                   </td>
@@ -493,7 +505,7 @@ const NeedingAttentionPage = (): React.ReactElement | null => {
                   className="cursor-pointer hover-highlight"
                 >
                   <td>{item.feature.id}</td>
-                  <td>{item.feature.project}</td>
+                  <td>{getProjectById(item.feature?.project || "")?.name}</td>
                   <td>{getAvatarAndName(item.feature.owner)}</td>
                   <td>{renderStatusCopy(item)}</td>
                 </tr>
@@ -536,7 +548,7 @@ const NeedingAttentionPage = (): React.ReactElement | null => {
 
   const hasFeatures = features.some((f) => f.project !== demoProjectId);
   const hasExperiments = experiments.some((e) => e.project !== demoProjectId);
-  const orgIsUsingFeatureAndExperiment = hasFeatures && hasExperiments;
+  const orgIsUsingFeatureAndExperiment = hasFeatures || hasExperiments;
   return !orgIsUsingFeatureAndExperiment ? null : (
     <>
       {displayRecentUsedFeatures()}
