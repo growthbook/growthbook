@@ -28,9 +28,9 @@ import { usePageHead } from "./PageHead";
 const navlinks: SidebarLinkProps[] = [
   {
     name: "Home",
-    href: "/getstarted",
+    href: "/",
     Icon: BsHouse,
-    path: /^getstarted/,
+    path: /^$/,
     className: styles.first,
   },
   {
