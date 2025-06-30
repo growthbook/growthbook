@@ -10,6 +10,7 @@ import { SnowflakeConnectionParams } from "./integrations/snowflake";
 import { DatabricksConnectionParams } from "./integrations/databricks";
 import { MetricType } from "./metric";
 import { MssqlConnectionParams } from "./integrations/mssql";
+import { FactTableColumnType } from "./fact-table";
 
 export type DataSourceType =
   | "growthbook_clickhouse"
@@ -188,6 +189,15 @@ export type DataSourcePipelineSettings = {
   unitsTableDeletion?: boolean;
 };
 
+export type MaterializedColumnType = "" | "identifier" | "dimension";
+
+export type MaterializedColumn = {
+  columnName: string;
+  sourceField: string;
+  datatype: FactTableColumnType;
+  type?: MaterializedColumnType;
+};
+
 export type DataSourceSettings = {
   // @deprecated
   experimentDimensions?: string[];
@@ -231,6 +241,10 @@ export type DataSourceSettings = {
   maxConcurrentQueries?: string;
 };
 
+export interface GrowthbookClickhouseSettings extends DataSourceSettings {
+  materializedColumns?: MaterializedColumn[];
+}
+
 interface DataSourceBase {
   id: string;
   name: string;
@@ -241,10 +255,12 @@ interface DataSourceBase {
   params: string;
   projects?: string[];
   settings: DataSourceSettings;
+  lockUntil?: Date | null;
 }
 
 export interface GrowthbookClickhouseDataSource extends DataSourceBase {
   type: "growthbook_clickhouse";
+  settings: GrowthbookClickhouseSettings;
 }
 interface RedshiftDataSource extends DataSourceBase {
   type: "redshift";

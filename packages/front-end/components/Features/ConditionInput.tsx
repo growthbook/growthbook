@@ -27,6 +27,7 @@ import CountrySelector, {
 } from "@/components/Forms/CountrySelector";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import DatePicker from "@/components/DatePicker";
+import Callout from "@/components/Radix/Callout";
 import styles from "./ConditionInput.module.scss";
 
 interface Props {
@@ -58,6 +59,10 @@ export default function ConditionInput(props: Props) {
   const [rawTextMode, setRawTextMode] = useState(false);
 
   const attributeSchema = useAttributeSchema(false, props.project);
+
+  const usingDisabledEqualityAttributes = conds.some(
+    (cond) => !!attributes.get(cond.field)?.disableEqualityConditions
+  );
 
   useEffect(() => {
     if (advanced) return;
@@ -147,7 +152,12 @@ export default function ConditionInput(props: Props) {
               setConds([
                 {
                   field: prop?.property || "",
-                  operator: prop?.datatype === "boolean" ? "$true" : "$eq",
+                  operator:
+                    prop?.datatype === "boolean"
+                      ? "$true"
+                      : prop?.disableEqualityConditions
+                      ? "$regex"
+                      : "$eq",
                   value: "",
                 },
               ]);
@@ -210,7 +220,7 @@ export default function ConditionInput(props: Props) {
               handleCondsChange(value, name);
             };
 
-            const operatorOptions =
+            let operatorOptions =
               attribute.datatype === "boolean"
                 ? [
                     { label: "is true", value: "$true" },
@@ -314,6 +324,13 @@ export default function ConditionInput(props: Props) {
                   ]
                 : [];
 
+            if (attribute.disableEqualityConditions) {
+              // Remove equality operators if the attribute has them disabled
+              operatorOptions = operatorOptions.filter(
+                (o) => !["$eq", "$ne", "$in", "$nin"].includes(o.value)
+              );
+            }
+
             let displayType:
               | "select-only"
               | "array-field"
@@ -378,7 +395,10 @@ export default function ConditionInput(props: Props) {
                         const newAttribute = attributes.get(value);
                         const hasAttrChanged =
                           newAttribute?.datatype !== attribute.datatype ||
-                          newAttribute?.array !== attribute.array;
+                          newAttribute?.array !== attribute.array ||
+                          !!newAttribute.disableEqualityConditions !==
+                            !!attribute.disableEqualityConditions;
+
                         if (hasAttrChanged && newAttribute) {
                           newConds[i]["operator"] = getDefaultOperator(
                             newAttribute
@@ -609,6 +629,12 @@ export default function ConditionInput(props: Props) {
             <RxLoop /> Advanced mode
           </span>
         </div>
+        {usingDisabledEqualityAttributes && (
+          <Callout status="warning" mt="4">
+            Be careful not to include Personally Identifiable Information (PII)
+            in your targeting conditions.
+          </Callout>
+        )}
       </div>
     </div>
   );

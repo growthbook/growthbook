@@ -5,7 +5,7 @@ import {
 } from "back-end/types/saved-group";
 import { useForm } from "react-hook-form";
 import {
-  isIdListSupportedDatatype,
+  isIdListSupportedAttribute,
   validateAndFixCondition,
 } from "shared/util";
 import { FaPlusCircle } from "react-icons/fa";
@@ -222,14 +222,15 @@ const SavedGroupForm: FC<{
                 (attr) => attr.property === label
               );
               if (!attr) return false;
-              return !isIdListSupportedDatatype(attr.datatype);
+              return !isIdListSupportedAttribute(attr);
             }}
+            sort={false}
             formatOptionLabel={({ label }) => {
               const attr = attributeSchema.find(
                 (attr) => attr.property === label
               );
               if (!attr) return label;
-              const unsupported = !isIdListSupportedDatatype(attr.datatype);
+              const unsupported = !isIdListSupportedAttribute(attr);
               return (
                 <div className={clsx(unsupported ? "disabled" : "")}>
                   {label}

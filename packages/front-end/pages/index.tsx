@@ -39,7 +39,11 @@ export default function Home(): React.ReactElement {
     const hasFeatures = features.some((f) => f.project !== demoProjectId);
     const hasExperiments = experiments.some((e) => e.project !== demoProjectId);
     const hasFeatureAndExperiment = hasFeatures && hasExperiments;
-    if (gb.isOn("use-new-setup-flow-2") && !hasFeatureAndExperiment) {
+    if (
+      gb.isOn("use-new-setup-flow-2") &&
+      !hasFeatureAndExperiment &&
+      !organization.isVercelIntegration
+    ) {
       router.replace("/setup");
     } else if (!hasFeatureAndExperiment) {
       router.replace("/getstarted");

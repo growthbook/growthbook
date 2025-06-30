@@ -74,6 +74,7 @@ const GetStartedAndHomePage = (): React.ReactElement => {
   const showSetUpFlow =
     canUseSetupFlow &&
     sdkConnectionData &&
+    !organization.isVercelIntegration &&
     !sdkConnectionData.connections.some((c) => c.connected);
 
   // If they view the guide, clear the current step

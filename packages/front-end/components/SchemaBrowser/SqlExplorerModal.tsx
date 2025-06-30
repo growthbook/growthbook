@@ -38,7 +38,7 @@ import {
 } from "@/components/ResizablePanels";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { VisualizationAddIcon } from "@/components/Icons";
-import SqlExplorerDataVisualization from "../DataViz/SqlExplorerDataVisualization";
+import { SqlExplorerDataVisualization } from "../DataViz/SqlExplorerDataVisualization";
 import Modal from "../Modal";
 import SelectField from "../Forms/SelectField";
 import Tooltip from "../Tooltip/Tooltip";
@@ -181,11 +181,27 @@ export default function SqlExplorerModal({
       );
     }
 
-    // If we have an empty object for dataVizConfig, set it to undefined
-    let dataVizConfig = form.watch("dataVizConfig");
-    if (dataVizConfig && Object.keys(dataVizConfig[0]).length === 0) {
-      dataVizConfig = undefined;
-    }
+    // If we have an empty object for dataVizConfig, set it to an empty array
+    const dataVizConfig = form.watch("dataVizConfig") || [];
+    // Validate each dataVizConfig object
+    dataVizConfig.forEach((config, index) => {
+      if (!config.xAxis) {
+        setTab(`visualization-${index}`);
+        throw new Error(
+          `X axis is required for Visualization ${
+            config.title ? config.title : `${index + 1}`
+          }. Please add an X axis or remove the visualization to save the query.`
+        );
+      }
+      if (!config.yAxis) {
+        setTab(`visualization-${index}`);
+        throw new Error(
+          `Y axis is required for Visualization ${
+            config.title ? config.title : `${index + 1}`
+          }. Please add a y axis or remove the visualization to save the query.`
+        );
+      }
+    });
 
     // If it's a new query (no savedQuery.id), always save
     if (!id) {
@@ -226,7 +242,7 @@ export default function SqlExplorerModal({
           sql: form.watch("sql"),
           datasourceId: form.watch("datasourceId"),
           dateLastRan: form.watch("dateLastRan"),
-          dataVizConfig,
+          dataVizConfig: dataVizConfig,
           results: form.watch("results"),
         }),
       });
@@ -557,7 +573,6 @@ export default function SqlExplorerModal({
                         fullHeight
                         setCursorData={setCursorData}
                         onCtrlEnter={handleQuery}
-                        resizeDependency={!!form.watch("results")}
                         disabled={readOnlyMode}
                       />
                     </AreaWithHeader>
