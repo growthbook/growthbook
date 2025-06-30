@@ -141,7 +141,7 @@ export function getFactMetricGroups(
       return;
     }
 
-    // skip grouping quantile metrics if re-aggregation may happen
+    // TODO skip grouping quantile metrics if re-aggregation may happen
     if (quantileMetricType(m) && settings.dimensions.length) {
       return;
     }
@@ -221,7 +221,7 @@ export const startExperimentResultQueries = async (
   const dimensionObjs: Dimension[] = (
     await Promise.all(
       snapshotSettings.dimensions.map(
-        async (d) => await parseDimension("exp:" + d.id, d.levels, org.id)
+        async (d) => await parseDimension("exp:" + d.id, d.slices, org.id)
       )
     )
   ).filter((d): d is Dimension => d !== null);
@@ -247,8 +247,9 @@ export const startExperimentResultQueries = async (
       : "";
 
   // Settings for health query
-  // TODO flag for "default"
-  const runTrafficQuery = org.settings?.runHealthTrafficQuery;
+  const runTrafficQuery =
+    (snapshotSettings.type ?? "standard") === "standard" &&
+    org.settings?.runHealthTrafficQuery;
   let dimensionsForTraffic: ExperimentDimension[] = [];
   if (runTrafficQuery && exposureQuery?.dimensionMetadata) {
     dimensionsForTraffic = exposureQuery.dimensionMetadata
@@ -597,7 +598,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
 
     const dimensionObj = await parseDimension(
       snapshotSettings.dimensions[0]?.id,
-      snapshotSettings.dimensions[0]?.levels,
+      snapshotSettings.dimensions[0]?.slices,
       this.model.organization
     );
 

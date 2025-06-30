@@ -505,7 +505,7 @@ export function getSnapshotSettings({
     dimensions =
       predefinedDimensions.map((d) => ({
         id: d.dimension,
-        levels: d.specifiedSlices,
+        slices: d.specifiedSlices,
       })) ?? [];
   }
 
@@ -594,6 +594,7 @@ export function getSnapshotSettings({
 
   return {
     manual: !experiment.datasource,
+    type: snapshotType,
     activationMetric: experiment.activationMetric || null,
     attributionModel: experiment.attributionModel || "firstExposure",
     skipPartialData: !!experiment.skipPartialData,
@@ -697,7 +698,7 @@ export async function createManualSnapshot({
 
 export async function parseDimension(
   dimension: string | null | undefined,
-  levels: string[] | undefined,
+  slices: string[] | undefined,
   organization: string
 ): Promise<Dimension | null> {
   if (dimension) {
@@ -705,7 +706,7 @@ export async function parseDimension(
       return {
         type: "experiment",
         id: dimension.substr(4),
-        specifiedSlices: levels,
+        specifiedSlices: slices,
       };
     } else if (dimension.substr(0, 4) === "pre:") {
       return {
