@@ -69,6 +69,7 @@ export interface AttributeData {
   enum: string[];
   archived: boolean;
   format?: SDKAttributeFormat;
+  disableEqualityConditions?: boolean;
 }
 
 export type NewExperimentRefRule = {
@@ -1196,6 +1197,7 @@ export function useAttributeMap(
         identifier: !!schema.hashAttribute,
         archived: !!schema.archived,
         format: schema.format || "",
+        disableEqualityConditions: !!schema.disableEqualityConditions,
       });
     });
 
@@ -1315,6 +1317,8 @@ export function getDefaultOperator(attribute: AttributeData) {
     return "$true";
   } else if (attribute.array) {
     return "$includes";
+  } else if (attribute.disableEqualityConditions) {
+    return "$regex";
   }
   return "$eq";
 }
