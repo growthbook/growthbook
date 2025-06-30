@@ -268,13 +268,6 @@ const GetStartedAndHomePage = (): React.ReactElement => {
                       <WorkspaceLinks />
                     </Grid>
                   </Card>
-
-                  {/* <Text size="1">
-              Finished setting up?{" "}
-              <Link weight="bold" href="#" underline="none">
-                Turn off the guide to hide this page
-              </Link>
-            </Text> */}
                 </Box>
               </>
             )}
