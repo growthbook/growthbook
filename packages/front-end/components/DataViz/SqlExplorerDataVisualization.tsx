@@ -18,6 +18,24 @@ import DataVizConfigPanel from "./DataVizConfigPanel";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type Rows = any[];
 
+function parseYValue(
+  row: Rows[number],
+  yField: string | undefined,
+  yType: string
+): number | string | undefined {
+  if (yField && yField in row) {
+    const yValue = row[yField];
+    if (yType === "string") {
+      return yValue + "";
+    } else if (yType === "date") {
+      return getValidDate(yValue).toISOString();
+    } else {
+      return yValue * 1;
+    }
+  }
+  return undefined;
+}
+
 function aggregate(
   values: (string | number)[],
   aggregation: yAxisAggregationType
@@ -102,16 +120,12 @@ function roundDate(date: Date, unit: xAxisDateAggregationUnit): Date {
   }
 }
 
-export default function SqlExplorerDataVisualization({
+export function DataVisualizationDisplay({
   rows,
   dataVizConfig,
-  onDataVizConfigChange,
-  showPanel = true,
 }: {
   rows: Rows;
   dataVizConfig: Partial<DataVizConfig>;
-  onDataVizConfigChange: (dataVizConfig: Partial<DataVizConfig>) => void;
-  showPanel?: boolean;
 }) {
   const isConfigValid = useMemo(() => {
     const parsed = dataVizConfigValidator.strip().safeParse(dataVizConfig);
@@ -131,29 +145,36 @@ export default function SqlExplorerDataVisualization({
 
   const textColor = theme === "dark" ? "#FFFFFF" : "#1F2D5C";
 
-  // If using a dimension, get top 10 dimension values
+  // If using a dimension, get top X dimension values
   const { dimensionValues, hasOtherDimension } = useMemo(() => {
     if (!dimensionField) {
       return { dimensionValues: [], hasOtherDimension: false };
     }
 
-    const dimensionValueCounts: Map<string, number> = new Map();
+    // For each dimension value (e.g. "chrome", "firefox"), build a list of all y-values
+    const dimensionValueCounts: Map<string, (number | string)[]> = new Map();
     rows.forEach((row) => {
-      const dimensionValue: unknown = row[dimensionField];
-      dimensionValueCounts.set(
-        dimensionValue + "",
-        (dimensionValueCounts.get(dimensionValue + "") || 0) + 1
-      );
+      const dimensionValue = row[dimensionField] + "";
+      const yValue = parseYValue(row, yField, yConfig?.type || "number");
+      if (yValue !== undefined) {
+        dimensionValueCounts.set(dimensionValue, [
+          ...(dimensionValueCounts.get(dimensionValue) || []),
+          yValue,
+        ]);
+      }
     });
 
+    // Sort the dimension values by their aggregate y-value descending
     const dimensionValues = Array.from(dimensionValueCounts.entries())
-      .sort((a, b) => {
-        return b[1] - a[1];
-      })
-      .map(([value]) => value);
+      .map(([dimensionValue, values]) => ({
+        dimensionValue,
+        value: aggregate(values, aggregation),
+      }))
+      .sort((a, b) => b.value - a.value)
+      .map(({ dimensionValue }) => dimensionValue);
 
     const maxValues = dimensionConfig?.maxValues || 5;
-    // If there are at least 2 overflow values
+    // If there are at least 2 overflow values, add an "(other)" group
     if (dimensionValues.length > maxValues + 1) {
       return {
         dimensionValues: dimensionValues.slice(0, maxValues),
@@ -165,7 +186,14 @@ export default function SqlExplorerDataVisualization({
       dimensionValues,
       hasOtherDimension: false,
     };
-  }, [dimensionField, rows, dimensionConfig?.maxValues]);
+  }, [
+    dimensionField,
+    rows,
+    dimensionConfig?.maxValues,
+    yConfig?.type,
+    yField,
+    aggregation,
+  ]);
 
   const aggregatedRows = useMemo(() => {
     const xType = xConfig?.type;
@@ -199,17 +227,8 @@ export default function SqlExplorerDataVisualization({
         }
       }
 
-      // Cast yField to number
-      if (yField && yField in row) {
-        const yValue = row[yField];
-        if (yType === "string") {
-          newRow.y = yValue + "";
-        } else if (yType === "date") {
-          newRow.y = getValidDate(yValue).toISOString();
-        } else {
-          newRow.y = yValue * 1;
-        }
-      }
+      // Parse yField value based on yType
+      newRow.y = parseYValue(row, yField, yType);
 
       if (dimensionField) {
         const dimensionValue = row[dimensionField] + "";
@@ -286,6 +305,13 @@ export default function SqlExplorerDataVisualization({
               ? aggregate(group.dimensions[dimensionKey], aggregation)
               : 0;
         });
+        if (hasOtherDimension) {
+          const otherKey = dimensionField + ": (other)";
+          row[otherKey] =
+            otherKey in group.dimensions
+              ? aggregate(group.dimensions[otherKey], aggregation)
+              : 0;
+        }
       }
 
       return row;
@@ -335,6 +361,7 @@ export default function SqlExplorerDataVisualization({
     yConfig?.type,
     dimensionField,
     dimensionValues,
+    hasOtherDimension,
     rows,
   ]);
 
@@ -489,6 +516,36 @@ export default function SqlExplorerDataVisualization({
     textColor,
   ]);
 
+  if (isConfigValid) {
+    return (
+      <Flex justify="center" align="center" height="100%" overflowY="auto">
+        <EChartsReact
+          key={JSON.stringify(option)}
+          option={option}
+          style={{ width: "100%", minHeight: "350px", height: "80%" }}
+        />
+      </Flex>
+    );
+  } else {
+    return (
+      <Flex justify="center" align="center" height="100%">
+        Select X and Y axis on the side panel to visualize your data.
+      </Flex>
+    );
+  }
+}
+
+export function SqlExplorerDataVisualization({
+  rows,
+  dataVizConfig,
+  onDataVizConfigChange,
+  showPanel = true,
+}: {
+  rows: Rows;
+  dataVizConfig: Partial<DataVizConfig>;
+  onDataVizConfigChange: (dataVizConfig: Partial<DataVizConfig>) => void;
+  showPanel?: boolean;
+}) {
   return (
     <PanelGroup direction="horizontal">
       <Panel
@@ -504,24 +561,7 @@ export default function SqlExplorerDataVisualization({
             </Text>
           }
         >
-          {isConfigValid ? (
-            <Flex
-              justify="center"
-              align="center"
-              height="100%"
-              overflowY="auto"
-            >
-              <EChartsReact
-                key={JSON.stringify(option)}
-                option={option}
-                style={{ width: "100%", minHeight: "350px", height: "80%" }}
-              />
-            </Flex>
-          ) : (
-            <Flex justify="center" align="center" height="100%">
-              Select X and Y axis on the side panel to visualize your data.
-            </Flex>
-          )}
+          <DataVisualizationDisplay rows={rows} dataVizConfig={dataVizConfig} />
         </AreaWithHeader>
       </Panel>
       {showPanel ? (

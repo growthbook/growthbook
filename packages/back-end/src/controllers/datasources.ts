@@ -63,7 +63,6 @@ import {
 } from "back-end/src/services/clickhouse";
 import { FactTableColumnType } from "back-end/types/fact-table";
 import { factTableColumnTypes } from "back-end/src/routers/fact-table/fact-table.validators";
-import { DimensionSlicesInterface } from "back-end/types/dimension";
 
 export async function deleteDataSource(
   req: AuthRequest<null, { id: string }>,
@@ -765,42 +764,6 @@ export async function getDimensionSlices(
   res.status(200).json({
     status: 200,
     dimensionSlices,
-  });
-}
-
-export async function getDimensionSlicesForDatasource(
-  req: AuthRequest<null, { datasourceId: string }>,
-  res: Response<{
-    status: 200;
-    dimensionSlices: DimensionSlicesInterface[];
-  }>
-) {
-  const context = getContextFromReq(req);
-  const { datasourceId } = req.params;
-
-  const datasource = await getDataSourceById(context, datasourceId);
-  if (!datasource) {
-    throw new Error("Could not find datasource");
-  }
-
-  const exposureQueries = datasource.settings.queries?.exposure || [];
-
-  const dimensionSlices = await Promise.all(
-    exposureQueries.map(async (exposureQuery) => {
-      // get the linked dimension slice if one exists
-      if (exposureQuery.dimensionSlicesId) {
-        return await getDimensionSlicesById(
-          context.org.id,
-          exposureQuery.dimensionSlicesId
-        );
-      }
-      return null;
-    })
-  );
-
-  res.status(200).json({
-    status: 200,
-    dimensionSlices: dimensionSlices.filter((d) => d !== null),
   });
 }
 
