@@ -20,6 +20,7 @@ import {
 import { AuditInterface } from "back-end/types/audit";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { Box } from "spectacle";
+import { daysBetween } from "shared/dates";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import RadioCards from "@/components/Radix/RadioCards";
 import Button from "@/components/Radix/Button";
@@ -66,13 +67,13 @@ const NeedingAttentionPage = (): React.ReactElement | null => {
       const isArchived = e.archived;
 
       const currentPhase = e.phases[e.phases.length - 1];
-
+      const withinFirstDay = currentPhase?.dateStarted
+        ? daysBetween(currentPhase.dateStarted, new Date()) < 1
+        : false;
       const hasNoData =
         e.statusIndicator?.detailedStatus &&
         e.statusIndicator?.detailedStatus === "No data" &&
-        currentPhase.dateStarted &&
-        new Date(currentPhase.dateStarted) <
-          new Date(Date.now() - 1000 * 60 * 60 * 24 * 2); // 2 days ago
+        withinFirstDay;
 
       return (
         e?.statusIndicator?.detailedStatus &&
