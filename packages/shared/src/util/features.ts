@@ -199,21 +199,10 @@ export function validateFeatureValue(
 
 // Helper function to validate ISO timestamp format
 function isValidISOTimestamp(timestamp: string): boolean {
-  // ISO 8601 regex for the format: YYYY-MM-DDTHH:mm:ss.sssZ
-  const isoRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
-
-  if (!isoRegex.test(timestamp)) {
-    return false;
-  }
-
   // Validate that it's a proper date and parses correctly
   try {
     const date = new Date(timestamp);
-    return (
-      !isNaN(date.getTime()) &&
-      timestamp.endsWith("Z") &&
-      timestamp.length >= 20
-    );
+    return !isNaN(date.getTime()) && date.toISOString() === timestamp;
   } catch {
     return false;
   }
