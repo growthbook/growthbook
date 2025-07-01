@@ -7,31 +7,30 @@ import {
   upsertFeatureCodeRefs,
   getAllCodeRefsForOrg,
 } from "back-end/src/models/FeatureCodeRefs";
+import { FeatureCodeRefsInterface } from "back-end/types/code-refs";
 
 export const postCodeRefs = createApiRequestHandler(postCodeRefsValidator)(
   async (req): Promise<PostCodeRefsResponse> => {
     const { branch, repoName: repo } = req.body;
     const refsByFeature = groupBy(req.body.refs, "flagKey");
 
-    // Get all existing code references for this repo/branch combination
-    const allExistingCodeRefs = await getAllCodeRefsForOrg({
-      context: req.context,
-    });
+    const allExistingCodeRefs: FeatureCodeRefsInterface[] = await getAllCodeRefsForOrg(
+      {
+        context: req.context,
+      }
+    );
 
     const existingCodeRefsForRepoBranch = allExistingCodeRefs.filter(
       (codeRef) => codeRef.repo === repo && codeRef.branch === branch
     );
 
-    // Get the set of features that have existing references
-    const existingFeatures = new Set(
-      existingCodeRefsForRepoBranch.map((codeRef) => codeRef.feature)
+    const existingFeatures = new Array(
+      ...existingCodeRefsForRepoBranch.map((codeRef) => codeRef.feature)
     );
 
-    // Get the set of features in the current request
     const requestedFeatures = new Set(Object.keys(refsByFeature));
 
-    // Find features that exist but are not in the request (these should be removed)
-    const featuresToRemove = Array.from(existingFeatures).filter(
+    const featuresToRemove = existingFeatures.filter(
       (feature) => !requestedFeatures.has(feature)
     );
 
