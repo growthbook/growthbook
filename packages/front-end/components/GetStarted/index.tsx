@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Box,
   Card,
@@ -10,6 +10,7 @@ import {
 } from "@radix-ui/themes";
 import { PiArrowSquareOut, PiCaretDownFill } from "react-icons/pi";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { CommercialFeature } from "shared/src/enterprise/license-consts";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useGetStarted } from "@/services/GetStartedProvider";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -86,26 +87,79 @@ const GetStartedAndHomePage = (): React.ReactElement => {
   const DOCUMENTATION_SIDEBAR_WIDTH = "minmax(0, 245px)";
 
   // Advanced Features Cards Section
-  const advancedFeatures = [
-    {
-      imgUrl: "/images/get-started/advanced/metrics.jpg",
-      title: "Metric Groups",
-      description: "Easily reuse sets of metrics",
-      href: "/metrics#metricgroups",
-    },
-    {
-      imgUrl: "/images/get-started/advanced/features.jpg",
-      title: "Dev Tools",
-      description: "Debug feature flags & experiments",
-      href: "https://docs.growthbook.io/tools/chrome-extension",
-    },
-    {
-      imgUrl: "/images/get-started/advanced/features.jpg",
-      title: "Archetype Overview",
-      description: "Simulate the result of targeting rules",
-      href: "/archetypes",
-    },
-  ];
+  type AdvancedFeature = {
+    imgUrl: string;
+    title: string;
+    description: string;
+    href: string;
+    commercialFeature?: CommercialFeature;
+  };
+  const advancedFeatures: AdvancedFeature[] = useMemo(() => {
+    const features: AdvancedFeature[] = [
+      {
+        imgUrl: "/images/get-started/advanced/metrics.jpg",
+        title: "Metric Groups",
+        description: "Easily reuse sets of metrics",
+        href: "/metrics#metricgroups",
+        commercialFeature: "metric-groups",
+      },
+      {
+        imgUrl: "/images/get-started/advanced/features.jpg",
+        title: "Dev Tools",
+        description: "Debug feature flags & experiments",
+        href: "https://docs.growthbook.io/tools/chrome-extension",
+      },
+      {
+        imgUrl: "/images/get-started/advanced/archetypes.png",
+        title: "Archetype Overview",
+        description: "Simulate the result of targeting rules",
+        href: "/archetypes",
+        commercialFeature: "archetypes",
+      },
+      {
+        imgUrl: "/images/get-started/advanced/custom-roles.png",
+        title: "Custom Roles",
+        description: "Define fine-grained permission control",
+        href: "/account/user-permissions",
+        commercialFeature: "custom-roles",
+      },
+      {
+        imgUrl: "/images/get-started/advanced/feature-flag.png",
+        title: "Feature Flag Analytics",
+        description: "View flag evaluations in real time",
+        href: "/feature-flags",
+        commercialFeature: "managed-warehouse",
+      },
+      {
+        imgUrl: "/images/get-started/advanced/teams.png",
+        title: "Teams",
+        description: "Manage member permissions",
+        href: "/settings/team",
+        commercialFeature: "teams",
+      },
+      {
+        imgUrl: "/images/get-started/advanced/code-refs.png",
+        title: "Code Refs",
+        description: "See exactly where flags appear in code",
+        href: "https://app.growthbook.io/settings#feature",
+        commercialFeature: "code-references",
+      },
+      {
+        imgUrl: "/images/get-started/advanced/data-pipeline-mode.png",
+        title: "Data Pipeline Mode",
+        description: "Use temp tables for intermediate steps",
+        href: "https://docs.growthbook.io/app/data-pipeline",
+        commercialFeature: "pipeline-mode",
+      },
+      {
+        imgUrl: "/images/get-started/advanced/fact-tables.png",
+        title: "Fact Tables",
+        description: "Enable automatic query optimization",
+        href: "/fact-tables",
+      },
+    ];
+    return features.sort(() => Math.random() - 0.5).slice(0, 3);
+  }, []);
 
   return (
     <>
@@ -235,6 +289,7 @@ const GetStartedAndHomePage = (): React.ReactElement => {
                           href={feature.href}
                           title={feature.title}
                           description={feature.description}
+                          commercialFeature={feature.commercialFeature}
                         />
                       ))}
                     </Flex>

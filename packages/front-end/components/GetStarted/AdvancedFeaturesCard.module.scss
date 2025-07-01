@@ -113,3 +113,19 @@
     pointer-events: none;
   }
 }
+
+.badgeContainer {
+  position: absolute;
+  top: 20px;
+  left: 24px;
+  @media (max-width: 1300px) and (min-width: 950px) {
+    left: 16px;
+  }
+  @media (max-width: 950px) and (min-width: 767px) {
+    top: 12px;
+    left: 12px;
+  }
+  @media (max-width: 767px) {
+    left: 16px;
+  }
+}

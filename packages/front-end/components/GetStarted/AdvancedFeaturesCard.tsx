@@ -1,4 +1,7 @@
 import { AspectRatio, Box, Text } from "@radix-ui/themes";
+
+import { CommercialFeature } from "shared/src/enterprise/license-consts";
+import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import styles from "./AdvancedFeaturesCard.module.scss";
 
 export default function AdvancedFeaturesCard({
@@ -6,11 +9,13 @@ export default function AdvancedFeaturesCard({
   imgUrl,
   title,
   description,
+  commercialFeature,
 }: {
   href: string;
   imgUrl: string;
   title: string;
   description?: string;
+  commercialFeature?: CommercialFeature;
 }) {
   const card = (
     <div
@@ -22,6 +27,14 @@ export default function AdvancedFeaturesCard({
       }
     >
       <div className={styles.cardContent}>
+        {commercialFeature && (
+          <Box className={styles.badgeContainer}>
+            <PaidFeatureBadge
+              commercialFeature={commercialFeature}
+              variant="solid"
+            />
+          </Box>
+        )}
         {title && (
           <Text size="1" weight="medium" className={styles.cardTitle} as="div">
             {title}
