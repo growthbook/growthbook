@@ -169,32 +169,30 @@ const NeedingAttentionPage = (): React.ReactElement | null => {
       if (!recentlyUsed[event.entity.id]) {
         switch (event.entity?.object) {
           case "feature":
+            if (!features.find((f) => f.id == event.entity.id)) break;
             recentlyUsed[event.entity.id] = {
               type: "feature",
               id: event.entity.id,
             };
             break;
           case "experiment":
+            if (!experiments.find((e) => e.id !== event.entity.id)) break;
             recentlyUsed[event.entity.id] = {
               type: "experiment",
               id: event.entity.id,
             };
             break;
           case "datasource":
+            if (!getDatasourceById(event.entity.id)) break;
             recentlyUsed[event.entity.id] = {
               type: "datasource",
               id: event.entity.id,
             };
             break;
           case "metric":
+            if (!getMetricById(event.entity.id)) break;
             recentlyUsed[event.entity.id] = {
               type: "metric",
-              id: event.entity.id,
-            };
-            break;
-          case "attribute":
-            recentlyUsed[event.entity.id] = {
-              type: "attribute",
               id: event.entity.id,
             };
             break;
@@ -202,7 +200,13 @@ const NeedingAttentionPage = (): React.ReactElement | null => {
       }
     });
     return recentlyUsed;
-  }, [historyData]);
+  }, [
+    historyData?.events,
+    features,
+    experiments,
+    getDatasourceById,
+    getMetricById,
+  ]);
 
   const featuresAndRevisions = revisionsData?.revisions.reduce<
     FeaturesAndRevisions[]
@@ -344,6 +348,7 @@ const NeedingAttentionPage = (): React.ReactElement | null => {
     );
   };
   const getAvatarAndName = (name: string) => {
+    if (!name) return null;
     return (
       <Flex align="center" gap="2">
         <UserAvatar name={name} size="sm" variant="soft" />

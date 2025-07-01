@@ -220,7 +220,7 @@ const GetStartedAndHomePage = (): React.ReactElement => {
               >
                 <DropdownMenuItem
                   onClick={() => {
-                    open("feature-flags");
+                    open("features");
                   }}
                 >
                   Feature Flag
@@ -322,7 +322,7 @@ const GetStartedAndHomePage = (): React.ReactElement => {
               </Flex>
               {!showGettingStarted && (
                 <Callout status="info" size="md" mb="4">
-                  <Text size="3">
+                  <Text size="2">
                     Customize your account setup and learn how to get started
                     with GrowthBook.
                   </Text>
