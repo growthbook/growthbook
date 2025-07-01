@@ -79,6 +79,7 @@ import Link from "@/components/Radix/Link";
 import Markdown from "@/components/Markdown/Markdown";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import { AppFeatures } from "@/types/app-features";
+import { isCloud } from "@/services/env";
 import PremiumTooltip from "../Marketing/PremiumTooltip";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 
@@ -186,7 +187,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   } = useDefinitions();
   const { aiEnabled } = useAISettings();
   const gb = useGrowthBook<AppFeatures>();
-  const useCheckForSimilar = gb?.isOn("similar-experiments");
+  const useCheckForSimilar = isCloud() ? gb?.isOn("similar-experiments") : true;
   const [similarExperiments, setSimilarExperiments] = useState<
     { experiment: ExperimentInterfaceStringDates; similarity: number }[]
   >([]);
