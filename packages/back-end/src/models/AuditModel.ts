@@ -73,7 +73,6 @@ export async function findAuditByUserIdAndOrganization(
   organization: string,
   options?: QueryOptions
 ): Promise<AuditInterface[]> {
-  // Then try to find any audit records for this user
   const userAudits = await AuditModel.find({
     "user.id": userId,
     organization,
