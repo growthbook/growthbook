@@ -210,6 +210,9 @@ tags:
   - name: SavedGroup_model
     x-displayName: SavedGroup
     description: <SchemaDefinition schemaRef="#/components/schemas/SavedGroup" />
+  - name: ScheduleRule_model
+    x-displayName: ScheduleRule
+    description: <SchemaDefinition schemaRef="#/components/schemas/ScheduleRule" />
   - name: SdkConnection_model
     x-displayName: SdkConnection
     description: <SchemaDefinition schemaRef="#/components/schemas/SdkConnection" />
@@ -356,16 +359,12 @@ paths:
                                 scheduleRules:
                                   type: array
                                   items:
-                                    type: object
-                                    required:
-                                      - enabled
-                                      - timestamp
-                                    properties:
-                                      enabled:
-                                        type: boolean
-                                      timestamp:
-                                        type: string
-                                        nullable: true
+                                    $ref: '#/components/schemas/ScheduleRule'
+                                  example:
+                                    - enabled: true
+                                      timestamp: null
+                                    - enabled: false
+                                      timestamp: '2025-06-23T16:09:37.769Z'
                                 id:
                                   type: string
                                 enabled:
@@ -424,16 +423,12 @@ paths:
                                 scheduleRules:
                                   type: array
                                   items:
-                                    type: object
-                                    required:
-                                      - enabled
-                                      - timestamp
-                                    properties:
-                                      enabled:
-                                        type: boolean
-                                      timestamp:
-                                        type: string
-                                        nullable: true
+                                    $ref: '#/components/schemas/ScheduleRule'
+                                  example:
+                                    - enabled: true
+                                      timestamp: null
+                                    - enabled: false
+                                      timestamp: '2025-06-23T16:09:37.769Z'
                                 id:
                                   type: string
                                 enabled:
@@ -504,16 +499,12 @@ paths:
                                 scheduleRules:
                                   type: array
                                   items:
-                                    type: object
-                                    required:
-                                      - enabled
-                                      - timestamp
-                                    properties:
-                                      enabled:
-                                        type: boolean
-                                      timestamp:
-                                        type: string
-                                        nullable: true
+                                    $ref: '#/components/schemas/ScheduleRule'
+                                  example:
+                                    - enabled: true
+                                      timestamp: null
+                                    - enabled: false
+                                      timestamp: '2025-06-23T16:09:37.769Z'
                                 variations:
                                   type: array
                                   items:
@@ -582,16 +573,12 @@ paths:
                                 scheduleRules:
                                   type: array
                                   items:
-                                    type: object
-                                    required:
-                                      - enabled
-                                      - timestamp
-                                    properties:
-                                      enabled:
-                                        type: boolean
-                                      timestamp:
-                                        type: string
-                                        nullable: true
+                                    $ref: '#/components/schemas/ScheduleRule'
+                                  example:
+                                    - enabled: true
+                                      timestamp: null
+                                    - enabled: false
+                                      timestamp: '2025-06-23T16:09:37.769Z'
                                 values:
                                   type: array
                                   items:
@@ -5680,6 +5667,29 @@ components:
           type: array
           items:
             type: string
+    ScheduleRule:
+      type: object
+      description: An array of schedule rules to turn on/off a feature rule at specific times. The array must contain exactly 2 elements (start rule and end rule). The first element is the start rule.
+      minItems: 2
+      maxItems: 2
+      required:
+        - enabled
+        - timestamp
+      properties:
+        enabled:
+          type: boolean
+          description: Whether the rule should be enabled or disabled at the specified timestamp.
+        timestamp:
+          type: string
+          format: date-time
+          nullable: true
+          description: ISO timestamp when the rule should activate.
+          example: '2025-06-23T16:09:37.769Z'
+      example:
+        - enabled: true
+          timestamp: null
+        - enabled: false
+          timestamp: '2025-06-23T16:09:37.769Z'
     Feature:
       type: object
       required:
@@ -5948,16 +5958,12 @@ components:
         scheduleRules:
           type: array
           items:
-            type: object
-            required:
-              - enabled
-              - timestamp
-            properties:
-              enabled:
-                type: boolean
-              timestamp:
-                type: string
-                nullable: true
+            $ref: '#/components/schemas/ScheduleRule'
+          example:
+            - enabled: true
+              timestamp: null
+            - enabled: false
+              timestamp: '2025-06-23T16:09:37.769Z'
         id:
           type: string
         enabled:
@@ -6005,16 +6011,12 @@ components:
         scheduleRules:
           type: array
           items:
-            type: object
-            required:
-              - enabled
-              - timestamp
-            properties:
-              enabled:
-                type: boolean
-              timestamp:
-                type: string
-                nullable: true
+            $ref: '#/components/schemas/ScheduleRule'
+          example:
+            - enabled: true
+              timestamp: null
+            - enabled: false
+              timestamp: '2025-06-23T16:09:37.769Z'
         id:
           type: string
         enabled:
@@ -6099,6 +6101,15 @@ components:
             - released
             - rolled-back
             - stopped
+        scheduleRules:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScheduleRule'
+          example:
+            - enabled: true
+              timestamp: null
+            - enabled: false
+              timestamp: '2025-06-23T16:09:37.769Z'
     FeatureExperimentRule:
       type: object
       required:
@@ -6154,16 +6165,12 @@ components:
         scheduleRules:
           type: array
           items:
-            type: object
-            required:
-              - enabled
-              - timestamp
-            properties:
-              enabled:
-                type: boolean
-              timestamp:
-                type: string
-                nullable: true
+            $ref: '#/components/schemas/ScheduleRule'
+          example:
+            - enabled: true
+              timestamp: null
+            - enabled: false
+              timestamp: '2025-06-23T16:09:37.769Z'
         value:
           type: array
           items:
@@ -6203,16 +6210,12 @@ components:
         scheduleRules:
           type: array
           items:
-            type: object
-            required:
-              - enabled
-              - timestamp
-            properties:
-              enabled:
-                type: boolean
-              timestamp:
-                type: string
-                nullable: true
+            $ref: '#/components/schemas/ScheduleRule'
+          example:
+            - enabled: true
+              timestamp: null
+            - enabled: false
+              timestamp: '2025-06-23T16:09:37.769Z'
         variations:
           type: array
           items:
@@ -7647,6 +7650,7 @@ x-tagGroups:
       - Project_model
       - Query_model
       - SavedGroup_model
+      - ScheduleRule_model
       - SdkConnection_model
       - Segment_model
       - VisualChange_model
