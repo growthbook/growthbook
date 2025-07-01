@@ -120,7 +120,8 @@ const GetStartedAndHomePage = (): React.ReactElement => {
         imgUrl: "/images/get-started/advanced/custom-roles.png",
         title: "Custom Roles",
         description: "Define fine-grained permission control",
-        href: "/account/user-permissions",
+        href:
+          "https://docs.growthbook.io/account/user-permissions#custom-roles",
         commercialFeature: "custom-roles",
       },
       {
