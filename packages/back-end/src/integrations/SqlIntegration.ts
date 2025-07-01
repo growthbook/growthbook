@@ -2302,7 +2302,7 @@ export default abstract class SqlIntegration
     const startDate = subDays(new Date(), params.lookbackDays);
     const timestampColumn = "e.timestamp";
     return format(
-      `-- Suggest Dimension Slices
+      `-- Dimension Traffic Query
     WITH
       __rawExperiment AS (
         ${compileSqlTemplate(exposureQuery.query, {

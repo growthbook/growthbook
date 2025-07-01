@@ -47,7 +47,6 @@ import { getUserById } from "back-end/src/models/UserModel";
 import { AuditUserLoggedIn } from "back-end/types/audit";
 import {
   createDimensionSlices,
-  getLatestDimensionSlices,
   getDimensionSlicesById,
 } from "back-end/src/models/DimensionSlicesModel";
 import { DimensionSlicesQueryRunner } from "back-end/src/queryRunners/DimensionSlicesQueryRunner";
@@ -761,25 +760,6 @@ export async function getDimensionSlices(
   const { id } = req.params;
 
   const dimensionSlices = await getDimensionSlicesById(org.id, id);
-
-  res.status(200).json({
-    status: 200,
-    dimensionSlices,
-  });
-}
-
-export async function getLatestDimensionSlicesForDatasource(
-  req: AuthRequest<null, { datasourceId: string; exposureQueryId: string }>,
-  res: Response
-) {
-  const { org } = getContextFromReq(req);
-  const { datasourceId, exposureQueryId } = req.params;
-
-  const dimensionSlices = await getLatestDimensionSlices(
-    org.id,
-    datasourceId,
-    exposureQueryId
-  );
 
   res.status(200).json({
     status: 200,
