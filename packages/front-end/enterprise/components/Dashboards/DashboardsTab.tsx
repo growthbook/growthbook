@@ -89,15 +89,18 @@ export default function DashboardsTab({ experiment }: Props) {
   );
   const { userId } = useUser();
   const [isEditing, setIsEditing] = useState(false);
-  const [dashboard, setDashboard] = useState<
-    DashboardInstanceInterface | undefined
-  >(undefined);
+  const [dashboardId, setDashboardId] = useState<string | undefined>(undefined);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const { apiCall } = useAuth();
   const [title, setTitle] = useState("");
+  const [blocks, setBlocks] = useState<
+    DashboardBlockData<DashboardBlockInterface>[]
+  >([]);
   const [editingBlock, setEditingBlock] = useState<number | undefined>(
     undefined
   );
+
+  const dashboard = dashboards.find((d) => d.id === dashboardId);
 
   useEffect(() => {
     if (!isEditing) setEditingBlock(undefined);
@@ -117,12 +120,14 @@ export default function DashboardsTab({ experiment }: Props) {
   const canDelete = isOwner || isAdmin;
 
   useEffect(() => {
-    if (!dashboard && dashboards.length > 0) setDashboard(dashboards[0]);
-  }, [dashboards, dashboard]);
-  const dashboardId = dashboard?.id || "";
+    if (!dashboardId && dashboards.length > 0) setDashboardId(dashboards[0].id);
+  }, [dashboards, dashboardId]);
 
   useEffect(() => {
-    if (dashboard) setTitle(dashboard.title);
+    if (dashboard) {
+      setTitle(dashboard.title);
+      setBlocks(dashboard.blocks);
+    }
   }, [dashboard]);
 
   const submitDashboard = useCallback(
@@ -145,8 +150,8 @@ export default function DashboardsTab({ experiment }: Props) {
         ),
       });
       if (res.status === 200) {
-        setDashboard(res.dashboard);
         mutateDashboardList();
+        setDashboardId(res.dashboard.id);
       } else {
         console.error(res);
       }
@@ -207,14 +212,7 @@ export default function DashboardsTab({ experiment }: Props) {
                   />
                 ) : dashboards.length > 0 ? (
                   <>
-                    <Select
-                      value={dashboardId}
-                      setValue={(value) => {
-                        setDashboard(
-                          dashboards.find((dash) => dash.id === value)
-                        );
-                      }}
-                    >
+                    <Select value={dashboardId} setValue={setDashboardId}>
                       {dashboards.map((dash) => (
                         <SelectItem key={dash.id} value={dash.id}>
                           {dash.title}
@@ -248,9 +246,8 @@ export default function DashboardsTab({ experiment }: Props) {
                           "dashboard-disabled": editingBlock !== undefined,
                         })}
                         onClick={() => {
-                          setDashboard(
-                            dashboards.find((dash) => dash.id === dashboard.id)
-                          );
+                          setTitle(dashboard.title);
+                          setBlocks(dashboard.blocks);
                           setIsEditing(false);
                         }}
                         variant="ghost"
@@ -262,7 +259,7 @@ export default function DashboardsTab({ experiment }: Props) {
                           "dashboard-disabled": editingBlock !== undefined,
                         })}
                         onClick={async () => {
-                          await submitDashboard("PUT", { title });
+                          await submitDashboard("PUT", { title, blocks });
                           setIsEditing(false);
                         }}
                       >
@@ -296,7 +293,7 @@ export default function DashboardsTab({ experiment }: Props) {
                               method: "DELETE",
                             });
                             mutateDashboardList();
-                            setDashboard(undefined);
+                            setDashboardId(undefined);
                           }}
                           canDelete={canDelete}
                         />
@@ -309,11 +306,12 @@ export default function DashboardsTab({ experiment }: Props) {
             {dashboard && (
               <DashboardEditor
                 experiment={experiment}
-                dashboard={dashboard}
+                blocks={blocks}
                 canEdit={canEdit}
                 isEditing={isEditing}
                 editingBlock={editingBlock}
                 setIsEditing={setIsEditing}
+                setBlocks={setBlocks}
                 setEditingBlock={setEditingBlock}
                 mutate={mutateDashboardList}
               />

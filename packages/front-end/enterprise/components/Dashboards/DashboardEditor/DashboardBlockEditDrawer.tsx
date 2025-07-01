@@ -25,7 +25,7 @@ interface Props {
   experiment: ExperimentInterfaceStringDates;
   open: boolean;
   close: () => void;
-  block: DashboardBlockData<DashboardBlockInterface>;
+  block?: DashboardBlockData<DashboardBlockInterface>;
   setBlock: React.Dispatch<DashboardBlockData<DashboardBlockInterface>>;
 }
 export default function DashboardBlockEditDrawer({
@@ -81,77 +81,85 @@ export default function DashboardBlockEditDrawer({
         zIndex: 9001,
       }}
     >
-      <Flex direction="column" py="6" px="7" gap="2">
-        <Flex justify="between" align="center">
-          <span>
-            <Text weight="light">{BLOCK_TYPE_INFO[block.type].name}</Text>
-            <Text weight="medium"> / {block.title}</Text>
-          </span>
-          <Flex gap="4">
-            <Button variant="ghost" onClick={close}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => {
-                setBlock(form.getValues());
-                close();
-              }}
-            >
-              Save & Close
-            </Button>
+      {block && (
+        <Flex direction="column" py="6" px="7" gap="2">
+          <Flex justify="between" align="center">
+            <span>
+              <Text weight="light">{BLOCK_TYPE_INFO[block.type].name}</Text>
+              <Text weight="medium"> / {block.title}</Text>
+            </span>
+            <Flex gap="4">
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  form.reset(block);
+                  close();
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  setBlock(form.getValues());
+                  close();
+                }}
+              >
+                Save & Close
+              </Button>
+            </Flex>
+          </Flex>
+          <Text>
+            Block will update with real-time results when global “Update” button
+            is clicked.
+          </Text>
+          <Flex wrap="wrap" gap="4">
+            <Field
+              label="Block Title"
+              labelClassName="font-weight-bold"
+              containerClassName="w-25"
+              {...form.register("title")}
+            />
+            <Field
+              label="Description"
+              labelClassName="font-weight-bold"
+              {...form.register("description")}
+              textarea
+              minRows={1}
+              maxRows={1}
+              containerClassName="flex-grow-1 w-50"
+            />
+            {isDashboardBlockWithMetricIds(block) && (
+              <MultiSelectField
+                label="Metrics"
+                labelClassName="font-weight-bold"
+                value={form.watch("metricIds") || []}
+                containerClassName="w-25"
+                onChange={(value) => form.setValue("metricIds", value)}
+                options={metricOptions}
+              />
+            )}
+            {isDashboardBlockWithDifferenceType(block) && (
+              <SelectField
+                label="Difference Type"
+                labelClassName="font-weight-bold"
+                containerClassName="w-25"
+                value={form.watch("differenceType") || ""}
+                onChange={(value) =>
+                  form.setValue(
+                    "differenceType",
+                    value as DimensionBlockInterface["differenceType"]
+                  )
+                }
+                options={[
+                  { label: "Relative", value: "relative" },
+                  { label: "Absolute", value: "absolute" },
+                  { label: "Scaled", value: "scaled" },
+                ]}
+              />
+            )}
           </Flex>
         </Flex>
-        <Text>
-          Block will update with real-time results when global “Update” button
-          is clicked.
-        </Text>
-        <Flex wrap="wrap" gap="4">
-          <Field
-            label="Block Title"
-            labelClassName="font-weight-bold"
-            containerClassName="w-25"
-            {...form.register("title")}
-          />
-          <Field
-            label="Description"
-            labelClassName="font-weight-bold"
-            {...form.register("description")}
-            textarea
-            minRows={1}
-            maxRows={1}
-            containerClassName="flex-grow-1 w-50"
-          />
-          {isDashboardBlockWithMetricIds(block) && (
-            <MultiSelectField
-              label="Metrics"
-              labelClassName="font-weight-bold"
-              value={form.watch("metricIds")}
-              containerClassName="w-25"
-              onChange={(value) => form.setValue("metricIds", value)}
-              options={metricOptions}
-            />
-          )}
-          {isDashboardBlockWithDifferenceType(block) && (
-            <SelectField
-              label="Difference Type"
-              labelClassName="font-weight-bold"
-              containerClassName="w-25"
-              value={form.watch("differenceType") || ""}
-              onChange={(value) =>
-                form.setValue(
-                  "differenceType",
-                  value as DimensionBlockInterface["differenceType"]
-                )
-              }
-              options={[
-                { label: "Relative", value: "relative" },
-                { label: "Absolute", value: "absolute" },
-                { label: "Scaled", value: "scaled" },
-              ]}
-            />
-          )}
-        </Flex>
-      </Flex>
+      )}
     </div>
   );
 }

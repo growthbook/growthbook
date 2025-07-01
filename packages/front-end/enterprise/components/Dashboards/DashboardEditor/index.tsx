@@ -1,7 +1,6 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React, { Fragment, useState } from "react";
 import { PiCaretDownFill, PiPlus } from "react-icons/pi";
-import { DashboardInstanceInterface } from "back-end/src/enterprise/validators/dashboard-instance";
 import {
   DashboardBlockData,
   DashboardBlockInterface,
@@ -173,10 +172,11 @@ function AddBlockDropdown({
 
 interface Props {
   experiment: ExperimentInterfaceStringDates;
-  dashboard?: DashboardInstanceInterface;
+  blocks: DashboardBlockData<DashboardBlockInterface>[];
   canEdit: boolean;
   isEditing: boolean;
   editingBlock: number | undefined;
+  setBlocks: React.Dispatch<DashboardBlockData<DashboardBlockInterface>[]>;
   setIsEditing: React.Dispatch<boolean>;
   setEditingBlock: React.Dispatch<number | undefined>;
   mutate: () => void;
@@ -184,18 +184,15 @@ interface Props {
 
 export default function DashboardEditor({
   experiment,
-  dashboard,
+  blocks,
   canEdit,
   isEditing,
   editingBlock,
+  setBlocks,
   setIsEditing,
   setEditingBlock,
   mutate,
 }: Props) {
-  const [blocks, setBlocks] = useState<
-    DashboardBlockData<DashboardBlockInterface>[]
-  >(dashboard?.blocks || []);
-
   const addBlockType = (bType: DashboardBlockType, index?: number) => {
     index = index ?? blocks.length;
     setBlocks([
@@ -313,7 +310,7 @@ export default function DashboardEditor({
         experiment={experiment}
         open={isDefined(editingBlock)}
         close={() => setEditingBlock(undefined)}
-        block={blocks[editingBlock || 0]}
+        block={isDefined(editingBlock) ? blocks[editingBlock] : undefined}
         setBlock={(block) => {
           if (editingBlock === undefined) return;
           setBlocks([

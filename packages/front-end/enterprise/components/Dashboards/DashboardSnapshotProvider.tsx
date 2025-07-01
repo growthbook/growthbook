@@ -76,7 +76,7 @@ export function useDashboardSnapshot(
     mutate,
   } = useApi<{
     snapshot: ExperimentSnapshotInterface;
-  }>(`/snapshots/${blockSnapshotId}`, {
+  }>(`/snapshot/${blockSnapshotId}`, {
     shouldRun,
   });
 

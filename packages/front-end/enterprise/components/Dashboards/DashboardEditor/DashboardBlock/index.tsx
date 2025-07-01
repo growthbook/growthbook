@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import {
   DashboardBlockData,
@@ -72,8 +72,16 @@ export default function DashboardBlock({
   mutate,
 }: Props) {
   const BlockComponent = BLOCK_COMPONENTS[block.type];
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollToBlock = () => {
+    if (scrollRef.current) {
+      window.scrollTo(0, scrollRef.current.offsetTop - 100);
+    }
+  };
+
   return (
     <div
+      ref={scrollRef}
       className={clsx("appbox p-4", {
         "border-violet": editingBlock,
         "dashboard-disabled": disableBlock,
@@ -98,7 +106,12 @@ export default function DashboardBlock({
                   </Button>
                 }
               >
-                <DropdownMenuItem onClick={editBlock}>
+                <DropdownMenuItem
+                  onClick={() => {
+                    scrollToBlock();
+                    editBlock();
+                  }}
+                >
                   Edit Contents
                 </DropdownMenuItem>
                 <DropdownMenuItem>Duplicate</DropdownMenuItem>
