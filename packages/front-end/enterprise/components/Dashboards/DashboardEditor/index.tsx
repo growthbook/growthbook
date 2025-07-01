@@ -9,6 +9,7 @@ import {
 import { isDefined } from "shared/util";
 import { Flex, Heading, IconButton, Text } from "@radix-ui/themes";
 import clsx from "clsx";
+import { getBlockData } from "shared/enterprise";
 import Button from "@/components/Radix/Button";
 import {
   DropdownMenu,
@@ -277,8 +278,23 @@ export default function DashboardEditor({
                 editBlock={() => {
                   setEditingBlock(i);
                 }}
+                duplicateBlock={() => {
+                  setBlocks([
+                    ...blocks.slice(0, i + 1),
+                    getBlockData(block),
+                    ...blocks.slice(i + 1),
+                  ]);
+                }}
                 deleteBlock={() => {
                   setBlocks([...blocks.slice(0, i), ...blocks.slice(i + 1)]);
+                }}
+                moveBlock={(direction) => {
+                  const otherBlocks = blocks.toSpliced(i, 1);
+                  setBlocks([
+                    ...otherBlocks.slice(0, i + direction),
+                    block,
+                    ...otherBlocks.slice(i + direction),
+                  ]);
                 }}
                 mutate={mutate}
               />

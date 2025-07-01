@@ -92,7 +92,7 @@ export default function DashboardBlockEditDrawer({
               <Button
                 variant="ghost"
                 onClick={() => {
-                  form.reset(block);
+                  form.reset({});
                   close();
                 }}
               >

@@ -1,12 +1,12 @@
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import {
   DashboardBlockData,
   DashboardBlockInterface,
   DashboardBlockType,
 } from "back-end/src/enterprise/validators/dashboard-block";
-import { Flex, Text } from "@radix-ui/themes";
-import { PiCaretDown } from "react-icons/pi";
+import { Flex, IconButton, Text } from "@radix-ui/themes";
+import { PiCaretDown, PiCaretUp, PiDotsSixVertical } from "react-icons/pi";
 import clsx from "clsx";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import Button from "@/components/Radix/Button";
@@ -36,12 +36,14 @@ export type BlockProps<T extends DashboardBlockInterface> = {
 
 interface Props {
   block: DashboardBlockData<DashboardBlockInterface>;
+  experiment: ExperimentInterfaceStringDates;
   isEditing: boolean;
   editingBlock: boolean;
   disableBlock: boolean;
   editBlock: () => void;
+  duplicateBlock: () => void;
   deleteBlock: () => void;
-  experiment: ExperimentInterfaceStringDates;
+  moveBlock: (direction: 1 | -1) => void;
   mutate: () => void;
 }
 
@@ -68,9 +70,13 @@ export default function DashboardBlock({
   editingBlock,
   disableBlock,
   editBlock,
+  duplicateBlock,
   deleteBlock,
+  moveBlock,
   mutate,
 }: Props) {
+  const [moveBlockOpen, setMoveBlockOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const BlockComponent = BLOCK_COMPONENTS[block.type];
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollToBlock = () => {
@@ -80,21 +86,65 @@ export default function DashboardBlock({
   };
 
   return (
-    <div
+    <Flex
       ref={scrollRef}
-      className={clsx("appbox p-4", {
+      className={clsx("appbox p-4 position-relative", {
         "border-violet": editingBlock,
         "dashboard-disabled": disableBlock,
       })}
+      direction="column"
+      gap="2"
     >
+      {isEditing && (
+        <DropdownMenu
+          open={moveBlockOpen}
+          onOpenChange={setMoveBlockOpen}
+          disabled={disableBlock}
+          trigger={
+            <IconButton
+              className="position-absolute"
+              style={{
+                top: 28,
+                left: 6,
+              }}
+              variant="ghost"
+            >
+              <PiDotsSixVertical />
+            </IconButton>
+          }
+        >
+          <DropdownMenuItem
+            onClick={() => {
+              moveBlock(-1);
+              setMoveBlockOpen(false);
+            }}
+          >
+            <Text>
+              <PiCaretUp /> Move up
+            </Text>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => {
+              moveBlock(1);
+              setMoveBlockOpen(false);
+            }}
+          >
+            <Text>
+              <PiCaretDown /> Move down
+            </Text>
+          </DropdownMenuItem>
+        </DropdownMenu>
+      )}
       <Flex align="center" justify="between">
-        <h4>{block.title}</h4>
+        <h4 style={{ margin: 0 }}>{block.title}</h4>
         {isEditing && (
           <div>
             {editingBlock ? (
               <Text color="gray">Editing</Text>
             ) : (
               <DropdownMenu
+                open={editOpen}
+                onOpenChange={setEditOpen}
                 trigger={
                   <Button
                     icon={<PiCaretDown />}
@@ -110,13 +160,26 @@ export default function DashboardBlock({
                   onClick={() => {
                     scrollToBlock();
                     editBlock();
+                    setEditOpen(false);
                   }}
                 >
                   Edit Contents
                 </DropdownMenuItem>
-                <DropdownMenuItem>Duplicate</DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    duplicateBlock();
+                    setEditOpen(false);
+                  }}
+                >
+                  Duplicate
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={deleteBlock}>
+                <DropdownMenuItem
+                  onClick={() => {
+                    deleteBlock();
+                    setEditOpen(false);
+                  }}
+                >
                   <Text color="red">Delete</Text>
                 </DropdownMenuItem>
               </DropdownMenu>
@@ -124,6 +187,7 @@ export default function DashboardBlock({
           </div>
         )}
       </Flex>
+      {block.description && <Text>{block.description}</Text>}
 
       <BlockComponent
         block={block}
@@ -131,6 +195,6 @@ export default function DashboardBlock({
         experiment={experiment}
         mutate={mutate}
       />
-    </div>
+    </Flex>
   );
 }

@@ -37,6 +37,7 @@ export const dashboardBlockSchema = new mongoose.Schema(
       ],
     },
     title: String,
+    description: String,
     snapshotId: String,
   },
   { discriminatorKey: "type" }

@@ -14,6 +14,12 @@ import {
   DashboardBlockWithSnapshot,
 } from "back-end/src/enterprise/validators/dashboard-block";
 
+export function getBlockData<
+  T extends DashboardBlockData<DashboardBlockInterface>
+>(block: T) {
+  return { ...block, organization: undefined, id: undefined, uid: undefined };
+}
+
 export function isMarkdownBlock(
   block: DashboardBlockInterface
 ): block is MarkdownBlockInterface {
