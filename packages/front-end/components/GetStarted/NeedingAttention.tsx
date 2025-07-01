@@ -20,7 +20,6 @@ import {
 import { AuditInterface } from "back-end/types/audit";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { Box } from "spectacle";
-import { daysBetween } from "shared/dates";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import RadioCards from "@/components/Radix/RadioCards";
 import Button from "@/components/Radix/Button";
@@ -44,7 +43,7 @@ type FeaturesAndRevisions = FeatureRevisionInterface & {
   safeRollout: SafeRolloutInterface | undefined;
 };
 
-const NeedingAttentionPage = (): React.ReactElement | null => {
+const NeedingAttention = (): React.ReactElement | null => {
   const [experimentsPage, setExperimentsPage] = useState<number>(1);
   const [featureFlagsPage, setFeatureFlagsPage] = useState(1);
   const { snapshot: snapshotWithResults } = useSafeRolloutSnapshot();
@@ -63,22 +62,7 @@ const NeedingAttentionPage = (): React.ReactElement | null => {
     items = items.filter((e) => {
       const isRunning = e.status === "running";
       const isArchived = e.archived;
-
-      const currentPhase = e.phases[e.phases.length - 1];
-      const withinFirstDay = currentPhase?.dateStarted
-        ? daysBetween(currentPhase.dateStarted, new Date()) < 1
-        : false;
-      const hasNoData =
-        e.statusIndicator?.detailedStatus &&
-        e.statusIndicator?.detailedStatus === "No data" &&
-        !withinFirstDay;
-
-      return (
-        e?.statusIndicator?.detailedStatus &&
-        (e.statusIndicator?.detailedStatus === "unhealthy" ||
-          e.statusIndicator?.detailedStatus === "warning" ||
-          (hasNoData && isRunning && !isArchived))
-      );
+      return e.statusIndicator?.needsAttention && isRunning && !isArchived;
     });
     return items;
   }, []);
@@ -580,4 +564,4 @@ const NeedingAttentionPage = (): React.ReactElement | null => {
   );
 };
 
-export default NeedingAttentionPage;
+export default NeedingAttention;

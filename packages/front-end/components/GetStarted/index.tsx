@@ -28,7 +28,7 @@ import WorkspaceLinks from "@/components/GetStarted/WorkspaceLinks";
 import Callout from "@/components/Radix/Callout";
 import Link from "@/components/Radix/Link";
 import useSDKConnections from "@/hooks/useSDKConnections";
-import NeedingAttentionPage from "@/components/GetStarted/NeedingAttention";
+import NeedingAttention from "@/components/GetStarted/NeedingAttention";
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -38,6 +38,78 @@ import { useFeaturesList } from "@/services/features";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useUser } from "@/services/UserContext";
 import AdvancedFeaturesCard from "@/components/GetStarted/AdvancedFeaturesCard";
+
+type AdvancedFeature = {
+  imgUrl: string;
+  title: string;
+  description: string;
+  href: string;
+  commercialFeature?: CommercialFeature;
+};
+
+const advancedFeatureList: AdvancedFeature[] = [
+  {
+    imgUrl: "/images/get-started/advanced/metrics.jpg",
+    title: "Metric Groups",
+    description: "Easily reuse sets of metrics",
+    href: "/metrics#metricgroups",
+    commercialFeature: "metric-groups",
+  },
+  {
+    imgUrl: "/images/get-started/advanced/features.jpg",
+    title: "Dev Tools",
+    description: "Debug feature flags & experiments",
+    href: "https://docs.growthbook.io/tools/chrome-extension",
+  },
+  {
+    imgUrl: "/images/get-started/advanced/archetypes.png",
+    title: "Archetype Overview",
+    description: "Simulate the result of targeting rules",
+    href: "/archetypes",
+    commercialFeature: "archetypes",
+  },
+  {
+    imgUrl: "/images/get-started/advanced/custom-roles.png",
+    title: "Custom Roles",
+    description: "Define fine-grained permission control",
+    href: "https://docs.growthbook.io/account/user-permissions#custom-roles",
+    commercialFeature: "custom-roles",
+  },
+  {
+    imgUrl: "/images/get-started/advanced/feature-flag.png",
+    title: "Feature Flag Analytics",
+    description: "View flag evaluations in real time",
+    href: "/features",
+    commercialFeature: "managed-warehouse",
+  },
+  {
+    imgUrl: "/images/get-started/advanced/teams.png",
+    title: "Teams",
+    description: "Manage member permissions",
+    href: "/settings/team",
+    commercialFeature: "teams",
+  },
+  {
+    imgUrl: "/images/get-started/advanced/code-refs.png",
+    title: "Code Refs",
+    description: "See exactly where flags appear in code",
+    href: "https://app.growthbook.io/settings#feature",
+    commercialFeature: "code-references",
+  },
+  {
+    imgUrl: "/images/get-started/advanced/feature-flag.png", // don't have an image for this yet "/images/get-started/advanced/data-pipeline-mode.png",
+    title: "Data Pipeline Mode",
+    description: "Use temp tables for intermediate steps",
+    href: "https://docs.growthbook.io/app/data-pipeline",
+    commercialFeature: "pipeline-mode",
+  },
+  {
+    imgUrl: "/images/get-started/advanced/fact-tables.png",
+    title: "Fact Tables",
+    description: "Enable automatic query optimization",
+    href: "/fact-tables",
+  },
+];
 
 const GetStartedAndHomePage = (): React.ReactElement => {
   const [showVideoId, setShowVideoId] = useState<string>("");
@@ -87,79 +159,9 @@ const GetStartedAndHomePage = (): React.ReactElement => {
   const DOCUMENTATION_SIDEBAR_WIDTH = "minmax(0, 245px)";
 
   // Advanced Features Cards Section
-  type AdvancedFeature = {
-    imgUrl: string;
-    title: string;
-    description: string;
-    href: string;
-    commercialFeature?: CommercialFeature;
-  };
+
   const advancedFeatures: AdvancedFeature[] = useMemo(() => {
-    const features: AdvancedFeature[] = [
-      {
-        imgUrl: "/images/get-started/advanced/metrics.jpg",
-        title: "Metric Groups",
-        description: "Easily reuse sets of metrics",
-        href: "/metrics#metricgroups",
-        commercialFeature: "metric-groups",
-      },
-      {
-        imgUrl: "/images/get-started/advanced/features.jpg",
-        title: "Dev Tools",
-        description: "Debug feature flags & experiments",
-        href: "https://docs.growthbook.io/tools/chrome-extension",
-      },
-      {
-        imgUrl: "/images/get-started/advanced/archetypes.png",
-        title: "Archetype Overview",
-        description: "Simulate the result of targeting rules",
-        href: "/archetypes",
-        commercialFeature: "archetypes",
-      },
-      {
-        imgUrl: "/images/get-started/advanced/custom-roles.png",
-        title: "Custom Roles",
-        description: "Define fine-grained permission control",
-        href:
-          "https://docs.growthbook.io/account/user-permissions#custom-roles",
-        commercialFeature: "custom-roles",
-      },
-      {
-        imgUrl: "/images/get-started/advanced/feature-flag.png",
-        title: "Feature Flag Analytics",
-        description: "View flag evaluations in real time",
-        href: "/features",
-        commercialFeature: "managed-warehouse",
-      },
-      {
-        imgUrl: "/images/get-started/advanced/teams.png",
-        title: "Teams",
-        description: "Manage member permissions",
-        href: "/settings/team",
-        commercialFeature: "teams",
-      },
-      {
-        imgUrl: "/images/get-started/advanced/code-refs.png",
-        title: "Code Refs",
-        description: "See exactly where flags appear in code",
-        href: "https://app.growthbook.io/settings#feature",
-        commercialFeature: "code-references",
-      },
-      {
-        imgUrl: "/images/get-started/advanced/feature-flag.png", // don't have an image for this yet "/images/get-started/advanced/data-pipeline-mode.png",
-        title: "Data Pipeline Mode",
-        description: "Use temp tables for intermediate steps",
-        href: "https://docs.growthbook.io/app/data-pipeline",
-        commercialFeature: "pipeline-mode",
-      },
-      {
-        imgUrl: "/images/get-started/advanced/fact-tables.png",
-        title: "Fact Tables",
-        description: "Enable automatic query optimization",
-        href: "/fact-tables",
-      },
-    ];
-    return features.sort(() => Math.random() - 0.5).slice(0, 3);
+    return advancedFeatureList.sort(() => Math.random() - 0.5).slice(0, 3);
   }, []);
 
   return (
@@ -183,28 +185,6 @@ const GetStartedAndHomePage = (): React.ReactElement => {
         px={{ initial: "2", xs: "4", sm: "7" }}
         py={{ initial: "1", xs: "3", sm: "6" }}
       >
-        {showSetUpFlow && (
-          <Grid
-            columns={{
-              initial: "1fr",
-              sm: `minmax(0, 1fr) ${DOCUMENTATION_SIDEBAR_WIDTH}`,
-            }}
-            gapX="4"
-            mb="6"
-          >
-            <Callout status="wizard" size="md">
-              Connect to your SDK to get started.{" "}
-              <Link
-                href="/setup"
-                className="font-weight-bold"
-                style={{ color: "inherit" }}
-              >
-                Launch the setup flow
-              </Link>{" "}
-              <PiArrowSquareOut />
-            </Callout>
-          </Grid>
-        )}
         {orgIsUsingFeatureOrExperiment && (
           <Grid columns={`minmax(0, 1fr) ${DOCUMENTATION_SIDEBAR_WIDTH}`}>
             <Text size="7" weight="regular" mb="5" as="div">
@@ -259,7 +239,7 @@ const GetStartedAndHomePage = (): React.ReactElement => {
         )}
         {!orgIsUsingFeatureOrExperiment && (
           <Text size="4" weight="medium" mb="3" as="div">
-            Getting Started
+            Get Started
           </Text>
         )}
         <Grid
@@ -275,7 +255,7 @@ const GetStartedAndHomePage = (): React.ReactElement => {
             <Box>
               {orgIsUsingFeatureOrExperiment && (
                 <Box>
-                  <NeedingAttentionPage />
+                  <NeedingAttention />
                   <Box mt="6" mb="2">
                     <Box mb="3">
                       <Text
@@ -301,6 +281,7 @@ const GetStartedAndHomePage = (): React.ReactElement => {
                   </Box>
                 </Box>
               )}
+
               <Flex
                 direction="row"
                 justify="between"
@@ -308,7 +289,7 @@ const GetStartedAndHomePage = (): React.ReactElement => {
               >
                 {orgIsUsingFeatureOrExperiment && (
                   <Text size="4" weight="medium" mb="3" as="div">
-                    Getting Started
+                    Get Started
                   </Text>
                 )}
                 {orgIsUsingFeatureOrExperiment && (
@@ -330,6 +311,19 @@ const GetStartedAndHomePage = (): React.ReactElement => {
               )}
               {showGettingStarted && (
                 <>
+                  {showSetUpFlow && (
+                    <Callout status="wizard" size="md" mb="6">
+                      Connect to your SDK to get started.{" "}
+                      <Link
+                        href="/setup"
+                        className="font-weight-bold"
+                        style={{ color: "inherit" }}
+                      >
+                        Launch the setup flow
+                      </Link>{" "}
+                      <PiArrowSquareOut />
+                    </Callout>
+                  )}
                   <Grid
                     gapX="4"
                     gapY="3"
