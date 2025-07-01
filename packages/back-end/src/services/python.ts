@@ -24,7 +24,11 @@ class PythonStatsServer<Input, Output> {
   >;
 
   constructor(script: string) {
-    this.python = spawn("python3", ["-u", script], {
+    const [command, ...pythonArgs] = process.env.GB_ENABLE_PYTHON_DD_PROFILING
+      ? ["ddtrace-run", "python3"]
+      : ["python3"];
+
+    this.python = spawn(command, [...pythonArgs, "-u", script], {
       stdio: ["pipe", "pipe", "pipe"],
     });
     logger.info("Started Python stats server, pid " + this.python.pid);
@@ -153,7 +157,7 @@ export const statsServerPool = createPool(
   }
 );
 
-export function getAvgCPU(pre: os.CpuInfo[], post: os.CpuInfo[]) {
+function getAvgCPU(pre: os.CpuInfo[], post: os.CpuInfo[]) {
   let user = 0;
   let system = 0;
   let total = 0;
