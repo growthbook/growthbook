@@ -80,7 +80,7 @@ export default function SqlExplorerModal({
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempName, setTempName] = useState("");
   const [tab, setTab] = useState(
-    initial?.dataVizConfig?.length ? "visualization-0" : "sql"
+    initial?.dataVizConfig?.length && allowSave ? "visualization-0" : "sql"
   );
 
   const { getDatasourceById, datasources } = useDefinitions();
