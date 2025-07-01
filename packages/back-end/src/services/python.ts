@@ -169,8 +169,8 @@ function getAvgCPU(pre: os.CpuInfo[], post: os.CpuInfo[]) {
     user += postTimes.user - preTimes.user;
     system += postTimes.sys - preTimes.sys;
     total +=
-      Object.values(postTimes).reduce((n, sum) => n + sum, 0) -
-      Object.values(preTimes).reduce((n, sum) => n + sum, 0);
+      Object.values(postTimes).reduce((sum, n) => sum + n, 0) -
+      Object.values(preTimes).reduce((sum, n) => sum + n, 0);
   });
 
   return { user: user / total, system: system / total };
