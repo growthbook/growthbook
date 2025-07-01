@@ -22,6 +22,8 @@ import OptInModal from "@/components/License/OptInModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../Radix/Tabs";
 import Markdown from "./Markdown";
+import { useUser } from "@/services/UserContext";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 
 const Item = ({ entity: { name, char } }) => <div>{`${name}: ${char}`}</div>;
 const Loading = () => <div>Loading</div>;
@@ -68,6 +70,8 @@ const MarkdownInput: FC<{
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(externalError || "");
   const [revertValue, setRevertValue] = useState<string | null>(null);
+  const { hasCommercialFeature } = useUser();
+  const hasAISuggestions = hasCommercialFeature("ai-suggestions");
 
   const [aiAgreementModal, setAiAgreementModal] = useState(false);
   useEffect(() => {
@@ -255,7 +259,14 @@ const MarkdownInput: FC<{
             )}
             {aiSuggestFunction && !aiSuggestionText && (
               <Flex pt={"5"}>
-                {aiAgreedTo && aiEnabled ? (
+                {!hasAISuggestions ? (
+                  <PremiumTooltip commercialFeature="ai-suggestions">
+                    <Button variant="soft" disabled={true}>
+                      {" "}
+                      <BsStars /> {aiButtonText}
+                    </Button>
+                  </PremiumTooltip>
+                ) : aiAgreedTo && aiEnabled ? (
                   <Button
                     variant="soft"
                     disabled={loading}

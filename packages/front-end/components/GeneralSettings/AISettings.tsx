@@ -12,6 +12,8 @@ import useApi from "@/hooks/useApi";
 import Button from "@/components/Radix/Button";
 import { useAISettings } from "@/hooks/useOrgSettings";
 import OptInModal from "@/components/License/OptInModal";
+import { useUser } from "@/services/UserContext";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 
 // create a temp function which is passed a project and returns an array of prompts (promptId, promptName, promptDescription, promptValue)
 function getPrompts(data: {
@@ -85,6 +87,8 @@ export default function AISettings({
   const [loading, setLoading] = useState(false);
   const [embeddingMsg, setEmbeddingMsg] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const { hasCommercialFeature } = useUser();
+  const hasAISuggestions = hasCommercialFeature("ai-suggestions");
 
   const handleRegenerate = async () => {
     setLoading(true);
@@ -140,80 +144,88 @@ export default function AISettings({
         <Flex gap="4">
           <Box width="220px" flexShrink="0">
             <Heading size="4" as="h4">
-              AI Settings
+              <PremiumTooltip commercialFeature="ai-suggestions">
+                AI Settings
+              </PremiumTooltip>
             </Heading>
           </Box>
 
-          <Flex align="start" direction="column" flexGrow="1" pt="6">
-            <Flex align="start" gap="3" mb="6">
-              <Box>
-                <Checkbox
-                  value={form.watch("aiEnabled") && aiAgreedTo}
-                  setValue={(v) => {
-                    if (v && !aiAgreedTo) {
-                      setOptInModal(true);
-                      return;
-                    }
-                    form.setValue("aiEnabled", v);
-                  }}
-                  id="toggle-aiEnabled"
-                  mt="1"
-                />
-              </Box>
-              <Flex direction="column">
-                <Text size="3" className="font-weight-semibold">
-                  <label htmlFor="toggle-aiEnabled">Enable AI features</label>
-                </Text>
-                <Text>
-                  Used to allow various AI features throughout GrowthBook.
-                </Text>
+          {!hasAISuggestions ? (
+            <Box mb="6">
+              <span className="text-muted">View AI Settings</span>
+            </Box>
+          ) : (
+            <Flex align="start" direction="column" flexGrow="1" pt="6">
+              <Flex align="start" gap="3" mb="6">
+                <Box>
+                  <Checkbox
+                    value={form.watch("aiEnabled") && aiAgreedTo}
+                    setValue={(v) => {
+                      if (v && !aiAgreedTo) {
+                        setOptInModal(true);
+                        return;
+                      }
+                      form.setValue("aiEnabled", v);
+                    }}
+                    id="toggle-aiEnabled"
+                    mt="1"
+                  />
+                </Box>
+                <Flex direction="column">
+                  <Text size="3" className="font-weight-semibold">
+                    <label htmlFor="toggle-aiEnabled">Enable AI features</label>
+                  </Text>
+                  <Text>
+                    Used to allow various AI features throughout GrowthBook.
+                  </Text>
+                </Flex>
               </Flex>
+              {form.watch("aiEnabled") && !isCloud() && (
+                <>
+                  <Box mb="6" width="100%">
+                    <Text
+                      as="label"
+                      htmlFor="openaiAPIKey"
+                      size="3"
+                      className="font-weight-semibold"
+                    >
+                      Open AI Key
+                    </Text>
+                    <Field
+                      type="password"
+                      id="openaiAPIKey"
+                      {...form.register("openAIAPIKey")}
+                      placeholder=""
+                      helpText="Your OpenAI API key to use when generating AI responses. Data from GrowthBook will be sent to OpenAI for processing in order to provide AI features."
+                    />
+                  </Box>
+                  <Box mb="6" width="100%">
+                    <Text
+                      as="label"
+                      htmlFor="openaiModel"
+                      size="3"
+                      className="font-weight-semibold"
+                    >
+                      OpenAI model
+                    </Text>
+                    <SelectField
+                      id="openaiModel"
+                      helpText="Default is 4o-mini."
+                      value={form.watch("openAIDefaultModel")}
+                      onChange={(v) => form.setValue("openAIDefaultModel", v)}
+                      options={openAIModels}
+                      initialOption="gpt-4o-mini"
+                    />
+                  </Box>
+                </>
+              )}
             </Flex>
-            {form.watch("aiEnabled") && !isCloud() && (
-              <>
-                <Box mb="6" width="100%">
-                  <Text
-                    as="label"
-                    htmlFor="openaiAPIKey"
-                    size="3"
-                    className="font-weight-semibold"
-                  >
-                    Open AI Key
-                  </Text>
-                  <Field
-                    type="password"
-                    id="openaiAPIKey"
-                    {...form.register("openAIAPIKey")}
-                    placeholder=""
-                    helpText="Your OpenAI API key to use when generating AI responses. Data from GrowthBook will be sent to OpenAI for processing in order to provide AI features."
-                  />
-                </Box>
-                <Box mb="6" width="100%">
-                  <Text
-                    as="label"
-                    htmlFor="openaiModel"
-                    size="3"
-                    className="font-weight-semibold"
-                  >
-                    OpenAI model
-                  </Text>
-                  <SelectField
-                    id="openaiModel"
-                    helpText="Default is 4o-mini."
-                    value={form.watch("openAIDefaultModel")}
-                    onChange={(v) => form.setValue("openAIDefaultModel", v)}
-                    options={openAIModels}
-                    initialOption="gpt-4o-mini"
-                  />
-                </Box>
-              </>
-            )}
-          </Flex>
+          )}
         </Flex>
       </Frame>
 
       {/* Prompts Section */}
-      {form.watch("aiEnabled") && (
+      {hasAISuggestions && form.watch("aiEnabled") && (
         <>
           <Frame>
             <Flex gap="4">

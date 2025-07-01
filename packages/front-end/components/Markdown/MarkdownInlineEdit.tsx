@@ -8,6 +8,8 @@ import { useAISettings } from "@/hooks/useOrgSettings";
 import OptInModal from "@/components/License/OptInModal";
 import Markdown from "./Markdown";
 import MarkdownInput from "./MarkdownInput";
+import { useUser } from "@/services/UserContext";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 
 type Props = {
   value: string;
@@ -46,6 +48,8 @@ export default function MarkdownInlineEdit({
   const [loading, setLoading] = useState(false);
   const [aiAgreementModal, setAiAgreementModal] = useState(false);
   const { aiAgreedTo, aiEnabled } = useAISettings();
+  const { hasCommercialFeature } = useUser();
+  const hasAISuggestions = hasCommercialFeature("ai-suggestions");
 
   if (edit) {
     return (
@@ -155,35 +159,44 @@ export default function MarkdownInlineEdit({
                   </Box>
                   {aiSuggestFunction && (
                     <Box pt={"5"}>
-                      <Button
-                        variant="soft"
-                        onClick={async () => {
-                          if (!aiAgreedTo) {
-                            setAiAgreementModal(true);
-                          } else if (!aiEnabled) {
-                            setError(
-                              "AI suggestions are not enabled for your organization. Enable it in settings."
-                            );
-                          } else {
-                            setError(null);
-                            setLoading(true);
-                            try {
-                              const suggestion = await aiSuggestFunction();
-                              if (suggestion) {
-                                setVal(suggestion);
-                              }
-                              setLoading(false);
-                              setEdit(true);
-                            } catch (e) {
-                              setLoading(false);
-                              setError(e.message);
+                      {!hasAISuggestions ? (
+                        <PremiumTooltip commercialFeature="ai-suggestions">
+                          <Button variant="soft" disabled={true}>
+                            {aiButtonText}
+                          </Button>
+                        </PremiumTooltip>
+                      ) : (
+                        <Button
+                          variant="soft"
+                          onClick={async () => {
+                            if (!aiAgreedTo) {
+                              setAiAgreementModal(true);
+                            } else if (!aiEnabled) {
+                              setError(
+                                "AI suggestions are not enabled for your organization. Enable it in settings."
+                              );
                               setEdit(true); // Error is only shown in edit mode
+                            } else {
+                              setError(null);
+                              setLoading(true);
+                              try {
+                                const suggestion = await aiSuggestFunction();
+                                if (suggestion) {
+                                  setVal(suggestion);
+                                }
+                                setLoading(false);
+                                setEdit(true);
+                              } catch (e) {
+                                setLoading(false);
+                                setError(e.message);
+                                setEdit(true); // Error is only shown in edit mode
+                              }
                             }
-                          }
-                        }}
-                      >
-                        {aiButtonText} <BsStars />
-                      </Button>
+                          }}
+                        >
+                          {aiButtonText} <BsStars />
+                        </Button>
+                      )}
                     </Box>
                   )}
                 </>

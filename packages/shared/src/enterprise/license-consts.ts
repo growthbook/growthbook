@@ -1,4 +1,5 @@
 import type Stripe from "stripe";
+import { stringToBoolean } from "../util";
 
 export type AccountPlan = "oss" | "starter" | "pro" | "pro_sso" | "enterprise";
 export const accountPlans: Set<AccountPlan> = new Set([
@@ -285,6 +286,12 @@ export const accountFeatures: CommercialFeaturesMap = {
     "metric-correlations",
   ]),
 };
+
+if (stringToBoolean(process.env.IS_CLOUD)) {
+  Object.values(accountFeatures).forEach((features) => {
+    features.add("ai-suggestions"); // All plans on cloud have ai-suggestions, though the usage limits vary
+  });
+}
 
 export interface LicenseUserCodes {
   invites: string[];

@@ -22,6 +22,7 @@ import Callout from "@/components/Radix/Callout";
 import Link from "@/components/Radix/Link";
 import { useAISettings } from "@/hooks/useOrgSettings";
 import OptInModal from "@/components/License/OptInModal";
+import { useUser } from "@/services/UserContext";
 import EditDescriptionModal from "../EditDescriptionModal";
 import EditHypothesisModal from "../EditHypothesisModal";
 
@@ -70,6 +71,8 @@ export default function SetupTabOverview({
     !disableEditing;
 
   const isBandit = experiment.type === "multi-armed-bandit";
+  const { hasCommercialFeature } = useUser();
+  const hasAISuggestions = hasCommercialFeature("ai-suggestions");
 
   return (
     <>
@@ -211,8 +214,16 @@ export default function SetupTabOverview({
                 experiment.hypothesis
               )}
             </div>
-            <Callout status="wizard" contentsAs="div">
-              {aiEnabled && aiAgreedTo ? (
+
+            {!hasAISuggestions ? (
+              <PremiumCallout
+                id="ai-suggestions-hypothesis"
+                commercialFeature="ai-suggestions"
+              >
+                <span>Improve your hypothesis with AI. </span>
+              </PremiumCallout>
+            ) : aiEnabled && aiAgreedTo ? (
+              <Callout status="wizard" contentsAs="div">
                 <span>
                   Set hypothesis formatting standards for the organization in
                   General Settings.{" "}
@@ -226,7 +237,9 @@ export default function SetupTabOverview({
                   </Link>
                   <PiArrowSquareOut className="ml-1" />
                 </span>
-              ) : !aiEnabled && aiAgreedTo ? (
+              </Callout>
+            ) : !aiEnabled && aiAgreedTo ? (
+              <Callout status="wizard" contentsAs="div">
                 <span>
                   Improve your hypothesis with AI.{" "}
                   <Link
@@ -239,7 +252,9 @@ export default function SetupTabOverview({
                   </Link>
                   <PiArrowSquareOut className="ml-1" />
                 </span>
-              ) : (
+              </Callout>
+            ) : (
+              <Callout status="wizard" contentsAs="div">
                 <span>
                   Improve your hypothesis with AI.{" "}
                   <Link
@@ -252,8 +267,8 @@ export default function SetupTabOverview({
                   </Link>
                   <PiArrowSquareOut className="ml-1" />
                 </span>
-              )}
-            </Callout>
+              </Callout>
+            )}
           </Frame>
         )}
         <CustomFieldDisplay

@@ -412,7 +412,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 Custom Markdown
               </PremiumTooltip>
             </TabsTrigger>
-            <TabsTrigger value="ai">AI Settings</TabsTrigger>
+            <TabsTrigger value="ai">
+              <PremiumTooltip commercialFeature="ai-suggestions">
+                AI Settings
+              </PremiumTooltip>
+            </TabsTrigger>
           </StickyTabsList>
           <Box mt="4">
             <TabsContent value="experiment">

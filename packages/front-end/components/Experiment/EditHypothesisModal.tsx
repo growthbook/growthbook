@@ -12,6 +12,8 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import OptInModal from "@/components/License/OptInModal";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { useUser } from "@/services/UserContext";
 
 interface Props {
   source: string;
@@ -36,6 +38,8 @@ export default function EditHypothesisModal({
   const [aiAgreementModal, setAiAgreementModal] = useState<boolean>(false);
   const [revertValue, setRevertValue] = useState<string | null>(null);
   const [showModal, setShowModal] = useState<boolean>(true);
+  const { hasCommercialFeature } = useUser();
+  const hasAISuggestions = hasCommercialFeature("ai-suggestions");
   const form = useForm<{ hypothesis: string }>({
     defaultValues: {
       hypothesis: initialValue || "",
@@ -125,27 +129,39 @@ export default function EditHypothesisModal({
         <Box>
           {!aiResponse && (
             <Flex align="start" justify="start">
-              <Tooltip
-                body={
-                  aiEnabled ? (
-                    "Suggest new hypothesis using organization formatting standards"
-                  ) : (
-                    <>
-                      Org admins can set hypothesis formatting standards for the
-                      organization in <strong>General Settings</strong>.
-                    </>
-                  )
-                }
-              >
-                <Button
-                  disabled={loading || form.watch("hypothesis").trim() === ""}
-                  variant="soft"
-                  onClick={checkHypothesis}
-                  stopPropagation={true}
+              {hasAISuggestions ? (
+                <Tooltip
+                  body={
+                    aiEnabled ? (
+                      "Suggest new hypothesis using organization formatting standards"
+                    ) : (
+                      <>
+                        Org admins can set hypothesis formatting standards for
+                        the organization in <strong>General Settings</strong>.
+                      </>
+                    )
+                  }
                 >
-                  <BsStars /> Check hypothesis
-                </Button>
-              </Tooltip>
+                  <Button
+                    disabled={
+                      (!aiEnabled && aiAgreedTo) ||
+                      loading ||
+                      form.watch("hypothesis").trim() === ""
+                    }
+                    variant="soft"
+                    onClick={checkHypothesis}
+                    stopPropagation={true}
+                  >
+                    <BsStars /> Check hypothesis
+                  </Button>
+                </Tooltip>
+              ) : (
+                <PremiumTooltip commercialFeature="ai-suggestions">
+                  <Button disabled={true} variant="soft">
+                    <BsStars /> Check hypothesis
+                  </Button>
+                </PremiumTooltip>
+              )}
             </Flex>
           )}
           {error && (
