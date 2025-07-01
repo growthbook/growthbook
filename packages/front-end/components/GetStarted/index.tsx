@@ -145,7 +145,7 @@ const GetStartedAndHomePage = (): React.ReactElement => {
         commercialFeature: "code-references",
       },
       {
-        imgUrl: "/images/get-started/advanced/data-pipeline-mode.png",
+        imgUrl: "/images/get-started/advanced/feature-flag.png", // don't have an image for this yet "/images/get-started/advanced/data-pipeline-mode.png",
         title: "Data Pipeline Mode",
         description: "Use temp tables for intermediate steps",
         href: "https://docs.growthbook.io/app/data-pipeline",
