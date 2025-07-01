@@ -80,6 +80,9 @@ const MemberList: FC<{
     defaultSortField: "name",
     searchFields: ["name", "email"],
     pageSize: 20,
+    defaultMappings: {
+      lastLoginDate: new Date(0).toISOString(),
+    },
   });
   return (
     <>
