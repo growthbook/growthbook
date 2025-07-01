@@ -128,7 +128,7 @@ const GetStartedAndHomePage = (): React.ReactElement => {
         imgUrl: "/images/get-started/advanced/feature-flag.png",
         title: "Feature Flag Analytics",
         description: "View flag evaluations in real time",
-        href: "/feature-flags",
+        href: "/features",
         commercialFeature: "managed-warehouse",
       },
       {
