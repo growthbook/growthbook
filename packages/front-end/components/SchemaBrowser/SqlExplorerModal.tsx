@@ -57,7 +57,7 @@ export interface Props {
   };
   id?: string;
   mutate: () => void;
-  allowSave?: boolean;
+  allowSave?: boolean; // Controls if user can save query AND also controls if they can create/save visualizations
   header?: string;
   lockDatasource?: boolean; // Prevents changing data source. Useful if an org opens this from a data source id page, or when editing an experiment query that requires a certain data source
   trackingEventModalSource?: string;
