@@ -4,7 +4,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { postCodeRefsValidator } from "back-end/src/validators/openapi";
 import {
   getFeatureCodeRefsByFeatures,
-  upsertFeatureCodeRefsWithRemoval,
+  upsertFeatureCodeRefs,
   getAllCodeRefsForOrg,
 } from "back-end/src/models/FeatureCodeRefs";
 
@@ -35,14 +35,14 @@ export const postCodeRefs = createApiRequestHandler(postCodeRefsValidator)(
       (feature) => !requestedFeatures.has(feature)
     );
 
-    // Remove references for features not in the request
+    // Remove references for features not in the request by setting empty refs
     await Promise.all(
       featuresToRemove.map(async (feature) => {
-        await upsertFeatureCodeRefsWithRemoval({
+        await upsertFeatureCodeRefs({
           feature,
           repo,
           branch,
-          codeRefs: [], // Empty array will trigger removal
+          codeRefs: [], // Empty array will replace all existing refs
           organization: req.context.org,
         });
       })
@@ -51,7 +51,7 @@ export const postCodeRefs = createApiRequestHandler(postCodeRefsValidator)(
     // Update references for features in the request
     await Promise.all(
       values(refsByFeature).map(async (refs) => {
-        await upsertFeatureCodeRefsWithRemoval({
+        await upsertFeatureCodeRefs({
           feature: refs[0].flagKey,
           repo,
           branch,
