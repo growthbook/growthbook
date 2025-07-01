@@ -257,7 +257,11 @@ const GetStartedAndHomePage = (): React.ReactElement => {
             </Flex>
           </Grid>
         )}
-
+        {!orgIsUsingFeatureOrExperiment && (
+          <Text size="4" weight="medium" mb="3" as="div">
+            Getting Started
+          </Text>
+        )}
         <Grid
           columns={{
             initial: "1fr",
@@ -297,10 +301,16 @@ const GetStartedAndHomePage = (): React.ReactElement => {
                   </Box>
                 </Box>
               )}
-              <Flex direction="row" justify="between" mt="7">
-                <Text size="4" weight="medium" mb="3" as="div">
-                  Getting Started
-                </Text>
+              <Flex
+                direction="row"
+                justify="between"
+                mt={orgIsUsingFeatureOrExperiment ? "7" : undefined}
+              >
+                {orgIsUsingFeatureOrExperiment && (
+                  <Text size="4" weight="medium" mb="3" as="div">
+                    Getting Started
+                  </Text>
+                )}
                 {orgIsUsingFeatureOrExperiment && (
                   <Button
                     variant="ghost"
@@ -383,8 +393,13 @@ const GetStartedAndHomePage = (): React.ReactElement => {
               )}
             </Box>
           </Box>
-
-          <Box mt={{ initial: "0", sm: "37px" }}>
+          <Box
+            mt={
+              orgIsUsingFeatureOrExperiment
+                ? { initial: "0", sm: "37px" }
+                : undefined
+            }
+          >
             <DocumentationSidebar
               setUpgradeModal={setUpgradeModal}
               type="get-started"
