@@ -11774,6 +11774,15 @@ export interface operations {
   };
   postCodeRefs: {
     /** Submit list of code references */
+    parameters: {
+        /**
+         * @description Whether to delete code references that are no longer present in the submitted data 
+         * @default false
+         */
+      query: {
+        deleteMissing?: "true" | "false";
+      };
+    };
     requestBody: {
       content: {
         "application/json": {

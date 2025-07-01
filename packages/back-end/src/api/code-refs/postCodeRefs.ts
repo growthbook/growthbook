@@ -11,9 +11,11 @@ import { FeatureCodeRefsInterface } from "back-end/types/code-refs";
 
 export const postCodeRefs = createApiRequestHandler(postCodeRefsValidator)(
   async (req): Promise<PostCodeRefsResponse> => {
+    const { deleteMissing: deleteMissingString } = req.query;
     const { branch, repoName: repo } = req.body;
     const refsByFeature = groupBy(req.body.refs, "flagKey");
-
+    // convert deleteMissing to boolean
+    const deleteMissing = deleteMissingString === "true";
     const allExistingCodeRefs: FeatureCodeRefsInterface[] = await getAllCodeRefsForOrg(
       {
         context: req.context,
@@ -30,22 +32,26 @@ export const postCodeRefs = createApiRequestHandler(postCodeRefsValidator)(
 
     const requestedFeatures = new Set(Object.keys(refsByFeature));
 
-    const featuresToRemove = existingFeatures.filter(
-      (feature) => !requestedFeatures.has(feature)
-    );
+    let featuresToRemove: string[] = [];
 
-    // Remove references for features not in the request by setting empty refs
-    await Promise.all(
-      featuresToRemove.map(async (feature) => {
-        await upsertFeatureCodeRefs({
-          feature,
-          repo,
-          branch,
-          codeRefs: [], // Empty array will replace all existing refs
-          organization: req.context.org,
-        });
-      })
-    );
+    if (deleteMissing) {
+      featuresToRemove = existingFeatures.filter(
+        (feature) => !requestedFeatures.has(feature)
+      );
+
+      // Remove references for features not in the request by setting empty refs
+      await Promise.all(
+        featuresToRemove.map(async (feature) => {
+          await upsertFeatureCodeRefs({
+            feature,
+            repo,
+            branch,
+            codeRefs: [], // Empty array will replace all existing refs
+            organization: req.context.org,
+          });
+        })
+      );
+    }
 
     // Update references for features in the request
     await Promise.all(
