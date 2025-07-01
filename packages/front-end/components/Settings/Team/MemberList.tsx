@@ -79,7 +79,7 @@ const MemberList: FC<{
     localStorageKey: "members",
     defaultSortField: "name",
     searchFields: ["name", "email"],
-    pageSize: 2,
+    pageSize: 20,
     defaultMappings: {
       lastLoginDate: new Date(0).toISOString(),
     },
