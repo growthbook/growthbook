@@ -171,6 +171,7 @@ function getNumericColumns(
 
 function getColumnOptions({
   factTable,
+  datasource,
   includeCount = true,
   includeCountDistinct = false,
   includeNumericColumns = true,
@@ -181,6 +182,7 @@ function getColumnOptions({
   groupPrefix = "",
 }: {
   factTable: FactTableInterface | null;
+  datasource: DataSourceInterfaceWithParams | null;
   includeCount?: boolean;
   includeCountDistinct?: boolean;
   includeNumericColumns?: boolean;
@@ -226,12 +228,25 @@ function getColumnOptions({
 
   // Add JSON fields
   if (includeJSONFields && factTable?.columns) {
+    const excludedAttributeFields = new Set<string>();
+    if (datasource && datasource.type === "growthbook_clickhouse") {
+      // When an attribute has been materialized to the top-level,
+      // we want people to use the top-level column and not a JSON field
+      datasource.settings.materializedColumns?.forEach((col) => {
+        excludedAttributeFields.add(col.sourceField);
+      });
+    }
+
     const jsonColumns = factTable.columns.filter(
       (col) => col.datatype === "json" && !col.deleted
     );
     for (const col of jsonColumns) {
       if (col.jsonFields) {
         for (const [field, data] of Object.entries(col.jsonFields)) {
+          if (col.name === "attributes" && excludedAttributeFields.has(field)) {
+            continue;
+          }
+
           const option: SingleValue = {
             label: `${col.name}.${field}`,
             value: `${col.column}.${field}`,
@@ -385,6 +400,7 @@ function ColumnRefSelector({
 
   const columnOptions = getColumnOptions({
     factTable,
+    datasource,
     includeCountDistinct: includeCountDistinct && aggregationType === "unit",
     includeCount: aggregationType === "unit",
     includeNumericColumns: true,
@@ -421,6 +437,7 @@ function ColumnRefSelector({
 
   const eligibleColumns = getColumnOptions({
     factTable,
+    datasource,
     includeCount: false,
     includeCountDistinct: false,
     includeNumericColumns: false,
@@ -789,6 +806,7 @@ function ColumnRefSelector({
                     }
                     options={getColumnOptions({
                       factTable: factTable,
+                      datasource,
                       includeCount: true,
                       includeCountDistinct: false,
                       includeStringColumns: false,
@@ -1140,10 +1158,12 @@ FROM
 
 function FieldMappingModal({
   factMetric,
+  datasource,
   onSave,
   close,
 }: {
   factMetric: Partial<FactMetricInterface>;
+  datasource: DataSourceInterfaceWithParams | null;
   onSave: (metric: Partial<FactMetricInterface>) => void;
   close?: () => void;
 }) {
@@ -1199,6 +1219,7 @@ function FieldMappingModal({
 
   const numericColumnOptions = getColumnOptions({
     factTable,
+    datasource,
     includeCount: false,
     includeCountDistinct: false,
     includeStringColumns: false,
@@ -1575,6 +1596,7 @@ export default function FactMetricModal({
     return (
       <FieldMappingModal
         factMetric={defaultValues}
+        datasource={selectedDataSource}
         onSave={(metric) => {
           form.reset(metric);
         }}

@@ -8,6 +8,7 @@ import {
   SavedQueryUpdateProps,
 } from "back-end/src/validators/saved-queries";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { runFreeFormQuery } from "back-end/src/services/datasource";
 
 export async function getSavedQueries(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
@@ -24,6 +25,35 @@ export async function getSavedQueries(req: AuthRequest, res: Response) {
   res.status(200).json({
     status: 200,
     savedQueries,
+  });
+}
+
+export async function getSavedQuery(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { id } = req.params;
+  const context = getContextFromReq(req);
+
+  if (!orgHasPremiumFeature(context.org, "saveSqlExplorerQueries")) {
+    return res.status(404).json({
+      status: 404,
+      message: "Query not found",
+    });
+  }
+
+  const savedQuery = await context.models.savedQueries.getById(id);
+
+  if (!savedQuery) {
+    return res.status(404).json({
+      status: 404,
+      message: "Query not found",
+    });
+  }
+
+  res.status(200).json({
+    status: 200,
+    savedQuery,
   });
 }
 
@@ -82,6 +112,65 @@ export async function putSavedQuery(
   };
 
   await context.models.savedQueries.updateById(id, updateData);
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function refreshSavedQuery(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { id } = req.params;
+  const context = getContextFromReq(req);
+
+  if (!orgHasPremiumFeature(context.org, "saveSqlExplorerQueries")) {
+    throw new Error("Your organization's plan does not support saving queries");
+  }
+
+  const savedQuery = await context.models.savedQueries.getById(id);
+  if (!savedQuery) {
+    return res.status(404).json({
+      status: 404,
+      message: "Query not found",
+    });
+  }
+
+  const datasource = await getDataSourceById(context, savedQuery.datasourceId);
+  if (!datasource) {
+    throw new Error("Cannot find datasource");
+  }
+
+  const { results, sql, duration, error } = await runFreeFormQuery(
+    context,
+    datasource,
+    savedQuery.sql,
+    1000
+  );
+
+  // Don't save if there was an error
+  if (error || !results) {
+    return res.json({
+      status: 200,
+      debugResults: {
+        results: results,
+        error,
+        duration,
+        sql,
+      },
+    });
+  }
+
+  await context.models.savedQueries.update(savedQuery, {
+    results: {
+      results: results,
+      error,
+      duration,
+      sql,
+    },
+    dateLastRan: new Date(),
+  });
+
   res.status(200).json({
     status: 200,
   });

@@ -55,6 +55,7 @@ export type CommercialFeature =
   | "historical-power"
   | "decision-framework"
   | "unlimited-cdn-usage"
+  | "managed-warehouse"
   | "safe-rollout"
   | "require-project-for-features-setting"
   | "holdouts"
@@ -201,6 +202,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "historical-power",
     "decision-framework",
     "safe-rollout",
+    "managed-warehouse",
     "saveSqlExplorerQueries",
   ]),
   pro_sso: new Set<CommercialFeature>([
@@ -230,6 +232,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "historical-power",
     "decision-framework",
     "safe-rollout",
+    "managed-warehouse",
     "saveSqlExplorerQueries",
   ]),
   enterprise: new Set<CommercialFeature>([
@@ -278,6 +281,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "historical-power",
     "decision-framework",
     "safe-rollout",
+    "managed-warehouse",
     "require-project-for-features-setting",
     "holdouts",
     "saveSqlExplorerQueries",

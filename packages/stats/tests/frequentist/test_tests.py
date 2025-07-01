@@ -6,6 +6,7 @@ from unittest import TestCase, main as unittest_main
 import numpy as np
 
 from gbstats.messages import ZERO_NEGATIVE_VARIANCE_MESSAGE
+
 from gbstats.frequentist.tests import (
     FrequentistConfig,
     FrequentistTestResult,
@@ -50,10 +51,18 @@ def _round_result_dict(result_dict):
 
 
 class TestTwoSidedTTest(TestCase):
+    def setUp(self):
+        self.stat_a = SampleMeanStatistic(sum=1396.87, sum_squares=52377.9767, n=3407)
+        self.stat_b = SampleMeanStatistic(sum=2422.7, sum_squares=134698.29, n=3461)
+        self.frequentist_config_rel = FrequentistConfig(difference_type="relative")
+        self.frequentist_config_abs = FrequentistConfig(difference_type="absolute")
+
     def test_two_sided_ttest(self):
-        stat_a = SampleMeanStatistic(sum=1396.87, sum_squares=52377.9767, n=3407)
-        stat_b = SampleMeanStatistic(sum=2422.7, sum_squares=134698.29, n=3461)
-        result_dict = asdict(TwoSidedTTest(stat_a, stat_b).compute_result())
+        result_dict = asdict(
+            TwoSidedTTest(
+                [(self.stat_a, self.stat_b)], self.frequentist_config_rel
+            ).compute_result()
+        )
         expected_rounded_dict = asdict(
             FrequentistTestResult(
                 expected=0.70732,
@@ -69,13 +78,9 @@ class TestTwoSidedTTest(TestCase):
             raise ValueError("p_value is None for TwoSidedTTest")
 
     def test_two_sided_ttest_absolute(self):
-        stat_a = SampleMeanStatistic(sum=1396.87, sum_squares=52377.9767, n=3407)
-        stat_b = SampleMeanStatistic(sum=2422.7, sum_squares=134698.29, n=3461)
         result_dict = asdict(
             TwoSidedTTest(
-                stat_a,
-                stat_b,
-                FrequentistConfig(difference_type="absolute"),
+                [(self.stat_a, self.stat_b)], self.frequentist_config_abs
             ).compute_result()
         )
         expected_rounded_dict = asdict(
@@ -87,13 +92,16 @@ class TestTwoSidedTTest(TestCase):
                 error_message=None,
             )
         )
-
         self.assertDictEqual(_round_result_dict(result_dict), expected_rounded_dict)
 
     def test_two_sided_ttest_binom(self):
         stat_a = ProportionStatistic(sum=14, n=28)
         stat_b = ProportionStatistic(sum=16, n=30)
-        result_dict = asdict(TwoSidedTTest(stat_a, stat_b).compute_result())
+        result_dict = asdict(
+            TwoSidedTTest(
+                [(stat_a, stat_b)], self.frequentist_config_rel
+            ).compute_result()
+        )
         expected_rounded_dict = asdict(
             FrequentistTestResult(
                 expected=np.round((16 / 30 - 0.5) / 0.5, DECIMALS),
@@ -103,17 +111,17 @@ class TestTwoSidedTTest(TestCase):
                 error_message=None,
             )
         )
-
         self.assertDictEqual(_round_result_dict(result_dict), expected_rounded_dict)
 
     def test_two_sided_ttest_missing_variance(self):
         stat_a = SampleMeanStatistic(sum=1396.87, sum_squares=52377.9767, n=2)
         stat_b = SampleMeanStatistic(sum=2422.7, sum_squares=134698.29, n=3461)
-        default_output = TwoSidedTTest(stat_a, stat_b)._default_output(
-            ZERO_NEGATIVE_VARIANCE_MESSAGE
-        )
-        result_output = TwoSidedTTest(stat_a, stat_b).compute_result()
-
+        default_output = TwoSidedTTest(
+            [(stat_a, stat_b)], self.frequentist_config_rel
+        )._default_output(ZERO_NEGATIVE_VARIANCE_MESSAGE)
+        result_output = TwoSidedTTest(
+            [(stat_a, stat_b)], self.frequentist_config_rel
+        ).compute_result()
         self.assertEqual(default_output, result_output)
 
     def test_two_sided_ttest_test_runs_ratio_ra(self):
@@ -161,7 +169,11 @@ class TestTwoSidedTTest(TestCase):
             m_pre_d_post_sum_of_products=1604.0759503266522,
             theta=None,
         )
-        result_dict = asdict(TwoSidedTTest(stat_a, stat_b).compute_result())
+        result_dict = asdict(
+            TwoSidedTTest(
+                [(stat_a, stat_b)], self.frequentist_config_rel
+            ).compute_result()
+        )
         expected_dict = asdict(
             FrequentistTestResult(
                 expected=-0.0007,
@@ -180,7 +192,7 @@ class TestSequentialTTest(TestCase):
         stat_b = SampleMeanStatistic(sum=2422.7, sum_squares=134698.29, n=3461)
         config = SequentialConfig(sequential_tuning_parameter=1000)
         result_dict = asdict(
-            SequentialTwoSidedTTest(stat_a, stat_b, config).compute_result()
+            SequentialTwoSidedTTest([(stat_a, stat_b)], config).compute_result()
         )
         expected_dict = asdict(
             FrequentistTestResult(
@@ -197,7 +209,9 @@ class TestSequentialTTest(TestCase):
     def test_sequential_test_runs_prop(self):
         stat_a = ProportionStatistic(sum=1396, n=3000)
         stat_b = ProportionStatistic(sum=2422, n=3461)
-        result_dict = asdict(SequentialTwoSidedTTest(stat_a, stat_b).compute_result())
+        result_dict = asdict(
+            SequentialTwoSidedTTest([(stat_a, stat_b)]).compute_result()
+        )
         expected_dict = asdict(
             FrequentistTestResult(
                 expected=0.50386,
@@ -229,7 +243,7 @@ class TestSequentialTTest(TestCase):
             theta=None,
         )
         result_dict = asdict(
-            SequentialTwoSidedTTest(stat_a_ra, stat_b_ra).compute_result()
+            SequentialTwoSidedTTest([(stat_a_ra, stat_b_ra)]).compute_result()
         )
         expected_dict = asdict(
             FrequentistTestResult(
@@ -288,8 +302,9 @@ class TestSequentialTTest(TestCase):
             m_pre_d_post_sum_of_products=1604.0759503266522,
             theta=None,
         )
-
-        result_dict = asdict(SequentialTwoSidedTTest(stat_a, stat_b).compute_result())
+        result_dict = asdict(
+            SequentialTwoSidedTTest([(stat_a, stat_b)]).compute_result()
+        )
         expected_dict = asdict(
             FrequentistTestResult(
                 expected=-0.0007,
@@ -306,17 +321,17 @@ class TestSequentialTTest(TestCase):
         stat_b = SampleMeanStatistic(sum=2422.7, sum_squares=134698.29, n=3461)
         config_below_n = SequentialConfig(sequential_tuning_parameter=10)
         result_below = SequentialTwoSidedTTest(
-            stat_a, stat_b, config_below_n
+            [(stat_a, stat_b)], config_below_n
         ).compute_result()
 
         config_near_n = SequentialConfig(sequential_tuning_parameter=6461)
         result_near = SequentialTwoSidedTTest(
-            stat_a, stat_b, config_near_n
+            [(stat_a, stat_b)], config_near_n
         ).compute_result()
 
         config_above_n = SequentialConfig(sequential_tuning_parameter=10000)
         result_above = SequentialTwoSidedTTest(
-            stat_a, stat_b, config_above_n
+            [(stat_a, stat_b)], config_above_n
         ).compute_result()
 
         # Way underestimating should be worse here
@@ -342,7 +357,7 @@ class TestOneSidedGreaterTTest(TestCase):
 
     def test_one_sided_ttest(self):
         result_dict = asdict(
-            OneSidedTreatmentGreaterTTest(self.stat_a, self.stat_b).compute_result()
+            OneSidedTreatmentGreaterTTest([(self.stat_a, self.stat_b)]).compute_result()
         )
         expected_rounded_dict = asdict(
             FrequentistTestResult(
@@ -363,8 +378,7 @@ class TestOneSidedGreaterTTest(TestCase):
     def test_one_sided_ttest_absolute(self):
         result_dict = asdict(
             OneSidedTreatmentGreaterTTest(
-                self.stat_a,
-                self.stat_b,
+                [(self.stat_a, self.stat_b)],
                 FrequentistConfig(difference_type="absolute"),
             ).compute_result()
         )
@@ -392,7 +406,7 @@ class TestOneSidedLesserTTest(TestCase):
 
     def test_one_sided_ttest(self):
         result_dict = asdict(
-            OneSidedTreatmentLesserTTest(self.stat_a, self.stat_b).compute_result()
+            OneSidedTreatmentLesserTTest([(self.stat_a, self.stat_b)]).compute_result()
         )
         expected_rounded_dict = asdict(
             FrequentistTestResult(
@@ -413,8 +427,7 @@ class TestOneSidedLesserTTest(TestCase):
     def test_one_sided_ttest_absolute(self):
         result_dict = asdict(
             OneSidedTreatmentLesserTTest(
-                self.stat_a,
-                self.stat_b,
+                [(self.stat_a, self.stat_b)],
                 FrequentistConfig(difference_type="absolute"),
             ).compute_result()
         )
@@ -443,7 +456,7 @@ class TestSequentialOneSidedGreaterTTest(TestCase):
     def test_one_sided_ttest(self):
         result_dict = asdict(
             SequentialOneSidedTreatmentGreaterTTest(
-                self.stat_a, self.stat_b
+                [(self.stat_a, self.stat_b)]
             ).compute_result()
         )
         expected_rounded_dict = asdict(
@@ -465,8 +478,7 @@ class TestSequentialOneSidedGreaterTTest(TestCase):
     def test_one_sided_ttest_absolute(self):
         result_dict = asdict(
             SequentialOneSidedTreatmentGreaterTTest(
-                self.stat_a,
-                self.stat_b,
+                [(self.stat_a, self.stat_b)],
                 SequentialConfig(difference_type="absolute"),
             ).compute_result()
         )
@@ -495,7 +507,7 @@ class TestSequentialOneSidedLesserTTest(TestCase):
     def test_one_sided_ttest(self):
         result_dict = asdict(
             SequentialOneSidedTreatmentLesserTTest(
-                self.stat_a, self.stat_b
+                [(self.stat_a, self.stat_b)]
             ).compute_result()
         )
         expected_rounded_dict = asdict(
@@ -517,8 +529,7 @@ class TestSequentialOneSidedLesserTTest(TestCase):
     def test_one_sided_ttest_absolute(self):
         result_dict = asdict(
             SequentialOneSidedTreatmentLesserTTest(
-                self.stat_a,
-                self.stat_b,
+                [(self.stat_a, self.stat_b)],
                 SequentialConfig(difference_type="absolute"),
             ).compute_result()
         )
