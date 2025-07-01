@@ -18,6 +18,8 @@ import Frame from "@/components/Radix/Frame";
 import Button from "@/components/Radix/Button";
 import PremiumCallout from "@/components/Radix/PremiumCallout";
 import { useCustomFields } from "@/hooks/useCustomFields";
+import HoldoutTimeline from "@/components/Experiment/holdout/HoldoutTimeline";
+import { useExperiments } from "@/hooks/useExperiments";
 import EditHypothesisModal from "../EditHypothesisModal";
 import EditDescriptionModal from "../EditDescriptionModal";
 
@@ -59,7 +61,8 @@ export default function SetupTabOverview({
   const customFields = useCustomFields();
 
   const permissionsUtil = usePermissionsUtil();
-
+  //temp for testing by getting all experiments
+  const { experiments } = useExperiments();
   const canEditExperiment =
     !experiment.archived &&
     permissionsUtil.canViewExperimentModal(experiment.project) &&
@@ -175,7 +178,7 @@ export default function SetupTabOverview({
 
         {isHoldout && holdout && (
           <div className="box p-4 my-4">
-            <h3>Experiment Timeline goes here</h3>
+            <HoldoutTimeline experiments={experiments} />
           </div>
         )}
 
