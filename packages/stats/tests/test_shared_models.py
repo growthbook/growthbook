@@ -3,7 +3,7 @@
 2. Demonstrating equivalence to numpy methods that take raw data"""
 
 from unittest import TestCase, main as unittest_main
-
+import copy
 import numpy as np
 
 from gbstats.messages import ZERO_NEGATIVE_VARIANCE_MESSAGE
@@ -266,13 +266,16 @@ class TestEffectMomentsResult(TestCase):
         self.assertEqual(moments.stat_b.theta, 0.8333333333333334)  # type: ignore
 
     def test_negative_variance(self):
-        stat_a = RASTAT_A
+        stat_a = copy.deepcopy(RASTAT_A)
         stat_b = RASTAT_B
+        stat_a.post_statistic.sum = -7
         moments = EffectMoments(
             [(stat_a, stat_b)], config=EffectMomentsConfig(difference_type="absolute")
         )
-        self.assertEqual(moments.variance, 0.04893261316872429)
-        self.assertEqual(moments.compute_result().error_message, None)
+        self.assertEqual(moments.variance, -1.2010673868312758)
+        self.assertEqual(
+            moments.compute_result().error_message, ZERO_NEGATIVE_VARIANCE_MESSAGE
+        )
 
 
 if __name__ == "__main__":

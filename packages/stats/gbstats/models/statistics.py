@@ -126,12 +126,12 @@ class RatioStatistic(Statistic):
 
     @property
     def covariance(self):
-        if self.n <= 1:
-            return 0
-        return (
-            self.m_d_sum_of_products
-            - self.m_statistic.sum * self.d_statistic.sum / self.n
-        ) / (self.n - 1)
+        return SampleCovariance(
+            n=self.n,
+            stat_a=self.m_statistic,
+            stat_b=self.d_statistic,
+            sum_of_products=self.m_d_sum_of_products,
+        ).compute_covariance()
 
 
 @dataclass
@@ -189,33 +189,67 @@ class RegressionAdjustedStatistic(Statistic):
 
     @property
     def covariance(self) -> float:
-        if self.n <= 1:
-            return 0
-        if isinstance(self.post_statistic, ProportionStatistic) and isinstance(
-            self.pre_statistic, ProportionStatistic
+        return SampleCovariance(
+            n=self.n,
+            stat_a=self.post_statistic,
+            stat_b=self.pre_statistic,
+            sum_of_products=self.post_pre_sum_of_products,
+        ).compute_covariance()
+
+
+class SampleCovariance:
+    def __init__(
+        self,
+        n: int,
+        stat_a: Union[SampleMeanStatistic, ProportionStatistic],
+        stat_b: Union[SampleMeanStatistic, ProportionStatistic],
+        sum_of_products: float,
+    ):
+        self.n = n
+        self.stat_a = stat_a
+        self.stat_b = stat_b
+        self.sum_of_products = sum_of_products
+        if not isinstance(self.stat_a, type(self.stat_b)):
+            raise TypeError("stat_a and stat_b must be of the same type")
+
+    def compute_covariance(self) -> float:
+        if isinstance(self.stat_a, ProportionStatistic) and isinstance(
+            self.stat_b, ProportionStatistic
         ):
-            return binomial_covariance(
+            return self.binomial_covariance(
                 self.n,
-                self.post_statistic,
-                self.pre_statistic,
-                self.post_pre_sum_of_products,
+                self.stat_a.sum,
+                self.stat_b.sum,
+                self.sum_of_products,
             )
-        return (
-            self.post_pre_sum_of_products
-            - self.post_statistic.sum * self.pre_statistic.sum / self.n
-        ) / (self.n - 1)
+        return self.mean_covariance(
+            self.n,
+            self.stat_a.sum,
+            self.stat_b.sum,
+            self.sum_of_products,
+        )
 
+    @staticmethod
+    def mean_covariance(
+        n: int,
+        sum_a: float,
+        sum_b: float,
+        cross_statistic_sum_of_products: float,
+    ):
+        if n <= 1:
+            return 0
+        return (cross_statistic_sum_of_products - sum_a * sum_b / n) / (n - 1)
 
-# return the covariance of two proportion statistics
-def binomial_covariance(
-    n: int,
-    a: ProportionStatistic,
-    b: ProportionStatistic,
-    cross_statistic_sum_of_products: float,
-):
-    if n == 0:
-        return 0
-    return cross_statistic_sum_of_products / n - a.mean * b.mean
+    @staticmethod
+    def binomial_covariance(
+        n: int,
+        sum_a: float,
+        sum_b: float,
+        cross_statistic_sum_of_products: float,
+    ):
+        if n == 0:
+            return 0
+        return cross_statistic_sum_of_products / n - sum_a * sum_b / n**2
 
 
 def compute_theta(
@@ -360,111 +394,57 @@ class RegressionAdjustedRatioStatistic(Statistic):
 
     @property
     def cov_m_pre_d_pre(self) -> float:
-        if self.n <= 1:
-            return 0
-        if isinstance(self.m_statistic_pre, ProportionStatistic) and isinstance(
-            self.d_statistic_pre, ProportionStatistic
-        ):
-            return binomial_covariance(
-                self.n,
-                self.m_statistic_pre,
-                self.d_statistic_pre,
-                self.m_pre_d_pre_sum_of_products,
-            )
-        return (
-            self.m_pre_d_pre_sum_of_products
-            - self.m_statistic_pre.sum * self.d_statistic_pre.sum / self.n
-        ) / (self.n - 1)
+        return SampleCovariance(
+            n=self.n,
+            stat_a=self.m_statistic_pre,
+            stat_b=self.d_statistic_pre,
+            sum_of_products=self.m_pre_d_pre_sum_of_products,
+        ).compute_covariance()
 
     @property
     def cov_m_post_d_post(self) -> float:
-        if self.n <= 1:
-            return 0
-        if isinstance(self.m_statistic_post, ProportionStatistic) and isinstance(
-            self.d_statistic_post, ProportionStatistic
-        ):
-            return binomial_covariance(
-                self.n,
-                self.m_statistic_post,
-                self.d_statistic_post,
-                self.m_post_d_post_sum_of_products,
-            )
-        return (
-            self.m_post_d_post_sum_of_products
-            - self.m_statistic_post.sum * self.d_statistic_post.sum / self.n
-        ) / (self.n - 1)
+        return SampleCovariance(
+            n=self.n,
+            stat_a=self.m_statistic_post,
+            stat_b=self.d_statistic_post,
+            sum_of_products=self.m_post_d_post_sum_of_products,
+        ).compute_covariance()
 
     @property
     def cov_m_post_m_pre(self) -> float:
-        if self.n <= 1:
-            return 0
-        if isinstance(self.m_statistic_post, ProportionStatistic) and isinstance(
-            self.m_statistic_pre, ProportionStatistic
-        ):
-            return binomial_covariance(
-                self.n,
-                self.m_statistic_post,
-                self.m_statistic_pre,
-                self.m_post_m_pre_sum_of_products,
-            )
-        return (
-            self.m_post_m_pre_sum_of_products
-            - self.m_statistic_post.sum * self.m_statistic_pre.sum / self.n
-        ) / (self.n - 1)
+        return SampleCovariance(
+            n=self.n,
+            stat_a=self.m_statistic_post,
+            stat_b=self.m_statistic_pre,
+            sum_of_products=self.m_post_m_pre_sum_of_products,
+        ).compute_covariance()
 
     @property
     def cov_d_post_d_pre(self) -> float:
-        if self.n <= 1:
-            return 0
-        if isinstance(self.d_statistic_post, ProportionStatistic) and isinstance(
-            self.d_statistic_pre, ProportionStatistic
-        ):
-            return binomial_covariance(
-                self.n,
-                self.d_statistic_post,
-                self.d_statistic_pre,
-                self.d_post_d_pre_sum_of_products,
-            )
-        return (
-            self.d_post_d_pre_sum_of_products
-            - self.d_statistic_post.sum * self.d_statistic_pre.sum / self.n
-        ) / (self.n - 1)
+        return SampleCovariance(
+            n=self.n,
+            stat_a=self.d_statistic_post,
+            stat_b=self.d_statistic_pre,
+            sum_of_products=self.d_post_d_pre_sum_of_products,
+        ).compute_covariance()
 
     @property
     def cov_m_post_d_pre(self) -> float:
-        if self.n <= 1:
-            return 0
-        if isinstance(self.m_statistic_post, ProportionStatistic) and isinstance(
-            self.d_statistic_pre, ProportionStatistic
-        ):
-            return binomial_covariance(
-                self.n,
-                self.m_statistic_post,
-                self.d_statistic_pre,
-                self.m_post_d_pre_sum_of_products,
-            )
-        return (
-            self.m_post_d_pre_sum_of_products
-            - self.m_statistic_post.sum * self.d_statistic_pre.sum / self.n
-        ) / (self.n - 1)
+        return SampleCovariance(
+            n=self.n,
+            stat_a=self.m_statistic_post,
+            stat_b=self.d_statistic_pre,
+            sum_of_products=self.m_post_d_pre_sum_of_products,
+        ).compute_covariance()
 
     @property
     def cov_d_post_m_pre(self) -> float:
-        if self.n <= 1:
-            return 0
-        if isinstance(self.d_statistic_post, ProportionStatistic) and isinstance(
-            self.m_statistic_pre, ProportionStatistic
-        ):
-            return binomial_covariance(
-                self.n,
-                self.d_statistic_post,
-                self.m_statistic_pre,
-                self.m_pre_d_post_sum_of_products,
-            )
-        return (
-            self.m_pre_d_post_sum_of_products
-            - self.m_statistic_pre.sum * self.d_statistic_post.sum / self.n
-        ) / (self.n - 1)
+        return SampleCovariance(
+            n=self.n,
+            stat_a=self.d_statistic_post,
+            stat_b=self.m_statistic_pre,
+            sum_of_products=self.m_pre_d_post_sum_of_products,
+        ).compute_covariance()
 
     @property
     def betahat(self) -> np.ndarray:
