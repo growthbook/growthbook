@@ -6,10 +6,10 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import Button from "@/components/Radix/Button";
 import { useAISettings } from "@/hooks/useOrgSettings";
 import OptInModal from "@/components/License/OptInModal";
-import Markdown from "./Markdown";
-import MarkdownInput from "./MarkdownInput";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import Markdown from "./Markdown";
+import MarkdownInput from "./MarkdownInput";
 
 type Props = {
   value: string;
@@ -158,7 +158,7 @@ export default function MarkdownInlineEdit({
                     )}
                   </Box>
                   {aiSuggestFunction && (
-                    <Box pt={"5"}>
+                    <Box pt={"5"} className="d-inline-block">
                       {!hasAISuggestions ? (
                         <PremiumTooltip commercialFeature="ai-suggestions">
                           <Button variant="soft" disabled={true}>
