@@ -1,4 +1,4 @@
-import { FC } from "react";
+import { FC, useState } from "react";
 import { QueryInterface } from "back-end/types/query";
 import { formatDistanceStrict } from "date-fns";
 import {
@@ -15,6 +15,8 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/components/Radix/Callout";
 import HelperText from "@/components/Radix/HelperText";
+import Button from "@/components/Radix/Button";
+import SqlExplorerModal from "@/components/SchemaBrowser/SqlExplorerModal";
 import QueryStatsRow from "./QueryStatsRow";
 
 const ExpandableQuery: FC<{
@@ -22,6 +24,8 @@ const ExpandableQuery: FC<{
   i: number;
   total: number;
 }> = ({ query, i, total }) => {
+  const [showSqlExplorer, setShowSqlExplorer] = useState(false);
+
   let title = "";
   if (query.language === "sql") {
     const comments = query.query.match(/(\n|^)\s*-- ([^\n]+)/);
@@ -52,8 +56,15 @@ const ExpandableQuery: FC<{
           {title && " - "}
           Query {i + 1} of {total}
         </span>
-        {query.queryType === "experimentMultiMetric" && (
-          <div className="ml-auto">
+        <div className="ml-auto d-flex align-items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowSqlExplorer(true)}
+          >
+            Explore Query
+          </Button>
+          {query.queryType === "experimentMultiMetric" && (
             <Tooltip
               body={
                 <>
@@ -76,8 +87,8 @@ const ExpandableQuery: FC<{
                 <FaBoltLightning /> Optimized
               </span>
             </Tooltip>
-          </div>
-        )}
+          )}
+        </div>
       </h4>
       <Code language={query.language} code={query.query} expandable={true} />
       {query.error && (
@@ -200,6 +211,32 @@ const ExpandableQuery: FC<{
           Queued for{" "}
           {formatDistanceStrict(getValidDate(query.createdAt), new Date())}
         </HelperText>
+      )}
+      {showSqlExplorer && (
+        <SqlExplorerModal
+          close={() => setShowSqlExplorer(false)}
+          initial={{
+            sql: query.query,
+            datasourceId: query.datasource,
+            results: query.rawResult
+              ? {
+                  results: query.rawResult,
+                  error: query.error,
+                  duration:
+                    query.finishedAt && query.startedAt
+                      ? new Date(query.finishedAt).getTime() -
+                        new Date(query.startedAt).getTime()
+                      : undefined,
+                  sql: query.query,
+                }
+              : undefined,
+          }}
+          mutate={() => {}}
+          disableSave={true}
+          header="Explore Query"
+          lockDatasource={true}
+          trackingEventModalSource="expandable-query"
+        />
       )}
     </div>
   );
