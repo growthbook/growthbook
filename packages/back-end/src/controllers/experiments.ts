@@ -154,6 +154,8 @@ export async function getExperiments(
     type,
   });
 
+  const holdouts = await context.models.holdout.getAll();
+
   const hasArchived = includeArchived
     ? experiments.some((e) => e.archived)
     : await hasArchivedExperiments(context, project);
@@ -162,6 +164,7 @@ export async function getExperiments(
     status: 200,
     experiments,
     hasArchived,
+    holdouts,
   });
 }
 
@@ -606,6 +609,7 @@ export async function postExperiments(
       allowDuplicateTrackingKey?: boolean;
       originalId?: string;
       autoRefreshResults?: boolean;
+      isHoldout?: boolean;
     }
   >,
   res: Response<
@@ -682,7 +686,8 @@ export async function postExperiments(
     }
   }
 
-  const experimentType = data.type ?? "standard";
+  const experimentType =
+    data.type ?? (req.query.isHoldout ? "holdout" : "standard");
 
   const obj: Omit<ExperimentInterface, "id" | "uid"> = {
     organization: data.organization,
@@ -696,7 +701,7 @@ export async function postExperiments(
     dateUpdated: new Date(),
     project: data.project,
     owner: data.owner || userId,
-    trackingKey: data.trackingKey || "",
+    trackingKey: data.trackingKey || "", // TODO: generate tracking key for holdouts?
     datasource: data.datasource || "",
     exposureQueryId: data.exposureQueryId || "",
     userIdType: data.userIdType || "anonymous",
@@ -793,6 +798,22 @@ export async function postExperiments(
       data: obj,
       context,
     });
+
+    if (req.query.isHoldout) {
+      const holdout = await context.models.holdout.create({
+        experimentId: experiment.id,
+        projects: experiment.project ? [experiment.project] : [],
+        name: experiment.name,
+        environments: [],
+        analysisSettings: {},
+        linkedFeatures: [],
+        linkedExperiments: [],
+      });
+
+      if (!holdout) {
+        throw new Error("Failed to create holdout");
+      }
+    }
 
     if (req.query.originalId) {
       const visualChangesets = await findVisualChangesetsByExperiment(
