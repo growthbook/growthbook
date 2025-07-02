@@ -149,6 +149,7 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                         ? "Yes"
                         : "No"}
                     </td>
+                    <td>{query.results?.results?.length || 0}</td>
                     <td>
                       <div
                         onClick={(e) => {
@@ -202,7 +203,7 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                                                     style={{ maxWidth: 320 }}
                                                   >
                                                     <Link
-                                                      href={`/experiment/${dashboard.experimentId}`}
+                                                      href={`/experiment/${dashboard.experimentId}#dashboards/${dashboard.id}`}
                                                     >
                                                       {dashboard.title}
                                                     </Link>
@@ -255,7 +256,6 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                         )}
                       </div>
                     </td>
-                    <td>{query.results?.results?.length || 0}</td>
                     <td title={datetime(query.dateUpdated)}>
                       {date(query.dateUpdated)}
                     </td>

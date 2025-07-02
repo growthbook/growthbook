@@ -51,7 +51,10 @@ const experimentTabs = [
   "dashboards",
   "health",
 ] as const;
-export type ExperimentTab = typeof experimentTabs[number];
+type ExperimentTabName = typeof experimentTabs[number];
+export type ExperimentTab =
+  | ExperimentTabName
+  | `${ExperimentTabName}/${string}`;
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -95,6 +98,7 @@ export default function TabbedPage({
     `tabbedPageTab__${experiment.id}`,
     "overview"
   );
+  const [tabPath, setTabPath] = useState("");
 
   const router = useRouter();
 
@@ -125,8 +129,14 @@ export default function TabbedPage({
   useEffect(() => {
     const handler = () => {
       const hash = window.location.hash.replace(/^#/, "") as ExperimentTab;
-      if (experimentTabs.includes(hash)) {
-        setTab(hash);
+      const [tabName, ...tabPathSegments] = hash.split("/") as [
+        ExperimentTabName,
+        string[]
+      ];
+      const tabPath = tabPathSegments.join("/");
+      if (experimentTabs.includes(tabName)) {
+        setTab(tabName);
+        setTabPath(tabPath);
       }
     };
     handler();
@@ -479,7 +489,11 @@ export default function TabbedPage({
           tab === "dashboards" ? "d-block" : "d-none d-print-block"
         )}
       >
-        <DashboardsTab experiment={experiment} />
+        <DashboardsTab
+          experiment={experiment}
+          dashboardId={tabPath}
+          setDashboardId={setTabPath}
+        />
       </div>
       <div
         className={

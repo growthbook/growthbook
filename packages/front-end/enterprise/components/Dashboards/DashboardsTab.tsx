@@ -22,6 +22,7 @@ import { Select, SelectItem } from "@/components/Radix/Select";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import Checkbox from "@/components/Radix/Checkbox";
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import DashboardEditor from "./DashboardEditor";
 
 export type SubmitDashboard = (
@@ -76,9 +77,15 @@ function CreateDashboardModal({
 
 interface Props {
   experiment: ExperimentInterfaceStringDates;
+  dashboardId: string;
+  setDashboardId: React.Dispatch<string>;
 }
 
-export default function DashboardsTab({ experiment }: Props) {
+export default function DashboardsTab({
+  experiment,
+  dashboardId,
+  setDashboardId,
+}: Props) {
   const {
     dashboards: allDashboards,
     mutateDefinitions: mutateDashboardList,
@@ -89,7 +96,6 @@ export default function DashboardsTab({ experiment }: Props) {
   );
   const { userId } = useUser();
   const [isEditing, setIsEditing] = useState(false);
-  const [dashboardId, setDashboardId] = useState<string | undefined>(undefined);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const { apiCall } = useAuth();
   const [title, setTitle] = useState("");
@@ -99,6 +105,9 @@ export default function DashboardsTab({ experiment }: Props) {
   const [editingBlock, setEditingBlock] = useState<number | undefined>(
     undefined
   );
+  const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
+    timeout: 1500,
+  });
 
   const dashboard = dashboards.find((d) => d.id === dashboardId);
 
@@ -120,8 +129,11 @@ export default function DashboardsTab({ experiment }: Props) {
   const canDelete = isOwner || isAdmin;
 
   useEffect(() => {
-    if (!dashboardId && dashboards.length > 0) setDashboardId(dashboards[0].id);
-  }, [dashboards, dashboardId]);
+    if (!dashboardId && dashboards.length > 0) {
+      console.log("Setting dashId to", dashboards[0].id);
+      setDashboardId(dashboards[0].id);
+    }
+  }, [dashboards, dashboardId, setDashboardId]);
 
   useEffect(() => {
     if (dashboard) {
@@ -156,7 +168,7 @@ export default function DashboardsTab({ experiment }: Props) {
         console.error(res);
       }
     },
-    [apiCall, dashboardId, experiment.id, mutateDashboardList]
+    [apiCall, dashboardId, experiment.id, mutateDashboardList, setDashboardId]
   );
 
   return (
@@ -267,38 +279,61 @@ export default function DashboardsTab({ experiment }: Props) {
                       </Button>
                     </Flex>
                   ) : (
-                    <MoreMenu>
-                      {canEdit && (
-                        <EditButton
-                          useIcon={false}
-                          className="dropdown-item"
-                          onClick={() => {
-                            setIsEditing(true);
-                          }}
-                        />
+                    <Flex gap="1">
+                      {copySupported && (
+                        <Tooltip
+                          state={copySuccess}
+                          ignoreMouseEvents
+                          delay={0}
+                          tipPosition="top"
+                          body="Copied to clipboard!"
+                        >
+                          <Button
+                            variant="outline"
+                            onClick={() => {
+                              const url = window.location.href.replace(
+                                /[?#].*/,
+                                `#dashboards/${dashboardId}`
+                              );
+                              performCopy(url);
+                            }}
+                          >
+                            Share
+                          </Button>
+                        </Tooltip>
                       )}
-                      <div className="dropdown-item">Share</div>
-                      {canCreate && (
-                        <div className="dropdown-item">Duplicate</div>
-                      )}
-                      {canDelete && (
-                        <DeleteButton
-                          displayName="Dashboard"
-                          className="dropdown-item text-danger"
-                          useIcon={false}
-                          text="Delete"
-                          title="Delete Dashboard"
-                          onClick={async () => {
-                            await apiCall(`/dashboards/${dashboard.id}`, {
-                              method: "DELETE",
-                            });
-                            mutateDashboardList();
-                            setDashboardId(undefined);
-                          }}
-                          canDelete={canDelete}
-                        />
-                      )}
-                    </MoreMenu>
+                      <MoreMenu>
+                        {canEdit && (
+                          <EditButton
+                            useIcon={false}
+                            className="dropdown-item"
+                            onClick={() => {
+                              setIsEditing(true);
+                            }}
+                          />
+                        )}
+                        {canCreate && (
+                          <div className="dropdown-item">Duplicate</div>
+                        )}
+                        {canDelete && (
+                          <DeleteButton
+                            displayName="Dashboard"
+                            className="dropdown-item text-danger"
+                            useIcon={false}
+                            text="Delete"
+                            title="Delete Dashboard"
+                            onClick={async () => {
+                              await apiCall(`/dashboards/${dashboard.id}`, {
+                                method: "DELETE",
+                              });
+                              mutateDashboardList();
+                              setDashboardId("");
+                            }}
+                            canDelete={canDelete}
+                          />
+                        )}
+                      </MoreMenu>
+                    </Flex>
                   )}
                 </>
               )}

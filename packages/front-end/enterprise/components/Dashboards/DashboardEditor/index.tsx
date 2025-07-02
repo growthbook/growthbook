@@ -194,6 +194,9 @@ export default function DashboardEditor({
   setEditingBlock,
   mutate,
 }: Props) {
+  // TODO
+  const scrollToIndex = (_i: number) => {};
+
   const addBlockType = (bType: DashboardBlockType, index?: number) => {
     index = index ?? blocks.length;
     setBlocks([
@@ -203,6 +206,7 @@ export default function DashboardEditor({
       }),
       ...blocks.slice(index),
     ]);
+    scrollToIndex(index);
   };
 
   if (blocks.length === 0) {

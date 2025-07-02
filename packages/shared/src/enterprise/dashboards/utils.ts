@@ -75,8 +75,8 @@ export function isTrafficGraphBlock(
 }
 
 export function isSqlExplorerBlock(
-  block: DashboardBlockInterface
-): block is SqlExplorerBlockInterface {
+  block: DashboardBlockData<DashboardBlockInterface>
+): block is DashboardBlockData<SqlExplorerBlockInterface> {
   return block.type === "sql-explorer";
 }
 
