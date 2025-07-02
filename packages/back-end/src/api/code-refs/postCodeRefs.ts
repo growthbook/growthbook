@@ -26,9 +26,9 @@ export const postCodeRefs = createApiRequestHandler(postCodeRefsValidator)(
       (codeRef) => codeRef.repo === repo && codeRef.branch === branch
     );
 
-    const existingFeatures = existingCodeRefsForRepoBranch.map(
+    const existingFeatures = [...new Set(existingCodeRefsForRepoBranch.map(
       (codeRef) => codeRef.feature
-    );
+    ))];
 
     const requestedFeatures = new Set(Object.keys(refsByFeature));
 
