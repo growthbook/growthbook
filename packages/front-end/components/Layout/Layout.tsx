@@ -27,10 +27,10 @@ import { usePageHead } from "./PageHead";
 
 const navlinks: SidebarLinkProps[] = [
   {
-    name: "Get Started",
-    href: "/getstarted",
+    name: "Home",
+    href: "/",
     Icon: BsHouse,
-    path: /^getstarted/,
+    path: /^$/,
     className: styles.first,
   },
   {
@@ -343,8 +343,8 @@ const otherPageTitles = [
     title: "Personal Access Tokens",
   },
   {
-    path: /^getstarted/,
-    title: "Get Started",
+    path: /^$/,
+    title: "Home",
   },
   {
     path: /^dashboard/,
