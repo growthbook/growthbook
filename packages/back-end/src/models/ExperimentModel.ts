@@ -269,6 +269,7 @@ const experimentSchema = new mongoose.Schema({
   customFields: {},
   templateId: String,
   shareLevel: String,
+  precomputedDimensions: [String],
   analysisSummary: {
     _id: false,
     snapshotId: String,

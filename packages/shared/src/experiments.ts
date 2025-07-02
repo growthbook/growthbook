@@ -1190,7 +1190,7 @@ export function getPredefinedDimensionSlicesByExperiment(
   dimensions = dimensions.filter((d) => d.specifiedSlices.length > 0);
 
   let totalLevels = countDimensionLevels(dimensions, nVariations);
-  const maxLevels = 2000;
+  const maxLevels = 1000;
   while (totalLevels > maxLevels) {
     dimensions = dimensions.slice(0, -1);
     if (dimensions.length === 0) {

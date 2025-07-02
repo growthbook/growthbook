@@ -129,9 +129,11 @@ export default function DimensionChooser({
   }
 
   const precomputedDimensions =
-    snapshot?.settings?.dimensions?.map((d) => ({
-      label: d.id,
-      value: "precomputed:" + d.id,
+    snapshot?.settings?.dimensions?.filter(
+      (d) => d.id.startsWith("precomputed:")
+    ).map((d) => ({
+      label: d.id.replace("precomputed:", ""),
+      value: d.id,
     })) ?? [];
 
   // remove precomputed dimensions from the on-demand dimensions
@@ -199,7 +201,7 @@ export default function DimensionChooser({
               if (analysis && snapshot) {
                 const newSettings: ExperimentSnapshotAnalysisSettings = {
                   ...analysis.settings,
-                  dimensions: [v.replace("precomputed:", "")],
+                  dimensions: [v],
                 };
                 triggerAnalysisUpdate(
                   newSettings,

@@ -221,7 +221,7 @@ export const startExperimentResultQueries = async (
   const dimensionObjs: Dimension[] = (
     await Promise.all(
       snapshotSettings.dimensions.map(
-        async (d) => await parseDimension("exp:" + d.id, d.slices, org.id)
+        async (d) => await parseDimension(d.id, d.slices, org.id)
       )
     )
   ).filter((d): d is Dimension => d !== null);

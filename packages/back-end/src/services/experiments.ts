@@ -504,7 +504,7 @@ export function getSnapshotSettings({
     );
     dimensions =
       predefinedDimensions.map((d) => ({
-        id: d.dimension,
+        id: "precomputed:" + d.dimension,
         slices: d.specifiedSlices,
       })) ?? [];
   }
@@ -706,6 +706,12 @@ export async function parseDimension(
       return {
         type: "experiment",
         id: dimension.substr(4),
+        specifiedSlices: slices,
+      };
+    } else if (dimension.match(/^precomputed:/)) {
+      return {
+        type: "experiment",
+        id: dimension.substr(12),
         specifiedSlices: slices,
       };
     } else if (dimension.substr(0, 4) === "pre:") {

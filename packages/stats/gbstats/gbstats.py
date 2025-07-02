@@ -152,8 +152,21 @@ def get_metric_df(
     # Each row in the raw SQL result is a dimension/variation combo
     # We want to end up with one row per dimension
     for row in dfc.itertuples(index=False):
-        # TODO fix dimensionname
-        dim = getattr(row, "dim_exp_" + dimension) if dimension else ""
+        # strip dimension of prefix before `:`
+        dimension_column_name = "dimension"
+        
+        if dimension == "pre:date":
+            dimension_column_name = "dim_pre_date"
+        elif dimension == "pre:activation":
+            dimension_column_name = "dim_exp_activation"
+        elif dimension.startswith("exp:"):
+            dimension_column_name = "dim_exp_" + dimension.split(":")[1]
+        elif dimension.startswith("precomputed:"):
+            dimension_column_name = "dim_exp_" + dimension.split(":")[1]
+        elif dimension.startswith("dim_"):
+            dimension_column_name = "dim_unit_" + dimension
+
+        dim = getattr(row, dimension_column_name, "")
         # If this is the first time we're seeing this dimension, create an empty dict
         if dim not in dimensions:
             # Overall columns

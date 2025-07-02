@@ -1541,7 +1541,7 @@ export default abstract class SqlIntegration
     baseIdType: string,
     metrics: ExperimentMetricInterface[],
     endDate: Date,
-    dimensionCols: string[],
+    dimensionCols: {value: string, alias: string}[],
     regressionAdjusted: boolean = false,
     cumulativeDate: boolean = false,
     overrideConversionWindows: boolean = false,
@@ -1557,7 +1557,7 @@ export default abstract class SqlIntegration
         ${
           dimensionCols.length > 0
             ? `, ${dimensionCols
-                .map((c) => `MIN(initial.${c}) AS ${c}`)
+                .map((c) => `MIN(initial.${c.alias}) AS ${c.alias}`)
                 .join(", ")}`
             : ""
         }
@@ -2725,7 +2725,7 @@ export default abstract class SqlIntegration
       __distinctUsers AS (
         SELECT
           ${baseIdType}
-          ${dimensionCols.length > 0 ? `, ${dimensionCols.join(", ")}` : ""}
+          ${dimensionCols.length > 0 ? `, ${dimensionCols.map((c) => `${c.value} AS ${c.alias}`).join(", ")}` : ""}
           , variation
           , ${timestampColumn} AS timestamp
           , ${this.dateTrunc("first_exposure_timestamp")} AS first_exposure_date
@@ -2791,7 +2791,7 @@ export default abstract class SqlIntegration
           d.variation AS variation
           ${
             dimensionCols.length > 0
-              ? `, ${dimensionCols.map((c) => `d.${c} AS ${c}`).join(", ")}`
+              ? `, ${dimensionCols.map((c) => c.alias).join(", ")}`
               : ""
           }
           ${banditDates?.length ? `, d.bandit_period` : ""}
@@ -2845,7 +2845,7 @@ export default abstract class SqlIntegration
           m.variation
           ${
             dimensionCols.length > 0
-              ? `, ${dimensionCols.map((c) => `m.${c} AS ${c}`).join(", ")}`
+              ? `, ${dimensionCols.map((c) => `m.${c.alias} AS ${c.alias}`).join(", ")}`
               : ""
           }
           ${eventQuantileData
@@ -2862,7 +2862,7 @@ export default abstract class SqlIntegration
           m.variation
           ${
             dimensionCols.length > 0
-              ? `, ${dimensionCols.map((c) => `m.${c}`).join(", ")}`
+              ? `, ${dimensionCols.map((c) => `m.${c.alias}`).join(", ")}`
               : ""
           }
         )`
@@ -2874,7 +2874,7 @@ export default abstract class SqlIntegration
           umj.variation
           ${
             dimensionCols.length > 0
-              ? `, ${dimensionCols.map((c) => `umj.${c} AS ${c}`).join(", ")}`
+              ? `, ${dimensionCols.map((c) => `umj.${c.alias} AS ${c.alias}`).join(", ")}`
               : ""
           }
           ${banditDates?.length ? `, umj.bandit_period` : ""}
@@ -2920,7 +2920,7 @@ export default abstract class SqlIntegration
           umj.variation 
           ${
             dimensionCols.length > 0
-              ? `, ${dimensionCols.map((c) => `umj.${c}`).join(", ")}`
+              ? `, ${dimensionCols.map((c) => `umj.${c.alias}`).join(", ")}`
               : ""
           }
           ${cumulativeDate ? `, umj.day` : ""}
@@ -2944,7 +2944,7 @@ export default abstract class SqlIntegration
             d.variation AS variation
             ${
               dimensionCols.length > 0
-                ? `, ${dimensionCols.map((c) => `d.${c} AS ${c}`).join(", ")}`
+                ? `, ${dimensionCols.map((c) => `d.${c.alias} AS ${c.alias}`).join(", ")}`
                 : ""
             }
             , d.${baseIdType} AS ${baseIdType}
@@ -2987,7 +2987,7 @@ export default abstract class SqlIntegration
             d.variation
             ${
               dimensionCols.length > 0
-                ? `, ${dimensionCols.map((c) => `d.${c}`).join(", ")}`
+                ? `, ${dimensionCols.map((c) => `d.${c.alias}`).join(", ")}`
                 : ""
             }
             , d.${baseIdType}
@@ -3010,7 +3010,7 @@ export default abstract class SqlIntegration
         m.variation AS variation
         ${
           dimensionCols.length > 0
-            ? `, ${dimensionCols.map((c) => `m.${c} AS ${c}`).join(", ")}`
+            ? `, ${dimensionCols.map((c) => `m.${c.alias} AS ${c.alias}`).join(", ")}`
             : ""
         }
         , COUNT(*) AS users
@@ -3115,7 +3115,7 @@ export default abstract class SqlIntegration
           ${
             dimensionCols.length > 0
               ? ` AND ${dimensionCols
-                  .map((c) => `qm.${c} = m.${c}`)
+                  .map((c) => `qm.${c.alias} = m.${c.alias}`)
                   .join(" AND ")}`
               : ""
           }
@@ -3135,7 +3135,7 @@ export default abstract class SqlIntegration
         m.variation
         ${
           dimensionCols.length > 0
-            ? `, ${dimensionCols.map((c) => `m.${c}`).join(", ")}`
+            ? `, ${dimensionCols.map((c) => `m.${c.alias}`).join(", ")}`
             : ""
         }
     `
@@ -3144,22 +3144,22 @@ export default abstract class SqlIntegration
     );
   }
 
-  getDimensionCol(dimension: Dimension): string {
-    let dimensionCol = this.castToString("''");
+  getDimensionCol(dimension: Dimension): {value: string, alias: string} {
+    let dimensionCol = {value: this.castToString("''"), alias: "dimension"};
     if (dimension?.type === "experiment") {
-      dimensionCol = `dim_exp_${dimension.id}`;
+      dimensionCol = {value: `dim_exp_${dimension.id}`, alias: `dim_exp_${dimension.id}`};
     } else if (dimension?.type === "user") {
-      dimensionCol = `dim_unit_${dimension.dimension.id}`;
+      dimensionCol = {value: `dim_unit_${dimension.dimension.id}`, alias: `dim_unit_${dimension.dimension.id}`};
     } else if (dimension?.type === "date") {
-      dimensionCol = `${this.formatDate(
+      dimensionCol = {value: `${this.formatDate(
         this.dateTrunc("first_exposure_timestamp")
-      )}`;
+      )}`, alias: "dim_pre_date"};
     } else if (dimension?.type === "activation") {
-      dimensionCol = this.ifElse(
+      dimensionCol = {value: this.ifElse(
         `first_activation_timestamp IS NULL`,
         "'Not Activated'",
         "'Activated'"
-      );
+      ), alias: "dim_exp_activation"};
     }
     return dimensionCol;
   }
@@ -3375,7 +3375,7 @@ export default abstract class SqlIntegration
       __distinctUsers AS (
         SELECT
           ${baseIdType}
-          ${dimensionCols.length > 0 ? `, ${dimensionCols.join(", ")}` : ""}
+          ${dimensionCols.length > 0 ? `, ${dimensionCols.map((c) => `${c.value} AS ${c.alias}`).join(", ")}` : ""}
           , variation
           , ${timestampColumn} AS timestamp
           , ${this.dateTrunc("first_exposure_timestamp")} AS first_exposure_date
@@ -3456,7 +3456,7 @@ export default abstract class SqlIntegration
           d.variation AS variation
           ${
             dimensionCols.length > 0
-              ? `, ${dimensionCols.map((c) => `d.${c} AS ${c}`).join(", ")}`
+              ? `, ${dimensionCols.map((c) => `d.${c.alias} AS ${c.alias}`).join(", ")}`
               : ""
           }
           ${banditDates?.length ? `, d.bandit_period AS bandit_period` : ""}
@@ -3492,7 +3492,7 @@ export default abstract class SqlIntegration
               m.variation
               ${
                 dimensionCols.length > 0
-                  ? `, ${dimensionCols.map((c) => `m.${c} AS ${c}`).join(", ")}`
+                  ? `, ${dimensionCols.map((c) => `m.${c.alias} AS ${c.alias}`).join(", ")}`
                   : ""
               }
               ${this.getQuantileGridColumns(metricQuantileSettings, "")}
@@ -3502,7 +3502,7 @@ export default abstract class SqlIntegration
             m.variation
             ${
               dimensionCols.length > 0
-                ? `, ${dimensionCols.map((c) => `m.${c}`).join(", ")}`
+                ? `, ${dimensionCols.map((c) => `m.${c.alias}`).join(", ")}`
                 : ""
             }
           )`
@@ -3514,7 +3514,7 @@ export default abstract class SqlIntegration
           umj.variation AS variation
           ${
             dimensionCols.length > 0
-              ? `, ${dimensionCols.map((c) => `umj.${c} AS ${c}`).join(", ")}`
+              ? `, ${dimensionCols.map((c) => `umj.${c.alias} AS ${c.alias}`).join(", ")}`
               : ""
           }
           ${banditDates?.length ? `, umj.bandit_period AS bandit_period` : ""}
@@ -3532,7 +3532,7 @@ export default abstract class SqlIntegration
             ? `
         LEFT JOIN __quantileMetric qm
         ON (qm.variation = umj.variation AND ${dimensionCols
-          .map((c) => `qm.${c} = umj.${c}`)
+          .map((c) => `qm.${c.alias} = umj.${c.alias}`)
           .join(" AND ")})`
             : ""
         }
@@ -3540,7 +3540,7 @@ export default abstract class SqlIntegration
           umj.variation
           ${
             dimensionCols.length > 0
-              ? `, ${dimensionCols.map((c) => `umj.${c}`).join(", ")}`
+              ? `, ${dimensionCols.map((c) => `umj.${c.alias}`).join(", ")}`
               : ""
           }
           ${cumulativeDate ? ", umj.day" : ""}
@@ -3577,7 +3577,7 @@ export default abstract class SqlIntegration
                 ${
                   dimensionCols.length > 0
                     ? `, ${dimensionCols
-                        .map((c) => `d.${c} AS ${c}`)
+                        .map((c) => `d.${c.alias} AS ${c.alias}`)
                         .join(", ")}`
                     : ""
                 }
@@ -3618,7 +3618,7 @@ export default abstract class SqlIntegration
                 d.variation
                 ${
                   dimensionCols.length > 0
-                    ? `, ${dimensionCols.map((c) => `d.${c}`).join(", ")}`
+                    ? `, ${dimensionCols.map((c) => `d.${c.alias}`).join(", ")}`
                     : ""
                 }
                 ${banditDates?.length ? `, d.bandit_period` : ""}
@@ -3660,7 +3660,7 @@ export default abstract class SqlIntegration
             d.variation AS variation
             ${
               dimensionCols.length > 0
-                ? `, ${dimensionCols.map((c) => `d.${c} AS ${c}`).join(", ")}`
+                ? `, ${dimensionCols.map((c) => `d.${c.alias} AS ${c.alias}`).join(", ")}`
                 : ""
             }
             , d.${baseIdType} AS ${baseIdType}
@@ -3677,7 +3677,7 @@ export default abstract class SqlIntegration
             d.variation
             ${
               dimensionCols.length > 0
-                ? `, ${dimensionCols.map((c) => `d.${c}`).join(", ")}`
+                ? `, ${dimensionCols.map((c) => `d.${c.alias}`).join(", ")}`
                 : ""
             }
             , d.${baseIdType}
@@ -3713,7 +3713,7 @@ export default abstract class SqlIntegration
     m.variation AS variation
     ${
       dimensionCols.length > 0
-        ? `, ${dimensionCols.map((c) => `m.${c} AS ${c}`).join(", ")}`
+        ? `, ${dimensionCols.map((c) => `m.${c.alias} AS ${c.alias}`).join(", ")}`
         : ""
     }
     , COUNT(*) AS users
@@ -3773,7 +3773,7 @@ export default abstract class SqlIntegration
         ? `LEFT JOIN __quantileMetric qm ON (
       qm.variation = m.variation ${
         dimensionCols.length > 0
-          ? `AND ${dimensionCols.map((c) => `qm.${c} = m.${c}`).join(" AND ")}`
+          ? `AND ${dimensionCols.map((c) => `qm.${c.alias} = m.${c.alias}`).join(" AND ")}`
           : ""
       }
         )`
@@ -3806,7 +3806,7 @@ export default abstract class SqlIntegration
     m.variation
     ${
       dimensionCols.length > 0
-        ? `, ${dimensionCols.map((c) => `m.${c}`).join(", ")}`
+        ? `, ${dimensionCols.map((c) => `m.${c.alias}`).join(", ")}`
         : ""
     }
   `
