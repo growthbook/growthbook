@@ -44,7 +44,7 @@ import { SavedQueryDataModel } from "back-end/src/models/SavedQueryDataModel";
 import { FeatureRevisionLogModel } from "back-end/src/models/FeatureRevisionLogModel";
 import { FeatureInterface } from "back-end/types/feature";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
-import { AiPromptModel } from "back-end/src/models/AIPromptModel";
+import { AiPromptModel } from "back-end/src/enterprise/models/AIPromptModel";
 import { VectorsModel } from "back-end/src/enterprise/models/VectorsModel";
 import { AgreementModel } from "back-end/src/models/AgreementModel";
 import { getExperimentMetricsByIds } from "./experiments";

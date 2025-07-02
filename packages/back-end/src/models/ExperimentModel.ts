@@ -43,7 +43,7 @@ import {
 import {
   generateEmbeddings,
   simpleCompletion,
-} from "back-end/src/services/openai";
+} from "back-end/src/enterprise/services/openai";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";

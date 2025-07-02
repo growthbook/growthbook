@@ -131,7 +131,7 @@ import {
   generateEmbeddings,
   secondsUntilAICanBeUsedAgain,
   simpleCompletion,
-} from "back-end/src/services/openai";
+} from "back-end/src/enterprise/services/openai";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
 
