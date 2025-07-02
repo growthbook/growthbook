@@ -57,7 +57,7 @@ export interface Props {
   };
   id?: string;
   mutate: () => void;
-  allowSave?: boolean; // Controls if user can save query AND also controls if they can create/save visualizations
+  disableSave?: boolean; // Controls if user can save query AND also controls if they can create/save visualizations
   header?: string;
   lockDatasource?: boolean; // Prevents changing data source. Useful if an org opens this from a data source id page, or when editing an experiment query that requires a certain data source
   trackingEventModalSource?: string;
@@ -68,7 +68,7 @@ export default function SqlExplorerModal({
   initial,
   id,
   mutate,
-  allowSave = true,
+  disableSave = false,
   header,
   lockDatasource = false,
   trackingEventModalSource = "",
@@ -80,7 +80,7 @@ export default function SqlExplorerModal({
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempName, setTempName] = useState("");
   const [tab, setTab] = useState(
-    initial?.dataVizConfig?.length && allowSave ? "visualization-0" : "sql"
+    initial?.dataVizConfig?.length && !disableSave ? "visualization-0" : "sql"
   );
 
   const { getDatasourceById, datasources } = useDefinitions();
@@ -323,7 +323,7 @@ export default function SqlExplorerModal({
       closeCta="Close"
       cta="Save & Close"
       ctaEnabled={canSave}
-      hideCta={!allowSave}
+      hideCta={disableSave}
       disabledMessage={
         !hasCommercialFeature("saveSqlExplorerQueries")
           ? "Upgrade to a Pro or Enterprise plan to save your queries."
@@ -362,7 +362,7 @@ export default function SqlExplorerModal({
           }}
           style={{ display: "flex", flexDirection: "column", height: "100%" }}
         >
-          {allowSave ? (
+          {!disableSave ? (
             <Flex
               align="center"
               mb="4"

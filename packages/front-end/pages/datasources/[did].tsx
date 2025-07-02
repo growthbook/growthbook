@@ -443,7 +443,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
           initial={{ datasourceId: d.id }}
           close={() => setViewSqlExplorer(false)}
           mutate={mutateDefinitions}
-          allowSave={false}
+          disableSave={true}
           header="SQL Explorer"
           lockDatasource={true}
           trackingEventModalSource="datasource-id-page"
