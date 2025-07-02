@@ -73,5 +73,6 @@ router.get(
   }),
   safeRolloutController.getSafeRolloutTimeSeries
 );
+router.get("/", safeRolloutController.getSafeRollouts);
 
 export { router as safeRolloutRouter };
