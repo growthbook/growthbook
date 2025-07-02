@@ -377,7 +377,6 @@ export type PastExperimentResponseRows = {
 }[];
 
 export type ExperimentMetricQueryResponseRows = {
-  dimension: string;
   variation: string;
   users: number;
   count: number;
@@ -399,10 +398,10 @@ export type ExperimentMetricQueryResponseRows = {
   quantile_lower?: number;
   quantile_upper?: number;
   quantile_nstar?: number;
+  [key: string]: number | string | undefined;
 }[];
 
 export type ExperimentFactMetricsQueryResponseRows = {
-  dimension: string;
   variation: string;
   users: number;
   count: number;

@@ -145,13 +145,28 @@ def get_metric_df(
     rows: pd.DataFrame,
     var_id_map: VarIdMap,
     var_names: List[str],
+    dimension: str,
 ) -> pd.DataFrame:
     dfc = rows.copy()
     dimensions = {}
     # Each row in the raw SQL result is a dimension/variation combo
     # We want to end up with one row per dimension
     for row in dfc.itertuples(index=False):
-        dim = row.dimension
+        # strip dimension of prefix before `:`
+        dimension_column_name = "dimension"
+        
+        if dimension == "pre:date":
+            dimension_column_name = "dim_pre_date"
+        elif dimension == "pre:activation":
+            dimension_column_name = "dim_exp_activation"
+        elif dimension.startswith("exp:"):
+            dimension_column_name = "dim_exp_" + dimension.split(":")[1]
+        elif dimension.startswith("precomputed:"):
+            dimension_column_name = "dim_exp_" + dimension.split(":")[1]
+        elif dimension.startswith("dim_"):
+            dimension_column_name = "dim_unit_" + dimension
+
+        dim = getattr(row, dimension_column_name, "")
         # If this is the first time we're seeing this dimension, create an empty dict
         if dim not in dimensions:
             # Overall columns
@@ -175,10 +190,11 @@ def get_metric_df(
             dimensions[dim]["total_users"] += row.users
             prefix = f"v{i}" if i > 0 else "baseline"
             for col in ROW_COLS:
-                dimensions[dim][f"{prefix}_{col}"] = getattr(row, col, 0)
+                # Sum here in case multiple rows per dimension
+                dimensions[dim][f"{prefix}_{col}"] += getattr(row, col, 0)
             # Special handling for count, if missing returns a method, so override with user value
             if callable(getattr(row, "count")):
-                dimensions[dim][f"{prefix}_count"] = getattr(row, "users", 0)
+                dimensions[dim][f"{prefix}_count"] += getattr(row, "users", 0)
     return pd.DataFrame(dimensions.values())
 
 
@@ -684,7 +700,12 @@ def process_analysis(
         rows = diff_for_daily_time_series(rows)
 
     # Convert raw SQL result into a dataframe of dimensions
-    df = get_metric_df(rows=rows, var_id_map=var_id_map, var_names=var_names)
+    df = get_metric_df(
+        rows=rows,
+        var_id_map=var_id_map,
+        var_names=var_names,
+        dimension=analysis.dimension,
+    )
     # Limit to the top X dimensions with the most users
     # not possible to just re-sum for quantile metrics,
     # so we throw away "other" dimension
@@ -800,6 +821,7 @@ def preprocess_bandits(
             rows=pdrows,
             var_id_map=get_var_id_map(bandit_settings.var_ids),
             var_names=bandit_settings.var_names,
+            dimension=dimension,
         )
         bandit_stats = create_bandit_statistics(df, metric)
     bandit_prior = GaussianPrior(mean=0, variance=float(1e4), proper=True)

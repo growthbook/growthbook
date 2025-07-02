@@ -86,7 +86,6 @@ export type ResultsTableProps = {
     maxRows?: number
   ) => string | ReactElement;
   dateCreated: Date;
-  hasRisk: boolean;
   statsEngine: StatsEngine;
   pValueCorrection?: PValueCorrection;
   differenceType: DifferenceType;
@@ -129,7 +128,6 @@ export default function ResultsTable({
   endDate,
   renderLabelColumn,
   dateCreated,
-  hasRisk,
   statsEngine,
   pValueCorrection,
   differenceType,
@@ -608,7 +606,6 @@ export default function ResultsTable({
                                 changeTitle,
                                 statsEngine || DEFAULT_STATS_ENGINE,
                                 differenceType,
-                                hasRisk,
                                 !!sequentialTestingEnabled,
                                 pValueCorrection ?? null,
                                 pValueThreshold
@@ -1051,7 +1048,6 @@ function getChangeTooltip(
   changeTitle: string,
   statsEngine: StatsEngine,
   differenceType: DifferenceType,
-  hasRisk: boolean,
   sequentialTestingEnabled: boolean,
   pValueCorrection: PValueCorrection,
   pValueThreshold: number
@@ -1074,7 +1070,7 @@ function getChangeTooltip(
     </>
   );
   let intervalText = <></>;
-  if (hasRisk && statsEngine === "bayesian") {
+  if (statsEngine === "bayesian") {
     intervalText = (
       <>
         The interval is a 95% credible interval. The true value is more likely
