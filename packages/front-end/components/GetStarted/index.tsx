@@ -104,9 +104,8 @@ const advancedFeatureList: AdvancedFeature[] = [
   {
     imgUrl: "/images/get-started/advanced/fact-tables.png",
     title: "Query Optimization",
-    description: "Enable automatic query optimization",
+    description: "Improve SQL performance and reduce costs",
     docSection: "queryOptimization",
-    commercialFeature: "multi-metric-queries",
   },
 ];
 
@@ -169,7 +168,7 @@ const GetStartedAndHomePage = (): React.ReactElement => {
   const advancedFeatures: AdvancedFeature[] = useMemo(() => {
     const advancedFeatureListWithAnalytics = [...advancedFeatureList];
     if (isCloud()) {
-      advancedFeatureList.push({
+      advancedFeatureListWithAnalytics.push({
         imgUrl: "/images/get-started/advanced/feature-flag.png",
         title: "Feature Flag Analytics",
         description: "View flag evaluations in real time",
