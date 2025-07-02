@@ -5,7 +5,7 @@ import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useUser } from "@/services/UserContext";
 import { useFeaturesList } from "@/services/features";
-import GetStartedAndHomePage from "@/components/GetStarted";
+import LoadingOverlay from "@/components/LoadingOverlay";
 
 export default function Home(): React.ReactElement {
   const router = useRouter();
@@ -38,15 +38,20 @@ export default function Home(): React.ReactElement {
     // has features and experiments that are not demo projects
     const hasFeatures = features.some((f) => f.project !== demoProjectId);
     const hasExperiments = experiments.some((e) => e.project !== demoProjectId);
-    const hasFeatureAndExperiment = hasFeatures && hasExperiments;
-    if (
-      gb.isOn("use-new-setup-flow-2") &&
-      !hasFeatureAndExperiment &&
-      !organization.isVercelIntegration
-    ) {
-      router.replace("/setup");
-    } else if (!hasFeatureAndExperiment) {
-      router.replace("/getstarted");
+
+    if (hasFeatures) {
+      router.replace("/features");
+    } else if (hasExperiments) {
+      router.replace("/experiments");
+    } else {
+      if (
+        gb.isOn("use-new-setup-flow-2") &&
+        !organization.isVercelIntegration
+      ) {
+        router.replace("/setup");
+      } else {
+        router.replace("/getstarted");
+      }
     }
   }, [
     organization,
@@ -66,5 +71,5 @@ export default function Home(): React.ReactElement {
     );
   }
 
-  return <GetStartedAndHomePage />;
+  return <LoadingOverlay />;
 }
