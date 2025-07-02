@@ -343,8 +343,8 @@ const otherPageTitles = [
     title: "Personal Access Tokens",
   },
   {
-    path: /^$/,
-    title: "Home",
+    path: /^getstarted/,
+    title: "Get Started",
   },
   {
     path: /^dashboard/,
