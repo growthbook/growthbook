@@ -1,12 +1,23 @@
-import React, { ReactNode, useContext } from "react";
+import React, {
+  ReactNode,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import {
   DashboardBlockData,
   DashboardBlockInterface,
 } from "back-end/src/enterprise/validators/dashboard-block";
-import { isDashboardBlockWithSnapshot } from "shared/enterprise";
+import {
+  getBlockAnalysisSettings,
+  isDashboardBlockWithSnapshot,
+} from "shared/enterprise";
+import { getSnapshotAnalysis } from "shared/util";
 import useApi from "@/hooks/useApi";
+import { useAuth } from "@/services/auth";
 
 const DashboardSnapshotContext = React.createContext<{
   defaultSnapshot?: ExperimentSnapshotInterface;
@@ -62,6 +73,8 @@ export function useDashboardSnapshot(
     error: defaultError,
     mutateSnapshot: mutateDefault,
   } = useContext(DashboardSnapshotContext);
+  const { apiCall } = useAuth();
+  const [postSnapshotLoading, setPostSnapshotLoading] = useState(false);
 
   const blockSnapshotId = isDashboardBlockWithSnapshot(block)
     ? block.snapshotId
@@ -81,14 +94,56 @@ export function useDashboardSnapshot(
   });
 
   const snapshot = shouldRun() ? blockSnapshotData?.snapshot : defaultSnapshot;
-  const loading = shouldRun() ? snapshotLoading : defaultLoading;
+  const getSnapshotLoading = shouldRun() ? snapshotLoading : defaultLoading;
   const error = shouldRun() ? snapshotError : defaultError;
   const mutateSnapshot = shouldRun() ? mutate : mutateDefault;
+  const blockAnalysisSettings = useMemo(() => {
+    if (!snapshot) return undefined;
+    const defaultAnalysis = getSnapshotAnalysis(snapshot);
+    if (!defaultAnalysis) return undefined;
+    return getBlockAnalysisSettings(block, defaultAnalysis.settings);
+  }, [snapshot, block]);
+
+  console.log("Block settings are", blockAnalysisSettings);
+
+  const analysis = useMemo(() => {
+    if (!snapshot || !blockAnalysisSettings) return undefined;
+    return getSnapshotAnalysis(snapshot, blockAnalysisSettings);
+  }, [blockAnalysisSettings, snapshot]);
+
+  console.log("Got analysis?", !!analysis);
+
+  useEffect(() => {
+    if (!snapshot || !blockAnalysisSettings) return;
+    if (!analysis && !snapshotLoading) {
+      const updateAnalysis = async () => {
+        setPostSnapshotLoading(true);
+        console.log("Going to update analysis", blockAnalysisSettings);
+        await apiCall(`/snapshot/${snapshot.id}/analysis`, {
+          method: "POST",
+          body: JSON.stringify({
+            analysisSettings: blockAnalysisSettings,
+          }),
+        });
+        mutateSnapshot();
+        setPostSnapshotLoading(false);
+      };
+      updateAnalysis();
+    }
+  }, [
+    analysis,
+    apiCall,
+    blockAnalysisSettings,
+    snapshot,
+    snapshotLoading,
+    mutateSnapshot,
+  ]);
+
   return {
     snapshot,
-    analysis: snapshot?.analyses?.[0],
-    analysisSettings: snapshot?.analyses?.[0]?.settings,
-    loading,
+    analysis,
+    analysisSettings: analysis?.settings,
+    loading: postSnapshotLoading || getSnapshotLoading,
     error,
     mutateSnapshot,
   };

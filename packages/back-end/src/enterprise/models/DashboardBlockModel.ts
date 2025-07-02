@@ -1,7 +1,6 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { v4 as uuidv4 } from "uuid";
-import { isDimensionBlock } from "shared/enterprise";
 import {
   CreateDashboardBlockInterface,
   DashboardBlockInterface,
@@ -10,10 +9,6 @@ import {
   removeMongooseFields,
   ToInterface,
 } from "back-end/src/util/mongo.util";
-import {
-  ExperimentSnapshotSettings,
-  ExperimentSnapshotAnalysisSettings,
-} from "back-end/types/experiment-snapshot";
 
 export const dashboardBlockSchema = new mongoose.Schema(
   {
@@ -71,7 +66,7 @@ const metricBlockSchema = new mongoose.Schema({
 const dimensionBlockSchema = new mongoose.Schema({
   experimentId: String,
   metricIds: [String],
-  dimensionId: String,
+  dimensionIds: [String],
   dimensionValues: [String],
   variationIds: [String],
   baselineRow: Number,
@@ -138,22 +133,4 @@ export async function createDashboardBlock(
   });
 
   return toInterface(block);
-}
-
-export function getBlockSnapshotSettings(
-  block: DashboardBlockInterface
-): Partial<ExperimentSnapshotSettings> {
-  return isDimensionBlock(block) && block.dimensionId
-    ? { dimensions: [{ id: block.dimensionId }] }
-    : {};
-}
-
-export function getBlockAnalysisSettings(
-  block: DashboardBlockInterface
-): Partial<ExperimentSnapshotAnalysisSettings> {
-  return isDimensionBlock(block) && block.dimensionId
-    ? {
-        dimensions: [block.dimensionId],
-      }
-    : {};
 }

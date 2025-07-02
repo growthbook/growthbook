@@ -138,7 +138,9 @@ export default function TabbedPage({
       if (experimentTabs.includes(tabName)) {
         setTab(tabName);
         setTabPath(tabPath);
+        // Drop the tab path from the URL after reading it into state
       }
+      window.history.replaceState({}, "", `#${tabName}`);
     };
     handler();
     window.addEventListener("hashchange", handler, false);
@@ -493,9 +495,8 @@ export default function TabbedPage({
       >
         <DashboardsTab
           experiment={experiment}
-          dashboardId={tabPath}
+          initialDashboardId={tabPath}
           experimentHeaderRef={experimentHeaderRef}
-          setDashboardId={setTabPath}
         />
       </div>
       <div

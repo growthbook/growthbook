@@ -8,7 +8,9 @@ import React, { useEffect, useMemo, useState } from "react";
 import clsx from "clsx";
 import { useForm } from "react-hook-form";
 import {
+  isDashboardBlockWithBaselineRow,
   isDashboardBlockWithDifferenceType,
+  isDashboardBlockWithDimensionIds,
   isDashboardBlockWithMetricIds,
   isSqlExplorerBlock,
 } from "shared/enterprise";
@@ -176,6 +178,23 @@ export default function DashboardBlockEditDrawer({
                 containerClassName="mb-0"
                 onChange={(value) => form.setValue("metricIds", value)}
                 options={metricOptions}
+              />
+            )}
+            {isDashboardBlockWithDimensionIds(block) && <></>}
+            {isDashboardBlockWithBaselineRow(block) && (
+              <SelectField
+                label="Baseline Variation"
+                labelClassName="font-weight-bold"
+                containerStyle={{ flexBasis: "30%" }}
+                containerClassName="mb-0"
+                value={(form.watch("baselineRow") || 0).toString()}
+                onChange={(value) =>
+                  form.setValue("baselineRow", parseInt(value))
+                }
+                options={experiment.variations.map((_, i) => ({
+                  label: i.toString(),
+                  value: i.toString(),
+                }))}
               />
             )}
             {isDashboardBlockWithDifferenceType(block) && (

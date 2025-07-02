@@ -1,6 +1,10 @@
 import mongoose from "mongoose";
 import { isMatch } from "lodash";
-import { isSqlExplorerBlock } from "shared/enterprise";
+import {
+  getBlockAnalysisSettings,
+  getBlockSnapshotSettings,
+  isSqlExplorerBlock,
+} from "shared/enterprise";
 import {
   dashboardInstanceInterface,
   DashboardInstanceInterface,
@@ -16,11 +20,7 @@ import {
 } from "back-end/types/experiment-snapshot";
 import { getLatestSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import { ExperimentInterface } from "back-end/types/experiment";
-import {
-  toInterface as blockToInterface,
-  getBlockAnalysisSettings,
-  getBlockSnapshotSettings,
-} from "./DashboardBlockModel";
+import { toInterface as blockToInterface } from "./DashboardBlockModel";
 
 export type DashboardInstanceDocument = mongoose.Document &
   DashboardInstanceInterface;
@@ -194,10 +194,10 @@ export async function computeSnapshotSettings(
       ...experimentSnapshotSettings,
       ...getBlockSnapshotSettings(block),
     };
-    const combinedAnalysisSettings = {
-      ...experimentAnalysisSettings,
-      ...getBlockAnalysisSettings(block),
-    };
+    const combinedAnalysisSettings = getBlockAnalysisSettings(
+      block,
+      experimentAnalysisSettings
+    );
     let snapshotRecord = snapshotInfo.find(({ snapshotSettings }) =>
       isMatch(snapshotSettings, combinedSnapshotSettings)
     );

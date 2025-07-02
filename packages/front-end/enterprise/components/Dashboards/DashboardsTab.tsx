@@ -86,17 +86,19 @@ function CreateDashboardModal({
 
 interface Props {
   experiment: ExperimentInterfaceStringDates;
-  dashboardId: string;
+  initialDashboardId: string;
   experimentHeaderRef: MutableRefObject<HTMLDivElement | null>;
-  setDashboardId: React.Dispatch<string>;
 }
 
 export default function DashboardsTab({
   experiment,
-  dashboardId,
+  initialDashboardId,
   experimentHeaderRef,
-  setDashboardId,
 }: Props) {
+  const [dashboardId, setDashboardId] = useState(initialDashboardId);
+  useEffect(() => {
+    setDashboardId(initialDashboardId);
+  }, [initialDashboardId]);
   const {
     dashboards: allDashboards,
     mutateDefinitions: mutateDashboardList,
@@ -158,10 +160,9 @@ export default function DashboardsTab({
 
   useEffect(() => {
     if (!dashboardId && dashboards.length > 0) {
-      console.log("Setting dashId to", dashboards[0].id);
       setDashboardId(dashboards[0].id);
     }
-  }, [dashboards, dashboardId, setDashboardId]);
+  }, [dashboards, dashboardId]);
 
   useEffect(() => {
     if (dashboard) {
@@ -196,7 +197,7 @@ export default function DashboardsTab({
         console.error(res);
       }
     },
-    [apiCall, dashboardId, experiment.id, mutateDashboardList, setDashboardId]
+    [apiCall, dashboardId, experiment.id, mutateDashboardList]
   );
 
   return (

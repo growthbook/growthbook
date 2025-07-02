@@ -68,6 +68,7 @@ export const BLOCK_TYPE_INFO: Record<
       metricIds: experiment.goalMetrics,
       snapshotId: experiment.analysisSummary?.snapshotId || "",
       differenceType: "relative",
+      baselineRow: 0,
     }),
   },
   dimension: {
@@ -77,8 +78,10 @@ export const BLOCK_TYPE_INFO: Record<
       title: "Dimension Results",
       experimentId: experiment.id,
       metricIds: experiment.goalMetrics,
+      dimensionIds: [],
       snapshotId: experiment.analysisSummary?.snapshotId || "",
       differenceType: "relative",
+      baselineRow: 0,
     }),
   },
   "time-series": {

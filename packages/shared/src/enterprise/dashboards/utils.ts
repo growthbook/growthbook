@@ -13,6 +13,10 @@ import {
   TrafficTableBlockInterface,
   DashboardBlockWithSnapshot,
 } from "back-end/src/enterprise/validators/dashboard-block";
+import {
+  ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotSettings,
+} from "back-end/types/experiment-snapshot";
 
 export function getBlockData<
   T extends DashboardBlockData<DashboardBlockInterface>
@@ -21,56 +25,56 @@ export function getBlockData<
 }
 
 export function isMarkdownBlock(
-  block: DashboardBlockInterface
-): block is MarkdownBlockInterface {
+  block: DashboardBlockData<DashboardBlockInterface>
+): block is DashboardBlockData<MarkdownBlockInterface> {
   return block.type === "markdown";
 }
 
 export function isDescriptionBlock(
-  block: DashboardBlockInterface
-): block is DescriptionBlockInterface {
+  block: DashboardBlockData<DashboardBlockInterface>
+): block is DashboardBlockData<DescriptionBlockInterface> {
   return block.type === "metadata-description";
 }
 
 export function isHypothesisBlock(
-  block: DashboardBlockInterface
-): block is HypothesisBlockInterface {
+  block: DashboardBlockData<DashboardBlockInterface>
+): block is DashboardBlockData<HypothesisBlockInterface> {
   return block.type === "metadata-hypothesis";
 }
 
 export function isVariationImageBlock(
-  block: DashboardBlockInterface
-): block is VariationImageBlockInterface {
+  block: DashboardBlockData<DashboardBlockInterface>
+): block is DashboardBlockData<VariationImageBlockInterface> {
   return block.type === "variation-image";
 }
 
 export function isMetricBlock(
-  block: DashboardBlockInterface
-): block is MetricBlockInterface {
+  block: DashboardBlockData<DashboardBlockInterface>
+): block is DashboardBlockData<MetricBlockInterface> {
   return block.type === "metric";
 }
 
 export function isDimensionBlock(
-  block: DashboardBlockInterface
-): block is DimensionBlockInterface {
+  block: DashboardBlockData<DashboardBlockInterface>
+): block is DashboardBlockData<DimensionBlockInterface> {
   return block.type === "dimension";
 }
 
 export function isTimeSeriesBlock(
-  block: DashboardBlockInterface
-): block is TimeSeriesBlockInterface {
+  block: DashboardBlockData<DashboardBlockInterface>
+): block is DashboardBlockData<TimeSeriesBlockInterface> {
   return block.type === "time-series";
 }
 
 export function isTrafficTableBlock(
-  block: DashboardBlockInterface
-): block is TrafficTableBlockInterface {
+  block: DashboardBlockData<DashboardBlockInterface>
+): block is DashboardBlockData<TrafficTableBlockInterface> {
   return block.type === "traffic-table";
 }
 
 export function isTrafficGraphBlock(
-  block: DashboardBlockInterface
-): block is TrafficGraphBlockInterface {
+  block: DashboardBlockData<DashboardBlockInterface>
+): block is DashboardBlockData<TrafficGraphBlockInterface> {
   return block.type === "traffic-graph";
 }
 
@@ -104,6 +108,26 @@ export function isDashboardBlockWithMetricIds(
   return Array.isArray(block.metricIds);
 }
 
+export function isDashboardBlockWithDimensionIds(
+  data: DashboardBlockData<DashboardBlockInterface>
+): data is Extract<
+  DashboardBlockData<DashboardBlockInterface>,
+  { dimensionIds: string[] }
+> {
+  const block = data as { dimensionIds: string[] };
+  return Array.isArray(block.dimensionIds);
+}
+
+export function isDashboardBlockWithBaselineRow(
+  data: DashboardBlockData<DashboardBlockInterface>
+): data is Extract<
+  DashboardBlockData<DashboardBlockInterface>,
+  { baselineRow: number }
+> {
+  const block = data as { baselineRow: number };
+  return typeof block.baselineRow === "number";
+}
+
 export function isDashboardBlockWithDifferenceType(
   data: DashboardBlockData<DashboardBlockInterface>
 ): data is Extract<
@@ -112,4 +136,42 @@ export function isDashboardBlockWithDifferenceType(
 > {
   const block = data as { differenceType: string };
   return typeof block.differenceType === "string";
+}
+
+export function getBlockSnapshotSettings(
+  block: DashboardBlockData<DashboardBlockInterface>
+): Partial<ExperimentSnapshotSettings> {
+  switch (block.type) {
+    case "dimension":
+      return {
+        dimensions: (block.dimensionIds || []).map((id) => ({
+          id,
+        })),
+      };
+    default:
+      return {};
+  }
+}
+
+export function getBlockAnalysisSettings(
+  block: DashboardBlockData<DashboardBlockInterface>,
+  defaultAnalysisSettings: ExperimentSnapshotAnalysisSettings
+): ExperimentSnapshotAnalysisSettings {
+  switch (block.type) {
+    case "dimension":
+      return {
+        ...defaultAnalysisSettings,
+        dimensions: block.dimensionIds,
+        differenceType: block.differenceType,
+        baselineVariationIndex: block.baselineRow,
+      };
+    case "metric":
+      return {
+        ...defaultAnalysisSettings,
+        differenceType: block.differenceType,
+        baselineVariationIndex: block.baselineRow,
+      };
+    default:
+      return { ...defaultAnalysisSettings };
+  }
 }

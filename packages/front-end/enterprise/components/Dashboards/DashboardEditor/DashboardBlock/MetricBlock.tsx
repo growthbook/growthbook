@@ -6,6 +6,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import { useExperiments } from "@/hooks/useExperiments";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import { useDashboardSnapshot } from "../../DashboardSnapshotProvider";
 import { BlockProps } from ".";
 
@@ -17,11 +18,18 @@ export default function MetricBlock({
   const experiment = experimentsMap.get(experimentId);
 
   const { getExperimentMetricById } = useDefinitions();
-  const { snapshot, analysisSettings } = useDashboardSnapshot(block);
+  const {
+    snapshot,
+    analysis,
+    analysisSettings,
+    loading,
+  } = useDashboardSnapshot(block);
   const orgSettings = useOrgSettings();
   const pValueCorrection = orgSettings?.pValueCorrection;
 
-  if (!experiment || metricIds.length === 0) return null;
+  if (loading) return <LoadingSpinner />;
+
+  if (!experiment || metricIds.length === 0 || !snapshot) return null;
 
   const variations = experiment.variations.map((v, i) => ({
     id: v.key || i + "",
@@ -31,9 +39,12 @@ export default function MetricBlock({
       0,
   }));
 
-  // TODO get correct analysis
   const latestPhase = experiment.phases[experiment.phases.length - 1];
-  const latestResults = snapshot?.analyses?.[0]?.results?.[0];
+
+  if (!analysis) return null;
+
+  const result = analysis.results[0];
+  if (!result) return null;
 
   const allRows = metricIds
     .map((metricId) => {
@@ -49,26 +60,25 @@ export default function MetricBlock({
       return {
         label: metric.name,
         metric,
-        variations:
-          latestResults?.variations?.map((v) => ({
-            value: v.metrics[metricId]?.value || 0,
-            cr: v.metrics[metricId]?.cr || 0,
-            users: v.users,
-            denominator: v.metrics[metricId]?.denominator,
-            ci: v.metrics[metricId]?.ci,
-            ciAdjusted: v.metrics[metricId]?.ciAdjusted,
-            expected: v.metrics[metricId]?.expected,
-            risk: v.metrics[metricId]?.risk,
-            riskType: v.metrics[metricId]?.riskType,
-            stats: v.metrics[metricId]?.stats,
-            pValue: v.metrics[metricId]?.pValue,
-            pValueAdjusted: v.metrics[metricId]?.pValueAdjusted,
-            uplift: v.metrics[metricId]?.uplift,
-            buckets: v.metrics[metricId]?.buckets,
-            chanceToWin: v.metrics[metricId]?.chanceToWin,
-            errorMessage: v.metrics[metricId]?.errorMessage,
-            power: v.metrics[metricId]?.power,
-          })) || [],
+        variations: result.variations.map((v) => ({
+          value: v.metrics[metricId]?.value || 0,
+          cr: v.metrics[metricId]?.cr || 0,
+          users: v.users,
+          denominator: v.metrics[metricId]?.denominator,
+          ci: v.metrics[metricId]?.ci,
+          ciAdjusted: v.metrics[metricId]?.ciAdjusted,
+          expected: v.metrics[metricId]?.expected,
+          risk: v.metrics[metricId]?.risk,
+          riskType: v.metrics[metricId]?.riskType,
+          stats: v.metrics[metricId]?.stats,
+          pValue: v.metrics[metricId]?.pValue,
+          pValueAdjusted: v.metrics[metricId]?.pValueAdjusted,
+          uplift: v.metrics[metricId]?.uplift,
+          buckets: v.metrics[metricId]?.buckets,
+          chanceToWin: v.metrics[metricId]?.chanceToWin,
+          errorMessage: v.metrics[metricId]?.errorMessage,
+          power: v.metrics[metricId]?.power,
+        })),
         resultGroup,
         metricOverrideFields: [],
       };
@@ -78,7 +88,7 @@ export default function MetricBlock({
   const rowGroups = groupBy(allRows, ({ resultGroup }) => resultGroup);
 
   return (
-    <div className="metric-block">
+    <div>
       {Object.entries(rowGroups).map(([resultGroup, rows]) => (
         <ResultsTable
           key={resultGroup}

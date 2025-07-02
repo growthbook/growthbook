@@ -72,11 +72,11 @@ const dimensionBlockInterface = baseBlockInterface
   .extend({
     type: z.literal("dimension"),
     experimentId: z.string(),
-    dimensionId: z.string().optional(),
+    dimensionIds: z.array(z.string()),
     dimensionValues: z.array(z.string()).optional(),
     metricIds: z.array(z.string()),
     variationIds: z.array(z.string()).optional(),
-    baselineRow: z.number().optional(),
+    baselineRow: z.number(),
     differenceType: z.enum(["absolute", "relative", "scaled"]),
     snapshotId: z.string(),
   })
