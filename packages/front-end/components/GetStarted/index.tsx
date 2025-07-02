@@ -103,7 +103,7 @@ const advancedFeatureList: AdvancedFeature[] = [
   },
   {
     imgUrl: "/images/get-started/advanced/fact-tables.png",
-    title: "Fact Tables",
+    title: "Query Optimization",
     description: "Enable automatic query optimization",
     docSection: "queryOptimization",
     commercialFeature: "multi-metric-queries",
