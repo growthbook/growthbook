@@ -208,9 +208,6 @@ async function runStatsEngine(
   const server = await statsServerPool.acquire();
   try {
     return await server.call(statsData);
-  } catch (e) {
-    logger.error(e, "Failed to run stats engine");
-    throw e;
   } finally {
     statsServerPool.release(server);
   }

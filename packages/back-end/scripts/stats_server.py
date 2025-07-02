@@ -2,6 +2,7 @@ from dataclasses import asdict
 import json
 import time
 import sys
+import traceback
 from gbstats.gbstats import process_multiple_experiment_results
 
 for line in sys.stdin:
@@ -48,7 +49,9 @@ for line in sys.stdin:
     except Exception as e:
         sys.stdout.write(json.dumps({
             'id': id,
-            'error': f"Processing error: {str(e)}",
+            'error': str(e),
+            # Include formatted stack trace
+            'stack_trace': traceback.format_exc(),
             'time': time.time() - start
         }, allow_nan=False) + "\n")
         sys.stdout.flush()

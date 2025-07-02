@@ -13,8 +13,14 @@ type PythonServerResponse<T> = {
   results: T;
 };
 
+// The stats engine usually finishes within 1 second
+// We use an overly conservative timeout to account for high load
+const STATS_ENGINE_TIMEOUT_MS = 15_000;
+const MAX_POOL_SIZE = 4;
+
 class PythonStatsServer<Input, Output> {
   private python: ChildProcess;
+  private pid = -1;
   private promises: Map<
     string,
     {
@@ -31,7 +37,8 @@ class PythonStatsServer<Input, Output> {
     this.python = spawn(command, [...pythonArgs, "-u", script], {
       stdio: ["pipe", "pipe", "pipe"],
     });
-    logger.info("Started Python stats server, pid " + this.python.pid);
+    this.pid = this.python.pid || -1;
+    logger.debug(`Python stats server (pid: ${this.pid}) started`);
     this.promises = new Map();
 
     this.python.stdout?.on("data", (data) => {
@@ -41,24 +48,33 @@ class PythonStatsServer<Input, Output> {
       try {
         const parsed:
           | PythonServerResponse<Output>
-          | { id: string; error: string } = JSON.parse(output);
+          | { id: string; error: string; stack_trace?: string } = JSON.parse(
+          output
+        );
 
         if (!parsed.id) {
-          logger.error("Python stats server output missing 'id':", parsed);
+          logger.error(
+            `Python stats server (pid: ${this.pid}) stdout missing 'id': ${parsed}`
+          );
           return;
         }
 
         const promise = this.promises.get(parsed.id);
         if (!promise) {
-          logger.error(
-            `Python stats server returned result for unknown id: ${parsed.id}`,
+          logger.warn(
+            `Python stats server (pid: ${this.pid}) stdout has unknown id: ${parsed.id}`,
             parsed
           );
           return;
         }
 
         if ("error" in parsed) {
-          promise.reject(new Error(parsed.error || "Unknown error"));
+          // Add stack trace to error message so we can show it on the front-end
+          const error = new Error(parsed.error || "Unknown error");
+          if (parsed.stack_trace) {
+            error.message += `\n\n${parsed.stack_trace}`;
+          }
+          promise.reject(error);
         } else {
           promise.resolve(parsed);
         }
@@ -66,19 +82,26 @@ class PythonStatsServer<Input, Output> {
         // Delete promise
         this.promises.delete(parsed.id);
       } catch (e) {
-        logger.error("Failed to parse Python stats server output:", e);
+        logger.error(
+          `Python stats server (pid: ${this.pid}) failed to parse stdout`,
+          e
+        );
         return;
       }
     });
 
     this.python.stderr?.on("data", (data) => {
-      logger.error("Python stats server stderr:", data.toString().trim());
+      logger.error(
+        `Python stats server (pid: ${
+          this.pid
+        }) stderr: ${data.toString().trim()}`
+      );
     });
 
     // When the process dies
     this.python.on("close", (code, signal) => {
-      logger.info(
-        `Python stats server exited with code ${code} ${signal}. Destroying server.`
+      logger.debug(
+        `Python stats server (pid: ${this.pid}) exited with code ${code} ${signal}. Destroying server.`
       );
       this.destroy();
     });
@@ -104,34 +127,45 @@ class PythonStatsServer<Input, Output> {
       const start = Date.now();
       const cpus = os.cpus();
 
-      // Timeout if the server doesn't respond within 20 seconds
-      // It usually finishes in under 1 second, so this is overly conservative
+      // Timeout if the server doesn't respond within the defined timeout
       const timer = setTimeout(() => {
-        logger.error(`StatsEngine: Python call timed out for id ${id}`);
+        logger.error(
+          `Python stats server (pid: ${this.pid}) call timed out for id ${id}`
+        );
         this.promises.delete(id);
         reject(new Error("Python stats server call timed out"));
-      }, 20000);
+      }, STATS_ENGINE_TIMEOUT_MS);
 
       this.promises.set(id, {
         resolve: ({ results, time }) => {
-          logger.debug(`StatsEngine: Python time: ${time}`);
           logger.debug(
-            `StatsEngine: Typescript time: ${(Date.now() - start) / 1000}`
+            `Python stats server (pid: ${this.pid}) Python time: ${time}`
           );
           logger.debug(
-            `StatsEngine: Average CPU: ${JSON.stringify(
-              getAvgCPU(cpus, os.cpus())
-            )}`
+            `Python stats server (pid: ${this.pid}) Typescript time: ${
+              (Date.now() - start) / 1000
+            }`
+          );
+          logger.debug(
+            `Python stats server (pid: ${
+              this.pid
+            }) Average CPU: ${JSON.stringify(getAvgCPU(cpus, os.cpus()))}`
           );
           clearTimeout(timer);
           resolve(results);
         },
         reject: (reason?: Error) => {
-          logger.error(`StatsEngine: Python call failed for id ${id}`, reason);
+          logger.error(
+            `Python stats server (pid: ${this.pid}) failed for id ${id}`,
+            reason
+          );
           clearTimeout(timer);
           reject(reason || new Error("Unknown error from Python stats server"));
         },
       });
+      logger.debug(
+        `Python stats server (pid: ${this.pid}) call started for id ${id}`
+      );
       this.python.stdin?.write(JSON.stringify({ id, data }) + "\n");
     });
   }
@@ -150,10 +184,10 @@ export const statsServerPool = createPool(
   },
   {
     min: 1,
-    max: 10,
+    max: MAX_POOL_SIZE,
     testOnBorrow: true,
     evictionRunIntervalMillis: 60000,
-    numTestsPerEvictionRun: 3,
+    numTestsPerEvictionRun: 2,
   }
 );
 
