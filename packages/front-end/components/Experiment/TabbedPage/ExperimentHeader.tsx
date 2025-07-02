@@ -6,7 +6,13 @@ import {
 import { FaAngleRight, FaExclamationTriangle } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { experimentHasLiveLinkedChanges } from "shared/util";
-import React, { ReactNode, useEffect, useRef, useState } from "react";
+import React, {
+  MutableRefObject,
+  ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { date, daysBetween } from "shared/dates";
 import { MdRocketLaunch } from "react-icons/md";
 import clsx from "clsx";
@@ -64,6 +70,7 @@ import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
 import { ExperimentTab } from ".";
 
 export interface Props {
+  headerRef: MutableRefObject<HTMLDivElement | null>;
   tab: ExperimentTab;
   setTab: (tab: ExperimentTab) => void;
   experiment: ExperimentInterfaceStringDates;
@@ -115,6 +122,7 @@ type ShareLevel = "public" | "organization";
 const SAVE_SETTING_TIMEOUT_MS = 3000;
 
 export default function ExperimentHeader({
+  headerRef,
   tab,
   setTab,
   experiment,
@@ -189,15 +197,14 @@ export default function ExperimentHeader({
   const reportArgs: ExperimentSnapshotReportArgs = {
     userIdType: userIdType as "user" | "anonymous" | undefined,
   };
-  const tabsRef = useRef<HTMLDivElement>(null);
   const [headerPinned, setHeaderPinned] = useState(false);
   const { scrollY } = useScrollPosition();
   useEffect(() => {
-    if (!tabsRef.current) return;
+    if (!headerRef.current) return;
     const isHeaderSticky =
-      tabsRef.current.getBoundingClientRect().top <= TABS_HEADER_HEIGHT_PX;
+      headerRef.current.getBoundingClientRect().top <= TABS_HEADER_HEIGHT_PX;
     setHeaderPinned(isHeaderSticky);
-  }, [scrollY]);
+  }, [headerRef, scrollY]);
 
   const phases = experiment.phases || [];
   const lastPhaseIndex = phases.length - 1;
@@ -950,7 +957,7 @@ export default function ExperimentHeader({
           })}
         >
           <div className="position-relative container-fluid pagecontents px-3">
-            <div className="d-flex header-tabs" ref={tabsRef}>
+            <div className="d-flex header-tabs" ref={headerRef}>
               <Tabs
                 value={tab}
                 onValueChange={setTab}

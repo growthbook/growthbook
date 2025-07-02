@@ -81,7 +81,7 @@ export default function DashboardBlock({
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollToBlock = () => {
     if (scrollRef.current) {
-      window.scrollTo(0, scrollRef.current.offsetTop - 100);
+      window.scrollTo(0, scrollRef.current.offsetTop + 250);
     }
   };
 

@@ -1,6 +1,7 @@
 import React from "react";
 import { MetricBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
 import { isDefined } from "shared/util";
+import { groupBy } from "lodash";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import ResultsTable from "@/components/Experiment/ResultsTable";
@@ -34,7 +35,7 @@ export default function MetricBlock({
   const latestPhase = experiment.phases[experiment.phases.length - 1];
   const latestResults = snapshot?.analyses?.[0]?.results?.[0];
 
-  const rows = metricIds
+  const allRows = metricIds
     .map((metricId) => {
       const metric = getExperimentMetricById(metricId);
       if (!metric) return;
@@ -74,32 +75,34 @@ export default function MetricBlock({
     })
     .filter(isDefined);
 
-  // TODO: group by result group
-  const resultGroup = "goal";
+  const rowGroups = groupBy(allRows, ({ resultGroup }) => resultGroup);
 
   return (
     <div className="metric-block">
-      <ResultsTable
-        id={experiment.id}
-        variations={variations}
-        status={experiment.status}
-        isLatestPhase={true}
-        startDate={latestPhase?.dateStarted || ""}
-        endDate={latestPhase?.dateEnded || ""}
-        rows={rows}
-        tableRowAxis="metric"
-        labelHeader={`${
-          resultGroup.charAt(0).toUpperCase() + resultGroup.slice(1)
-        } Metrics`}
-        renderLabelColumn={(label) => label}
-        dateCreated={new Date()}
-        hasRisk={false}
-        statsEngine={orgSettings?.statsEngine || "frequentist"}
-        pValueCorrection={pValueCorrection}
-        differenceType={analysisSettings?.differenceType || "relative"}
-        isTabActive={true}
-        isGoalMetrics={resultGroup === "goal"}
-      />
+      {Object.entries(rowGroups).map(([resultGroup, rows]) => (
+        <ResultsTable
+          key={resultGroup}
+          id={experiment.id}
+          variations={variations}
+          status={experiment.status}
+          isLatestPhase={true}
+          startDate={latestPhase?.dateStarted || ""}
+          endDate={latestPhase?.dateEnded || ""}
+          rows={rows}
+          tableRowAxis="metric"
+          labelHeader={`${
+            resultGroup.charAt(0).toUpperCase() + resultGroup.slice(1)
+          } Metrics`}
+          renderLabelColumn={(label) => label}
+          dateCreated={new Date()}
+          hasRisk={false}
+          statsEngine={orgSettings?.statsEngine || "frequentist"}
+          pValueCorrection={pValueCorrection}
+          differenceType={analysisSettings?.differenceType || "relative"}
+          isTabActive={true}
+          isGoalMetrics={resultGroup === "goal"}
+        />
+      ))}
     </div>
   );
 }
