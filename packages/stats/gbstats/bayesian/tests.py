@@ -32,8 +32,8 @@ from gbstats.utils import (
     truncated_normal_mean,
     gaussian_credible_interval,
     random_inverse_wishart,
+    invert_symmetric_matrix,
 )
-from gbstats.frequentist.post_strat import CellResult
 
 
 # Configs
@@ -286,8 +286,6 @@ class HyperparamsTwoFactor:
     psi_alpha: np.ndarray  # prior scale matrix for sigma_alpha
     nu_beta: float  # prior degrees of freedom for sigma_beta
     psi_beta: np.ndarray  # prior scale matrix for sigma_beta
-    nu_alpha_beta: float  # prior degrees of freedom for sigma_alpha_beta
-    psi_alpha_beta: np.ndarray  # prior scale matrix for sigma_alpha_beta
     num_variations_alpha: int
     num_variations_beta: int
 
@@ -298,10 +296,8 @@ class ModelParamsTwoFactor:
     mu: np.ndarray  # cell means
     alpha: np.ndarray  # row effects
     beta: np.ndarray  # column effects
-    alpha_beta: np.ndarray  # interaction effects
     sigma_alpha: np.ndarray  # row variances
     sigma_beta: np.ndarray  # column variances
-    sigma_alpha_beta: np.ndarray  # interaction variances
 
 
 @dataclass(config=ConfigDict(arbitrary_types_allowed=True))
@@ -323,58 +319,28 @@ class TwoFactorPooling:
     def __init__(
         self,
         hyperparams: HyperparamsTwoFactor,
-        cell_data: List[CellResult],
+        model_data: ModelDataTwoFactor,
         config: MCMCConfig,
         params: Optional[ModelParamsTwoFactor],
     ):
         self.relative = config.difference_type == "relative"
-        self.cell_data = copy.deepcopy(cell_data)
+        self.mu_hat = model_data.mu_hat
+        self.sigma_hat_inv = model_data.sigma_hat_inv
         self.hyperparams = copy.deepcopy(hyperparams)
         self.num_variations_alpha = self.hyperparams.num_variations_alpha
         self.num_variations_beta = self.hyperparams.num_variations_beta
-        assert (
-            len(self.cell_data) == self.num_variations_alpha * self.num_variations_beta
-        ), "Number of cell data must match number of levels in alpha and beta."
         self.num_outcomes = self.hyperparams.mu_0.shape[0]
-        assert (
-            self.cell_data[0].sample_mean.shape[0] == self.num_outcomes
-        ), "Number of outcomes must be the same in data and hyperparams."
-        assert self.num_outcomes in (1, 2, 4), "Number of outcomes must be 2 or 4"
-        self.ratio = self.num_outcomes == 4
+        assert self.num_outcomes in (1, 2), "Number of outcomes must be 1 or 2"
+        self.ratio = self.num_outcomes == 2
         self.mu_hat_init = np.zeros(
-            (self.num_variations_alpha, self.num_variations_beta, self.num_outcomes)
+            (self.num_outcomes, self.num_variations_alpha, self.num_variations_beta)
         )
-        for i in range(self.num_variations_alpha):
-            for j in range(self.num_variations_beta):
-                index = i + self.num_variations_alpha * j
-                self.mu_hat_init[i, j, :] = self.cell_data[index].sample_mean
-
         self.seed = config.seed
         self.false_positive_rate = config.false_positive_rate
         self.num_burn = config.num_burn
         self.num_keep = config.num_keep
         self.num_iters = self.num_burn + self.num_keep
         self.params = self.initialize_parameters(params)
-
-        self.sigma_hat_shape = (
-            self.num_variations_alpha,
-            self.num_variations_beta,
-            self.num_outcomes,
-            self.num_outcomes,
-        )
-        self.sigma_hat = np.zeros(self.sigma_hat_shape)
-        self.sigma_hat_inv = np.zeros(self.sigma_hat_shape)
-        self.sigma_hat_inv_sum = np.zeros((self.num_outcomes, self.num_outcomes))
-        for i in range(self.num_variations_alpha):
-            for j in range(self.num_variations_beta):
-                index = i + self.num_variations_alpha * j
-                self.sigma_hat[i, j, :, :] = (
-                    self.cell_data[index].sample_covariance / self.cell_data[index].n
-                )
-                self.sigma_hat_inv[i, j, :, :] = np.linalg.inv(
-                    self.sigma_hat[i, j, :, :]
-                )
-                self.sigma_hat_inv_sum += self.sigma_hat_inv[i, j, :, :]
 
     @staticmethod
     def specify_hyperparams(
@@ -387,19 +353,13 @@ class TwoFactorPooling:
         mns_beta = np.nanmean(mu_hat, axis=0)
         target_mean_alpha = np.cov(mns_alpha.T, ddof=1)
         target_mean_beta = np.cov(mns_beta.T, ddof=1)
-        # update later
-        target_mean_alpha_beta = 0.5 * (target_mean_alpha + target_mean_beta)
-        nu_alpha = 10
-        nu_beta = 10
-        nu_alpha_beta = 10
+        nu_alpha = num_outcomes + num_variations_alpha + 1
+        nu_beta = num_outcomes + num_variations_beta + 1
         psi_alpha = np.array(
             [target_mean_alpha * float(nu_alpha - num_outcomes - 1)]
         ).reshape((num_outcomes, num_outcomes))
         psi_beta = np.array(
             [target_mean_beta * float(nu_beta - num_outcomes - 1)]
-        ).reshape((num_outcomes, num_outcomes))
-        psi_alpha_beta = np.array(
-            [target_mean_alpha_beta * float(nu_alpha_beta - num_outcomes - 1)]
         ).reshape((num_outcomes, num_outcomes))
         mu_0 = np.zeros((num_outcomes,))
         sigma_0 = float(1e5) * np.eye(num_outcomes)
@@ -410,54 +370,34 @@ class TwoFactorPooling:
             psi_alpha=psi_alpha,
             nu_beta=nu_beta,
             psi_beta=psi_beta,
-            nu_alpha_beta=nu_alpha_beta,
-            psi_alpha_beta=psi_alpha_beta,
             num_variations_alpha=num_variations_alpha,
             num_variations_beta=num_variations_beta,
         )
         return hyperparams
 
     def initialize_parameters(self, params) -> ModelParamsTwoFactor:
-        # update later
         if params is None:
             mu = self.mu_hat_init
             mu[np.isnan(mu)] = np.nanmean(mu)
-            mu_overall = np.mean(mu, axis=(0, 1)).ravel()
-            alpha = np.mean(mu, axis=1)
-            beta = np.mean(mu, axis=0)
-            # needs to be updated
-            alpha_beta = np.zeros(
-                (self.num_variations_alpha, self.num_variations_beta, self.num_outcomes)
-            )
-            alpha -= np.mean(alpha, axis=0)
-            beta -= np.mean(beta, axis=0)
-            sigma_alpha = np.cov(alpha.T, ddof=1) + 1e-5 * np.eye(self.num_outcomes)
-            sigma_beta = np.cov(beta.T, ddof=1) + 1e-5 * np.eye(self.num_outcomes)
-            # this is wrong
-            sigma_alpha_beta = np.zeros(
-                (
-                    self.num_variations_alpha,
-                    self.num_variations_beta,
-                    self.num_outcomes,
-                    self.num_outcomes,
-                )
-            )
+            mu_overall = np.mean(mu, axis=(1, 2)).ravel()
+            alpha = np.mean(mu, axis=2)
+            beta = np.mean(mu, axis=1)
+            alpha -= np.mean(alpha, keepdims=True)
+            beta -= np.mean(beta, keepdims=True)
+            sigma_alpha = np.cov(alpha, ddof=1) + 1e-5 * np.eye(self.num_outcomes)
+            sigma_beta = np.cov(beta, ddof=1) + 1e-5 * np.eye(self.num_outcomes)
             return ModelParamsTwoFactor(
                 mu_overall=mu_overall,
                 mu=mu,
                 alpha=alpha,
                 beta=beta,
-                alpha_beta=alpha_beta,
                 sigma_alpha=sigma_alpha,
                 sigma_beta=sigma_beta,
-                sigma_alpha_beta=sigma_alpha_beta,
             )
         else:
             return copy.deepcopy(params)
 
     def run_mcmc(self) -> MCMCPooledResult:
-        if self.check_missing_mu_hat():
-            raise ValueError("Missing mu_hat in data")
         self.create_storage_arrays()
         self.params = self.initialize_parameters(self.params)
         for i in range(self.num_iters):
@@ -465,26 +405,6 @@ class TwoFactorPooling:
             if i >= self.num_burn:
                 self.store_params(i)
         return self.create_summary()
-
-    def check_missing_mu_hat(self):
-        means_alpha = np.nanmean(self.mu_hat, axis=1)
-        means_beta = np.nanmean(self.mu_hat, axis=0)
-        if np.isnan(means_alpha).any() or np.isnan(means_beta).any():
-            return True
-        return False
-
-    @property
-    def mu_hat(self) -> np.ndarray:
-        return self.mu_hat_init
-
-    @property
-    def prec_mu(self) -> np.ndarray:
-        return np.linalg.inv(self.hyperparams.sigma_0) + self.sigma_hat_inv_sum
-
-    @staticmethod
-    def draw_multivariate_normal(m: np.ndarray, v: np.ndarray, seed: int):
-        rng = np.random.default_rng(seed)
-        return rng.multivariate_normal(m, v, size=1)
 
     @staticmethod
     def transform_moments(
@@ -503,7 +423,6 @@ class TwoFactorPooling:
             # If cholesky or inv fails, a LinAlgError is raised
             matrix_inversion_success = False
             # 'mean' and 'variance' will retain their initialized (e.g., zero) values
-            # or you could assign specific error values if preferred.
         return mean, variance, matrix_inversion_success
 
     @property
@@ -546,46 +465,46 @@ class TwoFactorPooling:
         )
 
     def update_mu_overall(self, seed: int, iteration: int):
-        weighted_sum_mu = np.linalg.inv(self.hyperparams.sigma_0).dot(
-            self.hyperparams.mu_0
-        )
+        sigma_0_inv = invert_symmetric_matrix(self.hyperparams.sigma_0)
+        prec = copy.deepcopy(sigma_0_inv)
+        weighted_sum = sigma_0_inv.dot(self.hyperparams.mu_0)
         for i in range(self.num_variations_alpha):
             for j in range(self.num_variations_beta):
-                weighted_sum_mu += self.sigma_hat_inv[i, j, :, :].dot(
-                    self.mu_hat[i, j, :]
-                    - self.params.alpha[i, :]
-                    - self.params.beta[j, :]
+                prec += self.sigma_hat_inv[:, :, i, j]
+                weighted_sum += self.sigma_hat_inv[:, :, i, j].dot(
+                    self.mu_hat[:, i, j]
+                    - self.params.alpha[:, i]
+                    - self.params.beta[:, j]
                 )
         mean, variance, matrix_inversion_success = TwoFactorPooling.transform_moments(
-            weighted_sum_mu, self.prec_mu
+            weighted_sum, prec
         )
         if not matrix_inversion_success:
             raise ValueError("Matrix inversion failed in update_mu_overall")
-        self.params.mu_overall = TwoFactorPooling.draw_multivariate_normal(
-            mean, variance, seed
-        ).ravel()
+        rng = np.random.default_rng(seed)
+        self.params.mu_overall = rng.multivariate_normal(mean, variance, size=1).ravel()
         self.update_mu_individual()
 
     def update_mu_individual(self):
         for i in range(self.num_variations_alpha):
             for j in range(self.num_variations_beta):
-                self.params.mu[i, j, :] = (
+                self.params.mu[:, i, j] = (
                     self.params.mu_overall
-                    + self.params.alpha[i, :]
-                    + self.params.beta[j, :]
+                    + self.params.alpha[:, i]
+                    + self.params.beta[:, j]
                 )
 
     def update_alpha(self, seed: int):
         for i in range(self.num_variations_alpha):
-            weighted_sum = np.zeros((self.num_outcomes,))
-            prec = copy.deepcopy(np.linalg.inv(self.params.sigma_alpha))
+            prec = copy.deepcopy(invert_symmetric_matrix(self.params.sigma_alpha))
+            weighted_sum = np.zeros(self.num_outcomes)
             for j in range(self.num_variations_beta):
-                weighted_sum += self.sigma_hat_inv[i, j, :, :].dot(
-                    self.mu_hat[i, j, :]
+                prec += self.sigma_hat_inv[:, :, i, j]
+                weighted_sum += self.sigma_hat_inv[:, :, i, j].dot(
+                    self.mu_hat[:, i, j]
                     - self.params.mu_overall
-                    - self.params.beta[j, :]
+                    - self.params.beta[:, j]
                 )
-                prec += self.sigma_hat_inv[i, j, :, :]
             (
                 mean,
                 variance,
@@ -593,23 +512,24 @@ class TwoFactorPooling:
             ) = TwoFactorPooling.transform_moments(weighted_sum, prec)
             if not matrix_inversion_success:
                 raise ValueError("Matrix inversion failed in update_alpha")
-            self.params.alpha[i, :] = TwoFactorPooling.draw_multivariate_normal(
-                mean, variance, seed + i
-            )
-        self.params.alpha -= np.mean(self.params.alpha, axis=0)
+            rng = np.random.default_rng(seed + i)
+            self.params.alpha[:, i] = rng.multivariate_normal(
+                mean, variance, size=1
+            ).ravel()
+        self.params.alpha -= np.mean(self.params.alpha, axis=1, keepdims=True)
         self.update_mu_individual()
 
     def update_beta(self, seed: int):
         for j in range(self.num_variations_beta):
-            weighted_sum = np.zeros((self.num_outcomes,))
-            prec = copy.deepcopy(np.linalg.inv(self.params.sigma_beta))
+            prec = copy.deepcopy(invert_symmetric_matrix(self.params.sigma_beta))
+            weighted_sum = np.zeros(self.num_outcomes)
             for i in range(self.num_variations_alpha):
-                weighted_sum += self.sigma_hat_inv[i, j, :, :].dot(
-                    self.mu_hat[i, j, :]
+                prec += self.sigma_hat_inv[:, :, i, j]
+                weighted_sum += self.sigma_hat_inv[:, :, i, j].dot(
+                    self.mu_hat[:, i, j]
                     - self.params.mu_overall
-                    - self.params.alpha[i, :]
+                    - self.params.alpha[:, i]
                 )
-                prec += self.sigma_hat_inv[i, j, :, :]
             (
                 mean,
                 variance,
@@ -617,48 +537,42 @@ class TwoFactorPooling:
             ) = TwoFactorPooling.transform_moments(weighted_sum, prec)
             if not matrix_inversion_success:
                 raise ValueError("Matrix inversion failed in update_beta")
-            self.params.beta[j, :] = TwoFactorPooling.draw_multivariate_normal(
-                mean, variance, seed + j
-            )
-        self.params.beta -= np.mean(self.params.beta, axis=0)
+            rng = np.random.default_rng(seed + j)
+            self.params.beta[:, j] = rng.multivariate_normal(
+                mean, variance, size=1
+            ).ravel()
+        self.params.beta -= np.mean(self.params.beta, axis=1, keepdims=True)
         self.update_mu_individual()
 
     def update_sigma_alpha(self, seed: int):
-        nu_post = self.hyperparams.nu_alpha + self.num_variations_alpha
-        lambda_post = self.hyperparams.psi_alpha + (
-            self.num_variations_alpha - 1
-        ) * np.cov(self.params.alpha.T)
-        self.params.sigma_alpha = random_inverse_wishart(
-            nu_post, lambda_post, seed
-        ) + 1e-5 * np.eye(self.num_outcomes)
+        df = self.hyperparams.nu_alpha + self.num_variations_alpha
+        psi = copy.deepcopy(self.hyperparams.psi_alpha)
+        for i in range(self.num_variations_alpha):
+            psi += np.outer(self.params.alpha[:, i], self.params.alpha[:, i])
+        self.params.sigma_alpha = random_inverse_wishart(df, psi, seed)
 
     def update_sigma_beta(self, seed: int):
-        nu_post = self.hyperparams.nu_beta + self.num_variations_beta
-        lambda_post = self.hyperparams.psi_beta + (
-            self.num_variations_beta - 1
-        ) * np.cov(self.params.beta.T)
-        self.params.sigma_beta = random_inverse_wishart(
-            nu_post, lambda_post, seed
-        ) + 1e-5 * np.eye(self.num_outcomes)
-
-    def update_missing_mu_hat(self, seed: int):
-        pass
+        df = self.hyperparams.nu_beta + self.num_variations_beta
+        psi = copy.deepcopy(self.hyperparams.psi_beta)
+        for j in range(self.num_variations_beta):
+            psi += np.outer(self.params.beta[:, j], self.params.beta[:, j])
+        self.params.sigma_beta = random_inverse_wishart(df, psi, seed)
 
     def create_storage_arrays(self):
         self.mu_overall_keep = np.zeros((self.num_keep, self.num_outcomes))
         self.mu_keep = np.zeros(
             (
                 self.num_keep,
+                self.num_outcomes,
                 self.num_variations_alpha,
                 self.num_variations_beta,
-                self.num_outcomes,
             )
         )
         self.alpha_keep = np.zeros(
-            (self.num_keep, self.num_variations_alpha, self.num_outcomes)
+            (self.num_keep, self.num_outcomes, self.num_variations_alpha)
         )
         self.beta_keep = np.zeros(
-            (self.num_keep, self.num_variations_beta, self.num_outcomes)
+            (self.num_keep, self.num_outcomes, self.num_variations_beta)
         )
         self.sigma_alpha_keep = np.zeros(
             (self.num_keep, self.num_outcomes, self.num_outcomes)
@@ -669,12 +583,13 @@ class TwoFactorPooling:
         self.mu_hat_keep = np.zeros(
             (
                 self.num_keep,
+                self.num_outcomes,
                 self.num_variations_alpha,
                 self.num_variations_beta,
-                self.num_outcomes,
             )
         )
         self.ess_mu = np.zeros((self.num_variations_alpha, self.num_variations_beta))
+        self.ess_delta = np.zeros((self.num_variations_alpha, self.num_variations_beta))
 
     def update_params(self, iteration):
         # i used the first seed to initialize the parameters
@@ -684,13 +599,11 @@ class TwoFactorPooling:
         this_seed_beta = this_seed_alpha + self.num_seeds_beta
         this_seed_sigma_alpha = this_seed_beta + self.num_seeds_sigma_alpha
         this_seed_sigma_beta = this_seed_sigma_alpha + self.num_seeds_sigma_beta
-        this_seed_missing_mu_hat = this_seed_sigma_beta + self.num_seeds_mu_individual
         self.update_mu_overall(this_seed_mu_overall, iteration)
         self.update_alpha(this_seed_alpha)
         self.update_beta(this_seed_beta)
         self.update_sigma_alpha(this_seed_sigma_alpha)
         self.update_sigma_beta(this_seed_sigma_beta)
-        self.update_missing_mu_hat(this_seed_missing_mu_hat)
 
     def store_params(self, iteration):
         k = iteration - self.num_burn
@@ -716,33 +629,35 @@ class TwoFactorPooling:
         )
 
     def create_summary(self) -> MCMCPooledResult:
-        if self.ratio:
-            numerator = self.mu_keep[:, :, :, 0] + self.mu_keep[:, :, :, 1]
-            denominator = self.mu_keep[:, :, :, 2] + self.mu_keep[:, :, :, 3]
-            mean_treatment = numerator / denominator
-            mean_control = self.mu_keep[:, 0, 0, 0] / self.mu_keep[:, 0, 0, 2]
-            absolute_effect = mean_treatment - mean_control
-        else:
-            if self.num_outcomes == 2:
-                absolute_effect = copy.deepcopy(self.mu_keep[:, :, :, 1])
-                mean_control = np.empty_like(absolute_effect)
-                for i in range(self.num_variations_alpha):
-                    for j in range(self.num_variations_beta):
-                        mean_control[:, i, j] = self.mu_keep[:, 0, 0, 0]
-            else:
-                absolute_effect = copy.deepcopy(self.mu_keep[:, :, :, 0])
-                mean_control = np.ones(absolute_effect.shape)
-
+        means = (
+            self.mu_keep[:, 0, :, :] / self.mu_keep[:, 1, :, :]
+            if self.ratio
+            else self.mu_keep[:, :, :, 0]
+        )
+        mean_control = means[:, 0, 0]
         if self.relative and np.any(mean_control == 0):
             return self._default_output(error_message=BASELINE_VARIATION_ZERO_MESSAGE)
+        absolute_effect = np.empty_like(means)
+        mean_control_array = np.empty_like(means)
+        for i in range(self.num_variations_alpha):
+            for j in range(self.num_variations_beta):
+                absolute_effect[:, i, j] = means[:, i, j] - mean_control
+                mean_control_array[:, i, j] = mean_control
         samps = (
-            absolute_effect / np.abs(mean_control) if self.relative else absolute_effect
+            absolute_effect / np.abs(mean_control_array)
+            if self.relative
+            else absolute_effect
         )
         # calculate effective sample size for mu
-        for j in range(self.num_variations_alpha):
-            for k in range(self.num_variations_beta):
-                self.ess_mu[j, k] = ess(samps[:, j, k])
-        min_samples = np.min(self.ess_mu)
+        for i in range(self.num_variations_alpha):
+            for j in range(self.num_variations_beta):
+                self.ess_delta[i, j] = ess(samps[:, i, j])
+                self.ess_mu[i, j] = ess(means[:, i, j])
+        min_samples_delta = np.min(self.ess_delta)
+        min_samples_mu = np.min(self.ess_mu)
+        min_samples = (
+            min_samples_delta if min_samples_delta < min_samples_mu else min_samples_mu
+        )
         if min_samples < self.minimum_mcmc_samples:
             return self._default_output(
                 error_message=f"Not enough samples: {min_samples} < {self.minimum_mcmc_samples}"
@@ -758,56 +673,3 @@ class TwoFactorPooling:
             mu_lower=mu_lower,
             mu_upper=mu_upper,
         )
-
-
-class TwoFactorPooling2(TwoFactorPooling):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        psi_alpha = np.zeros_like(self.hyperparams.psi_alpha)
-        psi_beta = np.zeros_like(self.hyperparams.psi_beta)
-        sigma_alpha = np.zeros_like(self.params.sigma_alpha)
-        sigma_beta = np.zeros_like(self.params.sigma_beta)
-        np.fill_diagonal(psi_alpha, np.diag(self.hyperparams.psi_alpha))
-        np.fill_diagonal(psi_beta, np.diag(self.hyperparams.psi_beta))
-        np.fill_diagonal(sigma_alpha, np.diag(self.params.sigma_alpha))
-        np.fill_diagonal(sigma_beta, np.diag(self.params.sigma_beta))
-        self.hyperparams.psi_alpha = psi_alpha
-        self.hyperparams.psi_beta = psi_beta
-        self.params.sigma_alpha = sigma_alpha
-        self.params.sigma_beta = sigma_beta
-
-    def update_sigma_alpha(self, seed: int):
-        nu_post = self.hyperparams.nu_alpha + self.num_variations_alpha
-        sum_squares = (self.num_variations_alpha - 1) * np.cov(self.params.alpha.T)
-        diag_cov_matrix = np.zeros_like(sum_squares)
-        np.fill_diagonal(diag_cov_matrix, np.diag(sum_squares))
-        lambda_post = self.hyperparams.psi_alpha + diag_cov_matrix
-        for i in range(self.num_outcomes):
-            self.params.sigma_alpha[i, i] = (
-                random_inverse_wishart(
-                    nu_post, np.array(lambda_post[i, i]).reshape(1, 1), seed
-                )
-                + 1e-5
-            )
-
-    def update_sigma_beta(self, seed: int):
-        nu_post = self.hyperparams.nu_beta + self.num_variations_beta
-        sum_squares = (self.num_variations_beta - 1) * np.cov(self.params.beta.T)
-        diag_cov_matrix = np.zeros_like(sum_squares)
-        np.fill_diagonal(diag_cov_matrix, np.diag(sum_squares))
-        lambda_post = self.hyperparams.psi_alpha + diag_cov_matrix
-        for i in range(self.num_outcomes):
-            self.params.sigma_beta[i, i] = (
-                random_inverse_wishart(
-                    nu_post, np.array(lambda_post[i, i]).reshape(1, 1), seed
-                )
-                + 1e-5
-            )
-
-    @property
-    def num_seeds_sigma_alpha(self) -> int:
-        return self.num_variations_alpha
-
-    @property
-    def num_seeds_sigma_beta(self) -> int:
-        return self.num_variations_beta

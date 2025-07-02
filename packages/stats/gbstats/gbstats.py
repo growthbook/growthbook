@@ -81,8 +81,6 @@ from gbstats.models.statistics import (
 )
 from gbstats.utils import check_srm
 
-# from gbstats.frequentist.post_strat import PostStratification, PostStratificationRegressionAdjusted, PostStratificationRatio, PostStratificationRegressionAdjustedRatio
-
 
 SUM_COLS = [
     "users",
