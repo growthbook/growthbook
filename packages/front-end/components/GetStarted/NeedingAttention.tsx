@@ -415,14 +415,9 @@ const NeedingAttention = (): React.ReactElement | null => {
             <Flex direction="column">
               <Text>No experiments requiring attention</Text>
               <div>
-                <Button
-                  mt="2"
-                  onClick={() => {
-                    window.location.href = "/experiments";
-                  }}
-                >
-                  View all experiments
-                </Button>
+                <Link href="/experiments" style={{ textDecoration: "none" }}>
+                  <Button mt="2">View all experiments</Button>
+                </Link>
               </div>
             </Flex>
           </Container>
