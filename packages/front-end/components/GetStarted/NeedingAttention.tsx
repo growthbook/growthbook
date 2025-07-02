@@ -526,7 +526,7 @@ const NeedingAttention = (): React.ReactElement | null => {
                 <Button
                   mt="2"
                   onClick={() => {
-                    window.location.href = "/feature-flags";
+                    window.location.href = "/features";
                   }}
                 >
                   View all feature flags
