@@ -634,7 +634,10 @@ export default function SqlExplorerModal({
                       }
                     >
                       <Flex direction="column" height="100%" px="4" py="5">
-                        <Tooltip body="You cannot change the Data Source from this view.">
+                        <Tooltip
+                          body="You cannot change the Data Source from this view."
+                          shouldDisplay={lockDatasource}
+                        >
                           <SelectField
                             className="mb-2"
                             disabled={lockDatasource}
