@@ -248,27 +248,6 @@ const GetStartedAndHomePage = (): React.ReactElement => {
                 >
                   Experiment
                 </DropdownMenuItem>
-                {/* <DropdownMenuItem
-                  onClick={() => {
-                    open("datasources");
-                  }}
-                >
-                  Datasource
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    open("fact-tables");
-                  }}
-                >
-                  Fact Tables
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    open("archetypes");
-                  }}
-                >
-                  Archetype
-                </DropdownMenuItem> */}
               </DropdownMenu>
             </Flex>
           </Grid>
