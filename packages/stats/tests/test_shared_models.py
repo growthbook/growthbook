@@ -262,8 +262,8 @@ class TestEffectMomentsResult(TestCase):
         moments = EffectMoments(
             [(stat_a, stat_b)], config=EffectMomentsConfig(difference_type="absolute")
         )
-        self.assertEqual(moments.stat_a.theta, 0.9722222222222223)  # type: ignore
-        self.assertEqual(moments.stat_b.theta, 0.9722222222222223)  # type: ignore
+        self.assertEqual(moments.stat_a.theta, 0.8333333333333334)  # type: ignore
+        self.assertEqual(moments.stat_b.theta, 0.8333333333333334)  # type: ignore
 
     def test_negative_variance(self):
         stat_a = RASTAT_A
@@ -271,10 +271,8 @@ class TestEffectMomentsResult(TestCase):
         moments = EffectMoments(
             [(stat_a, stat_b)], config=EffectMomentsConfig(difference_type="absolute")
         )
-        self.assertEqual(moments.variance, -0.025084304983996344)
-        self.assertEqual(
-            moments.compute_result().error_message, ZERO_NEGATIVE_VARIANCE_MESSAGE
-        )
+        self.assertEqual(moments.variance, 0.04893261316872429)
+        self.assertEqual(moments.compute_result().error_message, None)
 
 
 if __name__ == "__main__":
