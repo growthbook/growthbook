@@ -20,6 +20,7 @@ import {
 import { AuditInterface } from "back-end/types/audit";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { Box } from "spectacle";
+import Link from "next/link";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import RadioCards from "@/components/Radix/RadioCards";
 import Button from "@/components/Radix/Button";
@@ -307,25 +308,28 @@ const NeedingAttention = (): React.ReactElement | null => {
           mt="3"
         >
           {recentFeatures.map((feature) => (
-            <RadioCards
+            <Link
+              href={feature.url}
               key={feature.value}
-              align="center"
-              width="100%"
-              labelSize="1"
-              labelWeight="medium"
-              options={[
-                {
-                  value: feature.value,
-                  label: feature.label,
-                  avatar: <Avatar variant="soft">{feature.avatar}</Avatar>,
-                },
-              ]}
-              value={""} // don't want a default value
-              setValue={() => {}}
-              onClick={() => {
-                window.location.href = feature.url;
-              }}
-            />
+              style={{ textDecoration: "none", color: "inherit" }}
+            >
+              <RadioCards
+                key={feature.value}
+                align="center"
+                width="100%"
+                labelSize="1"
+                labelWeight="medium"
+                options={[
+                  {
+                    value: feature.value,
+                    label: feature.label,
+                    avatar: <Avatar variant="soft">{feature.avatar}</Avatar>,
+                  },
+                ]}
+                value={""} // don't want a default value
+                setValue={() => {}}
+              />
+            </Link>
           ))}
         </Grid>
       </Container>
@@ -379,14 +383,20 @@ const NeedingAttention = (): React.ReactElement | null => {
             </thead>
             <tbody>
               {paginatedExperiments.map((item: ComputedExperimentInterface) => (
-                <tr
-                  key={item.id}
-                  className="cursor-pointer hover-highlight"
-                  onClick={() => {
-                    window.location.href = `/experiment/${item.id}`;
-                  }}
-                >
-                  <td>{item.name}</td>
+                <tr key={item.id} className="hover-highlight">
+                  <td style={{ minWidth: "200px" }}>
+                    <Link
+                      href={`/experiment/${item.id}`}
+                      style={{
+                        textDecoration: "none",
+                        color: "inherit",
+                        display: "block",
+                        padding: "0px",
+                      }}
+                    >
+                      {item.name}
+                    </Link>
+                  </td>
                   <td>{getProjectById(item?.project || "")?.name}</td>
                   <td className="text-nowrap">
                     {getAvatarAndName(item.ownerName)}
@@ -503,14 +513,20 @@ const NeedingAttention = (): React.ReactElement | null => {
             </thead>
             <tbody>
               {paginatedFeatureFlags.map((item) => (
-                <tr
-                  key={item.featureId}
-                  onClick={() => {
-                    window.location.href = `/features/${item.featureId}`;
-                  }}
-                  className="cursor-pointer hover-highlight"
-                >
-                  <td>{item.feature.id}</td>
+                <tr key={item.featureId} className="hover-highlight">
+                  <td style={{ minWidth: "200px" }}>
+                    <Link
+                      href={`/features/${item.featureId}`}
+                      style={{
+                        textDecoration: "none",
+                        color: "inherit",
+                        display: "block",
+                        padding: "0px",
+                      }}
+                    >
+                      {item.feature.id}
+                    </Link>
+                  </td>
                   <td>{getProjectById(item.feature?.project || "")?.name}</td>
                   <td>{getAvatarAndName(item.feature.owner)}</td>
                   <td>{renderStatusCopy(item)}</td>
@@ -523,14 +539,9 @@ const NeedingAttention = (): React.ReactElement | null => {
             <Flex direction="column">
               <Text>No feature flags requiring attention</Text>
               <div>
-                <Button
-                  mt="2"
-                  onClick={() => {
-                    window.location.href = "/features";
-                  }}
-                >
-                  View all feature flags
-                </Button>
+                <Link href="/features" style={{ textDecoration: "none" }}>
+                  <Button mt="2">View all feature flags</Button>
+                </Link>
               </div>
             </Flex>
           </Container>

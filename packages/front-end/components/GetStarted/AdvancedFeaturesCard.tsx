@@ -1,4 +1,5 @@
 import { AspectRatio, Box, Text } from "@radix-ui/themes";
+import Link from "next/link";
 
 import { CommercialFeature } from "shared/src/enterprise/license-consts";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
@@ -52,9 +53,7 @@ export default function AdvancedFeaturesCard({
   return (
     <Box width="100%" height="100%">
       <AspectRatio ratio={16 / 9}>
-        <a href={href} target="_blank" rel="noreferrer">
-          {card}
-        </a>
+        <Link href={href}>{card}</Link>
       </AspectRatio>
     </Box>
   );
