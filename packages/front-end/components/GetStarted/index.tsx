@@ -77,7 +77,7 @@ const advancedFeatureList: AdvancedFeature[] = [
     imgUrl: "/images/get-started/advanced/custom-roles.png",
     title: "Custom Roles",
     description: "Define fine-grained permission control",
-    docSection: "team",
+    docSection: "customRoles",
     commercialFeature: "custom-roles",
   },
   {
@@ -98,7 +98,7 @@ const advancedFeatureList: AdvancedFeature[] = [
     imgUrl: "/images/get-started/advanced/feature-flag.png", // don't have an image for this yet "/images/get-started/advanced/data-pipeline-mode.png",
     title: "Data Pipeline Mode",
     description: "Use temp tables for intermediate steps",
-    docSection: "datasources",
+    docSection: "pipelineMode",
     commercialFeature: "pipeline-mode",
   },
   {
