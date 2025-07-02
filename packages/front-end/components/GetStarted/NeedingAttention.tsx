@@ -23,7 +23,6 @@ import { Box } from "spectacle";
 import Link from "next/link";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import RadioCards from "@/components/Radix/RadioCards";
-import Button from "@/components/Radix/Button";
 import Avatar from "@/components/Radix/Avatar";
 import Pagination from "@/components/Radix/Pagination";
 import { useAddComputedFields, useSearch } from "@/services/search";
@@ -39,6 +38,7 @@ import {
   ExperimentStatusDetailsWithDot,
 } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import UserAvatar from "@/components/Avatar/UserAvatar";
+import LinkButton from "@/components/Radix/LinkButton";
 type FeaturesAndRevisions = FeatureRevisionInterface & {
   feature: FeatureInterface;
   safeRollout: SafeRolloutInterface | undefined;
@@ -415,9 +415,9 @@ const NeedingAttention = (): React.ReactElement | null => {
             <Flex direction="column">
               <Text>No experiments requiring attention</Text>
               <div>
-                <Link href="/experiments" style={{ textDecoration: "none" }}>
-                  <Button mt="2">View all experiments</Button>
-                </Link>
+                <LinkButton href="/experiments" mt="2">
+                  View all experiments
+                </LinkButton>
               </div>
             </Flex>
           </Container>
@@ -534,9 +534,9 @@ const NeedingAttention = (): React.ReactElement | null => {
             <Flex direction="column">
               <Text>No feature flags requiring attention</Text>
               <div>
-                <Link href="/features" style={{ textDecoration: "none" }}>
-                  <Button mt="2">View all feature flags</Button>
-                </Link>
+                <LinkButton href="/features" mt="2">
+                  View all feature flags
+                </LinkButton>
               </div>
             </Flex>
           </Container>
