@@ -101,16 +101,13 @@ export async function getMinimalRevisions(
     .sort({ version: -1 })
     .limit(25);
 
-  return docs.map(
-    (m) =>
-      ({
-        version: m.version,
-        datePublished: m.datePublished,
-        dateUpdated: m.dateUpdated,
-        createdBy: m.createdBy,
-        status: m.status,
-      } as MinimalFeatureRevisionInterface)
-  );
+  return docs.map((m) => ({
+    version: m.version,
+    datePublished: m.datePublished,
+    dateUpdated: m.dateUpdated,
+    createdBy: m.createdBy,
+    status: m.status,
+  }));
 }
 
 export async function getLatestRevisions(
