@@ -3,9 +3,10 @@ import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "back-end/types/experiment";
-import React, { ReactElement, useEffect, useState } from "react";
+import React, { ReactElement, useEffect, useMemo, useState } from "react";
 import { includeExperimentInPayload } from "shared/util";
 import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
+import { FeatureInterface } from "back-end/types/feature";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";
@@ -46,7 +47,8 @@ const HoldoutPage = (): ReactElement => {
   const { data, error, mutate } = useApi<{
     holdout: HoldoutInterface;
     experiment: ExperimentInterfaceStringDates;
-    linkedFeatures: LinkedFeatureInfo[];
+    linkedFeatures: FeatureInterface[];
+    linkedExperiments: ExperimentInterfaceStringDates[];
     envs: string[];
   }>(`/holdout/${hid}`);
 
@@ -63,19 +65,19 @@ const HoldoutPage = (): ReactElement => {
 
   const { apiCall } = useAuth();
 
-  useEffect(() => {
-    if (data?.experiment?.type === "multi-armed-bandit") {
-      router.replace(window.location.href.replace("experiment/", "bandit/"));
-    }
-  }, [data, router]);
-
   if (error) {
     return <div>There was a problem loading the holdout</div>;
   }
   if (!data) {
     return <LoadingOverlay />;
   }
-  const { experiment, holdout, linkedFeatures = [], envs = [] } = data;
+  const {
+    experiment,
+    holdout,
+    linkedFeatures = [],
+    envs = [],
+    linkedExperiments = [],
+  } = data;
 
   const runningExperimentStatus = getRunningExperimentResultStatus(experiment);
 
@@ -112,10 +114,7 @@ const HoldoutPage = (): ReactElement => {
 
   const safeToEdit =
     experiment.status !== "running" ||
-    !includeExperimentInPayload(
-      experiment,
-      linkedFeatures.map((f) => f.feature)
-    );
+    !includeExperimentInPayload(experiment, []);
 
   return (
     <>
@@ -223,7 +222,9 @@ const HoldoutPage = (): ReactElement => {
         <TabbedPage
           experiment={experiment}
           holdout={holdout}
-          linkedFeatures={linkedFeatures}
+          linkedFeatures={[]}
+          holdoutFeatures={linkedFeatures}
+          holdoutExperiments={linkedExperiments}
           mutate={mutate}
           visualChangesets={[]}
           urlRedirects={[]}

@@ -26,6 +26,7 @@ import EditDescriptionModal from "../EditDescriptionModal";
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   holdout?: HoldoutInterface;
+  holdoutExperiments?: ExperimentInterfaceStringDates[];
   visualChangesets: VisualChangesetInterface[];
   mutate: () => void;
   editTargeting?: (() => void) | null;
@@ -40,6 +41,7 @@ export interface Props {
 export default function SetupTabOverview({
   experiment,
   holdout,
+  holdoutExperiments,
   visualChangesets,
   mutate,
   editTargeting,
@@ -61,8 +63,7 @@ export default function SetupTabOverview({
   const customFields = useCustomFields();
 
   const permissionsUtil = usePermissionsUtil();
-  //temp for testing by getting all experiments
-  const { experiments } = useExperiments();
+
   const canEditExperiment =
     !experiment.archived &&
     permissionsUtil.canViewExperimentModal(experiment.project) &&
@@ -178,7 +179,7 @@ export default function SetupTabOverview({
 
         {isHoldout && holdout && (
           <div className="box p-4 my-4">
-            <HoldoutTimeline experiments={experiments} />
+            <HoldoutTimeline experiments={holdoutExperiments ?? []} />
           </div>
         )}
 

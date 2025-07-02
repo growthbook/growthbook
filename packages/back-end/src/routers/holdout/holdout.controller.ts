@@ -1,16 +1,15 @@
 // region GET /holdout/:id
 
 import type { Response } from "express";
-import { getAffectedEnvsForExperiment } from "shared/util";
-import {
-  ExperimentInterface,
-  LinkedFeatureInfo,
-} from "back-end/types/experiment";
+import { ExperimentInterface } from "back-end/types/experiment";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { getExperimentById } from "back-end/src/models/ExperimentModel";
-import { getLinkedFeatureInfo } from "back-end/src/services/experiments";
+import {
+  getExperimentById,
+  getExperimentsByIds,
+} from "back-end/src/models/ExperimentModel";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
+import { FeatureInterface } from "back-end/types/feature";
 import { HoldoutInterface } from "./holdout.validators";
 
 /**
@@ -25,7 +24,8 @@ export const getHoldout = async (
     status: 200 | 404;
     holdout?: HoldoutInterface;
     experiment?: ExperimentInterface;
-    linkedFeatures?: LinkedFeatureInfo[];
+    linkedFeatures?: FeatureInterface[];
+    linkedExperiments?: ExperimentInterface[];
     envs?: string[];
     message?: string;
   }>
@@ -53,27 +53,22 @@ export const getHoldout = async (
     });
   }
 
-  const linkedFeatureInfo = await getLinkedFeatureInfo(
-    context,
-    holdoutExperiment
-  );
-
-  const linkedFeatureIds = holdoutExperiment.linkedFeatures || [];
+  const linkedFeatureIds = holdout.linkedFeatures.map((f) => f.id);
+  const linkedExperimentIds = holdout.linkedExperiments.map((e) => e.id);
 
   const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
-
-  const envs = getAffectedEnvsForExperiment({
-    experiment: holdoutExperiment,
-    orgEnvironments: context.org.settings?.environments || [],
-    linkedFeatures,
-  });
+  const linkedExperiments = await getExperimentsByIds(
+    context,
+    linkedExperimentIds
+  );
 
   res.status(200).json({
     status: 200,
     holdout,
     experiment: holdoutExperiment,
-    linkedFeatures: linkedFeatureInfo,
-    envs,
+    linkedFeatures,
+    linkedExperiments,
+    envs: holdout.environments,
   });
 };
 

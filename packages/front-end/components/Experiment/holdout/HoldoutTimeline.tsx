@@ -65,6 +65,8 @@ const HoldoutTimeline: React.FC<{
   const containerRef = useRef<HTMLDivElement>(null);
   const tooltipTimeout = useRef<NodeJS.Timeout | null>(null);
 
+  console.log("experiments", experiments);
+
   // we need to filter the experiments to only those that have phases within the selected date range:
   const filteredExperiments = useMemo(() => {
     return experiments.filter((experiment) => {
@@ -83,6 +85,8 @@ const HoldoutTimeline: React.FC<{
       });
     });
   }, [endDate, experiments, startDate]);
+
+  console.log("filteredExperiments", filteredExperiments);
   const [width, setWidth] = useState(800); // Default width
   const rowHeight = 30;
   const height =

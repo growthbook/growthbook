@@ -7,6 +7,7 @@ import { URLRedirectInterface } from "back-end/types/url-redirect";
 import React, { useState } from "react";
 import { Heading } from "@radix-ui/themes";
 import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
+import { FeatureInterface } from "back-end/types/feature";
 import AddLinkedChanges from "@/components/Experiment/LinkedChanges/AddLinkedChanges";
 import RedirectLinkedChanges from "@/components/Experiment/LinkedChanges/RedirectLinkedChanges";
 import FeatureLinkedChanges from "@/components/Experiment/LinkedChanges/FeatureLinkedChanges";
@@ -18,10 +19,13 @@ import AnalysisSettings from "@/components/Experiment/TabbedPage/AnalysisSetting
 import Callout from "@/components/Radix/Callout";
 import Button from "@/components/Radix/Button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/Radix/Tabs";
+import LinkedExperimentsTable from "@/components/Holdout/LinkedExperimentsTable";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   holdout?: HoldoutInterface;
+  holdoutFeatures?: FeatureInterface[];
+  holdoutExperiments?: ExperimentInterfaceStringDates[];
   visualChangesets: VisualChangesetInterface[];
   urlRedirects: URLRedirectInterface[];
   mutate: () => void;
@@ -37,6 +41,8 @@ export interface Props {
 export default function Implementation({
   experiment,
   holdout,
+  holdoutFeatures,
+  holdoutExperiments,
   visualChangesets,
   urlRedirects,
   mutate,
@@ -145,6 +151,12 @@ export default function Implementation({
               <TabsTrigger value="features">Features</TabsTrigger>
             </TabsList>
           </Tabs>
+          {tab === "experiments" && (
+            <LinkedExperimentsTable
+              holdout={holdout}
+              experiments={holdoutExperiments ?? []}
+            />
+          )}
         </div>
       )}
       {experiment.status !== "draft" &&
