@@ -3008,6 +3008,9 @@ export async function getExperimentAnalysisSummary({
 }): Promise<ExperimentAnalysisSummary> {
   const analysisSummary: ExperimentAnalysisSummary = {
     snapshotId: experimentSnapshot.id,
+    precomputedDimensions: experimentSnapshot.settings.dimensions.map(
+      (d) => d.id
+    ),
   };
 
   const overallTraffic = experimentSnapshot.health?.traffic?.overall;

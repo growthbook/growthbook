@@ -167,6 +167,7 @@ export default function AnalysisSettingsBar({
             <DimensionChooser
               value={precomputedDimension ?? dimension ?? ""}
               setValue={setDimension}
+              precomputedDimensions={experiment.analysisSummary?.precomputedDimensions}
               setValueFromPrecomputed={setPrecomputedDimension}
               activationMetric={!!experiment.activationMetric}
               datasourceId={experiment.datasource}

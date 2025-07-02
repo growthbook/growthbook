@@ -18,6 +18,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 export interface Props {
   value: string;
   setValue?: (value: string | null) => void;
+  precomputedDimensions?: string[];
   setValueFromPrecomputed?: (value: string | null) => void;
   datasourceId?: string;
   exposureQueryId?: string;
@@ -42,6 +43,7 @@ export interface Props {
 export default function DimensionChooser({
   value,
   setValue,
+  precomputedDimensions,
   setValueFromPrecomputed,
   datasourceId,
   exposureQueryId,
@@ -128,21 +130,20 @@ export default function DimensionChooser({
     });
   }
 
-  const precomputedDimensions =
-    snapshot?.settings?.dimensions?.filter(
-      (d) => d.id.startsWith("precomputed:")
-    ).map((d) => ({
-      label: d.id.replace("precomputed:", ""),
-      value: d.id,
+  const precomputedDimensionOptions =
+    precomputedDimensions?.map((d) => ({
+      label: d.replace("precomputed:", ""),
+      value: d,
     })) ?? [];
 
   // remove precomputed dimensions from the on-demand dimensions
+  // TODO add workaround
   const onDemandDimensions = [
     ...builtInDimensions,
     ...filteredDimensions,
   ].filter(
     (d) =>
-      !precomputedDimensions
+      !precomputedDimensionOptions
         .map((p) => p.value.replace("precomputed:", "exp:"))
         .includes(d.value)
   );
@@ -172,11 +173,11 @@ export default function DimensionChooser({
           labelClassName={labelClassName}
           containerClassName={newUi ? "select-dropdown-underline" : ""}
           options={[
-            ...(precomputedDimensions.length > 0
+            ...(precomputedDimensionOptions.length > 0
               ? [
                   {
                     label: "Pre-computed",
-                    options: precomputedDimensions,
+                    options: precomputedDimensionOptions,
                   },
                 ]
               : []),
@@ -196,7 +197,9 @@ export default function DimensionChooser({
           value={value}
           onChange={(v) => {
             if (v === value) return;
-            if (precomputedDimensions.map((d) => d.value).includes(v)) {
+            if (precomputedDimensionOptions.map((d) => d.value).includes(v)) {
+              // TODO reload old snapshot
+              setValue?.(null);
               setValueFromPrecomputed?.(v);
               if (analysis && snapshot) {
                 const newSettings: ExperimentSnapshotAnalysisSettings = {
