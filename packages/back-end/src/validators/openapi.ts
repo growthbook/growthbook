@@ -580,7 +580,7 @@ export const listCodeRefsValidator = {
 
 export const postCodeRefsValidator = {
   bodySchema: z.object({ "branch": z.string(), "repoName": z.string(), "refs": z.array(z.object({ "filePath": z.string(), "startingLineNumber": z.number().int(), "lines": z.string(), "flagKey": z.string(), "contentHash": z.string() })) }).strict(),
-  querySchema: z.never(),
+  querySchema: z.object({ "deleteMissing": z.enum(["true","false"]).optional() }).strict(),
   paramsSchema: z.never(),
 };
 
