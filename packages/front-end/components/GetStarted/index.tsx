@@ -11,6 +11,7 @@ import {
 import { PiArrowSquareOut, PiCaretDownFill } from "react-icons/pi";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { CommercialFeature } from "shared/src/enterprise/license-consts";
+import router from "next/router";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useGetStarted } from "@/services/GetStartedProvider";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -38,12 +39,16 @@ import { useFeaturesList } from "@/services/features";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useUser } from "@/services/UserContext";
 import AdvancedFeaturesCard from "@/components/GetStarted/AdvancedFeaturesCard";
+import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
+import FeatureModal from "@/components/Features/FeatureModal";
+import { isCloud } from "@/services/env";
+import { DocSection } from "@/components/DocLink";
 
 type AdvancedFeature = {
   imgUrl: string;
   title: string;
   description: string;
-  href: string;
+  docSection: DocSection;
   commercialFeature?: CommercialFeature;
 };
 
@@ -52,62 +57,55 @@ const advancedFeatureList: AdvancedFeature[] = [
     imgUrl: "/images/get-started/advanced/metrics.jpg",
     title: "Metric Groups",
     description: "Easily reuse sets of metrics",
-    href: "/metrics#metricgroups",
+    docSection: "metricGroups",
     commercialFeature: "metric-groups",
   },
   {
     imgUrl: "/images/get-started/advanced/features.jpg",
     title: "Dev Tools",
     description: "Debug feature flags & experiments",
-    href: "https://docs.growthbook.io/tools/chrome-extension",
+    docSection: "devTools",
   },
   {
     imgUrl: "/images/get-started/advanced/archetypes.png",
     title: "Archetype Overview",
     description: "Simulate the result of targeting rules",
-    href: "/archetypes",
+    docSection: "archetypes",
     commercialFeature: "archetypes",
   },
   {
     imgUrl: "/images/get-started/advanced/custom-roles.png",
     title: "Custom Roles",
     description: "Define fine-grained permission control",
-    href: "https://docs.growthbook.io/account/user-permissions#custom-roles",
+    docSection: "customRoles",
     commercialFeature: "custom-roles",
-  },
-  {
-    imgUrl: "/images/get-started/advanced/feature-flag.png",
-    title: "Feature Flag Analytics",
-    description: "View flag evaluations in real time",
-    href: "/features",
-    commercialFeature: "managed-warehouse",
   },
   {
     imgUrl: "/images/get-started/advanced/teams.png",
     title: "Teams",
     description: "Manage member permissions",
-    href: "/settings/team",
+    docSection: "team",
     commercialFeature: "teams",
   },
   {
     imgUrl: "/images/get-started/advanced/code-refs.png",
     title: "Code Refs",
     description: "See exactly where flags appear in code",
-    href: "https://app.growthbook.io/settings#feature",
+    docSection: "codeReferences",
     commercialFeature: "code-references",
   },
   {
     imgUrl: "/images/get-started/advanced/feature-flag.png", // don't have an image for this yet "/images/get-started/advanced/data-pipeline-mode.png",
     title: "Data Pipeline Mode",
     description: "Use temp tables for intermediate steps",
-    href: "https://docs.growthbook.io/app/data-pipeline",
+    docSection: "pipelineMode",
     commercialFeature: "pipeline-mode",
   },
   {
     imgUrl: "/images/get-started/advanced/fact-tables.png",
-    title: "Fact Tables",
-    description: "Enable automatic query optimization",
-    href: "/fact-tables",
+    title: "Query Optimization",
+    description: "Improve SQL performance and reduce costs",
+    docSection: "queryOptimization",
   },
 ];
 
@@ -120,6 +118,9 @@ const GetStartedAndHomePage = (): React.ReactElement => {
   const permissionsUtils = usePermissionsUtil();
   const { project } = useDefinitions();
   const { organization } = useUser();
+  const [openNewExperimentModal, setOpenNewExperimentModal] = useState<boolean>(
+    false
+  );
   const canUseSetupFlow =
     permissionsUtils.canCreateSDKConnection({
       projects: [project],
@@ -139,6 +140,10 @@ const GetStartedAndHomePage = (): React.ReactElement => {
   const [showGettingStarted, setShowGettingStarted] = useState<boolean>(
     !orgIsUsingFeatureOrExperiment
   );
+  const [
+    openNewFeatureFlagModal,
+    setOpenNewFeatureFlagModal,
+  ] = useState<boolean>(false);
 
   useEffect(() => {
     setShowGettingStarted(!orgIsUsingFeatureOrExperiment);
@@ -161,7 +166,19 @@ const GetStartedAndHomePage = (): React.ReactElement => {
   // Advanced Features Cards Section
 
   const advancedFeatures: AdvancedFeature[] = useMemo(() => {
-    return advancedFeatureList.sort(() => Math.random() - 0.5).slice(0, 3);
+    const advancedFeatureListWithAnalytics = [...advancedFeatureList];
+    if (isCloud()) {
+      advancedFeatureListWithAnalytics.push({
+        imgUrl: "/images/get-started/advanced/feature-flag.png",
+        title: "Feature Flag Analytics",
+        description: "View flag evaluations in real time",
+        docSection: "managedWarehouseTracking",
+        commercialFeature: "managed-warehouse",
+      });
+    }
+    return advancedFeatureListWithAnalytics
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 3);
   }, []);
 
   return (
@@ -173,7 +190,25 @@ const GetStartedAndHomePage = (): React.ReactElement => {
           commercialFeature={null}
         />
       )}
-
+      {openNewExperimentModal && (
+        <NewExperimentForm
+          onClose={() => setOpenNewExperimentModal(false)}
+          source="home-page"
+          isNewExperiment={true}
+        />
+      )}
+      {openNewFeatureFlagModal && (
+        <FeatureModal
+          cta={"Create"}
+          close={() => setOpenNewFeatureFlagModal(false)}
+          onSuccess={async (feature) => {
+            const url = `/features/${feature.id}${
+              hasFeatures ? "?new" : "?first&new"
+            }`;
+            router.push(url);
+          }}
+        />
+      )}
       {showVideoId && (
         <YouTubeLightBox
           close={() => setShowVideoId("")}
@@ -200,39 +235,18 @@ const GetStartedAndHomePage = (): React.ReactElement => {
               >
                 <DropdownMenuItem
                   onClick={() => {
-                    open("features");
+                    setOpenNewFeatureFlagModal(true);
                   }}
                 >
                   Feature Flag
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => {
-                    open("experiments");
+                    setOpenNewExperimentModal(true);
                   }}
                 >
                   Experiment
                 </DropdownMenuItem>
-                {/* <DropdownMenuItem
-                  onClick={() => {
-                    open("datasources");
-                  }}
-                >
-                  Datasource
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    open("fact-tables");
-                  }}
-                >
-                  Fact Tables
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    open("archetypes");
-                  }}
-                >
-                  Archetype
-                </DropdownMenuItem> */}
               </DropdownMenu>
             </Flex>
           </Grid>
@@ -271,7 +285,7 @@ const GetStartedAndHomePage = (): React.ReactElement => {
                         <AdvancedFeaturesCard
                           key={feature.title}
                           imgUrl={feature.imgUrl}
-                          href={feature.href}
+                          docSection={feature.docSection}
                           title={feature.title}
                           description={feature.description}
                           commercialFeature={feature.commercialFeature}
