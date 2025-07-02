@@ -577,6 +577,43 @@ export async function getSnapshots(
   return;
 }
 
+export async function getSnapshotsWithDimensions(
+  req: AuthRequest<null, null, { expsDimsTypes?: string }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const expsDimsTypes = (req.query?.expsDimsTypes as string) || "";
+  if (!expsDimsTypes.length) {
+    res.status(200).json({
+      status: 200,
+      snapshots: {},
+    });
+    return;
+  }
+
+  const snapshots = Object.fromEntries<ExperimentSnapshotInterface | null>(
+    await Promise.all(
+      expsDimsTypes.split(",").map(async (expDimType) => {
+        const [expId, dimension, type] = expDimType.split(":");
+        return [
+          expDimType,
+          await _getSnapshot({
+            context,
+            experiment: expId,
+            dimension: dimension || undefined,
+            type: (type || undefined) as SnapshotType | undefined,
+          }),
+        ] as [string, ExperimentSnapshotInterface | null];
+      })
+    )
+  );
+
+  res.status(200).json({
+    status: 200,
+    snapshots,
+  });
+}
+
 export function validateVariationIds(variations: Variation[]) {
   variations.forEach((variation, i) => {
     if (!variation.id) {

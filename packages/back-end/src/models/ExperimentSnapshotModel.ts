@@ -1,5 +1,6 @@
 import mongoose, { FilterQuery, PipelineStage } from "mongoose";
 import omit from "lodash/omit";
+import { isDashboardBlockWithSnapshot } from "shared/enterprise";
 import {
   SnapshotType,
   ExperimentSnapshotAnalysis,
@@ -290,6 +291,27 @@ export async function updateSnapshot({
         );
       }
     }
+  }
+
+  const dashboards = await context.models.dashboards.findByExperiment(
+    experimentSnapshotModel.experiment
+  );
+  for (const dashboard of dashboards) {
+    // Only update dashboards where all the blocks will stay up to date with each other
+    let shouldUpdateDashboardSnapshot = true;
+    dashboard.blocks.forEach((block) => {
+      // TODO: can we still update dimension blocks automatically?
+      if (["sql-explorer", "dimension"].includes(block.type))
+        shouldUpdateDashboardSnapshot = false;
+    });
+    if (!shouldUpdateDashboardSnapshot) continue;
+
+    const blocks = dashboard.blocks.map((block) =>
+      isDashboardBlockWithSnapshot(block)
+        ? { ...block, snapshotId: experimentSnapshotModel.id }
+        : block
+    );
+    await context.models.dashboards.updateById(dashboard.id, { blocks });
   }
 }
 

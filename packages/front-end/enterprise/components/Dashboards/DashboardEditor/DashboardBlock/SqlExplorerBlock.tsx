@@ -1,0 +1,41 @@
+import { SqlExplorerBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
+import { SavedQuery } from "back-end/src/validators/saved-queries";
+import useApi from "@/hooks/useApi";
+import { SqlExplorerDataVisualization } from "@/components/DataViz/SqlExplorerDataVisualization";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import Callout from "@/components/Radix/Callout";
+import { BlockProps } from ".";
+
+export default function SqlExplorerBlock({
+  block: { savedQueryId, dataVizConfigIndex },
+}: BlockProps<SqlExplorerBlockInterface>) {
+  const { data: savedQueriesData, isLoading } = useApi<{
+    status: number;
+    savedQueries: SavedQuery[];
+  }>(`/saved-queries/`);
+  if (isLoading) return <LoadingSpinner />;
+  if (!savedQueriesData)
+    return (
+      <Callout status="error">
+        Failed to load saved queries, try again later
+      </Callout>
+    );
+
+  const savedQuery = savedQueriesData.savedQueries?.find(
+    (q: SavedQuery) => q.id === savedQueryId
+  );
+
+  const dataVizConfig = savedQuery?.dataVizConfig?.[dataVizConfigIndex];
+  return (
+    <div>
+      {savedQuery && dataVizConfig && (
+        <SqlExplorerDataVisualization
+          rows={savedQuery.results.results}
+          dataVizConfig={dataVizConfig}
+          onDataVizConfigChange={() => {}}
+          showPanel={false}
+        />
+      )}
+    </div>
+  );
+}
