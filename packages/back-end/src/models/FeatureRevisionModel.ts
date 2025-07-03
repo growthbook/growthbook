@@ -10,6 +10,7 @@ import { EventUser, EventUserLoggedIn } from "back-end/src/events/event-types";
 import { OrganizationInterface, ReqContext } from "back-end/types/organization";
 import { ApiReqContext } from "back-end/types/api";
 import { applyEnvironmentInheritance } from "back-end/src/util/features";
+import { MinimalFeatureRevisionInterface } from "back-end/src/validators/features";
 import { logger } from "back-end/src/util/logger";
 
 export type ReviewSubmittedType = "Comment" | "Approved" | "Requested Changes";
@@ -87,7 +88,29 @@ function toInterface(
   return revision;
 }
 
-export async function getRevisions(
+export async function getMinimalRevisions(
+  context: ReqContext | ApiReqContext,
+  organization: string,
+  featureId: string
+): Promise<MinimalFeatureRevisionInterface[]> {
+  const docs: FeatureRevisionDocument[] = await FeatureRevisionModel.find({
+    organization,
+    featureId,
+  })
+    .select("version datePublished dateUpdated createdBy status")
+    .sort({ version: -1 })
+    .limit(25);
+
+  return docs.map((m) => ({
+    version: m.version,
+    datePublished: m.datePublished,
+    dateUpdated: m.dateUpdated,
+    createdBy: m.createdBy,
+    status: m.status,
+  }));
+}
+
+export async function getLatestRevisions(
   context: ReqContext | ApiReqContext,
   organization: string,
   featureId: string
@@ -98,7 +121,7 @@ export async function getRevisions(
   })
     .select("-log") // Remove the log when fetching all revisions since it can be large to send over the network
     .sort({ version: -1 })
-    .limit(25);
+    .limit(5);
 
   return docs.map((m) => toInterface(m, context));
 }

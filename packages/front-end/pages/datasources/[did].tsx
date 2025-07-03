@@ -21,8 +21,6 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import DataSourceForm from "@/components/Settings/DataSourceForm";
 import Code from "@/components/SyntaxHighlighting/Code";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import Modal from "@/components/Modal";
-import SchemaBrowser from "@/components/SchemaBrowser/SchemaBrowser";
 import DataSourceMetrics from "@/components/Settings/EditDataSource/DataSourceMetrics";
 import DataSourcePipeline from "@/components/Settings/EditDataSource/DataSourcePipeline/DataSourcePipeline";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
@@ -34,6 +32,7 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Callout from "@/components/Radix/Callout";
 import Frame from "@/components/Radix/Frame";
 import ClickhouseMaterializedColumns from "@/components/Settings/EditDataSource/ClickhouseMaterializedColumns";
+import SqlExplorerModal from "@/components/SchemaBrowser/SqlExplorerModal";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -42,10 +41,12 @@ function quotePropertyName(name: string) {
   return JSON.stringify(name);
 }
 
+export const EAQ_ANCHOR_ID = "experiment-assignment-queries";
+
 const DataSourcePage: FC = () => {
   const permissionsUtil = usePermissionsUtil();
   const [editConn, setEditConn] = useState(false);
-  const [viewSchema, setViewSchema] = useState(false);
+  const [viewSqlExplorer, setViewSqlExplorer] = useState(false);
   const router = useRouter();
 
   const {
@@ -56,6 +57,7 @@ const DataSourcePage: FC = () => {
   } = useDefinitions();
   const { did } = router.query as { did: string };
   const d = getDatasourceById(did);
+
   const { apiCall } = useAuth();
   const { organization, hasCommercialFeature } = useUser();
 
@@ -202,10 +204,10 @@ const DataSourcePage: FC = () => {
                   className="dropdown-item"
                   onClick={(e) => {
                     e.preventDefault();
-                    setViewSchema(true);
+                    setViewSqlExplorer(true);
                   }}
                 >
-                  View Schema Browser
+                  View SQL Explorer
                 </a>
               )}
               <Link
@@ -379,7 +381,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   </Frame>
                 ) : null}
 
-                <Frame>
+                <Frame id={EAQ_ANCHOR_ID}>
                   <ExperimentAssignmentQueries
                     dataSource={d}
                     onSave={updateDataSourceSettings}
@@ -436,32 +438,16 @@ mixpanel.init('YOUR PROJECT TOKEN', {
           }}
         />
       )}
-      {viewSchema && (
-        <Modal
-          trackingEventModalType=""
-          open={true}
-          size={"lg"}
-          close={() => setViewSchema(false)}
-          closeCta="Close"
-          header="Schema Browser"
-          overflowAuto={false}
-        >
-          <div className="d-flex row">
-            <p>
-              Explore the schemas, tables, and table metadata of your connected
-              datasource.
-            </p>
-            <div
-              className="border rounded w-100"
-              style={{
-                maxHeight: "calc(91vh - 196px)",
-                overflowY: "scroll",
-              }}
-            >
-              <SchemaBrowser datasource={d} />
-            </div>
-          </div>
-        </Modal>
+      {viewSqlExplorer && (
+        <SqlExplorerModal
+          initial={{ datasourceId: d.id }}
+          close={() => setViewSqlExplorer(false)}
+          mutate={mutateDefinitions}
+          disableSave={true}
+          header="SQL Explorer"
+          lockDatasource={true}
+          trackingEventModalSource="datasource-id-page"
+        />
       )}
     </div>
   );

@@ -1,4 +1,8 @@
-import { featureRequiresReview, validateFeatureValue } from "shared/util";
+import {
+  featureRequiresReview,
+  validateFeatureValue,
+  validateScheduleRules,
+} from "shared/util";
 import { isEqual } from "lodash";
 import { UpdateFeatureResponse } from "back-end/types/openapi";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -80,6 +84,35 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     // ensure environment keys are valid
     if (req.body.environments != null) {
       validateEnvKeys(orgEnvs, Object.keys(req.body.environments ?? {}));
+    }
+
+    // Validate scheduleRules before processing environment settings
+    if (req.body.environments) {
+      Object.entries(req.body.environments).forEach(
+        ([envName, envSettings]) => {
+          if (envSettings.rules) {
+            envSettings.rules.forEach((rule, ruleIndex) => {
+              if (rule.scheduleRules) {
+                // Validate that the org has access to schedule rules
+                if (!req.context.hasPremiumFeature("schedule-feature-flag")) {
+                  throw new Error(
+                    "This organization does not have access to schedule rules. Upgrade to Pro or Enterprise."
+                  );
+                }
+                try {
+                  validateScheduleRules(rule.scheduleRules);
+                } catch (error) {
+                  throw new Error(
+                    `Invalid scheduleRules in environment "${envName}", rule ${
+                      ruleIndex + 1
+                    }: ${error.message}`
+                  );
+                }
+              }
+            });
+          }
+        }
+      );
     }
 
     // ensure default value matches value type
