@@ -4,7 +4,7 @@ import {
 } from "back-end/types/experiment";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { includeExperimentInPayload, isDefined } from "shared/util";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import clsx from "clsx";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useRouter } from "next/router";
@@ -94,7 +94,6 @@ export default function TabbedPage({
   checklistItemsRemaining,
   setChecklistItemsRemaining,
 }: Props) {
-  const experimentHeaderRef = useRef<HTMLDivElement | null>(null);
   const [tab, setTab] = useLocalStorage<ExperimentTab>(
     `tabbedPageTab__${experiment.id}`,
     "overview"
@@ -309,7 +308,6 @@ export default function TabbedPage({
       {/* TODO: Update Experiment Header props to include redirect and pipe through to StartExperimentBanner */}
 
       <ExperimentHeader
-        headerRef={experimentHeaderRef}
         experiment={experiment}
         envs={envs}
         tab={tab}
@@ -493,11 +491,7 @@ export default function TabbedPage({
           tab === "dashboards" ? "d-block" : "d-none d-print-block"
         )}
       >
-        <DashboardsTab
-          experiment={experiment}
-          initialDashboardId={tabPath}
-          experimentHeaderRef={experimentHeaderRef}
-        />
+        <DashboardsTab experiment={experiment} initialDashboardId={tabPath} />
       </div>
       <div
         className={

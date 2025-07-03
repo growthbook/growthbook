@@ -1,12 +1,5 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import React, {
-  MutableRefObject,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { DashboardInstanceInterface } from "back-end/src/enterprise/validators/dashboard-instance";
 import {
   DashboardBlockData,
@@ -16,7 +9,6 @@ import { Flex, Heading, IconButton, Text } from "@radix-ui/themes";
 import { PiPencil, PiPlus } from "react-icons/pi";
 import { useForm } from "react-hook-form";
 import clsx from "clsx";
-import { isDefined } from "shared/util";
 import Button from "@/components/Radix/Button";
 import { useAuth } from "@/services/auth";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -31,7 +23,6 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import Checkbox from "@/components/Radix/Checkbox";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
-import { useScrollPosition } from "@/hooks/useScrollPosition";
 import DashboardEditor from "./DashboardEditor";
 
 export type SubmitDashboard = (
@@ -87,13 +78,11 @@ function CreateDashboardModal({
 interface Props {
   experiment: ExperimentInterfaceStringDates;
   initialDashboardId: string;
-  experimentHeaderRef: MutableRefObject<HTMLDivElement | null>;
 }
 
 export default function DashboardsTab({
   experiment,
   initialDashboardId,
-  experimentHeaderRef,
 }: Props) {
   const [dashboardId, setDashboardId] = useState(initialDashboardId);
   useEffect(() => {
@@ -121,23 +110,6 @@ export default function DashboardsTab({
   const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
     timeout: 1500,
   });
-  const [stickyTop, setStickyTop] = useState<number | undefined>(undefined);
-  const { scrollY } = useScrollPosition();
-  const editBarRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    if (!experimentHeaderRef.current || !editBarRef.current) {
-      setStickyTop(undefined);
-      return;
-    }
-    const editTop = editBarRef.current.getBoundingClientRect().top;
-    const headerBottom = experimentHeaderRef.current.getBoundingClientRect()
-      .bottom;
-    if (editTop <= headerBottom) {
-      setStickyTop(headerBottom);
-    } else {
-      setStickyTop(undefined);
-    }
-  }, [experimentHeaderRef, scrollY]);
 
   const dashboard = dashboards.find((d) => d.id === dashboardId);
 
@@ -242,24 +214,7 @@ export default function DashboardsTab({
           </Flex>
         ) : (
           <>
-            <Flex
-              ref={editBarRef}
-              align="center"
-              justify="between"
-              mb="1"
-              style={
-                isEditing && stickyTop && !isDefined(editingBlock)
-                  ? {
-                      position: "sticky",
-                      top: stickyTop,
-                      zIndex: 900,
-                      backgroundColor: "var(--color-background)",
-                      boxShadow:
-                        "0 1px 2px rgba(0, 0, 0, 0.1), 0 4px 4px rgba(0, 0, 0, 0.025)",
-                    }
-                  : {}
-              }
-            >
+            <Flex align="center" justify="between" mb="1">
               <Flex gap="1" align="center">
                 {isEditing ? (
                   <Field
