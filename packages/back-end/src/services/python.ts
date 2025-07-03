@@ -49,8 +49,9 @@ class PythonStatsServer<Input, Output> {
       const lines = buffer.split("\n");
       buffer = lines.pop() || ""; // Keep the last incomplete line in the buffer
 
-      for (const output of lines) {
-        if (!output.trim()) continue; // Skip empty lines
+      lines.forEach((line) => {
+        const output = line.trim();
+        if (!output) return; // Skip empty lines
         try {
           const parsed:
             | PythonServerResponse<Output>
@@ -94,7 +95,7 @@ class PythonStatsServer<Input, Output> {
           );
           return;
         }
-      }
+      });
     });
 
     this.python.stderr?.on("data", (data) => {
