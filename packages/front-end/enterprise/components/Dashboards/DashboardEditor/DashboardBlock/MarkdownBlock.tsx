@@ -4,17 +4,17 @@ import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import { BlockProps } from ".";
 
 export default function MarkdownBlock({
-  block: { content },
+  block,
   isEditing,
   setBlock,
 }: BlockProps<MarkdownBlockInterface>) {
   if (isEditing) {
     return (
       <MarkdownInput
-        value={content}
-        setValue={(value) => setBlock({ type: "markdown", content: value })}
+        value={block.content}
+        setValue={(value) => setBlock({ ...block, content: value })}
       />
     );
   }
-  return <Markdown>{content || ""}</Markdown>;
+  return <Markdown>{block.content || ""}</Markdown>;
 }

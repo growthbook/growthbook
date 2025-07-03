@@ -70,6 +70,7 @@ const BreakDownResults: FC<{
   metricOverrides: MetricOverride[];
   dimensionId: string;
   isLatestPhase: boolean;
+  phase: number;
   startDate: string;
   endDate: string;
   reportDate: Date;
@@ -98,6 +99,7 @@ const BreakDownResults: FC<{
   metricOverrides,
   guardrailMetrics,
   isLatestPhase,
+  phase,
   startDate,
   endDate,
   activationMetric,
@@ -346,6 +348,7 @@ const BreakDownResults: FC<{
               key={i}
               dateCreated={reportDate}
               isLatestPhase={isLatestPhase}
+              phase={phase}
               startDate={startDate}
               endDate={endDate}
               status={status}

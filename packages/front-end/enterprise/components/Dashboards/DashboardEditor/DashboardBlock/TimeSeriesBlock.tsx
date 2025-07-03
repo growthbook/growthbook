@@ -1,10 +1,11 @@
 import { getValidDate } from "shared/dates";
 import { TimeSeriesBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
+import { isDefined } from "shared/util";
 import ExperimentMetricTimeSeriesGraphWrapper from "@/components/Experiment/ExperimentMetricTimeSeriesGraphWrapper";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useExperiments } from "@/hooks/useExperiments";
+import { useDashboardSnapshot } from "../../DashboardSnapshotProvider";
 import { BlockProps } from ".";
 
 export default function TimeSeriesBlock({
@@ -13,19 +14,17 @@ export default function TimeSeriesBlock({
   const { experimentId, metricId, variationIds, dateStart } = block;
   const { experimentsMap } = useExperiments();
   const experiment = experimentsMap.get(experimentId);
-  const { snapshot, analysisSettings } = useSnapshot();
+  const { snapshot, analysisSettings } = useDashboardSnapshot(block);
   const orgSettings = useOrgSettings();
   const pValueCorrection = orgSettings?.pValueCorrection;
   const { getExperimentMetricById } = useDefinitions();
-  const showVariations = (experiment?.variations || []).map(
-    (v) => !variationIds || variationIds.includes(v.id)
+  const showVariations = (experiment?.variations || []).map((v) =>
+    variationIds.includes(v.id)
   );
 
   const metric = getExperimentMetricById(metricId);
 
-  if (!experiment || !metric) return null;
-
-  const latestResults = snapshot?.analyses?.[0]?.results?.[0];
+  if (!experiment || !metric || !snapshot) return null;
 
   // Determine which group the metric belongs to
   let resultGroup: "goal" | "secondary" | "guardrail" = "goal";
@@ -35,52 +34,28 @@ export default function TimeSeriesBlock({
     resultGroup = "guardrail";
   }
 
-  const rows = [
-    {
-      label: metric.name,
-      metric,
-      variations:
-        latestResults?.variations?.map((v) => ({
-          value: v.metrics[metricId]?.value || 0,
-          cr: v.metrics[metricId]?.cr || 0,
-          users: v.users,
-          denominator: v.metrics[metricId]?.denominator,
-          ci: v.metrics[metricId]?.ci,
-          ciAdjusted: v.metrics[metricId]?.ciAdjusted,
-          expected: v.metrics[metricId]?.expected,
-          risk: v.metrics[metricId]?.risk,
-          riskType: v.metrics[metricId]?.riskType,
-          stats: v.metrics[metricId]?.stats,
-          pValue: v.metrics[metricId]?.pValue,
-          pValueAdjusted: v.metrics[metricId]?.pValueAdjusted,
-          uplift: v.metrics[metricId]?.uplift,
-          buckets: v.metrics[metricId]?.buckets,
-          chanceToWin: v.metrics[metricId]?.chanceToWin,
-          errorMessage: v.metrics[metricId]?.errorMessage,
-          power: v.metrics[metricId]?.power,
-        })) || [],
-      resultGroup,
-      metricOverrideFields: [],
-    },
-  ];
+  const appliedPValueCorrection =
+    resultGroup === "goal" ? pValueCorrection ?? null : null;
 
-  const hasGoalMetrics = rows.some((r) => r.resultGroup === "goal");
-
-  const appliedPValueCorrection = hasGoalMetrics
-    ? pValueCorrection ?? null
-    : null;
-
+  const variationNames =
+    variationIds
+      ?.map(
+        (id) =>
+          experiment.variations.find((variation) => variation.id === id)?.name
+      )
+      ?.filter(isDefined) || [];
   return (
     <div className="time-series-block">
       <ExperimentMetricTimeSeriesGraphWrapper
         experimentId={experiment.id}
+        phase={snapshot.phase}
         experimentStatus={experiment.status}
         metric={metric}
         differenceType={analysisSettings?.differenceType || "relative"}
         showVariations={showVariations}
-        variationNames={[]} // TODO
+        variationNames={variationNames}
         statsEngine={orgSettings?.statsEngine || "frequentist"}
-        pValueAdjustmentEnabled={!!appliedPValueCorrection && rows.length > 1}
+        pValueAdjustmentEnabled={!!appliedPValueCorrection}
         firstDateToRender={getValidDate(dateStart)}
       />
     </div>

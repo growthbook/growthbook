@@ -13,13 +13,13 @@ import {
 } from "@/services/metrics";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { useCurrency } from "@/hooks/useCurrency";
-import { useSnapshot } from "./SnapshotProvider";
 import ExperimentTimeSeriesGraph, {
   ExperimentTimeSeriesGraphDataPoint,
 } from "./ExperimentTimeSeriesGraph";
 
 export default function ExperimentMetricTimeSeriesGraphWrapper({
   experimentId,
+  phase,
   experimentStatus,
   metric,
   differenceType,
@@ -30,6 +30,7 @@ export default function ExperimentMetricTimeSeriesGraphWrapper({
   firstDateToRender,
 }: {
   experimentId: string;
+  phase: number;
   experimentStatus: ExperimentStatus;
   metric: ExperimentMetricInterface;
   differenceType: DifferenceType;
@@ -39,7 +40,6 @@ export default function ExperimentMetricTimeSeriesGraphWrapper({
   pValueAdjustmentEnabled: boolean;
   firstDateToRender: Date;
 }) {
-  const { phase } = useSnapshot();
   const { getFactTableById } = useDefinitions();
   const pValueThreshold = usePValueThreshold();
 

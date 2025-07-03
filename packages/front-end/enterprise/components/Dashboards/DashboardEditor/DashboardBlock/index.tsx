@@ -29,6 +29,7 @@ import SqlExplorerBlock from "./SqlExplorerBlock";
 
 export type BlockProps<T extends DashboardBlockInterface> = {
   block: DashboardBlockData<T>;
+  setBlock: React.Dispatch<DashboardBlockData<T>>;
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
   isEditing: boolean;
@@ -228,6 +229,7 @@ export default function DashboardBlock({
 
       <BlockComponent
         block={block}
+        setBlock={setBlock}
         isEditing={isEditing}
         experiment={experiment}
         mutate={mutate}

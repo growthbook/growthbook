@@ -73,6 +73,7 @@ export type ResultsTableProps = {
   status: ExperimentStatus;
   queryStatusData?: QueryStatusData;
   isLatestPhase: boolean;
+  phase: number;
   startDate: string;
   endDate: string;
   rows: ExperimentTableRow[];
@@ -125,6 +126,7 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 export default function ResultsTable({
   id,
   isLatestPhase,
+  phase,
   status,
   queryStatusData,
   rows,
@@ -1042,6 +1044,7 @@ export default function ResultsTable({
                           <div className={styles.timeSeriesCell}>
                             <ExperimentMetricTimeSeriesGraphWrapper
                               experimentId={id}
+                              phase={phase}
                               experimentStatus={status}
                               metric={row.metric}
                               differenceType={differenceType}

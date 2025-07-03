@@ -1,6 +1,6 @@
 import mongoose, { FilterQuery, PipelineStage } from "mongoose";
 import omit from "lodash/omit";
-import { isDashboardBlockWithSnapshot } from "shared/enterprise";
+import { blockHasFieldOfType } from "shared/enterprise";
 import {
   SnapshotType,
   ExperimentSnapshotAnalysis,
@@ -307,7 +307,11 @@ export async function updateSnapshot({
     if (!shouldUpdateDashboardSnapshot) continue;
 
     const blocks = dashboard.blocks.map((block) =>
-      isDashboardBlockWithSnapshot(block)
+      blockHasFieldOfType(
+        block,
+        "snapshotId",
+        (val: unknown) => typeof val === "string"
+      )
         ? { ...block, snapshotId: experimentSnapshotModel.id }
         : block
     );

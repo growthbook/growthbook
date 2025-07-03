@@ -109,7 +109,7 @@ const timeSeriesBlockInterface = baseBlockInterface
     type: z.literal("time-series"),
     experimentId: z.string(),
     metricId: z.string(),
-    variationIds: z.array(z.string()).optional(),
+    variationIds: z.array(z.string()),
     dateStart: z.date().optional(),
     dateEnd: z.date().optional(),
     snapshotId: z.string(),

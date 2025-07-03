@@ -149,6 +149,22 @@ export default function DashboardBlockEditDrawer({
             </Flex>
           </Flex>
           <Flex className="odd-children-flex-grow" wrap="wrap" gap="4">
+            {blockHasFieldOfType(
+              block,
+              "metricId",
+              (val: unknown) => typeof val === "string"
+            ) && (
+              <SelectField
+                label="Metric"
+                labelClassName="font-weight-bold"
+                value={form.watch("metricId") || ""}
+                containerStyle={{ flexBasis: "40%" }}
+                containerClassName="mb-0"
+                onChange={(value) => form.setValue("metricId", value)}
+                options={metricOptions}
+              />
+            )}
+
             {blockHasFieldOfType(block, "metricIds", isStringArray) && (
               <MultiSelectField
                 label="Metrics"
@@ -181,6 +197,21 @@ export default function DashboardBlockEditDrawer({
               />
             )}
             {blockHasFieldOfType(block, "dimensionIds", isStringArray) && <></>}
+            {blockHasFieldOfType(block, "variationIds", isStringArray) && (
+              <MultiSelectField
+                label="Variations"
+                labelClassName="font-weight-bold"
+                placeholder="Choose which variations to show"
+                value={form.watch("variationIds") || []}
+                containerStyle={{ flexBasis: "40%" }}
+                containerClassName="mb-0"
+                onChange={(value) => form.setValue("variationIds", value)}
+                options={experiment.variations.map((variation) => ({
+                  label: variation.name,
+                  value: variation.id,
+                }))}
+              />
+            )}
             {blockHasFieldOfType(
               block,
               "baselineRow",

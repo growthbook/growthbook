@@ -93,6 +93,7 @@ export default function MetricBlock({
         <ResultsTable
           key={resultGroup}
           id={experiment.id}
+          phase={experiment.phases.length - 1}
           variations={variations}
           baselineRow={baselineRow}
           columnsFilter={columnsFilter}

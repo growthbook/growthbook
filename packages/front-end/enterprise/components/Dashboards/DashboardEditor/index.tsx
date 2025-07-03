@@ -103,8 +103,9 @@ export const BLOCK_TYPE_INFO: Record<
       title: "",
       description: "",
       experimentId: experiment.id,
-      metricId: "",
+      metricId: experiment.goalMetrics[0] || "",
       snapshotId: experiment.analysisSummary?.snapshotId || "",
+      variationIds: experiment.variations.map((variation) => variation.id),
     }),
   },
   "traffic-graph": {

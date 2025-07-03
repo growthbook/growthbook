@@ -92,6 +92,7 @@ export default function DimensionBlock({
         <ResultsTable
           key={resultGroup}
           id={experiment.id}
+          phase={experiment.phases.length - 1}
           variations={variations}
           baselineRow={baselineRow}
           status={experiment.status}
