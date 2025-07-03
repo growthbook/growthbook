@@ -21,6 +21,7 @@ import {
 } from "back-end/src/models/WatchModel";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import { findAuditByUserIdAndOrganization } from "back-end/src/models/AuditModel";
 
 function isValidWatchEntityType(type: string): boolean {
   if (type === "experiment" || type === "feature") {
@@ -28,6 +29,14 @@ function isValidWatchEntityType(type: string): boolean {
   } else {
     return false;
   }
+}
+export async function getHistoryByUser(req: AuthRequest<null>, res: Response) {
+  const { org, userId } = getContextFromReq(req);
+  const events = await findAuditByUserIdAndOrganization(userId, org.id);
+  res.status(200).json({
+    status: 200,
+    events,
+  });
 }
 
 export async function getUser(req: AuthRequest, res: Response) {

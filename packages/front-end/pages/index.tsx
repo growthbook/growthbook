@@ -4,8 +4,8 @@ import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasourc
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useUser } from "@/services/UserContext";
-import LoadingOverlay from "@/components/LoadingOverlay";
 import { useFeaturesList } from "@/services/features";
+import LoadingOverlay from "@/components/LoadingOverlay";
 
 export default function Home(): React.ReactElement {
   const router = useRouter();
@@ -35,6 +35,7 @@ export default function Home(): React.ReactElement {
       organization.id || ""
     );
 
+    // has features and experiments that are not demo projects
     const hasFeatures = features.some((f) => f.project !== demoProjectId);
     const hasExperiments = experiments.some((e) => e.project !== demoProjectId);
 
