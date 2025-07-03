@@ -270,17 +270,13 @@ class RegressionAdjustedRatioStatistic(Statistic):
     theta: Optional[float]
 
     def __post_init__(self) -> None:
-        if not isinstance(self.m_statistic_post, type(self.d_statistic_post)):
-            raise TypeError(
-                "m_statistic_post and d_statistic_post must be of the same type"
-            )
         if not isinstance(self.m_statistic_post, type(self.m_statistic_pre)):
             raise TypeError(
                 "m_statistic_post and m_statistic_pre must be of the same type"
             )
-        if not isinstance(self.m_statistic_post, type(self.d_statistic_pre)):
+        if not isinstance(self.d_statistic_post, type(self.d_statistic_pre)):
             raise TypeError(
-                "m_statistic_post and d_statistic_pre must be of the same type"
+                "d_statistic_post and d_statistic_pre must be of the same type"
             )
 
     def __add__(self, other):
