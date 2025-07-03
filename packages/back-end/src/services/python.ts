@@ -15,7 +15,7 @@ type PythonServerResponse<T> = {
 
 // The stats engine usually finishes within 1 second
 // We use an overly conservative timeout to account for high load
-const STATS_ENGINE_TIMEOUT_MS = 15_000;
+const STATS_ENGINE_TIMEOUT_MS = 60_000;
 const MAX_POOL_SIZE = 4;
 
 class PythonStatsServer<Input, Output> {
@@ -41,53 +41,61 @@ class PythonStatsServer<Input, Output> {
     logger.debug(`Python stats server (pid: ${this.pid}) started`);
     this.promises = new Map();
 
-    this.python.stdout?.on("data", (data) => {
-      const output = data.toString().trim();
-      if (!output) return;
+    let buffer = "";
+    this.python.stdout?.on("data", (rawData) => {
+      buffer += rawData.toString();
 
-      try {
-        const parsed:
-          | PythonServerResponse<Output>
-          | { id: string; error: string; stack_trace?: string } = JSON.parse(
-          output
-        );
+      // Once we have a complete line, process it
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || ""; // Keep the last incomplete line in the buffer
 
-        if (!parsed.id) {
-          logger.error(
-            `Python stats server (pid: ${this.pid}) stdout missing 'id': ${parsed}`
+      lines.forEach((line) => {
+        const output = line.trim();
+        if (!output) return; // Skip empty lines
+        try {
+          const parsed:
+            | PythonServerResponse<Output>
+            | { id: string; error: string; stack_trace?: string } = JSON.parse(
+            output
           );
-          return;
-        }
 
-        const promise = this.promises.get(parsed.id);
-        if (!promise) {
-          logger.warn(
-            `Python stats server (pid: ${this.pid}) stdout has unknown id: ${parsed.id}`,
-            parsed
-          );
-          return;
-        }
-
-        if ("error" in parsed) {
-          // Add stack trace to error message so we can show it on the front-end
-          const error = new Error(parsed.error || "Unknown error");
-          if (parsed.stack_trace) {
-            error.message += `\n\n${parsed.stack_trace}`;
+          if (!parsed.id) {
+            logger.error(
+              `Python stats server (pid: ${this.pid}) stdout missing 'id': ${parsed}`
+            );
+            return;
           }
-          promise.reject(error);
-        } else {
-          promise.resolve(parsed);
-        }
 
-        // Delete promise
-        this.promises.delete(parsed.id);
-      } catch (e) {
-        logger.error(
-          `Python stats server (pid: ${this.pid}) failed to parse stdout`,
-          e
-        );
-        return;
-      }
+          const promise = this.promises.get(parsed.id);
+          if (!promise) {
+            logger.warn(
+              `Python stats server (pid: ${this.pid}) stdout has unknown id: ${parsed.id}`,
+              parsed
+            );
+            return;
+          }
+
+          if ("error" in parsed) {
+            // Add stack trace to error message so we can show it on the front-end
+            const error = new Error(parsed.error || "Unknown error");
+            if (parsed.stack_trace) {
+              error.message += `\n\n${parsed.stack_trace}`;
+            }
+            promise.reject(error);
+          } else {
+            promise.resolve(parsed);
+          }
+
+          // Delete promise
+          this.promises.delete(parsed.id);
+        } catch (e) {
+          logger.error(
+            `Python stats server (pid: ${this.pid}) failed to parse stdout: ${output}`,
+            e
+          );
+          return;
+        }
+      });
     });
 
     this.python.stderr?.on("data", (data) => {
