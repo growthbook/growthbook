@@ -203,8 +203,6 @@ def compute_covariance(
     stat_b: Union[SampleMeanStatistic, ProportionStatistic],
     sum_of_products: float,
 ) -> float:
-    if not isinstance(stat_a, type(stat_b)):
-        raise TypeError("stat_a and stat_b must be of the same type")
 
     if n <= 1:
         return 0
