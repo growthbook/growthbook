@@ -492,7 +492,9 @@ const NeedingAttention = (): React.ReactElement | null => {
           />
         </Flex>
         {featureFlagsNeedingAttention.length > 0 ? (
-          <table className="table gbtable needs-attentions-table mt-3">
+          <table
+            className={`table gbtable mt-3 ${styles.needsAttentionsTable}`}
+          >
             <thead>
               <tr>
                 <SortableTHFeatureFlags field="featureId">

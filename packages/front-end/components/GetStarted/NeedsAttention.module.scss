@@ -2,13 +2,10 @@
   text-overflow: ellipsis;
   overflow: hidden;
   white-space: nowrap;
-  min-width: 300px;
-  max-width: 300px;
   width: 300px;
   @media (max-width: 1300px) {
     min-width: auto;
     max-width: 200px;
-    width: 200px;
   }
   a {
     text-overflow: ellipsis;
@@ -23,18 +20,18 @@
   text-overflow: ellipsis;
   overflow: hidden;
   white-space: nowrap;
-  min-width: 200px;
-  max-width: 200px;
   width: 200px;
   @media (max-width: 1300px) {
     min-width: auto;
     max-width: 150px;
-    width: 150px;
   }
 }
 
-// Add table layout fix
 .needs-attentions-table {
-  table-layout: fixed;
-  width: 100%;
+  thead th {
+    font-weight: 600;
+  }
+  tbody td {
+    font-weight: 400;
+  }
 }
