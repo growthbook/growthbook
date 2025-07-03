@@ -13,12 +13,14 @@ from gbstats.messages import (
 
 from gbstats.models.statistics import (
     RegressionAdjustedStatistic,
+    RegressionAdjustedStatisticProd,
     RegressionAdjustedRatioStatistic,
     RatioStatistic,
     ScaledImpactStatistic,
     SummableStatistic,
     TestStatistic,
     compute_theta,
+    compute_theta_prod,
     compute_theta_regression_adjusted_ratio,
 )
 from gbstats.models.settings import DifferenceType
@@ -203,6 +205,19 @@ class EffectMoments:
             and (self.stat_a.theta is None or self.stat_b.theta is None)
         ):
             theta = compute_theta(self.stat_a, self.stat_b)
+            if theta == 0:
+                # revert to non-RA under the hood if no variance in a time period
+                self.stat_a = self.stat_a.post_statistic
+                self.stat_b = self.stat_b.post_statistic
+            else:
+                self.stat_a.theta = theta
+                self.stat_b.theta = theta
+        if (
+            isinstance(self.stat_b, RegressionAdjustedStatisticProd)
+            and isinstance(self.stat_a, RegressionAdjustedStatisticProd)
+            and (self.stat_a.theta is None or self.stat_b.theta is None)
+        ):
+            theta = compute_theta_prod(self.stat_a, self.stat_b)
             if theta == 0:
                 # revert to non-RA under the hood if no variance in a time period
                 self.stat_a = self.stat_a.post_statistic

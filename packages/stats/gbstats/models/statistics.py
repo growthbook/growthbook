@@ -134,6 +134,66 @@ class RatioStatistic(Statistic):
         )
 
 
+
+@dataclass
+class RegressionAdjustedStatisticProd(Statistic):
+    post_statistic: Union[SampleMeanStatistic, ProportionStatistic]
+    pre_statistic: Union[SampleMeanStatistic, ProportionStatistic]
+    post_pre_sum_of_products: float
+    theta: Optional[float]
+
+    def __add__(self, other):
+        if not isinstance(other, RegressionAdjustedStatisticProd):
+            raise TypeError("Can add only another RegressionAdjustedStatistic instance")
+        return RegressionAdjustedStatisticProd(
+            n=self.n + other.n,
+            post_statistic=self.post_statistic + other.post_statistic,
+            pre_statistic=self.pre_statistic + other.pre_statistic,
+            post_pre_sum_of_products=self.post_pre_sum_of_products
+            + other.post_pre_sum_of_products,
+            theta=None,
+        )
+
+    @property
+    def mean(self) -> float:
+        theta = self.theta if self.theta else 0
+        return self.post_statistic.mean - theta * self.pre_statistic.mean
+
+    @property
+    def sum(self) -> None:
+        raise NotImplementedError(
+            "Regression Adjusted Statistic does not have a unique `sum` property"
+        )
+
+    @property
+    def unadjusted_mean(self) -> float:
+        return self.post_statistic.mean
+
+    @property
+    def unadjusted_variances(self) -> float:
+        return self.post_statistic.variance
+
+    @property
+    def variance(self) -> float:
+        if self.n <= 1:
+            return 0
+        theta = self.theta if self.theta else 0
+        return (
+            self.post_statistic.variance
+            + pow(theta, 2) * self.pre_statistic.variance
+            - 2 * theta * self.covariance
+        )
+
+    @property
+    def covariance(self) -> float:
+        if self.n <= 1:
+            return 0
+        return (
+            self.post_pre_sum_of_products
+            - self.post_statistic.sum * self.pre_statistic.sum / self.n
+        ) / (self.n - 1)
+
+
 @dataclass
 class RegressionAdjustedStatistic(Statistic):
     post_statistic: Union[SampleMeanStatistic, ProportionStatistic]
@@ -215,6 +275,30 @@ def compute_covariance(
         return sum_of_products / n - stat_a.sum * stat_b.sum / n**2
     else:
         return (sum_of_products - stat_a.sum * stat_b.sum / n) / (n - 1)
+
+
+def compute_theta_prod(
+    a: RegressionAdjustedStatisticProd, b: RegressionAdjustedStatisticProd
+) -> float:
+    n = a.n + b.n
+    joint_post_statistic = create_joint_statistic(
+        a=a.post_statistic, b=b.post_statistic, n=n
+    )
+    joint_pre_statistic = create_joint_statistic(
+        a=a.pre_statistic, b=b.pre_statistic, n=n
+    )
+    if joint_pre_statistic.variance == 0 or joint_post_statistic.variance == 0:
+        return 0
+
+    joint = RegressionAdjustedStatisticProd(
+        n=n,
+        post_statistic=joint_post_statistic,
+        pre_statistic=joint_pre_statistic,
+        post_pre_sum_of_products=a.post_pre_sum_of_products
+        + b.post_pre_sum_of_products,
+        theta=0,
+    )
+    return joint.covariance / joint.pre_statistic.variance
 
 
 def compute_theta(
