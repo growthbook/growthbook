@@ -91,11 +91,12 @@ class PythonStatsServer<Input, Output> {
     });
 
     this.python.stderr?.on("data", (data) => {
-      logger.error(
-        `Python stats server (pid: ${
-          this.pid
-        }) stderr: ${data.toString().trim()}`
-      );
+      const err = data.toString().trim();
+      // Ignore OpenTelemetry warnings from ddtrace-run
+      // They are just informational and there's no easy way to disable them
+      if (err.match(/OTEL_/)) return;
+
+      logger.error(`Python stats server (pid: ${this.pid}) stderr: ${err}`);
     });
 
     // When the process dies
