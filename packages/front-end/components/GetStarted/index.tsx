@@ -277,7 +277,7 @@ const GetStartedAndHomePage = (): React.ReactElement => {
                         weight="medium"
                         style={{ color: "var(--color-text-mid)" }}
                       >
-                        Explore Advanced Features
+                        EXPLORE ADVANCED FEATURES
                       </Text>
                     </Box>
                     <Flex direction={{ initial: "column", sm: "row" }} gap="4">
