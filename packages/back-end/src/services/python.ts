@@ -6,6 +6,7 @@ import { createPool } from "generic-pool";
 import { MultipleExperimentMetricAnalysis } from "back-end/types/stats";
 import { logger } from "back-end/src/util/logger";
 import { ExperimentDataForStatsEngine } from "back-end/src/services/stats";
+import { ENVIRONMENT } from "back-end/src/util/secrets";
 
 type PythonServerResponse<T> = {
   id: string;
@@ -100,9 +101,13 @@ class PythonStatsServer<Input, Output> {
 
     this.python.stderr?.on("data", (data) => {
       const err = data.toString().trim();
-      // Ignore OpenTelemetry warnings from ddtrace-run
-      // They are just informational and there's no easy way to disable them
-      if (err.match(/OTEL_/)) return;
+      // Ignore some common warnings in production
+      if (ENVIRONMENT === "production") {
+        // Pandas performance warnings
+        if (err.match(/PerformanceWarning/)) return;
+        // OpenTelemetry warnings from ddtrace
+        if (err.match(/OTEL_/)) return;
+      }
 
       logger.error(`Python stats server (pid: ${this.pid}) stderr: ${err}`);
     });
