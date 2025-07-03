@@ -13,7 +13,6 @@ export default function DimensionBlock({
   block,
   setBlock,
 }: BlockProps<DimensionBlockInterface>) {
-  console.log("Block snapshot id is", block.snapshotId);
   const { metricIds, experimentId, baselineRow } = block;
   const { experimentsMap } = useExperiments();
   const experiment = experimentsMap.get(experimentId);

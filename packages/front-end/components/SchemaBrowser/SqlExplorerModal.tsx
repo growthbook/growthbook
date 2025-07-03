@@ -205,7 +205,6 @@ export default function SqlExplorerModal({
 
     // If it's a new query (no savedQuery.id), always save
     if (!id) {
-      console.log("Going to run new query apiCall");
       const body = JSON.stringify({
         name: currentName,
         sql: form.watch("sql"),
@@ -214,7 +213,6 @@ export default function SqlExplorerModal({
         results: form.watch("results"),
         dataVizConfig,
       });
-      console.log("Body is", body);
       try {
         await apiCall("/saved-queries", {
           method: "POST",
