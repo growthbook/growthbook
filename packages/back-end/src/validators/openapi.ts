@@ -116,6 +116,12 @@ export const toggleFeatureValidator = {
   paramsSchema: z.object({ "id": z.string() }).strict(),
 };
 
+export const revertFeatureValidator = {
+  bodySchema: z.object({ "revision": z.number(), "comment": z.string().optional() }).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
 export const getFeatureKeysValidator = {
   bodySchema: z.never(),
   querySchema: z.object({ "projectId": z.string().optional() }).strict(),
