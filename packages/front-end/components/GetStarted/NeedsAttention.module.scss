@@ -1,0 +1,40 @@
+.nameTd {
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+  min-width: 300px;
+  max-width: 300px;
+  width: 300px;
+  @media (max-width: 1300px) {
+    min-width: auto;
+    max-width: 200px;
+    width: 200px;
+  }
+  a {
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+    display: block;
+    width: 100%;
+  }
+}
+
+.ownerTd {
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+  min-width: 200px;
+  max-width: 200px;
+  width: 200px;
+  @media (max-width: 1300px) {
+    min-width: auto;
+    max-width: 150px;
+    width: 150px;
+  }
+}
+
+// Add table layout fix
+.needs-attentions-table {
+  table-layout: fixed;
+  width: 100%;
+}
