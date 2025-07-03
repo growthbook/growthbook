@@ -13,7 +13,7 @@ import { BlockProps } from ".";
 export default function MetricBlock({
   block,
 }: BlockProps<MetricBlockInterface>) {
-  const { metricIds, experimentId } = block;
+  const { metricIds, experimentId, baselineRow, columnsFilter } = block;
   const { experimentsMap } = useExperiments();
   const experiment = experimentsMap.get(experimentId);
 
@@ -94,6 +94,8 @@ export default function MetricBlock({
           key={resultGroup}
           id={experiment.id}
           variations={variations}
+          baselineRow={baselineRow}
+          columnsFilter={columnsFilter}
           status={experiment.status}
           isLatestPhase={true}
           startDate={latestPhase?.dateStarted || ""}

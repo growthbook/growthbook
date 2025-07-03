@@ -3589,6 +3589,12 @@ input:disabled {
   pointer-events: none;
 }
 
+.odd-children-flex-grow {
+  :nth-child(odd) {
+    flex-grow: 1;
+  }
+}
+
 // For absolute or fixed containers that should position themselves after the sidebar
 .sidebarLeft {
   left: variables.$sidebarwidth;

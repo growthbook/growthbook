@@ -8,7 +8,7 @@ const baseBlockInterface = z
     uid: z.string(),
     type: z.string(),
     title: z.string(),
-    description: z.string().optional(),
+    description: z.string(),
     snapshotId: z.string().optional(),
   })
   .strict();
@@ -62,6 +62,16 @@ const metricBlockInterface = baseBlockInterface
     variationIds: z.array(z.string()).optional(),
     baselineRow: z.number().optional(),
     differenceType: z.enum(["absolute", "relative", "scaled"]),
+    columnsFilter: z.array(
+      z.enum([
+        "Variation Names",
+        "Baseline Average",
+        "Variation Averages",
+        "Chance to Win",
+        "CI Graph",
+        "Lift",
+      ])
+    ),
     snapshotId: z.string(),
   })
   .strict();
@@ -78,6 +88,16 @@ const dimensionBlockInterface = baseBlockInterface
     variationIds: z.array(z.string()).optional(),
     baselineRow: z.number(),
     differenceType: z.enum(["absolute", "relative", "scaled"]),
+    columnsFilter: z.array(
+      z.enum([
+        "Variation Names",
+        "Baseline Average",
+        "Variation Averages",
+        "Chance to Win",
+        "CI Graph",
+        "Lift",
+      ])
+    ),
     snapshotId: z.string(),
   })
   .strict();

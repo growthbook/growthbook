@@ -67,3 +67,7 @@ export function ensureAndReturn<T>(x: T): NonNullable<T> {
 export type DistributiveOmit<T, K extends PropertyKey> = T extends any
   ? Omit<T, K>
   : never;
+
+export function isStringArray(data: unknown): data is Array<string> {
+  return Array.isArray(data) && !data.find((el) => typeof el !== "string");
+}

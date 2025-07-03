@@ -61,6 +61,7 @@ const metricBlockSchema = new mongoose.Schema({
   variationIds: [String],
   baselineRow: Number,
   differenceType: String,
+  columnsFilter: [String],
 });
 
 const dimensionBlockSchema = new mongoose.Schema({
@@ -71,6 +72,7 @@ const dimensionBlockSchema = new mongoose.Schema({
   variationIds: [String],
   baselineRow: Number,
   differenceType: String,
+  columnsFilter: [String],
 });
 
 const timeSeriesBlockSchema = new mongoose.Schema({

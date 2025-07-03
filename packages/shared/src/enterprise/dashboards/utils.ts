@@ -11,7 +11,6 @@ import {
   SqlExplorerBlockInterface,
   TrafficGraphBlockInterface,
   TrafficTableBlockInterface,
-  DashboardBlockWithSnapshot,
 } from "back-end/src/enterprise/validators/dashboard-block";
 import {
   ExperimentSnapshotAnalysisSettings,
@@ -91,51 +90,26 @@ export function isPersistedDashboardBlock(
   return !!(block.id && block.uid && block.organization);
 }
 
-export function isDashboardBlockWithSnapshot(
-  data: DashboardBlockData<DashboardBlockInterface>
-): data is DashboardBlockData<DashboardBlockWithSnapshot> {
-  const block = data as DashboardBlockData<DashboardBlockWithSnapshot>;
-  return typeof block.snapshotId === "string";
+export function isDifferenceType(
+  value: unknown
+): value is DimensionBlockInterface["differenceType"] {
+  return ["absolute", "relative", "scaled"].includes(value as string);
 }
 
-export function isDashboardBlockWithMetricIds(
-  data: DashboardBlockData<DashboardBlockInterface>
+export function blockHasFieldOfType<Field extends string, T>(
+  data: DashboardBlockData<DashboardBlockInterface>,
+  field: Field,
+  typeCheck: (val: unknown) => val is T
 ): data is Extract<
   DashboardBlockData<DashboardBlockInterface>,
-  { metricIds: string[] }
+  { [K in Field]: T }
 > {
-  const block = data as { metricIds: string[] };
-  return Array.isArray(block.metricIds);
-}
-
-export function isDashboardBlockWithDimensionIds(
-  data: DashboardBlockData<DashboardBlockInterface>
-): data is Extract<
-  DashboardBlockData<DashboardBlockInterface>,
-  { dimensionIds: string[] }
-> {
-  const block = data as { dimensionIds: string[] };
-  return Array.isArray(block.dimensionIds);
-}
-
-export function isDashboardBlockWithBaselineRow(
-  data: DashboardBlockData<DashboardBlockInterface>
-): data is Extract<
-  DashboardBlockData<DashboardBlockInterface>,
-  { baselineRow: number }
-> {
-  const block = data as { baselineRow: number };
-  return typeof block.baselineRow === "number";
-}
-
-export function isDashboardBlockWithDifferenceType(
-  data: DashboardBlockData<DashboardBlockInterface>
-): data is Extract<
-  DashboardBlockData<DashboardBlockInterface>,
-  { differenceType: string }
-> {
-  const block = data as { differenceType: string };
-  return typeof block.differenceType === "string";
+  return (
+    typeof data === "object" &&
+    data !== null &&
+    field in data &&
+    typeCheck((data as { [K in Field]: T })[field])
+  );
 }
 
 export function getBlockSnapshotSettings(

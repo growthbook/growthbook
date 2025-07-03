@@ -8,19 +8,17 @@ import React, { useEffect, useMemo, useState } from "react";
 import clsx from "clsx";
 import { useForm } from "react-hook-form";
 import {
-  isDashboardBlockWithBaselineRow,
-  isDashboardBlockWithDifferenceType,
-  isDashboardBlockWithDimensionIds,
-  isDashboardBlockWithMetricIds,
+  blockHasFieldOfType,
+  isDifferenceType,
   isSqlExplorerBlock,
 } from "shared/enterprise";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { isDefined } from "shared/util";
 import { SavedQuery } from "back-end/src/validators/saved-queries";
 import { PiPencil, PiPlus } from "react-icons/pi";
+import { isStringArray } from "back-end/src/util/types";
 import { useSidebarOpen } from "@/components/Layout/SidebarOpenProvider";
 import Button from "@/components/Radix/Button";
-import Field from "@/components/Forms/Field";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
@@ -28,6 +26,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import useApi from "@/hooks/useApi";
 import Callout from "@/components/Radix/Callout";
 import SqlExplorerModal from "@/components/SchemaBrowser/SqlExplorerModal";
+import { RESULTS_TABLE_COLUMNS } from "@/components/Experiment/ResultsTable";
 import { BLOCK_TYPE_INFO } from ".";
 
 interface Props {
@@ -106,7 +105,7 @@ export default function DashboardBlockEditDrawer({
         position: "fixed",
         bottom: 0,
         right: 0,
-        height: open ? "330px" : "0px",
+        height: open ? "250px" : "0px",
         background: "white",
         zIndex: 9001,
       }}
@@ -121,11 +120,11 @@ export default function DashboardBlockEditDrawer({
         />
       )}
       {block && (
-        <Flex direction="column" py="6" px="7" gap="2">
+        <Flex direction="column" py="5" px="6" gap="2">
           <Flex justify="between" align="center">
             <span>
               <Text weight="light">{BLOCK_TYPE_INFO[block.type].name}</Text>
-              <Text weight="medium"> / {block.title}</Text>
+              {block.title && <Text weight="medium"> / {block.title}</Text>}
             </span>
             <Flex gap="4">
               <Button
@@ -134,6 +133,7 @@ export default function DashboardBlockEditDrawer({
                   form.reset({});
                   close();
                 }}
+                size="xs"
               >
                 Cancel
               </Button>
@@ -142,50 +142,54 @@ export default function DashboardBlockEditDrawer({
                   setBlock(form.getValues());
                   close();
                 }}
+                size="xs"
               >
                 Save & Close
               </Button>
             </Flex>
           </Flex>
-          <Text>
-            Block will update with real-time results when global “Update” button
-            is clicked.
-          </Text>
-          <Flex wrap="wrap" gap="4">
-            <Field
-              label="Block Title"
-              labelClassName="font-weight-bold"
-              containerClassName="mb-0"
-              containerStyle={{ flexBasis: "30%" }}
-              {...form.register("title")}
-            />
-            <Field
-              label="Description"
-              labelClassName="font-weight-bold"
-              containerClassName="mb-0"
-              containerStyle={{ flexBasis: "60%" }}
-              {...form.register("description")}
-              textarea
-              minRows={1}
-              maxRows={1}
-            />
-            {isDashboardBlockWithMetricIds(block) && (
+          <Flex className="odd-children-flex-grow" wrap="wrap" gap="4">
+            {blockHasFieldOfType(block, "metricIds", isStringArray) && (
               <MultiSelectField
                 label="Metrics"
                 labelClassName="font-weight-bold"
                 value={form.watch("metricIds") || []}
-                containerStyle={{ flexBasis: "30%" }}
+                containerStyle={{ flexBasis: "40%" }}
                 containerClassName="mb-0"
                 onChange={(value) => form.setValue("metricIds", value)}
                 options={metricOptions}
               />
             )}
-            {isDashboardBlockWithDimensionIds(block) && <></>}
-            {isDashboardBlockWithBaselineRow(block) && (
+            {blockHasFieldOfType(block, "columnsFilter", isStringArray) && (
+              <MultiSelectField
+                label="Display Columns"
+                labelClassName="font-weight-bold"
+                placeholder="Show all"
+                value={form.watch("columnsFilter") || []}
+                containerStyle={{ flexBasis: "40%" }}
+                containerClassName="mb-0"
+                onChange={(value) =>
+                  form.setValue(
+                    "columnsFilter",
+                    value as Array<typeof RESULTS_TABLE_COLUMNS[number]>
+                  )
+                }
+                options={RESULTS_TABLE_COLUMNS.map((colName) => ({
+                  label: colName,
+                  value: colName,
+                }))}
+              />
+            )}
+            {blockHasFieldOfType(block, "dimensionIds", isStringArray) && <></>}
+            {blockHasFieldOfType(
+              block,
+              "baselineRow",
+              (val: unknown) => typeof val === "number"
+            ) && (
               <SelectField
                 label="Baseline Variation"
                 labelClassName="font-weight-bold"
-                containerStyle={{ flexBasis: "30%" }}
+                containerStyle={{ flexBasis: "40%" }}
                 containerClassName="mb-0"
                 value={(form.watch("baselineRow") || 0).toString()}
                 onChange={(value) =>
@@ -197,11 +201,11 @@ export default function DashboardBlockEditDrawer({
                 }))}
               />
             )}
-            {isDashboardBlockWithDifferenceType(block) && (
+            {blockHasFieldOfType(block, "differenceType", isDifferenceType) && (
               <SelectField
                 label="Difference Type"
                 labelClassName="font-weight-bold"
-                containerStyle={{ flexBasis: "30%" }}
+                containerStyle={{ flexBasis: "40%" }}
                 containerClassName="mb-0"
                 value={form.watch("differenceType") || ""}
                 onChange={(value) =>

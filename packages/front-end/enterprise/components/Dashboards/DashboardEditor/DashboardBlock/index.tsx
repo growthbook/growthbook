@@ -15,6 +15,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/Radix/DropdownMenu";
+import Field from "@/components/Forms/Field";
 import MarkdownBlock from "./MarkdownBlock";
 import DescriptionBlock from "./DescriptionBlock";
 import MetricBlock from "./MetricBlock";
@@ -40,6 +41,13 @@ interface Props {
   isEditing: boolean;
   editingBlock: boolean;
   disableBlock: boolean;
+  setBlock: ({
+    title,
+    description,
+  }: {
+    title: string;
+    description: string;
+  }) => void;
   editBlock: () => void;
   duplicateBlock: () => void;
   deleteBlock: () => void;
@@ -69,6 +77,7 @@ export default function DashboardBlock({
   isEditing,
   editingBlock,
   disableBlock,
+  setBlock,
   editBlock,
   duplicateBlock,
   deleteBlock,
@@ -88,12 +97,11 @@ export default function DashboardBlock({
   return (
     <Flex
       ref={scrollRef}
-      className={clsx("appbox p-4 position-relative", {
+      className={clsx("appbox px-4 py-3 position-relative", {
         "border-violet": editingBlock,
         "dashboard-disabled": disableBlock,
       })}
       direction="column"
-      gap="2"
     >
       {isEditing && (
         <DropdownMenu
@@ -104,7 +112,7 @@ export default function DashboardBlock({
             <IconButton
               className="position-absolute"
               style={{
-                top: 28,
+                top: 20,
                 left: 6,
               }}
               variant="ghost"
@@ -136,11 +144,27 @@ export default function DashboardBlock({
         </DropdownMenu>
       )}
       <Flex align="center" justify="between">
-        <h4 style={{ margin: 0 }}>{block.title}</h4>
+        {isEditing ? (
+          <Field
+            placeholder="Block Title"
+            value={block.title}
+            onChange={(e) =>
+              setBlock({
+                title: e.target.value,
+                description: block.description,
+              })
+            }
+          />
+        ) : (
+          <h4 style={{ margin: 0 }}>{block.title}</h4>
+        )}
+
         {isEditing && (
           <div>
             {editingBlock ? (
-              <Text color="gray">Editing</Text>
+              <Text size="1" color="gray">
+                Editing
+              </Text>
             ) : (
               <DropdownMenu
                 open={editOpen}
@@ -187,7 +211,20 @@ export default function DashboardBlock({
           </div>
         )}
       </Flex>
-      {block.description && <Text>{block.description}</Text>}
+      {isEditing ? (
+        <Field
+          placeholder="Add a description"
+          value={block.description}
+          onChange={(e) =>
+            setBlock({
+              title: block.title,
+              description: e.target.value,
+            })
+          }
+        />
+      ) : (
+        <Text>{block.description}</Text>
+      )}
 
       <BlockComponent
         block={block}

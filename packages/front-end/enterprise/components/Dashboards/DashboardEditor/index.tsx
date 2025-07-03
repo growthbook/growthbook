@@ -32,13 +32,19 @@ export const BLOCK_TYPE_INFO: Record<
 > = {
   markdown: {
     name: "Custom Markdown",
-    createDefaultBlock: () => ({ type: "markdown", title: "", content: "" }),
+    createDefaultBlock: () => ({
+      type: "markdown",
+      title: "",
+      description: "",
+      content: "",
+    }),
   },
   "metadata-description": {
     name: "Description",
     createDefaultBlock: ({ experiment }) => ({
       type: "metadata-description",
-      title: "Description",
+      title: "",
+      description: "",
       experimentId: experiment.id,
     }),
   },
@@ -46,7 +52,8 @@ export const BLOCK_TYPE_INFO: Record<
     name: "Hypothesis",
     createDefaultBlock: ({ experiment }) => ({
       type: "metadata-hypothesis",
-      title: "Hypothesis",
+      title: "",
+      description: "",
       experimentId: experiment.id,
     }),
   },
@@ -54,7 +61,8 @@ export const BLOCK_TYPE_INFO: Record<
     name: "Variations / Screenshots",
     createDefaultBlock: ({ experiment }) => ({
       type: "variation-image",
-      title: "Variations",
+      title: "",
+      description: "",
       variationIds: [],
       experimentId: experiment.id,
     }),
@@ -63,32 +71,37 @@ export const BLOCK_TYPE_INFO: Record<
     name: "Metric Results",
     createDefaultBlock: ({ experiment }) => ({
       type: "metric",
-      title: "Overall Results",
+      title: "",
+      description: "",
       experimentId: experiment.id,
       metricIds: experiment.goalMetrics,
       snapshotId: experiment.analysisSummary?.snapshotId || "",
       differenceType: "relative",
       baselineRow: 0,
+      columnsFilter: [],
     }),
   },
   dimension: {
     name: "Dimension Results",
     createDefaultBlock: ({ experiment }) => ({
       type: "dimension",
-      title: "Dimension Results",
+      title: "",
+      description: "",
       experimentId: experiment.id,
       metricIds: experiment.goalMetrics,
       dimensionIds: [],
       snapshotId: experiment.analysisSummary?.snapshotId || "",
       differenceType: "relative",
       baselineRow: 0,
+      columnsFilter: [],
     }),
   },
   "time-series": {
     name: "Time Series",
     createDefaultBlock: ({ experiment }) => ({
       type: "time-series",
-      title: "Time Series",
+      title: "",
+      description: "",
       experimentId: experiment.id,
       metricId: "",
       snapshotId: experiment.analysisSummary?.snapshotId || "",
@@ -98,7 +111,8 @@ export const BLOCK_TYPE_INFO: Record<
     name: "Traffic over Time",
     createDefaultBlock: ({ experiment }) => ({
       type: "traffic-graph",
-      title: "Traffic over Time",
+      title: "",
+      description: "",
       experimentId: experiment.id,
     }),
   },
@@ -106,7 +120,8 @@ export const BLOCK_TYPE_INFO: Record<
     name: "Traffic",
     createDefaultBlock: ({ experiment }) => ({
       type: "traffic-table",
-      title: "Total Traffic",
+      title: "",
+      description: "",
       experimentId: experiment.id,
     }),
   },
@@ -114,7 +129,8 @@ export const BLOCK_TYPE_INFO: Record<
     name: "SQL Explorer",
     createDefaultBlock: () => ({
       type: "sql-explorer",
-      title: "Custom Query",
+      title: "",
+      description: "",
       dataVizConfigIndex: 0,
     }),
   },
@@ -274,7 +290,6 @@ export default function DashboardEditor({
 
         <div className="">
           {blocks.map((block, i) => (
-            // TODO: the key being index causes issues with not re-rendering on deletion
             <Flex direction="column" key={i}>
               <DashboardBlock
                 block={block}
@@ -282,6 +297,13 @@ export default function DashboardEditor({
                 isEditing={isEditing}
                 editingBlock={editingBlock === i}
                 disableBlock={(editingBlock ?? i) !== i}
+                setBlock={({ title, description }) => {
+                  setBlocks([
+                    ...blocks.slice(0, i),
+                    { ...block, title, description },
+                    ...blocks.slice(i + 1),
+                  ]);
+                }}
                 editBlock={() => {
                   setEditingBlock(i);
                 }}

@@ -12,7 +12,7 @@ import { BlockProps } from ".";
 export default function DimensionBlock({
   block,
 }: BlockProps<DimensionBlockInterface>) {
-  const { metricIds, experimentId } = block;
+  const { metricIds, experimentId, baselineRow } = block;
   const { experimentsMap } = useExperiments();
   const experiment = experimentsMap.get(experimentId);
 
@@ -93,6 +93,7 @@ export default function DimensionBlock({
           key={resultGroup}
           id={experiment.id}
           variations={variations}
+          baselineRow={baselineRow}
           status={experiment.status}
           isLatestPhase={true}
           startDate={latestPhase?.dateStarted || ""}

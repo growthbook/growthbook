@@ -12,8 +12,8 @@ import {
   DashboardBlockInterface,
 } from "back-end/src/enterprise/validators/dashboard-block";
 import {
+  blockHasFieldOfType,
   getBlockAnalysisSettings,
-  isDashboardBlockWithSnapshot,
 } from "shared/enterprise";
 import { getSnapshotAnalysis } from "shared/util";
 import useApi from "@/hooks/useApi";
@@ -38,7 +38,7 @@ export default function DashboardSnapshotProvider({
   const {
     data: snapshotData,
     error: snapshotError,
-    isValidating: snapshotIsValidating,
+    isLoading,
     mutate: snapshotMutate,
   } = useApi<{
     snapshot: ExperimentSnapshotInterface;
@@ -56,7 +56,7 @@ export default function DashboardSnapshotProvider({
           snapshotMutate();
         },
         error: snapshotError,
-        loading: snapshotIsValidating,
+        loading: isLoading,
       }}
     >
       {children}
@@ -76,7 +76,11 @@ export function useDashboardSnapshot(
   const { apiCall } = useAuth();
   const [postSnapshotLoading, setPostSnapshotLoading] = useState(false);
 
-  const blockSnapshotId = isDashboardBlockWithSnapshot(block)
+  const blockSnapshotId = blockHasFieldOfType(
+    block,
+    "snapshotId",
+    (val: unknown) => typeof val === "string"
+  )
     ? block.snapshotId
     : "";
 
@@ -84,7 +88,7 @@ export function useDashboardSnapshot(
 
   const {
     data: blockSnapshotData,
-    isValidating: snapshotLoading,
+    isLoading: snapshotLoading,
     error: snapshotError,
     mutate,
   } = useApi<{
