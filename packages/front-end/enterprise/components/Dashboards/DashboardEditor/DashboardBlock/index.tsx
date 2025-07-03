@@ -16,6 +16,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/Radix/DropdownMenu";
 import Field from "@/components/Forms/Field";
+import { BLOCK_TYPE_INFO } from "..";
 import MarkdownBlock from "./MarkdownBlock";
 import DescriptionBlock from "./DescriptionBlock";
 import MetricBlock from "./MetricBlock";
@@ -42,13 +43,7 @@ interface Props {
   isEditing: boolean;
   editingBlock: boolean;
   disableBlock: boolean;
-  setBlock: ({
-    title,
-    description,
-  }: {
-    title: string;
-    description: string;
-  }) => void;
+  setBlock: React.Dispatch<DashboardBlockData<DashboardBlockInterface>>;
   editBlock: () => void;
   duplicateBlock: () => void;
   deleteBlock: () => void;
@@ -147,12 +142,12 @@ export default function DashboardBlock({
       <Flex align="center" justify="between">
         {isEditing ? (
           <Field
-            placeholder="Block Title"
+            placeholder={BLOCK_TYPE_INFO[block.type].name}
             value={block.title}
             onChange={(e) =>
               setBlock({
+                ...block,
                 title: e.target.value,
-                description: block.description,
               })
             }
           />
@@ -218,7 +213,7 @@ export default function DashboardBlock({
           value={block.description}
           onChange={(e) =>
             setBlock({
-              title: block.title,
+              ...block,
               description: e.target.value,
             })
           }

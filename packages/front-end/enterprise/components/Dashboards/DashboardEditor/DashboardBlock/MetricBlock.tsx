@@ -12,6 +12,7 @@ import { BlockProps } from ".";
 
 export default function MetricBlock({
   block,
+  setBlock,
 }: BlockProps<MetricBlockInterface>) {
   const { metricIds, experimentId, baselineRow, columnsFilter } = block;
   const { experimentsMap } = useExperiments();
@@ -23,7 +24,7 @@ export default function MetricBlock({
     analysis,
     analysisSettings,
     loading,
-  } = useDashboardSnapshot(block);
+  } = useDashboardSnapshot(block, setBlock);
   const orgSettings = useOrgSettings();
   const pValueCorrection = orgSettings?.pValueCorrection;
 

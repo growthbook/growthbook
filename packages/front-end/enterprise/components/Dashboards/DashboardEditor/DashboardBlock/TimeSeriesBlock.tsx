@@ -10,11 +10,12 @@ import { BlockProps } from ".";
 
 export default function TimeSeriesBlock({
   block,
+  setBlock,
 }: BlockProps<TimeSeriesBlockInterface>) {
   const { experimentId, metricId, variationIds, dateStart } = block;
   const { experimentsMap } = useExperiments();
   const experiment = experimentsMap.get(experimentId);
-  const { snapshot, analysisSettings } = useDashboardSnapshot(block);
+  const { snapshot, analysisSettings } = useDashboardSnapshot(block, setBlock);
   const orgSettings = useOrgSettings();
   const pValueCorrection = orgSettings?.pValueCorrection;
   const { getExperimentMetricById } = useDefinitions();

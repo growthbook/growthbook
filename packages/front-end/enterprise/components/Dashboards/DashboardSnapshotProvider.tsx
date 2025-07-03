@@ -14,12 +14,15 @@ import {
 import {
   blockHasFieldOfType,
   getBlockAnalysisSettings,
+  getBlockSnapshotSettings,
 } from "shared/enterprise";
 import { getSnapshotAnalysis } from "shared/util";
+import { isEqual } from "lodash";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 
 const DashboardSnapshotContext = React.createContext<{
+  experiment?: ExperimentInterfaceStringDates;
   defaultSnapshot?: ExperimentSnapshotInterface;
   mutateSnapshot: () => Promise<unknown>;
   loading?: boolean;
@@ -51,6 +54,7 @@ export default function DashboardSnapshotProvider({
   return (
     <DashboardSnapshotContext.Provider
       value={{
+        experiment,
         defaultSnapshot: snapshotData?.snapshot,
         mutateSnapshot: async () => {
           snapshotMutate();
@@ -65,15 +69,21 @@ export default function DashboardSnapshotProvider({
 }
 
 export function useDashboardSnapshot(
-  block: DashboardBlockData<DashboardBlockInterface>
+  block: DashboardBlockData<DashboardBlockInterface>,
+  setBlock: React.Dispatch<DashboardBlockData<DashboardBlockInterface>>
 ) {
   const {
+    experiment,
     defaultSnapshot,
     loading: defaultLoading,
     error: defaultError,
     mutateSnapshot: mutateDefault,
   } = useContext(DashboardSnapshotContext);
   const { apiCall } = useAuth();
+  const [
+    postSnapshotAnalysisLoading,
+    setPostSnapshotAnalysisLoading,
+  ] = useState(false);
   const [postSnapshotLoading, setPostSnapshotLoading] = useState(false);
 
   const blockSnapshotId = blockHasFieldOfType(
@@ -101,6 +111,7 @@ export function useDashboardSnapshot(
   const getSnapshotLoading = shouldRun() ? snapshotLoading : defaultLoading;
   const error = shouldRun() ? snapshotError : defaultError;
   const mutateSnapshot = shouldRun() ? mutate : mutateDefault;
+
   const blockAnalysisSettings = useMemo(() => {
     if (!snapshot) return undefined;
     const defaultAnalysis = getSnapshotAnalysis(snapshot);
@@ -108,36 +119,92 @@ export function useDashboardSnapshot(
     return getBlockAnalysisSettings(block, defaultAnalysis.settings);
   }, [snapshot, block]);
 
-  console.log("Block settings are", blockAnalysisSettings);
+  // Check that the current snapshot is sufficient for the block
+  let snapshotSettingsMatch = true;
+  if (snapshot) {
+    const blockSettings = {
+      ...snapshot.settings,
+      ...getBlockSnapshotSettings(block),
+    };
+    snapshotSettingsMatch = isEqual(blockSettings, snapshot.settings);
+  }
 
   const analysis = useMemo(() => {
     if (!snapshot || !blockAnalysisSettings) return undefined;
     return getSnapshotAnalysis(snapshot, blockAnalysisSettings);
   }, [blockAnalysisSettings, snapshot]);
 
-  console.log("Got analysis?", !!analysis);
-
+  // If the current snapshot is incorrect, e.g. a dimension mismatch, post to create a new snapshot
   useEffect(() => {
-    if (!snapshot || !blockAnalysisSettings) return;
-    if (!analysis && !snapshotLoading) {
-      const updateAnalysis = async () => {
-        setPostSnapshotLoading(true);
-        console.log("Going to update analysis", blockAnalysisSettings);
-        await apiCall(`/snapshot/${snapshot.id}/analysis`, {
+    if (
+      !experiment ||
+      !snapshot ||
+      snapshotSettingsMatch ||
+      postSnapshotLoading
+    )
+      return;
+    const createSnapshot = async () => {
+      const dimension = blockHasFieldOfType(
+        block,
+        "dimensionId",
+        (val: unknown) => typeof val === "string"
+      )
+        ? block.dimensionId
+        : undefined;
+      setPostSnapshotLoading(true);
+      const res = await apiCall<{ snapshot: ExperimentSnapshotInterface }>(
+        `/experiment/${experiment.id}/snapshot/`,
+        {
           method: "POST",
           body: JSON.stringify({
-            analysisSettings: blockAnalysisSettings,
+            phase: snapshot.phase,
+            dimension,
           }),
-        });
-        mutateSnapshot();
-        setPostSnapshotLoading(false);
-      };
-      updateAnalysis();
-    }
+        }
+      );
+      setBlock({ ...block, snapshotId: res.snapshot.id });
+      mutateSnapshot();
+      setPostSnapshotLoading(false);
+    };
+    createSnapshot();
+  }, [
+    experiment,
+    snapshot,
+    snapshotSettingsMatch,
+    postSnapshotLoading,
+    apiCall,
+    block,
+    setBlock,
+    mutateSnapshot,
+  ]);
+
+  // If unable to get the necessary analysis on the current snapshot, post the updated settings
+  useEffect(() => {
+    if (
+      !snapshot ||
+      !blockAnalysisSettings ||
+      !snapshotSettingsMatch ||
+      analysis ||
+      snapshotLoading
+    )
+      return;
+    const updateAnalysis = async () => {
+      setPostSnapshotAnalysisLoading(true);
+      await apiCall(`/snapshot/${snapshot.id}/analysis`, {
+        method: "POST",
+        body: JSON.stringify({
+          analysisSettings: blockAnalysisSettings,
+        }),
+      });
+      mutateSnapshot();
+      setPostSnapshotAnalysisLoading(false);
+    };
+    updateAnalysis();
   }, [
     analysis,
     apiCall,
     blockAnalysisSettings,
+    snapshotSettingsMatch,
     snapshot,
     snapshotLoading,
     mutateSnapshot,
@@ -147,7 +214,8 @@ export function useDashboardSnapshot(
     snapshot,
     analysis,
     analysisSettings: analysis?.settings,
-    loading: postSnapshotLoading || getSnapshotLoading,
+    loading: postSnapshotAnalysisLoading || getSnapshotLoading,
+    pendingResults: snapshot?.status === "running",
     error,
     mutateSnapshot,
   };

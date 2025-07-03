@@ -7,11 +7,12 @@ import { BlockProps } from ".";
 
 export default function TrafficTableBlock({
   block,
+  setBlock,
 }: BlockProps<TrafficTableBlockInterface>) {
   const { experimentId } = block;
   const { experimentsMap } = useExperiments();
   const experiment = experimentsMap.get(experimentId);
-  const { analysis } = useDashboardSnapshot(block);
+  const { analysis } = useDashboardSnapshot(block, setBlock);
   const results = useMemo(() => analysis?.results[0], [analysis]);
 
   const [_totalUsers, variationUsers] = useMemo(() => {

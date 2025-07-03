@@ -27,6 +27,7 @@ import useApi from "@/hooks/useApi";
 import Callout from "@/components/Radix/Callout";
 import SqlExplorerModal from "@/components/SchemaBrowser/SqlExplorerModal";
 import { RESULTS_TABLE_COLUMNS } from "@/components/Experiment/ResultsTable";
+import { getDimensionOptions } from "@/components/Dimensions/DimensionChooser";
 import { BLOCK_TYPE_INFO } from ".";
 
 interface Props {
@@ -44,7 +45,12 @@ export default function DashboardBlockEditDrawer({
   setBlock,
 }: Props) {
   const { open: sidebarOpen } = useSidebarOpen();
-  const { metrics, factMetrics } = useDefinitions();
+  const {
+    metrics,
+    factMetrics,
+    dimensions,
+    getDatasourceById,
+  } = useDefinitions();
   const { data: savedQueriesData, mutate: mutateQuery, isLoading } = useApi<{
     status: number;
     savedQueries: SavedQuery[];
@@ -79,6 +85,17 @@ export default function DashboardBlockEditDrawer({
     [experiment, metrics, factMetrics]
   );
 
+  const dimensionOptions = useMemo(() => {
+    const datasource = getDatasourceById(experiment.datasource);
+    return getDimensionOptions({
+      datasource,
+      dimensions,
+      exposureQueryId: experiment.exposureQueryId,
+      userIdType: experiment.userIdType,
+      activationMetric: !!experiment.activationMetric,
+    });
+  }, [experiment, dimensions, getDatasourceById]);
+
   if (isLoading) return <LoadingSpinner />;
 
   const savedQueryOptions =
@@ -105,7 +122,7 @@ export default function DashboardBlockEditDrawer({
         position: "fixed",
         bottom: 0,
         right: 0,
-        height: open ? "250px" : "0px",
+        maxHeight: open ? "330px" : "0px",
         background: "white",
         zIndex: 9001,
       }}
@@ -120,7 +137,7 @@ export default function DashboardBlockEditDrawer({
         />
       )}
       {block && (
-        <Flex direction="column" py="5" px="6" gap="2">
+        <Flex direction="column" py="5" px="6" gap="2" height="100%">
           <Flex justify="between" align="center">
             <span>
               <Text weight="light">{BLOCK_TYPE_INFO[block.type].name}</Text>
@@ -148,7 +165,12 @@ export default function DashboardBlockEditDrawer({
               </Button>
             </Flex>
           </Flex>
-          <Flex className="odd-children-flex-grow" wrap="wrap" gap="4">
+          <Flex
+            className="odd-children-flex-grow"
+            wrap="wrap"
+            gap="4"
+            overflow="scroll"
+          >
             {blockHasFieldOfType(
               block,
               "metricId",
@@ -196,7 +218,22 @@ export default function DashboardBlockEditDrawer({
                 }))}
               />
             )}
-            {blockHasFieldOfType(block, "dimensionIds", isStringArray) && <></>}
+            {blockHasFieldOfType(
+              block,
+              "dimensionId",
+              (val: unknown) => typeof val === "string"
+            ) && (
+              <SelectField
+                label="Dimension"
+                labelClassName="font-weight-bold"
+                placeholder="Choose which dimension to use"
+                value={form.watch("dimensionId") || ""}
+                containerStyle={{ flexBasis: "40%" }}
+                containerClassName="mb-0"
+                onChange={(value) => form.setValue("dimensionId", value)}
+                options={dimensionOptions}
+              />
+            )}
             {blockHasFieldOfType(block, "variationIds", isStringArray) && (
               <MultiSelectField
                 label="Variations"

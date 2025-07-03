@@ -11,7 +11,9 @@ import { BlockProps } from ".";
 
 export default function DimensionBlock({
   block,
+  setBlock,
 }: BlockProps<DimensionBlockInterface>) {
+  console.log("Block snapshot id is", block.snapshotId);
   const { metricIds, experimentId, baselineRow } = block;
   const { experimentsMap } = useExperiments();
   const experiment = experimentsMap.get(experimentId);
@@ -22,7 +24,7 @@ export default function DimensionBlock({
     analysis,
     analysisSettings,
     loading,
-  } = useDashboardSnapshot(block);
+  } = useDashboardSnapshot(block, setBlock);
   const orgSettings = useOrgSettings();
   const pValueCorrection = orgSettings?.pValueCorrection;
 

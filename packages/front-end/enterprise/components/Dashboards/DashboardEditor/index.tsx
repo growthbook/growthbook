@@ -89,7 +89,7 @@ export const BLOCK_TYPE_INFO: Record<
       description: "",
       experimentId: experiment.id,
       metricIds: experiment.goalMetrics,
-      dimensionIds: [],
+      dimensionId: "",
       snapshotId: experiment.analysisSummary?.snapshotId || "",
       differenceType: "relative",
       baselineRow: 0,
@@ -298,10 +298,10 @@ export default function DashboardEditor({
                 isEditing={isEditing}
                 editingBlock={editingBlock === i}
                 disableBlock={(editingBlock ?? i) !== i}
-                setBlock={({ title, description }) => {
+                setBlock={(blockData) => {
                   setBlocks([
                     ...blocks.slice(0, i),
-                    { ...block, title, description },
+                    { ...block, ...blockData },
                     ...blocks.slice(i + 1),
                   ]);
                 }}

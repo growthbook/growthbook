@@ -67,7 +67,7 @@ const metricBlockSchema = new mongoose.Schema({
 const dimensionBlockSchema = new mongoose.Schema({
   experimentId: String,
   metricIds: [String],
-  dimensionIds: [String],
+  dimensionId: String,
   dimensionValues: [String],
   variationIds: [String],
   baselineRow: Number,

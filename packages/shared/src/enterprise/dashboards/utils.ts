@@ -118,9 +118,7 @@ export function getBlockSnapshotSettings(
   switch (block.type) {
     case "dimension":
       return {
-        dimensions: (block.dimensionIds || []).map((id) => ({
-          id,
-        })),
+        dimensions: block.dimensionId ? [{ id: block.dimensionId }] : [],
       };
     default:
       return {};
@@ -135,7 +133,7 @@ export function getBlockAnalysisSettings(
     case "dimension":
       return {
         ...defaultAnalysisSettings,
-        dimensions: block.dimensionIds,
+        dimensions: block.dimensionId ? [block.dimensionId] : [],
         differenceType: block.differenceType,
         baselineVariationIndex: block.baselineRow,
       };
