@@ -695,9 +695,17 @@ export async function updateMaterializedColumns({
       columnsToRename.forEach(({ from, to }) => {
         const col = newColumns.find((c) => c.column === from);
         if (col) {
-          col.column = to;
-          col.name = to;
-          col.dateUpdated = new Date();
+          // Destination already exists
+          if (newColumns.find((c) => c.column === to)) {
+            // Just mark the old column as deleted
+            col.deleted = true;
+            col.dateUpdated = new Date();
+          } else {
+            // Otherwise, rename in place
+            col.column = to;
+            col.name = to;
+            col.dateUpdated = new Date();
+          }
         }
       });
       columnsToDelete.forEach((name) => {

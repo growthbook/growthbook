@@ -105,6 +105,8 @@ class PythonStatsServer<Input, Output> {
       if (ENVIRONMENT === "production") {
         // Pandas performance warnings
         if (err.match(/PerformanceWarning/)) return;
+        // Runtime warnings from numpy
+        if (err.match(/RuntimeWarning/)) return;
         // OpenTelemetry warnings from ddtrace
         if (err.match(/OTEL_/)) return;
       }
