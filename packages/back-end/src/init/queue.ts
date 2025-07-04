@@ -20,7 +20,6 @@ import { logger } from "back-end/src/util/logger";
 import addSafeRolloutSnapshotJob from "back-end/src/jobs/addSafeRolloutSnapshotJob";
 
 export async function queueInit() {
-  if (!CRON_ENABLED) return;
   const agenda = getAgendaInstance();
 
   addExperimentResultsJob(agenda);
@@ -46,7 +45,9 @@ export async function queueInit() {
     });
   deleteOldAgendaJobs(agenda);
 
-  await agenda.start();
+  if (CRON_ENABLED) {
+    await agenda.start();
+  }
 
   if (!IS_CLOUD) {
     await queueUpdateLicense();
