@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { date, datetime } from "shared/dates";
 import { SavedQuery } from "back-end/src/validators/saved-queries";
+import Link from "next/link";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -90,6 +91,7 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
           initial={selectedSavedQuery}
           id={selectedSavedQuery?.id}
           mutate={mutate}
+          trackingEventModalSource="saved-queries-list"
         />
       )}
 
@@ -104,18 +106,14 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
 
       {items.length > 0 ? (
         <>
-          <table className="table appbox gbtable table-hover">
+          <table className="table appbox gbtable">
             <thead>
               <tr>
-                <SortableTH field="name" className="col-auto">
-                  Name
-                </SortableTH>
-                <SortableTH field="datasourceId" className="col-3">
-                  Data Source
-                </SortableTH>
-                <th>Visualization</th>
-                <th className="col-1">Rows</th>
-                <SortableTH field="dateUpdated" className="col-1">
+                <SortableTH field="name">Name</SortableTH>
+                <SortableTH field="datasourceId">Data Source</SortableTH>
+                <th style={{ width: 100 }}>Visualization</th>
+                <th style={{ width: 100 }}>Rows</th>
+                <SortableTH field="dateUpdated" style={{ width: 150 }}>
                   Updated
                 </SortableTH>
                 <th style={{ width: 30 }}></th>
@@ -125,22 +123,16 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
               {items.map((query) => {
                 const datasource = getDatasourceById(query.datasourceId);
                 const datasourceName = datasource?.name || "Unknown";
-                const canEditQuery = canEdit(query);
 
                 return (
-                  <tr
-                    key={query.id}
-                    onClick={() => setSelectedSavedQuery(query)}
-                    style={{
-                      cursor: canEditQuery ? "pointer" : "default",
-                    }}
-                  >
+                  <tr key={query.id}>
                     <td>
-                      <div className="d-flex align-items-center">
-                        <div>
-                          <div className="font-weight-bold">{query.name}</div>
-                        </div>
-                      </div>
+                      <Link
+                        href={`/sql-explorer/${query.id}`}
+                        className="d-block"
+                      >
+                        {query.name}
+                      </Link>
                     </td>
                     <td>{datasourceName}</td>
                     <td>

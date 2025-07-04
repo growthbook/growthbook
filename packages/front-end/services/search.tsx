@@ -49,6 +49,7 @@ export interface SearchProps<T> {
   defaultSortField: keyof T;
   defaultSortDir?: number;
   undefinedLast?: boolean;
+  defaultMappings?: Partial<Record<keyof T, unknown>>;
   searchTermFilters?: {
     [key: string]: (
       item: T
@@ -98,6 +99,7 @@ export function useSearch<T>({
   defaultSortField,
   defaultSortDir,
   undefinedLast,
+  defaultMappings = {},
   searchTermFilters,
   updateSearchQueryOnChange,
   pageSize,
@@ -201,8 +203,8 @@ export function useSearch<T>({
     const sorted = [...filtered];
 
     sorted.sort((a, b) => {
-      const comp1 = a[sort.field];
-      const comp2 = b[sort.field];
+      const comp1 = a[sort.field] || defaultMappings[sort.field];
+      const comp2 = b[sort.field] || defaultMappings[sort.field];
       if (undefinedLast) {
         if (comp1 === undefined && comp2 !== undefined) return 1;
         if (comp2 === undefined && comp1 !== undefined) return -1;

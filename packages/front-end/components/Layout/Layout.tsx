@@ -2,12 +2,7 @@ import Link from "next/link";
 import { useState } from "react";
 import clsx from "clsx";
 import { useRouter } from "next/router";
-import {
-  BsFlag,
-  BsClipboardCheck,
-  BsLightbulb,
-  BsCodeSlash,
-} from "react-icons/bs";
+import { BsFlag, BsClipboardCheck, BsCodeSlash, BsHouse } from "react-icons/bs";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Flex } from "@radix-ui/themes";
 import { getGrowthBookBuild } from "@/services/env";
@@ -34,7 +29,7 @@ const navlinks: SidebarLinkProps[] = [
   {
     name: "Get Started",
     href: "/getstarted",
-    Icon: BsLightbulb,
+    Icon: BsHouse,
     path: /^getstarted/,
     className: styles.first,
   },
