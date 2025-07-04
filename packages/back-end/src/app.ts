@@ -91,6 +91,7 @@ const informationSchemasController = wrapController(
 
 import { isEmailEnabled } from "./services/email";
 import { init } from "./init";
+import { aiRouter } from "./routers/ai/ai.router";
 import { getCustomLogProps, httpLogger } from "./util/logger";
 import { usersRouter } from "./routers/users/users.router";
 import { organizationsRouter } from "./routers/organizations/organizations.router";
@@ -503,6 +504,10 @@ app.get(
   metricsController.getMetricExperimentResults
 );
 app.get("/metrics/:id/northstar", metricsController.getMetricNorthstarData);
+app.get(
+  "/metrics/:id/gen-description",
+  metricsController.getGeneratedDescription
+);
 
 // Metric Analyses
 app.use(metricAnalysisRouter);
@@ -544,6 +549,11 @@ app.get("/experiments/snapshots", experimentsController.getSnapshots);
 app.post(
   "/experiments/snapshots/scaled",
   experimentsController.postSnapshotsWithScaledImpactAnalysis
+);
+app.post("/experiments/similar", experimentsController.postSimilarExperiments);
+app.post(
+  "/experiments/regenerate-embeddings",
+  experimentsController.postRegenerateEmbeddings
 );
 app.post("/experiment/:id", experimentsController.postExperiment);
 app.delete("/experiment/:id", experimentsController.deleteExperiment);
@@ -591,6 +601,10 @@ app.post(
 app.post(
   "/experiments/notebook/:id",
   experimentsController.postSnapshotNotebook
+);
+app.post(
+  "/experiment/:id/analysis/ai-suggest",
+  experimentsController.postAIExperimentAnalysis
 );
 app.post(
   "/experiments/report/:snapshot",
@@ -890,6 +904,8 @@ app.get("/meta/ai", (req, res) => {
     enabled: !!process.env.OPENAI_API_KEY,
   });
 });
+
+app.use("/ai", aiRouter);
 
 // Fallback 404 route if nothing else matches
 app.use(function (req, res) {
