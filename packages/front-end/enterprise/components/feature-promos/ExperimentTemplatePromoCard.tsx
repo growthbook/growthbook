@@ -1,13 +1,18 @@
 import { Box, Flex, Text } from "@radix-ui/themes";
 import Button from "@/components/Radix/Button";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
+import Link from "@/components/Radix/Link";
 
 export default function ExperimentTemplatePromoCard({
   hasFeature,
   onClick,
+  link,
+  href,
 }: {
   hasFeature: boolean;
   onClick?: () => void;
+  link?: string;
+  href?: string;
 }) {
   return (
     <Flex
@@ -42,7 +47,15 @@ export default function ExperimentTemplatePromoCard({
             as you scale up experimentation.
           </Text>
           {hasFeature ? (
-            <Button onClick={onClick}>Create Template</Button>
+            <>
+              {link && href ? (
+                <Link href={href}>
+                  <Button>{link}</Button>
+                </Link>
+              ) : (
+                <Button onClick={onClick}>Create Template</Button>
+              )}
+            </>
           ) : (
             <a
               href={"https://www.growthbook.io/demo"}

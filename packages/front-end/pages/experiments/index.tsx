@@ -319,7 +319,8 @@ const ExperimentsPage = (): React.ReactElement => {
                     <div className="row justify-content-center m-3">
                       <ExperimentTemplatePromoCard
                         hasFeature={hasTemplatesFeature}
-                        onClick={() => setOpenTemplateModal({})}
+                        href="/experiments/templates"
+                        link="Go to Templates"
                       />
                     </div>
                   ) : null}
