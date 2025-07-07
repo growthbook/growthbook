@@ -1,6 +1,8 @@
 import { format as sqlFormat } from "sql-formatter";
 import { FormatDialect, FormatError } from "./types";
 
+export const SQL_EXPLORER_LIMIT = 1000;
+
 export function format(
   sql: string,
   dialect?: FormatDialect,

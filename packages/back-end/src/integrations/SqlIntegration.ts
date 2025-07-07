@@ -25,7 +25,7 @@ import {
   BANDIT_SRM_DIMENSION_NAME,
   SAFE_ROLLOUT_TRACKING_KEY_PREFIX,
 } from "shared/constants";
-import { ensureLimit, format } from "shared/sql";
+import { ensureLimit, format, SQL_EXPLORER_LIMIT } from "shared/sql";
 import { FormatDialect } from "shared/src/types";
 import { MetricAnalysisSettings } from "back-end/types/metric-analysis";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
@@ -1413,7 +1413,7 @@ export default abstract class SqlIntegration
   }
 
   getFreeFormQuery(sql: string, limit?: number): string {
-    const limitedQuery = this.ensureMaxLimit(sql, limit ?? 1000);
+    const limitedQuery = this.ensureMaxLimit(sql, limit ?? SQL_EXPLORER_LIMIT);
     return format(limitedQuery, this.getFormatDialect());
   }
 
