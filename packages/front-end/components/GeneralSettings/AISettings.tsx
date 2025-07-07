@@ -136,6 +136,9 @@ export default function AISettings({
   }, [data, promptForm]);
 
   if (isLoading || !data) return null;
+  const hasOpenAIKey = isCloud()
+    ? true
+    : !!(process.env?.OPENAI_API_KEY || false);
 
   const prompts = getPrompts(data);
 
@@ -187,7 +190,7 @@ export default function AISettings({
                     <Text as="label" size="3" className="font-weight-semibold">
                       Open AI Key
                     </Text>
-                    {form.watch("openAIAPIKey") ? (
+                    {hasOpenAIKey ? (
                       <Box>
                         Your openAI API key is correctly set in your environment
                         variable <code>OPENAI_API_KEY</code>.

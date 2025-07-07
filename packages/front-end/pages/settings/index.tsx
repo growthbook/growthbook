@@ -174,7 +174,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
         settings.requireProjectForFeatures ??
         DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
       aiEnabled: settings.aiEnabled ?? false,
-      openAIAPIKey: isCloud() ? "" : process.env.OPENAI_API_KEY || "",
       openAIDefaultModel: settings.openAIDefaultModel || "gpt-4o-mini",
     },
   });
@@ -221,7 +220,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
     codeRefsBranchesToFilter: form.watch("codeRefsBranchesToFilter"),
     codeRefsPlatformUrl: form.watch("codeRefsPlatformUrl"),
     aiEnabled: form.watch("aiEnabled"),
-    openAIAPIKey: form.watch("openAIAPIKey"),
     openAIDefaultModel: form.watch("openAIDefaultModel"),
   };
   function updateCronString(cron?: string) {
@@ -382,7 +380,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         settings: transformedOrgSettings,
       }),
     });
-    refreshOrganization();
+    await refreshOrganization();
 
     // show the user that the settings have saved:
     setSaveMsg(true);
