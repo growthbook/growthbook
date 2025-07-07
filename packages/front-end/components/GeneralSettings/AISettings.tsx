@@ -14,6 +14,7 @@ import { useAISettings } from "@/hooks/useOrgSettings";
 import OptInModal from "@/components/License/OptInModal";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import Callout from "@/components/Radix/Callout";
 
 // create a temp function which is passed a project and returns an array of prompts (promptId, promptName, promptDescription, promptValue)
 function getPrompts(data: {
@@ -183,21 +184,27 @@ export default function AISettings({
               {form.watch("aiEnabled") && !isCloud() && (
                 <>
                   <Box mb="6" width="100%">
-                    <Text
-                      as="label"
-                      htmlFor="openaiAPIKey"
-                      size="3"
-                      className="font-weight-semibold"
-                    >
+                    <Text as="label" size="3" className="font-weight-semibold">
                       Open AI Key
                     </Text>
-                    <Field
-                      type="password"
-                      id="openaiAPIKey"
-                      {...form.register("openAIAPIKey")}
-                      placeholder=""
-                      helpText="Your OpenAI API key to use when generating AI responses. Data from GrowthBook will be sent to OpenAI for processing in order to provide AI features."
-                    />
+                    {form.watch("openAIAPIKey") ? (
+                      <Box>
+                        Your openAI API key is correctly set in your environment
+                        variable <code>OPENAI_API_KEY</code>.
+                      </Box>
+                    ) : (
+                      <Box>
+                        <Callout status="warning">
+                          You must set your OpenAI API key to use AI features.
+                          Please define it in your environment variables as{" "}
+                          <code>OPENAI_API_KEY</code>. See more in our{" "}
+                          <a href="https://docs.growthbook.io/self-host/env">
+                            self-hosting docs
+                          </a>
+                          .
+                        </Callout>
+                      </Box>
+                    )}
                   </Box>
                   <Box mb="6" width="100%">
                     <Text

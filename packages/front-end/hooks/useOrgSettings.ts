@@ -17,8 +17,7 @@ export const useAISettings = (
 } => {
   const { settings, agreements } = useUser();
 
-  const openAIAPIKey =
-    settings?.openAIAPIKey || process.env.OPENAI_API_KEY || "";
+  const openAIAPIKey = process.env.OPENAI_API_KEY || "";
   const aiEnabled = isCloud()
     ? settings?.aiEnabled !== false && !!agreements?.includes(AGREEMENT_TYPE_AI)
     : !!(settings?.aiEnabled && openAIAPIKey);

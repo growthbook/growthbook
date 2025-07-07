@@ -185,8 +185,7 @@ export function getAISettingsForOrg(
   openAIAPIKey: string;
   openAIDefaultModel: TiktokenModel;
 } {
-  const openAIKey =
-    context.org.settings?.openAIAPIKey || process.env.OPENAI_API_KEY || "";
+  const openAIKey = process.env.OPENAI_API_KEY || "";
   const aiEnabled = IS_CLOUD
     ? context.org.settings?.aiEnabled !== false
     : !!(context.org.settings?.aiEnabled && openAIKey);

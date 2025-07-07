@@ -686,7 +686,7 @@ export default function SqlExplorerModal({
                                 <Field
                                   textarea={true}
                                   value={aiInput}
-                                  placeholder="Describe the SQL query you want to generate in plain english..."
+                                  placeholder="Describe the SQL query you want to generate"
                                   onChange={(e) => {
                                     setAiInput(e.target.value);
                                   }}

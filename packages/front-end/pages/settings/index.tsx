@@ -174,7 +174,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         settings.requireProjectForFeatures ??
         DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
       aiEnabled: settings.aiEnabled ?? false,
-      openAIAPIKey: settings.openAIAPIKey || process.env.OPENAI_API_KEY || "",
+      openAIAPIKey: isCloud() ? "" : process.env.OPENAI_API_KEY || "",
       openAIDefaultModel: settings.openAIDefaultModel || "gpt-4o-mini",
     },
   });

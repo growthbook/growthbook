@@ -15,11 +15,13 @@ AI features in GrowthBook are optional and can be enabled or disabled in the AI 
   ![AI Settings](/images/integrations/ai/ai-settings-cloud.png)
 </MaxWidthImage>
 
-:::note
+:::tip
 
-Almost all prompts used in our AI integrations in GrowthBook can be adjusted from the AI settings page. You can customize the prompts to better suit your needs and the context of your experiment program.
+Many of the prompts used in AI integration in GrowthBook can be adjusted from the AI settings page. You can customize the prompts to better suit your needs and the context of your experiment program.
 
 :::
+
+## Available AI Features
 
 ### Generate experiment results summaries
 
@@ -36,6 +38,20 @@ The prompt for generating this summary can be adjusted from the settings page of
 - Experiment results (e.g., p-value, confidence level, etc.)
 - Experiment description and hypothesis
 - Experiment tags and attributes
+
+### Generate SQL for SQL Explorer
+
+You can use AI to generate SQL queries for the SQL Explorer in GrowthBook. Add you provide a natural language description of the data you want to query, and the AI will generate the SQL query for you.
+
+<MaxWidthImage maxWidth={800}>
+  ![SQL Generation](/images/integrations/ai/sql-generation.png)
+</MaxWidthImage>
+
+#### Data sent:
+
+- Table names and columns in your database
+- Your description of the query you want to generate
+- Current SQL query (if any)
 
 ### Generate Metric Descriptions
 
