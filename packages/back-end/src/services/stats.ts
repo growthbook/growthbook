@@ -1,6 +1,3 @@
-import { promisify } from "util";
-import os from "os";
-import { PythonShell } from "python-shell";
 import cloneDeep from "lodash/cloneDeep";
 import {
   BANDIT_SRM_DIMENSION_NAME,
@@ -53,6 +50,7 @@ import { updateSnapshotAnalysis } from "back-end/src/models/ExperimentSnapshotMo
 import { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "back-end/src/integrations/SqlIntegration";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import { BanditResult } from "back-end/types/experiment";
+import { statsServerPool } from "back-end/src/services/python";
 
 // Keep these interfaces in sync with gbstats
 export interface AnalysisSettingsForStatsEngine {
@@ -138,25 +136,6 @@ export interface ExperimentDataForStatsEngine {
 
 export const MAX_DIMENSIONS = 20;
 
-export function getAvgCPU(pre: os.CpuInfo[], post: os.CpuInfo[]) {
-  let user = 0;
-  let system = 0;
-  let total = 0;
-
-  post.forEach((cpu, i) => {
-    const preTimes = pre[i]?.times || { user: 0, sys: 0 };
-    const postTimes = cpu.times;
-
-    user += postTimes.user - preTimes.user;
-    system += postTimes.sys - preTimes.sys;
-    total +=
-      Object.values(postTimes).reduce((n, sum) => n + sum, 0) -
-      Object.values(preTimes).reduce((n, sum) => n + sum, 0);
-  });
-
-  return { user: user / total, system: system / total };
-}
-
 export function getAnalysisSettingsForStatsEngine(
   settings: ExperimentSnapshotAnalysisSettings,
   variations: ExperimentReportVariation[],
@@ -226,55 +205,11 @@ export function getBanditSettingsForStatsEngine(
 async function runStatsEngine(
   statsData: ExperimentDataForStatsEngine[]
 ): Promise<MultipleExperimentMetricAnalysis[]> {
-  const escapedStatsData = JSON.stringify(statsData).replace(/\\/g, "\\\\");
-  const start = Date.now();
-  const cpus = os.cpus();
-  const options = process.env.GB_ENABLE_PYTHON_DD_PROFILING
-    ? {
-        pythonPath: "ddtrace-run",
-        pythonOptions: ["python3"],
-      }
-    : {};
-  const result = await promisify(PythonShell.runString)(
-    `
-
-from dataclasses import asdict
-import json
-import time
-
-from gbstats.gbstats import process_multiple_experiment_results
-
-start = time.time()
-
-data = json.loads("""${escapedStatsData}""", strict=False)
-
-# cast asdict because dataclasses are not serializable
-results = [asdict(analysis) for analysis in process_multiple_experiment_results(data)]
-
-print(json.dumps({
-  'results': results,
-  'time': time.time() - start
-}, allow_nan=False))`,
-    options
-  );
+  const server = await statsServerPool.acquire();
   try {
-    const parsed: {
-      results: MultipleExperimentMetricAnalysis[];
-      time: number;
-    } = JSON.parse(result?.[0]);
-
-    logger.debug(`StatsEngine: Python time: ${parsed.time}`);
-    logger.debug(
-      `StatsEngine: Typescript time: ${(Date.now() - start) / 1000}`
-    );
-    logger.debug(
-      `StatsEngine: Average CPU: ${JSON.stringify(getAvgCPU(cpus, os.cpus()))}`
-    );
-
-    return parsed.results;
-  } catch (e) {
-    logger.error(e, "Failed to run stats model: " + result);
-    throw e;
+    return await server.call(statsData);
+  } finally {
+    statsServerPool.release(server);
   }
 }
 
