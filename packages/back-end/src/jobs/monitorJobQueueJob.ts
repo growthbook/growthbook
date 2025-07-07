@@ -56,7 +56,7 @@ export default async function (agenda: Agenda) {
 
   const job = agenda.create(MONITOR_JOB_QUEUE_NAME, {});
   job.unique({});
-  job.repeatEvery("10 seconds");
+  job.repeatEvery("60 seconds");
   job.priority("low");
   await job.save();
 }
