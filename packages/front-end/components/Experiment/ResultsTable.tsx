@@ -106,6 +106,11 @@ const ROW_HEIGHT = 56;
 const METRIC_LABEL_ROW_HEIGHT = 44;
 const SPACER_ROW_HEIGHT = 6;
 
+export enum RowError {
+  QUANTILE_AGGREGATION_ERROR = "Quantile metrics cannot be re-aggregated across pre-computed dimension breakdowns.",
+}
+
+
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
   maximumFractionDigits: 2,
@@ -252,8 +257,8 @@ export default function ResultsTable({
 
   const domain = useDomain(filteredVariations, rows, differenceType);
 
-  const rowsResults: (RowResults | "query error" | null)[][] = useMemo(() => {
-    const rr: (RowResults | "query error" | null)[][] = [];
+  const rowsResults: (RowResults | "query error" | RowError | null)[][] = useMemo(() => {
+    const rr: (RowResults | "query error" | RowError | null)[][] = [];
     rows.map((row, i) => {
       rr.push([]);
       const baseline = row.variations[baselineRow] || {
@@ -280,6 +285,12 @@ export default function ResultsTable({
           rr[i].push("query error");
           return;
         }
+
+        if (row.error) {
+          rr[i].push(row.error);
+          return;
+        }
+
         const stats = row.variations[v.index] || {
           value: 0,
           cr: 0,
@@ -706,6 +717,27 @@ export default function ResultsTable({
                       } else {
                         return null;
                       }
+                    }
+                    if (rowResults === RowError.QUANTILE_AGGREGATION_ERROR) {
+                      return drawEmptyRow({
+                        key: j,
+                        className:
+                          "results-variation-row align-items-center error-row",
+                        label: (
+                            <div className="alert alert-danger px-2 py-1">
+                              <FaExclamationTriangle className="mr-1" />
+                            Quantile metrics not available for pre-computed
+                            dimensions. Use on-demand dimension instead.
+                          </div>
+                        ),
+                        graphCellWidth,
+                        rowHeight: compactResults
+                          ? ROW_HEIGHT + 20
+                          : ROW_HEIGHT,
+                        id,
+                        domain,
+                        ssrPolyfills,
+                      });
                     }
 
                     const hideScaledImpact =

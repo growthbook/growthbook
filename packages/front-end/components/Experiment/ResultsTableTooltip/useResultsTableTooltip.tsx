@@ -16,6 +16,7 @@ import {
   TooltipHoverSettings,
   YAlign,
 } from "./ResultsTableTooltip";
+import { RowError } from "@/components/Experiment/ResultsTable";
 
 export function useResultsTableTooltip({
   orderedVariations,
@@ -29,7 +30,7 @@ export function useResultsTableTooltip({
 }: {
   orderedVariations: ExperimentReportVariationWithIndex[];
   rows: ExperimentTableRow[];
-  rowsResults: (RowResults | "query error" | null)[][];
+  rowsResults: (RowResults | "query error" | RowError | null)[][];
   dimension?: string;
   statsEngine: StatsEngine;
   differenceType: DifferenceType;
@@ -163,6 +164,7 @@ export function useResultsTableTooltip({
     const rowResults = rowsResults[metricRow][variationRow];
     if (!rowResults) return;
     if (rowResults === "query error") return;
+    if (rowResults === RowError.QUANTILE_AGGREGATION_ERROR) return;
     if (!rowResults.hasScaledImpact && differenceType === "scaled") return;
 
     showTooltip({

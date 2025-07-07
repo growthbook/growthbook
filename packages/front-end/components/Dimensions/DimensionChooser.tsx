@@ -18,6 +18,8 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 export interface Props {
   value: string;
   setValue?: (value: string | null) => void;
+  // Array of dimensions that should have been precomputed; the name
+  // prepended with "precomputed:"
   precomputedDimensions?: string[];
   setValueFromPrecomputed?: (value: string | null) => void;
   datasourceId?: string;
@@ -135,18 +137,11 @@ export default function DimensionChooser({
       label: d.replace("precomputed:", ""),
       value: d,
     })) ?? [];
-
-  // remove precomputed dimensions from the on-demand dimensions
-  // TODO add workaround
+``
   const onDemandDimensions = [
     ...builtInDimensions,
     ...filteredDimensions,
-  ].filter(
-    (d) =>
-      !precomputedDimensionOptions
-        .map((p) => p.value.replace("precomputed:", "exp:"))
-        .includes(d.value)
-  );
+  ];
 
   if (disabled) {
     const dimensionName =

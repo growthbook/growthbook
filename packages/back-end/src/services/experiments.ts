@@ -404,8 +404,6 @@ export function getAdditionalExperimentAnalysisSettings(
     differenceType: "scaled",
   });
 
-  // get dimension slices
-
   return additionalAnalyses;
 }
 
@@ -449,6 +447,7 @@ export function getSnapshotSettings({
   dimension,
   regressionAdjustmentEnabled,
   orgPriorSettings,
+  orgDisabledPrecomputedDimensions,
   settingsForSnapshotMetrics,
   metricMap,
   factTableMap,
@@ -462,6 +461,7 @@ export function getSnapshotSettings({
   dimension: string | null;
   regressionAdjustmentEnabled: boolean;
   orgPriorSettings: MetricPriorSettings | undefined;
+  orgDisabledPrecomputedDimensions: boolean;
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
@@ -489,17 +489,20 @@ export function getSnapshotSettings({
 
   // get dimensions for standard analysis
   // TODO customize at experiment level
-  let dimensions: DimensionForSnapshot[] = dimension ? [{ id: dimension }] : [];
-  if (
+
+  const precomputeDimensions =
     snapshotType === "standard" &&
     !dimension &&
     !!datasource &&
     !!exposureQuery &&
-    !!exposureQuery.dimensionMetadata
-  ) {
+    !!exposureQuery.dimensionMetadata &&
+    !orgDisabledPrecomputedDimensions;
+
+  let dimensions: DimensionForSnapshot[] = dimension ? [{ id: dimension }] : [];
+  if (precomputeDimensions) {
     // if standard snapshot with no dimension set, we should pre-compute dimensions
     const predefinedDimensions = getPredefinedDimensionSlicesByExperiment(
-      exposureQuery?.dimensionMetadata,
+      exposureQuery?.dimensionMetadata ?? [],
       experiment.variations.length || 2
     );
     dimensions =
@@ -644,6 +647,7 @@ export async function createManualSnapshot({
     experiment,
     phaseIndex,
     orgPriorSettings: orgPriorSettings,
+    orgDisabledPrecomputedDimensions: false,
     snapshotType: "standard",
     dimension: null,
     regressionAdjustmentEnabled: false,
@@ -1048,6 +1052,8 @@ export async function createSnapshot({
     experiment,
     phaseIndex,
     orgPriorSettings: organization.settings?.metricDefaults?.priorSettings,
+    orgDisabledPrecomputedDimensions:
+      organization.settings?.disablePrecomputedDimensions ?? true,
     snapshotType: type,
     dimension,
     regressionAdjustmentEnabled: !!defaultAnalysisSettings.regressionAdjusted,

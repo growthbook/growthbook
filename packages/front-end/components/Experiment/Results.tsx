@@ -180,6 +180,10 @@ const Results: FC<{
     );
   }
 
+  // cannot re-aggregate quantile metrics across pre-computed dimensions
+  const showQuantileReaggregationError =
+    analysis?.settings?.dimensions.some((d) => d.startsWith("precomputed:"));
+
   const datasource = getDatasourceById(experiment.datasource);
 
   const hasMetrics =
@@ -346,6 +350,7 @@ const Results: FC<{
           dimensionId={
             analysis?.settings?.dimensions?.[0] ?? snapshot?.dimension ?? ""
           }
+          showQuantileReaggregationError={showQuantileReaggregationError}
           isLatestPhase={phase === experiment.phases.length - 1}
           startDate={phaseObj?.dateStarted ?? ""}
           endDate={phaseObj?.dateEnded ?? ""}

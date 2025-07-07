@@ -154,7 +154,7 @@ def get_metric_df(
     for row in dfc.itertuples(index=False):
         # strip dimension of prefix before `:`
         dimension_column_name = "dimension"
-        
+ 
         if dimension == "pre:date":
             dimension_column_name = "dim_pre_date"
         elif dimension == "pre:activation":
@@ -758,8 +758,16 @@ def process_single_metric(
     # Detect any variations that are not in the returned metric rows
     all_var_ids: Set[str] = set([v for a in analyses for v in a.var_ids])
     unknown_var_ids = detect_unknown_variations(rows=pdrows, var_ids=all_var_ids)
-    results = [
-        format_results(
+    
+    results: List[List[DimensionResponse]] = []
+    for a in analyses:
+        # skip pre-computed dimension reaggregation for quantile metrics
+        # TODO also skip if dimension columns
+        attempted_quantile_dimension_reaggregation = a.dimension.startswith("precomputed:") and metric.statistic_type in ["quantile_event", "quantile_unit"]
+        attempted_quantile_overall_reaggregation = a.dimension == "" and metric.statistic_type in ["quantile_event", "quantile_unit"] and pdrows.columns.__contains__("dim_exp")  # TODO test
+        if attempted_quantile_dimension_reaggregation or attempted_quantile_overall_reaggregation:
+            continue
+        results.append(format_results(
             process_analysis(
                 rows=pdrows,
                 var_id_map=get_var_id_map(a.var_ids),
@@ -767,9 +775,7 @@ def process_single_metric(
                 analysis=a,
             ),
             baseline_index=a.baseline_index,
-        )
-        for a in analyses
-    ]
+        ))
     return ExperimentMetricAnalysis(
         metric=metric.id,
         analyses=[

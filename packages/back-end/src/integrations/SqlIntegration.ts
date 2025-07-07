@@ -2704,6 +2704,10 @@ export default abstract class SqlIntegration
       "event"
     );
 
+    if (params.dimensions.length > 1 && metricData.some((m) => !!m.quantileMetric)) {
+      throw new Error("ImplementationError: quantile metrics are not supported with pre-computed dimension breakdowns");
+    }
+
     const regressionAdjustedMetrics = metricData.filter(
       (m) => m.regressionAdjusted
     );
@@ -2837,7 +2841,6 @@ export default abstract class SqlIntegration
         }
       )
       ${
-        // TODO put quantiles in their own query
         eventQuantileData.length
           ? `
         , __eventQuantileMetric AS (
@@ -2913,11 +2916,11 @@ export default abstract class SqlIntegration
           eventQuantileData.length
             ? `
         LEFT JOIN __eventQuantileMetric qm
-        ON (qm.dimension = umj.dimension AND qm.variation = umj.variation)`
+        ON (qm.variation = umj.variation ${dimensionCols.length > 0 ? `AND ${dimensionCols.map((c) => `qm.${c.alias} = umj.${c.alias}`).join(" AND ")}` : ""})`
             : ""
         }
         GROUP BY
-          umj.variation 
+          umj.variation
           ${
             dimensionCols.length > 0
               ? `, ${dimensionCols.map((c) => `umj.${c.alias}`).join(", ")}`

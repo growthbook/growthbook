@@ -13,6 +13,7 @@ import {
 import {
   expandMetricGroups,
   ExperimentMetricInterface,
+  quantileMetricType,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
 } from "shared/experiments";
@@ -24,7 +25,7 @@ import {
   applyMetricOverrides,
   ExperimentTableRow,
 } from "@/services/experiments";
-import ResultsTable from "@/components/Experiment/ResultsTable";
+import ResultsTable, { RowError } from "@/components/Experiment/ResultsTable";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
@@ -79,6 +80,7 @@ const BreakDownResults: FC<{
   regressionAdjustmentEnabled?: boolean;
   settingsForSnapshotMetrics?: MetricSnapshotSettings[];
   sequentialTestingEnabled?: boolean;
+  showQuantileReaggregationError?: boolean;
   differenceType: DifferenceType;
   metricFilter?: ResultsMetricFilters;
   setMetricFilter?: (filter: ResultsMetricFilters) => void;
@@ -107,6 +109,7 @@ const BreakDownResults: FC<{
   regressionAdjustmentEnabled,
   settingsForSnapshotMetrics,
   sequentialTestingEnabled,
+  showQuantileReaggregationError,
   differenceType,
   metricFilter,
   setMetricFilter,
@@ -240,6 +243,25 @@ const BreakDownResults: FC<{
           expandedGoals,
           expandedSecondaries
         );
+
+        if (showQuantileReaggregationError && quantileMetricType(newMetric)) {
+          console.log("showQuantileReaggregationError", newMetric);
+          return {
+            metric: newMetric,
+            isGuardrail: resultGroup === "guardrail",
+            rows: [
+              {
+                label: "",
+                metric: newMetric,
+                variations: [],
+                metricSnapshotSettings,
+                resultGroup,
+                metricOverrideFields: overrideFields,
+                error: RowError.QUANTILE_AGGREGATION_ERROR,
+              }
+            ]
+          };
+        }
 
         const rows: ExperimentTableRow[] = results.map((d) => ({
           label: d.name,

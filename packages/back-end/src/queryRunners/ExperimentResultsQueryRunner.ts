@@ -89,6 +89,7 @@ export function getFactMetricGroup(metric: FactMetricInterface) {
   }
 
   // Quantile metrics get their own group to prevent slowing down the main query
+  // and because they do not support re-aggregation across pre-computed dimensions
   if (quantileMetricType(metric)) {
     return metric.numerator.factTableId
       ? `${metric.numerator.factTableId} (quantile metrics)`
@@ -117,6 +118,7 @@ export function getFactMetricGroups(
   if (settings.skipPartialData) {
     return defaultReturn;
   }
+
   // Combining metrics in a single query is an Enterprise-only feature
   if (!orgHasPremiumFeature(organization, "multi-metric-queries")) {
     return defaultReturn;
@@ -138,11 +140,6 @@ export function getFactMetricGroups(
       (m.cappingSettings.type === "percentile" || quantileMetricType(m)) &&
       !integration.getSourceProperties().hasEfficientPercentiles
     ) {
-      return;
-    }
-
-    // TODO skip grouping quantile metrics if re-aggregation may happen
-    if (quantileMetricType(m) && settings.dimensions.length) {
       return;
     }
 
@@ -263,7 +260,7 @@ export const startExperimentResultQueries = async (
 
   const unitQueryParams: ExperimentUnitsQueryParams = {
     activationMetric: activationMetric,
-    dimensions: dimensionObjs ? dimensionObjs : dimensionsForTraffic,
+    dimensions: dimensionObjs.length ? dimensionObjs : dimensionsForTraffic,
     segment: segmentObj,
     settings: snapshotSettings,
     unitsTableFullName: unitsTableFullName,
@@ -309,10 +306,15 @@ export const startExperimentResultQueries = async (
           .filter(Boolean)
       );
     }
+    // Only run dimensional analysis for quantile metrics
+    // if snapshot type is not standard
+    const runOverallQuantileAnalysis =
+      snapshotSettings.type === "standard" && dimensionObjs.length > 0 && quantileMetricType(m);
+
     const queryParams: ExperimentMetricQueryParams = {
       activationMetric,
       denominatorMetrics,
-      dimensions: dimensionObjs,
+      dimensions: runOverallQuantileAnalysis ? [] : dimensionObjs,
       metric: m,
       segment: segmentObj,
       settings: snapshotSettings,
@@ -334,9 +336,16 @@ export const startExperimentResultQueries = async (
   }
 
   for (const [i, m] of groups.entries()) {
+
+
+    // Only run dimensional analysis for quantile metrics
+    // if snapshot type is not standard
+    const runOverallQuantileAnalysis =
+      snapshotSettings.type === "standard" && dimensionObjs.length > 0 && m.some(quantileMetricType);
+    
     const queryParams: ExperimentFactMetricsQueryParams = {
       activationMetric,
-      dimensions: dimensionObjs,
+      dimensions: runOverallQuantileAnalysis ? [] : dimensionObjs,
       metrics: m,
       segment: segmentObj,
       settings: snapshotSettings,

@@ -44,6 +44,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
 import { getDefaultRuleValue, NewExperimentRefRule } from "./features";
+import { RowError } from "@/components/Experiment/ResultsTable";
 
 export type ExperimentTableRow = {
   label: string;
@@ -53,6 +54,7 @@ export type ExperimentTableRow = {
   rowClass?: string;
   metricSnapshotSettings?: MetricSnapshotSettings;
   resultGroup: "goal" | "secondary" | "guardrail";
+  error?: RowError;
 };
 
 export function getRisk(
