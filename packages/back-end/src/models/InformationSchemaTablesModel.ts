@@ -4,7 +4,13 @@ import mongoose from "mongoose";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { logger } from "back-end/src/util/logger";
 import { usingFileConfig } from "back-end/src/init/config";
-import { InformationSchemaTablesInterface } from "back-end/src/types/Integration";
+import {
+  Column,
+  InformationSchemaInterface,
+  InformationSchemaTablesInterface,
+} from "back-end/src/types/Integration";
+import { getPath } from "back-end/src/util/informationSchemas";
+import { DataSourceInterface } from "back-end/types/datasource";
 
 const informationSchemaTablesSchema = new mongoose.Schema({
   id: String,
@@ -138,5 +144,55 @@ export async function deleteInformationSchemaTablesByInformationSchemaId(
   await InformationSchemaTablesModel.deleteMany({
     organization,
     informationSchemaId,
+  });
+}
+
+export async function insertNewSchemaTable({
+  tableData,
+  organizationId,
+  datasource,
+  informationSchema,
+  databaseName,
+  tableSchema,
+  tableName,
+  refreshMS,
+  tableId,
+}: {
+  tableData: unknown[];
+  organizationId: string;
+  datasource: DataSourceInterface;
+  informationSchema: InformationSchemaInterface;
+  databaseName: string;
+  tableSchema: string;
+  tableName: string;
+  refreshMS: number;
+  tableId: string;
+}) {
+  const columns: Column[] = tableData.map(
+    (row: { column_name: string; data_type: string }) => {
+      return {
+        columnName: row.column_name,
+        dataType: row.data_type,
+        path: getPath(datasource.type, {
+          tableCatalog: databaseName,
+          tableSchema: tableSchema,
+          tableName: tableName,
+          columnName: row.column_name,
+        }),
+      };
+    }
+  );
+
+  // Create the table record in Mongo.
+  return await createInformationSchemaTable({
+    organization: organizationId,
+    tableName,
+    tableSchema,
+    databaseName,
+    columns,
+    refreshMS,
+    datasourceId: datasource.id,
+    informationSchemaId: informationSchema.id,
+    id: tableId,
   });
 }
