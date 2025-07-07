@@ -87,21 +87,8 @@ const getCounter = (name: string) => {
   };
 };
 
-const getGauge = (name: string) => {
-  const gauge = otlMetrics.getMeter(name).createObservableGauge(name);
-
-  return {
-    record: (value: number, attributes?: Attributes) => {
-      gauge.addCallback((observableResult) => {
-        observableResult.observe(value, attributes);
-      });
-    },
-  };
-};
-
 setMetrics({
   getCounter,
   getHistogram: (name: string) =>
     otlMetrics.getMeter(name).createHistogram(name),
-  getGauge,
 });
