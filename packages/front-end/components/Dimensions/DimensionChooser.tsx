@@ -135,7 +135,6 @@ export default function DimensionChooser({
     });
   }
 
-  console.log(precomputedDimensions);
   const precomputedDimensionOptions =
     precomputedDimensions?.map((d) => ({
       label: d.replace("precomputed:", ""),
