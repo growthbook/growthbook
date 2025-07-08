@@ -294,6 +294,12 @@ const sidebars = {
           id: "experimentation-analysis/data-pipeline",
           label: "Data Pipeline",
         },
+        {
+          type: "doc",
+          id: "experimentation-analysis/managed-warehouse",
+          label: "Managed Warehouse",
+          className: "pill-new",
+        },
       ],
     },
     {

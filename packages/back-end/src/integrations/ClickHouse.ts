@@ -129,7 +129,14 @@ export default class ClickHouse extends SqlIntegration {
       throw new Error(
         "No database name provided in ClickHouse connection. Please add a database by editing the connection settings."
       );
-    return `table_schema IN ('${this.params.database}')`;
+
+    // For Managed Warehouse, filter out materialized views
+    const extraWhere =
+      this.datasource.type === "growthbook_clickhouse"
+        ? " AND table_name NOT LIKE '%_mv'"
+        : "";
+
+    return `table_schema IN ('${this.params.database}')${extraWhere}`;
   }
 
   async getFeatureUsage(
@@ -140,18 +147,23 @@ export default class ClickHouse extends SqlIntegration {
       `Getting feature usage for ${feature} with lookback ${lookback}`
     );
     const start = new Date();
+    start.setSeconds(0, 0);
     let roundedTimestamp = "";
     if (lookback === "15minute") {
       roundedTimestamp = "toStartOfMinute(timestamp)";
       start.setMinutes(start.getMinutes() - 15);
     } else if (lookback === "hour") {
       start.setHours(start.getHours() - 1);
+      start.setMinutes(0);
       roundedTimestamp = "toStartOfFiveMinutes(timestamp)";
     } else if (lookback === "day") {
-      start.setDate(start.getDate() - 1);
+      start.setHours(start.getHours() - 24);
+      start.setMinutes(0);
       roundedTimestamp = "toStartOfHour(timestamp)";
     } else if (lookback === "week") {
       start.setDate(start.getDate() - 7);
+      start.setHours(0);
+      start.setMinutes(0);
       roundedTimestamp = "toStartOfInterval(timestamp, INTERVAL 6 HOUR)";
     } else {
       throw new Error(`Invalid lookback: ${lookback}`);
@@ -171,23 +183,24 @@ WITH _data as (
 	  timestamp > ${this.toTimestamp(start)}
 	  AND feature = '${this.escapeStringLiteral(feature)}'
 )
-SELECT
-  ts,
-  environment,
-  value,
-  source,
-  ruleId,
-  variationId,
-  COUNT(*) as evaluations
-FROM _data
-GROUP BY
-  ts,
-  environment,
-  value,
-  source,
-  ruleId,
-  variationId
-LIMIT 50
+  SELECT
+    ts,
+    environment,
+    value,
+    source,
+    ruleId,
+    variationId,
+    COUNT(*) as evaluations
+  FROM _data
+  GROUP BY
+    ts,
+    environment,
+    value,
+    source,
+    ruleId,
+    variationId
+  ORDER BY evaluations DESC
+  LIMIT 200
       `);
 
     return {

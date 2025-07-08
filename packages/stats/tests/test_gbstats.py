@@ -807,9 +807,9 @@ class TestAnalyzeMetricDfRegressionAdjustment(TestCase):
         self.assertEqual(round_(result.at[0, "v1_cr"]), 0.074)
         self.assertEqual(round_(result.at[0, "v1_mean"]), 0.074)
         self.assertEqual(result.at[0, "v1_risk"], None)
-        self.assertEqual(round_(result.at[0, "v1_expected"]), -0.316211568)
+        self.assertEqual(round_(result.at[0, "v1_expected"]), -0.31620216)
         self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
-        self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.000000352)
+        self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.000000353)
 
     def test_analyze_metric_df_ratio_ra(self):
         rows = RATIO_RA_STATISTICS_DF

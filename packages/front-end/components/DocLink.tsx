@@ -26,6 +26,8 @@ const docSections = {
   environments: "/features/environments",
   archetypes: "/features/rules#archetype",
   team: "/account/user-permissions#teams",
+  codeReferences: "/features/code-references",
+  customRoles: "/account/user-permissions#custom-roles",
   //DataSourceType
   athena: "/app/datasources#aws-athena",
   mixpanel: "/guide/mixpanel",
@@ -40,6 +42,7 @@ const docSections = {
   mssql: "/warehouses/ms-sql-or-sql-server",
   redshift: "/warehouses/redshift",
   google_analytics: "/app/datasources#google-analytics",
+  growthbook_clickhouse: "/app/managed-warehouse",
   //Language
   buildYourOwn: "/lib/build-your-own",
   sdks: "/lib",
@@ -93,6 +96,9 @@ const docSections = {
   idLists: "/features/targeting#id-lists",
   queryOptimization: "/app/query-optimization",
   metricGroups: "/app/metrics#metric-groups",
+  managedWarehouseTracking: "/app/managed-warehouse#sending-events",
+  devTools: "/tools/chrome-extension",
+  pipelineMode: "/app/data-pipeline",
 };
 
 export type DocSection = keyof typeof docSections;
