@@ -7,7 +7,7 @@ import Frame from "@/components/Radix/Frame";
 import Field from "@/components/Forms/Field";
 import Checkbox from "@/components/Radix/Checkbox";
 import SelectField from "@/components/Forms/SelectField";
-import { isCloud } from "@/services/env";
+import { isCloud, hasOpenAIKey } from "@/services/env";
 import useApi from "@/hooks/useApi";
 import Button from "@/components/Radix/Button";
 import { useAISettings } from "@/hooks/useOrgSettings";
@@ -187,17 +187,24 @@ export default function AISettings({
                     <Text as="label" size="3" className="font-weight-semibold">
                       Open AI Key
                     </Text>
-
-                    <Box>
-                      <Callout status="warning">
-                        Set your OpenAI API key in your environment variables as{" "}
-                        <code>OPENAI_API_KEY</code>. See more in our{" "}
-                        <a href="https://docs.growthbook.io/self-host/env">
-                          self-hosting docs
-                        </a>
-                        .
-                      </Callout>
-                    </Box>
+                    {hasOpenAIKey() ? (
+                      <Box>
+                        Your openAI API key is correctly set in your environment
+                        variable <code>OPENAI_API_KEY</code>.
+                      </Box>
+                    ) : (
+                      <Box>
+                        <Callout status="warning">
+                          You must set your OpenAI API key to use AI features.
+                          Please define it in your environment variables as{" "}
+                          <code>OPENAI_API_KEY</code>. See more in our{" "}
+                          <a href="https://docs.growthbook.io/self-host/env">
+                            self-hosting docs
+                          </a>
+                          .
+                        </Callout>
+                      </Box>
+                    )}
                   </Box>
                   <Box mb="6" width="100%">
                     <Text

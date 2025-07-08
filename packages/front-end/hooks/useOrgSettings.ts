@@ -1,30 +1,26 @@
 import { AGREEMENT_TYPE_AI } from "back-end/src/validators/agreements";
 import { useUser } from "@/services/UserContext";
-import { isCloud } from "@/services/env";
+import { isCloud, hasOpenAIKey } from "@/services/env";
 
 export default function useOrgSettings() {
   const { settings } = useUser();
   return settings;
 }
 
-export const useAISettings = (
-  includeKey: boolean = false
-): {
+export const useAISettings = (): {
   aiEnabled: boolean;
   aiAgreedTo: boolean;
   openAIDefaultModel: string;
-  openAIKey?: string;
 } => {
   const { settings, agreements } = useUser();
 
-  const openAIAPIKey = process.env.OPENAI_API_KEY || "";
   const aiEnabled = isCloud()
     ? settings?.aiEnabled !== false && !!agreements?.includes(AGREEMENT_TYPE_AI)
-    : !!(settings?.aiEnabled && openAIAPIKey);
+    : !!(settings?.aiEnabled && hasOpenAIKey());
   const aiAgreedTo = isCloud()
     ? !!agreements?.includes(AGREEMENT_TYPE_AI)
     : true;
+
   const openAIDefaultModel = settings?.openAIDefaultModel || "gpt-4o-mini";
-  const openAIKey = includeKey ? openAIAPIKey : "";
-  return { aiEnabled, openAIDefaultModel, openAIKey, aiAgreedTo };
+  return { aiEnabled, openAIDefaultModel, aiAgreedTo };
 };

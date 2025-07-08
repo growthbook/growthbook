@@ -322,7 +322,7 @@ export default function SqlExplorerModal({
       }, 0);
     } else {
       if (aiEnabled) {
-        //setError(null);
+        setAiError(null);
         setLoading(true);
         apiCall(
           `/saved-queries/generateSQL`,
@@ -722,15 +722,15 @@ export default function SqlExplorerModal({
                                 </Tooltip>
                                 <Box className="text-muted"></Box>
                               </Flex>
+                              {aiError && (
+                                <Box
+                                  className="text-danger"
+                                  style={{ padding: "8px" }}
+                                >
+                                  {aiError}
+                                </Box>
+                              )}
                             </Box>
-                            {aiError && (
-                              <Box
-                                className="text-danger"
-                                style={{ padding: "8px" }}
-                              >
-                                {aiError}
-                              </Box>
-                            )}
                           </Flex>
                         )}
                         <CodeTextArea

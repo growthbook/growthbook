@@ -255,104 +255,174 @@ export async function postGenerateSQL(
     datasource.id,
     context.org.id
   );
+
   if (!informationSchema) {
     return res.status(404).json({
       status: 404,
       message: "No informationSchema found for the datasource",
     });
   }
+  if (!informationSchema?.databases?.length) {
+    return res.status(404).json({
+      status: 404,
+      message: "No databases found in the information schema",
+    });
+  }
   const maxTables = 100;
   const shardedTables = new Map();
   const dbSchemas = new Map();
   const errors = [];
-  // for reach databases in the information schema, check if the table exists
-  if (informationSchema?.databases.length) {
-    // loop through the databases
-    for (const database of informationSchema.databases) {
-      if (dbSchemas.size >= maxTables) break; // Stop if maxTables is reached
-      if (database.schemas.length) {
-        // loop through the schemas
-        for (const schema of database.schemas) {
-          if (dbSchemas.size >= maxTables) break; // Stop if maxTables is reached
-          if (schema.tables.length) {
-            // loop through the tables
-            for (const table of schema.tables) {
-              if (dbSchemas.size >= maxTables) break; // Stop if maxTables is reached
-              // Sharded tables in BigQuery, as common with Google Analytics, can result in a huge number of tables, all of which share a schema.
-              // This code tries to detect sharded tables, and not scan them all to get the schema, but rather just one of them.
-              // we should probably find a better way to match sharded tables in bigquery...
-              if (table.tableName.match(/.*_\d{8}$/)) {
-                const tableType =
-                  table?.tableName?.match(/(.*)_\d{8}$/)?.[1] || "unknown";
-                if (!shardedTables.has(tableType)) {
-                  // insert the table into the dbSchemas map
-                  const tableSchema = await getInformationSchemaTableById(
-                    context.org.id,
-                    table.id
-                  );
-                  if (!tableSchema) {
-                    // try to fetch the schema if not found
-                    try {
-                      const tableSchema = await fetchOrCreateTableSchema({
-                        context,
-                        datasource,
-                        informationSchema,
-                        tableId: table.id,
-                        databaseName: database.databaseName,
-                        tableSchema: schema.schemaName,
-                        tableName: table.tableName,
-                      });
-                      tableSchema.tableName = tableType + "_*"; // set the table name to a generic name for GA events
-                      dbSchemas.set(table.id, tableSchema);
-                    } catch (error) {
-                      errors.push(error);
-                      continue;
-                    }
-                  } else {
-                    //console.log("valid tableSchema is", tableSchema);
-                    tableSchema.tableName = tableType + "_*"; // set the table name to a generic name for GA events
-                    dbSchemas.set(table.id, tableSchema);
-                  }
-                  shardedTables.set(tableType, true);
-                }
-              } else {
-                if (table?.numOfColumns) {
-                  const tableSchema = await getInformationSchemaTableById(
-                    context.org.id,
-                    table.id
-                  );
-                  if (!tableSchema) {
-                    // try to fetch the schema if not found:
-                    try {
-                      const tableSchemaData = await fetchOrCreateTableSchema({
-                        context,
-                        datasource,
-                        informationSchema,
-                        tableId: table.id,
-                        databaseName: database.databaseName,
-                        tableSchema: schema.schemaName,
-                        tableName: table.tableName,
-                      });
-                      dbSchemas.set(table.id, tableSchemaData);
-                    } catch (error) {
-                      errors.push(error);
-                    }
-                  } else {
-                    dbSchemas.set(table.id, tableSchema);
-                  }
-                }
-              }
+
+  // check how many tables there are in the information schema:
+  const tablesInfo = informationSchema.databases
+    .flatMap((database) =>
+      database.schemas.flatMap((schema) =>
+        schema.tables.map((table) => {
+          if (
+            datasource.type === "bigquery" &&
+            table.tableName.match(/.*_\d{8}$/)
+          ) {
+            const tableType =
+              table.tableName.match(/(.*)_\d{8}$/)?.[1] || "unknown";
+            if (
+              !shardedTables.has(
+                database.databaseName + schema.schemaName + tableType
+              )
+            ) {
+              shardedTables.set(
+                database.databaseName + schema.schemaName + tableType,
+                true
+              );
+              return {
+                databaseName: database.databaseName,
+                schemaName: schema.schemaName,
+                tableName: tableType + "_*",
+                numColumns: table.numOfColumns,
+                id: table.id,
+              };
             }
-          } else {
-            errors.push("no tables found in schema " + schema.schemaName);
+            return null; // skip this table if it's already sharded
           }
+          return {
+            databaseName: database.databaseName,
+            schemaName: schema.schemaName,
+            tableName: table.tableName,
+            numColumns: table.numOfColumns,
+            id: table.id,
+          };
+        })
+      )
+    )
+    .filter((table) => table !== undefined && table !== null);
+
+  // if there are more than maxTables, lets do a two part search, asking the AI to give its best guess as to which tables to use.
+  if (tablesInfo.length > maxTables) {
+    const instructions =
+      "You are a data analyst and SQL expert. " +
+      "Please provide a list of the most relevant tables to use for the following question: " +
+      input +
+      ". " +
+      "The list should be in the format: 'databaseName.schemaName.tableName'. " +
+      "The tables must be one of the following tables:" +
+      "\n" +
+      tablesInfo
+        .map(
+          (table) =>
+            `${table?.databaseName}.${table?.schemaName}.${table?.tableName}`
+        )
+        .join(", ") +
+      "Return at most 20 tables. Return only the table names, separated by commas, without any additional text or explanations.";
+
+    const aiResults = await simpleCompletion({
+      context,
+      instructions,
+      prompt:
+        "Return table names only, no markdown, no explanation, no comments.",
+      type: "generate-sql-query",
+      isDefaultPrompt: true,
+      temperature: 0.1,
+    });
+
+    const tableNames = aiResults
+      .split(",")
+      .map((name) => name.trim())
+      .filter((name) => name);
+
+    // filter the tablesInfo to only include the ones that are in the AI response:
+    const filteredTablesInfo = tablesInfo.filter((table) =>
+      tableNames.includes(
+        `${table?.databaseName}.${table?.schemaName}.${table?.tableName}`
+      )
+    );
+
+    if (filteredTablesInfo.length === 0) {
+      return res.status(404).json({
+        status: 404,
+        message: "No relevant tables found based on AI response",
+      });
+    }
+
+    // for the filteredTables, lets loop through them and fetch their schemas, from getInformationSchemaTableById() or fetchOrCreateTableSchema()
+    for (const table of filteredTablesInfo) {
+      // Sharded tables in BigQuery, as common with Google Analytics, can result in a huge number of tables, all of which share a schema.
+      // This code tries to detect sharded tables, and not scan them all to get the schema, but rather just one of them.
+      // we should probably find a better way to match sharded tables in bigquery...
+
+      if (table.numColumns) {
+        const tableSchema = await getInformationSchemaTableById(
+          context.org.id,
+          table.id
+        );
+        if (!tableSchema) {
+          // try to fetch the schema if not found:
+          try {
+            const tableSchemaData = await fetchOrCreateTableSchema({
+              context,
+              datasource,
+              informationSchema,
+              tableId: table.id,
+              databaseName: table.databaseName,
+              tableSchema: table.schemaName,
+              tableName: table.tableName,
+            });
+            dbSchemas.set(table.id, tableSchemaData);
+          } catch (error) {
+            errors.push(error);
+          }
+        } else {
+          dbSchemas.set(table.id, tableSchema);
         }
-      } else {
-        errors.push("no schemas found in database " + database.databaseName);
       }
     }
   } else {
-    errors.push("no databases found in information schema");
+    // Loop through the tablesInfo array
+    for (const table of tablesInfo) {
+      if (table.numColumns) {
+        const tableSchema = await getInformationSchemaTableById(
+          context.org.id,
+          table.id
+        );
+        if (!tableSchema) {
+          // Try to fetch the schema if not found
+          try {
+            const tableSchemaData = await fetchOrCreateTableSchema({
+              context,
+              datasource,
+              informationSchema,
+              tableId: table.id,
+              databaseName: table.databaseName,
+              tableSchema: table.schemaName,
+              tableName: table.tableName,
+            });
+            dbSchemas.set(table.id, tableSchemaData);
+          } catch (error) {
+            errors.push(error);
+          }
+        } else {
+          dbSchemas.set(table.id, tableSchema);
+        }
+      }
+    }
   }
 
   const schemasString = Array.from(
@@ -361,20 +431,32 @@ export async function postGenerateSQL(
       const columnsDescription = value.columns
         .map((column) => `${column.columnName} (${column.dataType})`)
         .join(", ");
-      return `Database: ${value.databaseName}, Table: ${value.tableName}, Schema: ${value.tableSchema}, Columns: [${columnsDescription}]`;
+      return `Database: ${value.databaseName}, Table: ${value.tableName}, Schema name: ${value.tableSchema}, Columns: [${columnsDescription}]`;
     }
   ).join("\n");
 
-  const instructions =
+  let instructions =
     "You are a data analyst and SQL expert.\n" +
     "Generate a SQL query to answer the provided question inputted. The resultant query should be ONLY based on the provided context of tables and structure, and return only valid SQL that is executable on the specified data source." +
+    "\n\nThe database is a " +
+    datasource.type +
+    " database. Be sure to make queries valid for that database type." +
     "\n\nTable structure: " +
     "\n" +
     schemasString +
     "\n\nInput: " +
     input +
-    "\n\nKeep in mind that the table names may be sharded, so you should use the generic table names for tables that have wild cards, such as 'events_*'. If you are querying sharded tables, and you're asked for a date range, you should use something like: \n((_TABLE_SUFFIX BETWEEN '{{date startDateISO \"yyyyMMdd\"}}' AND '{{date endDateISO \"yyyyMMdd\"}}') OR\n" +
-    "   (_TABLE_SUFFIX BETWEEN 'intraday_{{date startDateISO \"yyyyMMdd\"}}' AND 'intraday_{{date endDateISO \"yyyyMMdd\"}}'))\n\n when constructing the query to make sure it's fast and takes use of the sharding. If you do this code, be sure to replace the dates with the correct range.\n";
+    "\n\n" +
+    "Use date ranges if possible and it makes sense with the input. If the input requests a date range, like 'in the past month', use the current date: " +
+    new Date().toISOString() +
+    " as the starting point.";
+
+  if (datasource.type === "bigquery") {
+    instructions +=
+      "\n\nBe sure to use the schema name in the query, ie: databaseName.schemaName.tableName.\n" +
+      "Keep in mind that the table names may be sharded, so you should use the generic table names for tables that have wild cards, such as 'events_*'. If you are querying sharded tables, and you're asked for a date range, you should use something like: \n((_TABLE_SUFFIX BETWEEN '{{date startDateISO \"yyyyMMdd\"}}' AND '{{date endDateISO \"yyyyMMdd\"}}') OR\n" +
+      "   (_TABLE_SUFFIX BETWEEN 'intraday_{{date startDateISO \"yyyyMMdd\"}}' AND 'intraday_{{date endDateISO \"yyyyMMdd\"}}'))\n\n when constructing the query to make sure it's fast and takes use of the sharding. If you do this code, be sure to replace the dates with the correct range.\n";
+  }
 
   const aiResults = await simpleCompletion({
     context,
