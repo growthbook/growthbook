@@ -49,7 +49,7 @@ interface FrequentistVariationResponse extends BaseVariationResponse {
 // Keep in sync with gbstats PowerResponse
 export interface MetricPowerResponseFromStatsEngine {
   status: string;
-  errorMessage?: string;
+  scalingFactorErrorMessage?: string;
   firstPeriodPairwiseSampleSize?: number;
   targetMDE: number;
   sigmahat2Delta?: number;
@@ -58,6 +58,9 @@ export interface MetricPowerResponseFromStatsEngine {
   priorLiftVariance?: number;
   upperBoundAchieved?: boolean;
   scalingFactor?: number;
+  mde?: number;
+  mdeConverged?: boolean;
+  mdeErrorMessage?: string;
 }
 
 interface BaseDimensionResponse {

@@ -89,39 +89,67 @@ class TestMidExperimentPower(TestCase):
         self.result_freq = self.m_freq.calculate_scaling_factor()
         self.result_seq = self.m_seq.calculate_scaling_factor()
         self.result_bayes = self.m_bayes.calculate_scaling_factor()
+        self.mde_freq = self.m_freq.calculate_mde().mde
+        self.mde_seq = self.m_seq.calculate_mde().mde
+        self.mde_bayes = self.m_bayes.calculate_mde().mde
 
     def test_calculate_midexperiment_power_freq(self):
         scaling_factor_true = 25.45703125
+        mde_true = 0.25717773437500885
         if self.result_freq.scaling_factor:
             self.assertAlmostEqual(
-                self.m_freq.power(self.result_freq.scaling_factor), 0.8, places=4
+                self.m_freq.power(
+                    self.result_freq.scaling_factor, self.m_freq.target_mde
+                ),
+                0.8,
+                places=4,
             )
             self.assertAlmostEqual(
                 self.result_freq.scaling_factor, scaling_factor_true, places=4
             )
         else:
             raise ValueError("scaling_factor_freq is None")
+        if self.mde_freq:
+            self.assertAlmostEqual(self.mde_freq, mde_true, places=4)
+        else:
+            raise ValueError("mde_freq is None")
 
     def test_calculate_midexperiment_power_seq(self):
         scaling_factor_true = 55.66796875
+        mde_true = 0.38605957031251326
         if self.result_seq.scaling_factor:
             self.assertAlmostEqual(
-                self.m_seq.power(self.result_seq.scaling_factor), 0.8, places=4
+                self.m_seq.power(self.result_seq.scaling_factor, self.m_seq.target_mde),
+                0.8,
+                places=4,
             )
             self.assertAlmostEqual(
                 self.result_seq.scaling_factor, scaling_factor_true, places=4
             )
         else:
             raise ValueError("scaling_factor_seq is None")
+        if self.mde_seq:
+            self.assertAlmostEqual(self.mde_seq, mde_true, places=4)
+        else:
+            raise ValueError("mde_seq is None")
 
     def test_calculate_midexperiment_power_bayesian(self):
         scaling_factor_true = 13.9404296875
+        mde_true = 0.20833129882812576
         if self.result_bayes.scaling_factor:
             self.assertAlmostEqual(
-                self.m_bayes.power(self.result_bayes.scaling_factor), 0.8, places=4
+                self.m_bayes.power(
+                    self.result_bayes.scaling_factor, self.m_bayes.target_mde
+                ),
+                0.8,
+                places=4,
             )
             self.assertAlmostEqual(
                 self.result_bayes.scaling_factor, scaling_factor_true, places=4
             )
         else:
             raise ValueError("scaling_factor_bayes is None")
+        if self.mde_bayes:
+            self.assertAlmostEqual(self.mde_bayes, mde_true, places=4)
+        else:
+            raise ValueError("mde_bayes is None")

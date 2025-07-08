@@ -3,7 +3,7 @@ from dataclasses import field
 import numpy as np
 from pydantic.dataclasses import dataclass
 from scipy.stats import norm
-
+import copy
 from gbstats.models.tests import TestResult, frequentist_variance_all_cases
 from gbstats.frequentist.tests import (
     sequential_interval_halfwidth,
@@ -42,6 +42,13 @@ class AdditionalSampleSizeNeededResult:
 class ScalingFactorResult:
     scaling_factor: Optional[float]
     upper_bound_achieved: bool = False
+    converged: bool = False
+    error: Optional[str] = None
+
+
+@dataclass
+class MDEResult:
+    mde: Optional[float]
     converged: bool = False
     error: Optional[str] = None
 
@@ -147,7 +154,7 @@ class MidExperimentPower:
     # case where scaling factor of 0 (i.e., no additional users) is sufficient
     @property
     def already_powered(self) -> bool:
-        return self.power(0) > self.adjusted_power
+        return self.power(0, self.target_mde) > self.adjusted_power
 
     @property
     def pairwise_sample_size(self) -> int:
@@ -169,7 +176,7 @@ class MidExperimentPower:
             return 0
         return frequentist_variance_all_cases(self.stat_a, self.stat_b, self.relative)
 
-    def power(self, scaling_factor) -> float:
+    def power(self, scaling_factor, mde) -> float:
         """Calculates the power of a hypothesis test.
 
         Args:
@@ -193,7 +200,7 @@ class MidExperimentPower:
             num_2 = (
                 adjusted_variance * self.prior_effect.mean / self.prior_effect.variance
             )
-            num_3 = self.target_mde
+            num_3 = copy.deepcopy(mde)
             den = adjusted_variance**0.5
             part_pos = 1 - norm.cdf((num_1 - num_2 - num_3) / den)
             part_neg = norm.cdf(-(num_1 + num_2 + num_3) / den)
@@ -209,10 +216,8 @@ class MidExperimentPower:
                 )
             else:
                 halfwidth = self.multiplier * adjusted_variance**0.5
-            part_pos = 1 - norm.cdf(
-                (halfwidth - self.target_mde) / adjusted_variance**0.5
-            )
-            part_neg = norm.cdf(-(halfwidth + self.target_mde) / adjusted_variance**0.5)
+            part_pos = 1 - norm.cdf((halfwidth - mde) / adjusted_variance**0.5)
+            part_neg = norm.cdf(-(halfwidth + mde) / adjusted_variance**0.5)
         return float(part_pos + part_neg)
 
     def calculate_scaling_factor(self) -> ScalingFactorResult:
@@ -239,12 +244,12 @@ class MidExperimentPower:
                 scaling_factor=0,
             )
         scaling_factor = 1
-        current_power = self.power(scaling_factor)
+        current_power = self.power(scaling_factor, self.target_mde)
         # First find minimum n_t_prime such that power is greater than 0.8
         for _ in range(self.max_iters_scaling_factor):
             if current_power < self.adjusted_power:
                 scaling_factor *= 2
-                current_power = self.power(scaling_factor)
+                current_power = self.power(scaling_factor, self.target_mde)
             else:
                 break
         if current_power < self.adjusted_power:
@@ -266,7 +271,7 @@ class MidExperimentPower:
             else:
                 scaling_factor_lower = scaling_factor
             scaling_factor = 0.5 * (scaling_factor_lower + scaling_factor_upper)
-            current_power = self.power(scaling_factor)
+            current_power = self.power(scaling_factor, self.target_mde)
             diff = current_power - self.adjusted_power
             if abs(diff) < tolerance:
                 break
@@ -288,4 +293,56 @@ class MidExperimentPower:
             error=error,
             scaling_factor=scaling_factor,
             upper_bound_achieved=False,
+        )
+
+    def calculate_mde(self) -> MDEResult:
+        """Calculates the mde assuming current variance of lift."""
+        mde = np.abs(self.test_result.expected)
+        current_power = self.power(0, mde)
+        # First find minimum mde such that power is greater than 0.8
+        for _ in range(self.max_iters_scaling_factor):
+            if current_power < self.adjusted_power:
+                mde *= 2
+                current_power = self.power(0, mde)
+            else:
+                break
+        if current_power < self.adjusted_power:
+            return MDEResult(
+                converged=False,
+                error="could not find upper bound for mde",
+                mde=None,
+            )
+        # Then perform grid search
+        mde_lower = 0
+        mde_upper = mde
+        diff = current_power - self.adjusted_power
+        tolerance = 1e-5  # change to property later
+        iteration = 0
+        for iteration in range(self.max_iters):  # change max_iters to property later
+            if diff > 0:
+                mde_upper = mde
+            else:
+                mde_lower = mde
+            mde = 0.5 * (mde_lower + mde_upper)
+            current_power = self.power(0, mde)
+            diff = current_power - self.adjusted_power
+            if abs(diff) < tolerance:
+                break
+        converged = iteration < self.max_iters - 1
+        error = "" if converged else "bisection search did not converge"
+        if error:
+            raise ValueError(
+                [
+                    current_power,
+                    self.adjusted_power,
+                    diff,
+                    mde,
+                    mde_lower,
+                    mde_upper,
+                ]
+            )
+        return MDEResult(
+            converged=converged,
+            error=error,
+            mde=mde,
         )
