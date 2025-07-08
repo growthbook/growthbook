@@ -43,7 +43,7 @@ type FeaturesAndRevisions = FeatureRevisionInterface & {
   feature: FeatureInterface;
   safeRollout: SafeRolloutInterface | undefined;
 };
-import styles from "./NeedsAttention.module.scss";
+import styles from "./NeedingAttention.module.scss";
 
 const NeedingAttention = (): React.ReactElement | null => {
   const [experimentsPage, setExperimentsPage] = useState<number>(1);
