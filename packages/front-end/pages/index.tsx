@@ -6,6 +6,7 @@ import { useExperiments } from "@/hooks/useExperiments";
 import { useUser } from "@/services/UserContext";
 import { useFeaturesList } from "@/services/features";
 import GetStartedAndHomePage from "@/components/GetStarted";
+import LoadingOverlay from "@/components/LoadingOverlay";
 
 export default function Home(): React.ReactElement {
   const router = useRouter();
@@ -66,6 +67,9 @@ export default function Home(): React.ReactElement {
       </div>
     );
   }
-
-  return <GetStartedAndHomePage />;
+  return featuresLoading || experimentsLoading ? (
+    <LoadingOverlay />
+  ) : (
+    <GetStartedAndHomePage />
+  );
 }
