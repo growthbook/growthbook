@@ -108,7 +108,11 @@ export default function SqlExplorer() {
       )}
 
       {showModal && (
-        <SqlExplorerModal close={() => setShowModal(false)} mutate={mutate} />
+        <SqlExplorerModal
+          close={() => setShowModal(false)}
+          mutate={mutate}
+          trackingEventModalSource="saved-queries-index-page"
+        />
       )}
     </div>
   );
