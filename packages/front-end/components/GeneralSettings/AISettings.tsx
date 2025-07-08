@@ -136,9 +136,6 @@ export default function AISettings({
   }, [data, promptForm]);
 
   if (isLoading || !data) return null;
-  const hasOpenAIKey = isCloud()
-    ? true
-    : !!(process.env?.OPENAI_API_KEY || false);
 
   const prompts = getPrompts(data);
 
@@ -190,24 +187,17 @@ export default function AISettings({
                     <Text as="label" size="3" className="font-weight-semibold">
                       Open AI Key
                     </Text>
-                    {hasOpenAIKey ? (
-                      <Box>
-                        Your openAI API key is correctly set in your environment
-                        variable <code>OPENAI_API_KEY</code>.
-                      </Box>
-                    ) : (
-                      <Box>
-                        <Callout status="warning">
-                          You must set your OpenAI API key to use AI features.
-                          Please define it in your environment variables as{" "}
-                          <code>OPENAI_API_KEY</code>. See more in our{" "}
-                          <a href="https://docs.growthbook.io/self-host/env">
-                            self-hosting docs
-                          </a>
-                          .
-                        </Callout>
-                      </Box>
-                    )}
+
+                    <Box>
+                      <Callout status="warning">
+                        Set your OpenAI API key in your environment variables as{" "}
+                        <code>OPENAI_API_KEY</code>. See more in our{" "}
+                        <a href="https://docs.growthbook.io/self-host/env">
+                          self-hosting docs
+                        </a>
+                        .
+                      </Callout>
+                    </Box>
                   </Box>
                   <Box mb="6" width="100%">
                     <Text

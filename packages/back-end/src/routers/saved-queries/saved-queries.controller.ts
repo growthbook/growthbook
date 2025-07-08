@@ -12,7 +12,10 @@ import {
 } from "back-end/src/validators/saved-queries";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { runFreeFormQuery } from "back-end/src/services/datasource";
-import { simpleCompletion } from "back-end/src/enterprise/services/openai";
+import {
+  secondsUntilAICanBeUsedAgain,
+  simpleCompletion,
+} from "back-end/src/enterprise/services/openai";
 import {
   InformationSchemaTablesInterface,
   InformationSchemaInterface,
@@ -236,6 +239,16 @@ export async function postGenerateSQL(
     return res.status(404).json({
       status: 404,
       message: "Datasource not found",
+    });
+  }
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(
+    req.organization
+  );
+  if (secondsUntilReset > 0) {
+    return res.status(429).json({
+      status: 429,
+      message: "Over AI usage limits",
+      retryAfter: secondsUntilReset,
     });
   }
   const informationSchema = await getInformationSchemaByDatasourceId(

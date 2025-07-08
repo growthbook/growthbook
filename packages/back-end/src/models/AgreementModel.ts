@@ -42,16 +42,8 @@ export class AgreementModel extends BaseClass {
     return this.canCreate();
   }
 
-  public getAgreementsForOrg = async () => {
-    const existing = await this._find({
-      organization: this.context.org.id,
-    });
-
-    return existing ? existing : [];
-  };
   public getAgreementForOrg = async (agreement: AgreementType) => {
     const existing = await this._findOne({
-      organization: this.context.org.id,
       agreement: agreement,
     });
     return existing ? existing : null;

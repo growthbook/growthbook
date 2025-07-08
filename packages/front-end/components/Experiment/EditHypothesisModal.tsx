@@ -10,10 +10,10 @@ import { useAISettings } from "@/hooks/useOrgSettings";
 import Markdown from "@/components/Markdown/Markdown";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import OptInModal from "@/components/License/OptInModal";
-import Modal from "../Modal";
-import Field from "../Forms/Field";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
+import Modal from "../Modal";
+import Field from "../Forms/Field";
 
 interface Props {
   source: string;

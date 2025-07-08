@@ -749,7 +749,7 @@ export async function getOrganization(
     org,
     teams || []
   );
-  const agreements = await context.models.agreements.getAgreementsForOrg();
+  const agreements = await context.models.agreements.getAll();
   const agreementsAgreed = Array.from(
     new Set(agreements.map((a) => a.agreement as AgreementType))
   );
