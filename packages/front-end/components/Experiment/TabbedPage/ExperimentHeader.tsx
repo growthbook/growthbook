@@ -647,7 +647,7 @@ export default function ExperimentHeader({
 
       <div className="container-fluid pagecontents position-relative experiment-header px-3 pt-3">
         <div className="d-flex align-items-center flex-wrap">
-          <Flex direction="row" wrap="wrap" align="center" overflow="auto">
+          <Flex direction="row" align="center" wrap="wrap" overflow="auto">
             <h1 className="mb-0">{experiment.name}</h1>
             <Box ml="2">
               <ExperimentStatusIndicator experimentData={experiment} />
