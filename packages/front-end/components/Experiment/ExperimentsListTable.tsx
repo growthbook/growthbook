@@ -37,8 +37,9 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
   const end = start + NUM_PER_PAGE;
 
   const needsStatusColumn = tab === "all" || tab === "running";
-  const needsResultColumn = tab === "stopped" || tab === "running";
-  // If "All Projects" is selected is selected and some experiments are in a project, show the project column
+  const needsResultColumn =
+    tab === "stopped" || tab === "running" || tab === "all";
+  // If "All Projects" is selected and some experiments are in a project, show the project column
   const showProjectColumn = !project && filtered.some((e) => e.project);
 
   // Reset to page 1 when a filter is applied or tabs change
@@ -177,6 +178,15 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
               </tr>
             );
           })}
+          {filtered.length === 0 && (
+            <tr>
+              <td colSpan={10} className="text-center">
+                {isFiltered
+                  ? "No experiments match the current filter."
+                  : "No experiments found."}
+              </td>
+            </tr>
+          )}
         </tbody>
       </table>
       {filtered.length > NUM_PER_PAGE && (

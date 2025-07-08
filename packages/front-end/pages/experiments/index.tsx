@@ -2,15 +2,10 @@ import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { PiCaretDown } from "react-icons/pi";
-import {
-  ExperimentInterfaceStringDates,
-  ExperimentTemplateInterface,
-} from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { Box, Flex } from "@radix-ui/themes";
-import { isEmpty } from "lodash";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { useUser } from "@/services/UserContext";
 import Field from "@/components/Forms/Field";
 import ImportExperimentModal from "@/components/Experiment/ImportExperimentModal";
 import { useExperiments } from "@/hooks/useExperiments";
@@ -24,13 +19,9 @@ import {
   DropdownMenuSeparator,
 } from "@/components/Radix/DropdownMenu";
 import Button from "@/components/Radix/Button";
-import TemplateForm from "@/components/Experiment/Templates/TemplateForm";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import ViewSampleDataButton from "@/components/GetStarted/ViewSampleDataButton";
 import EmptyState from "@/components/EmptyState";
 import Callout from "@/components/Radix/Callout";
-import ExperimentTemplatePromoCard from "@/enterprise/components/feature-promos/ExperimentTemplatePromoCard";
-import { useTemplates } from "@/hooks/useTemplates";
 import { useExperimentSearch } from "@/services/experiments";
 import ExperimentSearchFilters from "@/components/Search/ExperimentSearchFilters";
 import {
@@ -56,8 +47,6 @@ export function experimentDate(exp: ExperimentInterfaceStringDates): string {
 const ExperimentsPage = (): React.ReactElement => {
   const { ready, project } = useDefinitions();
 
-  const { templates } = useTemplates();
-
   const [tab, setTab] = useState<string>("all");
   const analyzeExisting = useRouter().query?.analyzeExisting === "true";
 
@@ -69,17 +58,10 @@ const ExperimentsPage = (): React.ReactElement => {
   } = useExperiments(project, tab === "archived", "standard");
 
   const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
-  const [openDuplicateTemplateModal, setOpenDuplicateTemplateModal] = useState<
-    undefined | ExperimentTemplateInterface
-  >(undefined);
   const [openImportExperimentModal, setOpenImportExperimentModal] = useState(
     false
   );
-  const [openTemplateModal, setOpenTemplateModal] = useState<
-    Partial<ExperimentTemplateInterface> | undefined
-  >(undefined);
 
-  const { hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
 
   const {
@@ -122,8 +104,6 @@ const ExperimentsPage = (): React.ReactElement => {
   // Show the View Sample Button if none of the experiments have an attached datasource
   const showViewSampleButton = !allExperiments.some((e) => e.datasource);
 
-  const hasTemplatesFeature = hasCommercialFeature("templates");
-
   const canAddExperiment = permissionsUtil.canViewExperimentModal(project);
   const canAddTemplate = permissionsUtil.canViewExperimentTemplateModal(
     project
@@ -141,16 +121,6 @@ const ExperimentsPage = (): React.ReactElement => {
       {canAddExperiment && (
         <DropdownMenuItem onClick={() => setOpenNewExperimentModal(true)}>
           Create New Experiment
-        </DropdownMenuItem>
-      )}
-      {canAddTemplate && (
-        <DropdownMenuItem
-          onClick={() => setOpenTemplateModal({})}
-          disabled={!hasTemplatesFeature}
-        >
-          <PremiumTooltip commercialFeature="templates">
-            Create Template
-          </PremiumTooltip>
         </DropdownMenuItem>
       )}
       {canAddExperiment && (
@@ -173,11 +143,6 @@ const ExperimentsPage = (): React.ReactElement => {
               <h1>Experiments</h1>
             </div>
             <div style={{ flex: 1 }} />
-            <div className="col-auto">
-              <LinkButton variant="outline" href="/power-calculator">
-                Power Calculator
-              </LinkButton>
-            </div>
             {showViewSampleButton && <ViewSampleDataButton />}
             {(canAddExperiment || canAddTemplate) && (
               <div className="col-auto">{addExperimentDropdownButton}</div>
@@ -313,17 +278,6 @@ const ExperimentsPage = (): React.ReactElement => {
                       </TabsContent>
                     );
                   })}
-                  {canAddTemplate &&
-                  !templates.length &&
-                  allExperiments.length >= 5 ? (
-                    <div className="row justify-content-center m-3">
-                      <ExperimentTemplatePromoCard
-                        hasFeature={hasTemplatesFeature}
-                        href="/experiments/templates"
-                        link="Go to Templates"
-                      />
-                    </div>
-                  ) : null}
                 </Tabs>
               </>
             )
@@ -341,23 +295,6 @@ const ExperimentsPage = (): React.ReactElement => {
         <ImportExperimentModal
           onClose={() => setOpenImportExperimentModal(false)}
           source="experiment-list"
-        />
-      )}
-      {openTemplateModal && (
-        <TemplateForm
-          onClose={() => setOpenTemplateModal(undefined)}
-          initialValue={openTemplateModal}
-          source="templates-list"
-          isNewTemplate={isEmpty(openTemplateModal)}
-        />
-      )}
-      {openDuplicateTemplateModal && (
-        <TemplateForm
-          onClose={() => setOpenDuplicateTemplateModal(undefined)}
-          initialValue={openDuplicateTemplateModal}
-          source="templates-list"
-          isNewTemplate={isEmpty(openTemplateModal)}
-          duplicate
         />
       )}
     </>
