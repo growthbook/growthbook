@@ -1,5 +1,12 @@
 import clsx from "clsx";
-import { forwardRef, useEffect, useRef, useState } from "react";
+import {
+  Children,
+  forwardRef,
+  isValidElement,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { Box, Tabs as RadixTabs } from "@radix-ui/themes";
 import useURLHash from "@/hooks/useURLHash";
 
@@ -50,8 +57,17 @@ export const Tabs = forwardRef<HTMLDivElement, TabsProps>(function Tabs(
   const [urlHash, setUrlHash] = useURLHash();
 
   if (defaultValue && persistInURL) {
+    const possibleValues = new Set(
+      Children.map(children, (child) => {
+        if (isValidElement(child) && child.props.value) {
+          return child.props.value;
+        }
+        return null;
+      })
+    );
+
     rootProps = {
-      value: urlHash ?? defaultValue,
+      value: urlHash && possibleValues.has(urlHash) ? urlHash : defaultValue,
       onValueChange: (value) => {
         setUrlHash(value as string);
         onValueChange?.(value);
