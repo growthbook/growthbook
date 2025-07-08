@@ -4,9 +4,8 @@ import {
   DashboardBlockInterface,
   DimensionBlockInterface,
 } from "back-end/src/enterprise/validators/dashboard-block";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import clsx from "clsx";
-import { useForm } from "react-hook-form";
 import {
   blockHasFieldOfType,
   isDifferenceType,
@@ -33,14 +32,16 @@ import { BLOCK_TYPE_INFO } from ".";
 interface Props {
   experiment: ExperimentInterfaceStringDates;
   open: boolean;
-  close: () => void;
+  cancel: () => void;
+  submit: () => void;
   block?: DashboardBlockData<DashboardBlockInterface>;
   setBlock: React.Dispatch<DashboardBlockData<DashboardBlockInterface>>;
 }
 export default function DashboardBlockEditDrawer({
   experiment,
   open,
-  close,
+  cancel,
+  submit,
   block,
   setBlock,
 }: Props) {
@@ -57,14 +58,6 @@ export default function DashboardBlockEditDrawer({
   }>(`/saved-queries/`);
 
   const [showSqlExplorerModal, setShowSqlExplorerModal] = useState(false);
-
-  const form = useForm<DashboardBlockData<DashboardBlockInterface>>({
-    defaultValues: block,
-  });
-
-  useEffect(() => {
-    form.reset(block);
-  }, [form, block]);
 
   const metricOptions = useMemo(
     () =>
@@ -118,6 +111,7 @@ export default function DashboardBlockEditDrawer({
         sidebarLeftClosed: !sidebarOpen,
       })}
       style={{
+        display: "flex",
         transition: "all 0.5s cubic-bezier(0.685, 0.0473, 0.346, 1)",
         position: "fixed",
         bottom: 0,
@@ -134,10 +128,11 @@ export default function DashboardBlockEditDrawer({
           }}
           mutate={mutateQuery}
           initial={savedQuery}
+          id={savedQuery?.id}
         />
       )}
       {block && (
-        <Flex direction="column" py="5" px="6" gap="2" height="100%">
+        <Flex direction="column" py="5" px="6" gap="2" flexGrow="1">
           <Flex justify="between" align="center">
             <span>
               <Text weight="light">{BLOCK_TYPE_INFO[block.type].name}</Text>
@@ -147,8 +142,7 @@ export default function DashboardBlockEditDrawer({
               <Button
                 variant="ghost"
                 onClick={() => {
-                  form.reset({});
-                  close();
+                  cancel();
                 }}
                 size="xs"
               >
@@ -156,8 +150,7 @@ export default function DashboardBlockEditDrawer({
               </Button>
               <Button
                 onClick={() => {
-                  setBlock(form.getValues());
-                  close();
+                  submit();
                 }}
                 size="xs"
               >
@@ -179,10 +172,10 @@ export default function DashboardBlockEditDrawer({
               <SelectField
                 label="Metric"
                 labelClassName="font-weight-bold"
-                value={form.watch("metricId") || ""}
+                value={block.metricId}
                 containerStyle={{ flexBasis: "40%" }}
                 containerClassName="mb-0"
-                onChange={(value) => form.setValue("metricId", value)}
+                onChange={(value) => setBlock({ ...block, metricId: value })}
                 options={metricOptions}
               />
             )}
@@ -191,10 +184,10 @@ export default function DashboardBlockEditDrawer({
               <MultiSelectField
                 label="Metrics"
                 labelClassName="font-weight-bold"
-                value={form.watch("metricIds") || []}
+                value={block.metricIds}
                 containerStyle={{ flexBasis: "40%" }}
                 containerClassName="mb-0"
-                onChange={(value) => form.setValue("metricIds", value)}
+                onChange={(value) => setBlock({ ...block, metricIds: value })}
                 options={metricOptions}
               />
             )}
@@ -202,15 +195,17 @@ export default function DashboardBlockEditDrawer({
               <MultiSelectField
                 label="Display Columns"
                 labelClassName="font-weight-bold"
-                placeholder="Show all"
-                value={form.watch("columnsFilter") || []}
+                placeholder="Showing all columns"
+                value={block.columnsFilter}
                 containerStyle={{ flexBasis: "40%" }}
                 containerClassName="mb-0"
                 onChange={(value) =>
-                  form.setValue(
-                    "columnsFilter",
-                    value as Array<typeof RESULTS_TABLE_COLUMNS[number]>
-                  )
+                  setBlock({
+                    ...block,
+                    columnsFilter: value as Array<
+                      typeof RESULTS_TABLE_COLUMNS[number]
+                    >,
+                  })
                 }
                 options={RESULTS_TABLE_COLUMNS.map((colName) => ({
                   label: colName,
@@ -227,10 +222,10 @@ export default function DashboardBlockEditDrawer({
                 label="Dimension"
                 labelClassName="font-weight-bold"
                 placeholder="Choose which dimension to use"
-                value={form.watch("dimensionId") || ""}
+                value={block.dimensionId}
                 containerStyle={{ flexBasis: "40%" }}
                 containerClassName="mb-0"
-                onChange={(value) => form.setValue("dimensionId", value)}
+                onChange={(value) => setBlock({ ...block, dimensionId: value })}
                 options={dimensionOptions}
               />
             )}
@@ -238,15 +233,19 @@ export default function DashboardBlockEditDrawer({
               <MultiSelectField
                 label="Variations"
                 labelClassName="font-weight-bold"
-                placeholder="Choose which variations to show"
-                value={form.watch("variationIds") || []}
+                placeholder="Showing all variations"
+                value={block.variationIds}
                 containerStyle={{ flexBasis: "40%" }}
                 containerClassName="mb-0"
-                onChange={(value) => form.setValue("variationIds", value)}
-                options={experiment.variations.map((variation) => ({
-                  label: variation.name,
-                  value: variation.id,
-                }))}
+                onChange={(value) =>
+                  setBlock({ ...block, variationIds: value })
+                }
+                options={experiment.variations
+                  .filter((_, i) => i > 0)
+                  .map((variation) => ({
+                    label: variation.name,
+                    value: variation.id,
+                  }))}
               />
             )}
             {blockHasFieldOfType(
@@ -259,9 +258,9 @@ export default function DashboardBlockEditDrawer({
                 labelClassName="font-weight-bold"
                 containerStyle={{ flexBasis: "40%" }}
                 containerClassName="mb-0"
-                value={(form.watch("baselineRow") || 0).toString()}
+                value={block.baselineRow.toString()}
                 onChange={(value) =>
-                  form.setValue("baselineRow", parseInt(value))
+                  setBlock({ ...block, baselineRow: parseInt(value) })
                 }
                 options={experiment.variations.map((_, i) => ({
                   label: i.toString(),
@@ -275,12 +274,12 @@ export default function DashboardBlockEditDrawer({
                 labelClassName="font-weight-bold"
                 containerStyle={{ flexBasis: "40%" }}
                 containerClassName="mb-0"
-                value={form.watch("differenceType") || ""}
+                value={block.differenceType}
                 onChange={(value) =>
-                  form.setValue(
-                    "differenceType",
-                    value as DimensionBlockInterface["differenceType"]
-                  )
+                  setBlock({
+                    ...block,
+                    differenceType: value as DimensionBlockInterface["differenceType"],
+                  })
                 }
                 options={[
                   { label: "Relative", value: "relative" },

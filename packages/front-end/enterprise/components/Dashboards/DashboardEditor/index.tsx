@@ -1,5 +1,5 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import React, { Fragment, useState } from "react";
+import React, { Fragment, useEffect, useState } from "react";
 import { PiCaretDownFill, PiPlus } from "react-icons/pi";
 import {
   DashboardBlockData,
@@ -10,6 +10,7 @@ import { isDefined } from "shared/util";
 import { Flex, Heading, IconButton, Text } from "@radix-ui/themes";
 import clsx from "clsx";
 import { getBlockData } from "shared/enterprise";
+import { DashboardInstanceInterface } from "back-end/src/enterprise/validators/dashboard-instance";
 import Button from "@/components/Radix/Button";
 import {
   DropdownMenu,
@@ -17,9 +18,10 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/Radix/DropdownMenu";
-import DashboardSnapshotProvider from "../DashboardSnapshotProvider";
+import Checkbox from "@/components/Radix/Checkbox";
 import DashboardBlock from "./DashboardBlock";
 import DashboardBlockEditDrawer from "./DashboardBlockEditDrawer";
+import DashboardUpdateDisplay from "./DashboardUpdateDisplay";
 
 export const BLOCK_TYPE_INFO: Record<
   DashboardBlockType,
@@ -197,9 +199,11 @@ interface Props {
   canEdit: boolean;
   isEditing: boolean;
   editingBlock: number | undefined;
+  editLevel: DashboardInstanceInterface["editLevel"];
   setBlocks: React.Dispatch<DashboardBlockData<DashboardBlockInterface>[]>;
   setIsEditing: React.Dispatch<boolean>;
   setEditingBlock: React.Dispatch<number | undefined>;
+  setEditLevel: React.Dispatch<DashboardInstanceInterface["editLevel"]>;
   mutate: () => void;
 }
 
@@ -209,13 +213,24 @@ export default function DashboardEditor({
   canEdit,
   isEditing,
   editingBlock,
+  editLevel,
   setBlocks,
   setIsEditing,
   setEditingBlock,
+  setEditLevel,
   mutate,
 }: Props) {
   // TODO
   const scrollToIndex = (_i: number) => {};
+  const [editingBlockClone, setEditingBlockClone] = useState<
+    DashboardBlockData<DashboardBlockInterface> | undefined
+  >(undefined);
+
+  useEffect(() => {
+    setEditingBlockClone(
+      isDefined(editingBlock) ? blocks[editingBlock] : undefined
+    );
+  }, [editingBlock, blocks]);
 
   const addBlockType = (bType: DashboardBlockType, index?: number) => {
     index = index ?? blocks.length;
@@ -266,34 +281,47 @@ export default function DashboardEditor({
   }
 
   return (
-    <DashboardSnapshotProvider experiment={experiment}>
+    <>
       <div className="mt-3">
-        <Flex justify="between" align="center" mb="2">
-          <div>
+        <Flex align="center" justify="between">
+          <Flex align="center" mb="2" gap="1">
             {isEditing && (
-              <AddBlockDropdown
-                trigger={
-                  <Button
-                    className={clsx({
-                      "dashboard-disabled": editingBlock !== undefined,
-                    })}
-                    icon={<PiCaretDownFill />}
-                    iconPosition="right"
-                  >
-                    Add block
-                  </Button>
-                }
-                addBlockType={(bType) => addBlockType(bType, blocks.length)}
-              />
+              <>
+                <AddBlockDropdown
+                  trigger={
+                    <Button
+                      className={clsx({
+                        "dashboard-disabled": editingBlock !== undefined,
+                      })}
+                      icon={<PiCaretDownFill />}
+                      iconPosition="right"
+                    >
+                      Add block
+                    </Button>
+                  }
+                  addBlockType={(bType) => addBlockType(bType, blocks.length)}
+                />
+                <Checkbox
+                  containerClassName={clsx("mb-0", {
+                    "dashboard-disabled": editingBlock !== undefined,
+                  })}
+                  label="Allow editing by organization members"
+                  value={editLevel === "organization"}
+                  setValue={(checked) =>
+                    setEditLevel(checked ? "organization" : "private")
+                  }
+                />
+              </>
             )}
-          </div>
+          </Flex>
+          <DashboardUpdateDisplay />
         </Flex>
-
         <div className="">
           {blocks.map((block, i) => (
             <Flex direction="column" key={i}>
               <DashboardBlock
-                block={block}
+                // Show in-progress edits directly on the block
+                block={i === editingBlock ? editingBlockClone ?? block : block}
                 experiment={experiment}
                 isEditing={isEditing}
                 editingBlock={editingBlock === i}
@@ -355,17 +383,22 @@ export default function DashboardEditor({
       <DashboardBlockEditDrawer
         experiment={experiment}
         open={isDefined(editingBlock)}
-        close={() => setEditingBlock(undefined)}
-        block={isDefined(editingBlock) ? blocks[editingBlock] : undefined}
-        setBlock={(block) => {
-          if (editingBlock === undefined) return;
+        cancel={() => {
+          setEditingBlock(undefined);
+        }}
+        submit={() => {
+          if (editingBlock === undefined || editingBlockClone === undefined)
+            return;
           setBlocks([
             ...blocks.slice(0, editingBlock),
-            block,
+            editingBlockClone,
             ...blocks.slice(editingBlock + 1),
           ]);
+          setEditingBlock(undefined);
         }}
+        block={editingBlockClone}
+        setBlock={setEditingBlockClone}
       />
-    </DashboardSnapshotProvider>
+    </>
   );
 }

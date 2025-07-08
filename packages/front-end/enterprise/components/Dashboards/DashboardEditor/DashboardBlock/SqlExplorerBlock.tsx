@@ -7,8 +7,9 @@ import Callout from "@/components/Radix/Callout";
 import { BlockProps } from ".";
 
 export default function SqlExplorerBlock({
-  block: { savedQueryId, dataVizConfigIndex },
+  block,
 }: BlockProps<SqlExplorerBlockInterface>) {
+  const { savedQueryId, dataVizConfigIndex } = block;
   const { data: savedQueriesData, isLoading } = useApi<{
     status: number;
     savedQueries: SavedQuery[];

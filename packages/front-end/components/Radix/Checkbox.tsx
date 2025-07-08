@@ -30,6 +30,7 @@ export type Props = {
   weight?: "bold" | "regular";
   setValue: (value: boolean) => void;
   required?: boolean;
+  containerClassName?: string;
 } & MarginProps;
 
 export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
@@ -46,6 +47,7 @@ export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
     errorLevel = "error",
     weight = "bold",
     required,
+    containerClassName,
     ...containerProps
   }: Props,
   ref
@@ -70,10 +72,14 @@ export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
         ref={ref}
         as="label"
         size="2"
-        className={clsx("rt-CheckboxItem", {
-          "rt-TextDisabled": disabled,
-          disabled: disabled,
-        })}
+        className={clsx(
+          "rt-CheckboxItem",
+          {
+            "rt-TextDisabled": disabled,
+            disabled: disabled,
+          },
+          containerClassName
+        )}
         {...containerProps}
       >
         <Flex gap="2">

@@ -18,38 +18,59 @@ import {
 } from "shared/enterprise";
 import { getSnapshotAnalysis } from "shared/util";
 import { isEqual } from "lodash";
+import { DashboardInstanceInterface } from "back-end/src/enterprise/validators/dashboard-instance";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 
-const DashboardSnapshotContext = React.createContext<{
+export const DashboardSnapshotContext = React.createContext<{
   experiment?: ExperimentInterfaceStringDates;
   defaultSnapshot?: ExperimentSnapshotInterface;
   mutateSnapshot: () => Promise<unknown>;
   loading?: boolean;
+  validating?: boolean;
   error?: Error;
+  refreshing?: boolean;
+  updateAllSnapshots: () => Promise<unknown>;
 }>({
   mutateSnapshot: async () => {},
+  updateAllSnapshots: async () => {},
 });
 
 export default function DashboardSnapshotProvider({
   experiment,
+  dashboard,
+  mutateDefinitions,
   children,
 }: {
   experiment: ExperimentInterfaceStringDates;
+  dashboard?: DashboardInstanceInterface;
+  mutateDefinitions: () => void;
   children: ReactNode;
 }) {
+  const [updatingDashboardSnapshots, setUpdatingDashboardSnapshots] = useState(
+    false
+  );
+  const { apiCall } = useAuth();
   const {
     data: snapshotData,
     error: snapshotError,
+    isValidating,
     isLoading,
     mutate: snapshotMutate,
   } = useApi<{
     snapshot: ExperimentSnapshotInterface;
-  }>(
-    `/experiment/${experiment.id}/snapshot/${
-      experiment.phases?.length - 1 || 0
-    }`
-  );
+  }>(`/experiment/${experiment.id}/snapshot/${experiment.phases.length - 1}`);
+
+  const updateAllSnapshots = async () => {
+    if (!dashboard) return;
+    setUpdatingDashboardSnapshots(true);
+    await apiCall(`/dashboards/${dashboard.id}/refresh`, {
+      method: "POST",
+    });
+    mutateDefinitions();
+    snapshotMutate();
+    setUpdatingDashboardSnapshots(false);
+  };
 
   return (
     <DashboardSnapshotContext.Provider
@@ -61,6 +82,9 @@ export default function DashboardSnapshotProvider({
         },
         error: snapshotError,
         loading: isLoading,
+        validating: isValidating,
+        refreshing: updatingDashboardSnapshots,
+        updateAllSnapshots,
       }}
     >
       {children}
@@ -76,9 +100,15 @@ export function useDashboardSnapshot(
     experiment,
     defaultSnapshot,
     loading: defaultLoading,
+    validating: defaultValidating,
     error: defaultError,
     mutateSnapshot: mutateDefault,
+    refreshing,
   } = useContext(DashboardSnapshotContext);
+
+  const [dashboardRefreshing, setDashboardRefreshing] = useState<
+    boolean | undefined
+  >(false);
   const { apiCall } = useAuth();
   const [
     postSnapshotAnalysisLoading,
@@ -98,6 +128,7 @@ export function useDashboardSnapshot(
 
   const {
     data: blockSnapshotData,
+    isValidating: snapshotValidating,
     isLoading: snapshotLoading,
     error: snapshotError,
     mutate,
@@ -109,6 +140,7 @@ export function useDashboardSnapshot(
 
   const snapshot = shouldRun() ? blockSnapshotData?.snapshot : defaultSnapshot;
   const getSnapshotLoading = shouldRun() ? snapshotLoading : defaultLoading;
+  const validating = shouldRun() ? snapshotValidating : defaultValidating;
   const error = shouldRun() ? snapshotError : defaultError;
   const mutateSnapshot = shouldRun() ? mutate : mutateDefault;
 
@@ -134,6 +166,28 @@ export function useDashboardSnapshot(
     return getSnapshotAnalysis(snapshot, blockAnalysisSettings);
   }, [blockAnalysisSettings, snapshot]);
 
+  // If the overall dashboard just finished refreshing, mutate the local snapshot
+  useEffect(() => {
+    if (dashboardRefreshing && !refreshing) {
+      mutateSnapshot();
+    }
+    setDashboardRefreshing(refreshing);
+  }, [dashboardRefreshing, refreshing, mutateSnapshot]);
+
+  // Wait for results to be ready if the snapshot is still running
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      if (snapshot?.status === "running") {
+        mutateSnapshot();
+      } else {
+        clearInterval(intervalId);
+      }
+    }, 2000);
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [mutateSnapshot, snapshot]);
+
   // If the current snapshot is incorrect, e.g. a dimension mismatch, post to create a new snapshot
   useEffect(() => {
     if (
@@ -153,7 +207,8 @@ export function useDashboardSnapshot(
         : undefined;
       setPostSnapshotLoading(true);
       const res = await apiCall<{ snapshot: ExperimentSnapshotInterface }>(
-        `/experiment/${experiment.id}/snapshot/`,
+        // TODO: can we be smarter than just forcing every time?
+        `/experiment/${experiment.id}/snapshot/?force=true`,
         {
           method: "POST",
           body: JSON.stringify({
@@ -214,8 +269,11 @@ export function useDashboardSnapshot(
     snapshot,
     analysis,
     analysisSettings: analysis?.settings,
-    loading: postSnapshotAnalysisLoading || getSnapshotLoading,
-    pendingResults: snapshot?.status === "running",
+    loading:
+      postSnapshotAnalysisLoading ||
+      getSnapshotLoading ||
+      snapshot?.status === "running",
+    validating,
     error,
     mutateSnapshot,
   };

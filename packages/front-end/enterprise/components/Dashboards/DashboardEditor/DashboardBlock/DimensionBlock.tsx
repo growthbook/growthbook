@@ -1,3 +1,4 @@
+import React from "react";
 import { DimensionBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
 import { isDefined } from "shared/util";
 import { groupBy } from "lodash";
@@ -13,7 +14,14 @@ export default function DimensionBlock({
   block,
   setBlock,
 }: BlockProps<DimensionBlockInterface>) {
-  const { metricIds, experimentId, baselineRow } = block;
+  const {
+    metricIds,
+    experimentId,
+    baselineRow,
+    columnsFilter,
+    variationIds,
+    dimensionId,
+  } = block;
   const { experimentsMap } = useExperiments();
   const experiment = experimentsMap.get(experimentId);
 
@@ -38,6 +46,17 @@ export default function DimensionBlock({
       experiment.phases[experiment.phases.length - 1]?.variationWeights?.[i] ||
       0,
   }));
+  const indexedVariations = experiment.variations.map((v, i) => ({
+    ...v,
+    index: i,
+  }));
+
+  const variationFilter =
+    variationIds && variationIds.length > 0
+      ? indexedVariations
+          .filter((v) => !variationIds.includes(v.id))
+          .map((v) => v.index)
+      : undefined;
 
   const latestPhase = experiment.phases[experiment.phases.length - 1];
 
@@ -95,7 +114,10 @@ export default function DimensionBlock({
           id={experiment.id}
           phase={experiment.phases.length - 1}
           variations={variations}
+          variationFilter={variationFilter}
           baselineRow={baselineRow}
+          columnsFilter={columnsFilter}
+          dimension={dimensionId}
           status={experiment.status}
           isLatestPhase={true}
           startDate={latestPhase?.dateStarted || ""}

@@ -14,7 +14,13 @@ export default function MetricBlock({
   block,
   setBlock,
 }: BlockProps<MetricBlockInterface>) {
-  const { metricIds, experimentId, baselineRow, columnsFilter } = block;
+  const {
+    metricIds,
+    experimentId,
+    baselineRow,
+    columnsFilter,
+    variationIds,
+  } = block;
   const { experimentsMap } = useExperiments();
   const experiment = experimentsMap.get(experimentId);
 
@@ -39,6 +45,17 @@ export default function MetricBlock({
       experiment.phases[experiment.phases.length - 1]?.variationWeights?.[i] ||
       0,
   }));
+  const indexedVariations = experiment.variations.map((v, i) => ({
+    ...v,
+    index: i,
+  }));
+
+  const variationFilter =
+    variationIds && variationIds.length > 0
+      ? indexedVariations
+          .filter((v) => !variationIds.includes(v.id))
+          .map((v) => v.index)
+      : undefined;
 
   const latestPhase = experiment.phases[experiment.phases.length - 1];
 
@@ -96,6 +113,7 @@ export default function MetricBlock({
           id={experiment.id}
           phase={experiment.phases.length - 1}
           variations={variations}
+          variationFilter={variationFilter}
           baselineRow={baselineRow}
           columnsFilter={columnsFilter}
           status={experiment.status}

@@ -51,4 +51,10 @@ router.delete(
   dashboardsController.deleteDashboard
 );
 
+router.post(
+  "/:id/refresh",
+  validateRequestMiddleware({ params: dashboardParams }),
+  dashboardsController.refreshDashboardData
+);
+
 export { router as dashboardsRouter };
