@@ -6,6 +6,7 @@ import {
 } from "back-end/types/experiment-snapshot";
 import { DifferenceType } from "back-end/types/stats";
 import { Flex } from "@radix-ui/themes";
+import { getSnapshotAnalysis } from "shared/src/util";
 import { getExposureQuery } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
@@ -14,6 +15,7 @@ import { analysisUpdate } from "@/components/Experiment/DifferenceTypeChooser";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 
 export interface Props {
   value: string;
@@ -68,6 +70,7 @@ export default function DimensionChooser({
 
   const [postLoading, setPostLoading] = useState(false);
   const { dimensions, getDatasourceById, getDimensionById } = useDefinitions();
+  const { dimensionless: standardSnapshot } = useSnapshot();
   const datasource = datasourceId ? getDatasourceById(datasourceId) : null;
 
   // If activation metric is not selected, don't allow using that dimension
@@ -132,6 +135,7 @@ export default function DimensionChooser({
     });
   }
 
+  console.log(precomputedDimensions);
   const precomputedDimensionOptions =
     precomputedDimensions?.map((d) => ({
       label: d.replace("precomputed:", ""),
@@ -190,39 +194,50 @@ export default function DimensionChooser({
           onChange={(v) => {
             if (v === value) return;
             if (precomputedDimensionOptions.map((d) => d.value).includes(v)) {
-              // TODO reload old snapshot
-              setValue?.(null);
-              setValueFromPrecomputed?.(v);
-              if (analysis && snapshot) {
-                const newSettings: ExperimentSnapshotAnalysisSettings = {
-                  ...analysis.settings,
-                  dimensions: [v],
-                };
-                triggerAnalysisUpdate(
-                  newSettings,
-                  analysis,
-                  snapshot,
-                  apiCall,
-                  setPostLoading
-                )
-                  .then((status) => {
-                    if (status === "success") {
-                      setValue?.(null);
-                      setAnalysisSettings?.(newSettings);
-                      track(
-                        "Experiment Analysis: switch precomputed-dimension",
-                        {
-                          dimension: v,
-                        }
-                      );
-                      mutate?.();
-                    }
-                    setPostLoading(false);
-                  })
-                  .catch(() => {
-                    setValue?.(value);
-                    setPostLoading(false);
-                  });
+              if (standardSnapshot) {
+                // get default analysis settings from main snapshot
+                const defaultAnalysis = getSnapshotAnalysis(standardSnapshot);
+                if (defaultAnalysis) {
+                  const newSettings: ExperimentSnapshotAnalysisSettings = {
+                    ...defaultAnalysis.settings,
+                    // get other analysis settings from current analysis
+                    differenceType:
+                      analysis?.settings?.differenceType ?? "relative",
+                    baselineVariationIndex:
+                      analysis?.settings?.baselineVariationIndex ?? 0,
+                    dimensions: [v],
+                  };
+                  // Returns success if analysis is updated or already exists
+                  triggerAnalysisUpdate(
+                    newSettings,
+                    defaultAnalysis,
+                    standardSnapshot,
+                    apiCall,
+                    setPostLoading
+                  )
+                    .then((status) => {
+                      if (status === "success") {
+                        // reset dimension to null to load the main snapshot
+                        setValue?.(null);
+                        // set the analysis settings to get the right analysis
+                        setAnalysisSettings?.(newSettings);
+                        // set the value for the dropdown
+                        setValueFromPrecomputed?.(v);
+                        track(
+                          "Experiment Analysis: switch precomputed-dimension",
+                          {
+                            dimension: v,
+                          }
+                        );
+                        mutate?.();
+                      }
+                      setPostLoading(false);
+                    })
+                    .catch(() => {
+                      // if the analysis fails, do nothing
+                      setPostLoading(false);
+                    });
+                }
               }
             } else {
               setAnalysisSettings?.(null);
