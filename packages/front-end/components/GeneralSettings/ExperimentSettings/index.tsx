@@ -226,11 +226,12 @@ export default function ExperimentSettings({
                             <p>
                               If your exposure queries have dimension columns,
                               this will pre-compute the breakdowns for those
-                              dimensions for faster slicing-and-dicing in experiments.
+                              dimensions for faster slicing-and-dicing in
+                              experiments.
                             </p>
                             <p>
-                              This setting will also enable post-stratification, a forthcoming
-                              variance reduction technique.
+                              This setting will also enable post-stratification,
+                              a forthcoming variance reduction technique.
                             </p>
                           </>
                         }
@@ -244,8 +245,13 @@ export default function ExperimentSettings({
                   </Box>
                   <Box>
                     <Text>
-                      Pre-compute dimension breakdowns using dimension columns in your exposure queries (does not pre-compute dimension breakdowns for standalone unit dimensions).
-                      This enables faster dimension slicing-and-dicing without additional queries or joins at the cost of more aggregation steps in the main analysis queries. Navigate to your Data Source page to configure the dimension slices.
+                      Pre-compute dimension breakdowns using dimension columns
+                      in your exposure queries (does not pre-compute dimension
+                      breakdowns for standalone unit dimensions). This enables
+                      faster dimension slicing-and-dicing without additional
+                      queries or joins at the cost of more aggregation steps in
+                      the main analysis queries. Navigate to your Data Source
+                      page to configure the dimension slices.
                     </Text>
                   </Box>
                 </Flex>

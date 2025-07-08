@@ -309,7 +309,9 @@ export const startExperimentResultQueries = async (
     // Only run dimensional analysis for quantile metrics
     // if snapshot type is not standard
     const runOverallQuantileAnalysis =
-      snapshotSettings.type === "standard" && dimensionObjs.length > 0 && quantileMetricType(m);
+      snapshotSettings.type === "standard" &&
+      dimensionObjs.length > 0 &&
+      quantileMetricType(m);
 
     const queryParams: ExperimentMetricQueryParams = {
       activationMetric,
@@ -336,13 +338,13 @@ export const startExperimentResultQueries = async (
   }
 
   for (const [i, m] of groups.entries()) {
-
-
     // Only run dimensional analysis for quantile metrics
     // if snapshot type is not standard
     const runOverallQuantileAnalysis =
-      snapshotSettings.type === "standard" && dimensionObjs.length > 0 && m.some(quantileMetricType);
-    
+      snapshotSettings.type === "standard" &&
+      dimensionObjs.length > 0 &&
+      m.some(quantileMetricType);
+
     const queryParams: ExperimentFactMetricsQueryParams = {
       activationMetric,
       dimensions: runOverallQuantileAnalysis ? [] : dimensionObjs,

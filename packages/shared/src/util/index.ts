@@ -125,8 +125,6 @@ export function isAnalysisAllowed(
   snapshotSettings: ExperimentSnapshotSettings,
   analysisSettings: ExperimentSnapshotAnalysisSettings
 ): boolean {
-  console.log("snapshotSettings", snapshotSettings);
-  console.log("analysisSettings", analysisSettings);
   // Analysis dimensions must be subset of snapshot dimensions
   const snapshotDimIds = snapshotSettings.dimensions.map((d) => d.id);
   if (!analysisSettings.dimensions.every((d) => snapshotDimIds.includes(d))) {

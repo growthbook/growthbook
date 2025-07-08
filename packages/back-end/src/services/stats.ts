@@ -53,7 +53,6 @@ import { updateSnapshotAnalysis } from "back-end/src/models/ExperimentSnapshotMo
 import { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "back-end/src/integrations/SqlIntegration";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import { BanditResult } from "back-end/types/experiment";
-import { parseDimension } from "back-end/src/services/experiments";
 
 // Keep these interfaces in sync with gbstats
 export interface AnalysisSettingsForStatsEngine {

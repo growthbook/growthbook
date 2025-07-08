@@ -110,7 +110,6 @@ export enum RowError {
   QUANTILE_AGGREGATION_ERROR = "Quantile metrics cannot be re-aggregated across pre-computed dimension breakdowns.",
 }
 
-
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
   maximumFractionDigits: 2,
@@ -257,7 +256,12 @@ export default function ResultsTable({
 
   const domain = useDomain(filteredVariations, rows, differenceType);
 
-  const rowsResults: (RowResults | "query error" | RowError | null)[][] = useMemo(() => {
+  const rowsResults: (
+    | RowResults
+    | "query error"
+    | RowError
+    | null
+  )[][] = useMemo(() => {
     const rr: (RowResults | "query error" | RowError | null)[][] = [];
     rows.map((row, i) => {
       rr.push([]);
@@ -724,8 +728,8 @@ export default function ResultsTable({
                         className:
                           "results-variation-row align-items-center error-row",
                         label: (
-                            <div className="alert alert-danger px-2 py-1">
-                              <FaExclamationTriangle className="mr-1" />
+                          <div className="alert alert-danger px-2 py-1">
+                            <FaExclamationTriangle className="mr-1" />
                             Quantile metrics not available for pre-computed
                             dimensions. Use on-demand dimension instead.
                           </div>

@@ -245,7 +245,6 @@ const BreakDownResults: FC<{
         );
 
         if (showQuantileReaggregationError && quantileMetricType(newMetric)) {
-          console.log("showQuantileReaggregationError", newMetric);
           return {
             metric: newMetric,
             isGuardrail: resultGroup === "guardrail",
@@ -258,8 +257,8 @@ const BreakDownResults: FC<{
                 resultGroup,
                 metricOverrideFields: overrideFields,
                 error: RowError.QUANTILE_AGGREGATION_ERROR,
-              }
-            ]
+              },
+            ],
           };
         }
 
@@ -294,6 +293,7 @@ const BreakDownResults: FC<{
     ssrPolyfills,
     getExperimentMetricById,
     metricFilter,
+    showQuantileReaggregationError,
   ]);
 
   const activationMetricObj = activationMetric

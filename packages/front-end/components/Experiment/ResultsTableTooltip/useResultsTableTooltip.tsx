@@ -7,6 +7,7 @@ import {
   DifferenceType,
 } from "back-end/types/stats";
 import { ExperimentTableRow, RowResults } from "@/services/experiments";
+import { RowError } from "@/components/Experiment/ResultsTable";
 import {
   LayoutX,
   TOOLTIP_HEIGHT,
@@ -16,7 +17,6 @@ import {
   TooltipHoverSettings,
   YAlign,
 } from "./ResultsTableTooltip";
-import { RowError } from "@/components/Experiment/ResultsTable";
 
 export function useResultsTableTooltip({
   orderedVariations,

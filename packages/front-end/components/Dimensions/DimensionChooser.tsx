@@ -137,11 +137,8 @@ export default function DimensionChooser({
       label: d.replace("precomputed:", ""),
       value: d,
     })) ?? [];
-``
-  const onDemandDimensions = [
-    ...builtInDimensions,
-    ...filteredDimensions,
-  ];
+
+  const onDemandDimensions = [...builtInDimensions, ...filteredDimensions];
 
   if (disabled) {
     const dimensionName =

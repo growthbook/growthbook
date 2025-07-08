@@ -43,8 +43,8 @@ import { experimentDate } from "@/pages/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
-import { getDefaultRuleValue, NewExperimentRefRule } from "./features";
 import { RowError } from "@/components/Experiment/ResultsTable";
+import { getDefaultRuleValue, NewExperimentRefRule } from "./features";
 
 export type ExperimentTableRow = {
   label: string;

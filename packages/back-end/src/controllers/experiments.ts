@@ -2328,8 +2328,6 @@ export async function createExperimentSnapshot({
 
   const factTableMap = await getFactTableMap(context);
 
-  console.log("dimension", dimension);
-  console.log("analysisSettings", analysisSettings);
   const queryRunner = await createSnapshot({
     experiment,
     context,
