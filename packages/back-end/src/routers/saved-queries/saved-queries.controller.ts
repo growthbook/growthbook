@@ -268,7 +268,8 @@ export async function postGenerateSQL(
       message: "No databases found in the information schema",
     });
   }
-  const maxTables = 100;
+  const maxTables = 10;
+  let isGA = false;
   const shardedTables = new Map();
   const dbSchemas = new Map();
   const errors = [];
@@ -284,6 +285,9 @@ export async function postGenerateSQL(
           ) {
             const tableType =
               table.tableName.match(/(.*)_\d{8}$/)?.[1] || "unknown";
+            if (tableType === "events") {
+              isGA = true; // this is most likely a Google Analytics table
+            }
             if (
               !shardedTables.has(
                 database.databaseName + schema.schemaName + tableType
@@ -439,8 +443,11 @@ export async function postGenerateSQL(
     "You are a data analyst and SQL expert.\n" +
     "Generate a SQL query to answer the provided question inputted. The resultant query should be ONLY based on the provided context of tables and structure, and return only valid SQL that is executable on the specified data source." +
     "\n\nThe database is a " +
-    datasource.type +
+    (datasource.type === "growthbook_clickhouse"
+      ? "clickhouse"
+      : datasource.type) +
     " database. Be sure to make queries valid for that database type." +
+    (isGA ? " This database and tables from Google Analytics." : "") +
     "\n\nTable structure: " +
     "\n" +
     schemasString +
@@ -454,8 +461,12 @@ export async function postGenerateSQL(
   if (datasource.type === "bigquery") {
     instructions +=
       "\n\nBe sure to use the schema name in the query, ie: databaseName.schemaName.tableName.\n" +
-      "Keep in mind that the table names may be sharded, so you should use the generic table names for tables that have wild cards, such as 'events_*'. If you are querying sharded tables, and you're asked for a date range, you should use something like: \n((_TABLE_SUFFIX BETWEEN '{{date startDateISO \"yyyyMMdd\"}}' AND '{{date endDateISO \"yyyyMMdd\"}}') OR\n" +
-      "   (_TABLE_SUFFIX BETWEEN 'intraday_{{date startDateISO \"yyyyMMdd\"}}' AND 'intraday_{{date endDateISO \"yyyyMMdd\"}}'))\n\n when constructing the query to make sure it's fast and takes use of the sharding. If you do this code, be sure to replace the dates with the correct range.\n";
+      "Keep in mind that the table names may be sharded, so you should use the generic table names " +
+      "for tables that have wild cards, such as 'events_*'. If you are querying sharded tables, and " +
+      "you're asked for a date range, you should use something like: " +
+      "\n(_TABLE_SUFFIX BETWEEN 'yyyyMMdd' AND 'yyyyMMdd')" +
+      "\nWhere yyyy is the full year, MM is the month, and dd is the day.\n when constructing the query " +
+      "to make sure it's fast and takes use of the sharding. If you use this code, be sure to replace the dates with the correct range.\n";
   }
 
   const aiResults = await simpleCompletion({
