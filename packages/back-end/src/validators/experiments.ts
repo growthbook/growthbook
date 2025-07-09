@@ -320,6 +320,12 @@ export const experimentInterface = z
     shareLevel: z.enum(["public", "organization"]).optional(),
     analysisSummary: experimentAnalysisSummary.optional(),
     dismissedWarnings: z.array(z.enum(["low-power"])).optional(),
+    holdout: z
+      .object({
+        id: z.string(),
+        value: z.string(),
+      })
+      .optional(),
   })
   .strict()
   .merge(experimentAnalysisSettings);

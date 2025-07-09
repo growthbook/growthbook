@@ -146,6 +146,17 @@ const experimentRefRule = baseRule
 
 export type ExperimentRefRule = z.infer<typeof experimentRefRule>;
 
+export const holdoutRule = baseRule
+  .extend({
+    type: z.literal("holdout"),
+    value: z.string(),
+    coverage: z.number(),
+    hashAttribute: z.string(),
+  })
+  .strict();
+
+export type HoldoutRule = z.infer<typeof holdoutRule>;
+
 export const safeRolloutRule = baseRule
   .extend({
     type: z.literal("safe-rollout"),
@@ -166,6 +177,7 @@ export const featureRule = z.union([
   experimentRule,
   experimentRefRule,
   safeRolloutRule,
+  holdoutRule,
 ]);
 
 export type FeatureRule = z.infer<typeof featureRule>;

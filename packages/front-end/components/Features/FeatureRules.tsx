@@ -10,6 +10,7 @@ import { Box, Container, Flex, Text } from "@radix-ui/themes";
 import clsx from "clsx";
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import { useGrowthBook } from "@growthbook/growthbook-react";
+import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import { AppFeatures } from "@/types/app-features";
 import RuleModal from "@/components/Features/RuleModal/index";
 import RuleList from "@/components/Features/RuleList";
@@ -44,6 +45,7 @@ export default function FeatureRules({
   hideInactive,
   isDraft,
   safeRolloutsMap,
+  holdout,
 }: {
   environments: Environment[];
   feature: FeatureInterface;
@@ -57,6 +59,7 @@ export default function FeatureRules({
   hideInactive: boolean;
   isDraft: boolean;
   safeRolloutsMap: Map<string, SafeRolloutInterface>;
+  holdout: HoldoutInterface | undefined;
 }) {
   const { hasCommercialFeature } = useUser();
   const envs = environments.map((e) => e.id);
@@ -210,6 +213,7 @@ export default function FeatureRules({
                     hideInactive={hideInactive}
                     isDraft={isDraft}
                     safeRolloutsMap={safeRolloutsMap}
+                    holdout={holdout}
                   />
                 ) : (
                   <Box py="4" className="text-muted">

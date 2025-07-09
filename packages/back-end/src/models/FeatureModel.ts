@@ -148,6 +148,10 @@ const featureSchema = new mongoose.Schema({
   jsonSchema: {},
   neverStale: Boolean,
   customFields: {},
+  holdout: {
+    id: String,
+    value: String,
+  },
 });
 
 featureSchema.index({ id: 1, organization: 1 }, { unique: true });

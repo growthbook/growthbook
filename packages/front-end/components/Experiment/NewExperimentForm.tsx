@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useState } from "react";
+import React, { FC, useEffect, useMemo, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
@@ -16,7 +16,7 @@ import {
 import { getScopedSettings } from "shared/settings";
 import { generateTrackingKey, getEqualWeights } from "shared/experiments";
 import { kebabCase } from "lodash";
-import { Flex, Text } from "@radix-ui/themes";
+import { Flex, Separator, Text } from "@radix-ui/themes";
 import { useWatching } from "@/services/WatchProvider";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -174,6 +174,22 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   const environments = useEnvironments();
   const { experiments } = useExperiments();
+
+  const { holdouts, experimentsMap } = useExperiments(
+    project,
+    false,
+    "holdout"
+  );
+
+  const holdoutsWithExperiment = useMemo(() => {
+    return holdouts.map((holdout) => ({
+      ...holdout,
+      experiment: experimentsMap.get(
+        holdout.experimentId
+      ) as ExperimentInterfaceStringDates,
+    }));
+  }, [holdouts, experimentsMap]);
+
   const {
     templates: allTemplates,
     templatesMap,
@@ -299,6 +315,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       banditBurnInValue: scopedSettings.banditBurnInValue.value,
       banditBurnInUnit: scopedSettings.banditScheduleUnit.value,
       templateId: initialValue?.templateId || "",
+      holdout: initialValue?.holdout || undefined,
     },
   });
 
@@ -584,6 +601,59 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 </div>
               )}
 
+            {projects.length >= 1 && (
+              <div className="form-group">
+                <label>Project</label>
+                <SelectField
+                  value={form.watch("project") ?? ""}
+                  onChange={(p) => {
+                    form.setValue("project", p);
+                    setSelectedProject(p);
+                  }}
+                  name="project"
+                  initialOption={allowAllProjects ? "All Projects" : undefined}
+                  options={availableProjects}
+                />
+              </div>
+            )}
+
+            {holdoutsWithExperiment.length > 0 && (
+              <SelectField
+                label="Holdout"
+                labelClassName="font-weight-bold"
+                value={form.watch("holdout.id") ?? ""}
+                onChange={(v) => form.setValue("holdout", { id: v, value: "" })}
+                required
+                initialOption="Choose one..."
+                options={holdouts?.map((h) => {
+                  return {
+                    label: h.name,
+                    value: h.id,
+                  };
+                })}
+                formatOptionLabel={({ label, value }) => {
+                  const userIdType = holdoutsWithExperiment?.find(
+                    (h) => h.id === value
+                  )?.experiment.exposureQueryId;
+                  return (
+                    <>
+                      {label}
+                      {userIdType ? (
+                        <span
+                          className="text-muted small float-right position-relative"
+                          style={{ top: 3 }}
+                        >
+                          Identifier Type: <code>{userIdType}</code>
+                        </span>
+                      ) : null}
+                    </>
+                  );
+                }}
+              />
+            )}
+
+            <Separator size="4" mt="6" mb="5" />
+
             <Field
               label={isBandit ? "Bandit Name" : "Experiment Name"}
               required
@@ -622,21 +692,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 setLinkNameWithTrackingKey(false);
               }}
             />
-            {projects.length >= 1 && (
-              <div className="form-group">
-                <label>Project</label>
-                <SelectField
-                  value={form.watch("project") ?? ""}
-                  onChange={(p) => {
-                    form.setValue("project", p);
-                    setSelectedProject(p);
-                  }}
-                  name="project"
-                  initialOption={allowAllProjects ? "All Projects" : undefined}
-                  options={availableProjects}
-                />
-              </div>
-            )}
             {!isBandit && (
               <Field
                 label="Hypothesis"

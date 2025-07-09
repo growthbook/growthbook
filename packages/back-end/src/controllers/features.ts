@@ -2670,6 +2670,13 @@ export async function getFeatureById(
     feature: feature.id,
     organization: org,
   });
+
+  // find holdout
+  let holdout;
+  if (feature.holdout) {
+    holdout = await context.models.holdout.getById(feature.holdout.id);
+  }
+
   res.status(200).json({
     status: 200,
     feature,
@@ -2677,6 +2684,7 @@ export async function getFeatureById(
     experiments: [...experimentsMap.values()],
     safeRollouts: [...safeRolloutMap.values()],
     codeRefs,
+    holdout: holdout || undefined,
   });
 }
 

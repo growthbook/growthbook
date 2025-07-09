@@ -67,9 +67,6 @@ const HoldoutsPage = (): React.ReactElement => {
     }));
   }, [holdouts, experimentsMap]);
 
-  console.log(holdoutsWithExperiment);
-  console.log(experimentsMap);
-
   const holdoutItems = useAddComputedFields(holdoutsWithExperiment, (item) => {
     // If draft, set duration to --
     // if running, set duration to start date to now

@@ -11,6 +11,7 @@ import {
   mergeRevision,
 } from "shared/util";
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
+import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useApi from "@/hooks/useApi";
 import PageHead from "@/components/Layout/PageHead";
@@ -57,6 +58,7 @@ export default function FeaturePage() {
     experiments: ExperimentInterfaceStringDates[];
     safeRollouts: SafeRolloutInterface[];
     codeRefs: FeatureCodeRefsInterface[];
+    holdout: HoldoutInterface | undefined;
   }>(`/feature/${fid}${extraQueryString}`);
 
   const baseFeature = data?.feature;
@@ -64,6 +66,7 @@ export default function FeaturePage() {
   const revisions = data?.revisions;
   const experiments = data?.experiments;
   const safeRollouts = data?.safeRollouts;
+  const holdout = data?.holdout;
   const [tab, setTab] = useLocalStorage<FeatureTab>(
     `tabbedPageTab__${fid}`,
     "overview"
@@ -216,6 +219,7 @@ export default function FeaturePage() {
           revisions={data.revisions}
           experiments={experiments}
           safeRollouts={safeRollouts}
+          holdout={holdout}
           mutate={mutate}
           editProjectModal={editProjectModal}
           setEditProjectModal={setEditProjectModal}

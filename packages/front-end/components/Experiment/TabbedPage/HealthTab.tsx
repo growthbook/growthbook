@@ -66,6 +66,7 @@ export default function HealthTab({
   const [loading, setLoading] = useState<boolean>(false);
 
   const isBandit = experiment.type === "multi-armed-bandit";
+  const isHoldout = experiment.type === "holdout";
 
   const healthTabConfigParams: HealthTabConfigParams = {
     experiment,
@@ -301,6 +302,7 @@ export default function HealthTab({
       </div>
 
       {!isBandit &&
+      !isHoldout &&
       (decisionFrameworkEnabled ?? DEFAULT_DECISION_FRAMEWORK_ENABLED) ? (
         <PowerCard
           experiment={experiment}

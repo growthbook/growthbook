@@ -6,7 +6,11 @@ export const holdoutLinkedItemValidator = z.object({
 }); // TODO: Consider using an object with ids as keys instead of an array
 
 export const analysisSettingsValidator = z.object({
-  analysisWindow: z.array(z.date(), z.date()).optional(), // Analysis window is a range of dates
+  // TODO: Move to experiment snapshot settings
+  analysisWindow: z.object({
+    start: z.date(),
+    end: z.date(),
+  }),
 });
 
 export const holdoutValidator = z

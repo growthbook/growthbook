@@ -65,8 +65,6 @@ const HoldoutTimeline: React.FC<{
   const containerRef = useRef<HTMLDivElement>(null);
   const tooltipTimeout = useRef<NodeJS.Timeout | null>(null);
 
-  console.log("experiments", experiments);
-
   // we need to filter the experiments to only those that have phases within the selected date range:
   const filteredExperiments = useMemo(() => {
     return experiments.filter((experiment) => {

@@ -6,9 +6,10 @@ import {
 } from "back-end/types/feature";
 import dJSON from "dirty-json";
 
-import React, { ReactElement, useState } from "react";
+import React, { ReactElement, useMemo, useState } from "react";
 import { validateFeatureValue } from "shared/util";
 import { PiInfo } from "react-icons/pi";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -33,6 +34,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import SelectField from "@/components/Forms/SelectField";
+import { useExperiments } from "@/hooks/useExperiments";
 import FeatureKeyField from "./FeatureKeyField";
 import EnvironmentSelect from "./EnvironmentSelect";
 import TagsField from "./TagsField";
@@ -118,6 +120,7 @@ const genFormDefaultValues = ({
   | "id"
   | "environmentSettings"
   | "customFields"
+  | "holdout"
 > => {
   const environmentSettings = genEnvironmentSettings({
     environments,
@@ -171,6 +174,21 @@ export default function FeatureModal({
   const { refreshWatching } = useWatching();
   const { hasCommercialFeature } = useUser();
   const { requireProjectForFeatures } = useOrgSettings();
+
+  const { holdouts, experimentsMap } = useExperiments(
+    project,
+    false,
+    "holdout"
+  );
+
+  const holdoutsWithExperiment = useMemo(() => {
+    return holdouts.map((holdout) => ({
+      ...holdout,
+      experiment: experimentsMap.get(
+        holdout.experimentId
+      ) as ExperimentInterfaceStringDates,
+    }));
+  }, [holdouts, experimentsMap]);
 
   const customFields = filterCustomFieldsForSectionAndProject(
     useCustomFields(),
@@ -245,6 +263,8 @@ export default function FeatureModal({
         const { defaultValue, ...feature } = values;
         const valueType = feature.valueType;
 
+        console.log("holdout", feature.holdout);
+
         if (!valueType) {
           throw new Error("Please select a value type");
         }
@@ -270,6 +290,12 @@ export default function FeatureModal({
         const body = {
           ...feature,
           defaultValue: parseDefaultValue(defaultValue, valueType),
+          holdout: feature.holdout
+            ? {
+                id: feature.holdout.id,
+                value: parseDefaultValue(defaultValue, valueType),
+              }
+            : undefined,
         };
 
         const res = await apiCall<{ feature: FeatureInterface }>(`/feature`, {
@@ -364,6 +390,40 @@ export default function FeatureModal({
             required={requireProjectForFeatures}
           />
         </>
+      )}
+
+      {holdoutsWithExperiment.length > 0 && (
+        <SelectField
+          label="Holdout"
+          labelClassName="font-weight-bold"
+          value={form.watch("holdout.id") ?? ""}
+          onChange={(v) => form.setValue("holdout", { id: v, value: "" })}
+          required
+          options={holdouts?.map((h) => {
+            return {
+              label: h.name,
+              value: h.id,
+            };
+          })}
+          formatOptionLabel={({ label, value }) => {
+            const userIdType = holdoutsWithExperiment?.find(
+              (h) => h.id === value
+            )?.experiment.exposureQueryId;
+            return (
+              <>
+                {label}
+                {userIdType ? (
+                  <span
+                    className="text-muted small float-right position-relative"
+                    style={{ top: 3 }}
+                  >
+                    Identifier Type: <code>{userIdType}</code>
+                  </span>
+                ) : null}
+              </>
+            );
+          }}
+        />
       )}
 
       {hasCommercialFeature("custom-metadata") &&

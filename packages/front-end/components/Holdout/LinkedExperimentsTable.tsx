@@ -4,6 +4,7 @@ import { Box } from "@radix-ui/themes";
 import { useRouter } from "next/router";
 import { date } from "shared/dates";
 import { useAddComputedFields, useSearch } from "@/services/search";
+import { useUser } from "@/services/UserContext";
 import Link from "../Radix/Link";
 
 interface Props {
@@ -12,6 +13,8 @@ interface Props {
 }
 
 const LinkedExperimentsTable = ({ holdout, experiments }: Props) => {
+  const { getUserDisplay } = useUser();
+
   const experimentItems = useAddComputedFields(
     experiments,
     (exp) => {
@@ -68,9 +71,7 @@ const LinkedExperimentsTable = ({ holdout, experiments }: Props) => {
                 <td data-title="Experiment Name" className="col-2">
                   <Link href={`/experiment/${exp.id}`}>{exp.name}</Link>
                 </td>
-                <td data-title="Status" className="col-3">
-                  {exp.status}
-                </td>
+                <td data-title="Status">{exp.status}</td>
                 <td data-title="Shipped Variation">
                   {variation ? (
                     <div
@@ -97,7 +98,7 @@ const LinkedExperimentsTable = ({ holdout, experiments }: Props) => {
                   )}
                 </td>
                 <td data-title="Owner" className="col-2">
-                  {exp.owner}
+                  {getUserDisplay(exp.owner, false)}
                 </td>
                 <td data-title="Date Added">{date(exp.dateAdded)}</td>
                 <td data-title="Date Ended">{date(exp.dateEnded)}</td>

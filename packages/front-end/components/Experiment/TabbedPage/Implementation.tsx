@@ -20,6 +20,8 @@ import Callout from "@/components/Radix/Callout";
 import Button from "@/components/Radix/Button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/Radix/Tabs";
 import LinkedExperimentsTable from "@/components/Holdout/LinkedExperimentsTable";
+import HoldoutEnvironments from "./HoldoutEnvironments";
+import LinkedFeaturesTable from "@/components/Holdout/LinkedFeaturesTable";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -138,8 +140,14 @@ export default function Implementation({
       )}
 
       {experiment.type === "holdout" && holdout && (
+        <HoldoutEnvironments
+          editEnvironments={() => undefined}
+          environments={holdout.environments ?? []}
+        />
+      )}
+      {experiment.type === "holdout" && holdout && (
         <div className="box p-4 my-4">
-          <h3>Included Experiments & Features</h3>
+          <h4>Included Experiments & Features</h4>
           <Tabs
             value={tab}
             onValueChange={(value) =>
@@ -154,6 +162,13 @@ export default function Implementation({
           {tab === "experiments" && (
             <LinkedExperimentsTable
               holdout={holdout}
+              experiments={holdoutExperiments ?? []}
+            />
+          )}
+          {tab === "features" && (
+            <LinkedFeaturesTable
+              holdout={holdout}
+              // features={holdoutFeatures ?? []}
               experiments={holdoutExperiments ?? []}
             />
           )}
