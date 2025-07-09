@@ -8,4 +8,5 @@ const holdoutController = wrapController(rawHoldoutController);
 // router.get("/", holdoutController.getHoldouts);
 router.get("/:id", holdoutController.getHoldout);
 
+router.post("/:id/start-analysis", holdoutController.startAnalysis);
 export { router as holdoutRouter };

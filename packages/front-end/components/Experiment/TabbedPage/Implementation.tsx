@@ -20,8 +20,8 @@ import Callout from "@/components/Radix/Callout";
 import Button from "@/components/Radix/Button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/Radix/Tabs";
 import LinkedExperimentsTable from "@/components/Holdout/LinkedExperimentsTable";
-import HoldoutEnvironments from "./HoldoutEnvironments";
 import LinkedFeaturesTable from "@/components/Holdout/LinkedFeaturesTable";
+import HoldoutEnvironments from "./HoldoutEnvironments";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -43,7 +43,6 @@ export interface Props {
 export default function Implementation({
   experiment,
   holdout,
-  holdoutFeatures,
   holdoutExperiments,
   visualChangesets,
   urlRedirects,

@@ -1,14 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { RxDesktop } from "react-icons/rx";
+import React, { useEffect, useMemo, useState } from "react";
 import { date, datetime } from "shared/dates";
 import Link from "next/link";
-import { BsFlag } from "react-icons/bs";
 import clsx from "clsx";
-import { PiShuffle } from "react-icons/pi";
-import {
-  ComputedExperimentInterface,
-  ExperimentInterfaceStringDates,
-} from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -16,14 +10,9 @@ import Pagination from "@/components/Pagination";
 import { useUser } from "@/services/UserContext";
 import SortedTags from "@/components/Tags/SortedTags";
 import Field from "@/components/Forms/Field";
-import Toggle from "@/components/Forms/Toggle";
 import { useExperiments } from "@/hooks/useExperiments";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import TagsFilter, {
-  filterByTags,
-  useTagsFilter,
-} from "@/components/Tags/TagsFilter";
-import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
+import TagsFilter, { useTagsFilter } from "@/components/Tags/TagsFilter";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/components/Radix/Button";
@@ -45,6 +34,7 @@ const HoldoutsPage = (): React.ReactElement => {
     error,
     loading,
     hasArchived,
+    mutateExperiments,
     holdouts,
     experimentsMap,
   } = useExperiments(project, tabs.includes("archived"), "holdout");
@@ -418,6 +408,7 @@ const HoldoutsPage = (): React.ReactElement => {
           onClose={() => setOpenNewHoldoutModal(false)}
           source="holdouts-list"
           isNewExperiment={true}
+          mutate={mutateExperiments}
         />
       )}
     </>
