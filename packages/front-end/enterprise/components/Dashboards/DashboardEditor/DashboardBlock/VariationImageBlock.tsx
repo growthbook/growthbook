@@ -10,12 +10,16 @@ export default function VariationImageBlock({
   const { experimentsMap } = useExperiments();
   const experiment = experimentsMap.get(experimentId);
   if (!experiment) return null;
+  const variationsList =
+    variationIds.length === 0
+      ? experiment.variations.map(({ id }) => id)
+      : variationIds;
 
   return (
     <div className="variation-image-block">
       <VariationsTable
         experiment={experiment}
-        variationsList={variationIds}
+        variationsList={variationsList}
         canEditExperiment={false}
         allowImages={true}
       />

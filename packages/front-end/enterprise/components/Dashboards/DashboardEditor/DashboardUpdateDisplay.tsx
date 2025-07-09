@@ -5,7 +5,7 @@ import { PiArrowClockwise, PiLightning } from "react-icons/pi";
 import clsx from "clsx";
 import { dashboardCanAutoUpdate } from "shared/enterprise";
 import {
-  DashboardBlockData,
+  DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
 } from "back-end/src/enterprise/validators/dashboard-block";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -15,7 +15,7 @@ import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import { DashboardSnapshotContext } from "../DashboardSnapshotProvider";
 
 interface Props {
-  blocks: DashboardBlockData<DashboardBlockInterface>[];
+  blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
   enableAutoUpdates: boolean;
   disabled: boolean;
 }

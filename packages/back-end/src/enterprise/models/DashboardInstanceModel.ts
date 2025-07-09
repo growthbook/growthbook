@@ -1,10 +1,5 @@
 import mongoose from "mongoose";
-import { isMatch } from "lodash";
-import {
-  getBlockAnalysisSettings,
-  getBlockSnapshotSettings,
-  isSqlExplorerBlock,
-} from "shared/enterprise";
+import { createDashboardBlocksFromTemplate } from "shared/enterprise";
 import {
   dashboardInstanceInterface,
   DashboardInstanceInterface,
@@ -14,13 +9,22 @@ import {
   removeMongooseFields,
   ToInterface,
 } from "back-end/src/util/mongo.util";
+import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import { DashboardTemplateInterface } from "back-end/src/enterprise/validators/dashboard-template";
 import {
-  ExperimentSnapshotAnalysisSettings,
-  ExperimentSnapshotSettings,
-} from "back-end/types/experiment-snapshot";
-import { getLatestSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
-import { ExperimentInterface } from "back-end/types/experiment";
-import { toInterface as blockToInterface } from "./DashboardBlockModel";
+  toInterface as blockToInterface,
+  createDashboardBlock,
+} from "./DashboardBlockModel";
+
+const DEFAULT_DASHBOARD_BLOCKS: DashboardTemplateInterface["blockInitialValues"] = [
+  { type: "metadata-description" },
+  { type: "traffic-graph" },
+  {
+    type: "metric",
+    columnsFilter: ["Variation Names", "Chance to Win", "CI Graph", "Lift"],
+  },
+  { type: "time-series" },
+];
 
 export type DashboardInstanceDocument = mongoose.Document &
   DashboardInstanceInterface;
@@ -51,36 +55,46 @@ export class DashboardInstanceModel extends BaseClass {
   public async findByExperiment(
     experimentId: string
   ): Promise<DashboardInstanceInterface[]> {
-    return this._find({ experimentId });
+    const dashboards = await this._find({ experimentId });
+    if (!dashboards.find((dash) => dash.isDefault)) {
+      dashboards.push(await this.createDefaultDashboard(experimentId));
+    }
+    return dashboards.filter((dash) => !dash.isDeleted);
   }
 
   protected canCreate(doc: DashboardInstanceInterface): boolean {
     if (!this.context.hasPremiumFeature("dashboards"))
-      throw new Error(
-        "Must have a commercial License Key to create Dashboards"
-      );
+      throw new Error("Must have a commercial License Key to use Dashboards");
     const { experiment } = this.getForeignRefs(doc);
     if (!experiment) return true;
     return this.context.permissions.canCreateReport(experiment);
   }
 
   protected canRead(_doc: DashboardInstanceInterface): boolean {
-    if (!this.context.hasPremiumFeature("dashboards"))
-      throw new Error(
-        "Must have a commercial License Key to create Dashboards"
-      );
     return this.context.hasPermission("readData", "");
   }
 
   protected canUpdate(
     existing: DashboardInstanceInterface,
-    _updates: DashboardInstanceInterface
+    updates: UpdateProps<DashboardInstanceInterface>
   ): boolean {
     if (!this.context.hasPremiumFeature("dashboards"))
-      throw new Error(
-        "Must have a commercial License Key to create Dashboards"
-      );
+      throw new Error("Must have a commercial License Key to use Dashboards");
 
+    const isOwner = this.context.userId === existing.userId || !existing.userId;
+    const isAdmin = this.context.permissions.canSuperDeleteReport();
+
+    const canManage = isOwner || isAdmin;
+    if (canManage) return true;
+    if (
+      "title" in updates ||
+      "editLevel" in updates ||
+      "enableAutoUpdates" in updates
+    ) {
+      return false;
+    }
+
+    if (existing.editLevel !== "organization") return false;
     const { experiment } = this.getForeignRefs(existing);
     if (!experiment) return true;
     return this.context.permissions.canUpdateReport(experiment);
@@ -88,10 +102,11 @@ export class DashboardInstanceModel extends BaseClass {
 
   protected canDelete(doc: DashboardInstanceInterface): boolean {
     if (!this.context.hasPremiumFeature("dashboards"))
-      throw new Error(
-        "Must have a commercial License Key to create Dashboards"
-      );
+      throw new Error("Must have a commercial License Key to use Dashboards");
 
+    const isOwner = this.context.userId === doc.userId || !doc.userId;
+    const isAdmin = this.context.permissions.canSuperDeleteReport();
+    if (!isOwner && !isAdmin) return false;
     const { experiment } = this.getForeignRefs(doc);
     if (!experiment) return true;
     return this.context.permissions.canDeleteReport(experiment);
@@ -161,71 +176,48 @@ export class DashboardInstanceModel extends BaseClass {
       });
     }
   }
-}
 
-// Merges the individual blocks' overrides with the defaults for the dashboard
-// Returns the minimal set of snapshots needed for all the blocks as defined by their settings
-// and additional analysis settings
-export async function computeSnapshotSettings(
-  dashboard: DashboardInstanceInterface,
-  experiment: ExperimentInterface
-): Promise<
-  Array<{
-    snapshotSettings: ExperimentSnapshotSettings;
-    analysisSettingsList: ExperimentSnapshotAnalysisSettings[];
-    blockUids: string[];
-  }>
-> {
-  const snapshot = await getLatestSnapshot({
-    experiment: experiment.id,
-    phase: experiment.phases.length - 1,
-  });
-  if (!snapshot) return [];
-  const experimentSnapshotSettings = snapshot.settings;
-  const experimentAnalysisSettings = snapshot.analyses[0].settings;
-
-  const snapshotInfo: Array<{
-    snapshotSettings: ExperimentSnapshotSettings;
-    analysisSettingsList: ExperimentSnapshotAnalysisSettings[];
-    blockUids: string[];
-  }> = [];
-  dashboard.blocks.forEach((block) => {
-    const combinedSnapshotSettings = {
-      ...experimentSnapshotSettings,
-      ...getBlockSnapshotSettings(block),
-    };
-    const combinedAnalysisSettings = getBlockAnalysisSettings(
-      block,
-      experimentAnalysisSettings
-    );
-    let snapshotRecord = snapshotInfo.find(({ snapshotSettings }) =>
-      isMatch(snapshotSettings, combinedSnapshotSettings)
-    );
-    if (snapshotRecord) {
-      if (
-        !snapshotRecord.analysisSettingsList.find((analysisSettings) =>
-          isMatch(analysisSettings, combinedAnalysisSettings)
-        )
-      ) {
-        snapshotRecord.analysisSettingsList.push(combinedAnalysisSettings);
-      }
-      snapshotRecord.blockUids.push(block.uid);
+  public async deleteById(id: string) {
+    const existing = await this.getById(id);
+    if (!existing) return;
+    // Soft-delete the default dashboard to prevent it from being re-created
+    if (existing.isDefault) {
+      await this.updateById(id, { isDeleted: true });
     } else {
-      snapshotRecord = {
-        snapshotSettings: combinedSnapshotSettings,
-        analysisSettingsList: [combinedAnalysisSettings],
-        blockUids: [block.uid],
-      };
-      snapshotInfo.push(snapshotRecord);
+      await this._deleteOne(existing);
     }
-  });
-  return snapshotInfo;
+    return existing;
+  }
+
+  protected async createDefaultDashboard(experimentId: string) {
+    const experiment = await getExperimentById(this.context, experimentId);
+    if (!experiment) throw new Error("Cannot find specified experiment");
+    const blocksToCreate = createDashboardBlocksFromTemplate(
+      { blockInitialValues: DEFAULT_DASHBOARD_BLOCKS },
+      experiment
+    );
+    const blocks = await Promise.all(
+      blocksToCreate.map((blockData) =>
+        createDashboardBlock(this.context.org.id, blockData)
+      )
+    );
+    return this._createOne({
+      experimentId,
+      isDefault: true,
+      isDeleted: false,
+      userId: "",
+      editLevel: "organization",
+      enableAutoUpdates: true,
+      title: "Default Dashboard",
+      blocks,
+    });
+  }
 }
 
 function getSavedQueryIds(doc: DashboardInstanceDocument): Set<string> {
   const queryIdSet = new Set<string>();
   doc.blocks.forEach((block) => {
-    if (isSqlExplorerBlock(block) && block.savedQueryId) {
+    if (block.type === "sql-explorer" && block.savedQueryId) {
       queryIdSet.add(block.savedQueryId);
     }
   });

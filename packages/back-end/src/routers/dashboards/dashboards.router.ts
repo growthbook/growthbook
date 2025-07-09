@@ -6,6 +6,7 @@ import {
   createDashboardBlockInterface,
   dashboardBlockInterface,
 } from "back-end/src/enterprise/validators/dashboard-block";
+import { dashboardEditLevel } from "back-end/src/enterprise/validators/dashboard-instance";
 import * as rawDashboardsController from "./dashboards.controller";
 
 const router = express.Router();
@@ -16,7 +17,7 @@ export const createDashboardBody = z
   .object({
     experimentId: z.string(),
     title: z.string(),
-    editLevel: z.enum(["organization", "private"]),
+    editLevel: dashboardEditLevel,
     enableAutoUpdates: z.boolean(),
     blocks: z.array(createDashboardBlockInterface),
   })
@@ -25,13 +26,27 @@ export const createDashboardBody = z
 export const updateDashboardBody = z
   .object({
     title: z.string().optional(),
-    editLevel: z.enum(["organization", "private"]).optional(),
+    editLevel: dashboardEditLevel.optional(),
     enableAutoUpdates: z.boolean().optional(),
     blocks: z
       .array(z.union([createDashboardBlockInterface, dashboardBlockInterface]))
       .optional(),
   })
   .strict();
+
+router.get(
+  "/",
+  validateRequestMiddleware({}),
+  dashboardsController.getAllDashboards
+);
+
+router.get(
+  "/by-experiment/:experimentId",
+  validateRequestMiddleware({
+    params: z.object({ experimentId: z.string() }).strict(),
+  }),
+  dashboardsController.getDashboardsForExperiment
+);
 
 router.post(
   "/",

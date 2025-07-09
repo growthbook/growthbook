@@ -1,107 +1,46 @@
 import {
   DashboardBlockInterface,
-  MarkdownBlockInterface,
-  VariationImageBlockInterface,
-  MetricBlockInterface,
   DimensionBlockInterface,
-  TimeSeriesBlockInterface,
   DashboardBlockData,
-  HypothesisBlockInterface,
-  DescriptionBlockInterface,
-  SqlExplorerBlockInterface,
-  TrafficGraphBlockInterface,
-  TrafficTableBlockInterface,
+  DashboardBlockType,
+  DashboardBlockInterfaceOrData,
+  CreateDashboardBlockInterface,
 } from "back-end/src/enterprise/validators/dashboard-block";
+import {
+  ExperimentInterface,
+  ExperimentInterfaceStringDates,
+} from "back-end/types/experiment";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotSettings,
 } from "back-end/types/experiment-snapshot";
+import { DashboardTemplateInterface } from "back-end/src/enterprise/validators/dashboard-template";
 
-export function getBlockData<
-  T extends DashboardBlockData<DashboardBlockInterface>
->(block: T) {
+export function getBlockData<T extends DashboardBlockInterface>(
+  block: DashboardBlockInterfaceOrData<T>
+): DashboardBlockData<T> {
   return { ...block, organization: undefined, id: undefined, uid: undefined };
 }
 
-export function isMarkdownBlock(
-  block: DashboardBlockData<DashboardBlockInterface>
-): block is DashboardBlockData<MarkdownBlockInterface> {
-  return block.type === "markdown";
-}
-
-export function isDescriptionBlock(
-  block: DashboardBlockData<DashboardBlockInterface>
-): block is DashboardBlockData<DescriptionBlockInterface> {
-  return block.type === "metadata-description";
-}
-
-export function isHypothesisBlock(
-  block: DashboardBlockData<DashboardBlockInterface>
-): block is DashboardBlockData<HypothesisBlockInterface> {
-  return block.type === "metadata-hypothesis";
-}
-
-export function isVariationImageBlock(
-  block: DashboardBlockData<DashboardBlockInterface>
-): block is DashboardBlockData<VariationImageBlockInterface> {
-  return block.type === "variation-image";
-}
-
-export function isMetricBlock(
-  block: DashboardBlockData<DashboardBlockInterface>
-): block is DashboardBlockData<MetricBlockInterface> {
-  return block.type === "metric";
-}
-
-export function isDimensionBlock(
-  block: DashboardBlockData<DashboardBlockInterface>
-): block is DashboardBlockData<DimensionBlockInterface> {
-  return block.type === "dimension";
-}
-
-export function isTimeSeriesBlock(
-  block: DashboardBlockData<DashboardBlockInterface>
-): block is DashboardBlockData<TimeSeriesBlockInterface> {
-  return block.type === "time-series";
-}
-
-export function isTrafficTableBlock(
-  block: DashboardBlockData<DashboardBlockInterface>
-): block is DashboardBlockData<TrafficTableBlockInterface> {
-  return block.type === "traffic-table";
-}
-
-export function isTrafficGraphBlock(
-  block: DashboardBlockData<DashboardBlockInterface>
-): block is DashboardBlockData<TrafficGraphBlockInterface> {
-  return block.type === "traffic-graph";
-}
-
-export function isSqlExplorerBlock(
-  block: DashboardBlockData<DashboardBlockInterface>
-): block is DashboardBlockData<SqlExplorerBlockInterface> {
-  return block.type === "sql-explorer";
-}
-
-export function isPersistedDashboardBlock(
-  data: DashboardBlockData<DashboardBlockInterface>
-): data is DashboardBlockInterface {
-  const block = data as DashboardBlockInterface;
+export function isPersistedDashboardBlock<T extends DashboardBlockInterface>(
+  data: DashboardBlockInterfaceOrData<T>
+): data is T {
+  const block = data as T;
   return !!(block.id && block.uid && block.organization);
 }
 
 export function isDifferenceType(
-  value: unknown
+  value: string
 ): value is DimensionBlockInterface["differenceType"] {
-  return ["absolute", "relative", "scaled"].includes(value as string);
+  return ["absolute", "relative", "scaled"].includes(value);
 }
 
 export function blockHasFieldOfType<Field extends string, T>(
-  data: DashboardBlockData<DashboardBlockInterface>,
+  data: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
   field: Field,
   typeCheck: (val: unknown) => val is T
 ): data is Extract<
-  DashboardBlockData<DashboardBlockInterface>,
+  DashboardBlockInterfaceOrData<DashboardBlockInterface>,
   { [K in Field]: T }
 > {
   return (
@@ -113,7 +52,7 @@ export function blockHasFieldOfType<Field extends string, T>(
 }
 
 export function getBlockSnapshotSettings(
-  block: DashboardBlockData<DashboardBlockInterface>
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>
 ): Partial<ExperimentSnapshotSettings> {
   switch (block.type) {
     case "dimension":
@@ -126,7 +65,7 @@ export function getBlockSnapshotSettings(
 }
 
 export function getBlockAnalysisSettings(
-  block: DashboardBlockData<DashboardBlockInterface>,
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
   defaultAnalysisSettings: ExperimentSnapshotAnalysisSettings
 ): ExperimentSnapshotAnalysisSettings {
   switch (block.type) {
@@ -151,10 +90,118 @@ export function getBlockAnalysisSettings(
 export function dashboardCanAutoUpdate({
   blocks,
 }: {
-  blocks: DashboardBlockData<DashboardBlockInterface>[];
+  blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
 }) {
   // Only update dashboards where all the blocks will stay up to date with each other
   return !blocks.find((block) =>
     ["sql-explorer", "dimension"].includes(block.type)
+  );
+}
+
+type CreateBlock<T extends DashboardBlockInterface> = (args: {
+  experiment: ExperimentInterfaceStringDates | ExperimentInterface;
+  initialValues?: Partial<DashboardBlockData<T>>;
+}) => DashboardBlockData<T>;
+
+export const CREATE_BLOCK_TYPE: {
+  [k in DashboardBlockType]: CreateBlock<
+    Extract<DashboardBlockInterface, { type: k }>
+  >;
+} = {
+  markdown: ({ initialValues }) => ({
+    type: "markdown",
+    title: "",
+    description: "",
+    content: "",
+    ...(initialValues || {}),
+  }),
+  "metadata-description": ({ initialValues, experiment }) => ({
+    type: "metadata-description",
+    title: "",
+    description: "",
+    experimentId: experiment.id,
+    ...(initialValues || {}),
+  }),
+  "metadata-hypothesis": ({ initialValues, experiment }) => ({
+    type: "metadata-hypothesis",
+    title: "",
+    description: "",
+    experimentId: experiment.id,
+    ...(initialValues || {}),
+  }),
+  "variation-image": ({ initialValues, experiment }) => ({
+    type: "variation-image",
+    title: "",
+    description: "",
+    variationIds: [],
+    experimentId: experiment.id,
+    ...(initialValues || {}),
+  }),
+  metric: ({ initialValues, experiment }) => ({
+    type: "metric",
+    title: "",
+    description: "",
+    experimentId: experiment.id,
+    metricIds: experiment.goalMetrics,
+    snapshotId: experiment.analysisSummary?.snapshotId || "",
+    differenceType: "relative",
+    baselineRow: 0,
+    columnsFilter: [],
+    ...(initialValues || {}),
+  }),
+  dimension: ({ initialValues, experiment }) => ({
+    type: "dimension",
+    title: "",
+    description: "",
+    experimentId: experiment.id,
+    metricIds: experiment.goalMetrics,
+    dimensionId: "",
+    snapshotId: experiment.analysisSummary?.snapshotId || "",
+    differenceType: "relative",
+    baselineRow: 0,
+    columnsFilter: [],
+    ...(initialValues || {}),
+  }),
+  "time-series": ({ initialValues, experiment }) => ({
+    type: "time-series",
+    title: "",
+    description: "",
+    experimentId: experiment.id,
+    metricId: experiment.goalMetrics[0] || "",
+    snapshotId: experiment.analysisSummary?.snapshotId || "",
+    variationIds: experiment.variations.map((variation) => variation.id),
+    ...(initialValues || {}),
+  }),
+  "traffic-graph": ({ initialValues, experiment }) => ({
+    type: "traffic-graph",
+    title: "",
+    description: "",
+    experimentId: experiment.id,
+    ...(initialValues || {}),
+  }),
+  "traffic-table": ({ initialValues, experiment }) => ({
+    type: "traffic-table",
+    title: "",
+    description: "",
+    experimentId: experiment.id,
+    ...(initialValues || {}),
+  }),
+  "sql-explorer": ({ initialValues }) => ({
+    type: "sql-explorer",
+    title: "",
+    description: "",
+    dataVizConfigIndex: 0,
+    ...(initialValues || {}),
+  }),
+};
+
+export function createDashboardBlocksFromTemplate(
+  {
+    blockInitialValues,
+  }: Pick<DashboardTemplateInterface, "blockInitialValues">,
+  experiment: ExperimentInterface | ExperimentInterfaceStringDates
+): CreateDashboardBlockInterface[] {
+  return blockInitialValues.map(({ type, ...initialValues }) =>
+    CREATE_BLOCK_TYPE[type]({ initialValues, experiment })
   );
 }

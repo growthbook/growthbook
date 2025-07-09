@@ -2,7 +2,7 @@ import { z } from "zod";
 import { dashboardBlockPartial } from "./dashboard-block";
 import { dashboardEditLevel } from "./dashboard-instance";
 
-export const DashboardTemplateInterface = z
+export const dashboardTemplateInterface = z
   .object({
     id: z.string(),
     organization: z.string(),
@@ -18,5 +18,5 @@ export const DashboardTemplateInterface = z
   .strict();
 
 export type DashboardTemplateInterface = z.infer<
-  typeof DashboardTemplateInterface
+  typeof dashboardTemplateInterface
 >;

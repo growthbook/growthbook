@@ -8,7 +8,7 @@ import React, {
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import {
-  DashboardBlockData,
+  DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
 } from "back-end/src/enterprise/validators/dashboard-block";
 import {
@@ -96,8 +96,10 @@ export default function DashboardSnapshotProvider({
 }
 
 export function useDashboardSnapshot(
-  block: DashboardBlockData<DashboardBlockInterface>,
-  setBlock: React.Dispatch<DashboardBlockData<DashboardBlockInterface>>
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+  setBlock: React.Dispatch<
+    DashboardBlockInterfaceOrData<DashboardBlockInterface>
+  >
 ) {
   const {
     experiment,

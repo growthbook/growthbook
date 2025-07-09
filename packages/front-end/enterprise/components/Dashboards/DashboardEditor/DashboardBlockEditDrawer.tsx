@@ -1,16 +1,12 @@
 import { Flex, IconButton, Text } from "@radix-ui/themes";
 import {
-  DashboardBlockData,
+  DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
   DimensionBlockInterface,
 } from "back-end/src/enterprise/validators/dashboard-block";
 import React, { useMemo, useState } from "react";
 import clsx from "clsx";
-import {
-  blockHasFieldOfType,
-  isDifferenceType,
-  isSqlExplorerBlock,
-} from "shared/enterprise";
+import { blockHasFieldOfType, isDifferenceType } from "shared/enterprise";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { isDefined } from "shared/util";
 import { SavedQuery } from "back-end/src/validators/saved-queries";
@@ -35,8 +31,10 @@ interface Props {
   open: boolean;
   cancel: () => void;
   submit: () => void;
-  block?: DashboardBlockData<DashboardBlockInterface>;
-  setBlock: React.Dispatch<DashboardBlockData<DashboardBlockInterface>>;
+  block?: DashboardBlockInterfaceOrData<DashboardBlockInterface>;
+  setBlock: React.Dispatch<
+    DashboardBlockInterfaceOrData<DashboardBlockInterface>
+  >;
 }
 export default function DashboardBlockEditDrawer({
   experiment,
@@ -98,7 +96,7 @@ export default function DashboardBlockEditDrawer({
       label: name,
     })) || [];
   const savedQuery =
-    block && isSqlExplorerBlock(block)
+    block?.type === "sql-explorer"
       ? savedQueriesData?.savedQueries?.find(
           (q: SavedQuery) => q.id === block.savedQueryId
         )
@@ -259,12 +257,10 @@ export default function DashboardBlockEditDrawer({
                 onChange={(value) =>
                   setBlock({ ...block, variationIds: value })
                 }
-                options={experiment.variations
-                  .filter((_, i) => i > 0)
-                  .map((variation) => ({
-                    label: variation.name,
-                    value: variation.id,
-                  }))}
+                options={experiment.variations.map((variation) => ({
+                  label: variation.name,
+                  value: variation.id,
+                }))}
                 formatOptionLabel={({ value, label }) => {
                   const varIndex = experiment.variations.findIndex(
                     ({ id }) => id === value
@@ -354,7 +350,7 @@ export default function DashboardBlockEditDrawer({
                 ]}
               />
             )}
-            {isSqlExplorerBlock(block) &&
+            {block.type === "sql-explorer" &&
               (!savedQueriesData?.savedQueries ? (
                 <Callout status="error">
                   Failed to load saved queries, try again later

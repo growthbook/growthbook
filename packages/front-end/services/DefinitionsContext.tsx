@@ -23,7 +23,6 @@ import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { CustomField } from "back-end/types/custom-fields";
 import { DecisionCriteriaInterface } from "back-end/types/experiment";
 import { WebhookSecretFrontEndInterface } from "back-end/src/validators/webhook-secrets";
-import { DashboardInstanceInterface } from "back-end/src/enterprise/validators/dashboard-instance";
 import useApi from "@/hooks/useApi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -46,7 +45,6 @@ type Definitions = {
   _factMetricsIncludingArchived: FactMetricInterface[];
   decisionCriteria: DecisionCriteriaInterface[];
   webhookSecrets: WebhookSecretFrontEndInterface[];
-  dashboards: DashboardInstanceInterface[];
 };
 
 type DefinitionContextValue = Definitions & {
@@ -68,7 +66,6 @@ type DefinitionContextValue = Definitions & {
   getExperimentMetricById: (id: string) => null | ExperimentMetricInterface;
   getMetricGroupById: (id: string) => null | MetricGroupInterface;
   getDecisionCriteriaById: (id: string) => null | DecisionCriteriaInterface;
-  getDashboardById: (id: string) => null | DashboardInstanceInterface;
 };
 
 const defaultValue: DefinitionContextValue = {
@@ -99,7 +96,6 @@ const defaultValue: DefinitionContextValue = {
   _factMetricsIncludingArchived: [],
   decisionCriteria: [],
   webhookSecrets: [],
-  dashboards: [],
   getMetricById: () => null,
   getDatasourceById: () => null,
   getDimensionById: () => null,
@@ -112,7 +108,6 @@ const defaultValue: DefinitionContextValue = {
   getExperimentMetricById: () => null,
   getMetricGroupById: () => null,
   getDecisionCriteriaById: () => null,
-  getDashboardById: () => null,
 };
 
 export const DefinitionsContext = createContext<DefinitionContextValue>(
@@ -254,7 +249,6 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
   const getFactMetricById = useGetById(data?.factMetrics);
   const getMetricGroupById = useGetById(data?.metricGroups);
   const getDecisionCriteriaById = useGetById(data?.decisionCriteria);
-  const getDashboardById = useGetById(data?.dashboards);
 
   const getExperimentMetricById = useCallback(
     (id: string) => {
@@ -295,7 +289,6 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       _factMetricsIncludingArchived: allFactMetrics,
       decisionCriteria: decisionCriteria,
       webhookSecrets: data.webhookSecrets,
-      dashboards: data.dashboards,
       setProject,
       getMetricById,
       getDatasourceById,
@@ -309,7 +302,6 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       getExperimentMetricById,
       getMetricGroupById,
       getDecisionCriteriaById,
-      getDashboardById,
       refreshTags: async (tags) => {
         const existingTags = data.tags.map((t) => t.id);
         const newTags = tags.filter((t) => !existingTags.includes(t));

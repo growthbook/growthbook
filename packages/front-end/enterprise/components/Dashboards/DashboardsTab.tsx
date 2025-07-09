@@ -1,8 +1,8 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { DashboardInstanceInterface } from "back-end/src/enterprise/validators/dashboard-instance";
 import {
-  DashboardBlockData,
+  DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
 } from "back-end/src/enterprise/validators/dashboard-block";
 import { Container, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
@@ -16,13 +16,13 @@ import { useAuth } from "@/services/auth";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import EditButton from "@/components/EditButton/EditButton";
-import { Select, SelectItem } from "@/components/Radix/Select";
+import { Select, SelectItem, SelectSeparator } from "@/components/Radix/Select";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { DropdownMenuSeparator } from "@/components/Radix/DropdownMenu";
+import { useDashboards } from "@/hooks/useDashboards";
 import DashboardEditor from "./DashboardEditor";
 import DashboardSnapshotProvider from "./DashboardSnapshotProvider";
 import CreateUpdateDashboardModal from "./CreateUpdateDashboardModal";
@@ -41,7 +41,7 @@ export type UpdateDashboardArgs = {
   dashboardId: string;
   data: Partial<{
     title: string;
-    blocks: DashboardBlockData<DashboardBlockInterface>[];
+    blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
     editLevel: DashboardInstanceInterface["editLevel"];
     enableAutoUpdates: boolean;
   }>;
@@ -71,19 +71,14 @@ export default function DashboardsTab({
       setDashboardId(initialDashboardId);
     }
   }, [initialDashboardId]);
-  const {
-    dashboards: allDashboards,
-    mutateDefinitions: mutateDashboardList,
-  } = useDefinitions();
-  const dashboards = useMemo(
-    () => allDashboards.filter((d) => d.experimentId === experiment.id),
-    [allDashboards, experiment.id]
-  );
+  const { dashboards, mutateDashboards } = useDashboards(experiment.id);
+  const defaultDashboard = dashboards.find((dash) => dash.isDefault);
+
   useEffect(() => {
     if (!dashboardId && dashboards.length > 0) {
-      setDashboardId(dashboards[0].id);
+      setDashboardId(defaultDashboard?.id ?? dashboards[0].id);
     }
-  }, [dashboardId, dashboards]);
+  }, [dashboardId, dashboards, defaultDashboard]);
 
   const { userId } = useUser();
   const [isEditing, setIsEditing] = useState(false);
@@ -92,7 +87,7 @@ export default function DashboardsTab({
   const { apiCall } = useAuth();
   const [title, setTitle] = useState("");
   const [blocks, setBlocks] = useState<
-    DashboardBlockData<DashboardBlockInterface>[]
+    DashboardBlockInterfaceOrData<DashboardBlockInterface>[]
   >([]);
   const [editLevel, setEditLevel] = useState<
     DashboardInstanceInterface["editLevel"]
@@ -160,7 +155,7 @@ export default function DashboardsTab({
         ),
       });
       if (res.status === 200) {
-        mutateDashboardList();
+        mutateDashboards();
         setDashboardId(res.dashboard.id);
         setBlocks(res.dashboard.blocks);
         setTitle(res.dashboard.title);
@@ -169,7 +164,7 @@ export default function DashboardsTab({
         console.error(res);
       }
     },
-    [apiCall, experiment.id, mutateDashboardList]
+    [apiCall, experiment.id, mutateDashboards]
   );
 
   const autoUpdateDisabled =
@@ -179,7 +174,7 @@ export default function DashboardsTab({
     <DashboardSnapshotProvider
       experiment={experiment}
       dashboard={dashboard}
-      mutateDefinitions={mutateDashboardList}
+      mutateDefinitions={mutateDashboards}
     >
       <div className="mt-3">
         {showCreateModal && (
@@ -269,12 +264,28 @@ export default function DashboardsTab({
                       )}
                     </>
                   ) : dashboards.length > 0 ? (
-                    <>
-                      <Select value={dashboardId} setValue={setDashboardId}>
+                    <Flex gap="4" align="center">
+                      <Select
+                        variant="ghost"
+                        value={dashboardId}
+                        setValue={setDashboardId}
+                      >
+                        {defaultDashboard && (
+                          <>
+                            <SelectItem value={defaultDashboard.id}>
+                              {defaultDashboard.title}
+                            </SelectItem>
+                            {dashboards.length > 1 && <SelectSeparator />}
+                          </>
+                        )}
                         {dashboards.map((dash) => (
-                          <SelectItem key={dash.id} value={dash.id}>
-                            {dash.title}
-                          </SelectItem>
+                          <>
+                            {dash.id === defaultDashboard?.id ? null : (
+                              <SelectItem key={dash.id} value={dash.id}>
+                                {dash.title}
+                              </SelectItem>
+                            )}
+                          </>
                         ))}
                       </Select>
                       {canCreate && (
@@ -290,7 +301,7 @@ export default function DashboardsTab({
                           </IconButton>
                         </Tooltip>
                       )}
-                    </>
+                    </Flex>
                   ) : (
                     <></>
                   )}
@@ -304,7 +315,10 @@ export default function DashboardsTab({
                             "dashboard-disabled": editingBlock !== undefined,
                           })}
                           onClick={async () => {
-                            if (!dashboardCopy) return;
+                            if (!dashboardCopy) {
+                              setIsEditing(false);
+                              return;
+                            }
                             await submitDashboard({
                               method: "PUT",
                               dashboardId: dashboardId,
@@ -433,7 +447,7 @@ export default function DashboardsTab({
                                   await apiCall(`/dashboards/${dashboard.id}`, {
                                     method: "DELETE",
                                   });
-                                  mutateDashboardList();
+                                  mutateDashboards();
                                   setDashboardId("");
                                 }}
                                 canDelete={canManage}
@@ -469,7 +483,7 @@ export default function DashboardsTab({
                     });
                   }}
                   setEditingBlock={setEditingBlock}
-                  mutate={mutateDashboardList}
+                  mutate={mutateDashboards}
                 />
               )}
             </>

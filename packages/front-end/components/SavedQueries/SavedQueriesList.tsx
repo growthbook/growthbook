@@ -12,6 +12,7 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Button from "@/components/Button";
 import SqlExplorerModal from "@/components/SchemaBrowser/SqlExplorerModal";
+import { useAllDashboards } from "@/hooks/useDashboards";
 import Callout from "../Radix/Callout";
 import Tooltip from "../Tooltip/Tooltip";
 
@@ -24,7 +25,8 @@ interface Props {
 
 export default function SavedQueriesList({ savedQueries, mutate }: Props) {
   const { apiCall } = useAuth();
-  const { getDatasourceById, getDashboardById } = useDefinitions();
+  const { getDatasourceById } = useDefinitions();
+  const { dashboardsMap } = useAllDashboards();
   const permissionsUtil = usePermissionsUtil();
   const [selectedSavedQuery, setSelectedSavedQuery] = useState<
     SavedQuery | undefined
@@ -190,7 +192,7 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                                       <ul className="pl-3 mb-0">
                                         {linkedDashboards.map(
                                           (dashboardId, j) => {
-                                            const dashboard = getDashboardById(
+                                            const dashboard = dashboardsMap.get(
                                               dashboardId
                                             );
                                             if (!dashboard) return null;
@@ -307,7 +309,7 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                                     }. If deleted, SQL Explorer widgets will be cleared.`}</Callout>
                                     <ul>
                                       {dashboardIds.map((dashId) => {
-                                        const dashboard = getDashboardById(
+                                        const dashboard = dashboardsMap.get(
                                           dashId
                                         );
                                         if (!dashboard) return null;

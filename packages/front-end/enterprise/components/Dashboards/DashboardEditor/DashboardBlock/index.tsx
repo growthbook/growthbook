@@ -1,7 +1,7 @@
 import React, { useRef, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import {
-  DashboardBlockData,
+  DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
   DashboardBlockType,
 } from "back-end/src/enterprise/validators/dashboard-block";
@@ -27,8 +27,8 @@ import TrafficTableBlock from "./TrafficTableBlock";
 import SqlExplorerBlock from "./SqlExplorerBlock";
 
 export type BlockProps<T extends DashboardBlockInterface> = {
-  block: DashboardBlockData<T>;
-  setBlock: React.Dispatch<DashboardBlockData<T>>;
+  block: DashboardBlockInterfaceOrData<T>;
+  setBlock: React.Dispatch<DashboardBlockInterfaceOrData<T>>;
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
   isEditing: boolean;
@@ -36,12 +36,14 @@ export type BlockProps<T extends DashboardBlockInterface> = {
 };
 
 interface Props {
-  block: DashboardBlockData<DashboardBlockInterface>;
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>;
   experiment: ExperimentInterfaceStringDates;
   isEditing: boolean;
   editingBlock: boolean;
   disableBlock: boolean;
-  setBlock: React.Dispatch<DashboardBlockData<DashboardBlockInterface>>;
+  setBlock: React.Dispatch<
+    DashboardBlockInterfaceOrData<DashboardBlockInterface>
+  >;
   editBlock: () => void;
   duplicateBlock: () => void;
   deleteBlock: () => void;

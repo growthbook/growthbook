@@ -2,14 +2,14 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React, { Fragment, useEffect, useRef, useState } from "react";
 import { PiCaretDownFill, PiPlus } from "react-icons/pi";
 import {
-  DashboardBlockData,
+  DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
   DashboardBlockType,
 } from "back-end/src/enterprise/validators/dashboard-block";
 import { isDefined } from "shared/util";
 import { Flex, Heading, IconButton, Text } from "@radix-ui/themes";
 import clsx from "clsx";
-import { getBlockData } from "shared/enterprise";
+import { CREATE_BLOCK_TYPE, getBlockData } from "shared/enterprise";
 import Button from "@/components/Radix/Button";
 import {
   DropdownMenu,
@@ -21,144 +21,36 @@ import DashboardBlock from "./DashboardBlock";
 import DashboardBlockEditDrawer from "./DashboardBlockEditDrawer";
 import DashboardUpdateDisplay from "./DashboardUpdateDisplay";
 
-type CreateBlock<T extends DashboardBlockInterface> = (args: {
-  experiment: ExperimentInterfaceStringDates;
-  initialValues?: Partial<DashboardBlockData<T>>;
-}) => DashboardBlockData<T>;
-
-type BlockTypeInfo<BType extends DashboardBlockType> = {
-  name: string;
-  type: BType;
-  createBlock: CreateBlock<Extract<DashboardBlockInterface, { type: BType }>>;
-};
-
-export const BLOCK_TYPE_INFO: {
-  [k in DashboardBlockType]: BlockTypeInfo<k>;
-} = {
+export const BLOCK_TYPE_INFO: Record<DashboardBlockType, { name: string }> = {
   markdown: {
     name: "Custom Markdown",
-    type: "markdown",
-    createBlock: ({ initialValues }) => ({
-      type: "markdown",
-      title: "",
-      description: "",
-      content: "",
-      ...(initialValues || {}),
-    }),
   },
   "metadata-description": {
     name: "Experiment Description",
-    type: "metadata-description",
-    createBlock: ({ initialValues, experiment }) => ({
-      type: "metadata-description",
-      title: "",
-      description: "",
-      experimentId: experiment.id,
-      ...(initialValues || {}),
-    }),
   },
   "metadata-hypothesis": {
     name: "Experiment Hypothesis",
-    type: "metadata-hypothesis",
-    createBlock: ({ initialValues, experiment }) => ({
-      type: "metadata-hypothesis",
-      title: "",
-      description: "",
-      experimentId: experiment.id,
-      ...(initialValues || {}),
-    }),
   },
   "variation-image": {
     name: "Variations / Screenshots",
-    type: "variation-image",
-    createBlock: ({ initialValues, experiment }) => ({
-      type: "variation-image",
-      title: "",
-      description: "",
-      variationIds: [],
-      experimentId: experiment.id,
-      ...(initialValues || {}),
-    }),
   },
   metric: {
     name: "Metric Results",
-    type: "metric",
-    createBlock: ({ initialValues, experiment }) => ({
-      type: "metric",
-      title: "",
-      description: "",
-      experimentId: experiment.id,
-      metricIds: experiment.goalMetrics,
-      snapshotId: experiment.analysisSummary?.snapshotId || "",
-      differenceType: "relative",
-      baselineRow: 0,
-      columnsFilter: [],
-      ...(initialValues || {}),
-    }),
   },
   dimension: {
     name: "Dimension Results",
-    type: "dimension",
-    createBlock: ({ initialValues, experiment }) => ({
-      type: "dimension",
-      title: "",
-      description: "",
-      experimentId: experiment.id,
-      metricIds: experiment.goalMetrics,
-      dimensionId: "",
-      snapshotId: experiment.analysisSummary?.snapshotId || "",
-      differenceType: "relative",
-      baselineRow: 0,
-      columnsFilter: [],
-      ...(initialValues || {}),
-    }),
   },
   "time-series": {
     name: "Time Series",
-    type: "time-series",
-    createBlock: ({ initialValues, experiment }) => ({
-      type: "time-series",
-      title: "",
-      description: "",
-      experimentId: experiment.id,
-      metricId: experiment.goalMetrics[0] || "",
-      snapshotId: experiment.analysisSummary?.snapshotId || "",
-      variationIds: experiment.variations.map((variation) => variation.id),
-      ...(initialValues || {}),
-    }),
   },
   "traffic-graph": {
     name: "Traffic over Time",
-    type: "traffic-graph",
-    createBlock: ({ initialValues, experiment }) => ({
-      type: "traffic-graph",
-      title: "",
-      description: "",
-      experimentId: experiment.id,
-      ...(initialValues || {}),
-    }),
   },
   "traffic-table": {
     name: "Traffic",
-    type: "traffic-table",
-    createBlock: ({ initialValues, experiment }) => ({
-      type: "traffic-table",
-      title: "",
-      description: "",
-      experimentId: experiment.id,
-      ...(initialValues || {}),
-    }),
   },
   "sql-explorer": {
     name: "SQL Explorer",
-    type: "sql-explorer",
-    createBlock: ({ initialValues }) => ({
-      type: "sql-explorer",
-      title: "",
-      description: "",
-      dataVizConfigIndex: 0,
-      ...(initialValues || {}),
-    }),
   },
 };
 
@@ -218,12 +110,14 @@ function AddBlockDropdown({
 
 interface Props {
   experiment: ExperimentInterfaceStringDates;
-  blocks: DashboardBlockData<DashboardBlockInterface>[];
+  blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
   canEdit: boolean;
   isEditing: boolean;
   editingBlock: number | undefined;
   enableAutoUpdates: boolean;
-  setBlocks: React.Dispatch<DashboardBlockData<DashboardBlockInterface>[]>;
+  setBlocks: React.Dispatch<
+    DashboardBlockInterfaceOrData<DashboardBlockInterface>[]
+  >;
   forceToEditing: () => void;
   setEditingBlock: React.Dispatch<number | undefined>;
   mutate: () => void;
@@ -258,7 +152,7 @@ export default function DashboardEditor({
   }, [blocks]);
 
   const [editingBlockClone, setEditingBlockClone] = useState<
-    DashboardBlockData<DashboardBlockInterface> | undefined
+    DashboardBlockInterfaceOrData<DashboardBlockInterface> | undefined
   >(undefined);
 
   useEffect(() => {
@@ -272,7 +166,7 @@ export default function DashboardEditor({
     scrollToBlockIndex.current = index;
     setBlocks([
       ...blocks.slice(0, index),
-      BLOCK_TYPE_INFO[bType].createBlock({
+      CREATE_BLOCK_TYPE[bType]({
         experiment,
       }),
       ...blocks.slice(index),

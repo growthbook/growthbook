@@ -26,6 +26,34 @@ interface SingleDashboardResponse {
   dashboard: DashboardInstanceInterface;
 }
 
+interface MultiDashboardResponse {
+  status: number;
+  dashboards: DashboardInstanceInterface[];
+}
+
+export async function getAllDashboards(
+  req: AuthRequest<never, never, never>,
+  res: ResponseWithStatusAndError<MultiDashboardResponse>
+) {
+  const context = getContextFromReq(req);
+
+  const dashboards = await context.models.dashboards.getAll();
+  return res.status(200).json({ status: 200, dashboards });
+}
+
+export async function getDashboardsForExperiment(
+  req: AuthRequest<never, { experimentId: string }, never>,
+  res: ResponseWithStatusAndError<MultiDashboardResponse>
+) {
+  const context = getContextFromReq(req);
+  const { experimentId } = req.params;
+
+  const dashboards = await context.models.dashboards.findByExperiment(
+    experimentId
+  );
+  return res.status(200).json({ status: 200, dashboards });
+}
+
 export async function createDashboard(
   req: AuthRequest<z.infer<typeof createDashboardBody>, never, never>,
   res: ResponseWithStatusAndError<SingleDashboardResponse>
@@ -48,6 +76,8 @@ export async function createDashboard(
   );
 
   const dashboard = await context.models.dashboards.create({
+    isDefault: false,
+    isDeleted: false,
     userId: context.userId,
     editLevel,
     enableAutoUpdates,
@@ -78,6 +108,7 @@ export async function updateDashboard(
   const experiment = await getExperimentById(context, dashboard.experimentId);
   if (!experiment) throw new Error("Cannot find connected experiment");
 
+  // Duplicate permissions checks to prevent persisting the child blocks if the user doesn't have permission
   const isOwner = context.userId === dashboard.userId || !dashboard.userId;
   const isAdmin = context.permissions.canSuperDeleteReport();
   const canEdit =
@@ -124,19 +155,7 @@ export async function deleteDashboard(
   res: ResponseWithStatusAndError
 ) {
   const context = getContextFromReq(req);
-  if (!context.hasPremiumFeature("dashboards")) {
-    throw new Error("Must have a commercial License Key to manage Dashboards");
-  }
   const { id } = req.params;
-
-  const dashboard = await context.models.dashboards.getById(id);
-  if (!dashboard) throw new Error("Cannot find dashboard");
-
-  const isOwner = context.userId === dashboard.userId || !dashboard.userId;
-  const isAdmin = context.permissions.canSuperDeleteReport();
-  const canManage = isOwner || isAdmin;
-  if (!canManage) context.permissions.throwPermissionError();
-
   await context.models.dashboards.deleteById(id);
   return res.status(200).json({ status: 200 });
 }

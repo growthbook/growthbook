@@ -8,6 +8,8 @@ export const dashboardInstanceInterface = z
     id: z.string(),
     organization: z.string(),
     experimentId: z.string(),
+    isDefault: z.boolean(),
+    isDeleted: z.boolean(), // For soft-deleting the default dashboard so it doesn't re-create itself
     userId: z.string(),
     editLevel: dashboardEditLevel,
     enableAutoUpdates: z.boolean(),
