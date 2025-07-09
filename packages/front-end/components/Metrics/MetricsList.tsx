@@ -394,7 +394,6 @@ const MetricsList = (): React.ReactElement => {
           commercialFeature="metric-groups"
           dismissable={true}
           id="metrics-list-metric-group-promo"
-          docSection="metricGroups"
           mb="2"
         >
           <strong>Metric Groups</strong> help you organize and manage your

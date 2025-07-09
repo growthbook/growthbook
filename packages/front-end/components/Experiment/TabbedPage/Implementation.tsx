@@ -6,6 +6,7 @@ import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
 import React from "react";
 import { Heading } from "@radix-ui/themes";
+import Link from "@/components/Radix/Link";
 import AddLinkedChanges from "@/components/Experiment/LinkedChanges/AddLinkedChanges";
 import RedirectLinkedChanges from "@/components/Experiment/LinkedChanges/RedirectLinkedChanges";
 import FeatureLinkedChanges from "@/components/Experiment/LinkedChanges/FeatureLinkedChanges";
@@ -16,6 +17,7 @@ import TrafficAndTargeting from "@/components/Experiment/TabbedPage/TrafficAndTa
 import AnalysisSettings from "@/components/Experiment/TabbedPage/AnalysisSettings";
 import Callout from "@/components/Radix/Callout";
 import Button from "@/components/Radix/Button";
+import PremiumCallout from "@/components/Radix/PremiumCallout";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -27,6 +29,7 @@ export interface Props {
   setFeatureModal: (open: boolean) => void;
   setVisualEditorModal: (open: boolean) => void;
   setUrlRedirectModal: (open: boolean) => void;
+  setShowBanditModal: (open: boolean) => void;
   linkedFeatures: LinkedFeatureInfo[];
   envs: string[];
 }
@@ -41,6 +44,7 @@ export default function Implementation({
   setFeatureModal,
   setVisualEditorModal,
   setUrlRedirectModal,
+  setShowBanditModal,
   linkedFeatures,
   envs,
 }: Props) {
@@ -65,6 +69,11 @@ export default function Implementation({
 
   const showEditVariations = editVariations;
 
+  const showBanditCallout =
+    experiment.variations.length > 2 &&
+    experiment.type !== "multi-armed-bandit" &&
+    experiment.status === "draft";
+
   return (
     <div className="my-4">
       <h2>Implementation</h2>
@@ -81,6 +90,28 @@ export default function Implementation({
             </Button>
           ) : null}
         </div>
+        {showBanditCallout ? (
+          <PremiumCallout
+            id="exp-implementation-bandit-promo"
+            commercialFeature="multi-armed-bandits"
+            dismissable={true}
+            mx="3"
+            mb="5"
+            cta={
+              <Link
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setShowBanditModal(true);
+                }}
+              >
+                Convert to Bandit
+              </Link>
+            }
+          >
+            Bandits can help you quickly find the best performing variant.
+          </PremiumCallout>
+        ) : null}
 
         <VariationsTable
           experiment={experiment}
