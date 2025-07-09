@@ -2,14 +2,33 @@ import React, { useContext } from "react";
 import { Flex, Text } from "@radix-ui/themes";
 import { ago } from "shared/dates";
 import { PiArrowClockwise, PiLightning } from "react-icons/pi";
+import clsx from "clsx";
+import { dashboardCanAutoUpdate } from "shared/enterprise";
+import {
+  DashboardBlockData,
+  DashboardBlockInterface,
+} from "back-end/src/enterprise/validators/dashboard-block";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/components/Radix/Button";
+import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import { DashboardSnapshotContext } from "../DashboardSnapshotProvider";
 
-export default function DashboardUpdateDisplay() {
+interface Props {
+  blocks: DashboardBlockData<DashboardBlockInterface>[];
+  enableAutoUpdates: boolean;
+  disabled: boolean;
+}
+
+export default function DashboardUpdateDisplay({
+  blocks,
+  enableAutoUpdates,
+  disabled,
+}: Props) {
   const {
-    defaultSnapshot: snapshot,
+    experiment,
+    defaultSnapshot: finishedSnapshot,
+    latestSnapshot: loadingSnapshot,
     loading,
     refreshing,
     updateAllSnapshots,
@@ -21,36 +40,62 @@ export default function DashboardUpdateDisplay() {
         <Text>Loading dashboard...</Text>
       </Flex>
     );
-  if (!snapshot) return null;
-  // TODO
-  const canAutoUpdate = true;
-  const timeTillUpdate = "24 minutes";
+  if (!loadingSnapshot || !finishedSnapshot) return null;
+  const autoUpdateEnabled =
+    enableAutoUpdates &&
+    dashboardCanAutoUpdate({ blocks }) &&
+    experiment?.autoSnapshots;
+  const timeTillUpdate = experiment?.nextSnapshotAttempt;
+
+  const { status } = getQueryStatus(loadingSnapshot.queries || []);
+
+  const numFinished = loadingSnapshot.queries.filter(
+    (q) => q.status === "succeeded"
+  ).length;
+  const numQueries = loadingSnapshot.queries.length;
 
   return (
-    <Flex gap="1" align="center">
-      <Text>
-        {canAutoUpdate && (
+    <Flex
+      gap="1"
+      align="center"
+      className={clsx({ "dashboard-disabled": disabled })}
+    >
+      <Text size="1">
+        {autoUpdateEnabled && timeTillUpdate && (
           <Tooltip
             tipPosition="top"
-            body={`Next auto-update: ${timeTillUpdate}`}
+            body={`Next auto-update: ${ago(timeTillUpdate)}`}
           >
             <PiLightning />{" "}
           </Tooltip>
         )}
-        {snapshot.runStarted
-          ? `Updated ${ago(snapshot.runStarted).replace("about ", "")}`
+        {finishedSnapshot.runStarted
+          ? `Updated ${ago(finishedSnapshot.runStarted).replace("about ", "")}`
           : "Not started yet"}
       </Text>
-      <Button
-        disabled={refreshing || snapshot.status === "running"}
-        icon={<PiArrowClockwise />}
-        iconPosition="left"
-        variant="ghost"
-        loading={refreshing}
-        onClick={updateAllSnapshots}
-      >
-        Update
-      </Button>
+      <div className="position-relative">
+        <Button
+          size="xs"
+          disabled={refreshing || loadingSnapshot.status === "running"}
+          icon={
+            status === "running" ? <LoadingSpinner /> : <PiArrowClockwise />
+          }
+          iconPosition="left"
+          variant="ghost"
+          onClick={updateAllSnapshots}
+        >
+          {status === "running" ? "Refreshing" : "Update"}
+        </Button>
+        {status === "running" && numQueries > 0 && (
+          <div
+            className="position-absolute bg-info"
+            style={{
+              width: Math.floor((100 * numFinished) / numQueries) + "%",
+              height: 4,
+            }}
+          />
+        )}
+      </div>
     </Flex>
   );
 }

@@ -7,90 +7,47 @@ import {
 } from "back-end/src/enterprise/validators/dashboard-block";
 import { Flex, Heading, IconButton, Text } from "@radix-ui/themes";
 import { PiPencil, PiPlus } from "react-icons/pi";
-import { useForm } from "react-hook-form";
 import clsx from "clsx";
-import { cloneDeep, debounce } from "lodash";
+import { cloneDeep, pick } from "lodash";
+import { isDefined } from "shared/util";
+import { dashboardCanAutoUpdate } from "shared/enterprise";
 import Button from "@/components/Radix/Button";
 import { useAuth } from "@/services/auth";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Modal from "@/components/Modal";
-import Field from "@/components/Forms/Field";
 import EditButton from "@/components/EditButton/EditButton";
 import { Select, SelectItem } from "@/components/Radix/Select";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
-import Checkbox from "@/components/Radix/Checkbox";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
-import LoadingSpinner from "@/components/LoadingSpinner";
 import DashboardEditor from "./DashboardEditor";
 import DashboardSnapshotProvider from "./DashboardSnapshotProvider";
+import CreateUpdateDashboardModal from "./CreateUpdateDashboardModal";
 
-type CreateDashboardArgs = {
+export type CreateDashboardArgs = {
   method: "POST";
   dashboardId?: never;
   data: {
     title: string;
     editLevel: DashboardInstanceInterface["editLevel"];
+    enableAutoUpdates: boolean;
   };
 };
-type UpdateDashboardArgs = {
+export type UpdateDashboardArgs = {
   method: "PUT";
   dashboardId: string;
   data: Partial<{
     title: string;
     blocks: DashboardBlockData<DashboardBlockInterface>[];
     editLevel: DashboardInstanceInterface["editLevel"];
+    enableAutoUpdates: boolean;
   }>;
 };
-type SubmitDashboard<T extends CreateDashboardArgs | UpdateDashboardArgs> = (
-  args: T
-) => Promise<void>;
-
-function CreateDashboardModal({
-  close,
-  submit,
-}: {
-  close: () => void;
-  submit: SubmitDashboard<CreateDashboardArgs>;
-}) {
-  const form = useForm<{
-    title: string;
-    editLevel: "organization" | "private";
-  }>({
-    defaultValues: {
-      title: "",
-      editLevel: "private",
-    },
-  });
-  return (
-    <Modal
-      open={true}
-      trackingEventModalType="create-dashboard"
-      header="Create New Dashboard"
-      cta="Create"
-      submit={() => submit({ method: "POST", data: form.getValues() })}
-      ctaEnabled={!!form.watch("title")}
-      close={close}
-      closeCta="Cancel"
-    >
-      <Field
-        label="Name"
-        placeholder="Dashboard name"
-        {...form.register("title")}
-      />
-      <Checkbox
-        label="Allow editing by organization members"
-        value={form.watch("editLevel") === "organization"}
-        setValue={(checked) => {
-          form.setValue("editLevel", checked ? "organization" : "private");
-        }}
-      />
-    </Modal>
-  );
-}
+export type SubmitDashboard<
+  T extends CreateDashboardArgs | UpdateDashboardArgs
+> = (args: T) => Promise<void>;
 
 interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -102,13 +59,13 @@ export default function DashboardsTab({
   initialDashboardId,
 }: Props) {
   const [dashboardId, setDashboardId] = useState(initialDashboardId);
-  const [isSaving, setIsSaving] = useState(false);
-  const [isDirty, setIsDirty] = useState(false);
   const [dashboardCopy, setDashboardCopy] = useState<
     DashboardInstanceInterface | undefined
   >(undefined);
   useEffect(() => {
-    setDashboardId(initialDashboardId);
+    if (initialDashboardId) {
+      setDashboardId(initialDashboardId);
+    }
   }, [initialDashboardId]);
   const {
     dashboards: allDashboards,
@@ -121,41 +78,22 @@ export default function DashboardsTab({
   const { userId } = useUser();
   const [isEditing, setIsEditing] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
   const { apiCall } = useAuth();
-  const [title, setTitleRaw] = useState("");
-  const [blocks, setBlocksRaw] = useState<
+  const [title, setTitle] = useState("");
+  const [blocks, setBlocks] = useState<
     DashboardBlockData<DashboardBlockInterface>[]
   >([]);
-  const [editLevel, setEditLevelRaw] = useState<
+  const [editLevel, setEditLevel] = useState<
     DashboardInstanceInterface["editLevel"]
   >("private");
+  const [enableAutoUpdates, setEnableAutoUpdates] = useState(true);
   const [editingBlock, setEditingBlock] = useState<number | undefined>(
     undefined
   );
   const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
     timeout: 1500,
   });
-  const setTitle = useMemo(
-    () => (title: string) => {
-      setTitleRaw(title);
-      setIsDirty(true);
-    },
-    []
-  );
-  const setBlocks = useMemo(
-    () => (blocks: DashboardBlockData<DashboardBlockInterface>[]) => {
-      setBlocksRaw(blocks);
-      setIsDirty(true);
-    },
-    []
-  );
-  const setEditLevel = useMemo(
-    () => (editLevel: DashboardInstanceInterface["editLevel"]) => {
-      setEditLevelRaw(editLevel);
-      setIsDirty(true);
-    },
-    []
-  );
 
   const dashboard = dashboards.find((d) => d.id === dashboardId);
 
@@ -174,19 +112,14 @@ export default function DashboardsTab({
     isOwner ||
     isAdmin ||
     (dashboard.editLevel === "organization" && canUpdateReport);
-  const canDelete = isOwner || isAdmin;
-
-  useEffect(() => {
-    if (!dashboardId && dashboards.length > 0) {
-      setDashboardId(dashboards[0].id);
-    }
-  }, [dashboards, dashboardId]);
+  const canManage = isOwner || isAdmin;
 
   useEffect(() => {
     if (dashboard) {
-      setTitleRaw(dashboard.title);
-      setBlocksRaw(dashboard.blocks);
-      setEditLevelRaw(dashboard.editLevel);
+      setTitle(dashboard.title);
+      setBlocks(dashboard.blocks);
+      setEditLevel(dashboard.editLevel);
+      setEnableAutoUpdates(dashboard.enableAutoUpdates);
     }
   }, [dashboard]);
 
@@ -194,8 +127,6 @@ export default function DashboardsTab({
     SubmitDashboard<CreateDashboardArgs | UpdateDashboardArgs>
   >(
     async ({ method, dashboardId, data }) => {
-      if (isSaving) return;
-      setIsSaving(true);
       const res = await apiCall<{
         status: number;
         dashboard: DashboardInstanceInterface;
@@ -207,54 +138,29 @@ export default function DashboardsTab({
                 blocks: data.blocks,
                 title: data.title,
                 editLevel: data.editLevel,
+                enableAutoUpdates: data.enableAutoUpdates,
               }
             : {
                 blocks: [],
                 title: data.title,
                 editLevel: data.editLevel,
+                enableAutoUpdates: data.enableAutoUpdates,
                 experimentId: experiment.id,
               }
         ),
       });
       if (res.status === 200) {
-        setIsDirty(false);
         mutateDashboardList();
         setDashboardId(res.dashboard.id);
-        setBlocksRaw(res.dashboard.blocks);
-        setTitleRaw(res.dashboard.title);
-        setEditLevelRaw(res.dashboard.editLevel);
+        setBlocks(res.dashboard.blocks);
+        setTitle(res.dashboard.title);
+        setEditLevel(res.dashboard.editLevel);
       } else {
         console.error(res);
       }
-      setIsSaving(false);
     },
-    [isSaving, apiCall, experiment.id, mutateDashboardList]
+    [apiCall, experiment.id, mutateDashboardList]
   );
-
-  const debouncedSubmit = useMemo(
-    () =>
-      debounce(submitDashboard, 2000, {
-        leading: false,
-        trailing: true,
-      }),
-    [submitDashboard]
-  );
-
-  useEffect(() => {
-    if (!isDirty) return;
-    const submit = async () => {
-      await debouncedSubmit({
-        method: "PUT",
-        dashboardId: dashboardId,
-        data: {
-          blocks: blocks,
-          title: title,
-          editLevel: editLevel,
-        },
-      });
-    };
-    submit();
-  }, [isDirty, debouncedSubmit, dashboardId, blocks, title, editLevel]);
 
   return (
     <DashboardSnapshotProvider
@@ -264,11 +170,21 @@ export default function DashboardsTab({
     >
       <div className="mt-3">
         {showCreateModal && (
-          <CreateDashboardModal
+          <CreateUpdateDashboardModal
             close={() => setShowCreateModal(false)}
-            submit={async ({ data }: CreateDashboardArgs) => {
+            submit={async (data) => {
               await submitDashboard({ method: "POST", data });
               setIsEditing(true);
+            }}
+          />
+        )}
+        {showUpdateModal && (
+          <CreateUpdateDashboardModal
+            close={() => setShowUpdateModal(false)}
+            initial={{ editLevel, title, enableAutoUpdates }}
+            disableAutoUpdate={!dashboardCanAutoUpdate({ blocks })}
+            submit={async (data) => {
+              await submitDashboard({ method: "PUT", dashboardId, data });
             }}
           />
         )}
@@ -306,12 +222,31 @@ export default function DashboardsTab({
               <Flex align="center" justify="between" mb="1">
                 <Flex gap="1" align="center">
                   {isEditing ? (
-                    <Field
-                      disabled={editingBlock !== undefined}
-                      value={title}
-                      onChange={(e) => setTitle(e.target.value)}
-                      append={<PiPencil />}
-                    />
+                    <div className="position-relative">
+                      <Flex
+                        gap="8"
+                        align="center"
+                        className={clsx("cursor-pointer", {
+                          "dashboard-disabled": isDefined(editingBlock),
+                        })}
+                        onClick={() => setShowUpdateModal(true)}
+                      >
+                        <Text size="5" weight="medium">
+                          {title}
+                        </Text>
+                        <IconButton size="1" variant="ghost">
+                          <PiPencil />
+                        </IconButton>
+                      </Flex>
+                      <div
+                        className="position-absolute"
+                        style={{
+                          width: "100%",
+                          height: 1,
+                          backgroundColor: "var(--slate-5)",
+                        }}
+                      />
+                    </div>
                   ) : dashboards.length > 0 ? (
                     <>
                       <Select value={dashboardId} setValue={setDashboardId}>
@@ -352,7 +287,12 @@ export default function DashboardsTab({
                             await submitDashboard({
                               method: "PUT",
                               dashboardId: dashboardId,
-                              data: dashboardCopy,
+                              data: pick(dashboardCopy, [
+                                "blocks",
+                                "title",
+                                "editLevel",
+                                "enableAutoUpdates",
+                              ]),
                             });
                             setIsEditing(false);
                           }}
@@ -361,41 +301,17 @@ export default function DashboardsTab({
                         >
                           Discard Changes
                         </Button>
-                        {isSaving ? (
-                          <Flex gap="1" align="center">
-                            <LoadingSpinner />
-                            <Text>Saving...</Text>
-                          </Flex>
-                        ) : isDirty ? (
-                          <Button
-                            className={clsx({
-                              "dashboard-disabled": editingBlock !== undefined,
-                            })}
-                            onClick={async () => {
-                              await submitDashboard({
-                                method: "PUT",
-                                dashboardId: dashboardId,
-                                data: { title, blocks, editLevel },
-                              });
-                              setIsEditing(false);
-                              setDashboardCopy(undefined);
-                            }}
-                          >
-                            Save
-                          </Button>
-                        ) : (
-                          <Button
-                            className={clsx({
-                              "dashboard-disabled": editingBlock !== undefined,
-                            })}
-                            onClick={async () => {
-                              setIsEditing(false);
-                              setDashboardCopy(undefined);
-                            }}
-                          >
-                            Done
-                          </Button>
-                        )}
+                        <Button
+                          className={clsx({
+                            "dashboard-disabled": editingBlock !== undefined,
+                          })}
+                          onClick={async () => {
+                            setIsEditing(false);
+                            setDashboardCopy(undefined);
+                          }}
+                        >
+                          Done
+                        </Button>
                       </Flex>
                     ) : (
                       <Flex gap="1">
@@ -435,7 +351,7 @@ export default function DashboardsTab({
                           {canCreate && (
                             <div className="dropdown-item">Duplicate</div>
                           )}
-                          {canDelete && (
+                          {canManage && (
                             <DeleteButton
                               displayName="Dashboard"
                               className="dropdown-item text-danger"
@@ -449,7 +365,7 @@ export default function DashboardsTab({
                                 mutateDashboardList();
                                 setDashboardId("");
                               }}
-                              canDelete={canDelete}
+                              canDelete={canManage}
                             />
                           )}
                         </MoreMenu>
@@ -465,11 +381,22 @@ export default function DashboardsTab({
                   canEdit={canEdit}
                   isEditing={isEditing}
                   editingBlock={editingBlock}
-                  editLevel={editLevel}
-                  setIsEditing={setIsEditing}
-                  setBlocks={setBlocks}
+                  enableAutoUpdates={enableAutoUpdates}
+                  forceToEditing={() => {
+                    setDashboardCopy(cloneDeep(dashboard));
+                    setIsEditing(true);
+                  }}
+                  setBlocks={(blocks) => {
+                    setBlocks(blocks);
+                    submitDashboard({
+                      method: "PUT",
+                      dashboardId,
+                      data: {
+                        blocks,
+                      },
+                    });
+                  }}
                   setEditingBlock={setEditingBlock}
-                  setEditLevel={setEditLevel}
                   mutate={mutateDashboardList}
                 />
               )}

@@ -25,6 +25,7 @@ import { useAuth } from "@/services/auth";
 export const DashboardSnapshotContext = React.createContext<{
   experiment?: ExperimentInterfaceStringDates;
   defaultSnapshot?: ExperimentSnapshotInterface;
+  latestSnapshot?: ExperimentSnapshotInterface;
   mutateSnapshot: () => Promise<unknown>;
   loading?: boolean;
   validating?: boolean;
@@ -59,6 +60,7 @@ export default function DashboardSnapshotProvider({
     mutate: snapshotMutate,
   } = useApi<{
     snapshot: ExperimentSnapshotInterface;
+    latest: ExperimentSnapshotInterface;
   }>(`/experiment/${experiment.id}/snapshot/${experiment.phases.length - 1}`);
 
   const updateAllSnapshots = async () => {
@@ -77,6 +79,7 @@ export default function DashboardSnapshotProvider({
       value={{
         experiment,
         defaultSnapshot: snapshotData?.snapshot,
+        latestSnapshot: snapshotData?.latest,
         mutateSnapshot: async () => {
           snapshotMutate();
         },

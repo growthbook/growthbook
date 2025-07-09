@@ -1,6 +1,6 @@
 import mongoose, { FilterQuery, PipelineStage } from "mongoose";
 import omit from "lodash/omit";
-import { blockHasFieldOfType } from "shared/enterprise";
+import { blockHasFieldOfType, dashboardCanAutoUpdate } from "shared/enterprise";
 import {
   SnapshotType,
   ExperimentSnapshotAnalysis,
@@ -297,15 +297,7 @@ export async function updateSnapshot({
     experimentSnapshotModel.experiment
   );
   for (const dashboard of dashboards) {
-    // Only update dashboards where all the blocks will stay up to date with each other
-    let shouldUpdateDashboardSnapshot = true;
-    dashboard.blocks.forEach((block) => {
-      // TODO: can we still update dimension blocks automatically?
-      if (["sql-explorer", "dimension"].includes(block.type))
-        shouldUpdateDashboardSnapshot = false;
-    });
-    if (!shouldUpdateDashboardSnapshot) continue;
-
+    if (!dashboardCanAutoUpdate(dashboard)) continue;
     const blocks = dashboard.blocks.map((block) =>
       blockHasFieldOfType(
         block,

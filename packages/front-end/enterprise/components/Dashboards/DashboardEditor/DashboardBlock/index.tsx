@@ -15,8 +15,6 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/Radix/DropdownMenu";
-import Field from "@/components/Forms/Field";
-import { BLOCK_TYPE_INFO } from "..";
 import MarkdownBlock from "./MarkdownBlock";
 import DescriptionBlock from "./DescriptionBlock";
 import MetricBlock from "./MetricBlock";
@@ -140,20 +138,7 @@ export default function DashboardBlock({
         </DropdownMenu>
       )}
       <Flex align="center" justify="between">
-        {isEditing ? (
-          <Field
-            placeholder={BLOCK_TYPE_INFO[block.type].name}
-            value={block.title}
-            onChange={(e) =>
-              setBlock({
-                ...block,
-                title: e.target.value,
-              })
-            }
-          />
-        ) : (
-          <h4 style={{ margin: 0 }}>{block.title}</h4>
-        )}
+        <h4 style={{ margin: 0 }}>{block.title}</h4>
 
         {isEditing && (
           <div>
@@ -183,7 +168,7 @@ export default function DashboardBlock({
                     setEditOpen(false);
                   }}
                 >
-                  Edit Contents
+                  Edit
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => {
@@ -207,20 +192,7 @@ export default function DashboardBlock({
           </div>
         )}
       </Flex>
-      {isEditing ? (
-        <Field
-          placeholder="Add a description"
-          value={block.description}
-          onChange={(e) =>
-            setBlock({
-              ...block,
-              description: e.target.value,
-            })
-          }
-        />
-      ) : (
-        <Text>{block.description}</Text>
-      )}
+      <Text>{block.description}</Text>
 
       <BlockComponent
         block={block}

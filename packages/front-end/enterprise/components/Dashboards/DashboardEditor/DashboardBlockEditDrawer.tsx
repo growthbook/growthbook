@@ -27,6 +27,7 @@ import Callout from "@/components/Radix/Callout";
 import SqlExplorerModal from "@/components/SchemaBrowser/SqlExplorerModal";
 import { RESULTS_TABLE_COLUMNS } from "@/components/Experiment/ResultsTable";
 import { getDimensionOptions } from "@/components/Dimensions/DimensionChooser";
+import Field from "@/components/Forms/Field";
 import { BLOCK_TYPE_INFO } from ".";
 
 interface Props {
@@ -116,7 +117,7 @@ export default function DashboardBlockEditDrawer({
         position: "fixed",
         bottom: 0,
         right: 0,
-        maxHeight: open ? "330px" : "0px",
+        maxHeight: open ? "250px" : "0px",
         background: "white",
         zIndex: 9001,
       }}
@@ -158,12 +159,30 @@ export default function DashboardBlockEditDrawer({
               </Button>
             </Flex>
           </Flex>
-          <Flex
-            className="odd-children-flex-grow"
-            wrap="wrap"
-            gap="4"
-            overflow="scroll"
-          >
+          <Flex wrap="wrap" gap="4" overflow="scroll">
+            <Field
+              label="Title"
+              labelClassName="font-weight-bold"
+              containerStyle={{ flexBasis: "31%" }}
+              containerClassName="mb-0"
+              placeholder={BLOCK_TYPE_INFO[block.type].name}
+              value={block.title}
+              onChange={(e) => setBlock({ ...block, title: e.target.value })}
+            />
+            <Field
+              label="Description"
+              labelClassName="font-weight-bold"
+              containerStyle={{ flexBasis: "64%" }}
+              containerClassName="mb-0"
+              placeholder="Add a description"
+              value={block.description}
+              onChange={(e) =>
+                setBlock({ ...block, description: e.target.value })
+              }
+              textarea
+              minRows={1}
+              maxRows={1}
+            />
             {blockHasFieldOfType(
               block,
               "metricId",
@@ -173,7 +192,7 @@ export default function DashboardBlockEditDrawer({
                 label="Metric"
                 labelClassName="font-weight-bold"
                 value={block.metricId}
-                containerStyle={{ flexBasis: "40%" }}
+                containerStyle={{ flexBasis: "31%" }}
                 containerClassName="mb-0"
                 onChange={(value) => setBlock({ ...block, metricId: value })}
                 options={metricOptions}
@@ -185,7 +204,7 @@ export default function DashboardBlockEditDrawer({
                 label="Metrics"
                 labelClassName="font-weight-bold"
                 value={block.metricIds}
-                containerStyle={{ flexBasis: "40%" }}
+                containerStyle={{ flexBasis: "31%" }}
                 containerClassName="mb-0"
                 onChange={(value) => setBlock({ ...block, metricIds: value })}
                 options={metricOptions}
@@ -197,7 +216,7 @@ export default function DashboardBlockEditDrawer({
                 labelClassName="font-weight-bold"
                 placeholder="Showing all columns"
                 value={block.columnsFilter}
-                containerStyle={{ flexBasis: "40%" }}
+                containerStyle={{ flexBasis: "31%" }}
                 containerClassName="mb-0"
                 onChange={(value) =>
                   setBlock({
@@ -223,7 +242,7 @@ export default function DashboardBlockEditDrawer({
                 labelClassName="font-weight-bold"
                 placeholder="Choose which dimension to use"
                 value={block.dimensionId}
-                containerStyle={{ flexBasis: "40%" }}
+                containerStyle={{ flexBasis: "31%" }}
                 containerClassName="mb-0"
                 onChange={(value) => setBlock({ ...block, dimensionId: value })}
                 options={dimensionOptions}
@@ -235,7 +254,7 @@ export default function DashboardBlockEditDrawer({
                 labelClassName="font-weight-bold"
                 placeholder="Showing all variations"
                 value={block.variationIds}
-                containerStyle={{ flexBasis: "40%" }}
+                containerStyle={{ flexBasis: "31%" }}
                 containerClassName="mb-0"
                 onChange={(value) =>
                   setBlock({ ...block, variationIds: value })
@@ -246,6 +265,32 @@ export default function DashboardBlockEditDrawer({
                     label: variation.name,
                     value: variation.id,
                   }))}
+                formatOptionLabel={({ value, label }) => {
+                  const varIndex = experiment.variations.findIndex(
+                    ({ id }) => id === value
+                  );
+                  return (
+                    <div
+                      className={`variation variation${varIndex} with-variation-label d-flex align-items-center`}
+                    >
+                      <span
+                        className="label"
+                        style={{ width: 20, height: 20, flex: "none" }}
+                      >
+                        {varIndex}
+                      </span>
+                      <span
+                        className="d-inline-block"
+                        style={{
+                          width: 150,
+                          lineHeight: "14px",
+                        }}
+                      >
+                        {label}
+                      </span>
+                    </div>
+                  );
+                }}
               />
             )}
             {blockHasFieldOfType(
@@ -256,23 +301,44 @@ export default function DashboardBlockEditDrawer({
               <SelectField
                 label="Baseline Variation"
                 labelClassName="font-weight-bold"
-                containerStyle={{ flexBasis: "40%" }}
+                containerStyle={{ flexBasis: "31%" }}
                 containerClassName="mb-0"
                 value={block.baselineRow.toString()}
                 onChange={(value) =>
                   setBlock({ ...block, baselineRow: parseInt(value) })
                 }
-                options={experiment.variations.map((_, i) => ({
-                  label: i.toString(),
+                options={experiment.variations.map((variation, i) => ({
+                  label: variation.name,
                   value: i.toString(),
                 }))}
+                formatOptionLabel={({ value, label }) => (
+                  <div
+                    className={`variation variation${value} with-variation-label d-flex align-items-center`}
+                  >
+                    <span
+                      className="label"
+                      style={{ width: 20, height: 20, flex: "none" }}
+                    >
+                      {value}
+                    </span>
+                    <span
+                      className="d-inline-block"
+                      style={{
+                        width: 150,
+                        lineHeight: "14px",
+                      }}
+                    >
+                      {label}
+                    </span>
+                  </div>
+                )}
               />
             )}
             {blockHasFieldOfType(block, "differenceType", isDifferenceType) && (
               <SelectField
                 label="Difference Type"
                 labelClassName="font-weight-bold"
-                containerStyle={{ flexBasis: "40%" }}
+                containerStyle={{ flexBasis: "31%" }}
                 containerClassName="mb-0"
                 value={block.differenceType}
                 onChange={(value) =>
@@ -309,7 +375,7 @@ export default function DashboardBlockEditDrawer({
                       </Flex>
                     }
                     containerClassName="mb-0"
-                    containerStyle={{ flexBasis: "40%" }}
+                    containerStyle={{ flexBasis: "31%" }}
                     value={block.savedQueryId || ""}
                     placeholder="Choose a saved query"
                     options={savedQueryOptions}
@@ -327,7 +393,7 @@ export default function DashboardBlockEditDrawer({
                     <SelectField
                       label="Data Visualization"
                       labelClassName="font-weight-bold"
-                      containerStyle={{ flexBasis: "40%" }}
+                      containerStyle={{ flexBasis: "31%" }}
                       containerClassName="mb-0"
                       value={block.dataVizConfigIndex.toString()}
                       placeholder={

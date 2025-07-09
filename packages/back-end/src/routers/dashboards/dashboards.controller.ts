@@ -35,7 +35,13 @@ export async function createDashboard(
     throw new Error("Must have a commercial License Key to create Dashboards");
   }
 
-  const { experimentId, editLevel, title, blocks } = req.body;
+  const {
+    experimentId,
+    editLevel,
+    enableAutoUpdates,
+    title,
+    blocks,
+  } = req.body;
 
   const createdBlocks = await Promise.all(
     blocks.map((blockData) => createDashboardBlock(context.org.id, blockData))
@@ -46,6 +52,7 @@ export async function createDashboard(
     owner: context.userName,
     userId: context.userId,
     editLevel,
+    enableAutoUpdates,
     experimentId,
     title,
     blocks: createdBlocks,
@@ -67,27 +74,21 @@ export async function updateDashboard(
   }
 
   const { id } = req.params;
-  const { title, blocks, editLevel } = req.body;
-
-  const updates: Partial<DashboardInstanceInterface> = {
-    title,
-    editLevel,
-  };
-  if (blocks) {
+  const updates = { ...req.body };
+  if (updates.blocks) {
     const createdBlocks = await Promise.all(
-      blocks.map((blockData) =>
+      updates.blocks.map((blockData) =>
         isPersistedDashboardBlock(blockData)
           ? blockData
           : createDashboardBlock(context.org.id, blockData)
       )
     );
-    // TODO: side-effect of updating snapshots as needed
     updates.blocks = createdBlocks;
   }
 
   const updatedDashboard = await context.models.dashboards.updateById(
     id,
-    updates
+    updates as Partial<DashboardInstanceInterface>
   );
 
   res.status(200).json({

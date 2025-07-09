@@ -147,3 +147,17 @@ export function getBlockAnalysisSettings(
       return { ...defaultAnalysisSettings };
   }
 }
+
+export function dashboardCanAutoUpdate({
+  blocks,
+}: {
+  blocks: DashboardBlockData<DashboardBlockInterface>[];
+}) {
+  // Only update dashboards where all the blocks will stay up to date with each other
+  let shouldUpdateDashboard = true;
+  blocks.forEach((block) => {
+    if (["sql-explorer", "dimension"].includes(block.type))
+      shouldUpdateDashboard = false;
+  });
+  return shouldUpdateDashboard;
+}

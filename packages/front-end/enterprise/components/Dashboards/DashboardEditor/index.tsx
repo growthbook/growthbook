@@ -1,5 +1,5 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import React, { Fragment, useEffect, useState } from "react";
+import React, { Fragment, useEffect, useRef, useState } from "react";
 import { PiCaretDownFill, PiPlus } from "react-icons/pi";
 import {
   DashboardBlockData,
@@ -10,7 +10,6 @@ import { isDefined } from "shared/util";
 import { Flex, Heading, IconButton, Text } from "@radix-ui/themes";
 import clsx from "clsx";
 import { getBlockData } from "shared/enterprise";
-import { DashboardInstanceInterface } from "back-end/src/enterprise/validators/dashboard-instance";
 import Button from "@/components/Radix/Button";
 import {
   DropdownMenu,
@@ -18,7 +17,6 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/Radix/DropdownMenu";
-import Checkbox from "@/components/Radix/Checkbox";
 import DashboardBlock from "./DashboardBlock";
 import DashboardBlockEditDrawer from "./DashboardBlockEditDrawer";
 import DashboardUpdateDisplay from "./DashboardUpdateDisplay";
@@ -42,7 +40,7 @@ export const BLOCK_TYPE_INFO: Record<
     }),
   },
   "metadata-description": {
-    name: "Description",
+    name: "Experiment Description",
     createDefaultBlock: ({ experiment }) => ({
       type: "metadata-description",
       title: "",
@@ -51,7 +49,7 @@ export const BLOCK_TYPE_INFO: Record<
     }),
   },
   "metadata-hypothesis": {
-    name: "Hypothesis",
+    name: "Experiment Hypothesis",
     createDefaultBlock: ({ experiment }) => ({
       type: "metadata-hypothesis",
       title: "",
@@ -152,11 +150,11 @@ const BLOCK_SUBGROUPS: [string, DashboardBlockType[]][] = [
 function AddBlockDropdown({
   trigger,
   addBlockType,
-  setIsEditing,
+  forceToEditing,
 }: {
   trigger: React.ReactNode;
   addBlockType: (bType: DashboardBlockType) => void;
-  setIsEditing?: React.Dispatch<boolean>;
+  forceToEditing?: () => void;
 }) {
   const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
 
@@ -178,9 +176,9 @@ function AddBlockDropdown({
             <DropdownMenuItem
               key={bType}
               onClick={() => {
+                forceToEditing?.();
                 setDropdownOpen(false);
                 addBlockType(bType);
-                setIsEditing?.(true);
               }}
             >
               {BLOCK_TYPE_INFO[bType].name}
@@ -199,11 +197,10 @@ interface Props {
   canEdit: boolean;
   isEditing: boolean;
   editingBlock: number | undefined;
-  editLevel: DashboardInstanceInterface["editLevel"];
+  enableAutoUpdates: boolean;
   setBlocks: React.Dispatch<DashboardBlockData<DashboardBlockInterface>[]>;
-  setIsEditing: React.Dispatch<boolean>;
+  forceToEditing: () => void;
   setEditingBlock: React.Dispatch<number | undefined>;
-  setEditLevel: React.Dispatch<DashboardInstanceInterface["editLevel"]>;
   mutate: () => void;
 }
 
@@ -213,15 +210,28 @@ export default function DashboardEditor({
   canEdit,
   isEditing,
   editingBlock,
-  editLevel,
+  enableAutoUpdates,
   setBlocks,
-  setIsEditing,
+  forceToEditing,
   setEditingBlock,
-  setEditLevel,
   mutate,
 }: Props) {
-  // TODO
-  const scrollToIndex = (_i: number) => {};
+  const blockRefs = useRef<Array<HTMLDivElement | null>>([]);
+  // Variable outside of the react lifecycle to enable scrolling only after the blocks are updated
+  const scrollToBlockIndex = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (isDefined(scrollToBlockIndex.current)) {
+      const el = blockRefs.current[scrollToBlockIndex.current];
+      if (el) {
+        window.scrollTo({
+          top: el.offsetTop + 200,
+          behavior: "smooth",
+        });
+      }
+      scrollToBlockIndex.current = undefined;
+    }
+  }, [blocks]);
+
   const [editingBlockClone, setEditingBlockClone] = useState<
     DashboardBlockData<DashboardBlockInterface> | undefined
   >(undefined);
@@ -234,6 +244,7 @@ export default function DashboardEditor({
 
   const addBlockType = (bType: DashboardBlockType, index?: number) => {
     index = index ?? blocks.length;
+    scrollToBlockIndex.current = index;
     setBlocks([
       ...blocks.slice(0, index),
       BLOCK_TYPE_INFO[bType].createDefaultBlock({
@@ -241,7 +252,6 @@ export default function DashboardEditor({
       }),
       ...blocks.slice(index),
     ]);
-    scrollToIndex(index);
   };
 
   if (blocks.length === 0) {
@@ -273,7 +283,7 @@ export default function DashboardEditor({
                 Add block
               </Button>
             }
-            setIsEditing={setIsEditing}
+            forceToEditing={forceToEditing}
           />
         )}
       </Flex>
@@ -286,39 +296,36 @@ export default function DashboardEditor({
         <Flex align="center" justify="between">
           <Flex align="center" mb="2" gap="1">
             {isEditing && (
-              <>
-                <AddBlockDropdown
-                  trigger={
-                    <Button
-                      className={clsx({
-                        "dashboard-disabled": editingBlock !== undefined,
-                      })}
-                      icon={<PiCaretDownFill />}
-                      iconPosition="right"
-                    >
-                      Add block
-                    </Button>
-                  }
-                  addBlockType={(bType) => addBlockType(bType, blocks.length)}
-                />
-                <Checkbox
-                  containerClassName={clsx("mb-0", {
-                    "dashboard-disabled": editingBlock !== undefined,
-                  })}
-                  label="Allow editing by organization members"
-                  value={editLevel === "organization"}
-                  setValue={(checked) =>
-                    setEditLevel(checked ? "organization" : "private")
-                  }
-                />
-              </>
+              <AddBlockDropdown
+                trigger={
+                  <Button
+                    className={clsx({
+                      "dashboard-disabled": isDefined(editingBlock),
+                    })}
+                    icon={<PiCaretDownFill />}
+                    iconPosition="right"
+                    size="xs"
+                  >
+                    Add block
+                  </Button>
+                }
+                addBlockType={(bType) => addBlockType(bType, blocks.length)}
+              />
             )}
           </Flex>
-          <DashboardUpdateDisplay />
+          <DashboardUpdateDisplay
+            blocks={blocks}
+            enableAutoUpdates={enableAutoUpdates}
+            disabled={isDefined(editingBlock)}
+          />
         </Flex>
         <div className="">
           {blocks.map((block, i) => (
-            <Flex direction="column" key={i}>
+            <Flex
+              direction="column"
+              key={i}
+              ref={(el) => (blockRefs.current[i] = el)}
+            >
               <DashboardBlock
                 // Show in-progress edits directly on the block
                 block={i === editingBlock ? editingBlockClone ?? block : block}
@@ -362,7 +369,7 @@ export default function DashboardEditor({
                     trigger={
                       <IconButton
                         className={clsx({
-                          "dashboard-disabled": editingBlock !== undefined,
+                          "dashboard-disabled": isDefined(editingBlock),
                         })}
                         size="1"
                       >

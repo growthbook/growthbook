@@ -17,6 +17,7 @@ export const createDashboardBody = z
     experimentId: z.string(),
     title: z.string(),
     editLevel: z.enum(["organization", "private"]),
+    enableAutoUpdates: z.boolean(),
     blocks: z.array(createDashboardBlockInterface),
   })
   .strict();
@@ -25,6 +26,7 @@ export const updateDashboardBody = z
   .object({
     title: z.string().optional(),
     editLevel: z.enum(["organization", "private"]).optional(),
+    enableAutoUpdates: z.boolean().optional(),
     blocks: z
       .array(z.union([createDashboardBlockInterface, dashboardBlockInterface]))
       .optional(),

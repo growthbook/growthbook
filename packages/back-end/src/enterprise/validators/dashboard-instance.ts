@@ -9,6 +9,7 @@ export const dashboardInstanceInterface = z
     owner: z.string(),
     userId: z.string(),
     editLevel: z.enum(["organization", "private"]),
+    enableAutoUpdates: z.boolean(),
     title: z.string(),
     blocks: z.array(dashboardBlockInterface),
     dateCreated: z.date(),
