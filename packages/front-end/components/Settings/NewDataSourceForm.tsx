@@ -13,7 +13,6 @@ import {
 import { useForm } from "react-hook-form";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { FaExternalLinkAlt } from "react-icons/fa";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Text } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -40,10 +39,9 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import Callout from "@/components/Radix/Callout";
 import { DocLink } from "@/components/DocLink";
 import DataSourceTypeSelector from "@/components/Settings/DataSourceTypeSelector";
-import { isCloud } from "@/services/env";
-import { useUser } from "@/services/UserContext";
 import ManagedWarehouseModal from "@/components/InitialSetup/ManagedWarehouseModal";
 import Badge from "@/components/Radix/Badge";
+import useManagedWarehouse from "@/hooks/useManagedWarehouse";
 import EventSourceList from "./EventSourceList";
 import ConnectionSettings from "./ConnectionSettings";
 
@@ -73,15 +71,12 @@ const NewDataSourceForm: FC<{
   showBackButton = true,
 }) => {
   const {
-    datasources,
     projects: allProjects,
     project,
     mutateDefinitions,
   } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
   const { apiCall, orgId } = useAuth();
-  const { hasCommercialFeature, license } = useUser();
-  const gb = useGrowthBook();
 
   const settings = useOrgSettings();
   const { metricDefaults } = useOrganizationMetricDefaults();
@@ -108,13 +103,7 @@ const NewDataSourceForm: FC<{
     ...initial,
   });
 
-  // Cloud, no managed warehouse yet, and is either free OR on a usage-based paid plan
-  const showManagedWarehouse =
-    isCloud() &&
-    !datasources.some((d) => d.type === "growthbook_clickhouse") &&
-    (!hasCommercialFeature("managed-warehouse") ||
-      !!license?.orbSubscription) &&
-    gb.isOn("inbuilt-data-warehouse");
+  const { canAddManagedWarehouse } = useManagedWarehouse();
   const [managedWarehouseOpen, setManagedWarehouseOpen] = useState(false);
 
   // Form data for the schema options screen
@@ -460,7 +449,7 @@ const NewDataSourceForm: FC<{
               }
             }}
           />
-          {showManagedWarehouse ? (
+          {canAddManagedWarehouse ? (
             <Callout status="info" mt="3" icon={null}>
               <Badge label="New!" color="violet" variant="solid" mr="3" />
               <Text mr="3">

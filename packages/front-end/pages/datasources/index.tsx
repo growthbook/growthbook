@@ -5,7 +5,6 @@ import { isProjectListValidForProject } from "shared/util";
 import { useRouter } from "next/router";
 import { PiCursor, PiCursorClick } from "react-icons/pi";
 import { Flex } from "@radix-ui/themes";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import { DocLink } from "@/components/DocLink";
 import DataSources from "@/components/Settings/DataSources";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
@@ -13,7 +12,7 @@ import track from "@/services/track";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Button from "@/components/Radix/Button";
-import { hasFileConfig, isCloud } from "@/services/env";
+import { hasFileConfig } from "@/services/env";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/components/Radix/Callout";
 import { dataSourceConnections } from "@/services/eventSchema";
@@ -25,6 +24,7 @@ import Badge from "@/components/Radix/Badge";
 import { useUser } from "@/services/UserContext";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import ManagedWarehouseModal from "@/components/InitialSetup/ManagedWarehouseModal";
+import useManagedWarehouse from "@/hooks/useManagedWarehouse";
 
 function ManagedWarehouseDriver() {
   const { hasCommercialFeature } = useUser();
@@ -137,8 +137,6 @@ const DataSourcesPage: FC = () => {
     datasources,
   } = useDefinitions();
 
-  const gb = useGrowthBook();
-
   const router = useRouter();
 
   const filteredDatasources = (project
@@ -154,17 +152,11 @@ const DataSourcesPage: FC = () => {
   ] = useState<null | Partial<DataSourceInterfaceWithParams>>(null);
 
   const permissionsUtil = usePermissionsUtil();
-  const { hasCommercialFeature, license } = useUser();
 
-  // Cloud, no data sources yet, has permissions, and is either free OR on a usage-based paid plan, or is on a trial
+  const { canAddManagedWarehouse } = useManagedWarehouse();
+
   const showManagedWarehouse =
-    isCloud() &&
-    filteredDatasources.length === 0 &&
-    permissionsUtil.canViewCreateDataSourceModal(project) &&
-    (!hasCommercialFeature("managed-warehouse") ||
-      license?.isTrial ||
-      !!license?.orbSubscription) &&
-    gb.isOn("inbuilt-data-warehouse");
+    canAddManagedWarehouse && filteredDatasources.length === 0;
 
   return (
     <div className="container-fluid pagecontents">
