@@ -24,7 +24,6 @@ export const holdoutValidator = z
     experimentId: z.string(),
     linkedExperiments: z.array(holdoutLinkedItemValidator),
     linkedFeatures: z.array(holdoutLinkedItemValidator),
-    analysisSettings: analysisSettingsValidator,
     environments: z.array(z.string()),
   })
   .strict();
