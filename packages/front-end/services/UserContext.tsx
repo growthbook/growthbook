@@ -124,6 +124,7 @@ export interface UserContextValue {
   canSubscribe: boolean;
   freeSeats: number;
   usage?: OrganizationUsage;
+  disabled: boolean;
 }
 
 interface UserResponse {
@@ -171,6 +172,7 @@ export const UserContext = createContext<UserContextValue>({
   },
   canSubscribe: false,
   freeSeats: 3,
+  disabled: false,
 });
 
 export function useUser() {
@@ -483,6 +485,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         name: data?.userName,
         email: data?.email,
         superAdmin: data?.superAdmin,
+        disabled: user?.disabled || false,
         updateUser,
         user,
         users,
