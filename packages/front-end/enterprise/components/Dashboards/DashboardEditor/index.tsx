@@ -21,55 +21,69 @@ import DashboardBlock from "./DashboardBlock";
 import DashboardBlockEditDrawer from "./DashboardBlockEditDrawer";
 import DashboardUpdateDisplay from "./DashboardUpdateDisplay";
 
-export const BLOCK_TYPE_INFO: Record<
-  DashboardBlockType,
-  {
-    name: string;
-    createDefaultBlock: (args: {
-      experiment: ExperimentInterfaceStringDates;
-    }) => DashboardBlockData<DashboardBlockInterface>;
-  }
-> = {
+type CreateBlock<T extends DashboardBlockInterface> = (args: {
+  experiment: ExperimentInterfaceStringDates;
+  initialValues?: Partial<DashboardBlockData<T>>;
+}) => DashboardBlockData<T>;
+
+type BlockTypeInfo<BType extends DashboardBlockType> = {
+  name: string;
+  type: BType;
+  createBlock: CreateBlock<Extract<DashboardBlockInterface, { type: BType }>>;
+};
+
+export const BLOCK_TYPE_INFO: {
+  [k in DashboardBlockType]: BlockTypeInfo<k>;
+} = {
   markdown: {
     name: "Custom Markdown",
-    createDefaultBlock: () => ({
+    type: "markdown",
+    createBlock: ({ initialValues }) => ({
       type: "markdown",
       title: "",
       description: "",
       content: "",
+      ...(initialValues || {}),
     }),
   },
   "metadata-description": {
     name: "Experiment Description",
-    createDefaultBlock: ({ experiment }) => ({
+    type: "metadata-description",
+    createBlock: ({ initialValues, experiment }) => ({
       type: "metadata-description",
       title: "",
       description: "",
       experimentId: experiment.id,
+      ...(initialValues || {}),
     }),
   },
   "metadata-hypothesis": {
     name: "Experiment Hypothesis",
-    createDefaultBlock: ({ experiment }) => ({
+    type: "metadata-hypothesis",
+    createBlock: ({ initialValues, experiment }) => ({
       type: "metadata-hypothesis",
       title: "",
       description: "",
       experimentId: experiment.id,
+      ...(initialValues || {}),
     }),
   },
   "variation-image": {
     name: "Variations / Screenshots",
-    createDefaultBlock: ({ experiment }) => ({
+    type: "variation-image",
+    createBlock: ({ initialValues, experiment }) => ({
       type: "variation-image",
       title: "",
       description: "",
       variationIds: [],
       experimentId: experiment.id,
+      ...(initialValues || {}),
     }),
   },
   metric: {
     name: "Metric Results",
-    createDefaultBlock: ({ experiment }) => ({
+    type: "metric",
+    createBlock: ({ initialValues, experiment }) => ({
       type: "metric",
       title: "",
       description: "",
@@ -79,11 +93,13 @@ export const BLOCK_TYPE_INFO: Record<
       differenceType: "relative",
       baselineRow: 0,
       columnsFilter: [],
+      ...(initialValues || {}),
     }),
   },
   dimension: {
     name: "Dimension Results",
-    createDefaultBlock: ({ experiment }) => ({
+    type: "dimension",
+    createBlock: ({ initialValues, experiment }) => ({
       type: "dimension",
       title: "",
       description: "",
@@ -94,11 +110,13 @@ export const BLOCK_TYPE_INFO: Record<
       differenceType: "relative",
       baselineRow: 0,
       columnsFilter: [],
+      ...(initialValues || {}),
     }),
   },
   "time-series": {
     name: "Time Series",
-    createDefaultBlock: ({ experiment }) => ({
+    type: "time-series",
+    createBlock: ({ initialValues, experiment }) => ({
       type: "time-series",
       title: "",
       description: "",
@@ -106,33 +124,40 @@ export const BLOCK_TYPE_INFO: Record<
       metricId: experiment.goalMetrics[0] || "",
       snapshotId: experiment.analysisSummary?.snapshotId || "",
       variationIds: experiment.variations.map((variation) => variation.id),
+      ...(initialValues || {}),
     }),
   },
   "traffic-graph": {
     name: "Traffic over Time",
-    createDefaultBlock: ({ experiment }) => ({
+    type: "traffic-graph",
+    createBlock: ({ initialValues, experiment }) => ({
       type: "traffic-graph",
       title: "",
       description: "",
       experimentId: experiment.id,
+      ...(initialValues || {}),
     }),
   },
   "traffic-table": {
     name: "Traffic",
-    createDefaultBlock: ({ experiment }) => ({
+    type: "traffic-table",
+    createBlock: ({ initialValues, experiment }) => ({
       type: "traffic-table",
       title: "",
       description: "",
       experimentId: experiment.id,
+      ...(initialValues || {}),
     }),
   },
   "sql-explorer": {
     name: "SQL Explorer",
-    createDefaultBlock: () => ({
+    type: "sql-explorer",
+    createBlock: ({ initialValues }) => ({
       type: "sql-explorer",
       title: "",
       description: "",
       dataVizConfigIndex: 0,
+      ...(initialValues || {}),
     }),
   },
 };
@@ -247,7 +272,7 @@ export default function DashboardEditor({
     scrollToBlockIndex.current = index;
     setBlocks([
       ...blocks.slice(0, index),
-      BLOCK_TYPE_INFO[bType].createDefaultBlock({
+      BLOCK_TYPE_INFO[bType].createBlock({
         experiment,
       }),
       ...blocks.slice(index),

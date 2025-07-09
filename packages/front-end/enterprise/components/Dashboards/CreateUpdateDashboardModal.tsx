@@ -4,7 +4,10 @@ import { Flex } from "@radix-ui/themes";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import Checkbox from "@/components/Radix/Checkbox";
-import { CreateDashboardArgs } from "./DashboardsTab";
+import {
+  autoUpdateDisabledMessage,
+  CreateDashboardArgs,
+} from "./DashboardsTab";
 
 const defaultFormInit = {
   title: "",
@@ -58,7 +61,7 @@ export default function CreateUpdateDashboardModal({
           // TODO: pull X
           description="An automatic data refresh will occur every X minutes."
           disabled={disableAutoUpdate}
-          disabledMessage="Automatic updates are disabled for dashboards with Dimension Analyses or SQL Explorer blocks, or when the parent experiment has auto refresh disabled"
+          disabledMessage={autoUpdateDisabledMessage}
           value={form.watch("enableAutoUpdates")}
           setValue={(checked) => form.setValue("enableAutoUpdates", checked)}
         />

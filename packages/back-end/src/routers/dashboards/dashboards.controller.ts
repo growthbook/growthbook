@@ -46,10 +46,8 @@ export async function createDashboard(
   const createdBlocks = await Promise.all(
     blocks.map((blockData) => createDashboardBlock(context.org.id, blockData))
   );
-  // TODO: create snapshots as needed
 
   const dashboard = await context.models.dashboards.create({
-    owner: context.userName,
     userId: context.userId,
     editLevel,
     enableAutoUpdates,
@@ -75,6 +73,30 @@ export async function updateDashboard(
 
   const { id } = req.params;
   const updates = { ...req.body };
+  const dashboard = await context.models.dashboards.getById(id);
+  if (!dashboard) throw new Error("Cannot find dashboard");
+  const experiment = await getExperimentById(context, dashboard.experimentId);
+  if (!experiment) throw new Error("Cannot find connected experiment");
+
+  const isOwner = context.userId === dashboard.userId || !dashboard.userId;
+  const isAdmin = context.permissions.canSuperDeleteReport();
+  const canEdit =
+    isOwner ||
+    isAdmin ||
+    (dashboard.editLevel === "organization" &&
+      context.permissions.canUpdateReport(experiment));
+  const canManage = isOwner || isAdmin;
+
+  if (!canEdit) context.permissions.throwPermissionError();
+  if (
+    ("title" in updates ||
+      "editLevel" in updates ||
+      "enableAutoUpdates" in updates) &&
+    !canManage
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
   if (updates.blocks) {
     const createdBlocks = await Promise.all(
       updates.blocks.map((blockData) =>
@@ -105,8 +127,16 @@ export async function deleteDashboard(
   if (!context.hasPremiumFeature("dashboards")) {
     throw new Error("Must have a commercial License Key to manage Dashboards");
   }
-
   const { id } = req.params;
+
+  const dashboard = await context.models.dashboards.getById(id);
+  if (!dashboard) throw new Error("Cannot find dashboard");
+
+  const isOwner = context.userId === dashboard.userId || !dashboard.userId;
+  const isAdmin = context.permissions.canSuperDeleteReport();
+  const canManage = isOwner || isAdmin;
+  if (!canManage) context.permissions.throwPermissionError();
+
   await context.models.dashboards.deleteById(id);
   return res.status(200).json({ status: 200 });
 }

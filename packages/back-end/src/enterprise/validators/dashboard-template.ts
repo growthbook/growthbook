@@ -1,14 +1,19 @@
 import { z } from "zod";
-import { dashboardBlockInterface } from "./dashboard-block";
+import { dashboardBlockPartial } from "./dashboard-block";
+import { dashboardEditLevel } from "./dashboard-instance";
 
 export const DashboardTemplateInterface = z
   .object({
     id: z.string(),
     organization: z.string(),
+    userId: z.string(),
+    editLevel: dashboardEditLevel,
+    instanceEditLevel: dashboardEditLevel,
+    enableAutoUpdates: z.boolean(),
+    title: z.string(),
+    blockInitialValues: z.array(dashboardBlockPartial),
     dateCreated: z.date(),
     dateUpdated: z.date(),
-    title: z.string(),
-    blocks: z.array(dashboardBlockInterface),
   })
   .strict();
 

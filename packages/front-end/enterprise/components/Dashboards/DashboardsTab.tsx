@@ -5,7 +5,7 @@ import {
   DashboardBlockData,
   DashboardBlockInterface,
 } from "back-end/src/enterprise/validators/dashboard-block";
-import { Flex, Heading, IconButton, Text } from "@radix-ui/themes";
+import { Container, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
 import { PiPencil, PiPlus } from "react-icons/pi";
 import clsx from "clsx";
 import { cloneDeep, pick } from "lodash";
@@ -22,6 +22,7 @@ import { Select, SelectItem } from "@/components/Radix/Select";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import { DropdownMenuSeparator } from "@/components/Radix/DropdownMenu";
 import DashboardEditor from "./DashboardEditor";
 import DashboardSnapshotProvider from "./DashboardSnapshotProvider";
 import CreateUpdateDashboardModal from "./CreateUpdateDashboardModal";
@@ -49,6 +50,9 @@ export type SubmitDashboard<
   T extends CreateDashboardArgs | UpdateDashboardArgs
 > = (args: T) => Promise<void>;
 
+export const autoUpdateDisabledMessage =
+  "Automatic updates are disabled for dashboards with Dimension Analyses or SQL Explorer blocks, or when the parent experiment has auto refresh disabled";
+
 interface Props {
   experiment: ExperimentInterfaceStringDates;
   initialDashboardId: string;
@@ -75,6 +79,12 @@ export default function DashboardsTab({
     () => allDashboards.filter((d) => d.experimentId === experiment.id),
     [allDashboards, experiment.id]
   );
+  useEffect(() => {
+    if (!dashboardId && dashboards.length > 0) {
+      setDashboardId(dashboards[0].id);
+    }
+  }, [dashboardId, dashboards]);
+
   const { userId } = useUser();
   const [isEditing, setIsEditing] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -162,6 +172,9 @@ export default function DashboardsTab({
     [apiCall, experiment.id, mutateDashboardList]
   );
 
+  const autoUpdateDisabled =
+    !experiment.autoSnapshots || !dashboardCanAutoUpdate({ blocks });
+
   return (
     <DashboardSnapshotProvider
       experiment={experiment}
@@ -182,7 +195,7 @@ export default function DashboardsTab({
           <CreateUpdateDashboardModal
             close={() => setShowUpdateModal(false)}
             initial={{ editLevel, title, enableAutoUpdates }}
-            disableAutoUpdate={!dashboardCanAutoUpdate({ blocks })}
+            disableAutoUpdate={autoUpdateDisabled}
             submit={async (data) => {
               await submitDashboard({ method: "PUT", dashboardId, data });
             }}
@@ -222,31 +235,39 @@ export default function DashboardsTab({
               <Flex align="center" justify="between" mb="1">
                 <Flex gap="1" align="center">
                   {isEditing ? (
-                    <div className="position-relative">
-                      <Flex
-                        gap="8"
-                        align="center"
-                        className={clsx("cursor-pointer", {
-                          "dashboard-disabled": isDefined(editingBlock),
-                        })}
-                        onClick={() => setShowUpdateModal(true)}
-                      >
+                    <>
+                      {canManage ? (
+                        <div className="position-relative">
+                          <Flex
+                            gap="8"
+                            align="center"
+                            className={clsx("cursor-pointer", {
+                              "dashboard-disabled": isDefined(editingBlock),
+                            })}
+                            onClick={() => setShowUpdateModal(true)}
+                          >
+                            <Text size="5" weight="medium">
+                              {title}
+                            </Text>
+                            <IconButton size="1" variant="ghost">
+                              <PiPencil />
+                            </IconButton>
+                          </Flex>
+                          <div
+                            className="position-absolute"
+                            style={{
+                              width: "100%",
+                              height: 1,
+                              backgroundColor: "var(--slate-5)",
+                            }}
+                          />
+                        </div>
+                      ) : (
                         <Text size="5" weight="medium">
                           {title}
                         </Text>
-                        <IconButton size="1" variant="ghost">
-                          <PiPencil />
-                        </IconButton>
-                      </Flex>
-                      <div
-                        className="position-absolute"
-                        style={{
-                          width: "100%",
-                          height: 1,
-                          backgroundColor: "var(--slate-5)",
-                        }}
-                      />
-                    </div>
+                      )}
+                    </>
                   ) : dashboards.length > 0 ? (
                     <>
                       <Select value={dashboardId} setValue={setDashboardId}>
@@ -338,6 +359,23 @@ export default function DashboardsTab({
                           </Tooltip>
                         )}
                         <MoreMenu>
+                          {canCreate && (
+                            <>
+                              <Button
+                                className="dropdown-item"
+                                onClick={() => {
+                                  setShowCreateModal(true);
+                                }}
+                              >
+                                <Text weight="regular">
+                                  Create New Dashboard
+                                </Text>
+                              </Button>
+                              <Container px="4">
+                                <DropdownMenuSeparator />
+                              </Container>
+                            </>
+                          )}
                           {canEdit && (
                             <EditButton
                               useIcon={false}
@@ -348,25 +386,59 @@ export default function DashboardsTab({
                               }}
                             />
                           )}
+                          {canManage && (
+                            <Tooltip
+                              body={autoUpdateDisabledMessage}
+                              shouldDisplay={autoUpdateDisabled}
+                            >
+                              <Button
+                                className="dropdown-item"
+                                disabled={autoUpdateDisabled}
+                                onClick={() =>
+                                  submitDashboard({
+                                    method: "PUT",
+                                    dashboardId,
+                                    data: {
+                                      enableAutoUpdates: !enableAutoUpdates,
+                                    },
+                                  })
+                                }
+                              >
+                                <Text weight="regular">{`${
+                                  enableAutoUpdates && !autoUpdateDisabled
+                                    ? "Disable"
+                                    : "Enable"
+                                } Auto-updates`}</Text>
+                              </Button>
+                            </Tooltip>
+                          )}
+                          {/* TODO */}
                           {canCreate && (
-                            <div className="dropdown-item">Duplicate</div>
+                            <Button className="dropdown-item">
+                              <Text weight="regular">Duplicate</Text>
+                            </Button>
                           )}
                           {canManage && (
-                            <DeleteButton
-                              displayName="Dashboard"
-                              className="dropdown-item text-danger"
-                              useIcon={false}
-                              text="Delete"
-                              title="Delete Dashboard"
-                              onClick={async () => {
-                                await apiCall(`/dashboards/${dashboard.id}`, {
-                                  method: "DELETE",
-                                });
-                                mutateDashboardList();
-                                setDashboardId("");
-                              }}
-                              canDelete={canManage}
-                            />
+                            <>
+                              <Container px="4">
+                                <DropdownMenuSeparator />
+                              </Container>
+                              <DeleteButton
+                                displayName="Dashboard"
+                                className="dropdown-item text-danger"
+                                useIcon={false}
+                                text="Delete"
+                                title="Delete Dashboard"
+                                onClick={async () => {
+                                  await apiCall(`/dashboards/${dashboard.id}`, {
+                                    method: "DELETE",
+                                  });
+                                  mutateDashboardList();
+                                  setDashboardId("");
+                                }}
+                                canDelete={canManage}
+                              />
+                            </>
                           )}
                         </MoreMenu>
                       </Flex>

@@ -1,14 +1,15 @@
 import { z } from "zod";
 import { dashboardBlockInterface } from "./dashboard-block";
 
+export const dashboardEditLevel = z.enum(["organization", "private"]);
+
 export const dashboardInstanceInterface = z
   .object({
     id: z.string(),
     organization: z.string(),
     experimentId: z.string(),
-    owner: z.string(),
     userId: z.string(),
-    editLevel: z.enum(["organization", "private"]),
+    editLevel: dashboardEditLevel,
     enableAutoUpdates: z.boolean(),
     title: z.string(),
     blocks: z.array(dashboardBlockInterface),

@@ -168,8 +168,7 @@ export const dashboardBlockInterface = z.discriminatedUnion("type", [
 export type DashboardBlockInterface = z.infer<typeof dashboardBlockInterface>;
 export type DashboardBlockType = DashboardBlockInterface["type"];
 
-// Utility types for the discriminated union without the backend-generated fields and a generic
-// type for individual block types
+// Utility type for the discriminated union without the backend-generated fields
 const createOmits = {
   id: true,
   uid: true,
@@ -187,17 +186,39 @@ export const createDashboardBlockInterface = z.discriminatedUnion("type", [
   trafficGraphBlockInterface.omit(createOmits),
   sqlExplorerBlockInterface.omit(createOmits),
 ]);
-
 export type CreateDashboardBlockInterface = z.infer<
   typeof createDashboardBlockInterface
 >;
+
+// Allow templates to specify a partial of the individual block fields
+export const dashboardBlockPartial = z.discriminatedUnion("type", [
+  markdownBlockInterface.omit(createOmits).partial().required({ type: true }),
+  descriptionBlockInterface
+    .omit(createOmits)
+    .partial()
+    .required({ type: true }),
+  hypothesisBlockInterface.omit(createOmits).partial().required({ type: true }),
+  variationImageBlockInterface
+    .omit(createOmits)
+    .partial()
+    .required({ type: true }),
+  metricBlockInterface.omit(createOmits).partial().required({ type: true }),
+  dimensionBlockInterface.omit(createOmits).partial().required({ type: true }),
+  timeSeriesBlockInterface.omit(createOmits).partial().required({ type: true }),
+  trafficTableBlockInterface
+    .omit(createOmits)
+    .partial()
+    .required({ type: true }),
+  trafficGraphBlockInterface
+    .omit(createOmits)
+    .partial()
+    .required({ type: true }),
+  sqlExplorerBlockInterface
+    .omit(createOmits)
+    .partial()
+    .required({ type: true }),
+]);
+
 export type DashboardBlockData<T extends DashboardBlockInterface> =
   | T
   | DistributiveOmit<T, "id" | "uid" | "organization">;
-
-export type DashboardBlockWithSnapshot = Extract<
-  DashboardBlockInterface,
-  {
-    snapshotId: string;
-  }
->;
