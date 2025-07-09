@@ -3,6 +3,7 @@ import {
   Children,
   forwardRef,
   isValidElement,
+  ReactNode,
   useEffect,
   useRef,
   useState,
@@ -57,17 +58,36 @@ export const Tabs = forwardRef<HTMLDivElement, TabsProps>(function Tabs(
   const [urlHash, setUrlHash] = useURLHash();
 
   if (defaultValue && persistInURL) {
-    const possibleValues = new Set(
-      Children.map(children, (child) => {
-        if (isValidElement(child) && child.props.value) {
-          return child.props.value;
-        }
-        return null;
-      })
-    );
+    const possibleValues = new Set<string>();
+    Children.forEach(children, (child) => {
+      if (isValidElement(child) && child.props.value) {
+        possibleValues.add(child.props.value);
+      } else if (
+        isValidElement(child) &&
+        child.props &&
+        typeof child.props === "object" &&
+        "children" in child.props &&
+        Array.isArray(child.props.children)
+      ) {
+        // If the child is a TabsTrigger, check its children for a value
+        child.props.children.forEach((c: ReactNode) => {
+          if (
+            isValidElement(c) &&
+            c.props.value &&
+            typeof c.props.value === "string"
+          ) {
+            possibleValues.add(c.props.value);
+          }
+        });
+      }
+      return null;
+    });
 
     rootProps = {
-      value: urlHash && possibleValues.has(urlHash) ? urlHash : defaultValue,
+      value:
+        urlHash && (possibleValues.has(urlHash) || !possibleValues.size)
+          ? urlHash
+          : defaultValue,
       onValueChange: (value) => {
         setUrlHash(value as string);
         onValueChange?.(value);
