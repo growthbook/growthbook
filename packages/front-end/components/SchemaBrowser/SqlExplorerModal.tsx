@@ -6,7 +6,7 @@ import {
   FaCheck,
   FaTimes,
 } from "react-icons/fa";
-import { PiCaretDoubleRight, PiPencilSimpleFill, PiX } from "react-icons/pi";
+import { PiCaretDoubleRight, PiPencilSimpleFill } from "react-icons/pi";
 import {
   DataVizConfig,
   SavedQuery,
@@ -15,6 +15,7 @@ import {
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { getValidDate } from "shared/dates";
 import { isReadOnlySQL, SQL_EXPLORER_LIMIT } from "shared/sql";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -42,6 +43,11 @@ import { SqlExplorerDataVisualization } from "../DataViz/SqlExplorerDataVisualiz
 import Modal from "../Modal";
 import SelectField from "../Forms/SelectField";
 import Tooltip from "../Tooltip/Tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "../Radix/DropdownMenu";
 import SchemaBrowser from "./SchemaBrowser";
 import styles from "./EditSqlModal.module.scss";
 
@@ -367,7 +373,9 @@ export default function SqlExplorerModal({
               align="center"
               mb="4"
               gap="3"
-              style={{ borderBottom: "1px solid var(--gray-a6)" }}
+              style={{
+                borderBottom: "1px solid var(--gray-a6)",
+              }}
             >
               <TabsList>
                 <TabsTrigger value="sql">
@@ -416,11 +424,13 @@ export default function SqlExplorerModal({
                       </Flex>
                     ) : (
                       <>
+                        <strong>SQL :</strong>{" "}
                         {form.watch("name") || "Untitled Query..."}
-                        {!readOnlyMode ? (
+                        {!readOnlyMode && tab === "sql" ? (
                           <Button
                             variant="ghost"
                             size="sm"
+                            title="Edit Name"
                             onClick={() => {
                               setTempName(form.watch("name"));
                               setIsEditingName(true);
@@ -438,58 +448,90 @@ export default function SqlExplorerModal({
                     <Flex align="center" gap="2">
                       {config.title || `Visualization ${index + 1}`}
                       {!readOnlyMode && tab === `visualization-${index}` ? (
-                        <Button
-                          variant="ghost"
-                          size="xs"
-                          onClick={() => {
-                            setDirty(true);
-                            const currentConfig = [...dataVizConfig];
-                            currentConfig.splice(index, 1);
-                            form.setValue("dataVizConfig", currentConfig);
-                            setTab(
-                              index < dataVizConfig.length - 1
-                                ? `visualization-${index}`
-                                : index > 0
-                                ? `visualization-${index - 1}`
-                                : "sql"
-                            );
-                          }}
-                          title="Delete Visualization"
+                        <DropdownMenu
+                          trigger={
+                            <Button variant="ghost" size="sm">
+                              <BsThreeDotsVertical />
+                            </Button>
+                          }
                         >
-                          <PiX />
-                        </Button>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setDirty(true);
+                              const newDataVizConfig = [
+                                ...dataVizConfig,
+                                {
+                                  ...config,
+                                  title: `${
+                                    config.title || `Visualization ${index + 1}`
+                                  } (Copy)`,
+                                },
+                              ];
+                              form.setValue("dataVizConfig", newDataVizConfig);
+                              setTab(`visualization-${dataVizConfig.length}`);
+                            }}
+                            disabled={dataVizConfig.length >= 5}
+                          >
+                            Duplicate
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            color="red"
+                            onClick={() => {
+                              setDirty(true);
+                              const currentConfig = [...dataVizConfig];
+                              currentConfig.splice(index, 1);
+                              form.setValue("dataVizConfig", currentConfig);
+                              setTab(
+                                index < dataVizConfig.length - 1
+                                  ? `visualization-${index}`
+                                  : index > 0
+                                  ? `visualization-${index - 1}`
+                                  : "sql"
+                              );
+                            }}
+                          >
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenu>
                       ) : null}
                     </Flex>
                   </TabsTrigger>
                 ))}
               </TabsList>
-              {!readOnlyMode && dataVizConfig.length < 3 ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setDirty(true);
-                    const currentConfig = [...dataVizConfig];
-                    form.setValue("dataVizConfig", [
-                      ...currentConfig,
-                      { chartType: "bar" },
-                    ]);
-                    setTab(`visualization-${currentConfig.length}`);
-                    setSidePanel(true);
-                  }}
-                  title="Add Visualization"
-                  disabled={
-                    !form.watch("results").results ||
-                    form.watch("results").results.length === 0
-                  }
+              {!readOnlyMode ? (
+                <Tooltip
+                  shouldDisplay={dataVizConfig.length >= 5}
+                  body="You can only add up to 5 visualizations to a query from this modal."
                 >
-                  <VisualizationAddIcon />{" "}
-                  {!dataVizConfig.length ? (
-                    <span className="ml-1">Add Visualization</span>
-                  ) : (
-                    ""
-                  )}
-                </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setDirty(true);
+                      const currentConfig = [...dataVizConfig];
+                      form.setValue("dataVizConfig", [
+                        ...currentConfig,
+                        { chartType: "bar" },
+                      ]);
+                      setTab(`visualization-${currentConfig.length}`);
+                      setSidePanel(true);
+                    }}
+                    title={dataVizConfig.length >= 5 ? "" : "Add Visualization"}
+                    disabled={
+                      !form.watch("results").results ||
+                      form.watch("results").results.length === 0 ||
+                      dataVizConfig.length >= 5
+                    }
+                  >
+                    <VisualizationAddIcon />{" "}
+                    {!dataVizConfig.length ? (
+                      <span className="ml-1">Add Visualization</span>
+                    ) : (
+                      ""
+                    )}
+                  </Button>
+                </Tooltip>
               ) : null}
               <div className="ml-auto" />
               {!readOnlyMode ? (
