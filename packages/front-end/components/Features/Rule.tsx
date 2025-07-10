@@ -268,7 +268,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                           <div>Holdout: </div>
                           <Link href={`/holdout/${feature.holdout?.id}`}>
                             {/* TODO: add actualcholdout name */}
-                            holdout-name
+                            Test Holdout
                           </Link>
                           {/* TODO: add holdout status indicator */}
                           {/* <ExperimentStatusIndicator
