@@ -1181,8 +1181,8 @@ export function getAdjustedCI(
 export function getPredefinedDimensionSlicesByExperiment(
   dimensionMetadata: ExperimentDimensionMetadata[],
   nVariations: number
-) {
-  // Ensure we return no more than 2k rows in full joint distribution
+): ExperimentDimensionMetadata[] {
+  // Ensure we return no more than 1k rows in full joint distribution
   // for post-stratification
   let dimensions = dimensionMetadata;
 
@@ -1202,13 +1202,14 @@ export function getPredefinedDimensionSlicesByExperiment(
   return dimensions;
 }
 
-function countDimensionLevels(
+export function countDimensionLevels(
   dimensionMetadata: { specifiedSlices: string[] }[],
   nVariations: number
 ): number {
   const nLevels: number[] = [];
   dimensionMetadata.forEach((dim) => {
-    nLevels.push(dim.specifiedSlices.length);
+    // add 1 for __other__ slice
+    nLevels.push(dim.specifiedSlices.length + 1);
   });
 
   return nLevels.reduce((acc, n) => acc * n, 1) * nVariations;

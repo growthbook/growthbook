@@ -759,7 +759,6 @@ def process_single_metric(
     results: List[List[DimensionResponse]] = []
     for a in analyses:
         # skip pre-computed dimension reaggregation for quantile metrics
-        # TODO also skip if dimension columns
         attempted_quantile_dimension_reaggregation = a.dimension.startswith(
             "precomputed:"
         ) and metric.statistic_type in ["quantile_event", "quantile_unit"]
@@ -767,7 +766,7 @@ def process_single_metric(
             a.dimension == ""
             and metric.statistic_type in ["quantile_event", "quantile_unit"]
             and pdrows.columns.__contains__("dim_exp")
-        )  # TODO test
+        )
         if (
             attempted_quantile_dimension_reaggregation
             or attempted_quantile_overall_reaggregation
