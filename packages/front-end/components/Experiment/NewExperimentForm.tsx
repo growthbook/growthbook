@@ -1,4 +1,11 @@
-import React, { FC, useEffect, useState } from "react";
+import React, {
+  FC,
+  useEffect,
+  useState,
+  useRef,
+  useCallback,
+  useMemo,
+} from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
@@ -15,8 +22,10 @@ import {
 } from "shared/util";
 import { getScopedSettings } from "shared/settings";
 import { generateTrackingKey, getEqualWeights } from "shared/experiments";
-import { kebabCase } from "lodash";
-import { Flex, Text } from "@radix-ui/themes";
+import { kebabCase, debounce } from "lodash";
+import { Box, Flex, Text, Heading } from "@radix-ui/themes";
+import { FaExclamationCircle, FaExternalLinkAlt } from "react-icons/fa";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useWatching } from "@/services/WatchProvider";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -31,7 +40,7 @@ import {
   useAttributeSchema,
   useEnvironments,
 } from "@/services/features";
-import useOrgSettings from "@/hooks/useOrgSettings";
+import useOrgSettings, { useAISettings } from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { useIncrementer } from "@/hooks/useIncrementer";
@@ -66,6 +75,10 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import DatePicker from "@/components/DatePicker";
 import { useTemplates } from "@/hooks/useTemplates";
 import { convertTemplateToExperiment } from "@/services/experiments";
+import Link from "@/components/Radix/Link";
+import Markdown from "@/components/Markdown/Markdown";
+import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
+import { AppFeatures } from "@/types/app-features";
 import PremiumTooltip from "../Marketing/PremiumTooltip";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 
@@ -171,7 +184,14 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     project,
     projects,
   } = useDefinitions();
-
+  const { aiEnabled } = useAISettings();
+  const gb = useGrowthBook<AppFeatures>();
+  const useCheckForSimilar = gb?.isOn("similar-experiments") || true;
+  const [similarExperiments, setSimilarExperiments] = useState<
+    { experiment: ExperimentInterfaceStringDates; similarity: number }[]
+  >([]);
+  const [expandSimilarResults, setExpandSimilarResults] = useState(false);
+  const hypothesisTimeout = useRef<NodeJS.Timeout | null>(null);
   const environments = useEnvironments();
   const { experiments } = useExperiments();
   const {
@@ -501,6 +521,60 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   });
   const trackingKeyFieldHandlers = form.register("trackingKey");
 
+  const checkForSimilar = useCallback(async () => {
+    if (!aiEnabled || !useCheckForSimilar) return;
+
+    try {
+      if (hypothesisTimeout.current) {
+        clearTimeout(hypothesisTimeout.current);
+      }
+      const response = await apiCall<{
+        status: number;
+        message?: string;
+        similar?: {
+          experiment: ExperimentInterfaceStringDates;
+          similarity: number;
+        }[];
+      }>(`/experiments/similar`, {
+        method: "POST",
+        body: JSON.stringify({
+          hypothesis: form.watch("hypothesis"),
+          name: form.watch("name"),
+          description: form.watch("description"),
+        }),
+      });
+      //console.log(response);
+      if (
+        response &&
+        response.status === 200 &&
+        response.similar &&
+        response.similar.length
+      ) {
+        if (response.similar) {
+          setSimilarExperiments(response.similar);
+        } else {
+          setSimilarExperiments([]);
+        }
+      } else {
+        setSimilarExperiments([]);
+      }
+    } catch (error) {
+      // ignore the errors.
+    }
+  }, [form, apiCall]);
+
+  const queueCheckForSimilar = useMemo(
+    () =>
+      debounce(async () => {
+        try {
+          await checkForSimilar();
+        } catch (error) {
+          console.error("Error in checkForSimilar:", error);
+        }
+      }, 3000),
+    []
+  );
+
   return (
     <FormProvider {...form}>
       <PagedModal
@@ -608,6 +682,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                       | undefined) ?? null
                 );
                 form.setValue("trackingKey", trackingKey);
+                queueCheckForSimilar();
               }}
             />
 
@@ -641,21 +716,128 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               <Field
                 label="Hypothesis"
                 textarea
-                minRows={1}
+                minRows={2}
                 placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
-                {...form.register("hypothesis")}
+                {...form.register("hypothesis", {
+                  onChange: () => {
+                    queueCheckForSimilar(); // Debounced call
+                  },
+                  onBlur: () => {
+                    // cancel any pending debounced calls
+                    if (hypothesisTimeout.current) {
+                      clearTimeout(hypothesisTimeout.current);
+                    }
+                    checkForSimilar(); // Immediate call on blur
+                  },
+                })}
               />
             )}
             {includeDescription && (
               <Field
                 label="Description"
                 textarea
-                minRows={1}
-                {...form.register("description")}
+                minRows={2}
+                {...form.register("description", {
+                  onChange: () => {
+                    queueCheckForSimilar(); // Debounced call
+                  },
+                  onBlur: () => {
+                    // cancel any pending debounced calls
+                    if (hypothesisTimeout.current) {
+                      clearTimeout(hypothesisTimeout.current);
+                    }
+                    checkForSimilar(); // Immediate call on blur
+                  },
+                })}
                 placeholder={`Short human-readable description of the ${
                   isBandit ? "Bandit" : "Experiment"
                 }`}
               />
+            )}
+            {similarExperiments && similarExperiments.length > 0 && (
+              <Flex
+                gap="3"
+                mb="3"
+                p="3"
+                align="start"
+                justify="start"
+                style={{
+                  backgroundColor: "var(--accent-a3)",
+                  borderRadius: "4px",
+                }}
+              >
+                <Box flexShrink="1" style={{ color: "var(--accent-a11)" }}>
+                  <FaExclamationCircle />
+                </Box>
+                <Box width="100%" flexGrow="1">
+                  <a
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setExpandSimilarResults(!expandSimilarResults);
+                    }}
+                  >
+                    {expandSimilarResults ? "Hide the" : "Found"}{" "}
+                    {similarExperiments.length} similar experiment
+                    {similarExperiments.length === 1 ? "" : "s"}
+                  </a>
+                  {expandSimilarResults && (
+                    <Box mt="3">
+                      {similarExperiments.map((s, i) => (
+                        <Box
+                          key={`similar-${i}`}
+                          mb="2"
+                          className="appbox"
+                          p="3"
+                          width="100%"
+                          style={{
+                            maxHeight: "150px",
+                            overflowY: "auto",
+                            color: "var(--text-color-main)",
+                          }}
+                        >
+                          <Flex direction="column" gap="3" justify="start">
+                            <Flex gap="3" justify="between">
+                              <Flex gap="3" align="start">
+                                <Link
+                                  href="/experiment/[id]"
+                                  as={`/experiment/${s.experiment.id}`}
+                                  target="_blank"
+                                >
+                                  <Heading size="2">
+                                    {s.experiment.name}
+                                  </Heading>
+                                </Link>
+                                <span style={{ fontSize: "0.8rem" }}>
+                                  <FaExternalLinkAlt />
+                                </span>
+                              </Flex>
+                              <Flex gap="3" align="center">
+                                <Text size="1" className="text-muted">
+                                  {date(s.experiment.dateCreated)}
+                                </Text>
+                                <ExperimentStatusIndicator
+                                  experimentData={s.experiment}
+                                />
+                              </Flex>
+                            </Flex>
+                            {s.experiment.description && (
+                              <Box style={{ fontSize: "0.9em" }}>
+                                <strong>Description:</strong>{" "}
+                                <Markdown>{s.experiment.description}</Markdown>
+                              </Box>
+                            )}
+                            <Box style={{ fontSize: "0.9em" }}>
+                              <strong>Hypothesis:</strong>{" "}
+                              <Markdown>{s.experiment.hypothesis}</Markdown>
+                            </Box>
+                          </Flex>
+                        </Box>
+                      ))}
+                    </Box>
+                  )}
+                </Box>
+              </Flex>
             )}
             <div className="form-group">
               <label>Tags</label>
