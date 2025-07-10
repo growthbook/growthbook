@@ -204,7 +204,7 @@ export async function refreshDashboardData(
   // Set timeout to 30 minutes
   req.setTimeout(SNAPSHOT_TIMEOUT);
 
-  const createSnapshotReturns = await Promise.all([
+  await Promise.all([
     createExperimentSnapshot({
       context,
       experiment,
@@ -224,11 +224,6 @@ export async function refreshDashboardData(
         useCache: false,
         triggeredBy: "manual",
       })
-    ),
-  ]);
-  await Promise.all([
-    ...createSnapshotReturns.map(
-      ({ queryRunner }) => queryRunner.waitForResults
     ),
     ...savedQueries.map((savedQuery) =>
       executeAndSaveQuery(context, savedQuery, datasource)

@@ -1,18 +1,23 @@
 import React from "react";
 import { DimensionBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
-import { isDefined } from "shared/util";
-import { groupBy } from "lodash";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import ResultsTable from "@/components/Experiment/ResultsTable";
+import { MetricSnapshotSettings } from "back-end/types/report";
+import {
+  DEFAULT_PROPER_PRIOR_STDDEV,
+  DEFAULT_STATS_ENGINE,
+} from "shared/constants";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useExperiments } from "@/hooks/useExperiments";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import BreakDownResults from "@/components/Experiment/BreakDownResults";
+import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
+import Callout from "@/components/Radix/Callout";
 import { useDashboardSnapshot } from "../../DashboardSnapshotProvider";
 import { BlockProps } from ".";
 
 export default function DimensionBlock({
   block,
   setBlock,
+  isEditing,
 }: BlockProps<DimensionBlockInterface>) {
   const {
     metricIds,
@@ -21,11 +26,12 @@ export default function DimensionBlock({
     columnsFilter,
     variationIds,
     dimensionId,
+    dimensionValues,
+    differenceType,
   } = block;
   const { experimentsMap } = useExperiments();
   const experiment = experimentsMap.get(experimentId);
 
-  const { getExperimentMetricById } = useDefinitions();
   const {
     snapshot,
     analysis,
@@ -36,8 +42,24 @@ export default function DimensionBlock({
   const pValueCorrection = orgSettings?.pValueCorrection;
 
   if (loading) return <LoadingSpinner />;
+  if (!dimensionId)
+    return isEditing ? (
+      <Callout status="warning">Please select a dimension</Callout>
+    ) : null;
+  if (metricIds.length === 0) {
+    return isEditing ? (
+      <Callout status="warning">Please select at least one metric</Callout>
+    ) : null;
+  }
+  if (!snapshot) {
+    return (
+      <Callout status="info">
+        No data yet - please refresh the dashboard to populate results
+      </Callout>
+    );
+  }
 
-  if (!experiment || metricIds.length === 0 || !snapshot) return null;
+  if (!experiment) return null;
 
   const variations = experiment.variations.map((v, i) => ({
     id: v.key || i + "",
@@ -62,81 +84,68 @@ export default function DimensionBlock({
 
   if (!analysis) return null;
 
-  const result = analysis.results[0];
-  if (!result) return null;
+  const queryStatusData = getQueryStatus(
+    snapshot.queries || [],
+    snapshot.error
+  );
 
-  const allRows = metricIds
-    .map((metricId) => {
-      const metric = getExperimentMetricById(metricId);
-      if (!metric) return;
-      // Determine which group the metric belongs to
-      let resultGroup: "goal" | "secondary" | "guardrail" = "goal";
-      if (experiment.secondaryMetrics.includes(metricId)) {
-        resultGroup = "secondary";
-      } else if (experiment.guardrailMetrics.includes(metricId)) {
-        resultGroup = "guardrail";
-      }
-      return {
-        label: metric.name,
-        metric,
-        variations: result.variations.map((v) => ({
-          value: v.metrics[metricId]?.value || 0,
-          cr: v.metrics[metricId]?.cr || 0,
-          users: v.users,
-          denominator: v.metrics[metricId]?.denominator,
-          ci: v.metrics[metricId]?.ci,
-          ciAdjusted: v.metrics[metricId]?.ciAdjusted,
-          expected: v.metrics[metricId]?.expected,
-          risk: v.metrics[metricId]?.risk,
-          riskType: v.metrics[metricId]?.riskType,
-          stats: v.metrics[metricId]?.stats,
-          pValue: v.metrics[metricId]?.pValue,
-          pValueAdjusted: v.metrics[metricId]?.pValueAdjusted,
-          uplift: v.metrics[metricId]?.uplift,
-          buckets: v.metrics[metricId]?.buckets,
-          chanceToWin: v.metrics[metricId]?.chanceToWin,
-          errorMessage: v.metrics[metricId]?.errorMessage,
-          power: v.metrics[metricId]?.power,
-        })),
-        resultGroup,
-        metricOverrideFields: [],
-      };
-    })
-    .filter(isDefined);
+  const settingsForSnapshotMetrics: MetricSnapshotSettings[] =
+    snapshot.settings.metricSettings.map((m) => ({
+      metric: m.id,
+      properPrior: m.computedSettings?.properPrior ?? false,
+      properPriorMean: m.computedSettings?.properPriorMean ?? 0,
+      properPriorStdDev:
+        m.computedSettings?.properPriorStdDev ?? DEFAULT_PROPER_PRIOR_STDDEV,
+      regressionAdjustmentReason:
+        m.computedSettings?.regressionAdjustmentReason || "",
+      regressionAdjustmentDays:
+        m.computedSettings?.regressionAdjustmentDays || 0,
+      regressionAdjustmentEnabled: !!m.computedSettings
+        ?.regressionAdjustmentEnabled,
+      regressionAdjustmentAvailable: !!m.computedSettings
+        ?.regressionAdjustmentAvailable,
+    })) || [];
+  const isBandit = experiment.type === "multi-armed-bandit";
 
-  const rowGroups = groupBy(allRows, ({ resultGroup }) => resultGroup);
+  const goalMetrics = experiment.goalMetrics.filter((mId) =>
+    metricIds.includes(mId)
+  );
+  const secondaryMetrics = experiment.secondaryMetrics.filter((mId) =>
+    metricIds.includes(mId)
+  );
+  const guardrailMetrics = experiment.guardrailMetrics.filter((mId) =>
+    metricIds.includes(mId)
+  );
 
   return (
-    <div>
-      {Object.entries(rowGroups).map(([resultGroup, rows]) => (
-        <ResultsTable
-          key={resultGroup}
-          id={experiment.id}
-          phase={experiment.phases.length - 1}
-          variations={variations}
-          variationFilter={variationFilter}
-          baselineRow={baselineRow}
-          columnsFilter={columnsFilter}
-          dimension={dimensionId}
-          status={experiment.status}
-          isLatestPhase={true}
-          startDate={latestPhase?.dateStarted || ""}
-          endDate={latestPhase?.dateEnded || ""}
-          rows={rows}
-          tableRowAxis="metric"
-          labelHeader={`${
-            resultGroup.charAt(0).toUpperCase() + resultGroup.slice(1)
-          } Metrics`}
-          renderLabelColumn={(label) => label}
-          dateCreated={new Date()}
-          hasRisk={false}
-          statsEngine={orgSettings?.statsEngine || "frequentist"}
-          pValueCorrection={pValueCorrection}
-          differenceType={analysisSettings?.differenceType || "relative"}
-          isTabActive={true}
-          isGoalMetrics={resultGroup === "goal"}
-        />
-      ))}
-    </div>
+    <BreakDownResults
+      key={snapshot.dimension}
+      results={analysis.results}
+      queryStatusData={queryStatusData}
+      variations={variations}
+      variationFilter={variationFilter}
+      baselineRow={baselineRow}
+      columnsFilter={columnsFilter}
+      goalMetrics={goalMetrics}
+      secondaryMetrics={secondaryMetrics}
+      guardrailMetrics={guardrailMetrics}
+      metricOverrides={experiment.metricOverrides ?? []}
+      dimensionId={dimensionId}
+      dimensionValuesFilter={dimensionValues}
+      isLatestPhase={true}
+      phase={experiment.phases.length - 1}
+      startDate={latestPhase.dateStarted ?? ""}
+      endDate={latestPhase.dateEnded ?? ""}
+      reportDate={snapshot.dateCreated}
+      activationMetric={experiment.activationMetric}
+      status={experiment.status}
+      statsEngine={analysisSettings?.statsEngine || DEFAULT_STATS_ENGINE}
+      pValueCorrection={pValueCorrection}
+      regressionAdjustmentEnabled={analysisSettings?.regressionAdjusted}
+      settingsForSnapshotMetrics={settingsForSnapshotMetrics}
+      sequentialTestingEnabled={analysisSettings?.sequentialTesting}
+      differenceType={differenceType}
+      isBandit={isBandit}
+    />
   );
 }

@@ -36,7 +36,7 @@ export function isDifferenceType(
 }
 
 export function blockHasFieldOfType<Field extends string, T>(
-  data: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+  data: DashboardBlockInterfaceOrData<DashboardBlockInterface> | undefined,
   field: Field,
   typeCheck: (val: unknown) => val is T
 ): data is Extract<
@@ -156,6 +156,7 @@ export const CREATE_BLOCK_TYPE: {
     experimentId: experiment.id,
     metricIds: experiment.goalMetrics,
     dimensionId: "",
+    dimensionValues: [],
     snapshotId: experiment.analysisSummary?.snapshotId || "",
     differenceType: "relative",
     baselineRow: 0,

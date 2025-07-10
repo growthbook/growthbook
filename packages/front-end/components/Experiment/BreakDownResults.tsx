@@ -25,7 +25,9 @@ import {
   ExperimentTableRow,
   hasRisk,
 } from "@/services/experiments";
-import ResultsTable from "@/components/Experiment/ResultsTable";
+import ResultsTable, {
+  RESULTS_TABLE_COLUMNS,
+} from "@/components/Experiment/ResultsTable";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
@@ -39,6 +41,16 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import UsersTable from "./UsersTable";
 
 const numberFormatter = Intl.NumberFormat();
+export const includeVariation = (
+  d: ExperimentReportResultDimension,
+  dimensionValuesFilter?: string[]
+): boolean => {
+  return (
+    !dimensionValuesFilter ||
+    dimensionValuesFilter.length === 0 ||
+    dimensionValuesFilter.includes(d.name)
+  );
+};
 
 export function getMetricResultGroup(
   metricId,
@@ -64,11 +76,13 @@ const BreakDownResults: FC<{
   variations: ExperimentReportVariation[];
   variationFilter?: number[];
   baselineRow?: number;
+  columnsFilter?: Array<typeof RESULTS_TABLE_COLUMNS[number]>;
   goalMetrics: string[];
   secondaryMetrics: string[];
   guardrailMetrics: string[];
   metricOverrides: MetricOverride[];
   dimensionId: string;
+  dimensionValuesFilter?: string[];
   isLatestPhase: boolean;
   phase: number;
   startDate: string;
@@ -89,11 +103,13 @@ const BreakDownResults: FC<{
   hideDetails?: boolean;
 }> = ({
   dimensionId,
+  dimensionValuesFilter,
   results,
   queryStatusData,
   variations,
   variationFilter,
   baselineRow,
+  columnsFilter,
   goalMetrics,
   secondaryMetrics,
   metricOverrides,
@@ -141,11 +157,13 @@ const BreakDownResults: FC<{
 
   const totalUsers = useMemo(() => {
     let totalUsers = 0;
-    results?.map((result) =>
-      result?.variations?.map((v) => (totalUsers += v?.users || 0))
-    );
+    results?.forEach((result) => {
+      if (includeVariation(result, dimensionValuesFilter)) {
+        result?.variations?.forEach((v) => (totalUsers += v?.users || 0));
+      }
+    });
     return totalUsers;
-  }, [results]);
+  }, [results, dimensionValuesFilter]);
 
   const {
     expandedGoals,
@@ -244,16 +262,18 @@ const BreakDownResults: FC<{
           expandedSecondaries
         );
 
-        const rows: ExperimentTableRow[] = results.map((d) => ({
-          label: d.name,
-          metric: newMetric,
-          variations: d.variations.map((variation) => {
-            return variation.metrics[metricId];
-          }),
-          metricSnapshotSettings,
-          resultGroup,
-          metricOverrideFields: overrideFields,
-        }));
+        const rows: ExperimentTableRow[] = results
+          .filter((d) => includeVariation(d, dimensionValuesFilter))
+          .map((d) => ({
+            label: d.name,
+            metric: newMetric,
+            variations: d.variations.map((variation) => {
+              return variation.metrics[metricId];
+            }),
+            metricSnapshotSettings,
+            resultGroup,
+            metricOverrideFields: overrideFields,
+          }));
         return {
           metric: newMetric,
           isGuardrail: resultGroup === "guardrail",
@@ -275,6 +295,7 @@ const BreakDownResults: FC<{
     ssrPolyfills,
     getExperimentMetricById,
     metricFilter,
+    dimensionValuesFilter,
   ]);
 
   const _hasRisk = hasRisk(
@@ -311,6 +332,7 @@ const BreakDownResults: FC<{
             >
               <UsersTable
                 dimension={dimension}
+                dimensionValuesFilter={dimensionValuesFilter}
                 results={results}
                 variations={variations}
                 settings={settings}
@@ -356,6 +378,7 @@ const BreakDownResults: FC<{
               variations={variations}
               variationFilter={variationFilter}
               baselineRow={baselineRow}
+              columnsFilter={columnsFilter}
               rows={table.rows}
               dimension={dimension}
               id={table.metric.id}

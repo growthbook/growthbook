@@ -96,8 +96,8 @@ export default function DashboardSnapshotProvider({
 }
 
 export function useDashboardSnapshot(
-  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
-  setBlock: React.Dispatch<
+  block?: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+  setBlock?: React.Dispatch<
     DashboardBlockInterfaceOrData<DashboardBlockInterface>
   >
 ) {
@@ -119,7 +119,7 @@ export function useDashboardSnapshot(
     postSnapshotAnalysisLoading,
     setPostSnapshotAnalysisLoading,
   ] = useState(false);
-  const [postSnapshotLoading, setPostSnapshotLoading] = useState(false);
+  const [fetchingSnapshot, setFetchingSnapshot] = useState(false);
 
   const blockSnapshotId = blockHasFieldOfType(
     block,
@@ -150,7 +150,7 @@ export function useDashboardSnapshot(
   const mutateSnapshot = shouldRun() ? mutate : mutateDefault;
 
   const blockAnalysisSettings = useMemo(() => {
-    if (!snapshot) return undefined;
+    if (!block || !snapshot) return undefined;
     const defaultAnalysis = getSnapshotAnalysis(snapshot);
     if (!defaultAnalysis) return undefined;
     return getBlockAnalysisSettings(block, defaultAnalysis.settings);
@@ -158,7 +158,7 @@ export function useDashboardSnapshot(
 
   // Check that the current snapshot is sufficient for the block
   let snapshotSettingsMatch = true;
-  if (snapshot) {
+  if (snapshot && block) {
     const blockSettings = {
       ...snapshot.settings,
       ...getBlockSnapshotSettings(block),
@@ -193,16 +193,18 @@ export function useDashboardSnapshot(
     };
   }, [mutateSnapshot, snapshot]);
 
-  // If the current snapshot is incorrect, e.g. a dimension mismatch, post to create a new snapshot
+  // If the current snapshot is incorrect, e.g. a dimension mismatch, fetch a matching snapshot
   useEffect(() => {
     if (
+      !block ||
+      !setBlock ||
       !experiment ||
       !snapshot ||
       snapshotSettingsMatch ||
-      postSnapshotLoading
+      fetchingSnapshot
     )
       return;
-    const createSnapshot = async () => {
+    const getNewSnapshot = async () => {
       const dimension = blockHasFieldOfType(
         block,
         "dimensionId",
@@ -210,28 +212,22 @@ export function useDashboardSnapshot(
       )
         ? block.dimensionId
         : undefined;
-      setPostSnapshotLoading(true);
-      const res = await apiCall<{ snapshot: ExperimentSnapshotInterface }>(
-        // TODO: can we be smarter than just forcing every time?
-        `/experiment/${experiment.id}/snapshot/?force=true`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            phase: snapshot.phase,
-            dimension,
-          }),
-        }
+      setFetchingSnapshot(true);
+      const res = await apiCall<{ snapshot?: ExperimentSnapshotInterface }>(
+        `/experiment/${experiment.id}/snapshot/${
+          experiment.phases.length - 1
+        }/${dimension}`
       );
-      setBlock({ ...block, snapshotId: res.snapshot.id });
+      setBlock({ ...block, snapshotId: res.snapshot?.id ?? "" });
       mutateSnapshot();
-      setPostSnapshotLoading(false);
+      setFetchingSnapshot(false);
     };
-    createSnapshot();
+    getNewSnapshot();
   }, [
     experiment,
     snapshot,
     snapshotSettingsMatch,
-    postSnapshotLoading,
+    fetchingSnapshot,
     apiCall,
     block,
     setBlock,

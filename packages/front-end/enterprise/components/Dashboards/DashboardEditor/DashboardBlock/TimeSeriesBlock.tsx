@@ -1,18 +1,19 @@
-import { getValidDate } from "shared/dates";
 import { TimeSeriesBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
 import { isDefined } from "shared/util";
 import ExperimentMetricTimeSeriesGraphWrapper from "@/components/Experiment/ExperimentMetricTimeSeriesGraphWrapper";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useExperiments } from "@/hooks/useExperiments";
+import Callout from "@/components/Radix/Callout";
 import { useDashboardSnapshot } from "../../DashboardSnapshotProvider";
 import { BlockProps } from ".";
 
 export default function TimeSeriesBlock({
   block,
   setBlock,
+  isEditing,
 }: BlockProps<TimeSeriesBlockInterface>) {
-  const { experimentId, metricId, variationIds, dateStart } = block;
+  const { experimentId, metricId, variationIds } = block;
   const { experimentsMap } = useExperiments();
   const experiment = experimentsMap.get(experimentId);
   const { snapshot, analysisSettings } = useDashboardSnapshot(block, setBlock);
@@ -25,7 +26,20 @@ export default function TimeSeriesBlock({
 
   const metric = getExperimentMetricById(metricId);
 
-  if (!experiment || !metric || !snapshot) return null;
+  if (!metric) {
+    return isEditing ? (
+      <Callout status="warning">Please select a metric</Callout>
+    ) : null;
+  }
+  if (!snapshot) {
+    return (
+      <Callout status="info">
+        No data yet - please refresh the dashboard to populate results
+      </Callout>
+    );
+  }
+
+  if (!experiment) return null;
 
   // Determine which group the metric belongs to
   let resultGroup: "goal" | "secondary" | "guardrail" = "goal";
@@ -57,7 +71,8 @@ export default function TimeSeriesBlock({
         variationNames={variationNames}
         statsEngine={orgSettings?.statsEngine || "frequentist"}
         pValueAdjustmentEnabled={!!appliedPValueCorrection}
-        firstDateToRender={getValidDate(dateStart)}
+        // TODO: Time series graph wrapper doesn't actually use firstDateToRender correctly
+        firstDateToRender={new Date()}
       />
     </div>
   );

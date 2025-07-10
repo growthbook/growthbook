@@ -21,9 +21,13 @@ import DashboardBlock from "./DashboardBlock";
 import DashboardBlockEditDrawer from "./DashboardBlockEditDrawer";
 import DashboardUpdateDisplay from "./DashboardUpdateDisplay";
 
-export const BLOCK_TYPE_INFO: Record<DashboardBlockType, { name: string }> = {
+export const BLOCK_TYPE_INFO: Record<
+  DashboardBlockType,
+  { name: string; initializeEditing?: boolean }
+> = {
   markdown: {
     name: "Custom Markdown",
+    initializeEditing: true,
   },
   "metadata-description": {
     name: "Experiment Description",
@@ -36,12 +40,15 @@ export const BLOCK_TYPE_INFO: Record<DashboardBlockType, { name: string }> = {
   },
   metric: {
     name: "Metric Results",
+    initializeEditing: true,
   },
   dimension: {
     name: "Dimension Results",
+    initializeEditing: true,
   },
   "time-series": {
     name: "Time Series",
+    initializeEditing: true,
   },
   "traffic-graph": {
     name: "Traffic over Time",
@@ -51,6 +58,7 @@ export const BLOCK_TYPE_INFO: Record<DashboardBlockType, { name: string }> = {
   },
   "sql-explorer": {
     name: "SQL Explorer",
+    initializeEditing: true,
   },
 };
 
@@ -163,7 +171,7 @@ export default function DashboardEditor({
 
   const addBlockType = (bType: DashboardBlockType, index?: number) => {
     index = index ?? blocks.length;
-    scrollToBlockIndex.current = index;
+    // scrollToBlockIndex.current = index;
     setBlocks([
       ...blocks.slice(0, index),
       CREATE_BLOCK_TYPE[bType]({
@@ -171,6 +179,10 @@ export default function DashboardEditor({
       }),
       ...blocks.slice(index),
     ]);
+    // TODO: try the ref option to get it on next render
+    if (BLOCK_TYPE_INFO[bType].initializeEditing) {
+      setEditingBlock(index);
+    }
   };
 
   if (blocks.length === 0) {
@@ -253,11 +265,16 @@ export default function DashboardEditor({
                 editingBlock={editingBlock === i}
                 disableBlock={(editingBlock ?? i) !== i}
                 setBlock={(blockData) => {
-                  setBlocks([
-                    ...blocks.slice(0, i),
-                    { ...block, ...blockData },
-                    ...blocks.slice(i + 1),
-                  ]);
+                  i === editingBlock
+                    ? setEditingBlockClone({
+                        ...(editingBlockClone ?? block),
+                        ...blockData,
+                      })
+                    : setBlocks([
+                        ...blocks.slice(0, i),
+                        { ...block, ...blockData },
+                        ...blocks.slice(i + 1),
+                      ]);
                 }}
                 editBlock={() => {
                   setEditingBlock(i);

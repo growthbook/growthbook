@@ -79,8 +79,6 @@ const timeSeriesBlockSchema = new mongoose.Schema({
   experimentId: String,
   metricId: String,
   variationIds: [String],
-  dateStart: Date,
-  dateEnd: Date,
 });
 
 const trafficTableBlockSchema = new mongoose.Schema({

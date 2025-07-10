@@ -7,12 +7,14 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import { useExperiments } from "@/hooks/useExperiments";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import Callout from "@/components/Radix/Callout";
 import { useDashboardSnapshot } from "../../DashboardSnapshotProvider";
 import { BlockProps } from ".";
 
 export default function MetricBlock({
   block,
   setBlock,
+  isEditing,
 }: BlockProps<MetricBlockInterface>) {
   const {
     metricIds,
@@ -35,8 +37,20 @@ export default function MetricBlock({
   const pValueCorrection = orgSettings?.pValueCorrection;
 
   if (loading) return <LoadingSpinner />;
+  if (metricIds.length === 0) {
+    return isEditing ? (
+      <Callout status="warning">Please select at least one metric</Callout>
+    ) : null;
+  }
+  if (!snapshot) {
+    return (
+      <Callout status="info">
+        No data yet - please refresh the dashboard to populate results
+      </Callout>
+    );
+  }
 
-  if (!experiment || metricIds.length === 0 || !snapshot) return null;
+  if (!experiment) return null;
 
   const variations = experiment.variations.map((v, i) => ({
     id: v.key || i + "",

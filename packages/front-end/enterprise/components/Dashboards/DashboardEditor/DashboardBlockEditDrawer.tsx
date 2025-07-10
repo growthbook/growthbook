@@ -3,6 +3,7 @@ import {
   DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
   DimensionBlockInterface,
+  DashboardBlockType,
 } from "back-end/src/enterprise/validators/dashboard-block";
 import React, { useMemo, useState } from "react";
 import clsx from "clsx";
@@ -24,7 +25,44 @@ import SqlExplorerModal from "@/components/SchemaBrowser/SqlExplorerModal";
 import { RESULTS_TABLE_COLUMNS } from "@/components/Experiment/ResultsTable";
 import { getDimensionOptions } from "@/components/Dimensions/DimensionChooser";
 import Field from "@/components/Forms/Field";
+import { useDashboardSnapshot } from "../DashboardSnapshotProvider";
 import { BLOCK_TYPE_INFO } from ".";
+
+type RequiredField<
+  BType extends DashboardBlockType,
+  BInterface extends Extract<DashboardBlockInterface, { type: BType }>
+> = {
+  field: keyof BInterface;
+  validation: (val: BInterface[keyof BInterface]) => boolean;
+};
+const REQUIRED_FIELDS: {
+  [k in DashboardBlockType]?: Array<
+    RequiredField<k, Extract<DashboardBlockInterface, { type: k }>>
+  >;
+} = {
+  metric: [
+    {
+      field: "metricIds",
+      validation: (metIds) => isStringArray(metIds) && metIds.length > 0,
+    },
+  ],
+  dimension: [
+    {
+      field: "dimensionId",
+      validation: (dimId) => typeof dimId === "string" && dimId.length > 0,
+    },
+    {
+      field: "metricIds",
+      validation: (metIds) => isStringArray(metIds) && metIds.length > 0,
+    },
+  ],
+  "time-series": [
+    {
+      field: "metricId",
+      validation: (metId) => typeof metId === "string" && metId.length > 0,
+    },
+  ],
+};
 
 interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -56,6 +94,13 @@ export default function DashboardBlockEditDrawer({
     savedQueries: SavedQuery[];
   }>(`/saved-queries/`);
 
+  const { snapshot, analysis } = useDashboardSnapshot(block, setBlock);
+
+  const dimensionValueOptions =
+    snapshot?.dimension && analysis?.results
+      ? analysis.results.map(({ name }) => ({ value: name, label: name }))
+      : [];
+
   const [showSqlExplorerModal, setShowSqlExplorerModal] = useState(false);
 
   const metricOptions = useMemo(
@@ -85,7 +130,13 @@ export default function DashboardBlockEditDrawer({
       exposureQueryId: experiment.exposureQueryId,
       userIdType: experiment.userIdType,
       activationMetric: !!experiment.activationMetric,
-    });
+    }).map((optionGroup) => ({
+      label: optionGroup.label,
+      // For now, remove the date cohorts time-series as the visualization isn't supported yet
+      options: optionGroup.options.filter(
+        (option) => option.value !== "pre:date"
+      ),
+    }));
   }, [experiment, dimensions, getDatasourceById]);
 
   if (isLoading) return <LoadingSpinner />;
@@ -131,8 +182,8 @@ export default function DashboardBlockEditDrawer({
         />
       )}
       {block && (
-        <Flex direction="column" py="5" px="6" gap="2" flexGrow="1">
-          <Flex justify="between" align="center">
+        <Flex direction="column" py="5" px="4" gap="2" flexGrow="1">
+          <Flex justify="between" align="center" px="2">
             <span>
               <Text weight="light">{BLOCK_TYPE_INFO[block.type].name}</Text>
               {block.title && <Text weight="medium"> / {block.title}</Text>}
@@ -152,16 +203,21 @@ export default function DashboardBlockEditDrawer({
                   submit();
                 }}
                 size="xs"
+                disabled={
+                  !!(REQUIRED_FIELDS[block.type] || []).find(
+                    ({ field, validation }) => !validation(block[field])
+                  )
+                }
               >
                 Save & Close
               </Button>
             </Flex>
           </Flex>
-          <Flex wrap="wrap" gap="4" overflow="scroll">
+          <Flex wrap="wrap" gap="4" overflow="scroll" px="2">
             <Field
               label="Title"
               labelClassName="font-weight-bold"
-              containerStyle={{ flexBasis: "31%" }}
+              containerStyle={{ flexBasis: "32%" }}
               containerClassName="mb-0"
               placeholder={BLOCK_TYPE_INFO[block.type].name}
               value={block.title}
@@ -170,7 +226,7 @@ export default function DashboardBlockEditDrawer({
             <Field
               label="Description"
               labelClassName="font-weight-bold"
-              containerStyle={{ flexBasis: "64%" }}
+              containerStyle={{ flexBasis: "60%", flexGrow: 1 }}
               containerClassName="mb-0"
               placeholder="Add a description"
               value={block.description}
@@ -181,6 +237,25 @@ export default function DashboardBlockEditDrawer({
               minRows={1}
               maxRows={1}
             />
+
+            {blockHasFieldOfType(
+              block,
+              "dimensionId",
+              (val: unknown) => typeof val === "string"
+            ) && (
+              <SelectField
+                required
+                markRequired
+                label="Dimension"
+                labelClassName="font-weight-bold"
+                placeholder="Choose which dimension to use"
+                value={block.dimensionId}
+                containerStyle={{ flexBasis: "32%" }}
+                containerClassName="mb-0"
+                onChange={(value) => setBlock({ ...block, dimensionId: value })}
+                options={dimensionOptions}
+              />
+            )}
             {blockHasFieldOfType(
               block,
               "metricId",
@@ -190,60 +265,64 @@ export default function DashboardBlockEditDrawer({
                 label="Metric"
                 labelClassName="font-weight-bold"
                 value={block.metricId}
-                containerStyle={{ flexBasis: "31%" }}
+                containerStyle={{ flexBasis: "32%" }}
                 containerClassName="mb-0"
                 onChange={(value) => setBlock({ ...block, metricId: value })}
                 options={metricOptions}
               />
             )}
-
             {blockHasFieldOfType(block, "metricIds", isStringArray) && (
               <MultiSelectField
+                required
+                markRequired
                 label="Metrics"
                 labelClassName="font-weight-bold"
                 value={block.metricIds}
-                containerStyle={{ flexBasis: "31%" }}
+                containerStyle={{ flexBasis: "32%", flexGrow: 1 }}
                 containerClassName="mb-0"
                 onChange={(value) => setBlock({ ...block, metricIds: value })}
                 options={metricOptions}
               />
             )}
-            {blockHasFieldOfType(block, "columnsFilter", isStringArray) && (
-              <MultiSelectField
-                label="Display Columns"
-                labelClassName="font-weight-bold"
-                placeholder="Showing all columns"
-                value={block.columnsFilter}
-                containerStyle={{ flexBasis: "31%" }}
-                containerClassName="mb-0"
-                onChange={(value) =>
-                  setBlock({
-                    ...block,
-                    columnsFilter: value as Array<
-                      typeof RESULTS_TABLE_COLUMNS[number]
-                    >,
-                  })
-                }
-                options={RESULTS_TABLE_COLUMNS.map((colName) => ({
-                  label: colName,
-                  value: colName,
-                }))}
-              />
-            )}
             {blockHasFieldOfType(
               block,
-              "dimensionId",
-              (val: unknown) => typeof val === "string"
+              "baselineRow",
+              (val: unknown) => typeof val === "number"
             ) && (
               <SelectField
-                label="Dimension"
+                label="Baseline Variation"
                 labelClassName="font-weight-bold"
-                placeholder="Choose which dimension to use"
-                value={block.dimensionId}
-                containerStyle={{ flexBasis: "31%" }}
+                containerStyle={{ flexBasis: "32%" }}
                 containerClassName="mb-0"
-                onChange={(value) => setBlock({ ...block, dimensionId: value })}
-                options={dimensionOptions}
+                value={block.baselineRow.toString()}
+                onChange={(value) =>
+                  setBlock({ ...block, baselineRow: parseInt(value) })
+                }
+                options={experiment.variations.map((variation, i) => ({
+                  label: variation.name,
+                  value: i.toString(),
+                }))}
+                formatOptionLabel={({ value, label }) => (
+                  <div
+                    className={`variation variation${value} with-variation-label d-flex align-items-center`}
+                  >
+                    <span
+                      className="label"
+                      style={{ width: 20, height: 20, flex: "none" }}
+                    >
+                      {value}
+                    </span>
+                    <span
+                      className="d-inline-block"
+                      style={{
+                        width: 150,
+                        lineHeight: "14px",
+                      }}
+                    >
+                      {label}
+                    </span>
+                  </div>
+                )}
               />
             )}
             {blockHasFieldOfType(block, "variationIds", isStringArray) && (
@@ -252,7 +331,7 @@ export default function DashboardBlockEditDrawer({
                 labelClassName="font-weight-bold"
                 placeholder="Showing all variations"
                 value={block.variationIds}
-                containerStyle={{ flexBasis: "31%" }}
+                containerStyle={{ flexBasis: "32%" }}
                 containerClassName="mb-0"
                 onChange={(value) =>
                   setBlock({ ...block, variationIds: value })
@@ -289,52 +368,25 @@ export default function DashboardBlockEditDrawer({
                 }}
               />
             )}
-            {blockHasFieldOfType(
-              block,
-              "baselineRow",
-              (val: unknown) => typeof val === "number"
-            ) && (
-              <SelectField
-                label="Baseline Variation"
+            {blockHasFieldOfType(block, "dimensionValues", isStringArray) && (
+              <MultiSelectField
+                label="Dimension Values"
                 labelClassName="font-weight-bold"
-                containerStyle={{ flexBasis: "31%" }}
+                placeholder="Showing all values"
+                value={block.dimensionValues}
+                containerStyle={{ flexBasis: "32%" }}
                 containerClassName="mb-0"
-                value={block.baselineRow.toString()}
                 onChange={(value) =>
-                  setBlock({ ...block, baselineRow: parseInt(value) })
+                  setBlock({ ...block, dimensionValues: value })
                 }
-                options={experiment.variations.map((variation, i) => ({
-                  label: variation.name,
-                  value: i.toString(),
-                }))}
-                formatOptionLabel={({ value, label }) => (
-                  <div
-                    className={`variation variation${value} with-variation-label d-flex align-items-center`}
-                  >
-                    <span
-                      className="label"
-                      style={{ width: 20, height: 20, flex: "none" }}
-                    >
-                      {value}
-                    </span>
-                    <span
-                      className="d-inline-block"
-                      style={{
-                        width: 150,
-                        lineHeight: "14px",
-                      }}
-                    >
-                      {label}
-                    </span>
-                  </div>
-                )}
+                options={dimensionValueOptions}
               />
             )}
             {blockHasFieldOfType(block, "differenceType", isDifferenceType) && (
               <SelectField
                 label="Difference Type"
                 labelClassName="font-weight-bold"
-                containerStyle={{ flexBasis: "31%" }}
+                containerStyle={{ flexBasis: "32%" }}
                 containerClassName="mb-0"
                 value={block.differenceType}
                 onChange={(value) =>
@@ -348,6 +400,28 @@ export default function DashboardBlockEditDrawer({
                   { label: "Absolute", value: "absolute" },
                   { label: "Scaled", value: "scaled" },
                 ]}
+              />
+            )}
+            {blockHasFieldOfType(block, "columnsFilter", isStringArray) && (
+              <MultiSelectField
+                label="Display Columns"
+                labelClassName="font-weight-bold"
+                placeholder="Showing all columns"
+                value={block.columnsFilter}
+                containerStyle={{ flexBasis: "32%" }}
+                containerClassName="mb-0"
+                onChange={(value) =>
+                  setBlock({
+                    ...block,
+                    columnsFilter: value as Array<
+                      typeof RESULTS_TABLE_COLUMNS[number]
+                    >,
+                  })
+                }
+                options={RESULTS_TABLE_COLUMNS.map((colName) => ({
+                  label: colName,
+                  value: colName,
+                }))}
               />
             )}
             {block.type === "sql-explorer" &&
@@ -371,7 +445,7 @@ export default function DashboardBlockEditDrawer({
                       </Flex>
                     }
                     containerClassName="mb-0"
-                    containerStyle={{ flexBasis: "31%" }}
+                    containerStyle={{ flexBasis: "32%" }}
                     value={block.savedQueryId || ""}
                     placeholder="Choose a saved query"
                     options={savedQueryOptions}
@@ -389,7 +463,7 @@ export default function DashboardBlockEditDrawer({
                     <SelectField
                       label="Data Visualization"
                       labelClassName="font-weight-bold"
-                      containerStyle={{ flexBasis: "31%" }}
+                      containerStyle={{ flexBasis: "32%" }}
                       containerClassName="mb-0"
                       value={block.dataVizConfigIndex.toString()}
                       placeholder={

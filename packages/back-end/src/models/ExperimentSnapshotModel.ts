@@ -291,23 +291,24 @@ export async function updateSnapshot({
         );
       }
     }
-  }
 
-  const dashboards = await context.models.dashboards.findByExperiment(
-    experimentSnapshotModel.experiment
-  );
-  for (const dashboard of dashboards) {
-    if (!dashboardCanAutoUpdate(dashboard)) continue;
-    const blocks = dashboard.blocks.map((block) =>
-      blockHasFieldOfType(
-        block,
-        "snapshotId",
-        (val: unknown) => typeof val === "string"
-      )
-        ? { ...block, snapshotId: experimentSnapshotModel.id }
-        : block
+    const dashboards = await context.models.dashboards.findByExperiment(
+      experimentSnapshotModel.experiment
     );
-    await context.models.dashboards.updateById(dashboard.id, { blocks });
+    // TODO: check the setting
+    for (const dashboard of dashboards) {
+      if (!dashboardCanAutoUpdate(dashboard)) continue;
+      const blocks = dashboard.blocks.map((block) =>
+        blockHasFieldOfType(
+          block,
+          "snapshotId",
+          (val: unknown) => typeof val === "string"
+        )
+          ? { ...block, snapshotId: experimentSnapshotModel.id }
+          : block
+      );
+      await context.models.dashboards.updateById(dashboard.id, { blocks });
+    }
   }
 }
 

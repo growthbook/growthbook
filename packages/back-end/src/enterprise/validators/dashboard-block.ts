@@ -83,7 +83,7 @@ const dimensionBlockInterface = baseBlockInterface
     type: z.literal("dimension"),
     experimentId: z.string(),
     dimensionId: z.string(),
-    dimensionValues: z.array(z.string()).optional(),
+    dimensionValues: z.array(z.string()),
     metricIds: z.array(z.string()),
     variationIds: z.array(z.string()).optional(),
     baselineRow: z.number(),
@@ -110,8 +110,6 @@ const timeSeriesBlockInterface = baseBlockInterface
     experimentId: z.string(),
     metricId: z.string(),
     variationIds: z.array(z.string()),
-    dateStart: z.date().optional(),
-    dateEnd: z.date().optional(),
     snapshotId: z.string(),
   })
   .strict();
