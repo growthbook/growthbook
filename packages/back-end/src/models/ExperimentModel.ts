@@ -300,6 +300,7 @@ const experimentSchema = new mongoose.Schema({
         },
       ],
     },
+    precomputedDimensions: [String],
   },
   dismissedWarnings: [String],
 });

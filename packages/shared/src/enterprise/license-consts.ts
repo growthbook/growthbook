@@ -60,7 +60,8 @@ export type CommercialFeature =
   | "require-project-for-features-setting"
   | "saveSqlExplorerQueries"
   | "metric-effects"
-  | "metric-correlations";
+  | "metric-correlations"
+  | "precomputed-dimensions";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
@@ -203,6 +204,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "safe-rollout",
     "managed-warehouse",
     "saveSqlExplorerQueries",
+    "precomputed-dimensions",
   ]),
   pro_sso: new Set<CommercialFeature>([
     "sso",
@@ -233,6 +235,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "safe-rollout",
     "managed-warehouse",
     "saveSqlExplorerQueries",
+    "precomputed-dimensions",
   ]),
   enterprise: new Set<CommercialFeature>([
     "scim",
@@ -285,6 +288,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "saveSqlExplorerQueries",
     "metric-effects",
     "metric-correlations",
+    "precomputed-dimensions",
   ]),
 };
 

@@ -13,6 +13,7 @@ import {
 import {
   expandMetricGroups,
   ExperimentMetricInterface,
+  quantileMetricType,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
 } from "shared/experiments";
@@ -23,9 +24,8 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
   ExperimentTableRow,
-  hasRisk,
 } from "@/services/experiments";
-import ResultsTable from "@/components/Experiment/ResultsTable";
+import ResultsTable, { RowError } from "@/components/Experiment/ResultsTable";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
@@ -80,6 +80,7 @@ const BreakDownResults: FC<{
   regressionAdjustmentEnabled?: boolean;
   settingsForSnapshotMetrics?: MetricSnapshotSettings[];
   sequentialTestingEnabled?: boolean;
+  showErrorsOnQuantileMetrics?: boolean;
   differenceType: DifferenceType;
   metricFilter?: ResultsMetricFilters;
   setMetricFilter?: (filter: ResultsMetricFilters) => void;
@@ -108,6 +109,7 @@ const BreakDownResults: FC<{
   regressionAdjustmentEnabled,
   settingsForSnapshotMetrics,
   sequentialTestingEnabled,
+  showErrorsOnQuantileMetrics,
   differenceType,
   metricFilter,
   setMetricFilter,
@@ -242,6 +244,24 @@ const BreakDownResults: FC<{
           expandedSecondaries
         );
 
+        if (showErrorsOnQuantileMetrics && quantileMetricType(newMetric)) {
+          return {
+            metric: newMetric,
+            isGuardrail: resultGroup === "guardrail",
+            rows: [
+              {
+                label: "",
+                metric: newMetric,
+                variations: [],
+                metricSnapshotSettings,
+                resultGroup,
+                metricOverrideFields: overrideFields,
+                error: RowError.QUANTILE_AGGREGATION_ERROR,
+              },
+            ],
+          };
+        }
+
         const rows: ExperimentTableRow[] = results.map((d) => ({
           label: d.name,
           metric: newMetric,
@@ -273,11 +293,8 @@ const BreakDownResults: FC<{
     ssrPolyfills,
     getExperimentMetricById,
     metricFilter,
+    showErrorsOnQuantileMetrics,
   ]);
-
-  const _hasRisk = hasRisk(
-    ([] as ExperimentTableRow[]).concat(...tables.map((t) => t.rows))
-  );
 
   const activationMetricObj = activationMetric
     ? ssrPolyfills?.getExperimentMetricById?.(activationMetric) ||
@@ -356,7 +373,6 @@ const BreakDownResults: FC<{
               rows={table.rows}
               dimension={dimension}
               id={table.metric.id}
-              hasRisk={_hasRisk}
               tableRowAxis="dimension" // todo: dynamic grouping?
               labelHeader={
                 <div style={{ marginBottom: 2 }}>

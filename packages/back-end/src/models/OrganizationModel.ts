@@ -226,6 +226,7 @@ export async function createOrganization({
         { property: "utmTerm", datatype: "string" },
         { property: "utmContent", datatype: "string" },
       ],
+      disablePrecomputedDimensions: false,
     },
     getStartedChecklistItems: [],
     isVercelIntegration,
