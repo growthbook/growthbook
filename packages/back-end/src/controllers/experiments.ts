@@ -613,7 +613,7 @@ export async function postExperiments(
     }
   >,
   res: Response<
-    | { status: 200; experiment: ExperimentInterface }
+    | { status: 200; experiment: ExperimentInterface; holdoutId?: string }
     | { status: 200; duplicateTrackingKey: boolean; existingId: string }
     | PrivateApiErrorResponse,
     EventUserForResponseLocals
@@ -798,9 +798,9 @@ export async function postExperiments(
       data: obj,
       context,
     });
-
+    let holdout;
     if (req.query.isHoldout) {
-      const holdout = await context.models.holdout.create({
+      holdout = await context.models.holdout.create({
         experimentId: experiment.id,
         projects: experiment.project ? [experiment.project] : [],
         name: experiment.name,
@@ -882,6 +882,7 @@ export async function postExperiments(
     res.status(200).json({
       status: 200,
       experiment,
+      holdoutId: holdout?.id,
     });
   } catch (e) {
     res.status(400).json({

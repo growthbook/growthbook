@@ -496,7 +496,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     availableTemplates.length >= 1;
 
   const { currentProjectIsDemo } = useDemoDataSourceProject();
-
   useEffect(() => {
     if (!exposureQueries.find((q) => q.id === exposureQueryId)) {
       form.setValue("exposureQueryId", exposureQueries?.[0]?.id ?? "");
@@ -623,7 +622,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 labelClassName="font-weight-bold"
                 value={form.watch("holdout.id") ?? ""}
                 onChange={(v) => form.setValue("holdout", { id: v, value: "" })}
-                required
                 initialOption="Choose one..."
                 options={holdouts?.map((h) => {
                   return {
@@ -631,6 +629,18 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     value: h.id,
                   };
                 })}
+                isOptionDisabled={(option: {
+                  value?: string;
+                  label: string;
+                }) => {
+                  if (option.value) {
+                    const holdout = holdouts.find((h) => h.id === option.value);
+                    if (holdout) {
+                      return !!holdout.analysisStartDate; // we don't want to allow them to add to the holdout
+                    }
+                  }
+                  return false;
+                }}
                 formatOptionLabel={({ label, value }) => {
                   const userIdType = holdoutsWithExperiment?.find(
                     (h) => h.id === value

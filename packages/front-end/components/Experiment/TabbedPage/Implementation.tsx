@@ -43,7 +43,6 @@ export interface Props {
 export default function Implementation({
   experiment,
   holdout,
-  holdoutFeatures,
   holdoutExperiments,
   visualChangesets,
   urlRedirects,

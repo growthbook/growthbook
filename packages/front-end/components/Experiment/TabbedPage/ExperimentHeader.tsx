@@ -20,6 +20,7 @@ import {
   ExperimentSnapshotReportInterface,
   ReportInterface,
 } from "back-end/types/report";
+import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import { useAuth } from "@/services/auth";
 import { Tabs, TabsList, TabsTrigger } from "@/components/Radix/Tabs";
 import Avatar from "@/components/Radix/Avatar";
@@ -84,6 +85,7 @@ export interface Props {
   editTags?: (() => void) | null;
   healthNotificationCount: number;
   linkedFeatures: LinkedFeatureInfo[];
+  holdout?: HoldoutInterface;
 }
 
 const datasourcesWithoutHealthData = new Set(["mixpanel", "google_analytics"]);
@@ -135,6 +137,7 @@ export default function ExperimentHeader({
   editTags,
   healthNotificationCount,
   linkedFeatures,
+  holdout,
 }: Props) {
   const growthbook = useGrowthBook<AppFeatures>();
 
@@ -662,6 +665,7 @@ export default function ExperimentHeader({
                   editTargeting={editTargeting}
                   isBandit={isBandit}
                   runningExperimentStatus={runningExperimentStatus}
+                  holdout={holdout}
                 />
               ) : experiment.status === "draft" ? (
                 <Tooltip
@@ -685,7 +689,8 @@ export default function ExperimentHeader({
                       )
                     }
                   >
-                    Start Experiment <MdRocketLaunch />
+                    Start {holdout ? "Holdout" : "Experiment"}{" "}
+                    <MdRocketLaunch />
                   </button>
                 </Tooltip>
               ) : null}

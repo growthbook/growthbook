@@ -8,7 +8,7 @@ import { ExperimentReportVariation } from "back-end/types/report";
 import { DifferenceType, StatsEngine } from "back-end/types/stats";
 import { FaExclamationCircle } from "react-icons/fa";
 import { OrganizationSettings } from "back-end/types/organization";
-import { getValidDate } from "shared/dates";
+import { date, getValidDate } from "shared/dates";
 import {
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
@@ -22,6 +22,8 @@ import {
 import { FaMagnifyingGlassChart } from "react-icons/fa6";
 import { RiBarChartFill } from "react-icons/ri";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
+import { Flex } from "@radix-ui/themes";
+import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Toggle from "@/components/Forms/Toggle";
@@ -59,6 +61,7 @@ export default function AnalysisSettingsBar({
   differenceType,
   setDifferenceType,
   envs,
+  holdout,
 }: {
   mutateExperiment: () => void;
   setAnalysisSettings: (
@@ -80,6 +83,7 @@ export default function AnalysisSettingsBar({
   setBaselineRow?: (baselineRow: number) => void;
   differenceType?: DifferenceType;
   setDifferenceType?: (differenceType: DifferenceType) => void;
+  holdout?: HoldoutInterface;
 }) {
   const {
     experiment,
@@ -114,6 +118,7 @@ export default function AnalysisSettingsBar({
   const manualSnapshot = !datasource;
 
   const isBandit = experiment?.type === "multi-armed-bandit";
+  const isHoldout = experiment?.type === "holdout";
 
   return (
     <div>
@@ -187,7 +192,24 @@ export default function AnalysisSettingsBar({
               />
             </div>
           ) : null}
-          {experiment.phases &&
+          {isHoldout && (
+            <div className="col-auto form-inline">
+              <Flex direction="column">
+                <div className="uppercase-title text-muted">Analysis Time</div>
+                <div>
+                  <div className="text-muted">
+                    {date(
+                      holdout?.analysisStartDate ??
+                        date(holdout?.holdoutStartDate ?? "")
+                    )}{" "}
+                    — {date(holdout?.holdoutStopDate ?? "") || "now"}
+                  </div>
+                </div>
+              </Flex>
+            </div>
+          )}
+          {!isHoldout &&
+            experiment.phases &&
             (alwaysShowPhaseSelector || experiment.phases.length > 1) && (
               <div className="col-auto form-inline">
                 <PhaseSelector

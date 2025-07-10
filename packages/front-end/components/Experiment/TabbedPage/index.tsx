@@ -298,6 +298,7 @@ export default function TabbedPage({
 
       <ExperimentHeader
         experiment={experiment}
+        holdout={holdout}
         envs={envs}
         tab={tab}
         setTab={setTabAndScroll}
@@ -477,6 +478,7 @@ export default function TabbedPage({
           setVariationFilter={setVariationFilter}
           metricFilter={metricFilter}
           setMetricFilter={setMetricFilter}
+          holdout={holdout}
         />
       </div>
       <div

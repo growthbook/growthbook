@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useState } from "react";
+import React, { FC, useEffect, useMemo, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
@@ -78,6 +78,7 @@ export type NewExperimentFormProps = {
   onCreate?: (id: string) => void;
   inline?: boolean;
   isNewExperiment?: boolean;
+  mutate?: () => void;
 };
 
 export function getDefaultVariations(num: number) {
@@ -141,6 +142,7 @@ const NewHoldoutForm: FC<NewExperimentFormProps> = ({
   msg,
   inline,
   isNewExperiment,
+  mutate,
 }) => {
   const { organization, hasCommercialFeature } = useUser();
 
@@ -306,12 +308,13 @@ const NewHoldoutForm: FC<NewExperimentFormProps> = ({
     params.isHoldout = true;
 
     const res = await apiCall<
-      | { experiment: ExperimentInterfaceStringDates }
+      | { experiment: ExperimentInterfaceStringDates; holdoutId?: string }
       | { duplicateTrackingKey: true; existingId: string; isHoldout: true }
     >(`/experiments?${new URLSearchParams(params).toString()}`, {
       method: "POST",
       body,
     });
+    mutate?.();
 
     if ("duplicateTrackingKey" in res) {
       setAllowDuplicateTrackingKey(true);
@@ -332,8 +335,8 @@ const NewHoldoutForm: FC<NewExperimentFormProps> = ({
     data.tags && refreshTags(data.tags);
     if (onCreate) {
       onCreate(res.experiment.id);
-    } else {
-      router.push(`/experiment/${res.experiment.id}`);
+    } else if (res.holdoutId) {
+      router.push(`/holdout/${res.holdoutId}`);
     }
   });
 
@@ -345,7 +348,9 @@ const NewHoldoutForm: FC<NewExperimentFormProps> = ({
 
   const allowAllProjects = permissionsUtils.canViewExperimentModal();
 
-  const exposureQueries = datasource?.settings?.queries?.exposure || [];
+  const exposureQueries = useMemo(() => {
+    return datasource?.settings?.queries?.exposure || [];
+  }, [datasource]);
   const exposureQueryId = form.getValues("exposureQueryId");
 
   const { currentProjectIsDemo } = useDemoDataSourceProject();
@@ -356,7 +361,7 @@ const NewHoldoutForm: FC<NewExperimentFormProps> = ({
     }
   }, [form, exposureQueries, exposureQueryId]);
 
-  const [linkNameWithTrackingKey, setLinkNameWithTrackingKey] = useState(true);
+  const [linkNameWithTrackingKey, _setLinkNameWithTrackingKey] = useState(true);
 
   let header = isNewExperiment
     ? "Add new Holdout"

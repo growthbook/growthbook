@@ -1,9 +1,6 @@
 import { useRouter } from "next/router";
-import {
-  ExperimentInterfaceStringDates,
-  LinkedFeatureInfo,
-} from "back-end/types/experiment";
-import React, { ReactElement, useEffect, useMemo, useState } from "react";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import React, { ReactElement, useState } from "react";
 import { includeExperimentInPayload } from "shared/util";
 import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import { FeatureInterface } from "back-end/types/feature";
@@ -81,6 +78,13 @@ const HoldoutPage = (): ReactElement => {
 
   const runningExperimentStatus = getRunningExperimentResultStatus(experiment);
 
+  const startAnalysis = async () => {
+    await apiCall(`/holdout/${hid}/start-analysis`, {
+      method: "POST",
+    });
+    mutate();
+  };
+
   const canEditExperiment =
     permissionsUtil.canViewExperimentModal(experiment.project) &&
     !experiment.archived;
@@ -95,7 +99,15 @@ const HoldoutPage = (): ReactElement => {
   const editMetrics = canEditExperiment
     ? () => setMetricsModalOpen(true)
     : null;
-  const editResult = canRunExperiment ? () => setStopModalOpen(true) : null;
+  const editResult = canRunExperiment
+    ? () => {
+        if (holdout?.analysisStartDate) {
+          setStopModalOpen(true);
+        } else {
+          startAnalysis();
+        }
+      }
+    : null;
   const editVariations = canRunExperiment
     ? () => setVariationsModalOpen(true)
     : null;
@@ -211,10 +223,10 @@ const HoldoutPage = (): ReactElement => {
       <PageHead
         breadcrumb={[
           {
-            display: "Experiments",
-            href: `/experiments`,
+            display: "Holdouts",
+            href: `/Holdouts`,
           },
-          { display: experiment.name },
+          { display: holdout.name },
         ]}
       />
 

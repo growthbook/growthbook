@@ -73,3 +73,26 @@ export const getHoldout = async (
 };
 
 // endregion GET /holdout/:id
+
+// region POST /holdout/:id/start-analysis
+
+export const startAnalysis = async (
+  req: AuthRequest<null, { id: string }>,
+  res: Response<{ status: 200 | 404 }>
+) => {
+  const context = getContextFromReq(req);
+
+  const holdout = await context.models.holdout.getById(req.params.id);
+
+  if (!holdout) {
+    return res.status(404).json({ status: 404 });
+  }
+
+  await context.models.holdout.update(holdout, {
+    analysisStartDate: new Date(),
+  });
+
+  return res.status(200).json({ status: 200 });
+};
+
+// endregion POST /holdout/:id/start-analysis
