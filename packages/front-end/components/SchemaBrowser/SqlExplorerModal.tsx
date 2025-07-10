@@ -14,7 +14,7 @@ import {
 } from "back-end/src/validators/saved-queries";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { getValidDate } from "shared/dates";
-import { isReadOnlySQL } from "shared/sql";
+import { isReadOnlySQL, SQL_EXPLORER_LIMIT } from "shared/sql";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -57,6 +57,10 @@ export interface Props {
   };
   id?: string;
   mutate: () => void;
+  disableSave?: boolean; // Controls if user can save query AND also controls if they can create/save visualizations
+  header?: string;
+  lockDatasource?: boolean; // Prevents changing data source. Useful if an org opens this from a data source id page, or when editing an experiment query that requires a certain data source
+  trackingEventModalSource?: string;
 }
 
 export default function SqlExplorerModal({
@@ -64,6 +68,10 @@ export default function SqlExplorerModal({
   initial,
   id,
   mutate,
+  disableSave = false,
+  header,
+  lockDatasource = false,
+  trackingEventModalSource = "",
 }: Props) {
   const [showSidePanel, setSidePanel] = useState(true);
   const [dirty, setDirty] = useState(id ? false : true);
@@ -72,7 +80,7 @@ export default function SqlExplorerModal({
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempName, setTempName] = useState("");
   const [tab, setTab] = useState(
-    initial?.dataVizConfig?.length ? "visualization-0" : "sql"
+    initial?.dataVizConfig?.length && !disableSave ? "visualization-0" : "sql"
   );
 
   const { getDatasourceById, datasources } = useDefinitions();
@@ -152,7 +160,7 @@ export default function SqlExplorerModal({
         body: JSON.stringify({
           query: sql,
           datasourceId: form.watch("datasourceId"),
-          limit: 1000,
+          limit: SQL_EXPLORER_LIMIT,
         }),
       });
       return res;
@@ -315,6 +323,7 @@ export default function SqlExplorerModal({
       closeCta="Close"
       cta="Save & Close"
       ctaEnabled={canSave}
+      hideCta={disableSave}
       disabledMessage={
         !hasCommercialFeature("saveSqlExplorerQueries")
           ? "Upgrade to a Pro or Enterprise plan to save your queries."
@@ -322,7 +331,7 @@ export default function SqlExplorerModal({
           ? "You don't have permission to save this query."
           : undefined
       }
-      header={`${id ? "Update" : "Create"} SQL Query`}
+      header={header || `${id ? "Update" : "Create"} SQL Query`}
       headerClassName={styles["modal-header-backgroundless"]}
       open={true}
       showHeaderCloseButton={true}
@@ -330,6 +339,7 @@ export default function SqlExplorerModal({
       autoCloseOnSubmit={false}
       submit={async () => await handleSubmit()}
       trackingEventModalType="sql-explorer"
+      trackingEventModalSource={trackingEventModalSource}
       useRadixButton={true}
     >
       <Box
@@ -352,153 +362,154 @@ export default function SqlExplorerModal({
           }}
           style={{ display: "flex", flexDirection: "column", height: "100%" }}
         >
-          <Flex
-            align="center"
-            mb="4"
-            gap="3"
-            style={{ borderBottom: "1px solid var(--gray-a6)" }}
-          >
-            <TabsList>
-              <TabsTrigger value="sql">
-                <Flex align="center" gap="2">
-                  {isEditingName ? (
-                    <Flex align="center" gap="2">
-                      <input
-                        type="text"
-                        className="form-control"
-                        value={tempName}
-                        placeholder="Enter a name..."
-                        onChange={(e) => setTempName(e.target.value)}
-                        autoFocus
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            setDirty(true);
-                            form.setValue("name", tempName);
-                            setIsEditingName(false);
-                          } else if (e.key === "Escape") {
-                            setTempName(form.watch("name"));
-                            setIsEditingName(false);
-                          }
-                        }}
-                      />
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setTempName(form.watch("name"));
-                          setIsEditingName(false);
-                        }}
-                      >
-                        <FaTimes color="var(--gray-11)" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setDirty(true);
-                          form.setValue("name", tempName);
-                          setIsEditingName(false);
-                        }}
-                      >
-                        <FaCheck color="var(--accent-11)" />
-                      </Button>
-                    </Flex>
-                  ) : (
-                    <>
-                      {form.watch("name") || "Untitled Query..."}
-                      {!readOnlyMode ? (
+          {!disableSave ? (
+            <Flex
+              align="center"
+              mb="4"
+              gap="3"
+              style={{ borderBottom: "1px solid var(--gray-a6)" }}
+            >
+              <TabsList>
+                <TabsTrigger value="sql">
+                  <Flex align="center" gap="2">
+                    {isEditingName ? (
+                      <Flex align="center" gap="2">
+                        <input
+                          type="text"
+                          className="form-control"
+                          value={tempName}
+                          placeholder="Enter a name..."
+                          onChange={(e) => setTempName(e.target.value)}
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              setDirty(true);
+                              form.setValue("name", tempName);
+                              setIsEditingName(false);
+                            } else if (e.key === "Escape") {
+                              setTempName(form.watch("name"));
+                              setIsEditingName(false);
+                            }
+                          }}
+                        />
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => {
                             setTempName(form.watch("name"));
-                            setIsEditingName(true);
+                            setIsEditingName(false);
                           }}
                         >
-                          <PiPencilSimpleFill color="var(--accent-11)" />
+                          <FaTimes color="var(--gray-11)" />
                         </Button>
-                      ) : null}
-                    </>
-                  )}
-                </Flex>
-              </TabsTrigger>
-              {dataVizConfig.map((config, index) => (
-                <TabsTrigger value={`visualization-${index}`} key={index}>
-                  <Flex align="center" gap="2">
-                    {config.title || `Visualization ${index + 1}`}
-                    {!readOnlyMode && tab === `visualization-${index}` ? (
-                      <Button
-                        variant="ghost"
-                        size="xs"
-                        onClick={() => {
-                          setDirty(true);
-                          const currentConfig = [...dataVizConfig];
-                          currentConfig.splice(index, 1);
-                          form.setValue("dataVizConfig", currentConfig);
-                          setTab(
-                            index < dataVizConfig.length - 1
-                              ? `visualization-${index}`
-                              : index > 0
-                              ? `visualization-${index - 1}`
-                              : "sql"
-                          );
-                        }}
-                        title="Delete Visualization"
-                      >
-                        <PiX />
-                      </Button>
-                    ) : null}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setDirty(true);
+                            form.setValue("name", tempName);
+                            setIsEditingName(false);
+                          }}
+                        >
+                          <FaCheck color="var(--accent-11)" />
+                        </Button>
+                      </Flex>
+                    ) : (
+                      <>
+                        {form.watch("name") || "Untitled Query..."}
+                        {!readOnlyMode ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setTempName(form.watch("name"));
+                              setIsEditingName(true);
+                            }}
+                          >
+                            <PiPencilSimpleFill color="var(--accent-11)" />
+                          </Button>
+                        ) : null}
+                      </>
+                    )}
                   </Flex>
                 </TabsTrigger>
-              ))}
-            </TabsList>
-            {!readOnlyMode && dataVizConfig.length < 3 ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setDirty(true);
-                  const currentConfig = [...dataVizConfig];
-                  form.setValue("dataVizConfig", [
-                    ...currentConfig,
-                    { chartType: "bar" },
-                  ]);
-                  setTab(`visualization-${currentConfig.length}`);
-                  setSidePanel(true);
-                }}
-                title="Add Visualization"
-                disabled={
-                  !form.watch("results").results ||
-                  form.watch("results").results.length === 0
-                }
-              >
-                <VisualizationAddIcon />{" "}
-                {!dataVizConfig.length ? (
-                  <span className="ml-1">Add Visualization</span>
-                ) : (
-                  ""
-                )}
-              </Button>
-            ) : null}
-            <div className="ml-auto" />
-            {!readOnlyMode ? (
-              <Button
-                variant="outline"
-                size="xs"
-                onClick={() => setSidePanel(!showSidePanel)}
-              >
-                <PiCaretDoubleRight
-                  style={{
-                    transform: showSidePanel
-                      ? "rotate(0deg)"
-                      : "rotate(180deg)",
-                    transition: "transform 0.5s ease",
+                {dataVizConfig.map((config, index) => (
+                  <TabsTrigger value={`visualization-${index}`} key={index}>
+                    <Flex align="center" gap="2">
+                      {config.title || `Visualization ${index + 1}`}
+                      {!readOnlyMode && tab === `visualization-${index}` ? (
+                        <Button
+                          variant="ghost"
+                          size="xs"
+                          onClick={() => {
+                            setDirty(true);
+                            const currentConfig = [...dataVizConfig];
+                            currentConfig.splice(index, 1);
+                            form.setValue("dataVizConfig", currentConfig);
+                            setTab(
+                              index < dataVizConfig.length - 1
+                                ? `visualization-${index}`
+                                : index > 0
+                                ? `visualization-${index - 1}`
+                                : "sql"
+                            );
+                          }}
+                          title="Delete Visualization"
+                        >
+                          <PiX />
+                        </Button>
+                      ) : null}
+                    </Flex>
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+              {!readOnlyMode && dataVizConfig.length < 3 ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setDirty(true);
+                    const currentConfig = [...dataVizConfig];
+                    form.setValue("dataVizConfig", [
+                      ...currentConfig,
+                      { chartType: "bar" },
+                    ]);
+                    setTab(`visualization-${currentConfig.length}`);
+                    setSidePanel(true);
                   }}
-                />
-              </Button>
-            ) : null}
-          </Flex>
-
+                  title="Add Visualization"
+                  disabled={
+                    !form.watch("results").results ||
+                    form.watch("results").results.length === 0
+                  }
+                >
+                  <VisualizationAddIcon />{" "}
+                  {!dataVizConfig.length ? (
+                    <span className="ml-1">Add Visualization</span>
+                  ) : (
+                    ""
+                  )}
+                </Button>
+              ) : null}
+              <div className="ml-auto" />
+              {!readOnlyMode ? (
+                <Button
+                  variant="outline"
+                  size="xs"
+                  onClick={() => setSidePanel(!showSidePanel)}
+                >
+                  <PiCaretDoubleRight
+                    style={{
+                      transform: showSidePanel
+                        ? "rotate(0deg)"
+                        : "rotate(180deg)",
+                      transition: "transform 0.5s ease",
+                    }}
+                  />
+                </Button>
+              ) : null}
+            </Flex>
+          ) : null}
           <TabsContent value="sql" style={{ flex: 1, overflow: "hidden" }}>
             <PanelGroup direction="horizontal">
               <Panel id="main" order={1} defaultSize={showSidePanel ? 70 : 100}>
@@ -520,6 +531,23 @@ export default function SqlExplorerModal({
                           </Text>
                           {!readOnlyMode ? (
                             <Flex gap="3">
+                              <Tooltip body="The SQL Explorer automatically applies a 1000 row limit to ensure optimal performance.">
+                                <input
+                                  type="checkbox"
+                                  className="form-check-input"
+                                  id={`limit-toggle`}
+                                  checked={true}
+                                  disabled={true}
+                                />
+                                <Text
+                                  size="1"
+                                  weight="medium"
+                                  style={{ color: "var(--gray-8)" }}
+                                  className="cursor-pointer"
+                                >
+                                  Limit to {SQL_EXPLORER_LIMIT} rows
+                                </Text>
+                              </Tooltip>
                               {formatError && (
                                 <Tooltip body={formatError}>
                                   <span>
@@ -623,28 +651,34 @@ export default function SqlExplorerModal({
                       }
                     >
                       <Flex direction="column" height="100%" px="4" py="5">
-                        <SelectField
-                          className="mb-2"
-                          value={form.watch("datasourceId")}
-                          onChange={(value) => {
-                            setDirty(true);
-                            form.setValue("datasourceId", value);
-                          }}
-                          options={validDatasources.map((d) => ({
-                            value: d.id,
-                            label: `${d.name}${
-                              d.description ? ` — ${d.description}` : ""
-                            }`,
-                          }))}
-                          placeholder="Select a Data Source..."
+                        <Tooltip
+                          body="You cannot change the Data Source from this view."
+                          shouldDisplay={lockDatasource}
                         >
-                          {validDatasources.map((d) => (
-                            <SelectItem key={d.id} value={d.id}>
-                              {d.name}
-                              {d.description ? ` — ${d.description}` : ""}
-                            </SelectItem>
-                          ))}
-                        </SelectField>
+                          <SelectField
+                            className="mb-2"
+                            disabled={lockDatasource}
+                            value={form.watch("datasourceId")}
+                            onChange={(value) => {
+                              setDirty(true);
+                              form.setValue("datasourceId", value);
+                            }}
+                            options={validDatasources.map((d) => ({
+                              value: d.id,
+                              label: `${d.name}${
+                                d.description ? ` — ${d.description}` : ""
+                              }`,
+                            }))}
+                            placeholder="Select a Data Source..."
+                          >
+                            {validDatasources.map((d) => (
+                              <SelectItem key={d.id} value={d.id}>
+                                {d.name}
+                                {d.description ? ` — ${d.description}` : ""}
+                              </SelectItem>
+                            ))}
+                          </SelectField>
+                        </Tooltip>
                         {supportsSchemaBrowser && (
                           <SchemaBrowser
                             updateSqlInput={(sql: string) => {

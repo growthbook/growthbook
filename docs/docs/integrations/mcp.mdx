@@ -342,6 +342,7 @@ A hammer icon will appear in the chat window, indicating that your GrowthBook MC
 - `get_experiments`: List all experiments in GrowthBook.
 - `get_experiment`: Fetch details for a specific experiment by ID.
 - `get_attributes`: List all user attributes tracked in GrowthBook (useful for targeting).
+- `create_experiment`: Creates a feature-flag linked experiment. Note that this tool calls `get_defaults`, which provides a sampling of previous experiments to help the AI agent create the experiment correctly. For better performance, these defaults are saved to the local file system and periodically updated.
 
 ### Environments
 

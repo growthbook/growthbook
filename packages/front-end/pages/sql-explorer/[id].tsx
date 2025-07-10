@@ -201,6 +201,7 @@ export default function SqlQueryDetail() {
           initial={savedQuery}
           id={savedQuery.id}
           mutate={mutate}
+          trackingEventModalSource="saved-query-id-page"
         />
       )}
     </div>

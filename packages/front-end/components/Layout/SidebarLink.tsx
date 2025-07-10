@@ -24,6 +24,7 @@ export type SidebarLinkProps = {
   sectionTitle?: string;
   className?: string;
   autoClose?: boolean;
+  navigateOnExpand?: boolean;
   filter?: (props: {
     permissionsUtils: Permissions;
     permissions: Record<GlobalPermission, boolean> & PermissionFunctions;
@@ -108,6 +109,11 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
           onClick={(e) => {
             e.preventDefault();
             if (props.subLinks) {
+              // If it's currently closed and it's set to navigate on expand
+              if (!open && !selected && props.navigateOnExpand && props.href) {
+                router.push(props.href);
+              }
+
               setOpen(!open);
               e.stopPropagation();
             } else {

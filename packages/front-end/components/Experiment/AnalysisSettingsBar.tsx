@@ -138,29 +138,87 @@ export default function AnalysisSettingsBar({
           {setVariationFilter && setBaselineRow ? (
             <>
               <div className="col-auto form-inline pr-5">
-                <BaselineChooser
-                  variations={experiment.variations}
-                  setVariationFilter={setVariationFilter}
-                  baselineRow={baselineRow ?? 0}
-                  setBaselineRow={setBaselineRow}
-                  snapshot={snapshot}
-                  analysis={analysis}
-                  setAnalysisSettings={setAnalysisSettings}
-                  mutate={mutate}
-                  dropdownEnabled={
-                    !manualSnapshot && snapshot?.dimension !== "pre:date"
-                  }
-                />
+                {isHoldout ? (
+                  <div>
+                    <div className="d-flex align-items-center px-3 py-1">
+                      <div className="d-flex align-items-center flex-1 py-2">
+                        <div
+                          className={`variation variation1 with-variation-label d-flex align-items-center`}
+                        >
+                          <span
+                            className="label"
+                            style={{ width: 20, height: 20, flex: "none" }}
+                          >
+                            {1}
+                          </span>
+                          <span
+                            className="d-inline-block"
+                            style={{
+                              width: 150,
+                              lineHeight: "14px",
+                            }}
+                          >
+                            In Holdout
+                          </span>
+                        </div>
+                      </div>
+                    </div>{" "}
+                  </div>
+                ) : (
+                  <BaselineChooser
+                    variations={experiment.variations}
+                    setVariationFilter={setVariationFilter}
+                    baselineRow={baselineRow ?? 0}
+                    setBaselineRow={setBaselineRow}
+                    snapshot={snapshot}
+                    analysis={analysis}
+                    setAnalysisSettings={setAnalysisSettings}
+                    mutate={mutate}
+                    dropdownEnabled={
+                      !manualSnapshot && snapshot?.dimension !== "pre:date"
+                    }
+                  />
+                )}
                 <em className="text-muted mx-3" style={{ marginTop: 15 }}>
                   vs
                 </em>
-                <VariationChooser
-                  variations={experiment.variations}
-                  variationFilter={variationFilter ?? []}
-                  setVariationFilter={setVariationFilter}
-                  baselineRow={baselineRow ?? 0}
-                  dropdownEnabled={snapshot?.dimension !== "pre:date"}
-                />
+                {!isHoldout ? (
+                  <VariationChooser
+                    variations={experiment.variations}
+                    variationFilter={variationFilter ?? []}
+                    setVariationFilter={setVariationFilter}
+                    baselineRow={baselineRow ?? 0}
+                    dropdownEnabled={snapshot?.dimension !== "pre:date"}
+                  />
+                ) : (
+                  <div className="col-auto form-inline pr-5">
+                    <div>
+                      <div className="d-flex align-items-center px-3 py-1">
+                        <div className="d-flex align-items-center flex-1 py-2">
+                          <div
+                            className={`variation variation2 with-variation-label d-flex align-items-center`}
+                          >
+                            <span
+                              className="label"
+                              style={{ width: 20, height: 20, flex: "none" }}
+                            >
+                              {2}
+                            </span>
+                            <span
+                              className="d-inline-block"
+                              style={{
+                                width: 150,
+                                lineHeight: "14px",
+                              }}
+                            >
+                              Not in Holdout
+                            </span>
+                          </div>
+                        </div>
+                      </div>{" "}
+                    </div>
+                  </div>
+                )}
               </div>
             </>
           ) : null}

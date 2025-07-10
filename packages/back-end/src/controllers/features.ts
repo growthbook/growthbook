@@ -75,8 +75,9 @@ import {
   createInitialRevision,
   createRevision,
   discardRevision,
+  getMinimalRevisions,
   getRevision,
-  getRevisions,
+  getLatestRevisions,
   getRevisionsByStatus,
   hasDraft,
   markRevisionAsPublished,
@@ -2529,13 +2530,15 @@ export async function getFeatureById(
     throw new Error("Could not find feature");
   }
 
-  let revisions = await getRevisions(context, org.id, id);
+  const minimalRevisions = await getMinimalRevisions(context, org.id, id);
+
+  let fullRevisions = await getLatestRevisions(context, org.id, id);
 
   // The above only fetches the most recent revisions
   // If we're requesting a specific version that's older than that, fetch it directly
   if (req.query.v) {
     const version = parseInt(req.query.v);
-    if (!revisions.some((r) => r.version === version)) {
+    if (!fullRevisions.some((r) => r.version === version)) {
       const revision = await getRevision({
         context,
         organization: org.id,
@@ -2543,13 +2546,13 @@ export async function getFeatureById(
         version,
       });
       if (revision) {
-        revisions.push(revision);
+        fullRevisions.push(revision);
       }
     }
   }
 
   // Make sure we always select the live version, even if it's not one of the most recent revisions
-  if (!revisions.some((r) => r.version === feature.version)) {
+  if (!fullRevisions.some((r) => r.version === feature.version)) {
     const revision = await getRevision({
       context,
       organization: org.id,
@@ -2557,23 +2560,25 @@ export async function getFeatureById(
       version: feature.version,
     });
     if (revision) {
-      revisions.push(revision);
+      fullRevisions.push(revision);
     }
   }
 
   // Historically, we haven't properly cleared revision history when deleting a feature
   // So if you create a feature with the same name as a previously deleted one, it would inherit the revision history
   // This can seriously mess up the feature page, so if we detect any old revisions, delete them
-  if (revisions.some((r) => r.dateCreated < feature.dateCreated)) {
+  if (fullRevisions.some((r) => r.dateCreated < feature.dateCreated)) {
     await cleanUpPreviousRevisions(org.id, feature.id, feature.dateCreated);
-    revisions = revisions.filter((r) => r.dateCreated >= feature.dateCreated);
+    fullRevisions = fullRevisions.filter(
+      (r) => r.dateCreated >= feature.dateCreated
+    );
   }
 
   // If feature doesn't have any revisions, add revision 1 automatically
   // We haven't always created revisions when creating a feature, so this lets us backfill
-  if (!revisions.length) {
+  if (!fullRevisions.length) {
     try {
-      revisions.push(
+      fullRevisions.push(
         await createInitialRevision(
           context,
           feature,
@@ -2592,7 +2597,7 @@ export async function getFeatureById(
   if (feature.legacyDraft) {
     const draft = await migrateDraft(context, feature);
     if (draft) {
-      revisions.push(draft);
+      fullRevisions.push(draft);
     }
   }
 
@@ -2600,7 +2605,7 @@ export async function getFeatureById(
   const experimentIds = new Set<string>();
   const trackingKeys = new Set<string>();
   let hasSafeRollout = false;
-  revisions.forEach((revision) => {
+  fullRevisions.forEach((revision) => {
     environments.forEach((env) => {
       const rules = revision.rules[env];
       if (!rules) return;
@@ -2643,7 +2648,7 @@ export async function getFeatureById(
   }
 
   // Sanity check to make sure the published revision values and rules match what's stored in the feature
-  const live = revisions.find((r) => r.version === feature.version);
+  const live = fullRevisions.find((r) => r.version === feature.version);
   if (live) {
     try {
       if (live.defaultValue !== feature.defaultValue) {
@@ -2680,7 +2685,8 @@ export async function getFeatureById(
   res.status(200).json({
     status: 200,
     feature,
-    revisions,
+    revisionList: minimalRevisions,
+    revisions: fullRevisions,
     experiments: [...experimentsMap.values()],
     safeRollouts: [...safeRolloutMap.values()],
     codeRefs,

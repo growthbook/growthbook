@@ -5,7 +5,7 @@ import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
 import { filterProjectsByEnvironmentWithNull } from "shared/util";
 import { Promise as BluebirdPromise } from "bluebird";
 import { getFeatureDefinitions } from "back-end/src/services/features";
-import { CRON_ENABLED, WEBHOOKS } from "back-end/src/util/secrets";
+import { WEBHOOKS } from "back-end/src/util/secrets";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import {
   findSDKConnectionsByIds,
@@ -127,7 +127,6 @@ export async function queueWebhooksBySdkPayloadKeys(
   context: ReqContext | ApiReqContext,
   payloadKeys: SDKPayloadKey[]
 ) {
-  if (!CRON_ENABLED) return;
   if (!payloadKeys.length) return;
   const connections = await findSDKConnectionsByOrganization(context);
 

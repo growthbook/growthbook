@@ -3,7 +3,7 @@ import Agenda, { Job } from "agenda";
 import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
 import { filterProjectsByEnvironmentWithNull } from "shared/util";
 import { getFeatureDefinitions } from "back-end/src/services/features";
-import { CRON_ENABLED, IS_CLOUD } from "back-end/src/util/secrets";
+import { IS_CLOUD } from "back-end/src/util/secrets";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import {
   clearProxyError,
@@ -176,7 +176,6 @@ export async function queueProxyUpdate(
   context: ReqContext | ApiReqContext,
   payloadKeys: SDKPayloadKey[]
 ) {
-  if (!CRON_ENABLED) return;
   if (!payloadKeys.length) return;
 
   const connections = await findSDKConnectionsByOrganization(context);

@@ -91,6 +91,7 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
           initial={selectedSavedQuery}
           id={selectedSavedQuery?.id}
           mutate={mutate}
+          trackingEventModalSource="saved-queries-list"
         />
       )}
 
