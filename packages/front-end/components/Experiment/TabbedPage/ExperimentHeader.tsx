@@ -689,7 +689,8 @@ export default function ExperimentHeader({
                       )
                     }
                   >
-                    Start Experiment <MdRocketLaunch />
+                    Start {holdout ? "Holdout" : "Experiment"}{" "}
+                    <MdRocketLaunch />
                   </button>
                 </Tooltip>
               ) : null}

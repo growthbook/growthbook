@@ -223,10 +223,10 @@ const HoldoutPage = (): ReactElement => {
       <PageHead
         breadcrumb={[
           {
-            display: "Experiments",
-            href: `/experiments`,
+            display: "Holdouts",
+            href: `/Holdouts`,
           },
-          { display: experiment.name },
+          { display: holdout.name },
         ]}
       />
 

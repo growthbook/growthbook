@@ -308,7 +308,7 @@ const NewHoldoutForm: FC<NewExperimentFormProps> = ({
     params.isHoldout = true;
 
     const res = await apiCall<
-      | { experiment: ExperimentInterfaceStringDates }
+      | { experiment: ExperimentInterfaceStringDates; holdoutId?: string }
       | { duplicateTrackingKey: true; existingId: string; isHoldout: true }
     >(`/experiments?${new URLSearchParams(params).toString()}`, {
       method: "POST",
@@ -335,8 +335,8 @@ const NewHoldoutForm: FC<NewExperimentFormProps> = ({
     data.tags && refreshTags(data.tags);
     if (onCreate) {
       onCreate(res.experiment.id);
-    } else {
-      router.push(`/experiment/${res.experiment.id}`);
+    } else if (res.holdoutId) {
+      router.push(`/holdout/${res.holdoutId}`);
     }
   });
 
