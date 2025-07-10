@@ -128,7 +128,7 @@ def get_dimension_column_name(dimension: str) -> str:
     if dimension == "pre:date":
         dimension_column_name = "dim_pre_date"
     elif dimension == "pre:activation":
-        dimension_column_name = "dim_exp_activation"
+        dimension_column_name = "dim_activation"
     elif dimension.startswith("exp:"):
         dimension_column_name = "dim_exp_" + dimension.split(":")[1]
     elif dimension.startswith("precomputed:"):

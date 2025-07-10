@@ -1,7 +1,7 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React, { FC, useEffect } from "react";
 import dynamic from "next/dynamic";
-import { DifferenceType, StatsEngine } from "back-end/types/stats";
+import { StatsEngine } from "back-end/types/stats";
 import { getValidDate, ago, relativeDate } from "shared/dates";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
@@ -17,7 +17,9 @@ import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import FilterSummary from "@/components/Experiment/FilterSummary";
 import DateResults from "@/components/Experiment/DateResults";
 import VariationIdWarning from "@/components/Experiment/VariationIdWarning";
-import AnalysisSettingsBar from "@/components/Experiment/AnalysisSettingsBar";
+import AnalysisSettingsBar, {
+  AnalysisBarSettings,
+} from "@/components/Experiment/AnalysisSettingsBar";
 import StatusBanner from "@/components/Experiment/StatusBanner";
 import { GBCuped, GBSequential } from "@/components/Icons";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -48,14 +50,8 @@ const Results: FC<{
   regressionAdjustmentEnabled?: boolean;
   regressionAdjustmentHasValidMetrics?: boolean;
   onRegressionAdjustmentChange?: (enabled: boolean) => Promise<void>;
-  variationFilter?: number[];
-  setVariationFilter?: (variationFilter: number[]) => void;
-  baselineRow?: number;
-  setBaselineRow?: (baselineRow: number) => void;
-  differenceType?: DifferenceType;
-  setDifferenceType?: (differenceType: DifferenceType) => void;
-  precomputedDimension: string | null;
-  setPrecomputedDimension: (precomputedDimension: string | null) => void;
+  analysisBarSettings: AnalysisBarSettings;
+  setAnalysisBarSettings: (s: AnalysisBarSettings) => void;
   metricFilter?: ResultsMetricFilters;
   setMetricFilter?: (metricFilter: ResultsMetricFilters) => void;
   isTabActive?: boolean;
@@ -75,14 +71,8 @@ const Results: FC<{
   regressionAdjustmentEnabled = false,
   regressionAdjustmentHasValidMetrics = false,
   onRegressionAdjustmentChange,
-  variationFilter,
-  setVariationFilter,
-  baselineRow,
-  setBaselineRow,
-  differenceType,
-  setDifferenceType,
-  precomputedDimension,
-  setPrecomputedDimension,
+  analysisBarSettings,
+  setAnalysisBarSettings,
   metricFilter,
   setMetricFilter,
   isTabActive = true,
@@ -164,7 +154,7 @@ const Results: FC<{
     hasData &&
     ((snapshot?.dimension &&
       snapshot.dimension.substring(0, 8) !== "pre:date") ||
-      analysis?.settings?.dimensions?.length);
+      (analysis?.settings?.dimensions?.length ?? 0) > 0);
 
   const showDateResults =
     !draftMode &&
@@ -181,8 +171,8 @@ const Results: FC<{
   }
 
   // cannot re-aggregate quantile metrics across pre-computed dimensions
-  const showQuantileReaggregationError = analysis?.settings?.dimensions.some(
-    (d) => d.startsWith("precomputed:")
+  const showErrorsOnQuantileMetrics = analysis?.settings?.dimensions.some((d) =>
+    d.startsWith("precomputed:")
   );
 
   const datasource = getDatasourceById(experiment.datasource);
@@ -200,6 +190,8 @@ const Results: FC<{
         <AnalysisSettingsBar
           envs={envs}
           mutateExperiment={mutateExperiment}
+          analysisBarSettings={analysisBarSettings}
+          setAnalysisBarSettings={setAnalysisBarSettings}
           setAnalysisSettings={setAnalysisSettings}
           editMetrics={editMetrics}
           variations={variations}
@@ -212,14 +204,6 @@ const Results: FC<{
           }
           onRegressionAdjustmentChange={onRegressionAdjustmentChange}
           showMoreMenu={false}
-          variationFilter={variationFilter}
-          setVariationFilter={(v: number[]) => setVariationFilter?.(v)}
-          baselineRow={baselineRow}
-          setBaselineRow={(b: number) => setBaselineRow?.(b)}
-          differenceType={differenceType}
-          setDifferenceType={setDifferenceType}
-          precomputedDimension={precomputedDimension}
-          setPrecomputedDimension={setPrecomputedDimension}
         />
       ) : (
         <StatusBanner
@@ -338,20 +322,20 @@ const Results: FC<{
         />
       ) : showBreakDownResults && snapshot ? (
         <BreakDownResults
-          key={analysis?.settings?.dimensions?.[0] ?? snapshot?.dimension}
+          key={analysis?.settings?.dimensions?.[0] ?? snapshot.dimension}
           results={analysis?.results ?? []}
           queryStatusData={queryStatusData}
           variations={variations}
-          variationFilter={variationFilter}
-          baselineRow={baselineRow}
+          variationFilter={analysisBarSettings.variationFilter}
+          baselineRow={analysisBarSettings.baselineRow}
           goalMetrics={experiment.goalMetrics}
           secondaryMetrics={experiment.secondaryMetrics}
           guardrailMetrics={experiment.guardrailMetrics}
           metricOverrides={experiment.metricOverrides ?? []}
           dimensionId={
-            analysis?.settings?.dimensions?.[0] ?? snapshot?.dimension ?? ""
+            analysis?.settings?.dimensions?.[0] ?? snapshot.dimension ?? ""
           }
-          showQuantileReaggregationError={showQuantileReaggregationError}
+          showErrorsOnQuantileMetrics={showErrorsOnQuantileMetrics}
           isLatestPhase={phase === experiment.phases.length - 1}
           startDate={phaseObj?.dateStarted ?? ""}
           endDate={phaseObj?.dateEnded ?? ""}
@@ -382,8 +366,8 @@ const Results: FC<{
           <CompactResults
             editMetrics={editMetrics}
             variations={variations}
-            variationFilter={variationFilter}
-            baselineRow={baselineRow}
+            variationFilter={analysisBarSettings.variationFilter}
+            baselineRow={analysisBarSettings.baselineRow}
             multipleExposures={snapshot.multipleExposures || 0}
             results={analysis.results[0]}
             queryStatusData={queryStatusData}

@@ -146,10 +146,6 @@ export function getRiskByVariation(
   }
 }
 
-export function hasRisk(rows: ExperimentTableRow[]) {
-  return rows.filter((row) => row.variations[1]?.risk?.length).length > 0;
-}
-
 export function useDomain(
   variations: ExperimentReportVariationWithIndex[], // must be ordered, baseline first
   rows: ExperimentTableRow[],

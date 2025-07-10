@@ -102,11 +102,17 @@ export default function TabbedPage({
   const [healthNotificationCount, setHealthNotificationCount] = useState(0);
 
   // Results tab filters
-  const [baselineRow, setBaselineRow] = useState<number>(0);
-  const [differenceType, setDifferenceType] = useState<DifferenceType>(
-    "relative"
-  );
-  const [variationFilter, setVariationFilter] = useState<number[]>([]);
+  const [analysisBarSettings, setAnalysisBarSettings] = useState<{
+    dimension: string;
+    baselineRow: number;
+    differenceType: DifferenceType;
+    variationFilter: number[];
+  }>({
+    dimension: "",
+    baselineRow: 0,
+    variationFilter: [],
+    differenceType: "relative",
+  });
   const [metricFilter, setMetricFilter] = useLocalStorage<ResultsMetricFilters>(
     `experiment-page__${experiment.id}__metric_filter`,
     {
@@ -456,13 +462,9 @@ export default function TabbedPage({
           editTargeting={editTargeting}
           isTabActive={tab === "results"}
           safeToEdit={safeToEdit}
-          baselineRow={baselineRow}
-          setBaselineRow={setBaselineRow}
-          differenceType={differenceType}
-          setDifferenceType={setDifferenceType}
-          variationFilter={variationFilter}
-          setVariationFilter={setVariationFilter}
           metricFilter={metricFilter}
+          analysisBarSettings={analysisBarSettings}
+          setAnalysisBarSettings={setAnalysisBarSettings}
           setMetricFilter={setMetricFilter}
         />
       </div>
@@ -478,9 +480,12 @@ export default function TabbedPage({
           onHealthNotify={handleIncrementHealthNotifications}
           onSnapshotUpdate={handleSnapshotChange}
           resetResultsSettings={() => {
-            setBaselineRow(0);
-            setDifferenceType("relative");
-            setVariationFilter([]);
+            setAnalysisBarSettings({
+              ...analysisBarSettings,
+              baselineRow: 0,
+              differenceType: "relative",
+              variationFilter: [],
+            });
           }}
         />
       </div>

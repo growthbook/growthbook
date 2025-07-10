@@ -132,13 +132,6 @@ export type ExperimentDimension = {
 export type DateDimension = {
   type: "date";
 };
-
-export type DateCumulativeDimension = {
-  type: "datecumulative";
-};
-export type DateDailyDimension = {
-  type: "datedaily";
-};
 export type ActivationDimension = {
   type: "activation";
 };
@@ -146,8 +139,6 @@ export type Dimension =
   | UserDimension
   | ExperimentDimension
   | DateDimension
-  | DateCumulativeDimension
-  | DateDailyDimension
   | ActivationDimension;
 
 export type ProcessedDimensions = {
@@ -398,6 +389,8 @@ export type ExperimentMetricQueryResponseRows = {
   quantile_lower?: number;
   quantile_upper?: number;
   quantile_nstar?: number;
+
+  // This is used to store dimensions of unknown keys (e.g. dim_exp_country)
   [key: string]: number | string | undefined;
 }[];
 

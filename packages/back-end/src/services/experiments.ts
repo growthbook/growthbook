@@ -597,7 +597,6 @@ export function getSnapshotSettings({
 
   return {
     manual: !experiment.datasource,
-    type: snapshotType,
     activationMetric: experiment.activationMetric || null,
     attributionModel: experiment.attributionModel || "firstExposure",
     skipPartialData: !!experiment.skipPartialData,
@@ -1136,6 +1135,7 @@ export async function createSnapshot({
     useCache
   );
   await queryRunner.startAnalysis({
+    snapshotType: snapshot.type ?? "standard",
     snapshotSettings: data.settings,
     variationNames: experiment.variations.map((v) => v.name),
     metricMap,

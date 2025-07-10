@@ -55,6 +55,7 @@ export class SafeRolloutResultsQueryRunner extends QueryRunner<
     );
 
     const experimentParams: ExperimentResultsQueryParams = {
+      snapshotType: "standard",
       metricMap: params.metricMap,
       snapshotSettings,
       variationNames: ["control", "variation"],

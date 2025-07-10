@@ -18,6 +18,7 @@ import {
   ExperimentSnapshotHealth,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
+  SnapshotType,
 } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
 import { Queries, QueryPointer, QueryStatus } from "back-end/types/query";
@@ -67,6 +68,7 @@ export type SnapshotResult = {
 };
 
 export type ExperimentResultsQueryParams = {
+  snapshotType: SnapshotType;
   snapshotSettings: ExperimentSnapshotSettings;
   variationNames: string[];
   metricMap: Map<string, ExperimentMetricInterface>;
@@ -179,6 +181,7 @@ export const startExperimentResultQueries = async (
     params: StartQueryParams<RowsType, ProcessedRowsType>
   ) => Promise<QueryPointer>
 ): Promise<Queries> => {
+  const snapshotType = params.snapshotType;
   const snapshotSettings = params.snapshotSettings;
   const queryParentId = params.queryParentId;
   const metricMap = params.metricMap;
@@ -245,8 +248,7 @@ export const startExperimentResultQueries = async (
 
   // Settings for health query
   const runTrafficQuery =
-    (snapshotSettings.type ?? "standard") === "standard" &&
-    org.settings?.runHealthTrafficQuery;
+    snapshotType === "standard" && org.settings?.runHealthTrafficQuery;
   let dimensionsForTraffic: ExperimentDimension[] = [];
   if (runTrafficQuery && exposureQuery?.dimensionMetadata) {
     dimensionsForTraffic = exposureQuery.dimensionMetadata
@@ -309,7 +311,7 @@ export const startExperimentResultQueries = async (
     // Only run dimensional analysis for quantile metrics
     // if snapshot type is not standard
     const runOverallQuantileAnalysis =
-      snapshotSettings.type === "standard" &&
+      snapshotType === "standard" &&
       dimensionObjs.length > 0 &&
       quantileMetricType(m);
 
@@ -341,7 +343,7 @@ export const startExperimentResultQueries = async (
     // Only run dimensional analysis for quantile metrics
     // if snapshot type is not standard
     const runOverallQuantileAnalysis =
-      snapshotSettings.type === "standard" &&
+      snapshotType === "standard" &&
       dimensionObjs.length > 0 &&
       m.some(quantileMetricType);
 

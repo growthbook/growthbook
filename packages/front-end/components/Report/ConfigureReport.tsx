@@ -207,11 +207,11 @@ export default function ConfigureReport({
           <TabsContent value="overview">
             <DimensionChooser
               value={form.watch("experimentAnalysisSettings.dimension") || ""}
-              setValue={(v) =>
-                form.setValue(
-                  "experimentAnalysisSettings.dimension",
-                  v ?? undefined
-                )
+              setValue={(v: string) =>
+                form.setValue("experimentAnalysisSettings.dimension", v)
+              }
+              setSnapshotDimension={(v: string) =>
+                form.setValue("experimentAnalysisSettings.dimension", v)
               }
               datasourceId={experiment?.datasource}
               exposureQueryId={form.watch(

@@ -53,7 +53,6 @@ export interface Props {
   setBaselineRow?: (baselineRow: number) => void;
   differenceType: DifferenceType;
   setDifferenceType: (differenceType: DifferenceType) => void;
-  setPrecomputedDimension: (precomputedDimension: string | null) => void;
   reportArgs?: ExperimentSnapshotReportArgs;
 }
 
@@ -68,7 +67,6 @@ export default function AnalysisSettingsSummary({
   setBaselineRow,
   differenceType,
   setDifferenceType,
-  setPrecomputedDimension,
   reportArgs,
 }: Props) {
   const {
@@ -419,7 +417,6 @@ export default function AnalysisSettingsSummary({
                           setVariationFilter?.([]);
                         }
                         setDifferenceType("relative");
-                        setPrecomputedDimension(null);
                         experiment.type === "multi-armed-bandit"
                           ? setSnapshotType("exploratory")
                           : setSnapshotType(undefined);
@@ -469,7 +466,6 @@ export default function AnalysisSettingsSummary({
                           setVariationFilter?.([]);
                         }
                         setDifferenceType("relative");
-                        setPrecomputedDimension(null);
                         experiment.type === "multi-armed-bandit"
                           ? setSnapshotType("exploratory")
                           : setSnapshotType(undefined);
@@ -544,7 +540,6 @@ export default function AnalysisSettingsSummary({
                               setVariationFilter?.([]);
                             }
                             setDifferenceType("relative");
-                            setPrecomputedDimension(null);
                             trackSnapshot(
                               "create",
                               "ForceRerunQueriesButton",

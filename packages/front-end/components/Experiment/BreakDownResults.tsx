@@ -80,7 +80,7 @@ const BreakDownResults: FC<{
   regressionAdjustmentEnabled?: boolean;
   settingsForSnapshotMetrics?: MetricSnapshotSettings[];
   sequentialTestingEnabled?: boolean;
-  showQuantileReaggregationError?: boolean;
+  showErrorsOnQuantileMetrics?: boolean;
   differenceType: DifferenceType;
   metricFilter?: ResultsMetricFilters;
   setMetricFilter?: (filter: ResultsMetricFilters) => void;
@@ -109,7 +109,7 @@ const BreakDownResults: FC<{
   regressionAdjustmentEnabled,
   settingsForSnapshotMetrics,
   sequentialTestingEnabled,
-  showQuantileReaggregationError,
+  showErrorsOnQuantileMetrics,
   differenceType,
   metricFilter,
   setMetricFilter,
@@ -244,7 +244,7 @@ const BreakDownResults: FC<{
           expandedSecondaries
         );
 
-        if (showQuantileReaggregationError && quantileMetricType(newMetric)) {
+        if (showErrorsOnQuantileMetrics && quantileMetricType(newMetric)) {
           return {
             metric: newMetric,
             isGuardrail: resultGroup === "guardrail",
@@ -293,7 +293,7 @@ const BreakDownResults: FC<{
     ssrPolyfills,
     getExperimentMetricById,
     metricFilter,
-    showQuantileReaggregationError,
+    showErrorsOnQuantileMetrics,
   ]);
 
   const activationMetricObj = activationMetric

@@ -166,7 +166,6 @@ export interface SnapshotBanditSettings {
 // Also used to determine when to show "out-of-date" in the UI
 export interface ExperimentSnapshotSettings {
   manual: boolean;
-  type?: SnapshotType;
   dimensions: DimensionForSnapshot[];
   metricSettings: MetricForSnapshot[];
   goalMetrics: string[];
