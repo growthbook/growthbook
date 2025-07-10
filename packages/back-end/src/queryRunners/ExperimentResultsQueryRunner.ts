@@ -308,12 +308,10 @@ export const startExperimentResultQueries = async (
           .filter(Boolean)
       );
     }
-    // Only run dimensional analysis for quantile metrics
-    // if snapshot type is not standard
+    // Only run overall quantile analysis for standard snapshots
+    // regardless of how many dimensions are requested
     const runOverallQuantileAnalysis =
-      snapshotType === "standard" &&
-      dimensionObjs.length > 0 &&
-      quantileMetricType(m);
+      snapshotType === "standard" && quantileMetricType(m);
 
     const queryParams: ExperimentMetricQueryParams = {
       activationMetric,

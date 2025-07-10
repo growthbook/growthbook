@@ -91,6 +91,12 @@ export default function DimensionChooser({
       };
     });
 
+  const precomputedDimensionOptions =
+    precomputedDimensions?.map((d) => ({
+      label: d.replace("precomputed:", ""),
+      value: d,
+    })) ?? [];
+
   const exposureQuery = datasource?.settings
     ? getExposureQuery(datasource.settings, exposureQueryId, userIdType)
     : null;
@@ -98,6 +104,10 @@ export default function DimensionChooser({
   if (exposureQuery) {
     if (exposureQuery.dimensions.length > 0) {
       exposureQuery.dimensions.forEach((d) => {
+        // skip pre-computed dimensions
+        if (precomputedDimensionOptions.some((p) => p.label === d)) {
+          return;
+        }
         filteredDimensions.push({
           label: d,
           value: "exp:" + d,
@@ -129,12 +139,6 @@ export default function DimensionChooser({
       value: "pre:activation",
     });
   }
-
-  const precomputedDimensionOptions =
-    precomputedDimensions?.map((d) => ({
-      label: d.replace("precomputed:", ""),
-      value: d,
-    })) ?? [];
 
   const onDemandDimensions = [...builtInDimensions, ...filteredDimensions];
 
@@ -219,31 +223,35 @@ export default function DimensionChooser({
               )
                 .then((status) => {
                   if (status === "success") {
-                    console.log("newSettings", newSettings);
+                    // On success, set the dimension in the dropdown to
+                    // the requested value
                     setValue?.(v);
+
+                    // also reset the snapshot dimension to the default
+                    // and set the analysis settings to get the right analysis
+                    // so that the snapshot provider can get the right analysis
                     setSnapshotDimension?.("");
-                    // set the analysis settings to get the right analysis
                     setAnalysisSettings?.(newSettings);
-                    // set the value for the dropdown
                     track("Experiment Analysis: switch precomputed-dimension", {
                       dimension: v,
                     });
                     mutate?.();
                   }
-                  setPostLoading(false);
                 })
                 .catch(() => {
-                  // if the analysis fails, reset dimension to the current value
+                  // if the analysis fails, reset dropdown to the current value
                   // and do nothing
                   setValue?.(value);
-                  setSnapshotDimension?.(value);
-                  setPostLoading(false);
                 });
             } else {
-              // if the dimension is not precomputed, reset the analysis settings
+              // if the dimension is not precomputed, set the dropdown to the
+              // desired value
+              setValue?.(v);
+              // and set the snapshot for the snapshot provider and get the
+              // default analysis from that snapshot
+              setSnapshotDimension?.(v);
               setAnalysisSettings?.(null);
               resetAnalysisBarSettings?.();
-              setValue?.(v);
             }
             setPostLoading(false);
           }}
