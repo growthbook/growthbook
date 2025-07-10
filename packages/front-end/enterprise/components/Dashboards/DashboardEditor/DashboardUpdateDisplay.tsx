@@ -11,7 +11,6 @@ import {
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/components/Radix/Button";
-import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import { DashboardSnapshotContext } from "../DashboardSnapshotProvider";
 
 interface Props {
@@ -27,10 +26,11 @@ export default function DashboardUpdateDisplay({
 }: Props) {
   const {
     experiment,
-    defaultSnapshot: finishedSnapshot,
-    latestSnapshot: loadingSnapshot,
+    defaultSnapshot: snapshot,
     loading,
     refreshing,
+    numQueries,
+    numFinished,
     updateAllSnapshots,
   } = useContext(DashboardSnapshotContext);
   if (loading)
@@ -40,19 +40,12 @@ export default function DashboardUpdateDisplay({
         <Text>Loading dashboard...</Text>
       </Flex>
     );
-  if (!loadingSnapshot || !finishedSnapshot) return null;
+  if (!snapshot) return null;
   const autoUpdateEnabled =
     enableAutoUpdates &&
     dashboardCanAutoUpdate({ blocks }) &&
     experiment?.autoSnapshots;
   const timeTillUpdate = experiment?.nextSnapshotAttempt;
-
-  const { status } = getQueryStatus(loadingSnapshot.queries || []);
-
-  const numFinished = loadingSnapshot.queries.filter(
-    (q) => q.status === "succeeded"
-  ).length;
-  const numQueries = loadingSnapshot.queries.length;
 
   return (
     <Flex
@@ -69,29 +62,28 @@ export default function DashboardUpdateDisplay({
             <PiLightning />{" "}
           </Tooltip>
         )}
-        {finishedSnapshot.runStarted
-          ? `Updated ${ago(finishedSnapshot.runStarted).replace("about ", "")}`
+        {snapshot.runStarted
+          ? `Updated ${ago(snapshot.runStarted).replace("about ", "")}`
           : "Not started yet"}
       </Text>
       <div className="position-relative">
         <Button
           size="xs"
-          disabled={refreshing || loadingSnapshot.status === "running"}
-          icon={
-            status === "running" ? <LoadingSpinner /> : <PiArrowClockwise />
-          }
+          disabled={refreshing}
+          icon={refreshing ? <LoadingSpinner /> : <PiArrowClockwise />}
           iconPosition="left"
           variant="ghost"
           onClick={updateAllSnapshots}
         >
-          {status === "running" ? "Refreshing" : "Update"}
+          {refreshing ? "Refreshing" : "Update"}
         </Button>
-        {status === "running" && numQueries > 0 && (
+        {refreshing && numQueries > 0 && (
           <div
             className="position-absolute bg-info"
             style={{
               width: Math.floor((100 * numFinished) / numQueries) + "%",
-              height: 4,
+              height: 2,
+              bottom: 0,
             }}
           />
         )}

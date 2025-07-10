@@ -12,6 +12,8 @@ import { migrateSnapshot } from "back-end/src/util/migrations";
 import { notifyExperimentChange } from "back-end/src/services/experimentNotifications";
 import { updateExperimentAnalysisSummary } from "back-end/src/services/experiments";
 import { updateExperimentTimeSeries } from "back-end/src/services/experimentTimeSeries";
+import { ReqContext } from "back-end/types/organization";
+import { ApiReqContext } from "back-end/types/api";
 import { queriesSchema } from "./QueryModel";
 import { Context } from "./BaseModel";
 import { getExperimentById } from "./ExperimentModel";
@@ -384,6 +386,17 @@ export async function findSnapshotById(
 ): Promise<ExperimentSnapshotInterface | null> {
   const doc = await ExperimentSnapshotModel.findOne({ organization, id });
   return doc ? toInterface(doc) : null;
+}
+
+export async function findSnapshotsByIds(
+  context: ReqContext | ApiReqContext,
+  ids: string[]
+): Promise<ExperimentSnapshotInterface[]> {
+  const docs = await ExperimentSnapshotModel.find({
+    organization: context.org.id,
+    id: { $in: ids },
+  });
+  return docs.map(toInterface);
 }
 
 export async function findRunningSnapshotsByQueryId(ids: string[]) {

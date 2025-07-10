@@ -74,4 +74,10 @@ router.post(
   dashboardsController.refreshDashboardData
 );
 
+router.get(
+  "/:id/snapshots",
+  validateRequestMiddleware({ params: dashboardParams }),
+  dashboardsController.getDashboardSnapshots
+);
+
 export { router as dashboardsRouter };

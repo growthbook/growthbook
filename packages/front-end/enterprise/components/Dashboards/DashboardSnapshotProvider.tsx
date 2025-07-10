@@ -21,18 +21,23 @@ import { isEqual } from "lodash";
 import { DashboardInstanceInterface } from "back-end/src/enterprise/validators/dashboard-instance";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
+import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 
 export const DashboardSnapshotContext = React.createContext<{
   experiment?: ExperimentInterfaceStringDates;
   defaultSnapshot?: ExperimentSnapshotInterface;
-  latestSnapshot?: ExperimentSnapshotInterface;
+  snapshotsMap?: Map<string, ExperimentSnapshotInterface>;
   mutateSnapshot: () => Promise<unknown>;
   loading?: boolean;
   validating?: boolean;
   error?: Error;
   refreshing?: boolean;
+  numQueries: number;
+  numFinished: number;
   updateAllSnapshots: () => Promise<unknown>;
 }>({
+  numQueries: 0,
+  numFinished: 0,
   mutateSnapshot: async () => {},
   updateAllSnapshots: async () => {},
 });
@@ -57,11 +62,52 @@ export default function DashboardSnapshotProvider({
     error: snapshotError,
     isValidating,
     isLoading,
-    mutate: snapshotMutate,
+    mutate: mutateDefaultSnapshot,
   } = useApi<{
     snapshot: ExperimentSnapshotInterface;
-    latest: ExperimentSnapshotInterface;
   }>(`/experiment/${experiment.id}/snapshot/${experiment.phases.length - 1}`);
+
+  const { data: allSnapshotsData, mutate: mutateAllSnapshots } = useApi<{
+    snapshots: ExperimentSnapshotInterface[];
+  }>(`/dashboards/${dashboard?.id}/snapshots`, {
+    shouldRun: () => !!dashboard?.id,
+  });
+
+  const { mutate: mutateSavedQueries } = useApi(`/saved-queries/`);
+
+  const allSnapshots = useMemo(() => allSnapshotsData?.snapshots || [], [
+    allSnapshotsData,
+  ]);
+
+  const { status, numFinished, numQueries, snapshotsMap } = useMemo(() => {
+    const snapshotsMap = new Map(allSnapshots.map((snap) => [snap.id, snap]));
+    const allQueries = allSnapshots.flatMap(
+      (snapshot) => snapshot.queries || []
+    );
+    const { status } = getQueryStatus(allQueries);
+    const numFinished = allQueries.filter((q) => q.status === "succeeded")
+      .length;
+    const numQueries = allQueries.length;
+    return { status, numFinished, numQueries, snapshotsMap };
+  }, [allSnapshots]);
+
+  // Periodically check for the status of all snapshots
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      if (status === "running") {
+        mutateAllSnapshots();
+      } else {
+        clearInterval(intervalId);
+      }
+    }, 2000);
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [mutateAllSnapshots, status]);
+
+  useEffect(() => {
+    setUpdatingDashboardSnapshots(numFinished < numQueries);
+  }, [numFinished, numQueries]);
 
   const updateAllSnapshots = async () => {
     if (!dashboard) return;
@@ -70,8 +116,9 @@ export default function DashboardSnapshotProvider({
       method: "POST",
     });
     mutateDefinitions();
-    snapshotMutate();
-    setUpdatingDashboardSnapshots(false);
+    mutateDefaultSnapshot();
+    mutateAllSnapshots();
+    mutateSavedQueries();
   };
 
   return (
@@ -79,14 +126,14 @@ export default function DashboardSnapshotProvider({
       value={{
         experiment,
         defaultSnapshot: snapshotData?.snapshot,
-        latestSnapshot: snapshotData?.latest,
-        mutateSnapshot: async () => {
-          snapshotMutate();
-        },
+        snapshotsMap,
+        mutateSnapshot: mutateDefaultSnapshot,
         error: snapshotError,
         loading: isLoading,
         validating: isValidating,
         refreshing: updatingDashboardSnapshots,
+        numQueries,
+        numFinished,
         updateAllSnapshots,
       }}
     >
@@ -126,6 +173,7 @@ export function useDashboardSnapshot(
   const shouldRun = () =>
     isDefined(blockSnapshotId) && blockSnapshotId.length > 0;
 
+  // TODO: maybe switch to using snapshotmap rather than making separate API calls
   const {
     data: blockSnapshotData,
     isValidating: snapshotValidating,

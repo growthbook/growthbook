@@ -20,6 +20,8 @@ import {
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { executeAndSaveQuery } from "back-end/src/routers/saved-queries/saved-queries.controller";
+import { findSnapshotsByIds } from "back-end/src/models/ExperimentSnapshotModel";
+import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { createDashboardBody, updateDashboardBody } from "./dashboards.router";
 
 interface SingleDashboardResponse {
@@ -172,7 +174,7 @@ export async function refreshDashboardData(
 
   const { id } = req.params;
   const dashboard = await context.models.dashboards.getById(id);
-  if (!dashboard) throw new Error("Dashboard not found!");
+  if (!dashboard) throw new Error("Cannot find dashboard");
   const experiment = await getExperimentById(context, dashboard.experimentId);
   if (!experiment)
     throw new Error("Cannot update dashboard without an attached experiment");
@@ -258,4 +260,21 @@ export async function refreshDashboardData(
   }
 
   return res.status(200).json({ status: 200 });
+}
+
+export async function getDashboardSnapshots(
+  req: AuthRequest<never, { id: string }, never>,
+  res: ResponseWithStatusAndError<{ snapshots: ExperimentSnapshotInterface[] }>
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  const dashboard = await context.models.dashboards.getById(id);
+  if (!dashboard) throw new Error("Cannot find dashboard");
+  const snapshotIds = [
+    ...new Set(dashboard.blocks.map((block) => block.snapshotId)),
+  ]
+    .filter(isDefined)
+    .filter((snapId) => snapId.length > 0);
+  const snapshots = await findSnapshotsByIds(context, snapshotIds);
+  return res.status(200).json({ status: 200, snapshots });
 }
