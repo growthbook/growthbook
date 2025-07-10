@@ -191,8 +191,8 @@ export default function DimensionChooser({
           value={value}
           onChange={(v) => {
             if (v === value) return;
-            setValue?.(v);
             setPostLoading(true);
+            setValue?.(v);
             if (precomputedDimensionOptions.map((d) => d.value).includes(v)) {
               const defaultAnalysis = standardSnapshot
                 ? getSnapshotAnalysis(standardSnapshot)
@@ -244,6 +244,7 @@ export default function DimensionChooser({
                   setValue?.(value);
                 });
             } else {
+              resetAnalysisBarSettings?.();
               // if the dimension is not precomputed, set the dropdown to the
               // desired value
               setValue?.(v);
@@ -251,7 +252,6 @@ export default function DimensionChooser({
               // default analysis from that snapshot
               setSnapshotDimension?.(v);
               setAnalysisSettings?.(null);
-              resetAnalysisBarSettings?.();
             }
             setPostLoading(false);
           }}
