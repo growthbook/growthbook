@@ -4,6 +4,7 @@ import {
   isPersistedDashboardBlock,
 } from "shared/enterprise";
 import { isDefined } from "shared/util";
+import { groupBy } from "lodash";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -178,21 +179,71 @@ export async function refreshDashboardData(
   const datasource = await getDataSourceById(context, experiment.datasource);
   if (!datasource) throw new Error("Failed to find connected datasource");
 
-  const dimensions = [
-    ...new Set(
-      dashboard.blocks
-        .map((block) =>
-          blockHasFieldOfType(
-            block,
-            "dimensionId",
-            (val: unknown) => typeof val === "string"
-          )
-            ? block.dimensionId
-            : undefined
-        )
-        .filter(isDefined)
-    ),
-  ];
+  // This is doing an expensive analytics SQL query, so may take a long time
+  // Set timeout to 30 minutes
+  req.setTimeout(SNAPSHOT_TIMEOUT);
+
+  const { snapshot: mainSnapshot } = await createExperimentSnapshot({
+    context,
+    experiment,
+    dimension: undefined,
+    datasource,
+    phase: experiment.phases.length - 1,
+    useCache: false,
+    triggeredBy: "manual",
+  });
+
+  // Copy the blocks of the dashboard to overwrite their snapshot IDs
+  const newBlocks = dashboard.blocks.map((block) =>
+    blockHasFieldOfType(
+      block,
+      "snapshotId",
+      (val: unknown) => typeof val === "string"
+    )
+      ? { ...block, snapshotId: mainSnapshot.id }
+      : { ...block }
+  );
+
+  const dimensionBlockPairs = dashboard.blocks
+    .map<[string, string] | undefined>((block) =>
+      blockHasFieldOfType(
+        block,
+        "dimensionId",
+        (val: unknown) => typeof val === "string"
+      )
+        ? [block.dimensionId, block.uid]
+        : undefined
+    )
+    .filter(isDefined);
+
+  // Create a map from dimension -> list of block IDs that use that dimension
+  const dimensionsByBlocks = Object.fromEntries(
+    Object.entries(
+      groupBy(dimensionBlockPairs, ([dimensionId, _blockUid]) => dimensionId)
+    ).map(([dimensionId, dimBlockPairs]) => [
+      dimensionId,
+      dimBlockPairs.map(([_dim, blockUid]) => blockUid),
+    ])
+  );
+
+  for (const [dimensionId, blockUids] of Object.entries(dimensionsByBlocks)) {
+    const { snapshot } = await createExperimentSnapshot({
+      context,
+      experiment,
+      dimension: dimensionId,
+      datasource,
+      phase: experiment.phases.length - 1,
+      useCache: false,
+      triggeredBy: "manual",
+    });
+    newBlocks.forEach((block) => {
+      if (blockUids.includes(block.uid)) {
+        block.snapshotId = snapshot.id;
+      }
+    });
+  }
+  await context.models.dashboards.update(dashboard, { blocks: newBlocks });
+
   const savedQueries = await context.models.savedQueries.getByIds([
     ...new Set(
       dashboard.blocks
@@ -200,35 +251,11 @@ export async function refreshDashboardData(
         .map((block: SqlExplorerBlockInterface) => block.savedQueryId!)
     ),
   ]);
-  // This is doing an expensive analytics SQL query, so may take a long time
-  // Set timeout to 30 minutes
-  req.setTimeout(SNAPSHOT_TIMEOUT);
 
-  await Promise.all([
-    createExperimentSnapshot({
-      context,
-      experiment,
-      dimension: undefined,
-      datasource,
-      phase: experiment.phases.length - 1,
-      useCache: false,
-      triggeredBy: "manual",
-    }),
-    ...dimensions.map((dimensionId) =>
-      createExperimentSnapshot({
-        context,
-        experiment,
-        dimension: dimensionId,
-        datasource,
-        phase: experiment.phases.length - 1,
-        useCache: false,
-        triggeredBy: "manual",
-      })
-    ),
-    ...savedQueries.map((savedQuery) =>
-      executeAndSaveQuery(context, savedQuery, datasource)
-    ),
-  ]);
+  for (const savedQuery of savedQueries) {
+    // TODO: is this safe to run in the background or should this be awaited?
+    executeAndSaveQuery(context, savedQuery, datasource);
+  }
 
   return res.status(200).json({ status: 200 });
 }

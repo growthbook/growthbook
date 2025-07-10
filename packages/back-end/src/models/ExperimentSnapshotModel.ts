@@ -295,9 +295,9 @@ export async function updateSnapshot({
     const dashboards = await context.models.dashboards.findByExperiment(
       experimentSnapshotModel.experiment
     );
-    // TODO: check the setting
     for (const dashboard of dashboards) {
-      if (!dashboardCanAutoUpdate(dashboard)) continue;
+      if (!dashboard.enableAutoUpdates || !dashboardCanAutoUpdate(dashboard))
+        continue;
       const blocks = dashboard.blocks.map((block) =>
         blockHasFieldOfType(
           block,

@@ -16,7 +16,7 @@ import {
   getBlockAnalysisSettings,
   getBlockSnapshotSettings,
 } from "shared/enterprise";
-import { getSnapshotAnalysis } from "shared/util";
+import { getSnapshotAnalysis, isDefined } from "shared/util";
 import { isEqual } from "lodash";
 import { DashboardInstanceInterface } from "back-end/src/enterprise/validators/dashboard-instance";
 import useApi from "@/hooks/useApi";
@@ -121,15 +121,10 @@ export function useDashboardSnapshot(
   ] = useState(false);
   const [fetchingSnapshot, setFetchingSnapshot] = useState(false);
 
-  const blockSnapshotId = blockHasFieldOfType(
-    block,
-    "snapshotId",
-    (val: unknown) => typeof val === "string"
-  )
-    ? block.snapshotId
-    : "";
+  const blockSnapshotId = block?.snapshotId;
 
-  const shouldRun = () => !!blockSnapshotId;
+  const shouldRun = () =>
+    isDefined(blockSnapshotId) && blockSnapshotId.length > 0;
 
   const {
     data: blockSnapshotData,
@@ -143,11 +138,17 @@ export function useDashboardSnapshot(
     shouldRun,
   });
 
-  const snapshot = shouldRun() ? blockSnapshotData?.snapshot : defaultSnapshot;
-  const getSnapshotLoading = shouldRun() ? snapshotLoading : defaultLoading;
-  const validating = shouldRun() ? snapshotValidating : defaultValidating;
-  const error = shouldRun() ? snapshotError : defaultError;
-  const mutateSnapshot = shouldRun() ? mutate : mutateDefault;
+  const snapshot = isDefined(blockSnapshotId)
+    ? blockSnapshotData?.snapshot
+    : defaultSnapshot;
+  const getSnapshotLoading = isDefined(blockSnapshotId)
+    ? snapshotLoading
+    : defaultLoading;
+  const validating = isDefined(blockSnapshotId)
+    ? snapshotValidating
+    : defaultValidating;
+  const error = isDefined(blockSnapshotId) ? snapshotError : defaultError;
+  const mutateSnapshot = isDefined(blockSnapshotId) ? mutate : mutateDefault;
 
   const blockAnalysisSettings = useMemo(() => {
     if (!block || !snapshot) return undefined;

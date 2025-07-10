@@ -16,7 +16,6 @@ export default function TrafficGraphBlock({
   const experiment = experimentsMap.get(experimentId);
   const { snapshot } = useDashboardSnapshot(block, setBlock);
   const { runHealthTrafficQuery } = useOrgSettings();
-
   if (!experiment || !snapshot) return null;
 
   const healthTrafficQueryRunning =
