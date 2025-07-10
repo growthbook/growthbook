@@ -107,7 +107,7 @@ const METRIC_LABEL_ROW_HEIGHT = 44;
 const SPACER_ROW_HEIGHT = 6;
 
 export enum RowError {
-  QUANTILE_AGGREGATION_ERROR = "Quantile metrics cannot be re-aggregated across pre-computed dimension breakdowns.",
+  QUANTILE_AGGREGATION_ERROR = "QUANTILE_AGGREGATION_ERROR",
 }
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -731,7 +731,7 @@ export default function ResultsTable({
                           <div className="alert alert-danger px-2 py-1">
                             <FaExclamationTriangle className="mr-1" />
                             Quantile metrics not available for pre-computed
-                            dimensions. Use on-demand dimension instead.
+                            dimensions. Use a custom report instead.
                           </div>
                         ),
                         graphCellWidth,

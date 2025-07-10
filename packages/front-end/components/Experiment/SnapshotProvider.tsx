@@ -77,7 +77,7 @@ export default function SnapshotProvider({
   const [analysisSettings, setAnalysisSettings] = useState(
     defaultAnalysisSettings
   );
-  console.log("analysisSettings", analysisSettings);
+
   return (
     <snapshotContext.Provider
       value={{
