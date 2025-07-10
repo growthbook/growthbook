@@ -110,6 +110,11 @@ NON_SUMMABLE_COLS = [
 
 ROW_COLS = SUM_COLS + NON_SUMMABLE_COLS
 
+BANDIT_DIMENSION = {
+    "column": "dimension",
+    "value": "All",
+}
+
 
 # Looks for any variation ids that are not in the provided map
 def detect_unknown_variations(
@@ -157,7 +162,7 @@ def get_metric_df(
         )
         # fall back to one unnamed dimension if no column found
         dim = getattr(row, dimension_column_name, "")
-
+        print(f"dim: {dim}")
         # If this is the first time we're seeing this dimension, create an empty dict
         if dim not in dimensions:
             # Overall columns
@@ -828,7 +833,7 @@ def preprocess_bandits(
         bandit_stats = {}
     else:
         pdrows = pd.DataFrame(rows)
-        pdrows = pdrows.loc[pdrows["dimension"] == dimension]
+        pdrows = pdrows.loc[pdrows[BANDIT_DIMENSION["column"]] == dimension]
         # convert raw sql into df of periods, and output df where n_rows = periods
         df = get_metric_df(
             rows=pdrows,
@@ -861,7 +866,11 @@ def get_bandit_result(
     bandit_settings: BanditSettingsForStatsEngine,
 ) -> BanditResult:
     single_variation_results = None
-    b = preprocess_bandits(rows, metric, bandit_settings, settings.alpha, "")
+    # "All" is a special dimension that gbstats can handle if there is no dimension
+    # column specified
+    b = preprocess_bandits(
+        rows, metric, bandit_settings, settings.alpha, BANDIT_DIMENSION["value"]
+    )
     if b:
         if any(value is None for value in b.stats):
             return get_error_bandit_result(

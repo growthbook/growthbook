@@ -243,6 +243,13 @@ export type MetricAnalysisParams = {
   segment: SegmentInterface | null;
 };
 
+export type DimensionColumnData = {
+  // the column or expression coming from the units table
+  value: string;
+  // the final alias for analysis in the rest of the SQL query
+  alias: string;
+};
+
 export type MetricValueResultDate = {
   date: string;
   count: number;

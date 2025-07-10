@@ -85,6 +85,7 @@ import {
   PopulationMetricQueryParams,
   PopulationFactMetricsQueryParams,
   VariationPeriodWeight,
+  DimensionColumnData,
 } from "back-end/src/types/Integration";
 import { DimensionInterface } from "back-end/types/dimension";
 import { SegmentInterface } from "back-end/types/segment";
@@ -2640,7 +2641,9 @@ export default abstract class SqlIntegration
       maxHoursToConvert
     );
 
-    const dimensionCols = params.dimensions.map((d) => this.getDimensionCol(d));
+    const dimensionCols: DimensionColumnData[] = params.dimensions.map((d) =>
+      this.getDimensionCol(d)
+    );
 
     const computeOnActivatedUsersOnly =
       activationMetric &&
@@ -2976,6 +2979,7 @@ export default abstract class SqlIntegration
               baseIdType,
               factMetrics: true,
               metricData,
+              dimensionCols,
               hasRegressionAdjustment: regressionAdjustedMetrics.length > 0,
               hasCapping: percentileData.length > 0,
             })
@@ -3106,7 +3110,7 @@ export default abstract class SqlIntegration
     );
   }
 
-  getDimensionCol(dimension: Dimension): { value: string; alias: string } {
+  getDimensionCol(dimension: Dimension): DimensionColumnData {
     switch (dimension.type) {
       case "experiment":
         return {
@@ -3306,6 +3310,15 @@ export default abstract class SqlIntegration
     );
 
     const dimensionCols = params.dimensions.map((d) => this.getDimensionCol(d));
+    // if bandit and there is no dimension column, we need to create a dummy column to make some of the joins
+    // work later on. `"dimension"` is a special column that gbstats can handle if there is no dimension
+    // column specified. See `BANDIT_DIMENSION` in gbstats.py.
+    if (banditDates?.length && dimensionCols.length === 0) {
+      dimensionCols.push({
+        alias: "dimension",
+        value: this.castToString("'All'"),
+      });
+    }
 
     const computeOnActivatedUsersOnly =
       activationMetric &&
@@ -3621,7 +3634,7 @@ export default abstract class SqlIntegration
           : ""
       }
   ${
-    banditDates?.length // TODO test bandit
+    banditDates?.length
       ? this.getBanditStatisticsCTE({
           baseIdType,
           factMetrics: false,
@@ -3637,6 +3650,7 @@ export default abstract class SqlIntegration
               capCoalesceDenominator,
             },
           ],
+          dimensionCols,
           hasRegressionAdjustment: regressionAdjusted,
           hasCapping: isPercentileCapped || denominatorIsPercentileCapped,
           ignoreNulls: "ignoreNulls" in metric && metric.ignoreNulls,
@@ -3744,6 +3758,7 @@ export default abstract class SqlIntegration
     baseIdType,
     factMetrics,
     metricData,
+    dimensionCols,
     hasRegressionAdjustment,
     hasCapping,
     ignoreNulls,
@@ -3752,6 +3767,7 @@ export default abstract class SqlIntegration
     baseIdType: string;
     factMetrics: boolean;
     metricData: BanditMetricData[];
+    dimensionCols: DimensionColumnData[];
     hasRegressionAdjustment: boolean;
     hasCapping: boolean;
     // legacy metric settings
@@ -3762,7 +3778,7 @@ export default abstract class SqlIntegration
   , __banditPeriodStatistics AS (
     SELECT
       m.variation AS variation
-      , m.dimension AS dimension
+      ${dimensionCols.map((d) => `, m.${d.alias} AS ${d.alias}`).join("")}
       , m.bandit_period AS bandit_period
       , ${this.ensureFloat(`COUNT(*)`)} AS users
       ${metricData
@@ -3845,21 +3861,21 @@ export default abstract class SqlIntegration
     GROUP BY
       m.variation
       , m.bandit_period
-      , m.dimension
+      ${dimensionCols.map((d) => `, m.${d.alias}`).join("")}
   ),
   __dimensionTotals AS (
     SELECT
-      dimension
-      , ${this.ensureFloat(`SUM(users)`)} AS total_users
+      ${this.ensureFloat(`SUM(users)`)} AS total_users
+      ${dimensionCols.map((d) => `, ${d.alias} AS ${d.alias}`).join(", ")}
     FROM 
       __banditPeriodStatistics
     GROUP BY
-      dimension
+      ${dimensionCols.map((d) => `${d.alias}`).join(", ")}
   ),
   __banditPeriodWeights AS (
     SELECT
-      bps.bandit_period
-      , bps.dimension
+      bps.bandit_period AS bandit_period
+      ${dimensionCols.map((d) => `, bps.${d.alias} AS ${d.alias}`).join("")}
       , SUM(bps.users) / MAX(dt.total_users) AS weight
       ${metricData
         .map((data) => {
@@ -3893,17 +3909,19 @@ export default abstract class SqlIntegration
       __banditPeriodStatistics bps
     LEFT JOIN
       __dimensionTotals dt 
-      ON (bps.dimension = dt.dimension)
+      ON (${dimensionCols
+        .map((d) => `bps.${d.alias} = dt.${d.alias}`)
+        .join(" AND ")})
     GROUP BY
       bps.bandit_period
-      , bps.dimension
+      ${dimensionCols.map((d) => `, bps.${d.alias}`).join("")}
   )
   ${
     hasRegressionAdjustment
       ? `
       , __theta AS (
       SELECT
-        dimension
+        ${dimensionCols.map((d) => `${d.alias} AS ${d.alias}`).join(", ")}
       ${metricData
         .map((data) => {
           const alias = data.alias + (factMetrics ? "_" : "");
@@ -3926,14 +3944,14 @@ export default abstract class SqlIntegration
       FROM
         __banditPeriodWeights
       GROUP BY
-        dimension
+        ${dimensionCols.map((d) => `${d.alias}`).join(", ")}  
       )
     `
       : ""
   }
   SELECT
     bps.variation
-    , bps.dimension
+    ${dimensionCols.map((d) => `, bps.${d.alias}`).join("")}
     , SUM(bps.users) AS users
     ${metricData
       .map((data) => {
@@ -4022,20 +4040,24 @@ export default abstract class SqlIntegration
     __banditPeriodWeights bpw
     ON (
       bps.bandit_period = bpw.bandit_period 
-      AND bps.dimension = bpw.dimension
+      ${dimensionCols
+        .map((d) => `AND bps.${d.alias} = bpw.${d.alias}`)
+        .join(" AND ")}
     )
   ${
     hasRegressionAdjustment
       ? `
     LEFT JOIN
       __theta t
-      ON (bps.dimension = t.dimension)
+      ON (${dimensionCols
+        .map((d) => `bps.${d.alias} = t.${d.alias}`)
+        .join(" AND ")})
     `
       : ""
   }
   GROUP BY
     bps.variation
-    , bps.dimension
+    ${dimensionCols.map((d) => `, bps.${d.alias}`).join("")}
   `;
   }
 

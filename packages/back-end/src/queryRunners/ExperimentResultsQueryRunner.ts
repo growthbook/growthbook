@@ -383,7 +383,7 @@ export const startExperimentResultQueries = async (
       name: TRAFFIC_QUERY_NAME,
       query: integration.getExperimentAggregateUnitsQuery({
         ...unitQueryParams,
-        dimensions: dimensionsForTraffic,
+        dimensions: dimensionObjs.length ? dimensionObjs : dimensionsForTraffic,
         useUnitsTable: !!unitQuery,
       }),
       dependencies: unitQuery ? [unitQuery.query] : [],
