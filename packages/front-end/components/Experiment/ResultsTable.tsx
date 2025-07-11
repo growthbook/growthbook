@@ -241,7 +241,7 @@ export default function ResultsTable({
       globalThis.window?.removeEventListener("resize", onResize, false);
   }, []);
   useLayoutEffect(onResize, []);
-  useEffect(onResize, [isTabActive]);
+  useEffect(onResize, [isTabActive, columnsFilter]);
 
   const orderedVariations: ExperimentReportVariationWithIndex[] = useMemo(() => {
     const sorted = variations
@@ -684,25 +684,32 @@ export default function ResultsTable({
                 />
               ) : null;
 
+              const includedLabelColumns = columnsToDisplay.filter((col) =>
+                [
+                  "Variation Names",
+                  "Baseline Average",
+                  "Variation Averages",
+                  "Chance to Win",
+                ].includes(col)
+              );
+
               return (
                 <tbody className={clsx("results-group-row")} key={i}>
                   {!compactResults &&
                     drawEmptyRow({
                       className: "results-label-row",
-                      colSpan: columnsToDisplay.filter((col) =>
-                        [
-                          "Variation Names",
-                          "Baseline Average",
-                          "Variation Averages",
-                          "Chance to Win",
-                        ].includes(col)
-                      ).length,
+                      labelColSpan: includedLabelColumns.length,
+                      renderLabel: includedLabelColumns.length > 0,
+                      renderGraph: columnsToDisplay.includes("CI Graph"),
+                      renderLastColumn: columnsToDisplay.includes("Lift"),
                       label: columnsToDisplay.includes("Variation Names") ? (
                         renderLabelColumn(row.label, row.metric, row)
                       ) : (
                         <></>
                       ),
-                      graphCellWidth,
+                      graphCellWidth: columnsToDisplay.includes("CI Graph")
+                        ? graphCellWidth
+                        : 0,
                       rowHeight: METRIC_LABEL_ROW_HEIGHT,
                       id,
                       domain,
@@ -732,15 +739,10 @@ export default function ResultsTable({
                           key: j,
                           className:
                             "results-variation-row align-items-center error-row",
-                          colSpan: columnsToDisplay.filter((col) =>
-                            [
-                              "Variation Names",
-                              "Baseline Average",
-                              "Variation Averages",
-                              "Chance to Win",
-                            ].includes(col)
-                          ).length,
-                          // TODO: label cell can result in too many cells compared to the filter
+                          labelColSpan: includedLabelColumns.length,
+                          renderLabel: includedLabelColumns.length > 0,
+                          renderGraph: columnsToDisplay.includes("CI Graph"),
+                          renderLastColumn: columnsToDisplay.includes("Lift"),
                           label: (
                             <>
                               {compactResults ? (
@@ -758,7 +760,9 @@ export default function ResultsTable({
                               </div>
                             </>
                           ),
-                          graphCellWidth,
+                          graphCellWidth: columnsToDisplay.includes("CI Graph")
+                            ? graphCellWidth
+                            : 0,
                           rowHeight: compactResults
                             ? ROW_HEIGHT + 20
                             : ROW_HEIGHT,
@@ -1096,7 +1100,10 @@ function drawEmptyRow({
   domain,
   ssrPolyfills,
   lastColumnContent,
-  colSpan,
+  renderLabel,
+  labelColSpan,
+  renderGraph,
+  renderLastColumn,
 }: {
   key?: number | string;
   className?: string;
@@ -1108,26 +1115,35 @@ function drawEmptyRow({
   domain: [number, number];
   ssrPolyfills?: SSRPolyfills;
   lastColumnContent?: ReactElement;
-  colSpan: number;
+  renderLabel: boolean;
+  labelColSpan: number;
+  renderGraph: boolean;
+  renderLastColumn: boolean;
 }) {
   return (
     <tr key={key} style={style} className={className}>
-      <td colSpan={colSpan}>
-        <div style={{ marginTop: "var(--space-3)" }}>{label}</div>
-      </td>
-      <td className="graph-cell">
-        <AlignedGraph
-          id={`${id}_axis`}
-          domain={domain}
-          significant={true}
-          showAxis={false}
-          axisOnly={true}
-          graphWidth={graphCellWidth}
-          height={rowHeight}
-          ssrPolyfills={ssrPolyfills}
-        />
-      </td>
-      <td>{lastColumnContent}</td>
+      {renderLabel && (
+        <td colSpan={labelColSpan}>
+          <div style={{ marginTop: "var(--space-3)" }}>{label}</div>
+        </td>
+      )}
+
+      {renderGraph && (
+        <td className="graph-cell">
+          <AlignedGraph
+            id={`${id}_axis`}
+            domain={domain}
+            significant={true}
+            showAxis={false}
+            axisOnly={true}
+            graphWidth={graphCellWidth}
+            height={rowHeight}
+            ssrPolyfills={ssrPolyfills}
+          />
+        </td>
+      )}
+
+      {renderLastColumn && <td>{lastColumnContent}</td>}
     </tr>
   );
 }

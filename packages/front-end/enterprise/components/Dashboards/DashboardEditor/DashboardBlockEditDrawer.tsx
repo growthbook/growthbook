@@ -452,6 +452,7 @@ export default function DashboardBlockEditDrawer({
             )}
             {blockHasFieldOfType(block, "columnsFilter", isStringArray) && (
               <MultiSelectField
+                sort={false}
                 label="Display Columns"
                 labelClassName="font-weight-bold"
                 placeholder="Showing all columns"
