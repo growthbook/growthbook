@@ -29,13 +29,15 @@ class MidExperimentPowerConfig:
 
 
 @dataclass
-class AdditionalSampleSizeNeededResult:
+class MidExperimentPowerResult:
     additional_users: Optional[float]
     scaling_factor: Optional[float]
     upper_bound_achieved: bool
     update_message: str
     error: Optional[str] = None
     target_power: float = 0.8
+    mde: Optional[float] = None
+    mde_error: Optional[str] = None
 
 
 @dataclass
@@ -90,9 +92,9 @@ class MidExperimentPower:
 
     def _default_output(
         self, error_message: Optional[str] = None, update_message: Optional[str] = None
-    ) -> AdditionalSampleSizeNeededResult:
+    ) -> MidExperimentPowerResult:
         """Return uninformative output when midexperiment power can't be performed."""
-        return AdditionalSampleSizeNeededResult(
+        return MidExperimentPowerResult(
             error=error_message,
             update_message=update_message if update_message else "error in input",
             additional_users=0,
@@ -101,7 +103,7 @@ class MidExperimentPower:
             target_power=self.target_power,
         )
 
-    def calculate_sample_size(self) -> AdditionalSampleSizeNeededResult:
+    def compute_result(self) -> MidExperimentPowerResult:
         if self.test_result.error_message:
             return self._default_output(self.test_result.error_message, "unsuccessful")
         if self._control_mean_zero():
@@ -109,6 +111,14 @@ class MidExperimentPower:
         if self._has_zero_variance():
             return self._default_output(ZERO_NEGATIVE_VARIANCE_MESSAGE, "unsuccessful")
 
+        # Compute MDE
+        mde_result = self.calculate_mde()
+        if mde_result.mde:
+            self.mde = mde_result.mde
+        else:
+            self.mde = None
+
+        # Compute power and days remaining
         scaling_factor_result = self.calculate_scaling_factor()
         if scaling_factor_result.scaling_factor:
             self.additional_users = (
@@ -117,38 +127,39 @@ class MidExperimentPower:
         else:
             self.additional_users = None
 
+        temp_result = {
+            "additional_users": self.additional_users,
+            "scaling_factor": scaling_factor_result.scaling_factor,
+            "upper_bound_achieved": scaling_factor_result.upper_bound_achieved,
+            "target_power": self.target_power,
+            "mde": mde_result.mde,
+            "mde_error": mde_result.error,
+        }
+
         if (
             scaling_factor_result.upper_bound_achieved
             and scaling_factor_result.scaling_factor is not None
         ):
-            return AdditionalSampleSizeNeededResult(
+            return MidExperimentPowerResult(
+                **temp_result,
                 error=None,
                 update_message="successful, upper bound hit",
-                additional_users=self.additional_users,
-                scaling_factor=scaling_factor_result.scaling_factor,
-                upper_bound_achieved=True,
-                target_power=self.target_power,
             )
         if (
             scaling_factor_result.converged
             and scaling_factor_result.scaling_factor is not None
         ):
-            return AdditionalSampleSizeNeededResult(
+            return MidExperimentPowerResult(
+                **temp_result,
                 error=None,
                 update_message="successful",
-                additional_users=self.additional_users,
-                scaling_factor=scaling_factor_result.scaling_factor,
-                upper_bound_achieved=False,
-                target_power=self.target_power,
             )
 
-        return AdditionalSampleSizeNeededResult(
+        return MidExperimentPowerResult(
+            **temp_result,
             error=scaling_factor_result.error,
             update_message="unsuccessful",
-            additional_users=None,
             scaling_factor=None,
-            upper_bound_achieved=True,
-            target_power=self.target_power,
         )
 
     # case where scaling factor of 0 (i.e., no additional users) is sufficient
@@ -329,18 +340,7 @@ class MidExperimentPower:
             if abs(diff) < tolerance:
                 break
         converged = iteration < self.max_iters - 1
-        error = "" if converged else "bisection search did not converge"
-        if error:
-            raise ValueError(
-                [
-                    current_power,
-                    self.adjusted_power,
-                    diff,
-                    mde,
-                    mde_lower,
-                    mde_upper,
-                ]
-            )
+        error = None if converged else "bisection search did not converge"
         return MDEResult(
             converged=converged,
             error=error,

@@ -47,7 +47,7 @@ class BaselineResponse:
 
 @dataclass
 class MDEResponse:
-    mde: float
+    mde: Optional[float]
     errorMessage: Optional[str]
 
 
