@@ -153,3 +153,22 @@ class TestMidExperimentPower(TestCase):
             self.assertAlmostEqual(self.mde_bayes, mde_true, places=4)
         else:
             raise ValueError("mde_bayes is None")
+
+    # Current MDE at target power of 0.8 should result in computed power of 0.8
+    # Not exact due to numerical solution
+    def test_power_at_mde_equals_target_power(self):
+        self.assertAlmostEqual(
+            self.m_freq.power(0, self.m_freq.calculate_mde().mde),
+            0.8,
+            places=4,
+        )
+        self.assertAlmostEqual(
+            self.m_seq.power(0, self.m_seq.calculate_mde().mde),
+            0.8,
+            places=4,
+        )
+        self.assertAlmostEqual(
+            self.m_bayes.power(0, self.m_bayes.calculate_mde().mde),
+            0.8,
+            places=4,
+        )

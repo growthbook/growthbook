@@ -330,7 +330,6 @@ def analyze_metric_df(
             df[f"v{i}_power_upper_bound_acheieved"] = None
             df[f"v{i}_scaling_factor"] = None
             df[f"v{i}_mde"] = None
-            df[f"v{i}_mde_converged"] = None
             df[f"v{i}_mde_error_message"] = None
 
     def analyze_row(s: pd.Series) -> pd.Series:
