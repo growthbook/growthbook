@@ -39,6 +39,7 @@ export default function EditExperimentInfoModal({
       owner: experiment.owner || "",
       tags: experiment.tags,
       project: experiment.project || "",
+      holdout: experiment.holdout,
     },
   });
 

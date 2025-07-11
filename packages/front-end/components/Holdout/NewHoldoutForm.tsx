@@ -59,6 +59,8 @@ import ExperimentMetricsSelector from "../Experiment/ExperimentMetricsSelector";
 import MetricSelector from "../Experiment/MetricSelector";
 import { MetricsSelectorTooltip } from "../Experiment/MetricsSelector";
 import StatsEngineSelect from "../Settings/forms/StatsEngineSelect";
+import EnvironmentSelect from "../Features/FeatureModal/EnvironmentSelect";
+import { FeatureEnvironment } from "back-end/types/feature";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -128,6 +130,29 @@ export function getNewExperimentDatasourceDefaults(
       )?.id || "",
   };
 }
+
+export const genEnvironmentSettings = ({
+  environments,
+  permissions,
+  project,
+}: {
+  environments: ReturnType<typeof useEnvironments>;
+  permissions: ReturnType<typeof usePermissionsUtil>;
+  project: string;
+}): Record<string, FeatureEnvironment> => {
+  const envSettings: Record<string, FeatureEnvironment> = {};
+
+  environments.forEach((e) => {
+    const canPublish = permissions.canPublishFeature({ project }, [e.id]);
+    const defaultEnabled = canPublish ? e.defaultState ?? true : false;
+    const enabled = canPublish ? defaultEnabled : false;
+    const rules = [];
+
+    envSettings[e.id] = { enabled, rules };
+  });
+
+  return envSettings;
+};
 
 const NewHoldoutForm: FC<NewExperimentFormProps> = ({
   initialStep = 0,
@@ -375,6 +400,12 @@ const NewHoldoutForm: FC<NewExperimentFormProps> = ({
     setValueAs: (s) => s?.trim(),
   });
 
+  const environmentSettings = genEnvironmentSettings({
+    environments,
+    permissions: permissionsUtils,
+    project,
+  });
+
   return (
     <FormProvider {...form}>
       <PagedModal
@@ -463,6 +494,14 @@ const NewHoldoutForm: FC<NewExperimentFormProps> = ({
                 onChange={(tags) => form.setValue("tags", tags)}
               />
             </div>
+            <EnvironmentSelect
+              environmentSettings={environmentSettings}
+              environments={environments}
+              setValue={(env, on) => {
+                environmentSettings[env.id].enabled = on;
+                form.setValue("environmentSettings", environmentSettings);
+              }}
+            />
             {hasCommercialFeature("custom-metadata") && !!customFields?.length && (
               <CustomFieldInput
                 customFields={customFields}

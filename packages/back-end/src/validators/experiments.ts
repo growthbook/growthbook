@@ -323,7 +323,6 @@ export const experimentInterface = z
     holdout: z
       .object({
         id: z.string(),
-        value: z.string(),
       })
       .optional(),
   })
