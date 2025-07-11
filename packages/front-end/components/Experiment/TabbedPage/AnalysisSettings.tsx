@@ -279,23 +279,26 @@ export default function AnalysisSettings({
               )}
             </div>
           </div>
-
-          <div className="col-4">
-            <div className="h5">Guardrail Metrics</div>
-            <div>
-              {guardrails.length ? (
-                <ul className="list-unstyled mb-0">
-                  {guardrails.map((metric, i) => (
-                    <li key={`guardrail-${i}`}>
-                      <Link href={getMetricLink(metric.id)}>{metric.name}</Link>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <em>none</em>
-              )}
+          {experiment.type !== "holdout" && (
+            <div className="col-4">
+              <div className="h5">Guardrail Metrics</div>
+              <div>
+                {guardrails.length ? (
+                  <ul className="list-unstyled mb-0">
+                    {guardrails.map((metric, i) => (
+                      <li key={`guardrail-${i}`}>
+                        <Link href={getMetricLink(metric.id)}>
+                          {metric.name}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <em>none</em>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
         {!isBandit && hasDecisionFramework && (
           <div className="row mt-4">

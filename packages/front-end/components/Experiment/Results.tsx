@@ -10,6 +10,7 @@ import {
 import { ExperimentMetricInterface } from "shared/experiments";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { MetricSnapshotSettings } from "back-end/types/report";
+import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
@@ -58,6 +59,7 @@ const Results: FC<{
   setMetricFilter?: (metricFilter: ResultsMetricFilters) => void;
   isTabActive?: boolean;
   setTab?: (tab: ExperimentTab) => void;
+  holdout?: HoldoutInterface;
 }> = ({
   experiment,
   envs,
@@ -83,6 +85,7 @@ const Results: FC<{
   setMetricFilter,
   isTabActive = true,
   setTab,
+  holdout,
 }) => {
   const { apiCall } = useAuth();
 
@@ -209,6 +212,7 @@ const Results: FC<{
           setBaselineRow={(b: number) => setBaselineRow?.(b)}
           differenceType={differenceType}
           setDifferenceType={setDifferenceType}
+          holdout={holdout}
         />
       ) : (
         <StatusBanner
