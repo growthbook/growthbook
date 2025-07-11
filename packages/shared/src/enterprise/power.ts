@@ -138,11 +138,11 @@ export function calculateMidExperimentPowerSingle(
     );
   }
   const response = params.variation;
-  if (response?.scalingFactorErrorMessage) {
+  if (response?.errorMessage) {
     return calculateMidExperimentPowerSingleError(
       metricId,
       variation,
-      response.scalingFactorErrorMessage
+      response.errorMessage
     );
   }
   if (response.firstPeriodPairwiseSampleSize === undefined) {
@@ -374,7 +374,7 @@ export function calculateMidExperimentPower(
           variation: variation,
           power: undefined,
           effectSize: variationMetricData.targetMDE,
-          errorMessage: variationMetricData.scalingFactorErrorMessage,
+          errorMessage: variationMetricData.errorMessage,
         });
       } else {
         const powerParams: MidExperimentPowerParamsSingle = {

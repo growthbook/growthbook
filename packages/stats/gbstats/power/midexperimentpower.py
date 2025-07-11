@@ -3,7 +3,7 @@ from dataclasses import field
 import numpy as np
 from pydantic.dataclasses import dataclass
 from scipy.stats import norm
-import copy
+
 from gbstats.models.tests import TestResult, frequentist_variance_all_cases
 from gbstats.frequentist.tests import (
     sequential_interval_halfwidth,
@@ -200,7 +200,7 @@ class MidExperimentPower:
             num_2 = (
                 adjusted_variance * self.prior_effect.mean / self.prior_effect.variance
             )
-            num_3 = copy.deepcopy(mde)
+            num_3 = mde
             den = adjusted_variance**0.5
             part_pos = 1 - norm.cdf((num_1 - num_2 - num_3) / den)
             part_neg = norm.cdf(-(num_1 + num_2 + num_3) / den)

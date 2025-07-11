@@ -326,7 +326,7 @@ def analyze_metric_df(
             df[f"v{i}_prior_lift_mean"] = None
             df[f"v{i}_prior_lift_variance"] = None
             df[f"v{i}_power_status"] = None
-            df[f"v{i}_scaling_factor_error_message"] = None
+            df[f"v{i}_power_error_message"] = None
             df[f"v{i}_power_upper_bound_acheieved"] = None
             df[f"v{i}_scaling_factor"] = None
             df[f"v{i}_mde"] = None
@@ -376,32 +376,31 @@ def analyze_metric_df(
                     test.stat_a, test.stat_b, res, config, power_config
                 )
 
-                s[
-                    f"v{i}_first_period_pairwise_users"
-                ] = mid_experiment_power.pairwise_sample_size
+                s[f"v{i}_first_period_pairwise_users"] = (
+                    mid_experiment_power.pairwise_sample_size
+                )
                 s[f"v{i}_target_mde"] = metric.target_mde
                 s[f"v{i}_sigmahat_2_delta"] = mid_experiment_power.sigmahat_2_delta
                 if mid_experiment_power.prior_effect:
                     s[f"v{i}_prior_proper"] = mid_experiment_power.prior_effect.proper
                     s[f"v{i}_prior_lift_mean"] = mid_experiment_power.prior_effect.mean
-                    s[
-                        f"v{i}_prior_lift_variance"
-                    ] = mid_experiment_power.prior_effect.variance
+                    s[f"v{i}_prior_lift_variance"] = (
+                        mid_experiment_power.prior_effect.variance
+                    )
                 mid_experiment_power_result = (
                     mid_experiment_power.calculate_sample_size()
                 )
                 s[f"v{i}_power_status"] = mid_experiment_power_result.update_message
-                s[
-                    f"v{i}_scaling_factor_error_message"
-                ] = mid_experiment_power_result.error
-                s[
-                    f"v{i}_power_upper_bound_achieved"
-                ] = mid_experiment_power_result.upper_bound_achieved
+                s[f"v{i}_power_error_message"] = mid_experiment_power_result.error
+                s[f"v{i}_power_upper_bound_achieved"] = (
+                    mid_experiment_power_result.upper_bound_achieved
+                )
                 s[f"v{i}_scaling_factor"] = mid_experiment_power_result.scaling_factor
                 mde_result = mid_experiment_power.calculate_mde()
-                s[f"v{i}_mde"] = mde_result.mde
-                s[f"v{i}_mde_converged"] = mde_result.converged
-                s[f"v{i}_mde_error_message"] = mde_result.error
+                s[f"v{i}_mde"] = {
+                    "mde": mde_result.mde,
+                    "errorMessage": mde_result.error,
+                }
 
             s["baseline_cr"] = test.stat_a.unadjusted_mean
             s["baseline_mean"] = test.stat_a.unadjusted_mean
@@ -501,7 +500,7 @@ def format_variation_result(
         if row[f"{prefix}_decision_making_conditions"]:
             power_response = PowerResponse(
                 status=row[f"{prefix}_power_status"],
-                scalingFactorErrorMessage=row[f"{prefix}_scaling_factor_error_message"],
+                errorMessage=row[f"{prefix}_power_error_message"],
                 firstPeriodPairwiseSampleSize=row[
                     f"{prefix}_first_period_pairwise_users"
                 ],
@@ -513,8 +512,6 @@ def format_variation_result(
                 upperBoundAchieved=row[f"{prefix}_power_upper_bound_achieved"],
                 scalingFactor=row[f"{prefix}_scaling_factor"],
                 mde=row[f"{prefix}_mde"],
-                mdeConverged=row[f"{prefix}_mde_converged"],
-                mdeErrorMessage=row[f"{prefix}_mde_error_message"],
             )
         else:
             power_response = None

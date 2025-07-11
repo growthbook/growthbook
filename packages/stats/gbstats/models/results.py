@@ -46,9 +46,15 @@ class BaselineResponse:
 
 
 @dataclass
+class MDEResponse:
+    mde: float
+    errorMessage: Optional[str]
+
+
+@dataclass
 class PowerResponse:
     status: str
-    scalingFactorErrorMessage: Optional[str]
+    errorMessage: Optional[str]
     firstPeriodPairwiseSampleSize: Optional[float]
     targetMDE: float
     sigmahat2Delta: Optional[float]
@@ -57,9 +63,7 @@ class PowerResponse:
     priorLiftVariance: Optional[float]
     upperBoundAchieved: Optional[bool]
     scalingFactor: Optional[float]
-    mde: Optional[float]
-    mdeConverged: Optional[bool]
-    mdeErrorMessage: Optional[str]
+    mde: Optional[MDEResponse]
 
 
 ResponseCI = Tuple[Optional[float], Optional[float]]
