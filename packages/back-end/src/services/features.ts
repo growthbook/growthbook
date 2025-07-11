@@ -1238,20 +1238,32 @@ export function getApiFeatureObj({
   environments.forEach((env) => {
     const envSettings = feature.environmentSettings?.[env];
     const enabled = !!envSettings?.enabled;
-    const rules = (envSettings?.rules || []).map((rule) => ({
-      ...rule,
-      coverage:
-        rule.type === "rollout" || rule.type === "experiment"
-          ? rule.coverage ?? 1
-          : 1,
-      condition: rule.condition || "",
-      savedGroupTargeting: (rule.savedGroups || []).map((s) => ({
-        matchType: s.match,
-        savedGroups: s.ids,
-      })),
-      prerequisites: rule.prerequisites || [],
-      enabled: !!rule.enabled,
-    }));
+    const rules = (envSettings?.rules || []).map((rule) => {
+      let condition = rule.condition || "";
+      // TODO: Is .condition the right one for all other rule types?
+      if (rule.type === "experiment-ref") {
+        const experiment = experimentMap.get(rule.experimentId);
+        if (experiment) {
+          condition = experiment.phases[experiment.phases.length - 1].condition;
+        }
+      }
+
+      return {
+        ...rule,
+        coverage:
+          rule.type === "rollout" || rule.type === "experiment"
+            ? rule.coverage ?? 1
+            : 1,
+        condition,
+        savedGroupTargeting: (rule.savedGroups || []).map((s) => ({
+          matchType: s.match,
+          savedGroups: s.ids,
+        })),
+        prerequisites: rule.prerequisites || [],
+        enabled: !!rule.enabled,
+      };
+    });
+
     const definition = getFeatureDefinition({
       feature,
       groupMap,
@@ -1573,6 +1585,7 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
           variationId: v.variationId,
           value: validateFeatureValue(feature, v.value),
         })),
+        condition: r.condition,
         ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
       };
       return experimentRefRule;
@@ -1592,6 +1605,7 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
         enabled: r.enabled != null ? r.enabled : true,
         description: r.description ?? "",
         values: values,
+        condition: r.condition,
         ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
       };
       return experimentRule;
