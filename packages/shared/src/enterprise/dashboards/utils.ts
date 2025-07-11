@@ -15,6 +15,7 @@ import {
   ExperimentSnapshotSettings,
 } from "back-end/types/experiment-snapshot";
 import { DashboardTemplateInterface } from "back-end/src/enterprise/validators/dashboard-template";
+import { isNumber, isString } from "back-end/src/util/types";
 
 export function getBlockData<T extends DashboardBlockInterface>(
   block: DashboardBlockInterfaceOrData<T>
@@ -54,37 +55,38 @@ export function blockHasFieldOfType<Field extends string, T>(
 export function getBlockSnapshotSettings(
   block: DashboardBlockInterfaceOrData<DashboardBlockInterface>
 ): Partial<ExperimentSnapshotSettings> {
-  switch (block.type) {
-    case "dimension":
-      return {
-        dimensions: block.dimensionId ? [{ id: block.dimensionId }] : [],
-      };
-    default:
-      return {};
+  const blockSettings: Partial<ExperimentSnapshotSettings> = {};
+  if (
+    blockHasFieldOfType(block, "dimensionId", isString) &&
+    block.dimensionId.length > 0
+  ) {
+    blockSettings.dimensions = [{ id: block.dimensionId }];
   }
+  return blockSettings;
 }
 
 export function getBlockAnalysisSettings(
   block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
   defaultAnalysisSettings: ExperimentSnapshotAnalysisSettings
 ): ExperimentSnapshotAnalysisSettings {
-  switch (block.type) {
-    case "dimension":
-      return {
-        ...defaultAnalysisSettings,
-        dimensions: block.dimensionId ? [block.dimensionId] : [],
-        differenceType: block.differenceType,
-        baselineVariationIndex: block.baselineRow,
-      };
-    case "metric":
-      return {
-        ...defaultAnalysisSettings,
-        differenceType: block.differenceType,
-        baselineVariationIndex: block.baselineRow,
-      };
-    default:
-      return { ...defaultAnalysisSettings };
+  const blockSettings: Partial<ExperimentSnapshotAnalysisSettings> = {};
+  if (
+    blockHasFieldOfType(block, "dimensionId", isString) &&
+    block.dimensionId.length > 0
+  ) {
+    blockSettings.dimensions = [block.dimensionId];
   }
+  if (blockHasFieldOfType(block, "differenceType", isDifferenceType)) {
+    blockSettings.differenceType = block.differenceType;
+  }
+  if (blockHasFieldOfType(block, "baselineRow", isNumber)) {
+    blockSettings.baselineVariationIndex = block.baselineRow;
+  }
+
+  return {
+    ...defaultAnalysisSettings,
+    ...blockSettings,
+  };
 }
 
 export function dashboardCanAutoUpdate({
@@ -144,6 +146,7 @@ export const CREATE_BLOCK_TYPE: {
     experimentId: experiment.id,
     metricIds: experiment.goalMetrics,
     snapshotId: experiment.analysisSummary?.snapshotId || "",
+    variationIds: [],
     differenceType: "relative",
     baselineRow: 0,
     columnsFilter: [],
@@ -158,6 +161,7 @@ export const CREATE_BLOCK_TYPE: {
     dimensionId: "",
     dimensionValues: [],
     snapshotId: experiment.analysisSummary?.snapshotId || "",
+    variationIds: [],
     differenceType: "relative",
     baselineRow: 0,
     columnsFilter: [],
@@ -170,7 +174,7 @@ export const CREATE_BLOCK_TYPE: {
     experimentId: experiment.id,
     metricId: experiment.goalMetrics[0] || "",
     snapshotId: experiment.analysisSummary?.snapshotId || "",
-    variationIds: experiment.variations.map((variation) => variation.id),
+    variationIds: [],
     ...(initialValues || {}),
   }),
   "traffic-graph": ({ initialValues, experiment }) => ({
@@ -191,7 +195,8 @@ export const CREATE_BLOCK_TYPE: {
     type: "sql-explorer",
     title: "",
     description: "",
-    dataVizConfigIndex: 0,
+    savedQueryId: "",
+    dataVizConfigIndex: -1,
     ...(initialValues || {}),
   }),
 };

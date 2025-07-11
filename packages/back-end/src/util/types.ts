@@ -71,3 +71,11 @@ export type DistributiveOmit<T, K extends PropertyKey> = T extends any
 export function isStringArray(data: unknown): data is Array<string> {
   return Array.isArray(data) && !data.find((el) => typeof el !== "string");
 }
+
+export function isString(data: unknown): data is string {
+  return typeof data === "string";
+}
+
+export function isNumber(data: unknown): data is number {
+  return typeof data === "number";
+}

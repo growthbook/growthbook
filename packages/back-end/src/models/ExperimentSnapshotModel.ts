@@ -14,6 +14,7 @@ import { updateExperimentAnalysisSummary } from "back-end/src/services/experimen
 import { updateExperimentTimeSeries } from "back-end/src/services/experimentTimeSeries";
 import { ReqContext } from "back-end/types/organization";
 import { ApiReqContext } from "back-end/types/api";
+import { isString } from "back-end/src/util/types";
 import { queriesSchema } from "./QueryModel";
 import { Context } from "./BaseModel";
 import { getExperimentById } from "./ExperimentModel";
@@ -301,11 +302,7 @@ export async function updateSnapshot({
       if (!dashboard.enableAutoUpdates || !dashboardCanAutoUpdate(dashboard))
         continue;
       const blocks = dashboard.blocks.map((block) =>
-        blockHasFieldOfType(
-          block,
-          "snapshotId",
-          (val: unknown) => typeof val === "string"
-        )
+        blockHasFieldOfType(block, "snapshotId", isString)
           ? { ...block, snapshotId: experimentSnapshotModel.id }
           : block
       );

@@ -12,7 +12,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { isDefined } from "shared/util";
 import { SavedQuery } from "back-end/src/validators/saved-queries";
 import { PiPencil, PiPlus } from "react-icons/pi";
-import { isStringArray } from "back-end/src/util/types";
+import { isNumber, isString, isStringArray } from "back-end/src/util/types";
 import { useSidebarOpen } from "@/components/Layout/SidebarOpenProvider";
 import Button from "@/components/Radix/Button";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
@@ -171,12 +171,45 @@ export default function DashboardBlockEditDrawer({
       value: id,
       label: name,
     })) || [];
-  const savedQuery =
-    block?.type === "sql-explorer"
-      ? savedQueriesData?.savedQueries?.find(
-          (q: SavedQuery) => q.id === block.savedQueryId
-        )
-      : undefined;
+  const savedQuery = blockHasFieldOfType(block, "savedQueryId", isString)
+    ? savedQueriesData?.savedQueries?.find(
+        (q: SavedQuery) => q.id === block.savedQueryId
+      )
+    : undefined;
+
+  const requireBaselineVariation = [
+    "metric",
+    "dimension",
+    "time-series",
+  ].includes(block?.type || "");
+  const baselineIndex = blockHasFieldOfType(block, "baselineRow", isNumber)
+    ? block.baselineRow
+    : 0;
+  const baselineVariation =
+    experiment.variations.find((_, i) => i === baselineIndex) ||
+    experiment.variations[0];
+  const variationOptions = (requireBaselineVariation
+    ? experiment.variations.filter((_, i) => i !== baselineIndex)
+    : experiment.variations
+  ).map((variation) => ({
+    label: variation.name,
+    value: variation.id,
+  }));
+  const setVariations = (
+    block: Extract<
+      DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+      { variationIds: string[] }
+    >,
+    value: string[]
+  ) => {
+    setBlock({
+      ...block,
+      variationIds:
+        requireBaselineVariation && value.length > 0
+          ? [...value, baselineVariation.id]
+          : value,
+    });
+  };
 
   return (
     <div
@@ -266,11 +299,7 @@ export default function DashboardBlockEditDrawer({
               maxRows={1}
             />
 
-            {blockHasFieldOfType(
-              block,
-              "dimensionId",
-              (val: unknown) => typeof val === "string"
-            ) && (
+            {blockHasFieldOfType(block, "dimensionId", isString) && (
               <SelectField
                 required
                 markRequired
@@ -284,11 +313,7 @@ export default function DashboardBlockEditDrawer({
                 options={dimensionOptions}
               />
             )}
-            {blockHasFieldOfType(
-              block,
-              "metricId",
-              (val: unknown) => typeof val === "string"
-            ) && (
+            {blockHasFieldOfType(block, "metricId", isString) && (
               <SelectField
                 label="Metric"
                 labelClassName="font-weight-bold"
@@ -312,12 +337,9 @@ export default function DashboardBlockEditDrawer({
                 options={metricOptions}
               />
             )}
-            {blockHasFieldOfType(
-              block,
-              "baselineRow",
-              (val: unknown) => typeof val === "number"
-            ) && (
+            {blockHasFieldOfType(block, "baselineRow", isNumber) && (
               <SelectField
+                sort={false}
                 label="Baseline Variation"
                 labelClassName="font-weight-bold"
                 containerStyle={{ flexBasis: "32%" }}
@@ -355,19 +377,16 @@ export default function DashboardBlockEditDrawer({
             )}
             {blockHasFieldOfType(block, "variationIds", isStringArray) && (
               <MultiSelectField
+                sort={false}
                 label="Variations"
                 labelClassName="font-weight-bold"
                 placeholder="Showing all variations"
                 value={block.variationIds}
                 containerStyle={{ flexBasis: "32%" }}
                 containerClassName="mb-0"
-                onChange={(value) =>
-                  setBlock({ ...block, variationIds: value })
-                }
-                options={experiment.variations.map((variation) => ({
-                  label: variation.name,
-                  value: variation.id,
-                }))}
+                onChange={(value) => setVariations(block, value)}
+                disabled={variationOptions.length < 2}
+                options={variationOptions}
                 formatOptionLabel={({ value, label }) => {
                   const varIndex = experiment.variations.findIndex(
                     ({ id }) => id === value
@@ -490,7 +509,7 @@ export default function DashboardBlockEditDrawer({
                     labelClassName="flex-grow-1"
                     containerClassName="mb-0"
                     containerStyle={{ flexBasis: "32%" }}
-                    value={block.savedQueryId || ""}
+                    value={block.savedQueryId}
                     placeholder="Choose a saved query"
                     options={savedQueryOptions}
                     onChange={(val) =>

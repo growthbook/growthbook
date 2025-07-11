@@ -59,8 +59,8 @@ const metricBlockInterface = baseBlockInterface
     type: z.literal("metric"),
     experimentId: z.string(),
     metricIds: z.array(z.string()),
-    variationIds: z.array(z.string()).optional(),
-    baselineRow: z.number().optional(),
+    variationIds: z.array(z.string()),
+    baselineRow: z.number(),
     differenceType: z.enum(["absolute", "relative", "scaled"]),
     columnsFilter: z.array(
       z.enum([
@@ -85,7 +85,7 @@ const dimensionBlockInterface = baseBlockInterface
     dimensionId: z.string(),
     dimensionValues: z.array(z.string()),
     metricIds: z.array(z.string()),
-    variationIds: z.array(z.string()).optional(),
+    variationIds: z.array(z.string()),
     baselineRow: z.number(),
     differenceType: z.enum(["absolute", "relative", "scaled"]),
     columnsFilter: z.array(
@@ -141,7 +141,7 @@ export type TrafficGraphBlockInterface = z.infer<
 const sqlExplorerBlockInterface = baseBlockInterface
   .extend({
     type: z.literal("sql-explorer"),
-    savedQueryId: z.string().optional(),
+    savedQueryId: z.string(),
     dataVizConfigIndex: z.number(),
   })
   .strict();

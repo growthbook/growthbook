@@ -1,5 +1,4 @@
 import { TimeSeriesBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
-import { isDefined } from "shared/util";
 import ExperimentMetricTimeSeriesGraphWrapper from "@/components/Experiment/ExperimentMetricTimeSeriesGraphWrapper";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -20,9 +19,6 @@ export default function TimeSeriesBlock({
   const orgSettings = useOrgSettings();
   const pValueCorrection = orgSettings?.pValueCorrection;
   const { getExperimentMetricById } = useDefinitions();
-  const showVariations = (experiment?.variations || []).map((v) =>
-    variationIds.includes(v.id)
-  );
 
   const metric = getExperimentMetricById(metricId);
 
@@ -53,13 +49,16 @@ export default function TimeSeriesBlock({
   const appliedPValueCorrection =
     resultGroup === "goal" ? pValueCorrection ?? null : null;
 
-  const variationNames =
-    variationIds
-      ?.map(
-        (id) =>
-          experiment.variations.find((variation) => variation.id === id)?.name
-      )
-      ?.filter(isDefined) || [];
+  const showVariations = experiment.variations.map(
+    (v) => variationIds.length === 0 || variationIds.includes(v.id)
+  );
+  const variationNames = experiment.variations
+    .filter(
+      (variation) =>
+        variationIds.length === 0 || variationIds.includes(variation.id)
+    )
+    .map(({ name }) => name);
+
   return (
     <div className="time-series-block">
       <ExperimentMetricTimeSeriesGraphWrapper

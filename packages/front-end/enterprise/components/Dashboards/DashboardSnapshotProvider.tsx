@@ -19,6 +19,7 @@ import {
 import { getSnapshotAnalysis, isDefined } from "shared/util";
 import { isEqual } from "lodash";
 import { DashboardInstanceInterface } from "back-end/src/enterprise/validators/dashboard-instance";
+import { isString } from "back-end/src/util/types";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
@@ -254,11 +255,7 @@ export function useDashboardSnapshot(
     )
       return;
     const getNewSnapshot = async () => {
-      const dimension = blockHasFieldOfType(
-        block,
-        "dimensionId",
-        (val: unknown) => typeof val === "string"
-      )
+      const dimension = blockHasFieldOfType(block, "dimensionId", isString)
         ? block.dimensionId
         : undefined;
       setFetchingSnapshot(true);

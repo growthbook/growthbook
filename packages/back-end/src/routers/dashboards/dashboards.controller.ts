@@ -5,6 +5,7 @@ import {
 } from "shared/enterprise";
 import { isDefined } from "shared/util";
 import { groupBy } from "lodash";
+import { isString } from "back-end/src/util/types";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -23,7 +24,6 @@ import { executeAndSaveQuery } from "back-end/src/routers/saved-queries/saved-qu
 import { findSnapshotsByIds } from "back-end/src/models/ExperimentSnapshotModel";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { createDashboardBody, updateDashboardBody } from "./dashboards.router";
-
 interface SingleDashboardResponse {
   status: number;
   dashboard: DashboardInstanceInterface;
@@ -197,22 +197,14 @@ export async function refreshDashboardData(
 
   // Copy the blocks of the dashboard to overwrite their snapshot IDs
   const newBlocks = dashboard.blocks.map((block) =>
-    blockHasFieldOfType(
-      block,
-      "snapshotId",
-      (val: unknown) => typeof val === "string"
-    )
+    blockHasFieldOfType(block, "snapshotId", isString)
       ? { ...block, snapshotId: mainSnapshot.id }
       : { ...block }
   );
 
   const dimensionBlockPairs = dashboard.blocks
     .map<[string, string] | undefined>((block) =>
-      blockHasFieldOfType(
-        block,
-        "dimensionId",
-        (val: unknown) => typeof val === "string"
-      )
+      blockHasFieldOfType(block, "dimensionId", isString)
         ? [block.dimensionId, block.uid]
         : undefined
     )
