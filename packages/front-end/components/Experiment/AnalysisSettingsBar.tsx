@@ -258,7 +258,8 @@ export default function AnalysisSettingsBar({
                   <div className="text-muted">
                     {date(
                       holdout?.analysisStartDate ??
-                        date(holdout?.holdoutStartDate ?? "")
+                        experiment.phases?.[0]?.dateStarted ??
+                        ""
                     )}{" "}
                     — {date(holdout?.holdoutStopDate ?? "") || "now"}
                   </div>
