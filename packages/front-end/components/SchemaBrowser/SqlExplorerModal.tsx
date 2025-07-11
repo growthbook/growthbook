@@ -1,12 +1,13 @@
 import { useCallback, useState } from "react";
 import { useForm } from "react-hook-form";
+import { FaPlay, FaExclamationTriangle } from "react-icons/fa";
 import {
-  FaPlay,
-  FaExclamationTriangle,
-  FaCheck,
-  FaTimes,
-} from "react-icons/fa";
-import { PiCaretDoubleRight, PiPencilSimpleFill } from "react-icons/pi";
+  PiCaretDoubleRight,
+  PiCheck,
+  PiFileSql,
+  PiPencilSimpleFill,
+  PiX,
+} from "react-icons/pi";
 import {
   DataVizConfig,
   SavedQuery,
@@ -43,11 +44,7 @@ import { SqlExplorerDataVisualization } from "../DataViz/SqlExplorerDataVisualiz
 import Modal from "../Modal";
 import SelectField from "../Forms/SelectField";
 import Tooltip from "../Tooltip/Tooltip";
-import {
-  DropdownMenu,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from "../Radix/DropdownMenu";
+import { DropdownMenu, DropdownMenuItem } from "../Radix/DropdownMenu";
 import SchemaBrowser from "./SchemaBrowser";
 import styles from "./EditSqlModal.module.scss";
 
@@ -384,7 +381,6 @@ export default function SqlExplorerModal({
                       <Flex align="center" gap="2">
                         <input
                           type="text"
-                          className="form-control"
                           value={tempName}
                           placeholder="Enter a name..."
                           onChange={(e) => setTempName(e.target.value)}
@@ -399,32 +395,37 @@ export default function SqlExplorerModal({
                               setIsEditingName(false);
                             }
                           }}
+                          style={{
+                            border: "none",
+                            outline: "none",
+                          }}
                         />
                         <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setTempName(form.watch("name"));
-                            setIsEditingName(false);
-                          }}
-                        >
-                          <FaTimes color="var(--gray-11)" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
+                          variant="outline"
+                          size="xs"
                           onClick={() => {
                             setDirty(true);
                             form.setValue("name", tempName);
                             setIsEditingName(false);
                           }}
                         >
-                          <FaCheck color="var(--accent-11)" />
+                          <PiCheck />
+                        </Button>
+                        <Button
+                          color="red"
+                          variant="outline"
+                          size="xs"
+                          onClick={() => {
+                            setTempName(form.watch("name"));
+                            setIsEditingName(false);
+                          }}
+                        >
+                          <PiX />
                         </Button>
                       </Flex>
                     ) : (
                       <>
-                        <strong>SQL :</strong>{" "}
+                        <PiFileSql size={20} />
                         {form.watch("name") || "Untitled Query..."}
                         {!readOnlyMode && tab === "sql" ? (
                           <Button
@@ -450,31 +451,39 @@ export default function SqlExplorerModal({
                       {!readOnlyMode && tab === `visualization-${index}` ? (
                         <DropdownMenu
                           trigger={
-                            <Button variant="ghost" size="sm">
+                            <Button size="sm" variant="ghost">
                               <BsThreeDotsVertical />
                             </Button>
                           }
                         >
-                          <DropdownMenuItem
-                            onClick={() => {
-                              setDirty(true);
-                              const newDataVizConfig = [
-                                ...dataVizConfig,
-                                {
-                                  ...config,
-                                  title: `${
-                                    config.title || `Visualization ${index + 1}`
-                                  } (Copy)`,
-                                },
-                              ];
-                              form.setValue("dataVizConfig", newDataVizConfig);
-                              setTab(`visualization-${dataVizConfig.length}`);
-                            }}
-                            disabled={dataVizConfig.length >= 5}
+                          <Tooltip
+                            body="You can only add up to 5 visualizations to a query."
+                            shouldDisplay={dataVizConfig.length >= 5}
                           >
-                            Duplicate
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setDirty(true);
+                                const newDataVizConfig = [
+                                  ...dataVizConfig,
+                                  {
+                                    ...config,
+                                    title: `${
+                                      config.title ||
+                                      `Visualization ${index + 1}`
+                                    } (Copy)`,
+                                  },
+                                ];
+                                form.setValue(
+                                  "dataVizConfig",
+                                  newDataVizConfig
+                                );
+                                setTab(`visualization-${dataVizConfig.length}`);
+                              }}
+                              disabled={dataVizConfig.length >= 5}
+                            >
+                              Duplicate
+                            </DropdownMenuItem>
+                          </Tooltip>
                           <DropdownMenuItem
                             color="red"
                             onClick={() => {
@@ -502,7 +511,7 @@ export default function SqlExplorerModal({
               {!readOnlyMode ? (
                 <Tooltip
                   shouldDisplay={dataVizConfig.length >= 5}
-                  body="You can only add up to 5 visualizations to a query from this modal."
+                  body="You can only add up to 5 visualizations to a query."
                 >
                   <Button
                     variant="ghost"
