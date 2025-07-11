@@ -45,6 +45,7 @@ export const setupApp = () => {
       authenticateApiRequestMiddleware.mockImplementation((req, res, next) => {
         req.audit = auditMock;
         req.context = reqContext;
+        req.organization = reqContext.org;
         next();
       });
 

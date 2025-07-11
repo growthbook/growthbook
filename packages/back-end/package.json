@@ -147,6 +147,7 @@
     "delay-cli": "^2.0.0",
     "fishery": "^2.2.2",
     "jest": "^27.1.1",
+    "jest-expect-message": "^1.1.3",
     "minimist": "^1.2.8",
     "mongodb-memory-server": "^9.2.0",
     "rimraf": "^3.0.2",

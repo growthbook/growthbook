@@ -773,18 +773,21 @@ export abstract class BaseModel<
 
     // Remove any explicitly defined indexes that are no longer needed
     const indexesToRemove = this.config.indexesToRemove;
-    if (indexesToRemove) {
-      const existingIndexes = this._dangerousGetCollection().listIndexes();
-      existingIndexes.forEach((index) => {
-        if (!indexesToRemove.includes(index.name)) return;
-
+    if (indexesToRemove?.length) {
+      indexesToRemove.forEach((index) => {
         this._dangerousGetCollection()
-          .dropIndex(index.name)
+          .dropIndex(index)
           .catch((err) => {
-            logger.error(
-              `Error dropping index ${index.name} for ${this.config.collectionName}`,
-              err
-            );
+            // In case the NS does not exist or the index does not exist, we can ignore the error
+            if (
+              err.codeName !== "NamespaceNotFound" &&
+              err.codeName !== "IndexNotFound"
+            ) {
+              logger.error(
+                `Error dropping index ${index} for ${this.config.collectionName}`,
+                err
+              );
+            }
           });
       });
     }
