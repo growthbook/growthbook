@@ -22,7 +22,7 @@ import {
 import { FaMagnifyingGlassChart } from "react-icons/fa6";
 import { RiBarChartFill } from "react-icons/ri";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -139,8 +139,9 @@ export default function AnalysisSettingsBar({
             <>
               <div className="col-auto form-inline pr-5">
                 {isHoldout ? (
-                  <div>
-                    <div className="d-flex align-items-center px-3 py-1">
+                  <Box>
+                    <div className="uppercase-title text-muted">Baseline</div>
+                    <div className="d-flex align-items-center py-1">
                       <div className="d-flex align-items-center flex-1 py-2">
                         <div
                           className={`variation variation1 with-variation-label d-flex align-items-center`}
@@ -154,7 +155,6 @@ export default function AnalysisSettingsBar({
                           <span
                             className="d-inline-block"
                             style={{
-                              width: 150,
                               lineHeight: "14px",
                             }}
                           >
@@ -162,8 +162,8 @@ export default function AnalysisSettingsBar({
                           </span>
                         </div>
                       </div>
-                    </div>{" "}
-                  </div>
+                    </div>
+                  </Box>
                 ) : (
                   <BaselineChooser
                     variations={experiment.variations}
@@ -191,9 +191,10 @@ export default function AnalysisSettingsBar({
                     dropdownEnabled={snapshot?.dimension !== "pre:date"}
                   />
                 ) : (
-                  <div className="col-auto form-inline pr-5">
-                    <div>
-                      <div className="d-flex align-items-center px-3 py-1">
+                  <Box>
+                    <div className="uppercase-title text-muted">Variation</div>
+                    <div className="col-auto form-inline pr-5">
+                      <div className="d-flex align-items-center py-1">
                         <div className="d-flex align-items-center flex-1 py-2">
                           <div
                             className={`variation variation2 with-variation-label d-flex align-items-center`}
@@ -207,7 +208,6 @@ export default function AnalysisSettingsBar({
                             <span
                               className="d-inline-block"
                               style={{
-                                width: 150,
                                 lineHeight: "14px",
                               }}
                             >
@@ -215,9 +215,9 @@ export default function AnalysisSettingsBar({
                             </span>
                           </div>
                         </div>
-                      </div>{" "}
+                      </div>
                     </div>
-                  </div>
+                  </Box>
                 )}
               </div>
             </>
