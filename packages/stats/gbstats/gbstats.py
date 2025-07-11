@@ -511,7 +511,6 @@ def format_variation_result(
                     errorMessage=row[f"{prefix}_mde_error_message"],
                 ),
             )
-            print(power_response)
         else:
             power_response = None
 
