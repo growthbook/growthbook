@@ -41,6 +41,7 @@ from gbstats.frequentist.tests import (
     OneSidedTreatmentLesserTTest,
     SequentialOneSidedTreatmentLesserTTest,
     SequentialOneSidedTreatmentGreaterTTest,
+    # Uplift,
 )
 
 from gbstats.models.results import (
@@ -709,8 +710,6 @@ def process_analysis(
         analysis=analysis,
     )
     # if analysis.interaction_dimensions is not None:
-    #     from gbstats.frequentist.tests import Uplift
-
     #     keepers = []
     #     for s in analysis.var_names:
     #         #clean this up
@@ -720,6 +719,7 @@ def process_analysis(
 
     #     if analysis.stats_engine == "frequentist":
     #         # bonferroni correction
+    #         raise ValueError([analysis.var_names, keepers])
     #         num_tests = np.min(1, sum(keepers) - 1)
     #         from scipy.stats import norm
 
@@ -739,6 +739,7 @@ def process_analysis(
     #                 upper_updated = point + width_updated
     #                 result.at[0, col] = [lower_updated, upper_updated]
     #     else:
+    #         raise ValueError("Only frequentist stats engine supported for interaction analysis")
     #         ratio_indicator = metric.statistic_type in ["ratio", "ratio_ra"]
     #         num_outcomes = 4 if ratio_indicator else 2
     #         interaction_dimensions = analysis.interaction_dimensions
