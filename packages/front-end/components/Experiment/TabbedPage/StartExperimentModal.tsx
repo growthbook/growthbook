@@ -12,6 +12,7 @@ export interface Props {
   close: () => void;
   startExperiment: () => Promise<void>;
   checklistItemsRemaining: number;
+  isHoldout?: boolean;
 }
 
 export default function StartExperimentModal({
@@ -19,6 +20,7 @@ export default function StartExperimentModal({
   close,
   startExperiment,
   checklistItemsRemaining,
+  isHoldout,
 }: Props) {
   const checklistIncomplete = checklistItemsRemaining > 0;
 
@@ -109,7 +111,8 @@ export default function StartExperimentModal({
         ) : (
           <div>
             Once started, linked changes will be activated and users will begin
-            to see your experiment variations <strong>immediately</strong>.
+            to see your {isHoldout ? "holdout" : "experiment variations"}{" "}
+            <strong>immediately</strong>.
           </div>
         )}
 

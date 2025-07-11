@@ -54,6 +54,26 @@ $$
 
 Our estimated variance of $\hat{\Delta}_{A}$ is $\hat{\sigma}^{2}_{\Delta_{A}} = V_{adj, C} + V_{adj, T}$.
 
+Formulae for variances of the statistics can be found in our sections on [proportion metrics](/statistics/details#proportion-metrics) and [mean metrics](/statistics/details#mean-metrics).
+When estimating the covariance between two binomial variables $X$ and $Y$, we use the following formula:
+
+$$
+\begin{align*}
+\sigma_{XY} &= E(XY) - E(X)E(Y)
+\\ &= P(X=1, Y=1) - P(X=1)P(Y=1)
+\\ &= P(X=1) * P(Y=1|X=1) - P(X=1)P(Y=1)
+\\ &= P(X=1) * (P(Y=1|X=1) - P(Y=1)).
+\end{align*}
+$$
+
+For mean metrics, we use the usual covariance formula:
+
+$$
+\begin{align*}
+\sigma_{XY} &= \frac{1}{N-1} \sum_{i=1}^{N} (X_i - \bar{X})(Y_i - \bar{Y}).
+\end{align*}
+$$
+
 ## Mean or Binomial Metric, Relative case
 
 For relative inference (i.e., estimating lift), the parameter of interest is
