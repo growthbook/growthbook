@@ -154,9 +154,9 @@ export const withRunExperiment = <P extends WithRunExperimentProps>(
   Component: React.ComponentType<P>
 ): React.ComponentType<Omit<P, keyof WithRunExperimentProps>> => {
   // eslint-disable-next-line
-  const withRunExperimentWrapper = (props: any): React.JSX.Element => (
+  const withRunExperimentWrapper = (props: any): JSX.Element => (
     <GrowthBookContext.Consumer>
-      {({ growthbook }): React.JSX.Element => {
+      {({ growthbook }): JSX.Element => {
         return (
           <Component
             {...(props as P)}
