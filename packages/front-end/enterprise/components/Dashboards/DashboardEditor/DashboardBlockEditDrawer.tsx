@@ -25,6 +25,7 @@ import SqlExplorerModal from "@/components/SchemaBrowser/SqlExplorerModal";
 import { RESULTS_TABLE_COLUMNS } from "@/components/Experiment/ResultsTable";
 import { getDimensionOptions } from "@/components/Dimensions/DimensionChooser";
 import Field from "@/components/Forms/Field";
+import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import { useDashboardSnapshot } from "../DashboardSnapshotProvider";
 import { BLOCK_TYPE_INFO } from ".";
 
@@ -62,6 +63,16 @@ const REQUIRED_FIELDS: {
       validation: (metId) => typeof metId === "string" && metId.length > 0,
     },
   ],
+  "sql-explorer": [
+    {
+      field: "savedQueryId",
+      validation: (sqId) => typeof sqId === "string" && sqId.length > 0,
+    },
+    {
+      field: "dataVizConfigIndex",
+      validation: (idx) => typeof idx === "number" && idx >= 0,
+    },
+  ],
 };
 
 interface Props {
@@ -84,8 +95,8 @@ export default function DashboardBlockEditDrawer({
 }: Props) {
   const { open: sidebarOpen } = useSidebarOpen();
   const {
-    metrics,
-    factMetrics,
+    getMetricById,
+    getFactMetricById,
     dimensions,
     getDatasourceById,
   } = useDefinitions();
@@ -104,22 +115,36 @@ export default function DashboardBlockEditDrawer({
   const [showSqlExplorerModal, setShowSqlExplorerModal] = useState(false);
 
   const metricOptions = useMemo(
-    () =>
-      metrics
-        .map((m) =>
-          m.datasource === experiment.datasource
-            ? { label: m.name, value: m.id }
-            : undefined
-        )
-        .concat(
-          factMetrics.map((m) =>
-            m.datasource === experiment.datasource
-              ? { label: m.name, value: m.id }
-              : undefined
-          )
-        )
-        .filter(isDefined),
-    [experiment, metrics, factMetrics]
+    () => [
+      {
+        label: "Goal Metrics",
+        options: experiment.goalMetrics
+          .map((mId) => {
+            const metric = getMetricById(mId) || getFactMetricById(mId);
+            return metric ? { label: metric.name, value: mId } : undefined;
+          })
+          .filter(isDefined),
+      },
+      {
+        label: "Secondary Metrics",
+        options: experiment.secondaryMetrics
+          .map((mId) => {
+            const metric = getMetricById(mId) || getFactMetricById(mId);
+            return metric ? { label: metric.name, value: mId } : undefined;
+          })
+          .filter(isDefined),
+      },
+      {
+        label: "Guardrail Metrics",
+        options: experiment.guardrailMetrics
+          .map((mId) => {
+            const metric = getMetricById(mId) || getFactMetricById(mId);
+            return metric ? { label: metric.name, value: mId } : undefined;
+          })
+          .filter(isDefined),
+      },
+    ],
+    [experiment, getMetricById, getFactMetricById]
   );
 
   const dimensionOptions = useMemo(() => {
@@ -163,10 +188,13 @@ export default function DashboardBlockEditDrawer({
       style={{
         display: "flex",
         transition: "all 0.5s cubic-bezier(0.685, 0.0473, 0.346, 1)",
+        boxShadow:
+          "0px 12px 32px -16px var(--slate-a3), 0px 8px 40px 0px var(--black-a1), 0px 0px 0px 1px var(--slate-a3)",
         position: "fixed",
         bottom: 0,
         right: 0,
-        maxHeight: open ? "250px" : "0px",
+        maxHeight: open ? "350px" : "0px",
+        minHeight: open ? "200px" : "0px",
         background: "white",
         zIndex: 9001,
       }}
@@ -400,6 +428,7 @@ export default function DashboardBlockEditDrawer({
                   { label: "Absolute", value: "absolute" },
                   { label: "Scaled", value: "scaled" },
                 ]}
+                sort={false}
               />
             )}
             {blockHasFieldOfType(block, "columnsFilter", isStringArray) && (
@@ -424,6 +453,16 @@ export default function DashboardBlockEditDrawer({
                 }))}
               />
             )}
+            {block.type === "markdown" && (
+              <div style={{ flexBasis: "100%" }}>
+                <label className="font-weight-bold">Content</label>
+                <MarkdownInput
+                  hidePreview
+                  value={block.content}
+                  setValue={(value) => setBlock({ ...block, content: value })}
+                />
+              </div>
+            )}
             {block.type === "sql-explorer" &&
               (!savedQueriesData?.savedQueries ? (
                 <Callout status="error">
@@ -432,9 +471,13 @@ export default function DashboardBlockEditDrawer({
               ) : (
                 <>
                   <SelectField
+                    required
                     label={
-                      <Flex gap="1" align="center">
-                        <Text weight="bold">Saved Query</Text>
+                      <Flex justify="between" align="center">
+                        <Text weight="bold">
+                          Saved Query
+                          <span className="text-danger ml-1">*</span>
+                        </Text>
                         <IconButton
                           onClick={() => setShowSqlExplorerModal(true)}
                           variant="soft"
@@ -444,6 +487,7 @@ export default function DashboardBlockEditDrawer({
                         </IconButton>
                       </Flex>
                     }
+                    labelClassName="flex-grow-1"
                     containerClassName="mb-0"
                     containerStyle={{ flexBasis: "32%" }}
                     value={block.savedQueryId || ""}
@@ -453,7 +497,7 @@ export default function DashboardBlockEditDrawer({
                       setBlock({
                         ...block,
                         savedQueryId: val,
-                        dataVizConfigIndex: 0,
+                        dataVizConfigIndex: -1,
                       })
                     }
                     isClearable
@@ -461,6 +505,8 @@ export default function DashboardBlockEditDrawer({
 
                   {savedQuery && (
                     <SelectField
+                      required
+                      markRequired
                       label="Data Visualization"
                       labelClassName="font-weight-bold"
                       containerStyle={{ flexBasis: "32%" }}

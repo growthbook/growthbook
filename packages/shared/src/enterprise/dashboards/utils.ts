@@ -117,14 +117,14 @@ export const CREATE_BLOCK_TYPE: {
   }),
   "metadata-description": ({ initialValues, experiment }) => ({
     type: "metadata-description",
-    title: "",
+    title: "Experiment Description",
     description: "",
     experimentId: experiment.id,
     ...(initialValues || {}),
   }),
   "metadata-hypothesis": ({ initialValues, experiment }) => ({
     type: "metadata-hypothesis",
-    title: "",
+    title: "Experiment Hypothesis",
     description: "",
     experimentId: experiment.id,
     ...(initialValues || {}),

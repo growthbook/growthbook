@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import {
   DashboardBlockInterfaceOrData,
@@ -15,6 +15,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/Radix/DropdownMenu";
+import { BLOCK_TYPE_INFO } from "..";
 import MarkdownBlock from "./MarkdownBlock";
 import DescriptionBlock from "./DescriptionBlock";
 import MetricBlock from "./MetricBlock";
@@ -89,6 +90,9 @@ export default function DashboardBlock({
       window.scrollTo(0, scrollRef.current.offsetTop + 250);
     }
   };
+  useEffect(() => {
+    if (editingBlock) scrollToBlock();
+  }, [editingBlock]);
 
   return (
     <Flex
@@ -140,7 +144,15 @@ export default function DashboardBlock({
         </DropdownMenu>
       )}
       <Flex align="center" justify="between">
-        <h4 style={{ margin: 0 }}>{block.title}</h4>
+        <h4 style={{ margin: 0 }}>
+          {BLOCK_TYPE_INFO[block.type].hideTitle
+            ? null
+            : block.title
+            ? block.title
+            : isEditing
+            ? BLOCK_TYPE_INFO[block.type].name
+            : ""}
+        </h4>
 
         {isEditing && (
           <div>
@@ -165,7 +177,6 @@ export default function DashboardBlock({
               >
                 <DropdownMenuItem
                   onClick={() => {
-                    scrollToBlock();
                     editBlock();
                     setEditOpen(false);
                   }}

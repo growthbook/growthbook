@@ -23,10 +23,10 @@ import DashboardUpdateDisplay from "./DashboardUpdateDisplay";
 
 export const BLOCK_TYPE_INFO: Record<
   DashboardBlockType,
-  { name: string; initializeEditing?: boolean }
+  { name: string; initializeEditing?: boolean; hideTitle?: boolean }
 > = {
   markdown: {
-    name: "Custom Markdown",
+    name: "Markdown",
     initializeEditing: true,
   },
   "metadata-description": {
@@ -51,7 +51,8 @@ export const BLOCK_TYPE_INFO: Record<
     initializeEditing: true,
   },
   "traffic-graph": {
-    name: "Traffic over Time",
+    name: "Traffic Time Series",
+    hideTitle: true,
   },
   "traffic-table": {
     name: "Traffic",
@@ -59,6 +60,7 @@ export const BLOCK_TYPE_INFO: Record<
   "sql-explorer": {
     name: "SQL Explorer",
     initializeEditing: true,
+    hideTitle: true,
   },
 };
 
@@ -171,7 +173,6 @@ export default function DashboardEditor({
 
   const addBlockType = (bType: DashboardBlockType, index?: number) => {
     index = index ?? blocks.length;
-    // scrollToBlockIndex.current = index;
     setBlocks([
       ...blocks.slice(0, index),
       CREATE_BLOCK_TYPE[bType]({
@@ -179,53 +180,58 @@ export default function DashboardEditor({
       }),
       ...blocks.slice(index),
     ]);
-    // TODO: try the ref option to get it on next render
-    if (BLOCK_TYPE_INFO[bType].initializeEditing) {
-      setEditingBlock(index);
-    }
+    setTimeout(() => {
+      if (BLOCK_TYPE_INFO[bType].initializeEditing) {
+        setEditingBlock(index);
+      } else {
+        scrollToBlockIndex.current = index;
+      }
+    }, 100);
   };
 
   if (blocks.length === 0) {
     return (
-      <Flex
-        direction="column"
-        align="center"
-        justify="center"
-        px="80px"
-        pt="60px"
-        pb="70px"
-        className="appbox"
-        gap="5"
-      >
-        <Flex direction="column">
-          <Heading weight="medium" align="center">
-            Build a Custom Dashboard
-          </Heading>
-          <Text align="center">
-            Choose a block type to get started. Rearrange blocks to tell a story
-            with experiment data.
-          </Text>
+      <div className="mt-3">
+        <Flex
+          direction="column"
+          align="center"
+          justify="center"
+          px="80px"
+          pt="60px"
+          pb="70px"
+          className="appbox"
+          gap="5"
+        >
+          <Flex direction="column">
+            <Heading weight="medium" align="center">
+              Build a Custom Dashboard
+            </Heading>
+            <Text align="center">
+              Choose a block type to get started. Rearrange blocks to tell a
+              story with experiment data.
+            </Text>
+          </Flex>
+          {canEdit && (
+            <AddBlockDropdown
+              addBlockType={addBlockType}
+              trigger={
+                <Button icon={<PiCaretDownFill />} iconPosition="right">
+                  Add block
+                </Button>
+              }
+              forceToEditing={forceToEditing}
+            />
+          )}
         </Flex>
-        {canEdit && (
-          <AddBlockDropdown
-            addBlockType={addBlockType}
-            trigger={
-              <Button icon={<PiCaretDownFill />} iconPosition="right">
-                Add block
-              </Button>
-            }
-            forceToEditing={forceToEditing}
-          />
-        )}
-      </Flex>
+      </div>
     );
   }
 
   return (
     <>
       <div className="mt-3">
-        <Flex align="center" justify="between">
-          <Flex align="center" mb="2" gap="1">
+        <Flex align="center" justify="between" mb="2">
+          <Flex align="center" gap="1">
             {isEditing && (
               <AddBlockDropdown
                 trigger={
@@ -250,7 +256,7 @@ export default function DashboardEditor({
             disabled={isDefined(editingBlock)}
           />
         </Flex>
-        <div className="">
+        <div>
           {blocks.map((block, i) => (
             <Flex
               direction="column"
@@ -285,6 +291,7 @@ export default function DashboardEditor({
                     getBlockData(block),
                     ...blocks.slice(i + 1),
                   ]);
+                  setEditingBlock(i + 1);
                 }}
                 deleteBlock={() => {
                   setBlocks([...blocks.slice(0, i), ...blocks.slice(i + 1)]);
@@ -300,7 +307,7 @@ export default function DashboardEditor({
                 mutate={mutate}
               />
               {isEditing && (
-                <Flex justify="center" mb="2">
+                <Flex justify="center" mb="1em">
                   <AddBlockDropdown
                     trigger={
                       <IconButton

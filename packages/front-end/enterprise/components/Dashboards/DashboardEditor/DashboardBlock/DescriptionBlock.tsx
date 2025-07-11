@@ -1,6 +1,6 @@
 import React from "react";
 import { DescriptionBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
-import { Blockquote, ScrollArea } from "@radix-ui/themes";
+import { ScrollArea } from "@radix-ui/themes";
 import Markdown from "react-markdown";
 import { Box } from "spectacle";
 import { useExperiments } from "@/hooks/useExperiments";
@@ -13,21 +13,22 @@ export default function DescriptionBlock({
   const experiment = experimentsMap.get(experimentId);
   if (!experiment) return null;
   return (
-    <Blockquote>
+    <>
       {experiment.description ? (
-        <ScrollArea
-          style={{
-            maxHeight: "491px",
-          }}
-        >
-          <Markdown>{experiment.description}</Markdown>
-        </ScrollArea>
+        <Box as="div" py="2">
+          <ScrollArea
+            style={{
+              maxHeight: "491px",
+            }}
+          >
+            <Markdown>{experiment.description}</Markdown>
+          </ScrollArea>
+        </Box>
       ) : (
         <Box as="div" className="font-italic text-muted" py="2">
-          Add a description to keep your team informed about the purpose and
-          parameters of your experiment
+          This experiment doesn&apos;t have a description yet.
         </Box>
       )}
-    </Blockquote>
+    </>
   );
 }

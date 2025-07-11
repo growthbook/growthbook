@@ -12,12 +12,12 @@ import BreakDownResults from "@/components/Experiment/BreakDownResults";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import Callout from "@/components/Radix/Callout";
 import { useDashboardSnapshot } from "../../DashboardSnapshotProvider";
+import { BLOCK_TYPE_INFO } from "..";
 import { BlockProps } from ".";
 
 export default function DimensionBlock({
   block,
   setBlock,
-  isEditing,
 }: BlockProps<DimensionBlockInterface>) {
   const {
     metricIds,
@@ -42,20 +42,16 @@ export default function DimensionBlock({
   const pValueCorrection = orgSettings?.pValueCorrection;
 
   if (loading) return <LoadingSpinner />;
-  if (!dimensionId)
-    return isEditing ? (
-      <Callout status="warning">Please select a dimension</Callout>
-    ) : null;
-  if (metricIds.length === 0) {
-    return isEditing ? (
-      <Callout status="warning">Please select at least one metric</Callout>
-    ) : null;
-  }
-  if (!snapshot) {
+  if (!dimensionId || metricIds.length === 0)
     return (
       <Callout status="info">
-        No data yet - please refresh the dashboard to populate results
+        This {BLOCK_TYPE_INFO[block.type].name} block requires additional
+        configuration to display results.
       </Callout>
+    );
+  if (!snapshot) {
+    return (
+      <Callout status="info">No data yet. Refresh to populate results.</Callout>
     );
   }
 

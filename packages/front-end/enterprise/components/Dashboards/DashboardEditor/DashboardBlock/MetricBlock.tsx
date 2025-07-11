@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { MetricBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
 import { isDefined } from "shared/util";
 import { groupBy } from "lodash";
@@ -9,12 +9,12 @@ import { useExperiments } from "@/hooks/useExperiments";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Callout from "@/components/Radix/Callout";
 import { useDashboardSnapshot } from "../../DashboardSnapshotProvider";
+import { BLOCK_TYPE_INFO } from "..";
 import { BlockProps } from ".";
 
 export default function MetricBlock({
   block,
   setBlock,
-  isEditing,
 }: BlockProps<MetricBlockInterface>) {
   const {
     metricIds,
@@ -36,17 +36,28 @@ export default function MetricBlock({
   const orgSettings = useOrgSettings();
   const pValueCorrection = orgSettings?.pValueCorrection;
 
+  const sortedMetricIds = useMemo(() => {
+    if (!experiment) return [];
+    const metricIdSet = new Set(metricIds);
+    return [
+      ...experiment.goalMetrics.filter((m) => metricIdSet.has(m)),
+      ...experiment.secondaryMetrics.filter((m) => metricIdSet.has(m)),
+      ...experiment.guardrailMetrics.filter((m) => metricIdSet.has(m)),
+    ];
+  }, [metricIds, experiment]);
+
   if (loading) return <LoadingSpinner />;
   if (metricIds.length === 0) {
-    return isEditing ? (
-      <Callout status="warning">Please select at least one metric</Callout>
-    ) : null;
+    return (
+      <Callout status="info">
+        This {BLOCK_TYPE_INFO[block.type].name} block requires additional
+        configuration to display results.
+      </Callout>
+    );
   }
   if (!snapshot) {
     return (
-      <Callout status="info">
-        No data yet - please refresh the dashboard to populate results
-      </Callout>
+      <Callout status="info">No data yet. Refresh to populate results.</Callout>
     );
   }
 
@@ -78,7 +89,7 @@ export default function MetricBlock({
   const result = analysis.results[0];
   if (!result) return null;
 
-  const allRows = metricIds
+  const allRows = sortedMetricIds
     .map((metricId) => {
       const metric = getExperimentMetricById(metricId);
       if (!metric) return;

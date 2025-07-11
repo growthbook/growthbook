@@ -57,6 +57,8 @@ export default function TrafficGraphBlock({
       traffic={traffic}
       variations={variations}
       isBandit={experiment.type !== "multi-armed-bandit"}
+      cardTitle={block.title.length > 0 ? block.title : undefined}
+      disableDimensions
     />
   );
 }

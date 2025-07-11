@@ -6,12 +6,12 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { useExperiments } from "@/hooks/useExperiments";
 import Callout from "@/components/Radix/Callout";
 import { useDashboardSnapshot } from "../../DashboardSnapshotProvider";
+import { BLOCK_TYPE_INFO } from "..";
 import { BlockProps } from ".";
 
 export default function TimeSeriesBlock({
   block,
   setBlock,
-  isEditing,
 }: BlockProps<TimeSeriesBlockInterface>) {
   const { experimentId, metricId, variationIds } = block;
   const { experimentsMap } = useExperiments();
@@ -27,15 +27,16 @@ export default function TimeSeriesBlock({
   const metric = getExperimentMetricById(metricId);
 
   if (!metric) {
-    return isEditing ? (
-      <Callout status="warning">Please select a metric</Callout>
-    ) : null;
+    return (
+      <Callout status="info">
+        This {BLOCK_TYPE_INFO[block.type].name} block requires additional
+        configuration to display results.
+      </Callout>
+    );
   }
   if (!snapshot) {
     return (
-      <Callout status="info">
-        No data yet - please refresh the dashboard to populate results
-      </Callout>
+      <Callout status="info">No data yet. Refresh to populate results.</Callout>
     );
   }
 

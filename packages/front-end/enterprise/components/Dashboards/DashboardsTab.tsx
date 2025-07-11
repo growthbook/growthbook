@@ -176,7 +176,7 @@ export default function DashboardsTab({
       dashboard={dashboard}
       mutateDefinitions={mutateDashboards}
     >
-      <div className="mt-3">
+      <div>
         {showCreateModal && (
           <CreateUpdateDashboardModal
             close={() => setShowCreateModal(false)}
@@ -196,7 +196,7 @@ export default function DashboardsTab({
             }}
           />
         )}
-        <div className="mx-3 p-4 position-relative">
+        <div className="position-relative">
           {dashboards.length === 0 ? (
             <Flex
               direction="column"
@@ -266,6 +266,7 @@ export default function DashboardsTab({
                   ) : dashboards.length > 0 ? (
                     <Flex gap="4" align="center">
                       <Select
+                        style={{ marginLeft: "var(--space-3)" }}
                         variant="ghost"
                         value={dashboardId}
                         setValue={setDashboardId}

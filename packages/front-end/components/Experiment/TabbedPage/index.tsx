@@ -486,10 +486,11 @@ export default function TabbedPage({
         />
       </div>
       <div
-        className={clsx(
-          "pt-3",
-          tab === "dashboards" ? "d-block" : "d-none d-print-block"
-        )}
+        className={
+          tab === "dashboards"
+            ? "container-fluid pagecontents d-block pt-0"
+            : "d-none d-print-block"
+        }
       >
         <DashboardsTab experiment={experiment} initialDashboardId={tabPath} />
       </div>
