@@ -581,6 +581,7 @@ export default function ExperimentHeader({
           close={() => setShowStartExperiment(false)}
           startExperiment={startExperiment}
           checklistItemsRemaining={checklistItemsRemaining || 0}
+          isHoldout={experiment.type === "holdout"}
         />
       )}
       {showTemplateForm && (

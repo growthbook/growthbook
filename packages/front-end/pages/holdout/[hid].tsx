@@ -22,6 +22,7 @@ import TabbedPage from "@/components/Experiment/TabbedPage";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
+import StartAnalysisModal from "@/components/Experiment/TabbedPage/startHoldoutAnalysisModal";
 
 const HoldoutPage = (): ReactElement => {
   const permissionsUtil = usePermissionsUtil();
@@ -37,6 +38,7 @@ const HoldoutPage = (): ReactElement => {
   const [editPhasesOpen, setEditPhasesOpen] = useState(false);
   const [editPhaseId, setEditPhaseId] = useState<number | null>(null);
   const [targetingModalOpen, setTargetingModalOpen] = useState(false);
+  const [startAnalysisModalOpen, setStartAnalysisModalOpen] = useState(false);
   const [checklistItemsRemaining, setChecklistItemsRemaining] = useState<
     number | null
   >(null);
@@ -104,7 +106,7 @@ const HoldoutPage = (): ReactElement => {
         if (holdout?.analysisStartDate) {
           setStopModalOpen(true);
         } else {
-          startAnalysis();
+          setStartAnalysisModalOpen(true);
         }
       }
     : null;
@@ -130,6 +132,12 @@ const HoldoutPage = (): ReactElement => {
 
   return (
     <>
+      {startAnalysisModalOpen && (
+        <StartAnalysisModal
+          close={() => setStartAnalysisModalOpen(false)}
+          startAnalysis={startAnalysis}
+        />
+      )}
       {metricsModalOpen && (
         <EditMetricsForm
           experiment={experiment}
