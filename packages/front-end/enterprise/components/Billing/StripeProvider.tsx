@@ -89,6 +89,8 @@ export function StripeProvider({
             theme: theme === "light" ? "stripe" : "night",
             variables: {
               colorPrimary: "#aa99ec",
+              colorBackground: theme === "dark" ? "#141929" : "#ffffff",
+              focusBoxShadow: "none",
             },
           },
         }}

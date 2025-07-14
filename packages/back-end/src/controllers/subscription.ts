@@ -1,6 +1,7 @@
 import { Response } from "express";
 import { Stripe } from "stripe";
 import { PaymentMethod } from "shared/src/types/subscriptions";
+import { StripeAddress, TaxIdType } from "shared/src/types";
 import {
   LicenseServerError,
   getLicense,
@@ -13,6 +14,8 @@ import {
   postNewInlineSubscriptionToLicenseServer,
   postCancelSubscriptionToLicenseServer,
   getPortalUrlFromServer,
+  getCustomerDataFromServer,
+  updateCustomerDataFromServer,
 } from "back-end/src/enterprise";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
@@ -147,7 +150,16 @@ export const postNewProSubscription = withLicenseServerErrorHandling(
 );
 
 export const postInlineProSubscription = withLicenseServerErrorHandling(
-  async function (req: AuthRequest, res: Response) {
+  async function (
+    req: AuthRequest<{
+      email: string;
+      additionalEmails: string[];
+      taxConfig?: { type: TaxIdType; value: string };
+      name: string;
+      address?: StripeAddress;
+    }>,
+    res: Response
+  ) {
     const context = getContextFromReq(req);
 
     if (!context.permissions.canManageBilling()) {
@@ -166,7 +178,12 @@ export const postInlineProSubscription = withLicenseServerErrorHandling(
 
     const result = await postNewInlineSubscriptionToLicenseServer(
       org.id,
-      nonInviteSeatQty
+      nonInviteSeatQty,
+      req.body.email,
+      req.body.additionalEmails,
+      req.body.name,
+      req.body.address,
+      req.body.taxConfig
     );
 
     res.status(200).json(result);
@@ -432,6 +449,25 @@ export async function getUsage(
   res.json({ status: 200, cdnUsage, limits: { cdnRequests, cdnBandwidth } });
 }
 
+export async function getCustomerData(
+  req: AuthRequest<null, null>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageBilling()) {
+    context.permissions.throwPermissionError();
+  }
+
+  try {
+    const customerData = await getCustomerDataFromServer(context.org.id);
+
+    return res.status(200).json(customerData);
+  } catch (e) {
+    return res.status(400).json({ status: 400, message: e.message });
+  }
+}
+
 export async function getPortalUrl(
   req: AuthRequest<null, null>,
   res: Response<{ status: number; portalUrl?: string; message?: string }>
@@ -451,6 +487,36 @@ export async function getPortalUrl(
       status: 200,
       portalUrl: data.portalUrl,
     });
+  } catch (e) {
+    return res.status(400).json({ status: 400, message: e.message });
+  }
+}
+
+export async function updateCustomerData(
+  req: AuthRequest<{
+    name: string;
+    email: string;
+    address?: StripeAddress;
+    taxConfig: { type?: TaxIdType; value?: string };
+  }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+
+  const { org } = context;
+
+  if (!context.permissions.canManageBilling()) {
+    context.permissions.throwPermissionError();
+  }
+
+  try {
+    await updateCustomerDataFromServer(org.id, {
+      name: req.body.name,
+      email: req.body.email,
+      address: req.body.address,
+      taxConfig: req.body.taxConfig,
+    });
+    return res.status(200).json({ status: 200 });
   } catch (e) {
     return res.status(400).json({ status: 400, message: e.message });
   }

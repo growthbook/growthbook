@@ -1,6 +1,7 @@
 import {
   SDKAttributeType,
   OrganizationInterface,
+  SDKAttribute,
 } from "back-end/types/organization";
 import { AttributeMap } from "back-end/src/services/features";
 import { GroupMap, SavedGroupsValues, SavedGroupInterface } from "../types";
@@ -12,9 +13,11 @@ export const ID_LIST_DATATYPES: SDKAttributeType[] = [
   "string",
   "secureString",
 ] as const;
-export function isIdListSupportedDatatype(
-  datatype?: SDKAttributeType
-): datatype is "number" | "string" | "secureString" {
+export function isIdListSupportedAttribute(
+  attribute?: Pick<SDKAttribute, "datatype" | "disableEqualityConditions">
+): boolean {
+  if (attribute?.disableEqualityConditions) return false;
+  const datatype = attribute?.datatype;
   return !!datatype && ID_LIST_DATATYPES.includes(datatype);
 }
 

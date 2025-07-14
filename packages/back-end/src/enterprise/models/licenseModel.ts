@@ -23,6 +23,7 @@ const licenseSchema = new mongoose.Schema({
     tooltipText: String, // The text to show in the tooltip
     showAllUsers: Boolean, // True if all users should see the notice rather than just the admins
   },
+  vercelInstallationId: String, // The Vercel installation ID
   orbSubscription: {},
   stripeSubscription: {},
   price: Number, // The price of the license

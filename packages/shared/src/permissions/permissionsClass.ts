@@ -15,6 +15,7 @@ import {
   FactTableInterface,
   UpdateFactTableProps,
 } from "back-end/types/fact-table";
+import { ExecReportInterface } from "back-end/src/models/ExecReportModel";
 import {
   ExperimentInterface,
   ExperimentTemplateInterface,
@@ -620,6 +621,15 @@ export class Permissions {
     );
   };
 
+  public canManageExecReports = (
+    report: Pick<ExecReportInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: report.projects || [] },
+      "manageExecReports"
+    );
+  };
+
   public canAddComment = (projects: string[]): boolean => {
     return this.checkProjectFilterPermission({ projects }, "addComments");
   };
@@ -672,8 +682,6 @@ export class Permissions {
     projects?: DataSourceInterface["projects"];
     type: DataSourceInterface["type"] | undefined;
   }): boolean => {
-    if (datasource?.type === "growthbook_clickhouse") return false;
-
     return this.checkProjectFilterPermission(datasource, "createDatasources");
   };
 
@@ -765,6 +773,50 @@ export class Permissions {
     datasource: Pick<DataSourceInterface, "projects">
   ): boolean => {
     return this.checkProjectFilterPermission(datasource, "runQueries");
+  };
+
+  public canViewSqlExplorerQueries = (
+    datasource: Pick<DataSourceInterface, "projects">
+  ): boolean => {
+    return this.canReadMultiProjectResource(datasource.projects);
+  };
+
+  public canCreateSqlExplorerQueries = (
+    datasource: Pick<DataSourceInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      datasource,
+      "runSqlExplorerQueries"
+    );
+  };
+
+  public canUpdateSqlExplorerQueries = (
+    existing: Pick<DataSourceInterface, "projects">,
+    updates: Pick<DataSourceInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      existing,
+      updates,
+      "runSqlExplorerQueries"
+    );
+  };
+
+  public canDeleteSqlExplorerQueries = (
+    datasource: Pick<DataSourceInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      datasource,
+      "runSqlExplorerQueries"
+    );
+  };
+
+  public canRunSqlExplorerQueries = (
+    datasource: Pick<DataSourceInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      datasource,
+      "runSqlExplorerQueries"
+    );
   };
 
   // ENV_SCOPED_PERMISSIONS
@@ -997,7 +1049,7 @@ export class Permissions {
 
   private checkProjectFilterUpdatePermission(
     existing: { projects?: string[] },
-    updates: { projects?: string[] },
+    updates: { projects?: string[] } | undefined,
     permission: ProjectScopedPermission
   ): boolean {
     // check if the user has permission to update based on the existing projects
@@ -1007,6 +1059,7 @@ export class Permissions {
 
     // if the updates include projects, check if the user has permission to update based on the new projects
     if (
+      updates &&
       "projects" in updates &&
       !this.checkProjectFilterPermission(updates, permission)
     ) {

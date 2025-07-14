@@ -132,6 +132,8 @@ paths:
       $ref: "./paths/deleteFeature.yaml"
   /features/{id}/toggle:
     $ref: "./paths/toggleFeature.yaml"
+  /features/{id}/revert:
+    $ref: "./paths/revertFeature.yaml"
   /feature-keys:
     get:
       $ref: "./paths/getFeatureKeys.yaml"
@@ -319,6 +321,11 @@ paths:
   /code-refs:
     post:
       $ref: "./paths/postCodeRefs.yaml"
+    get:
+      $ref: "./paths/listCodeRefs.yaml"
+  /code-refs/{id}:
+    get:
+      $ref: "./paths/getCodeRefs.yaml"
   /queries/{id}:
     get:
       $ref: "./paths/getQuery.yaml"

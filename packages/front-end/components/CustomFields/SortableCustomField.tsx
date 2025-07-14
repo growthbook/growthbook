@@ -41,7 +41,7 @@ export function SortableCustomFieldRow(props: SortableProps) {
   return (
     <tr ref={setNodeRef} style={style}>
       {isDragging ? (
-        <td colSpan={9} style={draggedRowStyle}>
+        <td colSpan={10} style={draggedRowStyle}>
           &nbsp;
         </td>
       ) : (
@@ -54,6 +54,7 @@ export function SortableCustomFieldRow(props: SortableProps) {
             </div>
           </td>
           <td className="text-gray font-weight-bold">{customField.name}</td>
+          <td className="text-gray">{customField.id}</td>
           <td className="text-gray">{customField.description}</td>
           <td className="text-gray">
             {customField.type}
@@ -134,6 +135,7 @@ export function StaticCustomFieldRow({
         </div>
       </td>
       <td className="text-gray font-weight-bold">{customField.name}</td>
+      <td className="text-gray">{customField.id}</td>
       <td className="text-gray">{customField.description}</td>
       <td className="text-gray">
         {customField.type}

@@ -78,6 +78,8 @@ export default function UpgradeModal({
 
   const { organization, refreshOrganization } = useUser();
 
+  const orgIsManagedByVercel = organization.isVercelIntegration;
+
   function shouldShowEnterpriseTreatment(): boolean {
     // if no commercialFeature is provided, determine what plan to show based on org's current plan
     if (!commercialFeature) {
@@ -341,6 +343,10 @@ export default function UpgradeModal({
     "require-approvals":
       "Reduce errors by requiring approval flows when changing feature flag values",
     "audit-logging": "Easily export historical audit logs",
+    "managed-warehouse":
+      "Fully managed data warehouse and event tracking pipeline in GrowthBook Cloud",
+    saveSqlExplorerQueries:
+      "Save query results and visualizations from the SQL Explorer.",
   };
 
   const upgradeHeader = (
@@ -541,29 +547,60 @@ export default function UpgradeModal({
                   ${numOfCurrentMembers * 20} / month
                 </Text>
               </Flex>
-              <Text style={{ color: "var(--color-text-mid)", fontWeight: 500 }}>
-                $20 per seat (Includes 2 million CDN requests and 20GB of
-                bandwidth per month)
-              </Text>
+              <Box mb="5">
+                <Text size="2">
+                  $20 per seat per month, {numOfCurrentMembers} current seat
+                  {numOfCurrentMembers > 1 ? "s" : ""}
+                </Text>
+              </Box>
 
-              <Text
-                as="div"
-                size="2"
-                weight={"bold"}
-                mt="3"
-                style={{ color: "var(--color-text-high)" }}
-              >
-                Additional usage:
-              </Text>
-              <ul
-                className="pl-4"
-                style={{ color: "var(--color-text-mid)", fontWeight: 500 }}
-              >
-                <li> $10 per million CDN requests</li>
-                <li> $1 per GB </li>
-              </ul>
-
-              <hr style={{ borderColor: "var(--slate-a6)" }} />
+              <table className="table table-sm border-bottom mb-3">
+                <thead>
+                  <tr>
+                    <th>Usage Breakdown</th>
+                    <th>
+                      Included <small>(per month)</small>
+                    </th>
+                    <th>Additional</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {commercialFeature === "managed-warehouse" && (
+                    <tr>
+                      <td>
+                        Managed Warehouse{" "}
+                        <Tooltip
+                          body={
+                            <>
+                              <div className="mb-2">
+                                Use our fully-managed data warehouse and event
+                                pipeline.
+                              </div>
+                              <div>
+                                OR bring your own for free (no usage charges).
+                              </div>
+                            </>
+                          }
+                        />
+                      </td>
+                      <td>2 million tracked events</td>
+                      <td>$0.03 per thousand</td>
+                    </tr>
+                  )}
+                  <tr style={{ borderBottom: 0 }}>
+                    <td rowSpan={2}>
+                      Global CDN{" "}
+                      <Tooltip body="Stream feature flags to users with minimal latency. You also have the option to cache locally to reduce usage and costs." />
+                    </td>
+                    <td>2 million requests</td>
+                    <td>$10 per million</td>
+                  </tr>
+                  <tr>
+                    <td>20GB bandwidth</td>
+                    <td>$1 per GB</td>
+                  </tr>
+                </tbody>
+              </table>
               <p className="mb-0">
                 <a
                   href="/settings/usage"
@@ -720,6 +757,49 @@ export default function UpgradeModal({
             closeParent={close}
           />
         </StripeProvider>
+      ) : orgIsManagedByVercel ? (
+        <Modal
+          trackingEventModalType="upgrade-modal"
+          allowlistedTrackingEventProps={trackContext}
+          open={true}
+          includeCloseCta={true}
+          closeCta="Close"
+          close={close}
+          size="md"
+          header={null}
+          showHeaderCloseButton={false}
+        >
+          <div>
+            <h3 className="pb-2">
+              Upgrade to {showEnterpriseTreatment ? "Enterprise" : "Pro"}
+            </h3>
+            <Callout status="info">
+              You organization is currently managed by Vercel.
+              {showEnterpriseTreatment ? (
+                <span className="pl-1">
+                  To upgrade to Enterprise, please email{" "}
+                  <b>
+                    <a
+                      href="mailto:sales@growthbook.io"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="link-purple"
+                    >
+                      sales@growthbook.io
+                    </a>
+                  </b>
+                  .
+                </span>
+              ) : (
+                <span className="pl-1">
+                  Please go to your Vercel Integration Dashboard and locate the
+                  GrowthBook integration. From there, you can upgrade your
+                  GrowthBook subscription via the <b>Settings </b>tab.
+                </span>
+              )}
+            </Callout>
+          </div>
+        </Modal>
       ) : (
         <Modal
           trackingEventModalType="upgrade-modal"

@@ -1,5 +1,5 @@
 import { memo, useMemo } from "react";
-import sdkInfo from "../data/SDKInfo.json";
+import sdkInfo from "../data/SDKInfo";
 import {
   GitHubLogo,
   SlackLogo,
