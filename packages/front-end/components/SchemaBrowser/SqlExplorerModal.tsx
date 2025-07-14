@@ -445,15 +445,19 @@ export default function SqlExplorerModal({
                   </Flex>
                 </TabsTrigger>
                 {dataVizConfig.map((config, index) => (
-                  <TabsTrigger value={`visualization-${index}`} key={index}>
+                  <TabsTrigger
+                    value={`visualization-${index}`}
+                    key={index}
+                    style={{ paddingRight: "0px" }}
+                  >
                     <Flex align="center" gap="2">
                       {config.title || `Visualization ${index + 1}`}
                       {!readOnlyMode && tab === `visualization-${index}` ? (
                         <DropdownMenu
                           trigger={
-                            <Button size="sm" variant="ghost">
-                              <BsThreeDotsVertical />
-                            </Button>
+                            <button className="btn btn-link pr-0">
+                              <BsThreeDotsVertical color="black" />
+                            </button>
                           }
                         >
                           <Tooltip
