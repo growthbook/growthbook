@@ -307,6 +307,18 @@ export default function SqlExplorerModal({
     }
   };
 
+  const getTruncatedTitle = (
+    title: string,
+    totalVisualizationCount: number
+  ): string => {
+    // Only truncate if there are 4 or more visualizations
+    if (totalVisualizationCount < 4) return title;
+
+    const maxLength = 20;
+    if (title.length <= maxLength) return title;
+    return title.substring(0, maxLength) + "...";
+  };
+
   // Filter datasources to only those that support SQL queries
   // Also only show datasources that the user has permission to query
   const validDatasources = datasources.filter(
@@ -451,7 +463,14 @@ export default function SqlExplorerModal({
                     style={{ paddingRight: "0px" }}
                   >
                     <Flex align="center" gap="2">
-                      {config.title || `Visualization ${index + 1}`}
+                      <span
+                        title={config.title || `Visualization ${index + 1}`}
+                      >
+                        {getTruncatedTitle(
+                          config.title || `Visualization ${index + 1}`,
+                          dataVizConfig.length
+                        )}
+                      </span>
                       {!readOnlyMode && tab === `visualization-${index}` ? (
                         <DropdownMenu
                           trigger={
