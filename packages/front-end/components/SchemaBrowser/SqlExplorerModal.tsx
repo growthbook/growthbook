@@ -456,7 +456,7 @@ export default function SqlExplorerModal({
                         <DropdownMenu
                           trigger={
                             <button className="btn btn-link pr-0">
-                              <BsThreeDotsVertical color="black" />
+                              <BsThreeDotsVertical color="var(--text-color-main" />
                             </button>
                           }
                         >
