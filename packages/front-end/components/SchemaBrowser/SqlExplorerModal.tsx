@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
   FaPlay,
@@ -12,13 +12,15 @@ import {
   SavedQuery,
   QueryExecutionResult,
 } from "back-end/src/validators/saved-queries";
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
 import { getValidDate } from "shared/dates";
 import { isReadOnlySQL, SQL_EXPLORER_LIMIT } from "shared/sql";
+import { InformationSchemaInterface } from "back-end/src/types/Integration";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
-import CodeTextArea from "@/components/Forms/CodeTextArea";
+import CodeTextArea, { AceCompletion } from "@/components/Forms/CodeTextArea";
 import { CursorData } from "@/components/Segments/SegmentForm";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import Button from "@/components/Radix/Button";
@@ -38,10 +40,14 @@ import {
 } from "@/components/ResizablePanels";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { VisualizationAddIcon } from "@/components/Icons";
+import { getAutoCompletions } from "@/services/sqlAutoComplete";
+import useApi from "@/hooks/useApi";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { SqlExplorerDataVisualization } from "../DataViz/SqlExplorerDataVisualization";
 import Modal from "../Modal";
 import SelectField from "../Forms/SelectField";
 import Tooltip from "../Tooltip/Tooltip";
+import { DropdownMenu, DropdownMenuItem } from "../Radix/DropdownMenu";
 import SchemaBrowser from "./SchemaBrowser";
 import styles from "./EditSqlModal.module.scss";
 
@@ -78,6 +84,11 @@ export default function SqlExplorerModal({
   const [loading, setLoading] = useState(false);
   const [isRunningQuery, setIsRunningQuery] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
+  const [autoCompletions, setAutoCompletions] = useState<AceCompletion[]>([]);
+  const [isAutocompleteEnabled, setIsAutocompleteEnabled] = useLocalStorage(
+    "sql-editor-autocomplete-enabled",
+    true
+  );
   const [tempName, setTempName] = useState("");
   const [tab, setTab] = useState(
     initial?.dataVizConfig?.length && !disableSave ? "visualization-0" : "sql"
@@ -303,6 +314,32 @@ export default function SqlExplorerModal({
       setFormatError(null);
     }
   };
+
+  const datasourceId = form.watch("datasourceId");
+
+  const { data } = useApi<{
+    informationSchema: InformationSchemaInterface;
+  }>(`/datasource/${datasourceId}/schema`);
+
+  const informationSchema = data?.informationSchema;
+
+  // Update autocompletions when cursor or schema changes
+  useEffect(() => {
+    const updateCompletions = async () => {
+      if (!isAutocompleteEnabled) {
+        setAutoCompletions([]);
+        return;
+      }
+      const completions = await getAutoCompletions(
+        cursorData,
+        informationSchema,
+        apiCall
+      );
+      setAutoCompletions(completions);
+    };
+
+    updateCompletions();
+  }, [cursorData, informationSchema, apiCall, isAutocompleteEnabled]);
 
   // Filter datasources to only those that support SQL queries
   // Also only show datasources that the user has permission to query
@@ -530,7 +567,7 @@ export default function SqlExplorerModal({
                             SQL
                           </Text>
                           {!readOnlyMode ? (
-                            <Flex gap="3">
+                            <Flex gap="3" align="center">
                               <Tooltip body="The SQL Explorer automatically applies a 1000 row limit to ensure optimal performance.">
                                 <input
                                   type="checkbox"
@@ -580,6 +617,30 @@ export default function SqlExplorerModal({
                                   Run
                                 </Button>
                               </Tooltip>
+                              <DropdownMenu
+                                trigger={
+                                  <IconButton
+                                    variant="ghost"
+                                    color="gray"
+                                    radius="full"
+                                    size="3"
+                                  >
+                                    <BsThreeDotsVertical size={16} />
+                                  </IconButton>
+                                }
+                              >
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setIsAutocompleteEnabled(
+                                      !isAutocompleteEnabled
+                                    );
+                                  }}
+                                >
+                                  {isAutocompleteEnabled
+                                    ? "Disable Autocomplete"
+                                    : "Enable Autocomplete"}
+                                </DropdownMenuItem>
+                              </DropdownMenu>
                             </Flex>
                           ) : null}
                         </Flex>
@@ -602,6 +663,7 @@ export default function SqlExplorerModal({
                         setCursorData={setCursorData}
                         onCtrlEnter={handleQuery}
                         disabled={readOnlyMode}
+                        completions={autoCompletions}
                       />
                     </AreaWithHeader>
                   </Panel>
