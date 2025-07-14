@@ -14,7 +14,6 @@ interface SdkInfo {
   client_key: string;
   datasource: string;
   environment: string;
-  trackingDisabled: boolean;
 }
 
 interface GetDataEnrichmentResponse {
@@ -23,17 +22,12 @@ interface GetDataEnrichmentResponse {
   };
 }
 
-function sdkInfo(
-  conn: SDKConnectionInterface,
-  datasource: string,
-  trackingDisabled: boolean
-): SdkInfo {
+function sdkInfo(conn: SDKConnectionInterface, datasource: string): SdkInfo {
   return {
     organization: conn.organization,
     client_key: conn.key,
     environment: conn.environment,
     datasource,
-    trackingDisabled,
   };
 }
 
@@ -51,22 +45,21 @@ export const getDataEnrichment = createApiRequestHandler({
       dataSources.map((ds) => [ds.organization, ds.id])
     );
     const orgIds = Object.keys(dataSourcesByOrgId);
-    const sdkConnections = await _dangerousGetSdkConnectionsAcrossMultipleOrgs(
-      orgIds
-    );
 
     const orgIdsWithTrackingDisabled = await getOrganizationIdsWithTrackingDisabled(
       orgIds
     );
 
+    const validOrgs = orgIds.filter((x) => !orgIdsWithTrackingDisabled.has(x));
+
+    const sdkConnections = await _dangerousGetSdkConnectionsAcrossMultipleOrgs(
+      validOrgs
+    );
+
     const sdkData = Object.fromEntries(
       sdkConnections.map((conn) => [
         conn.key,
-        sdkInfo(
-          conn,
-          dataSourcesByOrgId[conn.organization],
-          orgIdsWithTrackingDisabled.has(conn.organization)
-        ),
+        sdkInfo(conn, dataSourcesByOrgId[conn.organization]),
       ])
     );
 
