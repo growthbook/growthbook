@@ -47,7 +47,7 @@ class FrequentistTestResult(TestResult):
 
 @dataclass
 class PValueResult:
-    p_value: float | None = None
+    p_value: Optional[float] = None
     p_value_error_message: Optional[PValueErrorMessage] = None
 
 
