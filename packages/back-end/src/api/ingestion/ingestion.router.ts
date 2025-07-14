@@ -7,12 +7,14 @@ import {
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import { _dangerousGetSdkConnectionsAcrossMultipleOrgs } from "back-end/src/models/SdkConnectionModel";
 import { _dangerousGetAllGrowthbookClickhouseDataSources } from "back-end/src/models/DataSourceModel";
+import { getOrganizationIdsWithTrackingDisabled } from "back-end/src/models/OrganizationModel";
 
 interface SdkInfo {
   organization: string;
   client_key: string;
   datasource: string;
   environment: string;
+  trackingDisabled: boolean;
 }
 
 interface GetDataEnrichmentResponse {
@@ -21,12 +23,17 @@ interface GetDataEnrichmentResponse {
   };
 }
 
-function sdkInfo(conn: SDKConnectionInterface, datasource: string): SdkInfo {
+function sdkInfo(
+  conn: SDKConnectionInterface,
+  datasource: string,
+  trackingDisabled: boolean
+): SdkInfo {
   return {
     organization: conn.organization,
     client_key: conn.key,
     environment: conn.environment,
     datasource,
+    trackingDisabled,
   };
 }
 
@@ -43,13 +50,23 @@ export const getDataEnrichment = createApiRequestHandler({
     const dataSourcesByOrgId = Object.fromEntries(
       dataSources.map((ds) => [ds.organization, ds.id])
     );
+    const orgIds = Object.keys(dataSourcesByOrgId);
     const sdkConnections = await _dangerousGetSdkConnectionsAcrossMultipleOrgs(
-      Object.keys(dataSourcesByOrgId)
+      orgIds
     );
+
+    const orgIdsWithTrackingDisabled = await getOrganizationIdsWithTrackingDisabled(
+      orgIds
+    );
+
     const sdkData = Object.fromEntries(
       sdkConnections.map((conn) => [
         conn.key,
-        sdkInfo(conn, dataSourcesByOrgId[conn.organization]),
+        sdkInfo(
+          conn,
+          dataSourcesByOrgId[conn.organization],
+          orgIdsWithTrackingDisabled.has(conn.organization)
+        ),
       ])
     );
 
