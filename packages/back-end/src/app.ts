@@ -137,7 +137,9 @@ if (!process.env.NO_INIT && process.env.NODE_ENV !== "test") {
   init();
 }
 
-app.set("port", process.env.PORT || 3100);
+// Some platforms set the PORT env var, causing the back-end and front-end to both try to listen on the same port.
+// BACKEND_PORT allows specifying a different port for the back-end to mitigate this conflict.
+app.set("port", process.env.BACKEND_PORT || process.env.PORT || 3100);
 app.set("trust proxy", EXPRESS_TRUST_PROXY_OPTS);
 
 // Pretty print on dev
