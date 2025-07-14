@@ -457,8 +457,8 @@ export default function SqlExplorerModal({
                           }
                         >
                           <Tooltip
-                            body="You can only add up to 5 visualizations to a query."
-                            shouldDisplay={dataVizConfig.length >= 5}
+                            body="You can only add up to 10 visualizations to a query."
+                            shouldDisplay={dataVizConfig.length >= 10}
                           >
                             <DropdownMenuItem
                               onClick={() => {
@@ -479,7 +479,7 @@ export default function SqlExplorerModal({
                                 );
                                 setTab(`visualization-${dataVizConfig.length}`);
                               }}
-                              disabled={dataVizConfig.length >= 5}
+                              disabled={dataVizConfig.length >= 10}
                             >
                               Duplicate
                             </DropdownMenuItem>
@@ -510,8 +510,8 @@ export default function SqlExplorerModal({
               </TabsList>
               {!readOnlyMode ? (
                 <Tooltip
-                  shouldDisplay={dataVizConfig.length >= 5}
-                  body="You can only add up to 5 visualizations to a query."
+                  shouldDisplay={dataVizConfig.length >= 10}
+                  body="You can only add up to 10 visualizations to a query."
                 >
                   <Button
                     variant="ghost"
@@ -526,11 +526,13 @@ export default function SqlExplorerModal({
                       setTab(`visualization-${currentConfig.length}`);
                       setSidePanel(true);
                     }}
-                    title={dataVizConfig.length >= 5 ? "" : "Add Visualization"}
+                    title={
+                      dataVizConfig.length >= 10 ? "" : "Add Visualization"
+                    }
                     disabled={
                       !form.watch("results").results ||
                       form.watch("results").results.length === 0 ||
-                      dataVizConfig.length >= 5
+                      dataVizConfig.length >= 10
                     }
                   >
                     <VisualizationAddIcon />{" "}
