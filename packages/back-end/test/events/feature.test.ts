@@ -1,3 +1,4 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   logFeatureCreatedEvent,
   logFeatureUpdatedEvent,
@@ -9,7 +10,7 @@ import { EventModel } from "back-end/src/models/EventModel";
 import { setupApp } from "back-end/test/api/api.setup";
 import { SafeRolloutInterface } from "../../types/safe-rollout";
 
-jest.mock("back-end/src/events/notifiers/EventNotifier", () => ({
+vi.mock("back-end/src/events/notifiers/EventNotifier", () => ({
   EventNotifier: class Dummy {
     perform() {
       return undefined;
@@ -67,7 +68,7 @@ describe("features events", () => {
   });
 
   afterEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it("dispatches feature.created event on feature create", async () => {

@@ -1,15 +1,16 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { testQueryValidity } from "back-end/src/services/datasource";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 
 // @ts-expect-error - we are not testing all the properties of the integration
 const mockDataSourceIntegration: SourceIntegrationInterface = {
-  getTestValidityQuery: jest.fn(),
-  runTestQuery: jest.fn(),
+  getTestValidityQuery: vi.fn(),
+  runTestQuery: vi.fn(),
 };
 
 describe("testQueryValidity", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it("should return undefined if integration does not support test queries", async () => {
@@ -67,10 +68,10 @@ describe("testQueryValidity", () => {
       query: "SELECT * FROM experiments",
     };
 
-    mockDataSourceIntegration.getTestValidityQuery = jest
+    mockDataSourceIntegration.getTestValidityQuery = vi
       .fn()
       .mockReturnValue("SELECT * FROM experiments");
-    mockDataSourceIntegration.runTestQuery = jest.fn().mockResolvedValue({
+    mockDataSourceIntegration.runTestQuery = vi.fn().mockResolvedValue({
       results: [
         {
           experiment_id: 1,
@@ -104,10 +105,10 @@ describe("testQueryValidity", () => {
       query: "SELECT * FROM experiments",
     };
 
-    mockDataSourceIntegration.getTestValidityQuery = jest
+    mockDataSourceIntegration.getTestValidityQuery = vi
       .fn()
       .mockReturnValue("SELECT * FROM experiments");
-    mockDataSourceIntegration.runTestQuery = jest.fn().mockResolvedValue({
+    mockDataSourceIntegration.runTestQuery = vi.fn().mockResolvedValue({
       results: [
         {
           user_id: 1,

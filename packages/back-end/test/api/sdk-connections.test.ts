@@ -1,3 +1,4 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import request from "supertest";
 import {
   getLatestSDKVersion,
@@ -19,32 +20,32 @@ import {
 import { sdkConnectionFactory } from "back-end/test/factories/SdkConnection.factory";
 import { setupApp } from "./api.setup";
 
-jest.mock("back-end/src/api/sdk-connections/validations", () => ({
-  validatePutPayload: jest.fn(),
-  validatePostPayload: jest.fn(),
+vi.mock("back-end/src/api/sdk-connections/validations", () => ({
+  validatePutPayload: vi.fn(),
+  validatePostPayload: vi.fn(),
 }));
 
-const originalValidatePutPayload = jest.requireActual(
-  "back-end/src/api/sdk-connections/validations"
+const originalValidatePutPayload = (
+  await vi.importActual("back-end/src/api/sdk-connections/validations")
 ).validatePutPayload;
 
-const originalValidatePostPayload = jest.requireActual(
-  "back-end/src/api/sdk-connections/validations"
+const originalValidatePostPayload = (
+  await vi.importActual("back-end/src/api/sdk-connections/validations")
 ).validatePostPayload;
 
-jest.mock("back-end/src/models/SdkConnectionModel", () => ({
-  toApiSDKConnectionInterface: jest.fn(),
-  createSDKConnection: jest.fn(),
-  editSDKConnection: jest.fn(),
-  findSDKConnectionById: jest.fn(),
-  findSDKConnectionsByOrganization: jest.fn(),
-  deleteSDKConnectionById: jest.fn(),
+vi.mock("back-end/src/models/SdkConnectionModel", () => ({
+  toApiSDKConnectionInterface: vi.fn(),
+  createSDKConnection: vi.fn(),
+  editSDKConnection: vi.fn(),
+  findSDKConnectionById: vi.fn(),
+  findSDKConnectionsByOrganization: vi.fn(),
+  deleteSDKConnectionById: vi.fn(),
 }));
 
-jest.mock("shared/sdk-versioning", () => ({
-  getLatestSDKVersion: jest.fn(),
-  getSDKCapabilities: jest.fn(),
-  getSDKVersions: jest.fn(),
+vi.mock("shared/sdk-versioning", () => ({
+  getLatestSDKVersion: vi.fn(),
+  getSDKCapabilities: vi.fn(),
+  getSDKVersions: vi.fn(),
 }));
 
 describe("sdk-connections API", () => {
@@ -61,7 +62,7 @@ describe("sdk-connections API", () => {
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   const org = { id: "org", environments: [{ id: "production" }] };
@@ -211,7 +212,7 @@ describe("sdk-connections API", () => {
   });
 
   it("checks for premium features when creating new sdk-connections", async () => {
-    const hasPremiumFeatureMock = jest.fn(() => false);
+    const hasPremiumFeatureMock = vi.fn(() => false);
     getLatestSDKVersion.mockReturnValue("latest-version");
     getSDKCapabilities.mockReturnValue(["encryption"]);
 
@@ -250,7 +251,7 @@ describe("sdk-connections API", () => {
   });
 
   it("checks for premium features overrides when creating new sdk-connections", async () => {
-    const hasPremiumFeatureMock = jest.fn(() => false);
+    const hasPremiumFeatureMock = vi.fn(() => false);
     getLatestSDKVersion.mockReturnValue("latest-version");
     getSDKCapabilities.mockReturnValue(["encryption"]);
 

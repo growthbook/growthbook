@@ -1,3 +1,4 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Permissions } from "shared/permissions";
 import {
   updateDataSource,
@@ -13,15 +14,11 @@ import { usingFileConfig } from "back-end/src/init/config";
 import { OrganizationInterface, ReqContext } from "back-end/types/organization";
 import { roleToPermissionMap } from "back-end/src/util/organization.util";
 
-jest.mock("back-end/src/services/datasource");
-jest.mock("back-end/src/init/config");
+vi.mock("back-end/src/services/datasource");
+vi.mock("back-end/src/init/config");
 
-const mockedTestQueryValidity: jest.MockedFunction<
-  typeof testQueryValidity
-> = testQueryValidity as jest.MockedFunction<typeof testQueryValidity>;
-const mockedUsingFileConfig: jest.MockedFunction<
-  typeof usingFileConfig
-> = usingFileConfig as jest.MockedFunction<typeof usingFileConfig>;
+const mockedTestQueryValidity = vi.mocked(testQueryValidity);
+const mockedUsingFileConfig = vi.mocked(usingFileConfig);
 
 describe("dataSourceModel", () => {
   const datasource: DataSourceInterface = {
@@ -83,7 +80,7 @@ describe("dataSourceModel", () => {
   const context = (partialContext as unknown) as ReqContext;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe("hasActualChanges", () => {

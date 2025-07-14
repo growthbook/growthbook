@@ -1,3 +1,4 @@
+import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   logExperimentCreated,
   logExperimentUpdated,
@@ -13,7 +14,7 @@ import {
 } from "back-end/src/services/experimentNotifications";
 import { EventModel } from "back-end/src/models/EventModel";
 
-jest.mock("back-end/src/events/notifiers/EventNotifier", () => ({
+vi.mock("back-end/src/events/notifiers/EventNotifier", () => ({
   EventNotifier: class Dummy {
     perform() {
       return undefined;
@@ -25,13 +26,13 @@ describe("experiments events", () => {
   const org = { id: "org", environments: [{ id: "production" }] };
 
   afterEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it("dispatches experiment.created event on experiment create", async () => {
     let rawPayload;
 
-    jest.spyOn(EventModel, "create").mockImplementation(({ data }) => {
+    vi.spyOn(EventModel, "create").mockImplementation(({ data }) => {
       rawPayload = data;
       return { toJSON: () => "" };
     });
@@ -238,7 +239,7 @@ describe("experiments events", () => {
   it("dispatches experiment.updated event on experiment update", async () => {
     let rawPayload;
 
-    jest.spyOn(EventModel, "create").mockImplementation(({ data }) => {
+    vi.spyOn(EventModel, "create").mockImplementation(({ data }) => {
       rawPayload = data;
       return { toJSON: () => "" };
     });
@@ -530,7 +531,7 @@ describe("experiments events", () => {
   it("dispatches experiment.deleted event on experiment delete", async () => {
     let rawPayload;
 
-    jest.spyOn(EventModel, "create").mockImplementation(({ data }) => {
+    vi.spyOn(EventModel, "create").mockImplementation(({ data }) => {
       rawPayload = data;
       return { toJSON: () => "" };
     });
@@ -737,7 +738,7 @@ describe("experiments events", () => {
   it("dispatches experiment.warnings event on multiple exposures", async () => {
     let rawPayload;
 
-    jest.spyOn(EventModel, "create").mockImplementation(({ data }) => {
+    vi.spyOn(EventModel, "create").mockImplementation(({ data }) => {
       if (data.event === "experiment.warning") rawPayload = data;
       return { toJSON: () => "" };
     });
@@ -823,7 +824,7 @@ describe("experiments events", () => {
   it("dispatches experiment.warnings event on srm", async () => {
     let rawPayload;
 
-    jest.spyOn(EventModel, "create").mockImplementation(({ data }) => {
+    vi.spyOn(EventModel, "create").mockImplementation(({ data }) => {
       if (data.event === "experiment.warning") rawPayload = data;
       return { toJSON: () => "" };
     });
@@ -903,7 +904,7 @@ describe("experiments events", () => {
   it("dispatches decision update when decision to ship", async () => {
     let rawPayload;
 
-    jest.spyOn(EventModel, "create").mockImplementation(({ data }) => {
+    vi.spyOn(EventModel, "create").mockImplementation(({ data }) => {
       if (data.event === "experiment.decision.ship") rawPayload = data;
       return { toJSON: () => "" };
     });
@@ -959,7 +960,7 @@ describe("experiments events", () => {
   it("dispatches decision update when decision to rollback", async () => {
     let rawPayload;
 
-    jest.spyOn(EventModel, "create").mockImplementation(({ data }) => {
+    vi.spyOn(EventModel, "create").mockImplementation(({ data }) => {
       if (data.event === "experiment.decision.rollback") rawPayload = data;
       return { toJSON: () => "" };
     });
@@ -1015,7 +1016,7 @@ describe("experiments events", () => {
   it("dispatches decision update when decision ready to review", async () => {
     let rawPayload;
 
-    jest.spyOn(EventModel, "create").mockImplementation(({ data }) => {
+    vi.spyOn(EventModel, "create").mockImplementation(({ data }) => {
       if (data.event === "experiment.decision.review") rawPayload = data;
       return { toJSON: () => "" };
     });
@@ -1071,7 +1072,7 @@ describe("experiments events", () => {
   it("only dispatch decision update when status changes", async () => {
     let rawPayload;
 
-    jest.spyOn(EventModel, "create").mockImplementation(({ data }) => {
+    vi.spyOn(EventModel, "create").mockImplementation(({ data }) => {
       if (data.event === "experiment.decision.review") rawPayload = data;
       return { toJSON: () => "" };
     });

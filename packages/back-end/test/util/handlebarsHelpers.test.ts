@@ -1,3 +1,4 @@
+import { describe, it, expect } from "vitest";
 import Handlebars, { HelperOptions } from "handlebars";
 import { helpers } from "back-end/src/util/handlebarsHelpers"; // Replace '../src/helpers' with the correct path to the helpers module.
 

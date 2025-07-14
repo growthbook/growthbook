@@ -16,7 +16,10 @@
     "start:with-tracing": "node --require ./dist/tracing.opentelemetry.js dist/server.js",
     "start:with-datadog": "node --require ./dist/tracing.datadog.js dist/server.js",
     "repl": "node --require ts-node/register/transpile-only --experimental-repl-await repl",
-    "test": "jest --forceExit --verbose --detectOpenHandles",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "test-jest": "jest --forceExit --verbose --detectOpenHandles",
     "type-check": "tsc --pretty --noEmit",
     "unused-export-check": "npx ts-unused-exports tsconfig.json --findCompletelyUnusedFiles --allowUnusedTypes --showLineNumber",
     "generate-dummy-data": "ts-node ./test/data-generator/new-generator.ts",
@@ -142,6 +145,7 @@
     "@types/thrift": "^0.10.11",
     "@types/uniqid": "^5.2.0",
     "@types/uuid": "^9.0.2",
+    "@vitest/ui": "^3.2.4",
     "chokidar": "^3.5.3",
     "cross-env": "^7.0.3",
     "delay-cli": "^2.0.0",
@@ -151,7 +155,8 @@
     "mongodb-memory-server": "^9.2.0",
     "rimraf": "^3.0.2",
     "supertest": "^7.0.0",
-    "typescript": "5.6.3"
+    "typescript": "5.6.3",
+    "vitest": "^3.2.4"
   },
   "optionalDependencies": {
     "@apidevtools/swagger-parser": "^10.1.0",

@@ -1,3 +1,4 @@
+import { describe, it, expect } from "vitest";
 import {
   AGGREGATE_JS_FUNCTIONS,
   conditionToJavascript,

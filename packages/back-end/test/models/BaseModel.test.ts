@@ -1,3 +1,4 @@
+import { describe, it, expect, vi } from "vitest";
 import { z, ZodError } from "zod";
 import { Collection } from "mongodb";
 import { Context, MakeModelClass } from "back-end/src/models/BaseModel";
@@ -31,36 +32,36 @@ const BaseModel = MakeModelClass({
 });
 
 // This one is called in the constructor and therefore needs to be instantiated before that call.
-const updateIndexesMock = jest.fn();
+const updateIndexesMock = vi.fn();
 
 class TestModel extends BaseModel<WriteOptions> {
-  public canReadMock: jest.Mock;
-  public canCreateMock: jest.Mock;
-  public canUpdateMock: jest.Mock;
-  public canDeleteMock: jest.Mock;
-  public dangerousGetCollectionMock: jest.Mock;
-  public migrateMock: jest.Mock;
-  public populateForeignRefsMock: jest.Mock;
-  public beforeCreateMock: jest.Mock;
-  public beforeUpdateMock: jest.Mock;
-  public afterCreateMock: jest.Mock;
-  public afterCreateOrUpdateMock: jest.Mock;
-  public afterUpdateMock: jest.Mock;
+  public canReadMock: vi.Mock;
+  public canCreateMock: vi.Mock;
+  public canUpdateMock: vi.Mock;
+  public canDeleteMock: vi.Mock;
+  public dangerousGetCollectionMock: vi.Mock;
+  public migrateMock: vi.Mock;
+  public populateForeignRefsMock: vi.Mock;
+  public beforeCreateMock: vi.Mock;
+  public beforeUpdateMock: vi.Mock;
+  public afterCreateMock: vi.Mock;
+  public afterCreateOrUpdateMock: vi.Mock;
+  public afterUpdateMock: vi.Mock;
 
   public constructor(context: Context) {
     super(context);
-    this.canReadMock = jest.fn(() => true);
-    this.canCreateMock = jest.fn(() => true);
-    this.canUpdateMock = jest.fn(() => true);
-    this.canDeleteMock = jest.fn(() => true);
-    this.dangerousGetCollectionMock = jest.fn();
-    this.migrateMock = jest.fn((doc) => doc);
-    this.populateForeignRefsMock = jest.fn();
-    this.beforeCreateMock = jest.fn();
-    this.beforeUpdateMock = jest.fn();
-    this.afterCreateMock = jest.fn();
-    this.afterCreateOrUpdateMock = jest.fn();
-    this.afterUpdateMock = jest.fn();
+    this.canReadMock = vi.fn(() => true);
+    this.canCreateMock = vi.fn(() => true);
+    this.canUpdateMock = vi.fn(() => true);
+    this.canDeleteMock = vi.fn(() => true);
+    this.dangerousGetCollectionMock = vi.fn();
+    this.migrateMock = vi.fn((doc) => doc);
+    this.populateForeignRefsMock = vi.fn();
+    this.beforeCreateMock = vi.fn();
+    this.beforeUpdateMock = vi.fn();
+    this.afterCreateMock = vi.fn();
+    this.afterCreateOrUpdateMock = vi.fn();
+    this.afterUpdateMock = vi.fn();
   }
 
   public find(...args) {
@@ -120,7 +121,7 @@ class TestModel extends BaseModel<WriteOptions> {
   }
 }
 
-const auditLogMock = jest.fn();
+const auditLogMock = vi.fn();
 
 const defaultContext = ({
   org: { id: "a" },
@@ -136,7 +137,7 @@ describe("BaseModel", () => {
   it("can find by id", async () => {
     const model = new TestModel(defaultContext);
 
-    const mockFind = jest.fn();
+    const mockFind = vi.fn();
     mockFind.mockReturnValueOnce({
       _id: "removed",
       __v: "removed",
@@ -163,7 +164,7 @@ describe("BaseModel", () => {
   it("filters find by id when read permission is denied", async () => {
     const model = new TestModel(defaultContext);
 
-    const mockFind = jest.fn();
+    const mockFind = vi.fn();
     mockFind.mockReturnValueOnce({
       _id: "removed",
       __v: "removed",
@@ -184,7 +185,7 @@ describe("BaseModel", () => {
   it("can getAll", async () => {
     const model = new TestModel(defaultContext);
 
-    const mockFind = jest.fn();
+    const mockFind = vi.fn();
     mockFind.mockReturnValueOnce({
       toArray: () => [
         {
@@ -226,7 +227,7 @@ describe("BaseModel", () => {
   it("can filter getAll result by read permission", async () => {
     const model = new TestModel(defaultContext);
 
-    const mockFind = jest.fn();
+    const mockFind = vi.fn();
     mockFind.mockReturnValueOnce({
       toArray: () => [
         {
@@ -257,7 +258,7 @@ describe("BaseModel", () => {
   it("can bypass read permission in _find results", async () => {
     const model = new TestModel(defaultContext);
 
-    const mockFind = jest.fn();
+    const mockFind = vi.fn();
     mockFind.mockReturnValueOnce({
       toArray: () => [
         {
@@ -327,7 +328,7 @@ describe("BaseModel", () => {
   it("can paginate _find results", async () => {
     const model = new TestModel(defaultContext);
 
-    const mockFind = jest.fn();
+    const mockFind = vi.fn();
     mockFind.mockReturnValueOnce({
       toArray: () => [
         {
@@ -410,7 +411,7 @@ describe("BaseModel", () => {
     const model = new TestModel(defaultContext);
     model.canCreateMock.mockReturnValue(true);
 
-    const insertOneMock = jest.fn();
+    const insertOneMock = vi.fn();
     model.dangerousGetCollectionMock.mockReturnValue({
       insertOne: insertOneMock,
     });
@@ -484,7 +485,7 @@ describe("BaseModel", () => {
     const model = new TestModel(defaultContext);
     model.canCreateMock.mockReturnValue(true);
 
-    const updateOneMock = jest.fn();
+    const updateOneMock = vi.fn();
     model.dangerousGetCollectionMock.mockReturnValue({
       updateOne: updateOneMock,
     });

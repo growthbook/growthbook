@@ -1,3 +1,4 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import fetch, { Response } from "node-fetch";
 
 import cloneDeep from "lodash/cloneDeep";
@@ -14,10 +15,10 @@ import * as LicenseModelModule from "back-end/src/enterprise/models/licenseModel
 
 const LicenseModel = LicenseModelModule.LicenseModel;
 
-jest.mock("node-fetch");
-jest.mock("../src/enterprise/models/licenseModel");
+vi.mock("node-fetch");
+vi.mock("../src/enterprise/models/licenseModel");
 
-const mockedFetch = fetch as jest.MockedFunction<typeof fetch>;
+const mockedFetch = vi.mocked(fetch);
 
 describe("src/license", () => {
   const env = process.env;
@@ -107,18 +108,18 @@ describe("src/license", () => {
   const old_license_now = new Date(Date.UTC(2023, 10, 18, 18, 45, 4, 713));
 
   beforeEach(() => {
-    jest.resetModules();
+    vi.resetModules();
     resetInMemoryLicenseCache();
-    jest.clearAllMocks();
-    jest.useFakeTimers("modern");
-    jest.setSystemTime(now);
+    vi.clearAllMocks();
+    vi.useFakeTimers("modern");
+    vi.setSystemTime(now);
     process.env = { ...env };
   });
 
   afterEach(() => {
-    jest.spyOn(JSON, "parse").mockRestore();
-    jest.spyOn(LicenseModelModule, "getLicenseByKey").mockRestore();
-    jest.useRealTimers();
+    vi.spyOn(JSON, "parse").mockRestore();
+    vi.spyOn(LicenseModelModule, "getLicenseByKey").mockRestore();
+    vi.useRealTimers();
     mockedFetch.mockReset();
     process.env = env;
   });
@@ -184,7 +185,7 @@ describe("src/license", () => {
       beforeEach(async () => {
         const mockedResponse: Response = ({
           ok: true,
-          json: jest.fn().mockResolvedValueOnce(licenseDataNoPlan),
+          json: vi.fn().mockResolvedValueOnce(licenseDataNoPlan),
         } as unknown) as Response;
 
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
@@ -245,7 +246,7 @@ describe("src/license", () => {
       beforeEach(async () => {
         const mockedResponse: Response = ({
           ok: true,
-          json: jest.fn().mockResolvedValueOnce(licenseDataNoPlan),
+          json: vi.fn().mockResolvedValueOnce(licenseDataNoPlan),
         } as unknown) as Response;
 
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
@@ -270,7 +271,7 @@ describe("src/license", () => {
       beforeEach(async () => {
         const mockedResponse: Response = ({
           ok: true,
-          json: jest.fn().mockResolvedValueOnce(licenseDataNoPlan),
+          json: vi.fn().mockResolvedValueOnce(licenseDataNoPlan),
         } as unknown) as Response;
 
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
@@ -296,7 +297,7 @@ describe("src/license", () => {
       beforeEach(async () => {
         const mockedResponse: Response = ({
           ok: true,
-          json: jest.fn().mockResolvedValueOnce(licenseDataTooOld),
+          json: vi.fn().mockResolvedValueOnce(licenseDataTooOld),
         } as unknown) as Response;
 
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
@@ -321,7 +322,7 @@ describe("src/license", () => {
       beforeEach(async () => {
         const mockedResponse: Response = ({
           ok: true,
-          json: jest.fn().mockResolvedValueOnce(licenseDataTooOld),
+          json: vi.fn().mockResolvedValueOnce(licenseDataTooOld),
         } as unknown) as Response;
 
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
@@ -345,7 +346,7 @@ describe("src/license", () => {
       beforeEach(async () => {
         const mockedResponse: Response = ({
           ok: true,
-          json: jest.fn().mockResolvedValueOnce(licenseDataTooOld),
+          json: vi.fn().mockResolvedValueOnce(licenseDataTooOld),
         } as unknown) as Response;
 
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
@@ -371,7 +372,7 @@ describe("src/license", () => {
       beforeEach(async () => {
         const mockedResponse: Response = ({
           ok: true,
-          json: jest.fn().mockResolvedValueOnce(licenseDataTooOld),
+          json: vi.fn().mockResolvedValueOnce(licenseDataTooOld),
         } as unknown) as Response;
 
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
@@ -395,7 +396,7 @@ describe("src/license", () => {
       beforeEach(async () => {
         const mockedResponse: Response = ({
           ok: true,
-          json: jest.fn().mockResolvedValueOnce(expiredLicense),
+          json: vi.fn().mockResolvedValueOnce(expiredLicense),
         } as unknown) as Response;
 
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
@@ -413,7 +414,7 @@ describe("src/license", () => {
       beforeEach(async () => {
         const mockedResponse: Response = ({
           ok: true,
-          json: jest.fn().mockResolvedValueOnce(licenseWithUnverifiedEmail),
+          json: vi.fn().mockResolvedValueOnce(licenseWithUnverifiedEmail),
         } as unknown) as Response;
 
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
@@ -426,7 +427,7 @@ describe("src/license", () => {
       });
 
       it("should not throw an error if it is an old syle license", () => {
-        jest.setSystemTime(old_license_now);
+        vi.setSystemTime(old_license_now);
         const org_with_old_style_license = {
           id: "org_123",
           licenseKey: oldLicenseKey,
@@ -435,7 +436,7 @@ describe("src/license", () => {
       });
 
       it("should not throw an error if it is an old syle license in the env var", () => {
-        jest.setSystemTime(old_license_now);
+        vi.setSystemTime(old_license_now);
         process.env.LICENSE_KEY = oldLicenseKey;
         const org_with_old_style_license = {
           id: "org_123",
@@ -453,7 +454,7 @@ describe("src/license", () => {
       beforeEach(async () => {
         const mockedResponse: Response = ({
           ok: true,
-          json: jest.fn().mockResolvedValueOnce(licenseWithWrongOrg),
+          json: vi.fn().mockResolvedValueOnce(licenseWithWrongOrg),
         } as unknown) as Response;
 
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
@@ -474,7 +475,7 @@ describe("src/license", () => {
       beforeEach(async () => {
         const mockedResponse: Response = ({
           ok: true,
-          json: jest.fn().mockResolvedValueOnce(licenseWithWrongOrg),
+          json: vi.fn().mockResolvedValueOnce(licenseWithWrongOrg),
         } as unknown) as Response;
 
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
@@ -490,7 +491,7 @@ describe("src/license", () => {
       beforeEach(async () => {
         const mockedResponse: Response = ({
           ok: true,
-          json: jest.fn().mockResolvedValueOnce(licenseData),
+          json: vi.fn().mockResolvedValueOnce(licenseData),
         } as unknown) as Response;
 
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
@@ -558,7 +559,7 @@ describe("src/license", () => {
         beforeEach(() => {
           const mockedResponse: Response = ({
             ok: true,
-            json: jest.fn().mockResolvedValueOnce(licenseData),
+            json: vi.fn().mockResolvedValueOnce(licenseData),
           } as unknown) as Response;
 
           mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
@@ -684,19 +685,19 @@ describe("src/license", () => {
 
           expect(getLicense(licenseKey)).toEqual(licenseData);
 
-          jest.spyOn(LicenseModel, "findOne").mockResolvedValue({
+          vi.spyOn(LicenseModel, "findOne").mockResolvedValue({
             ...licenseData,
             toJSON: () => licenseData,
-            save: jest.fn(),
-            set: jest.fn(),
+            save: vi.fn(),
+            set: vi.fn(),
           });
 
           const twoDaysFromNow = now.getTime() + 8 * 24 * 60 * 60 * 1000;
-          jest.setSystemTime(twoDaysFromNow);
+          vi.setSystemTime(twoDaysFromNow);
 
           const mockedResponse2: Response = ({
             ok: true,
-            json: jest.fn().mockResolvedValueOnce(licenseData2),
+            json: vi.fn().mockResolvedValueOnce(licenseData2),
           } as unknown) as Response; // Create a mock Response object
 
           mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse2));
@@ -711,7 +712,7 @@ describe("src/license", () => {
 
           const mockedResponse: Response = ({
             ok: true,
-            json: jest.fn().mockResolvedValueOnce(licenseData),
+            json: vi.fn().mockResolvedValueOnce(licenseData),
           } as unknown) as Response;
 
           const licenseKey2 = "license_19exntswvlosvp1dasdfads";
@@ -720,7 +721,7 @@ describe("src/license", () => {
 
           const mockedResponse2: Response = ({
             ok: true,
-            json: jest.fn().mockResolvedValueOnce(licenseData3),
+            json: vi.fn().mockResolvedValueOnce(licenseData3),
           } as unknown) as Response;
 
           mockedFetch.mockImplementation((url) => {
@@ -788,11 +789,11 @@ describe("src/license", () => {
 
           expect(getLicense(licenseKey)).toEqual(licenseData);
           const tenDaysFromNow = now.getTime() + 10 * 24 * 60 * 60 * 1000;
-          jest.setSystemTime(tenDaysFromNow);
+          vi.setSystemTime(tenDaysFromNow);
 
           const mockedResponse2: Response = ({
             ok: true,
-            json: jest.fn().mockResolvedValueOnce(licenseData2),
+            json: vi.fn().mockResolvedValueOnce(licenseData2),
           } as unknown) as Response; // Create a mock Response object
 
           mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse2));
@@ -809,14 +810,14 @@ describe("src/license", () => {
 
           const mockedResponse2: Response = ({
             ok: true,
-            json: jest.fn().mockResolvedValueOnce(licenseData2),
+            json: vi.fn().mockResolvedValueOnce(licenseData2),
           } as unknown) as Response; // Create a mock Response object
 
-          jest.spyOn(LicenseModel, "findOne").mockResolvedValue({
+          vi.spyOn(LicenseModel, "findOne").mockResolvedValue({
             ...licenseData,
             toJSON: () => licenseData,
-            save: jest.fn(),
-            set: jest.fn(),
+            save: vi.fn(),
+            set: vi.fn(),
           });
 
           mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse2));
@@ -828,12 +829,12 @@ describe("src/license", () => {
 
         it("should disregard contents if the data doesn't match the signature and return what is in the mongo cache with error fields set", async () => {
           mockedFetch.mockReset(); // this test's fetch result should be different from the others'
-          jest.spyOn(LicenseModelModule, "getLicenseByKey").mockRestore(); // this test should expect there to be something in mongo cache
+          vi.spyOn(LicenseModelModule, "getLicenseByKey").mockRestore(); // this test should expect there to be something in mongo cache
           const licenseDateWithBadSignature = cloneDeep(licenseData);
           licenseDateWithBadSignature.signedChecksum = "bad signature";
           const mockedResponse3: Response = ({
             ok: true,
-            json: jest.fn().mockResolvedValueOnce(licenseDateWithBadSignature),
+            json: vi.fn().mockResolvedValueOnce(licenseDateWithBadSignature),
           } as unknown) as Response; // Create a mock Response object
 
           mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse3));
@@ -875,7 +876,7 @@ describe("src/license", () => {
           const mockedResponse: Response = ({
             ok: false,
             statusText: "internal server error",
-            text: jest.fn().mockResolvedValue("internal server error"),
+            text: vi.fn().mockResolvedValue("internal server error"),
           } as unknown) as Response;
 
           mockedFetch.mockResolvedValue(Promise.resolve(mockedResponse));
@@ -957,7 +958,7 @@ describe("src/license", () => {
 
           it("should fetch in the background and return cache from LicenseModel if a cache exists in licenseModel that is between 2 and 7 days and save the failures in the mongo cache", async () => {
             const firstCallTime = now.getTime() + 2 * 24 * 60 * 60 * 1000;
-            jest.setSystemTime(firstCallTime);
+            vi.setSystemTime(firstCallTime);
 
             await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
 
@@ -988,13 +989,13 @@ describe("src/license", () => {
             const mockedResponse: Response = ({
               ok: false,
               statusText: "different error",
-              text: jest.fn().mockResolvedValueOnce("different error"),
+              text: vi.fn().mockResolvedValueOnce("different error"),
             } as unknown) as Response;
 
             mockedFetch.mockResolvedValue(Promise.resolve(mockedResponse));
 
             const secondCallTime = now.getTime() + 4 * 24 * 60 * 60 * 1000;
-            jest.setSystemTime(secondCallTime);
+            vi.setSystemTime(secondCallTime);
             await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
 
             // The previous license data in mongo cache should be returned as it calls the license server in the background
@@ -1022,7 +1023,7 @@ describe("src/license", () => {
 
           it("should return the cache that exists if it was last updated too long ago (getLicenseError will return a too old message)", async () => {
             const callTime = now.getTime() + 8 * 24 * 60 * 60 * 1000;
-            jest.setSystemTime(callTime);
+            vi.setSystemTime(callTime);
 
             await expect(async () => {
               await licenseInit(
@@ -1090,7 +1091,7 @@ describe("src/license", () => {
           "O8U7fSZb2eA_NIi6N5MJSxqsHNZ98E_nkoyBK7tQ_0pIGhXpQCrAy04ec_l_YLiNCVR8UKeZVQuf58_bdgBCXVQsEZSWDRSpmf_8lw3NjwHEBgh9KdDzsZVIN-bzywA27sQIsR4MS6kmZOgm2ml91WfRblCUf9q6kbXfXFBKgtt-afGUZDqYVnC-bPbZvoRKmyREpnw3u-CMlTvMPrxkpUuRCCWWcQe6o5S7LUW_L3Z9e-9kEEYC3mh2ERnjojSblR_sdSa_mDgLA20p9w0_Amhrw-6zKIi6ZyMUHHz3iUKXjvEpp4OqqHhm5Fooax07Hn4e18Om9ZisaZ22IRKeJyjjuZdGMnK3cfNhUaHkWW_FSHaDnTouQRdtA-hBP5l4ktauLKKVKuomvwunDq5-MHrcENfcUedV6eB68R0OGEi8bQVCGSnLrO48gTrQzbwVem5EAgr1n7PwpCdzZntUZfQ9QnoPhRRBPNFPGcCJih4ZlOsuDpYRpie7ritAupI7sRbuw_vk00fEBb0NAqA5pNBH7JMjUPhsUwYtXJumkbHZt8p1gz1U5A9UIgZT8rjiwHifqgOyo435M2xcHDHqPahjRDq8K11NZATNAf9AFlnIPPiYg-hHMIhugArpG-EuOsEekVQqjzGfm6CC24f6cyllhRYk22ae04cdbcm4iaA";
         const mockedResponse3: Response = ({
           ok: true,
-          json: jest.fn().mockResolvedValueOnce(licenseData3),
+          json: vi.fn().mockResolvedValueOnce(licenseData3),
         } as unknown) as Response;
 
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse3));
@@ -1109,7 +1110,7 @@ describe("src/license", () => {
       it("should not use the env variable if the licenseKey argument does not reference an expired license", async () => {
         const mockedResponse: Response = ({
           ok: true,
-          json: jest.fn().mockResolvedValueOnce(licenseData),
+          json: vi.fn().mockResolvedValueOnce(licenseData),
         } as unknown) as Response;
 
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
@@ -1132,8 +1133,8 @@ describe("src/license", () => {
 
         const tenYearsFromNow =
           old_license_now.getTime() + 10 * 365 * 24 * 60 * 60 * 1000;
-        jest.setSystemTime(tenYearsFromNow);
-        jest.spyOn(JSON, "parse").mockReturnValue({ foo: "bar" }); // This is an invalid license, but we should use the cache so won't see an error.
+        vi.setSystemTime(tenYearsFromNow);
+        vi.spyOn(JSON, "parse").mockReturnValue({ foo: "bar" }); // This is an invalid license, but we should use the cache so won't see an error.
 
         await licenseInit(
           orgWithOldKey,
@@ -1159,7 +1160,7 @@ describe("src/license", () => {
         oldLicenseOriginalData2.eat = oldLicenseOriginalData2.exp;
         // @ts-expect-error Ignoring TypeScript error here because we intentionally passed malformed data for testing purposes
         delete oldLicenseOriginalData2.exp;
-        jest.spyOn(JSON, "parse").mockReturnValue(oldLicenseOriginalData2);
+        vi.spyOn(JSON, "parse").mockReturnValue(oldLicenseOriginalData2);
 
         await licenseInit(orgWithOldKey);
 
@@ -1170,7 +1171,7 @@ describe("src/license", () => {
         const oldLicenseOriginalData2 = cloneDeep(oldLicenseOrginalData);
         // @ts-expect-error Ignoring TypeScript error here because we intentionally passed malformed data for testing purposes
         delete oldLicenseOriginalData2.exp;
-        jest.spyOn(JSON, "parse").mockReturnValue(oldLicenseOriginalData2);
+        vi.spyOn(JSON, "parse").mockReturnValue(oldLicenseOriginalData2);
 
         await expect(async () => {
           await licenseInit(orgWithOldKey);
@@ -1183,7 +1184,7 @@ describe("src/license", () => {
         const oldLicenseOriginalData2 = cloneDeep(oldLicenseOrginalData);
         // @ts-expect-error Ignoring TypeScript error here because we intentionally passed malformed data for testing purposes
         delete oldLicenseOriginalData2.plan;
-        jest.spyOn(JSON, "parse").mockReturnValue(oldLicenseOriginalData2);
+        vi.spyOn(JSON, "parse").mockReturnValue(oldLicenseOriginalData2);
 
         await licenseInit(orgWithOldKey);
 

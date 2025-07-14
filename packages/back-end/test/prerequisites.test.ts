@@ -1,3 +1,4 @@
+import { describe, it, expect } from "vitest";
 import cloneDeep from "lodash/cloneDeep";
 import { evaluatePrerequisiteState } from "shared/util";
 import { FeatureInterface } from "back-end/types/feature";

@@ -1,3 +1,4 @@
+import { describe, it, expect, vi } from "vitest";
 import { Promise as BluebirdPromise } from "bluebird";
 import { setupApp } from "back-end/test/api/api.setup";
 import { insertMetric } from "back-end/src/models/MetricModel";
@@ -16,16 +17,21 @@ import {
   experiments,
 } from "./experimentSignificance.mocks.json";
 
-jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
-  getLatestSnapshot: jest.fn(),
+vi.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
+  getLatestSnapshot: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/organizations", () => ({
-  getConfidenceLevelsForOrg: jest.fn(),
-  getEnvironmentIdsFromOrg: jest.fn(),
-  getMetricDefaultsForOrg: jest.fn(),
-  getPValueThresholdForOrg: jest.fn(),
+vi.mock("back-end/src/services/organizations", () => ({
+  getConfidenceLevelsForOrg: vi.fn(),
+  getEnvironmentIdsFromOrg: vi.fn(),
+  getMetricDefaultsForOrg: vi.fn(),
+  getPValueThresholdForOrg: vi.fn(),
 }));
+
+const mockGetLatestSnapshot = vi.mocked(getLatestSnapshot);
+const mockGetConfidenceLevelsForOrg = vi.mocked(getConfidenceLevelsForOrg);
+const mockGetMetricDefaultsForOrg = vi.mocked(getMetricDefaultsForOrg);
+const mockGetPValueThresholdForOrg = vi.mocked(getPValueThresholdForOrg);
 
 const testCases = [
   // negative significance for metric 0 in base snapshot
@@ -114,12 +120,14 @@ describe("Experiment Significance notifications", () => {
     await BluebirdPromise.each(
       testCases,
       async ({ beforeSnapshot, currentSnapshot, expected, ...params }) => {
-        getLatestSnapshot.mockReturnValue(beforeSnapshot);
-        getConfidenceLevelsForOrg.mockReturnValue(
+        mockGetLatestSnapshot.mockReturnValue(beforeSnapshot);
+        mockGetConfidenceLevelsForOrg.mockReturnValue(
           params.getConfidenceLevelsForOrg
         );
-        getMetricDefaultsForOrg.mockReturnValue(params.getMetricDefaultsForOrg);
-        getPValueThresholdForOrg.mockReturnValue(
+        mockGetMetricDefaultsForOrg.mockReturnValue(
+          params.getMetricDefaultsForOrg
+        );
+        mockGetPValueThresholdForOrg.mockReturnValue(
           params.getPValueThresholdForOrg
         );
 

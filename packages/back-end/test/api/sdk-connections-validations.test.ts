@@ -1,3 +1,4 @@
+import { describe, it, expect, vi } from "vitest";
 import { getSDKCapabilities, getSDKVersions } from "shared/sdk-versioning";
 import {
   validateEnvironment,
@@ -10,14 +11,18 @@ import {
 } from "back-end/src/api/sdk-connections/validations";
 import { getEnvironments } from "back-end/src/services/organizations";
 
-jest.mock("back-end/src/services/organizations", () => ({
-  getEnvironments: jest.fn(),
+vi.mock("back-end/src/services/organizations", () => ({
+  getEnvironments: vi.fn(),
 }));
 
-jest.mock("shared/sdk-versioning", () => ({
-  getSDKCapabilities: jest.fn(),
-  getSDKVersions: jest.fn(),
+vi.mock("shared/sdk-versioning", () => ({
+  getSDKCapabilities: vi.fn(),
+  getSDKVersions: vi.fn(),
 }));
+
+const mockGetEnvironments = vi.mocked(getEnvironments);
+const mockGetSDKCapabilities = vi.mocked(getSDKCapabilities);
+const mockGetSDKVersions = vi.mocked(getSDKVersions);
 
 describe("sdk-connections validations", () => {
   const org = { id: "org", environments: [{ id: "production" }] };
@@ -44,11 +49,11 @@ describe("sdk-connections validations", () => {
 
   describe("environment validation", () => {
     beforeEach(() => {
-      getEnvironments.mockReturnValue([{ id: "env_id" }]);
+      mockGetEnvironments.mockReturnValue([{ id: "env_id" }]);
     });
 
     afterEach(() => {
-      jest.clearAllMocks();
+      vi.clearAllMocks();
     });
 
     it("Fails nonexistent environments", () => {
@@ -106,7 +111,7 @@ describe("sdk-connections validations", () => {
 
   describe("sdk capability validation", () => {
     beforeEach(() => {
-      getSDKCapabilities.mockImplementation(
+      mockGetSDKCapabilities.mockImplementation(
         (language: string, version: string | undefined) => {
           if (language === "javascript") {
             if (version === "old_version") return ["encryption"];
@@ -119,7 +124,7 @@ describe("sdk-connections validations", () => {
     });
 
     afterEach(() => {
-      jest.clearAllMocks();
+      vi.clearAllMocks();
     });
 
     it("Prompts upgrades when needed for a capability", () => {
@@ -199,13 +204,13 @@ describe("sdk-connections validations", () => {
 
   describe("sdk version validation", () => {
     beforeEach(() => {
-      getSDKVersions.mockImplementation((language: string) =>
+      mockGetSDKVersions.mockImplementation((language: string) =>
         language === "javascript" ? ["js_old", "js_latest"] : ["other_old"]
       );
     });
 
     afterEach(() => {
-      jest.clearAllMocks();
+      vi.clearAllMocks();
     });
 
     it("Fails nonexistent versions", () => {

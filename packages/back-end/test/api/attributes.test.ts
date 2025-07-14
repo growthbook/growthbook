@@ -1,16 +1,17 @@
+import { describe, it, expect, vi, afterEach } from "vitest";
 import request from "supertest";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { setupApp } from "./api.setup";
 
-jest.mock("back-end/src/models/OrganizationModel", () => ({
-  updateOrganization: jest.fn(),
+vi.mock("back-end/src/models/OrganizationModel", () => ({
+  updateOrganization: vi.fn(),
 }));
 
 describe("attributes API", () => {
   const { app, auditMock, setReqContext } = setupApp();
 
   afterEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it("can list all attributes", async () => {

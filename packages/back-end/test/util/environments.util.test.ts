@@ -1,9 +1,10 @@
+import { describe, it, expect, vi } from "vitest";
 import { Environment } from "back-end/types/organization";
 import { deepFreeze } from "back-end/test/test-helpers";
 import { addEnvironmentToOrganizationEnvironments } from "back-end/src/util/environments";
 import { Context } from "back-end/src/models/BaseModel";
 
-const auditLogMock = jest.fn();
+const auditLogMock = vi.fn();
 
 const context = ({
   org: { id: "a" },

@@ -1,3 +1,4 @@
+import { describe, it, expect } from "vitest";
 import BigQuery from "back-end/src/integrations/BigQuery";
 import { MetricInterface } from "back-end/types/metric";
 

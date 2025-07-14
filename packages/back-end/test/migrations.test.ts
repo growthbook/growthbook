@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import { describe, it, expect } from "vitest";
 import cloneDeep from "lodash/cloneDeep";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,

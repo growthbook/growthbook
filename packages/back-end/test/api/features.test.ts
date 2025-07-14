@@ -1,3 +1,4 @@
+import { describe, it, expect, vi, afterEach } from "vitest";
 import request from "supertest";
 import { FeatureInterface } from "back-end/types/feature";
 import {
@@ -13,29 +14,38 @@ import {
 } from "back-end/src/services/features";
 import { setupApp } from "./api.setup";
 
-jest.mock("back-end/src/models/FeatureModel", () => ({
-  getFeature: jest.fn(),
-  createFeature: jest.fn(),
-  updateFeature: jest.fn(),
+vi.mock("back-end/src/models/FeatureModel", () => ({
+  getFeature: vi.fn(),
+  createFeature: vi.fn(),
+  updateFeature: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/TagModel", () => ({
-  addTags: jest.fn(),
-  addTagsDiff: jest.fn(),
+vi.mock("back-end/src/models/TagModel", () => ({
+  addTags: vi.fn(),
+  addTagsDiff: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/features", () => ({
-  getApiFeatureObj: jest.fn(),
-  getSavedGroupMap: jest.fn(),
-  addIdsToRules: jest.fn(),
-  createInterfaceEnvSettingsFromApiEnvSettings: jest.fn(),
+vi.mock("back-end/src/services/features", () => ({
+  getApiFeatureObj: vi.fn(),
+  getSavedGroupMap: vi.fn(),
+  addIdsToRules: vi.fn(),
+  createInterfaceEnvSettingsFromApiEnvSettings: vi.fn(),
 }));
+
+const mockGetFeature = vi.mocked(getFeature);
+const mockCreateFeature = vi.mocked(createFeature);
+const mockAddTags = vi.mocked(addTags);
+const mockGetSavedGroupMap = vi.mocked(getSavedGroupMap);
+const mockGetApiFeatureObj = vi.mocked(getApiFeatureObj);
+const mockCreateInterfaceEnvSettingsFromApiEnvSettings = vi.mocked(
+  createInterfaceEnvSettingsFromApiEnvSettings
+);
 
 describe("features API", () => {
   const { app, auditMock, setReqContext } = setupApp();
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   const org = { id: "org", settings: { environments: [{ id: "production" }] } };
@@ -45,7 +55,7 @@ describe("features API", () => {
       org,
       models: {
         safeRollout: {
-          getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
+          getAllPayloadSafeRollouts: vi.fn().mockResolvedValue(new Map()),
         },
       },
       permissions: {
@@ -55,14 +65,14 @@ describe("features API", () => {
       getProjects: async () => [{ id: "project" }],
     });
 
-    (createFeature as jest.Mock).mockImplementation((v) => v);
-    (getFeature as jest.Mock).mockReturnValue(undefined);
-    (addTags as jest.Mock).mockReturnValue(undefined);
-    (createInterfaceEnvSettingsFromApiEnvSettings as jest.Mock).mockReturnValue(
+    mockCreateFeature.mockImplementation((v) => v);
+    mockGetFeature.mockReturnValue(undefined);
+    mockAddTags.mockReturnValue(undefined);
+    mockCreateInterfaceEnvSettingsFromApiEnvSettings.mockReturnValue(
       "createInterfaceEnvSettingsFromApiEnvSettings"
     );
-    (getSavedGroupMap as jest.Mock).mockResolvedValue("savedGroupMap");
-    (getApiFeatureObj as jest.Mock).mockImplementation((v) => v);
+    mockGetSavedGroupMap.mockResolvedValue("savedGroupMap");
+    mockGetApiFeatureObj.mockImplementation((v) => v);
 
     const feature = {
       defaultValue: "defaultValue",
@@ -131,7 +141,7 @@ describe("features API", () => {
         },
         models: {
           safeRollout: {
-            getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
+            getAllPayloadSafeRollouts: vi.fn().mockResolvedValue(new Map()),
           },
         },
         permissions: {
@@ -172,7 +182,7 @@ describe("features API", () => {
         },
         models: {
           safeRollout: {
-            getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
+            getAllPayloadSafeRollouts: vi.fn().mockResolvedValue(new Map()),
           },
         },
         permissions: {
@@ -238,7 +248,7 @@ describe("features API", () => {
         },
         models: {
           safeRollout: {
-            getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
+            getAllPayloadSafeRollouts: vi.fn().mockResolvedValue(new Map()),
           },
         },
         permissions: {

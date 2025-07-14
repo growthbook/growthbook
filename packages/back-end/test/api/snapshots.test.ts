@@ -1,3 +1,4 @@
+import { describe, it, expect, vi, afterEach } from "vitest";
 import request from "supertest";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
@@ -5,23 +6,28 @@ import { findSnapshotById } from "back-end/src/models/ExperimentSnapshotModel";
 import { snapshotFactory } from "back-end/test/factories/Snapshot.factory";
 import { setupApp } from "./api.setup";
 
-jest.mock("back-end/src/models/DataSourceModel", () => ({
-  getDataSourceById: jest.fn(),
+// Type the mocked functions
+const mockGetDataSourceById = vi.mocked(getDataSourceById);
+const mockGetExperimentById = vi.mocked(getExperimentById);
+const mockFindSnapshotById = vi.mocked(findSnapshotById);
+
+vi.mock("back-end/src/models/DataSourceModel", () => ({
+  getDataSourceById: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/ExperimentModel", () => ({
-  getExperimentById: jest.fn(),
+vi.mock("back-end/src/models/ExperimentModel", () => ({
+  getExperimentById: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
-  findSnapshotById: jest.fn(),
+vi.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
+  findSnapshotById: vi.fn(),
 }));
 
 describe("snapshots API", () => {
   const { app, setReqContext } = setupApp();
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   const org = { id: "org" };
@@ -38,8 +44,10 @@ describe("snapshots API", () => {
       organization: org.id,
     });
 
-    findSnapshotById.mockReturnValueOnce(snapshot);
-    getExperimentById.mockReturnValueOnce({ id: snapshot.experiment });
+    mockFindSnapshotById.mockResolvedValueOnce(snapshot);
+    mockGetExperimentById.mockResolvedValueOnce({
+      id: snapshot.experiment,
+    });
 
     const response = await request(app)
       .get("/api/v1/snapshots/snp_1")
@@ -68,7 +76,7 @@ describe("snapshots API", () => {
     });
 
     // check is on getExperimentById, not findSnapshotById
-    findSnapshotById.mockReturnValueOnce(snapshot);
+    mockFindSnapshotById.mockResolvedValueOnce(snapshot);
 
     const response = await request(app)
       .get("/api/v1/snapshots/snp_1")
@@ -128,11 +136,11 @@ describe("snapshots API", () => {
       organization: org.id,
     });
 
-    getExperimentById.mockReturnValueOnce({
+    mockGetExperimentById.mockResolvedValueOnce({
       id: snapshot.experiment,
       datasource: "ds_123",
     });
-    getDataSourceById.mockReturnValueOnce({ id: "ds_123" });
+    mockGetDataSourceById.mockResolvedValueOnce({ id: "ds_123" });
 
     const response = await request(app)
       .post(`/api/v1/experiments/${snapshot.experiment}/snapshot`)

@@ -1,3 +1,4 @@
+import { describe, it, expect } from "vitest";
 import { getConnectionStringWithDeprecatedKeysMigratedForV3to4 } from "back-end/src/util/mongo.util";
 
 describe("mongo utils", () => {

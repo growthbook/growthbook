@@ -1,3 +1,4 @@
+import { describe, it, expect, vi, afterEach } from "vitest";
 import request from "supertest";
 import { setupApp } from "./api.setup";
 
@@ -5,7 +6,7 @@ describe("environements API", () => {
   const { app, auditMock, setReqContext } = setupApp();
 
   afterEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it("can list all projects", async () => {
@@ -83,7 +84,7 @@ describe("environements API", () => {
   });
 
   it("can delete projects", async () => {
-    const deleteByIdMock = jest.fn();
+    const deleteByIdMock = vi.fn();
     setReqContext({
       models: {
         projects: {
@@ -109,7 +110,7 @@ describe("environements API", () => {
   });
 
   it("throws and error when deleting non-existing projects", async () => {
-    const deleteByIdMock = jest.fn();
+    const deleteByIdMock = vi.fn();
     setReqContext({
       models: {
         projects: {
@@ -129,10 +130,10 @@ describe("environements API", () => {
   });
 
   it("can update projects", async () => {
-    const getByIdMock = jest.fn();
-    const updateMock = jest.fn();
-    const updateValidatorMock = jest.fn();
-    const toApiInterfaceMock = jest.fn();
+    const getByIdMock = vi.fn();
+    const updateMock = vi.fn();
+    const updateValidatorMock = vi.fn();
+    const toApiInterfaceMock = vi.fn();
 
     setReqContext({
       models: {
@@ -227,9 +228,9 @@ describe("environements API", () => {
   });
 
   it("can create projects", async () => {
-    const createMock = jest.fn();
-    const createValidatorMock = jest.fn();
-    const toApiInterfaceMock = jest.fn();
+    const createMock = vi.fn();
+    const createValidatorMock = vi.fn();
+    const toApiInterfaceMock = vi.fn();
 
     setReqContext({
       models: {

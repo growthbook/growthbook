@@ -1,31 +1,35 @@
+import { describe, it, expect, vi } from "vitest";
 import { findOrganizationsByMemberId } from "back-end/src/models/OrganizationModel";
 import { getUserByEmail } from "back-end/src/models/UserModel";
 import { trackLoginForUser } from "back-end/src/services/users";
 import { createEventWithPayload } from "back-end/src/models/EventModel";
 import { getLegacyMessageForNotificationEvent } from "back-end/src/events/handlers/legacy";
 
-jest.mock("back-end/src/models/OrganizationModel", () => ({
-  findOrganizationsByMemberId: jest.fn(),
+vi.mock("back-end/src/models/OrganizationModel", () => ({
+  findOrganizationsByMemberId: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/UserModel", () => ({
-  getUserByEmail: jest.fn(),
+vi.mock("back-end/src/models/UserModel", () => ({
+  getUserByEmail: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/EventModel", () => ({
-  createEventWithPayload: jest.fn(),
+vi.mock("back-end/src/models/EventModel", () => ({
+  createEventWithPayload: vi.fn(),
 }));
+
+const mockGetUserByEmail = vi.mocked(getUserByEmail);
+const mockFindOrganizationsByMemberId = vi.mocked(findOrganizationsByMemberId);
 
 describe("user events", () => {
   const org = { id: "org", environments: [{ id: "production" }] };
 
   it("dispatches user.login on user login", async () => {
-    getUserByEmail.mockReturnValue({
+    mockGetUserByEmail.mockReturnValue({
       id: "user-id",
       name: "User Name",
       email: "user@mail.org",
     });
-    findOrganizationsByMemberId.mockReturnValue([org]);
+    mockFindOrganizationsByMemberId.mockReturnValue([org]);
 
     await trackLoginForUser({
       email: "user@mail.org",

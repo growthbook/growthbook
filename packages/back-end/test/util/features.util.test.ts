@@ -1,3 +1,4 @@
+import { describe, it, expect } from "vitest";
 import { applyEnvironmentInheritance } from "../../src/util/features";
 
 describe("feature utils", () => {

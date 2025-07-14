@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import mongoose from "mongoose";
 import "openai/shims/node";
 import { MongoMemoryServer } from "mongodb-memory-server";
@@ -8,30 +9,30 @@ import mongoInit from "back-end/src/init/mongo";
 import { queueInit } from "back-end/src/init/queue";
 import { getAgendaInstance } from "back-end/src/services/queueing";
 
-jest.mock("back-end/src/util/secrets", () => ({
-  ...jest.requireActual("back-end/src/util/secrets"),
+vi.mock("back-end/src/util/secrets", () => ({
+  ...vi.importActual("back-end/src/util/secrets"),
   CRON_ENABLED: 1,
 }));
 
-jest.mock("back-end/src/services/auth", () => ({
-  ...jest.requireActual("back-end/src/services/auth"),
+vi.mock("back-end/src/services/auth", () => ({
+  ...vi.importActual("back-end/src/services/auth"),
   getAuthConnection: () => ({
-    middleware: jest.fn(),
+    middleware: vi.fn(),
   }),
 }));
 
-jest.mock("back-end/src/middleware/authenticateApiRequestMiddleware", () => ({
-  ...jest.requireActual(
+vi.mock("back-end/src/middleware/authenticateApiRequestMiddleware", () => ({
+  ...vi.importActual(
     "back-end/src/middleware/authenticateApiRequestMiddleware"
   ),
   __esModule: true,
-  default: jest.fn(),
+  default: vi.fn(),
 }));
 
 export const setupApp = () => {
   let mongodb;
   let reqContext;
-  const auditMock = jest.fn();
+  const auditMock = vi.fn();
   const OLD_ENV = process.env;
   const isReady = new Promise((resolve) => {
     beforeAll(async () => {
@@ -62,7 +63,7 @@ export const setupApp = () => {
     });
 
     afterEach(async () => {
-      jest.clearAllMocks();
+      vi.clearAllMocks();
       const collections = mongoose.connection.collections;
       for (const key in collections) {
         const collection = collections[key];

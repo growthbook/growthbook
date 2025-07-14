@@ -1,3 +1,4 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   VisualChangesetModel,
   updateVisualChangeset,
@@ -6,7 +7,9 @@ import { ReqContext } from "back-end/types/organization";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { getCollection } from "back-end/src/util/mongo.util";
 
-jest.mock("back-end/src/util/mongo.util");
+vi.mock("back-end/src/util/mongo.util");
+
+const mockGetCollection = vi.mocked(getCollection);
 
 describe("updateVisualChangeset", () => {
   const context: ReqContext = {
@@ -26,7 +29,7 @@ describe("updateVisualChangeset", () => {
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe("when a visual changeset has existing visual changes", () => {
@@ -115,8 +118,8 @@ describe("updateVisualChangeset", () => {
         });
 
       it("should overwrite the existing visual changes with new changes", async () => {
-        (getCollection as jest.Mock).mockReturnValue({
-          findOne: jest.fn().mockResolvedValue(null),
+        mockGetCollection.mockReturnValue({
+          findOne: vi.fn().mockResolvedValue(null),
         });
 
         await updateVisualChangeset({

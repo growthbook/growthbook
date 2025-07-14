@@ -1,3 +1,4 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import fetch, { Response } from "node-fetch";
 import * as Sentry from "@sentry/node";
 import {
@@ -11,33 +12,33 @@ import {
 import * as licenseUtil from "back-end/src/enterprise/licenseUtil";
 import { OrganizationInterface } from "back-end/types/organization";
 
-jest.mock("@sentry/node", () => ({
-  ...jest.requireActual("@sentry/node"),
-  captureException: jest.fn(),
+vi.mock("@sentry/node", () => ({
+  ...vi.importActual("@sentry/node"),
+  captureException: vi.fn(),
 }));
 
-jest.mock("back-end/src/enterprise/licenseUtil", () => ({
-  ...jest.requireActual("back-end/src/enterprise/licenseUtil"),
-  getEffectiveAccountPlan: jest.fn(),
+vi.mock("back-end/src/enterprise/licenseUtil", () => ({
+  ...vi.importActual("back-end/src/enterprise/licenseUtil"),
+  getEffectiveAccountPlan: vi.fn(),
 }));
 
-jest.mock("back-end/src/util/logger", () => ({
+vi.mock("back-end/src/util/logger", () => ({
   logger: {
-    error: jest.fn(),
+    error: vi.fn(),
   },
 }));
 
 let isCloud = false;
 
-jest.mock("back-end/src/util/secrets", () => ({
-  ...jest.requireActual("back-end/src/util/secrets"),
+vi.mock("back-end/src/util/secrets", () => ({
+  ...vi.importActual("back-end/src/util/secrets"),
   get IS_CLOUD() {
     return isCloud; // Use a getter to dynamically return the value of isCloud
   },
 }));
-jest.mock("node-fetch");
+vi.mock("node-fetch");
 
-const mockedFetch = fetch as jest.MockedFunction<typeof fetch>;
+const mockedFetch = vi.mocked(fetch);
 
 const mockOrganization: OrganizationInterface = {
   id: "org_123",
@@ -56,14 +57,14 @@ describe("getUsage", () => {
 
   beforeEach(() => {
     resetUsageCache();
-    jest.clearAllMocks();
-    jest.useFakeTimers("modern");
-    jest.setSystemTime(now);
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
     process.env = { ...env };
   });
 
   afterEach(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
     mockedFetch.mockReset();
     process.env = env;
   });
@@ -97,9 +98,7 @@ describe("getUsage", () => {
 
     describe("pro plan", () => {
       beforeEach(() => {
-        (licenseUtil.getEffectiveAccountPlan as jest.Mock).mockReturnValue(
-          "pro"
-        );
+        vi.mocked(licenseUtil.getEffectiveAccountPlan).mockReturnValue("pro");
       });
 
       it("should return UNLIMITED_USAGE for plans with unlimited usage", async () => {
@@ -130,7 +129,7 @@ describe("getUsage", () => {
 
     describe("starter plan", () => {
       beforeEach(() => {
-        (licenseUtil.getEffectiveAccountPlan as jest.Mock).mockReturnValue(
+        vi.mocked(licenseUtil.getEffectiveAccountPlan).mockReturnValue(
           "starter"
         );
       });
@@ -152,7 +151,7 @@ describe("getUsage", () => {
         };
         mockedFetch.mockResolvedValueOnce(({
           ok: true,
-          json: jest.fn().mockResolvedValueOnce(mockResponse),
+          json: vi.fn().mockResolvedValueOnce(mockResponse),
         } as unknown) as Response);
 
         const usage = await getUsage(mockOrganization);
@@ -167,7 +166,7 @@ describe("getUsage", () => {
         };
         mockedFetch.mockResolvedValueOnce(({
           ok: true,
-          json: jest.fn().mockResolvedValueOnce(mockResponse),
+          json: vi.fn().mockResolvedValueOnce(mockResponse),
         } as unknown) as Response);
 
         const usage = await getUsage(mockOrganization);
@@ -189,17 +188,17 @@ describe("getUsage", () => {
         };
         mockedFetch.mockResolvedValueOnce(({
           ok: true,
-          json: jest.fn().mockResolvedValueOnce(mockResponse),
+          json: vi.fn().mockResolvedValueOnce(mockResponse),
         } as unknown) as Response);
         mockedFetch.mockResolvedValueOnce(({
           ok: true,
-          json: jest.fn().mockResolvedValueOnce(mockResponse2),
+          json: vi.fn().mockResolvedValueOnce(mockResponse2),
         } as unknown) as Response);
 
         const usage = await getUsage(mockOrganization);
         expect(usage).toEqual(mockResponse);
 
-        jest.setSystemTime(twoHoursFromNow);
+        vi.setSystemTime(twoHoursFromNow);
         const usage2 = await getUsage(mockOrganization);
         expect(usage2).toEqual(mockResponse);
 
@@ -219,7 +218,7 @@ describe("getUsage", () => {
         };
         mockedFetch.mockResolvedValueOnce(({
           ok: true,
-          json: jest.fn().mockResolvedValueOnce(mockResponse),
+          json: vi.fn().mockResolvedValueOnce(mockResponse),
         } as unknown) as Response);
 
         const usage = await getUsageFromCache(mockOrganization);
