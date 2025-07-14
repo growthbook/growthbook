@@ -17,6 +17,7 @@ import { kebabCase } from "lodash";
 import { Box, TextField, Tooltip, Text } from "@radix-ui/themes";
 import Collapsible from "react-collapsible";
 import { PiCaretRightFill } from "react-icons/pi";
+import { FeatureEnvironment } from "back-end/types/feature";
 import { useWatching } from "@/services/WatchProvider";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -60,7 +61,6 @@ import MetricSelector from "../Experiment/MetricSelector";
 import { MetricsSelectorTooltip } from "../Experiment/MetricsSelector";
 import StatsEngineSelect from "../Settings/forms/StatsEngineSelect";
 import EnvironmentSelect from "../Features/FeatureModal/EnvironmentSelect";
-import { FeatureEnvironment } from "back-end/types/feature";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -256,7 +256,7 @@ const NewHoldoutForm: FC<NewExperimentFormProps> = ({
           coverage: 0.1,
           dateStarted: new Date().toISOString().substr(0, 16),
           dateEnded: new Date().toISOString().substr(0, 16),
-          name: "Main",
+          name: "Full Holdout",
           reason: "",
           variationWeights: [0.5, 0.5],
         },

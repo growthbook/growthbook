@@ -6,17 +6,17 @@ export const holdoutLinkedItemValidator = z.object({
   id: z.string(),
 }); // TODO: Consider using an object with ids as keys instead of an array
 
-// export const analysisSettingsValidator = z
-//   .object({
-//     // TODO: Move to experiment snapshot settings
-//     analysisWindow: z
-//       .object({
-//         start: z.date(),
-//         end: z.date(),
-//       })
-//       .optional(),
-//   })
-//   .optional();
+export const analysisSettingsValidator = z
+  .object({
+    // TODO: Move to experiment snapshot settings
+    analysisWindow: z
+      .object({
+        start: z.date(),
+        end: z.date(),
+      })
+      .optional(),
+  })
+  .optional();
 
 export const holdoutValidator = z
   .object({
@@ -30,10 +30,11 @@ export const holdoutValidator = z
     linkedExperiments: z.array(holdoutLinkedItemValidator),
     linkedFeatures: z.array(holdoutLinkedItemValidator),
     environments: z.array(z.string()),
-    environmentSettings: z.record(z.string(), featureEnvironment),
+    environmentSettings: z.record(z.string(), featureEnvironment).optional(),
     analysisStartDate: z.date().optional(),
     holdoutStopDate: z.date().optional(),
     holdoutStartDate: z.date().optional(),
+    analysisSettings: analysisSettingsValidator,
   })
   .strict();
 

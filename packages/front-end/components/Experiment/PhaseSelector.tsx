@@ -82,9 +82,11 @@ export default function PhaseSelector({
             {date(phase.dateStarted ?? "")} —{" "}
             {phase.dateEnded ? date(phase.dateEnded) : "now"}
           </span>
-          <div className="phase-summary text-muted small">
-            {phaseSummary(phase, isBandit)}
-          </div>
+          {!isHoldout && (
+            <div className="phase-summary text-muted small">
+              {phaseSummary(phase, isBandit)}
+            </div>
+          )}
         </div>
       </>
     );
