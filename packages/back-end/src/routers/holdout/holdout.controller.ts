@@ -7,6 +7,7 @@ import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   getExperimentById,
   getExperimentsByIds,
+  updateExperiment,
 } from "back-end/src/models/ExperimentModel";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { FeatureInterface } from "back-end/types/feature";
@@ -88,6 +89,29 @@ export const startAnalysis = async (
     return res.status(404).json({ status: 404 });
   }
 
+  const experiment = await getExperimentById(context, holdout.experimentId);
+
+  if (!experiment) {
+    return res.status(404).json({ status: 404 });
+  }
+  // this deletes the old analysis phase and create a new one when ever the user ends the analysis
+  const currentPhase = experiment.phases[0];
+  const phases = [
+    experiment.phases[0],
+    {
+      ...currentPhase,
+      dateStarted: new Date(),
+      name: "Analysis Period",
+    },
+  ];
+
+  await updateExperiment({
+    context,
+    experiment,
+    changes: {
+      phases,
+    },
+  });
   await context.models.holdout.update(holdout, {
     analysisStartDate: new Date(),
   });
