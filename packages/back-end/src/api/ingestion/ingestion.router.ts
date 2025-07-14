@@ -50,10 +50,12 @@ export const getDataEnrichment = createApiRequestHandler({
       orgIds
     );
 
-    const validOrgs = orgIds.filter((x) => !orgIdsWithTrackingDisabled.has(x));
+    const orgIdsWiithTrackingEnabled = orgIds.filter(
+      (x) => !orgIdsWithTrackingDisabled.has(x)
+    );
 
     const sdkConnections = await _dangerousGetSdkConnectionsAcrossMultipleOrgs(
-      validOrgs
+      orgIdsWiithTrackingEnabled
     );
 
     const sdkData = Object.fromEntries(
