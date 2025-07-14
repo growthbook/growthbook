@@ -91,7 +91,7 @@ export default function PhaseSelector({
   }
 
   const selectOptions =
-    editPhases && mutateExperiment
+    !isHoldout && editPhases && mutateExperiment
       ? [
           {
             label: "Phases",

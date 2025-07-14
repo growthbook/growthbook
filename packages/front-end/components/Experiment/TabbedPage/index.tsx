@@ -221,6 +221,8 @@ export default function TabbedPage({
     return false;
   };
 
+  const isHoldout = experiment.type === "holdout";
+
   return (
     <>
       {auditModal && (
@@ -353,7 +355,9 @@ export default function TabbedPage({
             (isBandit && tab === "explore")) && (
             <div className="alert alert-warning mt-3">
               <div>
-                You are viewing the results of a previous experiment phase.{" "}
+                {isHoldout
+                  ? "You are viewing the results of the whole holdout period not the analysis period."
+                  : "You are viewing the results of a previous experiment phase."}{" "}
                 <a
                   role="button"
                   onClick={(e) => {
@@ -361,13 +365,17 @@ export default function TabbedPage({
                     setPhase(experiment.phases.length - 1);
                   }}
                 >
-                  Switch to the latest phase
+                  {isHoldout
+                    ? "Switch to the analysis period"
+                    : "Switch to the latest phase"}
                 </a>
               </div>
-              <div className="mt-1">
-                <strong>Phase settings:</strong>{" "}
-                {phaseSummary(experiment?.phases?.[phase])}
-              </div>
+              {!isHoldout && (
+                <div className="mt-1">
+                  <strong>Phase settings:</strong>{" "}
+                  {phaseSummary(experiment?.phases?.[phase])}
+                </div>
+              )}
             </div>
           )}
         <div
