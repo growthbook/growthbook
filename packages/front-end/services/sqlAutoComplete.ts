@@ -4,31 +4,35 @@ import {
 } from "back-end/src/types/Integration";
 import { CursorData } from "@/components/Segments/SegmentForm";
 import { AceCompletion } from "@/components/Forms/CodeTextArea";
-import { getSqlKeywords } from "./sqlKeywords";
+import {
+  getSqlKeywords,
+  COMPLETION_SCORES,
+  COMPLETION_TYPES,
+} from "./sqlKeywords";
 
 const templateCompletions: AceCompletion[] = [
   {
     value: `'{{ startDate }}'`,
-    meta: "TEMPLATE VARIABLE",
-    score: 1100,
+    meta: COMPLETION_TYPES.TEMPLATE_VARIABLE,
+    score: COMPLETION_SCORES.TEMPLATE_VARIABLE,
     caption: `{{ startDate }}`,
   },
   {
     value: `'{{ startDateISO }}'`,
-    meta: "TEMPLATE VARIABLE",
-    score: 1100,
+    meta: COMPLETION_TYPES.TEMPLATE_VARIABLE,
+    score: COMPLETION_SCORES.TEMPLATE_VARIABLE,
     caption: `{{ startDateISO }}`,
   },
   {
     value: `'{{ endDate }}'`,
-    meta: "TEMPLATE VARIABLE",
-    score: 1100,
+    meta: COMPLETION_TYPES.TEMPLATE_VARIABLE,
+    score: COMPLETION_SCORES.TEMPLATE_VARIABLE,
     caption: `{{ endDate }}`,
   },
   {
     value: `'{{ endDateISO }}'`,
-    meta: "TEMPLATE VARIABLE",
-    score: 1100,
+    meta: COMPLETION_TYPES.TEMPLATE_VARIABLE,
+    score: COMPLETION_SCORES.TEMPLATE_VARIABLE,
     caption: `{{ endDateISO }}`,
   },
 ];
@@ -96,6 +100,186 @@ async function getTableDataForAutocomplete(
   return tableDataMap;
 }
 
+/**
+ * Adds event name table to selected tables
+ * @param selectedTables - Array of currently selected table IDs
+ * @param eventName - Event name to look for in the schema
+ * @param cursorData - Current cursor position data
+ * @param informationSchema - Database schema information
+ * @returns Updated array of selected table IDs
+ */
+function addEventTableName(
+  selectedTables: string[],
+  eventName: string,
+  cursorData: CursorData,
+  informationSchema: InformationSchemaInterface
+): string[] {
+  const sql = cursorData.input.join("\n");
+  if (!sql.includes("eventName")) return selectedTables;
+
+  // Find the table that matches the eventName
+  const matchingTable = informationSchema.databases
+    .flatMap((db) =>
+      db.schemas.flatMap((schema) =>
+        schema.tables.find((table) => table.tableName === eventName)
+      )
+    )
+    .filter((table) => table !== undefined)[0];
+
+  return matchingTable ? [...selectedTables, matchingTable.id] : selectedTables;
+}
+
+/**
+ * Handles column completions for SELECT, WHERE, GROUP BY, and ORDER BY contexts
+ * @param tableDataMap - Map of table data by table ID
+ * @returns Array of completion suggestions
+ */
+function handleColumnCompletions(
+  tableDataMap: Record<string, InformationSchemaTablesInterface>
+): AceCompletion[] {
+  if (Object.keys(tableDataMap).length === 0) {
+    return [...templateCompletions, ...getSqlKeywords()];
+  }
+
+  // Combine columns from all tables
+  const allColumns = Object.values(tableDataMap).flatMap((table) =>
+    table.columns.map((col) => ({
+      value: col.columnName,
+      meta: col.dataType,
+      score: COMPLETION_SCORES.COLUMN,
+      caption: col.columnName,
+    }))
+  );
+
+  return [...allColumns, ...templateCompletions, ...getSqlKeywords()];
+}
+
+/**
+ * Returns all available completions for an empty FROM clause
+ * @param informationSchema - Database schema information
+ * @returns Array of completion suggestions including databases, schemas, and tables
+ */
+function getAllCompletionsForEmptyFrom(
+  informationSchema: InformationSchemaInterface
+): AceCompletion[] {
+  const databaseCompletions = informationSchema.databases.map((db) => ({
+    value: formatDatabaseCompletion(db.path || db.databaseName),
+    meta: COMPLETION_TYPES.DATABASE,
+    score: COMPLETION_SCORES.DATABASE,
+    caption: db.databaseName,
+  }));
+
+  const schemaCompletions = informationSchema.databases.flatMap((db) =>
+    db.schemas.map((schema) => ({
+      value: formatSchemaCompletion(schema.path || schema.schemaName, false),
+      meta: COMPLETION_TYPES.SCHEMA,
+      score: COMPLETION_SCORES.SCHEMA,
+      caption: `${db.databaseName}.${schema.schemaName}`,
+    }))
+  );
+
+  const tableCompletions = informationSchema.databases.flatMap((db) =>
+    db.schemas.flatMap((schema) =>
+      schema.tables.map((table) => ({
+        value: table.path,
+        meta: COMPLETION_TYPES.TABLE,
+        score: COMPLETION_SCORES.TABLE,
+        caption: `${db.databaseName}.${schema.schemaName}.${table.tableName}`,
+      }))
+    )
+  );
+
+  return [
+    ...databaseCompletions,
+    ...schemaCompletions,
+    ...tableCompletions,
+    ...templateCompletions,
+    ...getSqlKeywords(),
+  ];
+}
+
+/**
+ * Handles FROM clause completions based on current text after FROM
+ * @param textAfterFrom - Text following the FROM keyword
+ * @param informationSchema - Database schema information
+ * @returns Array of completion suggestions
+ */
+function handleFromClauseCompletions(
+  textAfterFrom: string,
+  informationSchema: InformationSchemaInterface
+): AceCompletion[] {
+  // If we're at the start of the FROM clause (no text after FROM), show all options
+  if (!textAfterFrom) {
+    return getAllCompletionsForEmptyFrom(informationSchema);
+  }
+
+  // Parse the text to determine what level of completion to provide
+  const parts = textAfterFrom.split(".");
+
+  if (parts.length === 1 && parts[0].trim()) {
+    // Database selected, show schemas
+    return [
+      ...getSchemaCompletions(textAfterFrom, informationSchema),
+      ...getSqlKeywords(),
+    ];
+  } else if (parts.length === 2 && parts[0].trim()) {
+    // Database and potentially schema selected, show schemas
+    return [
+      ...getSchemaCompletions(textAfterFrom, informationSchema),
+      ...getSqlKeywords(),
+    ];
+  }
+
+  // Default case: show table completions
+  return [
+    ...getTableCompletions(textAfterFrom, informationSchema),
+    ...getSqlKeywords(),
+  ];
+}
+
+/**
+ * Checks if the cursor is in a continuation context (after comma, AND, OR)
+ * @param keyword - The SQL keyword context (FROM, SELECT, WHERE)
+ * @param textAfterKeyword - Text following the keyword
+ * @returns True if in a continuation context
+ */
+function isInContinuationContext(
+  keyword: string,
+  textAfterKeyword: string
+): boolean {
+  switch (keyword) {
+    case "FROM":
+    case "SELECT":
+      // Check if we're after a comma
+      return textAfterKeyword.lastIndexOf(",") !== -1;
+
+    case "WHERE": {
+      // Check if we're after AND/OR
+      const lastAndOr = Math.max(
+        textAfterKeyword.lastIndexOf(" AND "),
+        textAfterKeyword.lastIndexOf(" OR ")
+      );
+      return lastAndOr !== -1;
+    }
+
+    default:
+      return false;
+  }
+}
+
+/**
+ * Analyzes the SQL text up to the cursor position to determine which SQL clause
+ * the user is currently typing in. Supports detection of SELECT, FROM, WHERE,
+ * GROUP BY, and ORDER BY contexts, including continuation contexts (after commas,
+ * AND, OR operators).
+ *
+ * @param cursorData - Current cursor position and input data
+ * @param cursorData.row - Zero-based row index of cursor position
+ * @param cursorData.column - Zero-based column index of cursor position
+ * @param cursorData.input - Array of strings representing each line of SQL input
+ * @returns The detected SQL context object with type and suggestions array, or null if no context found
+ *
+ */
 export function getCurrentContext(
   cursorData: CursorData
 ): AutocompleteContext | null {
@@ -134,51 +318,34 @@ export function getCurrentContext(
     lastKeyword.index + lastKeyword.keyword.length
   );
 
-  // If we're in a FROM clause, check if we're after a comma
-  if (lastKeyword.keyword === "FROM") {
-    const lastComma = textAfterKeyword.lastIndexOf(",");
-    if (lastComma !== -1) {
-      // If we're after a comma, we're still in the FROM context
-      return {
-        type: "FROM",
-        suggestions: [],
-      };
-    }
-  }
-
-  // If we're in a SELECT clause, check if we're after a comma
-  if (lastKeyword.keyword === "SELECT") {
-    const lastComma = textAfterKeyword.lastIndexOf(",");
-    if (lastComma !== -1) {
-      // If we're after a comma, we're still in the SELECT context
-      return {
-        type: "SELECT",
-        suggestions: [],
-      };
-    }
-  }
-
-  // If we're in a WHERE clause, check if we're after AND/OR
-  if (lastKeyword.keyword === "WHERE") {
-    const lastAndOr = Math.max(
-      textAfterKeyword.lastIndexOf(" AND "),
-      textAfterKeyword.lastIndexOf(" OR ")
-    );
-    if (lastAndOr !== -1) {
-      // If we're after AND/OR, we're still in the WHERE context
-      return {
-        type: "WHERE",
-        suggestions: [],
-      };
-    }
+  // Check if we're in a continuation context
+  if (isInContinuationContext(lastKeyword.keyword, textAfterKeyword)) {
+    return {
+      type: lastKeyword.keyword as Keywords,
+      suggestions: [],
+    };
   }
 
   return {
-    type: lastKeyword.keyword,
+    type: lastKeyword.keyword as Keywords,
     suggestions: [],
   };
 }
 
+/**
+ * Parses SQL text to find all tables referenced in FROM clauses and returns
+ * their corresponding table IDs from the information schema. Supports various
+ * table name formats including backticked names, fully qualified names, and
+ * comma-separated table lists. Uses both exact path matching and table name
+ * fallback for robust table identification.
+ *
+ * @param cursorData - Current cursor position and input data containing SQL text
+ * @param cursorData.input - Array of strings representing each line of SQL input
+ * @param informationSchema - Database schema information containing table definitions
+ * @param informationSchema.databases - Array of database objects with schemas and tables
+ * @returns Array of table IDs found in the SQL query, or empty array if none found
+ *
+ */
 export function getSelectedTables(
   cursorData: CursorData,
   informationSchema: InformationSchemaInterface
@@ -324,8 +491,8 @@ function getSchemaCompletions(
     if (selectedDatabase) {
       return selectedDatabase.schemas.map((schema) => ({
         value: schema.schemaName,
-        meta: "SCHEMA",
-        score: 950,
+        meta: COMPLETION_TYPES.SCHEMA,
+        score: COMPLETION_SCORES.SCHEMA,
         caption: schema.schemaName,
       }));
     }
@@ -339,8 +506,8 @@ function getSchemaCompletions(
         schema.path || `${db.databaseName}.${schema.schemaName}`,
         hasDatabase
       ),
-      meta: "SCHEMA",
-      score: 950,
+      meta: COMPLETION_TYPES.SCHEMA,
+      score: COMPLETION_SCORES.SCHEMA,
       caption: `${db.databaseName}.${schema.schemaName}`,
     }))
   );
@@ -372,8 +539,8 @@ function getTableCompletions(
             hasDatabase,
             hasSchema
           ),
-          meta: "TABLE",
-          score: 900,
+          meta: COMPLETION_TYPES.TABLE,
+          score: COMPLETION_SCORES.TABLE,
           caption: table.tableName,
         }));
       }
@@ -391,14 +558,22 @@ function getTableCompletions(
     db.schemas.flatMap((schema) =>
       schema.tables.map((table) => ({
         value: table.path,
-        meta: "TABLE",
-        score: 900,
+        meta: COMPLETION_TYPES.TABLE,
+        score: COMPLETION_SCORES.TABLE,
         caption: table.tableName,
       }))
     )
   );
 }
 
+/**
+ * Main function to get autocompletion suggestions for SQL queries
+ * @param cursorData - Current cursor position and input data
+ * @param informationSchema - Database schema information
+ * @param apiCall - Function to make API calls for table data
+ * @param eventName - Optional event name for event-based queries
+ * @returns Promise resolving to array of completion suggestions
+ */
 export async function getAutoCompletions(
   cursorData: CursorData | null,
   informationSchema: InformationSchemaInterface | undefined,
@@ -419,26 +594,19 @@ export async function getAutoCompletions(
   if (!context?.type) return sqlKeywords;
 
   // Get selected tables and their data
-  const selectedTables = getSelectedTables(cursorData, informationSchema);
+  let selectedTables = getSelectedTables(cursorData, informationSchema);
 
-  // If we have an eventName and it's a valid table, add it to selected tables
-  // This is common for event-based queries like with non-fact metrics
+  // Add event name table if eventName is provided and used in the query
+  // When creating legacy metrics, we sometimes use the event name as a template variable
+  // So adding the event name table to the selected tables is useful for autocompletion
+  // Otherwise we wouldn't know what table to get column suggestions for
   if (eventName) {
-    const sql = cursorData.input.join("\n");
-    if (sql.includes("eventName")) {
-      // Find the table that matches the eventName
-      const matchingTable = informationSchema.databases
-        .flatMap((db) =>
-          db.schemas.flatMap((schema) =>
-            schema.tables.find((table) => table.tableName === eventName)
-          )
-        )
-        .find(Boolean);
-
-      if (matchingTable) {
-        selectedTables.push(matchingTable.id);
-      }
-    }
+    selectedTables = addEventTableName(
+      selectedTables,
+      eventName,
+      cursorData,
+      informationSchema
+    );
   }
 
   const tableDataMap = await getTableDataForAutocomplete(
@@ -448,30 +616,16 @@ export async function getAutoCompletions(
   );
 
   // Generate suggestions based on context
-  let textAfterFrom: string;
-  let parts: string[];
-
   switch (context.type) {
     case "SELECT":
     case "WHERE":
     case "GROUP BY":
     case "ORDER BY":
-      if (Object.keys(tableDataMap).length > 0) {
-        // Combine columns from all tables
-        const allColumns = Object.values(tableDataMap).flatMap((table) =>
-          table.columns.map((col) => ({
-            value: col.columnName,
-            meta: col.dataType,
-            score: 900,
-            caption: col.columnName,
-          }))
-        );
-        return [...allColumns, ...templateCompletions, ...sqlKeywords];
-      }
-      return [...templateCompletions, ...sqlKeywords];
-    case "FROM":
+      return handleColumnCompletions(tableDataMap);
+
+    case "FROM": {
       // Get the text after FROM up to the cursor
-      textAfterFrom =
+      const textAfterFrom =
         cursorData.input
           .slice(0, cursorData.row)
           .concat(
@@ -484,67 +638,9 @@ export async function getAutoCompletions(
           .split("FROM")[1]
           ?.trim() || "";
 
-      // If we're at the start of the FROM clause (no text after FROM), show databases, schemas, and tables
-      if (!textAfterFrom) {
-        const databaseCompletions = informationSchema.databases.map((db) => ({
-          value: formatDatabaseCompletion(db.path || db.databaseName),
-          meta: "DATABASE",
-          score: 1000,
-          caption: db.databaseName,
-        }));
+      return handleFromClauseCompletions(textAfterFrom, informationSchema);
+    }
 
-        const schemaCompletions = informationSchema.databases.flatMap((db) =>
-          db.schemas.map((schema) => ({
-            value: formatSchemaCompletion(
-              schema.path || schema.schemaName,
-              false
-            ),
-            meta: "SCHEMA",
-            score: 950,
-            caption: `${db.databaseName}.${schema.schemaName}`,
-          }))
-        );
-
-        const tableCompletions = informationSchema.databases.flatMap((db) =>
-          db.schemas.flatMap((schema) =>
-            schema.tables.map((table) => ({
-              value: table.path,
-              meta: "TABLE",
-              score: 900,
-              caption: `${db.databaseName}.${schema.schemaName}.${table.tableName}`,
-            }))
-          )
-        );
-
-        return [
-          ...databaseCompletions,
-          ...schemaCompletions,
-          ...tableCompletions,
-          ...templateCompletions,
-          ...sqlKeywords,
-        ];
-      }
-
-      // If we have a database selected but no schema, show schemas
-      parts = textAfterFrom.split(".");
-      if (parts.length === 1 && parts[0].trim()) {
-        return [
-          ...getSchemaCompletions(textAfterFrom, informationSchema),
-          ...sqlKeywords,
-        ];
-      } else if (parts.length === 2 && parts[0].trim()) {
-        // Handle case where database is followed by a dot
-        return [
-          ...getSchemaCompletions(textAfterFrom, informationSchema),
-          ...sqlKeywords,
-        ];
-      }
-
-      // If we have a database and schema selected, or no selection yet, show tables
-      return [
-        ...getTableCompletions(textAfterFrom, informationSchema),
-        ...sqlKeywords,
-      ];
     default:
       return sqlKeywords;
   }
