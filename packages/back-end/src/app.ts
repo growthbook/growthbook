@@ -742,7 +742,6 @@ app.post(
 );
 
 app.get("/revision/feature", featuresController.getDraftandReviewRevisions);
-app.get("/features/:id/revisions", featuresController.getFeatureRevisions);
 
 // Data Sources
 app.get("/datasources", datasourcesController.getDataSources);
