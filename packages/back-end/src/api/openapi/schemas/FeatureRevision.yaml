@@ -31,3 +31,4 @@ properties:
     additionalProperties:
       type: string
       description: "A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)"
+additionalProperties: false
