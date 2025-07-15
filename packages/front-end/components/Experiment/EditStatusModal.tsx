@@ -4,6 +4,7 @@ import {
 } from "back-end/types/experiment";
 import { useForm } from "react-hook-form";
 import { datetime } from "shared/dates";
+import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import { useAuth } from "@/services/auth";
 import SelectField from "@/components/Forms/SelectField";
 import Modal from "@/components/Modal";
@@ -15,6 +16,7 @@ export interface Props {
   mutate: () => void;
   close: () => void;
   source?: string;
+  holdout?: HoldoutInterface;
 }
 
 export default function EditStatusModal({
@@ -22,8 +24,13 @@ export default function EditStatusModal({
   close,
   mutate,
   source,
+  holdout,
 }: Props) {
-  const form = useForm({
+  const form = useForm<{
+    status: ExperimentStatus | "analysis";
+    reason: string;
+    dateEnded: string;
+  }>({
     defaultValues: {
       status: experiment.status,
       reason: "",
@@ -31,23 +38,67 @@ export default function EditStatusModal({
     },
   });
   const { apiCall } = useAuth();
-
   const hasLinkedChanges =
     !!experiment.linkedFeatures?.length || !!experiment.hasVisualChangesets;
-
+  const isHoldout = experiment.type === "holdout";
+  const statusOptions = isHoldout
+    ? [
+        {
+          value: "draft",
+          label: "Draft",
+        },
+        {
+          value: "running",
+          label: "Running",
+        },
+        {
+          value: "analysis",
+          label: "Analysis Period",
+        },
+        {
+          value: "stopped",
+          label: "Stopped",
+        },
+      ]
+    : [
+        {
+          value: "draft",
+          label: "Draft",
+        },
+        {
+          value: "running",
+          label: "Running",
+        },
+        {
+          value: "stopped",
+          label: "Stopped",
+        },
+      ];
   return (
     <Modal
       trackingEventModalType="edit-status-modal"
       trackingEventModalSource={source}
-      header={"Change Experiment Status"}
+      header={isHoldout ? "Change Holdout Status" : "Change Experiment Status"}
       close={close}
       open={true}
       submit={form.handleSubmit(async (value) => {
-        await apiCall(`/experiment/${experiment.id}/status`, {
-          method: "POST",
-          body: JSON.stringify(value),
-        });
-        mutate();
+        const status = value.status;
+        if (
+          holdout &&
+          status === "analysis" &&
+          experiment.status === "running"
+        ) {
+          await apiCall(`/holdout/${holdout.id}/start-analysis`, {
+            method: "POST",
+          });
+          mutate();
+        } else {
+          await apiCall(`/experiment/${experiment.id}/status`, {
+            method: "POST",
+            body: JSON.stringify(value),
+          });
+          mutate();
+        }
       })}
     >
       {hasLinkedChanges && (
@@ -58,13 +109,9 @@ export default function EditStatusModal({
       )}
       <SelectField
         label="Status"
-        options={[
-          { label: "draft", value: "draft" },
-          { label: "running", value: "running" },
-          { label: "stopped", value: "stopped" },
-        ]}
+        options={statusOptions}
         onChange={(v) => {
-          const status = v as ExperimentStatus;
+          const status = v as ExperimentStatus | "analysis";
           form.setValue("status", status);
         }}
         value={form.watch("status")}
