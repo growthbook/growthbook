@@ -47,7 +47,6 @@ export function getHttpOptions(url?: string) {
   }
   return {};
 }
-
 export const cancellableFetch = async (
   url: string,
   fetchOptions: RequestInit,
@@ -80,11 +79,17 @@ export const cancellableFetch = async (
   let response: Response | null = null;
   let stringBody = "";
 
+  const headers = {
+    "User-Agent": "GrowthBook",
+    ...fetchOptions.headers,
+  };
+
   try {
     response = await fetch(url, {
       signal: abortController.signal,
       ...getHttpOptions(url),
       ...fetchOptions,
+      headers,
     });
 
     stringBody = await readResponseBody(response);

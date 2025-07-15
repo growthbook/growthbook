@@ -478,6 +478,9 @@ export async function testProxyConnection(
       url,
       {
         method: "GET",
+        headers: {
+          "User-Agent": "GrowthBook Backend",
+        },
       },
       {
         maxTimeMs: 5000,
