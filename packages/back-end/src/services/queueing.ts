@@ -1,6 +1,7 @@
 import Agenda, { AgendaConfig, DefineOptions, Processor } from "agenda";
 import mongoose from "mongoose";
 import { trackJob } from "./tracing";
+import { addJobLifecycleChecks } from "./jobLifecycle";
 
 let agendaInstance: Agenda;
 
@@ -27,8 +28,13 @@ export const getAgendaInstance = (): Agenda => {
         options = {};
       }
 
-      // @ts-expect-error - Some weird typing going on with Agenda. T should extend JobAttributesData
-      originalDefine.call(this, name, options, trackJob(name, processor));
+      originalDefine.call(
+        this,
+        name,
+        options,
+        // @ts-expect-error - Some weird typing going on with Agenda. T should extend JobAttributesData
+        trackJob(name, addJobLifecycleChecks(processor))
+      );
     };
   }
 
