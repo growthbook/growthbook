@@ -145,6 +145,7 @@ export default function AnalysisSettings({
   });
 
   const isBandit = experiment.type === "multi-armed-bandit";
+  const isHoldout = experiment.type === "holdout";
 
   return (
     <>
@@ -224,17 +225,18 @@ export default function AnalysisSettings({
                 </div>
               </div>
             )}
-
-            <div className="col-4 mb-4">
-              <div className="h5">Segment</div>
-              <div>
-                {experiment.segment ? (
-                  <>{getSegmentById(experiment.segment)?.name}</>
-                ) : (
-                  <em>none (all users)</em>
-                )}
+            {!isHoldout && (
+              <div className="col-4 mb-4">
+                <div className="h5">Segment</div>
+                <div>
+                  {experiment.segment ? (
+                    <>{getSegmentById(experiment.segment)?.name}</>
+                  ) : (
+                    <em>none (all users)</em>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
 
@@ -279,7 +281,7 @@ export default function AnalysisSettings({
               )}
             </div>
           </div>
-          {experiment.type !== "holdout" && (
+          {!isHoldout && (
             <div className="col-4">
               <div className="h5">Guardrail Metrics</div>
               <div>
@@ -300,7 +302,7 @@ export default function AnalysisSettings({
             </div>
           )}
         </div>
-        {!isBandit && hasDecisionFramework && (
+        {!isBandit && !isHoldout && hasDecisionFramework && (
           <div className="row mt-4">
             <div className="col-4">
               <div className="h5">Target MDE</div>
