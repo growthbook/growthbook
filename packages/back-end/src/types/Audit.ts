@@ -20,8 +20,6 @@ export const entityEvents = {
     "phase.delete",
     "screenshot.delete",
     "screenshot.create",
-    "dashboard.create",
-    "dashboard.update",
   ],
   project: ["create", "update", "delete"],
   environment: ["create", "update", "delete"],

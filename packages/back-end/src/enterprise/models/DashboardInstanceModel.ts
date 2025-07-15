@@ -154,10 +154,12 @@ export class DashboardInstanceModel extends BaseClass {
     const savedQuery = await this.context.models.savedQueries.getById(queryId);
     if (savedQuery) {
       const linkedDashboards = savedQuery.linkedDashboards || [];
-      if (!linkedDashboards.includes(doc.id)) linkedDashboards.push(doc.id);
-      await this.context.models.savedQueries.updateById(queryId, {
-        linkedDashboards,
-      });
+      if (!linkedDashboards.includes(doc.id)) {
+        linkedDashboards.push(doc.id);
+        await this.context.models.savedQueries.updateById(queryId, {
+          linkedDashboards,
+        });
+      }
     }
   }
 
@@ -167,13 +169,15 @@ export class DashboardInstanceModel extends BaseClass {
   ) {
     const savedQuery = await this.context.models.savedQueries.getById(queryId);
     if (savedQuery) {
-      const linkedDashboards = (savedQuery.linkedDashboards || []).filter(
-        (dashId) => dashId !== doc.id
-      );
+      if ((savedQuery.linkedDashboards || []).includes(doc.id)) {
+        const linkedDashboards = (savedQuery.linkedDashboards || []).filter(
+          (dashId) => dashId !== doc.id
+        );
 
-      await this.context.models.savedQueries.updateById(queryId, {
-        linkedDashboards,
-      });
+        await this.context.models.savedQueries.updateById(queryId, {
+          linkedDashboards,
+        });
+      }
     }
   }
 

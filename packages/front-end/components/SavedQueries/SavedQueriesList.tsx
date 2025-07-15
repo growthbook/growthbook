@@ -13,8 +13,8 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Button from "@/components/Button";
 import SqlExplorerModal from "@/components/SchemaBrowser/SqlExplorerModal";
 import { useAllDashboards } from "@/hooks/useDashboards";
-import Callout from "../Radix/Callout";
-import Tooltip from "../Tooltip/Tooltip";
+import Callout from "@/components/Radix/Callout";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 const MAX_REFERENCES = 10;
 

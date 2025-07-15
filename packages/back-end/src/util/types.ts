@@ -64,6 +64,7 @@ export function ensureAndReturn<T>(x: T): NonNullable<T> {
   return x;
 }
 
+// The built-in Omit<> doesn't work for certain composites like discriminated unions
 export type DistributiveOmit<T, K extends PropertyKey> = T extends any
   ? Omit<T, K>
   : never;

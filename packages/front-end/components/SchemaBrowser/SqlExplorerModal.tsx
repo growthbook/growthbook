@@ -213,18 +213,17 @@ export default function SqlExplorerModal({
 
     // If it's a new query (no savedQuery.id), always save
     if (!id) {
-      const body = JSON.stringify({
-        name: currentName,
-        sql: form.watch("sql"),
-        datasourceId: form.watch("datasourceId"),
-        dateLastRan: form.watch("dateLastRan"),
-        results: form.watch("results"),
-        dataVizConfig,
-      });
       try {
         await apiCall("/saved-queries", {
           method: "POST",
-          body: body,
+          body: JSON.stringify({
+            name: currentName,
+            sql: form.watch("sql"),
+            datasourceId: form.watch("datasourceId"),
+            dateLastRan: form.watch("dateLastRan"),
+            results: form.watch("results"),
+            dataVizConfig,
+          }),
         });
         mutate();
         close();
