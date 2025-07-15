@@ -1,7 +1,11 @@
 import type { GrowthBook } from "../GrowthBook";
-import type { UserScopedGrowthBook } from "../GrowthBookClient";
+import { hash } from "../util";
 
 type BrowserPerformanceSettings = {
+  samplingRate?: number;
+  errorSamplingRate?: number;
+  samplingId?: string;
+  trackCWV?: boolean;
   trackFCP?: boolean;
   trackLCP?: boolean;
   trackFID?: boolean;
@@ -14,6 +18,10 @@ type BrowserPerformanceSettings = {
 };
 
 export function browserPerformancePlugin({
+  samplingRate = 0.1,
+  errorSamplingRate,
+  samplingId = "id",
+  trackCWV = true,
   trackFCP = true,
   trackLCP = true,
   trackFID = true,
@@ -27,13 +35,36 @@ export function browserPerformancePlugin({
   if (typeof window === "undefined" || typeof document === "undefined") {
     throw new Error("browserPerformancePlugin only works in the browser");
   }
+  if (samplingRate < 0 || samplingRate > 1) {
+    throw new Error("samplingRate must be between 0 and 1");
+  }
+  if (
+    errorSamplingRate !== undefined &&
+    (errorSamplingRate < 0 || errorSamplingRate > 1)
+  ) {
+    throw new Error("errorSamplingRate must be between 0 and 1");
+  }
 
-  return (gb: GrowthBook | UserScopedGrowthBook) => {
+  return (gb: GrowthBook) => {
     if (!gb.logEvent) {
       throw new Error("GrowthBook instance must have a logEvent method");
     }
 
-    if ("PerformanceObserver" in window) {
+    const shouldSample = (samplingRate: number, seed: string = "") => {
+      const attributes = gb.getAttributes?.() || {};
+      const samplingValue = attributes[samplingId] || "";
+      if (samplingValue) {
+        const v = hash(seed, samplingValue, 2);
+        return v !== null && v < samplingRate;
+      }
+      return Math.random() < samplingRate;
+    };
+
+    if (
+      trackCWV &&
+      shouldSample(samplingRate, "cwv-sampling") &&
+      "PerformanceObserver" in window
+    ) {
       try {
         let observing = true;
         const observers: PerformanceObserver[] = [];
@@ -202,7 +233,10 @@ export function browserPerformancePlugin({
       return true;
     }
 
-    if (trackErrors) {
+    if (
+      trackErrors &&
+      shouldSample(errorSamplingRate ?? samplingRate, "error-sampling")
+    ) {
       window.addEventListener("error", (event) => {
         const message = event.message || "";
         const stack = event.error?.stack || "";
