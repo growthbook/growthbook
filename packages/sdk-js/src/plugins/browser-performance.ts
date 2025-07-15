@@ -9,6 +9,8 @@ type BrowserPerformanceSettings = {
   trackTTFB?: boolean;
   trackTBT?: boolean;
   trackErrors?: boolean;
+  maxErrors?: number;
+  debounceErrorTimeout?: number;
 };
 
 export function browserPerformancePlugin({
@@ -19,6 +21,8 @@ export function browserPerformancePlugin({
   trackTTFB = true,
   trackTBT = true,
   trackErrors = true,
+  maxErrors = 10,
+  debounceErrorTimeout = 2000,
 }: BrowserPerformanceSettings = {}) {
   if (typeof window === "undefined" || typeof document === "undefined") {
     throw new Error("browserPerformancePlugin only works in the browser");
@@ -37,10 +41,13 @@ export function browserPerformancePlugin({
           observing = false;
           observers.forEach((observer) => observer.disconnect());
         };
+        "onDestroy" in gb && gb.onDestroy(stopObserving);
 
         let lcpTime = 0;
         let clsValue = 0;
         let tbtValue = 0;
+
+        const currentPath = window.location.origin + window.location.pathname;
 
         const reportCWV = () => {
           if (!observing) return;
@@ -55,29 +62,43 @@ export function browserPerformancePlugin({
             gb.logEvent("CWV:TBT", { value: tbtValue });
           }
         };
+        const reportIfUrlChanged = (destinationUrl: string) => {
+          const url = new URL(destinationUrl);
+          const newPath = url.origin + url.pathname;
+          if (newPath !== currentPath) {
+            reportCWV();
+          }
+        };
 
-        "onDestroy" in gb && gb.onDestroy(stopObserving);
-
-        const currentPath = window.location.origin + window.location.pathname;
-
-        // Track deferred CWV metrics on navigation
-        "navigation" in window &&
+        // Track deferred CWV metrics on navigation / url changes
+        if ("navigation" in window) {
           // @ts-expect-error: Navigate API might be missing from types
           window.navigation.addEventListener("navigate", (event) => {
-            const destination = event?.destination?.url;
-            if (destination) {
-              const url = new URL(destination);
-              const newPath = url.origin + url.pathname;
-              if (newPath !== currentPath) {
-                reportCWV();
-              }
+            if (event?.destination?.url) {
+              reportIfUrlChanged(event.destination.url);
             }
           });
+        } else {
+          const methods = ["pushState", "replaceState"] as const;
+          methods.forEach((method) => {
+            const original = window.history[method];
+            window.history[method] = function (...args) {
+              const result = original.apply(this, args);
+              reportIfUrlChanged(window.location.href);
+              return result;
+            };
+          });
+          window.addEventListener("popstate", () => {
+            reportIfUrlChanged(window.location.href);
+          });
+        }
 
         // Track deferred CWV metrics on hide
         document.addEventListener("visibilitychange", reportCWV, {
           once: true,
         });
+
+        let fcpTime: number | null = null;
 
         // FCP
         if (trackFCP || trackTBT) {
@@ -86,7 +107,10 @@ export function browserPerformancePlugin({
             const entry = list.getEntriesByName("first-contentful-paint")[0];
             if (entry) {
               observer.disconnect();
-              gb.logEvent("CWV:FCP", { value: entry.startTime });
+              fcpTime = entry.startTime;
+              if (trackFCP) {
+                gb.logEvent("CWV:FCP", { value: entry.startTime });
+              }
             }
           }).observe({ type: "paint", buffered: true });
         }
@@ -140,21 +164,16 @@ export function browserPerformancePlugin({
 
         // TBT
         if (trackTBT) {
-          let fcpTime = 0;
-          const fcpEntry = performance.getEntriesByName(
-            "first-contentful-paint"
-          )[0];
-          if (fcpEntry) {
-            fcpTime = (fcpEntry as PerformanceEntry).startTime;
-          }
-
           new PerformanceObserver((list, observer) => {
             observers.push(observer);
             for (const entry of list.getEntries()) {
-              const blockingTime = Math.max(0, entry.duration - 50);
-              if (entry.startTime + entry.duration > fcpTime) {
-                tbtValue += blockingTime;
+              if (
+                fcpTime != null &&
+                entry.startTime + entry.duration > fcpTime
+              ) {
+                tbtValue += Math.max(0, entry.duration - 50); // 50ms is the threshold for long tasks
               }
+              // If fcpTime is not set, ignore this long task
             }
           }).observe({ type: "long-task", buffered: true });
         }
@@ -163,22 +182,50 @@ export function browserPerformancePlugin({
       }
     }
 
+    // Only log errors if < maxErrors
+    let errorCount = 0;
+    // Debounce identical errors
+    const lastErrorTimestamps = new Map<string, number>();
+
+    function shouldLogError(message: string, stack: string) {
+      if (errorCount >= maxErrors) return false;
+      const key = message + stack;
+      if (debounceErrorTimeout > 0) {
+        const now = Date.now();
+        const last = lastErrorTimestamps.get(key) || 0;
+        if (now - last < debounceErrorTimeout) {
+          return false;
+        }
+        lastErrorTimestamps.set(key, now);
+      }
+      errorCount++;
+      return true;
+    }
+
     if (trackErrors) {
       window.addEventListener("error", (event) => {
-        gb.logEvent("browser-error", {
-          message: event.message,
-          source: event.filename,
-          lineno: event.lineno,
-          colno: event.colno,
-          stack: event.error?.stack || "",
-        });
+        const message = event.message || "";
+        const stack = event.error?.stack || "";
+        if (shouldLogError(message, stack)) {
+          gb.logEvent("browser-error", {
+            message,
+            source: event.filename,
+            lineno: event.lineno,
+            colno: event.colno,
+            stack,
+          });
+        }
       });
 
       window.addEventListener("unhandledrejection", (event) => {
-        gb.logEvent("browser-error", {
-          message: event.reason?.message || "Unhandled Promise rejection",
-          stack: event.reason?.stack || "",
-        });
+        const message = event.reason?.message || "Unhandled Promise rejection";
+        const stack = event.reason?.stack || "";
+        if (shouldLogError(message, stack)) {
+          gb.logEvent("browser-error", {
+            message,
+            stack,
+          });
+        }
       });
     }
   };
