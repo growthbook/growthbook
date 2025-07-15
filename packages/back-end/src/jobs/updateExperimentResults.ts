@@ -17,10 +17,7 @@ import {
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { notifyAutoUpdate } from "back-end/src/services/experimentNotifications";
-import {
-  EXPERIMENT_REFRESH_FREQUENCY,
-  MAX_QUERY_TIMEOUT_MS,
-} from "back-end/src/util/secrets";
+import { EXPERIMENT_REFRESH_FREQUENCY } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 
@@ -104,184 +101,132 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
 
   if (!experimentId || !orgId) return;
 
-  // This job may take a while to run,
-  // so to ensure another server doesn't pick it up we
-  // Start a timer to call job.touch() every 3 minutes which will update the job's lock time.
-  const TOUCH_INTERVAL = 3 * 60 * 1000;
-  let touchTimer: NodeJS.Timeout | null = null;
-  let finished = false;
+  const context = await getContextForAgendaJobByOrgId(orgId);
 
-  function startTouch() {
-    touchTimer = setInterval(() => {
-      if (!finished) {
-        job.touch().catch((e) => {
-          logger.error(e, "Failed to touch Agenda job");
-        });
-      }
-    }, TOUCH_INTERVAL);
+  const { org: organization } = context;
+
+  const experiment = await getExperimentById(context, experimentId);
+  if (!experiment) return;
+
+  let project = null;
+  if (experiment.project) {
+    project = await context.models.projects.getById(experiment.project);
   }
-
-  function stopTouch() {
-    finished = true;
-    if (touchTimer) clearInterval(touchTimer);
-  }
-
-  startTouch();
-
-  const TIMEOUT = MAX_QUERY_TIMEOUT_MS + 1000; // Allow some buffer for the query client to close properly after it timesout
-  let timeoutHandle: NodeJS.Timeout | null = null;
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timeoutHandle = setTimeout(() => {
-      const errorMsg = `updateSingleExperiment exceeded timeout of ${TIMEOUT}ms for experiment ${experimentId}`;
-      logger.error(new Error(errorMsg));
-      stopTouch();
-      reject(new Error(errorMsg));
-    }, TIMEOUT);
+  const { settings: scopedSettings } = getScopedSettings({
+    organization: context.org,
+    project: project ?? undefined,
   });
 
+  // Disable auto snapshots for the experiment so it doesn't keep trying to update if schedule is off (non-bandits only)
+  if (
+    organization?.settings?.updateSchedule?.type === "never" &&
+    experiment.type !== "multi-armed-bandit"
+  ) {
+    await updateExperiment({
+      context,
+      experiment,
+      changes: {
+        autoSnapshots: false,
+      },
+    });
+    return;
+  }
+
   try {
-    await Promise.race([
-      (async () => {
-        const context = await getContextForAgendaJobByOrgId(orgId);
+    logger.info("Start Refreshing Results for experiment " + experimentId);
+    const datasource = await getDataSourceById(
+      context,
+      experiment.datasource || ""
+    );
+    if (!datasource) {
+      throw new Error("Error refreshing experiment, could not find datasource");
+    }
 
-        const { org: organization } = context;
+    const {
+      regressionAdjustmentEnabled,
+      settingsForSnapshotMetrics,
+    } = await getSettingsForSnapshotMetrics(context, experiment);
 
-        const experiment = await getExperimentById(context, experimentId);
-        if (!experiment) return;
+    const analysisSettings = getDefaultExperimentAnalysisSettings(
+      experiment.statsEngine || scopedSettings.statsEngine.value,
+      experiment,
+      organization,
+      regressionAdjustmentEnabled
+    );
 
-        let project = null;
-        if (experiment.project) {
-          project = await context.models.projects.getById(experiment.project);
-        }
-        const { settings: scopedSettings } = getScopedSettings({
-          organization: context.org,
-          project: project ?? undefined,
-        });
+    const metricMap = await getMetricMap(context);
+    const factTableMap = await getFactTableMap(context);
 
-        // Disable auto snapshots for the experiment so it doesn't keep trying to update if schedule is off (non-bandits only)
-        if (
-          organization?.settings?.updateSchedule?.type === "never" &&
-          experiment.type !== "multi-armed-bandit"
-        ) {
-          await updateExperiment({
-            context,
-            experiment,
-            changes: {
-              autoSnapshots: false,
-            },
-          });
-          return;
-        }
+    let reweight =
+      experiment.type === "multi-armed-bandit" &&
+      experiment.banditStage === "exploit";
 
-        try {
-          logger.info(
-            "Start Refreshing Results for experiment " + experimentId
-          );
-          const datasource = await getDataSourceById(
-            context,
-            experiment.datasource || ""
-          );
-          if (!datasource) {
-            throw new Error(
-              "Error refreshing experiment, could not find datasource"
-            );
-          }
+    if (experiment.type === "multi-armed-bandit" && !reweight) {
+      // Quick check to see if we're about to enter "exploit" stage and will need to reweight
+      const tempChanges = updateExperimentBanditSettings({
+        experiment,
+        isScheduled: true,
+      });
+      if (tempChanges.banditStage === "exploit") {
+        reweight = true;
+      }
+    }
 
-          const {
-            regressionAdjustmentEnabled,
-            settingsForSnapshotMetrics,
-          } = await getSettingsForSnapshotMetrics(context, experiment);
+    const queryRunner = await createSnapshot({
+      experiment,
+      context,
+      phaseIndex: experiment.phases.length - 1,
+      defaultAnalysisSettings: analysisSettings,
+      additionalAnalysisSettings: getAdditionalExperimentAnalysisSettings(
+        analysisSettings
+      ),
+      settingsForSnapshotMetrics: settingsForSnapshotMetrics || [],
+      metricMap,
+      factTableMap,
+      useCache: true,
+      type: "standard",
+      triggeredBy: "schedule",
+      reweight,
+    });
+    await queryRunner.waitForResults();
+    const currentSnapshot = queryRunner.model;
 
-          const analysisSettings = getDefaultExperimentAnalysisSettings(
-            experiment.statsEngine || scopedSettings.statsEngine.value,
-            experiment,
-            organization,
-            regressionAdjustmentEnabled
-          );
+    logger.info(
+      "Successfully Refreshed Results for experiment " + experimentId
+    );
 
-          const metricMap = await getMetricMap(context);
-          const factTableMap = await getFactTableMap(context);
+    if (experiment.type === "multi-armed-bandit") {
+      const changes = updateExperimentBanditSettings({
+        experiment,
+        snapshot: currentSnapshot,
+        reweight:
+          currentSnapshot?.banditResult?.reweight &&
+          experiment.banditStage === "exploit",
+        isScheduled: true,
+      });
+      await updateExperiment({
+        context,
+        experiment,
+        changes,
+      });
+    }
+  } catch (e) {
+    logger.error(e, "Failed to update experiment: " + experimentId);
+    // If we failed to update the experiment, turn off auto-updating for the future (non-bandits only)
+    if (experiment.type === "multi-armed-bandit") return;
+    try {
+      await updateExperiment({
+        context,
+        experiment,
+        changes: {
+          autoSnapshots: false,
+        },
+      });
 
-          let reweight =
-            experiment.type === "multi-armed-bandit" &&
-            experiment.banditStage === "exploit";
-
-          if (experiment.type === "multi-armed-bandit" && !reweight) {
-            // Quick check to see if we're about to enter "exploit" stage and will need to reweight
-            const tempChanges = updateExperimentBanditSettings({
-              experiment,
-              isScheduled: true,
-            });
-            if (tempChanges.banditStage === "exploit") {
-              reweight = true;
-            }
-          }
-
-          const queryRunner = await createSnapshot({
-            experiment,
-            context,
-            phaseIndex: experiment.phases.length - 1,
-            defaultAnalysisSettings: analysisSettings,
-            additionalAnalysisSettings: getAdditionalExperimentAnalysisSettings(
-              analysisSettings
-            ),
-            settingsForSnapshotMetrics: settingsForSnapshotMetrics || [],
-            metricMap,
-            factTableMap,
-            useCache: true,
-            type: "standard",
-            triggeredBy: "schedule",
-            reweight,
-          });
-          await queryRunner.waitForResults();
-          const currentSnapshot = queryRunner.model;
-
-          logger.info(
-            "Successfully Refreshed Results for experiment " + experimentId
-          );
-
-          if (experiment.type === "multi-armed-bandit") {
-            const changes = updateExperimentBanditSettings({
-              experiment,
-              snapshot: currentSnapshot,
-              reweight:
-                currentSnapshot?.banditResult?.reweight &&
-                experiment.banditStage === "exploit",
-              isScheduled: true,
-            });
-            await updateExperiment({
-              context,
-              experiment,
-              changes,
-            });
-          }
-        } catch (e) {
-          logger.error(e, "Failed to update experiment: " + experimentId);
-          // If we failed to update the experiment, turn off auto-updating for the future (non-bandits only)
-          if (experiment.type === "multi-armed-bandit") return;
-          try {
-            await updateExperiment({
-              context,
-              experiment,
-              changes: {
-                autoSnapshots: false,
-              },
-            });
-
-            await notifyAutoUpdate({ context, experiment, success: true });
-          } catch (e) {
-            logger.error(
-              e,
-              "Failed to turn off autoSnapshots: " + experimentId
-            );
-            await notifyAutoUpdate({ context, experiment, success: false });
-          }
-        }
-      })(),
-      timeoutPromise,
-    ]);
-  } finally {
-    stopTouch();
-    if (timeoutHandle) clearTimeout(timeoutHandle);
+      await notifyAutoUpdate({ context, experiment, success: true });
+    } catch (e) {
+      logger.error(e, "Failed to turn off autoSnapshots: " + experimentId);
+      await notifyAutoUpdate({ context, experiment, success: false });
+    }
   }
 };
