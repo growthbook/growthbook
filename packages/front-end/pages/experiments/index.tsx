@@ -23,6 +23,7 @@ import ViewSampleDataButton from "@/components/GetStarted/ViewSampleDataButton";
 import EmptyState from "@/components/EmptyState";
 import Callout from "@/components/Radix/Callout";
 import { useExperimentSearch } from "@/services/experiments";
+import { useWatching } from "@/services/WatchProvider";
 import ExperimentSearchFilters from "@/components/Search/ExperimentSearchFilters";
 import {
   Tabs,
@@ -56,6 +57,7 @@ const ExperimentsPage = (): React.ReactElement => {
     loading,
     hasArchived,
   } = useExperiments(project, tab === "archived", "standard");
+  const { watchedExperiments } = useWatching();
 
   const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
   const [openImportExperimentModal, setOpenImportExperimentModal] = useState(
@@ -73,6 +75,7 @@ const ExperimentsPage = (): React.ReactElement => {
     setSearchValue,
   } = useExperimentSearch({
     allExperiments,
+    watchedExperimentIds: watchedExperiments,
   });
 
   const tabCounts = useMemo(() => {
