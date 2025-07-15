@@ -10,9 +10,9 @@ const normalizeJobName = (jobName: string) => {
     .toLowerCase();
 };
 
-export const trackJob = <T extends JobAttributesData, K>(
+export const trackJob = <T extends JobAttributesData>(
   jobNameRaw: string,
-  fn: (job: Job<T>) => Promise<K>
+  fn: (job: Job<T>) => Promise<void>
 ) => async (job: Job<T>) => {
   let counter: Counter;
   let histogram: Histogram;

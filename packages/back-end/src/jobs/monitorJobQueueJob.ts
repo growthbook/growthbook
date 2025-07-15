@@ -1,12 +1,11 @@
 import Agenda from "agenda";
 import { getAgendaInstance } from "back-end/src/services/queueing";
-import { trackJob } from "back-end/src/services/tracing";
 import { logger } from "back-end/src/util/logger";
 import { Gauge, metrics } from "back-end/src/util/metrics";
 
 const MONITOR_JOB_QUEUE_NAME = "monitorJobQueue";
 
-const addMonitorJobQueueJob = trackJob(MONITOR_JOB_QUEUE_NAME, async () => {
+const addMonitorJobQueueJob = async () => {
   const agenda = getAgendaInstance();
 
   const now = new Date();
@@ -49,7 +48,7 @@ const addMonitorJobQueueJob = trackJob(MONITOR_JOB_QUEUE_NAME, async () => {
   } catch (error) {
     logger.error("Error monitoring job queue:", error);
   }
-});
+};
 
 export default async function (agenda: Agenda) {
   agenda.define(MONITOR_JOB_QUEUE_NAME, addMonitorJobQueueJob);
