@@ -59,34 +59,37 @@ export default async function (agenda: Agenda) {
   agenda.define(
     UPDATE_SINGLE_FEATURE,
     { lockLifetime: 30 * 60 * 1000 },
-    trackJob(UPDATE_SINGLE_FEATURE, updateSingleFeature)
+    updateSingleFeature
   );
 
   await fireUpdateWebhook(agenda);
 }
 
-async function updateSingleFeature(job: UpdateSingleFeatureJob) {
-  const featureId = job.attrs.data?.featureId;
-  const organization = job.attrs.data?.organization;
-  if (!featureId || !organization) return;
+const updateSingleFeature = trackJob(
+  UPDATE_SINGLE_FEATURE,
+  async (job: UpdateSingleFeatureJob) => {
+    const featureId = job.attrs.data?.featureId;
+    const organization = job.attrs.data?.organization;
+    if (!featureId || !organization) return;
 
-  const context = await getContextForAgendaJobByOrgId(organization);
+    const context = await getContextForAgendaJobByOrgId(organization);
 
-  const feature = await getFeature(context, featureId);
-  if (!feature) return;
+    const feature = await getFeature(context, featureId);
+    if (!feature) return;
 
-  try {
-    // Recalculate the feature's new nextScheduledUpdate
-    const nextScheduledUpdate = getNextScheduledUpdate(
-      feature.environmentSettings || {},
-      context.environments
-    );
+    try {
+      // Recalculate the feature's new nextScheduledUpdate
+      const nextScheduledUpdate = getNextScheduledUpdate(
+        feature.environmentSettings || {},
+        context.environments
+      );
 
-    // Update the feature in Mongo
-    await updateFeature(context, feature, {
-      nextScheduledUpdate: nextScheduledUpdate,
-    });
-  } catch (e) {
-    logger.error(e, "Failed updating feature " + featureId);
+      // Update the feature in Mongo
+      await updateFeature(context, feature, {
+        nextScheduledUpdate: nextScheduledUpdate,
+      });
+    } catch (e) {
+      logger.error(e, "Failed updating feature " + featureId);
+    }
   }
-}
+);

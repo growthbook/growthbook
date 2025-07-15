@@ -57,7 +57,7 @@ export default async function (agenda: Agenda) {
     UPDATE_SINGLE_EXP,
     // This job queries a datasource, which may be slow. Give it 30 minutes to complete.
     { lockLifetime: 30 * 60 * 1000 },
-    trackJob(UPDATE_SINGLE_EXP, updateSingleExperiment)
+    updateSingleExperiment
   );
 
   // Update experiment results
@@ -104,126 +104,35 @@ export default async function (agenda: Agenda) {
   }
 }
 
-const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
-  const experimentId = job.attrs.data?.experimentId;
-  const orgId = job.attrs.data?.organization;
+const updateSingleExperiment = trackJob(
+  UPDATE_SINGLE_EXP,
+  async (job: UpdateSingleExpJob) => {
+    const experimentId = job.attrs.data?.experimentId;
+    const orgId = job.attrs.data?.organization;
 
-  if (!experimentId || !orgId) return;
+    if (!experimentId || !orgId) return;
 
-  const context = await getContextForAgendaJobByOrgId(orgId);
+    const context = await getContextForAgendaJobByOrgId(orgId);
 
-  const { org: organization } = context;
+    const { org: organization } = context;
 
-  const experiment = await getExperimentById(context, experimentId);
-  if (!experiment) return;
+    const experiment = await getExperimentById(context, experimentId);
+    if (!experiment) return;
 
-  let project = null;
-  if (experiment.project) {
-    project = await context.models.projects.getById(experiment.project);
-  }
-  const { settings: scopedSettings } = getScopedSettings({
-    organization: context.org,
-    project: project ?? undefined,
-  });
-
-  // Disable auto snapshots for the experiment so it doesn't keep trying to update if schedule is off (non-bandits only)
-  if (
-    organization?.settings?.updateSchedule?.type === "never" &&
-    experiment.type !== "multi-armed-bandit"
-  ) {
-    await updateExperiment({
-      context,
-      experiment,
-      changes: {
-        autoSnapshots: false,
-      },
+    let project = null;
+    if (experiment.project) {
+      project = await context.models.projects.getById(experiment.project);
+    }
+    const { settings: scopedSettings } = getScopedSettings({
+      organization: context.org,
+      project: project ?? undefined,
     });
-    return;
-  }
 
-  try {
-    logger.info("Start Refreshing Results for experiment " + experimentId);
-    const datasource = await getDataSourceById(
-      context,
-      experiment.datasource || ""
-    );
-    if (!datasource) {
-      throw new Error("Error refreshing experiment, could not find datasource");
-    }
-
-    const {
-      regressionAdjustmentEnabled,
-      settingsForSnapshotMetrics,
-    } = await getSettingsForSnapshotMetrics(context, experiment);
-
-    const analysisSettings = getDefaultExperimentAnalysisSettings(
-      experiment.statsEngine || scopedSettings.statsEngine.value,
-      experiment,
-      organization,
-      regressionAdjustmentEnabled
-    );
-
-    const metricMap = await getMetricMap(context);
-    const factTableMap = await getFactTableMap(context);
-
-    let reweight =
-      experiment.type === "multi-armed-bandit" &&
-      experiment.banditStage === "exploit";
-
-    if (experiment.type === "multi-armed-bandit" && !reweight) {
-      // Quick check to see if we're about to enter "exploit" stage and will need to reweight
-      const tempChanges = updateExperimentBanditSettings({
-        experiment,
-        isScheduled: true,
-      });
-      if (tempChanges.banditStage === "exploit") {
-        reweight = true;
-      }
-    }
-
-    const queryRunner = await createSnapshot({
-      experiment,
-      context,
-      phaseIndex: experiment.phases.length - 1,
-      defaultAnalysisSettings: analysisSettings,
-      additionalAnalysisSettings: getAdditionalExperimentAnalysisSettings(
-        analysisSettings
-      ),
-      settingsForSnapshotMetrics: settingsForSnapshotMetrics || [],
-      metricMap,
-      factTableMap,
-      useCache: true,
-      type: "standard",
-      triggeredBy: "schedule",
-      reweight,
-    });
-    await queryRunner.waitForResults();
-    const currentSnapshot = queryRunner.model;
-
-    logger.info(
-      "Successfully Refreshed Results for experiment " + experimentId
-    );
-
-    if (experiment.type === "multi-armed-bandit") {
-      const changes = updateExperimentBanditSettings({
-        experiment,
-        snapshot: currentSnapshot,
-        reweight:
-          currentSnapshot?.banditResult?.reweight &&
-          experiment.banditStage === "exploit",
-        isScheduled: true,
-      });
-      await updateExperiment({
-        context,
-        experiment,
-        changes,
-      });
-    }
-  } catch (e) {
-    logger.error(e, "Failed to update experiment: " + experimentId);
-    // If we failed to update the experiment, turn off auto-updating for the future (non-bandits only)
-    if (experiment.type === "multi-armed-bandit") return;
-    try {
+    // Disable auto snapshots for the experiment so it doesn't keep trying to update if schedule is off (non-bandits only)
+    if (
+      organization?.settings?.updateSchedule?.type === "never" &&
+      experiment.type !== "multi-armed-bandit"
+    ) {
       await updateExperiment({
         context,
         experiment,
@@ -231,11 +140,107 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
           autoSnapshots: false,
         },
       });
+      return;
+    }
 
-      await notifyAutoUpdate({ context, experiment, success: true });
+    try {
+      logger.info("Start Refreshing Results for experiment " + experimentId);
+      const datasource = await getDataSourceById(
+        context,
+        experiment.datasource || ""
+      );
+      if (!datasource) {
+        throw new Error(
+          "Error refreshing experiment, could not find datasource"
+        );
+      }
+
+      const {
+        regressionAdjustmentEnabled,
+        settingsForSnapshotMetrics,
+      } = await getSettingsForSnapshotMetrics(context, experiment);
+
+      const analysisSettings = getDefaultExperimentAnalysisSettings(
+        experiment.statsEngine || scopedSettings.statsEngine.value,
+        experiment,
+        organization,
+        regressionAdjustmentEnabled
+      );
+
+      const metricMap = await getMetricMap(context);
+      const factTableMap = await getFactTableMap(context);
+
+      let reweight =
+        experiment.type === "multi-armed-bandit" &&
+        experiment.banditStage === "exploit";
+
+      if (experiment.type === "multi-armed-bandit" && !reweight) {
+        // Quick check to see if we're about to enter "exploit" stage and will need to reweight
+        const tempChanges = updateExperimentBanditSettings({
+          experiment,
+          isScheduled: true,
+        });
+        if (tempChanges.banditStage === "exploit") {
+          reweight = true;
+        }
+      }
+
+      const queryRunner = await createSnapshot({
+        experiment,
+        context,
+        phaseIndex: experiment.phases.length - 1,
+        defaultAnalysisSettings: analysisSettings,
+        additionalAnalysisSettings: getAdditionalExperimentAnalysisSettings(
+          analysisSettings
+        ),
+        settingsForSnapshotMetrics: settingsForSnapshotMetrics || [],
+        metricMap,
+        factTableMap,
+        useCache: true,
+        type: "standard",
+        triggeredBy: "schedule",
+        reweight,
+      });
+      await queryRunner.waitForResults();
+      const currentSnapshot = queryRunner.model;
+
+      logger.info(
+        "Successfully Refreshed Results for experiment " + experimentId
+      );
+
+      if (experiment.type === "multi-armed-bandit") {
+        const changes = updateExperimentBanditSettings({
+          experiment,
+          snapshot: currentSnapshot,
+          reweight:
+            currentSnapshot?.banditResult?.reweight &&
+            experiment.banditStage === "exploit",
+          isScheduled: true,
+        });
+        await updateExperiment({
+          context,
+          experiment,
+          changes,
+        });
+      }
     } catch (e) {
-      logger.error(e, "Failed to turn off autoSnapshots: " + experimentId);
-      await notifyAutoUpdate({ context, experiment, success: false });
+      logger.error(e, "Failed to update experiment: " + experimentId);
+      // If we failed to update the experiment, turn off auto-updating for the future (non-bandits only)
+      if (experiment.type === "multi-armed-bandit") return;
+      try {
+        await updateExperiment({
+          context,
+          experiment,
+          changes: {
+            autoSnapshots: false,
+          },
+        });
+
+        await notifyAutoUpdate({ context, experiment, success: true });
+      } catch (e) {
+        logger.error(e, "Failed to turn off autoSnapshots: " + experimentId);
+        await notifyAutoUpdate({ context, experiment, success: false });
+      }
     }
   }
-};
+);
