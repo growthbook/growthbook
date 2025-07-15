@@ -10,15 +10,6 @@
  * 1. Add it to the SQL_KEYWORD_DEFINITIONS array
  * 2. Specify the appropriate meta type (KEYWORD or FUNCTION)
  * 3. Set an appropriate score (higher = more important)
- * 4. Optionally specify which dialects support it
- *
- * ## Dialect Support (Need to build this out, but not for v1)
- *
- *
- * Examples:
- * - ILIKE is only available in PostgreSQL, Redshift, and Snowflake
- * - Window functions are not available in SQLite
- * - CTEs (WITH) are not available in older MySQL versions
  *
  * ## Future Enhancements
  *
@@ -26,6 +17,13 @@
  * - Include function signatures and descriptions
  * - Add context-aware keyword suggestions
  * - Support for database-specific extensions
+ *
+ *
+ * Examples:
+ * - ILIKE is only available in PostgreSQL, Redshift, and Snowflake
+ * - Window functions are not available in SQLite
+ * - CTEs (WITH) are not available in older MySQL versions
+ *
  */
 
 import { AceCompletion } from "@/components/Forms/CodeTextArea";
@@ -35,14 +33,11 @@ export interface SqlKeywordDefinition {
   meta: "KEYWORD" | "FUNCTION";
   score: number;
   caption: string;
-  //MKTODO: Add support for array. E.G.  dialects?: SqlDialect[]; so we can filter certain keywords by dialect. If undefined, available in all dialects
+  //FUTURE: Add support for array. E.G.  dialects?: SqlDialect[]; so we can filter certain keywords by dialect. If undefined, available in all dialects
 }
 
 /**
  * Comprehensive SQL Keywords organized by category
- *
- * Each keyword can optionally specify which SQL dialects support it.
- * If no dialects are specified, the keyword is assumed to be available in all dialects.
  *
  * Score ranges:
  * - Template variables: 1100
@@ -266,9 +261,7 @@ export const SQL_KEYWORD_DEFINITIONS: SqlKeywordDefinition[] = [
   { value: "NULL", meta: "KEYWORD", score: 200, caption: "NULL" },
 ];
 
-//MKTODO: Add support for array. E.G.  dialects?: SqlDialect[]; so we can filter certain keywords by dialect. If undefined, available in all dialects
 export function getSqlKeywords(): AceCompletion[] {
-  // Return all keywords if no dialect specified
   return SQL_KEYWORD_DEFINITIONS.map((def) => ({
     value: def.value,
     meta: def.meta,

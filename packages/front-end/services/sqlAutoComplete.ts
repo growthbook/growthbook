@@ -422,6 +422,7 @@ export async function getAutoCompletions(
   const selectedTables = getSelectedTables(cursorData, informationSchema);
 
   // If we have an eventName and it's a valid table, add it to selected tables
+  // This is common for event-based queries like with non-fact metrics
   if (eventName) {
     const sql = cursorData.input.join("\n");
     if (sql.includes("eventName")) {
