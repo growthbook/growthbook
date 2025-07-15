@@ -3570,6 +3570,7 @@ input:disabled {
     background-color: var(--accent-indicator);
   }
 }
+
 // Ace Editor theme overrides
 .ace_editor {
   background-color: var(--color-background) !important;
@@ -3577,9 +3578,9 @@ input:disabled {
 .ace_editor .ace_gutter {
   background: var(--color-panel-solid) !important;
 }
-
-.ace_editor.ace_autocomplete {
+.ace_editor.ace_autocomplete { 
   width: 500px !important;
+  background-color: var(--color-panel-solid)!important;
 }
 
 /* Radix-style pagination for ReactPaginate */

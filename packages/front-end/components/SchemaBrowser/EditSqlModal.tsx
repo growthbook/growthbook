@@ -30,7 +30,6 @@ import {
   PanelGroup,
   PanelResizeHandle,
 } from "@/components/ResizablePanels";
-import useApi from "@/hooks/useApi";
 import { getAutoCompletions } from "@/services/sqlAutoComplete";
 import {
   DropdownMenu,
