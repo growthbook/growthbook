@@ -124,7 +124,7 @@ export const revertFeatureValidator = {
 
 export const getFeatureRevisionsValidator = {
   bodySchema: z.never(),
-  querySchema: z.never(),
+  querySchema: z.object({ "limit": z.coerce.number().int().default(10), "offset": z.coerce.number().int().default(0) }).strict(),
   paramsSchema: z.object({ "id": z.string() }).strict(),
 };
 

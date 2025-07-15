@@ -7245,6 +7245,12 @@ export interface operations {
   getFeatureRevisions: {
     /** Get all revisions for a feature */
     parameters: {
+        /** @description The number of items to return */
+        /** @description How many items to skip (use in conjunction with limit for pagination) */
+      query: {
+        limit?: number;
+        offset?: number;
+      };
         /** @description The id of the requested resource */
       path: {
         id: string;
@@ -7253,7 +7259,7 @@ export interface operations {
     responses: {
       200: {
         content: {
-          "application/json": {
+          "application/json": ({
             revisions: ({
                 baseVersion: number;
                 version: number;
@@ -7472,6 +7478,13 @@ export interface operations {
                   [key: string]: string | undefined;
                 };
               })[];
+          }) & {
+            limit: number;
+            offset: number;
+            count: number;
+            total: number;
+            hasMore: boolean;
+            nextOffset: OneOf<[number, null]>;
           };
         };
       };
