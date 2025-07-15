@@ -85,7 +85,6 @@ import {
   ReviewSubmittedType,
   submitReviewAndComments,
   updateRevision,
-  getFeatureRevisionsByStatus,
 } from "back-end/src/models/FeatureRevisionModel";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import {
@@ -3059,25 +3058,4 @@ export async function postCopyEnvironmentRules(
     status: 200,
     version: revision.version,
   });
-}
-
-export async function getFeatureRevisions(
-  req: AuthRequest<null, { id: string }>,
-  res: Response
-) {
-  const context = getContextFromReq(req);
-  const { org } = context;
-  const { id } = req.params;
-
-  // Optionally, you could check permissions here if needed
-
-  const revisions = await getFeatureRevisionsByStatus({
-    context,
-    organization: org.id,
-    featureId: id,
-    // No status filter, return all
-    limit: 100, // or another reasonable limit
-  });
-
-  res.status(200).json({ revisions });
 }
