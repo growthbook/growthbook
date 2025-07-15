@@ -115,6 +115,9 @@ export const SLACK_SIGNING_SECRET = process.env.SLACK_SIGNING_SECRET || "";
 const testConn = process.env.POSTGRES_TEST_CONN;
 export const POSTGRES_TEST_CONN = testConn ? JSON.parse(testConn) : {};
 
+export const MAX_QUERY_TIMEOUT =
+  parseInt(process.env.MAX_QUERY_TIMEOUT_MS || "") || 3600000; // Default to 1 hour
+
 export const FASTLY_API_TOKEN = process.env.FASTLY_API_TOKEN || "";
 export const FASTLY_SERVICE_ID = process.env.FASTLY_SERVICE_ID || "";
 
