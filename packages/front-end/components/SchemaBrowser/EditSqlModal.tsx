@@ -80,6 +80,9 @@ export default function EditSqlModal({
   ] = useState<TestQueryResults | null>(null);
   const [testQueryBeforeSaving, setTestQueryBeforeSaving] = useState(true);
   const [autoCompletions, setAutoCompletions] = useState<AceCompletion[]>([]);
+  const [informationSchema, setInformationSchema] = useState<
+    InformationSchemaInterface | undefined
+  >();
   const [isAutocompleteEnabled, setIsAutocompleteEnabled] = useLocalStorage(
     "sql-editor-autocomplete-enabled",
     true
@@ -173,29 +176,28 @@ export default function EditSqlModal({
   const hasEventName = usesEventName(form.watch("sql"));
   const hasValueCol = usesValueColumn(form.watch("sql"));
 
-  const { data } = useApi<{
-    informationSchema: InformationSchemaInterface;
-  }>(`/datasource/${datasourceId}/schema`);
-
-  const informationSchema = data?.informationSchema;
-
   // Update autocompletions when cursor or schema changes
   useEffect(() => {
-    const updateCompletions = async () => {
+    const timeoutId = setTimeout(async () => {
       if (!isAutocompleteEnabled) {
         setAutoCompletions([]);
         return;
       }
-      const completions = await getAutoCompletions(
-        cursorData,
-        informationSchema,
-        apiCall,
-        templateVariables?.eventName
-      );
-      setAutoCompletions(completions);
-    };
+      try {
+        const completions = await getAutoCompletions(
+          cursorData,
+          informationSchema,
+          apiCall,
+          templateVariables?.eventName
+        );
+        setAutoCompletions(completions);
+      } catch (error) {
+        console.error("Failed to fetch autocompletions:", error);
+        setAutoCompletions([]);
+      }
+    }, 300); // 300ms debounce
 
-    updateCompletions();
+    return () => clearTimeout(timeoutId);
   }, [
     cursorData,
     informationSchema,
@@ -203,6 +205,29 @@ export default function EditSqlModal({
     templateVariables?.eventName,
     isAutocompleteEnabled,
   ]);
+
+  useEffect(() => {
+    const fetchSchema = async () => {
+      if (!isAutocompleteEnabled) {
+        setInformationSchema(undefined);
+        return;
+      }
+      try {
+        const response = (await apiCall(
+          `/datasource/${datasourceId}/schema`
+        )) as {
+          informationSchema: InformationSchemaInterface;
+        };
+        setInformationSchema(response.informationSchema);
+      } catch (error) {
+        console.error("Failed to fetch schema:", error);
+        setInformationSchema(undefined);
+      }
+    };
+
+    fetchSchema();
+  }, [datasourceId, apiCall, isAutocompleteEnabled]);
+
   const handleFormatClick = () => {
     const result = formatSql(form.watch("sql"), datasource?.type);
     if (result.error) {
