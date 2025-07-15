@@ -323,7 +323,7 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                                         return (
                                           <li key={dashId}>
                                             <Link
-                                              href={`/experiment/${dashboard.experimentId}#dashboards`}
+                                              href={`/experiment/${dashboard.experimentId}#dashboards/${dashId}`}
                                             >
                                               {dashboard.title}
                                             </Link>

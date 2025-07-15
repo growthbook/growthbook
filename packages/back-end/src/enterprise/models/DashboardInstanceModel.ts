@@ -81,7 +81,7 @@ export class DashboardInstanceModel extends BaseClass {
     if (!this.context.hasPremiumFeature("dashboards"))
       throw new Error("Must have a commercial License Key to use Dashboards");
 
-    const isOwner = this.context.userId === existing.userId || !existing.userId;
+    const isOwner = this.context.userId === existing.userId;
     const isAdmin = this.context.permissions.canSuperDeleteReport();
 
     const canManage = isOwner || isAdmin;
@@ -104,7 +104,7 @@ export class DashboardInstanceModel extends BaseClass {
     if (!this.context.hasPremiumFeature("dashboards"))
       throw new Error("Must have a commercial License Key to use Dashboards");
 
-    const isOwner = this.context.userId === doc.userId || !doc.userId;
+    const isOwner = this.context.userId === doc.userId;
     const isAdmin = this.context.permissions.canSuperDeleteReport();
     if (!isOwner && !isAdmin) return false;
     const { experiment } = this.getForeignRefs(doc);

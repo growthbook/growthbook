@@ -230,9 +230,9 @@ export default function DashboardBlockEditDrawer({
         right: 0,
         maxHeight: open ? `${DRAWER_MAX_HEIGHT}px` : "0px",
         minHeight: open ? "200px" : "0px",
-        background: "white",
+        background: "var(--background-color)",
         zIndex: 9001,
-        paddingBottom: "32px",
+        paddingBottom: open ? "32px" : "0px",
       }}
     >
       {showSqlExplorerModal && (

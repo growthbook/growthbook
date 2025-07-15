@@ -74,6 +74,13 @@ export async function createDashboard(
     blocks,
   } = req.body;
 
+  // Duplicate permissions checks to prevent persisting the child blocks if the user doesn't have permission
+  const experiment = await getExperimentById(context, experimentId);
+  if (!experiment) throw new Error("Cannot find experiment");
+  if (!context.permissions.canCreateReport(experiment)) {
+    context.permissions.throwPermissionError();
+  }
+
   const createdBlocks = await Promise.all(
     blocks.map((blockData) => createDashboardBlock(context.org.id, blockData))
   );
@@ -111,27 +118,27 @@ export async function updateDashboard(
   const experiment = await getExperimentById(context, dashboard.experimentId);
   if (!experiment) throw new Error("Cannot find connected experiment");
 
-  // Duplicate permissions checks to prevent persisting the child blocks if the user doesn't have permission
-  const isOwner = context.userId === dashboard.userId || !dashboard.userId;
-  const isAdmin = context.permissions.canSuperDeleteReport();
-  const canEdit =
-    isOwner ||
-    isAdmin ||
-    (dashboard.editLevel === "organization" &&
-      context.permissions.canUpdateReport(experiment));
-  const canManage = isOwner || isAdmin;
-
-  if (!canEdit) context.permissions.throwPermissionError();
-  if (
-    ("title" in updates ||
-      "editLevel" in updates ||
-      "enableAutoUpdates" in updates) &&
-    !canManage
-  ) {
-    context.permissions.throwPermissionError();
-  }
-
   if (updates.blocks) {
+    // Duplicate permissions checks to prevent persisting the child blocks if the user doesn't have permission
+    const isOwner = context.userId === dashboard.userId || !dashboard.userId;
+    const isAdmin = context.permissions.canSuperDeleteReport();
+    const canEdit =
+      isOwner ||
+      isAdmin ||
+      (dashboard.editLevel === "organization" &&
+        context.permissions.canUpdateReport(experiment));
+    const canManage = isOwner || isAdmin;
+
+    if (!canEdit) context.permissions.throwPermissionError();
+    if (
+      ("title" in updates ||
+        "editLevel" in updates ||
+        "enableAutoUpdates" in updates) &&
+      !canManage
+    ) {
+      context.permissions.throwPermissionError();
+    }
+
     const createdBlocks = await Promise.all(
       updates.blocks.map((blockData) =>
         isPersistedDashboardBlock(blockData)

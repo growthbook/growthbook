@@ -4,6 +4,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useExperiments } from "@/hooks/useExperiments";
 import Callout from "@/components/Radix/Callout";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import { useDashboardSnapshot } from "../../DashboardSnapshotProvider";
 import { BLOCK_TYPE_INFO } from "..";
 import { BlockProps } from ".";
@@ -15,13 +16,17 @@ export default function TimeSeriesBlock({
   const { experimentId, metricId, variationIds } = block;
   const { experimentsMap } = useExperiments();
   const experiment = experimentsMap.get(experimentId);
-  const { snapshot, analysisSettings } = useDashboardSnapshot(block, setBlock);
+  const { snapshot, analysisSettings, loading } = useDashboardSnapshot(
+    block,
+    setBlock
+  );
   const orgSettings = useOrgSettings();
   const pValueCorrection = orgSettings?.pValueCorrection;
   const { getExperimentMetricById } = useDefinitions();
 
   const metric = getExperimentMetricById(metricId);
 
+  if (loading) return <LoadingSpinner />;
   if (!metric) {
     return (
       <Callout status="info">
