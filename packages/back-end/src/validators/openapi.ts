@@ -122,6 +122,12 @@ export const revertFeatureValidator = {
   paramsSchema: z.object({ "id": z.string() }).strict(),
 };
 
+export const getFeatureRevisionsValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
 export const getFeatureKeysValidator = {
   bodySchema: z.never(),
   querySchema: z.object({ "projectId": z.string().optional() }).strict(),
