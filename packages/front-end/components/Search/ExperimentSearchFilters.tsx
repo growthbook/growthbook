@@ -1,15 +1,23 @@
 import React, { FC, useMemo } from "react";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Tag from "@/components/Tags/Tag";
 import {
   BaseSearchFiltersProps,
+  doesFilterExistInSearch,
   FilterDropdown,
+  FilterHeading,
+  FilterItem,
   SearchFiltersItem,
   useSearchFiltersBase,
 } from "@/components/Search/SearchFilters";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+} from "@/components/Radix/DropdownMenu";
 import { useCombinedMetrics } from "@/components/Metrics/MetricsList";
 import { useUser } from "@/services/UserContext";
+import { SyntaxFilter } from "@/services/search";
 
 const ExperimentSearchFilters: FC<
   BaseSearchFiltersProps & {
@@ -250,6 +258,37 @@ const ExperimentSearchFilters: FC<
         items={allExperimentTypes}
         updateQuery={updateQuery}
       />
+      <DropdownMenu
+        trigger={FilterHeading({
+          heading: "Other",
+          open: false,
+        })}
+      >
+        <Box overflow="auto" style={{ maxHeight: "300px", maxWidth: "250px" }}>
+          <DropdownMenuItem
+            onClick={() => {
+              const f: SyntaxFilter = {
+                field: "is",
+                values: ["watched"],
+                operator: "",
+                negated: false,
+              };
+              updateQuery(f);
+            }}
+          >
+            <FilterItem
+              item="Watched"
+              exists={doesFilterExistInSearch({
+                syntaxFilters,
+                field: "is",
+                value: "watched",
+                operator: "",
+                negated: false,
+              })}
+            />
+          </DropdownMenuItem>
+        </Box>
+      </DropdownMenu>
       {/*<DropdownMenu*/}
       {/*  trigger={FilterHeading({*/}
       {/*    heading: "created",*/}
