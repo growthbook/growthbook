@@ -30,8 +30,6 @@ export default async function (agenda: Agenda) {
 
   agenda.define(
     UPDATE_SINGLE_SAFE_ROLLOUT_SNAPSHOT,
-    // This job queries a datasource, which may be slow. Give it 30 minutes to complete.
-    { lockLifetime: 30 * 60 * 1000 }, // 30 minutes
     updateSingleSafeRolloutSnapshot
   );
 
