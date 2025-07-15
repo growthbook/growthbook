@@ -5,7 +5,7 @@ import {
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
 import React, { useState } from "react";
-import { Heading } from "@radix-ui/themes";
+import { Heading, Text } from "@radix-ui/themes";
 import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import { FeatureInterface } from "back-end/types/feature";
 import AddLinkedChanges from "@/components/Experiment/LinkedChanges/AddLinkedChanges";
@@ -22,6 +22,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/Radix/Tabs";
 import LinkedExperimentsTable from "@/components/Holdout/LinkedExperimentsTable";
 import LinkedFeaturesTable from "@/components/Holdout/LinkedFeaturesTable";
 import EditEnvironmentsModal from "@/components/Holdout/EditEnvironmentsModal";
+import Link from "@/components/Radix/Link";
 import HoldoutEnvironments from "./HoldoutEnvironments";
 
 export interface Props {
@@ -45,6 +46,7 @@ export default function Implementation({
   experiment,
   holdout,
   holdoutExperiments,
+  holdoutFeatures,
   visualChangesets,
   urlRedirects,
   mutate,
@@ -77,6 +79,9 @@ export default function Implementation({
     experiment.hasVisualChangesets ||
     linkedFeatures.length > 0 ||
     experiment.hasURLRedirects;
+
+  const holdoutHasLinkedExpOrFeatures =
+    holdoutExperiments?.length || holdoutFeatures?.length;
 
   const showEditVariations = editVariations;
 
@@ -159,29 +164,48 @@ export default function Implementation({
         {experiment.type === "holdout" && holdout && (
           <div className="box p-4 my-4">
             <h4>Included Experiments & Features</h4>
-            <Tabs
-              value={tab}
-              onValueChange={(value) =>
-                setTab(value as "experiments" | "features")
-              }
-            >
-              <TabsList size="2">
-                <TabsTrigger value="experiments">Experiments</TabsTrigger>
-                <TabsTrigger value="features">Features</TabsTrigger>
-              </TabsList>
-            </Tabs>
-            {tab === "experiments" && (
-              <LinkedExperimentsTable
-                holdout={holdout}
-                experiments={holdoutExperiments ?? []}
-              />
-            )}
-            {tab === "features" && (
-              <LinkedFeaturesTable
-                holdout={holdout}
-                // features={holdoutFeatures ?? []}
-                experiments={holdoutExperiments ?? []}
-              />
+            {/* TODO: Add a state for a stopped holdout with no experiments or features? */}
+            {experiment.status === "draft" ? (
+              <Text>
+                <em>
+                  Start the Holdout to allow new Experiments and Features to be
+                  added.
+                </em>
+              </Text>
+            ) : !holdoutHasLinkedExpOrFeatures ? (
+              <Text>
+                <em>
+                  Add new <Link href="/experiments">Experiments</Link> and{" "}
+                  <Link href="/features">Features</Link> to this Holdout.
+                </em>
+              </Text>
+            ) : (
+              <>
+                <Tabs
+                  value={tab}
+                  onValueChange={(value) =>
+                    setTab(value as "experiments" | "features")
+                  }
+                >
+                  <TabsList size="2">
+                    <TabsTrigger value="experiments">Experiments</TabsTrigger>
+                    <TabsTrigger value="features">Features</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+                {tab === "experiments" && (
+                  <LinkedExperimentsTable
+                    holdout={holdout}
+                    experiments={holdoutExperiments ?? []}
+                  />
+                )}
+                {tab === "features" && (
+                  <LinkedFeaturesTable
+                    holdout={holdout}
+                    // features={holdoutFeatures ?? []}
+                    experiments={holdoutExperiments ?? []}
+                  />
+                )}
+              </>
             )}
           </div>
         )}
