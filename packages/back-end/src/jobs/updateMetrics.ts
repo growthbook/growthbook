@@ -4,6 +4,7 @@ import {
   DEFAULT_METRIC_ANALYSIS_DAYS,
   refreshMetric,
 } from "back-end/src/services/experiments";
+import { trackJob } from "back-end/src/services/tracing";
 import { getMetricById } from "back-end/src/models/MetricModel";
 import { METRIC_REFRESH_FREQUENCY } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
@@ -26,61 +27,64 @@ type UpdateSingleMetricJob = Job<{
 
 // currently only updating northstar metrics
 export default async function (agenda: Agenda) {
-  agenda.define(QUEUE_METRIC_UPDATES, async () => {
-    const orgsWithNorthStars = await getOrganizationsWithNorthStars();
+  agenda.define(
+    QUEUE_METRIC_UPDATES,
+    trackJob(QUEUE_METRIC_UPDATES, async () => {
+      const orgsWithNorthStars = await getOrganizationsWithNorthStars();
 
-    const metrics: {
-      organization: OrganizationInterface;
-      id: string;
-      daysToInclude: number;
-    }[] = [];
-    orgsWithNorthStars.forEach((org) => {
-      org?.settings?.northStar?.metricIds?.forEach((metricId) =>
-        metrics.push({
-          organization: org,
-          id: metricId,
-          daysToInclude:
-            org?.settings?.metricAnalysisDays || DEFAULT_METRIC_ANALYSIS_DAYS,
-        })
-      );
-    });
-
-    const lastRefreshDate = new Date();
-    lastRefreshDate.setHours(
-      lastRefreshDate.getHours() - METRIC_REFRESH_FREQUENCY
-    );
-
-    const promiseCallbacks: (() => Promise<unknown>)[] = [];
-    metrics.forEach(({ organization, id, daysToInclude }) => {
-      promiseCallbacks.push(async () => {
-        const context = getContextForAgendaJobByOrgObject(organization);
-
-        const metric = await getMetricById(context, id, true);
-        if (!metric) return;
-
-        // Skip manual metrics
-        if (!metric.datasource) return;
-
-        // Skip if metric was already refreshed recently
-        if (
-          metric.runStarted &&
-          metric.runStarted.getTime() > lastRefreshDate.getTime()
-        ) {
-          return;
-        }
-
-        await queueMetricUpdate(id, organization.id, daysToInclude);
+      const metrics: {
+        organization: OrganizationInterface;
+        id: string;
+        daysToInclude: number;
+      }[] = [];
+      orgsWithNorthStars.forEach((org) => {
+        org?.settings?.northStar?.metricIds?.forEach((metricId) =>
+          metrics.push({
+            organization: org,
+            id: metricId,
+            daysToInclude:
+              org?.settings?.metricAnalysisDays || DEFAULT_METRIC_ANALYSIS_DAYS,
+          })
+        );
       });
-    });
 
-    await promiseAllChunks(promiseCallbacks, 5);
-  });
+      const lastRefreshDate = new Date();
+      lastRefreshDate.setHours(
+        lastRefreshDate.getHours() - METRIC_REFRESH_FREQUENCY
+      );
+
+      const promiseCallbacks: (() => Promise<unknown>)[] = [];
+      metrics.forEach(({ organization, id, daysToInclude }) => {
+        promiseCallbacks.push(async () => {
+          const context = getContextForAgendaJobByOrgObject(organization);
+
+          const metric = await getMetricById(context, id, true);
+          if (!metric) return;
+
+          // Skip manual metrics
+          if (!metric.datasource) return;
+
+          // Skip if metric was already refreshed recently
+          if (
+            metric.runStarted &&
+            metric.runStarted.getTime() > lastRefreshDate.getTime()
+          ) {
+            return;
+          }
+
+          await queueMetricUpdate(id, organization.id, daysToInclude);
+        });
+      });
+
+      await promiseAllChunks(promiseCallbacks, 5);
+    })
+  );
 
   agenda.define(
     UPDATE_SINGLE_METRIC,
     // This job queries a datasource, which may be slow. Give it 30 minutes to complete.
     { lockLifetime: 30 * 60 * 1000 },
-    updateSingleMetric
+    trackJob(UPDATE_SINGLE_METRIC, updateSingleMetric)
   );
 
   // Update experiment results

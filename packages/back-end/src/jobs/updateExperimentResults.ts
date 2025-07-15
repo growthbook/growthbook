@@ -20,6 +20,7 @@ import { notifyAutoUpdate } from "back-end/src/services/experimentNotifications"
 import { EXPERIMENT_REFRESH_FREQUENCY } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
+import { trackJob } from "back-end/src/services/tracing";
 
 // Time between experiment result updates (default 6 hours)
 const UPDATE_EVERY = EXPERIMENT_REFRESH_FREQUENCY * 60 * 60 * 1000;
@@ -33,27 +34,30 @@ type UpdateSingleExpJob = Job<{
 }>;
 
 export default async function (agenda: Agenda) {
-  agenda.define(QUEUE_EXPERIMENT_UPDATES, async () => {
-    // Old way of queuing experiments based on a fixed schedule
-    // Will remove in the future when it's no longer needed
-    const ids = await legacyQueueExperimentUpdates();
+  agenda.define(
+    QUEUE_EXPERIMENT_UPDATES,
+    trackJob(QUEUE_EXPERIMENT_UPDATES, async () => {
+      // Old way of queuing experiments based on a fixed schedule
+      // Will remove in the future when it's no longer needed
+      const ids = await legacyQueueExperimentUpdates();
 
-    // New way, based on dynamic schedules
-    const experiments = await getExperimentsToUpdate(ids);
+      // New way, based on dynamic schedules
+      const experiments = await getExperimentsToUpdate(ids);
 
-    for (let i = 0; i < experiments.length; i++) {
-      await queueExperimentUpdate(
-        experiments[i].organization,
-        experiments[i].id
-      );
-    }
-  });
+      for (let i = 0; i < experiments.length; i++) {
+        await queueExperimentUpdate(
+          experiments[i].organization,
+          experiments[i].id
+        );
+      }
+    })
+  );
 
   agenda.define(
     UPDATE_SINGLE_EXP,
     // This job queries a datasource, which may be slow. Give it 30 minutes to complete.
     { lockLifetime: 30 * 60 * 1000 },
-    updateSingleExperiment
+    trackJob(UPDATE_SINGLE_EXP, updateSingleExperiment)
   );
 
   // Update experiment results
@@ -100,7 +104,7 @@ export default async function (agenda: Agenda) {
   }
 }
 
-async function updateSingleExperiment(job: UpdateSingleExpJob) {
+const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
   const experimentId = job.attrs.data?.experimentId;
   const orgId = job.attrs.data?.organization;
 
@@ -234,4 +238,4 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       await notifyAutoUpdate({ context, experiment, success: false });
     }
   }
-}
+};
