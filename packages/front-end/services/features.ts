@@ -27,6 +27,7 @@ import {
   featuresReferencingSavedGroups,
   generateVariationId,
   getMatchingRules,
+  StaleFeatureReason,
   validateAndFixCondition,
   validateFeatureValue,
 } from "shared/util";
@@ -68,6 +69,7 @@ export interface AttributeData {
   enum: string[];
   archived: boolean;
   format?: SDKAttributeFormat;
+  disableEqualityConditions?: boolean;
 }
 
 export type NewExperimentRefRule = {
@@ -116,6 +118,7 @@ export function useFeatureSearch({
   filterResults,
   environments,
   localStorageKey = "features",
+  staleFeatures,
 }: {
   allFeatures: FeatureInterface[];
   defaultSortField?:
@@ -128,6 +131,10 @@ export function useFeatureSearch({
   filterResults?: (items: FeatureInterface[]) => FeatureInterface[];
   environments: Environment[];
   localStorageKey?: string;
+  staleFeatures?: Record<
+    string,
+    { stale: boolean; reason?: StaleFeatureReason }
+  >;
 }) {
   const { getUserDisplay } = useUser();
   const { getProjectById, getSavedGroupById, savedGroups } = useDefinitions();
@@ -184,6 +191,11 @@ export function useFeatureSearch({
         const is: string[] = [item.valueType];
         if (item.archived) is.push("archived");
         if (item.hasDrafts) is.push("draft");
+        if (item.valueType === "json") is.push("json");
+        if (item.valueType === "string") is.push("string");
+        if (item.valueType === "number") is.push("number");
+        if (item.valueType === "boolean") is.push("boolean");
+        if (staleFeatures?.[item.id]?.stale) is.push("stale");
         return is;
       },
       has: (item) => {
@@ -232,6 +244,7 @@ export function useFeatureSearch({
       revision: (item) => item.version,
       owner: (item) => item.owner,
       tag: (item) => item.tags,
+      type: (item) => item.valueType,
       rules: (item) => {
         const rules = getMatchingRules(
           item,
@@ -477,7 +490,7 @@ export function useAttributeSchema(
 
 export function validateFeatureRule(
   rule: FeatureRule,
-  feature: FeatureInterface
+  feature: Pick<FeatureInterface, "valueType" | "jsonSchema">
 ): null | FeatureRule {
   let hasChanges = false;
   const ruleCopy = cloneDeep(rule);
@@ -665,12 +678,14 @@ export function getDefaultRuleValue({
   ruleType,
   settings,
   datasources,
+  isSafeRolloutAutoRollbackEnabled = false,
 }: {
   defaultValue: string;
   attributeSchema?: SDKAttributeSchema;
   ruleType: string;
   settings?: OrganizationSettings;
   datasources?: DataSourceInterfaceWithParams[];
+  isSafeRolloutAutoRollbackEnabled?: boolean;
 }): FeatureRule | NewExperimentRefRule | safeRolloutFields {
   const hashAttributes =
     attributeSchema?.filter((a) => a.hashAttribute)?.map((a) => a.property) ||
@@ -725,6 +740,7 @@ export function getDefaultRuleValue({
         datasourceId: defaultDataSource || "",
         exposureQueryId: "",
         guardrailMetricIds: [],
+        autoRollback: isSafeRolloutAutoRollbackEnabled,
       },
     };
   }
@@ -1181,6 +1197,7 @@ export function useAttributeMap(
         identifier: !!schema.hashAttribute,
         archived: !!schema.archived,
         format: schema.format || "",
+        disableEqualityConditions: !!schema.disableEqualityConditions,
       });
     });
 
@@ -1300,6 +1317,8 @@ export function getDefaultOperator(attribute: AttributeData) {
     return "$true";
   } else if (attribute.array) {
     return "$includes";
+  } else if (attribute.disableEqualityConditions) {
+    return "$regex";
   }
   return "$eq";
 }

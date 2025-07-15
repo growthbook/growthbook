@@ -33,6 +33,13 @@ export type SearchFields<T> = (
 
 const searchTermOperators = [">", "<", "^", "=", "~", ""] as const;
 
+export type SyntaxFilter = {
+  field: string;
+  values: string[];
+  operator: SearchTermFilterOperator;
+  negated: boolean;
+};
+
 export type SearchTermFilterOperator = typeof searchTermOperators[number];
 
 export interface SearchProps<T> {
@@ -42,6 +49,7 @@ export interface SearchProps<T> {
   defaultSortField: keyof T;
   defaultSortDir?: number;
   undefinedLast?: boolean;
+  defaultMappings?: Partial<Record<keyof T, unknown>>;
   searchTermFilters?: {
     [key: string]: (
       item: T
@@ -65,10 +73,12 @@ export interface SearchReturn<T> {
   unpaginatedItems: T[];
   isFiltered: boolean;
   clear: () => void;
+  syntaxFilters: SyntaxFilter[];
   searchInputProps: {
     value: string;
     onChange: (e: ChangeEvent<HTMLInputElement>) => void;
   };
+  setSearchValue: (value: string) => void;
   SortableTH: FC<{
     field: keyof T;
     className?: string;
@@ -88,6 +98,7 @@ export function useSearch<T>({
   defaultSortField,
   defaultSortDir,
   undefinedLast,
+  defaultMappings = {},
   searchTermFilters,
   updateSearchQueryOnChange,
   pageSize,
@@ -121,7 +132,7 @@ export function useSearch<T>({
     });
   }, [items, JSON.stringify(searchFields)]);
 
-  const filtered = useMemo(() => {
+  const { filtered, syntaxFilters } = useMemo(() => {
     // remove any syntax filters from the search term
     const { searchTerm, syntaxFilters } = searchTermFilters
       ? transformQuery(value, Object.keys(searchTermFilters))
@@ -180,7 +191,7 @@ export function useSearch<T>({
     if (filterResults) {
       filtered = filterResults(filtered);
     }
-    return filtered;
+    return { filtered, syntaxFilters };
   }, [value, fuse, filterResults, transformQuery]);
 
   const isFiltered = value.length > 0;
@@ -191,8 +202,8 @@ export function useSearch<T>({
     const sorted = [...filtered];
 
     sorted.sort((a, b) => {
-      const comp1 = a[sort.field];
-      const comp2 = b[sort.field];
+      const comp1 = a[sort.field] || defaultMappings[sort.field];
+      const comp2 = b[sort.field] || defaultMappings[sort.field];
       if (undefinedLast) {
         if (comp1 === undefined && comp2 !== undefined) return 1;
         if (comp2 === undefined && comp1 !== undefined) return -1;
@@ -297,10 +308,12 @@ export function useSearch<T>({
     unpaginatedItems: sorted,
     isFiltered,
     clear,
+    syntaxFilters,
     searchInputProps: {
       value,
       onChange,
     },
+    setSearchValue: setValue,
     SortableTH,
     page,
     resetPage: () => setPage(1),
@@ -368,23 +381,21 @@ export function transformQuery(
   searchTerm: string,
   searchTermFilterKeys: string[]
 ) {
-  // TODO: Support comma-separated quoted values (e.g. `foo:"bar","baz"`)
+  // split up the string into the search term and the filters, and support OR'ing
+  // multiple search terms, even if they are in quotes
   const regex = new RegExp(
     `(^|\\s)(${searchTermFilterKeys.join(
       "|"
-    )}):(\\!?)([${searchTermOperators.join("")}]?)([^\\s"]+|"[^"]*"?)`,
+    )}):(\\!?)([${searchTermOperators.join(
+      ""
+    )}]?)((?:"[^"]*"|[^\\s,]+)(?:,(?:"[^"]*"|[^\\s,]+))*)`,
     "gi"
   );
   return parseQuery(searchTerm, regex);
 }
 
 export function parseQuery(query: string, regex: RegExp) {
-  const syntaxFilters: {
-    field: string;
-    values: string[];
-    operator: SearchTermFilterOperator;
-    negated: boolean;
-  }[] = [];
+  const syntaxFilters: SyntaxFilter[] = [];
 
   const matches = query.matchAll(regex);
   for (const match of matches) {

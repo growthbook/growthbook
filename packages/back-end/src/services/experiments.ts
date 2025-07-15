@@ -521,12 +521,13 @@ export function getSnapshotSettings({
     metricGroups
   )
     .map((m) =>
-      getMetricForSnapshot(
-        m,
+      getMetricForSnapshot({
+        id: m,
         metricMap,
         settingsForSnapshotMetrics,
-        experiment.metricOverrides
-      )
+        metricOverrides: experiment.metricOverrides,
+        decisionFrameworkSettings: experiment.decisionFrameworkSettings,
+      })
     )
     .filter(isDefined);
 
@@ -1469,6 +1470,7 @@ export async function toExperimentApiInterface(
     linkedFeatures: experiment.linkedFeatures || [],
     hasVisualChangesets: experiment.hasVisualChangesets || false,
     hasURLRedirects: experiment.hasURLRedirects || false,
+    customFields: experiment.customFields ?? {},
   };
 }
 
@@ -2470,6 +2472,7 @@ export function postExperimentApiPayloadToInterface(
     guardrailMetrics: payload.guardrailMetrics || [],
     activationMetric: payload.activationMetric || "",
     metricOverrides: [],
+    decisionFrameworkSettings: {},
     segment: payload.segmentId || "",
     queryFilter: payload.queryFilter || "",
     skipPartialData: payload.inProgressConversions === "strict",
@@ -2876,7 +2879,7 @@ export async function getLinkedFeatureInfo(
     return info;
   });
 
-  return linkedFeatureInfo.filter((info) => info.state !== "discarded");
+  return linkedFeatureInfo;
 }
 
 export async function getChangesToStartExperiment(
@@ -3123,10 +3126,8 @@ export async function computeResultsStatus({
         const baselineMetric = baselineVariation.metrics?.[m];
         const currentMetric = currentVariation.metrics?.[m];
         if (!currentMetric || !baselineMetric) continue;
-
         const metric = metricMap.get(m);
         if (!metric) continue;
-
         const resultsStatus = getMetricResultStatus({
           metric,
           metricDefaults,
@@ -3136,6 +3137,10 @@ export async function computeResultsStatus({
           ciUpper,
           pValueThreshold,
           statsEngine: statsEngine,
+          differenceType:
+            "differenceType" in analysis.settings
+              ? analysis.settings.differenceType
+              : "relative",
         });
 
         if (goalMetric) {
@@ -3164,9 +3169,16 @@ export async function computeResultsStatus({
           if (!variationStatus.guardrailMetrics) {
             variationStatus.guardrailMetrics = {};
           }
-          variationStatus.guardrailMetrics[metric.id] = {
-            status: resultsStatus.resultsStatus === "lost" ? "lost" : "neutral",
-          };
+          if (resultsStatus.guardrailSafeStatus) {
+            variationStatus.guardrailMetrics[metric.id] = {
+              status: "safe",
+            };
+          } else {
+            variationStatus.guardrailMetrics[metric.id] = {
+              status:
+                resultsStatus.resultsStatus === "lost" ? "lost" : "neutral",
+            };
+          }
         }
       }
     }

@@ -1,4 +1,5 @@
 import type { Response } from "express";
+import { omit } from "lodash";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { SafeRolloutSnapshotInterface } from "back-end/src/validators/safe-rollout-snapshot";
@@ -7,6 +8,12 @@ import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource
 import { SafeRolloutResultsQueryRunner } from "back-end/src/queryRunners/SafeRolloutResultsQueryRunner";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { SNAPSHOT_TIMEOUT } from "back-end/src/controllers/experiments";
+import { MetricTimeSeries } from "back-end/src/validators/metric-time-series";
+import {
+  CreateSafeRolloutInterface,
+  SafeRolloutInterface,
+  validateCreateSafeRolloutFields,
+} from "back-end/src/validators/safe-rollout";
 
 // region GET /safe-rollout/:id/snapshot
 /**
@@ -170,3 +177,105 @@ export async function putSafeRolloutStatus(
   });
 }
 // endregion PUT /safe-rollout/:id/status
+
+// region PUT /safe-rollout/:id
+/**
+ * PUT /safe-rollout/:id
+ * Update a safe rollout rule
+ * @param req
+ * @param res
+ */
+export async function putSafeRollout(
+  req: AuthRequest<
+    {
+      safeRolloutFields: Partial<CreateSafeRolloutInterface>;
+      environment: string;
+    },
+    { id: string }
+  >,
+  res: Response<{ status: 200 }>
+) {
+  const { id } = req.params;
+  const { safeRolloutFields, environment } = req.body;
+  const context = getContextFromReq(req);
+  const safeRollout = await context.models.safeRollout.getById(id);
+  if (!safeRollout) {
+    throw new Error("Could not find safe rollout");
+  }
+  if (safeRollout.environment !== environment) {
+    throw new Error("Safe rollout environment does not match");
+  }
+
+  const validatedSafeRolloutFields = await validateCreateSafeRolloutFields(
+    safeRolloutFields,
+    context
+  );
+
+  await context.models.safeRollout.update(safeRollout, {
+    ...omit(validatedSafeRolloutFields, "rampUpSchedule"),
+  });
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+// endregion PUT /safe-rollout/:id
+
+// region GET /safe-rollout/:id/time-series
+/**
+ * GET /safe-rollout/:id/time-series
+ * Get the time series data for a safe rollout rule
+ * @param req
+ * @param res
+ */
+export const getSafeRolloutTimeSeries = async (
+  req: AuthRequest<null, { id: string }, { metricIds: string[] }>,
+  res: Response<{ status: 200; timeSeries: MetricTimeSeries[] }>
+) => {
+  const context = getContextFromReq(req);
+
+  const { metricIds } = req.query;
+  if (metricIds.length === 0) {
+    throw new Error("metricIds is required");
+  }
+
+  const { id } = req.params;
+  const safeRollout = await context.models.safeRollout.getById(id);
+  if (!safeRollout) {
+    throw new Error("Safe rollout not found");
+  }
+
+  const timeSeries = await context.models.metricTimeSeries.getBySourceAndMetricIds(
+    {
+      source: "safe-rollout",
+      sourceId: id,
+      sourcePhase: undefined, // Safe rollouts don't have phases at the moment
+      metricIds,
+    }
+  );
+
+  res.status(200).json({
+    status: 200,
+    timeSeries,
+  });
+};
+// endregion GET /safe-rollout/:id/time-series
+
+// region GET /safe-rollout
+/**
+ * GET /safe-rollout
+ * Get all safe rollout rules
+ */
+export const getSafeRollouts = async (
+  req: AuthRequest<null, null>,
+  res: Response<{ status: 200; safeRollouts: SafeRolloutInterface[] }>
+) => {
+  const context = getContextFromReq(req);
+
+  const safeRollouts = await context.models.safeRollout.getAll();
+  res.status(200).json({
+    status: 200,
+    safeRollouts,
+  });
+};
+// endregion GET /safe-rollout

@@ -41,6 +41,9 @@ if (SENTRY_DSN) {
 import * as authControllerRaw from "./controllers/auth";
 const authController = wrapController(authControllerRaw);
 
+import * as vercelControllerRaw from "./routers/vercel-native-integration/vercel-native-integration.controller";
+const vercelController = wrapController(vercelControllerRaw);
+
 import * as datasourcesControllerRaw from "./controllers/datasources";
 const datasourcesController = wrapController(datasourcesControllerRaw);
 
@@ -76,9 +79,6 @@ const licenseController = wrapController(licenseControllerRaw);
 import * as subscriptionControllerRaw from "./controllers/subscription";
 const subscriptionController = wrapController(subscriptionControllerRaw);
 
-import * as vercelControllerRaw from "./controllers/vercel";
-const vercelController = wrapController(vercelControllerRaw);
-
 import * as featuresControllerRaw from "./controllers/features";
 const featuresController = wrapController(featuresControllerRaw);
 
@@ -105,7 +105,9 @@ import { customFieldsRouter } from "./routers/custom-fields/custom-fields.router
 import { segmentRouter } from "./routers/segment/segment.router";
 import { dimensionRouter } from "./routers/dimension/dimension.router";
 import { sdkConnectionRouter } from "./routers/sdk-connection/sdk-connection.router";
+import { savedQueriesRouter } from "./routers/saved-queries/saved-queries.router";
 import { projectRouter } from "./routers/project/project.router";
+import { vercelRouter } from "./routers/vercel-native-integration/vercel-native-integration.router";
 import { factTableRouter } from "./routers/fact-table/fact-table.router";
 import { slackIntegrationRouter } from "./routers/slack-integration/slack-integration.router";
 import { dataExportRouter } from "./routers/data-export/data-export.router";
@@ -309,6 +311,27 @@ const origins: (string | RegExp)[] = [APP_ORIGIN];
 if (CORS_ORIGIN_REGEX) {
   origins.push(CORS_ORIGIN_REGEX);
 }
+
+if (IS_CLOUD) {
+  app.use(
+    "/vercel",
+    cors({
+      credentials: false,
+      origin: "*",
+    }),
+    vercelRouter
+  );
+
+  app.post(
+    "/auth/sso/vercel",
+    cors({
+      credentials: true,
+      origin: origins,
+    }),
+    vercelController.postVercelIntegrationSSO
+  );
+}
+
 app.use(
   cors({
     credentials: true,
@@ -408,6 +431,14 @@ if (IS_CLOUD) {
   );
   app.post("/subscription/cancel", subscriptionController.cancelSubscription);
   app.get("/subscription/portal-url", subscriptionController.getPortalUrl);
+  app.get(
+    "/subscription/customer-data",
+    subscriptionController.getCustomerData
+  );
+  app.post(
+    "/subscription/update-customer-data",
+    subscriptionController.updateCustomerData
+  );
   app.get("/billing/usage", subscriptionController.getUsage);
 }
 app.post("/subscription/new", subscriptionController.postNewProSubscription);
@@ -422,24 +453,13 @@ app.post(
 
 app.get("/queries/:ids", datasourcesController.getQueries);
 app.post("/query/test", datasourcesController.testLimitedQuery);
+app.post("/query/run", datasourcesController.runQuery);
 app.post("/dimension-slices", datasourcesController.postDimensionSlices);
 app.get("/dimension-slices/:id", datasourcesController.getDimensionSlices);
 app.post(
   "/dimension-slices/:id/cancel",
   datasourcesController.cancelDimensionSlices
 );
-
-app.get(
-  "/dimension-slices/datasource/:datasourceId/:exposureQueryId",
-  datasourcesController.getLatestDimensionSlicesForDatasource
-);
-
-if (IS_CLOUD) {
-  app.get("/vercel/has-token", vercelController.getHasToken);
-  app.post("/vercel/token", vercelController.postToken);
-  app.post("/vercel/env-vars", vercelController.postEnvVars);
-  app.get("/vercel/config", vercelController.getConfig);
-}
 
 app.use("/tag", tagRouter);
 
@@ -643,6 +663,8 @@ app.use("/dimensions", dimensionRouter);
 
 app.use("/sdk-connections", sdkConnectionRouter);
 
+app.use("/saved-queries", savedQueriesRouter);
+
 app.use("/projects", projectRouter);
 
 app.use(factTableRouter);
@@ -692,7 +714,7 @@ app.post(
 app.put("/feature/:id/:version/comment", featuresController.putRevisionComment);
 app.put("/feature/:id/:version/rule", featuresController.putFeatureRule);
 app.put(
-  "/feature/:id/:version/rule/status",
+  "/feature/:id/safeRollout/status",
   featuresController.putSafeRolloutStatus
 );
 app.delete("/feature/:id/:version/rule", featuresController.deleteFeatureRule);
@@ -737,11 +759,27 @@ app.post(
   "/datasources/fetch-bigquery-datasets",
   datasourcesController.fetchBigQueryDatasets
 );
+app.post(
+  "/datasource/:datasourceId/materializedColumn",
+  datasourcesController.postMaterializedColumn
+);
+app.put(
+  "/datasource/:datasourceId/materializedColumn/:matColumnName",
+  datasourcesController.updateMaterializedColumn
+);
+app.delete(
+  "/datasource/:datasourceId/materializedColumn/:matColumnName",
+  datasourcesController.deleteMaterializedColumn
+);
+app.post(
+  "/datasource/:datasourceId/recreate-managed-warehouse",
+  datasourcesController.postRecreateManagedWarehouse
+);
 
 if (IS_CLOUD) {
   app.post(
-    "/datasource/create-inbuilt",
-    datasourcesController.postInbuiltDataSource
+    "/datasources/managed-warehouse",
+    datasourcesController.postManagedWarehouse
   );
 }
 

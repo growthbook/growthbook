@@ -86,7 +86,7 @@ export default function SafeRolloutAnalysisSettingsSummary({
           <h4>Guardrail Metrics</h4>
           <div>
             <Metadata
-              label="Total users"
+              label="Total units"
               value={numberFormatter.format(
                 safeRollout.analysisSummary?.health?.totalUsers ?? 0
               )}

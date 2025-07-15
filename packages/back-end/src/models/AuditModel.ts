@@ -1,6 +1,6 @@
 import mongoose, { FilterQuery, QueryOptions } from "mongoose";
-import { omit } from "lodash";
 import uniqid from "uniqid";
+import { omit } from "lodash";
 import { AuditInterface } from "back-end/types/audit";
 import { EntityType } from "back-end/src/types/Audit";
 
@@ -60,6 +60,28 @@ export async function insertAudit(
     id: uniqid("aud_"),
   });
   return toInterface(auditDoc);
+}
+
+/**
+ * find all audits by user id and organization
+ * @param userId
+ * @param organization
+ * @param options
+ */
+export async function findAuditByUserIdAndOrganization(
+  userId: string,
+  organization: string,
+  options?: QueryOptions
+): Promise<AuditInterface[]> {
+  const userAudits = await AuditModel.find({
+    "user.id": userId,
+    organization,
+    ...options,
+  })
+    .limit(100)
+    .sort({ dateCreated: -1 });
+  const transformed = userAudits.map((doc) => toInterface(doc));
+  return transformed;
 }
 
 export async function findAuditByOrganization(

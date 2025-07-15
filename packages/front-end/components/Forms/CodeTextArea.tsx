@@ -1,22 +1,80 @@
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
-import { Ace } from "ace-builds";
+import { useEffect, useState, useRef } from "react";
+import type { Ace } from "ace-builds";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { CursorData } from "@/components/Segments/SegmentForm";
 import Field, { FieldProps } from "./Field";
 
 const AceEditor = dynamic(
   async () => {
-    const reactAce = await import("react-ace");
-    await import("ace-builds/src-min-noconflict/ext-language_tools");
-    await import("ace-builds/src-noconflict/mode-sql");
-    await import("ace-builds/src-noconflict/mode-javascript");
-    await import("ace-builds/src-noconflict/mode-python");
-    await import("ace-builds/src-noconflict/mode-yaml");
-    await import("ace-builds/src-noconflict/mode-json");
-    await import("ace-builds/src-noconflict/theme-textmate");
-    await import("ace-builds/src-noconflict/theme-tomorrow_night");
-    await import("ace-builds/src-noconflict/ext-searchbox");
+    const [
+      ace,
+      reactAce,
+      jsonWorkerUrl,
+      jsWorkerUrl,
+      yamlWorkerUrl,
+    ] = await Promise.all([
+      import(
+        /* webpackChunkName: "ace-editor" */
+        "ace-builds/src-min-noconflict/ace"
+      ),
+      import(
+        /* webpackChunkName: "ace-editor" */
+        "react-ace"
+      ),
+      import(
+        /* webpackChunkName: "ace-editor" */
+        "ace-builds/src-min-noconflict/worker-json"
+      ),
+      import(
+        /* webpackChunkName: "ace-editor" */
+        "ace-builds/src-min-noconflict/worker-javascript"
+      ),
+      import(
+        /* webpackChunkName: "ace-editor" */
+        "ace-builds/src-min-noconflict/worker-yaml"
+      ),
+      import(
+        /* webpackChunkName: "ace-editor" */
+        "ace-builds/src-min-noconflict/ext-language_tools"
+      ),
+      import(
+        /* webpackChunkName: "ace-editor" */
+        "ace-builds/src-min-noconflict/ext-searchbox"
+      ),
+      import(
+        /* webpackChunkName: "ace-editor" */
+        "ace-builds/src-min-noconflict/mode-sql"
+      ),
+      import(
+        /* webpackChunkName: "ace-editor" */
+        "ace-builds/src-min-noconflict/mode-javascript"
+      ),
+      import(
+        /* webpackChunkName: "ace-editor" */
+        "ace-builds/src-min-noconflict/mode-python"
+      ),
+      import(
+        /* webpackChunkName: "ace-editor" */
+        "ace-builds/src-min-noconflict/mode-yaml"
+      ),
+      import(
+        /* webpackChunkName: "ace-editor" */
+        "ace-builds/src-min-noconflict/mode-json"
+      ),
+      import(
+        /* webpackChunkName: "ace-editor" */
+        "ace-builds/src-min-noconflict/theme-textmate"
+      ),
+      import(
+        /* webpackChunkName: "ace-editor" */
+        "ace-builds/src-min-noconflict/theme-tomorrow_night"
+      ),
+    ]);
+
+    ace.config.setModuleUrl("ace/mode/json_worker", jsonWorkerUrl.default);
+    ace.config.setModuleUrl("ace/mode/javascript_worker", jsWorkerUrl.default);
+    ace.config.setModuleUrl("ace/mode/yaml_worker", yamlWorkerUrl.default);
 
     return reactAce;
   },
@@ -39,7 +97,7 @@ export type Props = Omit<
   maxLines?: number;
   fullHeight?: boolean;
   onCtrlEnter?: () => void;
-  resizeDependency?: boolean;
+  wrapperClassName?: string;
 };
 
 const LIGHT_THEME = "textmate";
@@ -55,7 +113,7 @@ export default function CodeTextArea({
   setCursorData,
   fullHeight,
   onCtrlEnter,
-  resizeDependency,
+  wrapperClassName,
   ...otherProps
 }: Props) {
   // eslint-disable-next-line
@@ -64,18 +122,11 @@ export default function CodeTextArea({
   const { theme } = useAppearanceUITheme();
 
   const [editor, setEditor] = useState<null | Ace.Editor>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  // HACK: AceEditor doesn't automatically resize when the parent div resizes
-  // Also because we dynamically load the AceEditor component, we can't use
-  // useRef to get a reference to the editor object, which would allow us to
-  // call the resize() method on the editor object. So instead we change the
-  // height ever so slightly whenever the resizeDependency variable changes.
-  const heightProps = fullHeight
-    ? resizeDependency
-      ? { height: "99.999%" }
-      : { height: "100%" }
-    : { minLines, maxLines };
+  const heightProps = fullHeight ? { height: "100%" } : { minLines, maxLines };
 
+  // Handle Ctrl+Enter binding
   useEffect(() => {
     if (!editor) return;
     if (!onCtrlEnter) return;
@@ -92,6 +143,21 @@ export default function CodeTextArea({
     );
   }, [editor, onCtrlEnter]);
 
+  // Auto-resize editor when container size changes
+  useEffect(() => {
+    if (!editor || !containerRef.current || !fullHeight) return;
+
+    const resizeObserver = new ResizeObserver(() => {
+      editor.resize();
+    });
+
+    resizeObserver.observe(containerRef.current);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [editor, fullHeight]);
+
   return (
     <Field
       {...fieldProps}
@@ -99,7 +165,12 @@ export default function CodeTextArea({
       render={(id) => {
         return (
           <>
-            <div className={`border rounded ${fullHeight ? "h-100" : ""}`}>
+            <div
+              ref={containerRef}
+              className={`border rounded ${wrapperClassName} ${
+                fullHeight ? "h-100" : ""
+              }`}
+            >
               <AceEditor
                 name={id}
                 onLoad={(e) => setEditor(e)}

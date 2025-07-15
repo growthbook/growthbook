@@ -113,7 +113,9 @@ export default function FeatureRules({
                 {tabEnvs.map((e) => (
                   <TabsTrigger value={e.id} key={e.id}>
                     <Flex maxWidth="220px">
-                      <Text truncate>{e.id}</Text>
+                      <Text truncate title={e.id}>
+                        {e.id}
+                      </Text>
                     </Flex>
                     <Badge
                       ml="2"
@@ -127,7 +129,9 @@ export default function FeatureRules({
                 {dropdownEnvs.length === 1 && (
                   <TabsTrigger value={dropdownEnvs[0].id}>
                     <Flex maxWidth="220px">
-                      <Text truncate>{dropdownEnvs[0].id}</Text>
+                      <Text truncate title={dropdownEnvs[0].id}>
+                        {dropdownEnvs[0].id}
+                      </Text>
                     </Flex>
                     <Badge
                       ml="2"
@@ -161,7 +165,7 @@ export default function FeatureRules({
                         formatOptionLabel={({ value }) => (
                           <Flex align="center">
                             <Flex maxWidth="150px">
-                              <Text weight="medium" truncate>
+                              <Text weight="medium" truncate title={value}>
                                 {value}
                               </Text>
                             </Flex>

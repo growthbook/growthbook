@@ -1,7 +1,7 @@
 import { includeExperimentInPayload, getSnapshotAnalysis } from "shared/util";
 import { getMetricResultStatus } from "shared/experiments";
 import {
-  DEFAULT_DECISION_CRITERIA,
+  PRESET_DECISION_CRITERIA,
   PRESET_DECISION_CRITERIAS,
   getExperimentResultStatus,
   getHealthSettings,
@@ -324,6 +324,7 @@ export const computeExperimentChanges = async ({
         ciUpper,
         pValueThreshold,
         statsEngine: statsEngine,
+        differenceType: currentAnalysis.settings.differenceType,
       });
 
       const { resultsStatus: lastResultsStatus } =
@@ -337,6 +338,7 @@ export const computeExperimentChanges = async ({
               ciUpper,
               pValueThreshold,
               statsEngine: lastAnalysis.settings.statsEngine,
+              differenceType: lastAnalysis.settings.differenceType,
             })
           : { resultsStatus: "" };
 
@@ -467,7 +469,7 @@ async function getDecisionCriteria(
   decisionCriteriaId?: string
 ) {
   if (!decisionCriteriaId) {
-    return DEFAULT_DECISION_CRITERIA;
+    return PRESET_DECISION_CRITERIA;
   }
 
   const usedPresetCriteria = PRESET_DECISION_CRITERIAS.find(
@@ -482,7 +484,7 @@ async function getDecisionCriteria(
   );
 
   if (!decisionCriteria) {
-    return DEFAULT_DECISION_CRITERIA;
+    return PRESET_DECISION_CRITERIA;
   }
 
   return decisionCriteria;
@@ -514,7 +516,8 @@ export const notifyExperimentChange = async ({
 
   const decisionCriteria = await getDecisionCriteria(
     context,
-    context.org.settings?.defaultDecisionCriteriaId
+    experiment.decisionFrameworkSettings?.decisionCriteriaId ??
+      context.org.settings?.defaultDecisionCriteriaId
   );
 
   const currentStatus = getExperimentResultStatus({

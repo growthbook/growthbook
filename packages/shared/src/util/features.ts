@@ -11,6 +11,7 @@ import {
   RolloutRule,
   SchemaField,
   SimpleSchema,
+  ScheduleRule,
 } from "back-end/types/feature";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
@@ -32,7 +33,7 @@ export const DRAFT_REVISION_STATUSES = [
   "pending-review",
 ];
 
-export function getValidation(feature: FeatureInterface) {
+export function getValidation(feature: Pick<FeatureInterface, "jsonSchema">) {
   try {
     if (!feature?.jsonSchema) {
       return {
@@ -100,7 +101,7 @@ export function getJSONValidator() {
 export function validateJSONFeatureValue(
   // eslint-disable-next-line
   value: any,
-  feature: FeatureInterface
+  feature: Pick<FeatureInterface, "jsonSchema">
 ) {
   const { jsonSchema, validationEnabled } = getValidation(feature);
   if (!validationEnabled) {
@@ -154,7 +155,7 @@ export function validateJSONFeatureValue(
 }
 
 export function validateFeatureValue(
-  feature: FeatureInterface,
+  feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
   value: string,
   label?: string
 ): string {
@@ -194,6 +195,59 @@ export function validateFeatureValue(
   }
 
   return value;
+}
+
+// Helper function to validate ISO timestamp format
+function isValidISOTimestamp(timestamp: string): boolean {
+  // Validate that it's a proper date and parses correctly
+  try {
+    const date = new Date(timestamp);
+    return !isNaN(date.getTime()) && date.toISOString() === timestamp;
+  } catch {
+    return false;
+  }
+}
+
+// Validate scheduleRules business logic
+export function validateScheduleRules(scheduleRules: ScheduleRule[]): void {
+  // Optional field - no validation needed if empty
+  if (!scheduleRules || scheduleRules.length === 0) {
+    return;
+  }
+
+  // Rule 1: Must have exactly 2 elements (start and end rules)
+  if (scheduleRules.length !== 2) {
+    throw new Error(
+      "scheduleRules must contain exactly 2 elements (start and end rules)"
+    );
+  }
+
+  const [rule1, rule2] = scheduleRules;
+
+  // Rule 2: One rule must be enabled=true, the other enabled=false
+  if (rule1.enabled === rule2.enabled) {
+    throw new Error(
+      "scheduleRules must have one rule with enabled=true and one with enabled=false"
+    );
+  }
+
+  // Rule 3: Only one rule can have timestamp=null
+  const nullTimestampCount = scheduleRules.filter(
+    (rule) => rule.timestamp === null
+  ).length;
+
+  if (nullTimestampCount > 1) {
+    throw new Error("Only one scheduleRule can have a null timestamp");
+  }
+
+  // Rule 4: Validate timestamp format for non-null timestamps
+  for (const rule of scheduleRules) {
+    if (rule.timestamp !== null && !isValidISOTimestamp(rule.timestamp)) {
+      throw new Error(
+        `Invalid timestamp format: "${rule.timestamp}". Must be in ISO format (e.g., "2025-06-23T16:09:37.769Z")`
+      );
+    }
+  }
 }
 
 export type StaleFeatureReason = "error" | "no-rules" | "rules-one-sided";

@@ -193,7 +193,6 @@ export const JSONSchemaDef = z
 const revisionLog = z
   .object({
     user: eventUser,
-    approvedBy: eventUser.optional(),
     timestamp: z.date(),
     action: z.string(),
     subject: z.string(),
@@ -203,18 +202,15 @@ const revisionLog = z
 
 export type RevisionLog = z.infer<typeof revisionLog>;
 
-const featureRevisionInterface = z
+const revisionRulesSchema = z.record(z.string(), z.array(featureRule));
+export type RevisionRules = z.infer<typeof revisionRulesSchema>;
+
+const minimalFeatureRevisionInterface = z
   .object({
-    featureId: z.string(),
-    organization: z.string(),
-    baseVersion: z.number(),
     version: z.number(),
-    dateCreated: z.date(),
-    dateUpdated: z.date(),
     datePublished: z.union([z.null(), z.date()]),
-    publishedBy: z.union([z.null(), eventUser]),
+    dateUpdated: z.date(),
     createdBy: eventUser,
-    comment: z.string(),
     status: z.enum([
       "draft",
       "published",
@@ -223,9 +219,24 @@ const featureRevisionInterface = z
       "changes-requested",
       "pending-review",
     ]),
+  })
+  .strict();
+
+export type MinimalFeatureRevisionInterface = z.infer<
+  typeof minimalFeatureRevisionInterface
+>;
+
+const featureRevisionInterface = minimalFeatureRevisionInterface
+  .extend({
+    featureId: z.string(),
+    organization: z.string(),
+    baseVersion: z.number(),
+    dateCreated: z.date(),
+    publishedBy: z.union([z.null(), eventUser]),
+    comment: z.string(),
     defaultValue: z.string(),
-    rules: z.record(z.string(), z.array(featureRule)),
-    log: z.array(revisionLog).optional(),
+    rules: revisionRulesSchema,
+    log: z.array(revisionLog).optional(), // This is deprecated in favor of using FeatureRevisionLog due to it being too large
   })
   .strict();
 

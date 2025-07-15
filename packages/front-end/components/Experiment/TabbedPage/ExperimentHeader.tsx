@@ -51,6 +51,8 @@ import Callout from "@/components/Radix/Callout";
 import SelectField from "@/components/Forms/SelectField";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import HelperText from "@/components/Radix/HelperText";
+import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
+import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
 import StartExperimentModal from "@/components/Experiment/TabbedPage/StartExperimentModal";
 import TemplateForm from "../Templates/TemplateForm";
 import ProjectTagBar from "./ProjectTagBar";
@@ -241,8 +243,18 @@ export default function ExperimentHeader({
   const disableHealthTab = isUsingHealthUnsupportDatasource;
 
   const isBandit = experiment.type === "multi-armed-bandit";
-
   const hasResults = !!analysis?.results?.[0];
+
+  const {
+    getDecisionCriteria,
+    getRunningExperimentResultStatus,
+  } = useRunningExperimentStatus();
+
+  const decisionCriteria = getDecisionCriteria(
+    experiment.decisionFrameworkSettings?.decisionCriteriaId
+  );
+
+  const runningExperimentStatus = getRunningExperimentResultStatus(experiment);
   const shouldHideTabs =
     experiment.status === "draft" && !hasResults && phases.length === 1;
 
@@ -363,6 +375,15 @@ export default function ExperimentHeader({
   const showShareButton = canEditExperiment;
 
   const showSaveAsTemplateButton = canCreateTemplate && !isBandit;
+
+  const runningExperimentDecisionBanner =
+    experiment.status === "running" && runningExperimentStatus ? (
+      <RunningExperimentDecisionBanner
+        experiment={experiment}
+        runningExperimentStatus={runningExperimentStatus}
+        decisionCriteria={decisionCriteria}
+      />
+    ) : null;
 
   return (
     <>
@@ -625,8 +646,8 @@ export default function ExperimentHeader({
       )}
 
       <div className="container-fluid pagecontents position-relative experiment-header px-3 pt-3">
-        <div className="d-flex align-items-center">
-          <Flex direction="row" align="center">
+        <div className="d-flex align-items-center flex-wrap">
+          <Flex direction="row" align="center" wrap="wrap" overflow="auto">
             <h1 className="mb-0">{experiment.name}</h1>
             <Box ml="2">
               <ExperimentStatusIndicator experimentData={experiment} />
@@ -640,6 +661,7 @@ export default function ExperimentHeader({
                   editResult={editResult}
                   editTargeting={editTargeting}
                   isBandit={isBandit}
+                  runningExperimentStatus={runningExperimentStatus}
                 />
               ) : experiment.status === "draft" ? (
                 <Tooltip
@@ -913,7 +935,14 @@ export default function ExperimentHeader({
           setEditInfoFocusSelector={setEditInfoFocusSelector}
           editTags={!viewingOldPhase ? editTags : undefined}
         />
+
+        {runningExperimentDecisionBanner ? (
+          <Box pt="1" pb="1">
+            {runningExperimentDecisionBanner}
+          </Box>
+        ) : null}
       </div>
+
       {shouldHideTabs ? null : (
         <div
           className={clsx("experiment-tabs d-print-none", {

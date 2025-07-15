@@ -232,7 +232,7 @@ const SelectField: FC<SelectFieldProps> = ({
                 options={sorted}
                 formatCreateLabel={formatCreateLabel}
                 isValidNewOption={(value) => {
-                  if (!otherProps.pattern) return true;
+                  if (!otherProps.pattern) return !!value;
                   return new RegExp(otherProps.pattern).test(value);
                 }}
                 autoFocus={autoFocus}

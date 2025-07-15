@@ -136,10 +136,17 @@ export default function RuleModal({
 
   const settings = useOrgSettings();
   const { settings: scopedSettings } = getScopedSettings({ organization });
+
+  const isSafeRolloutRampUpEnabled = growthbook.isOn("safe-rollout-ramp-up");
+  const isSafeRolloutAutoRollbackEnabled = growthbook.isOn(
+    "safe-rollout-auto-rollback"
+  );
+
   const defaultRuleValues = getDefaultRuleValue({
     defaultValue: getFeatureDefaultValue(feature),
     ruleType: defaultType,
     attributeSchema,
+    isSafeRolloutAutoRollbackEnabled,
   });
 
   const convertRuleToFormValues = (rule: FeatureRule) => {
@@ -192,7 +199,7 @@ export default function RuleModal({
   const hasMultiArmedBanditFeature = hasCommercialFeature(
     "multi-armed-bandits"
   );
-  const isSafeRolloutEnabled = growthbook.isOn("safe-rollout");
+
   const hasSafeRolloutsFeature = hasCommercialFeature("safe-rollout");
 
   const experimentId = form.watch("experimentId");
@@ -276,6 +283,7 @@ export default function RuleModal({
         attributeSchema,
         settings,
         datasources,
+        isSafeRolloutAutoRollbackEnabled,
       }),
       description: form.watch("description"),
     };
@@ -324,6 +332,18 @@ export default function RuleModal({
         );
       }
     }
+  };
+  const safeRolloutRuleHasChanges = (values: SafeRolloutRuleCreateFields) => {
+    return Object.keys(values).some((key) => {
+      if (key === "safeRolloutFields") return false;
+
+      const value = values[key];
+      const originalValue = defaultValues[key];
+
+      const isDifferent =
+        JSON.stringify(value) !== JSON.stringify(originalValue);
+      return isDifferent;
+    });
   };
 
   const submit = form.handleSubmit(async (values) => {
@@ -578,6 +598,16 @@ export default function RuleModal({
         delete (values as any).value;
       } else if (values.type === "safe-rollout") {
         safeRolloutFields = values.safeRolloutFields;
+        // sanity check that the auto rollback and ramp up schedule are enabled
+        safeRolloutFields.autoRollback = isSafeRolloutAutoRollbackEnabled
+          ? safeRolloutFields.autoRollback
+          : false;
+        const rampUpSchedule = safeRolloutFields["rampUpSchedule"] || {};
+        // backend deals with the rest
+        safeRolloutFields["rampUpSchedule"] = {};
+        safeRolloutFields["rampUpSchedule"]["enabled"] =
+          rampUpSchedule["enabled"] ?? isSafeRolloutRampUpEnabled;
+
         // eslint-disable-next-line
         delete (values as any).safeRolloutFields;
         // eslint-disable-next-line
@@ -585,7 +615,6 @@ export default function RuleModal({
         // eslint-disable-next-line
         delete (values as any).trackingKey;
         if (!values.sameSeed) {
-          console.log("deleting seed");
           // eslint-disable-next-line
           delete (values as any).seed;
         }
@@ -596,7 +625,6 @@ export default function RuleModal({
           safeRolloutFields.maxDuration.unit = "days";
         }
       }
-
       if (
         values.scheduleRules &&
         values.scheduleRules.length === 0 &&
@@ -623,22 +651,35 @@ export default function RuleModal({
         hasPrerequisites: !!values.prerequisites?.length,
         hasDescription: values.description && values.description.length > 0,
       });
-
-      let res: { version: number };
+      let res: { version: number } | undefined;
 
       if (!duplicate && i !== rules.length) {
-        res = await apiCall<{ version: number }>(
-          `/feature/${feature.id}/${version}/rule`,
-          {
+        if (values.type === "safe-rollout") {
+          res = await apiCall(`/safe-rollout/${values.safeRolloutId}`, {
             method: "PUT",
             body: JSON.stringify({
-              rule: values,
               environment,
               safeRolloutFields,
-              i,
-            } as PutFeatureRuleBody),
-          }
-        );
+            }),
+          });
+        }
+        if (
+          values.type !== "safe-rollout" ||
+          (values.type === "safe-rollout" &&
+            safeRolloutRuleHasChanges(values as SafeRolloutRuleCreateFields))
+        ) {
+          res = await apiCall<{ version: number }>(
+            `/feature/${feature.id}/${version}/rule`,
+            {
+              method: "PUT",
+              body: JSON.stringify({
+                rule: values,
+                environment,
+                i,
+              } as PutFeatureRuleBody),
+            }
+          );
+        }
       } else {
         res = await apiCall<{ version: number }>(
           `/feature/${feature.id}/${version}/rule`,
@@ -654,7 +695,9 @@ export default function RuleModal({
       }
 
       await mutate();
-      res.version && setVersion(res.version);
+      if (res && res?.version) {
+        setVersion(res.version);
+      }
     } catch (e) {
       track("Feature Rule Error", {
         source: ruleAction,
@@ -737,37 +780,32 @@ export default function RuleModal({
             mt="2"
             width="100%"
             options={[
-              ...(isSafeRolloutEnabled
-                ? [
-                    {
-                      value: "safe-rollout",
-                      disabled:
-                        !hasSafeRolloutsFeature || datasources.length === 0,
-                      label: (
-                        <PremiumTooltip
-                          commercialFeature="safe-rollout"
-                          usePortal={true}
-                        >
-                          Safe rollout
-                        </PremiumTooltip>
-                      ),
-                      badge: "NEW!",
-                      description: (
-                        <>
-                          <div>
-                            Gradually release a value with automatic monitoring
-                            of guardrail metrics
-                          </div>
-                          {datasources.length === 0 && (
-                            <HelperText status="info" size="sm" mt="2">
-                              Create a data source to use Safe Rollouts
-                            </HelperText>
-                          )}
-                        </>
-                      ),
-                    },
-                  ]
-                : []),
+              {
+                value: "safe-rollout",
+                disabled: !hasSafeRolloutsFeature || datasources.length === 0,
+                label: (
+                  <PremiumTooltip
+                    commercialFeature="safe-rollout"
+                    usePortal={true}
+                  >
+                    Safe rollout
+                  </PremiumTooltip>
+                ),
+                badge: "NEW!",
+                description: (
+                  <>
+                    <div>
+                      Gradually release a value with automatic monitoring of
+                      guardrail metrics
+                    </div>
+                    {datasources.length === 0 && (
+                      <HelperText status="info" size="sm" mt="2">
+                        Create a data source to use Safe Rollouts
+                      </HelperText>
+                    )}
+                  </>
+                ),
+              },
               {
                 value: "experiment",
                 label: "Experiment",

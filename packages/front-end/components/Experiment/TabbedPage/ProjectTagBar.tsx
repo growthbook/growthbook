@@ -146,7 +146,7 @@ export default function ProjectTagBar({
   };
   return (
     <div className="pb-3">
-      <Flex gap="3" mt="2" mb="1">
+      <Flex gap="3" mt="2" mb="1" wrap="wrap">
         {renderProject()}
         <Metadata label="Experiment Key" value={trackingKey || "None"} />
         <Metadata label="Created" value={createdDate} />

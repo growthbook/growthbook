@@ -2,7 +2,10 @@ import express from "express";
 import { z } from "zod";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
-import { safeRolloutStatusArray } from "back-end/src/validators/safe-rollout";
+import {
+  safeRolloutStatusArray,
+  createSafeRolloutValidator,
+} from "back-end/src/validators/safe-rollout";
 import * as rawSnapshotController from "./safe-rollout.controller";
 
 const router = express.Router();
@@ -12,7 +15,13 @@ const snapshotParams = z.object({ id: z.string() }).strict();
 const statusBody = z
   .object({ status: z.enum(safeRolloutStatusArray) })
   .strict();
-
+const safeRolloutBody = z
+  .object({
+    safeRolloutFields: createSafeRolloutValidator.partial(),
+    environment: z.string(),
+  })
+  .strict();
+const safeRolloutParams = z.object({ id: z.string() }).strict();
 // Update the status of a safe rollout rule (rolled back, released, etc)
 router.put(
   "/:id/status",
@@ -47,5 +56,23 @@ router.post(
   }),
   safeRolloutController.cancelSafeRolloutSnapshot
 );
+router.put(
+  "/:id",
+  validateRequestMiddleware({
+    params: safeRolloutParams,
+    body: safeRolloutBody,
+  }),
+  safeRolloutController.putSafeRollout
+);
+
+// Get the latest snapshot for a safe rollout rule
+router.get(
+  "/:id/time-series",
+  validateRequestMiddleware({
+    params: snapshotParams,
+  }),
+  safeRolloutController.getSafeRolloutTimeSeries
+);
+router.get("/", safeRolloutController.getSafeRollouts);
 
 export { router as safeRolloutRouter };

@@ -171,6 +171,7 @@ export type SDKAttribute = {
   archived?: boolean;
   format?: SDKAttributeFormat;
   projects?: string[];
+  disableEqualityConditions?: boolean;
 };
 
 export type SDKAttributeSchema = SDKAttribute[];
@@ -230,6 +231,7 @@ export interface OrganizationSettings {
   codeRefsPlatformUrl?: string;
   featureKeyExample?: string; // Example Key of feature flag (e.g. "feature-20240201-name")
   featureRegexValidator?: string; // Regex to validate feature flag name (e.g. ^.+-\d{8}-.+$)
+  requireProjectForFeatures?: boolean;
   featureListMarkdown?: string;
   featurePageMarkdown?: string;
   experimentListMarkdown?: string;
@@ -249,7 +251,6 @@ export interface OrganizationSettings {
 
 export interface OrganizationConnections {
   slack?: SlackConnection;
-  vercel?: VercelConnection;
 }
 
 export interface SlackConnection {
@@ -296,6 +297,7 @@ export interface OrganizationInterface {
   stripeCustomerId?: string;
   restrictLoginMethod?: string;
   restrictAuthSubPrefix?: string;
+  isVercelIntegration?: boolean;
   freeSeats?: number;
   discountCode?: string;
   priceId?: string;

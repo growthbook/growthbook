@@ -1,4 +1,8 @@
-import { featureRequiresReview, validateFeatureValue } from "shared/util";
+import {
+  featureRequiresReview,
+  validateFeatureValue,
+  validateScheduleRules,
+} from "shared/util";
 import { isEqual } from "lodash";
 import { UpdateFeatureResponse } from "back-end/types/openapi";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -24,6 +28,7 @@ import {
 } from "back-end/src/models/FeatureRevisionModel";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
+import { RevisionRules } from "back-end/src/validators/features";
 import { parseJsonSchemaForEnterprise, validateEnvKeys } from "./postFeature";
 
 export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
@@ -38,10 +43,17 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     const effectiveProject =
       typeof project === "undefined" ? feature.project : project;
 
-    const orgEnvs = getEnvironmentIdsFromOrg(req.organization);
+    const orgEnvs = getEnvironmentIdsFromOrg(req.context.org);
 
     if (!req.context.permissions.canUpdateFeature(feature, req.body)) {
       req.context.permissions.throwPermissionError();
+    }
+    if (
+      req.context.org.settings?.requireProjectForFeatures &&
+      feature.project &&
+      (effectiveProject == null || effectiveProject === "")
+    ) {
+      throw new Error("Must specify a project");
     }
 
     if (project != null) {
@@ -72,6 +84,35 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     // ensure environment keys are valid
     if (req.body.environments != null) {
       validateEnvKeys(orgEnvs, Object.keys(req.body.environments ?? {}));
+    }
+
+    // Validate scheduleRules before processing environment settings
+    if (req.body.environments) {
+      Object.entries(req.body.environments).forEach(
+        ([envName, envSettings]) => {
+          if (envSettings.rules) {
+            envSettings.rules.forEach((rule, ruleIndex) => {
+              if (rule.scheduleRules) {
+                // Validate that the org has access to schedule rules
+                if (!req.context.hasPremiumFeature("schedule-feature-flag")) {
+                  throw new Error(
+                    "This organization does not have access to schedule rules. Upgrade to Pro or Enterprise."
+                  );
+                }
+                try {
+                  validateScheduleRules(rule.scheduleRules);
+                } catch (error) {
+                  throw new Error(
+                    `Invalid scheduleRules in environment "${envName}", rule ${
+                      ruleIndex + 1
+                    }: ${error.message}`
+                  );
+                }
+              }
+            });
+          }
+        }
+      );
     }
 
     // ensure default value matches value type
@@ -143,6 +184,12 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     const changedEnvironments: string[] = [];
     if ("defaultValue" in updates || "environmentSettings" in updates) {
       const revisionChanges: Partial<FeatureRevisionInterface> = {};
+      const revisedRules: RevisionRules = {};
+
+      // Copy over current envSettings to revision as this endpoint support partial updates
+      Object.entries(feature.environmentSettings).forEach(([env, settings]) => {
+        revisedRules[env] = settings.rules;
+      });
 
       let hasChanges = false;
       if (
@@ -164,12 +211,14 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
             ) {
               hasChanges = true;
               changedEnvironments.push(env);
-              revisionChanges.rules = revisionChanges.rules || {};
-              revisionChanges.rules[env] = settings.rules;
+              // if the rule is different from the current feature value, update revisionChanges
+              revisedRules[env] = settings.rules;
             }
           }
         );
       }
+
+      revisionChanges.rules = revisedRules;
 
       if (hasChanges) {
         const reviewRequired = featureRequiresReview(
@@ -209,7 +258,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     );
 
     await addTagsDiff(
-      req.organization.id,
+      req.context.org.id,
       feature.tags || [],
       updates.tags || []
     );
@@ -235,6 +284,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       featureId: updatedFeature.id,
       version: updatedFeature.version,
     });
+    const safeRolloutMap = await req.context.models.safeRollout.getAllPayloadSafeRollouts();
     return {
       feature: getApiFeatureObj({
         feature: updatedFeature,
@@ -242,6 +292,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         groupMap,
         experimentMap,
         revision,
+        safeRolloutMap,
       }),
     };
   }

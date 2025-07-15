@@ -1,4 +1,16 @@
 import { z } from "zod";
+
+// If you change these types, also update the factTableColumnTypeValidator to match
+export const factTableColumnTypes = [
+  "number",
+  "string",
+  "date",
+  "boolean",
+  "json",
+  "other",
+  "",
+];
+// Duplicate of the above as we can't use `as const` without breaking imports in the frontend
 export const factTableColumnTypeValidator = z.enum([
   "number",
   "string",
@@ -9,7 +21,13 @@ export const factTableColumnTypeValidator = z.enum([
   "",
 ]);
 
-export const numberFormatValidator = z.enum(["", "currency", "time:seconds"]);
+export const numberFormatValidator = z.enum([
+  "",
+  "currency",
+  "time:seconds",
+  "memory:bytes",
+  "memory:kilobytes",
+]);
 
 export const jsonColumnFieldsValidator = z.record(
   z.object({ datatype: factTableColumnTypeValidator })
@@ -177,6 +195,7 @@ export const factMetricValidator = z
     minPercentChange: z.number(),
     minSampleSize: z.number(),
     targetMDE: z.number(),
+    displayAsPercentage: z.boolean().optional(),
 
     winRisk: z.number(),
     loseRisk: z.number(),

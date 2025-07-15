@@ -35,7 +35,6 @@ import ConditionDisplay from "./ConditionDisplay";
 import ForceSummary from "./ForceSummary";
 import RolloutSummary from "./RolloutSummary";
 import ExperimentSummary from "./ExperimentSummary";
-import FeatureUsageGraph, { useFeatureUsage } from "./FeatureUsageGraph";
 import ExperimentRefSummary, {
   isExperimentRefRuleSkipped,
 } from "./ExperimentRefSummary";
@@ -132,7 +131,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
 
     const allEnvironments = useEnvironments();
     const environments = filterEnvironmentsByFeature(allEnvironments, feature);
-    const { featureUsage } = useFeatureUsage();
     const [
       safeRolloutStatusModalOpen,
       setSafeRolloutStatusModalOpen,
@@ -253,7 +251,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         <Flex gap="3" align="center">
                           <div>Safe Rollout</div>
                           <SafeRolloutStatusBadge rule={rule} />
-                          {rule.enabled !== false && (
+                          {!locked && rule.enabled !== false && (
                             <div className="ml-auto">
                               <DecisionCTA
                                 rule={rule}
@@ -326,7 +324,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                             rule={rule}
                             feature={feature}
                             environment={environment}
-                            version={version}
                             i={i}
                             setVersion={setVersion}
                             mutate={mutate}
@@ -374,17 +371,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 </Box>
               </Box>
               <Flex>
-                {featureUsage && (
-                  <div className="ml-auto">
-                    <FeatureUsageGraph
-                      data={
-                        featureUsage?.environments?.[environment]?.rules?.[
-                          rule.id
-                        ]
-                      }
-                    />
-                  </div>
-                )}
                 {canEdit && (
                   <MoreMenu useRadix={true} size={14}>
                     <a
@@ -487,7 +473,11 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       </Box>
     );
     return safeRollout ? (
-      <SafeRolloutSnapshotProvider safeRollout={safeRollout} feature={feature}>
+      <SafeRolloutSnapshotProvider
+        safeRollout={safeRollout}
+        feature={feature}
+        mutateSafeRollout={mutate}
+      >
         {contents}
       </SafeRolloutSnapshotProvider>
     ) : (

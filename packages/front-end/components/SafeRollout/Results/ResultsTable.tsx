@@ -8,21 +8,26 @@ import {
   useRef,
   useState,
 } from "react";
-import { CSSTransition } from "react-transition-group";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { RxInfoCircled } from "react-icons/rx";
+import { FaExclamationTriangle } from "react-icons/fa";
+import { Box, Flex, Popover } from "@radix-ui/themes";
+import { extent } from "@visx/vendor/d3-array";
 import {
   ExperimentReportVariation,
   ExperimentReportVariationWithIndex,
 } from "back-end/types/report";
 import { ExperimentStatus } from "back-end/types/experiment";
+import { MetricTimeSeries } from "back-end/src/validators/metric-time-series";
 import {
   DifferenceType,
   PValueCorrection,
   StatsEngine,
 } from "back-end/types/stats";
 import { getValidDate } from "shared/dates";
-import { FaExclamationTriangle } from "react-icons/fa";
 import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
+import AnalysisResultPopover from "@/components/AnalysisResultPopover/AnalysisResultPopover";
+import { useAnalysisResultPopover } from "@/components/AnalysisResultPopover/useAnalysisResultPopover";
 import {
   ExperimentTableRow,
   getEffectLabel,
@@ -34,17 +39,16 @@ import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { useCurrency } from "@/hooks/useCurrency";
-import ChangeColumn from "@/components/Experiment/ChangeColumn";
-import ResultsTableTooltip, {
-  TooltipHoverSettings,
-} from "@/components/Experiment/ResultsTableTooltip/ResultsTableTooltip";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ResultsMetricFilter from "@/components/Experiment/ResultsMetricFilter";
 import { ResultsMetricFilters } from "@/components/Experiment/Results";
+import SafeRolloutTimeSeriesGraph from "@/components/Experiment/SafeRolloutTimeSeriesGraph";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { useResultsTableTooltip } from "@/components/Experiment/ResultsTableTooltip/useResultsTableTooltip";
+import useApi from "@/hooks/useApi";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import { useSafeRolloutSnapshot } from "../SnapshotProvider";
+import ChangeColumn from "./ChangeColumn";
 import StatusColumn from "./StatusColumn";
 
 export type ResultsTableProps = {
@@ -82,7 +86,7 @@ export type ResultsTableProps = {
 };
 
 export default function ResultsTable({
-  id: _,
+  id,
   isLatestPhase,
   status,
   queryStatusData,
@@ -129,6 +133,7 @@ export default function ResultsTable({
     ssrPolyfills?.usePValueThreshold?.() || _pValueThreshold;
   const displayCurrency = ssrPolyfills?.useCurrency?.() || _displayCurrency;
 
+  const showTimeSeries = useFeatureIsOn("safe-rollout-timeseries");
   const [showMetricFilter, setShowMetricFilter] = useState<boolean>(false);
 
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
@@ -222,6 +227,7 @@ export default function ResultsTable({
           isGuardrail: row.resultGroup === "guardrail",
           minSampleSize: getMinSampleSizeForMetric(row.metric),
           statsEngine,
+          differenceType,
           ciUpper,
           ciLower,
           pValueThreshold,
@@ -244,6 +250,7 @@ export default function ResultsTable({
     metricDefaults,
     getMinSampleSizeForMetric,
     statsEngine,
+    differenceType,
     ciUpper,
     ciLower,
     pValueThreshold,
@@ -259,19 +266,12 @@ export default function ResultsTable({
   ]);
 
   const {
-    containerRef,
-    tooltipOpen,
-    tooltipData,
-    hoveredX,
-    hoveredY,
-    hoverRow,
-    leaveRow,
-    closeTooltip,
-    hoveredMetricRow,
-    hoveredVariationRow,
-    resetTimeout,
-    TooltipInPortal,
-  } = useResultsTableTooltip({
+    getTooltipData,
+    isRowTooltipOpen,
+    setOpenTooltipRowIndex,
+    handleRowTooltipMouseEnter,
+    handleRowTooltipMouseLeave,
+  } = useAnalysisResultPopover({
     orderedVariations,
     rows,
     rowsResults,
@@ -286,48 +286,38 @@ export default function ResultsTable({
 
   const changeTitle = getEffectLabel(differenceType);
 
-  return (
-    <div className="position-relative" ref={containerRef}>
-      <TooltipInPortal
-        left={hoveredX ?? 0}
-        top={hoveredY ?? 0}
-        key={Math.random()}
-        style={{
-          backgroundColor: "transparent",
-          boxShadow: "none",
-          position: "absolute",
-        }}
-      >
-        <CSSTransition
-          key={`${hoveredMetricRow}-${hoveredVariationRow}`}
-          in={
-            tooltipOpen &&
-            tooltipData &&
-            hoveredX !== null &&
-            hoveredY !== null &&
-            hoveredMetricRow !== null &&
-            hoveredVariationRow !== null
-          }
-          timeout={200}
-          classNames="tooltip-animate"
-          appear={true}
-        >
-          <ResultsTableTooltip
-            left={0}
-            top={0}
-            data={tooltipData}
-            tooltipOpen={tooltipOpen}
-            close={closeTooltip}
-            differenceType={differenceType}
-            onPointerMove={resetTimeout}
-            onClick={resetTimeout}
-            onPointerLeave={leaveRow}
-            isBandit={isBandit}
-            ssrPolyfills={ssrPolyfills}
-          />
-        </CSSTransition>
-      </TooltipInPortal>
+  const urlFormattedMetricIds = rows
+    .map((row) => row.metric.id)
+    .join("&metricIds[]=");
+  const { data: metricTimeSeries, mutate: mutateMetricTimeSeries } = useApi<{
+    status: number;
+    timeSeries: MetricTimeSeries[];
+  }>(`/safe-rollout/${id}/time-series?metricIds[]=${urlFormattedMetricIds}`, {
+    shouldRun: () => showTimeSeries,
+  });
+  const metricTimeSeriesMap = useMemo(() => {
+    return metricTimeSeries?.timeSeries?.reduce((acc, curr) => {
+      acc[curr.metricId] = curr;
+      return acc;
+    }, {} as Record<string, MetricTimeSeries>);
+  }, [metricTimeSeries]);
 
+  const metricTimeSeriesDateExtent = useMemo(() => {
+    const dataPoints = metricTimeSeries?.timeSeries?.flatMap((t) =>
+      t.dataPoints.map((d) => getValidDate(d.date))
+    );
+    if (!dataPoints) return [undefined, undefined] as [undefined, undefined];
+    return extent(dataPoints);
+  }, [metricTimeSeries]);
+
+  // Ensure that if we get a new snapshot, we refetch the metric time series
+  const { snapshot } = useSafeRolloutSnapshot();
+  useEffect(() => {
+    mutateMetricTimeSeries();
+  }, [snapshot?.id, mutateMetricTimeSeries]);
+
+  return (
+    <div className="position-relative">
       <div
         ref={tableContainerRef}
         className="experiment-results-wrapper px-4 pb-4"
@@ -381,6 +371,14 @@ export default function ResultsTable({
                 </th>
                 {!noMetrics ? (
                   <>
+                    {showTimeSeries ? (
+                      <th
+                        style={{ width: 100 * tableCellScale }}
+                        className={clsx("axis-col label", { noStickyHeader })}
+                      >
+                        Time series
+                      </th>
+                    ) : null}
                     <th
                       style={{ width: 120 * tableCellScale }}
                       className={clsx("axis-col label", { noStickyHeader })}
@@ -404,26 +402,28 @@ export default function ResultsTable({
                         <RxInfoCircled className="ml-1" />
                       </Tooltip>
                     </th>
-                    <th
-                      style={{ width: 150 * tableCellScale }}
-                      className={clsx("axis-col label text-right", {
-                        noStickyHeader,
-                      })}
-                    >
-                      <div style={{ lineHeight: "15px", marginBottom: 2 }}>
-                        <Tooltip
-                          usePortal={true}
-                          innerClassName={"text-left"}
-                          body={
-                            <div style={{ lineHeight: 1.5 }}>
-                              {getChangeTooltip(changeTitle, differenceType)}
-                            </div>
-                          }
-                        >
-                          {changeTitle} <RxInfoCircled />
-                        </Tooltip>
-                      </div>
-                    </th>
+                    {!showTimeSeries ? (
+                      <th
+                        style={{ width: 150 * tableCellScale }}
+                        className={clsx("axis-col label text-right", {
+                          noStickyHeader,
+                        })}
+                      >
+                        <div style={{ lineHeight: "15px", marginBottom: 2 }}>
+                          <Tooltip
+                            usePortal={true}
+                            innerClassName={"text-left"}
+                            body={
+                              <div style={{ lineHeight: 1.5 }}>
+                                {getChangeTooltip(changeTitle, differenceType)}
+                              </div>
+                            }
+                          >
+                            {changeTitle} <RxInfoCircled />
+                          </Tooltip>
+                        </div>
+                      </th>
+                    ) : null}
                   </>
                 ) : (
                   <th
@@ -493,105 +493,161 @@ export default function ResultsTable({
                     const hideScaledImpact =
                       !rowResults.hasScaledImpact &&
                       differenceType === "scaled";
-                    const isHovered =
-                      hoveredMetricRow === i && hoveredVariationRow === j;
 
                     const resultsHighlightClassname = clsx(
                       rowResults.resultsStatus,
                       {
                         "non-significant": !rowResults.significant,
-                        hover: isHovered,
                       }
                     );
 
-                    const onPointerMove = (
-                      e,
-                      settings?: TooltipHoverSettings
-                    ) => {
-                      // No hover tooltip if the screen is too narrow. Clicks still work.
-                      if (
-                        e?.type === "mousemove" &&
-                        (globalThis.window?.innerWidth ?? 900) < 900
-                      ) {
-                        return;
-                      }
-                      if (!rowResults.hasData) return;
-                      hoverRow(i, j, e, settings);
-                    };
-                    const onPointerLeave = () => {
-                      if (!rowResults.hasData) return;
-                      leaveRow();
-                    };
+                    const tooltipData = getTooltipData(i, j);
+
+                    const metricTimeSeries =
+                      metricTimeSeriesMap?.[row.metric.id];
 
                     return (
-                      <tr
-                        className="results-variation-row align-items-center"
-                        key={j}
+                      <Popover.Root
+                        key={`${i}-${j}`}
+                        open={isRowTooltipOpen(i, j)}
+                        onOpenChange={(open) =>
+                          setOpenTooltipRowIndex(open ? i : null)
+                        }
                       >
-                        <td
-                          className={`variation with-variation-label variation${v.index} py-4`}
-                          style={{
-                            width: 220 * tableCellScale,
-                          }}
+                        <Popover.Content
+                          onMouseEnter={() => handleRowTooltipMouseEnter(i, j)}
+                          onMouseLeave={() => handleRowTooltipMouseLeave(i, j)}
+                          side="bottom"
+                          sideOffset={-5}
                         >
-                          {!compactResults ? (
-                            <div className="d-flex align-items-center">
-                              <span
-                                className="label ml-1"
-                                style={{ width: 20, height: 20 }}
-                              >
-                                {v.index}
-                              </span>
-                              <span
-                                className="d-inline-block text-ellipsis"
-                                title={v.name}
-                                style={{
-                                  width: 165 * tableCellScale,
-                                }}
-                              >
-                                {v.name}
-                              </span>
-                            </div>
-                          ) : (
-                            renderLabelColumn(row.label, row.metric, row, 3)
-                          )}
-                        </td>
-                        {j > 0 ? (
-                          <StatusColumn
-                            stats={stats}
-                            baseline={baseline}
-                            rowResults={rowResults}
-                            showRisk={true}
-                            showSuspicious={true}
-                            showPercentComplete={false}
-                            showTimeRemaining={true}
-                            hideScaledImpact={hideScaledImpact}
-                            className={clsx(
-                              "results-pval",
-                              resultsHighlightClassname
-                            )}
-                            onMouseMove={onPointerMove}
-                            onMouseLeave={onPointerLeave}
-                            onClick={onPointerMove}
-                          />
-                        ) : (
-                          <td></td>
-                        )}
-                        {j > 0 ? (
-                          <ChangeColumn
-                            metric={row.metric}
-                            stats={stats}
-                            rowResults={rowResults}
+                          <AnalysisResultPopover
+                            data={tooltipData}
                             differenceType={differenceType}
-                            statsEngine={statsEngine}
-                            className={resultsHighlightClassname}
+                            isBandit={isBandit}
                             ssrPolyfills={ssrPolyfills}
-                            showPlusMinus={false}
                           />
-                        ) : (
-                          <td></td>
-                        )}
-                      </tr>
+                        </Popover.Content>
+
+                        <tr
+                          className="results-variation-row align-items-center"
+                          key={j}
+                        >
+                          <td
+                            className={`variation with-variation-label variation${v.index} py-4`}
+                            style={{
+                              width: 220 * tableCellScale,
+                            }}
+                          >
+                            {!compactResults ? (
+                              <div className="d-flex align-items-center">
+                                <span
+                                  className="label ml-1"
+                                  style={{ width: 20, height: 20 }}
+                                >
+                                  {v.index}
+                                </span>
+                                <span
+                                  className="d-inline-block text-ellipsis"
+                                  title={v.name}
+                                  style={{
+                                    width: 165 * tableCellScale,
+                                  }}
+                                >
+                                  {v.name}
+                                </span>
+                              </div>
+                            ) : (
+                              renderLabelColumn(row.label, row.metric, row, 3)
+                            )}
+                          </td>
+                          {j > 0 &&
+                          showTimeSeries &&
+                          metricTimeSeries &&
+                          metricTimeSeries.dataPoints.length > 0 ? (
+                            <td style={{ padding: 0, height: 1 }}>
+                              <SafeRolloutTimeSeriesGraph
+                                data={metricTimeSeries}
+                                xDateRange={metricTimeSeriesDateExtent}
+                                ssrPolyfills={ssrPolyfills}
+                              />
+                            </td>
+                          ) : j > 0 && showTimeSeries ? (
+                            <td>
+                              {!metricTimeSeries ? (
+                                <Flex
+                                  align="center"
+                                  justify="center"
+                                  position="relative"
+                                  width="100%"
+                                >
+                                  No time series data
+                                </Flex>
+                              ) : null}
+                            </td>
+                          ) : null}
+                          {j > 0 ? (
+                            <td
+                              className="variation chance align-middle"
+                              // To allow us to have height 100% for the div inside the td
+                              style={{ height: "1px" }}
+                            >
+                              <Popover.Trigger
+                                onMouseEnter={() =>
+                                  handleRowTooltipMouseEnter(i, j)
+                                }
+                                onMouseLeave={() =>
+                                  handleRowTooltipMouseLeave(i, j)
+                                }
+                              >
+                                <Box height="100%">
+                                  <StatusColumn
+                                    stats={stats}
+                                    baseline={baseline}
+                                    rowResults={rowResults}
+                                    hideScaledImpact={hideScaledImpact}
+                                    className={clsx(
+                                      "results-pval",
+                                      resultsHighlightClassname
+                                    )}
+                                  />
+                                  <Popover.Anchor />
+                                </Box>
+                              </Popover.Trigger>
+                            </td>
+                          ) : (
+                            <td></td>
+                          )}
+                          {j > 0 && !showTimeSeries ? (
+                            <td
+                              className="results-change"
+                              // To allow us to have height 100% for the div inside the td
+                              style={{ height: "1px" }}
+                            >
+                              <Popover.Trigger
+                                onMouseEnter={() =>
+                                  handleRowTooltipMouseEnter(i, j)
+                                }
+                                onMouseLeave={() =>
+                                  handleRowTooltipMouseLeave(i, j)
+                                }
+                              >
+                                <Box height="100%">
+                                  <ChangeColumn
+                                    metric={row.metric}
+                                    stats={stats}
+                                    rowResults={rowResults}
+                                    differenceType={differenceType}
+                                    statsEngine={statsEngine}
+                                    className={resultsHighlightClassname}
+                                    ssrPolyfills={ssrPolyfills}
+                                    showPlusMinus={false}
+                                  />
+                                </Box>
+                              </Popover.Trigger>
+                            </td>
+                          ) : null}
+                        </tr>
+                      </Popover.Root>
                     );
                   })}
                 </tbody>
