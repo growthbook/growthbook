@@ -202,14 +202,37 @@ export function getBanditSettingsForStatsEngine(
   };
 }
 
-async function runStatsEngine(
+export async function runStatsEngine(
   statsData: ExperimentDataForStatsEngine[]
 ): Promise<MultipleExperimentMetricAnalysis[]> {
-  const server = await statsServerPool.acquire();
-  try {
-    return await server.call(statsData);
-  } finally {
-    statsServerPool.release(server);
+  if (process.env.EXTERNAL_PYTHON_SERVER_URL) {
+    const retVal = await fetch(
+      `${process.env.EXTERNAL_PYTHON_SERVER_URL}/stats`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(statsData),
+      }
+    );
+    if (!retVal.ok) {
+      let { error } = await retVal.json();
+      if (!error) {
+        error = `Stats server errored with: ${retVal.status} - ${retVal.statusText}`;
+      }
+      logger.error("Error fetching from stats engine:", error);
+      throw new Error(error);
+    }
+    const { results } = await retVal.json();
+    return results;
+  } else {
+    const server = await statsServerPool.acquire();
+    try {
+      return await server.call(statsData);
+    } finally {
+      statsServerPool.release(server);
+    }
   }
 }
 
