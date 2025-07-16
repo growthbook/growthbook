@@ -38,6 +38,9 @@ export const HoldoutSelect = ({
   }, [holdouts, experimentsMap, selectedProject]);
 
   useEffect(() => {
+    if (form.watch("holdoutId") === "none") {
+      return;
+    }
     if (
       holdoutsWithExperiment.length > 0 &&
       (!form.watch("holdoutId") ||
@@ -50,7 +53,7 @@ export const HoldoutSelect = ({
     <SelectField
       label="Holdout"
       labelClassName="font-weight-bold"
-      value={form.watch("holdoutId") || "None"}
+      value={form.watch("holdoutId")}
       onChange={(v) => {
         form.setValue("holdoutId", v);
       }}
@@ -62,7 +65,7 @@ export const HoldoutSelect = ({
             value: h.id,
           };
         }) || []),
-        { label: "None", value: "" },
+        { label: "None", value: "none" },
       ]}
       required={holdoutsWithExperiment.length > 0}
       disabled={holdoutsWithExperiment.length === 0}
