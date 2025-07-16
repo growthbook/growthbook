@@ -41,21 +41,19 @@ export default function ExecExperimentsGraph({
 
     // create an empty object for each month in the range
     if (startDate && endDate) {
-      // Use local date methods consistently to avoid timezone interpretation issues
-      const startYear = startDate.getFullYear();
-      const startMonth = startDate.getMonth(); // 0-indexed
-      const endYear = endDate.getFullYear();
-      const endMonth = endDate.getMonth(); // 0-indexed
+      const startMonth = new Date(
+        startDate.getFullYear(),
+        startDate.getMonth()
+      );
+      const endMonth = new Date(endDate.getFullYear(), endDate.getMonth());
+      const currentMonth = new Date(startMonth);
 
-      // Iterate through months using year/month numbers instead of Date objects
-      for (let year = startYear; year <= endYear; year++) {
-        const monthStart = year === startYear ? startMonth : 0;
-        const monthEnd = year === endYear ? endMonth : 11;
-
-        for (let month = monthStart; month <= monthEnd; month++) {
-          const monthKey = `${year}-${month + 1}`; // Convert to 1-indexed for display
-          monthlyData[monthKey] = { won: 0, lost: 0, inconclusive: 0, dnf: 0 };
-        }
+      while (currentMonth <= endMonth) {
+        const monthKey = `${currentMonth.getFullYear()}-${
+          currentMonth.getMonth() + 1
+        }`;
+        monthlyData[monthKey] = { won: 0, lost: 0, inconclusive: 0, dnf: 0 };
+        currentMonth.setMonth(currentMonth.getMonth() + 1);
       }
     }
 
