@@ -24,6 +24,7 @@ import LinkedFeaturesTable from "@/components/Holdout/LinkedFeaturesTable";
 import EditEnvironmentsModal from "@/components/Holdout/EditEnvironmentsModal";
 import Link from "@/components/Radix/Link";
 import HoldoutEnvironments from "./HoldoutEnvironments";
+import Badge from "@/components/Radix/Badge";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -188,8 +189,30 @@ export default function Implementation({
                   }
                 >
                   <TabsList size="2">
-                    <TabsTrigger value="experiments">Experiments</TabsTrigger>
-                    <TabsTrigger value="features">Features</TabsTrigger>
+                    <TabsTrigger value="experiments">
+                      Experiments
+                      {holdoutExperiments?.length && (
+                        <Badge
+                          label={holdoutExperiments.length.toString()}
+                          color="gray"
+                          variant="soft"
+                          radius="full"
+                          ml="2"
+                        />
+                      )}
+                    </TabsTrigger>
+                    <TabsTrigger value="features">
+                      Features
+                      {holdoutFeatures?.length && (
+                        <Badge
+                          label={holdoutFeatures.length.toString()}
+                          color="gray"
+                          variant="soft"
+                          radius="full"
+                          ml="2"
+                        />
+                      )}
+                    </TabsTrigger>
                   </TabsList>
                 </Tabs>
                 {tab === "experiments" && (
@@ -201,8 +224,7 @@ export default function Implementation({
                 {tab === "features" && (
                   <LinkedFeaturesTable
                     holdout={holdout}
-                    // features={holdoutFeatures ?? []}
-                    experiments={holdoutExperiments ?? []}
+                    features={holdoutFeatures ?? []}
                   />
                 )}
               </>

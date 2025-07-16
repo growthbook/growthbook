@@ -1,11 +1,13 @@
 import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { Box } from "@radix-ui/themes";
+import { Box, Text } from "@radix-ui/themes";
 import { useRouter } from "next/router";
 import { date } from "shared/dates";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import { useUser } from "@/services/UserContext";
+import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
 import Link from "../Radix/Link";
+import Tooltip from "../Tooltip/Tooltip";
 
 interface Props {
   holdout: HoldoutInterface;
@@ -14,15 +16,18 @@ interface Props {
 
 const LinkedExperimentsTable = ({ holdout, experiments }: Props) => {
   const { getUserDisplay } = useUser();
+  const getExperimentStatusIndicator = useExperimentStatusIndicator();
 
   const experimentItems = useAddComputedFields(
     experiments,
     (exp) => {
+      const statusIndicator = getExperimentStatusIndicator(exp);
       return {
         ...experiments,
         dateAdded: holdout.linkedExperiments.find((e) => e.id === exp.id)
           ?.dateAdded,
         dateEnded: exp.phases[exp.phases.length - 1]?.dateEnded,
+        statusIndicator,
       };
     },
     [holdout, experiments]
@@ -36,6 +41,19 @@ const LinkedExperimentsTable = ({ holdout, experiments }: Props) => {
   });
 
   const router = useRouter();
+
+  if (items.length === 0) {
+    return (
+      <Box>
+        <Text>
+          <em>
+            Add new <Link href="/experiments">Experiments</Link> to this
+            Holdout.
+          </em>
+        </Text>
+      </Box>
+    );
+  }
 
   return (
     <Box>
@@ -71,7 +89,17 @@ const LinkedExperimentsTable = ({ holdout, experiments }: Props) => {
                 <td data-title="Experiment Name" className="col-2">
                   <Link href={`/experiment/${exp.id}`}>{exp.name}</Link>
                 </td>
-                <td data-title="Status">{exp.status}</td>
+                <td data-title="Status">
+                  {" "}
+                  {exp.statusIndicator.tooltip &&
+                  !exp.statusIndicator.detailedStatus ? (
+                    <Tooltip body={exp.statusIndicator.tooltip}>
+                      {exp.statusIndicator.status}
+                    </Tooltip>
+                  ) : (
+                    exp.statusIndicator.status
+                  )}
+                </td>
                 <td data-title="Shipped Variation">
                   {variation ? (
                     <div
@@ -100,8 +128,12 @@ const LinkedExperimentsTable = ({ holdout, experiments }: Props) => {
                 <td data-title="Owner" className="col-2">
                   {getUserDisplay(exp.owner, false)}
                 </td>
-                <td data-title="Date Added">{date(exp.dateAdded)}</td>
-                <td data-title="Date Ended">{date(exp.dateEnded)}</td>
+                <td data-title="Date Added">
+                  {exp.dateAdded ? date(exp.dateAdded) : ""}
+                </td>
+                <td data-title="Date Ended">
+                  {exp.dateEnded ? date(exp.dateEnded) : ""}
+                </td>
               </tr>
             );
           })}
