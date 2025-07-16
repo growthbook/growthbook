@@ -52,7 +52,11 @@ export default async function (agenda: Agenda) {
     }
   });
 
-  agenda.define(UPDATE_SINGLE_FEATURE, updateSingleFeature);
+  agenda.define(
+    UPDATE_SINGLE_FEATURE,
+    { lockLifetime: 30 * 60 * 1000 },
+    updateSingleFeature
+  );
 
   await fireUpdateWebhook(agenda);
 }
