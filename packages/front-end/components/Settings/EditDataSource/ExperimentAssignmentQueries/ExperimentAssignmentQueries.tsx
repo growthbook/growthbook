@@ -375,5 +375,10 @@ const handleSaveDimensionMetadata = (
     return aMetadata.priority - bMetadata.priority;
   });
 
+  // if dimension slices updated, update the dimension slices id
+  if (dimensionSlices) {
+    exposureQuery.dimensionSlicesId = dimensionSlices.id;
+  }
+
   await onSave(copy);
 };

@@ -74,12 +74,7 @@ const updateInformationSchema = trackJob(
 let agenda: Agenda;
 export default function (ag: Agenda) {
   agenda = ag;
-
-  agenda.define(
-    UPDATE_INFORMATION_SCHEMA_JOB_NAME,
-
-    updateInformationSchema
-  );
+  agenda.define(UPDATE_INFORMATION_SCHEMA_JOB_NAME, updateInformationSchema);
 }
 
 export async function queueUpdateInformationSchema(

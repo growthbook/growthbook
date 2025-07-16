@@ -43,6 +43,7 @@ type FeaturesAndRevisions = FeatureRevisionInterface & {
   feature: FeatureInterface;
   safeRollout: SafeRolloutInterface | undefined;
 };
+import styles from "./NeedingAttention.module.scss";
 
 const NeedingAttention = (): React.ReactElement | null => {
   const [experimentsPage, setExperimentsPage] = useState<number>(1);
@@ -340,7 +341,7 @@ const NeedingAttention = (): React.ReactElement | null => {
     return (
       <Flex align="center" gap="2">
         <UserAvatar name={name} size="sm" variant="soft" />
-        {name}
+        <span className="text-truncate">{name}</span>
       </Flex>
     );
   };
@@ -384,7 +385,7 @@ const NeedingAttention = (): React.ReactElement | null => {
             <tbody>
               {paginatedExperiments.map((item: ComputedExperimentInterface) => (
                 <tr key={item.id} className="hover-highlight">
-                  <td style={{ minWidth: "200px" }}>
+                  <td className={styles.nameTd}>
                     <Link
                       href={`/experiment/${item.id}`}
                       style={{
@@ -397,11 +398,13 @@ const NeedingAttention = (): React.ReactElement | null => {
                       {item.name}
                     </Link>
                   </td>
-                  <td>{getProjectById(item?.project || "")?.name}</td>
-                  <td className="text-nowrap">
+                  <td className="text-truncate">
+                    {getProjectById(item?.project || "")?.name}
+                  </td>
+                  <td className={styles.ownerTd}>
                     {getAvatarAndName(item.ownerName)}
                   </td>
-                  <td className="text-nowrap">
+                  <td className="text-truncate">
                     <ExperimentStatusDetailsWithDot
                       statusIndicatorData={item.statusIndicator}
                     />
@@ -489,7 +492,9 @@ const NeedingAttention = (): React.ReactElement | null => {
           />
         </Flex>
         {featureFlagsNeedingAttention.length > 0 ? (
-          <table className="table gbtable needs-attentions-table mt-3">
+          <table
+            className={`table gbtable mt-3 ${styles.needsAttentionsTable}`}
+          >
             <thead>
               <tr>
                 <SortableTHFeatureFlags field="featureId">
@@ -509,7 +514,7 @@ const NeedingAttention = (): React.ReactElement | null => {
             <tbody>
               {paginatedFeatureFlags.map((item) => (
                 <tr key={item.featureId} className="hover-highlight">
-                  <td style={{ minWidth: "200px" }}>
+                  <td className={styles.nameTd}>
                     <Link
                       href={`/features/${item.featureId}`}
                       style={{
@@ -522,9 +527,13 @@ const NeedingAttention = (): React.ReactElement | null => {
                       {item.feature.id}
                     </Link>
                   </td>
-                  <td>{getProjectById(item.feature?.project || "")?.name}</td>
-                  <td>{getAvatarAndName(item.feature.owner)}</td>
-                  <td>{renderStatusCopy(item)}</td>
+                  <td className="text-truncate">
+                    {getProjectById(item.feature?.project || "")?.name}
+                  </td>
+                  <td className={styles.ownerTd}>
+                    {getAvatarAndName(item.feature.owner)}
+                  </td>
+                  <td className="text-truncate">{renderStatusCopy(item)}</td>
                 </tr>
               ))}
             </tbody>
