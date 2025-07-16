@@ -1,107 +1,93 @@
 import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { Box } from "@radix-ui/themes";
+import { Box, Text } from "@radix-ui/themes";
 import { useRouter } from "next/router";
 import { date } from "shared/dates";
+import { FeatureInterface } from "back-end/types/feature";
 import { useAddComputedFields, useSearch } from "@/services/search";
-import { useUser } from "@/services/UserContext";
 import Link from "../Radix/Link";
+import ValueDisplay from "../Features/ValueDisplay";
 
 interface Props {
   holdout: HoldoutInterface;
-  experiments: ExperimentInterfaceStringDates[];
+  features: FeatureInterface[];
 }
 
-const LinkedFeaturesTable = ({ holdout, experiments }: Props) => {
-  const { getUserDisplay } = useUser();
-
-  const experimentItems = useAddComputedFields(
-    experiments,
-    (exp) => {
+const LinkedFeaturesTable = ({ holdout, features }: Props) => {
+  const featureItems = useAddComputedFields(
+    features,
+    (f) => {
       return {
-        ...experiments,
-        dateAdded: holdout.linkedExperiments.find((e) => e.id === exp.id)
-          ?.dateAdded,
-        dateEnded: exp.phases[exp.phases.length - 1]?.dateEnded,
+        ...features,
+        dateAdded: holdout.linkedFeatures.find((e) => e.id === f.id)?.dateAdded,
+        holdoutValue: f.holdout?.value,
       };
     },
-    [holdout, experiments]
+    [holdout, features]
   );
 
   const { items, SortableTH } = useSearch({
-    items: experimentItems,
+    items: featureItems,
     defaultSortField: "dateAdded",
-    localStorageKey: "holdoutLinkedExperiments",
-    searchFields: ["name", "status", "owner"],
+    localStorageKey: "holdoutLinkedFeatures",
+    searchFields: ["id", "owner", "valueType"],
   });
 
   const router = useRouter();
+
+  if (items.length === 0) {
+    return (
+      <Box>
+        <Text>
+          <em>
+            Add new <Link href="/features">Features</Link> to this Holdout.
+          </em>
+        </Text>
+      </Box>
+    );
+  }
 
   return (
     <Box>
       <table className="appbox table gbtable">
         <thead>
           <tr>
-            <SortableTH field="name">Experiment Name</SortableTH>
-            <SortableTH field="status">Status</SortableTH>
-            <SortableTH field="releasedVariationId">
-              Shipped Variation
-            </SortableTH>
+            <SortableTH field="id">Feature Name</SortableTH>
+            <SortableTH field="valueType">Type</SortableTH>
+            <SortableTH field="holdoutValue">Holdout Value</SortableTH>
             <SortableTH field="owner">Owner</SortableTH>
+            <SortableTH field="dateCreated">Created</SortableTH>
             <SortableTH field="dateAdded">In Holdout</SortableTH>
-            <SortableTH field="dateEnded">Date Ended</SortableTH>
           </tr>
         </thead>
         <tbody>
-          {items.map((exp) => {
-            const variationIndex = exp.variations.findIndex(
-              (v) => v.id === exp.releasedVariationId
-            );
-            const variation = exp.variations[variationIndex];
+          {items.map((f) => {
             return (
               <tr
-                key={exp.id}
+                key={f.id}
                 className="hover-highlight"
                 onClick={(e) => {
                   e.preventDefault();
-                  router.push(`/experiment/${exp.id}`);
+                  router.push(`/features/${f.id}`);
                 }}
                 style={{ cursor: "pointer" }}
               >
-                <td data-title="Experiment Name" className="col-2">
-                  <Link href={`/experiment/${exp.id}`}>{exp.name}</Link>
+                <td data-title="Feature Name" className="col-2">
+                  <Link href={`/features/${f.id}`}>{f.id}</Link>
                 </td>
-                <td data-title="Status">{exp.status}</td>
-                <td data-title="Shipped Variation">
-                  {variation ? (
-                    <div
-                      className={`variation variation${variationIndex} with-variation-label d-flex align-items-center`}
-                    >
-                      <span
-                        className="label"
-                        style={{ width: 20, height: 20, flex: "none" }}
-                      >
-                        {variationIndex}
-                      </span>
-                      <span
-                        className="d-inline-block"
-                        style={{
-                          width: 150,
-                          lineHeight: "14px",
-                        }}
-                      >
-                        {variation?.name}
-                      </span>
-                    </div>
-                  ) : (
-                    <span>--</span>
-                  )}
+                <td data-title="Type">{f.valueType}</td>
+                <td data-title="Holdout Value">
+                  <ValueDisplay
+                    value={f.holdoutValue ?? f.defaultValue}
+                    type={f.valueType}
+                  />
                 </td>
                 <td data-title="Owner" className="col-2">
-                  {getUserDisplay(exp.owner, false)}
+                  {f.owner}
                 </td>
-                <td data-title="Date Added">{date(exp.dateAdded)}</td>
-                <td data-title="Date Ended">{date(exp.dateEnded)}</td>
+                <td data-title="Created">{date(f.dateCreated)}</td>
+                <td data-title="Date Added">
+                  {f.dateAdded ? date(f.dateAdded) : ""}
+                </td>
               </tr>
             );
           })}

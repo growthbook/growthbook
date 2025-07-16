@@ -1329,6 +1329,9 @@ export async function getAllPayloadExperiments(
       {
         hasURLRedirects: true,
       },
+      {
+        type: "holdout", // include holdout experiments in the payload
+      },
     ],
   });
 
