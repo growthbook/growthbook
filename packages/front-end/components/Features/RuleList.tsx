@@ -113,7 +113,7 @@ export default function RuleList({
 
   const inactiveRules = items.filter((r) => isRuleInactive(r, experimentsMap));
 
-  if (!items.length) {
+  if (!items.length && !holdoutRule) {
     return (
       <div className="px-3 mb-3">
         <em>None</em>
