@@ -17,13 +17,16 @@ type UpdateSingleSafeRolloutSnapshotJob = Job<{
 }>;
 
 export default async function (agenda: Agenda) {
-  agenda.define(QUEUE_SAFE_ROLLOUT_SNAPSHOT_UPDATES, async () => {
-    const safeRollouts = await getAllSafeRolloutsToUpdate();
+  agenda.define(
+    QUEUE_SAFE_ROLLOUT_SNAPSHOT_UPDATES,
+    trackJob(QUEUE_SAFE_ROLLOUT_SNAPSHOT_UPDATES, async () => {
+      const safeRollouts = await getAllSafeRolloutsToUpdate();
 
-    for (const safeRollout of safeRollouts) {
-      await queueSafeRolloutSnapshotUpdate(safeRollout);
-    }
-  });
+      for (const safeRollout of safeRollouts) {
+        await queueSafeRolloutSnapshotUpdate(safeRollout);
+      }
+    })
+  );
 
   agenda.define(
     UPDATE_SINGLE_SAFE_ROLLOUT_SNAPSHOT,
