@@ -6,7 +6,6 @@
  */
 import Agenda from "agenda";
 import { getSelfHostedOrganization } from "back-end/src/models/OrganizationModel";
-import { trackJob } from "back-end/src/services/tracing";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   getLicenseMetaData,
@@ -16,7 +15,7 @@ import { licenseInit } from "back-end/src/enterprise";
 
 const UPDATE_LICENSES_JOB_NAME = "updateLicenses";
 
-const updateLicense = trackJob(UPDATE_LICENSES_JOB_NAME, async () => {
+const updateLicense = async () => {
   if (IS_CLOUD) {
     return;
   }
@@ -25,7 +24,7 @@ const updateLicense = trackJob(UPDATE_LICENSES_JOB_NAME, async () => {
   if (org) {
     licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
   }
-});
+};
 
 let agenda: Agenda;
 export default function (ag: Agenda) {
