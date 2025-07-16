@@ -1,11 +1,11 @@
 import { Job, JobAttributesData } from "agenda";
 import { logger } from "back-end/src/util/logger";
-import { MAX_QUERY_TIMEOUT_MS } from "back-end/src/util/secrets";
+import { JOB_TIMEOUT_MS } from "back-end/src/util/secrets";
 
-const TOUCH_INTERVAL_MS = 3 * 60 * 1000;
-const JOB_TIMEOUT_MS = MAX_QUERY_TIMEOUT_MS + 1000; // Allow some buffer for the query client to close properly after it times out
+const TOUCH_INTERVAL_MS = 9 * 60 * 1000;
 
-// As some functions may take a while to run, this will update the job's lock if the process is still running
+//This prevents the lockLifetime being reached as long as the job is running, and hence stops other servers from picking up the job.
+//This also adds a timeout which allows the job to keep running but marks it as failed, which frees up the "slot" for another job to run, in case the defaultLockLimit is reached, and also prevents other jobs from picking it up unless they have retry logic.
 export const addJobLifecycleChecks = <T extends JobAttributesData>(
   fn: (job: Job<T>) => Promise<void>
 ) => async (job: Job<T>) => {
@@ -17,7 +17,11 @@ export const addJobLifecycleChecks = <T extends JobAttributesData>(
     touchTimer = setInterval(() => {
       if (!finished) {
         job.touch().catch((e) => {
-          logger.error(e, `Failed to touch Agenda job ${job.attrs.name}`);
+          logger.error(
+            `job=${JSON.stringify(
+              job.attrs
+            )} Error while trying to touch Agenda job ${job.attrs.name}: ${e}`
+          );
         });
       }
     }, TOUCH_INTERVAL_MS);
@@ -32,7 +36,9 @@ export const addJobLifecycleChecks = <T extends JobAttributesData>(
 
   const timeoutPromise = new Promise<never>((_, reject) => {
     timeoutTimer = setTimeout(() => {
-      const errorMsg = `Agenda job timed out after ${JOB_TIMEOUT_MS}ms: ${job.attrs.name}`;
+      const errorMsg = `job=${JSON.stringify(job.attrs)} Agenda job ${
+        job.attrs.name
+      } timed out after ${JOB_TIMEOUT_MS}ms`;
 
       stopTouch();
       logger.error(new Error(errorMsg));

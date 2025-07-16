@@ -29,11 +29,11 @@ export function runPostgresQuery(
     const settings: ClientConfig = {
       ...conn,
       ssl,
+      // Give it 10 seconds to connect
       connectionTimeoutMillis: 10000,
     };
 
     const client = new Client(settings);
-
     client
       .on("error", (err) => {
         reject(err);
