@@ -67,8 +67,8 @@ export default function DatePicker({
 
   const [calendarMonth, setCalendarMonth] = useState(
     new Date(
-      getValidDate(date ?? new Date()).getUTCFullYear(),
-      getValidDate(date ?? new Date()).getUTCMonth()
+      getValidDate(date ?? new Date()).getFullYear(),
+      getValidDate(date ?? new Date()).getMonth()
     )
   );
   const [open, setOpen] = useState(false);
@@ -117,9 +117,7 @@ export default function DatePicker({
         setDate2?.(finalDate);
         setBufferedDate2(format(finalDate, dateFormat));
       }
-      setCalendarMonth(
-        new Date(finalDate.getUTCFullYear(), finalDate.getUTCMonth())
-      );
+      setCalendarMonth(new Date(finalDate.getFullYear(), finalDate.getMonth()));
     }, 500);
   }, [
     disableBefore,
