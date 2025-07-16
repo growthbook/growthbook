@@ -7,10 +7,9 @@ import {
   DashboardBlockData,
 } from "back-end/src/enterprise/validators/dashboard-block";
 import { Container, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
-import { PiPencil, PiPlus } from "react-icons/pi";
+import { PiPencilSimpleFill, PiPlus } from "react-icons/pi";
 import clsx from "clsx";
 import { cloneDeep, pick } from "lodash";
-import { isDefined } from "shared/util";
 import { dashboardCanAutoUpdate, getBlockData } from "shared/enterprise";
 import Button from "@/components/Radix/Button";
 import { useAuth } from "@/services/auth";
@@ -99,18 +98,12 @@ export default function DashboardsTab({
     DashboardInstanceInterface["editLevel"]
   >("private");
   const [enableAutoUpdates, setEnableAutoUpdates] = useState(true);
-  const [editingBlock, setEditingBlock] = useState<number | undefined>(
-    undefined
-  );
+  const [editDrawerOpen, setEditDrawerOpen] = useState<boolean>(false);
   const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
     timeout: 1500,
   });
 
   const dashboard = dashboards.find((d) => d.id === dashboardId);
-
-  useEffect(() => {
-    if (!isEditing) setEditingBlock(undefined);
-  }, [isEditing]);
 
   const permissionsUtil = usePermissionsUtil();
   const { hasCommercialFeature } = useUser();
@@ -274,7 +267,7 @@ export default function DashboardsTab({
                             gap="8"
                             align="center"
                             className={clsx("cursor-pointer", {
-                              "dashboard-disabled": isDefined(editingBlock),
+                              "dashboard-disabled": editDrawerOpen,
                             })}
                             onClick={() => setShowUpdateModal(true)}
                           >
@@ -282,7 +275,7 @@ export default function DashboardsTab({
                               {title}
                             </Text>
                             <IconButton size="1" variant="ghost">
-                              <PiPencil />
+                              <PiPencilSimpleFill />
                             </IconButton>
                           </Flex>
                           <div
@@ -350,7 +343,7 @@ export default function DashboardsTab({
                       <Flex gap="1">
                         <Button
                           className={clsx({
-                            "dashboard-disabled": editingBlock !== undefined,
+                            "dashboard-disabled": editDrawerOpen,
                           })}
                           onClick={async () => {
                             if (!dashboardCopy) {
@@ -376,7 +369,7 @@ export default function DashboardsTab({
                         </Button>
                         <Button
                           className={clsx({
-                            "dashboard-disabled": editingBlock !== undefined,
+                            "dashboard-disabled": editDrawerOpen,
                           })}
                           onClick={async () => {
                             setIsEditing(false);
@@ -507,7 +500,7 @@ export default function DashboardsTab({
                   blocks={blocks}
                   canEdit={canEdit}
                   isEditing={isEditing}
-                  editingBlock={editingBlock}
+                  editDrawerOpen={editDrawerOpen}
                   enableAutoUpdates={enableAutoUpdates}
                   forceToEditing={() => {
                     setDashboardCopy(cloneDeep(dashboard));
@@ -523,7 +516,7 @@ export default function DashboardsTab({
                       },
                     });
                   }}
-                  setEditingBlock={setEditingBlock}
+                  setEditDrawerOpen={setEditDrawerOpen}
                   mutate={mutateDashboards}
                 />
               )}

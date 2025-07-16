@@ -131,13 +131,13 @@ interface Props {
   blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
   canEdit: boolean;
   isEditing: boolean;
-  editingBlock: number | undefined;
+  editDrawerOpen: boolean;
   enableAutoUpdates: boolean;
   setBlocks: React.Dispatch<
     DashboardBlockInterfaceOrData<DashboardBlockInterface>[]
   >;
   forceToEditing: () => void;
-  setEditingBlock: React.Dispatch<number | undefined>;
+  setEditDrawerOpen: React.Dispatch<boolean>;
   mutate: () => void;
 }
 
@@ -146,11 +146,11 @@ export default function DashboardEditor({
   blocks,
   canEdit,
   isEditing,
-  editingBlock,
+  editDrawerOpen,
   enableAutoUpdates,
   setBlocks,
   forceToEditing,
-  setEditingBlock,
+  setEditDrawerOpen,
   mutate,
 }: Props) {
   const blockRefs = useRef<Array<HTMLDivElement | null>>([]);
@@ -160,43 +160,47 @@ export default function DashboardEditor({
   const [addBlockDropdown, setAddBlockDropdown] = useState<number | undefined>(
     undefined
   );
-  // Variable outside of the react lifecycle to enable scrolling only after the blocks are updated
-  const scrollToBlockIndex = useRef<number | undefined>(undefined);
-  useEffect(() => {
-    if (isDefined(scrollToBlockIndex.current)) {
-      const el = blockRefs.current[scrollToBlockIndex.current];
-      if (el) {
-        window.scrollTo({
-          top: el.offsetTop + 200,
-          behavior: "smooth",
-        });
-      }
-      scrollToBlockIndex.current = undefined;
-    }
-  }, [blocks]);
+  const [editingBlockIndex, setEditingBlockIndex] = useState<
+    number | undefined
+  >(undefined);
+  const [addBlockIndex, setAddBlockIndex] = useState<number | undefined>(
+    undefined
+  );
 
-  const [editingBlockClone, setEditingBlockClone] = useState<
+  useEffect(() => {
+    if (!isEditing) {
+      setAddBlockIndex(undefined);
+      setStagedAddBlock(undefined);
+      setEditingBlockIndex(undefined);
+      setStagedEditBlock(undefined);
+    }
+  }, [isEditing]);
+
+  useEffect(() => {
+    setEditDrawerOpen(isDefined(addBlockIndex) || isDefined(editingBlockIndex));
+  }, [addBlockIndex, editingBlockIndex, setEditDrawerOpen]);
+
+  const [stagedAddBlock, setStagedAddBlock] = useState<
+    DashboardBlockInterfaceOrData<DashboardBlockInterface> | undefined
+  >(undefined);
+  const [stagedEditBlock, setStagedEditBlock] = useState<
     DashboardBlockInterfaceOrData<DashboardBlockInterface> | undefined
   >(undefined);
 
   useEffect(() => {
-    setEditingBlockClone(
-      isDefined(editingBlock) ? blocks[editingBlock] : undefined
+    setStagedEditBlock(
+      isDefined(editingBlockIndex) ? blocks[editingBlockIndex] : undefined
     );
-  }, [editingBlock, blocks]);
+  }, [editingBlockIndex, blocks]);
 
   const addBlockType = (bType: DashboardBlockType, index?: number) => {
     index = index ?? blocks.length;
-    setBlocks([
-      ...blocks.slice(0, index),
+    setStagedAddBlock(
       CREATE_BLOCK_TYPE[bType]({
         experiment,
-      }),
-      ...blocks.slice(index),
-    ]);
-    setTimeout(() => {
-      setEditingBlock(index);
-    }, 100);
+      })
+    );
+    setAddBlockIndex(index);
   };
 
   if (blocks.length === 0) {
@@ -237,6 +241,120 @@ export default function DashboardEditor({
     );
   }
 
+  const renderSingleBlock = ({
+    i,
+    key,
+    block,
+    setBlock,
+    isEditingBlock,
+  }: {
+    i: number | undefined;
+    key: number | string;
+    block: DashboardBlockInterfaceOrData<DashboardBlockInterface>;
+    setBlock: React.Dispatch<
+      DashboardBlockInterfaceOrData<DashboardBlockInterface>
+    >;
+    isEditingBlock: boolean;
+  }) => {
+    return (
+      <Flex
+        direction="column"
+        key={key}
+        ref={(el) => (isDefined(i) ? (blockRefs.current[i] = el) : null)}
+      >
+        <DashboardBlock
+          block={block}
+          experiment={experiment}
+          isEditing={isEditing}
+          editingBlock={isEditingBlock}
+          disableBlock={editDrawerOpen && !isEditingBlock}
+          isFirstBlock={i === 0}
+          isLastBlock={i === blocks.length - 1}
+          setBlock={setBlock}
+          editBlock={() => {
+            setEditingBlockIndex(i);
+          }}
+          duplicateBlock={() => {
+            if (isDefined(i)) {
+              setBlocks([
+                ...blocks.slice(0, i + 1),
+                getBlockData(block),
+                ...blocks.slice(i + 1),
+              ]);
+              setEditingBlockIndex(i + 1);
+            }
+          }}
+          deleteBlock={() => {
+            if (isDefined(i)) {
+              setBlocks([...blocks.slice(0, i), ...blocks.slice(i + 1)]);
+            }
+          }}
+          moveBlock={(direction) => {
+            if (isDefined(i)) {
+              const otherBlocks = blocks.toSpliced(i, 1);
+              setBlocks([
+                ...otherBlocks.slice(0, i + direction),
+                block,
+                ...otherBlocks.slice(i + direction),
+              ]);
+            }
+          }}
+          mutate={mutate}
+        />
+        {isEditing && (
+          <Flex justify="center" mb="1em" position="relative">
+            {(hoverAddBlock === i || addBlockDropdown === i) && (
+              <div
+                style={{
+                  pointerEvents: "none",
+                  position: "absolute",
+                  top: "0",
+                  width: "100%",
+                  height: "10px",
+                  borderBottom: "1px solid var(--violet-a9)",
+                }}
+              />
+            )}
+            <AddBlockDropdown
+              onDropdownOpen={() => setAddBlockDropdown(i)}
+              onDropdownClose={() => setAddBlockDropdown(undefined)}
+              trigger={
+                <IconButton
+                  onMouseEnter={() => {
+                    setHoverAddBlock(i);
+                  }}
+                  onMouseLeave={() => {
+                    setHoverAddBlock(undefined);
+                  }}
+                  className={clsx({
+                    "dashboard-disabled": editDrawerOpen,
+                  })}
+                  size="1"
+                >
+                  <Tooltip
+                    body="Add block"
+                    tipPosition="top"
+                    delay={0}
+                    state={hoverAddBlock === i && addBlockDropdown !== i}
+                    ignoreMouseEvents
+                    innerClassName="px-0 py-1"
+                  >
+                    <PiPlus size="10" />
+                  </Tooltip>
+                </IconButton>
+              }
+              addBlockType={(bType: DashboardBlockType) => {
+                if (isDefined(i)) {
+                  addBlockType(bType, i + 1);
+                }
+              }}
+            />
+          </Flex>
+        )}
+      </Flex>
+    );
+  };
+
   return (
     <>
       <div className="mt-3">
@@ -247,7 +365,7 @@ export default function DashboardEditor({
                 trigger={
                   <Button
                     className={clsx({
-                      "dashboard-disabled": isDefined(editingBlock),
+                      "dashboard-disabled": editDrawerOpen,
                     })}
                     icon={<PiCaretDownFill />}
                     iconPosition="right"
@@ -263,132 +381,100 @@ export default function DashboardEditor({
           <DashboardUpdateDisplay
             blocks={blocks}
             enableAutoUpdates={enableAutoUpdates}
-            disabled={isDefined(editingBlock)}
+            disabled={editDrawerOpen}
           />
         </Flex>
         <div>
-          {blocks.map((block, i) => (
-            <Flex
-              direction="column"
-              key={i}
-              ref={(el) => (blockRefs.current[i] = el)}
-            >
-              <DashboardBlock
-                // Show in-progress edits directly on the block
-                block={i === editingBlock ? editingBlockClone ?? block : block}
-                experiment={experiment}
-                isEditing={isEditing}
-                editingBlock={editingBlock === i}
-                disableBlock={(editingBlock ?? i) !== i}
-                isFirstBlock={i === 0}
-                isLastBlock={i === blocks.length - 1}
-                setBlock={(blockData) => {
-                  i === editingBlock
-                    ? setEditingBlockClone({
-                        ...(editingBlockClone ?? block),
-                        ...blockData,
-                      })
-                    : setBlocks([
-                        ...blocks.slice(0, i),
-                        { ...block, ...blockData },
-                        ...blocks.slice(i + 1),
-                      ]);
-                }}
-                editBlock={() => {
-                  setEditingBlock(i);
-                }}
-                duplicateBlock={() => {
-                  setBlocks([
-                    ...blocks.slice(0, i + 1),
-                    getBlockData(block),
+          {blocks.map((block, i) => {
+            // Show in-progress edits directly on the block
+            const isEditingBlock = i === editingBlockIndex;
+            const effectiveBlock = isEditingBlock
+              ? stagedEditBlock ?? block
+              : block;
+            const effectiveSetBlock = (
+              blockData: DashboardBlockInterfaceOrData<DashboardBlockInterface>
+            ) => {
+              isEditingBlock
+                ? setStagedEditBlock({
+                    ...(stagedEditBlock ?? block),
+                    ...blockData,
+                  })
+                : setBlocks([
+                    ...blocks.slice(0, i),
+                    { ...block, ...blockData },
                     ...blocks.slice(i + 1),
                   ]);
-                  setEditingBlock(i + 1);
-                }}
-                deleteBlock={() => {
-                  setBlocks([...blocks.slice(0, i), ...blocks.slice(i + 1)]);
-                }}
-                moveBlock={(direction) => {
-                  const otherBlocks = blocks.toSpliced(i, 1);
-                  setBlocks([
-                    ...otherBlocks.slice(0, i + direction),
-                    block,
-                    ...otherBlocks.slice(i + direction),
-                  ]);
-                }}
-                mutate={mutate}
-              />
-              {isEditing && (
-                <Flex justify="center" mb="1em" position="relative">
-                  {(hoverAddBlock === i || addBlockDropdown === i) && (
-                    <div
-                      style={{
-                        pointerEvents: "none",
-                        position: "absolute",
-                        top: "0",
-                        width: "100%",
-                        height: "8px",
-                        borderBottom: "1px solid var(--violet-a9)",
-                      }}
-                    />
-                  )}
-                  <AddBlockDropdown
-                    onDropdownOpen={() => setAddBlockDropdown(i)}
-                    onDropdownClose={() => setAddBlockDropdown(undefined)}
-                    trigger={
-                      <IconButton
-                        onMouseEnter={() => {
-                          setHoverAddBlock(i);
-                        }}
-                        onMouseLeave={() => {
-                          setHoverAddBlock(undefined);
-                        }}
-                        className={clsx({
-                          "dashboard-disabled": isDefined(editingBlock),
-                        })}
-                        size="1"
-                      >
-                        <Tooltip
-                          body="Add block"
-                          tipPosition="top"
-                          delay={0}
-                          state={hoverAddBlock === i && addBlockDropdown !== i}
-                          ignoreMouseEvents
-                          innerClassName="px-0 py-1"
-                        >
-                          <PiPlus size="10" />
-                        </Tooltip>
-                      </IconButton>
-                    }
-                    addBlockType={(bType: DashboardBlockType) =>
-                      addBlockType(bType, i + 1)
-                    }
-                  />
-                </Flex>
-              )}
-            </Flex>
-          ))}
+            };
+            return (
+              <>
+                {addBlockIndex === i &&
+                  isDefined(stagedAddBlock) &&
+                  renderSingleBlock({
+                    i: undefined,
+                    key: "new-block",
+                    block: stagedAddBlock,
+                    setBlock: setStagedAddBlock,
+                    isEditingBlock: true,
+                  })}
+                {renderSingleBlock({
+                  i,
+                  key: i,
+                  block: effectiveBlock,
+                  setBlock: effectiveSetBlock,
+                  isEditingBlock,
+                })}
+              </>
+            );
+          })}
+          {addBlockIndex === blocks.length &&
+            isDefined(stagedAddBlock) &&
+            renderSingleBlock({
+              i: undefined,
+              key: "new-block",
+              block: stagedAddBlock,
+              setBlock: setStagedAddBlock,
+              isEditingBlock: true,
+            })}
         </div>
       </div>
 
       <DashboardBlockEditDrawer
         experiment={experiment}
-        open={isDefined(editingBlock)}
+        open={editDrawerOpen}
         cancel={() => {
-          setEditingBlock(undefined);
+          setAddBlockIndex(undefined);
+          setStagedAddBlock(undefined);
+          setEditingBlockIndex(undefined);
         }}
         submit={() => {
-          if (editingBlock === undefined || editingBlockClone === undefined)
-            return;
-          setBlocks([
-            ...blocks.slice(0, editingBlock),
-            editingBlockClone,
-            ...blocks.slice(editingBlock + 1),
-          ]);
-          setEditingBlock(undefined);
+          if (isDefined(addBlockIndex) && isDefined(stagedAddBlock)) {
+            setBlocks([
+              ...blocks.slice(0, addBlockIndex),
+              stagedAddBlock,
+              ...blocks.slice(addBlockIndex),
+            ]);
+          }
+          if (isDefined(editingBlockIndex) && isDefined(stagedEditBlock)) {
+            setBlocks([
+              ...blocks.slice(0, editingBlockIndex),
+              stagedEditBlock,
+              ...blocks.slice(editingBlockIndex + 1),
+            ]);
+          }
+          setAddBlockIndex(undefined);
+          setStagedAddBlock(undefined);
+          setEditingBlockIndex(undefined);
         }}
-        block={editingBlockClone}
-        setBlock={setEditingBlockClone}
+        block={
+          isDefined(addBlockIndex)
+            ? stagedAddBlock
+            : isDefined(editingBlockIndex)
+            ? stagedEditBlock
+            : undefined
+        }
+        setBlock={
+          isDefined(addBlockIndex) ? setStagedAddBlock : setStagedEditBlock
+        }
       />
     </>
   );

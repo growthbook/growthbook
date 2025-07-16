@@ -111,7 +111,7 @@ export default function DashboardBlock({
         <DropdownMenu
           open={moveBlockOpen}
           onOpenChange={setMoveBlockOpen}
-          disabled={disableBlock}
+          disabled={disableBlock || editingBlock}
           trigger={
             <IconButton
               className="position-absolute"

@@ -89,7 +89,7 @@ export default function DashboardModal({
         />
         {refreshInterval && (
           <Checkbox
-            label="Auto-update block content"
+            label="Auto-update dashboard data"
             description={`An automatic data refresh will occur ${refreshInterval}.`}
             disabled={disableAutoUpdate}
             disabledMessage={autoUpdateDisabledMessage}

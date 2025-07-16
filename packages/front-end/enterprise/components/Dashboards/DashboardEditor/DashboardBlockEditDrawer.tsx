@@ -289,7 +289,7 @@ export default function DashboardBlockEditDrawer({
             }}
           >
             <Field
-              label="Title"
+              label="Block Title"
               labelClassName="font-weight-bold"
               containerStyle={{ flexBasis: "32%" }}
               containerClassName="mb-0"
@@ -298,7 +298,7 @@ export default function DashboardBlockEditDrawer({
               onChange={(e) => setBlock({ ...block, title: e.target.value })}
             />
             <Field
-              label="Description"
+              label="Block Description"
               labelClassName="font-weight-bold"
               containerStyle={{ flexBasis: "60%", flexGrow: 1 }}
               containerClassName="mb-0"
@@ -536,35 +536,33 @@ export default function DashboardBlockEditDrawer({
                     isClearable
                   />
 
-                  {savedQuery && (
-                    <SelectField
-                      required
-                      markRequired
-                      label="Data Visualization"
-                      labelClassName="font-weight-bold"
-                      containerStyle={{ flexBasis: "32%" }}
-                      containerClassName="mb-0"
-                      value={block.dataVizConfigIndex.toString()}
-                      placeholder={
-                        (savedQuery.dataVizConfig || []).length === 0
-                          ? "No data visualizations"
-                          : "Choose a data visualization to display"
-                      }
-                      disabled={(savedQuery.dataVizConfig?.length || 0) === 0}
-                      options={(savedQuery.dataVizConfig || []).map(
-                        ({ title }, i) => ({
-                          label: title || `Visualization ${i}`,
-                          value: i.toString(),
-                        })
-                      )}
-                      onChange={(value) =>
-                        setBlock({
-                          ...block,
-                          dataVizConfigIndex: parseInt(value),
-                        })
-                      }
-                    />
-                  )}
+                  <SelectField
+                    required
+                    markRequired
+                    label="Data Visualization"
+                    labelClassName="font-weight-bold"
+                    containerStyle={{ flexBasis: "32%" }}
+                    containerClassName="mb-0"
+                    value={block.dataVizConfigIndex.toString()}
+                    placeholder={
+                      (savedQuery?.dataVizConfig || []).length === 0
+                        ? "No data visualizations"
+                        : "Choose a data visualization to display"
+                    }
+                    disabled={(savedQuery?.dataVizConfig?.length || 0) === 0}
+                    options={(savedQuery?.dataVizConfig || []).map(
+                      ({ title }, i) => ({
+                        label: title || `Visualization ${i}`,
+                        value: i.toString(),
+                      })
+                    )}
+                    onChange={(value) =>
+                      setBlock({
+                        ...block,
+                        dataVizConfigIndex: parseInt(value),
+                      })
+                    }
+                  />
                 </>
               ))}
           </Flex>
