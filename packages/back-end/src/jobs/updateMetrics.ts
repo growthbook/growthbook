@@ -76,12 +76,7 @@ export default async function (agenda: Agenda) {
     await promiseAllChunks(promiseCallbacks, 5);
   });
 
-  agenda.define(
-    UPDATE_SINGLE_METRIC,
-    // This job queries a datasource, which may be slow. Give it 30 minutes to complete.
-    { lockLifetime: 30 * 60 * 1000 },
-    updateSingleMetric
-  );
+  agenda.define(UPDATE_SINGLE_METRIC, updateSingleMetric);
 
   // Update experiment results
   await startUpdateJob();
