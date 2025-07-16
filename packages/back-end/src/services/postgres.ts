@@ -2,7 +2,7 @@ import { Client, ClientConfig } from "pg";
 import { PostgresConnectionParams } from "back-end/types/integrations/postgres";
 import { logger } from "back-end/src/util/logger";
 import { QueryResponse } from "back-end/src/types/Integration";
-import { MAX_QUERY_TIMEOUT } from "back-end/src/util/secrets";
+import { QUERY_TIMEOUT_MS } from "back-end/src/util/secrets";
 
 export function runPostgresQuery(
   conn: PostgresConnectionParams,
@@ -31,20 +31,22 @@ export function runPostgresQuery(
       ...conn,
       ssl,
       connectionTimeoutMillis: 10000,
-      query_timeout: MAX_QUERY_TIMEOUT,
+      query_timeout: QUERY_TIMEOUT_MS,
     };
 
     const client = new Client(settings);
 
     // Set a timeout in case the client does not handle the query_timeout correctly
-    const timeout = setTimeout(() => {
-      client.end().catch(() => {});
-      reject(
-        new Error(
-          `Postgres query exceeded timeout of ${MAX_QUERY_TIMEOUT + 1000}ms`
-        )
-      );
-    }, MAX_QUERY_TIMEOUT + 1000); // Add a buffer to the timeout to ensure client has time to timeout first
+    const timeout = setTimeout(
+      () => {
+        client.end().catch(() => {});
+        reject(
+          new Error(`Postgres query exceeded timeout of ${QUERY_TIMEOUT_MS}ms`)
+        );
+      },
+      // Add a buffer to the timeout to ensure client has time to timeout first
+      QUERY_TIMEOUT_MS + 1000
+    );
 
     client
       .on("error", (err) => {
