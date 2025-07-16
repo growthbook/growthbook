@@ -39,13 +39,6 @@ const formatDateForURL = (date: Date) => {
   return `${year}-${month}-${day}`;
 };
 
-// Helper function to parse date strings from URL as local time instead of UTC
-const parseDateFromURL = (dateString: string): Date => {
-  const [year, month, day] = dateString.split("-").map(Number);
-  // Create date in local timezone (month is 0-indexed in Date constructor)
-  return new Date(year, month - 1, day);
-};
-
 export default function ExecReport() {
   const { project: currentProject, projects } = useDefinitions();
   const settings = useOrgSettings();
@@ -65,12 +58,12 @@ export default function ExecReport() {
   defaultStartDate.setDate(defaultStartDate.getDate() - parseInt(dateRange));
   const [startDate, setStartDate] = useState<Date>(
     searchParams.get("startDate")
-      ? parseDateFromURL(searchParams.get("startDate")!)
+      ? new Date(searchParams.get("startDate")!)
       : defaultStartDate
   );
   const [endDate, setEndDate] = useState<Date>(
     searchParams.get("endDate")
-      ? parseDateFromURL(searchParams.get("endDate")!)
+      ? new Date(searchParams.get("endDate")!)
       : new Date()
   );
   // const [tag, setTag] = useState("");

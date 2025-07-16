@@ -41,19 +41,21 @@ export default function ExecExperimentsGraph({
 
     // create an empty object for each month in the range
     if (startDate && endDate) {
-      const startMonth = new Date(
-        startDate.getFullYear(),
-        startDate.getMonth()
-      );
-      const endMonth = new Date(endDate.getFullYear(), endDate.getMonth() + 1);
-      const currentMonth = startMonth;
+      // Use local date methods consistently to avoid timezone interpretation issues
+      const startYear = startDate.getFullYear();
+      const startMonth = startDate.getMonth(); // 0-indexed
+      const endYear = endDate.getFullYear();
+      const endMonth = endDate.getMonth(); // 0-indexed
 
-      while (currentMonth < endMonth) {
-        const monthKey = `${currentMonth.getFullYear()}-${
-          currentMonth.getMonth() + 1
-        }`;
-        monthlyData[monthKey] = { won: 0, lost: 0, inconclusive: 0, dnf: 0 };
-        currentMonth.setMonth(currentMonth.getMonth() + 1);
+      // Iterate through months using year/month numbers instead of Date objects
+      for (let year = startYear; year <= endYear; year++) {
+        const monthStart = year === startYear ? startMonth : 0;
+        const monthEnd = year === endYear ? endMonth : 11;
+
+        for (let month = monthStart; month <= monthEnd; month++) {
+          const monthKey = `${year}-${month + 1}`; // Convert to 1-indexed for display
+          monthlyData[monthKey] = { won: 0, lost: 0, inconclusive: 0, dnf: 0 };
+        }
       }
     }
 
@@ -77,9 +79,10 @@ export default function ExecExperimentsGraph({
           );
         })[0];
       }
-      const monthKey = `${new Date(usedPhase?.dateEnded || 0).getFullYear()}-${
-        new Date(usedPhase?.dateEnded || 0).getMonth() + 1
-      }`;
+
+      const endDate = new Date(usedPhase?.dateEnded || 0);
+      const monthKey = `${endDate.getFullYear()}-${endDate.getMonth() + 1}`;
+
       if (monthlyData[monthKey]) {
         monthlyData[monthKey][status] =
           (monthlyData[monthKey][status] || 0) + 1;
@@ -90,11 +93,15 @@ export default function ExecExperimentsGraph({
   }, [experiments, endDate, startDate]);
 
   const chartDataMonthly = useMemo(() => {
-    return Object.entries(groupedData.monthlyData).map(([key, values]) => ({
-      label: key,
-      total: Object.values(values).reduce((a, b) => a + b, 0),
-      ...values,
-    }));
+    const chartData = Object.entries(groupedData.monthlyData).map(
+      ([key, values]) => ({
+        label: key,
+        total: Object.values(values).reduce((a, b) => a + b, 0),
+        ...values,
+      })
+    );
+
+    return chartData;
   }, [groupedData]);
 
   const height = 240;
@@ -229,18 +236,16 @@ export default function ExecExperimentsGraph({
                             <h4 className={`mb-1 ${styles.tooltipHeader}`}>
                               {format(
                                 new Date(
-                                  Date.UTC(
-                                    parseInt(
-                                      tooltipData?.label
-                                        ?.toString()
-                                        .split("-")[0] || "0"
-                                    ),
-                                    parseInt(
-                                      tooltipData?.label
-                                        ?.toString()
-                                        .split("-")[1] || "0"
-                                    )
-                                  )
+                                  parseInt(
+                                    tooltipData?.label
+                                      ?.toString()
+                                      .split("-")[0] || "0"
+                                  ),
+                                  parseInt(
+                                    tooltipData?.label
+                                      ?.toString()
+                                      .split("-")[1] || "0"
+                                  ) - 1 // Month keys are 1-indexed, Date constructor expects 0-indexed
                                 ),
                                 "LLL yyyy"
                               )}
@@ -347,10 +352,8 @@ export default function ExecExperimentsGraph({
                         tickFormat={(d) => {
                           return format(
                             new Date(
-                              Date.UTC(
-                                parseInt(d.split("-")[0]),
-                                parseInt(d.split("-")[1])
-                              )
+                              parseInt(d.split("-")[0]),
+                              parseInt(d.split("-")[1]) - 1 // Month keys are 1-indexed, Date constructor expects 0-indexed
                             ),
                             "LLL yyyy"
                           );
