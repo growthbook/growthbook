@@ -286,6 +286,7 @@ export default function TabbedPage({
           close={() => setStatusModal(false)}
           mutate={mutate}
           source={trackSource}
+          holdout={holdout}
         />
       )}
       {featureModal && (

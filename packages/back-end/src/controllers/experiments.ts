@@ -1104,12 +1104,18 @@ export async function postExperiment(
     const phases = [...experiment.phases];
     const phaseClone = { ...phases[currentPhase] };
     phases[Math.floor(currentPhase * 1)] = phaseClone;
+    const firstPhaseClone = { ...phases[0] };
+    phases[0] = firstPhaseClone;
 
     if (phaseStartDate) {
       phaseClone.dateStarted = getValidDate(phaseStartDate + ":00Z");
     }
     if (experiment.status === "stopped" && phaseEndDate) {
       phaseClone.dateEnded = getValidDate(phaseEndDate + ":00Z");
+      // update both phases when stopped
+      if (experiment.type === "holdout") {
+        firstPhaseClone.dateEnded = getValidDate(phaseEndDate + ":00Z");
+      }
     }
     changes.phases = phases;
   }
@@ -1461,6 +1467,12 @@ export async function postExperimentStatus(
     phases?.length > 0 &&
     !phases[lastIndex].dateEnded
   ) {
+    if (experiment.type === "holdout") {
+      phases[0] = {
+        ...phases[0],
+        dateEnded: dateEnded ? getValidDate(dateEnded + ":00Z") : new Date(),
+      };
+    }
     phases[lastIndex] = {
       ...phases[lastIndex],
       reason,
@@ -1488,6 +1500,11 @@ export async function postExperimentStatus(
     phases?.length > 0
   ) {
     const clonedPhase = { ...phases[lastIndex] };
+    const clonedFirstPhase = { ...phases[0] };
+    if (experiment.type === "holdout") {
+      clonedFirstPhase.dateEnded = new Date();
+      phases[0] = clonedFirstPhase;
+    }
     delete clonedPhase.dateEnded;
     phases[lastIndex] = clonedPhase;
     changes.phases = phases;
@@ -1613,6 +1630,12 @@ export async function postExperimentStop(
   const phases = [...experiment.phases];
   // Already has phases
   if (phases.length) {
+    if (experiment.type === "holdout") {
+      phases[0] = {
+        ...phases[0],
+        dateEnded: dateEnded ? getValidDate(dateEnded + ":00Z") : new Date(),
+      };
+    }
     phases[phases.length - 1] = {
       ...phases[phases.length - 1],
       dateEnded: dateEnded ? getValidDate(dateEnded + ":00Z") : new Date(),
@@ -1939,6 +1962,9 @@ export async function postExperimentTargeting(
   } else {
     // If we had a previous phase, mark it as ended
     if (phases.length) {
+      if (experiment.type === "holdout") {
+        phases[0].dateEnded = new Date();
+      }
       phases[phases.length - 1].dateEnded = new Date();
     }
 
@@ -2065,6 +2091,9 @@ export async function postExperimentPhase(
   const phases = [...experiment.phases];
   // Already has phases
   if (phases.length) {
+    if (experiment.type === "holdout") {
+      phases[0].dateEnded = date;
+    }
     phases[phases.length - 1] = {
       ...phases[phases.length - 1],
       dateEnded: date,

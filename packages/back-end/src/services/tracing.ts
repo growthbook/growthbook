@@ -56,6 +56,7 @@ export const trackJob = (
   // run job
   let res;
   try {
+    logger.info(`arguments=${JSON.stringify(args)}; starting job ${jobName}`);
     res = await fn(...args);
   } catch (e) {
     logger.error(`error running job: ${jobName}: ${e}`);
@@ -69,6 +70,9 @@ export const trackJob = (
   }
 
   // on successful job
+  logger.info(
+    `arguments=${JSON.stringify(args)}; successfully finished job ${jobName}`
+  );
   try {
     wrapUpMetrics();
     metrics.getCounter(`jobs.successes`).increment(attributes);

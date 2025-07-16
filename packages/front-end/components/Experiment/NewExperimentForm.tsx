@@ -66,6 +66,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import DatePicker from "@/components/DatePicker";
 import { useTemplates } from "@/hooks/useTemplates";
 import { convertTemplateToExperiment } from "@/services/experiments";
+import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
 import PremiumTooltip from "../Marketing/PremiumTooltip";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 
@@ -315,7 +316,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       banditBurnInValue: scopedSettings.banditBurnInValue.value,
       banditBurnInUnit: scopedSettings.banditScheduleUnit.value,
       templateId: initialValue?.templateId || "",
-      holdout: initialValue?.holdout || undefined,
+      holdoutId: initialValue?.holdoutId || "",
     },
   });
 
@@ -617,49 +618,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             )}
 
             {holdoutsWithExperiment.length > 0 && (
-              <SelectField
-                label="Holdout"
-                labelClassName="font-weight-bold"
-                value={form.watch("holdout.id") ?? ""}
-                onChange={(v) => form.setValue("holdout", { id: v, value: "" })}
-                initialOption="Choose one..."
-                options={holdouts?.map((h) => {
-                  return {
-                    label: h.name,
-                    value: h.id,
-                  };
-                })}
-                isOptionDisabled={(option: {
-                  value?: string;
-                  label: string;
-                }) => {
-                  if (option.value) {
-                    const holdout = holdouts.find((h) => h.id === option.value);
-                    if (holdout) {
-                      return !!holdout.analysisStartDate; // we don't want to allow them to add to the holdout
-                    }
-                  }
-                  return false;
-                }}
-                formatOptionLabel={({ label, value }) => {
-                  const userIdType = holdoutsWithExperiment?.find(
-                    (h) => h.id === value
-                  )?.experiment.exposureQueryId;
-                  return (
-                    <>
-                      {label}
-                      {userIdType ? (
-                        <span
-                          className="text-muted small float-right position-relative"
-                          style={{ top: 3 }}
-                        >
-                          Identifier Type: <code>{userIdType}</code>
-                        </span>
-                      ) : null}
-                    </>
-                  );
-                }}
-              />
+              <HoldoutSelect selectedProject={selectedProject} />
             )}
 
             <Separator size="4" mt="6" mb="5" />
