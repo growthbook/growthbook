@@ -32,8 +32,11 @@ export const getAgendaInstance = (): Agenda => {
         this,
         name,
         options,
-        // @ts-expect-error - Some weird typing going on with Agenda. T should extend JobAttributesData
-        trackJob(name, addJobLifecycleChecks(processor))
+        trackJob(
+          name,
+          // @ts-expect-error Some weird typing going on with Agenda. T should extend JobAttributesData
+          addJobLifecycleChecks(processor)
+        )
       );
     };
   }

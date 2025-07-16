@@ -192,6 +192,7 @@ export type ComputedExperimentInterface = ExperimentInterfaceStringDates & {
   date: string;
   statusSortOrder: number;
   statusIndicator: StatusIndicatorData;
+  isWatched?: boolean;
 };
 
 export type Changeset = Partial<ExperimentInterface>;
