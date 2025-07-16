@@ -17,7 +17,6 @@ import { logger } from "back-end/src/util/logger";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/organization";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
-import { trackJob } from "back-end/src/services/tracing";
 
 const PROXY_UPDATE_JOB_NAME = "proxyUpdate";
 type ProxyUpdateJob = Job<{
@@ -27,99 +26,96 @@ type ProxyUpdateJob = Job<{
   retryCount: number;
 }>;
 
-const proxyUpdate = trackJob(
-  PROXY_UPDATE_JOB_NAME,
-  async (job: ProxyUpdateJob) => {
-    const connectionId = job.attrs.data?.connectionId;
-    const orgId = job.attrs.data?.orgId;
-    const useCloudProxy = job.attrs.data?.useCloudProxy;
-    if (!connectionId) {
-      logger.error(
-        "proxyUpdate: No connectionId provided for proxy update job",
-        { connectionId, useCloudProxy }
-      );
-      return;
-    }
-
-    if (!orgId) {
-      logger.error("proxyUpdate: No orgId provided for proxy update job", {
-        connectionId,
-        useCloudProxy,
-      });
-      return;
-    }
-
-    const context = await getContextForAgendaJobByOrgId(orgId);
-
-    const connection = await findSDKConnectionById(context, connectionId);
-    if (!connection) {
-      logger.error("proxyUpdate: Could not find sdk connection", {
-        connectionId,
-        useCloudProxy,
-      });
-      return;
-    }
-
-    if (!useCloudProxy && !connection.proxy.host) {
-      logger.error("proxyUpdate: Proxy host is missing", {
-        connectionId,
-        useCloudProxy,
-      });
-      return;
-    }
-
-    const environmentDoc = context.org?.settings?.environments?.find(
-      (e) => e.id === connection.environment
-    );
-    const filteredProjects = filterProjectsByEnvironmentWithNull(
-      connection.projects,
-      environmentDoc,
-      true
-    );
-
-    const defs = await getFeatureDefinitions({
-      context,
-      capabilities: getConnectionSDKCapabilities(connection),
-      environment: connection.environment,
-      projects: filteredProjects,
-      encryptionKey: connection.encryptPayload
-        ? connection.encryptionKey
-        : undefined,
-      includeVisualExperiments: connection.includeVisualExperiments,
-      includeDraftExperiments: connection.includeDraftExperiments,
-      includeExperimentNames: connection.includeExperimentNames,
-      includeRedirectExperiments: connection.includeRedirectExperiments,
-      includeRuleIds: connection.includeRuleIds,
-      hashSecureAttributes: connection.hashSecureAttributes,
+const proxyUpdate = async (job: ProxyUpdateJob) => {
+  const connectionId = job.attrs.data?.connectionId;
+  const orgId = job.attrs.data?.orgId;
+  const useCloudProxy = job.attrs.data?.useCloudProxy;
+  if (!connectionId) {
+    logger.error("proxyUpdate: No connectionId provided for proxy update job", {
+      connectionId,
+      useCloudProxy,
     });
-
-    const payload = JSON.stringify(defs);
-
-    // note: Cloud users will typically have proxy.enabled === false (unless using a local proxy), but will still have a valid proxy.signingKey
-    const signature = createHmac("sha256", connection.proxy.signingKey)
-      .update(payload)
-      .digest("hex");
-
-    const url = useCloudProxy
-      ? `https://proxy.growthbook.io/proxy/features`
-      : `${connection.proxy.host.replace(/\/$/, "")}/proxy/features`;
-
-    const res = await fireProxyWebhook({
-      url,
-      signature,
-      key: connection.key,
-      payload,
-    });
-
-    if (!res.ok) {
-      const e = "POST returned an invalid status code: " + res.status;
-      await setProxyError(connection, e);
-      throw new Error(e);
-    }
-
-    await clearProxyError(connection);
+    return;
   }
-);
+
+  if (!orgId) {
+    logger.error("proxyUpdate: No orgId provided for proxy update job", {
+      connectionId,
+      useCloudProxy,
+    });
+    return;
+  }
+
+  const context = await getContextForAgendaJobByOrgId(orgId);
+
+  const connection = await findSDKConnectionById(context, connectionId);
+  if (!connection) {
+    logger.error("proxyUpdate: Could not find sdk connection", {
+      connectionId,
+      useCloudProxy,
+    });
+    return;
+  }
+
+  if (!useCloudProxy && !connection.proxy.host) {
+    logger.error("proxyUpdate: Proxy host is missing", {
+      connectionId,
+      useCloudProxy,
+    });
+    return;
+  }
+
+  const environmentDoc = context.org?.settings?.environments?.find(
+    (e) => e.id === connection.environment
+  );
+  const filteredProjects = filterProjectsByEnvironmentWithNull(
+    connection.projects,
+    environmentDoc,
+    true
+  );
+
+  const defs = await getFeatureDefinitions({
+    context,
+    capabilities: getConnectionSDKCapabilities(connection),
+    environment: connection.environment,
+    projects: filteredProjects,
+    encryptionKey: connection.encryptPayload
+      ? connection.encryptionKey
+      : undefined,
+    includeVisualExperiments: connection.includeVisualExperiments,
+    includeDraftExperiments: connection.includeDraftExperiments,
+    includeExperimentNames: connection.includeExperimentNames,
+    includeRedirectExperiments: connection.includeRedirectExperiments,
+    includeRuleIds: connection.includeRuleIds,
+    hashSecureAttributes: connection.hashSecureAttributes,
+  });
+
+  const payload = JSON.stringify(defs);
+
+  // note: Cloud users will typically have proxy.enabled === false (unless using a local proxy), but will still have a valid proxy.signingKey
+  const signature = createHmac("sha256", connection.proxy.signingKey)
+    .update(payload)
+    .digest("hex");
+
+  const url = useCloudProxy
+    ? `https://proxy.growthbook.io/proxy/features`
+    : `${connection.proxy.host.replace(/\/$/, "")}/proxy/features`;
+
+  const res = await fireProxyWebhook({
+    url,
+    signature,
+    key: connection.key,
+    payload,
+  });
+
+  if (!res.ok) {
+    const e = "POST returned an invalid status code: " + res.status;
+    await setProxyError(connection, e);
+    throw new Error(e);
+  }
+
+  await clearProxyError(connection);
+};
 
 let agenda: Agenda;
 export default function addProxyUpdateJob(ag: Agenda) {
