@@ -54,6 +54,7 @@ export const HoldoutSelect = ({
       onChange={(v) => {
         form.setValue("holdoutId", v);
       }}
+      helpText={holdoutsWithExperiment.length === 0 ? "No holdouts" : undefined}
       options={[
         ...(holdoutsWithExperiment?.map((h) => {
           return {
@@ -63,6 +64,8 @@ export const HoldoutSelect = ({
         }) || []),
         { label: "None", value: "" },
       ]}
+      required={holdoutsWithExperiment.length > 0}
+      disabled={holdoutsWithExperiment.length === 0}
       sort={false}
       formatOptionLabel={({ label, value }) => {
         const userIdType = holdoutsWithExperiment?.find((h) => h.id === value)
