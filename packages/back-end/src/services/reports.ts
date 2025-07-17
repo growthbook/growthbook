@@ -58,7 +58,10 @@ import {
   isJoinableMetric,
 } from "back-end/src/services/experiments";
 import { MetricInterface } from "back-end/types/metric";
-import { MetricPriorSettings } from "back-end/types/fact-table";
+import {
+  ConversionWindowUnit,
+  MetricPriorSettings,
+} from "back-end/types/fact-table";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { DataSourceInterface } from "back-end/types/datasource";
 import { ReqContextClass } from "back-end/src/services/context";
@@ -222,12 +225,14 @@ export function getMetricForSnapshot({
   settingsForSnapshotMetrics,
   metricOverrides,
   decisionFrameworkSettings,
+  holdoutLookbackWindow,
 }: {
   id: string | null | undefined;
   metricMap: Map<string, ExperimentMetricInterface>;
   settingsForSnapshotMetrics?: MetricSnapshotSettings[];
   metricOverrides?: MetricOverride[];
   decisionFrameworkSettings: ExperimentDecisionFrameworkSettings;
+  holdoutLookbackWindow?: { value: number; unit: ConversionWindowUnit };
 }): MetricForSnapshot | null {
   if (!id) return null;
   const metric = metricMap.get(id);
@@ -266,10 +271,13 @@ export function getMetricForSnapshot({
         windowUnit:
           overrides?.windowHours || overrides?.windowType
             ? "hours"
-            : metric.windowSettings.windowUnit ?? "hours",
+            : metric.windowSettings.windowUnit ??
+              holdoutLookbackWindow?.unit ??
+              "hours",
         windowValue:
           overrides?.windowHours ??
           metric.windowSettings.windowValue ??
+          holdoutLookbackWindow?.value ??
           DEFAULT_METRIC_WINDOW_HOURS,
       },
       properPrior: metricSnapshotSettings?.properPrior ?? false,

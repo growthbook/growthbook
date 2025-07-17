@@ -163,6 +163,7 @@ import {
   getPValueCorrectionForOrg,
   getPValueThresholdForOrg,
 } from "./organizations";
+import { differenceInDays } from "date-fns";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
@@ -527,6 +528,18 @@ export function getSnapshotSettings({
         settingsForSnapshotMetrics,
         metricOverrides: experiment.metricOverrides,
         decisionFrameworkSettings: experiment.decisionFrameworkSettings,
+        holdoutLookbackWindow:
+          experiment.type === "holdout" &&
+          phaseIndex === 1 &&
+          phase.holdoutLookbackStartDate
+            ? {
+                value: differenceInDays(
+                  phase.dateStarted,
+                  phase.holdoutLookbackStartDate
+                ),
+                unit: "days",
+              }
+            : undefined,
       })
     )
     .filter(isDefined);

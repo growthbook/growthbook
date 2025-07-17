@@ -203,7 +203,8 @@ export default function FeatureRules({
           return (
             <TabsContent key={e.id} value={e.id}>
               <div className="mt-2">
-                {rulesByEnv[e.id].length > 0 ? (
+                {/* TODO: Render rule list if there are rules or a holdout is linked that is active for the environment */}
+                {rulesByEnv[e.id].length > 0 || holdout ? (
                   <RuleList
                     environment={e.id}
                     feature={feature}
