@@ -64,6 +64,7 @@ const CompactResults: FC<{
   startDate: string;
   endDate: string;
   isLatestPhase: boolean;
+  phase: number;
   status: ExperimentStatus;
   goalMetrics: string[];
   secondaryMetrics: string[];
@@ -99,6 +100,7 @@ const CompactResults: FC<{
   startDate,
   endDate,
   isLatestPhase,
+  phase,
   status,
   goalMetrics,
   guardrailMetrics,
@@ -347,6 +349,7 @@ const CompactResults: FC<{
         <ResultsTable
           dateCreated={reportDate}
           isLatestPhase={isLatestPhase}
+          phase={phase}
           startDate={startDate}
           endDate={endDate}
           status={status}
@@ -399,6 +402,7 @@ const CompactResults: FC<{
           <ResultsTable
             dateCreated={reportDate}
             isLatestPhase={isLatestPhase}
+            phase={phase}
             startDate={startDate}
             endDate={endDate}
             status={status}
@@ -439,6 +443,7 @@ const CompactResults: FC<{
           <ResultsTable
             dateCreated={reportDate}
             isLatestPhase={isLatestPhase}
+            phase={phase}
             startDate={startDate}
             endDate={endDate}
             status={status}

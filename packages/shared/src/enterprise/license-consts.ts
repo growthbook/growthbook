@@ -60,7 +60,8 @@ export type CommercialFeature =
   | "require-project-for-features-setting"
   | "saveSqlExplorerQueries"
   | "metric-effects"
-  | "metric-correlations";
+  | "metric-correlations"
+  | "dashboards";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
@@ -233,6 +234,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "safe-rollout",
     "managed-warehouse",
     "saveSqlExplorerQueries",
+    "dashboards",
   ]),
   enterprise: new Set<CommercialFeature>([
     "scim",
@@ -285,6 +287,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "saveSqlExplorerQueries",
     "metric-effects",
     "metric-correlations",
+    "dashboards",
   ]),
 };
 

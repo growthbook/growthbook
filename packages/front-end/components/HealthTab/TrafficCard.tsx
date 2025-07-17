@@ -37,23 +37,33 @@ export default function TrafficCard({
   traffic,
   variations,
   isBandit,
+  disableDimensions,
+  cardTitle = "Traffic",
 }: {
   traffic: ExperimentSnapshotTraffic;
   variations: ExperimentReportVariation[];
   isBandit: boolean;
+  disableDimensions?: boolean;
+  cardTitle?: string;
 }) {
   const [cumulative, setCumulative] = useState(true);
   const { settings } = useUser();
 
   const srmThreshold = settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
 
-  const trafficByDate = traffic.dimension?.dim_exposure_date;
+  const trafficByDate = traffic.dimension?.dim_exposure_date || [];
 
-  const availableDimensions = transformDimensionData(
-    traffic.dimension,
-    variations,
-    srmThreshold,
-    isBandit
+  const availableDimensions = useMemo(
+    () =>
+      disableDimensions
+        ? []
+        : transformDimensionData(
+            traffic.dimension,
+            variations,
+            srmThreshold,
+            isBandit
+          ),
+    [disableDimensions, traffic, variations, srmThreshold, isBandit]
   );
 
   const [selectedDimension, setSelectedDimension] = useState<string>("");
@@ -69,42 +79,46 @@ export default function TrafficCard({
   }, [availableDimensions, selectedDimension, traffic]);
 
   // Get data for users graph
-  const usersPerDate = useMemo<ExperimentDateGraphDataPoint[]>(() => {
-    // Keep track of total users per variation for when cumulative is true
-    const total: number[] = [];
-    const sortedTraffic = [...trafficByDate].sort((a, b) => {
-      return getValidDate(a.name).getTime() - getValidDate(b.name).getTime();
-    });
+  const usersPerDate = useMemo<ExperimentDateGraphDataPoint[]>(
+    () => {
+      // Keep track of total users per variation for when cumulative is true
+      const total: number[] = [];
+      const sortedTraffic = [...trafficByDate].sort((a, b) => {
+        return getValidDate(a.name).getTime() - getValidDate(b.name).getTime();
+      });
 
-    return sortedTraffic.map((d) => {
-      return {
-        d: getValidDate(parseISO(d.name)),
-        variations: variations.map((variation, i) => {
-          const users = d.variationUnits[i] || 0;
-          total[i] = total[i] || 0;
-          total[i] += users;
-          const v = cumulative ? total[i] : users;
-          const v_formatted = v + "";
-          return {
-            v,
-            v_formatted,
-            label: numberFormatter.format(v),
-          };
-        }),
-        srm: d.srm,
-      };
-    });
-  }, [trafficByDate, variations, cumulative]);
+      return sortedTraffic.map((d) => {
+        return {
+          d: getValidDate(parseISO(d.name)),
+          variations: variations.map((variation, i) => {
+            const users = d.variationUnits[i] || 0;
+            total[i] = total[i] || 0;
+            total[i] += users;
+            const v = cumulative ? total[i] : users;
+            const v_formatted = v + "";
+            return {
+              v,
+              v_formatted,
+              label: numberFormatter.format(v),
+            };
+          }),
+          srm: d.srm,
+        };
+      });
+    }, [trafficByDate, variations, cumulative]
+  );
 
   const sortedDimensionSlices = useMemo(() => {
-    return traffic.dimension[selectedDimension]?.sort(compareDimsByTotalUsers);
+    return traffic.dimension?.[selectedDimension]?.sort(
+      compareDimsByTotalUsers
+    );
   }, [selectedDimension, traffic.dimension]);
 
   return (
     <div className="box my-4 p-3">
       <div className="mx-2">
         <div className="d-flex flex-row mt-1">
-          <h2 className="d-inline">{"Traffic"}</h2>
+          <h2 className="d-inline">{cardTitle}</h2>
           <div className="flex-1" />
           <div className="col-auto">
             <div className="uppercase-title text-muted">Dimension</div>

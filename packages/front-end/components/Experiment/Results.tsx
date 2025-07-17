@@ -339,6 +339,7 @@ const Results: FC<{
           metricOverrides={experiment.metricOverrides ?? []}
           dimensionId={snapshot.dimension ?? ""}
           isLatestPhase={phase === experiment.phases.length - 1}
+          phase={phase}
           startDate={phaseObj?.dateStarted ?? ""}
           endDate={phaseObj?.dateEnded ?? ""}
           reportDate={snapshot.dateCreated}
@@ -377,6 +378,7 @@ const Results: FC<{
             startDate={phaseObj?.dateStarted ?? ""}
             endDate={phaseObj?.dateEnded ?? ""}
             isLatestPhase={phase === experiment.phases.length - 1}
+            phase={phase}
             status={experiment.status}
             goalMetrics={experiment.goalMetrics}
             secondaryMetrics={experiment.secondaryMetrics}

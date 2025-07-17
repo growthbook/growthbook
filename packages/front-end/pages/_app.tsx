@@ -36,6 +36,7 @@ import GuidedGetStartedBar from "@/components/Layout/GuidedGetStartedBar";
 import LayoutLite from "@/components/Layout/LayoutLite";
 import { growthbook } from "@/services/utils";
 import { UserContextProvider } from "@/services/UserContext";
+import { SidebarOpenProvider } from "@/components/Layout/SidebarOpenProvider";
 
 // Make useLayoutEffect isomorphic (for SSR)
 if (typeof window === "undefined") React.useLayoutEffect = React.useEffect;
@@ -176,43 +177,49 @@ function App({
       {ready || noLoadingOverlay ? (
         <AppearanceUIThemeProvider>
           <RadixTheme>
-            <GrowthBookProvider growthbook={growthbook}>
-              <div id="portal-root" />
-              {preAuth || progressiveAuth ? (
-                renderPreAuth()
-              ) : (
-                <PageHeadProvider>
-                  <AuthProvider>
-                    <ProtectedPage organizationRequired={organizationRequired}>
-                      {organizationRequired ? (
-                        <GetStartedProvider>
-                          <DefinitionsProvider>
-                            {liteLayout ? <LayoutLite /> : <Layout />}
-                            <main className={`main ${parts[0]}`}>
-                              <GuidedGetStartedBar />
-                              <OrganizationMessagesContainer />
-                              <DemoDataSourceGlobalBannerContainer />
-                              <DefinitionsGuard>
-                                <Component
-                                  {...{ ...pageProps, envReady: ready }}
-                                />
-                              </DefinitionsGuard>
+            <SidebarOpenProvider>
+              <GrowthBookProvider growthbook={growthbook}>
+                <div id="portal-root" />
+                {preAuth || progressiveAuth ? (
+                  renderPreAuth()
+                ) : (
+                  <PageHeadProvider>
+                    <AuthProvider>
+                      <ProtectedPage
+                        organizationRequired={organizationRequired}
+                      >
+                        {organizationRequired ? (
+                          <GetStartedProvider>
+                            <DefinitionsProvider>
+                              {liteLayout ? <LayoutLite /> : <Layout />}
+                              <main className={`main ${parts[0]}`}>
+                                <GuidedGetStartedBar />
+                                <OrganizationMessagesContainer />
+                                <DemoDataSourceGlobalBannerContainer />
+                                <DefinitionsGuard>
+                                  <Component
+                                    {...{ ...pageProps, envReady: ready }}
+                                  />
+                                </DefinitionsGuard>
+                              </main>
+                            </DefinitionsProvider>
+                          </GetStartedProvider>
+                        ) : (
+                          <div>
+                            <TopNavLite />
+                            <main className="container">
+                              <Component
+                                {...{ ...pageProps, envReady: ready }}
+                              />
                             </main>
-                          </DefinitionsProvider>
-                        </GetStartedProvider>
-                      ) : (
-                        <div>
-                          <TopNavLite />
-                          <main className="container">
-                            <Component {...{ ...pageProps, envReady: ready }} />
-                          </main>
-                        </div>
-                      )}
-                    </ProtectedPage>
-                  </AuthProvider>
-                </PageHeadProvider>
-              )}
-            </GrowthBookProvider>
+                          </div>
+                        )}
+                      </ProtectedPage>
+                    </AuthProvider>
+                  </PageHeadProvider>
+                )}
+              </GrowthBookProvider>
+            </SidebarOpenProvider>
           </RadixTheme>
         </AppearanceUIThemeProvider>
       ) : error ? (
