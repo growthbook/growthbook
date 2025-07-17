@@ -3,8 +3,8 @@ import { date, datetime } from "shared/dates";
 import Link from "next/link";
 import clsx from "clsx";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { Flex } from "@radix-ui/themes";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Pagination from "@/components/Pagination";
 import { useUser } from "@/services/UserContext";
@@ -21,13 +21,18 @@ import LinkButton from "@/components/Radix/LinkButton";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import NewHoldoutForm from "@/components/Holdout/NewHoldoutForm";
 import { useAddComputedFields, useSearch } from "@/services/search";
+import Badge from "@/components/Radix/Badge";
+import { RadixColor } from "@/components/Radix/HelperText";
+import UserAvatar from "@/components/Avatar/UserAvatar";
+import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 
 const NUM_PER_PAGE = 20;
 
 const HoldoutsPage = (): React.ReactElement => {
-  const { ready, project } = useDefinitions();
+  const { ready, project, projects } = useDefinitions();
 
   const [tabs, setTabs] = useLocalStorage<string[]>("experiment_tabs", []);
+  const { getUserDisplay } = useUser();
 
   const {
     experiments: allExperiments,
@@ -72,14 +77,34 @@ const HoldoutsPage = (): React.ReactElement => {
           )}`
         : null;
 
+    const projectsComputed: {
+      id: string;
+      name: string;
+      isDeReferenced: boolean;
+    }[] = item.projects.map((p) => {
+      const project = projects.find((project) => project.id === p);
+      if (!project) {
+        return {
+          id: p,
+          name: p,
+          isDeReferenced: true, // cant find project
+        };
+      }
+      return {
+        id: project.id,
+        name: project.name,
+        isDeReferenced: false,
+      };
+    });
+    const ownerName = getUserDisplay(item.experiment.owner, false) || "";
     return {
       name: item.name,
-      projects: item.projects,
+      projects: projectsComputed,
       tags: item.experiment?.tags,
       duration: durationString,
       numExperiments: item.linkedExperiments.length,
       numFeatures: item.linkedFeatures.length,
-      // owner: item.experiment.owner,
+      ownerName,
       hashAttribute: item.experiment?.hashAttribute,
       status: item.experiment?.status,
     };
@@ -91,7 +116,7 @@ const HoldoutsPage = (): React.ReactElement => {
       "name",
       "projects",
       "tags",
-      "owner",
+      "ownerName",
       "hashAttribute",
       "status",
     ],
@@ -103,20 +128,17 @@ const HoldoutsPage = (): React.ReactElement => {
   const tabCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     items.forEach((item) => {
-      counts[item.tab] = counts[item.tab] || 0;
-      counts[item.tab]++;
+      counts[item.status] = counts[item.status] || 0;
+      counts[item.status]++;
     });
     return counts;
   }, [items]);
 
   const filtered = useMemo(() => {
     return tabs.length
-      ? items.filter((item) => tabs.includes(item.tab))
+      ? items.filter((item) => tabs.includes(item.status))
       : items;
   }, [tabs, items]);
-
-  // If "All Projects" is selected is selected and some experiments are in a project, show the project column
-  const showProjectColumn = !project && items.some((e) => e.project);
 
   const hasHoldoutFeature = hasCommercialFeature("holdouts");
 
@@ -298,93 +320,117 @@ const HoldoutsPage = (): React.ReactElement => {
               <table className="appbox table experiment-table gbtable responsive-table">
                 <thead>
                   <tr>
-                    <th></th>
                     <SortableTH field="name" className="w-100">
                       Holdout Name
                     </SortableTH>
-                    {showProjectColumn && (
-                      <SortableTH field="projects">Projects</SortableTH>
-                    )}
+                    <SortableTH field="projects">Projects</SortableTH>
                     <SortableTH field="tags">Tags</SortableTH>
-                    <SortableTH field="owner">Owner</SortableTH>
+                    <SortableTH field="ownerName">Owner</SortableTH>
                     <SortableTH field="duration">Date</SortableTH>
                     <SortableTH field="status">Status</SortableTH>
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.slice(start, end).map((e) => {
+                  {filtered.slice(start, end).map((holdout) => {
                     return (
-                      <tr key={e.id} className="hover-highlight">
-                        <td data-title="Watching status:" className="watching">
-                          <WatchButton
-                            item={e.id}
-                            itemType="experiment"
-                            type="icon"
-                          />
-                        </td>
+                      <tr key={holdout.id} className="hover-highlight">
                         <td data-title="Holdout name:" className="p-0">
                           <Link
-                            href={`/holdout/${e.id}`}
+                            href={`/holdout/${holdout.id}`}
                             className="d-block p-2"
                           >
                             <div className="d-flex flex-column">
                               <div className="d-flex">
-                                <span className="testname">{e.name}</span>
+                                <span className="testname">{holdout.name}</span>
                               </div>
-                              {isFiltered && e.trackingKey && (
+                              {isFiltered && holdout.experiment.trackingKey && (
                                 <span
                                   className="testid text-muted small"
                                   title="Experiment Id"
                                 >
-                                  {e.trackingKey}
+                                  {holdout.experiment.trackingKey}
                                 </span>
                               )}
                             </div>
                           </Link>
                         </td>
-                        {showProjectColumn && (
-                          <td className="nowrap" data-title="Project:">
-                            {e.projectIsDeReferenced ? (
-                              <Tooltip
-                                body={
-                                  <>
-                                    Project <code>{e.project}</code> not found
-                                  </>
-                                }
-                              >
-                                <span className="text-danger">
-                                  Invalid project
-                                </span>
-                              </Tooltip>
-                            ) : (
-                              e.projectName ?? <em>None</em>
-                            )}
-                          </td>
-                        )}
-
+                        <td className="nowrap" data-title="Project:">
+                          {holdout.projects.length === 0
+                            ? null
+                            : holdout.projects.map(
+                                (p: {
+                                  id: string;
+                                  name: string;
+                                  isDeReferenced: boolean;
+                                }) =>
+                                  p.isDeReferenced ? (
+                                    <Tooltip
+                                      key={p.id}
+                                      body={
+                                        <>
+                                          Project <code>{p.name}</code> not
+                                          found
+                                        </>
+                                      }
+                                    >
+                                      <Badge
+                                        title={"Not Found"}
+                                        label={"Not Found"}
+                                        color={"red" as RadixColor}
+                                        variant="soft"
+                                        mr={"2"}
+                                        mb={"1"}
+                                      />
+                                    </Tooltip>
+                                  ) : (
+                                    <Badge
+                                      title={p.name}
+                                      label={p.name}
+                                      color={"gray" as RadixColor}
+                                      variant="soft"
+                                      mr={"2"}
+                                      mb={"1"}
+                                    />
+                                  )
+                              )}
+                        </td>
                         <td data-title="Tags:" className="table-tags">
                           <SortedTags
-                            tags={Object.values(e.experiment.tags)}
+                            tags={Object.values(holdout.tags)}
                             useFlex={true}
                           />
                         </td>
                         <td className="nowrap" data-title="Owner:">
-                          {e.ownerName}
+                          <Flex align="center" gap="2">
+                            <UserAvatar
+                              name={holdout.ownerName}
+                              size="sm"
+                              variant="soft"
+                            />
+                            <span className="text-truncate">
+                              {holdout.ownerName}
+                            </span>
+                          </Flex>
                         </td>
-                        <td className="nowrap" title={datetime(e.date)}>
-                          {e.tab === "running"
+                        <td
+                          className="nowrap"
+                          title={datetime(holdout.dateCreated)}
+                        >
+                          {holdout.experiment.status === "running"
                             ? "started"
-                            : e.tab === "drafts"
+                            : holdout.experiment.status === "draft"
                             ? "created"
-                            : e.tab === "stopped"
+                            : holdout.experiment.status === "stopped"
                             ? "ended"
-                            : e.tab === "archived"
+                            : holdout.experiment.status === "archived"
                             ? "updated"
                             : ""}{" "}
-                          {date(e.date)}
+                          {date(holdout.experiment.dateCreated)}
                         </td>
                         <td className="nowrap" data-title="Status:">
-                          {/* <ExperimentStatusIndicator experimentData={e} /> */}
+                          <ExperimentStatusIndicator
+                            experimentData={holdout.experiment}
+                          />
                         </td>
                       </tr>
                     );
