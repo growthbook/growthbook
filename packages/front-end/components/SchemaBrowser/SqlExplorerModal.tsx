@@ -17,6 +17,7 @@ import { Box, Flex, Text } from "@radix-ui/themes";
 import { getValidDate } from "shared/dates";
 import { isReadOnlySQL, SQL_EXPLORER_LIMIT } from "shared/sql";
 import { BsThreeDotsVertical, BsStars } from "react-icons/bs";
+import { FiChevronRight } from "react-icons/fi";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -688,42 +689,20 @@ export default function SqlExplorerModal({
                       <AreaWithHeader
                         header={
                           <Flex align="center" justify="between">
-                            <Text
-                              weight="bold"
-                              style={{ color: "var(--color-text-mid)" }}
-                            >
-                              SQL
-                            </Text>
-                            {!readOnlyMode ? (
-                              <Flex gap="3">
-                                <Tooltip body="The SQL Explorer automatically applies a 1000 row limit to ensure optimal performance.">
-                                  <input
-                                    type="checkbox"
-                                    className="form-check-input"
-                                    id={`limit-toggle`}
-                                    checked={true}
-                                    disabled={true}
-                                  />
-                                  <Text
-                                    size="1"
-                                    weight="medium"
-                                    style={{ color: "var(--gray-8)" }}
-                                    className="cursor-pointer"
-                                  >
-                                    Limit to {SQL_EXPLORER_LIMIT} rows
-                                  </Text>
-                                </Tooltip>
-                                {formatError && (
-                                  <Tooltip body={formatError}>
-                                    <span>
-                                      <FaExclamationTriangle className="text-danger" />
-                                    </span>
-                                  </Tooltip>
-                                )}
+                            <Flex gap="4" align="center">
+                              <Box>
+                                <Text
+                                  weight="bold"
+                                  style={{ color: "var(--color-text-mid)" }}
+                                >
+                                  SQL
+                                </Text>
+                              </Box>
+                              {!readOnlyMode && (
                                 <Tooltip
                                   body={
                                     aiEnabled ? (
-                                      "Generate SQL from AI"
+                                      ""
                                     ) : (
                                       <>
                                         Org admins can enable AI powered SQL
@@ -738,12 +717,46 @@ export default function SqlExplorerModal({
                                     variant="ghost"
                                     onClick={handleAIClick}
                                   >
-                                    <BsStars />{" "}
-                                    {openAIBox
-                                      ? "Close AI prompt"
-                                      : "Generate SQL"}
+                                    <BsStars /> Text to SQL{" "}
+                                    <FiChevronRight
+                                      style={{
+                                        transform: openAIBox
+                                          ? "rotate(90deg)"
+                                          : "none",
+                                      }}
+                                    />
                                   </Button>
                                 </Tooltip>
+                              )}
+                            </Flex>
+                            {!readOnlyMode ? (
+                              <Flex gap="3">
+                                <Tooltip body="The SQL Explorer automatically applies a 1000 row limit to ensure optimal performance.">
+                                  <Box pl="5">
+                                    <input
+                                      type="checkbox"
+                                      className="form-check-input"
+                                      id={`limit-toggle`}
+                                      checked={true}
+                                      disabled={true}
+                                    />
+                                    <Text
+                                      size="1"
+                                      weight="medium"
+                                      style={{ color: "var(--gray-8)" }}
+                                      className="cursor-pointer"
+                                    >
+                                      Limit to {SQL_EXPLORER_LIMIT} rows
+                                    </Text>
+                                  </Box>
+                                </Tooltip>
+                                {formatError && (
+                                  <Tooltip body={formatError}>
+                                    <span>
+                                      <FaExclamationTriangle className="text-danger" />
+                                    </span>
+                                  </Tooltip>
+                                )}
                                 <Button
                                   size="xs"
                                   variant="ghost"
@@ -778,25 +791,27 @@ export default function SqlExplorerModal({
                           <Flex>
                             <Box width="100%" px="4" py="3" pb="4">
                               <Box pb="3">
+                                <label>
+                                  Natural language to SQL{" "}
+                                  <Tooltip body="Use text to describe what you would like to generate. The AI is aware of your table structure, but may still hallucinate, particularly with dates." />
+                                </label>
                                 <Field
                                   textarea={true}
                                   value={aiInput}
-                                  placeholder="Describe the SQL query you want to generate"
+                                  placeholder="Make a request, e.g. 'Show me the top 10 users by revenue in the last month.'"
                                   onChange={(e) => {
                                     setAiInput(e.target.value);
                                   }}
                                 />
                               </Box>
                               <Flex align="center" justify="start" gap="4">
-                                <Tooltip body="AI is aware of your table structure, but may still hallucinate.">
-                                  <Button
-                                    onClick={generateSQL}
-                                    disabled={loading || !aiInput}
-                                  >
-                                    {" "}
-                                    {loading ? "Generating..." : "Generate SQL"}
-                                  </Button>
-                                </Tooltip>
+                                <Button
+                                  onClick={generateSQL}
+                                  disabled={loading || !aiInput}
+                                >
+                                  <BsStars />{" "}
+                                  {loading ? "Generating..." : "Generate SQL"}
+                                </Button>
                                 <Box className="text-muted"></Box>
                               </Flex>
                               {aiError && (
