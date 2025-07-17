@@ -23,7 +23,10 @@ export function getPath(dataSourceType: DataSourceType, path: RowType): string {
       if (pathArray.length === 1) {
         return "";
       } else {
-        return pathArray.slice(1, pathArray.length).join(".");
+        return pathArray
+          .slice(1)
+          .map((part) => "`" + part + "`") // Wrap the path in backticks to avoid issues with reserved words or special characters
+          .join(".");
       }
 
     case "bigquery":
