@@ -51,6 +51,7 @@ import { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "back-end/src/integrations/SqlInte
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import { BanditResult } from "back-end/types/experiment";
 import { statsServerPool } from "back-end/src/services/python";
+import { metrics } from "back-end/src/util/metrics";
 
 // Keep these interfaces in sync with gbstats
 export interface AnalysisSettingsForStatsEngine {
@@ -205,7 +206,11 @@ export function getBanditSettingsForStatsEngine(
 async function runStatsEngine(
   statsData: ExperimentDataForStatsEngine[]
 ): Promise<MultipleExperimentMetricAnalysis[]> {
+  const acquireStart = Date.now();
   const server = await statsServerPool.acquire();
+  metrics
+    .getHistogram("python.stats_pool_acquire_ms")
+    .record(Date.now() - acquireStart);
   try {
     return await server.call(statsData);
   } finally {
