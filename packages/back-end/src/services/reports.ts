@@ -244,6 +244,17 @@ export function getMetricForSnapshot({
   const metricSnapshotSettings = settingsForSnapshotMetrics?.find(
     (s) => s.metric === id
   );
+
+  // TODO: pull out logic to create window settings to do some validation
+  // i.e. skip overrides if they're in a holdout. strip out window settings if type is none for some reason
+
+  // TODO: find the minimum window value from the metric settings and the holdout lookback window
+  // do some conversions if metric lookback window unit is different from the holdout lookback window unit
+  const minWindowValue = Math.min(
+    metric.windowSettings.windowValue,
+    holdoutLookbackWindow?.value ?? 0
+  );
+
   return {
     id,
     settings: {
