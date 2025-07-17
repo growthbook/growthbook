@@ -34,6 +34,8 @@ export function getPath(dataSourceType: DataSourceType, path: RowType): string {
 
     case "bigquery":
       return "`" + returnValue + "`"; // BigQuery requires backticks around the full path
+    case "growthbook_clickhouse":
+      return pathArray[pathArray.length - 1];
 
     default:
       return returnValue;
