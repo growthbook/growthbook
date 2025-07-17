@@ -168,6 +168,11 @@ export const ALLOW_CREATE_METRICS = stringToBoolean(
   process.env.ALLOW_CREATE_METRICS
 );
 
+// Defines the User-Agent header for all requests made by the API
+export const API_USER_AGENT =
+  process.env.API_USER_AGENT ||
+  (IS_CLOUD ? "GrowthBook Cloud (https://app.growthbook.io)" : "GrowthBook");
+
 // Add a default secret access key via an environment variable
 // Only allowed while self-hosting and not multi org
 let secretAPIKey = IS_MULTI_ORG ? "" : process.env.SECRET_API_KEY || "";
