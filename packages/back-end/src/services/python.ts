@@ -177,7 +177,6 @@ class PythonStatsServer<Input, Output> {
           );
           clearTimeout(timer);
 
-          // Datadog metrics
           metrics.getCounter("python.stats_calls_resolved").increment();
           metrics
             .getHistogram("python.stats_call_duration_ms")
@@ -192,7 +191,6 @@ class PythonStatsServer<Input, Output> {
           );
           clearTimeout(timer);
 
-          // Datadog metrics
           metrics.getCounter("python.stats_calls_rejected").increment();
           metrics
             .getHistogram("python.stats_call_duration_ms")
