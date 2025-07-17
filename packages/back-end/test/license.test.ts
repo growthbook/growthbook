@@ -605,6 +605,7 @@ describe("src/license", () => {
               method: "PUT",
               headers: {
                 "Content-Type": "application/json",
+                "User-Agent": "GrowthBook",
               },
               body: JSON.stringify({
                 licenseUserCodes: userLicenseCodes,
@@ -636,6 +637,7 @@ describe("src/license", () => {
               method: "PUT",
               headers: {
                 "Content-Type": "application/json",
+                "User-Agent": "GrowthBook",
               },
               body: JSON.stringify({
                 licenseUserCodes: userLicenseCodes,
@@ -674,6 +676,7 @@ describe("src/license", () => {
               method: "PUT",
               headers: {
                 "Content-Type": "application/json",
+                "User-Agent": "GrowthBook",
               },
               body: JSON.stringify({
                 licenseUserCodes: userLicenseCodes,
@@ -778,6 +781,7 @@ describe("src/license", () => {
               method: "PUT",
               headers: {
                 "Content-Type": "application/json",
+                "User-Agent": "GrowthBook",
               },
               body: JSON.stringify({
                 licenseUserCodes: userLicenseCodes,
