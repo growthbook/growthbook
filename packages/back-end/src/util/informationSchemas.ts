@@ -28,6 +28,10 @@ export function getPath(dataSourceType: DataSourceType, path: RowType): string {
 
     case "bigquery":
       return "`" + returnValue + "`"; // BigQuery requires backticks around the path
+    case "clickhouse":
+      // Clickhouse only supports one level, so we return the last element in the pathArray
+      // e.g. if the pathArray is ["database", "schema", "table"], we return "table"
+      return pathArray[pathArray.length - 1];
     default:
       return returnValue;
   }
