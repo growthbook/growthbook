@@ -17,24 +17,24 @@ type RowType = {
 export function getPath(dataSourceType: DataSourceType, path: RowType): string {
   const pathArray = Object.values(path);
   const returnValue = pathArray.join(".");
+
   switch (dataSourceType) {
-    // MySQL only supports path's that go two levels deep. E.G. If the full path is database.schema.table.column, it only supports table.column.
+    // MySQL and ClickHouse both support paths that go two levels deep
+    // Backticks help avoid issues with reserved words or special characters
     case "mysql":
+    case "clickhouse":
       if (pathArray.length === 1) {
         return "";
       } else {
         return pathArray
           .slice(1)
-          .map((part) => "`" + part + "`") // Wrap the path in backticks to avoid issues with reserved words or special characters
+          .map((part) => "`" + part + "`") // Wrap each path part in backticks for safety
           .join(".");
       }
 
     case "bigquery":
-      return "`" + returnValue + "`"; // BigQuery requires backticks around the path
-    case "clickhouse":
-      // Clickhouse only supports one level, so we return the last element in the pathArray
-      // e.g. if the pathArray is ["database", "schema", "table"], we return "table"
-      return pathArray[pathArray.length - 1];
+      return "`" + returnValue + "`"; // BigQuery requires backticks around the full path
+
     default:
       return returnValue;
   }
