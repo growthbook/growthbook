@@ -1,15 +1,9 @@
 import nodeFetch, { RequestInit, Response } from "node-fetch";
 import { ProxyAgent } from "proxy-agent";
 import { logger } from "./logger";
-import { IS_CLOUD, USE_PROXY, WEBHOOK_PROXY } from "./secrets";
+import { API_USER_AGENT, USE_PROXY, WEBHOOK_PROXY } from "./secrets";
 
 let useWebhookProxy = true;
-
-function getUserAgent() {
-  return IS_CLOUD
-    ? "GrowthBook Cloud (https://app.growthbook.io)"
-    : "GrowthBook";
-}
 
 export type CancellableFetchCriteria = {
   maxContentSize: number;
@@ -25,7 +19,7 @@ export type CancellableFetchReturn = {
 export function fetch(url: string, init?: RequestInit) {
   return nodeFetch(url, {
     ...init,
-    headers: { ...init?.headers, "User-Agent": getUserAgent() },
+    headers: { ...init?.headers, "User-Agent": API_USER_AGENT },
   });
 }
 
