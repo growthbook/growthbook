@@ -267,8 +267,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         <Flex gap="3" align="center">
                           <div>Holdout: </div>
                           <Link href={`/holdout/${feature.holdout?.id}`}>
-                            {/* TODO: add actualcholdout name */}
-                            Test Holdout
+                            {rule.description}
                           </Link>
                           {/* TODO: add holdout status indicator */}
                           {/* <ExperimentStatusIndicator
@@ -394,6 +393,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               <Flex>
                 {canEdit && (
                   <MoreMenu useRadix={true} size={14}>
+                    {/* TODO: if rule type is holdout, only have edit that opens a special holdout modal onClick */}
                     <a
                       href="#"
                       className="dropdown-item"

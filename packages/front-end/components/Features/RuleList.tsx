@@ -86,7 +86,7 @@ export default function RuleList({
     holdout && holdoutExperiment && holdout.environments.includes(environment)
       ? {
           id: "holdout",
-          description: "",
+          description: holdout.name,
           type: "holdout",
           value: feature.holdout?.value || "",
           condition: holdoutExperiment.phases[0].condition,

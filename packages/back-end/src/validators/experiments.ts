@@ -65,6 +65,7 @@ export const experimentPhase = z
     seed: z.string().optional(),
     variationWeights: z.array(z.number()),
     banditEvents: z.array(banditEvent).optional(),
+    holdoutLookbackStartDate: z.date().optional(),
   })
   .strict();
 export type ExperimentPhase = z.infer<typeof experimentPhase>;
