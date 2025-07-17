@@ -1,9 +1,11 @@
-import fetch, { RequestInit, Response } from "node-fetch";
+import nodeFetch, { RequestInit, Response } from "node-fetch";
 import { ProxyAgent } from "proxy-agent";
 import { logger } from "./logger";
 import { USE_PROXY, WEBHOOK_PROXY } from "./secrets";
 
 let useWebhookProxy = true;
+
+const USER_AGENT = "GrowthBook";
 
 export type CancellableFetchCriteria = {
   maxContentSize: number;
@@ -15,6 +17,13 @@ export type CancellableFetchReturn = {
   responseWithoutBody: Response;
   stringBody: string;
 };
+
+export function fetch(url: string, init?: RequestInit) {
+  return nodeFetch(url, {
+    ...init,
+    headers: { ...init?.headers, "User-Agent": USER_AGENT },
+  });
+}
 
 export function getHttpOptions(url?: string) {
   // if there is a ?proxy argument in the url, use that as the proxy
