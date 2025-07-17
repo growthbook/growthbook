@@ -100,7 +100,7 @@ export const startAnalysis = async (
     experiment.phases[0],
     {
       ...currentPhase,
-      dateStarted: new Date(),
+      lookbackStartDate: new Date(),
       name: "Analysis Period",
     },
   ];

@@ -232,7 +232,7 @@ const HoldoutPage = (): ReactElement => {
         breadcrumb={[
           {
             display: "Holdouts",
-            href: `/Holdouts`,
+            href: `/holdouts`,
           },
           { display: holdout.name },
         ]}
