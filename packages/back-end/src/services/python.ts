@@ -235,17 +235,19 @@ function publishPoolSizeToCloudWatch(value: number) {
       MetricData: [
         {
           MetricName: "PoolSize",
-          Timestamp: new Date(),
           Value: value,
           Unit: "Count",
-          Dimensions: [
-            { Name: "TaskId", Value: process.env.ECS_TASK_ID || "local" },
-          ],
         },
       ],
     });
   } catch (error) {
-    // When not running on AWS, no need to publish to cloudwatch or warn us every ten seconds.
+    // When not running on AWS, no need to publish to cloudwatch or warn us every minute.
+    if (ENVIRONMENT === "production") {
+      logger.error(
+        "Failed to publish Python stats pool size to CloudWatch: " +
+          error.message
+      );
+    }
   }
 }
 
@@ -254,17 +256,8 @@ function monitorServicePool() {
   statsServerPool.on("factoryCreateError", () => {
     metrics.getCounter("python.stats_pool_create_error").increment();
   });
-  statsServerPool.on("factoryCreateSuccess", () => {
-    metrics.getCounter("python.stats_pool_created").increment();
-  });
-  statsServerPool.on("factoryDestroySuccess", () => {
-    metrics.getCounter("python.stats_pool_destroyed").increment();
-  });
-  statsServerPool.on("factoryValidateError", () => {
-    metrics.getCounter("python.stats_pool_validate_error").increment();
-  });
-  statsServerPool.on("evict", () => {
-    metrics.getCounter("python.stats_pool_evicted").increment();
+  statsServerPool.on("factoryDestroyError", () => {
+    metrics.getCounter("python.stats_pool_destroy_error").increment();
   });
 
   setInterval(() => {
