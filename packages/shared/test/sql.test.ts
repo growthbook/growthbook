@@ -1,4 +1,4 @@
-import { ensureLimit, isReadOnlySQL } from "../src/sql";
+import { ensureLimit } from "../src/sql";
 
 describe("ensureLimit", () => {
   describe("already has LIMIT and OFFSET clauses", () => {
@@ -149,97 +149,5 @@ describe("ensureLimit", () => {
       const result = ensureLimit(sql, 10);
       expect(result).toBe("SELECT * FROM users LIMIT 10");
     });
-  });
-});
-
-describe("isReadOnlySQL", () => {
-  it("should return true for simple SELECT queries", () => {
-    const sql = "SELECT * FROM users";
-    expect(isReadOnlySQL(sql)).toBe(true);
-  });
-
-  it("should return false for INSERT queries", () => {
-    const sql = "INSERT INTO users (name) VALUES ('John')";
-    expect(isReadOnlySQL(sql)).toBe(false);
-  });
-
-  it("should return false for UPDATE queries", () => {
-    const sql = "UPDATE users SET name = 'Jane' WHERE id = 1";
-    expect(isReadOnlySQL(sql)).toBe(false);
-  });
-
-  it("should return false for DELETE queries", () => {
-    const sql = "DELETE FROM users WHERE id = 1";
-    expect(isReadOnlySQL(sql)).toBe(false);
-  });
-
-  it("should return true for complex SELECT queries with joins", () => {
-    const sql =
-      "SELECT u.name, o.amount FROM users u JOIN orders o ON u.id = o.user_id";
-    expect(isReadOnlySQL(sql)).toBe(true);
-  });
-
-  it("should return true for SELECT with subqueries", () => {
-    const sql = "SELECT * FROM (SELECT * FROM users) AS subquery";
-    expect(isReadOnlySQL(sql)).toBe(true);
-  });
-  it("should return false for DDL statements like CREATE TABLE", () => {
-    const sql = "CREATE TABLE new_table (id INT, name VARCHAR(100))";
-    expect(isReadOnlySQL(sql)).toBe(false);
-  });
-  it("should allow CTEs", () => {
-    const sql = `
-      WITH recent_users AS (
-        SELECT * FROM users WHERE created_at > NOW() - INTERVAL '30 days'
-      )
-      SELECT * FROM recent_users WHERE active = true;
-    `;
-    expect(isReadOnlySQL(sql)).toBe(true);
-  });
-  it("should return true for select queries with comments", () => {
-    const sql = "-- INSERT INTO users\nSELECT * FROM users";
-    expect(isReadOnlySQL(sql)).toBe(true);
-  });
-
-  it("should return true for select queries with block comments", () => {
-    const sql = "/* INSERT INTO users */SELECT * FROM users";
-    expect(isReadOnlySQL(sql)).toBe(true);
-  });
-  it("should return false for write queries with comments", () => {
-    const sql =
-      "-- SELECT * from users\nINSERT INTO users (name) VALUES ('John')";
-    expect(isReadOnlySQL(sql)).toBe(false);
-  });
-  it("should not allow insert from select", () => {
-    const sql = "INSERT INTO users SELECT * FROM new_users";
-    expect(isReadOnlySQL(sql)).toBe(false);
-  });
-  it("should allow explain queries", () => {
-    const sql = "EXPLAIN SELECT * FROM users";
-    expect(isReadOnlySQL(sql)).toBe(true);
-  });
-  it("should allow show queries", () => {
-    const sql = "SHOW TABLES";
-    expect(isReadOnlySQL(sql)).toBe(true);
-  });
-  it("should allow describe queries", () => {
-    const sql = "DESCRIBE users";
-    expect(isReadOnlySQL(sql)).toBe(true);
-  });
-  it("should allow desc queries", () => {
-    const sql = "DESC users";
-    expect(isReadOnlySQL(sql)).toBe(true);
-  });
-  it("should ignore whitespace at the start", () => {
-    const sql = "  \n\t\n--test\n \nUPDATE users";
-    expect(isReadOnlySQL(sql)).toBe(false);
-  });
-  it("should ignore whitespace at the start for readonly queries", () => {
-    const sql = "  \n\t\n--test\n \nSELECT * from users";
-    expect(isReadOnlySQL(sql)).toBe(true);
-  });
-  it("should return false for unknown starting keywords", () => {
-    const sql = "UNKNOWN * FROM users";
-    expect(isReadOnlySQL(sql)).toBe(false);
   });
 });

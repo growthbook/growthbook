@@ -15,7 +15,7 @@ import {
 } from "back-end/src/validators/saved-queries";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { getValidDate } from "shared/dates";
-import { isReadOnlySQL, SQL_EXPLORER_LIMIT } from "shared/sql";
+import { SQL_EXPLORER_LIMIT } from "shared/sql";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -40,6 +40,7 @@ import {
 } from "@/components/ResizablePanels";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { VisualizationAddIcon } from "@/components/Icons";
+import { validateSQL } from "@/services/datasources";
 import { SqlExplorerDataVisualization } from "../DataViz/SqlExplorerDataVisualization";
 import Modal from "../Modal";
 import SelectField from "../Forms/SelectField";
@@ -153,10 +154,7 @@ export default function SqlExplorerModal({
 
   const runQuery = useCallback(
     async (sql: string) => {
-      if (!isReadOnlySQL(sql)) {
-        throw new Error("Only SELECT queries are allowed.");
-      }
-
+      validateSQL(sql, []);
       form.setValue("dateLastRan", new Date());
       const res = await apiCall<QueryExecutionResult>("/query/run", {
         method: "POST",

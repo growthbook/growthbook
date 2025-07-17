@@ -68,19 +68,3 @@ export function ensureLimit(sql: string, limit: number): string {
   // Add a newline in case there's a line comment at the end
   return `${sql}\nLIMIT ${limit}`;
 }
-
-export function isReadOnlySQL(sql: string) {
-  const normalized = sql
-    .trim()
-    .replace(/--.*$/gm, "") // remove line comments
-    .replace(/\/\*[\s\S]*?\*\//g, "") // remove block comments
-    .toLowerCase();
-
-  // Check the first keyword (e.g. "select", "with", etc.)
-  const match = normalized.match(
-    /^\s*(with|select|explain|show|describe|desc)\b/
-  );
-  if (!match) return false;
-
-  return true;
-}

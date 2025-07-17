@@ -1,5 +1,4 @@
 import { AES, enc } from "crypto-js";
-import { isReadOnlySQL } from "shared/sql";
 import { ENCRYPTION_KEY } from "back-end/src/util/secrets";
 import GoogleAnalytics from "back-end/src/integrations/GoogleAnalytics";
 import Athena from "back-end/src/integrations/Athena";
@@ -155,10 +154,6 @@ export async function runFreeFormQuery(
 }> {
   if (!context.permissions.canRunSqlExplorerQueries(datasource)) {
     throw new Error("Permission denied");
-  }
-
-  if (!isReadOnlySQL(query)) {
-    throw new Error("Only SELECT queries are allowed.");
   }
 
   const integration = getSourceIntegrationObject(context, datasource);
