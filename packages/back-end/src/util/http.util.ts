@@ -1,11 +1,13 @@
 import nodeFetch, { RequestInit, Response } from "node-fetch";
 import { ProxyAgent } from "proxy-agent";
 import { logger } from "./logger";
-import { USE_PROXY, WEBHOOK_PROXY } from "./secrets";
+import { IS_CLOUD, USE_PROXY, WEBHOOK_PROXY } from "./secrets";
 
 let useWebhookProxy = true;
 
-const USER_AGENT = "GrowthBook";
+const USER_AGENT = IS_CLOUD
+  ? "GrowthBook Cloud (https://app.growthbook.io)"
+  : "GrowthBook";
 
 export type CancellableFetchCriteria = {
   maxContentSize: number;
@@ -88,17 +90,11 @@ export const cancellableFetch = async (
   let response: Response | null = null;
   let stringBody = "";
 
-  const headers = {
-    "User-Agent": "GrowthBook",
-    ...fetchOptions.headers,
-  };
-
   try {
     response = await fetch(url, {
       signal: abortController.signal,
       ...getHttpOptions(url),
       ...fetchOptions,
-      headers,
     });
 
     stringBody = await readResponseBody(response);
