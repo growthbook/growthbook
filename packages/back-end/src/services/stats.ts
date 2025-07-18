@@ -222,7 +222,7 @@ export async function runStatsEngine(
       if (!error) {
         error = `Stats server errored with: ${retVal.status} - ${retVal.statusText}`;
       }
-      logger.error("Error fetching from stats engine:", error);
+      logger.error(`Error fetching from stats engine: ${error}`);
       throw new Error(error);
     }
     const { results } = await retVal.json();
