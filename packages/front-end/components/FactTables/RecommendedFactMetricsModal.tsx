@@ -65,7 +65,7 @@ export function getRecommendedFactMetrics(
   const columnsWithTopValues = factTable.columns.filter(
     (column) =>
       column.alwaysInlineFilter &&
-      canInlineFilterColumn(factTable, column) &&
+      canInlineFilterColumn(factTable, column.column) &&
       column.topValues?.length
   );
 

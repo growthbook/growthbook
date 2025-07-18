@@ -1,8 +1,8 @@
+import { format } from "shared/sql";
 import {
   getBaseIdTypeAndJoins,
   compileSqlTemplate,
   expandDenominatorMetrics,
-  format,
   replaceCountStar,
   determineColumnTypes,
   getHost,
@@ -370,6 +370,38 @@ from
         { column: "empty", datatype: "" },
       ]);
     });
+
+    it("can determine JSON field keys and values", () => {
+      expect(
+        determineColumnTypes([
+          {
+            x: JSON.stringify({
+              a: 123,
+              b: "hello",
+              c: false,
+              d: null,
+              e: null,
+            }),
+          },
+          {
+            x: JSON.stringify({ d: 123, f: "foo" }),
+          },
+        ])
+      ).toEqual([
+        {
+          column: "x",
+          datatype: "json",
+          jsonFields: {
+            a: { datatype: "number" },
+            b: { datatype: "string" },
+            c: { datatype: "boolean" },
+            d: { datatype: "number" },
+            f: { datatype: "string" },
+          },
+        },
+      ]);
+    });
+
     it("can skip over null values", () => {
       expect(
         determineColumnTypes([
@@ -381,6 +413,51 @@ from
           },
         ])
       ).toEqual([{ column: "col", datatype: "number" }]);
+    });
+
+    it("detects JSON objects in addition to strings", () => {
+      expect(
+        determineColumnTypes([
+          {
+            x: { a: 123, b: "hello", c: false, d: null, e: null },
+          },
+          {
+            x: { d: 123, f: "foo" },
+          },
+        ])
+      ).toEqual([
+        {
+          column: "x",
+          datatype: "json",
+          jsonFields: {
+            a: { datatype: "number" },
+            b: { datatype: "string" },
+            c: { datatype: "boolean" },
+            d: { datatype: "number" },
+            f: { datatype: "string" },
+          },
+        },
+      ]);
+    });
+
+    it("detects Date objects as datatype date", () => {
+      expect(
+        determineColumnTypes([
+          {
+            d: new Date(),
+          },
+        ])
+      ).toEqual([{ column: "d", datatype: "date" }]);
+    });
+
+    it("detects other non-plain objects as 'other'", () => {
+      expect(
+        determineColumnTypes([
+          {
+            d: new Map(),
+          },
+        ])
+      ).toEqual([{ column: "d", datatype: "other" }]);
     });
   });
 });

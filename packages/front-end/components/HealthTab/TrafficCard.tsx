@@ -6,6 +6,7 @@ import { ExperimentReportVariation } from "back-end/types/report";
 import { useEffect, useMemo, useState } from "react";
 import { getValidDate } from "shared/dates";
 import { FaCircle } from "react-icons/fa6";
+import { parseISO } from "date-fns";
 import { DEFAULT_SRM_THRESHOLD } from "shared/constants";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
@@ -71,14 +72,13 @@ export default function TrafficCard({
   const usersPerDate = useMemo<ExperimentDateGraphDataPoint[]>(() => {
     // Keep track of total users per variation for when cumulative is true
     const total: number[] = [];
-    const sortedTraffic = [...trafficByDate];
-    sortedTraffic.sort((a, b) => {
+    const sortedTraffic = [...trafficByDate].sort((a, b) => {
       return getValidDate(a.name).getTime() - getValidDate(b.name).getTime();
     });
 
     return sortedTraffic.map((d) => {
       return {
-        d: getValidDate(d.name),
+        d: getValidDate(parseISO(d.name)),
         variations: variations.map((variation, i) => {
           const users = d.variationUnits[i] || 0;
           total[i] = total[i] || 0;

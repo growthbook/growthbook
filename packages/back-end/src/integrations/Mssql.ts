@@ -1,6 +1,6 @@
+import { FormatDialect } from "shared/src/types";
 import { MssqlConnectionParams } from "back-end/types/integrations/mssql";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
-import { FormatDialect } from "back-end/src/util/sql";
 import { findOrCreateConnection } from "back-end/src/util/mssqlPoolManager";
 import { QueryResponse } from "back-end/src/types/Integration";
 import SqlIntegration from "./SqlIntegration";
@@ -40,6 +40,10 @@ export default class Mssql extends SqlIntegration {
     return `SELECT TOP ${limit} * FROM ${table}`;
   }
 
+  ensureMaxLimit(sql: string, limit: number): string {
+    return `WITH __table AS (\n${sql}\n) SELECT TOP ${limit} * FROM __table`;
+  }
+
   addTime(
     col: string,
     unit: "hour" | "minute",
@@ -66,6 +70,10 @@ export default class Mssql extends SqlIntegration {
   }
   approxQuantile(value: string, quantile: string | number): string {
     return `APPROX_PERCENTILE_CONT(${quantile}) WITHIN GROUP (ORDER BY ${value})`;
+  }
+  extractJSONField(jsonCol: string, path: string, isNumeric: boolean): string {
+    const raw = `JSON_VALUE(${jsonCol}, '$.${path}')`;
+    return isNumeric ? this.ensureFloat(raw) : raw;
   }
   getDefaultDatabase() {
     return this.params.database;

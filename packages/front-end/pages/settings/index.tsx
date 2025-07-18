@@ -13,11 +13,13 @@ import {
   DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
   DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
   DEFAULT_DECISION_FRAMEWORK_ENABLED,
+  DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
 } from "shared/constants";
 import { OrganizationSettings } from "back-end/types/organization";
 import Link from "next/link";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Box, Flex, Heading } from "@radix-ui/themes";
+import { PRESET_DECISION_CRITERIA } from "shared/enterprise";
 import { useAuth } from "@/services/auth";
 import { hasFileConfig, isCloud } from "@/services/env";
 import TempMessage from "@/components/TempMessage";
@@ -163,6 +165,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
         settings.experimentMaxLengthDays ?? DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
       decisionFrameworkEnabled:
         settings.decisionFrameworkEnabled ?? DEFAULT_DECISION_FRAMEWORK_ENABLED,
+      defaultDecisionCriteriaId:
+        settings.defaultDecisionCriteriaId ?? PRESET_DECISION_CRITERIA.id,
+      requireProjectForFeatures:
+        settings.requireProjectForFeatures ??
+        DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
     },
   });
   const { apiCall } = useAuth();

@@ -6,6 +6,8 @@ import {
   getCollection,
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";
+import { ManagedBy } from "back-end/src/validators/managed-by";
+import { IS_CLOUD } from "back-end/src/util/secrets";
 
 const teamSchema = new mongoose.Schema({
   id: {
@@ -34,6 +36,7 @@ const teamSchema = new mongoose.Schema({
     },
   ],
   managedByIdp: Boolean,
+  managedBy: {},
 });
 
 const TeamModel = mongoose.model<TeamInterface>("Team", teamSchema);
@@ -113,9 +116,36 @@ export async function updateTeamMetadata(
   return changes;
 }
 
+export const updateTeamRemoveManagedBy = async (
+  orgId: string,
+  managedBy: Partial<ManagedBy>
+) => {
+  await TeamModel.updateMany(
+    {
+      organization: orgId,
+      managedBy,
+    },
+    {
+      $unset: {
+        managedBy: 1,
+      },
+    }
+  );
+};
+
 export async function deleteTeam(id: string, orgId: string): Promise<void> {
   await TeamModel.deleteOne({
     id,
     organization: orgId,
   });
+}
+
+export async function getAllTeamRoleInfoInDb() {
+  if (IS_CLOUD) {
+    throw new Error("getAllTeamRoleInfoInDb() is not supported on cloud");
+  }
+
+  const docs = await getCollection(COLLECTION).find().toArray();
+
+  return docs.map((d) => toInterface(d));
 }

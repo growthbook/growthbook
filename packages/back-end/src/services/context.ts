@@ -2,8 +2,9 @@ import { Permissions, userHasPermission } from "shared/permissions";
 import { uniq } from "lodash";
 import type pino from "pino";
 import type { Request } from "express";
-import { CommercialFeature, orgHasPremiumFeature } from "shared/enterprise";
 import { ExperimentMetricInterface } from "shared/experiments";
+import { CommercialFeature } from "shared/enterprise";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
 import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import {
@@ -34,12 +35,22 @@ import { SegmentModel } from "back-end/src/models/SegmentModel";
 import { MetricGroupModel } from "back-end/src/models/MetricGroupModel";
 import { PopulationDataModel } from "back-end/src/models/PopulationDataModel";
 import { ExperimentTemplatesModel } from "back-end/src/models/ExperimentTemplateModel";
+import { SafeRolloutModel } from "back-end/src/models/SafeRolloutModel";
+import { SafeRolloutSnapshotModel } from "back-end/src/models/SafeRolloutSnapshotModel";
+import { DecisionCriteriaModel } from "back-end/src/enterprise/models/DecisionCriteriaModel";
+import { MetricTimeSeriesModel } from "back-end/src/models/MetricTimeSeriesModel";
+import { WebhookSecretDataModel } from "back-end/src/models/WebhookSecretModel";
+import { SavedQueryDataModel } from "back-end/src/models/SavedQueryDataModel";
+import { FeatureRevisionLogModel } from "back-end/src/models/FeatureRevisionLogModel";
+import { FeatureInterface } from "back-end/types/feature";
+import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
   experiment: ExperimentInterface;
   datasource: DataSourceInterface;
   metric: ExperimentMetricInterface;
+  feature: FeatureInterface;
 };
 
 export class ReqContextClass {
@@ -47,25 +58,39 @@ export class ReqContextClass {
   public models!: {
     customFields: CustomFieldModel;
     factMetrics: FactMetricModel;
+    featureRevisionLogs: FeatureRevisionLogModel;
     projects: ProjectModel;
     urlRedirects: UrlRedirectModel;
     metricAnalysis: MetricAnalysisModel;
     populationData: PopulationDataModel;
+    savedQueries: SavedQueryDataModel;
     metricGroups: MetricGroupModel;
     segments: SegmentModel;
     experimentTemplates: ExperimentTemplatesModel;
+    safeRollout: SafeRolloutModel;
+    safeRolloutSnapshots: SafeRolloutSnapshotModel;
+    decisionCriteria: DecisionCriteriaModel;
+    metricTimeSeries: MetricTimeSeriesModel;
+    webhookSecrets: WebhookSecretDataModel;
   };
   private initModels() {
     this.models = {
       customFields: new CustomFieldModel(this),
       factMetrics: new FactMetricModel(this),
+      featureRevisionLogs: new FeatureRevisionLogModel(this),
       projects: new ProjectModel(this),
       urlRedirects: new UrlRedirectModel(this),
       metricAnalysis: new MetricAnalysisModel(this),
       populationData: new PopulationDataModel(this),
+      savedQueries: new SavedQueryDataModel(this),
       metricGroups: new MetricGroupModel(this),
       segments: new SegmentModel(this),
       experimentTemplates: new ExperimentTemplatesModel(this),
+      safeRollout: new SafeRolloutModel(this),
+      safeRolloutSnapshots: new SafeRolloutSnapshotModel(this),
+      decisionCriteria: new DecisionCriteriaModel(this),
+      metricTimeSeries: new MetricTimeSeriesModel(this),
+      webhookSecrets: new WebhookSecretDataModel(this),
     };
   }
 
@@ -195,7 +220,9 @@ export class ReqContextClass {
       ? {
           apiKey: this.apiKey,
         }
-      : null;
+      : ({
+          system: true,
+        } as const);
     if (!auditUser) {
       throw new Error("Must have user or apiKey in context to audit log");
     }
@@ -212,11 +239,13 @@ export class ReqContextClass {
     experiment: new Map(),
     datasource: new Map(),
     metric: new Map(),
+    feature: new Map(),
   };
   public async populateForeignRefs({
     experiment,
     datasource,
     metric,
+    feature,
   }: ForeignRefsCacheKeys) {
     await this.addMissingForeignRefs("experiment", experiment, (ids) =>
       getExperimentsByIds(this, ids)
@@ -227,6 +256,9 @@ export class ReqContextClass {
     );
     await this.addMissingForeignRefs("metric", metric, (ids) =>
       getExperimentMetricsByIds(this, ids)
+    );
+    await this.addMissingForeignRefs("feature", feature, (ids) =>
+      getFeaturesByIds(this, ids)
     );
   }
   private async addMissingForeignRefs<K extends keyof ForeignRefsCache>(

@@ -5,6 +5,7 @@ import {
   DEFAULT_METRIC_WINDOW_HOURS,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_STATS_ENGINE,
+  DEFAULT_TARGET_MDE,
 } from "shared/constants";
 import {
   isFactMetric,
@@ -27,6 +28,7 @@ import {
   ExperimentReportSSRData,
 } from "back-end/types/report";
 import {
+  ExperimentDecisionFrameworkSettings,
   ExperimentInterface,
   ExperimentPhase,
   MetricOverride,
@@ -141,6 +143,7 @@ export function reportArgsFromSnapshot(
     sequentialTestingTuningParameter:
       analysisSettings.sequentialTestingTuningParameter,
     pValueThreshold: analysisSettings.pValueThreshold,
+    decisionFrameworkSettings: experiment.decisionFrameworkSettings,
   };
 }
 
@@ -176,12 +179,13 @@ export function getSnapshotSettingsFromReportArgs(
   const snapshotSettings: ExperimentSnapshotSettings = {
     metricSettings: getAllMetricIdsFromExperiment(args)
       .map((m) =>
-        getMetricForSnapshot(
-          m,
+        getMetricForSnapshot({
+          id: m,
           metricMap,
-          args.settingsForSnapshotMetrics,
-          args.metricOverrides
-        )
+          settingsForSnapshotMetrics: args.settingsForSnapshotMetrics,
+          metricOverrides: args.metricOverrides,
+          decisionFrameworkSettings: args.decisionFrameworkSettings,
+        })
       )
       .filter(isDefined),
     activationMetric: args.activationMetric || null,
@@ -212,16 +216,26 @@ export function getSnapshotSettingsFromReportArgs(
   return { snapshotSettings, analysisSettings };
 }
 
-export function getMetricForSnapshot(
-  id: string | null | undefined,
-  metricMap: Map<string, ExperimentMetricInterface>,
-  settingsForSnapshotMetrics?: MetricSnapshotSettings[],
-  metricOverrides?: MetricOverride[]
-): MetricForSnapshot | null {
+export function getMetricForSnapshot({
+  id,
+  metricMap,
+  settingsForSnapshotMetrics,
+  metricOverrides,
+  decisionFrameworkSettings,
+}: {
+  id: string | null | undefined;
+  metricMap: Map<string, ExperimentMetricInterface>;
+  settingsForSnapshotMetrics?: MetricSnapshotSettings[];
+  metricOverrides?: MetricOverride[];
+  decisionFrameworkSettings: ExperimentDecisionFrameworkSettings;
+}): MetricForSnapshot | null {
   if (!id) return null;
   const metric = metricMap.get(id);
   if (!metric) return null;
   const overrides = metricOverrides?.find((o) => o.id === id);
+  const decisionFrameworkMetricOverride = decisionFrameworkSettings?.decisionFrameworkMetricOverrides?.find(
+    (o) => o.id === id
+  );
   const metricSnapshotSettings = settingsForSnapshotMetrics?.find(
     (s) => s.metric === id
   );
@@ -272,6 +286,10 @@ export function getMetricForSnapshot(
         metricSnapshotSettings?.regressionAdjustmentAvailable ?? true,
       regressionAdjustmentReason:
         metricSnapshotSettings?.regressionAdjustmentReason ?? "",
+      targetMDE:
+        decisionFrameworkMetricOverride?.targetMDE ??
+        metric.targetMDE ??
+        DEFAULT_TARGET_MDE,
     },
   };
 }
@@ -364,13 +382,19 @@ export async function createReportSnapshot({
     hasRegressionAdjustmentFeature: true,
   });
 
-  const analysisSettings = getDefaultExperimentAnalysisSettings(
+  const defaultAnalysisSettings = getDefaultExperimentAnalysisSettings(
     statsEngine,
     report.experimentAnalysisSettings,
     organization,
     regressionAdjustmentEnabled,
     report.experimentAnalysisSettings.dimension
   );
+
+  const analysisSettings: ExperimentSnapshotAnalysisSettings = {
+    ...defaultAnalysisSettings,
+    differenceType:
+      report.experimentAnalysisSettings.differenceType ?? "relative",
+  };
 
   const snapshotSettings = getReportSnapshotSettings({
     report,
@@ -421,7 +445,6 @@ export async function createReportSnapshot({
 
   const snapshot = await createExperimentSnapshotModel({
     data: snapshotData,
-    context,
   });
 
   const integration = getSourceIntegrationObject(context, datasource, true);
@@ -523,12 +546,14 @@ export function getReportSnapshotSettings({
     metricGroups
   )
     .map((m) =>
-      getMetricForSnapshot(
-        m,
+      getMetricForSnapshot({
+        id: m,
         metricMap,
         settingsForSnapshotMetrics,
-        report.experimentAnalysisSettings.metricOverrides
-      )
+        metricOverrides: report.experimentAnalysisSettings.metricOverrides,
+        decisionFrameworkSettings:
+          report.experimentAnalysisSettings.decisionFrameworkSettings,
+      })
     )
     .filter(isDefined);
 

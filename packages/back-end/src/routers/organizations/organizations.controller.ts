@@ -1,17 +1,6 @@
 import { Response } from "express";
 import { cloneDeep } from "lodash";
 import { freeEmailDomains } from "free-email-domains-typescript";
-import {
-  accountFeatures,
-  getAccountPlan,
-  getEffectiveAccountPlan,
-  getLicense,
-  getLicenseError,
-  getLowestPlanPerFeature,
-  getSubscriptionFromLicense,
-  licenseInit,
-  LicenseInterface,
-} from "shared/enterprise";
 import { experimentHasLinkedChanges } from "shared/util";
 import {
   getRoles,
@@ -20,6 +9,7 @@ import {
   getDefaultRole,
 } from "shared/permissions";
 import uniqid from "uniqid";
+import { LicenseInterface, accountFeatures } from "shared/enterprise";
 import { getWatchedByUser } from "back-end/src/models/WatchModel";
 import {
   UpdateSdkWebhookProps,
@@ -47,7 +37,6 @@ import {
   isEnterpriseSSO,
   removeMember,
   revokeInvite,
-  getSubscriptionFromOrg,
 } from "back-end/src/services/organizations";
 import {
   getNonSensitiveParams,
@@ -144,6 +133,16 @@ import {
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
 import { findSDKConnectionsByIds } from "back-end/src/models/SdkConnectionModel";
+import {
+  getLicense,
+  licenseInit,
+  getLowestPlanPerFeature,
+  getAccountPlan,
+  getEffectiveAccountPlan,
+  getLicenseError,
+  getSubscriptionFromLicense,
+} from "back-end/src/enterprise";
+import { getUsageFromCache } from "back-end/src/enterprise/billing";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
@@ -164,6 +163,8 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     projects,
     factTables,
     factMetrics,
+    decisionCriteria,
+    webhookSecrets,
   ] = await Promise.all([
     getMetricsByOrganization(context),
     getDataSourcesByOrganization(context),
@@ -176,6 +177,8 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     context.models.projects.getAll(),
     getAllFactTablesForOrganization(context),
     context.models.factMetrics.getAll(),
+    context.models.decisionCriteria.getAll(),
+    context.models.webhookSecrets.getAllForFrontEnd(),
   ]);
 
   return res.status(200).json({
@@ -206,6 +209,8 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     projects,
     factTables,
     factMetrics,
+    decisionCriteria,
+    webhookSecrets,
   });
 }
 
@@ -677,7 +682,6 @@ export async function getOrganization(
     name,
     id,
     url,
-    subscription,
     freeSeats,
     settings,
     disableSelfServeBilling,
@@ -685,6 +689,7 @@ export async function getOrganization(
     messages,
     externalId,
     setupEventTracker,
+    isVercelIntegration,
   } = org;
 
   let license: Partial<LicenseInterface> | null = null;
@@ -763,9 +768,7 @@ export async function getOrganization(
     currentUserPermissions,
     teams: teamsWithMembers,
     license,
-    subscription: license
-      ? getSubscriptionFromLicense(license)
-      : getSubscriptionFromOrg(org),
+    subscription: license ? getSubscriptionFromLicense(license) : null,
     watching: {
       experiments: watch?.experiments || [],
       features: watch?.features || [],
@@ -778,7 +781,6 @@ export async function getOrganization(
       name,
       id,
       url,
-      subscription,
       licenseKey,
       freeSeats,
       enterprise: org.enterprise,
@@ -787,6 +789,7 @@ export async function getOrganization(
       discountCode: org.discountCode || "",
       customRoles: org.customRoles,
       deactivatedRoles: org.deactivatedRoles,
+      isVercelIntegration,
       settings: {
         ...settings,
         attributeSchema: filteredAttributes,
@@ -801,6 +804,7 @@ export async function getOrganization(
       dateCreated: org.dateCreated,
     },
     seatsInUse,
+    usage: getUsageFromCache(org),
   });
 }
 
@@ -1096,6 +1100,7 @@ export async function postInviteAccept(
       throw new Error("Must be logged in");
     }
     const org = await acceptInvite(key, req.userId);
+    await licenseInit(org, getUserCodesForOrg, getLicenseMetaData, true);
 
     return res.status(200).json({
       status: 200,
@@ -1412,16 +1417,6 @@ export async function putOrganization(
         ...settings,
       };
       orig.settings = org.settings;
-    }
-    if (connections?.vercel) {
-      const { token, configurationId, teamId } = connections.vercel;
-      if (token && configurationId) {
-        updates.connections = {
-          ...updates.connections,
-          vercel: { token, configurationId, teamId },
-        };
-        orig.connections = org.connections;
-      }
     }
 
     if (licenseKey && licenseKey.trim() !== org.licenseKey) {

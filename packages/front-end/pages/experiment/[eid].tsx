@@ -25,6 +25,7 @@ import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
 import TabbedPage from "@/components/Experiment/TabbedPage";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
 
 const ExperimentPage = (): ReactElement => {
   const permissionsUtil = usePermissionsUtil();
@@ -53,6 +54,15 @@ const ExperimentPage = (): ReactElement => {
     urlRedirects: URLRedirectInterface[];
   }>(`/experiment/${eid}`);
 
+  const {
+    getDecisionCriteria,
+    getRunningExperimentResultStatus,
+  } = useRunningExperimentStatus();
+
+  const decisionCriteria = getDecisionCriteria(
+    data?.experiment?.decisionFrameworkSettings?.decisionCriteriaId
+  );
+
   useSwitchOrg(data?.experiment?.organization ?? null);
 
   const { apiCall } = useAuth();
@@ -69,7 +79,6 @@ const ExperimentPage = (): ReactElement => {
   if (!data) {
     return <LoadingOverlay />;
   }
-
   const {
     experiment,
     visualChangesets = [],
@@ -77,6 +86,8 @@ const ExperimentPage = (): ReactElement => {
     urlRedirects = [],
     envs = [],
   } = data;
+
+  const runningExperimentStatus = getRunningExperimentResultStatus(experiment);
 
   const canEditExperiment =
     permissionsUtil.canViewExperimentModal(experiment.project) &&
@@ -131,6 +142,8 @@ const ExperimentPage = (): ReactElement => {
           close={() => setStopModalOpen(false)}
           mutate={mutate}
           experiment={experiment}
+          runningExperimentStatus={runningExperimentStatus}
+          decisionCriteria={decisionCriteria}
           source="eid"
         />
       )}
@@ -138,6 +151,7 @@ const ExperimentPage = (): ReactElement => {
         <EditVariationsForm
           experiment={experiment}
           cancel={() => setVariationsModalOpen(false)}
+          onlySafeToEditVariationMetadata={!safeToEdit}
           mutate={mutate}
           source="eid"
         />

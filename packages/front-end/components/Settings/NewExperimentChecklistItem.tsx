@@ -14,7 +14,8 @@ type AutoChecklistOption = {
     | "description"
     | "project"
     | "tag"
-    | "customField";
+    | "customField"
+    | "prerequisiteTargeting";
 };
 
 export default function NewExperimentChecklistItem({
@@ -54,6 +55,11 @@ export default function NewExperimentChecklistItem({
       value: "Add at least 1 tag to this experiment",
       label: "Add at least 1 tag to this experiment",
       propertyKey: "tag",
+    },
+    {
+      value: "Ensure prerequisite targeting is set for this experiment",
+      label: "Ensure prerequisite targeting is set for this experiment",
+      propertyKey: "prerequisiteTargeting",
     },
   ];
 

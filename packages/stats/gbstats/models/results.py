@@ -3,6 +3,7 @@ from typing import List, Optional, Tuple, Union
 from pydantic.dataclasses import dataclass
 
 from gbstats.bayesian.tests import RiskType
+from gbstats.frequentist.tests import PValueErrorMessage
 from gbstats.models.tests import Uplift
 
 
@@ -19,7 +20,6 @@ class BanditResult:
     singleVariationResults: Optional[List[SingleVariationResult]]
     currentWeights: Optional[List[float]]
     updatedWeights: Optional[List[float]]
-    srm: Optional[float]
     bestArmProbabilities: Optional[List[float]]
     seed: int
     updateMessage: Optional[str]
@@ -59,11 +59,14 @@ class PowerResponse:
     scalingFactor: Optional[float]
 
 
+ResponseCI = Tuple[Optional[float], Optional[float]]
+
+
 @dataclass
 class BaseVariationResponse(BaselineResponse):
     expected: float
     uplift: Uplift
-    ci: Tuple[float, float]
+    ci: ResponseCI
     errorMessage: Optional[str]
     power: Optional[PowerResponse]
 
@@ -77,7 +80,8 @@ class BayesianVariationResponse(BaseVariationResponse):
 
 @dataclass
 class FrequentistVariationResponse(BaseVariationResponse):
-    pValue: float
+    pValue: Optional[float]
+    pValueErrorMessage: Optional[PValueErrorMessage]
 
 
 VariationResponse = Union[

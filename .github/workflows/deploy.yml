@@ -48,6 +48,10 @@ jobs:
           push: true
           context: .
           project: vmp2ssvj9r
+          build-args: |
+            DD_GIT_COMMIT_SHA=${{ github.sha }}
+            DD_GIT_REPOSITORY_URL=https://github.com/growthbook/growthbook.git
+            DD_VERSION=${{ github.sha }}
           tags: |
             growthbook/growthbook:latest
             growthbook/growthbook:git-${{ steps.metadata.outputs.docker_sha }}
@@ -79,7 +83,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
 
       - name: Generate sentry sourcemaps
         run: |
@@ -94,8 +98,8 @@ jobs:
       - name: Create Sentry release
         uses: getsentry/action-release@v1
         with:
-          environment: 'production'
-          sourcemaps: './back-end-dist'
+          environment: "production"
+          sourcemaps: "./back-end-dist"
           version: ${{ github.sha }}
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
@@ -104,3 +108,6 @@ jobs:
 
       - name: Deploy docker image to ECS for GrowthBook Cloud API
         run: aws ecs update-service --cluster prod-api --service prod-api --force-new-deployment --region us-east-1
+
+      - name: Deploy docker image to ECS for GrowthBook Cloud Jobs
+        run: aws ecs update-service --cluster prod-api-jobs --service prod-api-jobs --force-new-deployment --region us-east-1

@@ -7,7 +7,7 @@ import { PiArrowsDownUp, PiWarningFill } from "react-icons/pi";
 import {
   experimentsReferencingSavedGroups,
   featuresReferencingSavedGroups,
-  isIdListSupportedDatatype,
+  isIdListSupportedAttribute,
 } from "shared/util";
 import Link from "next/link";
 import { FeatureInterface } from "back-end/types/feature";
@@ -124,7 +124,6 @@ export default function EditSavedGroupPage() {
   const attr = (attributeSchema || []).find(
     (attr) => attr.property === savedGroup?.attributeKey
   );
-  const dataType = attr?.datatype;
 
   if (!data || !savedGroup) {
     return <LoadingOverlay />;
@@ -154,7 +153,6 @@ export default function EditSavedGroupPage() {
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
-          reason=""
           source="large-saved-groups"
           commercialFeature="large-saved-groups"
         />
@@ -288,7 +286,7 @@ export default function EditSavedGroupPage() {
           </div>
         </div>
         <div>{savedGroup.description}</div>
-        {!isIdListSupportedDatatype(dataType) && (
+        {!isIdListSupportedAttribute(attr) && (
           <div className="alert alert-danger">
             <PiWarningFill style={{ marginTop: "-2px" }} />
             The attribute for this saved group has an unsupported datatype. It

@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { validateFeatureValue } from "shared/util";
-import { orgHasPremiumFeature } from "shared/enterprise";
+import { validateFeatureValue, validateScheduleRules } from "shared/util";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { PostFeatureResponse } from "back-end/types/openapi";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { postFeatureValidator } from "back-end/src/validators/openapi";
@@ -91,6 +91,42 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
       Object.keys(req.body.environments ?? {})
     );
 
+    // Validate scheduleRules before processing environment settings
+    if (req.body.environments) {
+      Object.entries(req.body.environments).forEach(
+        ([envName, envSettings]) => {
+          if (envSettings.rules) {
+            envSettings.rules.forEach((rule, ruleIndex) => {
+              if (rule.scheduleRules) {
+                // Validate that the org has access to schedule rules
+                if (!req.context.hasPremiumFeature("schedule-feature-flag")) {
+                  throw new Error(
+                    "This organization does not have access to schedule rules. Upgrade to Pro or Enterprise."
+                  );
+                }
+                try {
+                  validateScheduleRules(rule.scheduleRules);
+                } catch (error) {
+                  throw new Error(
+                    `Invalid scheduleRules in environment "${envName}", rule ${
+                      ruleIndex + 1
+                    }: ${error.message}`
+                  );
+                }
+              }
+            });
+          }
+        }
+      );
+    }
+
+    if (
+      req.context.org.settings?.requireProjectForFeatures &&
+      !req.body.project
+    ) {
+      throw new Error("Must specify a project for new features");
+    }
+
     // Validate projects - We can remove this validation when FeatureModel is migrated to BaseModel
     if (req.body.project) {
       const projects = await req.context.getProjects();
@@ -120,6 +156,10 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
       archived: !!req.body.archived,
       version: 1,
       environmentSettings: {},
+      prerequisites: (req.body?.prerequisites || []).map((p) => ({
+        id: p,
+        condition: `{"value": true}`,
+      })),
       tags,
     };
 
@@ -174,6 +214,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
       req.context,
       feature.id
     );
+    const safeRolloutMap = await req.context.models.safeRollout.getAllPayloadSafeRollouts();
     const revision = await getRevision({
       context: req.context,
       organization: feature.organization,
@@ -188,6 +229,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
         groupMap,
         experimentMap,
         revision,
+        safeRolloutMap,
       }),
     };
   }

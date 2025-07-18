@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response } from "express";
-import { licenseInit, SSO_CONFIG } from "shared/enterprise";
+import { SSO_CONFIG } from "shared/enterprise";
 import { userHasPermission } from "shared/permissions";
 import { logger } from "back-end/src/util/logger";
 import { IS_CLOUD } from "back-end/src/util/secrets";
@@ -37,21 +37,28 @@ import {
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
+import { licenseInit } from "back-end/src/enterprise";
 import { AuthConnection } from "./AuthConnection";
 import { OpenIdAuthConnection } from "./OpenIdAuthConnection";
 import { LocalAuthConnection } from "./LocalAuthConnection";
 
 type JWTInfo = {
-  email?: string;
-  verified?: boolean;
-  name?: string;
+  email: string;
+  verified: boolean;
+  name: string;
+  issuedAt?: number;
+  sub?: string;
+  vercelInstallationId?: string;
 };
 
 type IdToken = {
   email?: string;
+  user_email?: string;
   email_verified?: boolean;
   given_name?: string;
   name?: string;
+  user_name?: string;
+  installation_id?: string;
   sub?: string;
   iat?: number;
 };
@@ -60,15 +67,15 @@ export function getAuthConnection(): AuthConnection {
   return usingOpenId() ? new OpenIdAuthConnection() : new LocalAuthConnection();
 }
 
-async function getUserFromJWT(token: IdToken): Promise<null | UserInterface> {
-  if (!token.email) {
+async function getUserFromJWT(info: JWTInfo): Promise<null | UserInterface> {
+  if (!info.email) {
     throw new Error("Id token does not contain email address");
   }
-  const user = await getUserByEmail(String(token.email));
+  const user = await getUserByEmail(String(info.email));
   if (!user) return null;
 
-  if (!usingOpenId() && user.minTokenDate && token.iat) {
-    if (token.iat < Math.floor(user.minTokenDate.getTime() / 1000)) {
+  if (!usingOpenId() && user.minTokenDate && info.issuedAt) {
+    if (info.issuedAt < Math.floor(user.minTokenDate.getTime() / 1000)) {
       throw new Error(
         "Your session has been revoked. Please refresh the page and login."
       );
@@ -78,10 +85,23 @@ async function getUserFromJWT(token: IdToken): Promise<null | UserInterface> {
   return user;
 }
 function getInitialDataFromJWT(user: IdToken): JWTInfo {
+  // Vercel has special property names
+  if ("iss" in user && user.iss === "https://marketplace.vercel.com") {
+    return {
+      verified: true,
+      email: user["user_email"] || "",
+      name: user["user_name"] || "",
+      vercelInstallationId: user["installation_id"] || "",
+      sub: user.sub,
+    };
+  }
+
   return {
     verified: user.email_verified || false,
     email: user.email || "",
     name: user.given_name || user.name || "",
+    issuedAt: user.iat,
+    sub: user.sub,
   };
 }
 
@@ -91,9 +111,10 @@ export async function processJWT(
   res: Response<unknown, EventUserForResponseLocals>,
   next: NextFunction
 ): Promise<void> {
-  const { email, name, verified } = getInitialDataFromJWT(req.user);
+  const parsedJWT = getInitialDataFromJWT(req.user);
+  const { email, name, verified } = parsedJWT;
 
-  req.authSubject = req.user.sub || "";
+  req.authSubject = parsedJWT.sub || "";
   req.email = email || "";
   req.name = name || "";
   req.verified = verified || false;
@@ -105,6 +126,7 @@ export async function processJWT(
     verified: verified || false,
     name: name || "",
   };
+  req.vercelInstallationId = parsedJWT.vercelInstallationId || "";
 
   req.checkPermissions = (
     permission: Permission,
@@ -131,7 +153,7 @@ export async function processJWT(
     }
   };
 
-  const user = await getUserFromJWT(req.user);
+  const user = await getUserFromJWT(parsedJWT);
 
   if (user) {
     req.currentUser = user;

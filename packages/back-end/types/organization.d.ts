@@ -171,6 +171,7 @@ export type SDKAttribute = {
   archived?: boolean;
   format?: SDKAttributeFormat;
   projects?: string[];
+  disableEqualityConditions?: boolean;
 };
 
 export type SDKAttributeSchema = SDKAttribute[];
@@ -230,6 +231,7 @@ export interface OrganizationSettings {
   codeRefsPlatformUrl?: string;
   featureKeyExample?: string; // Example Key of feature flag (e.g. "feature-20240201-name")
   featureRegexValidator?: string; // Regex to validate feature flag name (e.g. ^.+-\d{8}-.+$)
+  requireProjectForFeatures?: boolean;
   featureListMarkdown?: string;
   featurePageMarkdown?: string;
   experimentListMarkdown?: string;
@@ -244,11 +246,11 @@ export interface OrganizationSettings {
   experimentMinLengthDays?: number;
   experimentMaxLengthDays?: number;
   decisionFrameworkEnabled?: boolean;
+  defaultDecisionCriteriaId?: string;
 }
 
 export interface OrganizationConnections {
   slack?: SlackConnection;
-  vercel?: VercelConnection;
 }
 
 export interface SlackConnection {
@@ -270,6 +272,18 @@ export type OrganizationMessage = {
   level: "info" | "danger" | "warning";
 };
 
+// The type used to get member data to calculate usage counts for licenses
+export type OrgMemberInfo = {
+  id: string;
+  invites: { email: string }[];
+  members: {
+    id: string;
+    role: string;
+    projectRoles?: { role: string }[];
+    teams?: string[];
+  }[];
+};
+
 export interface OrganizationInterface {
   id: string;
   url: string;
@@ -279,15 +293,18 @@ export interface OrganizationInterface {
   name: string;
   ownerEmail: string;
   demographicData?: DemographicData;
+  /** @deprecated */
   stripeCustomerId?: string;
   restrictLoginMethod?: string;
   restrictAuthSubPrefix?: string;
+  isVercelIntegration?: boolean;
   freeSeats?: number;
   discountCode?: string;
   priceId?: string;
   disableSelfServeBilling?: boolean;
   freeTrialDate?: Date;
   enterprise?: boolean;
+  /** @deprecated */
   subscription?: {
     id: string;
     qty: number;
@@ -353,6 +370,7 @@ export type GetOrganizationResponse = {
     experiments: string[];
     features: string[];
   };
+  usage: OrganizationUsage;
 };
 
 export type DailyUsage = {
@@ -361,7 +379,20 @@ export type DailyUsage = {
   bandwidth: number;
 };
 
+type UsageLimit = number | "unlimited";
+
 export type UsageLimits = {
-  cdnRequests: number | null;
-  cdnBandwidth: number | null;
+  cdnRequests: UsageLimit;
+  cdnBandwidth: UsageLimit;
+};
+
+export type OrganizationUsage = {
+  limits: {
+    requests: UsageLimit;
+    bandwidth: UsageLimit;
+  };
+  cdn: {
+    lastUpdated: Date;
+    status: "under" | "approaching" | "over";
+  };
 };

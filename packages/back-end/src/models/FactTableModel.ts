@@ -40,6 +40,7 @@ const factTableSchema = new mongoose.Schema({
       column: String,
       numberFormat: String,
       datatype: String,
+      jsonFields: {},
       deleted: Boolean,
       alwaysInlineFilter: Boolean,
       topValues: [String],
@@ -220,9 +221,18 @@ export async function createFactTables(
 export async function updateFactTable(
   context: ReqContext | ApiReqContext,
   factTable: FactTableInterface,
-  changes: UpdateFactTableProps
+  changes: UpdateFactTableProps,
+  {
+    bypassManagedByCheck,
+  }: {
+    bypassManagedByCheck?: boolean;
+  } = {}
 ) {
-  if (factTable.managedBy === "api" && context.auditUser?.type !== "api_key") {
+  if (
+    !bypassManagedByCheck &&
+    factTable.managedBy === "api" &&
+    context.auditUser?.type !== "api_key"
+  ) {
     throw new Error("This fact table is managed by the API");
   }
 
@@ -383,9 +393,18 @@ export async function updateFactFilter(
 
 export async function deleteFactTable(
   context: ReqContext | ApiReqContext,
-  factTable: FactTableInterface
+  factTable: FactTableInterface,
+  {
+    bypassManagedByCheck,
+  }: {
+    bypassManagedByCheck?: boolean;
+  } = {}
 ) {
-  if (factTable.managedBy === "api" && context.auditUser?.type !== "api_key") {
+  if (
+    !bypassManagedByCheck &&
+    factTable.managedBy === "api" &&
+    context.auditUser?.type !== "api_key"
+  ) {
     throw new Error("This fact table is managed by the API");
   }
 

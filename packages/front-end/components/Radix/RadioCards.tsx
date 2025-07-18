@@ -1,6 +1,12 @@
-import { Flex, Text, RadioCards as RadixRadioCards } from "@radix-ui/themes";
+import {
+  Flex,
+  Text,
+  RadioCards as RadixRadioCards,
+  TextProps,
+} from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { forwardRef, ReactElement } from "react";
+import Badge from "@/components/Radix/Badge";
 
 export type RadioOptions = {
   value: string;
@@ -8,6 +14,7 @@ export type RadioOptions = {
   avatar?: ReactElement;
   description?: ReactElement | string;
   disabled?: boolean;
+  badge?: ReactElement | string;
 }[];
 
 export type Props = {
@@ -16,8 +23,14 @@ export type Props = {
   width?: string;
   options: RadioOptions;
   align?: "start" | "center" | "end";
+  icon?: ReactElement;
   value: string;
   setValue: (value: string) => void;
+  onClick?: () => void;
+  labelSize?: TextProps["size"];
+  labelWeight?: TextProps["weight"];
+  descriptionSize?: TextProps["size"];
+  descriptionWeight?: TextProps["weight"];
 } & MarginProps;
 
 export default forwardRef<HTMLDivElement, Props>(function RadioCards(
@@ -29,6 +42,11 @@ export default forwardRef<HTMLDivElement, Props>(function RadioCards(
     value,
     setValue,
     align,
+    onClick,
+    labelSize = "3",
+    labelWeight = "bold",
+    descriptionSize = "2",
+    descriptionWeight = "regular",
     ...containerProps
   }: Props,
   ref
@@ -41,31 +59,51 @@ export default forwardRef<HTMLDivElement, Props>(function RadioCards(
           onValueChange={(val) => setValue(val)}
           disabled={disabled}
           columns={columns}
+          onClick={onClick}
         >
-          {options.map(({ value, label, avatar, description, disabled }) => {
-            return (
-              <RadixRadioCards.Item
-                key={value}
-                value={value}
-                disabled={disabled}
-                className={disabled ? "disabled" : undefined}
-              >
-                <Flex direction="row" width="100%" gap="3" align={align}>
-                  {avatar}
-                  <Flex direction="column" gap="1">
-                    <Text weight="bold" size="3" className="main-text">
-                      {label || value}
-                    </Text>
-                    {description ? (
-                      <Text weight="regular" size="2">
-                        {description}
-                      </Text>
-                    ) : null}
+          {options.map(
+            ({ value, label, avatar, description, disabled, badge }) => {
+              return (
+                <RadixRadioCards.Item
+                  key={value}
+                  value={value}
+                  disabled={disabled}
+                  className={disabled ? "disabled" : undefined}
+                >
+                  <Flex direction="row" width="100%" gap="3" align={align}>
+                    {avatar}
+                    <Flex
+                      direction="column"
+                      gap="1"
+                      style={{ minWidth: 0, flex: 1 }}
+                    >
+                      <Flex direction="row" gap="3">
+                        <Text
+                          weight={labelWeight}
+                          size={labelSize}
+                          className="main-text truncate"
+                          style={{ minWidth: 0 }}
+                        >
+                          {label || value}
+                        </Text>
+                        {badge ? <Badge label={badge} /> : null}
+                      </Flex>
+                      {description ? (
+                        <Text
+                          weight={descriptionWeight}
+                          size={descriptionSize}
+                          className="truncate"
+                          style={{ minWidth: 0 }}
+                        >
+                          {description}
+                        </Text>
+                      ) : null}
+                    </Flex>
                   </Flex>
-                </Flex>
-              </RadixRadioCards.Item>
-            );
-          })}
+                </RadixRadioCards.Item>
+              );
+            }
+          )}
         </RadixRadioCards.Root>
       </Text>
     </Flex>

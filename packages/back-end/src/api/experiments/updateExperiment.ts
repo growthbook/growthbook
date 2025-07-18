@@ -1,3 +1,4 @@
+import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { UpdateExperimentResponse } from "back-end/types/openapi";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
@@ -11,6 +12,9 @@ import {
 } from "back-end/src/services/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { updateExperimentValidator } from "back-end/src/validators/openapi";
+import { getMetricMap } from "back-end/src/models/MetricModel";
+import { validateVariationIds } from "back-end/src/controllers/experiments";
+import { Variation } from "back-end/src/validators/experiments";
 
 export const updateExperiment = createApiRequestHandler(
   updateExperimentValidator
@@ -85,10 +89,74 @@ export const updateExperiment = createApiRequestHandler(
       }
     }
 
+    // Validate that specified metrics exist and belong to the organization
+    const oldMetricIds = getAllMetricIdsFromExperiment(experiment);
+    const newMetricIds = getAllMetricIdsFromExperiment({
+      goalMetrics: req.body.metrics,
+      secondaryMetrics: req.body.secondaryMetrics,
+      guardrailMetrics: req.body.guardrailMetrics,
+      activationMetric: req.body.activationMetric,
+    }).filter((m) => !oldMetricIds.includes(m));
+
+    const map = await getMetricMap(req.context);
+
+    if (newMetricIds.length) {
+      if (!datasource) {
+        throw new Error("Must provide a datasource when including metrics");
+      }
+      for (let i = 0; i < newMetricIds.length; i++) {
+        const metric = map.get(newMetricIds[i]);
+        if (metric) {
+          // Make sure it is tied to the same datasource as the experiment
+          if (datasource.id && metric.datasource !== datasource.id) {
+            throw new Error(
+              "Metrics must be tied to the same datasource as the experiment: " +
+                newMetricIds[i]
+            );
+          }
+        } else {
+          // check to see if this metric is actually a metric group
+          const metricGroup = await req.context.models.metricGroups.getById(
+            newMetricIds[i]
+          );
+          if (metricGroup) {
+            // Make sure it is tied to the same datasource as the experiment
+            if (datasource.id && metricGroup.datasource !== datasource.id) {
+              throw new Error(
+                "Metrics must be tied to the same datasource as the experiment: " +
+                  newMetricIds[i]
+              );
+            }
+          } else {
+            // new metric that's not recognized...
+            throw new Error("Unknown metric: " + newMetricIds[i]);
+          }
+        }
+      }
+    }
+
+    if (req.body.variations) {
+      validateVariationIds(req.body.variations as Variation[]);
+    }
+
+    if (
+      req.body.type &&
+      req.body.type !== (experiment.type || "standard") &&
+      experiment.status !== "draft" &&
+      req.body.status !== "draft"
+    ) {
+      throw new Error("Can only convert experiment types while in draft mode.");
+    }
+
     const updatedExperiment = await updateExperimentToDb({
       context: req.context,
       experiment: experiment,
-      changes: updateExperimentApiPayloadToInterface(req.body, experiment),
+      changes: updateExperimentApiPayloadToInterface(
+        req.body,
+        experiment,
+        map,
+        req.organization
+      ),
     });
 
     if (updatedExperiment === null) {

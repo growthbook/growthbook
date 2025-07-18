@@ -1,6 +1,7 @@
 import {
   CreateSDKConnectionParams,
   SDKConnectionInterface,
+  SDKLanguage,
 } from "back-end/types/sdk-connection";
 import { useForm } from "react-hook-form";
 import React, { useEffect, useMemo, useState } from "react";
@@ -24,6 +25,7 @@ import {
   filterProjectsByEnvironment,
   getDisallowedProjects,
 } from "shared/util";
+import { PiPackage } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
 import Modal from "@/components/Modal";
@@ -48,7 +50,19 @@ import {
   languageMapping,
   LanguageFilter,
   getConnectionLanguageFilter,
+  getPackageRepositoryName,
 } from "./SDKLanguageLogo";
+
+function shouldShowPayloadSecurity(
+  languageType: LanguageType,
+  languages: SDKLanguage[]
+): boolean {
+  // Next.js should always use plain text
+  if (languages.includes("nextjs")) return false;
+
+  // all languages support encryption and secure attributes.
+  return true;
+}
 
 function getSecurityTabState(
   value: Partial<SDKConnectionInterface>
@@ -259,20 +273,26 @@ export default function SDKConnectionForm({
   }
 
   useEffect(() => {
-    if (languageType === "backend") {
+    if (!shouldShowPayloadSecurity(languageType, languages)) {
       setSelectedSecurityTab("none");
     }
-  }, [languageType, setSelectedSecurityTab]);
+  }, [languageType, languages, setSelectedSecurityTab]);
 
   useEffect(() => {
     if (!edit) {
       form.setValue("includeVisualExperiments", showVisualEditorSettings);
       form.setValue("includeDraftExperiments", showVisualEditorSettings);
       form.setValue("includeRedirectExperiments", showRedirectSettings);
-    } else if (!showVisualEditorSettings) {
-      form.setValue("includeVisualExperiments", false);
-      form.setValue("includeDraftExperiments", false);
-      form.setValue("includeRedirectExperiments", false);
+    } else {
+      if (!showVisualEditorSettings) {
+        form.setValue("includeVisualExperiments", false);
+      }
+      if (!showRedirectSettings) {
+        form.setValue("includeRedirectExperiments", false);
+      }
+      if (!showVisualEditorSettings && !showRedirectSettings) {
+        form.setValue("includeDraftExperiments", false);
+      }
     }
   }, [showVisualEditorSettings, form, edit, showRedirectSettings]);
 
@@ -321,6 +341,22 @@ export default function SDKConnectionForm({
       setLanguageError(null);
     }
   }, [languages, languageError, setLanguageError]);
+
+  // If the SDK Connection is externally managed, filter the environments that are in 'All Projects' or where the current project is included
+  const filteredEnvironments =
+    initialValue.managedBy?.type === "vercel"
+      ? environments.filter((e) => {
+          if (!e.projects?.length) {
+            return true;
+          }
+          if (
+            initialValue.projects?.[0] &&
+            e.projects?.includes(initialValue.projects?.[0])
+          ) {
+            return true;
+          }
+        })
+      : environments;
 
   return (
     <Modal
@@ -432,49 +468,81 @@ export default function SDKConnectionForm({
               <div className="form-group" style={{ marginTop: -10 }}>
                 <label>SDK version</label>
                 <div className="d-flex align-items-center">
-                  <SelectField
-                    style={{ width: 180 }}
-                    className="mr-4"
-                    placeholder="0.0.0"
-                    autoComplete="off"
-                    sort={false}
-                    options={getSDKVersions(
-                      form.watch("languages")[0]
-                    ).map((ver) => ({ label: ver, value: ver }))}
-                    createable={true}
-                    isClearable={false}
-                    value={
-                      form.watch("sdkVersion") ||
-                      getDefaultSDKVersion(languages[0])
-                    }
-                    onChange={(v) => form.setValue("sdkVersion", v)}
-                    formatOptionLabel={({ value, label }) => {
-                      const latest = getLatestSDKVersion(
+                  <div>
+                    <SelectField
+                      style={{ width: 180 }}
+                      className="mr-4"
+                      placeholder="0.0.0"
+                      autoComplete="off"
+                      sort={false}
+                      options={getSDKVersions(
                         form.watch("languages")[0]
-                      );
-                      return (
-                        <span>
-                          {label}
-                          {value === latest && (
-                            <span
-                              className="text-muted uppercase-title float-right position-relative"
-                              style={{ top: 3 }}
-                            >
-                              latest
-                            </span>
-                          )}
-                        </span>
-                      );
-                    }}
-                  />
-                  {!usingLatestVersion && (
-                    <a
-                      role="button"
-                      className="small"
-                      onClick={useLatestSdkVersion}
-                    >
-                      Use latest
-                    </a>
+                      ).map((ver) => ({ label: ver, value: ver }))}
+                      createable={true}
+                      isClearable={false}
+                      value={
+                        form.watch("sdkVersion") ||
+                        getDefaultSDKVersion(languages[0])
+                      }
+                      onChange={(v) => form.setValue("sdkVersion", v)}
+                      formatOptionLabel={({ value, label }) => {
+                        const latest = getLatestSDKVersion(
+                          form.watch("languages")[0]
+                        );
+                        return (
+                          <span>
+                            {label}
+                            {value === latest && (
+                              <span
+                                className="text-muted uppercase-title float-right position-relative"
+                                style={{ top: 3 }}
+                              >
+                                latest
+                              </span>
+                            )}
+                          </span>
+                        );
+                      }}
+                    />
+                    {!usingLatestVersion && (
+                      <a
+                        role="button"
+                        className="small"
+                        onClick={useLatestSdkVersion}
+                      >
+                        Use latest
+                      </a>
+                    )}
+                  </div>
+                  {languageMapping[form.watch("languages")[0]]?.packageUrl && (
+                    <div className="ml-3">
+                      <a
+                        href={
+                          languageMapping[form.watch("languages")[0]].packageUrl
+                        }
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-sm"
+                      >
+                        <PiPackage
+                          className="mr-1"
+                          style={{ fontSize: "1.2em", verticalAlign: "-0.2em" }}
+                        />
+                        {getPackageRepositoryName(
+                          languageMapping[form.watch("languages")[0]]
+                            .packageUrl || ""
+                        )}
+                      </a>
+                      <code
+                        className="d-block text-muted"
+                        style={{ fontSize: "0.7rem" }}
+                      >
+                        {
+                          languageMapping[form.watch("languages")[0]]
+                            .packageName
+                        }
+                      </code>
+                    </div>
                   )}
                 </div>
               </div>
@@ -489,9 +557,15 @@ export default function SDKConnectionForm({
             value={form.watch("environment")}
             onChange={(env) => {
               form.setValue("environment", env);
-              form.setValue("projects", []); // Reset projects when environment changes
+              // Only reset projects when environment changes if the SDK Connection is not externally managed by vercel
+              if (initialValue.managedBy?.type !== "vercel") {
+                form.setValue("projects", []);
+              }
             }}
-            options={environments.map((e) => ({ label: e.id, value: e.id }))}
+            options={filteredEnvironments.map((e) => ({
+              label: e.id,
+              value: e.id,
+            }))}
             sort={false}
             formatOptionLabel={({ value, label }) => {
               const selectedEnvironment = environments.find(
@@ -539,6 +613,7 @@ export default function SDKConnectionForm({
             containerClassName="w-100"
             value={form.watch("projects") || []}
             onChange={(projects) => form.setValue("projects", projects)}
+            disabled={initialValue.managedBy?.type === "vercel"}
             options={projectsOptions}
             sort={false}
             closeMenuOnSelect={true}
@@ -570,7 +645,7 @@ export default function SDKConnectionForm({
           )}
         </div>
 
-        {languageType !== "backend" && (
+        {shouldShowPayloadSecurity(languageType, languages) && (
           <>
             <label>SDK Payload Security</label>
             <div className="bg-highlight rounded pt-4 pb-2 px-4 mb-4">
@@ -622,9 +697,7 @@ export default function SDKConnectionForm({
                   <></>
                 </Tab>
 
-                {["frontend", "mobile", "nocode", "edge", "other"].includes(
-                  languageType
-                ) && (
+                {shouldShowPayloadSecurity(languageType, languages) && (
                   <Tab
                     id="ciphered"
                     padding={false}

@@ -342,13 +342,7 @@ export abstract class QueryRunner<
           this.onQueryFinish();
         } else {
           if (await this.concurrencyLimitReached()) {
-            this.queuedQueryTimers[query.id] = setTimeout(() => {
-              this.executeQueryWhenReady(
-                query,
-                runCallbacks.run,
-                runCallbacks.process
-              );
-            }, INITIAL_CONCURRENCY_TIMEOUT);
+            this.queueQueryExecution(query);
           } else {
             await this.executeQuery(
               query,
@@ -479,33 +473,46 @@ export abstract class QueryRunner<
     }
   }
 
-  public async executeQueryWhenReady<
-    Rows extends RowsType,
-    ProcessedRows extends ProcessedRowsType
-  >(
+  public queueQueryExecution(
+    query: QueryInterface,
+    timeout: number = INITIAL_CONCURRENCY_TIMEOUT
+  ) {
+    // Queue query randomly within the window [timeout, timeout*2) to reduce race conditions
+    const jitter = Math.floor(Math.random() * timeout);
+    logger.debug(
+      `${query.id}: Query concurrency limit reached, waiting ${
+        timeout + jitter
+      } before retrying`
+    );
+    this.queuedQueryTimers[query.id] = setTimeout(() => {
+      this.executeQueryWhenReady(query, timeout);
+    }, timeout + jitter);
+  }
+
+  public async executeQueryWhenReady(
     doc: QueryInterface,
-    run: (
-      query: string,
-      setExternalId: ExternalIdCallback
-    ) => Promise<QueryResponse<Rows>>,
-    process: (rows: Rows) => ProcessedRows,
     currentTimeout: number = INITIAL_CONCURRENCY_TIMEOUT
   ): Promise<void> {
     // If too many queries are running against the datastore, use capped exponential backoff to wait until they've finished
     const concurrencyLimitReached = await this.concurrencyLimitReached();
     if (concurrencyLimitReached) {
-      logger.debug(
-        `${doc.id}: Query concurrency limit reached, waiting ${currentTimeout} before retrying`
-      );
-      this.runCallbacks[doc.id] = { run, process };
       const nextTimeout = Math.min(currentTimeout * 2, MAX_CONCURRENCY_TIMEOUT);
-      this.queuedQueryTimers[doc.id] = setTimeout(() => {
-        this.executeQueryWhenReady(doc, run, process, nextTimeout);
-      }, currentTimeout);
+      this.queueQueryExecution(doc, nextTimeout);
       return;
     }
+
     delete this.queuedQueryTimers[doc.id];
-    return this.executeQuery(doc, run, process);
+    const runCallbacks = this.runCallbacks[doc.id];
+    if (runCallbacks === undefined) {
+      logger.debug(`${doc.id}: Run callbacks not found..`);
+      await updateQuery(doc, {
+        finishedAt: new Date(),
+        status: "failed",
+        error: `Run callbacks not found`,
+      });
+      return this.onQueryFinish();
+    }
+    return this.executeQuery(doc, runCallbacks.run, runCallbacks.process);
   }
 
   public async executeQuery<
@@ -533,6 +540,7 @@ export abstract class QueryRunner<
       await updateQuery(doc, {
         startedAt: new Date(),
         status: "running",
+        heartbeat: new Date(),
       });
     }
 
@@ -673,9 +681,8 @@ export abstract class QueryRunner<
     if (readyToRun) {
       this.executeQuery(doc, run, process);
     } else if (dependenciesComplete && !runAtEnd) {
-      this.queuedQueryTimers[doc.id] = setTimeout(() => {
-        this.executeQueryWhenReady(doc, run, process);
-      }, INITIAL_CONCURRENCY_TIMEOUT);
+      this.runCallbacks[doc.id] = { run, process };
+      this.queueQueryExecution(doc);
     } else {
       // save callback methods for execution later
       this.runCallbacks[doc.id] = { run, process };

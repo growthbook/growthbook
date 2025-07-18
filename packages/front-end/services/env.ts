@@ -21,6 +21,7 @@ const env: EnvironmentInitValue = {
   usingFileProxy: false,
   superadminDefaultRole: "readonly",
   ingestorOverride: "",
+  stripePublishableKey: "",
 };
 
 export async function initEnv() {
@@ -102,4 +103,8 @@ export function getSuperadminDefaultRole() {
 }
 export function getIngestorHost() {
   return env.ingestorOverride || "https://us1.gb-ingest.com";
+}
+
+export function getStripePublishableKey() {
+  return env.stripePublishableKey;
 }

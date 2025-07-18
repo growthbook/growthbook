@@ -4,6 +4,8 @@ import { DimensionInterface } from "back-end/types/dimension";
 import clsx from "clsx";
 import Link from "next/link";
 import { ago } from "shared/dates";
+import { Box, Flex } from "@radix-ui/themes";
+import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Button from "@/components/Radix/Button";
 import DimensionForm from "@/components/Dimensions/DimensionForm";
@@ -15,6 +17,58 @@ import { DocLink } from "@/components/DocLink";
 import Code, { Language } from "@/components/SyntaxHighlighting/Code";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useSearch } from "@/services/search";
+import Table, {
+  TableBody,
+  TableCell,
+  TableHeader,
+  TableRow,
+} from "@/components/Radix/Table";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import { EAQ_ANCHOR_ID } from "@/pages/datasources/[did]";
+
+type ExperimentDimensionItem = {
+  dimension: string;
+  datasourceName: string;
+  datasourceId: string;
+  identifierTypes: string[];
+};
+
+function getExperimentDimensions(
+  datasources: DataSourceInterfaceWithParams[]
+): ExperimentDimensionItem[] {
+  const collapsedExperimentDimensions: Record<
+    string,
+    ExperimentDimensionItem
+  > = {};
+
+  datasources.forEach((ds) => {
+    ds.settings.queries?.exposure?.forEach((eq) => {
+      eq.dimensions.forEach((d) => {
+        const key = `${d}-${ds.id}`;
+        if (!collapsedExperimentDimensions[key]) {
+          collapsedExperimentDimensions[key] = {
+            dimension: d,
+            datasourceName: ds.name,
+            datasourceId: ds.id,
+            identifierTypes: [eq.userIdType],
+          };
+        } else if (
+          !collapsedExperimentDimensions[key].identifierTypes.includes(
+            eq.userIdType
+          )
+        ) {
+          collapsedExperimentDimensions[key].identifierTypes.push(
+            eq.userIdType
+          );
+        }
+      });
+    });
+  });
+
+  const experimentDimensions = Object.values(collapsedExperimentDimensions);
+  return experimentDimensions;
+}
 
 const DimensionsPage: FC = () => {
   const {
@@ -37,6 +91,22 @@ const DimensionsPage: FC = () => {
   ] = useState<null | Partial<DimensionInterface>>(null);
 
   const { apiCall } = useAuth();
+
+  const experimentDimensions = getExperimentDimensions(datasources);
+
+  const { items, SortableTH, pagination } = useSearch({
+    items: experimentDimensions,
+    localStorageKey: "dimensions",
+    defaultSortField: "dimension",
+    defaultSortDir: 1,
+    searchFields: [
+      "dimension",
+      "datasourceName",
+      "datasourceId",
+      "identifierTypes",
+    ],
+    pageSize: 10,
+  });
 
   if (!error && !ready) {
     return <LoadingOverlay />;
@@ -86,15 +156,63 @@ const DimensionsPage: FC = () => {
           current={dimensionForm}
         />
       )}
+      <Flex mb="3" direction="column">
+        <Box>
+          <h1>Experiment Dimensions</h1>
+        </Box>
+        <Box mb="3">
+          Experiment Dimensions are specific to the point-in-time that a unit is
+          put into an experiment - for example, &quot;browser&quot; or
+          &quot;referrer&quot;. They are defined via the experiment assignment
+          queries and are the preferred way to specify dimensions.
+        </Box>
+        <Table className="appbox table gbtable responsive-table">
+          <TableHeader>
+            <TableRow>
+              <SortableTH field="dimension">Name</SortableTH>
+              <SortableTH field="datasourceName">Data Source</SortableTH>
+              <SortableTH field="identifierTypes">Identifier Types</SortableTH>
+              <th></th>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {items.map((item) => {
+              return (
+                <TableRow
+                  key={`${item.dimension}-${item.datasourceId}`}
+                  className="hover-highlight"
+                >
+                  <TableCell>{item.dimension}</TableCell>
+                  <TableCell>
+                    <Link href={`/datasources/${item.datasourceId}`}>
+                      {item.datasourceName ?? item.datasourceId}
+                    </Link>
+                  </TableCell>
+                  <TableCell
+                    style={{ maxWidth: "20ch", wordWrap: "break-word" }}
+                  >
+                    {item.identifierTypes.join(", ")}
+                  </TableCell>
+                  <TableCell>
+                    <MoreMenu useRadix={true}>
+                      <Link
+                        className="dropdown-item"
+                        href={`/datasources/${item.datasourceId}#${EAQ_ANCHOR_ID}`}
+                      >
+                        Manage via Data Source
+                      </Link>
+                    </MoreMenu>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+        {pagination}
+      </Flex>
       <div className="row mb-3">
         <div className="col-auto d-flex">
-          <h1>User Dimensions</h1>
-          <DocLink
-            docSection="dimensions"
-            className="align-self-center ml-2 pb-1"
-          >
-            View Documentation
-          </DocLink>
+          <h1>Unit Dimensions</h1>
         </div>
         <div style={{ flex: 1 }}></div>
         {!hasFileConfig() && canCreateDimension && (
@@ -104,7 +222,7 @@ const DimensionsPage: FC = () => {
                 setDimensionForm({});
               }}
             >
-              Add User Dimension
+              Add Unit Dimension
             </Button>
           </div>
         )}
@@ -113,9 +231,10 @@ const DimensionsPage: FC = () => {
         <div className="row mb-4">
           <div className="col-12">
             <p>
-              User Dimensions are attributes of your users - for example,
-              &quot;subscription plan&quot; or &quot;age group&quot;. In Growth
-              Book, you can use these to drill down into experiment results.
+              Unit Dimensions are attributes of your units - for example,
+              &quot;subscription plan&quot; or &quot;age group&quot;. GrowthBook
+              will join these dimensions to your units in the exposure query to
+              let you drill down into experiment results.
             </p>
             <table
               className={clsx("table appbox gbtable", {
@@ -232,20 +351,6 @@ const DimensionsPage: FC = () => {
           <DocLink docSection="config_yml">View Documentation</DocLink>
         </div>
       )}
-
-      <div>
-        <h3>Experiment Dimensions</h3>
-        <p>
-          Experiment Dimensions are specific to the point-in-time that a user is
-          put into an experiment - for example, &quot;browser&quot; or
-          &quot;referrer&quot;. These are defined as part of your data source
-          settings.
-        </p>
-
-        <Link href="/datasources" className="btn btn-outline-primary">
-          View Data Sources
-        </Link>
-      </div>
     </div>
   );
 };

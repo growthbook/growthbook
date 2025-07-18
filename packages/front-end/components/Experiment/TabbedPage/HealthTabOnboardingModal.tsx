@@ -1,4 +1,4 @@
-import React, { FC, ReactElement, useEffect, useState } from "react";
+import React, { FC, ReactElement, useState } from "react";
 import { DimensionSlicesInterface } from "back-end/types/dimension";
 import {
   DataSourceInterfaceWithParams,
@@ -13,12 +13,12 @@ import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import Modal from "@/components/Modal";
-import {
-  DimensionSlicesRunner,
-  getLatestDimensionSlices,
-} from "@/components/Settings/EditDataSource/DimensionMetadata/UpdateDimensionMetadata";
 import track, { trackSnapshot } from "@/services/track";
 import RadioGroup from "@/components/Radix/RadioGroup";
+import {
+  CustomDimensionMetadata,
+  DimensionSlicesRunner,
+} from "@/components/Settings/EditDataSource/DimensionMetadata/DimensionSlicesRunner";
 
 type HealthTabOnboardingModalProps = {
   open: boolean;
@@ -68,6 +68,24 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
   const [step, setStep] = useState(startingStep);
   const [lastStep, setLastStep] = useState(startingStep);
 
+  // track custom slices + priority locally
+  const [customDimensionMetadata, setCustomDimensionMetadata] = useState<
+    CustomDimensionMetadata[]
+  >(
+    exposureQuery.dimensions?.map((d, i) => {
+      const existingMetadata = exposureQuery.dimensionMetadata?.find(
+        (m) => m.dimension === d
+      );
+      return {
+        dimension: d,
+        customSlicesArray: existingMetadata?.customSlices
+          ? existingMetadata.specifiedSlices
+          : undefined,
+        priority: i + 1,
+      };
+    }) ?? []
+  );
+
   const source = "health-tab-onboarding";
 
   const metadataId = exposureQuery.dimensionSlicesId;
@@ -92,12 +110,29 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
       data?.dimensionSlices?.results &&
       data.dimensionSlices.results.length > 0
     ) {
-      track("Save Dimension Metadata", { source });
+      const orderedDimensions = exposureQuery.dimensions.sort((a, b) => {
+        const aMetadata = customDimensionMetadata.find(
+          (m) => m.dimension === a
+        );
+        const bMetadata = customDimensionMetadata.find(
+          (m) => m.dimension === b
+        );
+        // if missing metadata, put it at the end
+        if (!aMetadata) return 1;
+        if (!bMetadata) return -1;
+        return aMetadata.priority - bMetadata.priority;
+      });
+
       const updates: Partial<ExposureQuery> = {
         dimensionSlicesId: id,
-        dimensionMetadata: data.dimensionSlices.results.map((r) => ({
-          dimension: r.dimension,
-          specifiedSlices: r.dimensionSlices.map((dv) => dv.name),
+        dimensions: orderedDimensions,
+        dimensionMetadata: customDimensionMetadata.map((d) => ({
+          dimension: d.dimension,
+          specifiedSlices: d.customSlicesArray?.length
+            ? d.customSlicesArray
+            : data.dimensionSlices.results
+                .find((r) => r.dimension === d.dimension)
+                ?.dimensionSlices.map((s) => s.name) ?? [],
         })),
       };
       await apiCall(
@@ -138,19 +173,6 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
     close();
     refreshOrganization();
   };
-
-  useEffect(
-    () =>
-      getLatestDimensionSlices(
-        dataSourceId,
-        exposureQueryId,
-        metadataId,
-        apiCall,
-        setId,
-        mutate
-      ),
-    [dataSourceId, exposureQueryId, metadataId, setId, apiCall, mutate]
-  );
 
   if (error) {
     return <div className="alert alert-error">{error?.message}</div>;
@@ -245,14 +267,13 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
             </div>
             <div className="row">
               <DimensionSlicesRunner
+                exposureQueryId={exposureQueryId}
+                datasourceId={dataSourceId}
+                customDimensionMetadata={customDimensionMetadata}
+                setCustomDimensionMetadata={setCustomDimensionMetadata}
                 dimensionSlices={data?.dimensionSlices}
-                status={status}
-                id={id}
-                setId={setId}
-                mutate={mutate}
-                dataSource={dataSource}
-                exposureQuery={exposureQuery}
-                source={source}
+                mutateDimensionSlices={mutate}
+                setDimensionSlicesId={setId}
               />
             </div>
           </div>

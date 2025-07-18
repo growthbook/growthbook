@@ -6,7 +6,6 @@ import {
   getExperimentOverrides,
 } from "back-end/src/services/organizations";
 import { getFeatureDefinitions } from "back-end/src/services/features";
-import { CRON_ENABLED } from "back-end/src/util/secrets";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import {
   findAllLegacySdkWebhooks,
@@ -127,7 +126,6 @@ export async function queueLegacySdkWebhooks(
   payloadKeys: SDKPayloadKey[],
   isFeature?: boolean
 ) {
-  if (!CRON_ENABLED) return;
   if (!payloadKeys.length) return;
 
   const webhooks = await findAllLegacySdkWebhooks(context);

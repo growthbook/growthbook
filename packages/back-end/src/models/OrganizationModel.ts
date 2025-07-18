@@ -12,6 +12,7 @@ import {
   MemberRoleWithProjects,
   OrganizationInterface,
   OrganizationMessage,
+  OrgMemberInfo,
   Role,
 } from "back-end/types/organization";
 import { upgradeOrganizationDoc } from "back-end/src/util/migrations";
@@ -69,6 +70,7 @@ const organizationSchema = new mongoose.Schema({
   restrictLoginMethod: String,
   restrictAuthSubPrefix: String,
   autoApproveMembers: Boolean,
+  isVercelIntegration: Boolean,
   members: [
     {
       ...baseMemberFields,
@@ -134,11 +136,6 @@ const organizationSchema = new mongoose.Schema({
       team: String,
       token: String,
     },
-    vercel: {
-      token: String,
-      configurationId: String,
-      teamId: String,
-    },
   },
   settings: {},
   getStartedChecklistItems: [String],
@@ -146,6 +143,7 @@ const organizationSchema = new mongoose.Schema({
   deactivatedRoles: [],
   disabled: Boolean,
   setupEventTracker: String,
+  trackingDisabled: Boolean,
 });
 
 organizationSchema.index({ "members.id": 1 });
@@ -167,6 +165,8 @@ export async function createOrganization({
   url = "",
   verifiedDomain = "",
   externalId = "",
+  isVercelIntegration = false,
+  restrictLoginMethod,
 }: {
   email: string;
   userId: string;
@@ -175,6 +175,8 @@ export async function createOrganization({
   url?: string;
   verifiedDomain?: string;
   externalId?: string;
+  isVercelIntegration?: boolean;
+  restrictLoginMethod?: string;
 }) {
   // TODO: sanitize fields
   const doc = await OrganizationModel.create({
@@ -227,8 +229,23 @@ export async function createOrganization({
       ],
     },
     getStartedChecklistItems: [],
+    isVercelIntegration,
+    ...(restrictLoginMethod ? { restrictLoginMethod } : {}),
   });
   return toInterface(doc);
+}
+
+export async function getOrganizationIdsWithTrackingDisabled(
+  organizationIds: string[]
+) {
+  const orgs = await OrganizationModel.find(
+    {
+      id: { $in: organizationIds },
+      trackingDisabled: true,
+    },
+    { id: 1, _id: 0 }
+  );
+  return new Set(orgs.map((org) => org.id));
 }
 
 export async function findAllOrganizations(
@@ -267,9 +284,15 @@ export async function findOrganizationById(id: string) {
   return doc ? toInterface(doc) : null;
 }
 
+type DeletableKeys = Extract<
+  keyof OrganizationInterface,
+  "restrictLoginMethod"
+>;
+
 export async function updateOrganization(
   id: string,
-  update: Partial<OrganizationInterface>
+  update: Partial<OrganizationInterface>,
+  unset?: Partial<Record<DeletableKeys, 1>>
 ) {
   await OrganizationModel.updateOne(
     {
@@ -277,51 +300,26 @@ export async function updateOrganization(
     },
     {
       $set: update,
+      ...(unset ? { $unset: unset } : {}),
     }
   );
 }
 
-export async function updateOrganizationByStripeId(
-  stripeCustomerId: string,
-  update: Partial<OrganizationInterface>
-) {
-  await OrganizationModel.updateOne(
-    {
-      stripeCustomerId,
-    },
-    {
-      $set: update,
-    }
-  );
-}
-
-export async function findOrganizationByStripeCustomerId(id: string) {
-  const doc = await OrganizationModel.findOne({
-    stripeCustomerId: id,
-  });
-
-  return doc ? toInterface(doc) : null;
-}
-
-export async function getAllInviteEmailsInDb() {
+export async function getAllOrgMemberInfoInDb(): Promise<OrgMemberInfo[]> {
   if (IS_CLOUD) {
-    throw new Error("getAllInviteEmailsInDb() is not supported on cloud");
+    throw new Error("getAllOrgMemberInfoInDb() is not supported on cloud");
   }
-
-  const organizations = await OrganizationModel.find(
+  return await OrganizationModel.find(
     {},
-    { "invites.email": 1 }
+    {
+      id: 1,
+      "invites.email": 1,
+      "members.id": 1,
+      "members.role": 1,
+      "members.projectRoles.role": 1,
+      "members.teams": 1,
+    }
   );
-
-  const inviteEmails: string[] = organizations.reduce(
-    (emails: string[], organization) => {
-      const orgEmails = organization.invites.map((invite) => invite.email);
-      return emails.concat(orgEmails);
-    },
-    []
-  );
-
-  return inviteEmails;
 }
 
 export async function getSelfHostedOrganization() {

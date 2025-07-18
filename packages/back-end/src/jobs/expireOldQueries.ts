@@ -17,7 +17,6 @@ import {
   findReportsByQueryId,
   updateReport,
 } from "back-end/src/models/ReportModel";
-import { trackJob } from "back-end/src/services/otel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 const JOB_NAME = "expireOldQueries";
@@ -30,7 +29,7 @@ function updateQueryStatus(queries: Queries, ids: Set<string>) {
   });
 }
 
-const expireOldQueries = trackJob(JOB_NAME, async () => {
+const expireOldQueries = async () => {
   const queries = await getStaleQueries();
   const queryIds = new Set(queries.map((q) => q.id));
   const orgIds = new Set(queries.map((q) => q.organization));
@@ -99,7 +98,7 @@ const expireOldQueries = trackJob(JOB_NAME, async () => {
       error: "Queries were interupted. Please try refreshing the list.",
     });
   }
-});
+};
 
 export default async function (agenda: Agenda) {
   agenda.define(JOB_NAME, expireOldQueries);

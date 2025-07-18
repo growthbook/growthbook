@@ -1,20 +1,26 @@
 import { CommercialFeature } from "shared/enterprise";
 import React from "react";
+import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import { planNameFromAccountPlan } from "@/services/utils";
 import { RadixColor } from "@/components/Radix/HelperText";
 import Badge from "@/components/Radix/Badge";
 
+export type Props = {
+  commercialFeature?: CommercialFeature;
+  premiumText?: string | JSX.Element;
+  useTip?: boolean;
+  variant?: "outline" | "solid";
+} & MarginProps;
+
 const PaidFeatureBadge = ({
   commercialFeature,
   premiumText,
   useTip = true,
-}: {
-  commercialFeature?: CommercialFeature;
-  premiumText?: string | JSX.Element;
-  useTip?: boolean;
-}) => {
+  variant = "outline",
+  ...badgeProps
+}: Props) => {
   const { hasCommercialFeature, commercialFeatureLowestPlan } = useUser();
   const hasFeature = commercialFeature
     ? hasCommercialFeature(commercialFeature)
@@ -47,13 +53,12 @@ const PaidFeatureBadge = ({
           : "Paid"
       }
       color={badgeColor as RadixColor}
-      variant="outline"
+      variant={variant}
       radius="full"
-      ml="2"
-      mr="2"
       style={{
         cursor: "default",
       }}
+      {...badgeProps}
     />
   );
 

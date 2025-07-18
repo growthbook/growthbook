@@ -20,6 +20,7 @@ import CodeTabsExperimentResultSubscribeMultipleCallbackPartial from '@site/src/
 import CodeTabsFeaturesRepository from '@site/src/partials/java/_code-tabs-gbfeatures-repository.mdx'
 import CodeTabsFeatureUsageCallback from '@site/src/partials/java/_code-tabs-feature-usage-callback.mdx'
 import SdkResources from '@site/src/components/SdkResources';
+import SdkSupportedFeatures from '@site/src/components/SdkSupportedFeatures';
 
 This supports Java applications using Java version 1.8 and higher.
 
@@ -112,6 +113,68 @@ Attributes are a JSON string. You can specify attributes about the current user 
 <CodeTabsUserAttributesPartial />
 
 If you need to set or update attributes asynchronously, you can do so with `Context#attributesJson` or `GrowthBook#setAttributes`. This will completely overwrite the attributes object with whatever you pass in. Also, be aware that changing attributes may change the assigned feature values. This can be disorienting to users if not handled carefully.
+
+#### Secure Attributes
+
+When _secure attribute hashing_ is enabled, all targeting conditions in the SDK payload referencing attributes with datatype `secureString` or `secureString[]` will be anonymized via SHA-256 hashing. This allows you to safely target users based on sensitive attributes. You must enable this feature in your SDK Connection for it to take effect.
+
+If your SDK Connection has secure attribute hashing enabled, you will need to manually hash any `secureString` or `secureString[]` attributes that you pass into the GrowthBook SDK.
+
+To hash an attribute, use a cryptographic library with SHA-256 support, and compute the SHA-256 hashed value of your attribute _plus_ your organization's secure attribute salt.
+
+```java
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Base64;
+
+// Your secure attribute salt (set in Organization Settings)
+String salt = "f09jq3fij";
+
+// Hashing a secureString attribute
+String userEmail = user.getEmail();
+String hashedEmail = "";
+
+try {
+    MessageDigest digest = MessageDigest.getInstance("SHA-256");
+    byte[] hash = digest.digest((salt + userEmail).getBytes(StandardCharsets.UTF_8));
+    hashedEmail = Base64.getEncoder().encodeToString(hash);
+} catch (NoSuchAlgorithmException e) {
+    // Handle exception
+}
+
+// Hashing a secureString[] attribute
+List<String> userTags = user.getTags();
+List<String> hashedTags = new ArrayList<>();
+
+try {
+    MessageDigest digest = MessageDigest.getInstance("SHA-256");
+    for (String tag : userTags) {
+        byte[] hash = digest.digest((salt + tag).getBytes(StandardCharsets.UTF_8));
+        hashedTags.add(Base64.getEncoder().encodeToString(hash));
+    }
+} catch (NoSuchAlgorithmException e) {
+    // Handle exception
+}
+
+// Create attributes JSON with hashed values
+// This is a simplified example - you would need to use proper JSON serialization
+String attributesJson = String.format(
+    "{\"id\":\"%s\",\"loggedIn\":true,\"email\":\"%s\",\"tags\":%s}",
+    user.getId(),
+    hashedEmail,
+    Arrays.toString(hashedTags.toArray())
+);
+
+// Use the hashed attributes when creating your GrowthBook instance
+GBContext context = GBContext
+    .builder()
+    .featuresJson(featuresJson)
+    .attributesJson(attributesJson)
+    .build();
+
+GrowthBook growthBook = new GrowthBook(context);
+```
 
 #### Tracking Callback
 
@@ -274,7 +337,7 @@ Then, you would call `myGbFeaturesRepositoryInstance.initialize()` in order to m
 
 For more references, see the [Examples](#code-examples) below.
 
-#### Cacheing and refreshing behaviour
+#### Cacheing and refreshing behavior
 
 As of version 0.9.0, there are 2 refresh strategies available.
 
@@ -356,3 +419,7 @@ You will need to add the following to your `proguard-rules.pro` file to ensure t
 ## Further Reading
 
 - [JavaDoc class documentation <ExternalLink/>](https://growthbook.github.io/growthbook-sdk-java/)
+
+## Supported Features
+
+<SdkSupportedFeatures sdk="java" />

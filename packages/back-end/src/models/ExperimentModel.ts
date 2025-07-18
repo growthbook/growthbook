@@ -35,6 +35,11 @@ import {
   removeMongooseFields,
   ToInterface,
 } from "back-end/src/util/mongo.util";
+import {
+  createVercelExperimentationItemFromExperiment,
+  updateVercelExperimentationItemFromExperiment,
+  deleteVercelExperimentationItemFromExperiment,
+} from "back-end/src/services/vercel-native-integration.service";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";
@@ -69,7 +74,6 @@ const banditResultObject = {
   ],
   currentWeights: [Number],
   updatedWeights: [Number],
-  srm: Number,
   bestArmProbabilities: [Number],
   additionalReward: Number,
   seed: Number,
@@ -128,6 +132,16 @@ const experimentSchema = new mongoose.Schema({
       conversionDelayHours: Number,
     },
   ],
+  decisionFrameworkSettings: {
+    decisionCriteriaId: String,
+    decisionFrameworkMetricOverrides: [
+      {
+        _id: false,
+        id: String,
+        targetMDE: Number,
+      },
+    ],
+  },
   // These are using {} instead of [String] so Mongoose doesn't prefill them with empty arrays
   // This is necessary for migrations to work properly
   metrics: {},
@@ -214,6 +228,10 @@ const experimentSchema = new mongoose.Schema({
         {
           _id: false,
           date: Date,
+          health: {
+            _id: false,
+            srm: Number,
+          },
           banditResult: banditResultObject,
           snapshotId: String,
         },
@@ -496,16 +514,18 @@ export async function createExperiment({
     nextSnapshotAttempt: nextUpdate,
   });
 
+  const experiment = toInterface(exp);
+
   await onExperimentCreate({
     context,
-    experiment: toInterface(exp),
+    experiment,
   });
 
   if (data.tags) {
     await addTags(data.organization, data.tags);
   }
 
-  return toInterface(exp);
+  return experiment;
 }
 
 export async function updateExperiment({
@@ -1521,6 +1541,12 @@ const onExperimentCreate = async ({
   experiment: ExperimentInterface;
 }) => {
   await logExperimentCreated(context, experiment);
+
+  if (context.org.isVercelIntegration)
+    await createVercelExperimentationItemFromExperiment({
+      experiment,
+      organization: context.org,
+    });
 };
 
 const onExperimentUpdate = async ({
@@ -1571,6 +1597,12 @@ const onExperimentUpdate = async ({
       logger.error(e, "Error refreshing SDK payload cache");
     });
   }
+
+  if (context.org.isVercelIntegration)
+    await updateVercelExperimentationItemFromExperiment({
+      experiment: newExperiment,
+      organization: context.org,
+    });
 };
 
 const onExperimentDelete = async (
@@ -1589,4 +1621,10 @@ const onExperimentDelete = async (
   refreshSDKPayloadCache(context, payloadKeys).catch((e) => {
     logger.error(e, "Error refreshing SDK payload cache");
   });
+
+  if (context.org.isVercelIntegration)
+    await deleteVercelExperimentationItemFromExperiment({
+      experiment,
+      organization: context.org,
+    });
 };

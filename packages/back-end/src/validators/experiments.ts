@@ -5,7 +5,7 @@ import {
   namespaceValue,
   featurePrerequisite,
   savedGroupTargeting,
-} from "./features";
+} from "./shared";
 
 export const experimentResultsType = [
   "dnf",
@@ -25,19 +25,25 @@ export const banditResult = z.object({
   singleVariationResults: z.array(singleVariationResult).optional(),
   currentWeights: z.array(z.number()),
   updatedWeights: z.array(z.number()),
-  srm: z.number().optional(),
   bestArmProbabilities: z.array(z.number()).optional(),
   seed: z.number().optional(),
   updateMessage: z.string().optional(),
   error: z.string().optional(),
   reweight: z.boolean().optional(),
   weightsWereUpdated: z.boolean().optional(),
+  /** @deprecated */
+  srm: z.number().optional(),
 });
 
 export const banditEvent = z
   .object({
     date: z.date(),
     banditResult: banditResult,
+    health: z
+      .object({
+        srm: z.number().optional(),
+      })
+      .optional(),
     snapshotId: z.string().optional(), // 0th may not have snapshot
   })
   .strict();
@@ -134,6 +140,24 @@ export type ExperimentType = typeof experimentType[number];
 export const banditStageType = ["explore", "exploit", "paused"] as const;
 export type BanditStageType = typeof banditStageType[number];
 
+export const decisionFrameworkMetricOverrides = z.object({
+  id: z.string(),
+  targetMDE: z.number().optional(),
+});
+export type DecisionFrameworkMetricOverrides = z.infer<
+  typeof decisionFrameworkMetricOverrides
+>;
+
+export const experimentDecisionFrameworkSettings = z.object({
+  decisionCriteriaId: z.string().optional(),
+  decisionFrameworkMetricOverrides: z
+    .array(decisionFrameworkMetricOverrides)
+    .optional(),
+});
+export type ExperimentDecisionFrameworkSettings = z.infer<
+  typeof experimentDecisionFrameworkSettings
+>;
+
 export const experimentAnalysisSettings = z
   .object({
     trackingKey: z.string(),
@@ -144,6 +168,7 @@ export const experimentAnalysisSettings = z
     guardrailMetrics: z.array(z.string()),
     activationMetric: z.string().optional(),
     metricOverrides: z.array(metricOverride).optional(),
+    decisionFrameworkSettings: experimentDecisionFrameworkSettings,
     segment: z.string().optional(),
     queryFilter: z.string().optional(),
     skipPartialData: z.boolean().optional(),
@@ -183,7 +208,7 @@ export type ExperimentAnalysisSummaryHealth = z.infer<
 export const goalMetricStatus = ["won", "lost", "neutral"] as const;
 export type GoalMetricStatus = typeof goalMetricStatus[number];
 
-export const guardrailMetricStatus = ["lost", "neutral"] as const;
+export const guardrailMetricStatus = ["safe", "lost", "neutral"] as const;
 export type GuardrailMetricStatus = typeof guardrailMetricStatus[number];
 
 export const goalMetricResult = z.object({
@@ -194,11 +219,10 @@ export type GoalMetricResult = z.infer<typeof goalMetricResult>;
 
 export const experimentAnalysisSummaryVariationStatus = z.object({
   variationId: z.string(),
-  goalMetrics: z.record(z.string(), goalMetricResult),
-  guardrailMetrics: z.record(
-    z.string(),
-    z.object({ status: z.enum(guardrailMetricStatus) })
-  ),
+  goalMetrics: z.record(z.string(), goalMetricResult).optional(),
+  guardrailMetrics: z
+    .record(z.string(), z.object({ status: z.enum(guardrailMetricStatus) }))
+    .optional(),
 });
 export type ExperimentAnalysisSummaryVariationStatus = z.infer<
   typeof experimentAnalysisSummaryVariationStatus
@@ -220,8 +244,7 @@ export const experimentAnalysisSummary = z
     health: experimentAnalysisSummaryHealth.optional(),
     resultsStatus: experimentAnalysisSummaryResultsStatus.optional(),
   })
-  .strict()
-  .optional();
+  .strict();
 
 export type ExperimentAnalysisSummary = z.infer<
   typeof experimentAnalysisSummary
@@ -291,7 +314,7 @@ export const experimentInterface = z
     customFields: z.record(z.any()).optional(),
     templateId: z.string().optional(),
     shareLevel: z.enum(["public", "organization"]).optional(),
-    analysisSummary: experimentAnalysisSummary,
+    analysisSummary: experimentAnalysisSummary.optional(),
     dismissedWarnings: z.array(z.enum(["low-power"])).optional(),
   })
   .strict()

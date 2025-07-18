@@ -15,11 +15,11 @@ import {
 } from "shared/constants";
 
 import { useGrowthBook } from "@growthbook/growthbook-react";
+import { IconButton } from "@radix-ui/themes";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBBandit, GBCuped, GBEdit, GBExperiment } from "@/components/Icons";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import EditProjectsForm from "@/components/Projects/EditProjectsForm";
 import PageHead from "@/components/Layout/PageHead";
@@ -54,6 +54,13 @@ import DataList, { DataListItem } from "@/components/Radix/DataList";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { AppFeatures } from "@/types/app-features";
 import { useCurrency } from "@/hooks/useCurrency";
+import HistoryTable from "@/components/HistoryTable";
+import Modal from "@/components/Modal";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/Radix/DropdownMenu";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -154,6 +161,9 @@ export default function FactMetricPage() {
   const [editProjectsOpen, setEditProjectsOpen] = useState(false);
   const [editTagsModal, setEditTagsModal] = useState(false);
   const [editOwnerModal, setEditOwnerModal] = useState(false);
+  const [auditModal, setAuditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [openDropdown, setOpenDropdown] = useState(false);
 
   const [tab, setTab] = useLocalStorage<string | null>(
     `metricTabbedPageTab__${fmid}`,
@@ -356,6 +366,43 @@ export default function FactMetricPage() {
 
   return (
     <div className="pagecontents container-fluid">
+      {auditModal && (
+        <Modal
+          trackingEventModalType=""
+          open={true}
+          header="Audit Log"
+          close={() => setAuditModal(false)}
+          size="lg"
+          closeCta="Close"
+        >
+          <HistoryTable type="metric" id={factMetric.id} />
+        </Modal>
+      )}
+      {showDeleteModal && (
+        <Modal
+          trackingEventModalType=""
+          header={`Delete Metric`}
+          close={() => setShowDeleteModal(false)}
+          open={true}
+          cta="Delete"
+          submitColor="danger"
+          submit={async () => {
+            await apiCall(`/fact-metrics/${factMetric.id}`, {
+              method: "DELETE",
+            });
+            mutateDefinitions();
+            setShowDeleteModal(false);
+            router.push("/metrics");
+          }}
+          ctaEnabled={canDelete}
+          increasedElevation={true}
+        >
+          <p>
+            Are you sure you want to delete this metric? This action cannot be
+            undone.
+          </p>
+        </Modal>
+      )}
       {editOpen !== "closed" && (
         <FactMetricModal
           close={() => setEditOpen("closed")}
@@ -440,38 +487,46 @@ export default function FactMetricPage() {
             <MetricName id={factMetric.id} />
           </h1>
         </div>
-        <div className="ml-auto">
-          <MoreMenu>
+        <div className="ml-auto mr-2">
+          <DropdownMenu
+            trigger={
+              <IconButton
+                variant="ghost"
+                color="gray"
+                radius="full"
+                size="3"
+                highContrast
+              >
+                <BsThreeDotsVertical size={18} />
+              </IconButton>
+            }
+            menuPlacement="end"
+            open={openDropdown}
+            onOpenChange={setOpenDropdown}
+          >
             {canEdit && (
-              <button
-                className="dropdown-item"
-                onClick={(e) => {
-                  e.preventDefault();
+              <DropdownMenuItem
+                onClick={() => {
+                  setOpenDropdown(false);
                   setEditOpen("open");
                 }}
               >
                 Edit Metric
-              </button>
+              </DropdownMenuItem>
             )}
-            {canDelete && (
-              <DeleteButton
-                className="dropdown-item"
-                displayName="Metric"
-                useIcon={false}
-                text="Delete Metric"
-                onClick={async () => {
-                  await apiCall(`/fact-metrics/${factMetric.id}`, {
-                    method: "DELETE",
-                  });
-                  mutateDefinitions();
-                  router.push("/metrics");
-                }}
-              />
-            )}
+            <DropdownMenuItem
+              onClick={() => {
+                setOpenDropdown(false);
+                setAuditModal(true);
+              }}
+            >
+              Audit log
+            </DropdownMenuItem>
+            {canEdit || canDelete ? <DropdownMenuSeparator /> : null}
             {canEdit && (
-              <button
-                className="btn dropdown-item"
+              <DropdownMenuItem
                 onClick={async () => {
+                  setOpenDropdown(false);
                   await apiCall(`/fact-metrics/${factMetric.id}`, {
                     method: "PUT",
                     body: JSON.stringify({
@@ -482,9 +537,20 @@ export default function FactMetricPage() {
                 }}
               >
                 {factMetric.archived ? "Unarchive" : "Archive"}
-              </button>
+              </DropdownMenuItem>
             )}
-          </MoreMenu>
+            {canDelete && (
+              <DropdownMenuItem
+                color="red"
+                onClick={() => {
+                  setOpenDropdown(false);
+                  setShowDeleteModal(true);
+                }}
+              >
+                Delete
+              </DropdownMenuItem>
+            )}
+          </DropdownMenu>
         </div>
       </div>
       <div className="row mb-4">
@@ -702,6 +768,22 @@ export default function FactMetricPage() {
                 <ul className="right-rail-subsection list-unstyled mb-4">
                   <li className="mt-3 mb-1">
                     <span className="uppercase-title lg">
+                      Experiment Decision Framework
+                    </span>
+                  </li>
+                  <li className="mb-2">
+                    <span className="text-gray">Target MDE:</span>{" "}
+                    <span className="font-weight-bold">
+                      {getTargetMDEForMetric(factMetric) * 100}%
+                    </span>
+                  </li>
+                </ul>
+              </RightRailSectionGroup>
+
+              <RightRailSectionGroup type="custom" empty="">
+                <ul className="right-rail-subsection list-unstyled mb-4">
+                  <li className="mt-3 mb-1">
+                    <span className="uppercase-title lg">
                       Display Thresholds
                     </span>
                   </li>
@@ -719,7 +801,7 @@ export default function FactMetricPage() {
                         : getExperimentMetricFormatter(
                             factMetric,
                             getFactTableById,
-                            true
+                            "number"
                           )(getMinSampleSizeForMetric(factMetric), {
                             currency: displayCurrency,
                           })}
@@ -735,12 +817,6 @@ export default function FactMetricPage() {
                     <span className="text-gray">Min percent change:</span>{" "}
                     <span className="font-weight-bold">
                       {getMinPercentageChangeForMetric(factMetric) * 100}%
-                    </span>
-                  </li>
-                  <li className="mb-2">
-                    <span className="text-gray">Target MDE:</span>{" "}
-                    <span className="font-weight-bold">
-                      {getTargetMDEForMetric(factMetric) * 100}%
                     </span>
                   </li>
                 </ul>

@@ -207,13 +207,15 @@ const EnvironmentsPage: FC = () => {
                               color=""
                               className="dropdown-item"
                               onClick={async () => {
-                                const newEnvs = [...environments];
-                                newEnvs.splice(i, 1);
-                                newEnvs.splice(i - 1, 0, e);
+                                const targetEnv = filteredEnvironments[i - 1];
+                                const newIndex = environments.findIndex(
+                                  (env) => targetEnv.id === env.id
+                                );
                                 await apiCall(`/environment/order`, {
                                   method: "PUT",
                                   body: JSON.stringify({
-                                    environments: newEnvs.map((env) => env.id),
+                                    envId: e.id,
+                                    newIndex, // this is the filteredEnvironments index  we are moving it on
                                   }),
                                 });
                                 refreshOrganization();
@@ -222,18 +224,20 @@ const EnvironmentsPage: FC = () => {
                               Move up
                             </OldButton>
                           )}
-                          {i < environments.length - 1 && (
+                          {i < filteredEnvironments.length - 1 && (
                             <OldButton
                               color=""
                               className="dropdown-item"
                               onClick={async () => {
-                                const newEnvs = [...environments];
-                                newEnvs.splice(i, 1);
-                                newEnvs.splice(i + 1, 0, e);
+                                const targetEnv = filteredEnvironments[i + 1];
+                                const newIndex = environments.findIndex(
+                                  (env) => targetEnv.id === env.id
+                                );
                                 await apiCall(`/environment/order`, {
                                   method: "PUT",
                                   body: JSON.stringify({
-                                    environments: newEnvs.map((env) => env.id),
+                                    envId: e.id,
+                                    newIndex, // this is the filteredEnvironments index  we are moving it on
                                   }),
                                 });
                                 refreshOrganization();

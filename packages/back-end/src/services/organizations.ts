@@ -3,16 +3,6 @@ import { freeEmailDomains } from "free-email-domains-typescript";
 import { cloneDeep } from "lodash";
 import { Request } from "express";
 import {
-  getLicense,
-  isActiveSubscriptionStatus,
-  isAirGappedLicenseKey,
-  licenseInit,
-  postSubscriptionUpdateToLicenseServer,
-  getSubscriptionFromLicense,
-  SubscriptionInfo,
-  getStripeSubscriptionStatus,
-} from "shared/enterprise";
-import {
   areProjectRolesValid,
   isRoleValid,
   getDefaultRole,
@@ -89,6 +79,9 @@ import {
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
+import { getLicense, licenseInit } from "back-end/src/enterprise";
+import { PValueCorrection } from "back-end/types/stats";
+import { findVercelInstallationByInstallationId } from "back-end/src/models/VercelNativeIntegrationModel";
 import {
   encryptParams,
   getSourceIntegrationObject,
@@ -116,8 +109,19 @@ export function validateLoginMethod(
     req.loginMethod?.id !== org.restrictLoginMethod
   ) {
     throw new Error(
-      "Your organization requires you to login with Enterprise SSO"
+      `Your organization requires you to login with ${
+        org.restrictLoginMethod.startsWith("vercel:")
+          ? "Vercel"
+          : "Enterprise SSO"
+      }`
     );
+  }
+
+  if (req.loginMethod?.id?.startsWith("vercel:")) {
+    const installationId = req.loginMethod.id.split(":")[1];
+    if (installationId !== req.vercelInstallationId) {
+      throw new Error(`Vercel installation id mismatch`);
+    }
   }
 
   // If the org requires a specific subject in the IdToken
@@ -208,6 +212,12 @@ export function getPValueThresholdForOrg(context: ReqContext): number {
   return context.org.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD;
 }
 
+export function getPValueCorrectionForOrg(
+  context: ReqContext
+): PValueCorrection {
+  return context.org.settings?.pValueCorrection ?? null;
+}
+
 export function getRole(
   org: OrganizationInterface,
   userId: string,
@@ -269,7 +279,12 @@ export async function removeMember(
   updatedOrganization.members = members;
   updatedOrganization.pendingMembers = pendingMembers;
 
-  await updateSubscriptionIfProLicense(updatedOrganization);
+  await licenseInit(
+    updatedOrganization,
+    getUserCodesForOrg,
+    getLicenseMetaData,
+    true
+  );
 
   return updatedOrganization;
 }
@@ -286,35 +301,18 @@ export async function revokeInvite(
 
   const updatedOrganization = cloneDeep(organization);
   updatedOrganization.invites = invites;
-  await updateSubscriptionIfProLicense(updatedOrganization);
+  await licenseInit(
+    updatedOrganization,
+    getUserCodesForOrg,
+    getLicenseMetaData,
+    true
+  );
 
   return updatedOrganization;
 }
 
 export function getInviteUrl(key: string) {
   return `${APP_ORIGIN}/invitation?key=${key}`;
-}
-
-async function updateSubscriptionIfProLicense(
-  organization: OrganizationInterface
-) {
-  if (
-    organization.licenseKey &&
-    !isAirGappedLicenseKey(organization.licenseKey)
-  ) {
-    const license = await getLicense(organization.licenseKey);
-    if (
-      license?.plan === "pro" &&
-      isActiveSubscriptionStatus(getSubscriptionFromLicense(license)?.status)
-    ) {
-      // Only pro plans have a Stripe subscription that needs to get updated
-      const seatsInUse = getNumberOfUniqueMembersAndInvites(organization);
-      await postSubscriptionUpdateToLicenseServer(
-        organization.licenseKey,
-        seatsInUse
-      );
-    }
-  }
 }
 
 export async function addMemberToOrg({
@@ -326,6 +324,7 @@ export async function addMemberToOrg({
   projectRoles,
   externalId,
   managedByIdp,
+  teams = [],
 }: {
   organization: OrganizationInterface;
   userId: string;
@@ -335,6 +334,7 @@ export async function addMemberToOrg({
   projectRoles?: ProjectMemberRole[];
   externalId?: string;
   managedByIdp?: boolean;
+  teams?: string[];
 }) {
   // If member is already in the org, skip
   if (organization.members.find((m) => m.id === userId)) {
@@ -363,6 +363,7 @@ export async function addMemberToOrg({
       dateCreated: new Date(),
       externalId,
       managedByIdp,
+      teams,
     },
   ];
 
@@ -375,7 +376,12 @@ export async function addMemberToOrg({
   updatedOrganization.members = members;
   updatedOrganization.pendingMembers = pendingMembers;
 
-  await updateSubscriptionIfProLicense(updatedOrganization);
+  await licenseInit(
+    updatedOrganization,
+    getUserCodesForOrg,
+    getLicenseMetaData,
+    true
+  );
 }
 
 export async function addMembersToTeam({
@@ -541,7 +547,14 @@ export async function acceptInvite(key: string, userId: string) {
     pendingMembers,
   });
 
-  return organization;
+  // fetch a fresh instance of the org now that the members & invites lists have changed
+  const updatedOrg = await getOrganizationById(organization.id);
+
+  if (!updatedOrg) {
+    throw new Error("Unable to locate org");
+  }
+
+  return updatedOrg;
 }
 
 export async function inviteUser({
@@ -609,7 +622,12 @@ export async function inviteUser({
   const updatedOrganization = cloneDeep(organization);
   updatedOrganization.invites = invites;
 
-  await updateSubscriptionIfProLicense(updatedOrganization);
+  await licenseInit(
+    updatedOrganization,
+    getUserCodesForOrg,
+    getLicenseMetaData,
+    true
+  );
 
   let emailSent = false;
   if (isEmailEnabled()) {
@@ -958,6 +976,9 @@ export function isEnterpriseSSO(connection?: SSOConnectionInterface) {
   // On cloud, the default SSO (Auth0) does not have a connection id
   if (!connection.id) return false;
 
+  // Vercel SSO connections are not enterprise
+  if (connection.id.startsWith("vercel:")) return false;
+
   return true;
 }
 
@@ -968,21 +989,41 @@ export async function addMemberFromSSOConnection(
   if (!req.userId) return null;
 
   const ssoConnection = req.loginMethod;
-  if (!ssoConnection || !ssoConnection?.emailDomains?.length) return null;
+  if (!ssoConnection) return null;
 
-  // Check if the user's email domain is allowed by the SSO connection
-  const emailDomain = req.email.split("@").pop()?.toLowerCase() || "";
-  if (!ssoConnection?.emailDomains?.includes(emailDomain)) {
-    return null;
+  // For non-vercel, require email domains to match
+  if (!ssoConnection.id?.startsWith("vercel:")) {
+    if (!ssoConnection?.emailDomains?.length) return null;
+
+    // Check if the user's email domain is allowed by the SSO connection
+    const emailDomain = req.email.split("@").pop()?.toLowerCase() || "";
+    if (!ssoConnection?.emailDomains?.includes(emailDomain)) {
+      return null;
+    }
   }
 
   let organization: null | OrganizationInterface = null;
   // On Cloud, we need to get the organization from the SSO connection
   if (IS_CLOUD) {
-    if (!ssoConnection.organization) {
-      return null;
+    // For Vercel, we need to look up the Vercel installation to find the org
+    if (ssoConnection.id?.startsWith("vercel:")) {
+      const installationId = ssoConnection.id.split(":")[1];
+      if (!installationId) return null;
+      if (installationId !== req.vercelInstallationId) return null;
+
+      const installation = await findVercelInstallationByInstallationId(
+        installationId
+      );
+      if (!installation) {
+        return null;
+      }
+      organization = await findOrganizationById(installation.organization);
+    } else {
+      if (!ssoConnection.organization) {
+        return null;
+      }
+      organization = await getOrganizationById(ssoConnection.organization);
     }
-    organization = await getOrganizationById(ssoConnection.organization);
   }
   // When self-hosting, there should be only one organization in Mongo
   else {
@@ -1139,19 +1180,4 @@ export async function getContextForAgendaJobByOrgId(
   }
 
   return getContextForAgendaJobByOrgObject(organization);
-}
-
-export function getSubscriptionFromOrg(
-  organization: OrganizationInterface
-): SubscriptionInfo | null {
-  if (organization.subscription) {
-    return {
-      billingPlatform: "stripe",
-      externalId: organization.subscription.id,
-      trialEnd: organization.subscription.trialEnd,
-      status: getStripeSubscriptionStatus(organization.subscription.status),
-      hasPaymentMethod: !!organization.subscription.hasPaymentMethod,
-    };
-  }
-  return null;
 }

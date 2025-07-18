@@ -1,10 +1,13 @@
-import React, { FC, ReactNode } from "react";
+import React, { FC, ReactNode, useState } from "react";
 import { isProjectListValidForProject } from "shared/util";
 import {
   isFactMetric,
+  isMetricGroupId,
   isMetricJoinable,
   quantileMetricType,
 } from "shared/experiments";
+import { Flex, Text } from "@radix-ui/themes";
+import { PiInfoFill } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import SelectField from "@/components/Forms/SelectField";
@@ -12,6 +15,9 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricName from "@/components/Metrics/MetricName";
 import ClickToCopy from "@/components/Settings/ClickToCopy";
 import { GBInfo } from "@/components/Icons";
+import { useUser } from "@/services/UserContext";
+import MetricGroupInlineForm from "@/enterprise/components/MetricGroupInlineForm";
+import Link from "../Radix/Link";
 
 type MetricOption = {
   id: string;
@@ -96,6 +102,7 @@ const MetricsSelector: FC<{
   disabled,
   helpText,
 }) => {
+  const [createMetricGroup, setCreateMetricGroup] = useState(false);
   const {
     metrics,
     metricGroups,
@@ -103,7 +110,13 @@ const MetricsSelector: FC<{
     factTables,
     getExperimentMetricById,
     getDatasourceById,
+    mutateDefinitions,
   } = useDefinitions();
+  const { hasCommercialFeature } = useUser();
+
+  const metricListContainsGroup = selected.some((metric) =>
+    isMetricGroupId(metric)
+  );
 
   const options: MetricOption[] = [
     ...metrics
@@ -200,6 +213,16 @@ const MetricsSelector: FC<{
     }
   });
 
+  let showMetricGroupHelper =
+    hasCommercialFeature("metric-groups") &&
+    selected.length >= 2 &&
+    !metricListContainsGroup &&
+    datasource;
+
+  // Disable this for now since it is making the UI too cluttered
+  // We will revisit when we re-design the metric selector
+  showMetricGroupHelper = false;
+
   const selector = !forceSingleMetric ? (
     <MultiSelectField
       value={selected}
@@ -272,11 +295,45 @@ const MetricsSelector: FC<{
       helpText={
         <>
           {helpText}
-          <div className="d-flex align-items-center justify-content-end mt-1 mb-2">
+          {showMetricGroupHelper && datasource ? (
+            <Flex align="center">
+              {createMetricGroup ? (
+                <MetricGroupInlineForm
+                  selectedMetricIds={selected}
+                  datasource={datasource}
+                  mutateDefinitions={mutateDefinitions}
+                  onChange={onChange}
+                  cancel={() => setCreateMetricGroup(false)}
+                />
+              ) : (
+                <>
+                  <PiInfoFill size="13" style={{ color: "var(--violet-11)" }} />
+                  <Text className="px-1" style={{ color: "var(--violet-11)" }}>
+                    Create a Metric Group so you can easily re-use this set of
+                    metrics in other experiments.
+                  </Text>
+                  <Link
+                    role="button"
+                    onClick={() => setCreateMetricGroup(true)}
+                  >
+                    <strong style={{ textDecoration: "underline" }}>
+                      Convert now
+                    </strong>
+                  </Link>
+                </>
+              )}
+            </Flex>
+          ) : null}
+          <div className="d-flex align-items-center justify-content-start mt-2 mb-2">
             <div>
               {!forceSingleMetric && filteredOptions.length > 0 && !disabled && (
                 <div className="metric-from-tag text-muted form-inline">
-                  <span>
+                  <span
+                    style={{
+                      color: "var(--violet-11)",
+                      fontWeight: 600,
+                    }}
+                  >
                     Select metric by tag:{" "}
                     <Tooltip body="Metrics can be tagged for grouping. Select any tag to add all metrics associated with that tag.">
                       <GBInfo />
@@ -287,7 +344,7 @@ const MetricsSelector: FC<{
                     placeholder="choose"
                     className="ml-3"
                     containerClassName="select-dropdown-underline"
-                    style={{ minWidth: 100 }}
+                    style={{ minWidth: 200 }}
                     onChange={(v) => {
                       const newValue = new Set(selected);
                       const tag = v;

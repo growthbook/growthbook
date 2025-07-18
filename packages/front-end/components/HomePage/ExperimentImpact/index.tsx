@@ -47,6 +47,9 @@ export function formatImpact(
   ) => string,
   formatterOptions: Intl.NumberFormatOptions
 ) {
+  if (impact === 0) {
+    return <>N/A</>;
+  }
   return (
     <>
       <span className="expectedArrows">
@@ -70,6 +73,11 @@ type ExperimentWithImpact = {
   }[];
   type: ExperimentImpactType;
   keyVariationId?: number;
+  keyVariationImpact?: {
+    scaledImpact: number;
+    scaledImpactAdjusted?: number;
+    se: number;
+  };
   error?: string;
 };
 
@@ -87,7 +95,7 @@ type ExperimentImpactSummary = {
   others: ExperimentImpactData;
 };
 
-function scaleImpactAndSetMissingExperiments({
+export function scaleImpactAndSetMissingExperiments({
   experiments,
   snapshots,
   metric,
@@ -269,6 +277,18 @@ function scaleImpactAndSetMissingExperiments({
         }
       });
 
+      if (
+        experimentImpact !== null &&
+        experimentAdjustedImpact !== null &&
+        experimentAdjustedImpactStdDev !== null
+      ) {
+        e.keyVariationImpact = {
+          scaledImpact: experimentImpact,
+          scaledImpactAdjusted: experimentAdjustedImpact,
+          se: experimentAdjustedImpactStdDev,
+        };
+      }
+
       if (e.type === "winner") {
         summaryObj.winners.totalAdjustedImpact += experimentAdjustedImpact ?? 0;
         summaryObj.winners.totalAdjustedImpactVariance += Math.pow(
@@ -344,7 +364,7 @@ export default function ExperimentImpact({
 
   const metricInterface = metrics.find((m) => m.id === metric);
   const formatter = metricInterface
-    ? getExperimentMetricFormatter(metricInterface, getFactTableById, true)
+    ? getExperimentMetricFormatter(metricInterface, getFactTableById, "number")
     : formatNumber;
 
   const formatterOptions: Intl.NumberFormatOptions = {
@@ -428,13 +448,8 @@ export default function ExperimentImpact({
 
   return (
     <div className="pt-2">
+      <h3 className="mt-2 mb-3 mr-4">Experiment Impact</h3>
       <div className="row align-items-start mb-4">
-        <div className="col-md-12 col-lg-auto">
-          <h3 className="mt-2 mb-3 mr-4">Experiment Impact</h3>
-        </div>
-
-        <div className="flex-1" />
-
         <div className="col-3">
           <label className="mb-1">Metric</label>
           <MetricSelector

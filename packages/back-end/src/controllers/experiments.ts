@@ -577,7 +577,7 @@ export async function getSnapshots(
   return;
 }
 
-const validateVariationIds = (variations: Variation[]) => {
+export function validateVariationIds(variations: Variation[]) {
   variations.forEach((variation, i) => {
     if (!variation.id) {
       variation.id = uniqid("var_");
@@ -590,7 +590,7 @@ const validateVariationIds = (variations: Variation[]) => {
   if (keys.length !== new Set(keys).size) {
     throw new Error("Variation keys must be unique");
   }
-};
+}
 
 /**
  * Creates a new experiment
@@ -689,8 +689,8 @@ export async function postExperiments(
     archived: false,
     hashAttribute: data.hashAttribute || "",
     fallbackAttribute: data.fallbackAttribute || "",
-    disableStickyBucketing: data.disableStickyBucketing ?? false,
     hashVersion: data.hashVersion || 2,
+    disableStickyBucketing: data.disableStickyBucketing ?? false,
     autoSnapshots: true,
     dateCreated: new Date(),
     dateUpdated: new Date(),
@@ -715,9 +715,9 @@ export async function postExperiments(
     hypothesis: data.hypothesis || "",
     goalMetrics: data.goalMetrics || [],
     secondaryMetrics: data.secondaryMetrics || [],
-    metricOverrides: data.metricOverrides || [],
     guardrailMetrics: data.guardrailMetrics || [],
     activationMetric: data.activationMetric || "",
+    metricOverrides: data.metricOverrides || [],
     segment: data.segment || "",
     queryFilter: data.queryFilter || "",
     skipPartialData: !!data.skipPartialData,
@@ -754,6 +754,7 @@ export async function postExperiments(
     customFields: data.customFields || undefined,
     templateId: data.templateId || undefined,
     shareLevel: data.shareLevel || "organization",
+    decisionFrameworkSettings: data.decisionFrameworkSettings || {},
   };
 
   const { settings } = getScopedSettings({
@@ -1012,6 +1013,7 @@ export async function postExperiment(
     "secondaryMetrics",
     "guardrailMetrics",
     "metricOverrides",
+    "decisionFrameworkSettings",
     "variations",
     "status",
     "results",
@@ -2420,7 +2422,6 @@ export async function postSnapshot(
         orgPriorSettings: metricDefaults.priorSettings,
         analysisSettings,
         metricMap,
-        context,
       });
       res.status(200).json({
         status: 200,
@@ -3222,5 +3223,46 @@ export async function findOrCreateVisualEditorToken(
 
   res.status(200).json({
     key: visualEditorKey.key,
+  });
+}
+
+export async function getExperimentTimeSeries(
+  req: AuthRequest<
+    null,
+    { id: string },
+    { phase: string; metricIds: string[] }
+  >,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  const { phase, metricIds } = req.query;
+  const phaseIndex = parseInt(phase, 10);
+
+  const experiment = await getExperimentById(context, id);
+  if (!experiment) {
+    throw new Error("Experiment not found");
+  }
+
+  if (metricIds.length === 0) {
+    throw new Error("metricIds is required");
+  }
+
+  if (isNaN(phaseIndex)) {
+    throw new Error("Invalid phase");
+  }
+
+  const timeSeries = await context.models.metricTimeSeries.getBySourceAndMetricIds(
+    {
+      source: "experiment",
+      sourceId: id,
+      sourcePhase: phaseIndex,
+      metricIds,
+    }
+  );
+
+  res.status(200).json({
+    status: 200,
+    timeSeries,
   });
 }

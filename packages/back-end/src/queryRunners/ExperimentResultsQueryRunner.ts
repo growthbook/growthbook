@@ -1,7 +1,4 @@
-import {
-  analyzeExperimentPower,
-  orgHasPremiumFeature,
-} from "shared/enterprise";
+import { analyzeExperimentPower } from "shared/enterprise";
 import { addDays } from "date-fns";
 import {
   expandMetricGroups,
@@ -14,6 +11,7 @@ import {
 import { FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS } from "shared/constants";
 import { daysBetween } from "shared/dates";
 import chunk from "lodash/chunk";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiReqContext } from "back-end/types/api";
 import {
   ExperimentSnapshotAnalysis,
@@ -49,8 +47,8 @@ import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { OrganizationInterface } from "back-end/types/organization";
 import { FactMetricInterface } from "back-end/types/fact-table";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
-import { BanditResult } from "back-end/types/stats";
 import { updateReport } from "back-end/src/models/ReportModel";
+import { BanditResult } from "back-end/types/experiment";
 import {
   QueryRunner,
   QueryMap,

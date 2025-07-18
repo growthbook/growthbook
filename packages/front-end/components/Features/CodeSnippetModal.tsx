@@ -12,6 +12,7 @@ import {
 import { FeatureInterface } from "back-end/types/feature";
 import Link from "next/link";
 import { getLatestSDKVersion } from "shared/sdk-versioning";
+import { PiPackage } from "react-icons/pi";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { getApiHost, getCdnHost } from "@/services/env";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -27,8 +28,12 @@ import TargetingAttributeCodeSnippet from "@/components/SyntaxHighlighting/Snipp
 import SelectField from "@/components/Forms/SelectField";
 import CheckSDKConnectionModal from "@/components/GuidedGetStarted/CheckSDKConnectionModal";
 import MultivariateFeatureCodeSnippet from "@/components/SyntaxHighlighting/Snippets/MultivariateFeatureCodeSnippet";
+import Callout from "../Radix/Callout";
 import SDKLanguageSelector from "./SDKConnections/SDKLanguageSelector";
-import { languageMapping } from "./SDKConnections/SDKLanguageLogo";
+import {
+  getPackageRepositoryName,
+  languageMapping,
+} from "./SDKConnections/SDKLanguageLogo";
 
 function trimTrailingSlash(str: string): string {
   return str.replace(/\/*$/, "");
@@ -188,10 +193,7 @@ export default function CodeSnippetModal({
         }
         cta={cta}
       >
-        <div
-          className="border-bottom mb-3 px-3 py-2 position-sticky shadow-sm"
-          style={{ top: 0, zIndex: 999 }}
-        >
+        <div className="border-bottom mb-3 px-3 py-2">
           <div className="row">
             {connections?.length > 1 && allowChangingConnection && (
               <div className="col-auto">
@@ -346,6 +348,28 @@ export default function CodeSnippetModal({
               </h4>
               {installationOpen && (
                 <div className="appbox bg-light p-3">
+                  {language === "nextjs" && (
+                    <div className="mb-3">
+                      <p>
+                        For back-end and hybrid integrations, use the official
+                        GrowthBook adapter for Vercel&apos;s{" "}
+                        <a
+                          href="https://flags-sdk.dev/providers/growthbook"
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Flags SDK
+                        </a>{" "}
+                        (@flags-sdk/growthbook).
+                      </p>
+                      <Callout status="info" mb="6">
+                        Flags SDK does not run in a browser context. For
+                        front-end integrations, use our{" "}
+                        <strong>React SDK</strong>.
+                      </Callout>
+                    </div>
+                  )}
+
                   <InstallationCodeSnippet
                     language={language}
                     eventTracker={eventTracker}
@@ -355,6 +379,25 @@ export default function CodeSnippetModal({
                     encryptionKey={encryptionKey}
                     remoteEvalEnabled={remoteEvalEnabled}
                   />
+                  {languageMapping[language]?.packageUrl && (
+                    <div className="mt-3">
+                      <a
+                        href={languageMapping[language].packageUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-sm"
+                      >
+                        <PiPackage
+                          className="mr-1"
+                          style={{ fontSize: "1.2em", verticalAlign: "-0.2em" }}
+                        />
+                        View on{" "}
+                        {getPackageRepositoryName(
+                          languageMapping[language].packageUrl
+                        )}
+                      </a>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -520,18 +563,44 @@ myAttributes = myAttributes.map(attribute => sha256(salt + attribute));`}
                       />
                     </>
                   )}
-                  {(!feature || feature?.valueType !== "boolean") && (
-                    <>
-                      {feature?.valueType || "String"} feature:
-                      <MultivariateFeatureCodeSnippet
-                        valueType={feature?.valueType || "string"}
-                        language={language}
-                        featureId={feature?.id || "my-feature"}
-                      />
-                    </>
-                  )}
+                  {language !== "nextjs" &&
+                    (!feature || feature?.valueType !== "boolean") && (
+                      <>
+                        {feature?.valueType || "String"} feature:
+                        <MultivariateFeatureCodeSnippet
+                          valueType={feature?.valueType || "string"}
+                          language={language}
+                          featureId={feature?.id || "my-feature"}
+                        />
+                      </>
+                    )}
                 </div>
               )}
+            </div>
+          )}
+
+          {language === "nextjs" && (
+            <div>
+              <div className="h4 mt-4 mb-3">Further customization</div>
+              <ul>
+                <li>
+                  Set up <strong>Vercel Edge Config</strong> and use a
+                  GrowthBook <strong>SDK Webhook</strong> to keep feature and
+                  experiment values synced between GrowthBook and the web
+                  server. This eliminates network requests from the web server
+                  to GrowthBook.
+                </li>
+                <li>
+                  Implement sticky bucketing using{" "}
+                  <code>growthbookAdapter.setStickyBucketService()</code> for
+                  advanced experimentation.
+                </li>
+                <li>
+                  Expose GrowthBook data to Vercel&apos;s Flags Explorer by
+                  creating an API route with{" "}
+                  <code>createFlagsDiscoveryEndpoint</code>.
+                </li>
+              </ul>
             </div>
           )}
         </div>

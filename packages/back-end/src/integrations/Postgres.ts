@@ -1,8 +1,8 @@
+import { FormatDialect } from "shared/src/types";
 import { PostgresConnectionParams } from "back-end/types/integrations/postgres";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { runPostgresQuery } from "back-end/src/services/postgres";
 import { QueryResponse } from "back-end/src/types/Integration";
-import { FormatDialect } from "back-end/src/util/sql";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Postgres extends SqlIntegration {
@@ -37,6 +37,13 @@ export default class Postgres extends SqlIntegration {
   }
   formatDateTimeString(col: string): string {
     return `to_char(${col}, 'YYYY-MM-DD HH24:MI:SS.MS')`;
+  }
+  extractJSONField(jsonCol: string, path: string, isNumeric: boolean): string {
+    const raw = `JSON_EXTRACT_PATH_TEXT(${jsonCol}::json, ${path
+      .split(".")
+      .map((p) => `'${p}'`)
+      .join(", ")})`;
+    return isNumeric ? this.ensureFloat(raw) : raw;
   }
   getInformationSchemaWhereClause(): string {
     return "table_schema NOT IN ('pg_catalog', 'information_schema', 'pg_toast')";

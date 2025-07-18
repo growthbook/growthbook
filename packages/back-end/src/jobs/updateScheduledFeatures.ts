@@ -52,16 +52,12 @@ export default async function (agenda: Agenda) {
     }
   });
 
-  agenda.define(
-    UPDATE_SINGLE_FEATURE,
-    { lockLifetime: 30 * 60 * 1000 },
-    updateSingleFeature
-  );
+  agenda.define(UPDATE_SINGLE_FEATURE, updateSingleFeature);
 
   await fireUpdateWebhook(agenda);
 }
 
-async function updateSingleFeature(job: UpdateSingleFeatureJob) {
+const updateSingleFeature = async (job: UpdateSingleFeatureJob) => {
   const featureId = job.attrs.data?.featureId;
   const organization = job.attrs.data?.organization;
   if (!featureId || !organization) return;
@@ -85,4 +81,4 @@ async function updateSingleFeature(job: UpdateSingleFeatureJob) {
   } catch (e) {
     logger.error(e, "Failed updating feature " + featureId);
   }
-}
+};

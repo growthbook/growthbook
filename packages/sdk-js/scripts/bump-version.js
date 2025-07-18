@@ -165,3 +165,14 @@ exec("yarn workspace shared generate-sdk-report", (err, stdout, stderr) => {
   }
   console.log(stdout);
 });
+
+// Update docs SDKInfo.ts
+exec("cd ../../docs && yarn gen-sdk-resources", (err, stdout, stderr) => {
+  console.log("Updating docs SDKInfo.ts");
+  if (err) {
+    console.error(err);
+    process.exit(1);
+  }
+  console.log(stdout);
+});
+

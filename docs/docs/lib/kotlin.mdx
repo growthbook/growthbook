@@ -6,6 +6,7 @@ slug: kotlin
 ---
 
 import SdkResources from '@site/src/components/SdkResources';
+import SdkSupportedFeatures from '@site/src/components/SdkSupportedFeatures';
 
 # Kotlin (Android)
 
@@ -52,7 +53,7 @@ val gb = GBSDKBuilder(
     print("Variation Id: " + gbExperimentResult.variationId)
   },
   networkDispatcher = GBNetworkDispatcherKtor(),
-  encryptionKey = "insert_your_encription_key_if_you_are_using_encryption",
+  encryptionKey = "insert_your_encryption_key_if_you_are_using_encryption",
 ).initialize()
 ```
 
@@ -152,3 +153,7 @@ The `GBExperimentResult` object returns the following properties:
 ## More Documentation
 
 The GitHub repo for this SDK has more detailed class and method documentation - https://github.com/growthbook/growthbook-kotlin
+
+## Supported Features
+
+<SdkSupportedFeatures sdk="kotlin" />

@@ -1,8 +1,6 @@
-import { promisify } from "util";
-import os from "os";
-import { PythonShell } from "python-shell";
 import cloneDeep from "lodash/cloneDeep";
 import {
+  BANDIT_SRM_DIMENSION_NAME,
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_TARGET_MDE,
@@ -20,7 +18,6 @@ import {
 import { hoursBetween } from "shared/dates";
 import chunk from "lodash/chunk";
 import {
-  BanditResult,
   ExperimentMetricAnalysis,
   MultipleExperimentMetricAnalysis,
 } from "back-end/types/stats";
@@ -35,7 +32,7 @@ import {
   ExperimentReportResults,
   ExperimentReportVariation,
 } from "back-end/types/report";
-import { checkSrm } from "back-end/src/util/stats";
+import { checkSrm, chi2pvalue } from "back-end/src/util/stats";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { logger } from "back-end/src/util/logger";
 import {
@@ -52,6 +49,9 @@ import { QueryMap } from "back-end/src/queryRunners/QueryRunner";
 import { updateSnapshotAnalysis } from "back-end/src/models/ExperimentSnapshotModel";
 import { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "back-end/src/integrations/SqlIntegration";
 import { applyMetricOverrides } from "back-end/src/util/integration";
+import { BanditResult } from "back-end/types/experiment";
+import { statsServerPool } from "back-end/src/services/python";
+import { metrics } from "back-end/src/util/metrics";
 
 // Keep these interfaces in sync with gbstats
 export interface AnalysisSettingsForStatsEngine {
@@ -70,6 +70,7 @@ export interface AnalysisSettingsForStatsEngine {
   max_dimensions: number;
   traffic_percentage: number;
   num_goal_metrics: number;
+  one_sided_intervals?: boolean;
 }
 
 export interface BanditSettingsForStatsEngine {
@@ -136,25 +137,6 @@ export interface ExperimentDataForStatsEngine {
 
 export const MAX_DIMENSIONS = 20;
 
-export function getAvgCPU(pre: os.CpuInfo[], post: os.CpuInfo[]) {
-  let user = 0;
-  let system = 0;
-  let total = 0;
-
-  post.forEach((cpu, i) => {
-    const preTimes = pre[i]?.times || { user: 0, sys: 0 };
-    const postTimes = cpu.times;
-
-    user += postTimes.user - preTimes.user;
-    system += postTimes.sys - preTimes.sys;
-    total +=
-      Object.values(postTimes).reduce((n, sum) => n + sum, 0) -
-      Object.values(preTimes).reduce((n, sum) => n + sum, 0);
-  });
-
-  return { user: user / total, system: system / total };
-}
-
 export function getAnalysisSettingsForStatsEngine(
   settings: ExperimentSnapshotAnalysisSettings,
   variations: ExperimentReportVariation[],
@@ -191,6 +173,7 @@ export function getAnalysisSettingsForStatsEngine(
         : MAX_DIMENSIONS,
     traffic_percentage: coverage,
     num_goal_metrics: settings.numGoalMetrics,
+    one_sided_intervals: !!settings.oneSidedIntervals,
   };
 
   return analysisData;
@@ -223,49 +206,15 @@ export function getBanditSettingsForStatsEngine(
 async function runStatsEngine(
   statsData: ExperimentDataForStatsEngine[]
 ): Promise<MultipleExperimentMetricAnalysis[]> {
-  const escapedStatsData = JSON.stringify(statsData).replace(/\\/g, "\\\\");
-  const start = Date.now();
-  const cpus = os.cpus();
-  const result = await promisify(PythonShell.runString)(
-    `
-
-from dataclasses import asdict
-import json
-import time
-
-from gbstats.gbstats import process_multiple_experiment_results
-
-start = time.time()
-
-data = json.loads("""${escapedStatsData}""", strict=False)
-
-# cast asdict because dataclasses are not serializable
-results = [asdict(analysis) for analysis in process_multiple_experiment_results(data)]
-
-print(json.dumps({
-  'results': results,
-  'time': time.time() - start
-}, allow_nan=False))`,
-    {}
-  );
+  const acquireStart = Date.now();
+  const server = await statsServerPool.acquire();
+  metrics
+    .getHistogram("python.stats_pool_acquire_ms")
+    .record(Date.now() - acquireStart);
   try {
-    const parsed: {
-      results: MultipleExperimentMetricAnalysis[];
-      time: number;
-    } = JSON.parse(result?.[0]);
-
-    logger.debug(`StatsEngine: Python time: ${parsed.time}`);
-    logger.debug(
-      `StatsEngine: Typescript time: ${(Date.now() - start) / 1000}`
-    );
-    logger.debug(
-      `StatsEngine: Average CPU: ${JSON.stringify(getAvgCPU(cpus, os.cpus()))}`
-    );
-
-    return parsed.results;
-  } catch (e) {
-    logger.error(e, "Failed to run stats model: " + result);
-    throw e;
+    return await server.call(statsData);
+  } finally {
+    statsServerPool.release(server);
   }
 }
 
@@ -596,8 +545,17 @@ function parseStatsEngineResult({
             metrics: {},
           };
           data.users = Math.max(data.users, v.users);
-          data.metrics[metric] = {
+
+          // translate null in CI to infinity
+          const ci: [number, number] | undefined = v.ci
+            ? [v.ci[0] ?? -Infinity, v.ci[1] ?? Infinity]
+            : undefined;
+          const parsedVariation = {
             ...v,
+            ci,
+          };
+          data.metrics[metric] = {
+            ...parsedVariation,
             buckets: [],
           };
           dim.variations[i] = data;
@@ -788,7 +746,12 @@ export function analyzeExperimentTraffic({
     dimension: {},
   };
 
+  let banditSrmSet = false;
   rows.forEach((r) => {
+    if (r.dimension_name === BANDIT_SRM_DIMENSION_NAME) {
+      trafficResults.overall.srm = chi2pvalue(r.units, variations.length - 1);
+      banditSrmSet = true;
+    }
     const variationIndex = variationIdMap[r.variation];
     const dimTraffic: Map<string, ExperimentSnapshotTrafficDimension> =
       dimTrafficResults.get(r.dimension_name) ?? new Map();
@@ -810,10 +773,15 @@ export function analyzeExperimentTraffic({
       trafficResults.overall.variationUnits[variationIndex] += r.units;
     }
   });
-  trafficResults.overall.srm = checkSrm(
-    trafficResults.overall.variationUnits,
-    variationWeights
-  );
+
+  // compute SRM for non-bandits
+  if (!banditSrmSet) {
+    trafficResults.overall.srm = checkSrm(
+      trafficResults.overall.variationUnits,
+      variationWeights
+    );
+  }
+
   for (const [dimName, dimTraffic] of dimTrafficResults) {
     for (const dimValueTraffic of dimTraffic.values()) {
       dimValueTraffic.srm = checkSrm(

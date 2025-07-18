@@ -1,4 +1,5 @@
 import { AES, enc } from "crypto-js";
+import { isReadOnlySQL } from "shared/sql";
 import { ENCRYPTION_KEY } from "back-end/src/util/secrets";
 import GoogleAnalytics from "back-end/src/integrations/GoogleAnalytics";
 import Athena from "back-end/src/integrations/Athena";
@@ -138,6 +139,51 @@ export async function testDataSourceConnection(
 ) {
   const integration = getSourceIntegrationObject(context, datasource);
   await integration.testConnection();
+}
+
+export async function runFreeFormQuery(
+  context: ReqContext,
+  datasource: DataSourceInterface,
+  query: string,
+  limit?: number
+): Promise<{
+  results?: TestQueryRow[];
+  duration?: number;
+  error?: string;
+  sql?: string;
+  limit?: number;
+}> {
+  if (!context.permissions.canRunSqlExplorerQueries(datasource)) {
+    throw new Error("Permission denied");
+  }
+
+  if (!isReadOnlySQL(query)) {
+    throw new Error("Only SELECT queries are allowed.");
+  }
+
+  const integration = getSourceIntegrationObject(context, datasource);
+
+  // The Mixpanel integration does not support test queries
+  if (!integration.getFreeFormQuery || !integration.runTestQuery) {
+    throw new Error("Unable to test query.");
+  }
+
+  const sql = integration.getFreeFormQuery(query, limit);
+  try {
+    const { results, duration } = await integration.runTestQuery(sql, [
+      "timestamp",
+    ]);
+    return {
+      results,
+      duration,
+      sql,
+    };
+  } catch (e) {
+    return {
+      error: e.message,
+      sql,
+    };
+  }
 }
 
 export async function testQuery(

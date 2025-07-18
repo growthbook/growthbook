@@ -1,6 +1,6 @@
 import type { Response } from "express";
-import { orgHasPremiumFeature } from "shared/enterprise";
 import { filterEnvironmentsByFeature } from "shared/util";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse, PrivateApiErrorResponse } from "back-end/types/api";
 import {
@@ -119,6 +119,7 @@ export const getArchetypeAndEval = async (
     const experimentMap = await getAllPayloadExperiments(context);
     const allEnvironments = getEnvironments(org);
     const environments = filterEnvironmentsByFeature(allEnvironments, feature);
+    const safeRolloutMap = await context.models.safeRollout.getAllPayloadSafeRollouts();
 
     archetype.forEach((arch) => {
       try {
@@ -134,6 +135,7 @@ export const getArchetypeAndEval = async (
           revision,
           scrubPrerequisites,
           skipRulesWithPrerequisites,
+          safeRolloutMap,
         });
 
         if (!result) return;

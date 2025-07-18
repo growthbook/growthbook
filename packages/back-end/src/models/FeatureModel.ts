@@ -33,9 +33,19 @@ import {
   getEnvironmentIdsFromOrg,
 } from "back-end/src/services/organizations";
 import { ApiReqContext } from "back-end/types/api";
-import { simpleSchemaValidator } from "back-end/src/validators/features";
+import {
+  SafeRolloutRule,
+  simpleSchemaValidator,
+} from "back-end/src/validators/features";
 import { getChangedApiFeatureEnvironments } from "back-end/src/events/handlers/utils";
 import { ResourceEvents } from "back-end/src/events/base-types";
+import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
+import { determineNextSafeRolloutSnapshotAttempt } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
+import {
+  createVercelExperimentationItemFromFeature,
+  updateVercelExperimentationItemFromFeature,
+  deleteVercelExperimentationItemFromFeature,
+} from "back-end/src/services/vercel-native-integration.service";
 import {
   createEvent,
   hasPreviousObject,
@@ -352,6 +362,7 @@ export async function deleteFeature(
     id: feature.id,
   });
   await deleteAllRevisionsForFeature(context.org.id, feature.id);
+  await context.models.featureRevisionLogs.deleteAllByFeature(feature);
 
   if (feature.linkedExperiments) {
     await Promise.all(
@@ -409,12 +420,15 @@ export const createFeatureEvent = async <
       version: eventData.data.object.version,
     });
 
+    const safeRolloutMap = await eventData.context.models.safeRollout.getAllPayloadSafeRollouts();
+
     const currentApiFeature = getApiFeatureObj({
       feature: eventData.data.object,
       organization: eventData.context.org,
       groupMap,
       experimentMap,
       revision: currentRevision,
+      safeRolloutMap,
     });
 
     if (!hasPreviousObject<"feature", Event, FeatureInterface>(eventData.data))
@@ -443,6 +457,7 @@ export const createFeatureEvent = async <
       groupMap,
       experimentMap,
       revision: previousRevision,
+      safeRolloutMap,
     });
 
     return {
@@ -457,6 +472,7 @@ export const createFeatureEvent = async <
           groupMap,
           experimentMap,
           revision: previousRevision,
+          safeRolloutMap,
         }),
       },
       projects: Array.from(
@@ -540,6 +556,12 @@ async function onFeatureCreate(
   );
 
   await logFeatureCreatedEvent(context, feature);
+
+  if (context.org.isVercelIntegration)
+    await createVercelExperimentationItemFromFeature({
+      feature,
+      organization: context.org,
+    });
 }
 
 async function onFeatureDelete(
@@ -552,6 +574,12 @@ async function onFeatureDelete(
   );
 
   await logFeatureDeletedEvent(context, feature);
+
+  if (context.org.isVercelIntegration)
+    await deleteVercelExperimentationItemFromFeature({
+      feature,
+      organization: context.org,
+    });
 }
 
 export async function onFeatureUpdate(
@@ -560,6 +588,7 @@ export async function onFeatureUpdate(
   updatedFeature: FeatureInterface,
   skipRefreshForProject?: string
 ) {
+  const safeRolloutMap = await context.models.safeRollout.getAllPayloadSafeRollouts();
   await refreshSDKPayloadCache(
     context,
     getSDKPayloadKeysByDiff(
@@ -569,11 +598,18 @@ export async function onFeatureUpdate(
     ),
     null,
     undefined,
+    safeRolloutMap,
     skipRefreshForProject
   );
 
   // New event-based webhooks
   await logFeatureUpdatedEvent(context, feature, updatedFeature);
+
+  if (context.org.isVercelIntegration)
+    await updateVercelExperimentationItemFromFeature({
+      feature: updatedFeature,
+      organization: context.org,
+    });
 }
 
 export async function updateFeature(
@@ -626,6 +662,7 @@ export async function updateFeature(
   onFeatureUpdate(context, feature, updatedFeature).catch((e) => {
     logger.error(e, "Error refreshing SDK Payload on feature update");
   });
+
   return updatedFeature;
 }
 
@@ -738,6 +775,7 @@ export async function toggleFeatureEnvironment(
 }
 
 export async function addFeatureRule(
+  context: ReqContext | ApiReqContext,
   revision: FeatureRevisionInterface,
   env: string,
   rule: FeatureRule,
@@ -755,6 +793,7 @@ export async function addFeatureRule(
   changes.rules[env] = changes.rules[env] || [];
   changes.rules[env].push(rule);
   await updateRevision(
+    context,
     revision,
     changes,
     {
@@ -768,6 +807,7 @@ export async function addFeatureRule(
 }
 
 export async function editFeatureRule(
+  context: ReqContext | ApiReqContext,
   revision: FeatureRevisionInterface,
   environment: string,
   i: number,
@@ -787,6 +827,7 @@ export async function editFeatureRule(
     ...updates,
   } as FeatureRule;
   await updateRevision(
+    context,
     revision,
     changes,
     {
@@ -800,6 +841,7 @@ export async function editFeatureRule(
 }
 
 export async function copyFeatureEnvironmentRules(
+  context: ReqContext | ApiReqContext,
   revision: FeatureRevisionInterface,
   sourceEnv: string,
   targetEnv: string,
@@ -812,6 +854,7 @@ export async function copyFeatureEnvironmentRules(
   };
   changes.rules[targetEnv] = changes.rules[sourceEnv] || [];
   await updateRevision(
+    context,
     revision,
     changes,
     {
@@ -873,12 +916,14 @@ export async function removeProjectFromFeatures(
 }
 
 export async function setDefaultValue(
+  context: ReqContext | ApiReqContext,
   revision: FeatureRevisionInterface,
   defaultValue: string,
   user: EventUser,
   requireReview: boolean
 ) {
   await updateRevision(
+    context,
     revision,
     { defaultValue },
     {
@@ -905,6 +950,60 @@ export async function setJsonSchema(
     jsonSchema: { ...def, date: new Date() },
   });
 }
+
+const updateSafeRolloutStatuses = async (
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface
+) => {
+  const safeRolloutStatusesMap: Record<
+    string,
+    { status: "running" | "rolled-back" | "released" | "stopped" }
+  > = Object.fromEntries(
+    Object.values(revision.rules)
+      .flat()
+      .filter((rule) => rule.type === "safe-rollout")
+      .map((rule: SafeRolloutRule) => {
+        return [rule.safeRolloutId, { status: rule.status }];
+      })
+  );
+  // stop safe rollouts that have been removed from the in the revision
+  Object.keys(feature.environmentSettings)
+    .flatMap((env) => feature.environmentSettings[env].rules)
+    .forEach((rule: FeatureRule) => {
+      if (
+        rule.type === "safe-rollout" &&
+        !safeRolloutStatusesMap[rule.safeRolloutId]
+      ) {
+        safeRolloutStatusesMap[rule.safeRolloutId] = { status: "stopped" };
+      }
+    });
+
+  const safeRollouts = await context.models.safeRollout.getByIds(
+    Object.keys(safeRolloutStatusesMap)
+  );
+
+  safeRollouts.forEach((safeRollout) => {
+    // sync the status of the safe rollout to the status of the revision
+    const safeRolloutUpdates: Partial<SafeRolloutInterface> = {
+      status: safeRolloutStatusesMap[safeRollout.id].status,
+    };
+    if (!safeRollout.startedAt && safeRolloutUpdates.status === "running") {
+      safeRolloutUpdates["startedAt"] = new Date();
+      const {
+        nextSnapshot,
+        nextRampUp,
+      } = determineNextSafeRolloutSnapshotAttempt(safeRollout, context.org);
+      safeRolloutUpdates["nextSnapshotAttempt"] = nextSnapshot;
+      safeRolloutUpdates["rampUpSchedule"] = {
+        ...safeRollout.rampUpSchedule,
+        nextUpdate: nextRampUp,
+      };
+    }
+
+    context.models.safeRollout.update(safeRollout, safeRolloutUpdates);
+  });
+};
 
 export async function applyRevisionChanges(
   context: ReqContext | ApiReqContext,
@@ -952,7 +1051,7 @@ export async function applyRevisionChanges(
   changes.hasDrafts = await hasDraft(context.org.id, feature, [
     revision.version,
   ]);
-
+  await updateSafeRolloutStatuses(context, feature, revision);
   return await updateFeature(context, feature, changes);
 }
 
@@ -975,7 +1074,7 @@ export async function publishRevision(
     result
   );
 
-  await markRevisionAsPublished(revision, context.auditUser, comment);
+  await markRevisionAsPublished(context, revision, context.auditUser, comment);
 
   return updatedFeature;
 }

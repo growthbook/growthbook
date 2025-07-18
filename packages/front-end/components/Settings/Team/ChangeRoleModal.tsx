@@ -18,7 +18,6 @@ const ChangeRoleModal: FC<{
     return (
       <UpgradeModal
         close={() => setUpgradeModal(false)}
-        reason="To enable advanced permissioning,"
         source="advanced-permissions"
         commercialFeature="advanced-permissions"
       />

@@ -13,10 +13,17 @@ import { distributeWeights } from "@/services/utils";
 
 const EditVariationsForm: FC<{
   experiment: ExperimentInterfaceStringDates;
+  onlySafeToEditVariationMetadata: boolean;
   cancel: () => void;
   mutate: () => void;
   source?: string;
-}> = ({ experiment, cancel, mutate, source }) => {
+}> = ({
+  experiment,
+  onlySafeToEditVariationMetadata,
+  cancel,
+  mutate,
+  source,
+}) => {
   const lastPhaseIndex = experiment.phases.length - 1;
   const lastPhase: ExperimentPhaseStringDates | undefined =
     experiment.phases[lastPhaseIndex];
@@ -132,7 +139,8 @@ const EditVariationsForm: FC<{
           );
         }}
         showPreview={false}
-        disableCoverage
+        hideCoverage
+        onlySafeToEditVariationMetadata={onlySafeToEditVariationMetadata}
       />
     </Modal>
   );

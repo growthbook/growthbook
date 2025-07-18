@@ -9,6 +9,7 @@ export interface ChecklistTask {
     | "project"
     | "tag"
     | "screenshots"
+    | "prerequisiteTargeting"
     | "customField";
 }
 

@@ -6,10 +6,10 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { RESERVED_ROLE_IDS, getDefaultRole } from "shared/permissions";
-import { accountFeatures, getAccountPlan } from "shared/enterprise";
 import { omit } from "lodash";
 import { SavedGroupInterface } from "shared/src/types";
 import { v4 as uuidv4 } from "uuid";
+import { accountFeatures } from "shared/enterprise";
 import {
   ExperimentReportArgs,
   ExperimentReportInterface,
@@ -43,6 +43,7 @@ import {
 } from "back-end/types/experiment-snapshot";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { LegacySavedGroupInterface } from "back-end/types/saved-group";
+import { getAccountPlan } from "back-end/src/enterprise";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "./secrets";
 
 function roundVariationWeight(num: number): number {
@@ -562,6 +563,19 @@ export function upgradeExperimentDoc(
           range: [0, 1],
         };
       }
+
+      // move bandit SRM to health.srm
+      if (phase.banditEvents) {
+        phase.banditEvents = phase.banditEvents.map((event) => ({
+          ...event,
+          ...(event.banditResult?.srm !== undefined &&
+            event?.health?.srm === undefined && {
+              health: {
+                srm: event.banditResult.srm,
+              },
+            }),
+        }));
+      }
     });
   }
 
@@ -593,6 +607,10 @@ export function upgradeExperimentDoc(
         mo.windowType = "conversion";
       }
     });
+  }
+
+  if (experiment.decisionFrameworkSettings === undefined) {
+    experiment.decisionFrameworkSettings = {};
   }
 
   // releasedVariationId
@@ -650,6 +668,7 @@ export function migrateExperimentReport(
         : attributionModel,
     goalMetrics: otherArgs.goalMetrics || metrics || [],
     guardrailMetrics: otherArgs.guardrailMetrics || guardrails || [],
+    decisionFrameworkSettings: otherArgs.decisionFrameworkSettings || {},
   };
 
   if (
@@ -798,6 +817,7 @@ export function migrateSnapshot(
           ),
           regressionAdjustmentAvailable: !!regressionSettings?.regressionAdjustmentAvailable,
           regressionAdjustmentReason: regressionSettings?.reason || "",
+          targetMDE: undefined,
         },
       };
     });

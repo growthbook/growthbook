@@ -81,7 +81,11 @@ import {
 import { logger } from "back-end/src/util/logger";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
-import { ApiFeature, ApiFeatureEnvironment } from "back-end/types/openapi";
+import {
+  ApiFeatureWithRevisions,
+  ApiFeatureEnvironment,
+  ApiFeatureRule,
+} from "back-end/types/openapi";
 import {
   ExperimentInterface,
   ExperimentPhase,
@@ -96,6 +100,7 @@ import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { triggerWebhookJobs } from "back-end/src/jobs/updateAllJobs";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
+import { SafeRolloutInterface } from "back-end/types/safe-rollout";
 import {
   getContextForAgendaJobByOrgObject,
   getEnvironmentIdsFromOrg,
@@ -109,12 +114,14 @@ export function generateFeaturesPayload({
   environment,
   groupMap,
   prereqStateCache = {},
+  safeRolloutMap,
 }: {
   features: FeatureInterface[];
   experimentMap: Map<string, ExperimentInterface>;
   environment: string;
   groupMap: GroupMap;
   prereqStateCache?: Record<string, Record<string, PrerequisiteStateResult>>;
+  safeRolloutMap: Map<string, SafeRolloutInterface>;
 }): Record<string, FeatureDefinition> {
   prereqStateCache[environment] = prereqStateCache[environment] || {};
 
@@ -130,6 +137,7 @@ export function generateFeaturesPayload({
       environment,
       groupMap,
       experimentMap,
+      safeRolloutMap,
     });
     if (def) {
       defs[feature.id] = def;
@@ -390,6 +398,7 @@ export async function refreshSDKPayloadCache(
   payloadKeys: SDKPayloadKey[],
   allFeatures: FeatureInterface[] | null = null,
   experimentMap?: Map<string, ExperimentInterface>,
+  safeRolloutMap?: Map<string, SafeRolloutInterface>,
   skipRefreshForProject?: string
 ) {
   // This is a background job, so switch to using a background context
@@ -420,6 +429,9 @@ export async function refreshSDKPayloadCache(
   }
 
   experimentMap = experimentMap || (await getAllPayloadExperiments(context));
+  safeRolloutMap =
+    safeRolloutMap ||
+    (await context.models.safeRollout.getAllPayloadSafeRollouts());
   const groupMap = await getSavedGroupMap(context.org);
   allFeatures = allFeatures || (await getAllFeatures(context));
   const allVisualExperiments = await getAllVisualExperiments(
@@ -449,6 +461,7 @@ export async function refreshSDKPayloadCache(
       groupMap,
       experimentMap,
       prereqStateCache,
+      safeRolloutMap,
     });
 
     const experimentsDefinitions = generateAutoExperimentsPayload({
@@ -791,6 +804,7 @@ export async function getFeatureDefinitions({
   const features = await getAllFeatures(context);
   const groupMap = await getSavedGroupMap(context.org, savedGroups);
   const experimentMap = await getAllPayloadExperiments(context);
+  const safeRolloutMap = await context.models.safeRollout.getAllPayloadSafeRollouts();
 
   const prereqStateCache: Record<
     string,
@@ -803,6 +817,7 @@ export async function getFeatureDefinitions({
     groupMap,
     experimentMap,
     prereqStateCache,
+    safeRolloutMap,
   });
 
   const allVisualExperiments = await getAllVisualExperiments(
@@ -879,6 +894,7 @@ export function evaluateFeature({
   scrubPrerequisites = true,
   skipRulesWithPrerequisites = true,
   date = new Date(),
+  safeRolloutMap,
 }: {
   feature: FeatureInterface;
   attributes: ArchetypeAttributeValues;
@@ -889,6 +905,7 @@ export function evaluateFeature({
   scrubPrerequisites?: boolean;
   skipRulesWithPrerequisites?: boolean;
   date?: Date;
+  safeRolloutMap: Map<string, SafeRolloutInterface>;
 }) {
   const results: FeatureTestResult[] = [];
   const savedGroups = getSavedGroupsValuesFromGroupMap(groupMap);
@@ -921,6 +938,7 @@ export function evaluateFeature({
         environment: env.id,
         revision,
         date,
+        safeRolloutMap,
       });
 
       if (definition) {
@@ -995,12 +1013,14 @@ export async function evaluateAllFeatures({
   attributeValues,
   environments,
   groupMap,
+  safeRolloutMap,
 }: {
   features: FeatureInterface[];
   context: ReqContext | ApiReqContext;
   attributeValues: ArchetypeAttributeValues;
   groupMap: GroupMap;
   environments?: (Environment | undefined)[];
+  safeRolloutMap: Map<string, SafeRolloutInterface>;
 }) {
   const results: { [key: string]: FeatureTestResult }[] = [];
   const savedGroups = getSavedGroupsValuesFromGroupMap(groupMap);
@@ -1015,7 +1035,6 @@ export async function evaluateAllFeatures({
       };
     });
   }
-
   // get all features definitions
   const experimentMap = await getAllPayloadExperiments(context);
   // I could loop through the feature's defined environments, but if environments change in the org,
@@ -1045,6 +1064,7 @@ export async function evaluateAllFeatures({
       experimentMap,
       groupMap,
       prereqStateCache: {},
+      safeRolloutMap,
     });
 
     // now we have all the definitions, lets evaluate them
@@ -1201,13 +1221,17 @@ export function getApiFeatureObj({
   groupMap,
   experimentMap,
   revision,
+  revisions,
+  safeRolloutMap,
 }: {
   feature: FeatureInterface;
   organization: OrganizationInterface;
   groupMap: GroupMap;
   experimentMap: Map<string, ExperimentInterface>;
   revision: FeatureRevisionInterface | null;
-}): ApiFeature {
+  revisions?: FeatureRevisionInterface[];
+  safeRolloutMap: Map<string, SafeRolloutInterface>;
+}): ApiFeatureWithRevisions {
   const defaultValue = feature.defaultValue;
   const featureEnvironments: Record<string, ApiFeatureEnvironment> = {};
   const environments = getEnvironmentIdsFromOrg(organization);
@@ -1225,6 +1249,7 @@ export function getApiFeatureObj({
         matchType: s.match,
         savedGroups: s.ids,
       })),
+      prerequisites: rule.prerequisites || [],
       enabled: !!rule.enabled,
     }));
     const definition = getFeatureDefinition({
@@ -1232,6 +1257,7 @@ export function getApiFeatureObj({
       groupMap,
       experimentMap,
       environment: env,
+      safeRolloutMap,
     });
 
     featureEnvironments[env] = {
@@ -1247,7 +1273,54 @@ export function getApiFeatureObj({
     revision?.publishedBy?.type === "api_key"
       ? "API"
       : revision?.publishedBy?.name;
-  const featureRecord: ApiFeature = {
+
+  const revisionDefs = revisions?.map((rev) => {
+    const environmentRules: Record<string, ApiFeatureRule[]> = {};
+    const environmentDefinitions: Record<string, string> = {};
+    environments.forEach((env) => {
+      const rules = (rev?.rules?.[env] || []).map((rule) => ({
+        ...rule,
+        coverage:
+          rule.type === "rollout" || rule.type === "experiment"
+            ? rule.coverage ?? 1
+            : 1,
+        condition: rule.condition || "",
+        savedGroupTargeting: (rule.savedGroups || []).map((s) => ({
+          matchType: s.match,
+          savedGroups: s.ids,
+        })),
+        prerequisites: rule.prerequisites || [],
+        enabled: !!rule.enabled,
+      }));
+      const definition = getFeatureDefinition({
+        feature: {
+          ...feature,
+          environmentSettings: { [env]: { enabled: true, rules } },
+        },
+        groupMap,
+        experimentMap,
+        environment: env,
+        safeRolloutMap,
+      });
+
+      environmentRules[env] = rules;
+      environmentDefinitions[env] = JSON.stringify(definition);
+    });
+    const publishedBy =
+      rev?.publishedBy?.type === "api_key" ? "API" : rev?.publishedBy?.name;
+    return {
+      baseVersion: rev.baseVersion,
+      version: rev.version,
+      comment: rev?.comment || "",
+      date: rev?.dateCreated.toISOString() || "",
+      status: rev?.status,
+      publishedBy,
+      rules: environmentRules,
+      definitions: environmentDefinitions,
+    };
+  });
+
+  const featureRecord: ApiFeatureWithRevisions = {
     id: feature.id,
     description: feature.description || "",
     archived: !!feature.archived,
@@ -1255,6 +1328,7 @@ export function getApiFeatureObj({
     dateUpdated: feature.dateUpdated.toISOString(),
     defaultValue: feature.defaultValue,
     environments: featureEnvironments,
+    prerequisites: (feature?.prerequisites || []).map((p) => p.id),
     owner: feature.owner || "",
     project: feature.project || "",
     tags: feature.tags || [],
@@ -1265,6 +1339,8 @@ export function getApiFeatureObj({
       publishedBy: publishedBy || "",
       version: feature.version,
     },
+    revisions: revisionDefs,
+    customFields: feature.customFields ?? {},
   };
 
   return featureRecord;
@@ -1497,6 +1573,7 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
           variationId: v.variationId,
           value: validateFeatureValue(feature, v.value),
         })),
+        ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
       };
       return experimentRefRule;
     } else if (r.type === "experiment") {
@@ -1515,6 +1592,7 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
         enabled: r.enabled != null ? r.enabled : true,
         description: r.description ?? "",
         values: values,
+        ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
       };
       return experimentRule;
     } else if (r.type === "force") {
@@ -1530,6 +1608,7 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
           match: s.matchType,
         })),
         enabled: r.enabled != null ? r.enabled : true,
+        ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
       };
       return forceRule;
     }
@@ -1547,6 +1626,7 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
         match: s.matchType,
       })),
       enabled: r.enabled != null ? r.enabled : true,
+      ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
     };
     return rolloutRule;
   });

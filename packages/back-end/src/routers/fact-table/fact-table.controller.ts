@@ -158,6 +158,12 @@ export const putFactTable = async (
     throw new Error("Could not find datasource");
   }
 
+  // This method is called with an empty object when we just want to refresh columns
+  let bypassManagedByCheck = false;
+  if (Object.keys(data).length === 0) {
+    bypassManagedByCheck = true;
+  }
+
   // Update the columns
   if (req.query?.forceColumnRefresh || needsColumnRefresh(data)) {
     data.columns = await runRefreshColumnsQuery(context, datasource, {
@@ -171,7 +177,7 @@ export const putFactTable = async (
     }
   }
 
-  await updateFactTable(context, factTable, data);
+  await updateFactTable(context, factTable, data, { bypassManagedByCheck });
 
   await addTagsDiff(context.org.id, factTable.tags, data.tags || []);
 
@@ -283,7 +289,7 @@ export const putColumn = async (
   if (
     !col.alwaysInlineFilter &&
     data.alwaysInlineFilter &&
-    canInlineFilterColumn(factTable, updatedCol)
+    canInlineFilterColumn(factTable, updatedCol.column)
   ) {
     const datasource = await getDataSourceById(context, factTable.datasource);
     if (!datasource) {

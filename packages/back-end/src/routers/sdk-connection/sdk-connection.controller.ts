@@ -1,14 +1,17 @@
 import type { Response } from "express";
-import { orgHasPremiumFeature } from "shared/enterprise";
+import { pick } from "lodash";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { triggerSingleSDKWebhookJobs } from "back-end/src/jobs/updateAllJobs";
 import {
   CreateSdkWebhookProps,
   WebhookInterface,
+  WebhookSummary,
 } from "back-end/types/webhook";
 import {
   countSdkWebhooksByOrg,
   createSdkWebhook,
   findAllSdkWebhooksByConnection,
+  findAllSdkWebhooksByConnectionIds,
 } from "back-end/src/models/WebhookModel";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -188,6 +191,46 @@ export const checkSDKConnectionProxyStatus = async (
   res.status(200).json({
     status: 200,
     result,
+  });
+};
+
+export const getSDKConnectionsWebhooks = async (
+  req: AuthRequest,
+  res: Response<{
+    status: 200;
+    connections: Record<string, WebhookSummary[]>;
+  }>
+) => {
+  const context = getContextFromReq(req);
+  const connections = await findSDKConnectionsByOrganization(context);
+  const connectionIds = connections.map((conn) => conn.id);
+  const allWebhooks = await findAllSdkWebhooksByConnectionIds(
+    context,
+    connectionIds
+  );
+
+  const webhooksByConnection: Record<string, WebhookSummary[]> = {};
+
+  allWebhooks.forEach((webhook) => {
+    const webhookSummary = pick(webhook, [
+      "id",
+      "name",
+      "endpoint",
+      "lastSuccess",
+      "error",
+      "created",
+    ]);
+    webhook.sdks.forEach((sdkId) => {
+      if (!webhooksByConnection[sdkId]) {
+        webhooksByConnection[sdkId] = [];
+      }
+      webhooksByConnection[sdkId].push(webhookSummary);
+    });
+  });
+
+  res.status(200).json({
+    status: 200,
+    connections: webhooksByConnection,
   });
 };
 

@@ -13,6 +13,8 @@ import {
 import {
   expandMetricGroups,
   ExperimentMetricInterface,
+  setAdjustedCIs,
+  setAdjustedPValuesOnResults,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
 import { FaAngleRight, FaUsers } from "react-icons/fa";
@@ -20,9 +22,7 @@ import Collapsible from "react-collapsible";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
-  setAdjustedPValuesOnResults,
   ExperimentTableRow,
-  setAdjustedCIs,
   hasRisk,
 } from "@/services/experiments";
 import ResultsTable from "@/components/Experiment/ResultsTable";
@@ -71,6 +71,7 @@ const BreakDownResults: FC<{
   dimensionId: string;
   isLatestPhase: boolean;
   startDate: string;
+  endDate: string;
   reportDate: Date;
   activationMetric?: string;
   status: ExperimentStatus;
@@ -98,6 +99,7 @@ const BreakDownResults: FC<{
   guardrailMetrics,
   isLatestPhase,
   startDate,
+  endDate,
   activationMetric,
   status,
   reportDate,
@@ -345,6 +347,7 @@ const BreakDownResults: FC<{
               dateCreated={reportDate}
               isLatestPhase={isLatestPhase}
               startDate={startDate}
+              endDate={endDate}
               status={status}
               queryStatusData={queryStatusData}
               variations={variations}

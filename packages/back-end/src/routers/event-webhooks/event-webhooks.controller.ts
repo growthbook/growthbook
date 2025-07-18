@@ -1,5 +1,4 @@
 import type { Response } from "express";
-import fetch from "node-fetch";
 import { PrivateApiErrorResponse } from "back-end/types/api";
 import {
   EventWebHookInterface,
@@ -23,6 +22,10 @@ import {
   EventWebHookLogInterface,
 } from "back-end/types/event-webhook-log";
 import { NotificationEventName } from "back-end/src/events/base-types";
+import {
+  CreateWebhookSecretProps,
+  UpdateWebhookSecretProps,
+} from "back-end/src/validators/webhook-secrets";
 
 // region GET /event-webhooks
 
@@ -374,3 +377,39 @@ export const createTestEventWebHook = async (
 };
 
 // endregion POST /event-webhooks/test
+
+export const createWebhookSecret = async (
+  req: AuthRequest<CreateWebhookSecretProps>,
+  res: Response
+) => {
+  const context = getContextFromReq(req);
+  await context.models.webhookSecrets.create(req.body);
+
+  return res.status(200).json({
+    status: 200,
+  });
+};
+
+export const deleteWebhookSecret = async (
+  req: AuthRequest<unknown, { id: string }>,
+  res: Response
+) => {
+  const context = getContextFromReq(req);
+  await context.models.webhookSecrets.deleteById(req.params.id);
+
+  return res.status(200).json({
+    status: 200,
+  });
+};
+
+export const updateWebhookSecret = async (
+  req: AuthRequest<UpdateWebhookSecretProps, { id: string }>,
+  res: Response
+) => {
+  const context = getContextFromReq(req);
+  await context.models.webhookSecrets.updateById(req.params.id, req.body);
+
+  return res.status(200).json({
+    status: 200,
+  });
+};

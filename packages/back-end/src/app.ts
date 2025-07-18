@@ -8,6 +8,7 @@ import asyncHandler from "express-async-handler";
 import compression from "compression";
 import * as Sentry from "@sentry/node";
 import { populationDataRouter } from "back-end/src/routers/population-data/population-data.router";
+import decisionCriteriaRouter from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.router";
 import { usingFileConfig } from "./init/config";
 import { AuthRequest } from "./types/AuthRequest";
 import {
@@ -22,7 +23,6 @@ import {
   getExperimentConfig,
   getExperimentsScript,
 } from "./controllers/config";
-import { verifySlackRequestSignature } from "./services/slack";
 import { getAuthConnection, processJWT, usingOpenId } from "./services/auth";
 import { wrapController } from "./routers/wrapController";
 import apiRouter from "./api/api.router";
@@ -40,6 +40,9 @@ if (SENTRY_DSN) {
 // Begin Controllers
 import * as authControllerRaw from "./controllers/auth";
 const authController = wrapController(authControllerRaw);
+
+import * as vercelControllerRaw from "./routers/vercel-native-integration/vercel-native-integration.controller";
+const vercelController = wrapController(vercelControllerRaw);
 
 import * as datasourcesControllerRaw from "./controllers/datasources";
 const datasourcesController = wrapController(datasourcesControllerRaw);
@@ -73,17 +76,11 @@ const adminController = wrapController(adminControllerRaw);
 import * as licenseControllerRaw from "./controllers/license";
 const licenseController = wrapController(licenseControllerRaw);
 
-import * as stripeControllerRaw from "./controllers/stripe";
-const stripeController = wrapController(stripeControllerRaw);
-
-import * as vercelControllerRaw from "./controllers/vercel";
-const vercelController = wrapController(vercelControllerRaw);
+import * as subscriptionControllerRaw from "./controllers/subscription";
+const subscriptionController = wrapController(subscriptionControllerRaw);
 
 import * as featuresControllerRaw from "./controllers/features";
 const featuresController = wrapController(featuresControllerRaw);
-
-import * as slackControllerRaw from "./controllers/slack";
-const slackController = wrapController(slackControllerRaw);
 
 import * as informationSchemasControllerRaw from "./controllers/informationSchemas";
 const informationSchemasController = wrapController(
@@ -108,7 +105,9 @@ import { customFieldsRouter } from "./routers/custom-fields/custom-fields.router
 import { segmentRouter } from "./routers/segment/segment.router";
 import { dimensionRouter } from "./routers/dimension/dimension.router";
 import { sdkConnectionRouter } from "./routers/sdk-connection/sdk-connection.router";
+import { savedQueriesRouter } from "./routers/saved-queries/saved-queries.router";
 import { projectRouter } from "./routers/project/project.router";
+import { vercelRouter } from "./routers/vercel-native-integration/vercel-native-integration.router";
 import { factTableRouter } from "./routers/fact-table/fact-table.router";
 import { slackIntegrationRouter } from "./routers/slack-integration/slack-integration.router";
 import { dataExportRouter } from "./routers/data-export/data-export.router";
@@ -122,6 +121,7 @@ import { metricGroupRouter } from "./routers/metric-group/metric-group.router";
 import { findOrCreateGeneratedHypothesis } from "./models/GeneratedHypothesis";
 import { getContextFromReq } from "./services/organizations";
 import { templateRouter } from "./routers/experiment-template/template.router";
+import { safeRolloutRouter } from "./routers/safe-rollout/safe-rollout.router";
 
 const app = express();
 
@@ -210,25 +210,6 @@ app.use(async (req, res, next) => {
 
 // Visual Designer js file (does not require JWT or cors)
 app.get("/js/:key.js", getExperimentsScript);
-
-// Stripe webhook (needs raw body)
-app.post(
-  "/stripe/webhook",
-  bodyParser.raw({
-    type: "application/json",
-  }),
-  stripeController.postWebhook
-);
-
-// Slack app (body is urlencoded)
-app.post(
-  "/ideas/slack",
-  bodyParser.urlencoded({
-    extended: true,
-    verify: verifySlackRequestSignature,
-  }),
-  slackController.postIdeas
-);
 
 // increase max payload json size to 1mb
 app.use(bodyParser.json({ limit: "1mb" }));
@@ -330,6 +311,27 @@ const origins: (string | RegExp)[] = [APP_ORIGIN];
 if (CORS_ORIGIN_REGEX) {
   origins.push(CORS_ORIGIN_REGEX);
 }
+
+if (IS_CLOUD) {
+  app.use(
+    "/vercel",
+    cors({
+      credentials: false,
+      origin: "*",
+    }),
+    vercelRouter
+  );
+
+  app.post(
+    "/auth/sso/vercel",
+    cors({
+      credentials: true,
+      origin: origins,
+    }),
+    vercelController.postVercelIntegrationSSO
+  );
+}
+
 app.use(
   cors({
     credentials: true,
@@ -399,34 +401,65 @@ app.use("/environment", environmentRouter);
 app.post("/oauth/google", datasourcesController.postGoogleOauthRedirect);
 app.post(
   "/subscription/new-pro-trial",
-  stripeController.postNewProTrialSubscription
+  subscriptionController.postNewProTrialSubscription
 );
-app.post("/subscription/new", stripeController.postNewProSubscription);
-app.post("/subscription/manage", stripeController.postCreateBillingSession);
-app.post("/subscription/success", stripeController.postSubscriptionSuccess);
 
-app.get("/billing/usage", stripeController.getUsage);
+if (IS_CLOUD) {
+  app.post(
+    "/subscription/payment-methods/setup-intent",
+    subscriptionController.postSetupIntent
+  );
+  app.get(
+    "/subscription/payment-methods",
+    subscriptionController.fetchPaymentMethods
+  );
+  app.post(
+    "/subscription/payment-methods/detach",
+    subscriptionController.deletePaymentMethod
+  );
+  app.post(
+    "/subscription/payment-methods/set-default",
+    subscriptionController.updateCustomerDefaultPayment
+  );
+  app.post(
+    "/subscription/setup-intent",
+    subscriptionController.postNewProSubscriptionIntent
+  );
+  app.post(
+    "/subscription/start-new-pro",
+    subscriptionController.postInlineProSubscription
+  );
+  app.post("/subscription/cancel", subscriptionController.cancelSubscription);
+  app.get("/subscription/portal-url", subscriptionController.getPortalUrl);
+  app.get(
+    "/subscription/customer-data",
+    subscriptionController.getCustomerData
+  );
+  app.post(
+    "/subscription/update-customer-data",
+    subscriptionController.updateCustomerData
+  );
+  app.get("/billing/usage", subscriptionController.getUsage);
+}
+app.post("/subscription/new", subscriptionController.postNewProSubscription);
+app.post(
+  "/subscription/manage",
+  subscriptionController.postCreateBillingSession
+);
+app.post(
+  "/subscription/success",
+  subscriptionController.postSubscriptionSuccess
+);
 
 app.get("/queries/:ids", datasourcesController.getQueries);
 app.post("/query/test", datasourcesController.testLimitedQuery);
+app.post("/query/run", datasourcesController.runQuery);
 app.post("/dimension-slices", datasourcesController.postDimensionSlices);
 app.get("/dimension-slices/:id", datasourcesController.getDimensionSlices);
 app.post(
   "/dimension-slices/:id/cancel",
   datasourcesController.cancelDimensionSlices
 );
-
-app.get(
-  "/dimension-slices/datasource/:datasourceId/:exposureQueryId",
-  datasourcesController.getLatestDimensionSlicesForDatasource
-);
-
-if (IS_CLOUD) {
-  app.get("/vercel/has-token", vercelController.getHasToken);
-  app.post("/vercel/token", vercelController.postToken);
-  app.post("/vercel/env-vars", vercelController.postEnvVars);
-  app.get("/vercel/config", vercelController.getConfig);
-}
 
 app.use("/tag", tagRouter);
 
@@ -591,6 +624,12 @@ app.delete(
   experimentsController.deleteVisualChangeset
 );
 
+// Time Series
+app.get(
+  "/experiments/:id/time-series",
+  experimentsController.getExperimentTimeSeries
+);
+
 // Visual editor auth
 app.get(
   "/visual-editor/key",
@@ -600,8 +639,14 @@ app.get(
 // Experiment Templates
 app.use("/templates", templateRouter);
 
+// Decision Criteria
+app.use("/decision-criteria", decisionCriteriaRouter);
+
 // URL Redirects
 app.use("/url-redirects", urlRedirectRouter);
+
+// Safe Rollouts
+app.use("/safe-rollout", safeRolloutRouter);
 
 // Reports
 app.get("/report/:id", reportsController.getReport);
@@ -617,6 +662,8 @@ app.use("/segments", segmentRouter);
 app.use("/dimensions", dimensionRouter);
 
 app.use("/sdk-connections", sdkConnectionRouter);
+
+app.use("/saved-queries", savedQueriesRouter);
 
 app.use("/projects", projectRouter);
 
@@ -666,6 +713,10 @@ app.post(
 );
 app.put("/feature/:id/:version/comment", featuresController.putRevisionComment);
 app.put("/feature/:id/:version/rule", featuresController.putFeatureRule);
+app.put(
+  "/feature/:id/safeRollout/status",
+  featuresController.putSafeRolloutStatus
+);
 app.delete("/feature/:id/:version/rule", featuresController.deleteFeatureRule);
 app.post("/feature/:id/prerequisite", featuresController.postPrerequisite);
 app.put("/feature/:id/prerequisite", featuresController.putPrerequisite);
@@ -708,11 +759,27 @@ app.post(
   "/datasources/fetch-bigquery-datasets",
   datasourcesController.fetchBigQueryDatasets
 );
+app.post(
+  "/datasource/:datasourceId/materializedColumn",
+  datasourcesController.postMaterializedColumn
+);
+app.put(
+  "/datasource/:datasourceId/materializedColumn/:matColumnName",
+  datasourcesController.updateMaterializedColumn
+);
+app.delete(
+  "/datasource/:datasourceId/materializedColumn/:matColumnName",
+  datasourcesController.deleteMaterializedColumn
+);
+app.post(
+  "/datasource/:datasourceId/recreate-managed-warehouse",
+  datasourcesController.postRecreateManagedWarehouse
+);
 
 if (IS_CLOUD) {
   app.post(
-    "/datasource/create-inbuilt",
-    datasourcesController.postInbuiltDataSource
+    "/datasources/managed-warehouse",
+    datasourcesController.postManagedWarehouse
   );
 }
 

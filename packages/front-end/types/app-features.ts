@@ -62,5 +62,18 @@ export type AppFeatures = {
   "use-new-setup-flow-2": boolean;
   "show-impact-near-top": boolean;
   "pro-upgrade-modal": string;
+  "ff_payment-info": boolean;
+  "ff_embedded-payment-form": boolean;
   "cdn-usage-data": boolean;
+  "experiment-results-timeseries": boolean;
+  "decision-framework-criteria": boolean;
+  "safe-rollout": boolean;
+  "safe-rollout-promo": boolean;
+  "safe-rollout-ramp-up": boolean;
+  "safe-rollout-auto-rollback": boolean;
+  "aa-test-holdout": boolean;
+  "new-exec-reports": boolean;
+  "pre-computed-dimensions": boolean;
+  insights: boolean;
+  "sql-explorer": boolean;
 };

@@ -48,8 +48,7 @@ export const putEnvironmentOrder = async (
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
-  const envIds = req.body.environments;
-
+  const { envId, newIndex } = req.body;
   const existingEnvs = org.settings?.environments;
 
   if (!existingEnvs) {
@@ -61,28 +60,32 @@ export const putEnvironmentOrder = async (
 
   // If the user doesn't have permission to update any envs, don't allow this action
   if (
-    existingEnvs.every(
+    existingEnvs.some(
       (env) => !context.permissions.canUpdateEnvironment(env, {})
     )
   ) {
     context.permissions.throwPermissionError();
   }
 
-  const updatedEnvs: Environment[] = [];
+  const envIndex = existingEnvs.findIndex((env) => env.id === envId);
 
-  // Loop through env ids, to get the full env object and add it to the updatedEnvs arr
-  envIds.forEach((envId) => {
-    const env = existingEnvs.find((existing) => existing.id === envId);
+  if (envIndex < 0) {
+    return res.status(400).json({
+      status: 400,
+      message: `Unable to find environment: ${envId}`,
+    });
+  }
 
-    if (!env) {
-      return res.status(400).json({
-        status: 400,
-        message: `Unable to find environment: ${envId}`,
-      });
-    }
+  const updatedEnvs = [...existingEnvs];
 
-    updatedEnvs.push(env);
-  });
+  if (newIndex < 0 || newIndex >= existingEnvs.length) {
+    return res.status(400).json({
+      status: 400,
+      message: `Invalid new index: ${newIndex}`,
+    });
+  }
+  updatedEnvs.splice(envIndex, 1);
+  updatedEnvs.splice(newIndex, 0, existingEnvs[envIndex]);
 
   try {
     await updateOrganization(org.id, {

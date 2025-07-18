@@ -12,8 +12,12 @@ Attribute:
   $ref: "./Attribute.yaml"
 Segment:
   $ref: "./Segment.yaml"
+ScheduleRule:
+  $ref: "./ScheduleRule.yaml"
 Feature:
   $ref: "./Feature.yaml"
+FeatureWithRevisions:
+  $ref: "./FeatureWithRevisions.yaml"
 FeatureEnvironment:
   $ref: "./FeatureEnvironment.yaml"
 FeatureRule:
@@ -24,6 +28,8 @@ FeatureForceRule:
   $ref: "./FeatureForceRule.yaml"
 FeatureRolloutRule:
   $ref: "./FeatureRolloutRule.yaml"
+FeatureSafeRolloutRule:
+  $ref: "./FeatureSafeRolloutRule.yaml"
 FeatureExperimentRule:
   $ref: "./FeatureExperimentRule.yaml"
 FeatureExperimentRefRule:
@@ -40,6 +46,8 @@ ExperimentAnalysisSettings:
   $ref: "./ExperimentAnalysisSettings.yaml"
 ExperimentResults:
   $ref: "./ExperimentResults.yaml"
+ExperimentWithEnhancedStatus:
+  $ref: "./ExperimentWithEnhancedStatus.yaml"
 DataSource:
   $ref: "./DataSource.yaml"
 VisualChangeset:
@@ -60,3 +68,7 @@ Member:
   $ref: "./Member.yaml"
 Archetype:
   $ref: "./Archetype.yaml"
+Query:
+  $ref: "./Query.yaml"
+CodeRef:
+  $ref: "./CodeRef.yaml"

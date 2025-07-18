@@ -8,6 +8,7 @@ toc_max_heading_level: 5
 
 import ExternalLink from '@site/src/components/ExternalLink'
 import SdkResources from '@site/src/components/SdkResources';
+import SdkSupportedFeatures from '@site/src/components/SdkSupportedFeatures';
 
 # Javascript
 
@@ -81,7 +82,7 @@ The third-party tracking plugin automatically sends an "Experiment Viewed" event
 This plugin does not install any 3rd party libraries, it just sends events to ones that are already installed on your site. Below are all of the supported trackers:
 
 - `segment` - Requires `window.analytics` to be defined.
-- `ga4` - Requires `window.gtag` to be defined.
+- `gtag` - Requires `window.gtag` to be defined.
 - `gtm` - Requires `window.dataLayer` to be defined.
 
 ```js
@@ -90,7 +91,7 @@ import { thirdPartyTrackingPlugin } from "@growthbook/growthbook/plugins";
 // Optional settings for the plugin
 const pluginOptions = {
   // By default, it will attempt to send to all 3 of these
-  trackers: ["segment", "ga4", "gtm"],
+  trackers: ["segment", "gtag", "gtm"],
   // Additional custom tracking callback
   additionalCallback: (experiment, result) => {
     console.log("Experiment Viewed", {
@@ -204,9 +205,9 @@ console.log(res);
 
 The return value has 3 properties:
 
-- **status** - `true` if the GrowthBook instance was populated with features/experiments. Otherwise `false`
+- **success** - `true` if the GrowthBook instance was populated with features/experiments. Otherwise `false`
 - **source** - Where this result came from. One of the following values: `network`, `cache`, `init`, `error`, or `timeout`
-- **error** - If status is `false`, this will contain an `Error` object with more details about the error
+- **error** - If success is `false`, this will contain an `Error` object with more details about the error
 
 ### Custom Integration
 
@@ -236,7 +237,7 @@ There is a alternate synchronous version of init named `initSync`, which can be 
 
 - You MUST pass in `payload`
 - The `payload` MUST NOT have encrypted features or experiments
-- If you use sticky bucketing, you MUST pass `stickyBucketAssignmentDocs` into your GrowthBook constructor
+- If using sticky bucketing, you should use an instance of `StickyBucketServiceSync`, such as `BrowserCookieStickyBucketService`.
 - The return value is the GrowthBook instance to enable easy method chaining
 
 ## Streaming Updates
@@ -1238,3 +1239,7 @@ We do this using deterministic hashing to assign users a value between 0 and 1 f
 ## Examples
 
 - [Typescript example app with strict typing <ExternalLink />](https://github.com/growthbook/examples/tree/main/vanilla-typescript).
+
+## Supported Features
+
+<SdkSupportedFeatures sdk="js" />

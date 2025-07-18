@@ -57,7 +57,6 @@ export default function JSONValidation({ feature, mutate }: Props) {
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
-          reason="To get access to JSON Validation,"
           source="json-validation"
           commercialFeature="json-validation"
         />
