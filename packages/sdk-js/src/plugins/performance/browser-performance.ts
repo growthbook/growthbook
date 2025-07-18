@@ -1,4 +1,4 @@
-import type { GrowthBook } from "../../GrowthBook";
+import type { GrowthBook } from "src/GrowthBook";
 import { createErrorReporter } from "./errorReporter";
 import { createCWVReporter } from "./cwvReporter";
 
