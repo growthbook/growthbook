@@ -23,7 +23,9 @@ const MAX_POOL_SIZE = 4;
 
 let cloudWatch: CloudWatch | null = null;
 if (IS_CLOUD) {
-  cloudWatch = new CloudWatch();
+  cloudWatch = new CloudWatch({
+    region: process.env.AWS_REGION || "us-east-1",
+  });
 }
 
 class PythonStatsServer<Input, Output> {
@@ -230,16 +232,26 @@ export const statsServerPool = createPool(
 function publishPoolSizeToCloudWatch(value: number) {
   if (!cloudWatch) return;
   try {
-    cloudWatch.putMetricData({
-      Namespace: "GrowthBook/PythonStatsPool",
-      MetricData: [
-        {
-          MetricName: "PoolSize",
-          Value: value,
-          Unit: "Count",
-        },
-      ],
-    });
+    cloudWatch.putMetricData(
+      {
+        Namespace: "GrowthBook/PythonStatsPool",
+        MetricData: [
+          {
+            MetricName: "PoolSize",
+            Value: value,
+            Unit: "Count",
+          },
+        ],
+      },
+      (error) => {
+        if (error && ENVIRONMENT === "production") {
+          logger.error(
+            "Failed to publish Python stats pool size to CloudWatch (callback): " +
+              error.message
+          );
+        }
+      }
+    );
   } catch (error) {
     // When not running on AWS, no need to publish to cloudwatch or warn us every minute.
     if (ENVIRONMENT === "production") {
