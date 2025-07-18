@@ -134,6 +134,9 @@ paths:
     $ref: "./paths/toggleFeature.yaml"
   /features/{id}/revert:
     $ref: "./paths/revertFeature.yaml"
+  /features/{id}/revisions:
+    get:
+      $ref: "./paths/getFeatureRevisions.yaml"
   /feature-keys:
     get:
       $ref: "./paths/getFeatureKeys.yaml"
