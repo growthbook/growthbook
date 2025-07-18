@@ -5,7 +5,6 @@ import {
   Schema,
   Table,
 } from "back-end/src/types/Integration";
-import { DataSourceType } from "back-end/types/datasource";
 
 export function formatInformationSchema(
   results: RawInformationSchema[]
