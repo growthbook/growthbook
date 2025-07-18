@@ -29,14 +29,6 @@ import apiRouter from "./api/api.router";
 import scimRouter from "./scim/scim.router";
 import { getBuild } from "./util/handler";
 
-if (SENTRY_DSN) {
-  const buildInfo = getBuild();
-
-  Sentry.init({ dsn: SENTRY_DSN, release: buildInfo.sha });
-
-  Sentry.setTag("build_date", buildInfo.date);
-}
-
 // Begin Controllers
 import * as authControllerRaw from "./controllers/auth";
 const authController = wrapController(authControllerRaw);
@@ -124,14 +116,6 @@ import { templateRouter } from "./routers/experiment-template/template.router";
 import { safeRolloutRouter } from "./routers/safe-rollout/safe-rollout.router";
 
 const app = express();
-
-if (SENTRY_DSN) {
-  app.use(
-    Sentry.Handlers.requestHandler({
-      user: ["email", "sub"],
-    })
-  );
-}
 
 if (!process.env.NO_INIT && process.env.NODE_ENV !== "test") {
   init();
@@ -375,6 +359,23 @@ app.use(
     next();
   }
 );
+
+// Add logged in user to Sentry if configured
+if (SENTRY_DSN) {
+  app.use(
+    (req: AuthRequest, res: Response & { log: AuthRequest["log"] }, next) => {
+      Sentry.setUser({
+        id: req.currentUser.id,
+        email: req.currentUser.email,
+        name: req.currentUser.name,
+      });
+      if (req.organization) {
+        Sentry.setTag("organization", req.organization.id);
+      }
+      next();
+    }
+  );
+}
 
 // Logged-in auth requests
 if (!useSSO) {
@@ -900,7 +901,7 @@ app.use(function (req, res) {
 });
 
 if (SENTRY_DSN) {
-  app.use(Sentry.Handlers.errorHandler());
+  Sentry.setupExpressErrorHandler(app);
 }
 
 const errorHandler: ErrorRequestHandler = (
