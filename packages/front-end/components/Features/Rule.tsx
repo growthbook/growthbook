@@ -38,6 +38,7 @@ import ExperimentSummary from "./ExperimentSummary";
 import ExperimentRefSummary, {
   isExperimentRefRuleSkipped,
 } from "./ExperimentRefSummary";
+import HoldoutSummary from "./HoldoutSummary";
 
 interface SortableProps {
   i: number;
@@ -211,7 +212,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             ></div>
             <Flex align="start" justify="between" gap="3" p="1" px="2">
               <Box>
-                {rules.length > 1 && canEdit && (
+                {rules.length > 1 && canEdit && rule.type !== "holdout" && (
                   <div
                     {...handle}
                     title="Drag and drop to re-order rules"
@@ -261,6 +262,17 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                               />
                             </div>
                           )}
+                        </Flex>
+                      ) : rule.type === "holdout" ? (
+                        <Flex gap="3" align="center">
+                          <div>Holdout: </div>
+                          <Link href={`/holdout/${feature.holdout?.id}`}>
+                            {rule.description}
+                          </Link>
+                          {/* TODO: add holdout status indicator */}
+                          {/* <ExperimentStatusIndicator
+                            experimentData={holdoutExperiment}
+                          /> */}
                         </Flex>
                       ) : (
                         title
@@ -368,11 +380,20 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       isDraft={isDraft}
                     />
                   )}
+                  {rule.type === "holdout" && (
+                    <HoldoutSummary
+                      feature={feature}
+                      value={rule.value || ""}
+                      hashAttribute={rule.hashAttribute || ""}
+                      holdoutWeight={rule.coverage || 1}
+                    />
+                  )}
                 </Box>
               </Box>
               <Flex>
                 {canEdit && (
                   <MoreMenu useRadix={true} size={14}>
+                    {/* TODO: if rule type is holdout, only have edit that opens a special holdout modal onClick */}
                     <a
                       href="#"
                       className="dropdown-item"

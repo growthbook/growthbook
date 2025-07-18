@@ -154,6 +154,8 @@ export async function getExperiments(
     type,
   });
 
+  const holdouts = await context.models.holdout.getAll();
+
   const hasArchived = includeArchived
     ? experiments.some((e) => e.archived)
     : await hasArchivedExperiments(context, project);
@@ -162,6 +164,7 @@ export async function getExperiments(
     status: 200,
     experiments,
     hasArchived,
+    holdouts,
   });
 }
 
@@ -606,10 +609,11 @@ export async function postExperiments(
       allowDuplicateTrackingKey?: boolean;
       originalId?: string;
       autoRefreshResults?: boolean;
+      isHoldout?: boolean;
     }
   >,
   res: Response<
-    | { status: 200; experiment: ExperimentInterface }
+    | { status: 200; experiment: ExperimentInterface; holdoutId?: string }
     | { status: 200; duplicateTrackingKey: boolean; existingId: string }
     | PrivateApiErrorResponse,
     EventUserForResponseLocals
@@ -682,7 +686,8 @@ export async function postExperiments(
     }
   }
 
-  const experimentType = data.type ?? "standard";
+  const experimentType =
+    data.type ?? (req.query.isHoldout ? "holdout" : "standard");
 
   const obj: Omit<ExperimentInterface, "id" | "uid"> = {
     organization: data.organization,
@@ -696,7 +701,7 @@ export async function postExperiments(
     dateUpdated: new Date(),
     project: data.project,
     owner: data.owner || userId,
-    trackingKey: data.trackingKey || "",
+    trackingKey: data.trackingKey || "", // TODO: generate tracking key for holdouts?
     datasource: data.datasource || "",
     exposureQueryId: data.exposureQueryId || "",
     userIdType: data.userIdType || "anonymous",
@@ -793,6 +798,22 @@ export async function postExperiments(
       data: obj,
       context,
     });
+    let holdout;
+    if (req.query.isHoldout) {
+      holdout = await context.models.holdout.create({
+        experimentId: experiment.id,
+        projects: experiment.project ? [experiment.project] : [],
+        name: experiment.name,
+        environments: [],
+        analysisSettings: {},
+        linkedFeatures: [],
+        linkedExperiments: [],
+      });
+
+      if (!holdout) {
+        throw new Error("Failed to create holdout");
+      }
+    }
 
     if (req.query.originalId) {
       const visualChangesets = await findVisualChangesetsByExperiment(
@@ -861,6 +882,7 @@ export async function postExperiments(
     res.status(200).json({
       status: 200,
       experiment,
+      holdoutId: holdout?.id,
     });
   } catch (e) {
     res.status(400).json({
@@ -1082,12 +1104,18 @@ export async function postExperiment(
     const phases = [...experiment.phases];
     const phaseClone = { ...phases[currentPhase] };
     phases[Math.floor(currentPhase * 1)] = phaseClone;
+    const firstPhaseClone = { ...phases[0] };
+    phases[0] = firstPhaseClone;
 
     if (phaseStartDate) {
       phaseClone.dateStarted = getValidDate(phaseStartDate + ":00Z");
     }
     if (experiment.status === "stopped" && phaseEndDate) {
       phaseClone.dateEnded = getValidDate(phaseEndDate + ":00Z");
+      // update both phases when stopped
+      if (experiment.type === "holdout") {
+        firstPhaseClone.dateEnded = getValidDate(phaseEndDate + ":00Z");
+      }
     }
     changes.phases = phases;
   }
@@ -1439,6 +1467,12 @@ export async function postExperimentStatus(
     phases?.length > 0 &&
     !phases[lastIndex].dateEnded
   ) {
+    if (experiment.type === "holdout") {
+      phases[0] = {
+        ...phases[0],
+        dateEnded: dateEnded ? getValidDate(dateEnded + ":00Z") : new Date(),
+      };
+    }
     phases[lastIndex] = {
       ...phases[lastIndex],
       reason,
@@ -1466,6 +1500,11 @@ export async function postExperimentStatus(
     phases?.length > 0
   ) {
     const clonedPhase = { ...phases[lastIndex] };
+    const clonedFirstPhase = { ...phases[0] };
+    if (experiment.type === "holdout") {
+      clonedFirstPhase.dateEnded = new Date();
+      phases[0] = clonedFirstPhase;
+    }
     delete clonedPhase.dateEnded;
     phases[lastIndex] = clonedPhase;
     changes.phases = phases;
@@ -1591,6 +1630,12 @@ export async function postExperimentStop(
   const phases = [...experiment.phases];
   // Already has phases
   if (phases.length) {
+    if (experiment.type === "holdout") {
+      phases[0] = {
+        ...phases[0],
+        dateEnded: dateEnded ? getValidDate(dateEnded + ":00Z") : new Date(),
+      };
+    }
     phases[phases.length - 1] = {
       ...phases[phases.length - 1],
       dateEnded: dateEnded ? getValidDate(dateEnded + ":00Z") : new Date(),
@@ -1917,6 +1962,9 @@ export async function postExperimentTargeting(
   } else {
     // If we had a previous phase, mark it as ended
     if (phases.length) {
+      if (experiment.type === "holdout") {
+        phases[0].dateEnded = new Date();
+      }
       phases[phases.length - 1].dateEnded = new Date();
     }
 
@@ -2043,6 +2091,9 @@ export async function postExperimentPhase(
   const phases = [...experiment.phases];
   // Already has phases
   if (phases.length) {
+    if (experiment.type === "holdout") {
+      phases[0].dateEnded = date;
+    }
     phases[phases.length - 1] = {
       ...phases[phases.length - 1],
       dateEnded: date,

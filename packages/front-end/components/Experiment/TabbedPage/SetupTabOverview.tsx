@@ -8,6 +8,7 @@ import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import Collapsible from "react-collapsible";
 import { FaAngleRight } from "react-icons/fa";
 import { Box, Flex, ScrollArea, Heading } from "@radix-ui/themes";
+import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import { PreLaunchChecklist } from "@/components/Experiment/PreLaunchChecklist";
 import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -17,11 +18,15 @@ import Frame from "@/components/Radix/Frame";
 import Button from "@/components/Radix/Button";
 import PremiumCallout from "@/components/Radix/PremiumCallout";
 import { useCustomFields } from "@/hooks/useCustomFields";
+import HoldoutTimeline from "@/components/Experiment/holdout/HoldoutTimeline";
+import { useExperiments } from "@/hooks/useExperiments";
 import EditHypothesisModal from "../EditHypothesisModal";
 import EditDescriptionModal from "../EditDescriptionModal";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
+  holdout?: HoldoutInterface;
+  holdoutExperiments?: ExperimentInterfaceStringDates[];
   visualChangesets: VisualChangesetInterface[];
   mutate: () => void;
   editTargeting?: (() => void) | null;
@@ -35,6 +40,8 @@ export interface Props {
 
 export default function SetupTabOverview({
   experiment,
+  holdout,
+  holdoutExperiments,
   visualChangesets,
   mutate,
   editTargeting,
@@ -63,6 +70,7 @@ export default function SetupTabOverview({
     !disableEditing;
 
   const isBandit = experiment.type === "multi-armed-bandit";
+  const isHoldout = experiment.type === "holdout";
 
   return (
     <>
@@ -86,7 +94,7 @@ export default function SetupTabOverview({
       ) : null}
       <div>
         <h2>Overview</h2>
-        {experiment.status === "draft" ? (
+        {experiment.status === "draft" && experiment.type !== "holdout" ? (
           <PreLaunchChecklist
             experiment={experiment}
             envs={envs}
@@ -169,7 +177,13 @@ export default function SetupTabOverview({
           </Collapsible>
         </Frame>
 
-        {!isBandit && (
+        {isHoldout && holdout && (
+          <div className="box p-4 my-4">
+            <HoldoutTimeline experiments={holdoutExperiments ?? []} />
+          </div>
+        )}
+
+        {!isBandit && !isHoldout && (
           <Frame>
             <Flex align="start" justify="between" mb="3">
               <Heading as="h4" size="3">

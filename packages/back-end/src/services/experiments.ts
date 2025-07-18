@@ -41,6 +41,7 @@ import {
 } from "shared/experiments";
 import { hoursBetween } from "shared/dates";
 import { v4 as uuidv4 } from "uuid";
+import { differenceInHours } from "date-fns";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { MetricPriorSettings } from "back-end/types/fact-table";
 import {
@@ -527,6 +528,16 @@ export function getSnapshotSettings({
         settingsForSnapshotMetrics,
         metricOverrides: experiment.metricOverrides,
         decisionFrameworkSettings: experiment.decisionFrameworkSettings,
+        holdoutLookbackWindow:
+          experiment.type === "holdout" && phase.lookbackStartDate
+            ? {
+                value: differenceInHours(
+                  phase.dateStarted,
+                  phase.lookbackStartDate
+                ),
+                unit: "hours",
+              }
+            : undefined,
       })
     )
     .filter(isDefined);

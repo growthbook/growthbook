@@ -218,6 +218,7 @@ const AnalysisForm: FC<{
 
   const type = form.watch("type");
   const isBandit = type === "multi-armed-bandit";
+  const isHoldout = type === "holdout";
 
   if (upgradeModal) {
     return (
@@ -238,7 +239,7 @@ const AnalysisForm: FC<{
     <Modal
       trackingEventModalType="analysis-form"
       trackingEventModalSource={source}
-      header={"Experiment Settings"}
+      header={isHoldout ? "Holdout Settings" : "Experiment Settings"}
       open={true}
       close={cancel}
       size="lg"
@@ -435,7 +436,7 @@ const AnalysisForm: FC<{
             }}
           />
         )}
-        {datasource && (
+        {datasource && !isHoldout && (
           <Field
             label="Tracking Key"
             labelClassName="font-weight-bold"
@@ -479,7 +480,7 @@ const AnalysisForm: FC<{
             </small>
           </div>
         )}
-        {!!phaseObj && editDates && !isBandit && (
+        {!!phaseObj && editDates && !isBandit && !isHoldout && (
           <div className="row">
             <div className="col">
               <DatePicker
@@ -509,7 +510,7 @@ const AnalysisForm: FC<{
             )}
           </div>
         )}
-        {!!datasource && !isBandit && (
+        {!!datasource && !isBandit && !isHoldout && (
           <MetricSelector
             datasource={form.watch("datasource")}
             exposureQueryId={exposureQueryId}
@@ -528,7 +529,7 @@ const AnalysisForm: FC<{
             helpText="Users must convert on this metric before being included"
           />
         )}
-        {datasourceProperties?.experimentSegments && !isBandit && (
+        {datasourceProperties?.experimentSegments && !isBandit && !isHoldout && (
           <SelectField
             label="Segment"
             labelClassName="font-weight-bold"
@@ -544,49 +545,54 @@ const AnalysisForm: FC<{
             helpText="Only users in this segment will be included"
           />
         )}
-        {datasourceProperties?.separateExperimentResultQueries && !isBandit && (
-          <SelectField
-            label="Metric Conversion Windows"
-            labelClassName="font-weight-bold"
-            value={form.watch("skipPartialData")}
-            onChange={(value) => form.setValue("skipPartialData", value)}
-            options={[
-              {
-                label: "Include In-Progress Conversions",
-                value: "loose",
-              },
-              {
-                label: "Exclude In-Progress Conversions",
-                value: "strict",
-              },
-            ]}
-            helpText="How to treat users not enrolled in the experiment long enough to complete conversion window."
-          />
-        )}
-        {datasourceProperties?.separateExperimentResultQueries && !isBandit && (
-          <SelectField
-            label={
-              <AttributionModelTooltip>
-                <strong>Conversion Window Override</strong> <FaQuestionCircle />
-              </AttributionModelTooltip>
-            }
-            value={form.watch("attributionModel")}
-            onChange={(value) => {
-              const model = value as AttributionModel;
-              form.setValue("attributionModel", model);
-            }}
-            options={[
-              {
-                label: "Respect Conversion Windows",
-                value: "firstExposure",
-              },
-              {
-                label: "Ignore Conversion Windows",
-                value: "experimentDuration",
-              },
-            ]}
-          />
-        )}
+        {datasourceProperties?.separateExperimentResultQueries &&
+          !isBandit &&
+          !isHoldout && (
+            <SelectField
+              label="Metric Conversion Windows"
+              labelClassName="font-weight-bold"
+              value={form.watch("skipPartialData")}
+              onChange={(value) => form.setValue("skipPartialData", value)}
+              options={[
+                {
+                  label: "Include In-Progress Conversions",
+                  value: "loose",
+                },
+                {
+                  label: "Exclude In-Progress Conversions",
+                  value: "strict",
+                },
+              ]}
+              helpText="How to treat users not enrolled in the experiment long enough to complete conversion window."
+            />
+          )}
+        {datasourceProperties?.separateExperimentResultQueries &&
+          !isBandit &&
+          !isHoldout && (
+            <SelectField
+              label={
+                <AttributionModelTooltip>
+                  <strong>Conversion Window Override</strong>{" "}
+                  <FaQuestionCircle />
+                </AttributionModelTooltip>
+              }
+              value={form.watch("attributionModel")}
+              onChange={(value) => {
+                const model = value as AttributionModel;
+                form.setValue("attributionModel", model);
+              }}
+              options={[
+                {
+                  label: "Respect Conversion Windows",
+                  value: "firstExposure",
+                },
+                {
+                  label: "Ignore Conversion Windows",
+                  value: "experimentDuration",
+                },
+              ]}
+            />
+          )}
         <StatsEngineSelect
           label={
             isBandit ? (
@@ -719,39 +725,41 @@ const AnalysisForm: FC<{
               </div>
             </div>
           )}
-        {datasourceProperties?.queryLanguage === "sql" && !isBandit && (
-          <div className="row">
-            <div className="col">
-              <Field
-                label="Custom SQL Filter"
-                labelClassName="font-weight-bold"
-                {...form.register("queryFilter")}
-                textarea
-                placeholder="e.g. user_id NOT IN ('123', '456')"
-                helpText="WHERE clause to add to the default experiment query"
-              />
-            </div>
-            <div className="pt-2 border-left col-sm-4 col-lg-6">
-              Available columns:
-              <div className="mb-2 d-flex flex-wrap">
-                {["timestamp", "variation_id"]
-                  .concat(exposureQuery ? [exposureQuery.userIdType] : [])
-                  .concat(exposureQuery?.dimensions || [])
-                  .map((d) => {
-                    return (
-                      <div className="mr-2 mb-2 border px-1" key={d}>
-                        <code>{d}</code>
-                      </div>
-                    );
-                  })}
+        {datasourceProperties?.queryLanguage === "sql" &&
+          !isBandit &&
+          !isHoldout && (
+            <div className="row">
+              <div className="col">
+                <Field
+                  label="Custom SQL Filter"
+                  labelClassName="font-weight-bold"
+                  {...form.register("queryFilter")}
+                  textarea
+                  placeholder="e.g. user_id NOT IN ('123', '456')"
+                  helpText="WHERE clause to add to the default experiment query"
+                />
               </div>
-              <div>
-                <strong>Tip:</strong> Use a subquery inside an <code>IN</code>{" "}
-                or <code>NOT IN</code> clause for more advanced filtering.
+              <div className="pt-2 border-left col-sm-4 col-lg-6">
+                Available columns:
+                <div className="mb-2 d-flex flex-wrap">
+                  {["timestamp", "variation_id"]
+                    .concat(exposureQuery ? [exposureQuery.userIdType] : [])
+                    .concat(exposureQuery?.dimensions || [])
+                    .map((d) => {
+                      return (
+                        <div className="mr-2 mb-2 border px-1" key={d}>
+                          <code>{d}</code>
+                        </div>
+                      );
+                    })}
+                </div>
+                <div>
+                  <strong>Tip:</strong> Use a subquery inside an <code>IN</code>{" "}
+                  or <code>NOT IN</code> clause for more advanced filtering.
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
         {editMetrics && (
           <>
             <ExperimentMetricsSelector
@@ -775,7 +783,7 @@ const AnalysisForm: FC<{
               goalDisabled={isBandit && experiment.status !== "draft"}
             />
 
-            {hasMetrics && !isBandit && (
+            {hasMetrics && !isBandit && !isHoldout && (
               <div className="form-group mb-2">
                 <PremiumTooltip commercialFeature="override-metrics">
                   <label className="font-weight-bold mb-1">
