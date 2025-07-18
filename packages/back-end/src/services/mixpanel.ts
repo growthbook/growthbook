@@ -1,5 +1,5 @@
 import { URLSearchParams } from "url";
-import fetch from "node-fetch";
+import { fetch } from "back-end/src/util/http.util";
 import { MixpanelConnectionParams } from "back-end/types/integrations/mixpanel";
 
 const encodedParams = new URLSearchParams();

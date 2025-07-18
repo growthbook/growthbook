@@ -2,11 +2,13 @@ import { ChildProcess, spawn } from "child_process";
 import os from "os";
 import path from "path";
 import { randomUUID } from "crypto";
+import { CloudWatch } from "aws-sdk";
 import { createPool } from "generic-pool";
 import { MultipleExperimentMetricAnalysis } from "back-end/types/stats";
 import { logger } from "back-end/src/util/logger";
 import { ExperimentDataForStatsEngine } from "back-end/src/services/stats";
-import { ENVIRONMENT } from "back-end/src/util/secrets";
+import { ENVIRONMENT, IS_CLOUD } from "back-end/src/util/secrets";
+import { metrics } from "back-end/src/util/metrics";
 
 type PythonServerResponse<T> = {
   id: string;
@@ -20,6 +22,13 @@ const STATS_ENGINE_TIMEOUT_MS = 60_000;
 const MAX_POOL_SIZE = process.env.GB_STATS_ENGINE_POOL_SIZE
   ? Number(process.env.GB_STATS_ENGINE_POOL_SIZE)
   : 4;
+
+let cloudWatch: CloudWatch | null = null;
+if (IS_CLOUD) {
+  cloudWatch = new CloudWatch({
+    region: process.env.AWS_REGION || "us-east-1",
+  });
+}
 
 class PythonStatsServer<Input, Output> {
   private python: ChildProcess;
@@ -151,6 +160,7 @@ class PythonStatsServer<Input, Output> {
           `Python stats server (pid: ${this.pid}) call timed out for id ${id}`
         );
         this.promises.delete(id);
+        metrics.getCounter("python.stats_calls_rejected").increment();
         reject(new Error("Python stats server call timed out"));
       }, STATS_ENGINE_TIMEOUT_MS);
 
@@ -170,6 +180,12 @@ class PythonStatsServer<Input, Output> {
             }) Average CPU: ${JSON.stringify(getAvgCPU(cpus, os.cpus()))}`
           );
           clearTimeout(timer);
+
+          metrics.getCounter("python.stats_calls_resolved").increment();
+          metrics
+            .getHistogram("python.stats_call_duration_ms")
+            .record(Date.now() - start);
+
           resolve(results);
         },
         reject: (reason?: Error) => {
@@ -178,6 +194,12 @@ class PythonStatsServer<Input, Output> {
             reason
           );
           clearTimeout(timer);
+
+          metrics.getCounter("python.stats_calls_rejected").increment();
+          metrics
+            .getHistogram("python.stats_call_duration_ms")
+            .record(Date.now() - start);
+
           reject(reason || new Error("Unknown error from Python stats server"));
         },
       });
@@ -208,6 +230,70 @@ export const statsServerPool = createPool(
     numTestsPerEvictionRun: 2,
   }
 );
+
+function publishPoolSizeToCloudWatch(value: number) {
+  if (!cloudWatch) return;
+  try {
+    cloudWatch.putMetricData(
+      {
+        Namespace: "GrowthBook/PythonStatsPool",
+        MetricData: [
+          {
+            MetricName: "PoolSize",
+            Value: value,
+            Unit: "Count",
+          },
+        ],
+      },
+      (error) => {
+        if (error && ENVIRONMENT === "production") {
+          logger.error(
+            "Failed to publish Python stats pool size to CloudWatch (callback): " +
+              error.message
+          );
+        }
+      }
+    );
+  } catch (error) {
+    // When not running on AWS, no need to publish to cloudwatch or warn us every minute.
+    if (ENVIRONMENT === "production") {
+      logger.error(
+        "Failed to publish Python stats pool size to CloudWatch: " +
+          error.message
+      );
+    }
+  }
+}
+
+function monitorServicePool() {
+  // If pool is exhausted it will emit this event
+  statsServerPool.on("factoryCreateError", () => {
+    metrics.getCounter("python.stats_pool_create_error").increment();
+  });
+  statsServerPool.on("factoryDestroyError", () => {
+    metrics.getCounter("python.stats_pool_destroy_error").increment();
+  });
+
+  setInterval(() => {
+    metrics.getGauge("python.stats_pool_size").record(statsServerPool.size);
+    metrics
+      .getGauge("python.stats_pool_idle")
+      .record(statsServerPool.available);
+    metrics.getGauge("python.stats_pool_busy").record(statsServerPool.borrowed);
+
+    // Publish to CloudWatch in order to be able to scale the python service
+    // Since generic-pool will only increase the pool size when all others are busy
+    // and we only decrease it once a minute if left idle.  The size will show
+    // the maximum pool size that was needed in the last minute.
+    if (IS_CLOUD) {
+      publishPoolSizeToCloudWatch(statsServerPool.size);
+    }
+  }, 60 * 1000);
+}
+
+if (!process.env.EXTERNAL_PYTHON_SERVER_URL) {
+  monitorServicePool();
+}
 
 function getAvgCPU(pre: os.CpuInfo[], post: os.CpuInfo[]) {
   let user = 0;

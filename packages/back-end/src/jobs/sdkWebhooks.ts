@@ -31,7 +31,6 @@ import {
 } from "back-end/src/services/organizations";
 import { ReqContext } from "back-end/types/organization";
 import { ApiReqContext } from "back-end/types/api";
-import { trackJob } from "back-end/src/services/tracing";
 
 const SDK_WEBHOOKS_JOB_NAME = "fireWebhooks";
 type SDKWebhookJob = Job<{
@@ -45,30 +44,27 @@ const sendPayloadFormats: WebhookPayloadFormat[] = [
   "vercelNativeIntegration",
 ];
 
-const fireWebhooks = trackJob(
-  SDK_WEBHOOKS_JOB_NAME,
-  async (job: SDKWebhookJob) => {
-    const webhookId = job.attrs.data?.webhookId;
+const fireWebhooks = async (job: SDKWebhookJob) => {
+  const webhookId = job.attrs.data?.webhookId;
 
-    if (!webhookId) {
-      logger.error("SDK webhook: No webhook provided for webhook job", {
-        webhookId,
-      });
-      return;
-    }
-
-    const webhook = await findSdkWebhookByIdAcrossOrgs(webhookId);
-    if (!webhook || !webhook.sdks) {
-      logger.error("SDK webhook: No webhook found for id", {
-        webhookId,
-      });
-      return;
-    }
-
-    const context = await getContextForAgendaJobByOrgId(webhook.organization);
-    await fireSdkWebhook(context, webhook);
+  if (!webhookId) {
+    logger.error("SDK webhook: No webhook provided for webhook job", {
+      webhookId,
+    });
+    return;
   }
-);
+
+  const webhook = await findSdkWebhookByIdAcrossOrgs(webhookId);
+  if (!webhook || !webhook.sdks) {
+    logger.error("SDK webhook: No webhook found for id", {
+      webhookId,
+    });
+    return;
+  }
+
+  const context = await getContextForAgendaJobByOrgId(webhook.organization);
+  await fireSdkWebhook(context, webhook);
+};
 
 let agenda: Agenda;
 export default function addSdkWebhooksJob(ag: Agenda) {
