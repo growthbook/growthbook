@@ -9,91 +9,89 @@ import {
 } from "back-end/src/services/informationSchema";
 
 describe("formatInformationSchema", () => {
+  // Shared test data - reused across all formatInformationSchema tests
+  const rawInformationSchema: RawInformationSchema[] = [
+    {
+      table_catalog: "adept-arbor-354914",
+      table_name: "experiment-assignments",
+      table_schema: "a_second_data_set",
+      column_count: "3",
+    },
+    {
+      table_catalog: "adept-arbor-354914",
+      table_name: "experiment-assignments",
+      table_schema: "a_second_data_set",
+      column_count: "3",
+    },
+    {
+      table_catalog: "adept-arbor-354914",
+      table_name: "experiment-assignments",
+      table_schema: "a_second_data_set",
+      column_count: "3",
+    },
+    {
+      table_catalog: "adept-arbor-354914",
+      table_name: "orders",
+      table_schema: "sample_data_set",
+      column_count: "3",
+    },
+    {
+      table_catalog: "adept-arbor-354914",
+      table_name: "orders",
+      table_schema: "sample_data_set",
+      column_count: "3",
+    },
+    {
+      table_catalog: "adept-arbor-354914",
+      table_name: "orders",
+      table_schema: "sample_data_set",
+      column_count: "3",
+    },
+    {
+      table_catalog: "adept-arbor-354914",
+      table_name: "page-visitors",
+      table_schema: "sample_data_set",
+      column_count: "3",
+    },
+    {
+      table_catalog: "adept-arbor-354914",
+      table_name: "page-visitors",
+      table_schema: "sample_data_set",
+      column_count: "3",
+    },
+    {
+      table_catalog: "adept-arbor-354914",
+      table_name: "page-visitors",
+      table_schema: "sample_data_set",
+      column_count: "3",
+    },
+    {
+      table_catalog: "adept-arbor-354914",
+      table_name: "sample_table",
+      table_schema: "sample_data",
+      column_count: "3",
+    },
+    {
+      table_catalog: "adept-arbor-354914",
+      table_name: "sample_table",
+      table_schema: "sample_data",
+      column_count: "3",
+    },
+    {
+      table_catalog: "adept-arbor-354914",
+      table_name: "sample_table",
+      table_schema: "sample_data",
+      column_count: "3",
+    },
+  ];
+
   it("Correctly formats a rawInformationSchema for BigQuery correctly", () => {
-    const rawInformationSchema: RawInformationSchema[] = [
-      {
-        table_catalog: "adept-arbor-354914",
-        table_name: "experiment-assignments",
-        table_schema: "a_second_data_set",
-        column_count: "3",
-      },
-      {
-        table_catalog: "adept-arbor-354914",
-        table_name: "experiment-assignments",
-        table_schema: "a_second_data_set",
-        column_count: "3",
-      },
-      {
-        table_catalog: "adept-arbor-354914",
-        table_name: "experiment-assignments",
-        table_schema: "a_second_data_set",
-        column_count: "3",
-      },
-      {
-        table_catalog: "adept-arbor-354914",
-        table_name: "orders",
-        table_schema: "sample_data_set",
-        column_count: "3",
-      },
-      {
-        table_catalog: "adept-arbor-354914",
-        table_name: "orders",
-        table_schema: "sample_data_set",
-        column_count: "3",
-      },
-      {
-        table_catalog: "adept-arbor-354914",
-        table_name: "orders",
-        table_schema: "sample_data_set",
-        column_count: "3",
-      },
-      {
-        table_catalog: "adept-arbor-354914",
-        table_name: "page-visitors",
-        table_schema: "sample_data_set",
-        column_count: "3",
-      },
-      {
-        table_catalog: "adept-arbor-354914",
-        table_name: "page-visitors",
-        table_schema: "sample_data_set",
-        column_count: "3",
-      },
-      {
-        table_catalog: "adept-arbor-354914",
-        table_name: "page-visitors",
-        table_schema: "sample_data_set",
-        column_count: "3",
-      },
-      {
-        table_catalog: "adept-arbor-354914",
-        table_name: "sample_table",
-        table_schema: "sample_data",
-        column_count: "3",
-      },
-      {
-        table_catalog: "adept-arbor-354914",
-        table_name: "sample_table",
-        table_schema: "sample_data",
-        column_count: "3",
-      },
-      {
-        table_catalog: "adept-arbor-354914",
-        table_name: "sample_table",
-        table_schema: "sample_data",
-        column_count: "3",
-      },
-    ];
     const formattedResults = formatInformationSchema(
       rawInformationSchema,
       "bigquery"
     );
 
     expect(formattedResults[0].databaseName).toEqual("adept-arbor-354914");
-    expect(formattedResults[0].path).toEqual("`adept-arbor-354914`");
-    expect(formattedResults[0].schemas[0].path).toEqual(
-      "`adept-arbor-354914.a_second_data_set`"
-    );
     expect(formattedResults[0].schemas[0].schemaName).toEqual(
       "a_second_data_set"
     );
@@ -107,90 +105,12 @@ describe("formatInformationSchema", () => {
   });
 
   it("Correctly formats a rawInformationSchema for Postgres correctly", () => {
-    const rawInformationSchema: RawInformationSchema[] = [
-      {
-        table_catalog: "adept-arbor-354914",
-        table_name: "experiment-assignments",
-        table_schema: "a_second_data_set",
-        column_count: "3",
-      },
-      {
-        table_catalog: "adept-arbor-354914",
-        table_name: "experiment-assignments",
-        table_schema: "a_second_data_set",
-        column_count: "3",
-      },
-      {
-        table_catalog: "adept-arbor-354914",
-        table_name: "experiment-assignments",
-        table_schema: "a_second_data_set",
-        column_count: "3",
-      },
-      {
-        table_catalog: "adept-arbor-354914",
-        table_name: "orders",
-        table_schema: "sample_data_set",
-        column_count: "3",
-      },
-      {
-        table_catalog: "adept-arbor-354914",
-        table_name: "orders",
-        table_schema: "sample_data_set",
-        column_count: "3",
-      },
-      {
-        table_catalog: "adept-arbor-354914",
-        table_name: "orders",
-        table_schema: "sample_data_set",
-        column_count: "3",
-      },
-      {
-        table_catalog: "adept-arbor-354914",
-        table_name: "page-visitors",
-        table_schema: "sample_data_set",
-        column_count: "3",
-      },
-      {
-        table_catalog: "adept-arbor-354914",
-        table_name: "page-visitors",
-        table_schema: "sample_data_set",
-        column_count: "3",
-      },
-      {
-        table_catalog: "adept-arbor-354914",
-        table_name: "page-visitors",
-        table_schema: "sample_data_set",
-        column_count: "3",
-      },
-      {
-        table_catalog: "adept-arbor-354914",
-        table_name: "sample_table",
-        table_schema: "sample_data",
-        column_count: "3",
-      },
-      {
-        table_catalog: "adept-arbor-354914",
-        table_name: "sample_table",
-        table_schema: "sample_data",
-        column_count: "3",
-      },
-      {
-        table_catalog: "adept-arbor-354914",
-        table_name: "sample_table",
-        table_schema: "sample_data",
-        column_count: "3",
-      },
-    ];
     const formattedResults = formatInformationSchema(
       rawInformationSchema,
       "postgres"
     );
 
     expect(formattedResults[0].databaseName).toEqual("adept-arbor-354914");
-    expect(formattedResults[0].path).toEqual("adept-arbor-354914");
-    expect(formattedResults[0].schemas[0].path).toEqual(
-      "adept-arbor-354914.a_second_data_set"
-    );
     expect(formattedResults[0].schemas[0].schemaName).toEqual(
       "a_second_data_set"
     );
@@ -204,93 +124,17 @@ describe("formatInformationSchema", () => {
   });
 
   it("Correctly formats a rawInformationSchema for MySQL correctly", () => {
-    const rawInformationSchema: RawInformationSchema[] = [
-      {
-        table_catalog: "adept-arbor-354914",
-        table_name: "experiment-assignments",
-        table_schema: "a_second_data_set",
-        column_count: "3",
-      },
-      {
-        table_catalog: "adept-arbor-354914",
-        table_name: "experiment-assignments",
-        table_schema: "a_second_data_set",
-        column_count: "3",
-      },
-      {
-        table_catalog: "adept-arbor-354914",
-        table_name: "experiment-assignments",
-        table_schema: "a_second_data_set",
-        column_count: "3",
-      },
-      {
-        table_catalog: "adept-arbor-354914",
-        table_name: "orders",
-        table_schema: "sample_data_set",
-        column_count: "3",
-      },
-      {
-        table_catalog: "adept-arbor-354914",
-        table_name: "orders",
-        table_schema: "sample_data_set",
-        column_count: "3",
-      },
-      {
-        table_catalog: "adept-arbor-354914",
-        table_name: "orders",
-        table_schema: "sample_data_set",
-        column_count: "3",
-      },
-      {
-        table_catalog: "adept-arbor-354914",
-        table_name: "page-visitors",
-        table_schema: "sample_data_set",
-        column_count: "3",
-      },
-      {
-        table_catalog: "adept-arbor-354914",
-        table_name: "page-visitors",
-        table_schema: "sample_data_set",
-        column_count: "3",
-      },
-      {
-        table_catalog: "adept-arbor-354914",
-        table_name: "page-visitors",
-        table_schema: "sample_data_set",
-        column_count: "3",
-      },
-      {
-        table_catalog: "adept-arbor-354914",
-        table_name: "sample_table",
-        table_schema: "sample_data",
-        column_count: "3",
-      },
-      {
-        table_catalog: "adept-arbor-354914",
-        table_name: "sample_table",
-        table_schema: "sample_data",
-        column_count: "3",
-      },
-      {
-        table_catalog: "adept-arbor-354914",
-        table_name: "sample_table",
-        table_schema: "sample_data",
-        column_count: "3",
-      },
-    ];
     const formattedResults = formatInformationSchema(
       rawInformationSchema,
       "mysql"
     );
 
     expect(formattedResults[0].databaseName).toEqual("adept-arbor-354914");
-    expect(formattedResults[0].path).toEqual("");
-    expect(formattedResults[0].schemas[0].path).toEqual("a_second_data_set");
     expect(formattedResults[0].schemas[0].schemaName).toEqual(
       "a_second_data_set"
     );
     expect(formattedResults[0].schemas[0].tables[0].path).toEqual(
-      "a_second_data_set.experiment-assignments"
+      "`a_second_data_set`.`experiment-assignments`"
     );
     expect(formattedResults[0].schemas[0].tables[0].numOfColumns).toEqual(3);
     expect(formattedResults[0].schemas[0].tables[0].tableName).toEqual(
@@ -676,7 +520,7 @@ describe("mergeStaleInformationSchemaWithUpdated", () => {
                 tableName: "table-to-be-deleted",
                 path:
                   "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
-                id: "",
+                id: "table_id_to_be_deleted-1234",
                 numOfColumns: 16,
                 dateCreated: new Date("2023-03-18T15:00:00.000+00:00"),
                 dateUpdated: new Date("2023-03-18T15:00:00.300+00:00"),

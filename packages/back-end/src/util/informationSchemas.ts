@@ -7,15 +7,16 @@ import {
 } from "back-end/src/types/Integration";
 import { DataSourceType } from "back-end/types/datasource";
 
-type RowType = {
-  tableCatalog: string;
-  tableSchema?: string;
-  tableName?: string;
-  columnName?: string;
-};
-
-export function getPath(dataSourceType: DataSourceType, path: RowType): string {
-  const pathArray = Object.values(path);
+export function getPath(
+  dataSourceType: DataSourceType,
+  params: {
+    catalog: string;
+    schema: string;
+    tableName: string;
+  }
+): string {
+  const { catalog, schema, tableName } = params;
+  const pathArray = [catalog, schema, tableName];
   const returnValue = pathArray.join(".");
 
   switch (dataSourceType) {
@@ -23,19 +24,14 @@ export function getPath(dataSourceType: DataSourceType, path: RowType): string {
     // Backticks help avoid issues with reserved words or special characters
     case "mysql":
     case "clickhouse":
-      if (pathArray.length === 1) {
-        return "";
-      } else {
-        return pathArray
-          .slice(1)
-          .map((part) => "`" + part + "`") // Wrap each path part in backticks for safety
-          .join(".");
-      }
+      return [schema, tableName]
+        .map((part) => "`" + part + "`") // Wrap each path part in backticks for safety
+        .join(".");
 
     case "bigquery":
       return "`" + returnValue + "`"; // BigQuery requires backticks around the full path
     case "growthbook_clickhouse":
-      return pathArray[pathArray.length - 1];
+      return tableName; // Only return the table name
 
     default:
       return returnValue;
@@ -53,42 +49,36 @@ export function formatInformationSchema(
   const date = new Date();
 
   results.forEach((row) => {
-    const dbPath = getPath(datasourceType, {
-      tableCatalog: row.table_catalog,
-    });
-    let database = databases.get(dbPath);
+    // Use database name as key since paths are deprecated
+    const databaseName = row.table_catalog;
+    let database = databases.get(databaseName);
     if (!database) {
       database = {
         databaseName: row.table_catalog,
         schemas: [],
-        path: dbPath,
         dateCreated: date,
         dateUpdated: date,
       };
-      databases.set(dbPath, database);
+      databases.set(databaseName, database);
     }
 
-    const schemaPath = getPath(datasourceType, {
-      tableCatalog: row.table_catalog,
-      tableSchema: row.table_schema,
-    });
-    let schema = schemas.get(schemaPath);
+    // Use schema name as key since paths are deprecated
+    const schemaKey = `${row.table_catalog}.${row.table_schema}`;
+    let schema = schemas.get(schemaKey);
     if (!schema) {
       schema = {
         schemaName: row.table_schema,
         tables: [],
-        path: schemaPath,
         dateCreated: date,
         dateUpdated: date,
       };
-      schemas.set(schemaPath, schema);
+      schemas.set(schemaKey, schema);
       database.schemas.push(schema);
     }
 
-    // Do the same for tables
     const tablePath = getPath(datasourceType, {
-      tableCatalog: row.table_catalog,
-      tableSchema: row.table_schema,
+      catalog: row.table_catalog,
+      schema: row.table_schema,
       tableName: row.table_name,
     });
     let table = tables.get(tablePath);
