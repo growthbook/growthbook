@@ -100,7 +100,7 @@ export default function StickyBucketingSettings() {
               </Box>
             </Flex>
           )}
-          <Callout status="info" mt="3">
+          <Callout status="info" mt="3" contentsAs="div">
             <Text size="2">
               <StickyBucketingToggleWarning
                 showIcon={false}

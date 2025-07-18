@@ -116,7 +116,7 @@ const ExperimentsPage = (): React.ReactElement => {
     <DropdownMenu
       trigger={
         <Button icon={<PiCaretDown />} iconPosition="right">
-          Add
+          &nbsp;Add
         </Button>
       }
       menuPlacement="end"

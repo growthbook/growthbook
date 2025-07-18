@@ -18,4 +18,6 @@ router.put("/:id", savedQueriesController.putSavedQuery);
 
 router.delete("/:id", savedQueriesController.deleteSavedQuery);
 
+router.post("/generateSQL", savedQueriesController.postGenerateSQL);
+
 export { router as savedQueriesRouter };

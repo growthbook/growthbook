@@ -665,6 +665,12 @@ const sidebars = {
           label: "Jira",
           className: "pill-new",
         },
+        {
+          type: "doc",
+          id: "integrations/ai",
+          label: "AI",
+          className: "pill-new",
+        },
       ],
     },
     {
