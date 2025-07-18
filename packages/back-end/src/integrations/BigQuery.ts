@@ -238,9 +238,6 @@ export default class BigQuery extends SqlIntegration {
       throw new Error(`No tables found.`);
     }
 
-    return formatInformationSchema(
-      results as RawInformationSchema[],
-      this.datasource.type
-    );
+    return formatInformationSchema(results as RawInformationSchema[]);
   }
 }

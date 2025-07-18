@@ -2,6 +2,7 @@ import {
   DataSourceInterfaceWithParams,
   DataSourceParams,
   DataSourceSettings,
+  DataSourceType,
   ExposureQuery,
   SchemaFormat,
   SchemaInterface,
@@ -667,5 +668,40 @@ export function validateSQL(sql: string, requiredColumns: string[]): void {
         .map((col) => '"' + col + '"')
         .join(", ")}`
     );
+  }
+}
+
+/**
+ * Generates a table path for use in SQL queries based on the data source type.
+ * This logic was moved from the backend to frontend to avoid storing computed data.
+ */
+export function getTablePath(
+  dataSourceType: DataSourceType,
+  params: {
+    catalog: string;
+    schema: string;
+    tableName: string;
+  }
+): string {
+  const { catalog, schema, tableName } = params;
+  const pathArray = [catalog, schema, tableName];
+  const returnValue = pathArray.join(".");
+
+  switch (dataSourceType) {
+    // MySQL and ClickHouse both support paths that go two levels deep
+    // Backticks help avoid issues with reserved words or special characters
+    case "mysql":
+    case "clickhouse":
+      return [schema, tableName]
+        .map((part) => "`" + part + "`") // Wrap each path part in backticks for safety
+        .join(".");
+
+    case "bigquery":
+      return "`" + returnValue + "`"; // BigQuery requires backticks around the full path
+    case "growthbook_clickhouse":
+      return tableName; // Only return the table name
+
+    default:
+      return returnValue;
   }
 }

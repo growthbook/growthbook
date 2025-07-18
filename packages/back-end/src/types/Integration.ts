@@ -466,7 +466,6 @@ export interface Column {
 
 export interface Table {
   tableName: string;
-  path: string;
   id: string;
   numOfColumns: number;
   dateCreated: Date;
@@ -476,14 +475,12 @@ export interface Table {
 export interface Schema {
   schemaName: string;
   tables: Table[];
-  path?: string;
   dateCreated: Date;
   dateUpdated: Date;
 }
 
 export interface InformationSchema {
   databaseName: string;
-  path?: string;
   schemas: Schema[];
   dateCreated: Date;
   dateUpdated: Date;
