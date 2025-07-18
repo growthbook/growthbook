@@ -4913,7 +4913,7 @@
   dependencies:
     "@opentelemetry/semantic-conventions" "1.23.0"
 
-"@opentelemetry/core@1.26.0", "@opentelemetry/core@^1.25.0":
+"@opentelemetry/core@1.26.0":
   version "1.26.0"
   resolved "https://registry.yarnpkg.com/@opentelemetry/core/-/core-1.26.0.tgz#7d84265aaa850ed0ca5813f97d831155be42b328"
   integrity sha512-1iKxXXE8415Cdv0yjG3G6hQnB5eVEsJce3QaawX8SjDn0mAS0ZM8fAbZZJD4ajvhC15cePvosSCut404KrIIvQ==
@@ -4927,7 +4927,7 @@
   dependencies:
     "@opentelemetry/semantic-conventions" "1.22.0"
 
-"@opentelemetry/core@^1.14.0":
+"@opentelemetry/core@^1.14.0", "@opentelemetry/core@^1.25.0":
   version "1.30.1"
   resolved "https://registry.yarnpkg.com/@opentelemetry/core/-/core-1.30.1.tgz#a0b468bb396358df801881709ea38299fc30ab27"
   integrity sha512-OOCM2C/QIURhJMuKaekP3TRBxBKxG/TWWA0TL2J6nXUtDnuCtccy49LUJF8xPFXMX+0LMcxFpCo8M9cGY1W6rQ==
@@ -13143,10 +13143,10 @@ external-editor@^3.0.3:
     iconv-lite "^0.4.24"
     tmp "^0.0.33"
 
-fast-copy@^3.0.0:
-  version "3.0.0"
-  resolved "https://registry.npmjs.org/fast-copy/-/fast-copy-3.0.0.tgz"
-  integrity sha512-4HzS+9pQ5Yxtv13Lhs1Z1unMXamBdn5nA4bEi1abYpDNSpSp7ODYQ1KPMF6nTatfEzgH6/zPvXKU1zvHiUjWlA==
+fast-copy@^3.0.2:
+  version "3.0.2"
+  resolved "https://registry.yarnpkg.com/fast-copy/-/fast-copy-3.0.2.tgz#59c68f59ccbcac82050ba992e0d5c389097c9d35"
+  integrity sha512-dl0O9Vhju8IrcLndv2eU4ldt1ftXMqqfgN4H1cpmGV7P6jeB9FwpN9a2c8DPGE1Ys88rNUJVYDHq73CGAGOPfQ==
 
 fast-deep-equal@^3.1.1, fast-deep-equal@^3.1.3:
   version "3.1.3"
@@ -13214,13 +13214,6 @@ fast-text-encoding@^1.0.0:
   version "1.0.4"
   resolved "https://registry.npmjs.org/fast-text-encoding/-/fast-text-encoding-1.0.4.tgz"
   integrity sha512-x6lDDm/tBAzX9kmsPcZsNbvDs3Zey3+scsxaZElS8xWLgUMAg/oFLeewfUz0mu1CblHhhsu15jGkraldkFh8KQ==
-
-fast-url-parser@^1.1.3:
-  version "1.1.3"
-  resolved "https://registry.npmjs.org/fast-url-parser/-/fast-url-parser-1.1.3.tgz"
-  integrity sha512-5jOCVXADYNuRkKFzNJ0dCCewsZiYo0dz8QNYljkOpFC6r2U4OBmKtvm/Tsuh4w1YYdDqDb31a8TVhBJ2OJKdqQ==
-  dependencies:
-    punycode "^1.3.2"
 
 fast-xml-parser@4.0.11:
   version "4.0.11"
@@ -13908,17 +13901,6 @@ glob@^7.1.1, glob@^7.1.2, glob@^7.1.3, glob@^7.1.4, glob@^7.1.6, glob@^7.2.0:
     once "^1.3.0"
     path-is-absolute "^1.0.0"
 
-glob@^8.0.0:
-  version "8.0.3"
-  resolved "https://registry.npmjs.org/glob/-/glob-8.0.3.tgz"
-  integrity sha512-ull455NHSHI/Y1FqGaaYFaLGkNMMJbavMrEGFXG/PGrg6y7sutWHUHrz6gy6WEBH6akM1M414dWKCNs+IhKdiQ==
-  dependencies:
-    fs.realpath "^1.0.0"
-    inflight "^1.0.4"
-    inherits "2"
-    minimatch "^5.0.1"
-    once "^1.3.0"
-
 glob@^9.0.0:
   version "9.3.5"
   resolved "https://registry.npmjs.org/glob/-/glob-9.3.5.tgz"
@@ -14368,13 +14350,10 @@ header-case@^2.0.4:
     capital-case "^1.0.4"
     tslib "^2.0.3"
 
-help-me@^4.0.1:
-  version "4.1.0"
-  resolved "https://registry.npmjs.org/help-me/-/help-me-4.1.0.tgz"
-  integrity sha512-5HMrkOks2j8Fpu2j5nTLhrBhT7VwHwELpqnSnx802ckofys5MO2SkLpgSz3dgNFHV7IYFX2igm5CM75SmuYidw==
-  dependencies:
-    glob "^8.0.0"
-    readable-stream "^3.6.0"
+help-me@^5.0.0:
+  version "5.0.0"
+  resolved "https://registry.yarnpkg.com/help-me/-/help-me-5.0.0.tgz#b1ebe63b967b74060027c2ac61f9be12d354a6f6"
+  integrity sha512-7xgomUX6ADmcYzFik0HzAxh/73YlKR9bmFzf51CZwR+b6YtzU2m0u49hQCqV6SvlqIqsaxovfwdvbnsw3b/zpg==
 
 hexoid@^1.0.0:
   version "1.0.0"
@@ -18894,91 +18873,58 @@ pify@^4.0.1:
   resolved "https://registry.npmjs.org/pify/-/pify-4.0.1.tgz"
   integrity sha512-uB80kBFb/tfd68bVleG9T5GGsGPjJrLAUpR5PZIrhBnIaRTQRjqdJSsIKkOP6OAIFbj7GOrcudc5pNjZ+geV2g==
 
-pino-abstract-transport@^1.0.0, pino-abstract-transport@v1.0.0:
-  version "1.0.0"
-  resolved "https://registry.npmjs.org/pino-abstract-transport/-/pino-abstract-transport-1.0.0.tgz"
-  integrity sha512-c7vo5OpW4wIS42hUVcT5REsL8ZljsUfBjqV/e2sFxmFEFZiq1XLUp5EYLtuDH6PEHq9W1egWqRbnLUP5FuZmOA==
+pino-abstract-transport@^2.0.0:
+  version "2.0.0"
+  resolved "https://registry.yarnpkg.com/pino-abstract-transport/-/pino-abstract-transport-2.0.0.tgz#de241578406ac7b8a33ce0d77ae6e8a0b3b68a60"
+  integrity sha512-F63x5tizV6WCh4R6RHyi2Ml+M70DNRXt/+HANowMflpgGFMAym/VKm6G7ZOQRjqN7XbGxK1Lg9t6ZrtzOaivMw==
   dependencies:
-    readable-stream "^4.0.0"
     split2 "^4.0.0"
 
-pino-abstract-transport@^1.2.0:
-  version "1.2.0"
-  resolved "https://registry.yarnpkg.com/pino-abstract-transport/-/pino-abstract-transport-1.2.0.tgz#97f9f2631931e242da531b5c66d3079c12c9d1b5"
-  integrity sha512-Guhh8EZfPCfH+PMXAb6rKOjGQEoy0xlAIn+irODG5kgfYV+BQ0rGYYWTIel3P5mmyXqkYkPmdIkywsn6QKUR1Q==
+pino-http@^10.4.0:
+  version "10.5.0"
+  resolved "https://registry.yarnpkg.com/pino-http/-/pino-http-10.5.0.tgz#6a4fd8df93a181fc89f7f89979b8a2146aad29f2"
+  integrity sha512-hD91XjgaKkSsdn8P7LaebrNzhGTdB086W3pyPihX0EzGPjq5uBJBXo4N5guqNaK6mUjg9aubMF7wDViYek9dRA==
   dependencies:
-    readable-stream "^4.0.0"
-    split2 "^4.0.0"
-
-pino-http@^8.2.1:
-  version "8.2.1"
-  resolved "https://registry.npmjs.org/pino-http/-/pino-http-8.2.1.tgz"
-  integrity sha512-bdWAE4HYfFjDhKw2/N7BLNSIFAs+WDLZnetsGRpBdNEKq7/RoZUgblLS5OlMY257RPQml6J5QiiLkwxbstzWbA==
-  dependencies:
-    fast-url-parser "^1.1.3"
     get-caller-file "^2.0.5"
-    pino "^8.0.0"
-    pino-std-serializers "^6.0.0"
-    process-warning "^2.0.0"
+    pino "^9.0.0"
+    pino-std-serializers "^7.0.0"
+    process-warning "^5.0.0"
 
-pino-pretty@^9.1.1:
-  version "9.1.1"
-  resolved "https://registry.npmjs.org/pino-pretty/-/pino-pretty-9.1.1.tgz"
-  integrity sha512-iJrnjgR4FWQIXZkUF48oNgoRI9BpyMhaEmihonHeCnZ6F50ZHAS4YGfGBT/ZVNsPmd+hzkIPGzjKdY08+/yAXw==
+pino-pretty@^13.0.0:
+  version "13.0.0"
+  resolved "https://registry.yarnpkg.com/pino-pretty/-/pino-pretty-13.0.0.tgz#21d57fe940e34f2e279905d7dba2d7e2c4f9bf17"
+  integrity sha512-cQBBIVG3YajgoUjo1FdKVRX6t9XPxwB9lcNJVD5GCnNM4Y6T12YYx8c6zEejxQsU0wrg9TwmDulcE9LR7qcJqA==
   dependencies:
     colorette "^2.0.7"
     dateformat "^4.6.3"
-    fast-copy "^3.0.0"
+    fast-copy "^3.0.2"
     fast-safe-stringify "^2.1.1"
-    help-me "^4.0.1"
+    help-me "^5.0.0"
     joycon "^3.1.1"
     minimist "^1.2.6"
     on-exit-leak-free "^2.1.0"
-    pino-abstract-transport "^1.0.0"
+    pino-abstract-transport "^2.0.0"
     pump "^3.0.0"
-    readable-stream "^4.0.0"
     secure-json-parse "^2.4.0"
-    sonic-boom "^3.0.0"
+    sonic-boom "^4.0.1"
     strip-json-comments "^3.1.1"
-
-pino-std-serializers@^6.0.0:
-  version "6.0.0"
-  resolved "https://registry.npmjs.org/pino-std-serializers/-/pino-std-serializers-6.0.0.tgz"
-  integrity sha512-mMMOwSKrmyl+Y12Ri2xhH1lbzQxwwpuru9VjyJpgFIH4asSj88F2csdMwN6+M5g1Ll4rmsYghHLQJw81tgZ7LQ==
 
 pino-std-serializers@^7.0.0:
   version "7.0.0"
   resolved "https://registry.yarnpkg.com/pino-std-serializers/-/pino-std-serializers-7.0.0.tgz#7c625038b13718dbbd84ab446bd673dc52259e3b"
   integrity sha512-e906FRY0+tV27iq4juKzSYPbUj2do2X2JX4EzSca1631EB2QJQUqGbDuERal7LCtOpxl6x3+nvo9NPZcmjkiFA==
 
-pino@^8.0.0:
-  version "8.6.1"
-  resolved "https://registry.npmjs.org/pino/-/pino-8.6.1.tgz"
-  integrity sha512-fi+V2K98eMZjQ/uEHHSiMALNrz7HaFdKNYuyA3ZUrbH0f1e8sPFDmeRGzg7ZH2q4QDxGnJPOswmqlEaTAZeDPA==
+pino@^9.0.0, pino@^9.7.0:
+  version "9.7.0"
+  resolved "https://registry.yarnpkg.com/pino/-/pino-9.7.0.tgz#ff7cd86eb3103ee620204dbd5ca6ffda8b53f645"
+  integrity sha512-vnMCM6xZTb1WDmLvtG2lE/2p+t9hDEIvTWJsu6FejkE62vB7gDhvzrpFR4Cw2to+9JNQxVnkAKVPA1KPB98vWg==
   dependencies:
     atomic-sleep "^1.0.0"
     fast-redact "^3.1.1"
     on-exit-leak-free "^2.1.0"
-    pino-abstract-transport v1.0.0
-    pino-std-serializers "^6.0.0"
-    process-warning "^2.0.0"
-    quick-format-unescaped "^4.0.3"
-    real-require "^0.2.0"
-    safe-stable-stringify "^2.3.1"
-    sonic-boom "^3.1.0"
-    thread-stream "^2.0.0"
-
-pino@^9.4.0:
-  version "9.4.0"
-  resolved "https://registry.yarnpkg.com/pino/-/pino-9.4.0.tgz#e4600ff199efc744856a5b3b71c53e38998eae5a"
-  integrity sha512-nbkQb5+9YPhQRz/BeQmrWpEknAaqjpAqRK8NwJpmrX/JHu7JuZC5G1CeAwJDJfGes4h+YihC6in3Q2nGb+Y09w==
-  dependencies:
-    atomic-sleep "^1.0.0"
-    fast-redact "^3.1.1"
-    on-exit-leak-free "^2.1.0"
-    pino-abstract-transport "^1.2.0"
+    pino-abstract-transport "^2.0.0"
     pino-std-serializers "^7.0.0"
-    process-warning "^4.0.0"
+    process-warning "^5.0.0"
     quick-format-unescaped "^4.0.3"
     real-require "^0.2.0"
     safe-stable-stringify "^2.3.1"
@@ -19168,15 +19114,10 @@ process-nextick-args@~2.0.0:
   resolved "https://registry.npmjs.org/process-nextick-args/-/process-nextick-args-2.0.1.tgz"
   integrity sha512-3ouUOpQhtgrbOa17J7+uxOTpITYWaGP7/AhoR3+A+/1e9skrzelGi/dXzEYyvbxubEF6Wn2ypscTKiKJFFn1ag==
 
-process-warning@^2.0.0:
-  version "2.0.0"
-  resolved "https://registry.npmjs.org/process-warning/-/process-warning-2.0.0.tgz"
-  integrity sha512-+MmoAXoUX+VTHAlwns0h+kFUWFs/3FZy+ZuchkgjyOu3oioLAo2LB5aCfKPh2+P9O18i3m43tUEv3YqttSy0Ww==
-
-process-warning@^4.0.0:
-  version "4.0.0"
-  resolved "https://registry.yarnpkg.com/process-warning/-/process-warning-4.0.0.tgz#581e3a7a1fb456c5f4fd239f76bce75897682d5a"
-  integrity sha512-/MyYDxttz7DfGMMHiysAsFE4qF+pQYAA8ziO/3NcRVrQ5fSk+Mns4QZA/oRPFzvcqNoVJXQNWNAsdwBXLUkQKw==
+process-warning@^5.0.0:
+  version "5.0.0"
+  resolved "https://registry.yarnpkg.com/process-warning/-/process-warning-5.0.0.tgz#566e0bf79d1dff30a72d8bbbe9e8ecefe8d378d7"
+  integrity sha512-a39t9ApHNx2L4+HBnQKqxxHNs1r7KF+Intd8Q/g1bUh6q0WIp9voPXJ/x0j+ZL45KF1pJd9+q2jLIRMfvEshkA==
 
 process@^0.11.10:
   version "0.11.10"
@@ -19315,11 +19256,6 @@ punycode@1.3.2:
   version "1.3.2"
   resolved "https://registry.npmjs.org/punycode/-/punycode-1.3.2.tgz"
   integrity sha512-RofWgt/7fL5wP1Y7fxE7/EmTLzQVnB0ycyibJ0OOHIlJqTNzglYFxVwETOcIoJqJmpDXJ9xImDv+Fq34F/d4Dw==
-
-punycode@^1.3.2:
-  version "1.4.1"
-  resolved "https://registry.npmjs.org/punycode/-/punycode-1.4.1.tgz"
-  integrity sha512-jmYNElW7yvO7TV33CjSmvSiE2yco3bV2czu/OzDKdMNVZQWfxCblURLhf+47syQRBntjfLdd/H0egrzIG+oaFQ==
 
 punycode@^2.1.0, punycode@^2.1.1:
   version "2.1.1"
@@ -19820,16 +19756,6 @@ readable-stream@^3.6.2:
     inherits "^2.0.3"
     string_decoder "^1.1.1"
     util-deprecate "^1.0.1"
-
-readable-stream@^4.0.0:
-  version "4.2.0"
-  resolved "https://registry.npmjs.org/readable-stream/-/readable-stream-4.2.0.tgz"
-  integrity sha512-gJrBHsaI3lgBoGMW/jHZsQ/o/TIWiu5ENCJG1BB7fuCKzpFM8GaS2UoBVt9NO+oI+3FcrBNbUkl3ilDe09aY4A==
-  dependencies:
-    abort-controller "^3.0.0"
-    buffer "^6.0.3"
-    events "^3.3.0"
-    process "^0.11.10"
 
 readable-stream@^4.2.0:
   version "4.5.2"
@@ -20961,13 +20887,6 @@ socks@^2.8.3:
     ip-address "^9.0.5"
     smart-buffer "^4.2.0"
 
-sonic-boom@^3.0.0, sonic-boom@^3.1.0:
-  version "3.2.0"
-  resolved "https://registry.npmjs.org/sonic-boom/-/sonic-boom-3.2.0.tgz"
-  integrity sha512-SbbZ+Kqj/XIunvIAgUZRlqd6CGQYq71tRRbXR92Za8J/R3Yh4Av+TWENiSiEgnlwckYLyP0YZQWVfyNC0dzLaA==
-  dependencies:
-    atomic-sleep "^1.0.0"
-
 sonic-boom@^4.0.1:
   version "4.1.0"
   resolved "https://registry.yarnpkg.com/sonic-boom/-/sonic-boom-4.1.0.tgz#4f039663ba191fac5cfe4f1dc330faac079e4342"
@@ -21786,13 +21705,6 @@ textarea-caret@3.0.2:
   version "3.0.2"
   resolved "https://registry.npmjs.org/textarea-caret/-/textarea-caret-3.0.2.tgz"
   integrity sha512-gRzeti2YS4did7UJnPQ47wrjD+vp+CJIe9zbsu0bJ987d8QVLvLNG9757rqiQTIy4hGIeFauTTJt5Xkn51UkXg==
-
-thread-stream@^2.0.0:
-  version "2.2.0"
-  resolved "https://registry.npmjs.org/thread-stream/-/thread-stream-2.2.0.tgz"
-  integrity sha512-rUkv4/fnb4rqy/gGy7VuqK6wE1+1DOCOWy4RMeaV69ZHMP11tQKZvZSip1yTgrKCMZzEMcCL/bKfHvSfDHx+iQ==
-  dependencies:
-    real-require "^0.2.0"
 
 thread-stream@^3.0.0:
   version "3.1.0"
