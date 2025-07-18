@@ -189,7 +189,7 @@ function readMetricData({
   denominator,
 }: {
   metric: ExperimentMetricInterface;
-  rows: Record<string, string | number>[];
+  rows: Record<string, string | number | undefined>[];
   metricPrefix?: string;
   denominator?: ExperimentMetricInterface;
 }): { metric: PopulationDataMetric; units: PopulationDataResult["units"] } {

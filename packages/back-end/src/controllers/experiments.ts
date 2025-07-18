@@ -2508,7 +2508,7 @@ export async function postSnapshotAnalysis(
     },
     { id: string }
   >,
-  res: Response
+  res: Response<{ status: 200 } | PrivateApiErrorResponse>
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
