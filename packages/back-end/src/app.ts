@@ -142,6 +142,15 @@ if (ENVIRONMENT !== "production") {
   app.set("json spaces", 2);
 }
 
+// Health check route (does not require JWT or cors)
+app.get("/healthcheck", (req, res) => {
+  // TODO: more robust health check?
+  res.status(200).json({
+    status: 200,
+    healthy: true,
+  });
+});
+
 if (stringToBoolean(process.env.PYTHON_SERVER_MODE)) {
   // increase max payload json size to 50mb as a single query can return up to 3000 rows
   // and we pass the results of all queries at once into python
@@ -167,15 +176,6 @@ if (stringToBoolean(process.env.PYTHON_SERVER_MODE)) {
   }
 
   app.use(cookieParser());
-
-  // Health check route (does not require JWT or cors)
-  app.get("/healthcheck", (req, res) => {
-    // TODO: more robust health check?
-    res.status(200).json({
-      status: 200,
-      healthy: true,
-    });
-  });
 
   app.get("/favicon.ico", (req, res) => {
     res.status(404).send("");
