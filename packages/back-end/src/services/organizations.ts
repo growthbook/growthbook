@@ -251,7 +251,9 @@ export function getNumberOfUniqueMembersAndInvites(
   organization: OrganizationInterface
 ) {
   // There was a bug that allowed duplicate members in the members array
-  const numMembers = new Set(organization.members.map((m) => m.id)).size;
+  const numMembers = new Set(
+    organization.members.filter((m) => !m.disabled).map((m) => m.id)
+  ).size;
   const numInvites = new Set(organization.invites.map((i) => i.email)).size;
 
   return numMembers + numInvites;
@@ -1180,4 +1182,37 @@ export async function getContextForAgendaJobByOrgId(
   }
 
   return getContextForAgendaJobByOrgObject(organization);
+}
+
+export async function toggleMemberAccess(
+  organization: OrganizationInterface,
+  id: string,
+  disable: boolean
+) {
+  // Find the member and update their 'disabled' status
+  const members = organization.members.map((member) =>
+    member.id === id ? { ...member, disabled: disable } : member
+  );
+
+  // Ensure at least one enabled member remains
+  const enabledMembers = members.filter((member) => !member.disabled);
+  if (!enabledMembers.length) {
+    throw new Error("Organizations must have at least 1 enabled member");
+  }
+
+  await updateOrganization(organization.id, {
+    members,
+  });
+
+  const updatedOrganization = cloneDeep(organization);
+  updatedOrganization.members = members;
+
+  await licenseInit(
+    updatedOrganization,
+    getUserCodesForOrg,
+    getLicenseMetaData,
+    true
+  );
+
+  return updatedOrganization;
 }

@@ -173,6 +173,7 @@ const ProjectPage: FC = () => {
             canEditRoles={canManageTeam}
             canDeleteMembers={false}
             canInviteMembers={false}
+            canToggleMemberAccess={false}
           />
         </div>
 
