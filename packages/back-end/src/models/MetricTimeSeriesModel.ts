@@ -99,7 +99,12 @@ export class MetricTimeSeriesModel extends BaseClass {
       };
     });
 
-    return filteredResults;
+    // And from the filtered results, only return the ones that have data points
+    const resultsWithDataPoints = filteredResults.filter(
+      (ts) => ts.dataPoints.length > 0
+    );
+
+    return resultsWithDataPoints;
   }
 
   public async deleteAllBySource(
