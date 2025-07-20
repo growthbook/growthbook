@@ -20,6 +20,8 @@ import { getSnapshotAnalysis, isDefined } from "shared/util";
 import { isEqual } from "lodash";
 import { DashboardInstanceInterface } from "back-end/src/enterprise/validators/dashboard-instance";
 import { isString } from "back-end/src/util/types";
+import { Queries, QueryStatus } from "back-end/types/query";
+import { SavedQuery } from "back-end/src/validators/saved-queries";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
@@ -27,19 +29,23 @@ import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 export const DashboardSnapshotContext = React.createContext<{
   experiment?: ExperimentInterfaceStringDates;
   defaultSnapshot?: ExperimentSnapshotInterface;
-  snapshotsMap?: Map<string, ExperimentSnapshotInterface>;
-  mutateSnapshot: () => Promise<unknown>;
+  snapshotsMap: Map<string, ExperimentSnapshotInterface>;
+  savedQueriesMap: Map<string, SavedQuery>;
   loading?: boolean;
-  validating?: boolean;
   error?: Error;
-  refreshing?: boolean;
-  numQueries: number;
-  numFinished: number;
+  refreshStatus: QueryStatus;
+  refreshError?: string;
+  allQueries: Queries;
+  mutateSnapshot: () => Promise<unknown>;
+  mutateSnapshotsMap: () => Promise<unknown>;
   updateAllSnapshots: () => Promise<unknown>;
 }>({
-  numQueries: 0,
-  numFinished: 0,
+  refreshStatus: "succeeded",
+  snapshotsMap: new Map(),
+  savedQueriesMap: new Map(),
+  allQueries: [],
   mutateSnapshot: async () => {},
+  mutateSnapshotsMap: async () => {},
   updateAllSnapshots: async () => {},
 });
 
@@ -54,42 +60,54 @@ export default function DashboardSnapshotProvider({
   mutateDefinitions: () => void;
   children: ReactNode;
 }) {
-  const [updatingDashboardSnapshots, setUpdatingDashboardSnapshots] = useState(
-    false
-  );
   const { apiCall } = useAuth();
   const {
     data: snapshotData,
     error: snapshotError,
-    isValidating,
-    isLoading,
+    isLoading: snapshotLoading,
     mutate: mutateDefaultSnapshot,
   } = useApi<{
     snapshot: ExperimentSnapshotInterface;
   }>(`/experiment/${experiment.id}/snapshot/${experiment.phases.length - 1}`);
+  const [refreshError, setRefreshError] = useState<string | undefined>(
+    undefined
+  );
 
-  const { data: allSnapshotsData, mutate: mutateAllSnapshots } = useApi<{
+  const {
+    data: allSnapshotsData,
+    error: allSnapshotsError,
+    isLoading: allSnapshotsLoading,
+    mutate: mutateAllSnapshots,
+  } = useApi<{
     snapshots: ExperimentSnapshotInterface[];
+    savedQueries: SavedQuery[];
   }>(`/dashboards/${dashboard?.id}/snapshots`, {
     shouldRun: () => !!dashboard?.id,
   });
 
   const { mutate: mutateSavedQueries } = useApi(`/saved-queries/`);
 
-  const allSnapshots = useMemo(() => allSnapshotsData?.snapshots || [], [
-    allSnapshotsData,
-  ]);
+  const [allSnapshots, allSavedQueries] = useMemo(
+    () => [
+      allSnapshotsData?.snapshots || [],
+      allSnapshotsData?.savedQueries || [],
+    ],
+    [allSnapshotsData]
+  );
 
-  const { status, numFinished, numQueries, snapshotsMap } = useMemo(() => {
+  const savedQueriesMap = useMemo(
+    () =>
+      new Map(allSavedQueries.map((savedQuery) => [savedQuery.id, savedQuery])),
+    [allSavedQueries]
+  );
+
+  const { status, snapshotsMap, allQueries } = useMemo(() => {
     const snapshotsMap = new Map(allSnapshots.map((snap) => [snap.id, snap]));
     const allQueries = allSnapshots.flatMap(
       (snapshot) => snapshot.queries || []
     );
     const { status } = getQueryStatus(allQueries);
-    const numFinished = allQueries.filter((q) => q.status === "succeeded")
-      .length;
-    const numQueries = allQueries.length;
-    return { status, numFinished, numQueries, snapshotsMap };
+    return { status, snapshotsMap, allQueries };
   }, [allSnapshots]);
 
   // Periodically check for the status of all snapshots
@@ -106,20 +124,15 @@ export default function DashboardSnapshotProvider({
     };
   }, [mutateAllSnapshots, status]);
 
-  useEffect(() => {
-    setUpdatingDashboardSnapshots(numFinished < numQueries);
-  }, [numFinished, numQueries]);
-
   const updateAllSnapshots = async () => {
     if (!dashboard) return;
-    setUpdatingDashboardSnapshots(true);
+    setRefreshError(undefined);
     try {
       await apiCall(`/dashboards/${dashboard.id}/refresh`, {
         method: "POST",
       });
-    } catch {
-      // TODO: surface any errors in a useful format
-      setUpdatingDashboardSnapshots(false);
+    } catch (e) {
+      setRefreshError(e.message);
     } finally {
       mutateDefinitions();
       mutateDefaultSnapshot();
@@ -134,13 +147,14 @@ export default function DashboardSnapshotProvider({
         experiment,
         defaultSnapshot: snapshotData?.snapshot,
         snapshotsMap,
+        savedQueriesMap,
+        error: snapshotError || allSnapshotsError,
+        loading: snapshotLoading || allSnapshotsLoading,
+        refreshStatus: status,
+        refreshError,
+        allQueries,
         mutateSnapshot: mutateDefaultSnapshot,
-        error: snapshotError,
-        loading: isLoading,
-        validating: isValidating,
-        refreshing: updatingDashboardSnapshots,
-        numQueries,
-        numFinished,
+        mutateSnapshotsMap: mutateAllSnapshots,
         updateAllSnapshots,
       }}
     >
@@ -158,12 +172,15 @@ export function useDashboardSnapshot(
   const {
     experiment,
     defaultSnapshot,
-    loading: defaultLoading,
-    validating: defaultValidating,
-    error: defaultError,
+    loading: snapshotsLoading,
+    error: snapshotsError,
     mutateSnapshot: mutateDefault,
-    refreshing,
+    mutateSnapshotsMap: mutateSnapshotsMap,
+    refreshStatus,
+    snapshotsMap,
   } = useContext(DashboardSnapshotContext);
+
+  const refreshing = refreshStatus !== "running";
 
   const [dashboardRefreshing, setDashboardRefreshing] = useState<
     boolean | undefined
@@ -176,34 +193,12 @@ export function useDashboardSnapshot(
   const [fetchingSnapshot, setFetchingSnapshot] = useState(false);
 
   const blockSnapshotId = block?.snapshotId;
+  const blockSnapshot = snapshotsMap.get(blockSnapshotId ?? "");
 
-  const shouldRun = () =>
-    isDefined(blockSnapshotId) && blockSnapshotId.length > 0;
-
-  // TODO: maybe switch to using snapshotmap rather than making separate API calls
-  const {
-    data: blockSnapshotData,
-    isValidating: snapshotValidating,
-    isLoading: snapshotLoading,
-    error: snapshotError,
-    mutate,
-  } = useApi<{
-    snapshot: ExperimentSnapshotInterface;
-  }>(`/snapshot/${blockSnapshotId}`, {
-    shouldRun,
-  });
-
-  const snapshot = isDefined(blockSnapshotId)
-    ? blockSnapshotData?.snapshot
-    : defaultSnapshot;
-  const getSnapshotLoading = isDefined(blockSnapshotId)
-    ? snapshotLoading
-    : defaultLoading;
-  const validating = isDefined(blockSnapshotId)
-    ? snapshotValidating
-    : defaultValidating;
-  const error = isDefined(blockSnapshotId) ? snapshotError : defaultError;
-  const mutateSnapshot = isDefined(blockSnapshotId) ? mutate : mutateDefault;
+  const snapshot = isDefined(blockSnapshotId) ? blockSnapshot : defaultSnapshot;
+  const mutateSnapshot = isDefined(blockSnapshotId)
+    ? mutateSnapshotsMap
+    : mutateDefault;
 
   const blockAnalysisSettings = useMemo(() => {
     if (!block || !snapshot) return undefined;
@@ -293,7 +288,7 @@ export function useDashboardSnapshot(
       !blockAnalysisSettings ||
       !snapshotSettingsMatch ||
       analysis ||
-      snapshotLoading
+      snapshotsLoading
     )
       return;
     const updateAnalysis = async () => {
@@ -314,7 +309,7 @@ export function useDashboardSnapshot(
     blockAnalysisSettings,
     snapshotSettingsMatch,
     snapshot,
-    snapshotLoading,
+    snapshotsLoading,
     mutateSnapshot,
   ]);
 
@@ -324,10 +319,9 @@ export function useDashboardSnapshot(
     analysisSettings: analysis?.settings,
     loading:
       postSnapshotAnalysisLoading ||
-      getSnapshotLoading ||
+      snapshotsLoading ||
       snapshot?.status === "running",
-    validating,
-    error,
+    error: snapshotsError,
     mutateSnapshot,
   };
 }

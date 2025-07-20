@@ -543,6 +543,7 @@ export default function DashboardBlockEditDrawer({
                     labelClassName="font-weight-bold"
                     containerStyle={{ flexBasis: "32%" }}
                     containerClassName="mb-0"
+                    forceUndefinedValueToNull
                     value={block.dataVizConfigIndex.toString()}
                     placeholder={
                       (savedQuery?.dataVizConfig || []).length === 0

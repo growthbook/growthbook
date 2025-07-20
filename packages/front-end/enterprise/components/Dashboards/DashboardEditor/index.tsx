@@ -276,12 +276,8 @@ export default function DashboardEditor({
           }}
           duplicateBlock={() => {
             if (isDefined(i)) {
-              setBlocks([
-                ...blocks.slice(0, i + 1),
-                getBlockData(block),
-                ...blocks.slice(i + 1),
-              ]);
-              setEditingBlockIndex(i + 1);
+              setAddBlockIndex(i + 1);
+              setStagedAddBlock(getBlockData(block));
             }
           }}
           deleteBlock={() => {
@@ -374,7 +370,7 @@ export default function DashboardEditor({
                     Add block
                   </Button>
                 }
-                addBlockType={(bType) => addBlockType(bType, blocks.length)}
+                addBlockType={addBlockType}
               />
             )}
           </Flex>

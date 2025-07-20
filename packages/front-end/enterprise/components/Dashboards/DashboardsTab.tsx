@@ -67,6 +67,7 @@ export default function DashboardsTab({
   const [dashboardCopy, setDashboardCopy] = useState<
     DashboardInstanceInterface | undefined
   >(undefined);
+  const [hasMadeChanges, setHasMadeChanges] = useState(false);
   useEffect(() => {
     if (initialDashboardId) {
       setDashboardId(initialDashboardId);
@@ -103,6 +104,10 @@ export default function DashboardsTab({
     timeout: 1500,
   });
 
+  useEffect(() => {
+    if (!isEditing) setHasMadeChanges(false);
+  }, [isEditing]);
+
   const dashboard = dashboards.find((d) => d.id === dashboardId);
 
   const permissionsUtil = usePermissionsUtil();
@@ -136,6 +141,7 @@ export default function DashboardsTab({
     SubmitDashboard<CreateDashboardArgs | UpdateDashboardArgs>
   >(
     async ({ method, dashboardId, data }) => {
+      if (method === "PUT") setHasMadeChanges(true);
       const res = await apiCall<{
         status: number;
         dashboard: DashboardInstanceInterface;
@@ -341,32 +347,35 @@ export default function DashboardsTab({
                   <>
                     {isEditing ? (
                       <Flex gap="1">
-                        <Button
-                          className={clsx({
-                            "dashboard-disabled": editDrawerOpen,
-                          })}
-                          onClick={async () => {
-                            if (!dashboardCopy) {
-                              setIsEditing(false);
-                              return;
-                            }
-                            await submitDashboard({
-                              method: "PUT",
-                              dashboardId: dashboardId,
-                              data: pick(dashboardCopy, [
-                                "blocks",
-                                "title",
-                                "editLevel",
-                                "enableAutoUpdates",
-                              ]),
-                            });
-                            setIsEditing(false);
-                          }}
-                          variant="ghost"
-                          color="red"
-                        >
-                          Discard Changes
-                        </Button>
+                        {dashboardCopy && hasMadeChanges && (
+                          <Tooltip
+                            body="Undo all changes made during this current edit session"
+                            tipPosition="top"
+                          >
+                            <Button
+                              className={clsx({
+                                "dashboard-disabled": editDrawerOpen,
+                              })}
+                              onClick={async () => {
+                                await submitDashboard({
+                                  method: "PUT",
+                                  dashboardId: dashboardId,
+                                  data: pick(dashboardCopy, [
+                                    "blocks",
+                                    "title",
+                                    "editLevel",
+                                    "enableAutoUpdates",
+                                  ]),
+                                });
+                                setIsEditing(false);
+                              }}
+                              variant="ghost"
+                              color="red"
+                            >
+                              Undo Changes
+                            </Button>
+                          </Tooltip>
+                        )}
                         <Button
                           className={clsx({
                             "dashboard-disabled": editDrawerOpen,

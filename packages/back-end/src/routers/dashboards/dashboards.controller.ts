@@ -13,7 +13,10 @@ import {
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { DashboardInstanceInterface } from "back-end/src/enterprise/validators/dashboard-instance";
 import { createDashboardBlock } from "back-end/src/enterprise/models/DashboardBlockModel";
-import { SqlExplorerBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
+import {
+  DashboardBlockInterface,
+  SqlExplorerBlockInterface,
+} from "back-end/src/enterprise/validators/dashboard-block";
 import {
   createExperimentSnapshot,
   SNAPSHOT_TIMEOUT,
@@ -23,6 +26,7 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { executeAndSaveQuery } from "back-end/src/routers/saved-queries/saved-queries.controller";
 import { findSnapshotsByIds } from "back-end/src/models/ExperimentSnapshotModel";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import { SavedQuery } from "back-end/src/validators/saved-queries";
 import { createDashboardBody, updateDashboardBody } from "./dashboards.router";
 interface SingleDashboardResponse {
   status: number;
@@ -262,7 +266,10 @@ export async function refreshDashboardData(
 
 export async function getDashboardSnapshots(
   req: AuthRequest<never, { id: string }, never>,
-  res: ResponseWithStatusAndError<{ snapshots: ExperimentSnapshotInterface[] }>
+  res: ResponseWithStatusAndError<{
+    snapshots: ExperimentSnapshotInterface[];
+    savedQueries: SavedQuery[];
+  }>
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
@@ -270,9 +277,25 @@ export async function getDashboardSnapshots(
   if (!dashboard) throw new Error("Cannot find dashboard");
   const snapshotIds = [
     ...new Set(dashboard.blocks.map((block) => block.snapshotId)),
-  ]
-    .filter(isDefined)
-    .filter((snapId) => snapId.length > 0);
+  ].filter(
+    (snapId): snapId is string => isDefined(snapId) && snapId.length > 0
+  );
   const snapshots = await findSnapshotsByIds(context, snapshotIds);
-  return res.status(200).json({ status: 200, snapshots });
+  const savedQueries = await context.models.savedQueries.getByIds([
+    ...new Set(
+      dashboard.blocks
+        .filter(
+          (
+            block
+          ): block is Extract<
+            DashboardBlockInterface,
+            { savedQueryId: string }
+          > =>
+            blockHasFieldOfType(block, "savedQueryId", isString) &&
+            block.savedQueryId.length > 0
+        )
+        .map((block) => block.savedQueryId)
+    ),
+  ]);
+  return res.status(200).json({ status: 200, snapshots, savedQueries });
 }

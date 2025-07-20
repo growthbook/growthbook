@@ -95,7 +95,7 @@ export default function DashboardBlock({
     }
   };
   useEffect(() => {
-    if (editingBlock) scrollToBlock();
+    if (editingBlock) setTimeout(() => scrollToBlock(), 100);
   }, [editingBlock]);
 
   return (
