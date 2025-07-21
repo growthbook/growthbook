@@ -2,6 +2,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { DEFAULT_DECISION_FRAMEWORK_ENABLED } from "shared/constants";
+import { Flex } from "@radix-ui/themes";
 import SRMCard from "@/components/HealthTab/SRMCard";
 import MultipleExposuresCard from "@/components/HealthTab/MultipleExposuresCard";
 import { useUser } from "@/services/UserContext";
@@ -113,8 +114,8 @@ export default function HealthTab({
       );
     }
     return (
-      <Callout status="info" mt="3">
-        <div className="d-flex">
+      <Callout status="info" mt="3" contentsAs="div">
+        <Flex gap="4">
           {runHealthTrafficQuery === undefined
             ? "Welcome to the new health tab! You can use this tab to view experiment traffic over time, perform balance checks, and check for multiple exposures. To get started, "
             : "Health queries are disabled in your Organization Settings. To enable them and set up the health tab, "}
@@ -147,7 +148,7 @@ export default function HealthTab({
           ) : (
             "ask an admin in your organization to navigate to any experiment health tab and follow the onboarding process."
           )}
-        </div>
+        </Flex>
       </Callout>
     );
   }

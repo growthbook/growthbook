@@ -76,4 +76,6 @@ export type AppFeatures = {
   "pre-computed-dimensions": boolean;
   insights: boolean;
   "sql-explorer": boolean;
+  "ai-suggestions-for-experiment-analysis-input": boolean;
+  "similar-experiments": boolean;
 };

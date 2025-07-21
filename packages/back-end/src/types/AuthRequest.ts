@@ -50,5 +50,9 @@ export type AuthRequest<
 
 export type ResponseWithStatusAndError<T = unknown> = Response<
   | (T & { status: 200 })
-  | { status: 400 | 401 | 403 | 404 | 405 | 406; message: string }
+  | {
+      status: 400 | 401 | 403 | 404 | 405 | 406 | 429;
+      message: string;
+      retryAfter?: number;
+    }
 >;

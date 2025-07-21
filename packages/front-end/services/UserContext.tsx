@@ -36,6 +36,7 @@ import { Permissions, userHasPermission } from "shared/permissions";
 import { getValidDate } from "shared/dates";
 import sha256 from "crypto-js/sha256";
 import { useFeature } from "@growthbook/growthbook-react";
+import { AgreementType } from "back-end/src/validators/agreements";
 import {
   getGrowthBookBuild,
   getSuperadminDefaultRole,
@@ -110,6 +111,7 @@ export interface UserContextValue {
   commercialFeatures: CommercialFeature[];
   apiKeys: ApiKeyInterface[];
   organization: Partial<OrganizationInterface>;
+  agreements?: AgreementType[];
   seatsInUse: number;
   roles: Role[];
   teams?: Team[];
@@ -152,6 +154,7 @@ export const UserContext = createContext<UserContextValue>({
   },
   apiKeys: [],
   organization: {},
+  agreements: [],
   subscription: null,
   licenseError: "",
   seatsInUse: 0,
@@ -500,6 +503,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         commercialFeatureLowestPlan: currentOrg?.commercialFeatureLowestPlan,
         licenseError: currentOrg?.licenseError || "",
         commercialFeatures: currentOrg?.commercialFeatures || [],
+        agreements: currentOrg?.agreements || [],
         apiKeys: currentOrg?.apiKeys || [],
         organization: organization || {},
         seatsInUse: currentOrg?.seatsInUse || 0,
