@@ -1412,6 +1412,7 @@ export async function postExperimentStatus(
       status: ExperimentStatus;
       reason: string;
       dateEnded: string;
+      holdoutRunningStatus?: "running" | "analysis-period";
     },
     { id: string }
   >,
@@ -1420,7 +1421,7 @@ export async function postExperimentStatus(
   const context = getContextFromReq(req);
   const { org } = context;
   const { id } = req.params;
-  const { status, reason, dateEnded } = req.body;
+  const { status, reason, dateEnded, holdoutRunningStatus } = req.body;
 
   const changes: Changeset = {};
 
@@ -1500,13 +1501,20 @@ export async function postExperimentStatus(
     phases?.length > 0
   ) {
     const clonedPhase = { ...phases[lastIndex] };
-    const clonedFirstPhase = { ...phases[0] };
+    const clonedRunningPhase = { ...phases[0] };
     if (experiment.type === "holdout") {
-      clonedFirstPhase.dateEnded = new Date();
-      phases[0] = clonedFirstPhase;
+      delete clonedRunningPhase.dateEnded;
+      phases[0] = clonedRunningPhase;
+      if (phases.length > 1 && holdoutRunningStatus === "analysis-period") {
+        delete clonedPhase.dateEnded;
+        delete clonedPhase.lookbackStartDate;
+        clonedPhase.lookbackStartDate = new Date();
+        phases[lastIndex] = clonedPhase;
+      }
+    } else {
+      delete clonedPhase.dateEnded;
+      phases[lastIndex] = clonedPhase;
     }
-    delete clonedPhase.dateEnded;
-    phases[lastIndex] = clonedPhase;
     changes.phases = phases;
 
     // Bandit-specific changes

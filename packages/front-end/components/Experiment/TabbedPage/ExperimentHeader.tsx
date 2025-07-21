@@ -757,7 +757,9 @@ export default function ExperimentHeader({
                       setDropdownOpen(false);
                     }}
                   >
-                    Edit phases
+                    {`Edit ${
+                      experiment.type === "holdout" ? "holdout period" : "phase"
+                    }`}
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuItem
@@ -769,62 +771,69 @@ export default function ExperimentHeader({
                   Audit log
                 </DropdownMenuItem>
               </DropdownMenuGroup>
-              <DropdownMenuSeparator />
-              <DropdownMenuGroup>
-                <DropdownSubMenu
-                  trigger={
-                    <Flex
-                      align="center"
-                      className={isWatching ? "font-weight-bold" : ""}
+              {experiment.type !== "holdout" && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuGroup>
+                    <DropdownSubMenu
+                      trigger={
+                        <Flex
+                          align="center"
+                          className={isWatching ? "font-weight-bold" : ""}
+                        >
+                          <PiEye style={{ marginRight: "5px" }} size={18} />
+                          <span className="pr-5">
+                            {isWatching ? "Watching" : "Not watching"}
+                          </span>
+                        </Flex>
+                      }
                     >
-                      <PiEye style={{ marginRight: "5px" }} size={18} />
-                      <span className="pr-5">
-                        {isWatching ? "Watching" : "Not watching"}
-                      </span>
-                    </Flex>
-                  }
-                >
-                  <DropdownMenuItem
-                    onClick={async () => {
-                      await handleWatchUpdates(!isWatching);
-                    }}
-                  >
-                    {isWatching ? "Stop watching" : "Start watching"}
-                  </DropdownMenuItem>
-                </DropdownSubMenu>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setWatchersModal(true);
-                    setDropdownOpen(false);
-                  }}
-                  disabled={!usersWatching.length}
-                >
-                  <Flex as="div" align="center">
-                    <IconButton
-                      style={{
-                        marginRight: "5px",
-                        backgroundColor:
-                          usersWatching.length > 0
-                            ? "var(--violet-9)"
-                            : "var(--slate-9)",
+                      <DropdownMenuItem
+                        onClick={async () => {
+                          await handleWatchUpdates(!isWatching);
+                        }}
+                      >
+                        {isWatching ? "Stop watching" : "Start watching"}
+                      </DropdownMenuItem>
+                    </DropdownSubMenu>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setWatchersModal(true);
+                        setDropdownOpen(false);
                       }}
-                      radius="full"
-                      size="1"
+                      disabled={!usersWatching.length}
                     >
-                      {usersWatching.length || 0}
-                    </IconButton>
-                    {usersWatching.length > 0 ? "View watchers" : "No watchers"}
-                  </Flex>
-                </DropdownMenuItem>
-              </DropdownMenuGroup>
+                      <Flex as="div" align="center">
+                        <IconButton
+                          style={{
+                            marginRight: "5px",
+                            backgroundColor:
+                              usersWatching.length > 0
+                                ? "var(--violet-9)"
+                                : "var(--slate-9)",
+                          }}
+                          radius="full"
+                          size="1"
+                        >
+                          {usersWatching.length || 0}
+                        </IconButton>
+                        {usersWatching.length > 0
+                          ? "View watchers"
+                          : "No watchers"}
+                      </Flex>
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                </>
+              )}
               {/* Only show the separator if one of the following cases is true to avoid double separators */}
-              {showConvertButton ||
-              showShareableReportButton ||
-              showShareButton ||
-              showSaveAsTemplateButton ? (
+              {(showConvertButton ||
+                showShareableReportButton ||
+                showShareButton ||
+                showSaveAsTemplateButton) &&
+              experiment.type !== "holdout" ? (
                 <DropdownMenuSeparator />
               ) : null}
-              {showSaveAsTemplateButton && (
+              {showSaveAsTemplateButton && experiment.type !== "holdout" && (
                 <DropdownMenuItem
                   onClick={() => {
                     setShowTemplateForm(true);
@@ -834,7 +843,7 @@ export default function ExperimentHeader({
                   Save as template...
                 </DropdownMenuItem>
               )}
-              {showShareButton && (
+              {showShareButton && experiment.type !== "holdout" && (
                 <DropdownMenuItem
                   onClick={() => {
                     setShareModalOpen(true);
@@ -844,7 +853,7 @@ export default function ExperimentHeader({
                   Share {isBandit ? "Bandit" : "Experiment"}
                 </DropdownMenuItem>
               )}
-              {showShareableReportButton ? (
+              {showShareableReportButton && experiment.type !== "holdout" && (
                 <DropdownMenuItem
                   onClick={async () => {
                     const res = await apiCall<{ report: ReportInterface }>(
@@ -867,8 +876,8 @@ export default function ExperimentHeader({
                 >
                   Create shareable report
                 </DropdownMenuItem>
-              ) : null}
-              {showConvertButton && (
+              )}
+              {showConvertButton && experiment.type !== "holdout" && (
                 <>
                   <DropdownMenuGroup>
                     <DropdownMenuItem

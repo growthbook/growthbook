@@ -11,7 +11,6 @@ import { useUser } from "@/services/UserContext";
 import SortedTags from "@/components/Tags/SortedTags";
 import Field from "@/components/Forms/Field";
 import { useExperiments } from "@/hooks/useExperiments";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import TagsFilter, { useTagsFilter } from "@/components/Tags/TagsFilter";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -21,8 +20,6 @@ import LinkButton from "@/components/Radix/LinkButton";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import NewHoldoutForm from "@/components/Holdout/NewHoldoutForm";
 import { useAddComputedFields, useSearch } from "@/services/search";
-import Badge from "@/components/Radix/Badge";
-import { RadixColor } from "@/components/Radix/HelperText";
 import UserAvatar from "@/components/Avatar/UserAvatar";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 
@@ -76,26 +73,13 @@ const HoldoutsPage = (): React.ReactElement => {
             item.experiment.phases[0].dateEnded ?? ""
           )}`
         : null;
-
-    const projectsComputed: {
-      id: string;
-      name: string;
-      isDeReferenced: boolean;
-    }[] = item.projects.map((p) => {
+    const projectsComputed = item.projects.reduce((acc, p) => {
       const project = projects.find((project) => project.id === p);
       if (!project) {
-        return {
-          id: p,
-          name: p,
-          isDeReferenced: true, // cant find project
-        };
+        return acc;
       }
-      return {
-        id: project.id,
-        name: project.name,
-        isDeReferenced: false,
-      };
-    });
+      return [...acc, project.name];
+    }, []);
     const ownerName = getUserDisplay(item.experiment.owner, false) || "";
     return {
       name: item.name,
@@ -357,42 +341,7 @@ const HoldoutsPage = (): React.ReactElement => {
                         <td className="nowrap" data-title="Project:">
                           {holdout.projects.length === 0
                             ? null
-                            : holdout.projects.map(
-                                (p: {
-                                  id: string;
-                                  name: string;
-                                  isDeReferenced: boolean;
-                                }) =>
-                                  p.isDeReferenced ? (
-                                    <Tooltip
-                                      key={p.id}
-                                      body={
-                                        <>
-                                          Project <code>{p.name}</code> not
-                                          found
-                                        </>
-                                      }
-                                    >
-                                      <Badge
-                                        title={"Not Found"}
-                                        label={"Not Found"}
-                                        color={"red" as RadixColor}
-                                        variant="soft"
-                                        mr={"2"}
-                                        mb={"1"}
-                                      />
-                                    </Tooltip>
-                                  ) : (
-                                    <Badge
-                                      title={p.name}
-                                      label={p.name}
-                                      color={"gray" as RadixColor}
-                                      variant="soft"
-                                      mr={"2"}
-                                      mb={"1"}
-                                    />
-                                  )
-                              )}
+                            : holdout.projects.join(", ")}
                         </td>
                         <td data-title="Tags:" className="table-tags">
                           <SortedTags
