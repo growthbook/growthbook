@@ -50,13 +50,25 @@ export type dimensionAxisConfiguration = z.infer<
   typeof dimensionAxisConfigurationValidator
 >;
 
-export const dataVizConfigValidator = z.object({
-  title: z.string().optional(),
-  chartType: z.enum(["bar", "line", "area", "scatter", "big-value"]),
-  xAxis: xAxisConfigurationValidator.optional(),
-  yAxis: z.array(yAxisConfigurationValidator).nonempty(),
-  dimension: z.array(dimensionAxisConfigurationValidator).nonempty().optional(),
-});
+export const dataVizConfigValidator = z.discriminatedUnion("chartType", [
+  // Chart types that require xAxis
+  z.object({
+    title: z.string().optional(),
+    chartType: z.enum(["bar", "line", "area", "scatter"]),
+    xAxis: xAxisConfigurationValidator,
+    yAxis: z.array(yAxisConfigurationValidator).nonempty(),
+    dimension: z
+      .array(dimensionAxisConfigurationValidator)
+      .nonempty()
+      .optional(),
+  }),
+  // Big value chart type that doesn't need xAxis
+  z.object({
+    title: z.string().optional(),
+    chartType: z.literal("big-value"),
+    yAxis: z.array(yAxisConfigurationValidator).nonempty(),
+  }),
+]);
 
 export const testQueryRowSchema = z.record(z.any());
 

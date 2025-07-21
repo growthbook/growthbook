@@ -10,6 +10,7 @@ import {
 } from "back-end/src/validators/saved-queries";
 import { getValidDate } from "shared/dates";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
+import { requiresXAxis, supportsDimension } from "@/services/dataVizTypeGuards";
 import { Panel, PanelGroup, PanelResizeHandle } from "../ResizablePanels";
 import { AreaWithHeader } from "../SchemaBrowser/SqlExplorerModal";
 import BigValueChart from "../SqlExplorer/BigValueChart";
@@ -129,21 +130,24 @@ export function DataVisualizationDisplay({
   dataVizConfig: Partial<DataVizConfig>;
 }) {
   const isConfigValid = useMemo(() => {
-    const parsed = dataVizConfigValidator.strip().safeParse(dataVizConfig);
+    const parsed = dataVizConfigValidator.safeParse(dataVizConfig);
     return parsed.success;
   }, [dataVizConfig]);
 
   // TODO: Support multiple y-axis and dimension fields
-  const xConfig = dataVizConfig.xAxis;
+  const xConfig = requiresXAxis(dataVizConfig)
+    ? dataVizConfig.xAxis
+    : undefined;
   const xField = xConfig?.fieldName;
   const yConfig = dataVizConfig.yAxis?.[0];
   const yField = yConfig?.fieldName;
   const aggregation = yConfig?.aggregation || "sum";
-  const dimensionConfig = dataVizConfig.dimension?.[0];
+  const dimensionConfig = supportsDimension(dataVizConfig)
+    ? dataVizConfig.dimension?.[0]
+    : undefined;
   const dimensionField = dimensionConfig?.fieldName;
 
   const { theme } = useAppearanceUITheme();
-
   const textColor = theme === "dark" ? "#FFFFFF" : "#1F2D5C";
 
   // If using a dimension, get top X dimension values

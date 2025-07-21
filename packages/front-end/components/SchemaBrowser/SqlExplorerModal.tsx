@@ -40,6 +40,7 @@ import {
 } from "@/components/ResizablePanels";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { VisualizationAddIcon } from "@/components/Icons";
+import { requiresXAxis } from "@/services/dataVizTypeGuards";
 import { SqlExplorerDataVisualization } from "../DataViz/SqlExplorerDataVisualization";
 import Modal from "../Modal";
 import SelectField from "../Forms/SelectField";
@@ -196,8 +197,8 @@ export default function SqlExplorerModal({
     const dataVizConfig = form.watch("dataVizConfig") || [];
     // Validate each dataVizConfig object
     dataVizConfig.forEach((config, index) => {
-      // Big value charts don't require an x axis
-      if (config.chartType !== "big-value" && !config.xAxis) {
+      // Check if chart type requires xAxis but doesn't have one
+      if (requiresXAxis(config) && !config.xAxis) {
         setTab(`visualization-${index}`);
         throw new Error(
           `X axis is required for Visualization ${

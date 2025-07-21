@@ -6,6 +6,7 @@ import {
   xAxisDateAggregationUnit,
   yAxisAggregationType,
 } from "back-end/src/validators/saved-queries";
+import { requiresXAxis, supportsDimension } from "@/services/dataVizTypeGuards";
 import { Select, SelectItem } from "@/components/Radix/Select";
 
 export default function DataVizConfigPanel({
@@ -62,7 +63,7 @@ export default function DataVizConfigPanel({
   }, [sampleRow]);
 
   useEffect(() => {
-    if (dataVizConfig.xAxis) {
+    if (requiresXAxis(dataVizConfig) && dataVizConfig.xAxis) {
       const type = dataVizConfig.xAxis.type;
       const currentSort = dataVizConfig.xAxis.sort;
 
@@ -184,7 +185,11 @@ export default function DataVizConfigPanel({
         <>
           <Select
             label="X Axis"
-            value={dataVizConfig.xAxis?.fieldName ?? ""}
+            value={
+              requiresXAxis(dataVizConfig)
+                ? dataVizConfig.xAxis?.fieldName ?? ""
+                : ""
+            }
             setValue={(v) => {
               if (!v) return;
               const type = getInferredFieldType(v);
@@ -196,7 +201,10 @@ export default function DataVizConfigPanel({
                   sort:
                     type !== "string"
                       ? "asc"
-                      : dataVizConfig.xAxis?.sort || "none",
+                      : requiresXAxis(dataVizConfig) &&
+                        dataVizConfig.xAxis?.sort
+                      ? dataVizConfig.xAxis.sort
+                      : "none",
                   // TODO: infer date aggregation unit based on data
                   dateAggregationUnit: "day",
                 },
@@ -212,7 +220,7 @@ export default function DataVizConfigPanel({
             ))}
           </Select>
 
-          {dataVizConfig.xAxis && (
+          {requiresXAxis(dataVizConfig) && dataVizConfig.xAxis && (
             <Flex direction="column" gap="2">
               <Flex direction="row" justify="between" align="center">
                 <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
@@ -222,7 +230,12 @@ export default function DataVizConfigPanel({
                   style={{ flex: 1 }}
                   value={dataVizConfig.xAxis.type}
                   setValue={(v) => {
-                    if (!v || !dataVizConfig.xAxis) return;
+                    if (
+                      !v ||
+                      !requiresXAxis(dataVizConfig) ||
+                      !dataVizConfig.xAxis
+                    )
+                      return;
                     onDataVizConfigChange({
                       ...dataVizConfig,
                       xAxis: {
@@ -252,7 +265,11 @@ export default function DataVizConfigPanel({
                       value={dataVizConfig.xAxis.dateAggregationUnit}
                       style={{ flex: 1 }}
                       setValue={(v) => {
-                        if (!dataVizConfig.xAxis) return;
+                        if (
+                          !requiresXAxis(dataVizConfig) ||
+                          !dataVizConfig.xAxis
+                        )
+                          return;
                         onDataVizConfigChange({
                           ...dataVizConfig,
                           xAxis: {
@@ -286,7 +303,12 @@ export default function DataVizConfigPanel({
                     value={dataVizConfig.xAxis.sort}
                     style={{ flex: 1 }}
                     setValue={(v) => {
-                      if (!v || !dataVizConfig.xAxis) return;
+                      if (
+                        !v ||
+                        !requiresXAxis(dataVizConfig) ||
+                        !dataVizConfig.xAxis
+                      )
+                        return;
                       onDataVizConfigChange({
                         ...dataVizConfig,
                         xAxis: {
@@ -404,9 +426,13 @@ export default function DataVizConfigPanel({
                 >
                   {dataVizConfig.yAxis?.[0].type === "number" ? (
                     <>
-                      {(dataVizConfig.xAxis?.type !== "date" ||
-                        dataVizConfig.xAxis?.dateAggregationUnit ===
-                          "none") && <SelectItem value="none">None</SelectItem>}
+                      {((requiresXAxis(dataVizConfig) &&
+                        dataVizConfig.xAxis?.type !== "date") ||
+                        (requiresXAxis(dataVizConfig) &&
+                          dataVizConfig.xAxis?.dateAggregationUnit ===
+                            "none")) && (
+                        <SelectItem value="none">None</SelectItem>
+                      )}
                       <SelectItem value="sum">Sum</SelectItem>
                       <SelectItem value="average">Average</SelectItem>
                       <SelectItem value="min">Min</SelectItem>
@@ -426,13 +452,20 @@ export default function DataVizConfigPanel({
 
           <Select
             label="Dimension"
-            value={dataVizConfig.dimension?.[0]?.fieldName ?? ""}
+            value={
+              supportsDimension(dataVizConfig)
+                ? dataVizConfig.dimension?.[0]?.fieldName ?? ""
+                : ""
+            }
             setValue={(v) => {
               const shouldRemove = !v || v === "remove-dimension";
               const display =
                 dataVizConfig.chartType !== "bar"
                   ? "grouped"
-                  : dataVizConfig.dimension?.[0]?.display || "grouped";
+                  : supportsDimension(dataVizConfig) &&
+                    dataVizConfig.dimension?.[0]?.display
+                  ? dataVizConfig.dimension[0].display
+                  : "grouped";
               onDataVizConfigChange({
                 ...dataVizConfig,
                 dimension: shouldRemove
@@ -441,7 +474,11 @@ export default function DataVizConfigPanel({
                       {
                         fieldName: v,
                         display,
-                        maxValues: dataVizConfig.dimension?.[0]?.maxValues || 5,
+                        maxValues:
+                          supportsDimension(dataVizConfig) &&
+                          dataVizConfig.dimension?.[0]?.maxValues
+                            ? dataVizConfig.dimension[0].maxValues
+                            : 5,
                       },
                     ],
               });
@@ -449,11 +486,12 @@ export default function DataVizConfigPanel({
             size="2"
             placeholder="Select a dimension"
           >
-            {dataVizConfig.dimension?.[0]?.fieldName && (
-              <SelectItem value="remove-dimension">
-                - Remove dimension -
-              </SelectItem>
-            )}
+            {supportsDimension(dataVizConfig) &&
+              dataVizConfig.dimension?.[0]?.fieldName && (
+                <SelectItem value="remove-dimension">
+                  - Remove dimension -
+                </SelectItem>
+              )}
             {axisKeys.map((key) => (
               <SelectItem key={key} value={key}>
                 {key}
@@ -461,7 +499,7 @@ export default function DataVizConfigPanel({
             ))}
           </Select>
 
-          {dataVizConfig.dimension && (
+          {supportsDimension(dataVizConfig) && dataVizConfig.dimension && (
             <>
               <Flex direction="column" gap="2">
                 {(dataVizConfig.chartType === "bar" ||
@@ -474,7 +512,11 @@ export default function DataVizConfigPanel({
                       style={{ flex: 1 }}
                       value={dataVizConfig.dimension?.[0]?.display}
                       setValue={(v) => {
-                        if (!dataVizConfig.dimension) return;
+                        if (
+                          !supportsDimension(dataVizConfig) ||
+                          !dataVizConfig.dimension
+                        )
+                          return;
                         onDataVizConfigChange({
                           ...dataVizConfig,
                           dimension: [
@@ -504,12 +546,18 @@ export default function DataVizConfigPanel({
                     step="1"
                     type="number"
                     defaultValue={
-                      dataVizConfig.dimension?.[0]?.maxValues?.toString() || "5"
+                      (supportsDimension(dataVizConfig) &&
+                        dataVizConfig.dimension?.[0]?.maxValues?.toString()) ||
+                      "5"
                     }
                     onBlur={(e) => {
                       const maxValues = parseInt(e.target.value, 10);
                       if (isNaN(maxValues)) return;
-                      if (!dataVizConfig.dimension) return;
+                      if (
+                        !supportsDimension(dataVizConfig) ||
+                        !dataVizConfig.dimension
+                      )
+                        return;
                       onDataVizConfigChange({
                         ...dataVizConfig,
                         dimension: [
@@ -528,7 +576,11 @@ export default function DataVizConfigPanel({
 
                         const maxValues = parseInt(e.target.value, 10);
                         if (isNaN(maxValues)) return;
-                        if (!dataVizConfig.dimension) return;
+                        if (
+                          !supportsDimension(dataVizConfig) ||
+                          !dataVizConfig.dimension
+                        )
+                          return;
                         onDataVizConfigChange({
                           ...dataVizConfig,
                           dimension: [
