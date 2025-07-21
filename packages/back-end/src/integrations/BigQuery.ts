@@ -228,8 +228,8 @@ export default class BigQuery extends SqlIntegration {
         }
       } catch (e) {
         logger.error(
-          `Error fetching information schema data for dataset: ${datasetName}`,
-          e
+          e,
+          `Error fetching information schema data for dataset: ${datasetName}`
         );
       }
     }

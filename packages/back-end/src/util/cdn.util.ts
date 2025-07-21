@@ -31,6 +31,6 @@ export async function purgeCDNCache(
       },
     });
   } catch (e) {
-    logger.error("Failed to purge cache for " + orgId);
+    logger.error(e, "Failed to purge cache for " + orgId);
   }
 }
