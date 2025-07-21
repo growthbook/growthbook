@@ -98,22 +98,22 @@ jobs:
           fetch-depth: 0
 
       - name: Create Sentry api release
-        uses: getsentry/action-release@v1
+        uses: getsentry/action-release@v3
         with:
           environment: "production"
-          sourcemaps: "./back-end-dist"
-          version: ${{ github.sha }}
+          sourcemaps: "./back-end-dist/"
+          release: ${{ github.sha }}
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: growthbook
           SENTRY_PROJECT: api
 
       - name: Create Sentry app release
-        uses: getsentry/action-release@v1
+        uses: getsentry/action-release@v3
         with:
           environment: "production"
-          sourcemaps: "./front-end-dist"
-          version: ${{ github.sha }}
+          sourcemaps: "./front-end-dist/"
+          release: ${{ github.sha }}
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: growthbook
