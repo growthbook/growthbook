@@ -1,10 +1,12 @@
-import type { GrowthBook } from "src/GrowthBook";
+import type { GrowthBook } from "../../GrowthBook";
 import { createErrorReporter } from "./errorReporter";
 import { createCWVReporter } from "./cwvReporter";
+import { createPageViewReporter } from "./pageViewReporter";
 
 type BrowserPerformanceSettings = {
-  samplingRate?: number;
+  cwvSamplingRate?: number;
   errorSamplingRate?: number;
+  pageViewSamplingRate?: number;
   hashAttribute?: string;
   trackCWV?: boolean;
   trackFCP?: boolean;
@@ -14,12 +16,16 @@ type BrowserPerformanceSettings = {
   trackTTFB?: boolean;
   trackTBT?: boolean;
   trackErrors?: boolean;
+  trackPageViews?: boolean;
+  includeSearchParams?: boolean;
+  includeHash?: boolean;
   debounceErrorTimeout?: number;
 };
 
 export function browserPerformancePlugin({
-  samplingRate = 0.1,
-  errorSamplingRate,
+  cwvSamplingRate = 0.1,
+  errorSamplingRate = 0.1,
+  pageViewSamplingRate = 1,
   hashAttribute = "id",
   trackCWV = true,
   trackFCP = true,
@@ -29,6 +35,7 @@ export function browserPerformancePlugin({
   trackTTFB = true,
   trackTBT = true,
   trackErrors = true,
+  trackPageViews = true,
   debounceErrorTimeout = 100,
 }: BrowserPerformanceSettings = {}) {
   if (typeof window === "undefined" || typeof document === "undefined") {
@@ -48,7 +55,7 @@ export function browserPerformancePlugin({
         trackCLS,
         trackTTFB,
         trackTBT,
-        samplingRate: errorSamplingRate ?? samplingRate,
+        samplingRate: cwvSamplingRate,
         hashAttribute,
         growthbook: gb,
       });
@@ -58,7 +65,15 @@ export function browserPerformancePlugin({
       createErrorReporter({
         logEvent: gb.logEvent,
         debounceTimeout: debounceErrorTimeout,
-        samplingRate: errorSamplingRate ?? samplingRate,
+        samplingRate: errorSamplingRate,
+        hashAttribute,
+        growthbook: gb,
+      });
+    }
+
+    if (trackPageViews) {
+      createPageViewReporter({
+        samplingRate: pageViewSamplingRate,
         hashAttribute,
         growthbook: gb,
       });

@@ -12,6 +12,7 @@ export function shouldSample({
   attributes?: Attributes;
   seed?: string;
 }) {
+  if (rate >= 1) return true;
   const attributeValue = hashAttribute
     ? attributes?.[hashAttribute]
     : undefined;

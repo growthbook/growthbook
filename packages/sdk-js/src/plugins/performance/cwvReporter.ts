@@ -57,6 +57,7 @@ export function createCWVReporter({
     const observers: PerformanceObserver[] = [];
     const stopObserving = () => {
       observing = false;
+      urlPolling = false;
       observers.forEach((observer) => observer.disconnect());
     };
     "onDestroy" in growthbook && growthbook.onDestroy(stopObserving);
@@ -65,7 +66,7 @@ export function createCWVReporter({
     let clsValue = 0;
     let tbtValue = 0;
 
-    const currentPath = window.location.origin + window.location.pathname;
+    let currentPath = window.location.origin + window.location.pathname;
 
     const reportCWV = () => {
       if (!observing) return;
@@ -80,36 +81,51 @@ export function createCWVReporter({
         growthbook.logEvent("CWV:TBT", { value: tbtValue });
       }
     };
-    const reportIfUrlChanged = (destinationUrl: string) => {
-      const url = new URL(destinationUrl);
-      const newPath = url.origin + url.pathname;
+
+    const reportIfUrlChanged = (newPath: string) => {
       if (newPath !== currentPath) {
+        currentPath = newPath;
         reportCWV();
       }
     };
 
-    // Track deferred CWV metrics on navigation / url changes
+    // Track deferred CWV metrics on navigation (new API, not widely supported yet)
     if ("navigation" in window) {
       // @ts-expect-error: Navigate API might be missing from types
       window.navigation.addEventListener("navigate", (event) => {
         if (event?.destination?.url) {
-          reportIfUrlChanged(event.destination.url);
+          try {
+            const url = new URL(event.destination.url);
+            reportIfUrlChanged(url.origin + url.pathname);
+          } catch {
+            // Invalid URL, ignore
+          }
         }
       });
-    } else {
-      const methods = ["pushState", "replaceState"] as const;
-      methods.forEach((method) => {
-        const original = window.history[method];
-        window.history[method] = function (...args) {
-          const result = original.apply(this, args);
-          reportIfUrlChanged(window.location.href);
-          return result;
-        };
-      });
-      window.addEventListener("popstate", () => {
-        reportIfUrlChanged(window.location.href);
-      });
     }
+
+    // Track using history changes
+    const methods = ["pushState", "replaceState"] as const;
+    methods.forEach((method) => {
+      const original = window.history[method];
+      window.history[method] = function (...args) {
+        const result = original.apply(this, args);
+        reportIfUrlChanged(window.location.origin + window.location.pathname);
+        return result;
+      };
+    });
+    window.addEventListener("popstate", () => {
+      reportIfUrlChanged(window.location.origin + window.location.pathname);
+    });
+
+    // Track using legacy url-change polling strategy
+    let urlPolling = true;
+    const checkForUrlChanges = () => {
+      if (!urlPolling) return;
+      reportIfUrlChanged(window.location.origin + window.location.pathname);
+      setTimeout(checkForUrlChanges, 500);
+    };
+    checkForUrlChanges();
 
     // Track deferred CWV metrics on hide
     document.addEventListener("visibilitychange", reportCWV, {
