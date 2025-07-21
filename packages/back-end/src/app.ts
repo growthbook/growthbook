@@ -148,24 +148,27 @@ if (ENVIRONMENT !== "production") {
 }
 
 if (stringToBoolean(process.env.PYTHON_SERVER_MODE)) {
-  // increase max payload json size to 50mb as a single query can return up to 3000 rows
-  // and we pass the results of all queries at once into python
-  app.use(
-    bodyParser.json({
-      limit: process.env.PYTHON_SERVER_INPUT_SIZE_LIMIT || "50mb",
-    })
-  );
   app.use(compression());
   app.use(httpLogger);
-  app.post("/stats", async (req, res) => {
-    try {
-      const results = await runStatsEngine(req.body);
-      res.status(200).json({ results });
-    } catch (error) {
-      logger.error("Error running stats engine:", error);
-      res.status(500).json({ error: error.message || "Internal Server Error" });
+  app.post(
+    "/stats",
+    // increase max payload json size to 50mb as a single query can return up to 3000 rows
+    // and we pass the results of all queries at once into python
+    bodyParser.json({
+      limit: process.env.PYTHON_SERVER_INPUT_SIZE_LIMIT || "50mb",
+    }),
+    async (req, res) => {
+      try {
+        const results = await runStatsEngine(req.body);
+        res.status(200).json({ results });
+      } catch (error) {
+        logger.error(error, `Error running stats engine`);
+        res
+          .status(500)
+          .json({ error: error.message || "Internal Server Error" });
+      }
     }
-  });
+  );
 }
 
 app.use(cookieParser());
