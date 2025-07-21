@@ -23,6 +23,8 @@ import { useUser } from "@/services/UserContext";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { DropdownMenuSeparator } from "@/components/Radix/DropdownMenu";
 import { useDashboards } from "@/hooks/useDashboards";
+import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
+import UpgradeModal from "@/components/Settings/UpgradeModal";
 import DashboardEditor from "./DashboardEditor";
 import DashboardSnapshotProvider from "./DashboardSnapshotProvider";
 import DashboardModal from "./DashboardModal";
@@ -87,6 +89,7 @@ export default function DashboardsTab({
     settings: { updateSchedule },
   } = useUser();
   const [isEditing, setIsEditing] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
@@ -114,19 +117,17 @@ export default function DashboardsTab({
   const { hasCommercialFeature } = useUser();
 
   const hasDashboardFeature = hasCommercialFeature("dashboards");
-  const canCreate =
-    hasDashboardFeature && permissionsUtil.canCreateReport(experiment);
+  const canCreate = permissionsUtil.canCreateReport(experiment);
   const canUpdateDashboard = experiment
     ? permissionsUtil.canViewReportModal(experiment.project)
     : true;
   const isOwner = userId === dashboard?.userId || !dashboard?.userId;
   const isAdmin = permissionsUtil.canSuperDeleteReport();
   const canEdit =
-    hasDashboardFeature &&
-    (isOwner ||
-      isAdmin ||
-      (dashboard.editLevel === "organization" && canUpdateDashboard));
-  const canManage = hasDashboardFeature && (isOwner || isAdmin);
+    isOwner ||
+    isAdmin ||
+    (dashboard.editLevel === "organization" && canUpdateDashboard);
+  const canManage = isOwner || isAdmin;
 
   useEffect(() => {
     if (dashboard) {
@@ -189,6 +190,13 @@ export default function DashboardsTab({
       mutateDefinitions={mutateDashboards}
     >
       <div>
+        {showUpgradeModal && (
+          <UpgradeModal
+            close={() => setShowUpgradeModal(false)}
+            source="experiment-dashboards-tab"
+            commercialFeature="dashboards"
+          />
+        )}
         {showCreateModal && (
           <DashboardModal
             mode="create"
@@ -302,10 +310,17 @@ export default function DashboardsTab({
                   ) : dashboards.length > 0 ? (
                     <Flex gap="4" align="center">
                       <Select
-                        style={{ marginLeft: "var(--space-3)" }}
+                        style={{
+                          marginLeft: "var(--space-3)",
+                          minWidth: "200px",
+                          borderBottom: "1px solid var(--slate-a5)",
+                        }}
                         variant="ghost"
                         value={dashboardId}
                         setValue={setDashboardId}
+                        triggerClassName={
+                          dashboards.length === 1 ? "disable-dropdown" : ""
+                        }
                       >
                         {defaultDashboard && (
                           <>
@@ -329,7 +344,9 @@ export default function DashboardsTab({
                         <Tooltip body="Create new dashboard" tipPosition="top">
                           <IconButton
                             onClick={() => {
-                              setShowCreateModal(true);
+                              hasDashboardFeature
+                                ? setShowCreateModal(true)
+                                : setShowUpgradeModal(true);
                             }}
                             variant="soft"
                             size="2"
@@ -338,6 +355,7 @@ export default function DashboardsTab({
                           </IconButton>
                         </Tooltip>
                       )}
+                      <PaidFeatureBadge commercialFeature="dashboards" />
                     </Flex>
                   ) : (
                     <></>
@@ -419,19 +437,24 @@ export default function DashboardsTab({
                               <Button
                                 className="dropdown-item"
                                 onClick={() => {
-                                  setShowCreateModal(true);
+                                  hasDashboardFeature
+                                    ? setShowCreateModal(true)
+                                    : setShowUpgradeModal(true);
                                 }}
                               >
-                                <Text weight="regular">
-                                  Create New Dashboard
-                                </Text>
+                                <Flex align="center" gap="2">
+                                  <Text weight="regular">
+                                    Create New Dashboard
+                                  </Text>
+                                  <PaidFeatureBadge commercialFeature="dashboards" />
+                                </Flex>
                               </Button>
                               <Container px="4">
                                 <DropdownMenuSeparator />
                               </Container>
                             </>
                           )}
-                          {canEdit && (
+                          {canEdit && hasDashboardFeature && (
                             <EditButton
                               useIcon={false}
                               className="dropdown-item"
@@ -441,7 +464,7 @@ export default function DashboardsTab({
                               }}
                             />
                           )}
-                          {canManage && (
+                          {canManage && hasDashboardFeature && (
                             <Tooltip
                               body={autoUpdateDisabledMessage}
                               shouldDisplay={autoUpdateDisabled}
@@ -470,12 +493,19 @@ export default function DashboardsTab({
                           {canCreate && (
                             <Button
                               className="dropdown-item"
-                              onClick={() => setShowDuplicateModal(true)}
+                              onClick={() =>
+                                hasDashboardFeature
+                                  ? setShowDuplicateModal(true)
+                                  : setShowUpgradeModal(true)
+                              }
                             >
-                              <Text weight="regular">Duplicate</Text>
+                              <Flex align="center" gap="2">
+                                <Text weight="regular">Duplicate</Text>
+                                <PaidFeatureBadge commercialFeature="dashboards" />
+                              </Flex>
                             </Button>
                           )}
-                          {canManage && (
+                          {canManage && hasDashboardFeature && (
                             <>
                               <Container px="4">
                                 <DropdownMenuSeparator />
@@ -493,7 +523,6 @@ export default function DashboardsTab({
                                   mutateDashboards();
                                   setDashboardId("");
                                 }}
-                                canDelete={canManage}
                               />
                             </>
                           )}

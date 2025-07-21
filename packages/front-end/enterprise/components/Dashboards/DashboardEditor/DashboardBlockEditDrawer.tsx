@@ -11,7 +11,7 @@ import { blockHasFieldOfType, isDifferenceType } from "shared/enterprise";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { isDefined } from "shared/util";
 import { SavedQuery } from "back-end/src/validators/saved-queries";
-import { PiPencil, PiPlus } from "react-icons/pi";
+import { PiPencilSimpleFill, PiPlus } from "react-icons/pi";
 import { isNumber, isString, isStringArray } from "back-end/src/util/types";
 import { useSidebarOpen } from "@/components/Layout/SidebarOpenProvider";
 import Button from "@/components/Radix/Button";
@@ -29,7 +29,8 @@ import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import { useDashboardSnapshot } from "../DashboardSnapshotProvider";
 import { BLOCK_TYPE_INFO } from ".";
 
-const DRAWER_MAX_HEIGHT = 330;
+const DRAWER_MAX_HEIGHT = 284;
+const DRAWER_MIN_HEIGHT = 184;
 
 type RequiredField<
   BType extends DashboardBlockType,
@@ -229,10 +230,9 @@ export default function DashboardBlockEditDrawer({
         bottom: 0,
         right: 0,
         maxHeight: open ? `${DRAWER_MAX_HEIGHT}px` : "0px",
-        minHeight: open ? "200px" : "0px",
+        minHeight: open ? `${DRAWER_MIN_HEIGHT}px` : "0px",
         background: "var(--background-color)",
         zIndex: 9001,
-        paddingBottom: open ? "32px" : "0px",
       }}
     >
       {showSqlExplorerModal && (
@@ -246,7 +246,25 @@ export default function DashboardBlockEditDrawer({
         />
       )}
       {block && (
-        <Flex direction="column" py="5" px="4" gap="2" flexGrow="1">
+        <Flex
+          direction="column"
+          pt="5"
+          px="4"
+          gap="2"
+          flexGrow="1"
+          position="relative"
+        >
+          <div
+            style={{
+              position: "absolute",
+              bottom: "0px",
+              width: "calc(100% - 32px)",
+              height: "20px",
+              background:
+                "linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.1) 100%)",
+              zIndex: 10000,
+            }}
+          ></div>
           <Flex justify="between" align="center" px="2">
             <span>
               <Text weight="light">{BLOCK_TYPE_INFO[block.type].name}</Text>
@@ -282,11 +300,8 @@ export default function DashboardBlockEditDrawer({
             gap="4"
             overflow="scroll"
             px="2"
-            pb="2"
+            pb="5"
             flexGrow="1"
-            style={{
-              borderBottom: "1px solid var(--slate-a6)",
-            }}
           >
             <Field
               label="Block Title"
@@ -344,7 +359,7 @@ export default function DashboardBlockEditDrawer({
                 label="Metrics"
                 labelClassName="font-weight-bold"
                 value={block.metricIds}
-                containerStyle={{ flexBasis: "32%", flexGrow: 1 }}
+                containerStyle={{ flexBasis: "32%" }}
                 containerClassName="mb-0"
                 onChange={(value) => setBlock({ ...block, metricIds: value })}
                 options={metricOptions}
@@ -516,7 +531,7 @@ export default function DashboardBlockEditDrawer({
                           variant="soft"
                           size="1"
                         >
-                          {savedQuery ? <PiPencil /> : <PiPlus />}
+                          {savedQuery ? <PiPencilSimpleFill /> : <PiPlus />}
                         </IconButton>
                       </Flex>
                     }

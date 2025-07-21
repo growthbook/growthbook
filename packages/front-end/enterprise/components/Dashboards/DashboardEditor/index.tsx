@@ -203,7 +203,7 @@ export default function DashboardEditor({
     setAddBlockIndex(index);
   };
 
-  if (blocks.length === 0) {
+  if (blocks.length === 0 && !isDefined(addBlockIndex)) {
     return (
       <div className="mt-3">
         <Flex
