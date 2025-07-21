@@ -5,39 +5,28 @@ import { groupBy } from "lodash";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import ResultsTable from "@/components/Experiment/ResultsTable";
-import { useExperiments } from "@/hooks/useExperiments";
-import LoadingSpinner from "@/components/LoadingSpinner";
-import Callout from "@/components/Radix/Callout";
-import { useDashboardSnapshot } from "../../DashboardSnapshotProvider";
-import { BLOCK_TYPE_INFO } from "..";
 import { BlockProps } from ".";
 
 export default function MetricBlock({
-  block,
-  setBlock,
+  block: { metricIds, baselineRow, columnsFilter, variationIds },
+  experiment,
+  analysis,
+  ssrPolyfills,
 }: BlockProps<MetricBlockInterface>) {
-  const {
-    metricIds,
-    experimentId,
-    baselineRow,
-    columnsFilter,
-    variationIds,
-  } = block;
-  const { experimentsMap } = useExperiments();
-  const experiment = experimentsMap.get(experimentId);
-
   const { getExperimentMetricById } = useDefinitions();
   const {
-    snapshot,
-    analysis,
-    analysisSettings,
-    loading,
-  } = useDashboardSnapshot(block, setBlock);
-  const orgSettings = useOrgSettings();
-  const pValueCorrection = orgSettings?.pValueCorrection;
+    pValueCorrection: hookPValueCorrection,
+    statsEngine: hookStatsEngine,
+  } = useOrgSettings();
+  const statsEngine =
+    ssrPolyfills?.useOrgSettings()?.statsEngine ||
+    hookStatsEngine ||
+    "frequentist";
+
+  const pValueCorrection =
+    ssrPolyfills?.useOrgSettings()?.pValueCorrection || hookPValueCorrection;
 
   const sortedMetricIds = useMemo(() => {
-    if (!experiment) return [];
     const metricIdSet = new Set(metricIds);
     return [
       ...experiment.goalMetrics.filter((m) => metricIdSet.has(m)),
@@ -45,23 +34,6 @@ export default function MetricBlock({
       ...experiment.guardrailMetrics.filter((m) => metricIdSet.has(m)),
     ];
   }, [metricIds, experiment]);
-
-  if (loading) return <LoadingSpinner />;
-  if (metricIds.length === 0) {
-    return (
-      <Callout status="info">
-        This {BLOCK_TYPE_INFO[block.type].name} block requires additional
-        configuration to display results.
-      </Callout>
-    );
-  }
-  if (!snapshot) {
-    return (
-      <Callout status="info">No data yet. Refresh to populate results.</Callout>
-    );
-  }
-
-  if (!experiment) return null;
 
   const variations = experiment.variations.map((v, i) => ({
     id: v.key || i + "",
@@ -84,10 +56,7 @@ export default function MetricBlock({
 
   const latestPhase = experiment.phases[experiment.phases.length - 1];
 
-  if (!analysis) return null;
-
   const result = analysis.results[0];
-  if (!result) return null;
 
   const allRows = sortedMetricIds
     .map((metricId) => {
@@ -153,9 +122,9 @@ export default function MetricBlock({
           renderLabelColumn={(label) => label}
           dateCreated={new Date()}
           hasRisk={false}
-          statsEngine={orgSettings?.statsEngine || "frequentist"}
+          statsEngine={statsEngine}
           pValueCorrection={pValueCorrection}
-          differenceType={analysisSettings?.differenceType || "relative"}
+          differenceType={analysis?.settings?.differenceType || "relative"}
           isTabActive={true}
           isGoalMetrics={resultGroup === "goal"}
         />

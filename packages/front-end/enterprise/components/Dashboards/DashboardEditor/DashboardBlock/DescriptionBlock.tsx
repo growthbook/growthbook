@@ -3,15 +3,11 @@ import { DescriptionBlockInterface } from "back-end/src/enterprise/validators/da
 import { ScrollArea } from "@radix-ui/themes";
 import Markdown from "react-markdown";
 import { Box } from "spectacle";
-import { useExperiments } from "@/hooks/useExperiments";
 import { BlockProps } from ".";
 
 export default function DescriptionBlock({
-  block: { experimentId },
+  experiment,
 }: BlockProps<DescriptionBlockInterface>) {
-  const { experimentsMap } = useExperiments();
-  const experiment = experimentsMap.get(experimentId);
-  if (!experiment) return null;
   return (
     <>
       {experiment.description ? (

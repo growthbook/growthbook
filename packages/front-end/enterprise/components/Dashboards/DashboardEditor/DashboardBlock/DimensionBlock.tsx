@@ -6,56 +6,29 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { useExperiments } from "@/hooks/useExperiments";
-import LoadingSpinner from "@/components/LoadingSpinner";
 import BreakDownResults from "@/components/Experiment/BreakDownResults";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
-import Callout from "@/components/Radix/Callout";
-import { useDashboardSnapshot } from "../../DashboardSnapshotProvider";
-import { BLOCK_TYPE_INFO } from "..";
 import { BlockProps } from ".";
 
 export default function DimensionBlock({
-  block,
-  setBlock,
-}: BlockProps<DimensionBlockInterface>) {
-  const {
+  block: {
     metricIds,
-    experimentId,
     baselineRow,
     columnsFilter,
     variationIds,
     dimensionId,
     dimensionValues,
     differenceType,
-  } = block;
-  const { experimentsMap } = useExperiments();
-  const experiment = experimentsMap.get(experimentId);
+  },
+  experiment,
+  snapshot,
+  analysis,
+  ssrPolyfills,
+}: BlockProps<DimensionBlockInterface>) {
+  const { pValueCorrection: hookPValueCorrection } = useOrgSettings();
 
-  const {
-    snapshot,
-    analysis,
-    analysisSettings,
-    loading,
-  } = useDashboardSnapshot(block, setBlock);
-  const orgSettings = useOrgSettings();
-  const pValueCorrection = orgSettings?.pValueCorrection;
-
-  if (loading) return <LoadingSpinner />;
-  if (!dimensionId || metricIds.length === 0)
-    return (
-      <Callout status="info">
-        This {BLOCK_TYPE_INFO[block.type].name} block requires additional
-        configuration to display results.
-      </Callout>
-    );
-  if (!snapshot) {
-    return (
-      <Callout status="info">No data yet. Refresh to populate results.</Callout>
-    );
-  }
-
-  if (!experiment) return null;
+  const pValueCorrection =
+    ssrPolyfills?.useOrgSettings()?.pValueCorrection || hookPValueCorrection;
 
   const variations = experiment.variations.map((v, i) => ({
     id: v.key || i + "",
@@ -77,8 +50,6 @@ export default function DimensionBlock({
       : undefined;
 
   const latestPhase = experiment.phases[experiment.phases.length - 1];
-
-  if (!analysis) return null;
 
   const queryStatusData = getQueryStatus(
     snapshot.queries || [],
@@ -135,11 +106,11 @@ export default function DimensionBlock({
       reportDate={snapshot.dateCreated}
       activationMetric={experiment.activationMetric}
       status={experiment.status}
-      statsEngine={analysisSettings?.statsEngine || DEFAULT_STATS_ENGINE}
+      statsEngine={analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE}
       pValueCorrection={pValueCorrection}
-      regressionAdjustmentEnabled={analysisSettings?.regressionAdjusted}
+      regressionAdjustmentEnabled={analysis?.settings?.regressionAdjusted}
       settingsForSnapshotMetrics={settingsForSnapshotMetrics}
-      sequentialTestingEnabled={analysisSettings?.sequentialTesting}
+      sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
       differenceType={differenceType}
       isBandit={isBandit}
     />

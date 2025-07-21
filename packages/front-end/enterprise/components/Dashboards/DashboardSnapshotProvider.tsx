@@ -218,7 +218,7 @@ export function useDashboardSnapshot(
   }
 
   const analysis = useMemo(() => {
-    if (!snapshot || !blockAnalysisSettings) return undefined;
+    if (!snapshot || !blockAnalysisSettings) return null;
     return getSnapshotAnalysis(snapshot, blockAnalysisSettings);
   }, [blockAnalysisSettings, snapshot]);
 
@@ -316,7 +316,6 @@ export function useDashboardSnapshot(
   return {
     snapshot,
     analysis,
-    analysisSettings: analysis?.settings,
     loading:
       postSnapshotAnalysisLoading ||
       snapshotsLoading ||

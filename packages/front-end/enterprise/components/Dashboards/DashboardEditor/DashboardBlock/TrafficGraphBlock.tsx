@@ -1,22 +1,16 @@
 import { TrafficGraphBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
-import { useExperiments } from "@/hooks/useExperiments";
 import TrafficCard from "@/components/HealthTab/TrafficCard";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Callout from "@/components/Radix/Callout";
-import { useDashboardSnapshot } from "../../DashboardSnapshotProvider";
 import { BlockProps } from ".";
 
 export default function TrafficGraphBlock({
-  block,
-  setBlock,
+  block: { title },
+  experiment,
+  snapshot,
   ssrPolyfills,
 }: BlockProps<TrafficGraphBlockInterface>) {
-  const { experimentId } = block;
-  const { experimentsMap } = useExperiments();
-  const experiment = experimentsMap.get(experimentId);
-  const { snapshot } = useDashboardSnapshot(block, setBlock);
   const { runHealthTrafficQuery } = useOrgSettings();
-  if (!experiment || !snapshot) return null;
 
   const healthTrafficQueryRunning =
     ssrPolyfills?.useOrgSettings()?.runHealthTrafficQuery ||
@@ -33,31 +27,21 @@ export default function TrafficGraphBlock({
 
   const phaseObj = experiment.phases?.[experiment?.phases.length - 1];
 
-  const variations = experiment.variations.map((v, i) => {
-    return {
-      id: v.key || i + "",
-      name: v.name,
-      weight: phaseObj?.variationWeights?.[i] || 0,
-    };
-  });
+  const variations = experiment.variations.map((v, i) => ({
+    id: v.key || i + "",
+    name: v.name,
+    weight: phaseObj?.variationWeights?.[i] || 0,
+  }));
 
   const traffic = snapshot.health?.traffic;
-
-  if (!traffic) {
-    return (
-      <Callout status="info" mt="3">
-        Unable to load the experiment health check results. Check the Health
-        tab, or try refreshing the experiment results.
-      </Callout>
-    );
-  }
+  if (!traffic) return null; // Warning state handled by parent component
 
   return (
     <TrafficCard
       traffic={traffic}
       variations={variations}
       isBandit={experiment.type !== "multi-armed-bandit"}
-      cardTitle={block.title.length > 0 ? block.title : undefined}
+      cardTitle={title.length > 0 ? title : undefined}
       disableDimensions
     />
   );

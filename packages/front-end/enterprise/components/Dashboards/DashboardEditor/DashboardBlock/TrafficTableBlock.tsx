@@ -1,18 +1,12 @@
 import { TrafficTableBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
 import { useMemo } from "react";
-import { useExperiments } from "@/hooks/useExperiments";
 import VariationUsersTable from "@/components/Experiment/TabbedPage/VariationUsersTable";
-import { useDashboardSnapshot } from "../../DashboardSnapshotProvider";
 import { BlockProps } from ".";
 
 export default function TrafficTableBlock({
-  block,
-  setBlock,
+  analysis,
+  experiment,
 }: BlockProps<TrafficTableBlockInterface>) {
-  const { experimentId } = block;
-  const { experimentsMap } = useExperiments();
-  const experiment = experimentsMap.get(experimentId);
-  const { analysis } = useDashboardSnapshot(block, setBlock);
   const results = useMemo(() => analysis?.results[0], [analysis]);
 
   const [_totalUsers, variationUsers] = useMemo(() => {
@@ -26,16 +20,13 @@ export default function TrafficTableBlock({
     return [totalUsers, variationUsers];
   }, [results]);
 
-  if (!experiment || !results) return null;
   const phaseObj = experiment.phases?.[experiment.phases.length - 1];
 
-  const variations = experiment.variations.map((v, i) => {
-    return {
-      id: v.key || i + "",
-      name: v.name,
-      weight: phaseObj?.variationWeights?.[i] || 0,
-    };
-  });
+  const variations = experiment.variations.map((v, i) => ({
+    id: v.key || i + "",
+    name: v.name,
+    weight: phaseObj?.variationWeights?.[i] || 0,
+  }));
 
   return (
     <VariationUsersTable

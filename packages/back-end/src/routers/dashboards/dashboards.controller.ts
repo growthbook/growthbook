@@ -275,8 +275,12 @@ export async function getDashboardSnapshots(
   const { id } = req.params;
   const dashboard = await context.models.dashboards.getById(id);
   if (!dashboard) throw new Error("Cannot find dashboard");
+  const experiment = await getExperimentById(context, dashboard.experimentId);
   const snapshotIds = [
-    ...new Set(dashboard.blocks.map((block) => block.snapshotId)),
+    ...new Set([
+      experiment?.analysisSummary?.snapshotId,
+      ...dashboard.blocks.map((block) => block.snapshotId),
+    ]),
   ].filter(
     (snapId): snapId is string => isDefined(snapId) && snapId.length > 0
   );

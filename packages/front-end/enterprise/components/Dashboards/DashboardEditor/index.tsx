@@ -264,7 +264,7 @@ export default function DashboardEditor({
       >
         <DashboardBlock
           block={block}
-          experiment={experiment}
+          dashboardExperiment={experiment}
           isEditing={isEditing}
           editingBlock={isEditingBlock}
           disableBlock={editDrawerOpen && !isEditingBlock}

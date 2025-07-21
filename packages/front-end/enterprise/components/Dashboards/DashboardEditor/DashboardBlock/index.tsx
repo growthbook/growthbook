@@ -1,13 +1,20 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useContext, useEffect, useRef, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import {
-  DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
   DashboardBlockType,
+  DashboardBlockInterfaceOrData,
 } from "back-end/src/enterprise/validators/dashboard-block";
 import { Flex, IconButton, Text } from "@radix-ui/themes";
 import { PiCaretDown, PiCaretUp, PiDotsSixVertical } from "react-icons/pi";
 import clsx from "clsx";
+import { blockHasFieldOfType } from "shared/enterprise";
+import { isNumber, isString, isStringArray } from "back-end/src/util/types";
+import {
+  ExperimentSnapshotAnalysis,
+  ExperimentSnapshotInterface,
+} from "back-end/types/experiment-snapshot";
+import { SavedQuery } from "back-end/src/validators/saved-queries";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import Button from "@/components/Radix/Button";
 import {
@@ -15,6 +22,13 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/Radix/DropdownMenu";
+import { useExperiments } from "@/hooks/useExperiments";
+import {
+  DashboardSnapshotContext,
+  useDashboardSnapshot,
+} from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import useApi from "@/hooks/useApi";
 import { BLOCK_TYPE_INFO } from "..";
 import MarkdownBlock from "./MarkdownBlock";
 import DescriptionBlock from "./DescriptionBlock";
@@ -26,11 +40,22 @@ import HypothesisBlock from "./HypothesisBlock";
 import TrafficGraphBlock from "./TrafficGraphBlock";
 import TrafficTableBlock from "./TrafficTableBlock";
 import SqlExplorerBlock from "./SqlExplorerBlock";
+import {
+  BlockLoadingSnapshot,
+  BlockMissingExperiment,
+  BlockNeedsConfiguration,
+  BlockMetricsInvalid,
+  BlockMissingData,
+  BlockMissingHealthCheck,
+  BlockMissingSavedQuery,
+} from "./BlockErrorStates";
 
 export type BlockProps<T extends DashboardBlockInterface> = {
   block: DashboardBlockInterfaceOrData<T>;
   setBlock: React.Dispatch<DashboardBlockInterfaceOrData<T>>;
   experiment: ExperimentInterfaceStringDates;
+  snapshot: ExperimentSnapshotInterface;
+  analysis: ExperimentSnapshotAnalysis;
   mutate: () => void;
   isEditing: boolean;
   ssrPolyfills?: SSRPolyfills;
@@ -38,7 +63,7 @@ export type BlockProps<T extends DashboardBlockInterface> = {
 
 interface Props {
   block: DashboardBlockInterfaceOrData<DashboardBlockInterface>;
-  experiment: ExperimentInterfaceStringDates;
+  dashboardExperiment: ExperimentInterfaceStringDates;
   isEditing: boolean;
   editingBlock: boolean;
   disableBlock: boolean;
@@ -54,10 +79,9 @@ interface Props {
   mutate: () => void;
 }
 
-const BLOCK_COMPONENTS: Record<
-  DashboardBlockType,
-  React.FC<BlockProps<DashboardBlockInterface>>
-> = {
+const BLOCK_COMPONENTS: {
+  [K in DashboardBlockType]: React.FC<BlockProps<DashboardBlockInterface>>;
+} = {
   markdown: MarkdownBlock,
   "metadata-description": DescriptionBlock,
   "metadata-hypothesis": HypothesisBlock,
@@ -72,7 +96,7 @@ const BLOCK_COMPONENTS: Record<
 
 export default function DashboardBlock({
   block,
-  experiment,
+  dashboardExperiment,
   isEditing,
   editingBlock,
   disableBlock,
@@ -85,6 +109,25 @@ export default function DashboardBlock({
   moveBlock,
   mutate,
 }: Props) {
+  const { experimentsMap } = useExperiments();
+  const { getExperimentMetricById } = useDefinitions();
+  const blockHasExperiment = blockHasFieldOfType(
+    block,
+    "experimentId",
+    isString
+  );
+  const blockExperiment = blockHasExperiment
+    ? experimentsMap.get(block.experimentId)
+    : undefined;
+  const blockHasMetric = blockHasFieldOfType(block, "metricId", isString);
+  const blockMetric = blockHasMetric
+    ? getExperimentMetricById(block.metricId)
+    : undefined;
+  const blockHasSavedQuery = blockHasFieldOfType(
+    block,
+    "savedQueryId",
+    isString
+  );
   const [moveBlockOpen, setMoveBlockOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const BlockComponent = BLOCK_COMPONENTS[block.type];
@@ -97,6 +140,48 @@ export default function DashboardBlock({
   useEffect(() => {
     if (editingBlock) setTimeout(() => scrollToBlock(), 100);
   }, [editingBlock]);
+
+  const {
+    snapshot,
+    analysis,
+    loading: dashboardSnapshotLoading,
+  } = useDashboardSnapshot(block, setBlock);
+  const { savedQueriesMap, loading: dashboardContextLoading } = useContext(
+    DashboardSnapshotContext
+  );
+  const savedQueryFromMap = blockHasSavedQuery
+    ? savedQueriesMap.get(block.savedQueryId)
+    : undefined;
+  // Use the API directly when the saved query hasn't been attached to the dashboard yet (when editing)
+  const shouldRun = () => blockHasSavedQuery && !savedQueryFromMap;
+  const { data: savedQueryData, isLoading: savedQueryLoading } = useApi<{
+    status: number;
+    savedQuery: SavedQuery;
+  }>(`/saved-queries/${blockHasSavedQuery ? block.savedQueryId : ""}`, {
+    shouldRun,
+  });
+  const blockSavedQuery = savedQueryFromMap ?? savedQueryData?.savedQuery;
+
+  const blockNeedsConfiguration =
+    (blockHasFieldOfType(block, "metricIds", isStringArray) &&
+      block.metricIds.length === 0) ||
+    (blockHasFieldOfType(block, "dimensionId", isString) &&
+      block.dimensionId.length === 0) ||
+    (blockHasMetric && block.metricId.length === 0) ||
+    (blockHasSavedQuery && block.savedQueryId.length === 0) ||
+    (blockHasFieldOfType(block, "dataVizConfigIndex", isNumber) &&
+      (block.dataVizConfigIndex === -1 ||
+        !blockSavedQuery?.dataVizConfig?.[block.dataVizConfigIndex]));
+
+  const blockMetricsInvalid =
+    (blockHasFieldOfType(block, "metricIds", isStringArray) &&
+      !!block.metricIds.find(
+        (metricId) => !getExperimentMetricById(metricId)
+      )) ||
+    (blockHasMetric && !blockMetric);
+
+  const blockMissingHealthCheck =
+    block.type === "traffic-graph" && !snapshot?.health?.traffic;
 
   return (
     <Flex
@@ -213,13 +298,51 @@ export default function DashboardBlock({
       </Flex>
       <Text>{block.description}</Text>
 
-      <BlockComponent
-        block={block}
-        setBlock={setBlock}
-        isEditing={isEditing}
-        experiment={experiment}
-        mutate={mutate}
-      />
+      {/* Check for possible error states to ensure block component has all necessary data */}
+      {dashboardSnapshotLoading ||
+      dashboardContextLoading ||
+      (blockHasSavedQuery && savedQueryLoading) ? (
+        <BlockLoadingSnapshot />
+      ) : blockHasExperiment && !blockExperiment ? (
+        <BlockMissingExperiment block={block} />
+      ) : blockNeedsConfiguration ? (
+        <BlockNeedsConfiguration block={block} />
+      ) : blockMetricsInvalid ? (
+        <BlockMetricsInvalid block={block} />
+      ) : !snapshot || !analysis || !analysis.results[0] ? (
+        <BlockMissingData />
+      ) : blockMissingHealthCheck ? (
+        <BlockMissingHealthCheck />
+      ) : blockHasSavedQuery ? (
+        !blockSavedQuery ? (
+          <BlockMissingSavedQuery block={block} />
+        ) : (
+          <SqlExplorerBlock
+            block={block}
+            setBlock={setBlock}
+            isEditing={isEditing}
+            experiment={
+              blockHasExperiment ? blockExperiment! : dashboardExperiment
+            }
+            snapshot={snapshot}
+            analysis={analysis}
+            savedQuery={blockSavedQuery}
+            mutate={mutate}
+          />
+        )
+      ) : (
+        <BlockComponent
+          block={block}
+          setBlock={setBlock}
+          isEditing={isEditing}
+          experiment={
+            blockHasExperiment ? blockExperiment! : dashboardExperiment
+          }
+          snapshot={snapshot}
+          analysis={analysis}
+          mutate={mutate}
+        />
+      )}
     </Flex>
   );
 }
