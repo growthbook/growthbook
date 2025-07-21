@@ -42,6 +42,7 @@ import {
 import { hoursBetween } from "shared/dates";
 import { v4 as uuidv4 } from "uuid";
 import { differenceInHours } from "date-fns";
+import { Response } from "express";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { MetricPriorSettings } from "back-end/types/fact-table";
 import {
@@ -90,6 +91,7 @@ import { SegmentInterface } from "back-end/types/segment";
 import {
   Changeset,
   ExperimentInterface,
+  ExperimentInterfaceStringDates,
   ExperimentPhase,
   LinkedFeatureEnvState,
   LinkedFeatureInfo,
@@ -3202,4 +3204,71 @@ export async function computeResultsStatus({
       sequentialTesting: analysis.settings.sequentialTesting ?? false,
     },
   };
+}
+
+export async function validateExperimentData(
+  context: ReqContext,
+  data: Partial<ExperimentInterfaceStringDates>,
+  res: Response
+): Promise<
+  { metricIds: string[]; datasource: DataSourceInterface | null } | undefined
+> {
+  let datasource: DataSourceInterface | null = null;
+  if (data.datasource) {
+    datasource = await getDataSourceById(context, data.datasource);
+    if (!datasource) {
+      res.status(403).json({
+        status: 403,
+        message: "Invalid datasource: " + data.datasource,
+      });
+      return;
+    }
+  }
+
+  // Validate that specified metrics exist and belong to the organization
+  const metricIds = getAllMetricIdsFromExperiment(data);
+  if (metricIds.length) {
+    const map = await getMetricMap(context);
+    for (let i = 0; i < metricIds.length; i++) {
+      const metric = map.get(metricIds[i]);
+      if (metric) {
+        // Make sure it is tied to the same datasource as the experiment
+        if (data.datasource && metric.datasource !== data.datasource) {
+          res.status(400).json({
+            status: 400,
+            message:
+              "Metrics must be tied to the same datasource as the experiment: " +
+              metricIds[i],
+          });
+          return;
+        }
+      } else {
+        // check to see if this metric is actually a metric group
+        const metricGroup = await context.models.metricGroups.getById(
+          metricIds[i]
+        );
+        if (metricGroup) {
+          // Make sure it is tied to the same datasource as the experiment
+          if (data.datasource && metricGroup.datasource !== data.datasource) {
+            res.status(400).json({
+              status: 400,
+              message:
+                "Metric group must be tied to the same datasource as the experiment: " +
+                metricIds[i],
+            });
+            return;
+          }
+        } else {
+          // new metric that's not recognized...
+          res.status(403).json({
+            status: 403,
+            message: "Unknown metric: " + metricIds[i],
+          });
+          return;
+        }
+      }
+    }
+  }
+
+  return { metricIds, datasource };
 }

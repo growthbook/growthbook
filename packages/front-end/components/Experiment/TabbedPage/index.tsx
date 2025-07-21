@@ -487,7 +487,6 @@ export default function TabbedPage({
           setVariationFilter={setVariationFilter}
           metricFilter={metricFilter}
           setMetricFilter={setMetricFilter}
-          holdout={holdout}
         />
       </div>
       <div

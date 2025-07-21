@@ -23,8 +23,8 @@ import LinkedExperimentsTable from "@/components/Holdout/LinkedExperimentsTable"
 import LinkedFeaturesTable from "@/components/Holdout/LinkedFeaturesTable";
 import EditEnvironmentsModal from "@/components/Holdout/EditEnvironmentsModal";
 import Link from "@/components/Radix/Link";
-import HoldoutEnvironments from "./HoldoutEnvironments";
 import Badge from "@/components/Radix/Badge";
+import HoldoutEnvironments from "./HoldoutEnvironments";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -159,7 +159,7 @@ export default function Implementation({
         {experiment.type === "holdout" && holdout && (
           <HoldoutEnvironments
             editEnvironments={() => setShowEditEnvironmentsModal(true)}
-            environments={holdout.environments ?? []}
+            environments={holdout.environmentSettings ?? {}}
           />
         )}
         {experiment.type === "holdout" && holdout && (

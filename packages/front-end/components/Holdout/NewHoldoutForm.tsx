@@ -18,6 +18,7 @@ import { Box, TextField, Tooltip, Text } from "@radix-ui/themes";
 import Collapsible from "react-collapsible";
 import { PiCaretRightFill } from "react-icons/pi";
 import { FeatureEnvironment } from "back-end/types/feature";
+import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import { useWatching } from "@/services/WatchProvider";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -61,13 +62,14 @@ import MetricSelector from "../Experiment/MetricSelector";
 import { MetricsSelectorTooltip } from "../Experiment/MetricsSelector";
 import StatsEngineSelect from "../Settings/forms/StatsEngineSelect";
 import EnvironmentSelect from "../Features/FeatureModal/EnvironmentSelect";
+import MultiSelectField from "../Forms/MultiSelectField";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
 
 export type NewExperimentFormProps = {
   initialStep?: number;
-  initialValue?: Partial<ExperimentInterfaceStringDates>;
+  initialValue?: Partial<ExperimentInterfaceStringDates & HoldoutInterface>;
   initialNumVariations?: number;
   isImport?: boolean;
   fromFeature?: boolean;
@@ -143,6 +145,7 @@ export const genEnvironmentSettings = ({
   const envSettings: Record<string, FeatureEnvironment> = {};
 
   environments.forEach((e) => {
+    // How should we handle a holdout having multiple projects here?
     const canPublish = permissions.canPublishFeature({ project }, [e.id]);
     const defaultEnabled = canPublish ? e.defaultState ?? true : false;
     const enabled = canPublish ? defaultEnabled : false;
@@ -173,9 +176,6 @@ const NewHoldoutForm: FC<NewExperimentFormProps> = ({
 
   const router = useRouter();
   const [step, setStep] = useState(initialStep || 0);
-  const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] = useState(
-    false
-  );
 
   const {
     datasources,
@@ -207,11 +207,11 @@ const NewHoldoutForm: FC<NewExperimentFormProps> = ({
   const permissionsUtils = usePermissionsUtil();
   const { refreshWatching } = useWatching();
 
-  const { data: sdkConnectionsData } = useSDKConnections();
-  const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
-    sdkConnectionsData?.connections,
-    project
-  );
+  // const { data: sdkConnectionsData } = useSDKConnections();
+  // const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
+  //   sdkConnectionsData?.connections,
+  //   project
+  // );
 
   const [conditionKey, forceConditionRender] = useIncrementer();
 
@@ -224,27 +224,14 @@ const NewHoldoutForm: FC<NewExperimentFormProps> = ({
     ? "id"
     : hashAttributes[0] || "id";
 
-  const form = useForm<Partial<ExperimentInterfaceStringDates>>({
+  const form = useForm<
+    Partial<ExperimentInterfaceStringDates & HoldoutInterface>
+  >({
     defaultValues: {
-      project: initialValue?.project || project || "",
-      trackingKey: initialValue?.trackingKey || "",
-      ...getNewExperimentDatasourceDefaults(
-        datasources,
-        settings,
-        initialValue?.project || project || "",
-        initialValue
-      ),
+      projects: initialValue?.projects || [],
       name: initialValue?.name || "",
-      hypothesis: initialValue?.hypothesis || "",
       activationMetric: initialValue?.activationMetric || "",
       hashAttribute: initialValue?.hashAttribute || hashAttribute,
-      hashVersion:
-        initialValue?.hashVersion || (hasSDKWithNoBucketingV2 ? 1 : 2),
-      disableStickyBucketing: initialValue?.disableStickyBucketing ?? false,
-      attributionModel:
-        initialValue?.attributionModel ??
-        settings?.attributionModel ??
-        "firstExposure",
       goalMetrics: initialValue?.goalMetrics || [],
       secondaryMetrics: initialValue?.secondaryMetrics || [],
       variations: getDefaultVariations(2),
@@ -262,18 +249,24 @@ const NewHoldoutForm: FC<NewExperimentFormProps> = ({
         },
       ],
       status: "draft",
-      customFields: initialValue?.customFields,
       regressionAdjustmentEnabled:
         scopedSettings.regressionAdjustmentEnabled.value,
+      environmentSettings:
+        initialValue?.environmentSettings ||
+        genEnvironmentSettings({
+          environments,
+          permissions: permissionsUtils,
+          project,
+        }),
     },
   });
 
-  const [selectedProject, setSelectedProject] = useState(form.watch("project"));
-  const customFields = filterCustomFieldsForSectionAndProject(
-    useCustomFields(),
-    "experiment",
-    selectedProject
-  );
+  // TODO: add custom fields back in when we have a way to filter them by multiple projects
+  // const customFields = filterCustomFieldsForSectionAndProject(
+  //   useCustomFields(),
+  //   "experiment",
+  //   selectedProject
+  // );
 
   const datasource = form.watch("datasource")
     ? getDatasourceById(form.watch("datasource") ?? "")
@@ -321,32 +314,14 @@ const NewHoldoutForm: FC<NewExperimentFormProps> = ({
 
     const body = JSON.stringify(data);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const params: Record<string, any> = {};
-    if (allowDuplicateTrackingKey) {
-      params.allowDuplicateTrackingKey = true;
-    }
-    if (duplicate && initialValue?.id) {
-      params.originalId = initialValue.id;
-    }
-
-    params.isHoldout = true;
-
-    const res = await apiCall<
-      | { experiment: ExperimentInterfaceStringDates; holdoutId?: string }
-      | { duplicateTrackingKey: true; existingId: string; isHoldout: true }
-    >(`/experiments?${new URLSearchParams(params).toString()}`, {
+    const res = await apiCall<{
+      experiment: ExperimentInterfaceStringDates;
+      holdout: HoldoutInterface;
+    }>("/holdout", {
       method: "POST",
       body,
     });
     mutate?.();
-
-    if ("duplicateTrackingKey" in res) {
-      setAllowDuplicateTrackingKey(true);
-      throw new Error(
-        "Warning: An experiment with that tracking key already exists. To continue anyway, click 'Save' again."
-      );
-    }
 
     // TODO remove if data correlates
     track("Create Holdout", {
@@ -359,9 +334,9 @@ const NewHoldoutForm: FC<NewExperimentFormProps> = ({
 
     data.tags && refreshTags(data.tags);
     if (onCreate) {
-      onCreate(res.experiment.id);
-    } else if (res.holdoutId) {
-      router.push(`/holdout/${res.holdoutId}`);
+      onCreate(res.holdout.id);
+    } else if (res.holdout) {
+      router.push(`/holdout/${res.holdout.id}`);
     }
   });
 
@@ -388,9 +363,7 @@ const NewHoldoutForm: FC<NewExperimentFormProps> = ({
 
   const [linkNameWithTrackingKey, _setLinkNameWithTrackingKey] = useState(true);
 
-  let header = isNewExperiment
-    ? "Add new Holdout"
-    : "Add new Experiment Analysis";
+  let header = "Add new Holdout";
   if (duplicate) {
     header = "Duplicate Holdout";
   }
@@ -400,11 +373,7 @@ const NewHoldoutForm: FC<NewExperimentFormProps> = ({
     setValueAs: (s) => s?.trim(),
   });
 
-  const environmentSettings = genEnvironmentSettings({
-    environments,
-    permissions: permissionsUtils,
-    project,
-  });
+  const environmentSettings = form.watch("environmentSettings") || {};
 
   return (
     <FormProvider {...form}>
@@ -461,19 +430,25 @@ const NewHoldoutForm: FC<NewExperimentFormProps> = ({
                 form.setValue("trackingKey", trackingKey);
               }}
             />
-
-            {projects.length >= 1 && (
+            {projects?.length > 0 && (
               <div className="form-group">
-                <label>Project</label>
-                <SelectField
-                  value={form.watch("project") ?? ""}
-                  onChange={(p) => {
-                    form.setValue("project", p);
-                    setSelectedProject(p);
-                  }}
-                  name="project"
-                  initialOption={allowAllProjects ? "All Projects" : undefined}
+                <MultiSelectField
+                  label={
+                    <>
+                      Projects{" "}
+                      <Tooltip
+                        content={
+                          "The dropdown below has been filtered to only include projects where you have permission to create Holdouts."
+                        }
+                      />
+                    </>
+                  }
+                  placeholder="All projects"
+                  value={form.watch("projects") || []}
                   options={availableProjects}
+                  onChange={(v) => form.setValue("projects", v)}
+                  customClassName="label-overflow-ellipsis"
+                  helpText="Assign this holdout to specific projects"
                 />
               </div>
             )}
@@ -502,7 +477,7 @@ const NewHoldoutForm: FC<NewExperimentFormProps> = ({
                 form.setValue("environmentSettings", environmentSettings);
               }}
             />
-            {hasCommercialFeature("custom-metadata") && !!customFields?.length && (
+            {/* {hasCommercialFeature("custom-metadata") && !!customFields?.length && (
               <CustomFieldInput
                 customFields={customFields}
                 currentCustomFields={form.watch("customFields") || {}}
@@ -512,7 +487,7 @@ const NewHoldoutForm: FC<NewExperimentFormProps> = ({
                 section={"experiment"}
                 project={selectedProject}
               />
-            )}
+            )} */}
           </div>
         </Page>
         <Page display="Traffic">
@@ -694,7 +669,7 @@ const NewHoldoutForm: FC<NewExperimentFormProps> = ({
             transitionTime={100}
           >
             <div className="rounded px-3 pt-3 pb-1 bg-highlight">
-              {!!datasource && (
+              {/* {!!datasource && (
                 <MetricSelector
                   datasource={form.watch("datasource")}
                   exposureQueryId={exposureQueryId}
@@ -714,26 +689,6 @@ const NewHoldoutForm: FC<NewExperimentFormProps> = ({
                     form.setValue("activationMetric", value || "")
                   }
                   helpText="Users must convert on this metric before being included"
-                />
-              )}
-              {/* 
-              {datasource?.properties?.separateExperimentResultQueries && (
-                <SelectField
-                  label="Metric Conversion Windows"
-                  labelClassName="font-weight-bold"
-                  value={form.watch("skipPartialData")}
-                  onChange={(value) => form.setValue("skipPartialData", value)}
-                  options={[
-                    {
-                      label: "Include In-Progress Conversions",
-                      value: "loose",
-                    },
-                    {
-                      label: "Exclude In-Progress Conversions",
-                      value: "strict",
-                    },
-                  ]}
-                  helpText="For users not enrolled in the experiment long enough to complete conversion window"
                 />
               )} */}
               <StatsEngineSelect

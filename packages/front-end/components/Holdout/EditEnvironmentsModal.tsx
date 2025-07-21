@@ -37,7 +37,9 @@ const EditEnvironmentsModal = ({
       holdout: HoldoutInterface;
     }>(`/holdout/${holdout.id}`, {
       method: "PUT",
-      body: JSON.stringify({ holdout: rawValue }),
+      body: JSON.stringify({
+        environmentSettings: rawValue.environmentSettings,
+      }),
     });
     mutate();
   });
@@ -54,6 +56,7 @@ const EditEnvironmentsModal = ({
       size="lg"
     >
       <div className="px-2">
+        {/* TODO: add warning states */}
         <EnvironmentSelect
           environmentSettings={environmentSettings}
           environments={environments}

@@ -1,16 +1,32 @@
-// region GET /holdout/:id
-
 import type { Response } from "express";
-import { ExperimentInterface } from "back-end/types/experiment";
+import { getValidDate } from "shared/dates";
+import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
+import { v4 as uuidv4 } from "uuid";
+import {
+  ExperimentInterface,
+  ExperimentInterfaceStringDates,
+} from "back-end/types/experiment";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {
+  createExperiment,
+  getAllExperiments,
   getExperimentById,
   getExperimentsByIds,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { FeatureInterface } from "back-end/types/feature";
+import { logger } from "back-end/src/util/logger";
+import {
+  createExperimentSnapshot,
+  SNAPSHOT_TIMEOUT,
+  validateVariationIds,
+} from "back-end/src/controllers/experiments";
+import { validateExperimentData } from "back-end/src/services/experiments";
+import { auditDetailsCreate } from "back-end/src/services/audit";
+import { EventUserForResponseLocals } from "back-end/src/events/event-types";
+import { PrivateApiErrorResponse } from "back-end/types/api";
 import { HoldoutInterface } from "./holdout.validators";
 
 /**
@@ -69,11 +85,243 @@ export const getHoldout = async (
     experiment: holdoutExperiment,
     linkedFeatures,
     linkedExperiments,
-    envs: holdout.environments,
+    envs: Object.keys(holdout.environmentSettings).filter(
+      (e) => holdout.environmentSettings[e].enabled
+    ),
   });
 };
 
 // endregion GET /holdout/:id
+
+// region POST /holdout
+
+export const createHoldout = async (
+  req: AuthRequest<
+    Partial<ExperimentInterfaceStringDates> & Partial<HoldoutInterface>,
+    unknown,
+    { autoRefreshResults?: boolean }
+  >,
+  res: Response<
+    | {
+        status: 200;
+        experiment: ExperimentInterface;
+        holdout: HoldoutInterface;
+      }
+    | PrivateApiErrorResponse,
+    EventUserForResponseLocals
+  >
+) => {
+  const context = getContextFromReq(req);
+  const { org, userId } = context;
+
+  const data = req.body;
+  data.organization = org.id;
+
+  if (!context.permissions.canCreateExperiment(data)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const result = await validateExperimentData(context, data, res);
+  // If datasource or metrics are invalid, return
+  if (!result) {
+    return;
+  }
+  const { metricIds, datasource } = result;
+
+  const obj: Omit<ExperimentInterface, "id" | "uid"> = {
+    organization: data.organization,
+    archived: false,
+    hashAttribute: data.hashAttribute || "",
+    fallbackAttribute: data.fallbackAttribute || "",
+    hashVersion: 2,
+    disableStickyBucketing: data.disableStickyBucketing ?? false, // Do we want sticky bucketing for holdouts?
+    autoSnapshots: true,
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    project: "",
+    owner: data.owner || userId,
+    trackingKey: `holdout-${uuidv4()}`,
+    datasource: data.datasource || "",
+    exposureQueryId: data.exposureQueryId || "",
+    userIdType: data.userIdType || "anonymous",
+    name: data.name || "",
+    phases: data.phases
+      ? data.phases.map(({ dateStarted, dateEnded, ...phase }) => {
+          return {
+            ...phase,
+            dateStarted: dateStarted ? getValidDate(dateStarted) : new Date(),
+            dateEnded: dateEnded ? getValidDate(dateEnded) : undefined,
+          };
+        })
+      : [],
+    tags: data.tags || [],
+    description: data.description || "",
+    hypothesis: "",
+    goalMetrics: data.goalMetrics || [],
+    secondaryMetrics: data.secondaryMetrics || [],
+    guardrailMetrics: [],
+    activationMetric: "",
+    metricOverrides: [],
+    segment: "",
+    queryFilter: "",
+    skipPartialData: false,
+    attributionModel: "firstExposure",
+    variations: data.variations || [],
+    implementation: "code",
+    status: "draft",
+    results: undefined,
+    analysis: "",
+    releasedVariationId: "",
+    excludeFromPayload: true,
+    autoAssign: false,
+    previewURL: "",
+    targetURLRegex: "",
+    // todo: revisit this logic for project level settings, as well as "override stats settings" toggle:
+    sequentialTestingEnabled:
+      data.sequentialTestingEnabled ??
+      !!org?.settings?.sequentialTestingEnabled,
+    sequentialTestingTuningParameter:
+      data.sequentialTestingTuningParameter ??
+      org?.settings?.sequentialTestingTuningParameter ??
+      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+    regressionAdjustmentEnabled: data.regressionAdjustmentEnabled ?? undefined,
+    statsEngine: data.statsEngine,
+    type: "holdout",
+    customFields: data.customFields || undefined,
+    shareLevel: data.shareLevel || "organization",
+    decisionFrameworkSettings: {},
+  };
+
+  try {
+    validateVariationIds(obj.variations);
+
+    // // Make sure id is unique
+    // if (obj.trackingKey) {
+    //   const existing = await getExperimentByTrackingKey(
+    //     context,
+    //     obj.trackingKey
+    //   );
+    //   if (existing) {
+    //     return res.status(200).json({
+    //       status: 200,
+    //       duplicateTrackingKey: true,
+    //       existingId: existing.id,
+    //     });
+    //   }
+    // }
+
+    const experiment = await createExperiment({
+      data: obj,
+      context,
+    });
+
+    const holdout = await context.models.holdout.create({
+      experimentId: experiment.id,
+      projects: experiment.project ? [experiment.project] : [],
+      name: experiment.name,
+      environmentSettings: data.environmentSettings || {},
+      linkedFeatures: [],
+      linkedExperiments: [],
+    });
+
+    if (!holdout) {
+      throw new Error("Failed to create holdout");
+    }
+
+    if (datasource && req.query.autoRefreshResults && metricIds.length > 0) {
+      // This is doing an expensive analytics SQL query, so may take a long time
+      // Set timeout to 30 minutes
+      req.setTimeout(SNAPSHOT_TIMEOUT);
+
+      try {
+        await createExperimentSnapshot({
+          context,
+          experiment,
+          datasource,
+          dimension: "",
+          phase: 0,
+          useCache: true,
+        });
+      } catch (e) {
+        logger.error(e, "Failed to auto-refresh imported experiment");
+      }
+    }
+
+    await req.audit({
+      event: "experiment.create",
+      entity: {
+        object: "experiment",
+        id: experiment.id,
+      },
+      details: auditDetailsCreate(experiment),
+    });
+
+    // await upsertWatch({
+    //   userId,
+    //   organization: org.id,
+    //   item: experiment.id,
+    //   type: "experiments",
+    // });
+
+    res.status(200).json({
+      status: 200,
+      experiment,
+      holdout: holdout,
+    });
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      message: e.message,
+    });
+  }
+};
+
+// endregion POST /holdout
+
+// region GET /holdouts
+
+export const getHoldouts = async (
+  req: AuthRequest,
+  res: Response<{
+    status: 200 | 404;
+    holdouts: HoldoutInterface[];
+    experiments: ExperimentInterface[];
+  }>
+) => {
+  const context = getContextFromReq(req);
+  const holdouts = await context.models.holdout.getAll();
+  const experiments = await getAllExperiments(context, {
+    type: "holdout",
+  });
+  res.status(200).json({ status: 200, holdouts, experiments });
+};
+
+// endregion GET /holdouts
+
+// region PUT /holdout/:id
+
+export const updateHoldout = async (
+  req: AuthRequest<Partial<HoldoutInterface>, { id: string }>,
+  res: Response<{ status: 200 | 404; holdout?: HoldoutInterface }>
+) => {
+  const context = getContextFromReq(req);
+  const holdout = await context.models.holdout.getById(req.params.id);
+
+  if (!holdout) {
+    return res.status(404).json({ status: 404 });
+  }
+
+  const experiment = await getExperimentById(context, holdout.experimentId);
+
+  if (!experiment) {
+    return res.status(404).json({ status: 404 });
+  }
+
+  const updatedHoldout = await context.models.holdout.update(holdout, req.body);
+  return res.status(200).json({ status: 200, holdout: updatedHoldout });
+};
+
+// endregion PUT /holdout/:id
 
 // region POST /holdout/:id/start-analysis
 

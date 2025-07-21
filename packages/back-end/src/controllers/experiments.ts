@@ -35,6 +35,7 @@ import {
   resetExperimentBanditSettings,
   SnapshotAnalysisParams,
   updateExperimentBanditSettings,
+  validateExperimentData,
 } from "back-end/src/services/experiments";
 import { MetricInterface, MetricStats } from "back-end/types/metric";
 import {
@@ -629,65 +630,14 @@ export async function postExperiments(
     context.permissions.throwPermissionError();
   }
 
-  let datasource: DataSourceInterface | null = null;
-  if (data.datasource) {
-    datasource = await getDataSourceById(context, data.datasource);
-    if (!datasource) {
-      res.status(403).json({
-        status: 403,
-        message: "Invalid datasource: " + data.datasource,
-      });
-      return;
-    }
+  const result = await validateExperimentData(context, data, res);
+  // If datasource or metrics are invalid, return early
+  if (!result) {
+    return;
   }
+  const { metricIds, datasource } = result;
 
-  // Validate that specified metrics exist and belong to the organization
-  const metricIds = getAllMetricIdsFromExperiment(data);
-  if (metricIds.length) {
-    const map = await getMetricMap(context);
-    for (let i = 0; i < metricIds.length; i++) {
-      const metric = map.get(metricIds[i]);
-      if (metric) {
-        // Make sure it is tied to the same datasource as the experiment
-        if (data.datasource && metric.datasource !== data.datasource) {
-          res.status(400).json({
-            status: 400,
-            message:
-              "Metrics must be tied to the same datasource as the experiment: " +
-              metricIds[i],
-          });
-          return;
-        }
-      } else {
-        // check to see if this metric is actually a metric group
-        const metricGroup = await context.models.metricGroups.getById(
-          metricIds[i]
-        );
-        if (metricGroup) {
-          // Make sure it is tied to the same datasource as the experiment
-          if (data.datasource && metricGroup.datasource !== data.datasource) {
-            res.status(400).json({
-              status: 400,
-              message:
-                "Metric group must be tied to the same datasource as the experiment: " +
-                metricIds[i],
-            });
-            return;
-          }
-        } else {
-          // new metric that's not recognized...
-          res.status(403).json({
-            status: 403,
-            message: "Unknown metric: " + metricIds[i],
-          });
-          return;
-        }
-      }
-    }
-  }
-
-  const experimentType =
-    data.type ?? (req.query.isHoldout ? "holdout" : "standard");
+  const experimentType = data.type ?? "standard";
 
   const obj: Omit<ExperimentInterface, "id" | "uid"> = {
     organization: data.organization,

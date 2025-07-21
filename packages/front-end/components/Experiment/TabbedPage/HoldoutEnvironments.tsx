@@ -1,8 +1,10 @@
+import { FeatureEnvironment } from "back-end/types/feature";
+
 export default function HoldoutEnvironments({
   environments,
   editEnvironments,
 }: {
-  environments: string[];
+  environments: Record<string, FeatureEnvironment>;
   editEnvironments: () => void;
 }) {
   return (
@@ -14,7 +16,11 @@ export default function HoldoutEnvironments({
           Edit
         </button>
       </div>
-      <div>{environments.join(", ")}</div>
+      <div>
+        {Object.keys(environments)
+          .filter((e) => environments[e].enabled)
+          .join(", ")}
+      </div>
     </div>
   );
 }

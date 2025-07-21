@@ -29,12 +29,10 @@ export const holdoutValidator = z
     experimentId: z.string(),
     linkedExperiments: z.array(holdoutLinkedItemValidator),
     linkedFeatures: z.array(holdoutLinkedItemValidator),
-    environments: z.array(z.string()),
-    environmentSettings: z.record(z.string(), featureEnvironment).optional(),
+    environmentSettings: z.record(z.string(), featureEnvironment),
     analysisStartDate: z.date().optional(),
     holdoutStopDate: z.date().optional(),
     holdoutStartDate: z.date().optional(),
-    analysisSettings: analysisSettingsValidator,
   })
   .strict();
 
