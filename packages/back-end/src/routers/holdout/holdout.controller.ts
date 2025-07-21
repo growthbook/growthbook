@@ -344,6 +344,7 @@ export const startAnalysis = async (
   }
   // this deletes the old analysis phase and create a new one when ever the user ends the analysis
   const currentPhase = experiment.phases[0];
+
   const phases = [
     experiment.phases[0],
     {

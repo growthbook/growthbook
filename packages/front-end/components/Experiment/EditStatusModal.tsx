@@ -81,25 +81,39 @@ export default function EditStatusModal({
       header={isHoldout ? "Change Holdout Status" : "Change Experiment Status"}
       close={close}
       open={true}
-      submit={form.handleSubmit(async (value) => {
-        const status = value.status;
-        if (
-          holdout &&
-          status === "analysis" &&
-          experiment.status === "running"
-        ) {
-          await apiCall(`/holdout/${holdout.id}/start-analysis`, {
-            method: "POST",
-          });
-          mutate();
-        } else {
-          await apiCall(`/experiment/${experiment.id}/status`, {
-            method: "POST",
-            body: JSON.stringify(value),
-          });
-          mutate();
+      submit={form.handleSubmit(
+        async (value: {
+          status: ExperimentStatus | "analysis";
+          reason: string;
+          dateEnded: string;
+          holdoutRunningStatus?: "running" | "analysis-period";
+        }) => {
+          const status = value.status;
+          if (isHoldout && status === "analysis") {
+            value.holdoutRunningStatus = "analysis-period";
+            value.status = "running";
+          } else if (isHoldout && status === "running") {
+            value.holdoutRunningStatus = "running";
+            value.status = "running";
+          }
+          if (
+            holdout &&
+            status === "analysis" &&
+            experiment.status === "running"
+          ) {
+            await apiCall(`/holdout/${holdout.id}/start-analysis`, {
+              method: "POST",
+            });
+            mutate();
+          } else {
+            await apiCall(`/experiment/${experiment.id}/status`, {
+              method: "POST",
+              body: JSON.stringify(value),
+            });
+            mutate();
+          }
         }
-      })}
+      )}
     >
       {hasLinkedChanges && (
         <div className="alert alert-danger">
