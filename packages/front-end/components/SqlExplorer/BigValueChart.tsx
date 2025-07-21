@@ -1,3 +1,4 @@
+import { Flex, Heading, Text } from "@radix-ui/themes";
 import React from "react";
 
 type Props = {
@@ -10,11 +11,22 @@ export default function BigValueChart({ value, label }: Props) {
     return <div style={{ textAlign: "center", color: "#888" }}>No data</div>;
   }
   return (
-    <div style={{ textAlign: "center", padding: "2rem" }}>
-      <div style={{ fontSize: "3rem", fontWeight: "bold" }}>{value}</div>
+    <Flex
+      align="center"
+      justify="center"
+      direction="column"
+      height="100%"
+      pt="2"
+      pb="2"
+    >
+      <Heading as="h1" size="9">
+        {value}
+      </Heading>
       {label && (
-        <div style={{ fontSize: "1.2rem", color: "#888" }}>{label}</div>
+        <Text as="div" size="3" color="gray">
+          {label}
+        </Text>
       )}
-    </div>
+    </Flex>
   );
 }
