@@ -49,7 +49,7 @@ export default function ExperimentMetricTimeSeriesGraphWrapperWithErrorBoundary(
   );
 }
 
-export function ExperimentMetricTimeSeriesGraphWrapper({
+function ExperimentMetricTimeSeriesGraphWrapper({
   experimentId,
   experimentStatus,
   metric,
