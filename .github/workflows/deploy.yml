@@ -86,12 +86,6 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Generate sentry sourcemaps
-        run: |
-          npm install -g @sentry/cli
-          npm exec sentry-cli -- sourcemaps inject ./back-end-dist
-          npm exec sentry-cli -- sourcemaps inject ./front-end-dist
-
       - name: Checkout code
         uses: actions/checkout@v4
         with:
@@ -101,7 +95,7 @@ jobs:
         uses: getsentry/action-release@v3
         with:
           environment: "production"
-          sourcemaps: "./back-end-dist/"
+          sourcemaps: "back-end-dist/"
           release: ${{ github.sha }}
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
@@ -112,7 +106,7 @@ jobs:
         uses: getsentry/action-release@v3
         with:
           environment: "production"
-          sourcemaps: "./front-end-dist/"
+          sourcemaps: "front-end-dist/"
           release: ${{ github.sha }}
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
