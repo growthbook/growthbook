@@ -1,4 +1,4 @@
-import * as Sentry from "@sentry/react";
+import * as Sentry from "@sentry/nextjs";
 import { useRouter } from "next/router";
 import { useEffect } from "react";
 import { isSentryEnabled } from "@/services/env";
