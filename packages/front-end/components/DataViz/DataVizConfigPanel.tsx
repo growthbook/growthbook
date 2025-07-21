@@ -149,7 +149,6 @@ export default function DataVizConfigPanel({
             placeholder="Select Value Column"
           >
             {axisKeys
-              //MKTODO: Validate this number logic
               .filter((key) => typeof sampleRow[key] === "number")
               .map((key) => (
                 <SelectItem key={key} value={key}>
