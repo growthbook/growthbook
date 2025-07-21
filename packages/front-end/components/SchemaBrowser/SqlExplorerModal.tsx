@@ -196,7 +196,8 @@ export default function SqlExplorerModal({
     const dataVizConfig = form.watch("dataVizConfig") || [];
     // Validate each dataVizConfig object
     dataVizConfig.forEach((config, index) => {
-      if (!config.xAxis) {
+      // Big value charts don't require an x axis
+      if (config.chartType !== "big-value" && !config.xAxis) {
         setTab(`visualization-${index}`);
         throw new Error(
           `X axis is required for Visualization ${

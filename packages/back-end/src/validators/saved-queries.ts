@@ -52,8 +52,8 @@ export type dimensionAxisConfiguration = z.infer<
 
 export const dataVizConfigValidator = z.object({
   title: z.string().optional(),
-  chartType: z.enum(["bar", "line", "area", "scatter"]),
-  xAxis: xAxisConfigurationValidator,
+  chartType: z.enum(["bar", "line", "area", "scatter", "big-value"]),
+  xAxis: xAxisConfigurationValidator.optional(),
   yAxis: z.array(yAxisConfigurationValidator).nonempty(),
   dimension: z.array(dimensionAxisConfigurationValidator).nonempty().optional(),
 });
