@@ -354,11 +354,11 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
         <BlockMissingData />
       ) : blockMissingHealthCheck ? (
         <BlockMissingHealthCheck />
-      ) : Object.keys(objectProps).find(
+      ) : Object.keys(objectProps).some(
           (key) =>
             !isDefined(objectProps[key]) ||
             (Array.isArray(objectProps[key]) &&
-              objectProps[key].find((el) => !isDefined(el)))
+              objectProps[key].some((el) => !isDefined(el)))
         ) ? (
         <BlockObjectMissing block={block} />
       ) : (
