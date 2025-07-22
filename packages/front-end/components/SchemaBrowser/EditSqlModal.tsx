@@ -26,6 +26,7 @@ import {
   PanelGroup,
   PanelResizeHandle,
 } from "@/components/ResizablePanels";
+import Checkbox from "../Radix/Checkbox";
 import SchemaBrowser from "./SchemaBrowser";
 import { AreaWithHeader } from "./SqlExplorerModal";
 import styles from "./EditSqlModal.module.scss";
@@ -68,6 +69,7 @@ export default function EditSqlModal({
     setTestQueryResults,
   ] = useState<TestQueryResults | null>(null);
   const [testQueryBeforeSaving, setTestQueryBeforeSaving] = useState(true);
+  const [apply5RowLimit, setApply5RowLimit] = useState(true);
   const form = useForm({
     defaultValues: {
       sql: value,
@@ -110,6 +112,7 @@ export default function EditSqlModal({
           query: sql,
           datasourceId: datasourceId,
           templateVariables: templateVariables,
+          limit: apply5RowLimit ? 5 : undefined,
         }),
       });
 
@@ -129,6 +132,7 @@ export default function EditSqlModal({
       datasourceId,
       validateRequiredColumns,
       validateResponseOverride,
+      apply5RowLimit,
       // eslint-disable-next-line
       JSON.stringify(templateVariables),
     ]
@@ -236,12 +240,23 @@ export default function EditSqlModal({
                       >
                         SQL
                       </Text>
-                      <Flex gap="3">
+                      <Flex gap="3" align="center">
                         {formatError && (
                           <Tooltip body={formatError}>
                             <FaExclamationTriangle className="text-danger" />
                           </Tooltip>
                         )}
+                        {canRunQueries ? (
+                          <Checkbox
+                            label="Limit 5"
+                            weight="regular"
+                            value={apply5RowLimit}
+                            setValue={(v) => {
+                              setApply5RowLimit(v);
+                            }}
+                            mb="0"
+                          />
+                        ) : null}
                         {canFormat ? (
                           <RadixButton
                             size="xs"
