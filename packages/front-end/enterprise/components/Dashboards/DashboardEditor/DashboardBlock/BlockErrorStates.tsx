@@ -30,6 +30,15 @@ export function BlockObjectMissing({ block }: BlockErrorStateProps) {
   );
 }
 
+export function BlockRenderError({ block }: BlockErrorStateProps) {
+  return (
+    <Callout status="error">
+      Failed to render this {BLOCK_TYPE_INFO[block.type].name} block. Check the
+      settings for this block and ensure everything is present.
+    </Callout>
+  );
+}
+
 export function BlockLoadingSnapshot() {
   return (
     <Flex align="center" gap="2">

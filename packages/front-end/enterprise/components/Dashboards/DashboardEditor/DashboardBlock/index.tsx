@@ -21,6 +21,7 @@ import {
 import { SavedQuery } from "back-end/src/validators/saved-queries";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { isDefined } from "shared/util";
+import { ErrorBoundary } from "@sentry/react";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import Button from "@/components/Radix/Button";
 import {
@@ -52,6 +53,7 @@ import {
   BlockMissingData,
   BlockMissingHealthCheck,
   BlockObjectMissing,
+  BlockRenderError,
 } from "./BlockErrorStates";
 
 // Typescript helpers for passing objects to the block components based on id fields
@@ -359,15 +361,17 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
         ) ? (
         <BlockObjectMissing block={block} />
       ) : (
-        <BlockComponent
-          block={block}
-          setBlock={setBlock}
-          isEditing={isEditing}
-          snapshot={snapshot}
-          analysis={analysis}
-          mutate={mutate}
-          {...partialToFull(objectProps)}
-        />
+        <ErrorBoundary fallback={<BlockRenderError block={block} />}>
+          <BlockComponent
+            block={block}
+            setBlock={setBlock}
+            isEditing={isEditing}
+            snapshot={snapshot}
+            analysis={analysis}
+            mutate={mutate}
+            {...partialToFull(objectProps)}
+          />
+        </ErrorBoundary>
       )}
     </Flex>
   );
