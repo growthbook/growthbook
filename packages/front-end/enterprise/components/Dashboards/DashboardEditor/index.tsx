@@ -10,6 +10,7 @@ import { isDefined } from "shared/util";
 import { Flex, Heading, IconButton, Text } from "@radix-ui/themes";
 import clsx from "clsx";
 import { CREATE_BLOCK_TYPE, getBlockData } from "shared/enterprise";
+import { withErrorBoundary } from "@sentry/react";
 import Button from "@/components/Radix/Button";
 import {
   DropdownMenu,
@@ -18,6 +19,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/Radix/DropdownMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import Callout from "@/components/Radix/Callout";
 import DashboardBlock from "./DashboardBlock";
 import DashboardBlockEditDrawer from "./DashboardBlockEditDrawer";
 import DashboardUpdateDisplay from "./DashboardUpdateDisplay";
@@ -141,7 +143,7 @@ interface Props {
   mutate: () => void;
 }
 
-export default function DashboardEditor({
+function DashboardEditor({
   experiment,
   blocks,
   canEdit,
@@ -475,3 +477,7 @@ export default function DashboardEditor({
     </>
   );
 }
+
+export default withErrorBoundary(DashboardEditor, {
+  fallback: <Callout status="error">Failed to load dashboard</Callout>,
+});
