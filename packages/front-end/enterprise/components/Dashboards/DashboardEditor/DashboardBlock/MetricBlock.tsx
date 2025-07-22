@@ -2,18 +2,18 @@ import React, { useMemo } from "react";
 import { MetricBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
 import { isDefined } from "shared/util";
 import { groupBy } from "lodash";
-import { useDefinitions } from "@/services/DefinitionsContext";
+import { ExperimentMetricInterface } from "shared/experiments";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import { BlockProps } from ".";
 
 export default function MetricBlock({
-  block: { metricIds, baselineRow, columnsFilter, variationIds },
+  block: { baselineRow, columnsFilter, variationIds },
   experiment,
   analysis,
   ssrPolyfills,
+  metrics,
 }: BlockProps<MetricBlockInterface>) {
-  const { getExperimentMetricById } = useDefinitions();
   const {
     pValueCorrection: hookPValueCorrection,
     statsEngine: hookStatsEngine,
@@ -26,14 +26,20 @@ export default function MetricBlock({
   const pValueCorrection =
     ssrPolyfills?.useOrgSettings()?.pValueCorrection || hookPValueCorrection;
 
-  const sortedMetricIds = useMemo(() => {
-    const metricIdSet = new Set(metricIds);
+  const sortedMetrics: ExperimentMetricInterface[] = useMemo(() => {
+    const metricMap = new Map(metrics.map((m) => [m.id, m]));
     return [
-      ...experiment.goalMetrics.filter((m) => metricIdSet.has(m)),
-      ...experiment.secondaryMetrics.filter((m) => metricIdSet.has(m)),
-      ...experiment.guardrailMetrics.filter((m) => metricIdSet.has(m)),
+      ...experiment.goalMetrics
+        .map((mId) => metricMap.get(mId))
+        .filter(isDefined),
+      ...experiment.secondaryMetrics
+        .map((mId) => metricMap.get(mId))
+        .filter(isDefined),
+      ...experiment.guardrailMetrics
+        .map((mId) => metricMap.get(mId))
+        .filter(isDefined),
     ];
-  }, [metricIds, experiment]);
+  }, [metrics, experiment]);
 
   const variations = experiment.variations.map((v, i) => ({
     id: v.key || i + "",
@@ -58,38 +64,36 @@ export default function MetricBlock({
 
   const result = analysis.results[0];
 
-  const allRows = sortedMetricIds
-    .map((metricId) => {
-      const metric = getExperimentMetricById(metricId);
-      if (!metric) return;
+  const allRows = sortedMetrics
+    .map((metric) => {
       // Determine which group the metric belongs to
       let resultGroup: "goal" | "secondary" | "guardrail" = "goal";
-      if (experiment.secondaryMetrics.includes(metricId)) {
+      if (experiment.secondaryMetrics.includes(metric.id)) {
         resultGroup = "secondary";
-      } else if (experiment.guardrailMetrics.includes(metricId)) {
+      } else if (experiment.guardrailMetrics.includes(metric.id)) {
         resultGroup = "guardrail";
       }
       return {
         label: metric.name,
         metric,
         variations: result.variations.map((v) => ({
-          value: v.metrics[metricId]?.value || 0,
-          cr: v.metrics[metricId]?.cr || 0,
+          value: v.metrics[metric.id]?.value || 0,
+          cr: v.metrics[metric.id]?.cr || 0,
           users: v.users,
-          denominator: v.metrics[metricId]?.denominator,
-          ci: v.metrics[metricId]?.ci,
-          ciAdjusted: v.metrics[metricId]?.ciAdjusted,
-          expected: v.metrics[metricId]?.expected,
-          risk: v.metrics[metricId]?.risk,
-          riskType: v.metrics[metricId]?.riskType,
-          stats: v.metrics[metricId]?.stats,
-          pValue: v.metrics[metricId]?.pValue,
-          pValueAdjusted: v.metrics[metricId]?.pValueAdjusted,
-          uplift: v.metrics[metricId]?.uplift,
-          buckets: v.metrics[metricId]?.buckets,
-          chanceToWin: v.metrics[metricId]?.chanceToWin,
-          errorMessage: v.metrics[metricId]?.errorMessage,
-          power: v.metrics[metricId]?.power,
+          denominator: v.metrics[metric.id]?.denominator,
+          ci: v.metrics[metric.id]?.ci,
+          ciAdjusted: v.metrics[metric.id]?.ciAdjusted,
+          expected: v.metrics[metric.id]?.expected,
+          risk: v.metrics[metric.id]?.risk,
+          riskType: v.metrics[metric.id]?.riskType,
+          stats: v.metrics[metric.id]?.stats,
+          pValue: v.metrics[metric.id]?.pValue,
+          pValueAdjusted: v.metrics[metric.id]?.pValueAdjusted,
+          uplift: v.metrics[metric.id]?.uplift,
+          buckets: v.metrics[metric.id]?.buckets,
+          chanceToWin: v.metrics[metric.id]?.chanceToWin,
+          errorMessage: v.metrics[metric.id]?.errorMessage,
+          power: v.metrics[metric.id]?.power,
         })),
         resultGroup,
         metricOverrideFields: [],

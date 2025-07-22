@@ -80,3 +80,7 @@ export function isString(data: unknown): data is string {
 export function isNumber(data: unknown): data is number {
   return typeof data === "number";
 }
+
+export function partialToFull<T>(obj: Partial<T>): T {
+  return obj as T;
+}

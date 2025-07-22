@@ -1,12 +1,11 @@
 import { SqlExplorerBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
-import { SavedQuery } from "back-end/src/validators/saved-queries";
 import { SqlExplorerDataVisualization } from "@/components/DataViz/SqlExplorerDataVisualization";
 import { BlockProps } from ".";
 
 export default function SqlExplorerBlock({
   block,
   savedQuery,
-}: BlockProps<SqlExplorerBlockInterface> & { savedQuery: SavedQuery }) {
+}: BlockProps<SqlExplorerBlockInterface>) {
   const { dataVizConfigIndex } = block;
 
   const dataVizConfig = savedQuery.dataVizConfig?.[dataVizConfigIndex];

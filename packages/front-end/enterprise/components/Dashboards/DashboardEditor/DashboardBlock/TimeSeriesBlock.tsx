@@ -1,15 +1,15 @@
 import { TimeSeriesBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
 import ExperimentMetricTimeSeriesGraphWrapper from "@/components/Experiment/ExperimentMetricTimeSeriesGraphWrapper";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { BlockProps } from ".";
 
 export default function TimeSeriesBlock({
-  block: { metricId, variationIds },
+  block: { variationIds },
   experiment,
   snapshot,
   analysis,
   ssrPolyfills,
+  metric,
 }: BlockProps<TimeSeriesBlockInterface>) {
   const { pValueCorrection, statsEngine: hookStatsEngine } = useOrgSettings();
 
@@ -18,16 +18,11 @@ export default function TimeSeriesBlock({
     hookStatsEngine ||
     "frequentist";
 
-  const { getExperimentMetricById } = useDefinitions();
-
-  const metric = getExperimentMetricById(metricId);
-  if (!metric) return null; // Warning state handled by parent component
-
   // Determine which group the metric belongs to
   let resultGroup: "goal" | "secondary" | "guardrail" = "goal";
-  if (experiment.secondaryMetrics.includes(metricId)) {
+  if (experiment.secondaryMetrics.includes(metric.id)) {
     resultGroup = "secondary";
-  } else if (experiment.guardrailMetrics.includes(metricId)) {
+  } else if (experiment.guardrailMetrics.includes(metric.id)) {
     resultGroup = "guardrail";
   }
 

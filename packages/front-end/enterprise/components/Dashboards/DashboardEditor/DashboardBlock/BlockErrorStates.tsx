@@ -20,29 +20,12 @@ export function BlockNeedsConfiguration({ block }: BlockErrorStateProps) {
   );
 }
 
-export function BlockMissingExperiment({ block }: BlockErrorStateProps) {
+export function BlockObjectMissing({ block }: BlockErrorStateProps) {
   return (
-    <Callout status="warning">
-      Unable to find the experiment this {BLOCK_TYPE_INFO[block.type].name}{" "}
-      block was attached to.
-    </Callout>
-  );
-}
-
-export function BlockMissingSavedQuery({ block }: BlockErrorStateProps) {
-  return (
-    <Callout status="warning">
-      Unable to find the Saved Query specified for this{" "}
-      {BLOCK_TYPE_INFO[block.type].name} block.
-    </Callout>
-  );
-}
-
-export function BlockMetricsInvalid({ block }: BlockErrorStateProps) {
-  return (
-    <Callout status="warning">
-      Unable to find the metric(s) specified for this{" "}
-      {BLOCK_TYPE_INFO[block.type].name} block.
+    <Callout status="error">
+      Unable to find one or more references specified by this{" "}
+      {BLOCK_TYPE_INFO[block.type].name} block. Check the settings for this
+      block and ensure that everything is present.
     </Callout>
   );
 }
