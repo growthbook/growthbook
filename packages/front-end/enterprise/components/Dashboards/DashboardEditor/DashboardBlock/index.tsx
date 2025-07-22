@@ -130,7 +130,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
   mutate,
 }: Props<T>) {
   const { experimentsMap, loading: experimentsLoading } = useExperiments();
-  const { getExperimentMetricById } = useDefinitions();
+  const { getExperimentMetricById, ready: definitionsReady } = useDefinitions();
   const [moveBlockOpen, setMoveBlockOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const {
@@ -342,7 +342,8 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
       <Text>{block.description}</Text>
 
       {/* Check for possible error states to ensure block component has all necessary data */}
-      {experimentsLoading ||
+      {!definitionsReady ||
+      experimentsLoading ||
       dashboardSnapshotLoading ||
       dashboardContextLoading ||
       (blockHasSavedQuery && savedQueryLoading) ? (
