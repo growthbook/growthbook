@@ -63,6 +63,16 @@ jobs:
     needs: [docker]
     if: ${{ github.repository == 'growthbook/growthbook' }}
     steps:
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Configure AWS credentials for GrowthBook Cloud
         uses: aws-actions/configure-aws-credentials@v1
         with:
@@ -81,21 +91,11 @@ jobs:
           docker rm temp-container
           aws s3 sync ./static s3://growthbook-cloud-static-files/_next/static
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
       - name: Create Sentry api release
         uses: getsentry/action-release@v3
         with:
           environment: "production"
-          sourcemaps: "back-end-dist/"
+          sourcemaps: "./back-end-dist"
           release: ${{ github.sha }}
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
@@ -106,7 +106,7 @@ jobs:
         uses: getsentry/action-release@v3
         with:
           environment: "production"
-          sourcemaps: "front-end-dist/"
+          sourcemaps: "./front-end-dist"
           release: ${{ github.sha }}
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
