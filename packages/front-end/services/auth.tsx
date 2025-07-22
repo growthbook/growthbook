@@ -15,7 +15,7 @@ import {
   IdTokenResponse,
   UnauthenticatedResponse,
 } from "back-end/types/sso-connection";
-import * as Sentry from "@sentry/react";
+import * as Sentry from "@sentry/nextjs";
 import { roleSupportsEnvLimit } from "shared/permissions";
 import Modal from "@/components/Modal";
 import { DocLink } from "@/components/DocLink";
