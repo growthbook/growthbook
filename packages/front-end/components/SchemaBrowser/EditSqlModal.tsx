@@ -259,7 +259,7 @@ export default function EditSqlModal({
                         ) : null}
                         {canFormat ? (
                           <RadixButton
-                            size="xs"
+                            size="sm"
                             variant="ghost"
                             onClick={handleFormatClick}
                             disabled={!form.watch("sql")}
