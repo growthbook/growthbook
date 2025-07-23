@@ -8,6 +8,7 @@ import {
   getAutoCompletions,
 } from "@/services/sqlAutoComplete";
 import { CursorData } from "@/components/Segments/SegmentForm";
+import { InformationSchemaInterfaceWithPaths } from "@/services/datasources";
 
 /** This test suite tests the sqlAutoComplete logic - throughout the file you'll see different sql formats, especially with backticks
  * e.g. you'll see `analytics.public.table-users-123` and `analytics`.`public`.`table-events-456, and even analytics.public.table-users-123
@@ -26,6 +27,83 @@ type ApiCallFunction = (url: string, options?: RequestInit) => ApiCallReturn;
 
 // Mock data for testing
 const mockInformationSchema: InformationSchemaInterface = {
+  id: "schema-123",
+  datasourceId: "datasource-456",
+  organization: "test-org",
+  status: "COMPLETE",
+  refreshMS: 1000,
+  dateCreated: new Date("2023-01-01"),
+  dateUpdated: new Date("2023-01-01"),
+  databases: [
+    {
+      databaseName: "analytics",
+      // path: "`analytics`",
+      dateCreated: new Date("2023-01-01"),
+      dateUpdated: new Date("2023-01-01"),
+      schemas: [
+        {
+          schemaName: "public",
+          dateCreated: new Date("2023-01-01"),
+          dateUpdated: new Date("2023-01-01"),
+          tables: [
+            {
+              tableName: "table-users-123",
+              id: "table-users-123",
+              numOfColumns: 3,
+              dateCreated: new Date("2023-01-01"),
+              dateUpdated: new Date("2023-01-01"),
+            },
+            {
+              tableName: "table-events-456",
+              id: "table-events-456",
+              numOfColumns: 4,
+              dateCreated: new Date("2023-01-01"),
+              dateUpdated: new Date("2023-01-01"),
+            },
+          ],
+        },
+        {
+          schemaName: "staging",
+          dateCreated: new Date("2023-01-01"),
+          dateUpdated: new Date("2023-01-01"),
+          tables: [
+            {
+              tableName: "table-temp-789",
+              id: "table-temp-789",
+              numOfColumns: 2,
+              dateCreated: new Date("2023-01-01"),
+              dateUpdated: new Date("2023-01-01"),
+            },
+          ],
+        },
+      ],
+    },
+    {
+      databaseName: "warehouse",
+      dateCreated: new Date("2023-01-01"),
+      dateUpdated: new Date("2023-01-01"),
+      schemas: [
+        {
+          schemaName: "prod",
+          dateCreated: new Date("2023-01-01"),
+          dateUpdated: new Date("2023-01-01"),
+          tables: [
+            {
+              tableName: "table-orders-999",
+              id: "table-orders-999",
+              numOfColumns: 5,
+              dateCreated: new Date("2023-01-01"),
+              dateUpdated: new Date("2023-01-01"),
+            },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
+// Mock data for testing
+const mockInformationSchemaWithPaths: InformationSchemaInterfaceWithPaths = {
   id: "schema-123",
   datasourceId: "datasource-456",
   organization: "test-org",
@@ -301,7 +379,10 @@ describe("getSelectedTables", () => {
       row: 0,
       column: 42,
     };
-    const result = getSelectedTables(cursorData, mockInformationSchema);
+    const result = getSelectedTables(
+      cursorData,
+      mockInformationSchemaWithPaths
+    );
     expect(result).toEqual(["table-users-123"]);
   });
 
@@ -313,7 +394,10 @@ describe("getSelectedTables", () => {
       row: 0,
       column: 74,
     };
-    const result = getSelectedTables(cursorData, mockInformationSchema);
+    const result = getSelectedTables(
+      cursorData,
+      mockInformationSchemaWithPaths
+    );
     expect(result).toEqual(["table-users-123", "table-events-456"]);
   });
 
@@ -323,7 +407,10 @@ describe("getSelectedTables", () => {
       row: 0,
       column: 42,
     };
-    const result = getSelectedTables(cursorData, mockInformationSchema);
+    const result = getSelectedTables(
+      cursorData,
+      mockInformationSchemaWithPaths
+    );
     expect(result).toEqual(["table-users-123"]);
   });
 
@@ -333,7 +420,10 @@ describe("getSelectedTables", () => {
       row: 0,
       column: 36,
     };
-    const result = getSelectedTables(cursorData, mockInformationSchema);
+    const result = getSelectedTables(
+      cursorData,
+      mockInformationSchemaWithPaths
+    );
     expect(result).toEqual(["table-users-123"]);
   });
 
@@ -345,7 +435,10 @@ describe("getSelectedTables", () => {
       row: 0,
       column: 54,
     };
-    const result = getSelectedTables(cursorData, mockInformationSchema);
+    const result = getSelectedTables(
+      cursorData,
+      mockInformationSchemaWithPaths
+    );
     expect(result).toEqual(["table-users-123"]);
   });
 
@@ -357,7 +450,10 @@ describe("getSelectedTables", () => {
       row: 0,
       column: 84,
     };
-    const result = getSelectedTables(cursorData, mockInformationSchema);
+    const result = getSelectedTables(
+      cursorData,
+      mockInformationSchemaWithPaths
+    );
     expect(result).toEqual(["table-users-123"]);
   });
 
@@ -367,13 +463,19 @@ describe("getSelectedTables", () => {
       row: 0,
       column: 28,
     };
-    const result = getSelectedTables(cursorData, mockInformationSchema);
+    const result = getSelectedTables(
+      cursorData,
+      mockInformationSchemaWithPaths
+    );
     expect(result).toEqual([]);
   });
 
   it("should return empty array for empty input", () => {
     const cursorData: CursorData = { input: [""], row: 0, column: 0 };
-    const result = getSelectedTables(cursorData, mockInformationSchema);
+    const result = getSelectedTables(
+      cursorData,
+      mockInformationSchemaWithPaths
+    );
     expect(result).toEqual([]);
   });
 
@@ -383,7 +485,10 @@ describe("getSelectedTables", () => {
       row: 0,
       column: 13,
     };
-    const result = getSelectedTables(cursorData, mockInformationSchema);
+    const result = getSelectedTables(
+      cursorData,
+      mockInformationSchemaWithPaths
+    );
     expect(result).toEqual([]);
   });
 
@@ -420,7 +525,10 @@ describe("getSelectedTables", () => {
       row: 0,
       column: 36,
     };
-    const result1 = getSelectedTables(cursorData1, productionLikeSchema);
+    const result1 = getSelectedTables(
+      cursorData1,
+      mockInformationSchemaWithPaths
+    );
     expect(result1).toEqual(["table-users-123"]);
 
     // Test 2: SQL with backticks should still find table by name
@@ -429,7 +537,10 @@ describe("getSelectedTables", () => {
       row: 0,
       column: 42,
     };
-    const result2 = getSelectedTables(cursorData2, productionLikeSchema);
+    const result2 = getSelectedTables(
+      cursorData2,
+      mockInformationSchemaWithPaths
+    );
     expect(result2).toEqual(["table-users-123"]);
   });
 });
@@ -443,6 +554,7 @@ describe("getAutoCompletions", () => {
     const result = await getAutoCompletions(
       null,
       mockInformationSchema,
+      "bigquery",
       mockApiCall
     );
     expect(result.length).toBeGreaterThan(0);
@@ -451,7 +563,12 @@ describe("getAutoCompletions", () => {
 
   it("should return SQL keywords when no information schema", async () => {
     const cursorData: CursorData = { input: ["SELECT "], row: 0, column: 7 };
-    const result = await getAutoCompletions(cursorData, undefined, mockApiCall);
+    const result = await getAutoCompletions(
+      cursorData,
+      undefined,
+      "bigquery",
+      mockApiCall
+    );
     expect(result.length).toBeGreaterThan(0);
     expect(result.some((item) => item.value === "SELECT")).toBe(true);
   });
@@ -461,6 +578,7 @@ describe("getAutoCompletions", () => {
     const result = await getAutoCompletions(
       cursorData,
       mockInformationSchema,
+      "bigquery",
       mockApiCall
     );
     expect(result.length).toBeGreaterThan(0);
@@ -472,6 +590,7 @@ describe("getAutoCompletions", () => {
     const result = await getAutoCompletions(
       cursorData,
       mockInformationSchema,
+      "bigquery",
       mockApiCall
     );
 
@@ -490,6 +609,7 @@ describe("getAutoCompletions", () => {
     const result = await getAutoCompletions(
       cursorData,
       mockInformationSchema,
+      "bigquery",
       mockApiCall
     );
 
@@ -512,8 +632,11 @@ describe("getAutoCompletions", () => {
     const result = await getAutoCompletions(
       cursorData,
       mockInformationSchema,
+      "bigquery",
       mockApiCall
     );
+
+    console.log("result", result);
 
     // Should include databases
     expect(result.some((item) => item.meta === "DATABASE")).toBe(true);
@@ -522,15 +645,13 @@ describe("getAutoCompletions", () => {
 
     // Should include schemas
     expect(result.some((item) => item.meta === "SCHEMA")).toBe(true);
-    expect(result.some((item) => item.caption === "analytics.public")).toBe(
-      true
-    );
+    expect(result.some((item) => item.caption === "public")).toBe(true);
 
     // Should include tables
     expect(result.some((item) => item.meta === "TABLE")).toBe(true);
-    expect(
-      result.some((item) => item.caption === "analytics.public.table-users-123")
-    ).toBe(true);
+    expect(result.some((item) => item.caption === "table-users-123")).toBe(
+      true
+    );
   });
 
   it("should return schemas when database is selected in FROM clause", async () => {
@@ -542,6 +663,7 @@ describe("getAutoCompletions", () => {
     const result = await getAutoCompletions(
       cursorData,
       mockInformationSchema,
+      "bigquery",
       mockApiCall
     );
 
@@ -559,6 +681,7 @@ describe("getAutoCompletions", () => {
     const result = await getAutoCompletions(
       cursorData,
       mockInformationSchema,
+      "bigquery",
       mockApiCall
     );
 
@@ -579,12 +702,16 @@ describe("getAutoCompletions", () => {
     };
 
     // First let's check if getSelectedTables finds the table
-    const selectedTables = getSelectedTables(cursorData, mockInformationSchema);
+    const selectedTables = getSelectedTables(
+      cursorData,
+      mockInformationSchemaWithPaths
+    );
     expect(selectedTables.length).toBeGreaterThan(0); // This should pass if table parsing works
 
     const result = await getAutoCompletions(
       cursorData,
       mockInformationSchema,
+      "bigquery",
       mockApiCall
     );
 
@@ -611,6 +738,7 @@ describe("getAutoCompletions", () => {
     const result = await getAutoCompletions(
       cursorData,
       mockInformationSchema,
+      "bigquery",
       mockApiCall
     );
 
@@ -628,6 +756,7 @@ describe("getAutoCompletions", () => {
     const result = await getAutoCompletions(
       cursorData,
       mockInformationSchema,
+      "bigquery",
       mockApiCall
     );
 
@@ -650,6 +779,7 @@ describe("Edge Cases", () => {
     const result = await getAutoCompletions(
       cursorData,
       mockInformationSchema,
+      "bigquery",
       mockApiCall
     );
 
@@ -663,6 +793,7 @@ describe("Edge Cases", () => {
     const result = await getAutoCompletions(
       cursorData,
       mockInformationSchema,
+      "bigquery",
       mockApiCall
     );
 
@@ -679,6 +810,7 @@ describe("Edge Cases", () => {
     const result = await getAutoCompletions(
       cursorData,
       mockInformationSchema,
+      "bigquery",
       mockApiCall
     );
 
@@ -694,6 +826,7 @@ describe("Edge Cases", () => {
     const result = await getAutoCompletions(
       cursorData,
       mockInformationSchema,
+      "bigquery",
       mockApiCall
     );
 
@@ -711,6 +844,7 @@ describe("Edge Cases", () => {
     const result = await getAutoCompletions(
       cursorData,
       mockInformationSchema,
+      "bigquery",
       failingApiCall
     );
 
@@ -730,6 +864,7 @@ describe("Edge Cases", () => {
     const result = await getAutoCompletions(
       cursorData,
       mockInformationSchema,
+      "bigquery",
       mockApiCall
     );
 
@@ -746,6 +881,7 @@ describe("Edge Cases", () => {
     const result = await getAutoCompletions(
       cursorData,
       mockInformationSchema,
+      "bigquery",
       mockApiCall
     );
 
@@ -763,6 +899,7 @@ describe("Edge Cases", () => {
     const result = await getAutoCompletions(
       cursorData,
       mockInformationSchema,
+      "bigquery",
       mockApiCall
     );
 
