@@ -610,11 +610,10 @@ export async function postExperiments(
       allowDuplicateTrackingKey?: boolean;
       originalId?: string;
       autoRefreshResults?: boolean;
-      isHoldout?: boolean;
     }
   >,
   res: Response<
-    | { status: 200; experiment: ExperimentInterface; holdoutId?: string }
+    | { status: 200; experiment: ExperimentInterface }
     | { status: 200; duplicateTrackingKey: boolean; existingId: string }
     | PrivateApiErrorResponse,
     EventUserForResponseLocals
@@ -651,7 +650,7 @@ export async function postExperiments(
     dateUpdated: new Date(),
     project: data.project,
     owner: data.owner || userId,
-    trackingKey: data.trackingKey || "", // TODO: generate tracking key for holdouts?
+    trackingKey: data.trackingKey || "",
     datasource: data.datasource || "",
     exposureQueryId: data.exposureQueryId || "",
     userIdType: data.userIdType || "anonymous",
@@ -748,22 +747,6 @@ export async function postExperiments(
       data: obj,
       context,
     });
-    let holdout;
-    if (req.query.isHoldout) {
-      holdout = await context.models.holdout.create({
-        experimentId: experiment.id,
-        projects: experiment.project ? [experiment.project] : [],
-        name: experiment.name,
-        environments: [],
-        analysisSettings: {},
-        linkedFeatures: [],
-        linkedExperiments: [],
-      });
-
-      if (!holdout) {
-        throw new Error("Failed to create holdout");
-      }
-    }
 
     if (req.query.originalId) {
       const visualChangesets = await findVisualChangesetsByExperiment(
@@ -832,7 +815,6 @@ export async function postExperiments(
     res.status(200).json({
       status: 200,
       experiment,
-      holdoutId: holdout?.id,
     });
   } catch (e) {
     res.status(400).json({
@@ -1929,9 +1911,6 @@ export async function postExperimentTargeting(
   } else {
     // If we had a previous phase, mark it as ended
     if (phases.length) {
-      if (experiment.type === "holdout") {
-        phases[0].dateEnded = new Date();
-      }
       phases[phases.length - 1].dateEnded = new Date();
     }
 
@@ -1968,8 +1947,8 @@ export async function postExperimentTargeting(
     changes.disableStickyBucketing = disableStickyBucketing;
     changes.bucketVersion = bucketVersion;
     changes.minBucketVersion = minBucketVersion;
+    if (trackingKey) changes.trackingKey = trackingKey;
   }
-  if (trackingKey) changes.trackingKey = trackingKey;
 
   // TODO: validation
   try {

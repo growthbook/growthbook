@@ -530,7 +530,7 @@ export function getSnapshotSettings({
         settingsForSnapshotMetrics,
         metricOverrides: experiment.metricOverrides,
         decisionFrameworkSettings: experiment.decisionFrameworkSettings,
-        holdoutLookbackWindow:
+        phaseLookbackWindow:
           experiment.type === "holdout" && phase.lookbackStartDate
             ? {
                 value: differenceInHours(

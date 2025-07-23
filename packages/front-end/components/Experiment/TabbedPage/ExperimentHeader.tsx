@@ -246,6 +246,8 @@ export default function ExperimentHeader({
   const disableHealthTab = isUsingHealthUnsupportDatasource;
 
   const isBandit = experiment.type === "multi-armed-bandit";
+  const isHoldout = experiment.type === "holdout";
+
   const hasResults = !!analysis?.results?.[0];
 
   const {
@@ -506,7 +508,7 @@ export default function ExperimentHeader({
       ) : null}
       {showDeleteModal ? (
         <Modal
-          header="Delete Experiment"
+          header={`Delete ${isHoldout ? "Holdout" : "Experiment"}`}
           trackingEventModalType="delete-experiment"
           trackingEventModalSource="experiment-more-menu"
           open={true}
@@ -515,20 +517,29 @@ export default function ExperimentHeader({
           submit={async () => {
             try {
               await apiCall<{ status: number; message?: string }>(
-                `/experiment/${experiment.id}`,
+                `/${isHoldout ? "holdout" : "experiment"}/${
+                  isHoldout ? holdout?.id : experiment.id
+                }`,
                 {
                   method: "DELETE",
-                  body: JSON.stringify({ id: experiment.id }),
+                  body: JSON.stringify({
+                    id: isHoldout ? holdout?.id : experiment.id,
+                  }),
                 }
               );
-              router.push(isBandit ? "/bandits" : "/experiments");
+              router.push(
+                isBandit ? "/bandits" : isHoldout ? "/holdouts" : "/experiments"
+              );
             } catch (e) {
               console.error(e);
             }
           }}
         >
           <div>
-            <p>Are you sure you want to delete this experiment?</p>
+            <p>
+              Are you sure you want to delete this{" "}
+              {isHoldout ? "holdout" : "experiment"}?
+            </p>
             {!safeToEdit ? (
               <div className="alert alert-danger">
                 This will immediately stop all linked Feature Flags and Visual
@@ -540,7 +551,9 @@ export default function ExperimentHeader({
       ) : null}
       {showArchiveModal ? (
         <Modal
-          header={`${experiment.archived ? "Unarchive" : "Archive"} Experiment`}
+          header={`${experiment.archived ? "Unarchive" : "Archive"} ${
+            isHoldout ? "Holdout" : "Experiment"
+          }`}
           trackingEventModalType="archive-experiment"
           trackingEventModalSource="experiment-more-menu"
           open={true}
@@ -581,7 +594,7 @@ export default function ExperimentHeader({
           close={() => setShowStartExperiment(false)}
           startExperiment={startExperiment}
           checklistItemsRemaining={checklistItemsRemaining || 0}
-          isHoldout={experiment.type === "holdout"}
+          isHoldout={isHoldout}
         />
       )}
       {showTemplateForm && (
@@ -771,7 +784,7 @@ export default function ExperimentHeader({
                   Audit log
                 </DropdownMenuItem>
               </DropdownMenuGroup>
-              {experiment.type !== "holdout" && (
+              {!isHoldout && (
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuGroup>
@@ -830,10 +843,10 @@ export default function ExperimentHeader({
                 showShareableReportButton ||
                 showShareButton ||
                 showSaveAsTemplateButton) &&
-              experiment.type !== "holdout" ? (
+              !isHoldout ? (
                 <DropdownMenuSeparator />
               ) : null}
-              {showSaveAsTemplateButton && experiment.type !== "holdout" && (
+              {showSaveAsTemplateButton && !isHoldout && (
                 <DropdownMenuItem
                   onClick={() => {
                     setShowTemplateForm(true);
@@ -843,7 +856,7 @@ export default function ExperimentHeader({
                   Save as template...
                 </DropdownMenuItem>
               )}
-              {showShareButton && experiment.type !== "holdout" && (
+              {showShareButton && !isHoldout && (
                 <DropdownMenuItem
                   onClick={() => {
                     setShareModalOpen(true);
@@ -853,7 +866,7 @@ export default function ExperimentHeader({
                   Share {isBandit ? "Bandit" : "Experiment"}
                 </DropdownMenuItem>
               )}
-              {showShareableReportButton && experiment.type !== "holdout" && (
+              {showShareableReportButton && !isHoldout && (
                 <DropdownMenuItem
                   onClick={async () => {
                     const res = await apiCall<{ report: ReportInterface }>(
@@ -877,7 +890,7 @@ export default function ExperimentHeader({
                   Create shareable report
                 </DropdownMenuItem>
               )}
-              {showConvertButton && experiment.type !== "holdout" && (
+              {showConvertButton && !isHoldout && (
                 <>
                   <DropdownMenuGroup>
                     <DropdownMenuItem

@@ -10,12 +10,16 @@ import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   createExperiment,
+  deleteExperimentByIdForOrganization,
   getAllExperiments,
   getExperimentById,
   getExperimentsByIds,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
-import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
+import {
+  getFeaturesByIds,
+  updateFeature,
+} from "back-end/src/models/FeatureModel";
 import { FeatureInterface } from "back-end/types/feature";
 import { logger } from "back-end/src/util/logger";
 import {
@@ -134,7 +138,7 @@ export const createHoldout = async (
     hashAttribute: data.hashAttribute || "",
     fallbackAttribute: data.fallbackAttribute || "",
     hashVersion: 2,
-    disableStickyBucketing: data.disableStickyBucketing ?? false, // Do we want sticky bucketing for holdouts?
+    disableStickyBucketing: true,
     autoSnapshots: true,
     dateCreated: new Date(),
     dateUpdated: new Date(),
@@ -369,3 +373,74 @@ export const startAnalysis = async (
 };
 
 // endregion POST /holdout/:id/start-analysis
+
+// region DELETE /holdout/:id
+
+export const deleteHoldout = async (
+  req: AuthRequest<null, { id: string }>,
+  res: Response<{ status: 200 | 404 | 403; message?: string }>
+) => {
+  const context = getContextFromReq(req);
+
+  const holdout = await context.models.holdout.getById(req.params.id);
+
+  // TODO: Add holdout permissions check
+
+  if (!holdout) {
+    return res.status(404).json({ status: 404, message: "Holdout not found" });
+  }
+
+  const experiment = await getExperimentById(context, holdout.experimentId);
+
+  if (!experiment) {
+    res.status(403).json({
+      status: 404,
+      message: "Holdout experiment not found",
+    });
+    return;
+  }
+
+  if (experiment.organization !== context.org.id) {
+    res.status(403).json({
+      status: 403,
+      message: "You do not have access to this experiment",
+    });
+    return;
+  }
+
+  // TODO: Replace with holdout permissions check since it's a multi-project resource
+  if (!context.permissions.canDeleteExperiment(experiment)) {
+    context.permissions.throwPermissionError();
+  }
+
+  await deleteExperimentByIdForOrganization(context, experiment);
+
+  // Remove holdout from linked features and linked experiments
+  const linkedFeatureIds = holdout.linkedFeatures.map((f) => f.id);
+  const linkedExperimentIds = holdout.linkedExperiments.map((e) => e.id);
+  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+  const linkedExperiments = await getExperimentsByIds(
+    context,
+    linkedExperimentIds
+  );
+
+  // Remove holdout links from linked features and experiments
+  await Promise.all(
+    linkedFeatures.map((f) => updateFeature(context, f, { holdout: undefined }))
+  );
+  await Promise.all(
+    linkedExperiments.map((e) =>
+      updateExperiment({
+        context,
+        experiment: e,
+        changes: { holdoutId: undefined },
+      })
+    )
+  );
+
+  await context.models.holdout.delete(holdout);
+
+  return res.status(200).json({ status: 200 });
+};
+
+// endregion DELETE /holdout/:id

@@ -6,18 +6,6 @@ export const holdoutLinkedItemValidator = z.object({
   id: z.string(),
 }); // TODO: Consider using an object with ids as keys instead of an array
 
-export const analysisSettingsValidator = z
-  .object({
-    // TODO: Move to experiment snapshot settings
-    analysisWindow: z
-      .object({
-        start: z.date(),
-        end: z.date(),
-      })
-      .optional(),
-  })
-  .optional();
-
 export const holdoutValidator = z
   .object({
     id: z.string(),
@@ -31,8 +19,6 @@ export const holdoutValidator = z
     linkedFeatures: z.array(holdoutLinkedItemValidator),
     environmentSettings: z.record(z.string(), featureEnvironment),
     analysisStartDate: z.date().optional(),
-    holdoutStopDate: z.date().optional(),
-    holdoutStartDate: z.date().optional(),
   })
   .strict();
 
