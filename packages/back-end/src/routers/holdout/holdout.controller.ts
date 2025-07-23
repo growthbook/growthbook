@@ -382,6 +382,7 @@ export const deleteHoldout = async (
   res: Response<{ status: 200 | 404 | 403; message?: string }>
 ) => {
   const context = getContextFromReq(req);
+  console.log("id", req.params.id);
   const holdout = await context.models.holdout.getById(req.params.id);
 
   // TODO: Add holdout permissions check
