@@ -239,7 +239,7 @@ const AnalysisForm: FC<{
     <Modal
       trackingEventModalType="analysis-form"
       trackingEventModalSource={source}
-      header={isHoldout ? "Holdout Settings" : "Experiment Settings"}
+      header={isHoldout ? "Analysis Settings" : "Experiment Settings"}
       open={true}
       close={cancel}
       size="lg"
@@ -775,8 +775,11 @@ const AnalysisForm: FC<{
               setSecondaryMetrics={(secondaryMetrics) =>
                 form.setValue("secondaryMetrics", secondaryMetrics)
               }
-              setGuardrailMetrics={(guardrailMetrics) =>
-                form.setValue("guardrailMetrics", guardrailMetrics)
+              setGuardrailMetrics={
+                !isHoldout
+                  ? (guardrailMetrics) =>
+                      form.setValue("guardrailMetrics", guardrailMetrics)
+                  : undefined
               }
               forceSingleGoalMetric={isBandit}
               noPercentileGoalMetrics={isBandit}
