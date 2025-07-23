@@ -60,10 +60,8 @@ function shouldShowPayloadSecurity(
   // Next.js should always use plain text
   if (languages.includes("nextjs")) return false;
 
-  // Only show for frontend, mobile, nocode, edge, and other types
-  return ["frontend", "mobile", "nocode", "edge", "other"].includes(
-    languageType
-  );
+  // all languages support encryption and secure attributes.
+  return true;
 }
 
 function getSecurityTabState(

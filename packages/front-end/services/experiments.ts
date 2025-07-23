@@ -280,6 +280,7 @@ export function useExperimentSearch({
   defaultSortDir = -1,
   filterResults,
   localStorageKey = "experiments",
+  watchedExperimentIds,
 }: {
   allExperiments: ExperimentInterfaceStringDates[];
   defaultSortField?: keyof ComputedExperimentInterface;
@@ -288,6 +289,7 @@ export function useExperimentSearch({
     items: ComputedExperimentInterface[]
   ) => ComputedExperimentInterface[];
   localStorageKey?: string;
+  watchedExperimentIds?: string[];
 }) {
   const {
     getExperimentMetricById,
@@ -309,6 +311,7 @@ export function useExperimentSearch({
       const lastPhase = exp.phases?.[exp.phases?.length - 1] || {};
       const rawSavedGroup = lastPhase?.savedGroups || [];
       const savedGroupIds = rawSavedGroup.map((g) => g.ids).flat();
+      const isWatched = watchedExperimentIds?.includes(exp.id) ?? false;
 
       return {
         ownerName: getUserDisplay(exp.owner, false) || "",
@@ -330,6 +333,7 @@ export function useExperimentSearch({
         date: experimentDate(exp),
         statusIndicator,
         statusSortOrder,
+        isWatched,
       };
     },
     [getExperimentMetricById, getProjectById, getUserDisplay]
@@ -353,6 +357,7 @@ export function useExperimentSearch({
       "metricNames",
       "results",
       "analysis",
+      "isWatched",
     ],
     searchTermFilters: {
       is: (item) => {
@@ -373,6 +378,7 @@ export function useExperimentSearch({
         if (item.results === "dnf") is.push("dnf");
         if (item.hasVisualChangesets) is.push("visual");
         if (item.hasURLRedirects) is.push("redirect");
+        if (item.isWatched) is.push("watched");
         return is;
       },
       has: (item) => {
