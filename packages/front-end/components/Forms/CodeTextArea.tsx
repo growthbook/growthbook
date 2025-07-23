@@ -1,5 +1,5 @@
 import dynamic from "next/dynamic";
-import { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import type { Ace } from "ace-builds";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { CursorData } from "@/components/Segments/SegmentForm";
@@ -11,6 +11,30 @@ export type AceCompletion = {
   meta: string;
   score: number;
 };
+
+interface AceEditorProps {
+  name: string;
+  onLoad: (editor: Ace.Editor) => void;
+  mode: string;
+  theme: string;
+  width: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  fontSize: string;
+  minLines?: number;
+  maxLines?: number;
+  height?: string;
+  setOptions?: {
+    enableBasicAutocompletion?: boolean;
+    enableLiveAutocompletion?: boolean;
+  };
+  readOnly?: boolean;
+  onCursorChange?: (selection: {
+    cursor: { row: number; column: number; document: { $lines: string[] } };
+  }) => void;
+  completions?: AceCompletion[];
+}
 
 const AceEditor = dynamic(
   async () => {
@@ -83,10 +107,89 @@ const AceEditor = dynamic(
     ace.config.setModuleUrl("ace/mode/javascript_worker", jsWorkerUrl.default);
     ace.config.setModuleUrl("ace/mode/yaml_worker", yamlWorkerUrl.default);
 
-    return reactAce;
+    const langTools = ace.require("ace/ext/language_tools");
+
+    // Return a wrapper component that handles completions
+    const AceEditorWithCompletions = React.forwardRef<
+      HTMLElement,
+      AceEditorProps
+    >((props: AceEditorProps) => {
+      const { completions, onLoad, ...otherProps } = props;
+      const [editor, setEditor] = React.useState<Ace.Editor | null>(null);
+
+      const handleLoad = (editorInstance: Ace.Editor) => {
+        setEditor(editorInstance);
+        // Call the original onLoad if provided
+        if (onLoad) {
+          onLoad(editorInstance);
+        }
+      };
+
+      // Update completions whenever they change
+      React.useEffect(() => {
+        if (editor) {
+          // Clear existing completers and set up fresh one
+          langTools.setCompleters([]);
+
+          // Only add our custom completer if we have completions
+          if (
+            completions &&
+            Array.isArray(completions) &&
+            completions.length > 0
+          ) {
+            const customCompleter = {
+              getCompletions: (
+                editor: Ace.Editor,
+                session: Ace.EditSession,
+                pos: Ace.Position,
+                prefix: string,
+                callback: (err: unknown, results: AceCompletion[]) => void
+              ) => {
+                const filteredCompletions = completions.filter(
+                  (completion: AceCompletion) => {
+                    if (!prefix || prefix.trim() === "") {
+                      return true;
+                    }
+
+                    const lowerPrefix = prefix.toLowerCase();
+                    const lowerValue = completion.value.toLowerCase();
+                    const lowerCaption = completion.caption.toLowerCase();
+
+                    const checkParts = (text: string) => {
+                      if (text.includes(".")) {
+                        return text
+                          .split(".")
+                          .some((part) => part.startsWith(lowerPrefix));
+                      }
+                      return text.startsWith(lowerPrefix);
+                    };
+
+                    return checkParts(lowerValue) || checkParts(lowerCaption);
+                  }
+                );
+
+                callback(null, filteredCompletions);
+              },
+              identifierRegexps: [/[a-zA-Z_0-9{]/],
+            };
+
+            langTools.addCompleter(customCompleter);
+          }
+        }
+      }, [editor, completions]); // Depend on both editor and completions
+
+      return React.createElement(reactAce.default, {
+        ...otherProps,
+        onLoad: handleLoad,
+      });
+    });
+
+    AceEditorWithCompletions.displayName = "AceEditorWithCompletions";
+
+    return AceEditorWithCompletions;
   },
   {
-    ssr: false, // react-ace doesn't support server side rendering as it uses the window object.
+    ssr: false,
   }
 );
 
@@ -150,58 +253,6 @@ export default function CodeTextArea({
     );
   }, [editor, onCtrlEnter]);
 
-  useEffect(() => {
-    if (typeof window !== "undefined" && editor) {
-      import("ace-builds").then((ace) => {
-        const langTools = ace.require("ace/ext/language_tools");
-
-        if (completions && Array.isArray(completions)) {
-          // Clear existing completers
-          langTools.setCompleters([]);
-
-          // Add our custom completer for templates
-          const customCompleter = {
-            getCompletions: (
-              editor: Ace.Editor,
-              session: Ace.EditSession,
-              pos: Ace.Position,
-              prefix: string,
-              callback: (err: unknown, results: AceCompletion[]) => void
-            ) => {
-              // Filter completions based on the current prefix
-              const filteredCompletions = completions.filter((completion) => {
-                if (!prefix || prefix.trim() === "") {
-                  return true;
-                }
-
-                const lowerPrefix = prefix.toLowerCase();
-                const lowerValue = completion.value.toLowerCase();
-                const lowerCaption = completion.caption.toLowerCase();
-
-                // Helper function to check if any part (split by dots) starts with prefix e.g. database.schema.table
-                const checkParts = (text: string) => {
-                  if (text.includes(".")) {
-                    return text
-                      .split(".")
-                      .some((part) => part.startsWith(lowerPrefix));
-                  }
-                  return text.startsWith(lowerPrefix);
-                };
-
-                return checkParts(lowerValue) || checkParts(lowerCaption);
-              });
-
-              callback(null, filteredCompletions);
-            },
-            // Add identifier regex that includes { to trigger on curly braces
-            identifierRegexps: [/[a-zA-Z_0-9{]/],
-          };
-
-          langTools.addCompleter(customCompleter);
-        }
-      });
-    }
-  }, [completions, editor, language]);
   // Auto-resize editor when container size changes
   useEffect(() => {
     if (!editor || !containerRef.current || !fullHeight) return;
@@ -240,6 +291,7 @@ export default function CodeTextArea({
                 onChange={(newValue) => setValue(newValue)}
                 placeholder={placeholder}
                 fontSize="1em"
+                completions={completions}
                 {...heightProps}
                 setOptions={
                   language === "sql"
