@@ -347,7 +347,6 @@ export default function EditSqlModal({
                               color="gray"
                               radius="full"
                               size="3"
-                              className="ml-2"
                             >
                               <BsThreeDotsVertical size={16} />
                             </IconButton>

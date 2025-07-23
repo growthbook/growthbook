@@ -28,11 +28,11 @@ import { AceCompletion } from "@/components/Forms/CodeTextArea";
 
 // Constants for completion scores - single source of truth for all SQL completions
 export const COMPLETION_SCORES = {
-  TEMPLATE_VARIABLE: 1100,
   DATABASE: 1000,
   SCHEMA: 950,
   TABLE: 900,
   COLUMN: 900,
+  TEMPLATE_VARIABLE: 800,
   CORE_KEYWORD: 500,
   JOIN_KEYWORD: 450,
   SUBQUERY_KEYWORD: 450,

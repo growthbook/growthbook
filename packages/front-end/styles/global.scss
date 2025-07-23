@@ -3580,7 +3580,7 @@ input:disabled {
 }
 .ace_editor.ace_autocomplete { 
   width: 500px !important;
-  background-color: var(--color-panel-solid)!important;
+  background-color: var(--color-surface-solid) !important;
 }
 
 /* Radix-style pagination for ReactPaginate */
