@@ -1,3 +1,4 @@
+import { Job, JobAttributesData } from "agenda";
 import { logger } from "back-end/src/util/logger";
 import { metrics, Counter, Histogram } from "back-end/src/util/metrics";
 
@@ -9,10 +10,10 @@ const normalizeJobName = (jobName: string) => {
     .toLowerCase();
 };
 
-export const trackJob = (
+export const trackJob = <T extends JobAttributesData>(
   jobNameRaw: string,
-  fn: (...args: unknown[]) => Promise<unknown>
-) => async (...args: unknown[]) => {
+  fn: (job: Job<T>) => Promise<void>
+) => async (job: Job<T>) => {
   let counter: Counter;
   let histogram: Histogram;
   let hasMetricsStarted = false;
@@ -56,8 +57,8 @@ export const trackJob = (
   // run job
   let res;
   try {
-    logger.info(`arguments=${JSON.stringify(args)}; starting job ${jobName}`);
-    res = await fn(...args);
+    logger.info({ jobId: job.attrs._id }, `starting job ${jobName}`);
+    res = await fn(job);
   } catch (e) {
     logger.error(`error running job: ${jobName}: ${e}`);
     try {
@@ -70,9 +71,7 @@ export const trackJob = (
   }
 
   // on successful job
-  logger.info(
-    `arguments=${JSON.stringify(args)}; successfully finished job ${jobName}`
-  );
+  logger.info({ jobId: job.attrs._id }, `successfully finished job ${jobName}`);
   try {
     wrapUpMetrics();
     metrics.getCounter(`jobs.successes`).increment(attributes);
