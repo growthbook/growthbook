@@ -57,7 +57,7 @@ export const trackJob = <T extends JobAttributesData>(
   // run job
   let res;
   try {
-    logger.info(`job=${JSON.stringify(job)}; starting job ${jobName}`);
+    logger.info({ jobId: job.attrs._id }, `starting job ${jobName}`);
     res = await fn(job);
   } catch (e) {
     logger.error(`error running job: ${jobName}: ${e}`);
@@ -71,9 +71,7 @@ export const trackJob = <T extends JobAttributesData>(
   }
 
   // on successful job
-  logger.info(
-    `job=${JSON.stringify(job)}; successfully finished job ${jobName}`
-  );
+  logger.info({ jobId: job.attrs._id }, `successfully finished job ${jobName}`);
   try {
     wrapUpMetrics();
     metrics.getCounter(`jobs.successes`).increment(attributes);
