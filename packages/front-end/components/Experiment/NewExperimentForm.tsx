@@ -316,7 +316,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       banditBurnInValue: scopedSettings.banditBurnInValue.value,
       banditBurnInUnit: scopedSettings.banditScheduleUnit.value,
       templateId: initialValue?.templateId || "",
-      holdoutId: initialValue?.holdoutId || "none",
+      holdoutId: initialValue?.holdoutId || "",
     },
   });
 

@@ -38,17 +38,25 @@ export const HoldoutSelect = ({
   }, [holdouts, experimentsMap, selectedProject]);
 
   useEffect(() => {
-    if (form.watch("holdoutId") === "none") {
+    const current = form.getValues("holdoutId");
+    // If still loading, don't set anything
+    if (holdoutsWithExperiment === undefined) return;
+
+    if (holdoutsWithExperiment.length === 0) {
+      // Only set to 'none' if there are truly no holdouts
+      form.setValue("holdoutId", "none");
       return;
     }
+
+    // If there are holdouts, and the value is empty, invalid, or 'none', set to the first holdout
     if (
-      holdoutsWithExperiment.length > 0 &&
-      (!form.watch("holdoutId") ||
-        !holdoutsWithExperiment.find((h) => h.id === form.watch("holdoutId")))
+      !current ||
+      (!holdoutsWithExperiment.find((h) => h.id === current) &&
+        current !== "none")
     ) {
       form.setValue("holdoutId", holdoutsWithExperiment[0].id);
     }
-  }, [selectedProject, form, holdoutsWithExperiment]);
+  }, [selectedProject, holdoutsWithExperiment, form]);
   return (
     <SelectField
       label="Holdout"
