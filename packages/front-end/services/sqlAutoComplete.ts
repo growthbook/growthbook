@@ -2,6 +2,7 @@ import {
   InformationSchemaInterface,
   InformationSchemaTablesInterface,
 } from "back-end/src/types/Integration";
+import { DataSourceType } from "back-end/types/datasource";
 import { CursorData } from "@/components/Segments/SegmentForm";
 import { AceCompletion } from "@/components/Forms/CodeTextArea";
 import {
@@ -9,6 +10,10 @@ import {
   COMPLETION_SCORES,
   COMPLETION_TYPES,
 } from "./sqlKeywords";
+import {
+  getInformationSchemaWithPaths,
+  InformationSchemaInterfaceWithPaths,
+} from "./datasources";
 
 const templateCompletions: AceCompletion[] = [
   {
@@ -137,6 +142,7 @@ function addEventTableName(
 function handleColumnCompletions(
   tableDataMap: Record<string, InformationSchemaTablesInterface>
 ): AceCompletion[] {
+  // If there are no tables, then return template completions and sql keywords
   if (Object.keys(tableDataMap).length === 0) {
     return [...templateCompletions, ...getSqlKeywords()];
   }
@@ -160,21 +166,24 @@ function handleColumnCompletions(
  * @returns Array of completion suggestions including databases, schemas, and tables
  */
 function getAllCompletionsForEmptyFrom(
-  informationSchema: InformationSchemaInterface
+  informationSchema: InformationSchemaInterfaceWithPaths
 ): AceCompletion[] {
-  const databaseCompletions = informationSchema.databases.map((db) => ({
-    value: formatDatabaseCompletion(db.path || db.databaseName),
-    meta: COMPLETION_TYPES.DATABASE,
-    score: COMPLETION_SCORES.DATABASE,
-    caption: db.databaseName,
-  }));
+  const databaseCompletions = informationSchema.databases
+    .map((db) => ({
+      value: db.path,
+      meta: COMPLETION_TYPES.DATABASE,
+      score: COMPLETION_SCORES.DATABASE,
+      caption: db.databaseName,
+    }))
+    // Filter out completions whose value is empty - This can happen for MySQL Data Sources that don't support all 3 levels (db, schema, table)
+    .filter((completion) => completion.value !== "");
 
   const schemaCompletions = informationSchema.databases.flatMap((db) =>
     db.schemas.map((schema) => ({
-      value: formatSchemaCompletion(schema.path || schema.schemaName, false),
+      value: schema.path,
       meta: COMPLETION_TYPES.SCHEMA,
       score: COMPLETION_SCORES.SCHEMA,
-      caption: `${db.databaseName}.${schema.schemaName}`,
+      caption: schema.schemaName,
     }))
   );
 
@@ -184,7 +193,7 @@ function getAllCompletionsForEmptyFrom(
         value: table.path,
         meta: COMPLETION_TYPES.TABLE,
         score: COMPLETION_SCORES.TABLE,
-        caption: `${db.databaseName}.${schema.schemaName}.${table.tableName}`,
+        caption: table.tableName,
       }))
     )
   );
@@ -206,7 +215,7 @@ function getAllCompletionsForEmptyFrom(
  */
 function handleFromClauseCompletions(
   textAfterFrom: string,
-  informationSchema: InformationSchemaInterface
+  informationSchema: InformationSchemaInterfaceWithPaths
 ): AceCompletion[] {
   // If we're at the start of the FROM clause (no text after FROM), show all options
   if (!textAfterFrom) {
@@ -214,27 +223,59 @@ function handleFromClauseCompletions(
   }
 
   // Parse the text to determine what level of completion to provide
-  const parts = textAfterFrom.split(".");
+  const parts = textAfterFrom.split(".").map((p) => p.trim().replace(/`/g, ""));
 
-  if (parts.length === 1 && parts[0].trim()) {
-    // Database selected, show schemas
-    return [
-      ...getSchemaCompletions(textAfterFrom, informationSchema),
-      ...getSqlKeywords(),
-    ];
-  } else if (parts.length === 2 && parts[0].trim()) {
-    // Database and potentially schema selected, show schemas
-    return [
-      ...getSchemaCompletions(textAfterFrom, informationSchema),
-      ...getSqlKeywords(),
-    ];
+  // I'm not aware of a legit case where a FROM clause would have more than 3 parts
+  // If this happens, we shouldn't try to parse the parts, just return sql keywords
+  if (parts.length > 3) {
+    return [...getSqlKeywords()];
   }
 
-  // Default case: show table completions
-  return [
-    ...getTableCompletions(textAfterFrom, informationSchema),
-    ...getSqlKeywords(),
-  ];
+  let lastPart = parts[parts.length - 1];
+
+  // If lastPart is empty, the user is typing, so get the last non-empty part
+  if (lastPart === "") {
+    lastPart = parts[parts.length - 2];
+  }
+
+  // Check if the lastPart is a schema - and if so, return table suggestions
+  const hasSchema = informationSchema.databases.some((db) =>
+    db.schemas.some((schema) => schema.schemaName === lastPart)
+  );
+
+  if (hasSchema) {
+    const tableCompletions = informationSchema.databases.flatMap((db) =>
+      db.schemas.flatMap((schema) =>
+        schema.tables.map((table) => ({
+          value: formatTableCompletion(table.path, table.tableName, true),
+          meta: COMPLETION_TYPES.TABLE,
+          score: COMPLETION_SCORES.TABLE,
+          caption: table.tableName,
+        }))
+      )
+    );
+    return [...tableCompletions, ...getSqlKeywords()];
+  }
+
+  // If the last part isn't a schema, then check if it's a database, and if so, return schema suggestions
+  const hasDatabase = informationSchema.databases.some(
+    (db) => db.databaseName === lastPart
+  );
+
+  if (hasDatabase) {
+    const schemaCompletions = informationSchema.databases.flatMap((db) =>
+      db.schemas.map((schema) => ({
+        value: formatSchemaCompletion(schema.path, schema.schemaName, true),
+        meta: COMPLETION_TYPES.SCHEMA,
+        score: COMPLETION_SCORES.SCHEMA,
+        caption: schema.schemaName,
+      }))
+    );
+    return [...schemaCompletions, ...getSqlKeywords()];
+  }
+
+  // If we can't find a schema or database, then we can't return any suggestions
+  return [...getSqlKeywords()];
 }
 
 /**
@@ -348,7 +389,7 @@ export function getCurrentContext(
  */
 export function getSelectedTables(
   cursorData: CursorData,
-  informationSchema: InformationSchemaInterface
+  informationSchema: InformationSchemaInterfaceWithPaths
 ): string[] {
   if (!cursorData || !informationSchema) return [];
 
@@ -403,167 +444,42 @@ export function getSelectedTables(
   return Array.from(foundTables);
 }
 
-function analyzeFromClause(
-  textAfterFrom: string,
-  informationSchema: InformationSchemaInterface
-): {
-  hasDatabase: boolean;
-  hasSchema: boolean;
-  databaseName?: string;
-  schemaName?: string;
-} {
-  const parts = textAfterFrom.split(".").map((p) => p.trim().replace(/`/g, ""));
-
-  // Check if the first part matches any database name
-  const databasePart = parts[0] || "";
-  const hasDatabase =
-    databasePart !== "" &&
-    informationSchema.databases.some(
-      (db) => db.databaseName === databasePart || db.path === databasePart
-    );
-
-  // If we have a valid database, check if the second part matches any schema in that database
-  const schemaPart = parts[1] || "";
-  const hasSchema =
-    (hasDatabase &&
-      schemaPart !== "" &&
-      informationSchema.databases
-        .find(
-          (db) => db.databaseName === databasePart || db.path === databasePart
-        )
-        ?.schemas.some(
-          (schema) =>
-            schema.schemaName === schemaPart || schema.path === schemaPart
-        )) ||
-    false;
-
-  return {
-    hasDatabase,
-    hasSchema,
-    databaseName: hasDatabase ? databasePart : undefined,
-    schemaName: hasSchema ? schemaPart : undefined,
-  };
-}
-
-function pathContainsBackticks(path: string): boolean {
-  return path.startsWith("`");
-}
-
-function formatDatabaseCompletion(path: string): string {
-  return pathContainsBackticks(path) ? `\`${path.replace(/`/g, "")}` : path;
-}
-
-function formatSchemaCompletion(path: string, hasDatabase: boolean): string {
+function formatSchemaCompletion(
+  path: string,
+  tableName: string,
+  hasDatabase: boolean
+): string {
   if (hasDatabase) {
-    return path.replace(/`/g, "");
+    return tableName;
   }
-  return pathContainsBackticks(path) ? `\`${path.replace(/`/g, "")}` : path;
+  return path;
 }
 
 function formatTableCompletion(
   tablePath: string,
   tableName: string,
-  hasDatabase: boolean,
   hasSchema: boolean
 ): string {
-  if (!hasDatabase && !hasSchema) {
+  if (!hasSchema) {
     return tablePath;
   }
 
-  return pathContainsBackticks(tablePath) ? `${tableName}\`` : tableName;
-}
-
-function getSchemaCompletions(
-  textAfterFrom: string,
-  informationSchema: InformationSchemaInterface
-): AceCompletion[] {
-  const { hasDatabase, databaseName } = analyzeFromClause(
-    textAfterFrom,
-    informationSchema
-  );
-
-  // If we have a database selected, only show schemas from that database
-  if (hasDatabase && databaseName) {
-    const selectedDatabase = informationSchema.databases.find(
-      (db) => db.databaseName === databaseName || db.path === databaseName
-    );
-
-    if (selectedDatabase) {
-      return selectedDatabase.schemas.map((schema) => ({
-        value: schema.schemaName,
-        meta: COMPLETION_TYPES.SCHEMA,
-        score: COMPLETION_SCORES.SCHEMA,
-        caption: schema.schemaName,
-      }));
-    }
-    return [];
+  // If the path doesn't contain backticks, just return tableName
+  if (!tablePath.includes("`")) {
+    return tableName;
   }
 
-  // If no database selected, show all schemas with their database prefix
-  return informationSchema.databases.flatMap((db) =>
-    db.schemas.map((schema) => ({
-      value: formatSchemaCompletion(
-        schema.path || `${db.databaseName}.${schema.schemaName}`,
-        hasDatabase
-      ),
-      meta: COMPLETION_TYPES.SCHEMA,
-      score: COMPLETION_SCORES.SCHEMA,
-      caption: `${db.databaseName}.${schema.schemaName}`,
-    }))
-  );
-}
+  const pathParts = tablePath.split(".");
 
-function getTableCompletions(
-  textAfterFrom: string,
-  informationSchema: InformationSchemaInterface
-): AceCompletion[] {
-  const { hasDatabase, hasSchema, schemaName } = analyzeFromClause(
-    textAfterFrom,
-    informationSchema
-  );
+  const tablePartPath = pathParts[pathParts.length - 1];
 
-  // If we have a schema selected, only show tables from that schema
-  if (hasSchema && schemaName) {
-    // Find the schema across all databases
-    for (const db of informationSchema.databases) {
-      const selectedSchema = db.schemas.find(
-        (schema) =>
-          schema.schemaName === schemaName || schema.path === schemaName
-      );
-
-      if (selectedSchema) {
-        return selectedSchema.tables.map((table) => ({
-          value: formatTableCompletion(
-            table.path,
-            table.tableName,
-            hasDatabase,
-            hasSchema
-          ),
-          meta: COMPLETION_TYPES.TABLE,
-          score: COMPLETION_SCORES.TABLE,
-          caption: table.tableName,
-        }));
-      }
-    }
-    return [];
+  // If the table part path starts and ends with backticks, return tableName with backticks at the start and end
+  if (tablePartPath.startsWith("`") && tablePartPath.endsWith("`")) {
+    return "`" + tableName + "`";
   }
 
-  // If only database is selected, don't show any table suggestions
-  if (hasDatabase) {
-    return [];
-  }
-
-  // If no database or schema selected, show all tables with their full path
-  return informationSchema.databases.flatMap((db) =>
-    db.schemas.flatMap((schema) =>
-      schema.tables.map((table) => ({
-        value: table.path,
-        meta: COMPLETION_TYPES.TABLE,
-        score: COMPLETION_SCORES.TABLE,
-        caption: table.tableName,
-      }))
-    )
-  );
+  // Otherwise the table part path ends with backticks, so return tableName with backticks at the end
+  return tableName + "`";
 }
 
 /**
@@ -577,6 +493,7 @@ function getTableCompletions(
 export async function getAutoCompletions(
   cursorData: CursorData | null,
   informationSchema: InformationSchemaInterface | undefined,
+  datasourceType: DataSourceType | undefined,
   apiCall: (
     url: string,
     options?: RequestInit
@@ -586,7 +503,13 @@ export async function getAutoCompletions(
   const sqlKeywords = getSqlKeywords();
 
   // Always provide SQL keywords as a baseline
-  if (!cursorData || !informationSchema) return sqlKeywords;
+  if (!cursorData || !informationSchema || !datasourceType) return sqlKeywords;
+
+  // Add path data the informationSchema at db, schema, and table level
+  const informationSchemaWithPaths = getInformationSchemaWithPaths(
+    informationSchema,
+    datasourceType
+  );
 
   const context = getCurrentContext(cursorData);
 
@@ -594,7 +517,10 @@ export async function getAutoCompletions(
   if (!context?.type) return sqlKeywords;
 
   // Get selected tables and their data
-  let selectedTables = getSelectedTables(cursorData, informationSchema);
+  let selectedTables = getSelectedTables(
+    cursorData,
+    informationSchemaWithPaths
+  );
 
   // Add event name table if eventName is provided and used in the query
   // When creating legacy metrics, we sometimes use the event name as a template variable
@@ -605,7 +531,7 @@ export async function getAutoCompletions(
       selectedTables,
       eventName,
       cursorData,
-      informationSchema
+      informationSchemaWithPaths
     );
   }
 
@@ -638,7 +564,10 @@ export async function getAutoCompletions(
           .split("FROM")[1]
           ?.trim() || "";
 
-      return handleFromClauseCompletions(textAfterFrom, informationSchema);
+      return handleFromClauseCompletions(
+        textAfterFrom,
+        informationSchemaWithPaths
+      );
     }
 
     default:

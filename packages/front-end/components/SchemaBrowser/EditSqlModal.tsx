@@ -186,6 +186,7 @@ export default function EditSqlModal({
         const completions = await getAutoCompletions(
           cursorData,
           informationSchema,
+          datasource?.type,
           apiCall,
           templateVariables?.eventName
         );
@@ -200,6 +201,7 @@ export default function EditSqlModal({
   }, [
     cursorData,
     informationSchema,
+    datasource?.type,
     apiCall,
     templateVariables?.eventName,
     isAutocompleteEnabled,
