@@ -84,7 +84,6 @@ const HoldoutTimeline: React.FC<{
     });
   }, [endDate, experiments, startDate]);
 
-  console.log("filteredExperiments", filteredExperiments);
   const [width, setWidth] = useState(800); // Default width
   const rowHeight = 30;
   const height =

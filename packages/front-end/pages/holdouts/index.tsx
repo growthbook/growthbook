@@ -80,7 +80,7 @@ const HoldoutsPage = (): React.ReactElement => {
       }
       return [...acc, project.name];
     }, []);
-    const ownerName = getUserDisplay(item.experiment.owner, false) || "";
+    const ownerName = getUserDisplay(item?.experiment?.owner, false) || "";
     return {
       name: item.name,
       projects: projectsComputed,
@@ -339,7 +339,7 @@ const HoldoutsPage = (): React.ReactElement => {
                         </td>
                         <td data-title="Tags:" className="table-tags">
                           <SortedTags
-                            tags={Object.values(holdout.tags)}
+                            tags={Object.values(holdout?.tags || [])}
                             useFlex={true}
                           />
                         </td>
@@ -355,8 +355,20 @@ const HoldoutsPage = (): React.ReactElement => {
                             </span>
                           </Flex>
                         </td>
-                        <td className="nowrap" data-title="ID Type:">
-                          {holdout.hashAttribute}
+                        <td
+                          className="nowrap"
+                          title={datetime(holdout.dateCreated)}
+                        >
+                          {holdout?.experiment?.status === "running"
+                            ? "started"
+                            : holdout?.experiment?.status === "draft"
+                            ? "created"
+                            : holdout?.experiment?.status === "stopped"
+                            ? "ended"
+                            : holdout?.experiment?.status === "archived"
+                            ? "updated"
+                            : ""}{" "}
+                          {date(holdout?.experiment?.dateCreated)}
                         </td>
                         <td className="nowrap" data-title="Status:">
                           <ExperimentStatusIndicator

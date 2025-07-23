@@ -23,6 +23,7 @@ import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
 import StartAnalysisModal from "@/components/Experiment/TabbedPage/startHoldoutAnalysisModal";
+import EditHoldoutTargetingModal from "@/components/Holdout/EditHoldoutTargetingModal";
 
 const HoldoutPage = (): ReactElement => {
   const permissionsUtil = usePermissionsUtil();
@@ -219,12 +220,10 @@ const HoldoutPage = (): ReactElement => {
         />
       )}
       {targetingModalOpen && (
-        <EditTargetingModal
+        <EditHoldoutTargetingModal
           close={() => setTargetingModalOpen(false)}
           mutate={mutate}
           experiment={experiment}
-          safeToEdit={safeToEdit}
-          // source="eid"
         />
       )}
 
