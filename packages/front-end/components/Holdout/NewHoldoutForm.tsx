@@ -295,10 +295,6 @@ const NewHoldoutForm: FC<NewExperimentFormProps> = ({
         form.setValue("phases.0.condition", condition);
         forceConditionRender();
       });
-
-      if (prerequisiteTargetingSdkIssues) {
-        throw new Error("Prerequisite targeting issues must be resolved");
-      }
     }
 
     const body = JSON.stringify(data);

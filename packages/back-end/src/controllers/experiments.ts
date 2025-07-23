@@ -1865,6 +1865,8 @@ export async function postExperimentTargeting(
     reseed,
   } = req.body;
 
+  console.log("1")
+
   const changes: Changeset = {};
 
   const experiment = await getExperimentById(context, id);
@@ -1896,6 +1898,9 @@ export async function postExperimentTargeting(
     linkedFeatures,
   });
 
+  console.log("2")
+
+
   if (
     envs.length > 0 &&
     !context.permissions.canRunExperiment(experiment, envs)
@@ -1905,26 +1910,45 @@ export async function postExperimentTargeting(
 
   const phases = [...experiment.phases];
 
+  console.log("3")
+
+
   // Already has phases and we're updating an existing phase
   if (phases.length && !newPhase) {
-    phases[phases.length - 1] = {
-      ...phases[phases.length - 1],
-      condition,
-      savedGroups,
-      prerequisites,
-      coverage,
-      namespace,
-      variationWeights,
-      seed,
-    };
+    console.log("4aa", phases)
+    if (experiment.type !== "holdout") {
+      phases[phases.length - 1] = {
+        ...phases[phases.length - 1],
+        condition,
+        savedGroups,
+        prerequisites,
+        coverage,
+        namespace,
+        variationWeights,
+        seed,
+      };
+    } else {
+      phases[phases.length - 1] = {
+        ...phases[phases.length - 1],
+        condition,
+        savedGroups,
+        coverage,
+      };
+    }
+    console.log("4a", phases)
+
   } else {
     // If we had a previous phase, mark it as ended
+    console.log("4b")
+
     if (phases.length) {
       if (experiment.type === "holdout") {
         phases[0].dateEnded = new Date();
       }
       phases[phases.length - 1].dateEnded = new Date();
     }
+
+    console.log("4c")
 
     phases.push({
       condition,
@@ -1938,6 +1962,9 @@ export async function postExperimentTargeting(
       variationWeights,
       seed: phases.length && reseed ? uuidv4() : seed,
     });
+
+    console.log("4d")
+
   }
   changes.phases = phases;
 
@@ -1953,12 +1980,16 @@ export async function postExperimentTargeting(
   }
 
   changes.hashAttribute = hashAttribute;
-  changes.fallbackAttribute = fallbackAttribute;
-  changes.hashVersion = hashVersion;
-  changes.disableStickyBucketing = disableStickyBucketing;
-  changes.bucketVersion = bucketVersion;
-  changes.minBucketVersion = minBucketVersion;
+  if (experiment.type !== "holdout") {
+    changes.fallbackAttribute = fallbackAttribute;
+    changes.hashVersion = hashVersion;
+    changes.disableStickyBucketing = disableStickyBucketing;
+    changes.bucketVersion = bucketVersion;
+    changes.minBucketVersion = minBucketVersion;
+  }
   if (trackingKey) changes.trackingKey = trackingKey;
+
+  console.log("5")
 
   // TODO: validation
   try {
@@ -1976,6 +2007,8 @@ export async function postExperimentTargeting(
       },
       details: auditDetailsUpdate(experiment, updated),
     });
+
+    console.log("6")
 
     await upsertWatch({
       userId,

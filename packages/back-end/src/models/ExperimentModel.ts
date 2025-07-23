@@ -542,13 +542,17 @@ export async function updateExperiment({
   bypassWebhooks?: boolean;
 }): Promise<ExperimentInterface> {
   // TODO: are there some changes where we don't want to update the dateUpdated?
+  console.log("U1")
   const allChanges = {
     ...changes,
   };
   allChanges.dateUpdated = new Date();
+  console.log("U2")
 
   if (allChanges.name === "")
     throw new Error("Cannot set empty name for experiment!");
+
+  console.log("U3")
 
   await ExperimentModel.updateOne(
     {
@@ -560,7 +564,10 @@ export async function updateExperiment({
     }
   );
 
+  console.log("U4")
+
   const updated = { ...experiment, ...allChanges };
+  console.log("U5")
 
   // TODO: are there some changes where we want to skip calling this?
   await onExperimentUpdate({
@@ -569,6 +576,7 @@ export async function updateExperiment({
     newExperiment: updated,
     bypassWebhooks,
   });
+  console.log("U6")
 
   return updated;
 }
@@ -907,27 +915,32 @@ export const logExperimentUpdated = async ({
   current: ExperimentInterface;
   previous: ExperimentInterface;
 }) => {
+  console.log("Log1")
   const previousApiExperimentPromise = toExperimentApiInterface(
     context,
     previous
   );
 
+  console.log("Log2")
   const currentApiExperimentPromise = toExperimentApiInterface(
     context,
     current
   );
+  console.log("Log3", {previous: previous.phases, current: current.phases})
   const [previousApiExperiment, currentApiExperiment] = await Promise.all([
     previousApiExperimentPromise,
     currentApiExperimentPromise,
   ]);
-
+  console.log("Log4")
   // If experiment is part of the SDK payload, it affects all environments
   // Otherwise, it doesn't affect any
   const hasPayloadChanges = hasChangesForSDKPayloadRefresh(previous, current);
+  console.log("Log5")
 
   const changedEnvs = hasPayloadChanges
     ? getEnvironmentIdsFromOrg(context.org)
     : [];
+  console.log("Log6")
 
   await createEvent({
     context,
@@ -947,6 +960,7 @@ export const logExperimentUpdated = async ({
     environments: changedEnvs,
     containsSecrets: false,
   });
+  console.log("Log7")
 };
 
 /**
@@ -1565,16 +1579,19 @@ const onExperimentUpdate = async ({
   newExperiment: ExperimentInterface;
   bypassWebhooks?: boolean;
 }) => {
+  console.log("EU1")
   await logExperimentUpdated({
     context,
     current: newExperiment,
     previous: oldExperiment,
   });
 
+  console.log("EU2")
   if (
     !bypassWebhooks &&
     hasChangesForSDKPayloadRefresh(oldExperiment, newExperiment)
   ) {
+    console.log("EU3")
     // Get linked features
     const featureIds = new Set([
       ...(oldExperiment.linkedFeatures || []),
@@ -1584,23 +1601,28 @@ const onExperimentUpdate = async ({
     if (featureIds.size > 0) {
       linkedFeatures = await getFeaturesByIds(context, [...featureIds]);
     }
+    console.log("EU4")
 
     const oldPayloadKeys = oldExperiment
       ? getPayloadKeys(context, oldExperiment, linkedFeatures)
       : [];
+    console.log("EU5")
     const newPayloadKeys = getPayloadKeys(
       context,
       newExperiment,
       linkedFeatures
     );
+    console.log("EU6")
     const payloadKeys = uniqWith(
       [...oldPayloadKeys, ...newPayloadKeys],
       isEqual
     );
+    console.log("EU7")
 
     refreshSDKPayloadCache(context, payloadKeys).catch((e) => {
       logger.error(e, "Error refreshing SDK payload cache");
     });
+    console.log("EU8")
   }
 
   if (context.org.isVercelIntegration)
