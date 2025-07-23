@@ -10,4 +10,6 @@ router.get("/:id", holdoutController.getHoldout);
 router.put("/:id", holdoutController.updateHoldout);
 router.post("/", holdoutController.createHoldout);
 router.post("/:id/start-analysis", holdoutController.startAnalysis);
+router.delete("/:id", holdoutController.deleteHoldout);
+
 export { router as holdoutRouter };

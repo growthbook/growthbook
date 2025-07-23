@@ -61,6 +61,7 @@ import { MetricInterface } from "back-end/types/metric";
 import {
   ConversionWindowUnit,
   MetricPriorSettings,
+  MetricWindowSettings,
 } from "back-end/types/fact-table";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { DataSourceInterface } from "back-end/types/datasource";
@@ -217,6 +218,52 @@ export function getSnapshotSettingsFromReportArgs(
   const analysisSettings = getAnalysisSettingsFromReportArgs(args);
 
   return { snapshotSettings, analysisSettings };
+}
+
+function convertWindowValueToHours(
+  windowValue: number,
+  windowUnit: ConversionWindowUnit
+) {
+  switch (windowUnit) {
+    case "hours":
+      return windowValue;
+    case "days":
+      return windowValue * 24;
+    case "weeks":
+      return windowValue * 24 * 7;
+    case "minutes":
+      return windowValue / 60;
+  }
+}
+
+function generateWindowSettings(
+  metric: ExperimentMetricInterface,
+  overrides?: MetricOverride,
+  holdoutLookbackWindow?: { value: number; unit: ConversionWindowUnit }
+): MetricWindowSettings {
+  if (holdoutLookbackWindow && overrides) {
+    return {
+      delayValue: overrides.delayHours ?? DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+      delayUnit: overrides.delayHours ? "hours" : "hours",
+      type: overrides.windowType ?? DEFAULT_METRIC_WINDOW,
+      windowUnit:
+        overrides.windowHours || overrides.windowType ? "hours" : "hours",
+      windowValue:
+        overrides.windowHours ??
+        metric.windowSettings.windowValue ??
+        holdoutLookbackWindow?.value ??
+        DEFAULT_METRIC_WINDOW_HOURS,
+    };
+  }
+
+  // FIX: This is still WIP
+  return {
+    delayValue: metric.windowSettings.delayValue,
+    delayUnit: metric.windowSettings.delayUnit,
+    type: metric.windowSettings.type,
+    windowUnit: metric.windowSettings.windowUnit,
+    windowValue: metric.windowSettings.windowValue,
+  };
 }
 
 export function getMetricForSnapshot({
