@@ -494,30 +494,7 @@ describe("getSelectedTables", () => {
 
   it("should handle mixed backtick scenarios (production-like)", () => {
     // Test with production-like data where paths have backticks
-    // but SQL might not, or vice versa
-    const productionLikeSchema = {
-      ...mockInformationSchema,
-      databases: [
-        {
-          ...mockInformationSchema.databases[0],
-          schemas: [
-            {
-              ...mockInformationSchema.databases[0].schemas[0],
-              tables: [
-                {
-                  tableName: "table-users-123",
-                  path: "analytics.public.table-users-123", // Different path format
-                  id: "table-users-123",
-                  numOfColumns: 3,
-                  dateCreated: new Date("2023-01-01"),
-                  dateUpdated: new Date("2023-01-01"),
-                },
-              ],
-            },
-          ],
-        },
-      ],
-    };
+    // but user-entered SQL doesn't have backticks
 
     // Test 1: SQL without backticks should still find table by name
     const cursorData1: CursorData = {
