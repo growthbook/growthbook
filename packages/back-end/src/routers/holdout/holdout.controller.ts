@@ -24,7 +24,6 @@ import { FeatureInterface } from "back-end/types/feature";
 import { logger } from "back-end/src/util/logger";
 import {
   createExperimentSnapshot,
-  deleteExperiment,
   SNAPSHOT_TIMEOUT,
   validateVariationIds,
 } from "back-end/src/controllers/experiments";
@@ -382,7 +381,7 @@ export const deleteHoldout = async (
   res: Response<{ status: 200 | 404 | 403; message?: string }>
 ) => {
   const context = getContextFromReq(req);
-  console.log("id", req.params.id);
+
   const holdout = await context.models.holdout.getById(req.params.id);
 
   // TODO: Add holdout permissions check
