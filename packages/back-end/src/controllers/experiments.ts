@@ -1929,9 +1929,6 @@ export async function postExperimentTargeting(
   } else {
     // If we had a previous phase, mark it as ended
     if (phases.length) {
-      if (experiment.type === "holdout") {
-        phases[0].dateEnded = new Date();
-      }
       phases[phases.length - 1].dateEnded = new Date();
     }
 
@@ -1968,8 +1965,8 @@ export async function postExperimentTargeting(
     changes.disableStickyBucketing = disableStickyBucketing;
     changes.bucketVersion = bucketVersion;
     changes.minBucketVersion = minBucketVersion;
+    if (trackingKey) changes.trackingKey = trackingKey;
   }
-  if (trackingKey) changes.trackingKey = trackingKey;
 
   // TODO: validation
   try {

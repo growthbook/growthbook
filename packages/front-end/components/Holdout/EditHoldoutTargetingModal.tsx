@@ -6,10 +6,10 @@ import {
 } from "back-end/types/experiment";
 import React from "react";
 import { validateAndFixCondition } from "shared/util";
+import { Text } from "@radix-ui/themes";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
-import { useAttributeSchema, useEnvironments } from "@/services/features";
-import { useDefinitions } from "@/services/DefinitionsContext";
+import { useAttributeSchema } from "@/services/features";
 import ConditionInput from "@/components//Features/ConditionInput";
 import SelectField from "@/components//Forms/SelectField";
 import SavedGroupTargetingField, {
@@ -18,9 +18,8 @@ import SavedGroupTargetingField, {
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import track from "@/services/track";
-import {Text} from "@radix-ui/themes";
 import variationInputStyles from "@/components/Features/VariationsInput.module.scss";
-import {decimalToPercent, percentToDecimal} from "@/services/utils";
+import { decimalToPercent, percentToDecimal } from "@/services/utils";
 
 export interface Props {
   close: () => void;
@@ -44,8 +43,6 @@ export default function EditHoldoutTargetingModal({
     savedGroups: lastPhase?.savedGroups ?? [],
     coverage: lastPhase?.coverage ?? 1,
     hashAttribute: experiment.hashAttribute || "id",
-    seed: lastPhase?.seed ?? "",
-    trackingKey: experiment.trackingKey || "",
   };
 
   const form = useForm<ExperimentTargetingData>({
@@ -96,9 +93,6 @@ function TargetingForm({
   form: UseFormReturn<ExperimentTargetingData>;
   conditionKey: number;
 }) {
-  const hasLinkedChanges =
-    !!experiment.linkedFeatures?.length || !!experiment.hasVisualChangesets;
-
   const attributeSchema = useAttributeSchema(false, experiment.project);
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
@@ -119,40 +113,9 @@ function TargetingForm({
     });
   }
 
-  const { getDatasourceById } = useDefinitions();
-  const datasource = experiment.datasource
-    ? getDatasourceById(experiment.datasource)
-    : null;
-  const supportsSQL = datasource?.properties?.queryLanguage === "sql";
-
-  const environments = useEnvironments();
-  const envs = environments.map((e) => e.id);
-
-
   return (
     <div className="px-2 pt-2">
       <div className="mb-4">
-        <Field
-          label="Tracking Key"
-          labelClassName="font-weight-bold"
-          {...form.register("trackingKey")}
-          helpText={
-            supportsSQL ? (
-              <>
-                Unique identifier for this experiment, used to track
-                impressions and analyze results. Will match against the{" "}
-                <code>experiment_id</code> column in your data source.
-              </>
-            ) : (
-              <>
-                Unique identifier for this experiment, used to track
-                impressions and analyze results. Must match the experiment id
-                in your tracking callback.
-              </>
-            )
-          }
-        />
-
         <SelectField
           containerClassName="flex-1"
           label="Assign variation based on attribute"
@@ -183,9 +146,7 @@ function TargetingForm({
               value={
                 isNaN(form.watch("coverage") ?? 0)
                   ? "5"
-                  : decimalToPercent(
-                    (form.watch("coverage") ?? 0) / 2
-                  )
+                  : decimalToPercent((form.watch("coverage") ?? 0) / 2)
               }
               onChange={(e) => {
                 let decimal = percentToDecimal(e.target.value);
