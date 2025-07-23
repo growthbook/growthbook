@@ -16,7 +16,6 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/components/Radix/Button";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import LinkButton from "@/components/Radix/LinkButton";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import NewHoldoutForm from "@/components/Holdout/NewHoldoutForm";
 import { useAddComputedFields, useSearch } from "@/services/search";
@@ -199,13 +198,6 @@ const HoldoutsPage = (): React.ReactElement => {
                 </p>
               </div>
               <div className="d-flex justify-content-center pt-2">
-                <LinkButton
-                  href="/getstarted/experiment-guide"
-                  variant="outline"
-                  mr="4"
-                >
-                  Setup Instructions
-                </LinkButton>
                 {canAdd && (
                   <PremiumTooltip
                     tipPosition="left"
