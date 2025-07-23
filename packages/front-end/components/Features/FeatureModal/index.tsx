@@ -50,7 +50,7 @@ export type Props = {
   features?: FeatureInterface[];
 };
 
-export function parseDefaultValue(
+function parseDefaultValue(
   defaultValue: string,
   valueType: FeatureValueType
 ): string {

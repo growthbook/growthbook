@@ -80,7 +80,7 @@ const HoldoutsPage = (): React.ReactElement => {
       }
       return [...acc, project.name];
     }, []);
-    const ownerName = getUserDisplay(item.experiment.owner, false) || "";
+    const ownerName = getUserDisplay(item?.experiment?.owner, false) || "";
     return {
       name: item.name,
       projects: projectsComputed,
@@ -96,14 +96,7 @@ const HoldoutsPage = (): React.ReactElement => {
 
   const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
     items: holdoutItems,
-    searchFields: [
-      "name",
-      "projects",
-      "tags",
-      "ownerName",
-      "hashAttribute",
-      "status",
-    ],
+    searchFields: ["name", "projects", "ownerName", "hashAttribute", "status"],
     localStorageKey: "holdout-search",
     defaultSortField: "dateCreated",
     defaultSortDir: -1,
@@ -308,10 +301,11 @@ const HoldoutsPage = (): React.ReactElement => {
                       Holdout Name
                     </SortableTH>
                     <SortableTH field="projects">Projects</SortableTH>
-                    <SortableTH field="tags">Tags</SortableTH>
+                    <th>Tags</th>
                     <SortableTH field="ownerName">Owner</SortableTH>
-                    <SortableTH field="duration">Date</SortableTH>
+                    <SortableTH field="hashAttribute">ID Type</SortableTH>
                     <SortableTH field="status">Status</SortableTH>
+                    <SortableTH field="duration">duration</SortableTH>
                   </tr>
                 </thead>
                 <tbody>
@@ -345,7 +339,7 @@ const HoldoutsPage = (): React.ReactElement => {
                         </td>
                         <td data-title="Tags:" className="table-tags">
                           <SortedTags
-                            tags={Object.values(holdout.tags)}
+                            tags={Object.values(holdout?.tags || [])}
                             useFlex={true}
                           />
                         </td>
@@ -365,21 +359,29 @@ const HoldoutsPage = (): React.ReactElement => {
                           className="nowrap"
                           title={datetime(holdout.dateCreated)}
                         >
-                          {holdout.experiment.status === "running"
+                          {holdout?.experiment?.status === "running"
                             ? "started"
-                            : holdout.experiment.status === "draft"
+                            : holdout?.experiment?.status === "draft"
                             ? "created"
-                            : holdout.experiment.status === "stopped"
+                            : holdout?.experiment?.status === "stopped"
                             ? "ended"
-                            : holdout.experiment.status === "archived"
+                            : holdout?.experiment?.status === "archived"
                             ? "updated"
                             : ""}{" "}
-                          {date(holdout.experiment.dateCreated)}
+                          {date(holdout?.experiment?.dateCreated)}
                         </td>
                         <td className="nowrap" data-title="Status:">
                           <ExperimentStatusIndicator
                             experimentData={holdout.experiment}
                           />
+                        </td>
+                        <td
+                          className="nowrap"
+                          title={datetime(
+                            holdout.experiment.phases[0].dateStarted ?? ""
+                          )}
+                        >
+                          {holdout.duration}
                         </td>
                       </tr>
                     );

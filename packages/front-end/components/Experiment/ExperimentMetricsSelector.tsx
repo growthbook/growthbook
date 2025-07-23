@@ -20,6 +20,7 @@ export interface Props {
   goalDisabled?: boolean;
   collapseSecondary?: boolean;
   collapseGuardrail?: boolean;
+  goalMetricsDescription?: string;
 }
 
 export default function ExperimentMetricsSelector({
@@ -39,6 +40,7 @@ export default function ExperimentMetricsSelector({
   goalDisabled,
   collapseSecondary,
   collapseGuardrail,
+  goalMetricsDescription,
 }: Props) {
   const [secondaryCollapsed, setSecondaryCollapsed] = useState<boolean>(
     !!collapseSecondary && secondaryMetrics.length === 0
@@ -59,7 +61,8 @@ export default function ExperimentMetricsSelector({
             style={{ color: "var(--color-text-mid)" }}
             className="mb-1"
           >
-            {!forceSingleGoalMetric
+            {goalMetricsDescription ? goalMetricsDescription :
+              !forceSingleGoalMetric
               ? "The primary metrics you are trying to improve with this experiment. "
               : "Choose the goal metric that will be used to update variation weights. "}
           </Text>

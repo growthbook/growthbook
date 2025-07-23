@@ -1907,16 +1907,25 @@ export async function postExperimentTargeting(
 
   // Already has phases and we're updating an existing phase
   if (phases.length && !newPhase) {
-    phases[phases.length - 1] = {
-      ...phases[phases.length - 1],
-      condition,
-      savedGroups,
-      prerequisites,
-      coverage,
-      namespace,
-      variationWeights,
-      seed,
-    };
+    if (experiment.type !== "holdout") {
+      phases[phases.length - 1] = {
+        ...phases[phases.length - 1],
+        condition,
+        savedGroups,
+        prerequisites,
+        coverage,
+        namespace,
+        variationWeights,
+        seed,
+      };
+    } else {
+      phases[phases.length - 1] = {
+        ...phases[phases.length - 1],
+        condition,
+        savedGroups,
+        coverage,
+      };
+    }
   } else {
     // If we had a previous phase, mark it as ended
     if (phases.length) {
@@ -1953,11 +1962,13 @@ export async function postExperimentTargeting(
   }
 
   changes.hashAttribute = hashAttribute;
-  changes.fallbackAttribute = fallbackAttribute;
-  changes.hashVersion = hashVersion;
-  changes.disableStickyBucketing = disableStickyBucketing;
-  changes.bucketVersion = bucketVersion;
-  changes.minBucketVersion = minBucketVersion;
+  if (experiment.type !== "holdout") {
+    changes.fallbackAttribute = fallbackAttribute;
+    changes.hashVersion = hashVersion;
+    changes.disableStickyBucketing = disableStickyBucketing;
+    changes.bucketVersion = bucketVersion;
+    changes.minBucketVersion = minBucketVersion;
+  }
   if (trackingKey) changes.trackingKey = trackingKey;
 
   // TODO: validation

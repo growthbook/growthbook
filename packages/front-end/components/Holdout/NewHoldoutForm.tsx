@@ -14,7 +14,7 @@ import {
 import { getScopedSettings } from "shared/settings";
 import { generateTrackingKey } from "shared/experiments";
 import { kebabCase } from "lodash";
-import { Box, TextField, Tooltip, Text } from "@radix-ui/themes";
+import { Tooltip, Text } from "@radix-ui/themes";
 import Collapsible from "react-collapsible";
 import { PiCaretRightFill } from "react-icons/pi";
 import { FeatureEnvironment } from "back-end/types/feature";
@@ -25,10 +25,6 @@ import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExposureQuery } from "@/services/datasources";
 import {
-  filterCustomFieldsForSectionAndProject,
-  useCustomFields,
-} from "@/hooks/useCustomFields";
-import {
   generateVariationId,
   useAttributeSchema,
   useEnvironments,
@@ -37,12 +33,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { useIncrementer } from "@/hooks/useIncrementer";
-import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
 import { useUser } from "@/services/UserContext";
-import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
-import useSDKConnections from "@/hooks/useSDKConnections";
-import { allConnectionsSupportBucketingV2 } from "@/components/Experiment/HashVersionSelector";
-import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
 import TagsInput from "@/components/Tags/TagsInput";
 import Page from "@/components/Modal/Page";
 import PagedModal from "@/components/Modal/PagedModal";
@@ -57,9 +48,8 @@ import SavedGroupTargetingField, {
 } from "@/components/Features/SavedGroupTargetingField";
 import { useExperiments } from "@/hooks/useExperiments";
 import { decimalToPercent, percentToDecimal } from "@/services/utils";
+import variationInputStyles from "@/components/Features/VariationsInput.module.scss";
 import ExperimentMetricsSelector from "../Experiment/ExperimentMetricsSelector";
-import MetricSelector from "../Experiment/MetricSelector";
-import { MetricsSelectorTooltip } from "../Experiment/MetricsSelector";
 import StatsEngineSelect from "../Settings/forms/StatsEngineSelect";
 import EnvironmentSelect from "../Features/FeatureModal/EnvironmentSelect";
 import MultiSelectField from "../Forms/MultiSelectField";
@@ -172,7 +162,7 @@ const NewHoldoutForm: FC<NewExperimentFormProps> = ({
   isNewExperiment,
   mutate,
 }) => {
-  const { organization, hasCommercialFeature } = useUser();
+  const { organization } = useUser();
 
   const router = useRouter();
   const [step, setStep] = useState(initialStep || 0);
@@ -188,13 +178,6 @@ const NewHoldoutForm: FC<NewExperimentFormProps> = ({
 
   const environments = useEnvironments();
   const { experiments } = useExperiments();
-  const envs = environments.map((e) => e.id);
-
-  const [
-    prerequisiteTargetingSdkIssues,
-    setPrerequisiteTargetingSdkIssues,
-  ] = useState(false);
-  const canSubmit = !prerequisiteTargetingSdkIssues;
 
   const settings = useOrgSettings();
   const { statsEngine: orgStatsEngine } = useOrgSettings();
@@ -230,6 +213,12 @@ const NewHoldoutForm: FC<NewExperimentFormProps> = ({
     defaultValues: {
       projects: initialValue?.projects || [],
       name: initialValue?.name || "",
+      ...getNewExperimentDatasourceDefaults(
+        datasources,
+        settings,
+        initialValue?.project || project || "",
+        initialValue
+      ),
       activationMetric: initialValue?.activationMetric || "",
       hashAttribute: initialValue?.hashAttribute || hashAttribute,
       goalMetrics: initialValue?.goalMetrics || [],
@@ -306,10 +295,6 @@ const NewHoldoutForm: FC<NewExperimentFormProps> = ({
         form.setValue("phases.0.condition", condition);
         forceConditionRender();
       });
-
-      if (prerequisiteTargetingSdkIssues) {
-        throw new Error("Prerequisite targeting issues must be resolved");
-      }
     }
 
     const body = JSON.stringify(data);
@@ -345,8 +330,6 @@ const NewHoldoutForm: FC<NewExperimentFormProps> = ({
     .sort((a, b) => (a.name > b.name ? 1 : -1))
     .filter((p) => permissionsUtils.canViewExperimentModal(p.id))
     .map((p) => ({ value: p.id, label: p.name }));
-
-  const allowAllProjects = permissionsUtils.canViewExperimentModal();
 
   const exposureQueries = useMemo(() => {
     return datasource?.settings?.queries?.exposure || [];
@@ -385,7 +368,6 @@ const NewHoldoutForm: FC<NewExperimentFormProps> = ({
         docSection="experimentConfiguration"
         submit={onSubmit}
         cta={"Save"}
-        ctaEnabled={canSubmit}
         closeCta="Cancel"
         size="lg"
         step={step}
@@ -506,10 +488,6 @@ const NewHoldoutForm: FC<NewExperimentFormProps> = ({
                 "Will be hashed together with the Tracking Key to determine which variation to assign"
               }
             />
-            <FallbackAttributeSelector
-              form={form}
-              attributeSchema={attributeSchema}
-            />
           </div>
 
           <div>
@@ -520,23 +498,32 @@ const NewHoldoutForm: FC<NewExperimentFormProps> = ({
                 holdout. The same amount of traffic will be in the control.
               </Text>
             </Text>
-            <Box maxWidth="100px">
-              <TextField.Root
-                placeholder=""
-                type="number"
-                required
-                value={decimalToPercent(form.watch("phases.0.coverage") / 2)}
+            <div
+              className={`position-relative ${variationInputStyles.percentInputWrap}`}
+              style={{ width: 110 }}
+            >
+              <Field
+                style={{ width: 105 }}
+                value={
+                  isNaN(form.watch("phases.0.coverage") ?? 0)
+                    ? "5"
+                    : decimalToPercent(
+                        (form.watch("phases.0.coverage") ?? 0) / 2
+                      )
+                }
                 onChange={(e) => {
-                  form.setValue(
-                    "phases.0.coverage",
-                    percentToDecimal(e.target.value) * 2
-                  );
+                  let decimal = percentToDecimal(e.target.value);
+                  if (decimal > 1) decimal = 1;
+                  if (decimal < 0) decimal = 0;
+                  form.setValue("phases.0.coverage", decimal * 2);
                 }}
-              >
-                <TextField.Slot></TextField.Slot>
-                <TextField.Slot>%</TextField.Slot>
-              </TextField.Root>
-            </Box>
+                type="number"
+                min={0}
+                max={100}
+                step="1"
+              />
+              <span>%</span>
+            </div>
           </div>
         </Page>
 
@@ -554,17 +541,6 @@ const NewHoldoutForm: FC<NewExperimentFormProps> = ({
             onChange={(value) => form.setValue("phases.0.condition", value)}
             key={conditionKey}
             project={project || ""}
-          />
-          <hr />
-          <PrerequisiteTargetingField
-            value={form.watch("phases.0.prerequisites") || []}
-            setValue={(prerequisites) =>
-              form.setValue("phases.0.prerequisites", prerequisites)
-            }
-            environments={envs}
-            setPrerequisiteTargetingSdkIssues={
-              setPrerequisiteTargetingSdkIssues
-            }
           />
         </Page>
         <Page display="Metrics">
@@ -655,6 +631,7 @@ const NewHoldoutForm: FC<NewExperimentFormProps> = ({
               form.setValue("secondaryMetrics", secondaryMetrics)
             }
             collapseSecondary={true}
+            goalMetricsDescription="The primary metrics you are trying to improve within this holdout. "
           />
 
           <hr className="mt-4" />
