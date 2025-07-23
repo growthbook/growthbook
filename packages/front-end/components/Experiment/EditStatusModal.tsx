@@ -41,39 +41,28 @@ export default function EditStatusModal({
   const hasLinkedChanges =
     !!experiment.linkedFeatures?.length || !!experiment.hasVisualChangesets;
   const isHoldout = experiment.type === "holdout";
-  const statusOptions = isHoldout
-    ? [
-        {
-          value: "draft",
-          label: "Draft",
-        },
-        {
-          value: "running",
-          label: "Running",
-        },
-        {
-          value: "analysis",
-          label: "Analysis Period",
-        },
-        {
-          value: "stopped",
-          label: "Stopped",
-        },
-      ]
-    : [
-        {
-          value: "draft",
-          label: "Draft",
-        },
-        {
-          value: "running",
-          label: "Running",
-        },
-        {
-          value: "stopped",
-          label: "Stopped",
-        },
-      ];
+  const statusOptions = [
+    {
+      value: "draft",
+      label: "Draft",
+    },
+    {
+      value: "running",
+      label: "Running",
+    },
+    ...(isHoldout
+      ? [
+          {
+            value: "analysis",
+            label: "Analysis Period",
+          },
+        ]
+      : []),
+    {
+      value: "stopped",
+      label: "Stopped",
+    },
+  ];
   return (
     <Modal
       trackingEventModalType="edit-status-modal"
@@ -129,6 +118,7 @@ export default function EditStatusModal({
           form.setValue("status", status);
         }}
         value={form.watch("status")}
+        sort={false}
       />
       {form.watch("status") === "stopped" && experiment.status === "running" && (
         <>
