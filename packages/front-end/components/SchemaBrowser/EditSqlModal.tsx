@@ -212,11 +212,9 @@ export default function EditSqlModal({
         return;
       }
       try {
-        const response = (await apiCall(
-          `/datasource/${datasourceId}/schema`
-        )) as {
+        const response = await apiCall<{
           informationSchema: InformationSchemaInterface;
-        };
+        }>(`/datasource/${datasourceId}/schema`);
         setInformationSchema(response.informationSchema);
       } catch (error) {
         console.error("Failed to fetch schema:", error);
