@@ -85,8 +85,8 @@ const HoldoutsPage = (): React.ReactElement => {
       projects: projectsComputed,
       tags: item.experiment?.tags,
       duration: durationString,
-      numExperiments: item.linkedExperiments.length,
-      numFeatures: item.linkedFeatures.length,
+      numExperiments: item.linkedExperiments?.length || "--",
+      numFeatures: item.linkedFeatures?.length || "--",
       ownerName,
       hashAttribute: item.experiment?.hashAttribute,
       status: item.experiment?.status,
@@ -289,13 +289,13 @@ const HoldoutsPage = (): React.ReactElement => {
               <table className="appbox table experiment-table gbtable responsive-table">
                 <thead>
                   <tr>
-                    <SortableTH field="name" className="w-100">
-                      Holdout Name
-                    </SortableTH>
+                    <SortableTH field="name">Holdout Name</SortableTH>
                     <SortableTH field="projects">Projects</SortableTH>
                     <th>Tags</th>
                     <SortableTH field="ownerName">Owner</SortableTH>
                     <SortableTH field="hashAttribute">ID Type</SortableTH>
+                    <th>Experiments</th>
+                    <th>Features</th>
                     <SortableTH field="status">Status</SortableTH>
                     <SortableTH field="duration">duration</SortableTH>
                   </tr>
@@ -362,11 +362,14 @@ const HoldoutsPage = (): React.ReactElement => {
                             : ""}{" "}
                           {date(holdout?.experiment?.dateCreated)}
                         </td>
+                        <td className="nowrap">{holdout.numExperiments}</td>
+                        <td className="nowrap">{holdout.numFeatures}</td>
                         <td className="nowrap" data-title="Status:">
                           <ExperimentStatusIndicator
                             experimentData={holdout.experiment}
                           />
                         </td>
+
                         <td
                           className="nowrap"
                           title={datetime(
