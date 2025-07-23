@@ -19,7 +19,6 @@ import Button from "@/components/Radix/Button";
 import PremiumCallout from "@/components/Radix/PremiumCallout";
 import { useCustomFields } from "@/hooks/useCustomFields";
 import HoldoutTimeline from "@/components/Experiment/holdout/HoldoutTimeline";
-import { useExperiments } from "@/hooks/useExperiments";
 import EditHypothesisModal from "../EditHypothesisModal";
 import EditDescriptionModal from "../EditDescriptionModal";
 
@@ -177,7 +176,7 @@ export default function SetupTabOverview({
           </Collapsible>
         </Frame>
 
-        {isHoldout && holdout && (
+        {isHoldout && holdout && experiment.status !== "draft" && (
           <div className="box p-4 my-4">
             <HoldoutTimeline experiments={holdoutExperiments ?? []} />
           </div>
