@@ -16,6 +16,7 @@ export interface EnvironmentInitValue {
   cdnHost: string;
   config: "file" | "db";
   defaultConversionWindowHours: number;
+  environment: string;
   build?: {
     sha: string;
     date: string;
@@ -49,6 +50,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     DISABLE_TELEMETRY,
     DEFAULT_CONVERSION_WINDOW_HOURS,
     NEXT_PUBLIC_SENTRY_DSN,
+    NODE_ENV,
     SSO_CONFIG,
     STORE_SEGMENTS_IN_MONGO,
     ALLOW_CREATE_METRICS,
@@ -111,6 +113,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     config: hasConfigFile ? "file" : "db",
     allowCreateMetrics: !hasConfigFile || stringToBoolean(ALLOW_CREATE_METRICS),
     build,
+    environment: NODE_ENV || "development",
     defaultConversionWindowHours: DEFAULT_CONVERSION_WINDOW_HOURS
       ? parseInt(DEFAULT_CONVERSION_WINDOW_HOURS)
       : 72,
