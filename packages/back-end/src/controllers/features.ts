@@ -2224,6 +2224,18 @@ export async function putFeature(
 
   // TODO: If the holdout is being updated, we need to update the linked experiments to add the holdout
   // This update should fail if linked experiments are not in a draft state or the feature has safe rollout rules
+  if (updates.holdout) {
+    const holdoutObj = await context.models.holdout.getById(updates.holdout.id);
+    if (!holdoutObj) {
+      throw new Error("Holdout not found");
+    }
+    await context.models.holdout.updateById(updates.holdout.id, {
+      linkedFeatures: [
+        ...holdoutObj.linkedFeatures,
+        { id, dateAdded: new Date() },
+      ],
+    });
+  }
 
   // If there are new tags to add
   await addTagsDiff(org.id, feature.tags || [], updates.tags || []);

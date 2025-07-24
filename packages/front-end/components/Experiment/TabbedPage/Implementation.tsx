@@ -86,7 +86,9 @@ export default function Implementation({
 
   const showEditVariations = editVariations;
 
-  const [tab, setTab] = useState<"experiments" | "features">("experiments");
+  const [tab, setTab] = useState<"experiments" | "features">(
+    holdoutExperiments?.length ? "experiments" : "features"
+  );
 
   return (
     <>
@@ -191,7 +193,7 @@ export default function Implementation({
                   <TabsList size="2">
                     <TabsTrigger value="experiments">
                       Experiments
-                      {holdoutExperiments?.length && (
+                      {!!holdoutExperiments?.length && (
                         <Badge
                           label={holdoutExperiments.length.toString()}
                           color="gray"
@@ -203,7 +205,7 @@ export default function Implementation({
                     </TabsTrigger>
                     <TabsTrigger value="features">
                       Features
-                      {holdoutFeatures?.length && (
+                      {!!holdoutFeatures?.length && (
                         <Badge
                           label={holdoutFeatures.length.toString()}
                           color="gray"

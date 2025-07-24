@@ -44,7 +44,7 @@ const LinkedExperimentsTable = ({ holdout, experiments }: Props) => {
 
   if (items.length === 0) {
     return (
-      <Box>
+      <Box mt="4">
         <Text>
           <em>
             Add new <Link href="/experiments">Experiments</Link> to this

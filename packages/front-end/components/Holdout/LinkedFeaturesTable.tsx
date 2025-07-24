@@ -36,7 +36,7 @@ const LinkedFeaturesTable = ({ holdout, features }: Props) => {
 
   if (items.length === 0) {
     return (
-      <Box>
+      <Box mt="4">
         <Text>
           <em>
             Add new <Link href="/features">Features</Link> to this Holdout.
