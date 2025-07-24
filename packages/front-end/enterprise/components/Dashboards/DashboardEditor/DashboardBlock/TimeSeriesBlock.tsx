@@ -1,5 +1,4 @@
 import { TimeSeriesBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
-import { useMemo } from "react";
 import { expandMetricGroups } from "shared/experiments";
 import ExperimentMetricTimeSeriesGraphWrapper from "@/components/Experiment/ExperimentMetricTimeSeriesGraphWrapper";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -16,13 +15,13 @@ export default function TimeSeriesBlock({
 }: BlockProps<TimeSeriesBlockInterface>) {
   const { pValueCorrection, statsEngine: hookStatsEngine } = useOrgSettings();
   const { metricGroups } = useDefinitions();
-  const secondaryMetrics = useMemo(
-    () => expandMetricGroups(experiment.secondaryMetrics, metricGroups),
-    [experiment, metricGroups]
+  const secondaryMetrics = expandMetricGroups(
+    experiment.secondaryMetrics,
+    metricGroups
   );
-  const guardrailMetrics = useMemo(
-    () => expandMetricGroups(experiment.guardrailMetrics, metricGroups),
-    [experiment, metricGroups]
+  const guardrailMetrics = expandMetricGroups(
+    experiment.guardrailMetrics,
+    metricGroups
   );
 
   const statsEngine =

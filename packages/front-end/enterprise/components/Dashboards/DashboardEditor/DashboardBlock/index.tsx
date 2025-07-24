@@ -19,7 +19,10 @@ import {
   ExperimentSnapshotInterface,
 } from "back-end/types/experiment-snapshot";
 import { SavedQuery } from "back-end/src/validators/saved-queries";
-import { ExperimentMetricInterface } from "shared/experiments";
+import {
+  expandMetricGroups,
+  ExperimentMetricInterface,
+} from "shared/experiments";
 import { isDefined } from "shared/util";
 import { ErrorBoundary } from "@sentry/react";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
@@ -130,7 +133,11 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
   mutate,
 }: Props<T>) {
   const { experimentsMap, loading: experimentsLoading } = useExperiments();
-  const { getExperimentMetricById, ready: definitionsReady } = useDefinitions();
+  const {
+    getExperimentMetricById,
+    metricGroups,
+    ready: definitionsReady,
+  } = useDefinitions();
   const [moveBlockOpen, setMoveBlockOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const {
@@ -186,7 +193,9 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
     isStringArray
   );
   const blockMetrics = blockHasMetrics
-    ? block.metricIds.map(getExperimentMetricById)
+    ? expandMetricGroups(block.metricIds, metricGroups).map(
+        getExperimentMetricById
+      )
     : undefined;
   if (blockHasMetrics) {
     objectProps = { ...objectProps, metrics: blockMetrics };

@@ -142,12 +142,12 @@ export const CREATE_BLOCK_TYPE: {
     experimentId: experiment.id,
     ...(initialValues || {}),
   }),
-  metric: ({ initialValues, experiment, metricGroups }) => ({
+  metric: ({ initialValues, experiment }) => ({
     type: "metric",
     title: "",
     description: "",
     experimentId: experiment.id,
-    metricIds: expandMetricGroups(experiment.goalMetrics, metricGroups),
+    metricIds: experiment.goalMetrics,
     snapshotId: experiment.analysisSummary?.snapshotId || "",
     variationIds: [],
     differenceType: "relative",
@@ -155,12 +155,12 @@ export const CREATE_BLOCK_TYPE: {
     columnsFilter: [],
     ...(initialValues || {}),
   }),
-  dimension: ({ initialValues, experiment, metricGroups }) => ({
+  dimension: ({ initialValues, experiment }) => ({
     type: "dimension",
     title: "",
     description: "",
     experimentId: experiment.id,
-    metricIds: expandMetricGroups(experiment.goalMetrics, metricGroups),
+    metricIds: experiment.goalMetrics,
     dimensionId: "",
     dimensionValues: [],
     snapshotId: experiment.analysisSummary?.snapshotId || "",

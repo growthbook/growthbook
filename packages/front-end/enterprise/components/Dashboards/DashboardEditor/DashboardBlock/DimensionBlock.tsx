@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React from "react";
 import { DimensionBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
 import { MetricSnapshotSettings } from "back-end/types/report";
 import {
@@ -29,17 +29,18 @@ export default function DimensionBlock({
 }: BlockProps<DimensionBlockInterface>) {
   const { pValueCorrection: hookPValueCorrection } = useOrgSettings();
   const { metricGroups } = useDefinitions();
-  const expGoalMetrics = useMemo(
-    () => expandMetricGroups(experiment.goalMetrics, metricGroups),
-    [experiment, metricGroups]
+  const expandedMetricIds = expandMetricGroups(metricIds, metricGroups);
+  const expGoalMetrics = expandMetricGroups(
+    experiment.goalMetrics,
+    metricGroups
   );
-  const expSecondaryMetrics = useMemo(
-    () => expandMetricGroups(experiment.secondaryMetrics, metricGroups),
-    [experiment, metricGroups]
+  const expSecondaryMetrics = expandMetricGroups(
+    experiment.secondaryMetrics,
+    metricGroups
   );
-  const expGuardrailMetrics = useMemo(
-    () => expandMetricGroups(experiment.guardrailMetrics, metricGroups),
-    [experiment, metricGroups]
+  const expGuardrailMetrics = expandMetricGroups(
+    experiment.guardrailMetrics,
+    metricGroups
   );
 
   const pValueCorrection =
@@ -89,12 +90,14 @@ export default function DimensionBlock({
     })) || [];
   const isBandit = experiment.type === "multi-armed-bandit";
 
-  const goalMetrics = expGoalMetrics.filter((mId) => metricIds.includes(mId));
+  const goalMetrics = expGoalMetrics.filter((mId) =>
+    expandedMetricIds.includes(mId)
+  );
   const secondaryMetrics = expSecondaryMetrics.filter((mId) =>
-    metricIds.includes(mId)
+    expandedMetricIds.includes(mId)
   );
   const guardrailMetrics = expGuardrailMetrics.filter((mId) =>
-    metricIds.includes(mId)
+    expandedMetricIds.includes(mId)
   );
 
   return (

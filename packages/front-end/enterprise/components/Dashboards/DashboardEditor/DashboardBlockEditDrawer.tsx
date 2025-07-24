@@ -27,6 +27,7 @@ import { RESULTS_TABLE_COLUMNS } from "@/components/Experiment/ResultsTable";
 import { getDimensionOptions } from "@/components/Dimensions/DimensionChooser";
 import Field from "@/components/Forms/Field";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
+import MetricName from "@/components/Metrics/MetricName";
 import { useDashboardSnapshot } from "../DashboardSnapshotProvider";
 import { BLOCK_TYPE_INFO } from ".";
 
@@ -109,6 +110,11 @@ export default function DashboardBlockEditDrawer({
     savedQueries: SavedQuery[];
   }>(`/saved-queries/`);
 
+  const metricGroupMap = useMemo(
+    () => new Map(metricGroups.map((group) => [group.id, group])),
+    [metricGroups]
+  );
+
   const { snapshot, analysis } = useDashboardSnapshot(block, setBlock);
 
   const dimensionValueOptions =
@@ -123,27 +129,63 @@ export default function DashboardBlockEditDrawer({
       const metricIds = expandMetricGroups(metricOrGroupIds, metricGroups);
       return metricIds.map(getExperimentMetricById).filter(isDefined);
     };
+
     return [
+      {
+        label: "Metric Groups",
+        options: [
+          ...experiment.goalMetrics.filter((mId) => metricGroupMap.has(mId)),
+          ...experiment.secondaryMetrics.filter((mId) =>
+            metricGroupMap.has(mId)
+          ),
+          ...experiment.guardrailMetrics.filter((mId) =>
+            metricGroupMap.has(mId)
+          ),
+        ]
+          .map((groupId) => {
+            const group = metricGroupMap.get(groupId);
+            return group
+              ? {
+                  label: group.name,
+                  value: group.id,
+                  tooltip: group.description,
+                }
+              : undefined;
+          })
+          .filter(isDefined),
+      },
       {
         label: "Goal Metrics",
         options: getMetrics(experiment.goalMetrics).map((metric) => {
-          return { label: metric.name, value: metric.id };
+          return {
+            label: metric.name,
+            value: metric.id,
+            tooltip: metric.description,
+          };
         }),
       },
       {
         label: "Secondary Metrics",
         options: getMetrics(experiment.secondaryMetrics).map((metric) => {
-          return { label: metric.name, value: metric.id };
+          return {
+            label: metric.name,
+            value: metric.id,
+            tooltip: metric.description,
+          };
         }),
       },
       {
         label: "Guardrail Metrics",
         options: getMetrics(experiment.guardrailMetrics).map((metric) => {
-          return { label: metric.name, value: metric.id };
+          return {
+            label: metric.name,
+            value: metric.id,
+            tooltip: metric.description,
+          };
         }),
       },
     ];
-  }, [experiment, getExperimentMetricById, metricGroups]);
+  }, [experiment, getExperimentMetricById, metricGroups, metricGroupMap]);
 
   const dimensionOptions = useMemo(() => {
     const datasource = getDatasourceById(experiment.datasource);
@@ -331,7 +373,17 @@ export default function DashboardBlockEditDrawer({
                 onChange={(value) => {
                   setBlock({ ...block, metricId: value });
                 }}
-                options={metricOptions}
+                // Can't select metric groups for a single metric block
+                options={metricOptions.filter(
+                  ({ label }) => label !== "Metric Groups"
+                )}
+                formatOptionLabel={({ value }, { context }) => (
+                  <MetricName
+                    id={value}
+                    showDescription={context !== "value"}
+                    isGroup={false}
+                  />
+                )}
               />
             )}
             {blockHasFieldOfType(block, "metricIds", isStringArray) && (
@@ -345,6 +397,31 @@ export default function DashboardBlockEditDrawer({
                 containerClassName="mb-0"
                 onChange={(value) => setBlock({ ...block, metricIds: value })}
                 options={metricOptions}
+                sort={false}
+                formatOptionLabel={({ value }, { context }) => {
+                  const metricGroup = metricGroupMap.get(value);
+                  const metricsWithJoinableStatus = metricGroup
+                    ? metricGroup.metrics
+                        .map((m) => {
+                          const metric = getExperimentMetricById(m);
+                          return metric
+                            ? {
+                                metric,
+                                joinable: true,
+                              }
+                            : undefined;
+                        })
+                        .filter(isDefined)
+                    : undefined;
+                  return (
+                    <MetricName
+                      id={value}
+                      showDescription={context !== "value"}
+                      isGroup={!!metricGroup}
+                      metrics={metricsWithJoinableStatus}
+                    />
+                  );
+                }}
               />
             )}
             {blockHasFieldOfType(block, "dimensionId", isString) && (
