@@ -620,7 +620,13 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             )}
 
             {holdoutsWithExperiment.length > 0 && (
-              <HoldoutSelect selectedProject={selectedProject} />
+              <HoldoutSelect
+                selectedProject={selectedProject}
+                selectedHoldoutId={form.watch("holdoutId")}
+                setHoldout={(holdoutId) => {
+                  form.setValue("holdoutId", holdoutId);
+                }}
+              />
             )}
 
             <Separator size="4" mt="6" mb="5" />
