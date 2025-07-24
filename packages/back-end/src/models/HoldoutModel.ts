@@ -40,7 +40,7 @@ export class HoldoutModel extends BaseClass {
     const holdouts = await this._find({});
     const filteredHoldouts = holdouts.filter((h) => {
       if (environment) {
-        return h.environments.includes(environment);
+        return h.environmentSettings[environment].enabled;
       }
       return true;
     });
