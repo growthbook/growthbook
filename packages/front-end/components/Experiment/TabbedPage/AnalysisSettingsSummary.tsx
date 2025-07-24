@@ -304,21 +304,23 @@ export default function AnalysisSettingsSummary({
               </>
             )}
           </div>
-          <div className="text-left">
-            <strong>Guardrails:</strong>
-            {guardrails.length > 0 ? (
-              <ul className="ml-0 pl-3 mb-0">
-                {guardrails.map((m, i) => (
-                  <li key={i}>{m}</li>
-                ))}
-              </ul>
-            ) : (
-              <>
-                {" "}
-                <em>none</em>
-              </>
-            )}
-          </div>
+          {experiment.type !== "holdout" ? (
+            <div className="text-left">
+              <strong>Guardrails:</strong>
+              {guardrails.length > 0 ? (
+                <ul className="ml-0 pl-3 mb-0">
+                  {guardrails.map((m, i) => (
+                    <li key={i}>{m}</li>
+                  ))}
+                </ul>
+              ) : (
+                <>
+                  {" "}
+                  <em>none</em>
+                </>
+              )}
+            </div>
+          ) : null}
         </>
       ) : undefined,
   });
