@@ -43,6 +43,7 @@ import { experimentDate } from "@/pages/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
+import { RowError } from "@/components/Experiment/ResultsTable";
 import { getDefaultRuleValue, NewExperimentRefRule } from "./features";
 
 export type ExperimentTableRow = {
@@ -53,6 +54,7 @@ export type ExperimentTableRow = {
   rowClass?: string;
   metricSnapshotSettings?: MetricSnapshotSettings;
   resultGroup: "goal" | "secondary" | "guardrail";
+  error?: RowError;
 };
 
 export function getRisk(
@@ -142,10 +144,6 @@ export function getRiskByVariation(
       showRisk,
     };
   }
-}
-
-export function hasRisk(rows: ExperimentTableRow[]) {
-  return rows.filter((row) => row.variations[1]?.risk?.length).length > 0;
 }
 
 export function useDomain(

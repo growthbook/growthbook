@@ -86,7 +86,6 @@ export type ResultsTableProps = {
     maxRows?: number
   ) => string | ReactElement;
   dateCreated: Date;
-  hasRisk: boolean;
   statsEngine: StatsEngine;
   pValueCorrection?: PValueCorrection;
   differenceType: DifferenceType;
@@ -106,6 +105,10 @@ export type ResultsTableProps = {
 const ROW_HEIGHT = 56;
 const METRIC_LABEL_ROW_HEIGHT = 44;
 const SPACER_ROW_HEIGHT = 6;
+
+export enum RowError {
+  QUANTILE_AGGREGATION_ERROR = "QUANTILE_AGGREGATION_ERROR",
+}
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -129,7 +132,6 @@ export default function ResultsTable({
   endDate,
   renderLabelColumn,
   dateCreated,
-  hasRisk,
   statsEngine,
   pValueCorrection,
   differenceType,
@@ -254,8 +256,13 @@ export default function ResultsTable({
 
   const domain = useDomain(filteredVariations, rows, differenceType);
 
-  const rowsResults: (RowResults | "query error" | null)[][] = useMemo(() => {
-    const rr: (RowResults | "query error" | null)[][] = [];
+  const rowsResults: (
+    | RowResults
+    | "query error"
+    | RowError
+    | null
+  )[][] = useMemo(() => {
+    const rr: (RowResults | "query error" | RowError | null)[][] = [];
     rows.map((row, i) => {
       rr.push([]);
       const baseline = row.variations[baselineRow] || {
@@ -282,6 +289,12 @@ export default function ResultsTable({
           rr[i].push("query error");
           return;
         }
+
+        if (row.error) {
+          rr[i].push(row.error);
+          return;
+        }
+
         const stats = row.variations[v.index] || {
           value: 0,
           cr: 0,
@@ -608,7 +621,6 @@ export default function ResultsTable({
                                 changeTitle,
                                 statsEngine || DEFAULT_STATS_ENGINE,
                                 differenceType,
-                                hasRisk,
                                 !!sequentialTestingEnabled,
                                 pValueCorrection ?? null,
                                 pValueThreshold
@@ -709,6 +721,27 @@ export default function ResultsTable({
                       } else {
                         return null;
                       }
+                    }
+                    if (rowResults === RowError.QUANTILE_AGGREGATION_ERROR) {
+                      return drawEmptyRow({
+                        key: j,
+                        className:
+                          "results-variation-row align-items-center error-row",
+                        label: (
+                          <div className="alert alert-danger px-2 py-1">
+                            <FaExclamationTriangle className="mr-1" />
+                            Quantile metrics not available for pre-computed
+                            dimensions. Use a custom report instead.
+                          </div>
+                        ),
+                        graphCellWidth,
+                        rowHeight: compactResults
+                          ? ROW_HEIGHT + 20
+                          : ROW_HEIGHT,
+                        id,
+                        domain,
+                        ssrPolyfills,
+                      });
                     }
 
                     const hideScaledImpact =
@@ -1051,7 +1084,6 @@ function getChangeTooltip(
   changeTitle: string,
   statsEngine: StatsEngine,
   differenceType: DifferenceType,
-  hasRisk: boolean,
   sequentialTestingEnabled: boolean,
   pValueCorrection: PValueCorrection,
   pValueThreshold: number
@@ -1074,7 +1106,7 @@ function getChangeTooltip(
     </>
   );
   let intervalText = <></>;
-  if (hasRisk && statsEngine === "bayesian") {
+  if (statsEngine === "bayesian") {
     intervalText = (
       <>
         The interval is a 95% credible interval. The true value is more likely
