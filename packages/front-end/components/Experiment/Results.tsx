@@ -357,7 +357,7 @@ const Results: FC<{
           differenceType={analysis.settings?.differenceType}
           metricFilter={metricFilter}
           setMetricFilter={setMetricFilter}
-          isBandit={isBandit}
+          experimentType={experiment.type}
         />
       ) : showCompactResults ? (
         <>

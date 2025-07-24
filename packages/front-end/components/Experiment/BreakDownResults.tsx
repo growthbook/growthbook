@@ -83,7 +83,7 @@ const BreakDownResults: FC<{
   differenceType: DifferenceType;
   metricFilter?: ResultsMetricFilters;
   setMetricFilter?: (filter: ResultsMetricFilters) => void;
-  isBandit?: boolean;
+  experimentType?: ExperimentType;
   ssrPolyfills?: SSRPolyfills;
   hideDetails?: boolean;
 }> = ({
@@ -111,7 +111,7 @@ const BreakDownResults: FC<{
   differenceType,
   metricFilter,
   setMetricFilter,
-  isBandit,
+  experimentType,
   ssrPolyfills,
   hideDetails,
 }) => {
@@ -284,6 +284,8 @@ const BreakDownResults: FC<{
       getExperimentMetricById(activationMetric)
     : undefined;
 
+  const isBandit = experimentType === "multi-armed-bandit";
+
   return (
     <div className="mb-3">
       <div className="mb-4">
@@ -363,7 +365,8 @@ const BreakDownResults: FC<{
                   {getRenderLabelColumn(
                     !!regressionAdjustmentEnabled,
                     statsEngine,
-                    hideDetails
+                    hideDetails,
+                    experimentType
                   )(table.metric.name, table.metric, table.rows[0])}
                 </div>
               }

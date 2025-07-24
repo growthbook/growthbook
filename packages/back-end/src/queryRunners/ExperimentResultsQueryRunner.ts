@@ -187,7 +187,7 @@ export const startExperimentResultQueries = async (
     ? metricMap.get(snapshotSettings.activationMetric) ?? null
     : null;
 
-  // Only include metrics tied to this experiment (both goal and guardrail metrics)
+  // Only include metrics tied to this experiment=
   const allMetricGroups = await context.models.metricGroups.getAll();
   const selectedMetrics = expandMetricGroups(
     getAllMetricIdsFromExperiment(snapshotSettings, false),

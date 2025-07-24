@@ -710,7 +710,6 @@ export async function postExperiments(
     shareLevel: data.shareLevel || "organization",
     decisionFrameworkSettings: data.decisionFrameworkSettings || {},
   };
-
   const { settings } = getScopedSettings({
     organization: org,
   });
