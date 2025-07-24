@@ -302,6 +302,7 @@ const experimentSchema = new mongoose.Schema({
     },
   },
   dismissedWarnings: [String],
+  holdoutId: String,
 });
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;

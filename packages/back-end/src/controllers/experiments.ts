@@ -637,6 +637,7 @@ export async function postExperiments(
   const { metricIds, datasource } = result;
 
   const experimentType = data.type ?? "standard";
+  const holdoutId = data.holdoutId;
 
   const obj: Omit<ExperimentInterface, "id" | "uid"> = {
     organization: data.organization,
@@ -709,6 +710,7 @@ export async function postExperiments(
     templateId: data.templateId || undefined,
     shareLevel: data.shareLevel || "organization",
     decisionFrameworkSettings: data.decisionFrameworkSettings || {},
+    holdoutId: holdoutId || undefined,
   };
   const { settings } = getScopedSettings({
     organization: org,
@@ -746,6 +748,19 @@ export async function postExperiments(
       data: obj,
       context,
     });
+
+    if (holdoutId) {
+      const holdoutObj = await context.models.holdout.getById(holdoutId);
+      if (!holdoutObj) {
+        throw new Error("Holdout not found");
+      }
+      await context.models.holdout.updateById(holdoutId, {
+        linkedExperiments: [
+          ...holdoutObj.linkedExperiments,
+          { id: experiment.id, dateAdded: new Date() },
+        ],
+      });
+    }
 
     if (req.query.originalId) {
       const visualChangesets = await findVisualChangesetsByExperiment(
@@ -997,6 +1012,7 @@ export async function postExperiment(
     "uid",
     "analysisSummary",
     "dismissedWarnings",
+    "holdoutId",
   ];
   let changes: Changeset = {};
 
