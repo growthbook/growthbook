@@ -1,6 +1,7 @@
 import { Response } from "express";
 import cloneDeep from "lodash/cloneDeep";
 import * as bq from "@google-cloud/bigquery";
+import { SQL_EXPLORER_LIMIT } from "shared/sql";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {
@@ -645,12 +646,23 @@ export async function testLimitedQuery(
     query: string;
     datasourceId: string;
     templateVariables?: TemplateVariables;
+    limit?: number;
   }>,
   res: Response
 ) {
   const context = getContextFromReq(req);
 
-  const { query, datasourceId, templateVariables } = req.body;
+  const { query, datasourceId, templateVariables, limit } = req.body;
+
+  // Sanity check to prevent potential abuse
+  if (limit && limit > SQL_EXPLORER_LIMIT) {
+    return res.status(400).json({
+      status: 400,
+      message: `Limit clause cannot be greater than ${SQL_EXPLORER_LIMIT}`,
+    });
+  }
+
+  const maxLimit = limit || SQL_EXPLORER_LIMIT;
 
   const datasource = await getDataSourceById(context, datasourceId);
   if (!datasource) {
@@ -664,7 +676,8 @@ export async function testLimitedQuery(
     context,
     datasource,
     query,
-    templateVariables
+    templateVariables,
+    maxLimit
   );
 
   res.status(200).json({
