@@ -358,7 +358,7 @@ export async function createRevision({
       }),
     })
     .catch((e) => {
-      logger.error("Error creating revisionlog", e);
+      logger.error(e, "Error creating revisionlog");
     });
 
   return toInterface(doc, context);
@@ -418,7 +418,7 @@ export async function updateRevision(
       version: revision.version,
     })
     .catch((e) => {
-      logger.error("Error creating revisionlog", e);
+      logger.error(e, "Error creating revisionlog");
     });
 }
 
@@ -459,7 +459,7 @@ export async function markRevisionAsPublished(
       value: JSON.stringify(comment ? { comment } : {}),
     })
     .catch((e) => {
-      logger.error("Error creating revisionlog", e);
+      logger.error(e, "Error creating revisionlog");
     });
 }
 
@@ -498,7 +498,7 @@ export async function markRevisionAsReviewRequested(
       value: JSON.stringify(comment ? { comment } : {}),
     })
     .catch((e) => {
-      logger.error("Error creating revisionlog", e);
+      logger.error(e, "Error creating revisionlog");
     });
 }
 
@@ -549,7 +549,7 @@ export async function submitReviewAndComments(
       value: JSON.stringify(comment ? { comment } : {}),
     })
     .catch((e) => {
-      logger.error("Error creating revisionlog", e);
+      logger.error(e, "Error creating revisionlog");
     });
 }
 
@@ -584,7 +584,7 @@ export async function discardRevision(
       value: JSON.stringify({}),
     })
     .catch((e) => {
-      logger.error("Error creating revisionlog", e);
+      logger.error(e, "Error creating revisionlog");
     });
 }
 

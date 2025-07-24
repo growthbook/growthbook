@@ -145,9 +145,12 @@ export function toArchetypeApiInterface(
   try {
     parsedAttributes = JSON.parse(archetype.attributes);
   } catch {
-    logger.error("Failed to parse archetype attributes json", {
-      archetypeId: archetype.id,
-    });
+    logger.error(
+      {
+        archetypeId: archetype.id,
+      },
+      "Failed to parse archetype attributes json"
+    );
   }
   return {
     id: archetype.id,

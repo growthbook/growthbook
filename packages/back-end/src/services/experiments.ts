@@ -946,10 +946,13 @@ export function updateExperimentBanditSettings({
       snapshotId: snapshot?.id,
     });
   } else {
-    logger.error("No bandit results present, skipping bandit event log", {
-      eid: experiment.id,
-      snapshot,
-    });
+    logger.error(
+      {
+        eid: experiment.id,
+        snapshot,
+      },
+      "No bandit results present, skipping bandit event log"
+    );
   }
 
   // scheduling

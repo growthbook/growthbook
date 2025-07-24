@@ -724,9 +724,12 @@ export const sendSlackMessage = async (
     );
 
     if (!responseWithoutBody.ok) {
-      logger.error("Failed to send Slack integration message", {
-        text: stringBody,
-      });
+      logger.error(
+        {
+          text: stringBody,
+        },
+        "Failed to send Slack integration message"
+      );
     }
 
     return responseWithoutBody.ok;
