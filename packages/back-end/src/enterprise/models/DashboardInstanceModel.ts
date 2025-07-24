@@ -207,7 +207,7 @@ export class DashboardInstanceModel extends BaseClass {
         createDashboardBlock(this.context.org.id, blockData)
       )
     );
-    return this._createOne({
+    return this.dangerousCreateBypassPermission({
       experimentId,
       isDefault: true,
       isDeleted: false,

@@ -11,6 +11,7 @@ import { useRouter } from "next/router";
 import { DifferenceType } from "back-end/types/stats";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
 import { FaChartBar } from "react-icons/fa";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import FeatureFromExperimentModal from "@/components/Features/FeatureModal/FeatureFromExperimentModal";
 import Modal from "@/components/Modal";
@@ -94,6 +95,8 @@ export default function TabbedPage({
   checklistItemsRemaining,
   setChecklistItemsRemaining,
 }: Props) {
+  const growthbook = useGrowthBook();
+  const dashboardsEnabled = growthbook.isOn("experiment-dashboards-enabled");
   const [tab, setTab] = useLocalStorage<ExperimentTab>(
     `tabbedPageTab__${experiment.id}`,
     "overview"
@@ -129,12 +132,16 @@ export default function TabbedPage({
   useEffect(() => {
     const handler = () => {
       const hash = window.location.hash.replace(/^#/, "") as ExperimentTab;
-      const [tabName, ...tabPathSegments] = hash.split("/") as [
+      let [tabName, ...tabPathSegments] = hash.split("/") as [
         ExperimentTabName,
-        string[]
+        ...string[]
       ];
-      const tabPath = tabPathSegments.join("/");
       if (experimentTabs.includes(tabName)) {
+        if (tabName === "dashboards" && !dashboardsEnabled) {
+          tabName = "overview";
+          tabPathSegments = [];
+        }
+        const tabPath = tabPathSegments.join("/");
         setTab(tabName);
         setTabPath(tabPath);
         // Drop the tab path from the URL after reading it into state
@@ -144,7 +151,7 @@ export default function TabbedPage({
     handler();
     window.addEventListener("hashchange", handler, false);
     return () => window.removeEventListener("hashchange", handler, false);
-  }, [setTab]);
+  }, [setTab, dashboardsEnabled]);
 
   const { phase, setPhase } = useSnapshot();
   const { metricGroups } = useDefinitions();

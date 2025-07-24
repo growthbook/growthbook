@@ -304,6 +304,12 @@ export abstract class BaseModel<
   ): Promise<z.infer<T>> {
     return this._createOne(props, writeOptions);
   }
+  public dangerousCreateBypassPermission(
+    props: CreateProps<z.infer<T>>,
+    writeOptions?: WriteOptions
+  ): Promise<z.infer<T>> {
+    return this._createOne(props, writeOptions, true);
+  }
   public update(
     existing: z.infer<T>,
     updates: UpdateProps<z.infer<T>>,
@@ -451,7 +457,8 @@ export abstract class BaseModel<
 
   protected async _createOne(
     rawData: CreateProps<z.infer<T>>,
-    writeOptions?: WriteOptions
+    writeOptions?: WriteOptions,
+    forceCanCreate?: boolean
   ) {
     const props = this.createValidator.parse(rawData);
 
@@ -479,7 +486,7 @@ export abstract class BaseModel<
     } as z.infer<T>;
 
     await this.populateForeignRefs([doc]);
-    if (!this.canCreate(doc)) {
+    if (!forceCanCreate && !this.canCreate(doc)) {
       throw new Error("You do not have access to create this resource");
     }
 

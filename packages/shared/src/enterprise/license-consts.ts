@@ -234,7 +234,6 @@ export const accountFeatures: CommercialFeaturesMap = {
     "safe-rollout",
     "managed-warehouse",
     "saveSqlExplorerQueries",
-    "dashboards",
   ]),
   enterprise: new Set<CommercialFeature>([
     "scim",
