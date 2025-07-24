@@ -49,7 +49,7 @@ The included [docker-compose.yml](https://github.com/growthbook/growthbook/blob/
 ```sh
 git clone https://github.com/growthbook/growthbook.git
 cd growthbook
-docker-compose up -d
+docker compose up -d
 ```
 
 Then visit http://localhost:3000 to view the app.
