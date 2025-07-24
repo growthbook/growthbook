@@ -115,7 +115,6 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
         }
       }
     }
-
     if (req.body.variations) {
       validateVariationIds(req.body.variations as Variation[]);
     }

@@ -2,6 +2,7 @@ import type { Response } from "express";
 import { getValidDate } from "shared/dates";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { v4 as uuidv4 } from "uuid";
+import { generateVariationId } from "shared/util";
 import {
   ExperimentInterface,
   ExperimentInterfaceStringDates,
@@ -131,7 +132,22 @@ export const createHoldout = async (
     return;
   }
   const { metricIds, datasource } = result;
-
+  const variations = [
+    {
+      name: "Holdout",
+      description: "",
+      key: "0",
+      screenshots: [],
+      id: generateVariationId(),
+    },
+    {
+      name: "Treatment",
+      description: "",
+      key: "1",
+      screenshots: [],
+      id: generateVariationId(),
+    },
+  ];
   const obj: Omit<ExperimentInterface, "id" | "uid"> = {
     organization: data.organization,
     archived: false,
@@ -170,7 +186,7 @@ export const createHoldout = async (
     queryFilter: "",
     skipPartialData: false,
     attributionModel: "firstExposure",
-    variations: data.variations || [],
+    variations,
     implementation: "code",
     status: "draft",
     results: undefined,

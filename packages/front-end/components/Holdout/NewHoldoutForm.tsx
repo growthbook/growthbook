@@ -1,9 +1,6 @@
 import React, { FC, useEffect, useMemo, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
-import {
-  ExperimentInterfaceStringDates,
-  Variation,
-} from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useRouter } from "next/router";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { OrganizationSettings } from "back-end/types/organization";
@@ -24,11 +21,7 @@ import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExposureQuery } from "@/services/datasources";
-import {
-  generateVariationId,
-  useAttributeSchema,
-  useEnvironments,
-} from "@/services/features";
+import { useAttributeSchema, useEnvironments } from "@/services/features";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
@@ -74,23 +67,6 @@ export type NewExperimentFormProps = {
   isNewExperiment?: boolean;
   mutate?: () => void;
 };
-
-export function getDefaultVariations(num: number) {
-  // Must have at least 2 variations
-  num = Math.max(2, num);
-
-  const variations: Variation[] = [];
-  for (let i = 0; i < num; i++) {
-    variations.push({
-      name: i ? "Holdout" : "Control",
-      description: "",
-      key: i + "",
-      screenshots: [],
-      id: generateVariationId(),
-    });
-  }
-  return variations;
-}
 
 export function getNewExperimentDatasourceDefaults(
   datasources: DataSourceInterfaceWithParams[],
@@ -223,7 +199,6 @@ const NewHoldoutForm: FC<NewExperimentFormProps> = ({
       hashAttribute: initialValue?.hashAttribute || hashAttribute,
       goalMetrics: initialValue?.goalMetrics || [],
       secondaryMetrics: initialValue?.secondaryMetrics || [],
-      variations: getDefaultVariations(2),
       tags: initialValue?.tags || [],
       targetURLRegex: initialValue?.targetURLRegex || "",
       description: initialValue?.description || "",
