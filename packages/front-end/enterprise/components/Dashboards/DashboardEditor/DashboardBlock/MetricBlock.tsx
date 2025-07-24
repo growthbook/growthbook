@@ -2,9 +2,13 @@ import React, { useMemo } from "react";
 import { MetricBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
 import { isDefined } from "shared/util";
 import { groupBy } from "lodash";
-import { ExperimentMetricInterface } from "shared/experiments";
+import {
+  expandMetricGroups,
+  ExperimentMetricInterface,
+} from "shared/experiments";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import ResultsTable from "@/components/Experiment/ResultsTable";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import { BlockProps } from ".";
 
 export default function MetricBlock({
@@ -18,6 +22,20 @@ export default function MetricBlock({
     pValueCorrection: hookPValueCorrection,
     statsEngine: hookStatsEngine,
   } = useOrgSettings();
+  const { metricGroups } = useDefinitions();
+  const goalMetrics = useMemo(
+    () => expandMetricGroups(experiment.goalMetrics, metricGroups),
+    [experiment, metricGroups]
+  );
+  const secondaryMetrics = useMemo(
+    () => expandMetricGroups(experiment.secondaryMetrics, metricGroups),
+    [experiment, metricGroups]
+  );
+  const guardrailMetrics = useMemo(
+    () => expandMetricGroups(experiment.guardrailMetrics, metricGroups),
+    [experiment, metricGroups]
+  );
+
   const statsEngine =
     ssrPolyfills?.useOrgSettings()?.statsEngine ||
     hookStatsEngine ||
@@ -29,17 +47,11 @@ export default function MetricBlock({
   const sortedMetrics: ExperimentMetricInterface[] = useMemo(() => {
     const metricMap = new Map(metrics.map((m) => [m.id, m]));
     return [
-      ...experiment.goalMetrics
-        .map((mId) => metricMap.get(mId))
-        .filter(isDefined),
-      ...experiment.secondaryMetrics
-        .map((mId) => metricMap.get(mId))
-        .filter(isDefined),
-      ...experiment.guardrailMetrics
-        .map((mId) => metricMap.get(mId))
-        .filter(isDefined),
+      ...goalMetrics.map((mId) => metricMap.get(mId)).filter(isDefined),
+      ...secondaryMetrics.map((mId) => metricMap.get(mId)).filter(isDefined),
+      ...guardrailMetrics.map((mId) => metricMap.get(mId)).filter(isDefined),
     ];
-  }, [metrics, experiment]);
+  }, [metrics, goalMetrics, secondaryMetrics, guardrailMetrics]);
 
   const variations = experiment.variations.map((v, i) => ({
     id: v.key || i + "",
@@ -68,9 +80,9 @@ export default function MetricBlock({
     .map((metric) => {
       // Determine which group the metric belongs to
       let resultGroup: "goal" | "secondary" | "guardrail" = "goal";
-      if (experiment.secondaryMetrics.includes(metric.id)) {
+      if (secondaryMetrics.includes(metric.id)) {
         resultGroup = "secondary";
-      } else if (experiment.guardrailMetrics.includes(metric.id)) {
+      } else if (guardrailMetrics.includes(metric.id)) {
         resultGroup = "guardrail";
       }
       return {

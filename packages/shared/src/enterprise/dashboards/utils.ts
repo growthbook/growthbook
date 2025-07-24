@@ -16,6 +16,8 @@ import {
 } from "back-end/types/experiment-snapshot";
 import { DashboardTemplateInterface } from "back-end/src/enterprise/validators/dashboard-template";
 import { isNumber, isString } from "back-end/src/util/types";
+import { MetricGroupInterface } from "back-end/types/metric-groups";
+import { expandMetricGroups } from "../../experiments";
 
 export function getBlockData<T extends DashboardBlockInterface>(
   block: DashboardBlockInterfaceOrData<T>
@@ -102,6 +104,7 @@ export function dashboardCanAutoUpdate({
 
 type CreateBlock<T extends DashboardBlockInterface> = (args: {
   experiment: ExperimentInterfaceStringDates | ExperimentInterface;
+  metricGroups: MetricGroupInterface[];
   initialValues?: Partial<DashboardBlockData<T>>;
 }) => DashboardBlockData<T>;
 
@@ -139,12 +142,12 @@ export const CREATE_BLOCK_TYPE: {
     experimentId: experiment.id,
     ...(initialValues || {}),
   }),
-  metric: ({ initialValues, experiment }) => ({
+  metric: ({ initialValues, experiment, metricGroups }) => ({
     type: "metric",
     title: "",
     description: "",
     experimentId: experiment.id,
-    metricIds: experiment.goalMetrics,
+    metricIds: expandMetricGroups(experiment.goalMetrics, metricGroups),
     snapshotId: experiment.analysisSummary?.snapshotId || "",
     variationIds: [],
     differenceType: "relative",
@@ -152,12 +155,12 @@ export const CREATE_BLOCK_TYPE: {
     columnsFilter: [],
     ...(initialValues || {}),
   }),
-  dimension: ({ initialValues, experiment }) => ({
+  dimension: ({ initialValues, experiment, metricGroups }) => ({
     type: "dimension",
     title: "",
     description: "",
     experimentId: experiment.id,
-    metricIds: experiment.goalMetrics,
+    metricIds: expandMetricGroups(experiment.goalMetrics, metricGroups),
     dimensionId: "",
     dimensionValues: [],
     snapshotId: experiment.analysisSummary?.snapshotId || "",
@@ -167,12 +170,12 @@ export const CREATE_BLOCK_TYPE: {
     columnsFilter: [],
     ...(initialValues || {}),
   }),
-  "time-series": ({ initialValues, experiment }) => ({
+  "time-series": ({ initialValues, experiment, metricGroups }) => ({
     type: "time-series",
     title: "",
     description: "",
     experimentId: experiment.id,
-    metricId: experiment.goalMetrics[0] || "",
+    metricId: expandMetricGroups(experiment.goalMetrics, metricGroups)[0] || "",
     snapshotId: experiment.analysisSummary?.snapshotId || "",
     variationIds: [],
     ...(initialValues || {}),
@@ -205,9 +208,10 @@ export function createDashboardBlocksFromTemplate(
   {
     blockInitialValues,
   }: Pick<DashboardTemplateInterface, "blockInitialValues">,
-  experiment: ExperimentInterface | ExperimentInterfaceStringDates
+  experiment: ExperimentInterface | ExperimentInterfaceStringDates,
+  metricGroups: MetricGroupInterface[]
 ): CreateDashboardBlockInterface[] {
   return blockInitialValues.map(({ type, ...initialValues }) =>
-    CREATE_BLOCK_TYPE[type]({ initialValues, experiment })
+    CREATE_BLOCK_TYPE[type]({ initialValues, experiment, metricGroups })
   );
 }

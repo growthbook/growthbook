@@ -1,13 +1,15 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { DimensionBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
 import { MetricSnapshotSettings } from "back-end/types/report";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
+import { expandMetricGroups } from "shared/experiments";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import BreakDownResults from "@/components/Experiment/BreakDownResults";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import { BlockProps } from ".";
 
 export default function DimensionBlock({
@@ -26,6 +28,19 @@ export default function DimensionBlock({
   ssrPolyfills,
 }: BlockProps<DimensionBlockInterface>) {
   const { pValueCorrection: hookPValueCorrection } = useOrgSettings();
+  const { metricGroups } = useDefinitions();
+  const expGoalMetrics = useMemo(
+    () => expandMetricGroups(experiment.goalMetrics, metricGroups),
+    [experiment, metricGroups]
+  );
+  const expSecondaryMetrics = useMemo(
+    () => expandMetricGroups(experiment.secondaryMetrics, metricGroups),
+    [experiment, metricGroups]
+  );
+  const expGuardrailMetrics = useMemo(
+    () => expandMetricGroups(experiment.guardrailMetrics, metricGroups),
+    [experiment, metricGroups]
+  );
 
   const pValueCorrection =
     ssrPolyfills?.useOrgSettings()?.pValueCorrection || hookPValueCorrection;
@@ -74,13 +89,11 @@ export default function DimensionBlock({
     })) || [];
   const isBandit = experiment.type === "multi-armed-bandit";
 
-  const goalMetrics = experiment.goalMetrics.filter((mId) =>
+  const goalMetrics = expGoalMetrics.filter((mId) => metricIds.includes(mId));
+  const secondaryMetrics = expSecondaryMetrics.filter((mId) =>
     metricIds.includes(mId)
   );
-  const secondaryMetrics = experiment.secondaryMetrics.filter((mId) =>
-    metricIds.includes(mId)
-  );
-  const guardrailMetrics = experiment.guardrailMetrics.filter((mId) =>
+  const guardrailMetrics = expGuardrailMetrics.filter((mId) =>
     metricIds.includes(mId)
   );
 

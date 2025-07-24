@@ -20,6 +20,7 @@ import {
 } from "@/components/Radix/DropdownMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/components/Radix/Callout";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import DashboardBlock from "./DashboardBlock";
 import DashboardBlockEditDrawer from "./DashboardBlockEditDrawer";
 import DashboardUpdateDisplay from "./DashboardUpdateDisplay";
@@ -156,6 +157,7 @@ function DashboardEditor({
   mutate,
 }: Props) {
   const blockRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const { metricGroups } = useDefinitions();
   const [hoverAddBlock, setHoverAddBlock] = useState<number | undefined>(
     undefined
   );
@@ -200,6 +202,7 @@ function DashboardEditor({
     setStagedAddBlock(
       CREATE_BLOCK_TYPE[bType]({
         experiment,
+        metricGroups,
       })
     );
     setAddBlockIndex(index);

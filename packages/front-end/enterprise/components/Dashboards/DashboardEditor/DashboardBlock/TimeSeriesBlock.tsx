@@ -1,6 +1,9 @@
 import { TimeSeriesBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
+import { useMemo } from "react";
+import { expandMetricGroups } from "shared/experiments";
 import ExperimentMetricTimeSeriesGraphWrapper from "@/components/Experiment/ExperimentMetricTimeSeriesGraphWrapper";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import { BlockProps } from ".";
 
 export default function TimeSeriesBlock({
@@ -12,6 +15,15 @@ export default function TimeSeriesBlock({
   metric,
 }: BlockProps<TimeSeriesBlockInterface>) {
   const { pValueCorrection, statsEngine: hookStatsEngine } = useOrgSettings();
+  const { metricGroups } = useDefinitions();
+  const secondaryMetrics = useMemo(
+    () => expandMetricGroups(experiment.secondaryMetrics, metricGroups),
+    [experiment, metricGroups]
+  );
+  const guardrailMetrics = useMemo(
+    () => expandMetricGroups(experiment.guardrailMetrics, metricGroups),
+    [experiment, metricGroups]
+  );
 
   const statsEngine =
     ssrPolyfills?.useOrgSettings()?.statsEngine ||
@@ -20,9 +32,9 @@ export default function TimeSeriesBlock({
 
   // Determine which group the metric belongs to
   let resultGroup: "goal" | "secondary" | "guardrail" = "goal";
-  if (experiment.secondaryMetrics.includes(metric.id)) {
+  if (secondaryMetrics.includes(metric.id)) {
     resultGroup = "secondary";
-  } else if (experiment.guardrailMetrics.includes(metric.id)) {
+  } else if (guardrailMetrics.includes(metric.id)) {
     resultGroup = "guardrail";
   }
 

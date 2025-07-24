@@ -196,9 +196,11 @@ export class DashboardInstanceModel extends BaseClass {
   protected async createDefaultDashboard(experimentId: string) {
     const experiment = await getExperimentById(this.context, experimentId);
     if (!experiment) throw new Error("Cannot find specified experiment");
+    const metricGroups = await this.context.models.metricGroups.getAll();
     const blocksToCreate = createDashboardBlocksFromTemplate(
       { blockInitialValues: DEFAULT_DASHBOARD_BLOCKS },
-      experiment
+      experiment,
+      metricGroups
     );
     const blocks = await Promise.all(
       blocksToCreate.map((blockData) =>

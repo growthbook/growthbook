@@ -13,6 +13,7 @@ import { isDefined } from "shared/util";
 import { SavedQuery } from "back-end/src/validators/saved-queries";
 import { PiPencilSimpleFill, PiPlus } from "react-icons/pi";
 import { isNumber, isString, isStringArray } from "back-end/src/util/types";
+import { expandMetricGroups } from "shared/experiments";
 import { useSidebarOpen } from "@/components/Layout/SidebarOpenProvider";
 import Button from "@/components/Radix/Button";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
@@ -98,9 +99,9 @@ export default function DashboardBlockEditDrawer({
 }: Props) {
   const { open: sidebarOpen } = useSidebarOpen();
   const {
-    getMetricById,
-    getFactMetricById,
     dimensions,
+    metricGroups,
+    getExperimentMetricById,
     getDatasourceById,
   } = useDefinitions();
   const { data: savedQueriesData, mutate: mutateQuery, isLoading } = useApi<{
@@ -117,38 +118,32 @@ export default function DashboardBlockEditDrawer({
 
   const [showSqlExplorerModal, setShowSqlExplorerModal] = useState(false);
 
-  const metricOptions = useMemo(
-    () => [
+  const metricOptions = useMemo(() => {
+    const getMetrics = (metricOrGroupIds: string[]) => {
+      const metricIds = expandMetricGroups(metricOrGroupIds, metricGroups);
+      return metricIds.map(getExperimentMetricById).filter(isDefined);
+    };
+    return [
       {
         label: "Goal Metrics",
-        options: experiment.goalMetrics
-          .map((mId) => {
-            const metric = getMetricById(mId) || getFactMetricById(mId);
-            return metric ? { label: metric.name, value: mId } : undefined;
-          })
-          .filter(isDefined),
+        options: getMetrics(experiment.goalMetrics).map((metric) => {
+          return { label: metric.name, value: metric.id };
+        }),
       },
       {
         label: "Secondary Metrics",
-        options: experiment.secondaryMetrics
-          .map((mId) => {
-            const metric = getMetricById(mId) || getFactMetricById(mId);
-            return metric ? { label: metric.name, value: mId } : undefined;
-          })
-          .filter(isDefined),
+        options: getMetrics(experiment.secondaryMetrics).map((metric) => {
+          return { label: metric.name, value: metric.id };
+        }),
       },
       {
         label: "Guardrail Metrics",
-        options: experiment.guardrailMetrics
-          .map((mId) => {
-            const metric = getMetricById(mId) || getFactMetricById(mId);
-            return metric ? { label: metric.name, value: mId } : undefined;
-          })
-          .filter(isDefined),
+        options: getMetrics(experiment.guardrailMetrics).map((metric) => {
+          return { label: metric.name, value: metric.id };
+        }),
       },
-    ],
-    [experiment, getMetricById, getFactMetricById]
-  );
+    ];
+  }, [experiment, getExperimentMetricById, metricGroups]);
 
   const dimensionOptions = useMemo(() => {
     const datasource = getDatasourceById(experiment.datasource);
@@ -326,21 +321,6 @@ export default function DashboardBlockEditDrawer({
               minRows={1}
               maxRows={1}
             />
-
-            {blockHasFieldOfType(block, "dimensionId", isString) && (
-              <SelectField
-                required
-                markRequired
-                label="Dimension"
-                labelClassName="font-weight-bold"
-                placeholder="Choose which dimension to use"
-                value={block.dimensionId}
-                containerStyle={{ flexBasis: "32%" }}
-                containerClassName="mb-0"
-                onChange={(value) => setBlock({ ...block, dimensionId: value })}
-                options={dimensionOptions}
-              />
-            )}
             {blockHasFieldOfType(block, "metricId", isString) && (
               <SelectField
                 label="Metric"
@@ -348,7 +328,9 @@ export default function DashboardBlockEditDrawer({
                 value={block.metricId}
                 containerStyle={{ flexBasis: "32%" }}
                 containerClassName="mb-0"
-                onChange={(value) => setBlock({ ...block, metricId: value })}
+                onChange={(value) => {
+                  setBlock({ ...block, metricId: value });
+                }}
                 options={metricOptions}
               />
             )}
@@ -363,6 +345,20 @@ export default function DashboardBlockEditDrawer({
                 containerClassName="mb-0"
                 onChange={(value) => setBlock({ ...block, metricIds: value })}
                 options={metricOptions}
+              />
+            )}
+            {blockHasFieldOfType(block, "dimensionId", isString) && (
+              <SelectField
+                required
+                markRequired
+                label="Dimension"
+                labelClassName="font-weight-bold"
+                placeholder="Choose which dimension to use"
+                value={block.dimensionId}
+                containerStyle={{ flexBasis: "32%" }}
+                containerClassName="mb-0"
+                onChange={(value) => setBlock({ ...block, dimensionId: value })}
+                options={dimensionOptions}
               />
             )}
             {blockHasFieldOfType(block, "baselineRow", isNumber) && (
