@@ -42,6 +42,7 @@ export default function RuleList({
   isDraft,
   safeRolloutsMap,
   holdout,
+  openHoldoutModal,
 }: {
   feature: FeatureInterface;
   environment: string;
@@ -64,6 +65,7 @@ export default function RuleList({
   isDraft: boolean;
   safeRolloutsMap: Map<string, SafeRolloutInterface>;
   holdout: HoldoutInterface | undefined;
+  openHoldoutModal: () => void;
 }) {
   const { apiCall } = useAuth();
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -157,7 +159,7 @@ export default function RuleList({
       )}
       <HoldoutRule
         feature={feature}
-        setRuleModal={() => undefined}
+        setRuleModal={openHoldoutModal}
         mutate={mutate}
       />
       <SortableContext items={items} strategy={verticalListSortingStrategy}>

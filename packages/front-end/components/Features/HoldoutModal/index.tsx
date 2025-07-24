@@ -7,7 +7,7 @@ import { useExperiments } from "@/hooks/useExperiments";
 import Callout from "@/components/Radix/Callout";
 import SelectField from "@/components/Forms/SelectField";
 import { useAuth } from "@/services/auth";
-import { parseDefaultValue } from "../FeatureModal";
+import { parseDefaultValue } from "@/services/features";
 
 export default function HoldoutModal({
   feature,

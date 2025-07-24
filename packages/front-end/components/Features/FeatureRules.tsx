@@ -31,6 +31,7 @@ import { useUser } from "@/services/UserContext";
 import PremiumCallout from "@/components/Radix/PremiumCallout";
 import EnvironmentDropdown from "../Environments/EnvironmentDropdown";
 import CompareEnvironmentsModal from "./CompareEnvironmentsModal";
+import HoldoutValueModal from "./HoldoutValueModal";
 
 export default function FeatureRules({
   environments,
@@ -78,6 +79,7 @@ export default function FeatureRules({
     sourceEnv?: string;
     targetEnv?: string;
   } | null>(null);
+  const [holdoutModal, setHoldoutModal] = useState<boolean>(false);
 
   // Make sure you can't access an invalid env tab, since active env tab is persisted via localStorage
   useEffect(() => {
@@ -224,6 +226,7 @@ export default function FeatureRules({
                     isDraft={isDraft}
                     safeRolloutsMap={safeRolloutsMap}
                     holdout={includeHoldoutRule ? holdout : undefined}
+                    openHoldoutModal={() => setHoldoutModal(true)}
                   />
                 ) : (
                   <Box py="4" className="text-muted">
@@ -326,6 +329,13 @@ export default function FeatureRules({
           setVersion={setVersion}
           setEnvironment={setEnv}
           cancel={() => setCompareEnvModal(null)}
+          mutate={mutate}
+        />
+      )}
+      {holdoutModal && (
+        <HoldoutValueModal
+          feature={feature}
+          close={() => setHoldoutModal(false)}
           mutate={mutate}
         />
       )}

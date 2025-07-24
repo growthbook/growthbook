@@ -181,7 +181,7 @@ export default function FeaturesHeader({
                     </a>
                   </>
                 )}
-                {canEdit && canPublish && (
+                {canEdit && canPublish && !feature.holdout && (
                   <a
                     className="dropdown-item"
                     href="#"

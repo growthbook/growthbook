@@ -4,10 +4,7 @@ import {
   FeatureInterface,
   FeatureValueType,
 } from "back-end/types/feature";
-import dJSON from "dirty-json";
-
 import React, { ReactElement, useState } from "react";
-
 import { validateFeatureValue } from "shared/util";
 import { PiInfo } from "react-icons/pi";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
@@ -18,6 +15,7 @@ import track from "@/services/track";
 import {
   genDuplicatedKey,
   getDefaultValue,
+  parseDefaultValue,
   useEnvironments,
 } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -49,26 +47,6 @@ export type Props = {
   featureToDuplicate?: FeatureInterface;
   features?: FeatureInterface[];
 };
-
-function parseDefaultValue(
-  defaultValue: string,
-  valueType: FeatureValueType
-): string {
-  if (valueType === "boolean") {
-    return defaultValue === "true" ? "true" : "false";
-  }
-  if (valueType === "number") {
-    return parseFloat(defaultValue) + "";
-  }
-  if (valueType === "string") {
-    return defaultValue;
-  }
-  try {
-    return JSON.stringify(dJSON.parse(defaultValue), null, 2);
-  } catch (e) {
-    throw new Error(`JSON parse error for default value`);
-  }
-}
 
 const genEnvironmentSettings = ({
   environments,
@@ -386,7 +364,13 @@ export default function FeatureModal({
           </>
         )}
 
-        <HoldoutSelect selectedProject={selectedProject} />
+        <HoldoutSelect
+          selectedProject={selectedProject}
+          selectedHoldoutId={form.watch("holdout")?.id ?? ""}
+          setHoldout={(holdoutId) => {
+            form.setValue("holdout", { id: holdoutId, value: "" });
+          }}
+        />
 
         {hasCommercialFeature("custom-metadata") &&
           customFields &&
