@@ -1,3 +1,4 @@
+import "./instrumentation";
 import "./init/aliases";
 import app from "./app";
 import { logger } from "./util/logger";

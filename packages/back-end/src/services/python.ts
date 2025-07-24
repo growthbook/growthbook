@@ -19,11 +19,15 @@ type PythonServerResponse<T> = {
 // The stats engine usually finishes within 1 second
 // We use an overly conservative timeout to account for high load
 const STATS_ENGINE_TIMEOUT_MS = 60_000;
-const MAX_POOL_SIZE = 4;
+const MAX_POOL_SIZE = process.env.GB_STATS_ENGINE_POOL_SIZE
+  ? Number(process.env.GB_STATS_ENGINE_POOL_SIZE)
+  : 4;
 
 let cloudWatch: CloudWatch | null = null;
 if (IS_CLOUD) {
-  cloudWatch = new CloudWatch();
+  cloudWatch = new CloudWatch({
+    region: process.env.AWS_REGION || "us-east-1",
+  });
 }
 
 class PythonStatsServer<Input, Output> {
@@ -230,22 +234,34 @@ export const statsServerPool = createPool(
 function publishPoolSizeToCloudWatch(value: number) {
   if (!cloudWatch) return;
   try {
-    cloudWatch.putMetricData({
-      Namespace: "GrowthBook/PythonStatsPool",
-      MetricData: [
-        {
-          MetricName: "PoolSize",
-          Timestamp: new Date(),
-          Value: value,
-          Unit: "Count",
-          Dimensions: [
-            { Name: "TaskId", Value: process.env.ECS_TASK_ID || "local" },
-          ],
-        },
-      ],
-    });
+    cloudWatch.putMetricData(
+      {
+        Namespace: "GrowthBook/PythonStatsPool",
+        MetricData: [
+          {
+            MetricName: "PoolSize",
+            Value: value,
+            Unit: "Count",
+          },
+        ],
+      },
+      (error) => {
+        if (error && ENVIRONMENT === "production") {
+          logger.error(
+            "Failed to publish Python stats pool size to CloudWatch (callback): " +
+              error.message
+          );
+        }
+      }
+    );
   } catch (error) {
-    // When not running on AWS, no need to publish to cloudwatch or warn us every ten seconds.
+    // When not running on AWS, no need to publish to cloudwatch or warn us every minute.
+    if (ENVIRONMENT === "production") {
+      logger.error(
+        "Failed to publish Python stats pool size to CloudWatch: " +
+          error.message
+      );
+    }
   }
 }
 
@@ -254,17 +270,8 @@ function monitorServicePool() {
   statsServerPool.on("factoryCreateError", () => {
     metrics.getCounter("python.stats_pool_create_error").increment();
   });
-  statsServerPool.on("factoryCreateSuccess", () => {
-    metrics.getCounter("python.stats_pool_created").increment();
-  });
-  statsServerPool.on("factoryDestroySuccess", () => {
-    metrics.getCounter("python.stats_pool_destroyed").increment();
-  });
-  statsServerPool.on("factoryValidateError", () => {
-    metrics.getCounter("python.stats_pool_validate_error").increment();
-  });
-  statsServerPool.on("evict", () => {
-    metrics.getCounter("python.stats_pool_evicted").increment();
+  statsServerPool.on("factoryDestroyError", () => {
+    metrics.getCounter("python.stats_pool_destroy_error").increment();
   });
 
   setInterval(() => {

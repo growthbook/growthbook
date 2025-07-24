@@ -129,12 +129,8 @@ export class SafeRolloutSnapshotModel extends BaseClass {
         });
       } catch (e) {
         this.context.logger.error(
-          e,
-          "Failed to update Safe Rollout time series data",
-          {
-            safeRolloutId: safeRollout.id,
-            snapshotId: updatedDoc.id,
-          }
+          { err: e, safeRolloutId: safeRollout.id, snapshotId: updatedDoc.id },
+          "Failed to update Safe Rollout time series data"
         );
       }
 
