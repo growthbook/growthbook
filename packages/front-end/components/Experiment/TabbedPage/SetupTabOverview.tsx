@@ -157,7 +157,7 @@ export default function SetupTabOverview({
             ) : (
               <Box as="div" className="font-italic text-muted" py="2">
                 Add a description to keep your team informed about the purpose
-                and parameters of your experiment
+                and parameters of your {isHoldout ? "holdout" : "experiment"}
               </Box>
             )}
             {!customFields.length && experiment.description ? (
@@ -176,11 +176,15 @@ export default function SetupTabOverview({
           </Collapsible>
         </Frame>
 
-        {isHoldout && holdout && experiment.status !== "draft" && (
-          <div className="box p-4 my-4">
-            <HoldoutTimeline experiments={holdoutExperiments ?? []} />
-          </div>
-        )}
+        {isHoldout &&
+          holdout &&
+          experiment.status !== "draft" &&
+          holdoutExperiments &&
+          holdoutExperiments.length > 0 && (
+            <div className="box p-4 my-4">
+              <HoldoutTimeline experiments={holdoutExperiments} />
+            </div>
+          )}
 
         {!isBandit && !isHoldout && (
           <Frame>
