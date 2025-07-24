@@ -482,7 +482,7 @@ export function getSnapshotSettings({
   );
 
   // expand metric groups and scrub unjoinable metrics
-  const goalMetrics = expandMetricGroups(
+  let goalMetrics = expandMetricGroups(
     experiment.goalMetrics,
     metricGroups
   ).filter((m) =>
@@ -494,7 +494,7 @@ export function getSnapshotSettings({
       datasource,
     })
   );
-  const secondaryMetrics = expandMetricGroups(
+  let secondaryMetrics = expandMetricGroups(
     experiment.secondaryMetrics,
     metricGroups
   ).filter((m) =>
@@ -506,7 +506,7 @@ export function getSnapshotSettings({
       datasource,
     })
   );
-  const guardrailMetrics = expandMetricGroups(
+  let guardrailMetrics = expandMetricGroups(
     experiment.guardrailMetrics,
     metricGroups
   ).filter((m) =>
@@ -518,6 +518,19 @@ export function getSnapshotSettings({
       datasource,
     })
   );
+
+  // filter invalid metrics (holdouts)
+  if (experiment.type === "holdout") {
+    goalMetrics = goalMetrics.filter((m) => {
+      const metric = metricMap.get(m);
+      return metric?.windowSettings?.type !== "conversion";
+    });
+    secondaryMetrics = secondaryMetrics.filter((m) => {
+      const metric = metricMap.get(m);
+      return metric?.windowSettings?.type !== "conversion";
+    });
+    guardrailMetrics = [];
+  }
 
   const metricSettings = expandMetricGroups(
     getAllMetricIdsFromExperiment(experiment),
