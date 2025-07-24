@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import {
   InformationSchemaInterface,
   InformationSchemaTablesInterface,
@@ -6,9 +7,39 @@ import {
   getCurrentContext,
   getSelectedTables,
   getAutoCompletions,
+  templateCompletions,
 } from "@/services/sqlAutoComplete";
 import { CursorData } from "@/components/Segments/SegmentForm";
 import { InformationSchemaInterfaceWithPaths } from "@/services/datasources";
+
+const mockSqlKeywords = [
+  { value: "SELECT", meta: "CORE_KEYWORD", score: 500, caption: "SELECT" },
+  { value: "FROM", meta: "CORE_KEYWORD", score: 500, caption: "FROM" },
+  { value: "WHERE", meta: "CORE_KEYWORD", score: 500, caption: "WHERE" },
+  { value: "GROUP BY", meta: "CORE_KEYWORD", score: 500, caption: "GROUP BY" },
+  { value: "ORDER BY", meta: "CORE_KEYWORD", score: 500, caption: "ORDER BY" },
+];
+
+// Mock the sqlKeywords module to return a predictable small set of keywords
+vi.mock("@/services/sqlKeywords", () => ({
+  getSqlKeywords: vi.fn(() => mockSqlKeywords),
+  COMPLETION_SCORES: {
+    CORE_KEYWORD: 500,
+    COLUMN: 900,
+    TABLE: 900,
+    SCHEMA: 950,
+    DATABASE: 1000,
+    TEMPLATE_VARIABLE: 800,
+  },
+  COMPLETION_TYPES: {
+    CORE_KEYWORD: "CORE_KEYWORD",
+    COLUMN: "COLUMN",
+    TABLE: "TABLE",
+    SCHEMA: "SCHEMA",
+    DATABASE: "DATABASE",
+    TEMPLATE_VARIABLE: "TEMPLATE_VARIABLE",
+  },
+}));
 
 /** This test suite tests the sqlAutoComplete logic - throughout the file you'll see different sql formats, especially with backticks
  * e.g. you'll see `analytics.public.table-users-123` and `analytics`.`public`.`table-events-456, and even analytics.public.table-users-123
@@ -37,7 +68,6 @@ const mockInformationSchema: InformationSchemaInterface = {
   databases: [
     {
       databaseName: "analytics",
-      // path: "`analytics`",
       dateCreated: new Date("2023-01-01"),
       dateUpdated: new Date("2023-01-01"),
       schemas: [
@@ -187,6 +217,19 @@ const mockInformationSchemaWithPaths: InformationSchemaInterfaceWithPaths = {
   ],
 };
 
+const mockTableColumns = [
+  { columnName: "id", dataType: "INTEGER" },
+  { columnName: "email", dataType: "VARCHAR" },
+  { columnName: "created_at", dataType: "TIMESTAMP" },
+];
+
+const mockColumnSuggestions = mockTableColumns.map((column) => ({
+  value: column.columnName,
+  meta: column.dataType,
+  score: 900,
+  caption: column.columnName,
+}));
+
 const mockTableData: InformationSchemaTablesInterface = {
   id: "table-users-123",
   datasourceId: "datasource-456",
@@ -198,11 +241,7 @@ const mockTableData: InformationSchemaTablesInterface = {
   dateCreated: new Date("2023-01-01"),
   dateUpdated: new Date("2023-01-01"),
   informationSchemaId: "schema-123",
-  columns: [
-    { columnName: "id", dataType: "INTEGER" },
-    { columnName: "email", dataType: "VARCHAR" },
-    { columnName: "created_at", dataType: "TIMESTAMP" },
-  ],
+  columns: mockTableColumns,
 };
 
 // Simple mock function implementation
@@ -534,8 +573,8 @@ describe("getAutoCompletions", () => {
       "bigquery",
       mockApiCall
     );
-    expect(result.length).toBeGreaterThan(0);
-    expect(result.some((item) => item.value === "SELECT")).toBe(true);
+    expect(result.length).toBe(mockSqlKeywords.length);
+    expect(result).toEqual(mockSqlKeywords);
   });
 
   it("should return SQL keywords when no information schema", async () => {
@@ -546,8 +585,8 @@ describe("getAutoCompletions", () => {
       "bigquery",
       mockApiCall
     );
-    expect(result.length).toBeGreaterThan(0);
-    expect(result.some((item) => item.value === "SELECT")).toBe(true);
+    expect(result.length).toBe(mockSqlKeywords.length);
+    expect(result).toEqual(mockSqlKeywords);
   });
 
   it("should return SQL keywords when no context detected", async () => {
@@ -558,8 +597,8 @@ describe("getAutoCompletions", () => {
       "bigquery",
       mockApiCall
     );
-    expect(result.length).toBeGreaterThan(0);
-    expect(result.some((item) => item.value === "SELECT")).toBe(true);
+    expect(result.length).toBe(mockSqlKeywords.length);
+    expect(result).toEqual(mockSqlKeywords);
   });
 
   it("should return template completions and keywords for SELECT with no tables", async () => {
@@ -571,15 +610,13 @@ describe("getAutoCompletions", () => {
       mockApiCall
     );
 
-    // Should include template variables
-    expect(result.some((item) => item.caption === "{{ startDate }}")).toBe(
-      true
+    expect(result.length).toBe(
+      mockSqlKeywords.length + templateCompletions.length
     );
-    // Should include SQL keywords
-    expect(result.some((item) => item.value === "SELECT")).toBe(true);
+    expect(result).toEqual([...templateCompletions, ...mockSqlKeywords]);
   });
 
-  it("should return columns when tables are selected in SELECT context", async () => {
+  it("should return no columns, just template keywords, and sql keywords when notables are selected in SELECT context", async () => {
     const cursorData: CursorData = { input: ["SELECT "], row: 0, column: 7 };
 
     // First, let's test that it returns template completions and keywords when no tables are selected
@@ -590,12 +627,10 @@ describe("getAutoCompletions", () => {
       mockApiCall
     );
 
-    // Should include template variables
-    expect(result.some((item) => item.caption === "{{ startDate }}")).toBe(
-      true
+    expect(result.length).toBe(
+      mockSqlKeywords.length + templateCompletions.length
     );
-    // Should include SQL keywords
-    expect(result.some((item) => item.value === "SELECT")).toBe(true);
+    expect(result).toEqual([...templateCompletions, ...mockSqlKeywords]);
     // Should NOT make API calls since no tables are selected
     expect(mockCalls.length).toBe(0);
   });
@@ -613,21 +648,10 @@ describe("getAutoCompletions", () => {
       mockApiCall
     );
 
-    console.log("result", result);
-
-    // Should include databases
-    expect(result.some((item) => item.meta === "DATABASE")).toBe(true);
-    expect(result.some((item) => item.caption === "analytics")).toBe(true);
-    expect(result.some((item) => item.caption === "warehouse")).toBe(true);
-
-    // Should include schemas
-    expect(result.some((item) => item.meta === "SCHEMA")).toBe(true);
-    expect(result.some((item) => item.caption === "public")).toBe(true);
-
-    // Should include tables
-    expect(result.some((item) => item.meta === "TABLE")).toBe(true);
-    expect(result.some((item) => item.caption === "table-users-123")).toBe(
-      true
+    // Should still return SQL keywords + all iterations of databases, schemas, and tables
+    expect(result.length).toBe(
+      // 9 because there are 3 databases, 2 schemas, and 4 tables
+      mockSqlKeywords.length + templateCompletions.length + 9
     );
   });
 
@@ -643,10 +667,11 @@ describe("getAutoCompletions", () => {
       "bigquery",
       mockApiCall
     );
-
-    // Should include schemas from analytics database
-    expect(result.some((item) => item.value === "public")).toBe(true);
-    expect(result.some((item) => item.value === "staging")).toBe(true);
+    // Results should include the 2 schemas in the analytics database + all of the sqlKeywords
+    expect(result.length).toBe(mockSqlKeywords.length + 2);
+    expect(result.some((item) => item.caption === "public")).toBe(true);
+    expect(result.some((item) => item.caption === "staging")).toBe(true);
+    expect(result.some((item) => item.meta === "prod")).toBe(false); // prod is not in the analytics database
   });
 
   it("should return tables when schema is selected in FROM clause", async () => {
@@ -662,13 +687,16 @@ describe("getAutoCompletions", () => {
       mockApiCall
     );
 
-    // Should include tables from analytics.public schema
+    // Should include the 2 tables from analytics.public schema + all of the sqlKeywords
+    expect(result.length).toBe(mockSqlKeywords.length + 2);
     expect(result.some((item) => item.caption === "table-users-123")).toBe(
       true
     );
     expect(result.some((item) => item.caption === "table-events-456")).toBe(
       true
     );
+    // table-temp-789 is in analytics.staging not analytics.public
+    expect(result.some((item) => item.meta === "table-temp-789")).toBe(false);
   });
 
   it("should return columns when tables are selected in WHERE context", async () => {
@@ -683,7 +711,7 @@ describe("getAutoCompletions", () => {
       cursorData,
       mockInformationSchemaWithPaths
     );
-    expect(selectedTables.length).toBeGreaterThan(0); // This should pass if table parsing works
+    expect(selectedTables).toEqual(["table-users-123"]);
 
     const result = await getAutoCompletions(
       cursorData,
@@ -693,14 +721,16 @@ describe("getAutoCompletions", () => {
     );
 
     // If getSelectedTables works, then API calls should be made
-    if (selectedTables.length > 0) {
-      expect(mockCalls.length).toBeGreaterThan(0);
-    }
-
-    // Should include columns from the users table (only if API call was successful)
-    expect(result.some((item) => item.value === "id")).toBe(true);
-    expect(result.some((item) => item.value === "email")).toBe(true);
-    expect(result.some((item) => item.value === "created_at")).toBe(true);
+    expect(mockCalls.length).toEqual(1);
+    // Should include 3 columns from the table-users-123 table + all of the sqlKeywords + all of the template completions
+    expect(result.length).toBe(
+      mockSqlKeywords.length + 3 + templateCompletions.length
+    );
+    expect(result).toEqual([
+      ...mockColumnSuggestions,
+      ...templateCompletions,
+      ...mockSqlKeywords,
+    ]);
   });
 
   it("should handle GROUP BY context", async () => {
@@ -719,8 +749,15 @@ describe("getAutoCompletions", () => {
       mockApiCall
     );
 
-    // Should include columns from the users table
-    expect(result.some((item) => item.value === "email")).toBe(true);
+    // Should include 3 columns from the table-users-123 table + all of the sqlKeywords + all of the template completions
+    expect(result.length).toBe(
+      mockSqlKeywords.length + 3 + templateCompletions.length
+    );
+    expect(result).toEqual([
+      ...mockColumnSuggestions,
+      ...templateCompletions,
+      ...mockSqlKeywords,
+    ]);
   });
 
   it("should handle ORDER BY context", async () => {
@@ -737,8 +774,15 @@ describe("getAutoCompletions", () => {
       mockApiCall
     );
 
-    // Should include columns from the users table
-    expect(result.some((item) => item.value === "created_at")).toBe(true);
+    // Should include 3 columns from the table-users-123 table + all of the sqlKeywords + all of the template completions
+    expect(result.length).toBe(
+      mockSqlKeywords.length + 3 + templateCompletions.length
+    );
+    expect(result).toEqual([
+      ...mockColumnSuggestions,
+      ...templateCompletions,
+      ...mockSqlKeywords,
+    ]);
   });
 });
 
@@ -760,9 +804,11 @@ describe("Edge Cases", () => {
       mockApiCall
     );
 
-    // Should still return SQL keywords
-    expect(result.length).toBeGreaterThan(0);
-    expect(result.some((item) => item.value === "SELECT")).toBe(true);
+    // Should still return SQL keywords & template completions
+    expect(result.length).toBe(
+      mockSqlKeywords.length + templateCompletions.length
+    );
+    expect(result).toEqual([...templateCompletions, ...mockSqlKeywords]);
   });
 
   it("should handle empty input gracefully", async () => {
@@ -774,8 +820,8 @@ describe("Edge Cases", () => {
       mockApiCall
     );
 
-    expect(result.length).toBeGreaterThan(0);
-    expect(result.some((item) => item.value === "SELECT")).toBe(true);
+    expect(result.length).toBe(mockSqlKeywords.length);
+    expect(result).toEqual(mockSqlKeywords);
   });
 
   it("should handle cursor at start of input", async () => {
@@ -791,7 +837,8 @@ describe("Edge Cases", () => {
       mockApiCall
     );
 
-    expect(result.length).toBeGreaterThan(0);
+    expect(result.length).toBe(mockSqlKeywords.length);
+    expect(result).toEqual(mockSqlKeywords);
   });
 
   it("should handle cursor at end of input", async () => {
@@ -807,7 +854,8 @@ describe("Edge Cases", () => {
       mockApiCall
     );
 
-    expect(result.length).toBeGreaterThan(0);
+    expect(result.length).toEqual(mockSqlKeywords.length);
+    expect(result).toEqual(mockSqlKeywords);
   });
 
   it("should handle API call failures gracefully", async () => {
@@ -825,11 +873,11 @@ describe("Edge Cases", () => {
       failingApiCall
     );
 
-    // Should still return template completions and keywords even if API fails
-    expect(result.some((item) => item.caption === "{{ startDate }}")).toBe(
-      true
+    // Should still return SQL keywords & template completions
+    expect(result.length).toBe(
+      mockSqlKeywords.length + templateCompletions.length
     );
-    expect(result.some((item) => item.value === "SELECT")).toBe(true);
+    expect(result).toEqual([...templateCompletions, ...mockSqlKeywords]);
   });
 
   it("should handle case insensitive SQL keywords", async () => {
@@ -845,8 +893,11 @@ describe("Edge Cases", () => {
       mockApiCall
     );
 
-    // Should detect FROM context even with lowercase
-    expect(result.some((item) => item.meta === "DATABASE")).toBe(true);
+    // Should still return SQL keywords + all iterations of databases, schemas, and tables
+    expect(result.length).toBe(
+      // 9 because there are 3 databases, 2 schemas, and 4 tables
+      mockSqlKeywords.length + templateCompletions.length + 9
+    );
   });
 
   it("should handle extra whitespace", async () => {
@@ -862,8 +913,11 @@ describe("Edge Cases", () => {
       mockApiCall
     );
 
-    // Should detect FROM context despite extra whitespace
-    expect(result.some((item) => item.meta === "DATABASE")).toBe(true);
+    // Should still return SQL keywords + all iterations of databases, schemas, and tables
+    expect(result.length).toBe(
+      // 9 because there are 3 databases, 2 schemas, and 4 tables
+      mockSqlKeywords.length + templateCompletions.length + 9
+    );
   });
 
   it("should handle incomplete table paths", async () => {
@@ -880,10 +934,10 @@ describe("Edge Cases", () => {
       mockApiCall
     );
 
-    // Should still return template completions and keywords
-    expect(result.some((item) => item.caption === "{{ startDate }}")).toBe(
-      true
+    // If there is no known table, we return the SQL keywords & template completions
+    expect(result.length).toBe(
+      mockSqlKeywords.length + templateCompletions.length
     );
-    expect(result.some((item) => item.value === "SELECT")).toBe(true);
+    expect(result).toEqual([...templateCompletions, ...mockSqlKeywords]);
   });
 });

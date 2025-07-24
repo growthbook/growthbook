@@ -15,7 +15,7 @@ import {
   InformationSchemaInterfaceWithPaths,
 } from "./datasources";
 
-const templateCompletions: AceCompletion[] = [
+export const templateCompletions: AceCompletion[] = [
   {
     value: `'{{ startDate }}'`,
     meta: COMPLETION_TYPES.TEMPLATE_VARIABLE,
@@ -244,16 +244,21 @@ function handleFromClauseCompletions(
   );
 
   if (hasSchema) {
-    const tableCompletions = informationSchema.databases.flatMap((db) =>
-      db.schemas.flatMap((schema) =>
-        schema.tables.map((table) => ({
-          value: formatTableCompletion(table.path, table.tableName, true),
-          meta: COMPLETION_TYPES.TABLE,
-          score: COMPLETION_SCORES.TABLE,
-          caption: table.tableName,
-        }))
-      )
-    );
+    const tableCompletions: AceCompletion[] = [];
+
+    for (const db of informationSchema.databases) {
+      for (const schema of db.schemas) {
+        if (schema.schemaName === lastPart) {
+          const tablesForThisSchema = schema.tables.map((table) => ({
+            value: formatTableCompletion(table.path, table.tableName, true),
+            meta: COMPLETION_TYPES.TABLE,
+            score: COMPLETION_SCORES.TABLE,
+            caption: table.tableName,
+          }));
+          tableCompletions.push(...tablesForThisSchema);
+        }
+      }
+    }
     return [...tableCompletions, ...getSqlKeywords()];
   }
 
@@ -263,14 +268,20 @@ function handleFromClauseCompletions(
   );
 
   if (hasDatabase) {
-    const schemaCompletions = informationSchema.databases.flatMap((db) =>
-      db.schemas.map((schema) => ({
-        value: formatSchemaCompletion(schema.path, schema.schemaName, true),
-        meta: COMPLETION_TYPES.SCHEMA,
-        score: COMPLETION_SCORES.SCHEMA,
-        caption: schema.schemaName,
-      }))
-    );
+    const schemaCompletions: AceCompletion[] = [];
+
+    for (const db of informationSchema.databases) {
+      if (db.databaseName === lastPart) {
+        const schemasForThisDb = db.schemas.map((schema) => ({
+          value: formatSchemaCompletion(schema.path, schema.schemaName, true),
+          meta: COMPLETION_TYPES.SCHEMA,
+          score: COMPLETION_SCORES.SCHEMA,
+          caption: schema.schemaName,
+        }));
+        schemaCompletions.push(...schemasForThisDb);
+      }
+    }
+
     return [...schemaCompletions, ...getSqlKeywords()];
   }
 
