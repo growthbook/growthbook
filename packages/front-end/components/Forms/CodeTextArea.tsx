@@ -1,6 +1,7 @@
 import dynamic from "next/dynamic";
-import React, { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, createElement } from "react";
 import type { Ace } from "ace-builds";
+import type { IAceEditorProps } from "react-ace";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { CursorData } from "@/components/Segments/SegmentForm";
 import Field, { FieldProps } from "./Field";
@@ -12,27 +13,7 @@ export type AceCompletion = {
   score: number;
 };
 
-interface AceEditorProps {
-  name: string;
-  onLoad: (editor: Ace.Editor) => void;
-  mode: string;
-  theme: string;
-  width: string;
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-  fontSize: string;
-  minLines?: number;
-  maxLines?: number;
-  height?: string;
-  setOptions?: {
-    enableBasicAutocompletion?: boolean;
-    enableLiveAutocompletion?: boolean;
-  };
-  readOnly?: boolean;
-  onCursorChange?: (selection: {
-    cursor: { row: number; column: number; document: { $lines: string[] } };
-  }) => void;
+interface AceEditorProps extends IAceEditorProps {
   completions?: AceCompletion[];
 }
 
@@ -110,12 +91,9 @@ const AceEditor = dynamic(
     const langTools = ace.require("ace/ext/language_tools");
 
     // Return a wrapper component that handles completions
-    const AceEditorWithCompletions = React.forwardRef<
-      HTMLElement,
-      AceEditorProps
-    >((props: AceEditorProps) => {
+    const AceEditorWithCompletions = (props: AceEditorProps) => {
       const { completions, onLoad, ...otherProps } = props;
-      const [editor, setEditor] = React.useState<Ace.Editor | null>(null);
+      const [editor, setEditor] = useState<Ace.Editor | null>(null);
 
       const handleLoad = (editorInstance: Ace.Editor) => {
         setEditor(editorInstance);
@@ -126,7 +104,7 @@ const AceEditor = dynamic(
       };
 
       // Update completions whenever they change
-      React.useEffect(() => {
+      useEffect(() => {
         if (editor) {
           // Clear existing completers and set up fresh one
           langTools.setCompleters([]);
@@ -178,11 +156,11 @@ const AceEditor = dynamic(
         }
       }, [editor, completions]); // Depend on both editor and completions
 
-      return React.createElement(reactAce.default, {
+      return createElement(reactAce.default, {
         ...otherProps,
         onLoad: handleLoad,
       });
-    });
+    };
 
     AceEditorWithCompletions.displayName = "AceEditorWithCompletions";
 

@@ -580,10 +580,5 @@ export const SQL_KEYWORD_DEFINITIONS: SqlKeywordDefinition[] = [
 ];
 
 export function getSqlKeywords(): AceCompletion[] {
-  return SQL_KEYWORD_DEFINITIONS.map((def) => ({
-    value: def.value,
-    meta: def.meta,
-    score: def.score,
-    caption: def.caption,
-  }));
+  return SQL_KEYWORD_DEFINITIONS;
 }

@@ -168,15 +168,19 @@ function handleColumnCompletions(
 function getAllCompletionsForEmptyFrom(
   informationSchema: InformationSchemaInterfaceWithPaths
 ): AceCompletion[] {
-  const databaseCompletions = informationSchema.databases
-    .map((db) => ({
-      value: db.path,
-      meta: COMPLETION_TYPES.DATABASE,
-      score: COMPLETION_SCORES.DATABASE,
-      caption: db.databaseName,
-    }))
-    // Filter out completions whose value is empty - This can happen for MySQL Data Sources that don't support all 3 levels (db, schema, table)
-    .filter((completion) => completion.value !== "");
+  const databaseCompletions: AceCompletion[] = [];
+  for (const db of informationSchema.databases) {
+    // Not all data sources support all 3 levels (db, schema, table) - and if they don't, the path will be empty
+    // So we need to check if the path is empty before adding it to the completions
+    if (db.path) {
+      databaseCompletions.push({
+        value: db.path,
+        meta: COMPLETION_TYPES.DATABASE,
+        score: COMPLETION_SCORES.DATABASE,
+        caption: db.databaseName,
+      });
+    }
+  }
 
   const schemaCompletions = informationSchema.databases.flatMap((db) =>
     db.schemas.map((schema) => ({
