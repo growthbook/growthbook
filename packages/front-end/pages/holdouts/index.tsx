@@ -21,6 +21,7 @@ import NewHoldoutForm from "@/components/Holdout/NewHoldoutForm";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import UserAvatar from "@/components/Avatar/UserAvatar";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
+// import { useHoldouts } from "@/hooks/useHoldouts";
 
 const NUM_PER_PAGE = 20;
 
@@ -39,6 +40,11 @@ const HoldoutsPage = (): React.ReactElement => {
     holdouts,
     experimentsMap,
   } = useExperiments(project, tabs.includes("archived"), "holdout");
+
+  // const { holdouts } = useHoldouts(
+  //   project,
+  //   tabs.includes("archived")
+  // );
 
   const tagsFilter = useTagsFilter("experiments");
 

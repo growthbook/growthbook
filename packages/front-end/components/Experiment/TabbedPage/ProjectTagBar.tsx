@@ -12,6 +12,7 @@ import Metadata from "@/components/Radix/Metadata";
 import metaDataStyles from "@/components/Radix/Styles/Metadata.module.scss";
 import Link from "@/components/Radix/Link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useHoldouts } from "@/hooks/useHoldouts";
 import { FocusSelector } from "./EditExperimentInfoModal";
 
 export interface Props {
@@ -38,6 +39,10 @@ export default function ProjectTagBar({
   const project = getProjectById(experiment.project || "");
   const projectName = project?.name || null;
   const projectIsDeReferenced = projectId && !projectName;
+
+  const { holdoutsMap } = useHoldouts();
+
+  console.log("holdoutsMap", holdoutsMap);
 
   const permissionsUtil = usePermissionsUtil();
   const canUpdateExperimentProject = (project) =>
@@ -153,7 +158,7 @@ export default function ProjectTagBar({
             label="Holdout"
             value={
               <Link href={`/holdout/${experiment.holdoutId}`}>
-                {experiment.holdoutId}
+                {holdoutsMap.get(experiment.holdoutId)?.name}
               </Link>
             }
           />

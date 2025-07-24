@@ -313,7 +313,7 @@ export const getHoldouts = async (
   const experiments = await getAllExperiments(context, {
     type: "holdout",
   });
-  res.status(200).json({ status: 200, holdouts, experiments });
+  return res.status(200).json({ status: 200, holdouts, experiments });
 };
 
 // endregion GET /holdouts
