@@ -31,6 +31,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/Radix/Tabs";
 import Callout from "@/components/Radix/Callout";
 import ProjectBadges from "@/components/ProjectBadges";
 import Link from "../Radix/Link";
+import AddToHoldoutModal from "../Holdout/AddToHoldoutModal";
 
 export default function FeaturesHeader({
   feature,
@@ -59,6 +60,7 @@ export default function FeaturesHeader({
   const [auditModal, setAuditModal] = useState(false);
   const [duplicateModal, setDuplicateModal] = useState(false);
   const [staleFFModal, setStaleFFModal] = useState(false);
+  const [addToHoldoutModal, setAddToHoldoutModal] = useState(false);
   const [showImplementation, setShowImplementation] = useState(firstFeature);
 
   const { organization } = useUser();
@@ -178,6 +180,18 @@ export default function FeaturesHeader({
                         : "Disable stale detection"}
                     </a>
                   </>
+                )}
+                {canEdit && canPublish && (
+                  <a
+                    className="dropdown-item"
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setAddToHoldoutModal(true);
+                    }}
+                  >
+                    Add to holdout
+                  </a>
                 )}
                 {canEdit && canPublish && (
                   <a
@@ -416,6 +430,13 @@ export default function FeaturesHeader({
           close={() => {
             setShowImplementation(false);
           }}
+        />
+      )}
+      {addToHoldoutModal && (
+        <AddToHoldoutModal
+          close={() => setAddToHoldoutModal(false)}
+          feature={feature}
+          mutate={mutate}
         />
       )}
     </>
