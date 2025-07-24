@@ -18,7 +18,6 @@ import {
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
-import { HoldoutRule } from "back-end/src/validators/features";
 import { useAuth } from "@/services/auth";
 import {
   getRules,
@@ -26,8 +25,8 @@ import {
   isRuleInactive,
 } from "@/services/features";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useExperiments } from "@/hooks/useExperiments";
 import { Rule, SortableRule } from "./Rule";
+import { HoldoutRule } from "./HoldoutRule";
 
 export default function RuleList({
   feature,
@@ -71,37 +70,6 @@ export default function RuleList({
   const [items, setItems] = useState(getRules(feature, environment));
   const permissionsUtil = usePermissionsUtil();
 
-  const { experimentsMap: allExperimentsMap } = useExperiments(
-    feature.project,
-    false,
-    "holdout"
-  );
-
-  const holdoutExperiment = holdout
-    ? allExperimentsMap.get(holdout.experimentId)
-    : undefined;
-
-  // TODO: generate holdout rule if holdout is defined and environment is in holdout.environments
-  const holdoutRule: HoldoutRule | null =
-    holdout &&
-    holdoutExperiment &&
-    holdout.environmentSettings[environment].enabled
-      ? {
-          id: "holdout",
-          description: holdout.name,
-          type: "holdout",
-          value: feature.holdout?.value || "",
-          condition: holdoutExperiment.phases[0].condition,
-          savedGroups: holdoutExperiment.phases[0].savedGroups,
-          prerequisites: holdoutExperiment.phases[0].prerequisites,
-          coverage:
-            holdoutExperiment?.phases[0].coverage *
-            holdoutExperiment?.phases[0].variationWeights[0],
-          hashAttribute: holdoutExperiment.hashAttribute,
-          enabled: true,
-        }
-      : null;
-
   useEffect(() => {
     setItems(getRules(feature, environment));
   }, [getRules(feature, environment)]);
@@ -115,7 +83,7 @@ export default function RuleList({
 
   const inactiveRules = items.filter((r) => isRuleInactive(r, experimentsMap));
 
-  if (!items.length && !holdoutRule) {
+  if (!items.length && !holdout) {
     return (
       <div className="px-3 mb-3">
         <em>None</em>
@@ -187,33 +155,17 @@ export default function RuleList({
           <em>No Active Rules</em>
         </div>
       )}
-      {/* TODO: Add holdout rule above the other rules if feature.holdout is defined */}
+      <HoldoutRule
+        feature={feature}
+        setRuleModal={() => undefined}
+        mutate={mutate}
+      />
       <SortableContext items={items} strategy={verticalListSortingStrategy}>
-        {holdoutRule && (
-          <SortableRule
-            key="holdout-rule"
-            environment={environment}
-            i={0}
-            rule={holdoutRule}
-            feature={feature}
-            mutate={mutate}
-            setRuleModal={setRuleModal}
-            setCopyRuleModal={setCopyRuleModal}
-            unreachable={false}
-            version={version}
-            setVersion={setVersion}
-            locked={locked}
-            experimentsMap={experimentsMap}
-            hideInactive={hideInactive}
-            isDraft={isDraft}
-            safeRolloutsMap={safeRolloutsMap}
-          />
-        )}
         {items.map(({ ...rule }, i) => (
           <SortableRule
             key={i + rule.id}
             environment={environment}
-            i={holdoutRule ? i + 1 : i}
+            i={i}
             rule={rule}
             feature={feature}
             mutate={mutate}
@@ -227,6 +179,7 @@ export default function RuleList({
             hideInactive={hideInactive}
             isDraft={isDraft}
             safeRolloutsMap={safeRolloutsMap}
+            holdout={holdout}
           />
         ))}
       </SortableContext>
@@ -251,6 +204,7 @@ export default function RuleList({
             }
             isDraft={isDraft}
             safeRolloutsMap={safeRolloutsMap}
+            holdout={holdout}
           />
         ) : null}
       </DragOverlay>

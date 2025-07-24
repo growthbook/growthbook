@@ -122,11 +122,15 @@ export default function FeatureRules({
                     </Flex>
                     <Badge
                       ml="2"
-                      label={rulesByEnv[e.id].length.toString()}
+                      label={
+                        holdout?.environmentSettings[e.id].enabled
+                          ? (rulesByEnv[e.id].length + 1).toString()
+                          : rulesByEnv[e.id].length.toString()
+                      }
                       radius="full"
                       variant="solid"
                       color="violet"
-                    ></Badge>
+                    />
                   </TabsTrigger>
                 ))}
                 {dropdownEnvs.length === 1 && (
@@ -142,7 +146,7 @@ export default function FeatureRules({
                       radius="full"
                       variant="solid"
                       color="violet"
-                    ></Badge>
+                    />
                   </TabsTrigger>
                 )}
                 {dropdownEnvs.length > 1 && (
@@ -179,7 +183,7 @@ export default function FeatureRules({
                               radius="full"
                               variant="solid"
                               color="violet"
-                            ></Badge>
+                            />
                           </Flex>
                         )}
                       />
@@ -200,11 +204,12 @@ export default function FeatureRules({
           </Flex>
         </Container>
         {environments.map((e) => {
+          const includeHoldoutRule =
+            holdout && holdout.environmentSettings[e.id].enabled;
           return (
             <TabsContent key={e.id} value={e.id}>
               <div className="mt-2">
-                {/* TODO: Render rule list if there are rules or a holdout is linked that is active for the environment */}
-                {rulesByEnv[e.id].length > 0 || holdout ? (
+                {rulesByEnv[e.id].length > 0 || includeHoldoutRule ? (
                   <RuleList
                     environment={e.id}
                     feature={feature}
@@ -218,7 +223,7 @@ export default function FeatureRules({
                     hideInactive={hideInactive}
                     isDraft={isDraft}
                     safeRolloutsMap={safeRolloutsMap}
-                    holdout={holdout}
+                    holdout={includeHoldoutRule ? holdout : undefined}
                   />
                 ) : (
                   <Box py="4" className="text-muted">
