@@ -83,7 +83,9 @@ export default function RuleList({
 
   // TODO: generate holdout rule if holdout is defined and environment is in holdout.environments
   const holdoutRule: HoldoutRule | null =
-    holdout && holdoutExperiment && holdout.environments.includes(environment)
+    holdout &&
+    holdoutExperiment &&
+    holdout.environmentSettings[environment].enabled
       ? {
           id: "holdout",
           description: holdout.name,

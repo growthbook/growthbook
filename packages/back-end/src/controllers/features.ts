@@ -2209,6 +2209,7 @@ export async function putFeature(
     "project",
     "owner",
     "customFields",
+    "holdout",
   ];
 
   if (
@@ -2220,6 +2221,9 @@ export async function putFeature(
   }
 
   const updatedFeature = await updateFeature(context, feature, updates);
+
+  // TODO: If the holdout is being updated, we need to update the linked experiments to add the holdout
+  // This update should fail if linked experiments are not in a draft state or the feature has safe rollout rules
 
   // If there are new tags to add
   await addTagsDiff(org.id, feature.tags || [], updates.tags || []);
