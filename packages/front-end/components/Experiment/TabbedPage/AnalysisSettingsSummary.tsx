@@ -166,6 +166,18 @@ export default function AnalysisSettingsSummary({
     getExperimentMetricById,
   ]);
 
+  const conversionWindowMetrics = useMemo(() => {
+    const conversionWindowMetrics = new Set<string>();
+    allExpandedMetrics.forEach((m) => {
+      const metric = getExperimentMetricById(m);
+      if (!metric) return;
+      if (metric?.windowSettings?.type === "conversion") {
+        conversionWindowMetrics.add(m);
+      }
+    });
+    return conversionWindowMetrics;
+  }, [allExpandedMetrics, getExperimentMetricById]);
+
   const { outdated, reasons } = isOutdated({
     experiment,
     snapshot,
@@ -176,6 +188,7 @@ export default function AnalysisSettingsSummary({
     hasSequentialFeature,
     phase,
     unjoinableMetrics,
+    conversionWindowMetrics,
   });
 
   const ds = getDatasourceById(experiment.datasource);
