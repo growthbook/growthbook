@@ -372,7 +372,8 @@ export default function ExperimentHeader({
   const showConvertButton =
     canRunExperiment &&
     growthbook.isOn("bandits") &&
-    experiment.status === "draft";
+    experiment.status === "draft" &&
+    !isHoldout;
 
   const showShareableReportButton =
     permissionsUtil.canCreateReport(experiment) && snapshot;

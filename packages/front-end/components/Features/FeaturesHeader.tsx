@@ -6,6 +6,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { filterEnvironmentsByFeature, isFeatureStale } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { FaExclamationTriangle } from "react-icons/fa";
+import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import { useUser } from "@/services/UserContext";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
@@ -29,6 +30,7 @@ import UserAvatar from "@/components/Avatar/UserAvatar";
 import { Tabs, TabsList, TabsTrigger } from "@/components/Radix/Tabs";
 import Callout from "@/components/Radix/Callout";
 import ProjectBadges from "@/components/ProjectBadges";
+import Link from "../Radix/Link";
 
 export default function FeaturesHeader({
   feature,
@@ -39,6 +41,7 @@ export default function FeaturesHeader({
   setTab,
   setEditFeatureInfoModal,
   dependents,
+  holdout,
 }: {
   feature: FeatureInterface;
   features: FeatureInterface[];
@@ -48,6 +51,7 @@ export default function FeaturesHeader({
   setTab: (tab: FeatureTab) => void;
   setEditFeatureInfoModal: (open: boolean) => void;
   dependents: number;
+  holdout: HoldoutInterface | undefined;
 }) {
   const router = useRouter();
   const projectId = feature?.project;
@@ -273,6 +277,13 @@ export default function FeaturesHeader({
             </Box>
           </Flex>
           <Flex gap="4">
+            {holdout && (
+              <Box>
+                <Text weight="medium">Holdout: </Text>
+                <Link href={`/holdout/${holdout.id}`}>{holdout.name}</Link>
+              </Box>
+            )}
+
             {(projects.length > 0 || projectIsDeReferenced) && (
               <Box>
                 <Text weight="medium">Project: </Text>

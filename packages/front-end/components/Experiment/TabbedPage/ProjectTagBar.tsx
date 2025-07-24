@@ -147,6 +147,13 @@ export default function ProjectTagBar({
   return (
     <div className="pb-3">
       <Flex gap="3" mt="2" mb="1" wrap="wrap">
+        {/* TODO: Render holdout name */}
+        {experiment.holdoutId && (
+          <Link href={`/holdout/${experiment.holdoutId}`}>
+            {experiment.holdoutId}
+          </Link>
+        )}
+        {/* TODO: Render projects for holdouts */}
         {renderProject()}
         {experiment.type !== "holdout" && (
           <Metadata label="Experiment Key" value={trackingKey || "None"} />

@@ -311,6 +311,7 @@ export default function FeaturePage() {
         setTab={setTabAndScroll}
         setEditFeatureInfoModal={setEditFeatureInfoModal}
         dependents={dependents}
+        holdout={holdout}
       />
 
       {tab === "overview" && (
