@@ -134,6 +134,7 @@ const Results: FC<{
       weight: phaseObj?.variationWeights?.[i] || 0,
     };
   });
+
   const settingsForSnapshotMetrics: MetricSnapshotSettings[] =
     snapshot?.settings?.metricSettings?.map((m) => ({
       metric: m.id,
