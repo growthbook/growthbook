@@ -557,6 +557,9 @@ export async function getAutoCompletions(
   );
 
   // Generate suggestions based on context
+  // TODO: We should explore updating the WHERE, GROUP BY, and ORDER BY completions to use only the columns included in the query
+  // In addition to the sqlKeywords & template variables
+  // I don't think we want to show ALL columns if their not in the SELECT clause
   switch (context.type) {
     case "SELECT":
     case "WHERE":

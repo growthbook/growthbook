@@ -142,6 +142,12 @@ const AceEditor = dynamic(
                       return text.startsWith(lowerPrefix);
                     };
 
+                    // Safety net - if the value is empty, don't show it
+                    // This can happen for Data Sources that don't support all 3 levels (db, schema, table) like MySQL & Clickhouse
+                    if (lowerValue === "") {
+                      return false;
+                    }
+
                     return checkParts(lowerValue) || checkParts(lowerCaption);
                   }
                 );
