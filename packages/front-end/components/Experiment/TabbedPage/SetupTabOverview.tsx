@@ -9,6 +9,7 @@ import Collapsible from "react-collapsible";
 import { FaAngleRight } from "react-icons/fa";
 import { Box, Flex, ScrollArea, Heading } from "@radix-ui/themes";
 import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
+import { upperFirst } from "lodash";
 import { PreLaunchChecklist } from "@/components/Experiment/PreLaunchChecklist";
 import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -55,9 +56,7 @@ export default function SetupTabOverview({
   const [showDescriptionModal, setShowDescriptionModal] = useState(false);
   const [expandDescription, setExpandDescription] = useLocalStorage(
     `collapse-${experiment.id}-description`,
-    localStorage.getItem(`collapse-${experiment.id}-description`) === "true"
-      ? false
-      : true
+    localStorage.getItem(`collapse-${experiment.id}-description`) !== "true"
   );
   const customFields = useCustomFields();
 
@@ -87,6 +86,7 @@ export default function SetupTabOverview({
           source="experiment-setup-tab"
           mutate={mutate}
           experimentId={experiment.id}
+          experimentType={experiment.type}
           initialValue={experiment.description}
           close={() => setShowDescriptionModal(false)}
         />
@@ -157,7 +157,8 @@ export default function SetupTabOverview({
             ) : (
               <Box as="div" className="font-italic text-muted" py="2">
                 Add a description to keep your team informed about the purpose
-                and parameters of your {isHoldout ? "holdout" : "experiment"}
+                and parameters of your{" "}
+                {upperFirst(experiment.type || "experiment")}.
               </Box>
             )}
             {!customFields.length && experiment.description ? (

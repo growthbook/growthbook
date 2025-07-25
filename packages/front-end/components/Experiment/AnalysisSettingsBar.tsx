@@ -413,6 +413,7 @@ export function isOutdated({
   hasSequentialFeature,
   phase,
   unjoinableMetrics,
+  conversionWindowMetrics,
 }: {
   experiment?: ExperimentInterfaceStringDates;
   snapshot?: ExperimentSnapshotInterface;
@@ -423,6 +424,7 @@ export function isOutdated({
   hasSequentialFeature: boolean;
   phase?: number;
   unjoinableMetrics?: Set<string>;
+  conversionWindowMetrics?: Set<string>;
 }): { outdated: boolean; reasons: string[] } {
   const snapshotSettings = snapshot?.settings;
   const analysisSettings = snapshot
@@ -471,28 +473,32 @@ export function isOutdated({
   ) {
     reasons.push("Attribution model changed");
   }
-  if (
-    isStringArrayMissingElements(
-      Array.from(
-        new Set(
-          expandMetricGroups(
-            getAllMetricIdsFromExperiment(snapshotSettings, false),
-            metricGroups
-          )
-        )
-      ).filter((m) => (unjoinableMetrics ? !unjoinableMetrics.has(m) : true)),
-      Array.from(
-        new Set(
-          expandMetricGroups(
-            getAllMetricIdsFromExperiment(experiment, false),
-            metricGroups
-          )
-        )
-      ).filter((m) => (unjoinableMetrics ? !unjoinableMetrics.has(m) : true))
+
+  const snapshotMetrics = Array.from(
+    new Set(
+      expandMetricGroups(
+        getAllMetricIdsFromExperiment(snapshotSettings, false),
+        metricGroups
+      )
     )
-  ) {
+  ).filter((m) => (unjoinableMetrics ? !unjoinableMetrics.has(m) : true));
+  let experimentMetrics = Array.from(
+    new Set(
+      expandMetricGroups(
+        getAllMetricIdsFromExperiment(experiment, false),
+        metricGroups
+      )
+    )
+  ).filter((m) => (unjoinableMetrics ? !unjoinableMetrics.has(m) : true));
+  if (experiment.type === "holdout" && conversionWindowMetrics.size) {
+    experimentMetrics = experimentMetrics.filter(
+      (m) => !conversionWindowMetrics.has(m)
+    );
+  }
+  if (isStringArrayMissingElements(snapshotMetrics, experimentMetrics)) {
     reasons.push("Metrics changed");
   }
+
   if (
     isDifferentStringArray(
       experiment.variations.map((v) => v.key),
