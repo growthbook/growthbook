@@ -31,12 +31,18 @@ export const trackJob = <T extends JobAttributesData>(
     counter.increment(attributes);
     hasMetricsStarted = true;
   } catch (e) {
-    logger.error(`error init'ing counter for job: ${jobName}: ${e}`);
+    logger.error(
+      { err: e, job: job.attrs },
+      `Error initializing counter for job`
+    );
   }
   try {
     histogram = metrics.getHistogram(`jobs.duration`);
   } catch (e) {
-    logger.error(`error init'ing histogram for job: ${jobName}: ${e}`);
+    logger.error(
+      { err: e, job: job.attrs },
+      `Error initializing histogram for job`
+    );
   }
 
   // wrap up metrics function, to be called at the end of the job
@@ -44,39 +50,51 @@ export const trackJob = <T extends JobAttributesData>(
     try {
       histogram?.record(new Date().getTime() - startTime, attributes);
     } catch (e) {
-      logger.error(`error recording duration metric for job: ${jobName}: ${e}`);
+      logger.error(
+        { err: e, job: job.attrs },
+        `Error recording duration metric for job`
+      );
     }
     if (!hasMetricsStarted) return;
     try {
       counter.decrement(attributes);
     } catch (e) {
-      logger.error(`error decrementing count metric for job: ${jobName}: ${e}`);
+      logger.error(
+        { err: e, job: job.attrs },
+        `Error decrementing count metric for job`
+      );
     }
   };
 
   // run job
   let res;
   try {
-    logger.info({ jobId: job.attrs._id }, `starting job ${jobName}`);
+    logger.info({ job: job.attrs }, `Starting job ${jobName}`);
     res = await fn(job);
   } catch (e) {
-    logger.error(`error running job: ${jobName}: ${e}`);
+    logger.error({ err: e, job: job.attrs }, `Error running job: ${jobName}`);
     try {
       wrapUpMetrics();
       metrics.getCounter(`jobs.errors`).increment(attributes);
     } catch (e) {
-      logger.error(`error wrapping up metrics: ${jobName}: ${e}`);
+      logger.error(
+        { err: e, job: job.attrs },
+        `Error wrapping up metrics: ${jobName}`
+      );
     }
     throw e;
   }
 
   // on successful job
-  logger.info({ jobId: job.attrs._id }, `successfully finished job ${jobName}`);
+  logger.info({ job: job.attrs }, `Successfully finished job ${jobName}`);
   try {
     wrapUpMetrics();
     metrics.getCounter(`jobs.successes`).increment(attributes);
   } catch (e) {
-    logger.error(`error wrapping up metrics: ${jobName}: ${e}`);
+    logger.error(
+      { err: e, job: job.attrs },
+      `Error wrapping up metrics: ${jobName}`
+    );
   }
 
   return res;

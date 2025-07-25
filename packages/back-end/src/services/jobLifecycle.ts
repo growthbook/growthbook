@@ -18,7 +18,10 @@ export const addJobLifecycleChecks = <T extends JobAttributesData>(
       if (!finished) {
         job.touch().catch((e) => {
           logger.error(
-            { jobId: job.attrs._id, err: e },
+            {
+              job: job.attrs,
+              err: e,
+            },
             `Error while trying to touch Agenda job ${job.attrs.name}`
           );
         });
@@ -36,9 +39,11 @@ export const addJobLifecycleChecks = <T extends JobAttributesData>(
   const timeoutPromise = new Promise<never>((_, reject) => {
     timeoutTimer = setTimeout(() => {
       const errorMsg = `Agenda job ${job.attrs.name} timed out after ${JOB_TIMEOUT_MS}ms`;
+      const error = new Error(errorMsg);
+
       stopTouch();
-      logger.error({ jobId: job.attrs._id, err: new Error(errorMsg) });
-      reject(new Error(errorMsg));
+      logger.error({ err: error, job: job.attrs });
+      reject(error);
     }, JOB_TIMEOUT_MS);
   });
 

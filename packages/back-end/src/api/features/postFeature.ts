@@ -19,6 +19,7 @@ import { OrganizationInterface } from "back-end/types/organization";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { addTags } from "back-end/src/models/TagModel";
+import { logger } from "back-end/src/util/logger";
 
 export type ApiFeatureEnvSettings = NonNullable<
   z.infer<typeof postFeatureValidator.bodySchema>["environments"]
@@ -60,8 +61,7 @@ export const parseJsonSchemaForEnterprise = (
     jsonSchemaWrapper.enabled = true;
     return jsonSchemaWrapper;
   } catch (e) {
-    // eslint-disable-next-line no-console
-    console.error("failed to parse json schema", e);
+    logger.error(e, "Failed to parse feature json schema");
     return jsonSchemaWrapper;
   }
 };
