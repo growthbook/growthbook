@@ -1,5 +1,4 @@
 import type { Response } from "express";
-import fetch from "node-fetch";
 import { PrivateApiErrorResponse } from "back-end/types/api";
 import {
   EventWebHookInterface,

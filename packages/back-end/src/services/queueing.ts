@@ -10,7 +10,7 @@ export const getAgendaInstance = (): Agenda => {
     const config: AgendaConfig = {
       // @ts-expect-error - For some reason the Mongoose MongoDB instance does not match (missing 5 properties)
       mongo: mongoose.connection.db,
-      defaultLockLimit: 5,
+      defaultLockLimit: Number(process.env.GB_AGENDA_DEFAULT_LOCK_LIMIT) || 5,
       defaultLockLifetime: 10 * 60 * 1000, // 10 minutes
     };
 
