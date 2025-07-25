@@ -204,7 +204,7 @@ export default function AnalysisSettingsBar({
               </div>
             )}
           <div style={{ flex: 1 }} />
-          {!isBandit && (
+          {!isBandit && !isHoldout ? (
             <div className="col-auto">
               {regressionAdjustmentAvailable && (
                 <PremiumTooltip
@@ -271,7 +271,7 @@ export default function AnalysisSettingsBar({
                 </PremiumTooltip>
               )}
             </div>
-          )}
+          ) : null}
           {isBandit && snapshot ? (
             <div className="col-auto text-right mb-0">
               <div className="uppercase-title text-muted">Analysis type</div>
