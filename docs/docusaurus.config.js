@@ -254,6 +254,7 @@ const config = {
           "guide/nextjs-and-vercel-feature-flags.mdx",
           "guide/express-js.mdx",
           "guide/deno-hono.mdx",
+          "guide/sanity.mdx",
           "guide/strapi.mdx",
           "guide/contentful.mdx",
           "guide/rudderstack-and-nextjs-with-growthbook.mdx",
