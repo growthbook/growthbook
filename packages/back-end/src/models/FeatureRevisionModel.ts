@@ -50,7 +50,7 @@ featureRevisionSchema.index({ organization: 1, status: 1 });
 
 type FeatureRevisionDocument = mongoose.Document & FeatureRevisionInterface;
 
-const FeatureRevisionModel = mongoose.model<FeatureRevisionInterface>(
+export const FeatureRevisionModel = mongoose.model<FeatureRevisionInterface>(
   "FeatureRevision",
   featureRevisionSchema
 );
@@ -147,12 +147,14 @@ export async function getFeatureRevisionsByStatus({
   featureId,
   status,
   limit = 10,
+  offset = 0,
 }: {
   context: ReqContext;
   organization: string;
   featureId: string;
   status?: string;
   limit?: number;
+  offset?: number;
 }): Promise<FeatureRevisionInterface[]> {
   const docs = await FeatureRevisionModel.find({
     organization,
@@ -161,6 +163,7 @@ export async function getFeatureRevisionsByStatus({
   })
     .select("-log") // Remove the log when fetching all revisions since it can be large to send over the network
     .sort({ version: -1 })
+    .skip(offset)
     .limit(limit);
   return docs.map((m) => toInterface(m, context));
 }
