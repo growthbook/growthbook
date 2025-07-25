@@ -19,6 +19,9 @@ type PythonServerResponse<T> = {
 // The stats engine usually finishes within 1 second
 // We use an overly conservative timeout to account for high load
 const STATS_ENGINE_TIMEOUT_MS = 60_000;
+const MIN_POOL_SIZE = process.env.GB_STATS_ENGINE_POOL_SIZE_MIN
+  ? Number(process.env.GB_STATS_ENGINE_POOL_SIZE_MIN)
+  : 1;
 const MAX_POOL_SIZE = process.env.GB_STATS_ENGINE_POOL_SIZE
   ? Number(process.env.GB_STATS_ENGINE_POOL_SIZE)
   : 4;
@@ -223,7 +226,7 @@ export const statsServerPool = createPool(
     validate: async (server) => server.isRunning(),
   },
   {
-    min: 1,
+    min: MIN_POOL_SIZE,
     max: MAX_POOL_SIZE,
     testOnBorrow: true,
     evictionRunIntervalMillis: 60000,
