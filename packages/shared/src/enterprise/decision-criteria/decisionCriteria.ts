@@ -330,9 +330,8 @@ export function getExperimentResultStatus({
   const unhealthyData: ExperimentUnhealthyData = {};
   const healthSummary = experimentData.analysisSummary?.health;
   const resultsStatus = experimentData.analysisSummary?.resultsStatus;
-
+  const type = experimentData.type === "holdout" ? "holdout" : "experiment";
   const lastPhase = experimentData.phases[experimentData.phases.length - 1];
-
   const beforeMinDuration =
     lastPhase?.dateStarted &&
     daysBetween(lastPhase.dateStarted, new Date()) <
@@ -437,7 +436,7 @@ export function getExperimentResultStatus({
   if (!experimentData.datasource) {
     return {
       status: "no-data",
-      tooltip: "No data source configured for experiment",
+      tooltip: `No data source configured for ${type}`,
     };
   }
 
@@ -449,7 +448,7 @@ export function getExperimentResultStatus({
   ) {
     return {
       status: "no-data",
-      tooltip: "No metrics configured for experiment yet",
+      tooltip: `No metrics configured for ${type} yet`,
     };
   }
 

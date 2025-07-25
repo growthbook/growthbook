@@ -24,6 +24,7 @@ interface MetricToolTipCompProps {
   statsEngine?: StatsEngine;
   reportRegressionAdjustmentEnabled?: boolean;
   hideDetails?: boolean;
+  extraInfo?: ReactElement | string;
 }
 
 interface MetricInfo {
@@ -39,6 +40,7 @@ const MetricTooltipBody = ({
   statsEngine,
   reportRegressionAdjustmentEnabled,
   hideDetails,
+  extraInfo,
 }: MetricToolTipCompProps): React.ReactElement => {
   function validMetricDescription(description: string): boolean {
     if (!description) return false;
@@ -207,6 +209,7 @@ const MetricTooltipBody = ({
       <h4>
         <MetricName id={metric.id} showOfficialLabel disableTooltip />
       </h4>
+      {extraInfo}
       <table className="table gbtable mb-0">
         <tbody>
           {metricInfo

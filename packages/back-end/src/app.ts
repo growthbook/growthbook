@@ -115,6 +115,7 @@ import { findOrCreateGeneratedHypothesis } from "./models/GeneratedHypothesis";
 import { getContextFromReq } from "./services/organizations";
 import { templateRouter } from "./routers/experiment-template/template.router";
 import { safeRolloutRouter } from "./routers/safe-rollout/safe-rollout.router";
+import { holdoutRouter } from "./routers/holdout/holdout.router";
 import { runStatsEngine } from "./services/stats";
 
 const app = express();
@@ -674,6 +675,9 @@ app.use("/url-redirects", urlRedirectRouter);
 
 // Safe Rollouts
 app.use("/safe-rollout", safeRolloutRouter);
+
+// Holdouts
+app.use("/holdout", holdoutRouter);
 
 // Reports
 app.get("/report/:id", reportsController.getReport);

@@ -74,8 +74,6 @@ export default function PublicExperimentResults({
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
 
-  const isBandit = experiment?.type === "multi-armed-bandit";
-
   const showBreakDownResults =
     hasData &&
     !!snapshot?.dimension &&
@@ -155,7 +153,7 @@ export default function PublicExperimentResults({
                 settingsForSnapshotMetrics={settingsForSnapshotMetrics}
                 sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
                 differenceType={analysis.settings?.differenceType}
-                isBandit={isBandit}
+                experimentType={experiment.type}
                 ssrPolyfills={ssrPolyfills}
                 hideDetails={true}
               />

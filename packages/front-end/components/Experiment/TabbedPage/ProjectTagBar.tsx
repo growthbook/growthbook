@@ -12,6 +12,7 @@ import Metadata from "@/components/Radix/Metadata";
 import metaDataStyles from "@/components/Radix/Styles/Metadata.module.scss";
 import Link from "@/components/Radix/Link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useHoldouts } from "@/hooks/useHoldouts";
 import { FocusSelector } from "./EditExperimentInfoModal";
 
 export interface Props {
@@ -38,6 +39,8 @@ export default function ProjectTagBar({
   const project = getProjectById(experiment.project || "");
   const projectName = project?.name || null;
   const projectIsDeReferenced = projectId && !projectName;
+
+  const { holdoutsMap } = useHoldouts();
 
   const permissionsUtil = usePermissionsUtil();
   const canUpdateExperimentProject = (project) =>
@@ -147,8 +150,22 @@ export default function ProjectTagBar({
   return (
     <div className="pb-3">
       <Flex gap="3" mt="2" mb="1" wrap="wrap">
+        {/* TODO: Render holdout name */}
+        {experiment.holdoutId && (
+          <Metadata
+            label="Holdout"
+            value={
+              <Link href={`/holdout/${experiment.holdoutId}`}>
+                {holdoutsMap.get(experiment.holdoutId)?.name}
+              </Link>
+            }
+          />
+        )}
+        {/* TODO: Render projects for holdouts */}
         {renderProject()}
-        <Metadata label="Experiment Key" value={trackingKey || "None"} />
+        {experiment.type !== "holdout" && (
+          <Metadata label="Experiment Key" value={trackingKey || "None"} />
+        )}
         <Metadata label="Created" value={createdDate} />
         <Metadata label="Owner" value={renderOwner()} />
       </Flex>

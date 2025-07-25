@@ -432,7 +432,7 @@ export async function postFeatures(
 ) {
   const context = getContextFromReq(req);
   const { org, userId, userName } = context;
-  const { id, environmentSettings, ...otherProps } = req.body;
+  const { id, environmentSettings, holdout, ...otherProps } = req.body;
 
   if (
     !context.permissions.canCreateFeature(req.body) ||
@@ -479,6 +479,19 @@ export async function postFeatures(
     );
   }
 
+  if (holdout) {
+    const holdoutObj = await context.models.holdout.getById(holdout.id);
+    if (!holdoutObj) {
+      throw new Error("Holdout not found");
+    }
+    await context.models.holdout.updateById(holdout.id, {
+      linkedFeatures: [
+        ...holdoutObj.linkedFeatures,
+        { id, dateAdded: new Date() },
+      ],
+    });
+  }
+
   const feature: FeatureInterface = {
     defaultValue: "",
     valueType: "boolean",
@@ -494,6 +507,7 @@ export async function postFeatures(
     archived: false,
     version: 1,
     hasDrafts: false,
+    holdout,
     jsonSchema: {
       schemaType: "schema",
       simple: {
@@ -2195,6 +2209,7 @@ export async function putFeature(
     "project",
     "owner",
     "customFields",
+    "holdout",
   ];
 
   if (
@@ -2206,6 +2221,21 @@ export async function putFeature(
   }
 
   const updatedFeature = await updateFeature(context, feature, updates);
+
+  // TODO: If the holdout is being updated, we need to update the linked experiments to add the holdout
+  // This update should fail if linked experiments are not in a draft state or the feature has safe rollout rules
+  if (updates.holdout) {
+    const holdoutObj = await context.models.holdout.getById(updates.holdout.id);
+    if (!holdoutObj) {
+      throw new Error("Holdout not found");
+    }
+    await context.models.holdout.updateById(updates.holdout.id, {
+      linkedFeatures: [
+        ...holdoutObj.linkedFeatures,
+        { id, dateAdded: new Date() },
+      ],
+    });
+  }
 
   // If there are new tags to add
   await addTagsDiff(org.id, feature.tags || [], updates.tags || []);
@@ -2675,6 +2705,13 @@ export async function getFeatureById(
     feature: feature.id,
     organization: org,
   });
+
+  // find holdout
+  let holdout;
+  if (feature.holdout) {
+    holdout = await context.models.holdout.getById(feature.holdout.id);
+  }
+
   res.status(200).json({
     status: 200,
     feature,
@@ -2683,6 +2720,7 @@ export async function getFeatureById(
     experiments: [...experimentsMap.values()],
     safeRollouts: [...safeRolloutMap.values()],
     codeRefs,
+    holdout: holdout || undefined,
   });
 }
 
