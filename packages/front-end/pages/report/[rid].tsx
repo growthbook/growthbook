@@ -95,19 +95,32 @@ export default function ReportPage() {
   const canDelete = isOwner || isAdmin;
 
   const isBandit = experiment?.type === "multi-armed-bandit";
+  const isHoldout = experiment?.type === "holdout";
 
   return (
     <div className="pagecontents container-fluid">
       <PageHead
         breadcrumb={[
           {
-            display: isBandit ? `Bandits` : `Experiments`,
-            href: isBandit ? `/bandits` : `/experiments`,
+            display: isBandit
+              ? `Bandits`
+              : isHoldout
+              ? `Holdouts`
+              : `Experiments`,
+            href: isBandit
+              ? `/bandits`
+              : isHoldout
+              ? `/holdouts`
+              : `/experiments`,
           },
           {
             display: `${experiment?.name ?? "Report"}`,
-            href: experiment?.id
-              ? `/${isBandit ? `bandit` : `experiment`}/${experiment.id}`
+            href: !isHoldout
+              ? experiment?.id
+                ? `/${isBandit ? `bandit` : `experiment`}/${experiment.id}`
+                : undefined
+              : experiment.holdoutId
+              ? `/holdout/${experiment.holdoutId}`
               : undefined,
           },
           { display: report.title },
