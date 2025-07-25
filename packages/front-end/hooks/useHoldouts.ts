@@ -22,10 +22,18 @@ export function useHoldouts(
     holdouts,
   ]);
 
+  const experiments = useMemo(() => data?.experiments || [], [data]);
+  const experimentsMap = useMemo(
+    () => new Map(experiments.map((e) => [e.id, e])),
+    [experiments]
+  );
+
   return {
     loading: !error && !data,
     holdouts: holdouts,
     holdoutsMap,
+    experiments,
+    experimentsMap,
     error: error,
     mutateHoldouts: mutate,
     hasArchived: false,
