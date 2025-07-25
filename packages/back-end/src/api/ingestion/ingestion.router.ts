@@ -7,6 +7,7 @@ import {
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import { _dangerousGetSdkConnectionsAcrossMultipleOrgs } from "back-end/src/models/SdkConnectionModel";
 import { _dangerousGetAllGrowthbookClickhouseDataSources } from "back-end/src/models/DataSourceModel";
+import { getOrganizationIdsWithTrackingDisabled } from "back-end/src/models/OrganizationModel";
 
 interface SdkInfo {
   organization: string;
@@ -43,9 +44,20 @@ export const getDataEnrichment = createApiRequestHandler({
     const dataSourcesByOrgId = Object.fromEntries(
       dataSources.map((ds) => [ds.organization, ds.id])
     );
-    const sdkConnections = await _dangerousGetSdkConnectionsAcrossMultipleOrgs(
-      Object.keys(dataSourcesByOrgId)
+    const orgIds = Object.keys(dataSourcesByOrgId);
+
+    const orgIdsWithTrackingDisabled = await getOrganizationIdsWithTrackingDisabled(
+      orgIds
     );
+
+    const orgIdsWithTrackingEnabled = orgIds.filter(
+      (x) => !orgIdsWithTrackingDisabled.has(x)
+    );
+
+    const sdkConnections = await _dangerousGetSdkConnectionsAcrossMultipleOrgs(
+      orgIdsWithTrackingEnabled
+    );
+
     const sdkData = Object.fromEntries(
       sdkConnections.map((conn) => [
         conn.key,

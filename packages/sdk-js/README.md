@@ -67,7 +67,7 @@ const gb = new GrowthBook({
 });
 
 // Wait for features to be available
-await gb.loadFeatures();
+await gb.init();
 ```
 
 ### Step 2: Start Feature Flagging!
@@ -138,7 +138,7 @@ app.use(function (req, res, next) {
 
   // Wait for features to load (will be cached in-memory for future requests)
   req.growthbook
-    .loadFeatures()
+    .init()
     .then(() => next())
     .catch((e) => {
       console.error("Failed to load features from GrowthBook", e);
@@ -240,7 +240,7 @@ const gb = new GrowthBook({
 });
 
 // Wait for features to be downloaded
-await gb.loadFeatures({
+await gb.init({
   // If the network request takes longer than this (in milliseconds), continue
   // Default: `0` (no timeout)
   timeout: 2000,
@@ -281,7 +281,7 @@ const gb = new GrowthBook({
 })
 ```
 
-Note that you don't have to call `gb.loadFeatures()`. There's nothing to load - everything required is already passed in. No network requests are made to GrowthBook at all.
+Note that you don't have to call `gb.init()` or `gb.loadFeatures()`. There's nothing to load - everything required is already passed in. No network requests are made to GrowthBook at all.
 
 You can update features at any time by calling `gb.setFeatures()` with a new JSON object.
 

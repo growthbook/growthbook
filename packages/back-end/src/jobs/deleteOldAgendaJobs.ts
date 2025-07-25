@@ -1,11 +1,10 @@
 import Agenda from "agenda";
-import { trackJob } from "back-end/src/services/tracing";
 import { getAgendaInstance } from "back-end/src/services/queueing";
 import { logger } from "back-end/src/util/logger";
 const JOB_NAME = "deleteOldAgendaJobs";
 
 // Delete old agenda jobs that finished over one week ago and are not going to be repeated
-const deleteOldAgendaJobs = trackJob(JOB_NAME, async () => {
+const deleteOldAgendaJobs = async () => {
   const agenda = getAgendaInstance();
 
   const startDate = Date.now();
@@ -32,7 +31,7 @@ const deleteOldAgendaJobs = trackJob(JOB_NAME, async () => {
       (Date.now() - startDate) +
       `ms`
   );
-});
+};
 
 export default async function (agenda: Agenda) {
   agenda.define(JOB_NAME, deleteOldAgendaJobs);

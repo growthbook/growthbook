@@ -2,7 +2,7 @@
   "name": "growthbook-app",
   "repository": "https://github.com/growthbook/growthbook-app.git",
   "private": true,
-  "version": "3.6.0",
+  "version": "4.0.0",
   "scripts": {
     "lint": "eslint './**/*.{ts,tsx,js,jsx}' --fix --max-warnings 0 --cache --cache-strategy content",
     "lint:ci": "eslint './**/*.{ts,tsx,js,jsx}' --max-warnings 0 --cache --cache-strategy content",
@@ -14,6 +14,7 @@
     "test": "wsrun -m test",
     "dev:apps": "wsrun -p 'back-end' -p 'front-end' -p 'shared' -c dev",
     "dev": ". $(cd packages/stats && poetry env info --path)/bin/activate && yarn dev:apps",
+    "dev:back-end": ". $(cd packages/stats && poetry env info --path)/bin/activate && wsrun -p 'back-end' -c dev",
     "build:deps": "wsrun -p '@growthbook/growthbook' -p '@growthbook/growthbook-react' -p 'shared' -t -c build",
     "build:app": "wsrun -p 'back-end' -p 'front-end' -c build",
     "build": "yarn build:deps && yarn build:app",
