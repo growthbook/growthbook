@@ -96,11 +96,9 @@ export default defineConfig({
 
 With the personalization plugin installed, you can now add experiment fields to your Sanity schema.
 
-Create a new file `sanity/schemaTypes/growthbook.ts`:
+Create a new file `sanity/schemaTypes/camera.ts`:
 
 ```ts
-// schemas/camera.js
-
 export const camera = {
   name: "camera",
   title: "Camera Product",
@@ -279,7 +277,7 @@ For our Camera World example, let's test the title, description, and image for t
 
 2. Give the feature a name, like `flag-sony-a7-iv`.
 
-3. Se the value type to **String**.
+3. Set the value type to **String**.
 
 4. Set the default value to "control".
 
