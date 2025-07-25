@@ -21,15 +21,15 @@ import { isNil, omit } from "lodash";
 import { FactTableInterface } from "back-end/types/fact-table";
 import {
   ExperimentMetricInterface,
+  getAllMetricIdsFromExperiment,
+  getEqualWeights,
   getMetricResultStatus,
   getMetricSampleSize,
   hasEnoughData,
   isBinomialMetric,
+  isRatioMetric,
   isSuspiciousUplift,
   quantileMetricType,
-  isRatioMetric,
-  getEqualWeights,
-  getAllMetricIdsFromExperiment,
 } from "shared/experiments";
 import {
   DEFAULT_LOSE_RISK_THRESHOLD,
@@ -39,11 +39,22 @@ import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefa
 import { getExperimentMetricFormatter } from "@/services/metrics";
 import { getDefaultVariations } from "@/components/Experiment/NewExperimentForm";
 import { useAddComputedFields, useSearch } from "@/services/search";
-import { experimentDate } from "@/pages/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
 import { getDefaultRuleValue, NewExperimentRefRule } from "./features";
+
+export function experimentDate(exp: ExperimentInterfaceStringDates): string {
+  return (
+    (exp.archived
+      ? exp.dateUpdated
+      : exp.status === "running"
+      ? exp.phases?.[exp.phases?.length - 1]?.dateStarted
+      : exp.status === "stopped"
+      ? exp.phases?.[exp.phases?.length - 1]?.dateEnded
+      : exp.dateCreated) ?? new Date().toISOString() // fallback to now
+  );
+}
 
 export type ExperimentTableRow = {
   label: string;
