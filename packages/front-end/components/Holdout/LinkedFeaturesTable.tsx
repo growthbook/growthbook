@@ -18,7 +18,7 @@ const LinkedFeaturesTable = ({ holdout, features }: Props) => {
     (f) => {
       return {
         ...features,
-        dateAdded: holdout.linkedFeatures.find((e) => e.id === f.id)?.dateAdded,
+        dateAdded: holdout.linkedFeatures[f.id]?.dateAdded,
         holdoutValue: f.holdout?.value,
       };
     },

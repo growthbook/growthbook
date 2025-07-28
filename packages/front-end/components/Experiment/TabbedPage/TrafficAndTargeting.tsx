@@ -69,7 +69,7 @@ export default function TrafficAndTargeting({
                     )}
                   </div>
                 )}
-                {!isHoldout && (
+                {isHoldout && (
                   <>
                     <div>
                       {Math.floor(

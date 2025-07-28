@@ -485,10 +485,10 @@ export async function postFeatures(
       throw new Error("Holdout not found");
     }
     await context.models.holdout.updateById(holdout.id, {
-      linkedFeatures: [
+      linkedFeatures: {
         ...holdoutObj.linkedFeatures,
-        { id, dateAdded: new Date() },
-      ],
+        [id]: { id, dateAdded: new Date() },
+      },
     });
   }
 
@@ -2224,16 +2224,23 @@ export async function putFeature(
 
   // TODO: If the holdout is being updated, we need to update the linked experiments to add the holdout
   // This update should fail if linked experiments are not in a draft state or the feature has safe rollout rules
+  if (updates.holdout?.id !== feature.holdout?.id && feature.holdout?.id) {
+    await context.models.holdout.removeFeatureFromHoldout(
+      feature.holdout.id,
+      feature.id
+    );
+  }
+
   if (updates.holdout) {
     const holdoutObj = await context.models.holdout.getById(updates.holdout.id);
     if (!holdoutObj) {
       throw new Error("Holdout not found");
     }
     await context.models.holdout.updateById(updates.holdout.id, {
-      linkedFeatures: [
+      linkedFeatures: {
         ...holdoutObj.linkedFeatures,
-        { id, dateAdded: new Date() },
-      ],
+        [id]: { id, dateAdded: new Date() },
+      },
     });
   }
 
@@ -2278,6 +2285,12 @@ export async function deleteFeatureById(
       )
     ) {
       context.permissions.throwPermissionError();
+    }
+    if (feature.holdout?.id) {
+      await context.models.holdout.removeFeatureFromHoldout(
+        feature.holdout.id,
+        feature.id
+      );
     }
     await deleteFeature(context, feature);
     await req.audit({

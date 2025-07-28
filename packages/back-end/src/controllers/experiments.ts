@@ -755,10 +755,10 @@ export async function postExperiments(
         throw new Error("Holdout not found");
       }
       await context.models.holdout.updateById(holdoutId, {
-        linkedExperiments: [
+        linkedExperiments: {
           ...holdoutObj.linkedExperiments,
-          { id: experiment.id, dateAdded: new Date() },
-        ],
+          [experiment.id]: { id: experiment.id, dateAdded: new Date() },
+        },
       });
     }
 
@@ -958,21 +958,11 @@ export async function postExperiment(
     validateVariationIds(data.variations);
   }
 
-  if (data.holdoutId !== experiment.holdoutId) {
-    if (experiment.holdoutId) {
-      const holdoutObj = await context.models.holdout.getById(
-        experiment.holdoutId
-      );
-      if (!holdoutObj) {
-        throw new Error("Holdout not found");
-      }
-      // Remove the experiment from the holdout linkedExperiments array
-      await context.models.holdout.updateById(experiment.holdoutId, {
-        linkedExperiments: holdoutObj.linkedExperiments.filter(
-          (e) => e.id !== experiment.id
-        ),
-      });
-    }
+  if (data.holdoutId !== experiment.holdoutId && experiment.holdoutId) {
+    await context.models.holdout.removeExperimentFromHoldout(
+      experiment.holdoutId,
+      experiment.id
+    );
   }
 
   if (data.holdoutId) {
@@ -981,10 +971,10 @@ export async function postExperiment(
       throw new Error("Holdout not found");
     }
     await context.models.holdout.updateById(data.holdoutId, {
-      linkedExperiments: [
+      linkedExperiments: {
         ...holdoutObj.linkedExperiments,
-        { id: experiment.id, dateAdded: new Date() },
-      ],
+        [experiment.id]: { id: experiment.id, dateAdded: new Date() },
+      },
     });
   }
 
@@ -2207,12 +2197,23 @@ export async function deleteExperiment(
     context.permissions.throwPermissionError();
   }
 
-  await Promise.all([
+  const promises = [
     // note: we might want to change this to change the status to
     // 'deleted' instead of actually deleting the document.
     deleteExperimentByIdForOrganization(context, experiment),
     removeExperimentFromPresentations(experiment.id),
-  ]);
+  ];
+
+  if (experiment.holdoutId) {
+    promises.push(
+      context.models.holdout.removeExperimentFromHoldout(
+        experiment.holdoutId,
+        experiment.id
+      )
+    );
+  }
+
+  await Promise.all(promises);
 
   await req.audit({
     event: "experiment.delete",

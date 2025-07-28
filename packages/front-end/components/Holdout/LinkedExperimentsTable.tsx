@@ -24,8 +24,7 @@ const LinkedExperimentsTable = ({ holdout, experiments }: Props) => {
       const statusIndicator = getExperimentStatusIndicator(exp);
       return {
         ...experiments,
-        dateAdded: holdout.linkedExperiments.find((e) => e.id === exp.id)
-          ?.dateAdded,
+        dateAdded: holdout.linkedExperiments[exp.id]?.dateAdded,
         dateEnded: exp.phases[exp.phases.length - 1]?.dateEnded,
         statusIndicator,
       };

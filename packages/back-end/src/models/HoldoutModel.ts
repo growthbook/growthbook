@@ -50,4 +50,28 @@ export class HoldoutModel extends BaseClass {
     // return new Map(filteredHoldouts.map((h) => [h.id, h]));
     return filteredHoldouts;
   }
+
+  public async removeExperimentFromHoldout(
+    holdoutId: string,
+    experimentId: string
+  ) {
+    const holdout = await this.getById(holdoutId);
+    if (!holdout) {
+      throw new Error("Holdout not found");
+    }
+    const {
+      [experimentId]: _,
+      ...linkedExperiments
+    } = holdout.linkedExperiments;
+    await this.updateById(holdoutId, { linkedExperiments });
+  }
+
+  public async removeFeatureFromHoldout(holdoutId: string, featureId: string) {
+    const holdout = await this.getById(holdoutId);
+    if (!holdout) {
+      throw new Error("Holdout not found");
+    }
+    const { [featureId]: _, ...linkedFeatures } = holdout.linkedFeatures;
+    await this.updateById(holdoutId, { linkedFeatures });
+  }
 }
