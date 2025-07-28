@@ -118,3 +118,6 @@ jobs:
 
       - name: Deploy docker image to ECS for GrowthBook Cloud Jobs
         run: aws ecs update-service --cluster prod-api-jobs --service prod-api-jobs --force-new-deployment --region us-east-1
+
+      - name: Deploy docker image to ECS for GrowthBook Cloud Python
+        run: aws ecs update-service --cluster prod-api-python --service prod-api-python --force-new-deployment --region us-east-1
