@@ -75,8 +75,8 @@ export const getHoldout = async (
     });
   }
 
-  const linkedFeatureIds = holdout.linkedFeatures.map((f) => f.id);
-  const linkedExperimentIds = holdout.linkedExperiments.map((e) => e.id);
+  const linkedFeatureIds = Object.keys(holdout.linkedFeatures);
+  const linkedExperimentIds = Object.keys(holdout.linkedExperiments);
 
   const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
   const linkedExperiments = await getExperimentsByIds(
