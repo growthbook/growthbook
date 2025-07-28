@@ -183,7 +183,16 @@ export default function SetupTabOverview({
           holdoutExperiments &&
           holdoutExperiments.length > 0 && (
             <div className="box p-4 my-4">
-              <HoldoutTimeline experiments={holdoutExperiments} />
+              <HoldoutTimeline
+                experiments={holdoutExperiments}
+                startDate={
+                  new Date(
+                    experiment.phases[0].dateStarted ||
+                      Date.now() - 100 * 24 * 60 * 60 * 7
+                  ) // 7 days ago
+                }
+                endDate={new Date(experiment.phases[0].dateEnded || Date.now())}
+              />
             </div>
           )}
 

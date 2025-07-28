@@ -21,55 +21,37 @@ import styles from "@/components/Metrics/DateGraph.module.scss";
 import { formatPercent } from "@/services/metrics";
 import EmptyState from "@/components/EmptyState";
 
-const margin = { top: 20, right: 20, bottom: 50, left: 250 }; // Increased left margin for experiment names
+const margin = { top: 30, right: 60, bottom: 30, left: 200 }; // Increased right margin to prevent end tick cutoff
 
 const getPhaseColor = (
   experiment: ExperimentInterfaceStringDates,
-  phase: ExperimentPhaseStringDates
+  phase: "running" | "won"
 ) => {
-  const densityNumber = 7;
-  const borderDensityNumber = 11;
+  // Simplified color scheme matching the image
   const mainColor =
-    experiment.status === "running"
-      ? "cyan"
-      : experiment.results === "dnf"
-      ? "bronze"
-      : experiment.results === "inconclusive"
-      ? "gold"
-      : experiment.results === "lost"
-      ? "red"
-      : experiment.results === "won"
-      ? "jade"
-      : phase.name === "Main"
-      ? "cyan"
-      : "plum";
+    phase === "running" ? "blue" : phase === "won" ? "green" : "blue"; // Default to blue for other statuses
 
   return {
-    background: `var(--${mainColor}-${densityNumber})`,
-    borderColor: `var(--${mainColor}-${borderDensityNumber})`,
-    text: densityNumber > 8 ? `var(--slate-1)` : `var(--slate-11)`,
+    background: `var(--${mainColor}-5)`,
+    borderColor: `var(--${mainColor}-6)`,
+    text: `var(--gray-1)`,
   };
 };
-
 const HoldoutTimeline: React.FC<{
   experiments: ExperimentInterfaceStringDates[];
   startDate?: Date;
   endDate?: Date;
 }> = ({
   experiments,
-  startDate = new Date(Date.now() - 100 * 24 * 60 * 60 * 365),
+  startDate = new Date(Date.now() - 100 * 24 * 60 * 60 * 7),
   endDate = new Date(),
 }) => {
-  const showPhase = false;
-  const today = new Date();
   const containerRef = useRef<HTMLDivElement>(null);
   const tooltipTimeout = useRef<NodeJS.Timeout | null>(null);
 
   // we need to filter the experiments to only those that have phases within the selected date range:
   const filteredExperiments = useMemo(() => {
     return experiments.filter((experiment) => {
-      if (experiment.status === "draft") return false; // drafts don't have dates/phases (or shouldn't)
-      if (!experiment.phases || experiment.phases.length === 0) return false;
       return experiment.phases.some((phase) => {
         const start = getValidDate(phase.dateStarted);
         const end =
@@ -85,7 +67,7 @@ const HoldoutTimeline: React.FC<{
   }, [endDate, experiments, startDate]);
 
   const [width, setWidth] = useState(800); // Default width
-  const rowHeight = 30;
+  const rowHeight = 50; // Much taller rows to match the image design
   const height =
     margin.top + margin.bottom + filteredExperiments.length * rowHeight;
 
@@ -101,7 +83,6 @@ const HoldoutTimeline: React.FC<{
     status: ExperimentStatus;
     result: string;
     phase: ExperimentPhaseStringDates;
-    estimate?: boolean;
   }>();
 
   const handleBarMouseMove = (
@@ -109,8 +90,7 @@ const HoldoutTimeline: React.FC<{
     experimentName: string,
     status: ExperimentStatus,
     result: string,
-    phase: ExperimentPhaseStringDates,
-    estimate: boolean = false
+    phase: ExperimentPhaseStringDates
   ) => {
     if (!containerRef.current) return;
 
@@ -142,7 +122,7 @@ const HoldoutTimeline: React.FC<{
       showTooltip({
         tooltipLeft,
         tooltipTop,
-        tooltipData: { experimentName, status, result, phase, estimate },
+        tooltipData: { experimentName, status, result, phase },
       });
     }, 150); // 150ms delay
   };
@@ -177,20 +157,53 @@ const HoldoutTimeline: React.FC<{
     };
   }, []);
 
+  // Calculate scale domain to align with ticks
+  const getScaleDomain = () => {
+    const rangeInDays =
+      (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
+    startDate.setHours(0, 0, 0, 0);
+
+    if (rangeInDays < 7) {
+      // Less than a week - use start and end dates as is
+      return [startDate, endDate];
+    } else if (rangeInDays < 30) {
+      // Less than a month - use start and end dates as is
+      //
+      const previousMonday = new Date(startDate);
+      previousMonday.setDate(previousMonday.getDate() - 1);
+      previousMonday.setDate(
+        previousMonday.getDate() - (previousMonday.getDay() - 1)
+      );
+      const nextMonday = new Date(startDate);
+      const daysUntilMonday = (8 - nextMonday.getDay()) % 7;
+      if (daysUntilMonday > 0) {
+        nextMonday.setDate(nextMonday.getDate() + daysUntilMonday);
+      }
+      return [previousMonday, endDate];
+    } else {
+      // More than a month - align with month boundaries
+      const scaleStart = new Date(startDate);
+      scaleStart.setDate(1); // Start at first day of the month
+
+      const scaleEnd = new Date(endDate);
+      scaleEnd.setDate(1);
+      scaleEnd.setMonth(scaleEnd.getMonth() + 1); // End at first day of next month
+
+      return [scaleStart, scaleEnd];
+    }
+  };
+
   // Scales
   const xScale = scaleTime({
-    domain: [startDate, endDate],
+    domain: getScaleDomain(),
     range: [margin.left, width - margin.right],
   });
   const yScale = scaleBand({
     domain: filteredExperiments.map((e) => e.name),
     range: [margin.top, height - margin.bottom],
-    padding: 0.2,
+    padding: 0.05, // Minimal padding for tighter spacing
   });
 
-  // Todo: pagination?
-
-  const currentDateX = xScale(today);
   return (
     <Box>
       {experiments.length === 0 ? (
@@ -208,43 +221,52 @@ const HoldoutTimeline: React.FC<{
               position: "absolute",
               left: 0,
               top: margin.top,
-              overflow: "hidden",
-              width: margin.left - 10,
+              width: margin.left,
               height: height - margin.top - margin.bottom,
-              display: "flex",
-              gap: yScale.paddingOuter() * yScale.bandwidth() + "px",
-              flexDirection: "column",
-              justifyContent: "space-around",
-              backgroundColor: "var(--indigo-2)",
-              boxShadow: "10px 0 10px -5px rgba(0, 0, 0, 0.05)",
             }}
           >
-            {filteredExperiments.map((experiment) => (
+            {filteredExperiments.map((experiment, i) => (
               <Box
                 key={`name-${experiment.id}`}
                 style={{
-                  padding: "0 4px",
                   position: "absolute",
                   left: 0,
                   right: 0,
-                  top: (yScale(experiment.name) ?? 0) - margin.top,
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                  fontWeight: 500,
-                  marginBottom: 0,
-                  height: yScale.bandwidth(),
-                  lineHeight: yScale.bandwidth() + "px",
+                  top:
+                    (yScale(experiment.name) ?? 0) -
+                    margin.top -
+                    (yScale.paddingOuter() * yScale.bandwidth()) / 2,
+                  height:
+                    yScale.bandwidth() +
+                    yScale.paddingOuter() * yScale.bandwidth(),
+                  display: "flex",
                   alignItems: "center",
-                  fontSize: "0.8rem",
-                  borderBottom: "1px solid var(--slate-a3)",
+                  padding: "0 12px",
+                  backgroundColor:
+                    i % 2 === 0 ? "var(--gray-2)" : "transparent",
                 }}
               >
-                <Link
-                  href={`/experiment/${experiment.id}`}
-                  title={experiment.name}
+                <Text
+                  size="2"
+                  weight="medium"
+                  style={{
+                    color: "var(--gray-12)",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                    width: "100%",
+                  }}
                 >
-                  {experiment.name}
-                </Link>
+                  <Link
+                    href={`/experiment/${experiment.id}`}
+                    style={{
+                      color: "var(--gray-12)",
+                      textDecoration: "none",
+                    }}
+                  >
+                    {experiment.name}
+                  </Link>
+                </Text>
               </Box>
             ))}
           </Box>
@@ -258,54 +280,70 @@ const HoldoutTimeline: React.FC<{
                 position: "absolute",
                 zIndex: 1000,
                 pointerEvents: "none",
-                backgroundColor: "var(--slate-1)",
-                border: "1px solid var(--slate-6)",
-                borderRadius: "4px",
-                padding: "8px",
-                boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
-                maxWidth: "250px",
+                backgroundColor: "var(--gray-1)",
+                border: "1px solid var(--gray-6)",
+                borderRadius: "6px",
+                padding: "12px",
+                boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+                maxWidth: "280px",
               }}
             >
-              <Box mb="2">
-                <strong>Experiment:</strong> {tooltipData.experimentName}
-              </Box>
-              <Flex direction="column" gap="1" style={{ fontSize: "0.8rem" }}>
-                <Box>
-                  <strong>Status:</strong> {tooltipData.status}
-                </Box>
-                {tooltipData.result && (
-                  <Box>
-                    <strong>Result:</strong> {tooltipData.result}
-                  </Box>
-                )}
-                <Box>
-                  <strong>Phase:</strong> {tooltipData.phase.name}
-                </Box>
-                <Box>
-                  <strong>Coverage:</strong>{" "}
-                  {formatPercent(tooltipData.phase.coverage)}
-                </Box>
-                <Box>
-                  <strong>Started:</strong>{" "}
-                  {tooltipData.phase.dateStarted
-                    ? date(tooltipData.phase.dateStarted)
-                    : "-"}
-                </Box>
-                {tooltipData.status === "stopped" && (
-                  <Box>
-                    <strong>Ended:</strong>{" "}
-                    {tooltipData.phase.dateEnded
-                      ? date(tooltipData.phase.dateEnded)
-                      : "-"}
-                  </Box>
-                )}
-                {tooltipData.estimate && (
-                  <Box>
-                    <Text size="1">
-                      This experiment is running and the end date is unknown.
+              <Flex direction="column" gap="2">
+                <Text size="3" weight="bold">
+                  {tooltipData.experimentName}
+                </Text>
+                <Flex direction="column" gap="1">
+                  <Flex justify="between">
+                    <Text size="2" color="gray">
+                      Status:
                     </Text>
-                  </Box>
-                )}
+                    <Text size="2">{tooltipData.status}</Text>
+                  </Flex>
+                  {tooltipData.result && (
+                    <Flex justify="between">
+                      <Text size="2" color="gray">
+                        Result:
+                      </Text>
+                      <Text size="2">{tooltipData.result}</Text>
+                    </Flex>
+                  )}
+                  <Flex justify="between">
+                    <Text size="2" color="gray">
+                      Phase:
+                    </Text>
+                    <Text size="2">{tooltipData.phase.name}</Text>
+                  </Flex>
+                  <Flex justify="between">
+                    <Text size="2" color="gray">
+                      Coverage:
+                    </Text>
+                    <Text size="2">
+                      {formatPercent(tooltipData.phase.coverage)}
+                    </Text>
+                  </Flex>
+                  <Flex justify="between">
+                    <Text size="2" color="gray">
+                      Started:
+                    </Text>
+                    <Text size="2">
+                      {tooltipData.phase.dateStarted
+                        ? date(tooltipData.phase.dateStarted)
+                        : "-"}
+                    </Text>
+                  </Flex>
+                  {tooltipData.status === "stopped" && (
+                    <Flex justify="between">
+                      <Text size="2" color="gray">
+                        Ended:
+                      </Text>
+                      <Text size="2">
+                        {tooltipData.phase.dateEnded
+                          ? date(tooltipData.phase.dateEnded)
+                          : "-"}
+                      </Text>
+                    </Flex>
+                  )}
+                </Flex>
               </Flex>
             </TooltipWithBounds>
           )}
@@ -314,34 +352,147 @@ const HoldoutTimeline: React.FC<{
             <Group>
               <GridColumns
                 top={margin.top}
+                left={margin.left}
                 scale={xScale}
-                width={width}
+                width={width - margin.left - margin.right}
                 height={height - margin.top - margin.bottom}
-                stroke="var(--slate-a5)"
-                strokeDasharray="2,2"
-                strokeWidth={1}
+                stroke="transparent"
+                strokeDasharray="1,1"
+                strokeWidth={0.5}
               />
+
               {/* X-Axis at the top */}
               <AxisTop
                 top={margin.top}
                 scale={xScale}
                 tickFormat={(d) => {
                   if (d instanceof Date) {
-                    const day = d.getDate();
-                    return day === 1
-                      ? format(d, "yyyy MMM") // Show "YYYY MMM" for the first day of the month
-                      : format(d, "yyyy MMM dd"); // Show "YYYY MMM DD" otherwise
+                    const rangeInDays =
+                      (endDate.getTime() - startDate.getTime()) /
+                      (1000 * 60 * 60 * 24);
+
+                    if (rangeInDays < 7) {
+                      // Less than a week - show day format
+                      return format(d, "MMM d");
+                    } else if (rangeInDays < 30) {
+                      // Less than a month - show week format (Monday)
+                      return format(d, "MMM d");
+                    } else {
+                      // More than a month - show month format
+                      return format(d, "MMM yyyy");
+                    }
                   }
                   return "-";
                 }}
-                numTicks={Math.floor(width / 160)} // Adjust number of ticks based on width
+                tickValues={(() => {
+                  startDate.setHours(0, 0, 0, 0);
+                  const ticks: Date[] = [];
+                  const current = new Date(startDate);
+                  const end = new Date(endDate);
+                  const rangeInDays =
+                    (end.getTime() - startDate.getTime()) /
+                    (1000 * 60 * 60 * 24);
+
+                  if (rangeInDays < 7) {
+                    // Less than a week - show days
+                    ticks.push(startDate);
+                    while (current <= end) {
+                      if (
+                        current.getTime() !== startDate.getTime() &&
+                        current.getTime() !== endDate.getTime()
+                      ) {
+                        ticks.push(new Date(current));
+                      }
+                      current.setDate(current.getDate() + 1);
+                    }
+                  } else if (rangeInDays < 30) {
+                    // Less than a month - show week boundaries (Mondays)
+                    // Find the next Monday from start date
+                    //get previous monday
+                    const previousMonday = new Date(startDate);
+                    previousMonday.setDate(previousMonday.getDate() - 1);
+                    previousMonday.setDate(
+                      previousMonday.getDate() - (previousMonday.getDay() - 1)
+                    );
+                    ticks.push(new Date(previousMonday));
+
+                    const nextMonday = new Date(startDate);
+                    const daysUntilMonday = (8 - nextMonday.getDay()) % 7;
+                    if (daysUntilMonday > 0) {
+                      nextMonday.setDate(
+                        nextMonday.getDate() + daysUntilMonday
+                      );
+                    }
+
+                    current.setTime(nextMonday.getTime());
+                    while (current <= end) {
+                      if (
+                        current.getTime() !== startDate.getTime() &&
+                        current.getTime() !== endDate.getTime()
+                      ) {
+                        ticks.push(new Date(current));
+                      }
+                      current.setDate(current.getDate() + 7);
+                    }
+                  } else {
+                    // More than a month - show month boundaries
+                    // Find the first day of the next month
+
+                    const nextMonth = new Date(startDate);
+                    nextMonth.setDate(1);
+                    ticks.push(new Date(nextMonth)); // Add the first month
+                    nextMonth.setMonth(nextMonth.getMonth() + 1);
+
+                    current.setTime(nextMonth.getTime());
+                    while (current <= end) {
+                      if (
+                        current.getTime() !== startDate.getTime() &&
+                        current.getTime() !== endDate.getTime()
+                      ) {
+                        ticks.push(new Date(current));
+                      }
+                      current.setMonth(current.getMonth() + 1);
+                    }
+                  }
+
+                  // Add end date
+                  ticks.push(new Date(endDate));
+
+                  return ticks;
+                })()}
                 tickLabelProps={() => ({
-                  fill: "var(--text-color-table)",
                   fontSize: 11,
                   textAnchor: "middle",
-                  dy: -4, // Adjust vertical alignment
                 })}
-                stroke="var(--slate-8)"
+                tickComponent={({ x, y, formattedValue }) => {
+                  // Check if this is the last tick (end date) and adjust positioning
+                  const isLastTick = x >= width - margin.right - 50; // 50px buffer from right edge
+                  const textAnchor = isLastTick ? "end" : "middle";
+                  const textX = isLastTick ? x - 5 : x; // Move text left for last tick
+
+                  return (
+                    <g>
+                      <text
+                        x={textX}
+                        y={y - 4}
+                        textAnchor={textAnchor}
+                        fill="var(--gray-11)"
+                        fontSize={11}
+                      >
+                        {formattedValue}
+                      </text>
+                      <line
+                        x1={x}
+                        y1={y}
+                        x2={x}
+                        y2={margin.top + filteredExperiments.length * rowHeight}
+                        stroke="var(--gray-6)"
+                        strokeWidth={1}
+                      />
+                    </g>
+                  );
+                }}
+                hideTicks={true}
               />
 
               {/* Experiment Row Backgrounds */}
@@ -358,12 +509,11 @@ const HoldoutTimeline: React.FC<{
                     yScale.bandwidth() +
                     yScale.paddingOuter() * yScale.bandwidth()
                   }
-                  fill={i % 2 === 0 ? "var(--gray-4)" : "var(--gray-1)"}
-                  opacity={0.3}
+                  fill={i % 2 === 0 ? "var(--gray-2)" : "transparent"}
                 />
               ))}
 
-              {/* Experiment Timelines - show a rectangle per phase */}
+              {/* Experiment Timelines - simplified bars */}
               {filteredExperiments.map((experiment) => {
                 if (experiment.phases) {
                   return experiment.phases.map((phase, i) => {
@@ -372,125 +522,75 @@ const HoldoutTimeline: React.FC<{
                       experiment.status === "stopped"
                         ? getValidDate(phase.dateEnded) ?? ""
                         : new Date();
-                    const colors = getPhaseColor(experiment, phase);
+                    const colors = getPhaseColor(experiment, "running");
+                    const winColors = getPhaseColor(experiment, "won");
                     const xStart = xScale(start);
                     const xEnd = xScale(end);
-                    const runningEnd =
-                      typeof endDate === "number" &&
-                      typeof today.getTime() === "number" &&
-                      endDate - today.getTime() > 14 * 24 * 60 * 60 * 1000
-                        ? today.getTime() + 14 * 24 * 60 * 60 * 1000
-                        : endDate;
                     const rectWidth = Math.max(xEnd - xStart, 2); // Ensure minimal visibility
-                    const rectHeight = yScale.bandwidth();
+                    const winWidth = Math.max(xScale(new Date()) - xEnd, 2);
+                    const rectHeight = yScale.bandwidth() * 0.5; // Thinner bars to match image
                     const yPosition = yScale(experiment.name);
                     if (yPosition === undefined) return null;
 
                     return (
                       <g key={`${experiment.id}-${phase.name}-${i}`}>
-                        <rect
-                          x={xStart}
-                          y={yPosition}
-                          width={rectWidth}
-                          height={rectHeight}
-                          fill={colors.background}
-                          stroke={colors.borderColor}
-                          strokeWidth={1}
-                          rx={2}
-                          onMouseMove={(e) =>
-                            handleBarMouseMove(
-                              e,
-                              experiment.name,
-                              experiment.status,
-                              experiment.results || "",
-                              phase
-                            )
-                          }
-                          onMouseLeave={handleBarMouseLeave}
-                        />
-                        {showPhase && (
-                          <>
-                            <text
-                              x={xStart + 4} // Add padding inside the rectangle
-                              y={yPosition + rectHeight / 2 + 4} // Center the text vertically
-                              fill={colors.text}
-                              fontSize="11"
-                              fontWeight="bold"
-                              style={{ pointerEvents: "none" }} // Prevent text from interfering with interactions
-                              //dominantBaseline="middle" // Vertically center the text
-                              //clipPath={`inset(0 ${Math.max(0, rectWidth - 4)}px 0 0)`} // Ensure text doesn't overflow
-                            >
-                              {phase.name}
-                              {experiment.status === "stopped"
-                                ? ` (${experiment.results})`
-                                : ` (${experiment.status})`}
-                            </text>
-                          </>
+                        {experiment.status === "draft" ? null : (
+                          <rect
+                            x={xStart}
+                            y={
+                              yPosition + (yScale.bandwidth() - rectHeight) / 2
+                            }
+                            width={rectWidth}
+                            height={rectHeight}
+                            fill={colors.background}
+                            stroke={colors.borderColor}
+                            strokeWidth={1}
+                            rx={4}
+                            onMouseMove={(e) =>
+                              handleBarMouseMove(
+                                e,
+                                experiment.name,
+                                experiment.status,
+                                experiment.results || "",
+                                phase
+                              )
+                            }
+                            onMouseLeave={handleBarMouseLeave}
+                          />
                         )}
-                        {experiment.status === "running" && (
-                          <>
-                            <defs>
-                              <linearGradient
-                                id={"fadeGradient" + experiment.id}
-                                x1="0%"
-                                y1="0%"
-                                x2="100%"
-                                y2="0%"
-                              >
-                                <stop
-                                  offset="0%"
-                                  stopColor={colors.background}
-                                  stopOpacity={1}
-                                />
-                                <stop
-                                  offset="100%"
-                                  stopColor={colors.background}
-                                  stopOpacity={0}
-                                />
-                              </linearGradient>
-                            </defs>
-
+                        {experiment.status === "stopped" &&
+                          experiment.results === "won" &&
+                          experiment.phases.length - 1 === i && (
                             <rect
                               x={xEnd}
-                              y={yPosition}
-                              // estimate how long it will take to finish?
-                              width={Math.max(xScale(runningEnd) - xEnd, 2)}
+                              y={
+                                yPosition +
+                                (yScale.bandwidth() - rectHeight) / 2
+                              }
+                              width={winWidth}
                               height={rectHeight}
-                              fill={"url(#fadeGradient" + experiment.id + ")"}
-                              stroke={colors.borderColor}
+                              fill={winColors.background}
+                              stroke={winColors.borderColor}
                               strokeWidth={1}
-                              strokeDasharray={4}
-                              rx={2}
+                              rx={4}
                               onMouseMove={(e) =>
                                 handleBarMouseMove(
                                   e,
                                   experiment.name,
                                   experiment.status,
                                   experiment.results || "",
-                                  phase,
-                                  true
+                                  phase
                                 )
                               }
                               onMouseLeave={handleBarMouseLeave}
                             />
-                          </>
-                        )}
+                          )}
                       </g>
                     );
                   });
                 }
               })}
             </Group>
-            {/* Red vertical line for the current date */}
-            <line
-              x1={currentDateX}
-              y1={margin.top}
-              x2={currentDateX}
-              y2={height - margin.bottom}
-              stroke="red"
-              strokeWidth={2}
-              strokeDasharray="4 2" // Optional: dashed line
-            />
           </svg>
         </Box>
       )}
