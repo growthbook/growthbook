@@ -316,17 +316,23 @@ export default function EditSqlModal({
                             <FaExclamationTriangle className="text-danger" />
                           </Tooltip>
                         )}
-                        {canRunQueries ? (
+
+                        <Tooltip
+                          className="pt-1"
+                          shouldDisplay={!!canRunQueries}
+                          body="If unchecked, GrowthBook will automatically apply a 1000 row limit for optimal performance."
+                        >
                           <Checkbox
                             label="Limit 5"
                             weight="regular"
+                            disabled={!canRunQueries}
                             value={apply5RowLimit}
                             setValue={(v) => {
                               setApply5RowLimit(v);
                             }}
                             mb="0"
                           />
-                        ) : null}
+                        </Tooltip>
                         {canFormat ? (
                           <RadixButton
                             size="sm"
