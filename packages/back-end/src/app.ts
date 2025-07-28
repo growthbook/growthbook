@@ -7,6 +7,7 @@ import cors from "cors";
 import asyncHandler from "express-async-handler";
 import compression from "compression";
 import * as Sentry from "@sentry/node";
+import { stringToBoolean } from "shared/util";
 import { populationDataRouter } from "back-end/src/routers/population-data/population-data.router";
 import decisionCriteriaRouter from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.router";
 import { usingFileConfig } from "./init/config";
@@ -28,14 +29,6 @@ import { wrapController } from "./routers/wrapController";
 import apiRouter from "./api/api.router";
 import scimRouter from "./scim/scim.router";
 import { getBuild } from "./util/handler";
-
-if (SENTRY_DSN) {
-  const buildInfo = getBuild();
-
-  Sentry.init({ dsn: SENTRY_DSN, release: buildInfo.sha });
-
-  Sentry.setTag("build_date", buildInfo.date);
-}
 
 // Begin Controllers
 import * as authControllerRaw from "./controllers/auth";
@@ -91,7 +84,7 @@ const informationSchemasController = wrapController(
 
 import { isEmailEnabled } from "./services/email";
 import { init } from "./init";
-import { getCustomLogProps, httpLogger } from "./util/logger";
+import { getCustomLogProps, httpLogger, logger } from "./util/logger";
 import { usersRouter } from "./routers/users/users.router";
 import { organizationsRouter } from "./routers/organizations/organizations.router";
 import { uploadRouter } from "./routers/upload/upload.router";
@@ -122,17 +115,10 @@ import { findOrCreateGeneratedHypothesis } from "./models/GeneratedHypothesis";
 import { getContextFromReq } from "./services/organizations";
 import { templateRouter } from "./routers/experiment-template/template.router";
 import { safeRolloutRouter } from "./routers/safe-rollout/safe-rollout.router";
+import { runStatsEngine } from "./services/stats";
 import { dashboardsRouter } from "./routers/dashboards/dashboards.router";
 
 const app = express();
-
-if (SENTRY_DSN) {
-  app.use(
-    Sentry.Handlers.requestHandler({
-      user: ["email", "sub"],
-    })
-  );
-}
 
 if (!process.env.NO_INIT && process.env.NODE_ENV !== "test") {
   init();
@@ -144,6 +130,30 @@ app.set("trust proxy", EXPRESS_TRUST_PROXY_OPTS);
 // Pretty print on dev
 if (ENVIRONMENT !== "production") {
   app.set("json spaces", 2);
+}
+
+if (stringToBoolean(process.env.PYTHON_SERVER_MODE)) {
+  app.use(compression());
+  app.use(httpLogger);
+  app.post(
+    "/stats",
+    // increase max payload json size to 50mb as a single query can return up to 3000 rows
+    // and we pass the results of all queries at once into python
+    bodyParser.json({
+      limit: process.env.PYTHON_SERVER_INPUT_SIZE_LIMIT || "50mb",
+    }),
+    async (req, res) => {
+      try {
+        const results = await runStatsEngine(req.body);
+        res.status(200).json({ results });
+      } catch (error) {
+        logger.error(error, `Error running stats engine`);
+        res
+          .status(500)
+          .json({ error: error.message || "Internal Server Error" });
+      }
+    }
+  );
 }
 
 app.use(cookieParser());
@@ -376,6 +386,23 @@ app.use(
     next();
   }
 );
+
+// Add logged in user to Sentry if configured
+if (SENTRY_DSN) {
+  app.use(
+    (req: AuthRequest, res: Response & { log: AuthRequest["log"] }, next) => {
+      Sentry.setUser({
+        id: req.currentUser.id,
+        email: req.currentUser.email,
+        name: req.currentUser.name,
+      });
+      if (req.organization) {
+        Sentry.setTag("organization", req.organization.id);
+      }
+      next();
+    }
+  );
+}
 
 // Logged-in auth requests
 if (!useSSO) {
@@ -904,7 +931,7 @@ app.use(function (req, res) {
 });
 
 if (SENTRY_DSN) {
-  app.use(Sentry.Handlers.errorHandler());
+  Sentry.setupExpressErrorHandler(app);
 }
 
 const errorHandler: ErrorRequestHandler = (

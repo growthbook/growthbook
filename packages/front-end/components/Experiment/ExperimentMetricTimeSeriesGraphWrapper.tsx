@@ -1,3 +1,5 @@
+import * as Sentry from "@sentry/nextjs";
+import { ErrorBoundary } from "react-error-boundary";
 import { Flex } from "@radix-ui/themes";
 import { DifferenceType, StatsEngine } from "back-end/types/stats";
 import { ExperimentStatus } from "back-end/src/validators/experiments";
@@ -17,18 +19,7 @@ import ExperimentTimeSeriesGraph, {
   ExperimentTimeSeriesGraphDataPoint,
 } from "./ExperimentTimeSeriesGraph";
 
-export default function ExperimentMetricTimeSeriesGraphWrapper({
-  experimentId,
-  phase,
-  experimentStatus,
-  metric,
-  differenceType,
-  variationNames,
-  showVariations,
-  statsEngine,
-  pValueAdjustmentEnabled,
-  firstDateToRender,
-}: {
+interface ExperimentMetricTimeSeriesGraphWrapperProps {
   experimentId: string;
   phase: number;
   experimentStatus: ExperimentStatus;
@@ -39,7 +30,37 @@ export default function ExperimentMetricTimeSeriesGraphWrapper({
   statsEngine: StatsEngine;
   pValueAdjustmentEnabled: boolean;
   firstDateToRender: Date;
-}) {
+}
+
+export default function ExperimentMetricTimeSeriesGraphWrapperWithErrorBoundary(
+  props: ExperimentMetricTimeSeriesGraphWrapperProps
+) {
+  return (
+    <ErrorBoundary
+      fallback={
+        <Message>Something went wrong while displaying this graph.</Message>
+      }
+      onError={(error) => {
+        Sentry.captureException(error);
+      }}
+    >
+      <ExperimentMetricTimeSeriesGraphWrapper {...props} />
+    </ErrorBoundary>
+  );
+}
+
+function ExperimentMetricTimeSeriesGraphWrapper({
+  experimentId,
+  phase,
+  experimentStatus,
+  metric,
+  differenceType,
+  variationNames,
+  showVariations,
+  statsEngine,
+  pValueAdjustmentEnabled,
+  firstDateToRender,
+}: ExperimentMetricTimeSeriesGraphWrapperProps) {
   const { getFactTableById } = useDefinitions();
   const pValueThreshold = usePValueThreshold();
 

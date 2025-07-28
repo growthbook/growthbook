@@ -47,7 +47,7 @@ function withLicenseServerErrorHandling<T>(
       return await fn(req, res);
     } catch (e) {
       if (e instanceof LicenseServerError) {
-        logger.error(`License server error (${e.status}): ${e.message}`);
+        logger.error(e, `License server error (${e.status}): ${e.message}`);
         return res
           .status(e.status)
           .json({ status: e.status, message: e.message });

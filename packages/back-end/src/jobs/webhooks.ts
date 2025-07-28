@@ -6,7 +6,6 @@ import {
   getExperimentOverrides,
 } from "back-end/src/services/organizations";
 import { getFeatureDefinitions } from "back-end/src/services/features";
-import { trackJob } from "back-end/src/services/tracing";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import {
   findAllLegacySdkWebhooks,
@@ -26,77 +25,72 @@ export default function (ag: Agenda) {
   agenda = ag;
 
   // Fire webhooks
-  agenda.define(
-    WEBHOOK_JOB_NAME,
-    trackJob(WEBHOOK_JOB_NAME, async (job: WebhookJob) => {
-      const webhookId = job.attrs.data?.webhookId;
-      if (!webhookId) return;
+  agenda.define(WEBHOOK_JOB_NAME, async (job: WebhookJob) => {
+    const webhookId = job.attrs.data?.webhookId;
+    if (!webhookId) return;
 
-      const webhook = await findSdkWebhookByIdAcrossOrgs(webhookId);
-      if (!webhook) return;
+    const webhook = await findSdkWebhookByIdAcrossOrgs(webhookId);
+    if (!webhook) return;
 
-      const context = await getContextForAgendaJobByOrgId(webhook.organization);
+    const context = await getContextForAgendaJobByOrgId(webhook.organization);
 
-      const { features, dateUpdated } = await getFeatureDefinitions({
+    const { features, dateUpdated } = await getFeatureDefinitions({
+      context,
+      capabilities: ["bucketingV2"],
+      environment:
+        webhook.environment === undefined ? "production" : webhook.environment,
+      projects: webhook.project ? [webhook.project] : [],
+    });
+
+    // eslint-disable-next-line
+    const body: any = {
+      timestamp: Math.floor(Date.now() / 1000),
+      features,
+      dateUpdated,
+    };
+
+    if (!webhook.featuresOnly) {
+      const { overrides, expIdMapping } = await getExperimentOverrides(
         context,
-        capabilities: ["bucketingV2"],
-        environment:
-          webhook.environment === undefined
-            ? "production"
-            : webhook.environment,
-        projects: webhook.project ? [webhook.project] : [],
-      });
-
-      // eslint-disable-next-line
-      const body: any = {
-        timestamp: Math.floor(Date.now() / 1000),
-        features,
-        dateUpdated,
-      };
-
-      if (!webhook.featuresOnly) {
-        const { overrides, expIdMapping } = await getExperimentOverrides(
-          context,
-          webhook.project
-        );
-        body.overrides = overrides;
-        body.experiments = expIdMapping;
-      }
-
-      const payload = JSON.stringify(body);
-
-      const signature = createHmac("sha256", webhook.signingKey)
-        .update(payload)
-        .digest("hex");
-
-      const res = await cancellableFetch(
-        webhook.endpoint,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            "X-GrowthBook-Signature": signature,
-          },
-          method: "POST",
-          body: payload,
-        },
-        {
-          maxTimeMs: 30000,
-          maxContentSize: 1000,
-        }
+        webhook.project
       );
+      body.overrides = overrides;
+      body.experiments = expIdMapping;
+    }
 
-      if (!res.responseWithoutBody.ok) {
-        const e =
-          res.stringBody ||
-          "POST returned an invalid status code: " +
-            res.responseWithoutBody.status;
-        await setLastSdkWebhookError(webhook, e);
-        throw new Error(e);
+    const payload = JSON.stringify(body);
+
+    const signature = createHmac("sha256", webhook.signingKey)
+      .update(payload)
+      .digest("hex");
+
+    const res = await cancellableFetch(
+      webhook.endpoint,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "X-GrowthBook-Signature": signature,
+        },
+        method: "POST",
+        body: payload,
+      },
+      {
+        maxTimeMs: 30000,
+        maxContentSize: 1000,
       }
+    );
 
-      await setLastSdkWebhookError(webhook, "");
-    })
-  );
+    if (!res.responseWithoutBody.ok) {
+      const e =
+        res.stringBody ||
+        "POST returned an invalid status code: " +
+          res.responseWithoutBody.status;
+      await setLastSdkWebhookError(webhook, e);
+      throw new Error(e);
+    }
+
+    await setLastSdkWebhookError(webhook, "");
+  });
 
   agenda.on(
     "fail:" + WEBHOOK_JOB_NAME,
