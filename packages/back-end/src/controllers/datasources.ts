@@ -1,7 +1,7 @@
 import { Response } from "express";
 import cloneDeep from "lodash/cloneDeep";
 import * as bq from "@google-cloud/bigquery";
-import { SQL_EXPLORER_LIMIT } from "shared/sql";
+import { SQL_ROW_LIMIT } from "shared/sql";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {
@@ -655,14 +655,14 @@ export async function testLimitedQuery(
   const { query, datasourceId, templateVariables, limit } = req.body;
 
   // Sanity check to prevent potential abuse
-  if (limit && limit > SQL_EXPLORER_LIMIT) {
+  if (limit && limit > SQL_ROW_LIMIT) {
     return res.status(400).json({
       status: 400,
-      message: `Limit clause cannot be greater than ${SQL_EXPLORER_LIMIT}`,
+      message: `Limit clause cannot be greater than ${SQL_ROW_LIMIT}`,
     });
   }
 
-  const maxLimit = limit || SQL_EXPLORER_LIMIT;
+  const maxLimit = limit || SQL_ROW_LIMIT;
 
   const datasource = await getDataSourceById(context, datasourceId);
   if (!datasource) {

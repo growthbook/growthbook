@@ -8,6 +8,7 @@ import {
 import { TemplateVariables } from "back-end/types/sql";
 import { Flex, Text, Box, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
+import { SQL_ROW_LIMIT } from "shared/sql";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { validateSQL } from "@/services/datasources";
@@ -320,7 +321,7 @@ export default function EditSqlModal({
                         <Tooltip
                           className="pt-1"
                           shouldDisplay={!!canRunQueries}
-                          body="If unchecked, GrowthBook will automatically apply a 1000 row limit for optimal performance."
+                          body={`If unchecked, GrowthBook will automatically apply a ${SQL_ROW_LIMIT} row limit for optimal performance.`}
                         >
                           <Checkbox
                             label="Limit 5"
