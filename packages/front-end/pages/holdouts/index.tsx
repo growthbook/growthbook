@@ -392,7 +392,7 @@ const HoldoutsPage = (): React.ReactElement => {
         <NewHoldoutForm
           onClose={() => setOpenNewHoldoutModal(false)}
           source="holdouts-list"
-          isNewExperiment={true}
+          isNewHoldout
           mutate={mutateExperiments}
         />
       )}

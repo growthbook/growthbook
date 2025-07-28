@@ -54,21 +54,18 @@ import MultiSelectField from "../Forms/MultiSelectField";
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
 
-export type NewExperimentFormProps = {
+export type NewHoldoutFormProps = {
   initialStep?: number;
-  initialValue?: Partial<ExperimentInterfaceStringDates & HoldoutInterface>;
-  initialNumVariations?: number;
-  isImport?: boolean;
-  fromFeature?: boolean;
+  initialHoldout?: Partial<HoldoutInterface>;
+  initialExperiment?: Partial<ExperimentInterfaceStringDates>;
   includeDescription?: boolean;
   duplicate?: boolean;
   source: string;
-  idea?: string;
   msg?: string;
   onClose?: () => void;
   onCreate?: (id: string) => void;
   inline?: boolean;
-  isNewExperiment?: boolean;
+  isNewHoldout?: boolean;
   mutate?: () => void;
 };
 
@@ -127,9 +124,10 @@ export const genEnvironmentSettings = ({
   return envSettings;
 };
 
-const NewHoldoutForm: FC<NewExperimentFormProps> = ({
+const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
   initialStep = 0,
-  initialValue = {
+  initialHoldout,
+  initialExperiment = {
     type: "holdout",
   },
   onClose,
@@ -139,7 +137,7 @@ const NewHoldoutForm: FC<NewExperimentFormProps> = ({
   source,
   msg,
   inline,
-  isNewExperiment,
+  isNewHoldout,
   mutate,
 }) => {
   const { organization } = useUser();
@@ -163,7 +161,7 @@ const NewHoldoutForm: FC<NewExperimentFormProps> = ({
   const { statsEngine: orgStatsEngine } = useOrgSettings();
   const { settings: scopedSettings } = getScopedSettings({
     organization,
-    experiment: (initialValue ?? undefined) as
+    experiment: (initialExperiment ?? undefined) as
       | ExperimentInterfaceStringDates
       | undefined,
   });
@@ -193,24 +191,28 @@ const NewHoldoutForm: FC<NewExperimentFormProps> = ({
     : hashAttributes[0] || "id";
 
   const form = useForm<
-    Partial<ExperimentInterfaceStringDates & HoldoutInterface>
+    Partial<
+      Omit<
+        ExperimentInterfaceStringDates,
+        "id" | "linkedFeatures" | "linkedExperiments"
+      > &
+        HoldoutInterface
+    >
   >({
     defaultValues: {
-      projects: initialValue?.projects || [],
-      name: initialValue?.name || "",
+      projects: initialHoldout?.projects || [],
+      name: initialHoldout?.name || "",
       ...getNewExperimentDatasourceDefaults(
         datasources,
         settings,
-        initialValue?.project || project || "",
-        initialValue
+        initialExperiment?.project || project || "",
+        initialExperiment
       ),
-      activationMetric: initialValue?.activationMetric || "",
-      hashAttribute: initialValue?.hashAttribute || hashAttribute,
-      goalMetrics: initialValue?.goalMetrics || [],
-      secondaryMetrics: initialValue?.secondaryMetrics || [],
-      tags: initialValue?.tags || [],
-      targetURLRegex: initialValue?.targetURLRegex || "",
-      description: initialValue?.description || "",
+      hashAttribute: initialExperiment?.hashAttribute || hashAttribute,
+      goalMetrics: initialExperiment?.goalMetrics || [],
+      secondaryMetrics: initialExperiment?.secondaryMetrics || [],
+      tags: initialExperiment?.tags || [],
+      description: initialExperiment?.description || "",
       phases: [
         {
           coverage: 0.1,
@@ -219,13 +221,15 @@ const NewHoldoutForm: FC<NewExperimentFormProps> = ({
           name: "Full Holdout",
           reason: "",
           variationWeights: [0.5, 0.5],
+          savedGroups: initialExperiment?.phases?.[0]?.savedGroups || [],
+          condition: initialExperiment?.phases?.[0]?.condition || "",
         },
       ],
       status: "draft",
       regressionAdjustmentEnabled:
         scopedSettings.regressionAdjustmentEnabled.value,
       environmentSettings:
-        initialValue?.environmentSettings ||
+        initialHoldout?.environmentSettings ||
         genEnvironmentSettings({
           environments,
           permissions: permissionsUtils,
@@ -403,7 +407,7 @@ const NewHoldoutForm: FC<NewExperimentFormProps> = ({
                 // Ensure the name field is updated and then sync with trackingKey if possible
                 nameFieldHandlers.onChange(e);
 
-                if (!isNewExperiment) return;
+                if (!isNewHoldout) return;
                 if (!linkNameWithTrackingKey) return;
                 const val = e?.target?.value ?? form.watch("name");
                 if (!val) {

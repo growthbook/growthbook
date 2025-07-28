@@ -10,20 +10,19 @@ import useSwitchOrg from "@/services/useSwitchOrg";
 import EditMetricsForm from "@/components/Experiment/EditMetricsForm";
 import StopExperimentForm from "@/components/Experiment/StopExperimentForm";
 import EditVariationsForm from "@/components/Experiment/EditVariationsForm";
-import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
 import { useAuth } from "@/services/auth";
 import SnapshotProvider from "@/components/Experiment/SnapshotProvider";
 import NewPhaseForm from "@/components/Experiment/NewPhaseForm";
 import EditPhasesModal from "@/components/Experiment/EditPhasesModal";
 import EditPhaseModal from "@/components/Experiment/EditPhaseModal";
-import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
 import TabbedPage from "@/components/Experiment/TabbedPage";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
 import StartAnalysisModal from "@/components/Experiment/TabbedPage/startHoldoutAnalysisModal";
 import EditHoldoutTargetingModal from "@/components/Holdout/EditHoldoutTargetingModal";
+import NewHoldoutForm from "@/components/Holdout/NewHoldoutForm";
 
 const HoldoutPage = (): ReactElement => {
   const permissionsUtil = usePermissionsUtil();
@@ -167,15 +166,13 @@ const HoldoutPage = (): ReactElement => {
         />
       )}
       {duplicateModalOpen && (
-        <NewExperimentForm
+        <NewHoldoutForm
           onClose={() => setDuplicateModalOpen(false)}
-          initialValue={{
-            ...experiment,
-            name: experiment.name + " (Copy)",
-            trackingKey: "",
-          }}
-          source="duplicate-eid"
-          duplicate={true}
+          initialHoldout={{ ...holdout, name: holdout.name + " (Copy)" }}
+          initialExperiment={experiment}
+          source="duplicate-hid"
+          duplicate
+          isNewHoldout
         />
       )}
       {tagsModalOpen && (
