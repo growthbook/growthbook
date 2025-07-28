@@ -157,9 +157,45 @@ const HoldoutTimeline: React.FC<{
     };
   }, []);
 
+  // Calculate scale domain to align with ticks
+  const getScaleDomain = () => {
+    const rangeInDays =
+      (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
+    startDate.setHours(0, 0, 0, 0);
+
+    if (rangeInDays < 7) {
+      // Less than a week - use start and end dates as is
+      return [startDate, endDate];
+    } else if (rangeInDays < 30) {
+      // Less than a month - use start and end dates as is
+      //
+      const previousMonday = new Date(startDate);
+      previousMonday.setDate(previousMonday.getDate() - 1);
+      previousMonday.setDate(
+        previousMonday.getDate() - (previousMonday.getDay() - 1)
+      );
+      const nextMonday = new Date(startDate);
+      const daysUntilMonday = (8 - nextMonday.getDay()) % 7;
+      if (daysUntilMonday > 0) {
+        nextMonday.setDate(nextMonday.getDate() + daysUntilMonday);
+      }
+      return [previousMonday, endDate];
+    } else {
+      // More than a month - align with month boundaries
+      const scaleStart = new Date(startDate);
+      scaleStart.setDate(1); // Start at first day of the month
+
+      const scaleEnd = new Date(endDate);
+      scaleEnd.setDate(1);
+      scaleEnd.setMonth(scaleEnd.getMonth() + 1); // End at first day of next month
+
+      return [scaleStart, scaleEnd];
+    }
+  };
+
   // Scales
   const xScale = scaleTime({
-    domain: [startDate, endDate],
+    domain: getScaleDomain(),
     range: [margin.left, width - margin.right],
   });
   const yScale = scaleBand({
@@ -349,6 +385,7 @@ const HoldoutTimeline: React.FC<{
                   return "-";
                 }}
                 tickValues={(() => {
+                  startDate.setHours(0, 0, 0, 0);
                   const ticks: Date[] = [];
                   const current = new Date(startDate);
                   const end = new Date(endDate);
@@ -356,25 +393,14 @@ const HoldoutTimeline: React.FC<{
                     (end.getTime() - startDate.getTime()) /
                     (1000 * 60 * 60 * 24);
 
-                  // Add start date
-                  ticks.push(new Date(startDate));
-
                   if (rangeInDays < 7) {
-                    // Less than a week - show days starting from start date
-                    // Only add first day if it's at least 12 hours (half a day) from start
-                    const firstDay = new Date(startDate);
-                    firstDay.setDate(firstDay.getDate() + 1);
-                    if (
-                      firstDay.getTime() - startDate.getTime() >=
-                      12 * 60 * 60 * 1000
-                    ) {
-                      ticks.push(new Date(firstDay));
-                    }
-
-                    current.setTime(firstDay.getTime());
-                    current.setDate(current.getDate() + 1);
+                    // Less than a week - show days
+                    ticks.push(startDate);
                     while (current <= end) {
-                      if (current.getTime() !== endDate.getTime()) {
+                      if (
+                        current.getTime() !== startDate.getTime() &&
+                        current.getTime() !== endDate.getTime()
+                      ) {
                         ticks.push(new Date(current));
                       }
                       current.setDate(current.getDate() + 1);
@@ -382,6 +408,14 @@ const HoldoutTimeline: React.FC<{
                   } else if (rangeInDays < 30) {
                     // Less than a month - show week boundaries (Mondays)
                     // Find the next Monday from start date
+                    //get previous monday
+                    const previousMonday = new Date(startDate);
+                    previousMonday.setDate(previousMonday.getDate() - 1);
+                    previousMonday.setDate(
+                      previousMonday.getDate() - (previousMonday.getDay() - 1)
+                    );
+                    ticks.push(new Date(previousMonday));
+
                     const nextMonday = new Date(startDate);
                     const daysUntilMonday = (8 - nextMonday.getDay()) % 7;
                     if (daysUntilMonday > 0) {
@@ -403,8 +437,10 @@ const HoldoutTimeline: React.FC<{
                   } else {
                     // More than a month - show month boundaries
                     // Find the first day of the next month
+
                     const nextMonth = new Date(startDate);
                     nextMonth.setDate(1);
+                    ticks.push(new Date(nextMonth)); // Add the first month
                     nextMonth.setMonth(nextMonth.getMonth() + 1);
 
                     current.setTime(nextMonth.getTime());
@@ -418,6 +454,9 @@ const HoldoutTimeline: React.FC<{
                       current.setMonth(current.getMonth() + 1);
                     }
                   }
+
+                  // Add end date
+                  ticks.push(new Date(endDate));
 
                   return ticks;
                 })()}
