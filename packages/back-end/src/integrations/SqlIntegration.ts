@@ -4174,10 +4174,7 @@ export default abstract class SqlIntegration
       throw new Error(`No tables found.`);
     }
 
-    return formatInformationSchema(
-      results.rows as RawInformationSchema[],
-      this.datasource.type
-    );
+    return formatInformationSchema(results.rows as RawInformationSchema[]);
   }
   async getTableData(
     databaseName: string,

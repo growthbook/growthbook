@@ -608,7 +608,7 @@ export default function SqlExplorerModal({
                             SQL
                           </Text>
                           {!readOnlyMode ? (
-                            <Flex gap="3">
+                            <Flex gap="3" align="center">
                               <Tooltip body="The SQL Explorer automatically applies a 1000 row limit to ensure optimal performance.">
                                 <input
                                   type="checkbox"

@@ -151,7 +151,7 @@ export function getUsageFromCache(organization: OrganizationInterface) {
   backgroundUpdateUsageDataFromServerForTests = updateUsageDataFromServer(
     organization.id
   ).catch((err) => {
-    logger.error(`Error getting usage data from server`, err);
+    logger.error(err, `Error getting usage data from server`);
   });
 
   return keyToUsageData[organization.id]?.usage || UNLIMITED_USAGE;
@@ -168,7 +168,7 @@ export async function getUsage(organization: OrganizationInterface) {
     backgroundUpdateUsageDataFromServerForTests = updateUsageDataFromServer(
       organization.id
     ).catch((err) => {
-      logger.error(`Error getting usage data from server`, err);
+      logger.error(err, `Error getting usage data from server`);
     });
   } else {
     await updateUsageDataFromServer(organization.id);
