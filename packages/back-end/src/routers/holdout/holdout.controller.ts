@@ -238,8 +238,8 @@ export const createHoldout = async (
       projects: experiment.project ? [experiment.project] : [],
       name: experiment.name,
       environmentSettings: data.environmentSettings || {},
-      linkedFeatures: [],
-      linkedExperiments: [],
+      linkedFeatures: {},
+      linkedExperiments: {},
     });
 
     if (!holdout) {
@@ -430,8 +430,8 @@ export const deleteHoldout = async (
   await deleteExperimentByIdForOrganization(context, experiment);
 
   // Remove holdout from linked features and linked experiments
-  const linkedFeatureIds = holdout.linkedFeatures.map((f) => f.id);
-  const linkedExperimentIds = holdout.linkedExperiments.map((e) => e.id);
+  const linkedFeatureIds = Object.keys(holdout.linkedFeatures);
+  const linkedExperimentIds = Object.keys(holdout.linkedExperiments);
   const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
   const linkedExperiments = await getExperimentsByIds(
     context,
