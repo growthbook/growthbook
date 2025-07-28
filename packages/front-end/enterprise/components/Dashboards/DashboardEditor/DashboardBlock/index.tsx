@@ -13,7 +13,8 @@ import {
   isString,
   isStringArray,
   partialToFull,
-} from "back-end/src/util/types";
+  isDefined,
+} from "shared/util";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
@@ -23,7 +24,6 @@ import {
   expandMetricGroups,
   ExperimentMetricInterface,
 } from "shared/experiments";
-import { isDefined } from "shared/util";
 import { ErrorBoundary } from "@sentry/react";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import Button from "@/components/Radix/Button";

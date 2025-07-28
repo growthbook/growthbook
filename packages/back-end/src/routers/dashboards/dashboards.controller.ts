@@ -3,9 +3,8 @@ import {
   blockHasFieldOfType,
   isPersistedDashboardBlock,
 } from "shared/enterprise";
-import { isDefined } from "shared/util";
+import { isDefined, isString } from "shared/util";
 import { groupBy } from "lodash";
-import { isString } from "back-end/src/util/types";
 import {
   AuthRequest,
   ResponseWithStatusAndError,

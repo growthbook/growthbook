@@ -1,6 +1,7 @@
 import mongoose, { FilterQuery, PipelineStage } from "mongoose";
 import omit from "lodash/omit";
 import { blockHasFieldOfType, dashboardCanAutoUpdate } from "shared/enterprise";
+import { isString } from "shared/util";
 import {
   SnapshotType,
   ExperimentSnapshotAnalysis,
@@ -14,7 +15,6 @@ import { updateExperimentAnalysisSummary } from "back-end/src/services/experimen
 import { updateExperimentTimeSeries } from "back-end/src/services/experimentTimeSeries";
 import { ReqContext } from "back-end/types/organization";
 import { ApiReqContext } from "back-end/types/api";
-import { isString } from "back-end/src/util/types";
 import { queriesSchema } from "./QueryModel";
 import { Context } from "./BaseModel";
 import { getExperimentById } from "./ExperimentModel";

@@ -16,10 +16,9 @@ import {
   getBlockAnalysisSettings,
   getBlockSnapshotSettings,
 } from "shared/enterprise";
-import { getSnapshotAnalysis, isDefined } from "shared/util";
+import { getSnapshotAnalysis, isDefined, isString } from "shared/util";
 import { isEqual } from "lodash";
 import { DashboardInstanceInterface } from "back-end/src/enterprise/validators/dashboard-instance";
-import { isString } from "back-end/src/util/types";
 import { Queries, QueryStatus } from "back-end/types/query";
 import { SavedQuery } from "back-end/src/validators/saved-queries";
 import useApi from "@/hooks/useApi";

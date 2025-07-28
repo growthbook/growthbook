@@ -1,5 +1,5 @@
 import { z, ZodType } from "zod";
-import { UnionToTuple } from "back-end/src/util/types";
+import { UnionToTuple } from "shared/util";
 import {
   apiExperimentValidator,
   apiFeatureValidator,

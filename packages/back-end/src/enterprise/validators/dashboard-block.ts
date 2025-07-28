@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { DistributiveOmit } from "back-end/src/util/types";
+import { DistributiveOmit } from "shared/util";
 
 const baseBlockInterface = z
   .object({

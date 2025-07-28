@@ -15,8 +15,8 @@ import {
   ExperimentSnapshotSettings,
 } from "back-end/types/experiment-snapshot";
 import { DashboardTemplateInterface } from "back-end/src/enterprise/validators/dashboard-template";
-import { isNumber, isString } from "back-end/src/util/types";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
+import { isNumber, isString } from "../../util/types";
 import { expandMetricGroups } from "../../experiments";
 
 export function getBlockData<T extends DashboardBlockInterface>(
