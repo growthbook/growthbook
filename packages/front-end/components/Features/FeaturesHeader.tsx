@@ -31,7 +31,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/Radix/Tabs";
 import Callout from "@/components/Radix/Callout";
 import ProjectBadges from "@/components/ProjectBadges";
 import Link from "../Radix/Link";
-import AddToHoldoutModal from "../Holdout/AddToHoldoutModal";
+import AddToHoldoutModal from "./AddToHoldoutModal";
 
 export default function FeaturesHeader({
   feature,
@@ -181,7 +181,7 @@ export default function FeaturesHeader({
                     </a>
                   </>
                 )}
-                {canEdit && canPublish && !feature.holdout && (
+                {canEdit && canPublish && (
                   <a
                     className="dropdown-item"
                     href="#"

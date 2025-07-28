@@ -19,7 +19,7 @@ import Frame from "@/components/Radix/Frame";
 import Button from "@/components/Radix/Button";
 import PremiumCallout from "@/components/Radix/PremiumCallout";
 import { useCustomFields } from "@/hooks/useCustomFields";
-import HoldoutTimeline from "@/components/Experiment/holdout/HoldoutTimeline";
+import HoldoutTimeline from "@/components/Experiment/Holdout/HoldoutTimeline";
 import EditHypothesisModal from "../EditHypothesisModal";
 import EditDescriptionModal from "../EditDescriptionModal";
 
