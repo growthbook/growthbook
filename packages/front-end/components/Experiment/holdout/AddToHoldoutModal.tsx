@@ -42,7 +42,7 @@ const AddToHoldoutModal = ({
           ? form.handleSubmit(async (value) => {
               console.log(value);
               if (value.holdoutId === "none") {
-                value.holdoutId = undefined;
+                value.holdoutId = "";
               }
 
               await apiCall(`/experiment/${experiment.id}`, {

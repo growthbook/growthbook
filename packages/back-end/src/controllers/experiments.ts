@@ -958,6 +958,19 @@ export async function postExperiment(
     validateVariationIds(data.variations);
   }
 
+  if (data.holdoutId) {
+    const holdoutObj = await context.models.holdout.getById(data.holdoutId);
+    if (!holdoutObj) {
+      throw new Error("Holdout not found");
+    }
+    await context.models.holdout.updateById(data.holdoutId, {
+      linkedExperiments: [
+        ...holdoutObj.linkedExperiments,
+        { id: experiment.id, dateAdded: new Date() },
+      ],
+    });
+  }
+
   const keys: (keyof ExperimentInterface)[] = [
     "trackingKey",
     "owner",
