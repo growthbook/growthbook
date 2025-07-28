@@ -958,6 +958,23 @@ export async function postExperiment(
     validateVariationIds(data.variations);
   }
 
+  if (data.holdoutId !== experiment.holdoutId) {
+    if (experiment.holdoutId) {
+      const holdoutObj = await context.models.holdout.getById(
+        experiment.holdoutId
+      );
+      if (!holdoutObj) {
+        throw new Error("Holdout not found");
+      }
+      // Remove the experiment from the holdout linkedExperiments array
+      await context.models.holdout.updateById(experiment.holdoutId, {
+        linkedExperiments: holdoutObj.linkedExperiments.filter(
+          (e) => e.id !== experiment.id
+        ),
+      });
+    }
+  }
+
   if (data.holdoutId) {
     const holdoutObj = await context.models.holdout.getById(data.holdoutId);
     if (!holdoutObj) {
