@@ -32,7 +32,7 @@ export default function TrafficTableBlock({
     <VariationUsersTable
       variations={variations}
       users={variationUsers}
-      srm={results.srm}
+      srm={results?.srm}
     />
   );
 }
