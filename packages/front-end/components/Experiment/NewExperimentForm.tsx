@@ -761,72 +761,76 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               if (i === 0) return null;
               return (
                 <Page display={p} key={i}>
-                  <ExperimentRefNewFields
-                    step={i}
-                    source="experiment"
-                    project={project}
-                    environments={envs}
-                    noSchedule={true}
-                    prerequisiteValue={
-                      form.watch("phases.0.prerequisites") || []
-                    }
-                    setPrerequisiteValue={(prerequisites) =>
-                      form.setValue("phases.0.prerequisites", prerequisites)
-                    }
-                    setPrerequisiteTargetingSdkIssues={
-                      setPrerequisiteTargetingSdkIssues
-                    }
-                    savedGroupValue={form.watch("phases.0.savedGroups") || []}
-                    setSavedGroupValue={(savedGroups) =>
-                      form.setValue("phases.0.savedGroups", savedGroups)
-                    }
-                    defaultConditionValue={
-                      form.watch("phases.0.condition") || ""
-                    }
-                    setConditionValue={(value) =>
-                      form.setValue("phases.0.condition", value)
-                    }
-                    conditionKey={conditionKey}
-                    namespaceFormPrefix={"phases.0."}
-                    coverage={form.watch("phases.0.coverage")}
-                    setCoverage={(coverage) =>
-                      form.setValue("phases.0.coverage", coverage)
-                    }
-                    setWeight={(i, weight) =>
-                      form.setValue(`phases.0.variationWeights.${i}`, weight)
-                    }
-                    variations={
-                      form.watch("variations")?.map((v, i) => {
-                        return {
-                          value: v.key || "",
-                          name: v.name,
-                          weight: form.watch(`phases.0.variationWeights.${i}`),
-                          id: v.id,
-                        };
-                      }) ?? []
-                    }
-                    setVariations={(v) => {
-                      form.setValue(
-                        "variations",
-                        v.map((data, i) => {
+                  <div className="px-2">
+                    <ExperimentRefNewFields
+                      step={i}
+                      source="experiment"
+                      project={project}
+                      environments={envs}
+                      noSchedule={true}
+                      prerequisiteValue={
+                        form.watch("phases.0.prerequisites") || []
+                      }
+                      setPrerequisiteValue={(prerequisites) =>
+                        form.setValue("phases.0.prerequisites", prerequisites)
+                      }
+                      setPrerequisiteTargetingSdkIssues={
+                        setPrerequisiteTargetingSdkIssues
+                      }
+                      savedGroupValue={form.watch("phases.0.savedGroups") || []}
+                      setSavedGroupValue={(savedGroups) =>
+                        form.setValue("phases.0.savedGroups", savedGroups)
+                      }
+                      defaultConditionValue={
+                        form.watch("phases.0.condition") || ""
+                      }
+                      setConditionValue={(value) =>
+                        form.setValue("phases.0.condition", value)
+                      }
+                      conditionKey={conditionKey}
+                      namespaceFormPrefix={"phases.0."}
+                      coverage={form.watch("phases.0.coverage")}
+                      setCoverage={(coverage) =>
+                        form.setValue("phases.0.coverage", coverage)
+                      }
+                      setWeight={(i, weight) =>
+                        form.setValue(`phases.0.variationWeights.${i}`, weight)
+                      }
+                      variations={
+                        form.watch("variations")?.map((v, i) => {
                           return {
-                            // default values
-                            name: "",
-                            screenshots: [],
-                            ...data,
-                            key: data.value || `${i}` || "",
+                            value: v.key || "",
+                            name: v.name,
+                            weight: form.watch(
+                              `phases.0.variationWeights.${i}`
+                            ),
+                            id: v.id,
                           };
-                        })
-                      );
-                      form.setValue(
-                        "phases.0.variationWeights",
-                        v.map((v) => v.weight)
-                      );
-                    }}
-                    variationValuesAsIds={true}
-                    hideVariationIds={!isImport}
-                    orgStickyBucketing={orgStickyBucketing}
-                  />
+                        }) ?? []
+                      }
+                      setVariations={(v) => {
+                        form.setValue(
+                          "variations",
+                          v.map((data, i) => {
+                            return {
+                              // default values
+                              name: "",
+                              screenshots: [],
+                              ...data,
+                              key: data.value || `${i}` || "",
+                            };
+                          })
+                        );
+                        form.setValue(
+                          "phases.0.variationWeights",
+                          v.map((v) => v.weight)
+                        );
+                      }}
+                      variationValuesAsIds={true}
+                      hideVariationIds={!isImport}
+                      orgStickyBucketing={orgStickyBucketing}
+                    />
+                  </div>
                 </Page>
               );
             })
@@ -838,68 +842,72 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               if (i === 0) return null;
               return (
                 <Page display={p} key={i}>
-                  <BanditRefNewFields
-                    step={i}
-                    source="experiment"
-                    project={project}
-                    environments={envs}
-                    prerequisiteValue={
-                      form.watch("phases.0.prerequisites") || []
-                    }
-                    setPrerequisiteValue={(prerequisites) =>
-                      form.setValue("phases.0.prerequisites", prerequisites)
-                    }
-                    setPrerequisiteTargetingSdkIssues={
-                      setPrerequisiteTargetingSdkIssues
-                    }
-                    savedGroupValue={form.watch("phases.0.savedGroups") || []}
-                    setSavedGroupValue={(savedGroups) =>
-                      form.setValue("phases.0.savedGroups", savedGroups)
-                    }
-                    defaultConditionValue={
-                      form.watch("phases.0.condition") || ""
-                    }
-                    setConditionValue={(value) =>
-                      form.setValue("phases.0.condition", value)
-                    }
-                    conditionKey={conditionKey}
-                    namespaceFormPrefix={"phases.0."}
-                    coverage={form.watch("phases.0.coverage")}
-                    setCoverage={(coverage) =>
-                      form.setValue("phases.0.coverage", coverage)
-                    }
-                    setWeight={(i, weight) =>
-                      form.setValue(`phases.0.variationWeights.${i}`, weight)
-                    }
-                    variations={
-                      form.watch("variations")?.map((v, i) => {
-                        return {
-                          value: v.key || "",
-                          name: v.name,
-                          weight: form.watch(`phases.0.variationWeights.${i}`),
-                          id: v.id,
-                        };
-                      }) ?? []
-                    }
-                    setVariations={(v) => {
-                      form.setValue(
-                        "variations",
-                        v.map((data, i) => {
+                  <div className="px-2">
+                    <BanditRefNewFields
+                      step={i}
+                      source="experiment"
+                      project={project}
+                      environments={envs}
+                      prerequisiteValue={
+                        form.watch("phases.0.prerequisites") || []
+                      }
+                      setPrerequisiteValue={(prerequisites) =>
+                        form.setValue("phases.0.prerequisites", prerequisites)
+                      }
+                      setPrerequisiteTargetingSdkIssues={
+                        setPrerequisiteTargetingSdkIssues
+                      }
+                      savedGroupValue={form.watch("phases.0.savedGroups") || []}
+                      setSavedGroupValue={(savedGroups) =>
+                        form.setValue("phases.0.savedGroups", savedGroups)
+                      }
+                      defaultConditionValue={
+                        form.watch("phases.0.condition") || ""
+                      }
+                      setConditionValue={(value) =>
+                        form.setValue("phases.0.condition", value)
+                      }
+                      conditionKey={conditionKey}
+                      namespaceFormPrefix={"phases.0."}
+                      coverage={form.watch("phases.0.coverage")}
+                      setCoverage={(coverage) =>
+                        form.setValue("phases.0.coverage", coverage)
+                      }
+                      setWeight={(i, weight) =>
+                        form.setValue(`phases.0.variationWeights.${i}`, weight)
+                      }
+                      variations={
+                        form.watch("variations")?.map((v, i) => {
                           return {
-                            // default values
-                            name: "",
-                            screenshots: [],
-                            ...data,
-                            key: data.value || `${i}` || "",
+                            value: v.key || "",
+                            name: v.name,
+                            weight: form.watch(
+                              `phases.0.variationWeights.${i}`
+                            ),
+                            id: v.id,
                           };
-                        })
-                      );
-                      form.setValue(
-                        "phases.0.variationWeights",
-                        v.map((v) => v.weight)
-                      );
-                    }}
-                  />
+                        }) ?? []
+                      }
+                      setVariations={(v) => {
+                        form.setValue(
+                          "variations",
+                          v.map((data, i) => {
+                            return {
+                              // default values
+                              name: "",
+                              screenshots: [],
+                              ...data,
+                              key: data.value || `${i}` || "",
+                            };
+                          })
+                        );
+                        form.setValue(
+                          "phases.0.variationWeights",
+                          v.map((v) => v.weight)
+                        );
+                      }}
+                    />
+                  </div>
                 </Page>
               );
             })

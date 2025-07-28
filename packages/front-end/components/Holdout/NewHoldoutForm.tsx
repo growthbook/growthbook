@@ -11,11 +11,12 @@ import {
 import { getScopedSettings } from "shared/settings";
 import { generateTrackingKey } from "shared/experiments";
 import { kebabCase } from "lodash";
-import { Tooltip, Text } from "@radix-ui/themes";
+import { Tooltip, Text, Box } from "@radix-ui/themes";
 import Collapsible from "react-collapsible";
-import { PiCaretRightFill } from "react-icons/pi";
+import { PiArrowSquareOutFill, PiCaretRightFill } from "react-icons/pi";
 import { FeatureEnvironment } from "back-end/types/feature";
 import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
+import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { useWatching } from "@/services/WatchProvider";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -42,6 +43,9 @@ import SavedGroupTargetingField, {
 import { useExperiments } from "@/hooks/useExperiments";
 import { decimalToPercent, percentToDecimal } from "@/services/utils";
 import variationInputStyles from "@/components/Features/VariationsInput.module.scss";
+import useSDKConnections from "@/hooks/useSDKConnections";
+import Link from "@/components/Radix/Link";
+import Callout from "@/components/Radix/Callout";
 import ExperimentMetricsSelector from "../Experiment/ExperimentMetricsSelector";
 import StatsEngineSelect from "../Settings/forms/StatsEngineSelect";
 import EnvironmentSelect from "../Features/FeatureModal/EnvironmentSelect";
@@ -166,11 +170,16 @@ const NewHoldoutForm: FC<NewExperimentFormProps> = ({
   const permissionsUtils = usePermissionsUtil();
   const { refreshWatching } = useWatching();
 
-  // const { data: sdkConnectionsData } = useSDKConnections();
-  // const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
-  //   sdkConnectionsData?.connections,
-  //   project
-  // );
+  const { data: sdkConnectionsData } = useSDKConnections();
+  const hasSDKWithPrerequisites = getConnectionsSDKCapabilities({
+    connections: sdkConnectionsData?.connections ?? [],
+    project,
+  }).includes("prerequisites");
+  const hasSDKWithNoPrerequisites = !getConnectionsSDKCapabilities({
+    connections: sdkConnectionsData?.connections ?? [],
+    mustMatchAllConnections: true,
+    project,
+  }).includes("prerequisites");
 
   const [conditionKey, forceConditionRender] = useIncrementer();
 
@@ -333,6 +342,26 @@ const NewHoldoutForm: FC<NewExperimentFormProps> = ({
 
   const environmentSettings = form.watch("environmentSettings") || {};
 
+  const prerequisiteAlert = hasSDKWithNoPrerequisites ? (
+    <Callout status={hasSDKWithPrerequisites ? "warning" : "error"} mb="4">
+      <Box as="span" pr="1">
+        {hasSDKWithNoPrerequisites
+          ? "Some of your SDK Connections in this Project may not support Prerequisite evaluation, which is mandatory for Holdouts."
+          : "None of your SDK Connections in this Project support Prerequisite evaluation, which is mandatory for Holdouts. Either upgrade your SDKs or add a supported SDK."}
+        <Link
+          href={"/sdks"}
+          weight="bold"
+          className="pl-2"
+          rel="noreferrer"
+          target="_blank"
+        >
+          View SDKs
+          <PiArrowSquareOutFill className="ml-1" />
+        </Link>
+      </Box>
+    </Callout>
+  ) : null;
+
   return (
     <FormProvider {...form}>
       <PagedModal
@@ -342,7 +371,8 @@ const NewHoldoutForm: FC<NewExperimentFormProps> = ({
         close={onClose}
         docSection="experimentConfiguration"
         submit={onSubmit}
-        cta={"Save"}
+        cta="Save"
+        ctaEnabled={hasSDKWithPrerequisites}
         closeCta="Cancel"
         size="lg"
         step={step}
@@ -361,6 +391,9 @@ const NewHoldoutForm: FC<NewExperimentFormProps> = ({
                 is deleted.
               </div>
             )}
+
+            {prerequisiteAlert}
+
             <Field
               label={"Holdout Name"}
               required
@@ -447,182 +480,196 @@ const NewHoldoutForm: FC<NewExperimentFormProps> = ({
             )} */}
           </div>
         </Page>
-        <Page display="Traffic">
-          <div className="mb-4">
-            <SelectField
-              label="Assign Variation by Attribute"
-              containerClassName="flex-1"
-              options={attributeSchema
-                .filter((s) => !hasHashAttributes || s.hashAttribute)
-                .map((s) => ({ label: s.property, value: s.property }))}
-              value={form.watch("hashAttribute") ?? ""}
-              onChange={(v) => {
-                form.setValue("hashAttribute", v);
-              }}
-              helpText={
-                "Will be hashed together with the Tracking Key to determine which variation to assign"
-              }
-            />
-          </div>
 
-          <div>
-            <Text as="label" size="2" weight="medium">
-              Holdout Size
-              <Text size="1" as="div" weight="regular" color="gray">
-                Enter the percent of traffic that you would like to be in the
-                holdout. The same amount of traffic will be in the control.
-              </Text>
-            </Text>
-            <div
-              className={`position-relative ${variationInputStyles.percentInputWrap}`}
-              style={{ width: 110 }}
-            >
-              <Field
-                style={{ width: 105 }}
-                value={
-                  isNaN(form.watch("phases.0.coverage") ?? 0)
-                    ? "5"
-                    : decimalToPercent(
-                        (form.watch("phases.0.coverage") ?? 0) / 2
-                      )
-                }
-                onChange={(e) => {
-                  let decimal = percentToDecimal(e.target.value);
-                  if (decimal > 1) decimal = 1;
-                  if (decimal < 0) decimal = 0;
-                  form.setValue("phases.0.coverage", decimal * 2);
+        <Page display="Traffic">
+          <div className="px-2">
+            {prerequisiteAlert}
+
+            <div className="mb-4">
+              <SelectField
+                label="Assign Variation by Attribute"
+                containerClassName="flex-1"
+                options={attributeSchema
+                  .filter((s) => !hasHashAttributes || s.hashAttribute)
+                  .map((s) => ({ label: s.property, value: s.property }))}
+                value={form.watch("hashAttribute") ?? ""}
+                onChange={(v) => {
+                  form.setValue("hashAttribute", v);
                 }}
-                type="number"
-                min={0}
-                max={100}
-                step="1"
+                helpText={
+                  "Will be hashed together with the Tracking Key to determine which variation to assign"
+                }
               />
-              <span>%</span>
+            </div>
+
+            <div>
+              <Text as="label" size="2" weight="medium">
+                Holdout Size
+                <Text size="1" as="div" weight="regular" color="gray">
+                  Enter the percent of traffic that you would like to be in the
+                  holdout. The same amount of traffic will be in the control.
+                </Text>
+              </Text>
+              <div
+                className={`position-relative ${variationInputStyles.percentInputWrap}`}
+                style={{ width: 110 }}
+              >
+                <Field
+                  style={{ width: 105 }}
+                  value={
+                    isNaN(form.watch("phases.0.coverage") ?? 0)
+                      ? "5"
+                      : decimalToPercent(
+                          (form.watch("phases.0.coverage") ?? 0) / 2
+                        )
+                  }
+                  onChange={(e) => {
+                    let decimal = percentToDecimal(e.target.value);
+                    if (decimal > 1) decimal = 1;
+                    if (decimal < 0) decimal = 0;
+                    form.setValue("phases.0.coverage", decimal * 2);
+                  }}
+                  type="number"
+                  min={0}
+                  max={100}
+                  step="1"
+                />
+                <span>%</span>
+              </div>
             </div>
           </div>
         </Page>
 
         <Page display="Targeting">
-          <SavedGroupTargetingField
-            value={form.watch("phases.0.savedGroups") || []}
-            setValue={(savedGroups) =>
-              form.setValue("phases.0.savedGroups", savedGroups)
-            }
-            project={project || ""}
-          />
-          <hr />
-          <ConditionInput
-            defaultValue={form.watch("phases.0.condition") || ""}
-            onChange={(value) => form.setValue("phases.0.condition", value)}
-            key={conditionKey}
-            project={project || ""}
-          />
-        </Page>
-        <Page display="Metrics">
-          <div className="rounded px-3 pt-3 pb-1 bg-highlight mb-4">
-            <SelectField
-              label="Data Source"
-              labelClassName="font-weight-bold"
-              value={form.watch("datasource") ?? ""}
-              onChange={(newDatasource) => {
-                form.setValue("datasource", newDatasource);
+          <div className="px-2">
+            {prerequisiteAlert}
 
-                // If unsetting the datasource, leave all the other settings alone
-                // That way, it will be restored if the user switches back to the previous value
-                if (!newDatasource) return;
-
-                const isValidMetric = (id: string) =>
-                  getExperimentMetricById(id)?.datasource === newDatasource;
-
-                // If the activationMetric is now invalid
-                const activationMetric = form.watch("activationMetric");
-                if (activationMetric && !isValidMetric(activationMetric)) {
-                  form.setValue("activationMetric", "");
-                }
-              }}
-              options={datasources.map((d) => {
-                const isDefaultDataSource = d.id === settings.defaultDataSource;
-                return {
-                  value: d.id,
-                  label: `${d.name}${
-                    d.description ? ` — ${d.description}` : ""
-                  }${isDefaultDataSource ? " (default)" : ""}`,
-                };
-              })}
-              className="portal-overflow-ellipsis"
+            <SavedGroupTargetingField
+              value={form.watch("phases.0.savedGroups") || []}
+              setValue={(savedGroups) =>
+                form.setValue("phases.0.savedGroups", savedGroups)
+              }
+              project={project || ""}
             />
+            <hr />
+            <ConditionInput
+              defaultValue={form.watch("phases.0.condition") || ""}
+              onChange={(value) => form.setValue("phases.0.condition", value)}
+              key={conditionKey}
+              project={project || ""}
+            />
+          </div>
+        </Page>
 
-            {datasource?.properties?.exposureQueries && exposureQueries ? (
+        <Page display="Metrics">
+          <div className="px-2">
+            {prerequisiteAlert}
+
+            <div className="rounded px-3 pt-3 pb-1 bg-highlight mb-4">
               <SelectField
-                label={
-                  <>
-                    Experiment Assignment Table{" "}
-                    <Tooltip content="Should correspond to the Identifier Type used to randomize units for this experiment" />
-                  </>
-                }
+                label="Data Source"
                 labelClassName="font-weight-bold"
-                value={form.watch("exposureQueryId") ?? ""}
-                onChange={(v) => form.setValue("exposureQueryId", v)}
-                required
-                options={exposureQueries?.map((q) => {
+                value={form.watch("datasource") ?? ""}
+                onChange={(newDatasource) => {
+                  form.setValue("datasource", newDatasource);
+
+                  // If unsetting the datasource, leave all the other settings alone
+                  // That way, it will be restored if the user switches back to the previous value
+                  if (!newDatasource) return;
+
+                  const isValidMetric = (id: string) =>
+                    getExperimentMetricById(id)?.datasource === newDatasource;
+
+                  // If the activationMetric is now invalid
+                  const activationMetric = form.watch("activationMetric");
+                  if (activationMetric && !isValidMetric(activationMetric)) {
+                    form.setValue("activationMetric", "");
+                  }
+                }}
+                options={datasources.map((d) => {
+                  const isDefaultDataSource =
+                    d.id === settings.defaultDataSource;
                   return {
-                    label: q.name,
-                    value: q.id,
+                    value: d.id,
+                    label: `${d.name}${
+                      d.description ? ` — ${d.description}` : ""
+                    }${isDefaultDataSource ? " (default)" : ""}`,
                   };
                 })}
-                formatOptionLabel={({ label, value }) => {
-                  const userIdType = exposureQueries?.find(
-                    (e) => e.id === value
-                  )?.userIdType;
-                  return (
-                    <>
-                      {label}
-                      {userIdType ? (
-                        <span
-                          className="text-muted small float-right position-relative"
-                          style={{ top: 3 }}
-                        >
-                          Identifier Type: <code>{userIdType}</code>
-                        </span>
-                      ) : null}
-                    </>
-                  );
-                }}
+                className="portal-overflow-ellipsis"
               />
-            ) : null}
-          </div>
 
-          <ExperimentMetricsSelector
-            datasource={datasource?.id}
-            exposureQueryId={exposureQueryId}
-            project={project}
-            goalMetrics={form.watch("goalMetrics") ?? []}
-            secondaryMetrics={form.watch("secondaryMetrics") ?? []}
-            guardrailMetrics={[]}
-            setGoalMetrics={(goalMetrics) =>
-              form.setValue("goalMetrics", goalMetrics)
-            }
-            setSecondaryMetrics={(secondaryMetrics) =>
-              form.setValue("secondaryMetrics", secondaryMetrics)
-            }
-            collapseSecondary={true}
-            goalMetricsDescription="The primary metrics you are trying to improve within this holdout. "
-            filterConversionWindowMetrics={true}
-          />
+              {datasource?.properties?.exposureQueries && exposureQueries ? (
+                <SelectField
+                  label={
+                    <>
+                      Experiment Assignment Table{" "}
+                      <Tooltip content="Should correspond to the Identifier Type used to randomize units for this experiment" />
+                    </>
+                  }
+                  labelClassName="font-weight-bold"
+                  value={form.watch("exposureQueryId") ?? ""}
+                  onChange={(v) => form.setValue("exposureQueryId", v)}
+                  required
+                  options={exposureQueries?.map((q) => {
+                    return {
+                      label: q.name,
+                      value: q.id,
+                    };
+                  })}
+                  formatOptionLabel={({ label, value }) => {
+                    const userIdType = exposureQueries?.find(
+                      (e) => e.id === value
+                    )?.userIdType;
+                    return (
+                      <>
+                        {label}
+                        {userIdType ? (
+                          <span
+                            className="text-muted small float-right position-relative"
+                            style={{ top: 3 }}
+                          >
+                            Identifier Type: <code>{userIdType}</code>
+                          </span>
+                        ) : null}
+                      </>
+                    );
+                  }}
+                />
+              ) : null}
+            </div>
 
-          <hr className="mt-4" />
+            <ExperimentMetricsSelector
+              datasource={datasource?.id}
+              exposureQueryId={exposureQueryId}
+              project={project}
+              goalMetrics={form.watch("goalMetrics") ?? []}
+              secondaryMetrics={form.watch("secondaryMetrics") ?? []}
+              guardrailMetrics={[]}
+              setGoalMetrics={(goalMetrics) =>
+                form.setValue("goalMetrics", goalMetrics)
+              }
+              setSecondaryMetrics={(secondaryMetrics) =>
+                form.setValue("secondaryMetrics", secondaryMetrics)
+              }
+              collapseSecondary={true}
+              goalMetricsDescription="The primary metrics you are trying to improve within this holdout. "
+              filterConversionWindowMetrics={true}
+            />
 
-          <Collapsible
-            trigger={
-              <div className="link-purple font-weight-bold mt-4 mb-2">
-                <PiCaretRightFill className="chevron mr-1" />
-                Advanced Settings
-              </div>
-            }
-            transitionTime={100}
-          >
-            <div className="rounded px-3 pt-3 pb-1 bg-highlight">
-              {/* {!!datasource && (
+            <hr className="mt-4" />
+
+            <Collapsible
+              trigger={
+                <div className="link-purple font-weight-bold mt-4 mb-2">
+                  <PiCaretRightFill className="chevron mr-1" />
+                  Advanced Settings
+                </div>
+              }
+              transitionTime={100}
+            >
+              <div className="rounded px-3 pt-3 pb-1 bg-highlight">
+                {/* {!!datasource && (
                 <MetricSelector
                   datasource={form.watch("datasource")}
                   exposureQueryId={exposureQueryId}
@@ -644,15 +691,16 @@ const NewHoldoutForm: FC<NewExperimentFormProps> = ({
                   helpText="Users must convert on this metric before being included"
                 />
               )} */}
-              <StatsEngineSelect
-                className="mb-4"
-                label={<div>Statistics Engine</div>}
-                value={form.watch("statsEngine") ?? orgStatsEngine}
-                onChange={(v) => form.setValue("statsEngine", v)}
-                allowUndefined={false}
-              />
-            </div>
-          </Collapsible>
+                <StatsEngineSelect
+                  className="mb-4"
+                  label={<div>Statistics Engine</div>}
+                  value={form.watch("statsEngine") ?? orgStatsEngine}
+                  onChange={(v) => form.setValue("statsEngine", v)}
+                  allowUndefined={false}
+                />
+              </div>
+            </Collapsible>
+          </div>
         </Page>
       </PagedModal>
     </FormProvider>
