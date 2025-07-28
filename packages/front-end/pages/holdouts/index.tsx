@@ -353,7 +353,7 @@ const HoldoutsPage = (): React.ReactElement => {
                             </span>
                           </Flex>
                         </td>
-                        <td className="nowrap" data-title="hash-attribute:">
+                        <td className="nowrap" data-title="ID Type:">
                           {holdout.hashAttribute}
                         </td>
                         <td className="nowrap">{holdout.numExperiments}</td>
@@ -363,7 +363,6 @@ const HoldoutsPage = (): React.ReactElement => {
                             experimentData={holdout.experiment}
                           />
                         </td>
-
                         <td
                           className="nowrap"
                           title={datetime(
