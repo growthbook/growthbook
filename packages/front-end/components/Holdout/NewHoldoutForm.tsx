@@ -215,7 +215,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
       description: initialExperiment?.description || "",
       phases: [
         {
-          coverage: 0.1,
+          coverage: initialExperiment?.phases?.[0]?.coverage || 0.1,
           dateStarted: new Date().toISOString().substr(0, 16),
           dateEnded: new Date().toISOString().substr(0, 16),
           name: "Full Holdout",
