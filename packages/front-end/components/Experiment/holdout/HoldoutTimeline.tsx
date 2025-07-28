@@ -57,7 +57,7 @@ const HoldoutTimeline: React.FC<{
   endDate?: Date;
 }> = ({
   experiments,
-  startDate = new Date(Date.now() - 100 * 24 * 60 * 60 * 365),
+  startDate = new Date(Date.now() - 100 * 24 * 60 * 60 * 7),
   endDate = new Date(),
 }) => {
   const showPhase = false;
