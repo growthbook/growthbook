@@ -12,7 +12,6 @@ import { fetchTableData } from "back-end/src/services/informationSchema";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { Column } from "back-end/src/types/Integration";
-import { getPath } from "back-end/src/util/informationSchemas";
 
 export async function getInformationSchema(
   req: AuthRequest<null, { datasourceId: string }>,
@@ -124,12 +123,6 @@ export async function getTableData(
       return {
         columnName: row.column_name,
         dataType: row.data_type,
-        path: getPath(datasource.type, {
-          tableCatalog: databaseName,
-          tableSchema: tableSchema,
-          tableName: tableName,
-          columnName: row.column_name,
-        }),
       };
     }
   );

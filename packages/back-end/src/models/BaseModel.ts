@@ -754,8 +754,8 @@ export abstract class BaseModel<
       .createIndex({ id: 1, organization: 1 }, { unique: true })
       .catch((err) => {
         logger.error(
-          `Error creating org/id unique index for ${this.config.collectionName}`,
-          err
+          err,
+          `Error creating org/id unique index for ${this.config.collectionName}`
         );
       });
 
@@ -765,8 +765,8 @@ export abstract class BaseModel<
         .createIndex({ id: 1 }, { unique: true })
         .catch((err) => {
           logger.error(
-            `Error creating id unique index for ${this.config.collectionName}`,
-            err
+            err,
+            `Error creating id unique index for ${this.config.collectionName}`
           );
         });
     }
@@ -782,8 +782,8 @@ export abstract class BaseModel<
           .dropIndex(index.name)
           .catch((err) => {
             logger.error(
-              `Error dropping index ${index.name} for ${this.config.collectionName}`,
-              err
+              err,
+              `Error dropping index ${index.name} for ${this.config.collectionName}`
             );
           });
       });
@@ -797,10 +797,10 @@ export abstract class BaseModel<
         })
         .catch((err) => {
           logger.error(
+            err,
             `Error creating ${Object.keys(index.fields).join("/")} ${
               index.unique ? "unique " : ""
-            }index for ${this.config.collectionName}`,
-            err
+            }index for ${this.config.collectionName}`
           );
         });
     });

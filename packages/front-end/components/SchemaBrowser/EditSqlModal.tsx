@@ -1,13 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FaPlay, FaExclamationTriangle } from "react-icons/fa";
-import { TestQueryRow } from "back-end/src/types/Integration";
+import {
+  InformationSchemaInterface,
+  TestQueryRow,
+} from "back-end/src/types/Integration";
 import { TemplateVariables } from "back-end/types/sql";
-import { Flex, Text, Box } from "@radix-ui/themes";
+import { Flex, Text, Box, IconButton } from "@radix-ui/themes";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { validateSQL } from "@/services/datasources";
-import CodeTextArea from "@/components/Forms/CodeTextArea";
+import CodeTextArea, { AceCompletion } from "@/components/Forms/CodeTextArea";
 import Modal from "@/components/Modal";
 import { CursorData } from "@/components/Segments/SegmentForm";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
@@ -26,6 +30,12 @@ import {
   PanelGroup,
   PanelResizeHandle,
 } from "@/components/ResizablePanels";
+import { getAutoCompletions } from "@/services/sqlAutoComplete";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+} from "@/components/Radix/DropdownMenu";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Checkbox from "../Radix/Checkbox";
 import SchemaBrowser from "./SchemaBrowser";
 import { AreaWithHeader } from "./SqlExplorerModal";
@@ -70,6 +80,14 @@ export default function EditSqlModal({
   ] = useState<TestQueryResults | null>(null);
   const [testQueryBeforeSaving, setTestQueryBeforeSaving] = useState(true);
   const [apply5RowLimit, setApply5RowLimit] = useState(true);
+  const [autoCompletions, setAutoCompletions] = useState<AceCompletion[]>([]);
+  const [informationSchema, setInformationSchema] = useState<
+    InformationSchemaInterface | undefined
+  >();
+  const [isAutocompleteEnabled, setIsAutocompleteEnabled] = useLocalStorage(
+    "sql-editor-autocomplete-enabled",
+    true
+  );
   const form = useForm({
     defaultValues: {
       sql: value,
@@ -160,6 +178,58 @@ export default function EditSqlModal({
 
   const hasEventName = usesEventName(form.watch("sql"));
   const hasValueCol = usesValueColumn(form.watch("sql"));
+
+  // Update autocompletions when cursor or schema changes
+  useEffect(() => {
+    const timeoutId = setTimeout(async () => {
+      if (!isAutocompleteEnabled) {
+        setAutoCompletions([]);
+        return;
+      }
+      try {
+        const completions = await getAutoCompletions(
+          cursorData,
+          informationSchema,
+          datasource?.type,
+          apiCall,
+          templateVariables?.eventName
+        );
+        setAutoCompletions(completions);
+      } catch (error) {
+        console.error("Failed to fetch autocompletions:", error);
+        setAutoCompletions([]);
+      }
+    }, 300); // 300ms debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [
+    cursorData,
+    informationSchema,
+    datasource?.type,
+    apiCall,
+    templateVariables?.eventName,
+    isAutocompleteEnabled,
+  ]);
+
+  useEffect(() => {
+    const fetchSchema = async () => {
+      if (!isAutocompleteEnabled) {
+        setInformationSchema(undefined);
+        return;
+      }
+      try {
+        const response = await apiCall<{
+          informationSchema: InformationSchemaInterface;
+        }>(`/datasource/${datasourceId}/schema`);
+        setInformationSchema(response.informationSchema);
+      } catch (error) {
+        console.error("Failed to fetch schema:", error);
+        setInformationSchema(undefined);
+      }
+    };
+
+    fetchSchema();
+  }, [datasourceId, apiCall, isAutocompleteEnabled]);
 
   const handleFormatClick = () => {
     const result = formatSql(form.watch("sql"), datasource?.type);
@@ -267,26 +337,10 @@ export default function EditSqlModal({
                             Format
                           </RadixButton>
                         ) : null}
-                        {!canRunQueries ? (
-                          <Tooltip
-                            body="You do not have permission to run test queries"
-                            shouldDisplay={true}
-                          >
-                            <Button
-                              color="primary"
-                              className="btn-sm"
-                              onClick={handleTestQuery}
-                              loading={testingQuery}
-                              disabled={!canRunQueries}
-                              type="button"
-                            >
-                              <span className="pr-2">
-                                <FaPlay />
-                              </span>
-                              Test Query
-                            </Button>
-                          </Tooltip>
-                        ) : (
+                        <Tooltip
+                          body="You do not have permission to run test queries"
+                          shouldDisplay={!canRunQueries}
+                        >
                           <Button
                             color="primary"
                             className="btn-sm"
@@ -300,7 +354,29 @@ export default function EditSqlModal({
                             </span>
                             Test Query
                           </Button>
-                        )}
+                        </Tooltip>
+                        <DropdownMenu
+                          trigger={
+                            <IconButton
+                              variant="ghost"
+                              color="gray"
+                              radius="full"
+                              size="3"
+                            >
+                              <BsThreeDotsVertical size={16} />
+                            </IconButton>
+                          }
+                        >
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setIsAutocompleteEnabled(!isAutocompleteEnabled);
+                            }}
+                          >
+                            {isAutocompleteEnabled
+                              ? "Disable Autocomplete"
+                              : "Enable Autocomplete"}
+                          </DropdownMenuItem>
+                        </DropdownMenu>
                       </Flex>
                     </Flex>
                   }
@@ -400,6 +476,7 @@ export default function EditSqlModal({
                       fullHeight
                       setCursorData={setCursorData}
                       onCtrlEnter={handleTestQuery}
+                      completions={autoCompletions}
                     />
                   </Box>
                 </AreaWithHeader>

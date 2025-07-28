@@ -180,7 +180,7 @@ export async function deleteDatasource(
         await deleteFactTable(context, ft, { bypassManagedByCheck: true });
       }
     } catch (e) {
-      logger.error("Error deleting clickhouse events fact table", e);
+      logger.error(e, "Error deleting clickhouse events fact table");
     }
   }
   await DataSourceModel.deleteOne({

@@ -199,7 +199,7 @@ export async function runRefreshColumnsQuery(
         );
         col.topValuesDate = new Date();
       } catch (e) {
-        logger.error("Error running top values query", e);
+        logger.error(e, "Error running top values query");
       }
     }
   }
