@@ -17,6 +17,7 @@ import Modal from "@/components/Modal";
 import SelectField from "@/components/Forms/SelectField";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import { DocLink } from "@/components/DocLink";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 const methodTypes: WebhookMethod[] = [
   "GET",
@@ -41,7 +42,7 @@ interface SdkWebhookInputs {
   accountId: string;
   namespaceId: string;
   key: string;
-  apiToken: string;
+  webhookSecretKey: string;
   storeId: string;
   edgeConfigId: string;
   teamId: string;
@@ -67,7 +68,7 @@ function getWebhookFromType(
         endpoint: `https://api.cloudflare.com/client/v4/accounts/${inputs.accountId}/storage/kv/namespaces/${inputs.namespaceId}/values/${inputs.key}`,
         httpMethod: "PUT",
         headers: JSON.stringify({
-          Authorization: `Bearer ${inputs.apiToken}`,
+          Authorization: `Bearer {{ ${inputs.webhookSecretKey} }}`,
         }),
         payloadFormat: "sdkPayload",
       };
@@ -76,7 +77,7 @@ function getWebhookFromType(
         endpoint: `https://api.fastly.com/resources/stores/kv/${inputs.storeId}/keys/${inputs.key}`,
         httpMethod: "PUT",
         headers: JSON.stringify({
-          "Fastly-Key": inputs.apiToken,
+          "Fastly-Key": `{{ ${inputs.webhookSecretKey} }}`,
         }),
         payloadFormat: "sdkPayload",
       };
@@ -87,7 +88,7 @@ function getWebhookFromType(
         }/items${inputs.teamId ? `?teamId=${inputs.teamId}` : ""}`,
         httpMethod: "PATCH",
         headers: JSON.stringify({
-          Authorization: `Bearer ${inputs.apiToken}`,
+          Authorization: `Bearer {{ ${inputs.webhookSecretKey} }}`,
         }),
         payloadFormat: "edgeConfig",
         payloadKey: inputs.key,
@@ -127,6 +128,7 @@ export function CreateSDKWebhookModal({
   onSave: () => void;
 }) {
   const { apiCall } = useAuth();
+  const { webhookSecrets } = useDefinitions();
 
   const [webhookType, setWebhookType] = useState<WebhookType | null>(
     language === "edge-cloudflare"
@@ -152,7 +154,7 @@ export function CreateSDKWebhookModal({
       accountId: "",
       namespaceId: "",
       key: "gb_payload",
-      apiToken: "",
+      webhookSecretKey: "",
       edgeConfigId: "",
       storeId: "",
       teamId: "",
@@ -162,6 +164,33 @@ export function CreateSDKWebhookModal({
       headers: "{}",
     },
   });
+
+  const SelectWebhookSecretField = ({ label }: { label: string }) => {
+    return (
+      <SelectField
+        label={label}
+        required
+        value={form.watch("webhookSecretKey")}
+        onChange={(webhookSecretKey) => {
+          form.setValue("webhookSecretKey", webhookSecretKey);
+        }}
+        options={webhookSecrets.map((s) => ({
+          value: s.key,
+          label: s.key,
+        }))}
+        helpText={
+          <>
+            Please select an existing{" "}
+            <DocLink docSection="webhookSecrets">webhook secret</DocLink> or{" "}
+            <a target="_blank" href="/settings/webhooks?newSecret">
+              create a new one
+            </a>
+            .
+          </>
+        }
+      />
+    );
+  };
 
   useEffect(() => {
     if (webhookType === "vercel") {
@@ -214,8 +243,8 @@ export function CreateSDKWebhookModal({
         value={webhookType || ""}
         onChange={(v) => {
           if (v !== webhookType) {
-            // When changing types (e.g. Fastly to Cloudflare), clear the API token
-            form.setValue("apiToken", "");
+            // When changing types (e.g. Fastly to Cloudflare), clear the selected webhook secret
+            form.setValue("webhookSecretKey", "");
           }
 
           setWebhookType(v as WebhookType);
@@ -247,11 +276,9 @@ export function CreateSDKWebhookModal({
             {...form.register("key")}
             key="cf_payload_key"
           />
-          <Field
+          <SelectWebhookSecretField
             label="Cloudflare API Token"
-            required
             key="cf_api_token"
-            {...form.register("apiToken")}
           />
         </>
       ) : webhookType === "fastly" ? (
@@ -268,10 +295,8 @@ export function CreateSDKWebhookModal({
             {...form.register("key")}
             key="fastly_payload_key"
           />
-          <Field
+          <SelectWebhookSecretField
             label="Fastly API Token"
-            required
-            {...form.register("apiToken")}
             key="fastly_api_token"
           />
         </>
@@ -294,10 +319,8 @@ export function CreateSDKWebhookModal({
             {...form.register("teamId")}
             key="vercel_team_id"
           />
-          <Field
+          <SelectWebhookSecretField
             label="Vercel API Token"
-            required
-            {...form.register("apiToken")}
             key="vercel_api_token"
           />
         </>
