@@ -51,7 +51,10 @@ export default function TrafficCard({
 
   const srmThreshold = settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
 
-  const trafficByDate = traffic.dimension?.dim_exposure_date || [];
+  const trafficByDate = useMemo(
+    () => traffic.dimension?.dim_exposure_date || [],
+    [traffic]
+  );
 
   const availableDimensions = useMemo(
     () =>
@@ -79,34 +82,32 @@ export default function TrafficCard({
   }, [availableDimensions, selectedDimension, traffic]);
 
   // Get data for users graph
-  const usersPerDate = useMemo<ExperimentDateGraphDataPoint[]>(
-    () => {
-      // Keep track of total users per variation for when cumulative is true
-      const total: number[] = [];
-      const sortedTraffic = [...trafficByDate].sort((a, b) => {
-        return getValidDate(a.name).getTime() - getValidDate(b.name).getTime();
-      });
+  const usersPerDate = useMemo<ExperimentDateGraphDataPoint[]>(() => {
+    // Keep track of total users per variation for when cumulative is true
+    const total: number[] = [];
+    const sortedTraffic = [...trafficByDate].sort((a, b) => {
+      return getValidDate(a.name).getTime() - getValidDate(b.name).getTime();
+    });
 
-      return sortedTraffic.map((d) => {
-        return {
-          d: getValidDate(parseISO(d.name)),
-          variations: variations.map((variation, i) => {
-            const users = d.variationUnits[i] || 0;
-            total[i] = total[i] || 0;
-            total[i] += users;
-            const v = cumulative ? total[i] : users;
-            const v_formatted = v + "";
-            return {
-              v,
-              v_formatted,
-              label: numberFormatter.format(v),
-            };
-          }),
-          srm: d.srm,
-        };
-      });
-    }, [trafficByDate, variations, cumulative]
-  );
+    return sortedTraffic.map((d) => {
+      return {
+        d: getValidDate(parseISO(d.name)),
+        variations: variations.map((variation, i) => {
+          const users = d.variationUnits[i] || 0;
+          total[i] = total[i] || 0;
+          total[i] += users;
+          const v = cumulative ? total[i] : users;
+          const v_formatted = v + "";
+          return {
+            v,
+            v_formatted,
+            label: numberFormatter.format(v),
+          };
+        }),
+        srm: d.srm,
+      };
+    });
+  }, [trafficByDate, variations, cumulative]);
 
   const sortedDimensionSlices = useMemo(() => {
     return traffic.dimension?.[selectedDimension]?.sort(
