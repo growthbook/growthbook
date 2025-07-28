@@ -56,6 +56,7 @@ import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator
 import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
 import StartExperimentModal from "@/components/Experiment/TabbedPage/StartExperimentModal";
 import TemplateForm from "../Templates/TemplateForm";
+import AddToHoldoutModal from "../Holdout/AddToHoldoutModal";
 import ProjectTagBar from "./ProjectTagBar";
 import EditExperimentInfoModal, {
   FocusSelector,
@@ -161,6 +162,7 @@ export default function ExperimentHeader({
     setEditInfoFocusSelector,
   ] = useState<FocusSelector>("name");
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [showAddToHoldoutModal, setShowAddToHoldoutModal] = useState(false);
 
   const isWatching = watchedExperiments.includes(experiment.id);
   const [showTemplateForm, setShowTemplateForm] = useState(false);
@@ -662,6 +664,13 @@ export default function ExperimentHeader({
           </div>
         </Modal>
       )}
+      {showAddToHoldoutModal ? (
+        <AddToHoldoutModal
+          experiment={experiment}
+          close={() => setShowAddToHoldoutModal(false)}
+          mutate={mutate}
+        />
+      ) : null}
 
       <div className="container-fluid pagecontents position-relative experiment-header px-3 pt-3">
         <div className="d-flex align-items-center flex-wrap">
@@ -776,6 +785,17 @@ export default function ExperimentHeader({
                     }`}
                   </DropdownMenuItem>
                 )}
+                {canEditExperiment &&
+                  !isHoldout &&
+                  experiment.status === "draft" && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setShowAddToHoldoutModal(true);
+                      }}
+                    >
+                      Add to holdout
+                    </DropdownMenuItem>
+                  )}
                 <DropdownMenuItem
                   onClick={() => {
                     setAuditModal(true);

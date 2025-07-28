@@ -197,14 +197,12 @@ export const createHoldout = async (
     previewURL: "",
     targetURLRegex: "",
     // todo: revisit this logic for project level settings, as well as "override stats settings" toggle:
-    sequentialTestingEnabled:
-      data.sequentialTestingEnabled ??
-      !!org?.settings?.sequentialTestingEnabled,
+    sequentialTestingEnabled: false,
     sequentialTestingTuningParameter:
       data.sequentialTestingTuningParameter ??
       org?.settings?.sequentialTestingTuningParameter ??
       DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-    regressionAdjustmentEnabled: data.regressionAdjustmentEnabled ?? undefined,
+    regressionAdjustmentEnabled: false,
     statsEngine: data.statsEngine,
     type: "holdout",
     customFields: data.customFields || undefined,

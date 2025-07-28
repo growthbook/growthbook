@@ -5,7 +5,7 @@ import { useAuth } from "@/services/auth";
 import { useExperiments } from "@/hooks/useExperiments";
 import Modal from "../Modal";
 import Callout from "../Radix/Callout";
-import { HoldoutSelect } from "./HoldoutSelect";
+import { HoldoutSelect } from "../Holdout/HoldoutSelect";
 
 const AddToHoldoutModal = ({
   feature,

@@ -303,7 +303,7 @@ const HoldoutsPage = (): React.ReactElement => {
                     <th>Experiments</th>
                     <th>Features</th>
                     <SortableTH field="status">Status</SortableTH>
-                    <SortableTH field="duration">duration</SortableTH>
+                    <SortableTH field="duration">Duration</SortableTH>
                   </tr>
                 </thead>
                 <tbody>
@@ -353,20 +353,8 @@ const HoldoutsPage = (): React.ReactElement => {
                             </span>
                           </Flex>
                         </td>
-                        <td
-                          className="nowrap"
-                          title={datetime(holdout.dateCreated)}
-                        >
-                          {holdout?.experiment?.status === "running"
-                            ? "started"
-                            : holdout?.experiment?.status === "draft"
-                            ? "created"
-                            : holdout?.experiment?.status === "stopped"
-                            ? "ended"
-                            : holdout?.experiment?.status === "archived"
-                            ? "updated"
-                            : ""}{" "}
-                          {date(holdout?.experiment?.dateCreated)}
+                        <td className="nowrap" data-title="hash-attribute:">
+                          {holdout.hashAttribute}
                         </td>
                         <td className="nowrap">{holdout.numExperiments}</td>
                         <td className="nowrap">{holdout.numFeatures}</td>

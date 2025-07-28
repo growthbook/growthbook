@@ -90,6 +90,8 @@ export default function Implementation({
     holdoutExperiments?.length ? "experiments" : "features"
   );
 
+  const isHoldout = experiment.type === "holdout";
+
   return (
     <>
       {showEditEnvironmentsModal && holdout && (
@@ -101,7 +103,7 @@ export default function Implementation({
       )}
       <div className="my-4">
         <h2>Implementation</h2>
-        {experiment.type !== "holdout" && (
+        {!isHoldout && (
           <div className="box my-3 mb-4 px-2 py-3">
             <div className="d-flex flex-row align-items-center justify-content-between text-dark px-3 mb-3">
               <Heading as="h4" size="3" mb="0">
@@ -122,7 +124,7 @@ export default function Implementation({
             />
           </div>
         )}
-        {hasLinkedChanges && experiment.type !== "holdout" ? (
+        {hasLinkedChanges && !isHoldout ? (
           <>
             <VisualLinkedChanges
               setVisualEditorModal={setVisualEditorModal}
@@ -147,7 +149,7 @@ export default function Implementation({
             />
           </>
         ) : null}
-        {experiment.type !== "holdout" && (
+        {!isHoldout && (
           <AddLinkedChanges
             experiment={experiment}
             numLinkedChanges={0}
@@ -158,13 +160,13 @@ export default function Implementation({
           />
         )}
 
-        {experiment.type === "holdout" && holdout && (
+        {isHoldout && holdout ? (
           <HoldoutEnvironments
             editEnvironments={() => setShowEditEnvironmentsModal(true)}
             environments={holdout.environmentSettings ?? {}}
           />
-        )}
-        {experiment.type === "holdout" && holdout && (
+        ) : null}
+        {isHoldout && holdout ? (
           <div className="box p-4 my-4">
             <h4>Included Experiments & Features</h4>
             {/* TODO: Add a state for a stopped holdout with no experiments or features? */}
@@ -232,10 +234,8 @@ export default function Implementation({
               </>
             )}
           </div>
-        )}
-        {experiment.status !== "draft" &&
-        !hasLinkedChanges &&
-        experiment.type !== "holdout" ? (
+        ) : null}
+        {experiment.status !== "draft" && !hasLinkedChanges && !isHoldout ? (
           <Callout status="info" mb="4">
             This experiment has no linked GrowthBook implementation (linked
             feature flag, visual editor changes, or URL redirect).{" "}

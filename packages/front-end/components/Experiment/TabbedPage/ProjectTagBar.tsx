@@ -42,8 +42,6 @@ export default function ProjectTagBar({
 
   const { holdoutsMap } = useHoldouts();
 
-  console.log("holdoutsMap", holdoutsMap);
-
   const permissionsUtil = usePermissionsUtil();
   const canUpdateExperimentProject = (project) =>
     permissionsUtil.canUpdateExperiment({ project }, {});

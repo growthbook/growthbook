@@ -38,6 +38,7 @@ export default function TrafficAndTargeting({
     : "";
 
   const isBandit = experiment.type === "multi-armed-bandit";
+  const isHoldout = experiment.type === "holdout";
 
   return (
     <>
@@ -58,7 +59,7 @@ export default function TrafficAndTargeting({
             <div className="row">
               <div className="col-4">
                 <div className="h5">Traffic</div>
-                {experiment.type !== "holdout" && (
+                {!isHoldout && (
                   <div>
                     {Math.floor(phase.coverage * 100)}% included
                     {experiment.type !== "multi-armed-bandit" && (
@@ -68,7 +69,7 @@ export default function TrafficAndTargeting({
                     )}
                   </div>
                 )}
-                {experiment.type === "holdout" && (
+                {!isHoldout && (
                   <>
                     <div>
                       {Math.floor(
@@ -111,22 +112,22 @@ export default function TrafficAndTargeting({
                   ) : (
                     " "
                   )}
-                  {
+                  {!isHoldout ? (
                     <HashVersionTooltip>
                       <small className="text-muted ml-1">
                         (V{experiment.hashVersion || 2} hashing)
                       </small>
                     </HashVersionTooltip>
-                  }
+                  ) : null}
                 </div>
-                {experiment.disableStickyBucketing ? (
+                {!isHoldout && experiment.disableStickyBucketing ? (
                   <div className="mt-1">
                     Sticky bucketing: <em>disabled</em>
                   </div>
                 ) : null}
               </div>
 
-              {experiment.type !== "holdout" && (
+              {!isHoldout && (
                 <div className="col-4">
                   <div className="h5">
                     Namespace{" "}
@@ -191,7 +192,7 @@ export default function TrafficAndTargeting({
                 </div>
               </div>
 
-              {experiment.type !== "holdout" && (
+              {!isHoldout && (
                 <div className="col-4">
                   <div className="h5">Prerequisite Targeting</div>
                   <div>

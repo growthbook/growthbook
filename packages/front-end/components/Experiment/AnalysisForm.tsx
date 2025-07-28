@@ -644,7 +644,8 @@ const AnalysisForm: FC<{
         )}
         {(form.watch("statsEngine") || scopedSettings.statsEngine.value) ===
           "frequentist" &&
-          !isBandit && (
+          !isBandit &&
+          !isHoldout && (
             <div className="d-flex flex-row no-gutters align-items-top">
               <div className="col-5">
                 <SelectField
@@ -783,6 +784,7 @@ const AnalysisForm: FC<{
               }
               forceSingleGoalMetric={isBandit}
               noPercentileGoalMetrics={isBandit}
+              filterConversionWindowMetrics={isHoldout}
               goalDisabled={isBandit && experiment.status !== "draft"}
             />
 

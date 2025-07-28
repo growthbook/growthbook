@@ -607,6 +607,7 @@ const NewHoldoutForm: FC<NewExperimentFormProps> = ({
             }
             collapseSecondary={true}
             goalMetricsDescription="The primary metrics you are trying to improve within this holdout. "
+            filterConversionWindowMetrics={true}
           />
 
           <hr className="mt-4" />
