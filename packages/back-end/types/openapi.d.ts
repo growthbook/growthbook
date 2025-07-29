@@ -2514,6 +2514,224 @@ export interface components {
         })[];
       experimentId: string;
     };
+    FeatureRevision: {
+      baseVersion: number;
+      version: number;
+      comment: string;
+      /** Format: date-time */
+      date: string;
+      status: string;
+      publishedBy?: string;
+      rules: {
+        [key: string]: ((({
+            description: string;
+            condition: string;
+            savedGroupTargeting?: ({
+                /** @enum {string} */
+                matchType: "all" | "any" | "none";
+                savedGroups: (string)[];
+              })[];
+            prerequisites?: ({
+                /** @description Feature ID */
+                id: string;
+                condition: string;
+              })[];
+            /**
+             * @example [
+             *   {
+             *     "enabled": true,
+             *     "timestamp": null
+             *   },
+             *   {
+             *     "enabled": false,
+             *     "timestamp": "2025-06-23T16:09:37.769Z"
+             *   }
+             * ]
+             */
+            scheduleRules?: ({
+                /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                enabled: boolean;
+                /**
+                 * Format: date-time 
+                 * @description ISO timestamp when the rule should activate. 
+                 * @example 2025-06-23T16:09:37.769Z
+                 */
+                timestamp: string | null;
+              })[];
+            id: string;
+            enabled: boolean;
+            /** @enum {string} */
+            type: "force";
+            value: string;
+          }) | ({
+            description: string;
+            condition: string;
+            savedGroupTargeting?: ({
+                /** @enum {string} */
+                matchType: "all" | "any" | "none";
+                savedGroups: (string)[];
+              })[];
+            /**
+             * @example [
+             *   {
+             *     "enabled": true,
+             *     "timestamp": null
+             *   },
+             *   {
+             *     "enabled": false,
+             *     "timestamp": "2025-06-23T16:09:37.769Z"
+             *   }
+             * ]
+             */
+            scheduleRules?: ({
+                /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                enabled: boolean;
+                /**
+                 * Format: date-time 
+                 * @description ISO timestamp when the rule should activate. 
+                 * @example 2025-06-23T16:09:37.769Z
+                 */
+                timestamp: string | null;
+              })[];
+            id: string;
+            enabled: boolean;
+            /** @enum {string} */
+            type: "rollout";
+            value: string;
+            coverage: number;
+            hashAttribute: string;
+          }) | ({
+            description: string;
+            condition: string;
+            id: string;
+            enabled: boolean;
+            /** @enum {string} */
+            type: "experiment";
+            trackingKey?: string;
+            hashAttribute?: string;
+            fallbackAttribute?: string;
+            disableStickyBucketing?: boolean;
+            bucketVersion?: number;
+            minBucketVersion?: number;
+            namespace?: {
+              enabled: boolean;
+              name: string;
+              range: (number)[];
+            };
+            coverage?: number;
+            /**
+             * @example [
+             *   {
+             *     "enabled": true,
+             *     "timestamp": null
+             *   },
+             *   {
+             *     "enabled": false,
+             *     "timestamp": "2025-06-23T16:09:37.769Z"
+             *   }
+             * ]
+             */
+            scheduleRules?: ({
+                /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                enabled: boolean;
+                /**
+                 * Format: date-time 
+                 * @description ISO timestamp when the rule should activate. 
+                 * @example 2025-06-23T16:09:37.769Z
+                 */
+                timestamp: string | null;
+              })[];
+            value?: ({
+                value: string;
+                weight: number;
+                name?: string;
+              })[];
+          }) | ({
+            description: string;
+            id: string;
+            enabled: boolean;
+            /** @enum {string} */
+            type: "experiment-ref";
+            condition?: string;
+            /**
+             * @example [
+             *   {
+             *     "enabled": true,
+             *     "timestamp": null
+             *   },
+             *   {
+             *     "enabled": false,
+             *     "timestamp": "2025-06-23T16:09:37.769Z"
+             *   }
+             * ]
+             */
+            scheduleRules?: ({
+                /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                enabled: boolean;
+                /**
+                 * Format: date-time 
+                 * @description ISO timestamp when the rule should activate. 
+                 * @example 2025-06-23T16:09:37.769Z
+                 */
+                timestamp: string | null;
+              })[];
+            variations: ({
+                value: string;
+                variationId: string;
+              })[];
+            experimentId: string;
+          }) | ({
+            condition: string;
+            savedGroupTargeting?: ({
+                /** @enum {string} */
+                matchType: "all" | "any" | "none";
+                savedGroups: (string)[];
+              })[];
+            prerequisites?: ({
+                /** @description Feature ID */
+                id: string;
+                condition: string;
+              })[];
+            id: string;
+            trackingKey?: string;
+            enabled: boolean;
+            /** @enum {string} */
+            type: "safe-rollout";
+            controlValue: string;
+            variationValue: string;
+            seed?: string;
+            hashAttribute?: string;
+            safeRolloutId?: string;
+            /** @enum {string} */
+            status?: "running" | "released" | "rolled-back" | "stopped";
+            /**
+             * @example [
+             *   {
+             *     "enabled": true,
+             *     "timestamp": null
+             *   },
+             *   {
+             *     "enabled": false,
+             *     "timestamp": "2025-06-23T16:09:37.769Z"
+             *   }
+             * ]
+             */
+            scheduleRules?: ({
+                /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                enabled: boolean;
+                /**
+                 * Format: date-time 
+                 * @description ISO timestamp when the rule should activate. 
+                 * @example 2025-06-23T16:09:37.769Z
+                 */
+                timestamp: string | null;
+              })[];
+          }))[]) | undefined;
+      };
+      definitions?: {
+        [key: string]: string | undefined;
+      };
+    };
     SdkConnection: {
       id: string;
       /** Format: date-time */
@@ -12640,6 +12858,7 @@ export type ApiFeatureRolloutRule = z.infer<typeof openApiValidators.apiFeatureR
 export type ApiFeatureSafeRolloutRule = z.infer<typeof openApiValidators.apiFeatureSafeRolloutRuleValidator>;
 export type ApiFeatureExperimentRule = z.infer<typeof openApiValidators.apiFeatureExperimentRuleValidator>;
 export type ApiFeatureExperimentRefRule = z.infer<typeof openApiValidators.apiFeatureExperimentRefRuleValidator>;
+export type ApiFeatureRevision = z.infer<typeof openApiValidators.apiFeatureRevisionValidator>;
 export type ApiSdkConnection = z.infer<typeof openApiValidators.apiSdkConnectionValidator>;
 export type ApiExperiment = z.infer<typeof openApiValidators.apiExperimentValidator>;
 export type ApiExperimentSnapshot = z.infer<typeof openApiValidators.apiExperimentSnapshotValidator>;
