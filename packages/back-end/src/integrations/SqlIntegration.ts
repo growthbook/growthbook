@@ -1414,7 +1414,17 @@ export default abstract class SqlIntegration
 
   getFreeFormQuery(sql: string, limit?: number): string {
     const limitedQuery = this.ensureMaxLimit(sql, limit ?? SQL_ROW_LIMIT);
-    return format(limitedQuery, this.getFormatDialect());
+
+    const sqlContainsTemplateVariables =
+      !!sql.match(/\{\{\s*[^}]+\s*\}\}/g)?.length || false;
+
+    const queryToRun = sqlContainsTemplateVariables
+      ? compileSqlTemplate(limitedQuery, {
+          startDate: new Date(), // MKTODO: Update this logic, just a placeholder for now
+        })
+      : limitedQuery;
+
+    return format(queryToRun, this.getFormatDialect());
   }
 
   getTestQuery(params: TestQueryParams): string {
