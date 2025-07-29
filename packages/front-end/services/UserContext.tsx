@@ -339,6 +339,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       hasLicenseKey: !!currentOrg?.organization?.licenseKey,
       freeSeats: currentOrg?.organization?.freeSeats || 3,
       discountCode: currentOrg?.organization?.discountCode || "",
+      isVercelIntegration: !!currentOrg?.organization?.isVercelIntegration,
     });
   }, [currentOrg, hashedOrganizationId, user?.role]);
 
