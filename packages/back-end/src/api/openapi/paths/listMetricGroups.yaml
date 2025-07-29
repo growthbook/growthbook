@@ -1,0 +1,22 @@
+tags:
+  - metric-groups
+summary: Get all metric groups for an organization (paginated)
+parameters:
+  - $ref: "../parameters.yaml#/limit"
+  - $ref: "../parameters.yaml#/offset"
+operationId: listMetricGroups
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          allOf:
+            - type: object
+              required:
+                - metricGroups
+              properties:
+                metricGroups:
+                  type: array
+                  items:
+                    $ref: "../schemas/MetricGroup.yaml"
+            - $ref: "../schemas/PaginationFields.yaml"
