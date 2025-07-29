@@ -1,5 +1,5 @@
 import "./init/aliases";
-
+import "./util/secrets";
 import "./instrumentation";
 import app from "./app";
 import { logger } from "./util/logger";
