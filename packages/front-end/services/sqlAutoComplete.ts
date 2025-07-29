@@ -9,38 +9,12 @@ import {
   getSqlKeywords,
   COMPLETION_SCORES,
   COMPLETION_TYPES,
+  getTemplateCompletions,
 } from "./sqlKeywords";
 import {
   getInformationSchemaWithPaths,
   InformationSchemaInterfaceWithPaths,
 } from "./datasources";
-
-export const templateCompletions: AceCompletion[] = [
-  {
-    value: `'{{ startDate }}'`,
-    meta: COMPLETION_TYPES.TEMPLATE_VARIABLE,
-    score: COMPLETION_SCORES.TEMPLATE_VARIABLE,
-    caption: `{{ startDate }}`,
-  },
-  {
-    value: `'{{ startDateISO }}'`,
-    meta: COMPLETION_TYPES.TEMPLATE_VARIABLE,
-    score: COMPLETION_SCORES.TEMPLATE_VARIABLE,
-    caption: `{{ startDateISO }}`,
-  },
-  {
-    value: `'{{ endDate }}'`,
-    meta: COMPLETION_TYPES.TEMPLATE_VARIABLE,
-    score: COMPLETION_SCORES.TEMPLATE_VARIABLE,
-    caption: `{{ endDate }}`,
-  },
-  {
-    value: `'{{ endDateISO }}'`,
-    meta: COMPLETION_TYPES.TEMPLATE_VARIABLE,
-    score: COMPLETION_SCORES.TEMPLATE_VARIABLE,
-    caption: `{{ endDateISO }}`,
-  },
-];
 
 type Keywords = "SELECT" | "FROM" | "WHERE" | "GROUP BY" | "ORDER BY";
 
@@ -140,11 +114,16 @@ function addEventTableName(
  * @returns Array of completion suggestions
  */
 function handleColumnCompletions(
-  tableDataMap: Record<string, InformationSchemaTablesInterface>
+  tableDataMap: Record<string, InformationSchemaTablesInterface>,
+  source: "EditSqlModal" | "SqlExplorer"
 ): AceCompletion[] {
+  const baseCompletions = [
+    ...getTemplateCompletions(source),
+    ...getSqlKeywords(),
+  ];
   // If there are no tables, then return template completions and sql keywords
   if (Object.keys(tableDataMap).length === 0) {
-    return [...templateCompletions, ...getSqlKeywords()];
+    return baseCompletions;
   }
 
   // Combine columns from all tables
@@ -157,7 +136,7 @@ function handleColumnCompletions(
     }))
   );
 
-  return [...allColumns, ...templateCompletions, ...getSqlKeywords()];
+  return [...allColumns, ...baseCompletions];
 }
 
 /**
@@ -166,7 +145,8 @@ function handleColumnCompletions(
  * @returns Array of completion suggestions including databases, schemas, and tables
  */
 function getAllCompletionsForEmptyFrom(
-  informationSchema: InformationSchemaInterfaceWithPaths
+  informationSchema: InformationSchemaInterfaceWithPaths,
+  source: "EditSqlModal" | "SqlExplorer"
 ): AceCompletion[] {
   const databaseCompletions: AceCompletion[] = [];
   for (const db of informationSchema.databases) {
@@ -206,7 +186,7 @@ function getAllCompletionsForEmptyFrom(
     ...databaseCompletions,
     ...schemaCompletions,
     ...tableCompletions,
-    ...templateCompletions,
+    ...getTemplateCompletions(source),
     ...getSqlKeywords(),
   ];
 }
@@ -219,11 +199,12 @@ function getAllCompletionsForEmptyFrom(
  */
 function handleFromClauseCompletions(
   textAfterFrom: string,
-  informationSchema: InformationSchemaInterfaceWithPaths
+  informationSchema: InformationSchemaInterfaceWithPaths,
+  source: "EditSqlModal" | "SqlExplorer"
 ): AceCompletion[] {
   // If we're at the start of the FROM clause (no text after FROM), show all options
   if (!textAfterFrom) {
-    return getAllCompletionsForEmptyFrom(informationSchema);
+    return getAllCompletionsForEmptyFrom(informationSchema, source);
   }
 
   // Parse the text to determine what level of completion to provide
@@ -513,6 +494,7 @@ export async function getAutoCompletions(
     url: string,
     options?: RequestInit
   ) => Promise<{ table: InformationSchemaTablesInterface }>,
+  source: "EditSqlModal" | "SqlExplorer",
   eventName?: string
 ): Promise<AceCompletion[]> {
   const sqlKeywords = getSqlKeywords();
@@ -565,7 +547,7 @@ export async function getAutoCompletions(
     case "WHERE":
     case "GROUP BY":
     case "ORDER BY":
-      return handleColumnCompletions(tableDataMap);
+      return handleColumnCompletions(tableDataMap, source);
 
     case "FROM": {
       // Get the text after FROM up to the cursor
@@ -584,7 +566,8 @@ export async function getAutoCompletions(
 
       return handleFromClauseCompletions(
         textAfterFrom,
-        informationSchemaWithPaths
+        informationSchemaWithPaths,
+        source
       );
     }
 

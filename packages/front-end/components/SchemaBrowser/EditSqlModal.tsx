@@ -193,6 +193,7 @@ export default function EditSqlModal({
           informationSchema,
           datasource?.type,
           apiCall,
+          "EditSqlModal",
           templateVariables?.eventName
         );
         setAutoCompletions(completions);
