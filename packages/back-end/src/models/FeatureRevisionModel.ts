@@ -88,6 +88,16 @@ function toInterface(
   return revision;
 }
 
+export async function countDocuments(
+  organization: string,
+  featureId: string
+): Promise<number> {
+  return FeatureRevisionModel.countDocuments({
+    organization,
+    featureId,
+  });
+}
+
 export async function getMinimalRevisions(
   context: ReqContext | ApiReqContext,
   organization: string,
@@ -147,12 +157,16 @@ export async function getFeatureRevisionsByStatus({
   featureId,
   status,
   limit = 10,
+  offset = 0,
+  sort = "desc",
 }: {
   context: ReqContext;
   organization: string;
   featureId: string;
   status?: string;
   limit?: number;
+  offset?: number;
+  sort?: "asc" | "desc";
 }): Promise<FeatureRevisionInterface[]> {
   const docs = await FeatureRevisionModel.find({
     organization,
@@ -160,7 +174,8 @@ export async function getFeatureRevisionsByStatus({
     ...(status ? { status } : {}),
   })
     .select("-log") // Remove the log when fetching all revisions since it can be large to send over the network
-    .sort({ version: -1 })
+    .sort({ version: sort === "desc" ? -1 : 1 })
+    .skip(offset)
     .limit(limit);
   return docs.map((m) => toInterface(m, context));
 }
