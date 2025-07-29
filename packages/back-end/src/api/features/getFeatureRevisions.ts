@@ -1,7 +1,7 @@
 import omit from "lodash/omit";
 import {
   getFeatureRevisionsByStatus,
-  FeatureRevisionModel,
+  countDocuments,
 } from "back-end/src/models/FeatureRevisionModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeatureRevisionsValidator } from "back-end/src/validators/openapi";
@@ -18,12 +18,10 @@ export const getFeatureRevisions = createApiRequestHandler(
     featureId: req.params.id,
     limit,
     offset,
+    sort: "asc",
   });
   // Fetch total count for pagination fields
-  const total = await FeatureRevisionModel.countDocuments({
-    organization: req.organization.id,
-    featureId: req.params.id,
-  });
+  const total = await countDocuments(req.organization.id, req.params.id);
   // Remove 'organization' field from each revision
   const cleaned = pagedRevisions.map((rev) => omit(rev, "organization"));
   const nextOffset = offset + limit;
