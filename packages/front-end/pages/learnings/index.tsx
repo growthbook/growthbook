@@ -7,13 +7,12 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import { useExperiments } from "@/hooks/useExperiments";
-import { experimentDate } from "@/pages/experiments";
 import CompletedExperimentList from "@/components/Experiment/CompletedExperimentList";
 import ExperimentSearchFilters from "@/components/Search/ExperimentSearchFilters";
 import DatePicker from "@/components/DatePicker";
 import EmptyState from "@/components/EmptyState";
 import LinkButton from "@/components/Radix/LinkButton";
-import { useExperimentSearch } from "@/services/experiments";
+import { useExperimentSearch, experimentDate } from "@/services/experiments";
 
 const LearningsPage = (): React.ReactElement => {
   const router = useRouter();

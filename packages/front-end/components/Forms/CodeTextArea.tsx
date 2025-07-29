@@ -1,9 +1,21 @@
 import dynamic from "next/dynamic";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, createElement } from "react";
 import type { Ace } from "ace-builds";
+import type { IAceEditorProps } from "react-ace";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { CursorData } from "@/components/Segments/SegmentForm";
 import Field, { FieldProps } from "./Field";
+
+export type AceCompletion = {
+  caption: string;
+  value: string;
+  meta: string;
+  score: number;
+};
+
+interface AceEditorProps extends IAceEditorProps {
+  completions?: AceCompletion[];
+}
 
 const AceEditor = dynamic(
   async () => {
@@ -76,10 +88,92 @@ const AceEditor = dynamic(
     ace.config.setModuleUrl("ace/mode/javascript_worker", jsWorkerUrl.default);
     ace.config.setModuleUrl("ace/mode/yaml_worker", yamlWorkerUrl.default);
 
-    return reactAce;
+    const langTools = ace.require("ace/ext/language_tools");
+
+    // Return a wrapper component that handles completions
+    const AceEditorWithCompletions = (props: AceEditorProps) => {
+      const { completions, onLoad, ...otherProps } = props;
+      const [editor, setEditor] = useState<Ace.Editor | null>(null);
+
+      const handleLoad = (editorInstance: Ace.Editor) => {
+        setEditor(editorInstance);
+        // Call the original onLoad if provided
+        if (onLoad) {
+          onLoad(editorInstance);
+        }
+      };
+
+      // Update completions whenever they change
+      useEffect(() => {
+        if (editor) {
+          // Clear existing completers and set up fresh one
+          langTools.setCompleters([]);
+
+          // Only add our custom completer if we have completions
+          if (
+            completions &&
+            Array.isArray(completions) &&
+            completions.length > 0
+          ) {
+            const customCompleter = {
+              getCompletions: (
+                editor: Ace.Editor,
+                session: Ace.EditSession,
+                pos: Ace.Position,
+                prefix: string,
+                callback: (err: unknown, results: AceCompletion[]) => void
+              ) => {
+                const filteredCompletions = completions.filter(
+                  (completion: AceCompletion) => {
+                    if (!prefix || prefix.trim() === "") {
+                      return true;
+                    }
+
+                    const lowerPrefix = prefix.toLowerCase();
+                    const lowerValue = completion.value.toLowerCase();
+                    const lowerCaption = completion.caption.toLowerCase();
+
+                    const checkParts = (text: string) => {
+                      if (text.includes(".")) {
+                        return text
+                          .split(".")
+                          .some((part) => part.startsWith(lowerPrefix));
+                      }
+                      return text.startsWith(lowerPrefix);
+                    };
+
+                    // Safety net - if the value is empty, don't show it
+                    // This can happen for Data Sources that don't support all 3 levels (db, schema, table) like MySQL & Clickhouse
+                    if (lowerValue === "") {
+                      return false;
+                    }
+
+                    return checkParts(lowerValue) || checkParts(lowerCaption);
+                  }
+                );
+
+                callback(null, filteredCompletions);
+              },
+              identifierRegexps: [/[a-zA-Z_0-9{]/],
+            };
+
+            langTools.addCompleter(customCompleter);
+          }
+        }
+      }, [editor, completions]); // Depend on both editor and completions
+
+      return createElement(reactAce.default, {
+        ...otherProps,
+        onLoad: handleLoad,
+      });
+    };
+
+    AceEditorWithCompletions.displayName = "AceEditorWithCompletions";
+
+    return AceEditorWithCompletions;
   },
   {
-    ssr: false, // react-ace doesn't support server side rendering as it uses the window object.
+    ssr: false,
   }
 );
 
@@ -98,6 +192,7 @@ export type Props = Omit<
   fullHeight?: boolean;
   onCtrlEnter?: () => void;
   wrapperClassName?: string;
+  completions?: AceCompletion[];
 };
 
 const LIGHT_THEME = "textmate";
@@ -114,13 +209,12 @@ export default function CodeTextArea({
   fullHeight,
   onCtrlEnter,
   wrapperClassName,
+  completions,
   ...otherProps
 }: Props) {
   // eslint-disable-next-line
   const fieldProps = otherProps as any;
-
   const { theme } = useAppearanceUITheme();
-
   const [editor, setEditor] = useState<null | Ace.Editor>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -181,7 +275,16 @@ export default function CodeTextArea({
                 onChange={(newValue) => setValue(newValue)}
                 placeholder={placeholder}
                 fontSize="1em"
+                completions={completions}
                 {...heightProps}
+                setOptions={
+                  language === "sql"
+                    ? {
+                        enableBasicAutocompletion: true,
+                        enableLiveAutocompletion: true,
+                      }
+                    : undefined
+                }
                 readOnly={fieldProps.disabled}
                 onCursorChange={(e) =>
                   setCursorData &&
