@@ -93,6 +93,11 @@ export const httpLogger = pinoHttp({
     remove: true,
   },
   customProps: getCustomLogProps,
+  ...(IS_CLOUD
+    ? {
+        customReceivedMessage: () => "Request started",
+      }
+    : {}),
   ...logBase,
 });
 
