@@ -23,20 +23,20 @@ const AddToHoldoutModal = ({
   const { apiCall } = useAuth();
   const { experimentsMap } = useExperiments();
 
+  // Only allow adding to holdout if all experiments are in draft status and don't have a holdoutId or have the same holdoutId as the feature
   const experimentsAreInDraft = feature.linkedExperiments?.every(
     (experimentId) =>
       experimentsMap[experimentId]?.status === "draft" &&
-      !experimentsMap[experimentId]?.holdoutId
+      (!experimentsMap[experimentId]?.holdoutId ||
+        experimentsMap[experimentId]?.holdoutId === feature.holdout?.id)
   );
 
-  // Check if the feature has any experiment or safe rollout rules. If it does, we can't add it to a holdout
-  // go through each environment setting obect and make sure no rule in its rules array has a type of experiment or safe-rollout
+  // Check if the feature has any safe rollout rules. If it does, we can't add it to a holdout
+  // go through each environment setting object and make sure no rule in its rules array has a type of experiment or safe-rollout
   const eligibleToAddToHoldout = Object.values(
     feature.environmentSettings
   ).every((setting) =>
-    setting.rules.every(
-      (rule) => rule.type !== "experiment" && rule.type !== "safe-rollout"
-    )
+    setting.rules.every((rule) => rule.type !== "safe-rollout")
   );
 
   const showHoldoutSelect = experimentsAreInDraft && eligibleToAddToHoldout;

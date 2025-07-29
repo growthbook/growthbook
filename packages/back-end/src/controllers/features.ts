@@ -1263,6 +1263,45 @@ export async function postFeatureRule(
     rule.safeRolloutId = safeRollout.id;
   }
 
+  // Add holdout to existing experiment and experiment to holdout linkedExperiments
+  // if the experiment is not running and has no linked implementations for
+  // experiment-ref rules
+  if (rule.type === "experiment-ref" && feature.holdout) {
+    const experiment = await getExperimentById(context, rule.experimentId);
+    const expHasLinkedChanges =
+      (experiment?.linkedFeatures?.length ?? 0) > 0 ||
+      experiment?.hasURLRedirects ||
+      experiment?.hasVisualChangesets;
+
+    if (
+      experiment?.status !== "draft" ||
+      experiment?.holdoutId !== feature.holdout.id ||
+      expHasLinkedChanges
+    ) {
+      throw new Error(
+        "Failed to create experiment rule. Experiment has linked changes, is not in draft status, or is not linked to the same holdout as the feature."
+      );
+    }
+
+    await updateExperiment({
+      context,
+      experiment,
+      changes: {
+        holdoutId: feature.holdout.id,
+      },
+    });
+    const holdout = await context.models.holdout.getById(feature.holdout.id);
+    await context.models.holdout.updateById(feature.holdout.id, {
+      linkedExperiments: {
+        ...holdout?.linkedExperiments,
+        [experiment.id]: {
+          id: experiment.id,
+          dateAdded: new Date(),
+        },
+      },
+    });
+  }
+
   const revision = await getDraftRevision(context, feature, parseInt(version));
   const resetReview = resetReviewOnChange({
     feature,
@@ -2222,8 +2261,6 @@ export async function putFeature(
 
   const updatedFeature = await updateFeature(context, feature, updates);
 
-  // TODO: If the holdout is being updated, we need to update the linked experiments to add the holdout
-  // This update should fail if linked experiments are not in a draft state or the feature has safe rollout rules
   if (updates.holdout?.id !== feature.holdout?.id && feature.holdout?.id) {
     await context.models.holdout.removeFeatureFromHoldout(
       feature.holdout.id,
@@ -2241,7 +2278,40 @@ export async function putFeature(
         ...holdoutObj.linkedFeatures,
         [id]: { id, dateAdded: new Date() },
       },
+      ...(feature.linkedExperiments?.length
+        ? {
+            linkedExperiments: {
+              ...holdoutObj.linkedExperiments,
+              ...Object.fromEntries(
+                feature.linkedExperiments.map((experimentId) => [
+                  experimentId,
+                  { id: experimentId, dateAdded: new Date() },
+                ])
+              ),
+            },
+          }
+        : {}),
     });
+    if (feature.linkedExperiments?.length) {
+      const linkedExperiments = await Promise.all(
+        feature.linkedExperiments.map(async (experimentId) => {
+          return getExperimentById(context, experimentId);
+        })
+      );
+
+      await Promise.all(
+        linkedExperiments.map(async (exp) => {
+          if (!exp) return;
+          return updateExperiment({
+            context,
+            experiment: exp,
+            changes: {
+              holdoutId: updates.holdout?.id,
+            },
+          });
+        })
+      );
+    }
   }
 
   // If there are new tags to add
