@@ -1,10 +1,10 @@
 import {
   DashboardBlockInterface,
-  DimensionBlockInterface,
   DashboardBlockData,
   DashboardBlockType,
   DashboardBlockInterfaceOrData,
   CreateDashboardBlockInterface,
+  differenceTypes,
 } from "back-end/src/enterprise/validators/dashboard-block";
 import {
   ExperimentInterface,
@@ -34,8 +34,8 @@ export function isPersistedDashboardBlock<T extends DashboardBlockInterface>(
 
 export function isDifferenceType(
   value: string
-): value is DimensionBlockInterface["differenceType"] {
-  return ["absolute", "relative", "scaled"].includes(value);
+): value is typeof differenceTypes[number] {
+  return (differenceTypes as readonly string[]).includes(value);
 }
 
 export function blockHasFieldOfType<Field extends string, T>(

@@ -3,7 +3,7 @@ import { dashboardBlockInterface } from "./dashboard-block";
 
 export const dashboardEditLevel = z.enum(["organization", "private"]);
 
-export const dashboardInstanceInterface = z
+export const dashboardInterface = z
   .object({
     id: z.string(),
     organization: z.string(),
@@ -20,6 +20,4 @@ export const dashboardInstanceInterface = z
   })
   .strict();
 
-export type DashboardInstanceInterface = z.infer<
-  typeof dashboardInstanceInterface
->;
+export type DashboardInterface = z.infer<typeof dashboardInterface>;

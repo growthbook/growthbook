@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { DistributiveOmit } from "shared/util";
 
+export const differenceTypes = ["absolute", "relative", "scaled"] as const;
+
 const baseBlockInterface = z
   .object({
     organization: z.string(),
@@ -61,7 +63,7 @@ const metricBlockInterface = baseBlockInterface
     metricIds: z.array(z.string()),
     variationIds: z.array(z.string()),
     baselineRow: z.number(),
-    differenceType: z.enum(["absolute", "relative", "scaled"]),
+    differenceType: z.enum(differenceTypes),
     columnsFilter: z.array(
       z.enum([
         "Variation Names",
@@ -87,7 +89,7 @@ const dimensionBlockInterface = baseBlockInterface
     metricIds: z.array(z.string()),
     variationIds: z.array(z.string()),
     baselineRow: z.number(),
-    differenceType: z.enum(["absolute", "relative", "scaled"]),
+    differenceType: z.enum(differenceTypes),
     columnsFilter: z.array(
       z.enum([
         "Variation Names",

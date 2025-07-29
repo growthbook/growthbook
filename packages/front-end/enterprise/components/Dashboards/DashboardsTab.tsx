@@ -1,6 +1,6 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React, { useCallback, useEffect, useState } from "react";
-import { DashboardInstanceInterface } from "back-end/src/enterprise/validators/dashboard-instance";
+import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
 import {
   DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
@@ -34,7 +34,7 @@ export type CreateDashboardArgs = {
   dashboardId?: never;
   data: {
     title: string;
-    editLevel: DashboardInstanceInterface["editLevel"];
+    editLevel: DashboardInterface["editLevel"];
     enableAutoUpdates: boolean;
     blocks?: DashboardBlockData<DashboardBlockInterface>[];
   };
@@ -45,7 +45,7 @@ export type UpdateDashboardArgs = {
   data: Partial<{
     title: string;
     blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
-    editLevel: DashboardInstanceInterface["editLevel"];
+    editLevel: DashboardInterface["editLevel"];
     enableAutoUpdates: boolean;
   }>;
 };
@@ -67,7 +67,7 @@ export default function DashboardsTab({
 }: Props) {
   const [dashboardId, setDashboardId] = useState(initialDashboardId);
   const [dashboardCopy, setDashboardCopy] = useState<
-    DashboardInstanceInterface | undefined
+    DashboardInterface | undefined
   >(undefined);
   const [hasMadeChanges, setHasMadeChanges] = useState(false);
   useEffect(() => {
@@ -98,9 +98,9 @@ export default function DashboardsTab({
   const [blocks, setBlocks] = useState<
     DashboardBlockInterfaceOrData<DashboardBlockInterface>[]
   >([]);
-  const [editLevel, setEditLevel] = useState<
-    DashboardInstanceInterface["editLevel"]
-  >("private");
+  const [editLevel, setEditLevel] = useState<DashboardInterface["editLevel"]>(
+    "private"
+  );
   const [enableAutoUpdates, setEnableAutoUpdates] = useState(true);
   const [editDrawerOpen, setEditDrawerOpen] = useState<boolean>(false);
   const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
@@ -145,7 +145,7 @@ export default function DashboardsTab({
       if (method === "PUT") setHasMadeChanges(true);
       const res = await apiCall<{
         status: number;
-        dashboard: DashboardInstanceInterface;
+        dashboard: DashboardInterface;
       }>(`/dashboards/${method === "PUT" ? dashboardId : ""}`, {
         method: method,
         body: JSON.stringify(

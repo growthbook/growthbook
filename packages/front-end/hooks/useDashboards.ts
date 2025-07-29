@@ -1,11 +1,11 @@
 import { useMemo } from "react";
-import { DashboardInstanceInterface } from "back-end/src/enterprise/validators/dashboard-instance";
+import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
 import useApi from "./useApi";
 
 export function useAllDashboards() {
   const { data, error, mutate } = useApi<{
-    dashboards: DashboardInstanceInterface[];
-  }>("/dashboards/");
+    dashboards: DashboardInterface[];
+  }>("/dashboards");
 
   const dashboards = useMemo(() => data?.dashboards || [], [data]);
 
@@ -25,7 +25,7 @@ export function useAllDashboards() {
 
 export function useDashboards(experimentId: string) {
   const { data, error, mutate } = useApi<{
-    dashboards: DashboardInstanceInterface[];
+    dashboards: DashboardInterface[];
   }>(`/dashboards/by-experiment/${experimentId}`);
 
   const dashboards = useMemo(() => data?.dashboards || [], [data]);

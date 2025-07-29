@@ -18,7 +18,7 @@ import {
 } from "shared/enterprise";
 import { getSnapshotAnalysis, isDefined, isString } from "shared/util";
 import { isEqual } from "lodash";
-import { DashboardInstanceInterface } from "back-end/src/enterprise/validators/dashboard-instance";
+import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
 import { Queries, QueryStatus } from "back-end/types/query";
 import { SavedQuery } from "back-end/src/validators/saved-queries";
 import useApi from "@/hooks/useApi";
@@ -55,7 +55,7 @@ export default function DashboardSnapshotProvider({
   children,
 }: {
   experiment: ExperimentInterfaceStringDates;
-  dashboard?: DashboardInstanceInterface;
+  dashboard?: DashboardInterface;
   mutateDefinitions: () => void;
   children: ReactNode;
 }) {

@@ -1,9 +1,9 @@
 import mongoose from "mongoose";
 import { createDashboardBlocksFromTemplate } from "shared/enterprise";
 import {
-  dashboardInstanceInterface,
-  DashboardInstanceInterface,
-} from "back-end/src/enterprise/validators/dashboard-instance";
+  dashboardInterface,
+  DashboardInterface,
+} from "back-end/src/enterprise/validators/dashboard";
 import { MakeModelClass, UpdateProps } from "back-end/src/models/BaseModel";
 import {
   removeMongooseFields,
@@ -26,18 +26,17 @@ const DEFAULT_DASHBOARD_BLOCKS: DashboardTemplateInterface["blockInitialValues"]
   { type: "time-series" },
 ];
 
-export type DashboardInstanceDocument = mongoose.Document &
-  DashboardInstanceInterface;
+export type DashboardDocument = mongoose.Document & DashboardInterface;
 
 const BaseClass = MakeModelClass({
-  schema: dashboardInstanceInterface,
-  collectionName: "dashboardinstances",
-  idPrefix: "dashinst_",
+  schema: dashboardInterface,
+  collectionName: "dashboards",
+  idPrefix: "dash_",
   auditLog: {
-    entity: "dashboardInstance",
-    createEvent: "dashboardInstance.create",
-    updateEvent: "dashboardInstance.update",
-    deleteEvent: "dashboardInstance.delete",
+    entity: "dashboard",
+    createEvent: "dashboard.create",
+    updateEvent: "dashboard.update",
+    deleteEvent: "dashboard.delete",
   },
   globallyUniqueIds: true,
   additionalIndexes: [
@@ -45,16 +44,16 @@ const BaseClass = MakeModelClass({
   ],
 });
 
-export const toInterface: ToInterface<DashboardInstanceInterface> = (doc) => {
+export const toInterface: ToInterface<DashboardInterface> = (doc) => {
   const dashboard = removeMongooseFields(doc);
   dashboard.blocks = dashboard.blocks.map(blockToInterface);
   return dashboard;
 };
 
-export class DashboardInstanceModel extends BaseClass {
+export class DashboardModel extends BaseClass {
   public async findByExperiment(
     experimentId: string
-  ): Promise<DashboardInstanceInterface[]> {
+  ): Promise<DashboardInterface[]> {
     const dashboards = await this._find({ experimentId });
     if (!dashboards.find((dash) => dash.isDefault)) {
       dashboards.push(await this.createDefaultDashboard(experimentId));
@@ -62,7 +61,7 @@ export class DashboardInstanceModel extends BaseClass {
     return dashboards.filter((dash) => !dash.isDeleted);
   }
 
-  protected canCreate(doc: DashboardInstanceInterface): boolean {
+  protected canCreate(doc: DashboardInterface): boolean {
     if (!this.context.hasPremiumFeature("dashboards"))
       throw new Error("Must have a commercial License Key to use Dashboards");
     const { experiment } = this.getForeignRefs(doc);
@@ -70,13 +69,13 @@ export class DashboardInstanceModel extends BaseClass {
     return this.context.permissions.canCreateReport(experiment);
   }
 
-  protected canRead(_doc: DashboardInstanceInterface): boolean {
+  protected canRead(_doc: DashboardInterface): boolean {
     return this.context.hasPermission("readData", "");
   }
 
   protected canUpdate(
-    existing: DashboardInstanceInterface,
-    updates: UpdateProps<DashboardInstanceInterface>
+    existing: DashboardInterface,
+    updates: UpdateProps<DashboardInterface>
   ): boolean {
     if (!this.context.hasPremiumFeature("dashboards"))
       throw new Error("Must have a commercial License Key to use Dashboards");
@@ -86,6 +85,7 @@ export class DashboardInstanceModel extends BaseClass {
 
     const canManage = isOwner || isAdmin;
     if (canManage) return true;
+    // Editing privileged fields (metadata/settings) requires canManage
     if (
       "title" in updates ||
       "editLevel" in updates ||
@@ -100,7 +100,7 @@ export class DashboardInstanceModel extends BaseClass {
     return this.context.permissions.canUpdateReport(experiment);
   }
 
-  protected canDelete(doc: DashboardInstanceInterface): boolean {
+  protected canDelete(doc: DashboardInterface): boolean {
     if (!this.context.hasPremiumFeature("dashboards"))
       throw new Error("Must have a commercial License Key to use Dashboards");
 
@@ -113,10 +113,10 @@ export class DashboardInstanceModel extends BaseClass {
   }
 
   protected migrate(doc: unknown) {
-    return toInterface(doc as DashboardInstanceDocument);
+    return toInterface(doc as DashboardDocument);
   }
 
-  protected async afterCreate(doc: DashboardInstanceDocument) {
+  protected async afterCreate(doc: DashboardDocument) {
     const queryIdSet = getSavedQueryIds(doc);
     for (const queryId of queryIdSet) {
       await this.linkSavedQuery(queryId, doc);
@@ -124,9 +124,9 @@ export class DashboardInstanceModel extends BaseClass {
   }
 
   protected async afterUpdate(
-    existing: DashboardInstanceDocument,
-    _updates: UpdateProps<DashboardInstanceDocument>,
-    newDoc: DashboardInstanceDocument
+    existing: DashboardDocument,
+    _updates: UpdateProps<DashboardDocument>,
+    newDoc: DashboardDocument
   ) {
     const initialQueryIdSet = getSavedQueryIds(existing);
     const finalQueryIdSet = getSavedQueryIds(newDoc);
@@ -140,42 +140,36 @@ export class DashboardInstanceModel extends BaseClass {
     }
   }
 
-  protected async afterDelete(doc: DashboardInstanceDocument) {
+  protected async afterDelete(doc: DashboardDocument) {
     const queryIdSet = getSavedQueryIds(doc);
     for (const queryId of queryIdSet) {
       await this.unlinkSavedQuery(queryId, doc);
     }
   }
 
-  protected async linkSavedQuery(
-    queryId: string,
-    doc: DashboardInstanceDocument
-  ) {
+  protected async linkSavedQuery(queryId: string, doc: DashboardDocument) {
     const savedQuery = await this.context.models.savedQueries.getById(queryId);
     if (savedQuery) {
-      const linkedDashboards = savedQuery.linkedDashboards || [];
-      if (!linkedDashboards.includes(doc.id)) {
-        linkedDashboards.push(doc.id);
+      const linkedDashboardIds = savedQuery.linkedDashboardIds || [];
+      if (!linkedDashboardIds.includes(doc.id)) {
+        linkedDashboardIds.push(doc.id);
         await this.context.models.savedQueries.updateById(queryId, {
-          linkedDashboards,
+          linkedDashboardIds,
         });
       }
     }
   }
 
-  protected async unlinkSavedQuery(
-    queryId: string,
-    doc: DashboardInstanceDocument
-  ) {
+  protected async unlinkSavedQuery(queryId: string, doc: DashboardDocument) {
     const savedQuery = await this.context.models.savedQueries.getById(queryId);
     if (savedQuery) {
-      if ((savedQuery.linkedDashboards || []).includes(doc.id)) {
-        const linkedDashboards = (savedQuery.linkedDashboards || []).filter(
+      if ((savedQuery.linkedDashboardIds || []).includes(doc.id)) {
+        const linkedDashboardIds = (savedQuery.linkedDashboardIds || []).filter(
           (dashId) => dashId !== doc.id
         );
 
         await this.context.models.savedQueries.updateById(queryId, {
-          linkedDashboards,
+          linkedDashboardIds,
         });
       }
     }
@@ -220,7 +214,7 @@ export class DashboardInstanceModel extends BaseClass {
   }
 }
 
-function getSavedQueryIds(doc: DashboardInstanceDocument): Set<string> {
+function getSavedQueryIds(doc: DashboardDocument): Set<string> {
   const queryIdSet = new Set<string>();
   doc.blocks.forEach((block) => {
     if (block.type === "sql-explorer" && block.savedQueryId) {

@@ -133,8 +133,8 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
               {items.map((query, i) => {
                 const datasource = getDatasourceById(query.datasourceId);
                 const datasourceName = datasource?.name || "Unknown";
-                const linkedDashboards = query.linkedDashboards || [];
-                const numReferences = linkedDashboards.length;
+                const linkedDashboardIds = query.linkedDashboardIds || [];
+                const numReferences = linkedDashboardIds.length;
 
                 return (
                   <tr key={query.id}>
@@ -184,14 +184,14 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                               <div
                                 style={{ maxHeight: 300, overflowY: "auto" }}
                               >
-                                {linkedDashboards.length > 0 && (
+                                {linkedDashboardIds.length > 0 && (
                                   <>
                                     <div className="mt-1 text-muted font-weight-bold">
                                       Dashboards:
                                     </div>
                                     <div className="mb-2">
                                       <ul className="pl-3 mb-0">
-                                        {linkedDashboards.map(
+                                        {linkedDashboardIds.map(
                                           (dashboardId, j) => {
                                             const dashboard = dashboardsMap.get(
                                               dashboardId
@@ -217,7 +217,7 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                                                     className="my-1"
                                                   >
                                                     <em>
-                                                      {linkedDashboards.length -
+                                                      {linkedDashboardIds.length -
                                                         j}{" "}
                                                       more...
                                                     </em>
@@ -296,7 +296,7 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                               text="Delete"
                               getConfirmationContent={async () => {
                                 const dashboardIds =
-                                  query.linkedDashboards || [];
+                                  query.linkedDashboardIds || [];
                                 if (dashboardIds.length === 0) return null;
                                 return (
                                   <div>

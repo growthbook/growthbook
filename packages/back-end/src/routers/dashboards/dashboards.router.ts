@@ -6,7 +6,7 @@ import {
   createDashboardBlockInterface,
   dashboardBlockInterface,
 } from "back-end/src/enterprise/validators/dashboard-block";
-import { dashboardEditLevel } from "back-end/src/enterprise/validators/dashboard-instance";
+import { dashboardEditLevel } from "back-end/src/enterprise/validators/dashboard";
 import * as rawDashboardsController from "./dashboards.controller";
 
 const router = express.Router();
@@ -34,11 +34,7 @@ export const updateDashboardBody = z
   })
   .strict();
 
-router.get(
-  "/",
-  validateRequestMiddleware({}),
-  dashboardsController.getAllDashboards
-);
+router.get("/", dashboardsController.getAllDashboards);
 
 router.get(
   "/by-experiment/:experimentId",

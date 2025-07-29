@@ -10,16 +10,13 @@ import {
   ResponseWithStatusAndError,
 } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { DashboardInstanceInterface } from "back-end/src/enterprise/validators/dashboard-instance";
+import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
 import { createDashboardBlock } from "back-end/src/enterprise/models/DashboardBlockModel";
 import {
   DashboardBlockInterface,
   SqlExplorerBlockInterface,
 } from "back-end/src/enterprise/validators/dashboard-block";
-import {
-  createExperimentSnapshot,
-  SNAPSHOT_TIMEOUT,
-} from "back-end/src/controllers/experiments";
+import { createExperimentSnapshot } from "back-end/src/controllers/experiments";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { executeAndSaveQuery } from "back-end/src/routers/saved-queries/saved-queries.controller";
@@ -29,12 +26,12 @@ import { SavedQuery } from "back-end/src/validators/saved-queries";
 import { createDashboardBody, updateDashboardBody } from "./dashboards.router";
 interface SingleDashboardResponse {
   status: number;
-  dashboard: DashboardInstanceInterface;
+  dashboard: DashboardInterface;
 }
 
 interface MultiDashboardResponse {
   status: number;
-  dashboards: DashboardInstanceInterface[];
+  dashboards: DashboardInterface[];
 }
 
 export async function getAllDashboards(
@@ -154,7 +151,7 @@ export async function updateDashboard(
 
   const updatedDashboard = await context.models.dashboards.updateById(
     id,
-    updates as Partial<DashboardInstanceInterface>
+    updates as Partial<DashboardInterface>
   );
 
   res.status(200).json({
@@ -186,10 +183,6 @@ export async function refreshDashboardData(
     throw new Error("Cannot update dashboard without an attached experiment");
   const datasource = await getDataSourceById(context, experiment.datasource);
   if (!datasource) throw new Error("Failed to find connected datasource");
-
-  // This is doing an expensive analytics SQL query, so may take a long time
-  // Set timeout to 30 minutes
-  req.setTimeout(SNAPSHOT_TIMEOUT);
 
   const { snapshot: mainSnapshot } = await createExperimentSnapshot({
     context,
@@ -256,7 +249,6 @@ export async function refreshDashboardData(
   ]);
 
   for (const savedQuery of savedQueries) {
-    // TODO: is this safe to run in the background or should this be awaited?
     executeAndSaveQuery(context, savedQuery, datasource);
   }
 
