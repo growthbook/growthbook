@@ -486,8 +486,8 @@ const HoldoutTimeline: React.FC<{
                         y1={y}
                         x2={x}
                         y2={margin.top + filteredExperiments.length * rowHeight}
-                        stroke="var(--gray-6)"
-                        strokeWidth={1}
+                        stroke={"var(--gray-6)"}
+                        strokeWidth={isLastTick ? 2 : 1}
                       />
                     </g>
                   );

@@ -285,6 +285,7 @@ const BreakDownResults: FC<{
     : undefined;
 
   const isBandit = experimentType === "multi-armed-bandit";
+  const isHoldout = experimentType === "holdout";
 
   return (
     <div className="mb-3">
@@ -400,6 +401,7 @@ const BreakDownResults: FC<{
               isTabActive={true}
               isBandit={isBandit}
               ssrPolyfills={ssrPolyfills}
+              isHoldout={isHoldout}
             />
             <div className="mb-5" />
           </>
