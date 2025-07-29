@@ -211,11 +211,14 @@ export async function processJWT(
                 lastLoginDate: now,
               });
             } catch (e) {
-              logger.error("error updating last login date", {
-                organization: req.organization.id,
-                member: memberRecord.id,
-                error: e,
-              });
+              logger.error(
+                {
+                  organization: req.organization.id,
+                  member: memberRecord.id,
+                  err: e,
+                },
+                "error updating last login date"
+              );
             }
           }
         }

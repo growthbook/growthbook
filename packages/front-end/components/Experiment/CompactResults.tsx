@@ -394,6 +394,7 @@ const CompactResults: FC<{
           isGoalMetrics={true}
           ssrPolyfills={ssrPolyfills}
           disableTimeSeriesButton={disableTimeSeriesButton}
+          isHoldout={experimentType === "holdout"}
         />
       ) : null}
 
@@ -433,6 +434,7 @@ const CompactResults: FC<{
             isBandit={isBandit}
             ssrPolyfills={ssrPolyfills}
             disableTimeSeriesButton={disableTimeSeriesButton}
+            isHoldout={experimentType === "holdout"}
           />
         </div>
       ) : null}
@@ -473,6 +475,7 @@ const CompactResults: FC<{
             isBandit={isBandit}
             ssrPolyfills={ssrPolyfills}
             disableTimeSeriesButton={disableTimeSeriesButton}
+            isHoldout={experimentType === "holdout"}
           />
         </div>
       ) : (

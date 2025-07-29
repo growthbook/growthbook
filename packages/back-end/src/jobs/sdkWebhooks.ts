@@ -48,17 +48,23 @@ const fireWebhooks = async (job: SDKWebhookJob) => {
   const webhookId = job.attrs.data?.webhookId;
 
   if (!webhookId) {
-    logger.error("SDK webhook: No webhook provided for webhook job", {
-      webhookId,
-    });
+    logger.error(
+      {
+        webhookId,
+      },
+      "SDK webhook: No webhook provided for webhook job"
+    );
     return;
   }
 
   const webhook = await findSdkWebhookByIdAcrossOrgs(webhookId);
   if (!webhook || !webhook.sdks) {
-    logger.error("SDK webhook: No webhook found for id", {
-      webhookId,
-    });
+    logger.error(
+      {
+        webhookId,
+      },
+      "SDK webhook: No webhook found for id"
+    );
     return;
   }
 
@@ -332,9 +338,12 @@ export async function fireSdkWebhook(
   const connections = await findSDKConnectionsByIds(context, webhook?.sdks);
 
   if (!connections.length) {
-    logger.error("SDK webhook: Could not find sdk connections", {
-      webhookId: webhook.id,
-    });
+    logger.error(
+      {
+        webhookId: webhook.id,
+      },
+      "SDK webhook: Could not find sdk connections"
+    );
     return;
   }
 

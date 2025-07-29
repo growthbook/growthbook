@@ -250,7 +250,11 @@ const Results: FC<{
             {snapshot &&
               phaseAgeMinutes >= 120 &&
               `Make sure your ${
-                isBandit ? "Bandit" : "Experiment"
+                isBandit
+                  ? "Bandit"
+                  : experiment.type === "holdout"
+                  ? "Holdout"
+                  : "Experiment"
               } is tracking properly.`}
             {snapshot &&
               phaseAgeMinutes < 120 &&

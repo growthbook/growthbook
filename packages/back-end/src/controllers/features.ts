@@ -2779,7 +2779,7 @@ export async function getFeatureById(
         }
       });
     } catch (e) {
-      logger.error(e, e.message);
+      logger.error(e);
     }
   }
 

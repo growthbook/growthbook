@@ -133,7 +133,7 @@ export default function AnalysisSettingsBar({
 
       {experiment && (
         <div className="row align-items-center p-3 analysis-settings-bar">
-          {setVariationFilter && setBaselineRow ? (
+          {!isHoldout && setVariationFilter && setBaselineRow ? (
             <>
               <div className="col-auto form-inline pr-5">
                 <BaselineChooser

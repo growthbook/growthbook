@@ -117,7 +117,7 @@ export const cancellableFetch = async (
       e.name === "FetchError" &&
       e.code === "ECONNREFUSED"
     ) {
-      logger.error("Disabling webhook proxy");
+      logger.error("Proxy connection refused. Disabling webhook proxy");
       useWebhookProxy = false;
     }
 
