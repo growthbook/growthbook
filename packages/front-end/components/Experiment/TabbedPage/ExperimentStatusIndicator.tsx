@@ -86,14 +86,23 @@ export function RawExperimentStatusIndicator({
 }) {
   const { color, status, detailedStatus, tooltip } = statusIndicatorData;
   const label = getFormattedLabel(labelFormat, status, detailedStatus);
+  const isHoldout = experimentData.type === "holdout";
   const isInAnalysisPeriod =
-    experimentData.type === "holdout" && experimentData.phases.length > 1;
+    isHoldout &&
+    experimentData.phases.length > 1 &&
+    experimentData.status !== "stopped";
+  // strip out awaiting decision from the label if is in holdout
+  const labelWithoutAwaitingDecision = isHoldout
+    ? label.replace(/: Awaiting decision/, "")
+    : label;
   const badge = (
     <Badge
       color={color}
       variant={"solid"}
       radius="full"
-      label={`${label} ${isInAnalysisPeriod ? ": Analysis Period" : ""}`}
+      label={`${labelWithoutAwaitingDecision} ${
+        isInAnalysisPeriod ? ": Analysis Period" : ""
+      }`}
       style={{
         cursor: tooltip !== undefined ? "default" : undefined,
       }}

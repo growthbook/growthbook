@@ -69,6 +69,7 @@ export interface Props {
   editTargeting?: (() => void) | null;
   editMetrics?: (() => void) | null;
   editResult?: (() => void) | null;
+  stop?: (() => void) | null;
 }
 
 export default function TabbedPage({
@@ -91,6 +92,7 @@ export default function TabbedPage({
   editResult,
   checklistItemsRemaining,
   setChecklistItemsRemaining,
+  stop,
 }: Props) {
   const [tab, setTab] = useLocalStorage<ExperimentTab>(
     `tabbedPageTab__${experiment.id}`,
@@ -321,6 +323,7 @@ export default function TabbedPage({
         healthNotificationCount={healthNotificationCount}
         checklistItemsRemaining={checklistItemsRemaining}
         linkedFeatures={linkedFeatures}
+        stop={stop}
       />
 
       <div className="container-fluid pagecontents">

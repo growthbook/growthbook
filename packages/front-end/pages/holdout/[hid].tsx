@@ -8,7 +8,6 @@ import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";
 import EditMetricsForm from "@/components/Experiment/EditMetricsForm";
-import StopExperimentForm from "@/components/Experiment/StopExperimentForm";
 import EditVariationsForm from "@/components/Experiment/EditVariationsForm";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
 import { useAuth } from "@/services/auth";
@@ -23,6 +22,7 @@ import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator
 import StartAnalysisModal from "@/components/Experiment/TabbedPage/startHoldoutAnalysisModal";
 import EditHoldoutTargetingModal from "@/components/Holdout/EditHoldoutTargetingModal";
 import NewHoldoutForm from "@/components/Holdout/NewHoldoutForm";
+import StopHoldoutForm from "@/components/Holdout/StopHoldoutForm";
 
 const HoldoutPage = (): ReactElement => {
   const permissionsUtil = usePermissionsUtil();
@@ -101,6 +101,7 @@ const HoldoutPage = (): ReactElement => {
   const editMetrics = canEditExperiment
     ? () => setMetricsModalOpen(true)
     : null;
+  const stop = canRunExperiment ? () => setStopModalOpen(true) : null;
   const editResult = canRunExperiment
     ? () => {
         if (holdout?.analysisStartDate) {
@@ -147,7 +148,7 @@ const HoldoutPage = (): ReactElement => {
         />
       )}
       {stopModalOpen && (
-        <StopExperimentForm
+        <StopHoldoutForm
           close={() => setStopModalOpen(false)}
           mutate={mutate}
           experiment={experiment}
@@ -256,6 +257,7 @@ const HoldoutPage = (): ReactElement => {
           editTargeting={editTargeting}
           checklistItemsRemaining={checklistItemsRemaining}
           setChecklistItemsRemaining={setChecklistItemsRemaining}
+          stop={stop}
         />
       </SnapshotProvider>
     </>

@@ -56,7 +56,7 @@ import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator
 import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
 import StartExperimentModal from "@/components/Experiment/TabbedPage/StartExperimentModal";
 import TemplateForm from "../Templates/TemplateForm";
-import AddToHoldoutModal from "../Holdout/AddToHoldoutModal";
+import AddToHoldoutModal from "../holdout/AddToHoldoutModal";
 import ProjectTagBar from "./ProjectTagBar";
 import EditExperimentInfoModal, {
   FocusSelector,
@@ -87,6 +87,7 @@ export interface Props {
   healthNotificationCount: number;
   linkedFeatures: LinkedFeatureInfo[];
   holdout?: HoldoutInterface;
+  stop?: (() => void) | null;
 }
 
 const datasourcesWithoutHealthData = new Set(["mixpanel", "google_analytics"]);
@@ -139,6 +140,7 @@ export default function ExperimentHeader({
   healthNotificationCount,
   linkedFeatures,
   holdout,
+  stop,
 }: Props) {
   const growthbook = useGrowthBook<AppFeatures>();
 
@@ -805,6 +807,21 @@ export default function ExperimentHeader({
                   Audit log
                 </DropdownMenuItem>
               </DropdownMenuGroup>
+              {isHoldout && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        stop?.();
+                        setDropdownOpen(false);
+                      }}
+                    >
+                      Stop Holdout
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                </>
+              )}
               {!isHoldout && (
                 <>
                   <DropdownMenuSeparator />
