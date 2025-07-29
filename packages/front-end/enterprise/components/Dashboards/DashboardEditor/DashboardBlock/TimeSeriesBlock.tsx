@@ -3,6 +3,7 @@ import { expandMetricGroups } from "shared/experiments";
 import ExperimentMetricTimeSeriesGraphWrapper from "@/components/Experiment/ExperimentMetricTimeSeriesGraphWrapper";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { getMetricResultGroup } from "@/components/Experiment/BreakDownResults";
 import { BlockProps } from ".";
 
 export default function TimeSeriesBlock({
@@ -15,12 +16,9 @@ export default function TimeSeriesBlock({
 }: BlockProps<TimeSeriesBlockInterface>) {
   const { pValueCorrection, statsEngine: hookStatsEngine } = useOrgSettings();
   const { metricGroups } = useDefinitions();
+  const goalMetrics = expandMetricGroups(experiment.goalMetrics, metricGroups);
   const secondaryMetrics = expandMetricGroups(
     experiment.secondaryMetrics,
-    metricGroups
-  );
-  const guardrailMetrics = expandMetricGroups(
-    experiment.guardrailMetrics,
     metricGroups
   );
 
@@ -29,13 +27,11 @@ export default function TimeSeriesBlock({
     hookStatsEngine ||
     "frequentist";
 
-  // Determine which group the metric belongs to
-  let resultGroup: "goal" | "secondary" | "guardrail" = "goal";
-  if (secondaryMetrics.includes(metric.id)) {
-    resultGroup = "secondary";
-  } else if (guardrailMetrics.includes(metric.id)) {
-    resultGroup = "guardrail";
-  }
+  const resultGroup = getMetricResultGroup(
+    metric.id,
+    goalMetrics,
+    secondaryMetrics
+  );
 
   const appliedPValueCorrection =
     resultGroup === "goal"

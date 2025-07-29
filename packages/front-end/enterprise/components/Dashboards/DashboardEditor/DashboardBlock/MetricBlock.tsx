@@ -9,6 +9,7 @@ import {
 import useOrgSettings from "@/hooks/useOrgSettings";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { getMetricResultGroup } from "@/components/Experiment/BreakDownResults";
 import { BlockProps } from ".";
 
 export default function MetricBlock({
@@ -47,9 +48,11 @@ export default function MetricBlock({
   const sortedMetrics: ExperimentMetricInterface[] = useMemo(() => {
     const metricMap = new Map(metrics.map((m) => [m.id, m]));
     return [
-      ...goalMetrics.map((mId) => metricMap.get(mId)).filter(isDefined),
-      ...secondaryMetrics.map((mId) => metricMap.get(mId)).filter(isDefined),
-      ...guardrailMetrics.map((mId) => metricMap.get(mId)).filter(isDefined),
+      ...new Set([
+        ...goalMetrics.map((mId) => metricMap.get(mId)).filter(isDefined),
+        ...secondaryMetrics.map((mId) => metricMap.get(mId)).filter(isDefined),
+        ...guardrailMetrics.map((mId) => metricMap.get(mId)).filter(isDefined),
+      ]),
     ];
   }, [metrics, goalMetrics, secondaryMetrics, guardrailMetrics]);
 
@@ -78,13 +81,6 @@ export default function MetricBlock({
 
   const allRows = sortedMetrics
     .map((metric) => {
-      // Determine which group the metric belongs to
-      let resultGroup: "goal" | "secondary" | "guardrail" = "goal";
-      if (secondaryMetrics.includes(metric.id)) {
-        resultGroup = "secondary";
-      } else if (guardrailMetrics.includes(metric.id)) {
-        resultGroup = "guardrail";
-      }
       return {
         label: metric.name,
         metric,
@@ -107,7 +103,11 @@ export default function MetricBlock({
           errorMessage: v.metrics[metric.id]?.errorMessage,
           power: v.metrics[metric.id]?.power,
         })),
-        resultGroup,
+        resultGroup: getMetricResultGroup(
+          metric.id,
+          goalMetrics,
+          secondaryMetrics
+        ),
         metricOverrideFields: [],
       };
     })
