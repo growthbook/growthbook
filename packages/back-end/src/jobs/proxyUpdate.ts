@@ -31,18 +31,24 @@ const proxyUpdate = async (job: ProxyUpdateJob) => {
   const orgId = job.attrs.data?.orgId;
   const useCloudProxy = job.attrs.data?.useCloudProxy;
   if (!connectionId) {
-    logger.error("proxyUpdate: No connectionId provided for proxy update job", {
-      connectionId,
-      useCloudProxy,
-    });
+    logger.error(
+      {
+        connectionId,
+        useCloudProxy,
+      },
+      "proxyUpdate: No connectionId provided for proxy update job"
+    );
     return;
   }
 
   if (!orgId) {
-    logger.error("proxyUpdate: No orgId provided for proxy update job", {
-      connectionId,
-      useCloudProxy,
-    });
+    logger.error(
+      {
+        connectionId,
+        useCloudProxy,
+      },
+      "proxyUpdate: No orgId provided for proxy update job"
+    );
     return;
   }
 
@@ -50,18 +56,24 @@ const proxyUpdate = async (job: ProxyUpdateJob) => {
 
   const connection = await findSDKConnectionById(context, connectionId);
   if (!connection) {
-    logger.error("proxyUpdate: Could not find sdk connection", {
-      connectionId,
-      useCloudProxy,
-    });
+    logger.error(
+      {
+        connectionId,
+        useCloudProxy,
+      },
+      "proxyUpdate: Could not find sdk connection"
+    );
     return;
   }
 
   if (!useCloudProxy && !connection.proxy.host) {
-    logger.error("proxyUpdate: Proxy host is missing", {
-      connectionId,
-      useCloudProxy,
-    });
+    logger.error(
+      {
+        connectionId,
+        useCloudProxy,
+      },
+      "proxyUpdate: Proxy host is missing"
+    );
     return;
   }
 

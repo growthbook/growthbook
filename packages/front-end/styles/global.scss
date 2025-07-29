@@ -3580,6 +3580,10 @@ input:disabled {
 .ace_editor .ace_gutter {
   background: var(--color-panel-solid) !important;
 }
+.ace_editor.ace_autocomplete { 
+  width: 500px !important;
+  background-color: var(--color-surface-solid) !important;
+}
 
 /* Radix-style pagination for ReactPaginate */
 .pagination-radix-container {

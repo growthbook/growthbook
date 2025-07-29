@@ -972,10 +972,13 @@ export function updateExperimentBanditSettings({
       snapshotId: snapshot?.id,
     });
   } else {
-    logger.error("No bandit results present, skipping bandit event log", {
-      eid: experiment.id,
-      snapshot,
-    });
+    logger.error(
+      {
+        eid: experiment.id,
+        snapshot,
+      },
+      "No bandit results present, skipping bandit event log"
+    );
   }
 
   // scheduling
@@ -2130,6 +2133,7 @@ export function putMetricApiPayloadToMetricInterface(
     projects,
     type,
     managedBy,
+    archived,
   } = payload;
 
   const metric: Partial<MetricInterface> = {
@@ -2139,6 +2143,9 @@ export function putMetricApiPayloadToMetricInterface(
     ...(typeof tags !== "undefined" ? { tags } : {}),
     ...(typeof projects !== "undefined" ? { projects } : {}),
     ...(typeof type !== "undefined" ? { type } : {}),
+    ...(typeof archived !== "undefined"
+      ? { status: archived ? "archived" : "active" }
+      : {}),
   };
 
   // Assign all undefined behavior fields to the metric
