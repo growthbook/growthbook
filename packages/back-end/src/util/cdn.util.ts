@@ -1,4 +1,4 @@
-import fetch from "node-fetch";
+import { fetch } from "back-end/src/util/http.util";
 import { logger } from "./logger";
 import { FASTLY_API_TOKEN, FASTLY_SERVICE_ID } from "./secrets";
 
@@ -31,6 +31,6 @@ export async function purgeCDNCache(
       },
     });
   } catch (e) {
-    logger.error("Failed to purge cache for " + orgId);
+    logger.error(e, "Failed to purge cache for " + orgId);
   }
 }

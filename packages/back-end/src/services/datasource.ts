@@ -190,7 +190,8 @@ export async function testQuery(
   context: ReqContext,
   datasource: DataSourceInterface,
   query: string,
-  templateVariables?: TemplateVariables
+  templateVariables?: TemplateVariables,
+  limit?: number
 ): Promise<{
   results?: TestQueryRow[];
   duration?: number;
@@ -212,6 +213,7 @@ export async function testQuery(
     query,
     templateVariables,
     testDays: context.org.settings?.testQueryDays,
+    limit,
   });
   try {
     const { results, duration } = await integration.runTestQuery(sql, [

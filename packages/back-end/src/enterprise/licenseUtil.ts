@@ -1,5 +1,4 @@
 import crypto from "crypto";
-import fetch from "node-fetch";
 import type Stripe from "stripe";
 import pino from "pino";
 import { pick, sortBy } from "lodash";
@@ -20,6 +19,7 @@ import {
   SubscriptionInfo,
 } from "shared/enterprise";
 import { StripeAddress, TaxIdType } from "shared/src/types";
+import { fetch } from "back-end/src/util/http.util";
 import { OrganizationInterface } from "back-end/types/organization";
 import { getLicenseByKey, LicenseModel } from "./models/licenseModel";
 import { LICENSE_PUBLIC_KEY } from "./public-key";
@@ -310,6 +310,7 @@ export async function callLicenseServer({
     serverResult = await fetch(url, options);
   } catch (e) {
     logger.error(
+      e,
       "Could not connect to license server. Make sure to whitelist 75.2.109.47."
     );
     throw new LicenseServerError(
@@ -614,7 +615,7 @@ export function verifyAndSetServerLicenseData(license: LicenseInterface) {
   keyToLicenseData[license.id] = license;
   keyToCacheDate[license.id] = new Date();
   createOrReplaceLicenseMongoCache(license).catch((e) => {
-    logger.error(`Error creating mongo cache: ${e}`);
+    logger.error(e, "Error creating mongo cache");
     throw e;
   });
 }
@@ -791,7 +792,8 @@ export async function licenseInit(
             mongoCache
           ).catch((e) => {
             logger.error(
-              `Failed to update license ${key} in the background: ${e}`
+              e,
+              `Failed to update license ${key} in the background`
             );
           });
         }
