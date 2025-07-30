@@ -30,7 +30,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import * as Sentry from "@sentry/react";
+import * as Sentry from "@sentry/nextjs";
 import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
 import { Permissions, userHasPermission } from "shared/permissions";
 import { getValidDate } from "shared/dates";
@@ -342,6 +342,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       hasLicenseKey: !!currentOrg?.organization?.licenseKey,
       freeSeats: currentOrg?.organization?.freeSeats || 3,
       discountCode: currentOrg?.organization?.discountCode || "",
+      isVercelIntegration: !!currentOrg?.organization?.isVercelIntegration,
     });
   }, [currentOrg, hashedOrganizationId, user?.role]);
 
@@ -368,6 +369,14 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       Sentry.setUser({ email: data.email, id: data.userId });
     }
   }, [data?.email, data?.userId]);
+
+  useEffect(() => {
+    // Error tracking only enabled on GrowthBook Cloud
+    const orgId = currentOrg?.organization?.id;
+    if (isSentryEnabled() && orgId) {
+      Sentry.setTag("organization", orgId);
+    }
+  }, [currentOrg?.organization?.id]);
 
   const commercialFeatures = useMemo(() => {
     return new Set(currentOrg?.commercialFeatures || []);

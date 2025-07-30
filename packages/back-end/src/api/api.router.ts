@@ -3,9 +3,11 @@ import path from "path";
 import { Router, Request } from "express";
 import rateLimit from "express-rate-limit";
 import bodyParser from "body-parser";
+import * as Sentry from "@sentry/node";
 import authenticateApiRequestMiddleware from "back-end/src/middleware/authenticateApiRequestMiddleware";
 import { getBuild } from "back-end/src/util/handler";
 import { ApiRequestLocals } from "back-end/types/api";
+import { SENTRY_DSN } from "../util/secrets";
 import featuresRouter from "./features/features.router";
 import experimentsRouter from "./experiments/experiments.router";
 import snapshotsRouter from "./snapshots/snapshots.router";
@@ -57,6 +59,23 @@ router.use(bodyParser.json({ limit: "1mb" }));
 router.use(bodyParser.urlencoded({ limit: "1mb", extended: true }));
 
 router.use(authenticateApiRequestMiddleware);
+
+// Add API user to Sentry if configured
+if (SENTRY_DSN) {
+  router.use((req: Request & ApiRequestLocals, res, next) => {
+    if (req.user) {
+      Sentry.setUser({
+        id: req.user.id,
+        email: req.user.email,
+        name: req.user.name,
+      });
+    }
+    if (req.context.org) {
+      Sentry.setTag("organization", req.context.org.id);
+    }
+    next();
+  });
+}
 
 const API_RATE_LIMIT_MAX = Number(process.env.API_RATE_LIMIT_MAX) || 60;
 // Rate limit API keys to 60 requests per minute

@@ -2,7 +2,6 @@ import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { PiCaretDown } from "react-icons/pi";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { Box, Flex } from "@radix-ui/themes";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -32,18 +31,6 @@ import {
   TabsTrigger,
 } from "@/components/Radix/Tabs";
 import ExperimentsListTable from "@/components/Experiment/ExperimentsListTable";
-
-export function experimentDate(exp: ExperimentInterfaceStringDates): string {
-  return (
-    (exp.archived
-      ? exp.dateUpdated
-      : exp.status === "running"
-      ? exp.phases?.[exp.phases?.length - 1]?.dateStarted
-      : exp.status === "stopped"
-      ? exp.phases?.[exp.phases?.length - 1]?.dateEnded
-      : exp.dateCreated) ?? ""
-  );
-}
 
 const ExperimentsPage = (): React.ReactElement => {
   const { ready, project } = useDefinitions();

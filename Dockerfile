@@ -15,6 +15,8 @@ RUN \
 FROM python:${PYTHON_MAJOR}-slim AS nodebuild
 ARG NODE_MAJOR
 WORKDIR /usr/local/src/app
+# Set node max memory
+ENV NODE_OPTIONS="--max-old-space-size=8192"
 RUN apt-get update && \
   apt-get install -y wget gnupg2 build-essential && \
   echo "deb https://deb.nodesource.com/node_$NODE_MAJOR.x buster main" > /etc/apt/sources.list.d/nodesource.list && \

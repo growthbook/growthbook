@@ -15,7 +15,7 @@ import {
 } from "back-end/src/validators/saved-queries";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { getValidDate } from "shared/dates";
-import { isReadOnlySQL, SQL_EXPLORER_LIMIT } from "shared/sql";
+import { isReadOnlySQL, SQL_ROW_LIMIT } from "shared/sql";
 import { BsThreeDotsVertical, BsStars } from "react-icons/bs";
 import { FiChevronRight } from "react-icons/fi";
 import { useAuth } from "@/services/auth";
@@ -173,7 +173,7 @@ export default function SqlExplorerModal({
         body: JSON.stringify({
           query: sql,
           datasourceId: form.watch("datasourceId"),
-          limit: SQL_EXPLORER_LIMIT,
+          limit: SQL_ROW_LIMIT,
         }),
       });
       return res;
@@ -730,7 +730,7 @@ export default function SqlExplorerModal({
                               )}
                             </Flex>
                             {!readOnlyMode ? (
-                              <Flex gap="3">
+                              <Flex gap="3" align="center">
                                 <Tooltip body="The SQL Explorer automatically applies a 1000 row limit to ensure optimal performance.">
                                   <Box pl="5">
                                     <input
@@ -746,7 +746,7 @@ export default function SqlExplorerModal({
                                       style={{ color: "var(--gray-8)" }}
                                       className="cursor-pointer"
                                     >
-                                      Limit to {SQL_EXPLORER_LIMIT} rows
+                                      Limit to {SQL_ROW_LIMIT} rows
                                     </Text>
                                   </Box>
                                 </Tooltip>

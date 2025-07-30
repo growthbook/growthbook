@@ -1,4 +1,4 @@
-import * as Sentry from "@sentry/react";
+import * as Sentry from "@sentry/nextjs";
 import { EnvironmentInitValue } from "@/./pages/api/init";
 
 const env: EnvironmentInitValue = {
@@ -9,6 +9,7 @@ const env: EnvironmentInitValue = {
   showMultiOrgSelfSelector: true,
   appOrigin: "",
   apiHost: "",
+  environment: "",
   s3domain: "",
   gcsDomain: "",
   cdnHost: "",
@@ -33,6 +34,8 @@ export async function initEnv() {
   if (env.sentryDSN) {
     Sentry.init({
       dsn: env.sentryDSN,
+      sendDefaultPii: true,
+      environment: env.environment,
     });
   }
 }

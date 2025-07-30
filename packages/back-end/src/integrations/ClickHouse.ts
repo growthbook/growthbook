@@ -118,9 +118,21 @@ export default class ClickHouse extends SqlIntegration {
   }
   extractJSONField(jsonCol: string, path: string, isNumeric: boolean): string {
     if (isNumeric) {
-      return `simpleJSONExtractFloat(${jsonCol}, '${path}')`;
+      return `
+if(
+  toTypeName(${jsonCol}) = 'JSON', 
+  toFloat64(${jsonCol}.${path}),
+  JSONExtractFloat(${jsonCol}, '${path}')
+)
+      `;
     } else {
-      return `simpleJSONExtractString(${jsonCol}, '${path}')`;
+      return `
+if(
+  toTypeName(${jsonCol}) = 'JSON',
+  ${jsonCol}.${path}.:String,
+  JSONExtractString(${jsonCol}, '${path}')
+)
+      `;
     }
   }
 

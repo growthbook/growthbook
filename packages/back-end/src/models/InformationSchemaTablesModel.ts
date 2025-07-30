@@ -28,7 +28,6 @@ const informationSchemaTablesSchema = new mongoose.Schema({
         const zodSchema = z.array(
           z.object({
             columnName: z.string(),
-            path: z.string(),
             dataType: z.string(),
           })
         );

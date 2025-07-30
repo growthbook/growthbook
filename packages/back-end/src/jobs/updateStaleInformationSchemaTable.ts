@@ -8,9 +8,7 @@ import {
   updateInformationSchemaTableById,
 } from "back-end/src/models/InformationSchemaTablesModel";
 import { Column } from "back-end/src/types/Integration";
-import { getPath } from "back-end/src/util/informationSchemas";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
-import { trackJob } from "back-end/src/services/tracing";
 
 const UPDATE_STALE_INFORMATION_SCHEMA_TABLE_JOB_NAME =
   "updateStaleInformationSchemaTable";
@@ -19,98 +17,89 @@ type UpdateStaleInformationSchemaTableJob = Job<{
   informationSchemaTableId: string;
 }>;
 
-const updateStaleInformationSchemaTable = trackJob(
-  UPDATE_STALE_INFORMATION_SCHEMA_TABLE_JOB_NAME,
-  async (job: UpdateStaleInformationSchemaTableJob) => {
-    // console.log("starting the job!");
-    const { organization, informationSchemaTableId } = job.attrs.data;
+const updateStaleInformationSchemaTable = async (
+  job: UpdateStaleInformationSchemaTableJob
+) => {
+  // console.log("starting the job!");
+  const { organization, informationSchemaTableId } = job.attrs.data;
 
-    if (!informationSchemaTableId || !organization) return;
+  if (!informationSchemaTableId || !organization) return;
 
-    const informationSchemaTable = await getInformationSchemaTableById(
-      organization,
+  const informationSchemaTable = await getInformationSchemaTableById(
+    organization,
+    informationSchemaTableId
+  );
+
+  if (!informationSchemaTable) {
+    logger.error(
+      "Unable to find information schema table in order to refresh stale data: " +
+        informationSchemaTableId
+    );
+    return;
+  }
+
+  const context = await getContextForAgendaJobByOrgId(organization);
+
+  const datasource = await getDataSourceById(
+    context,
+    informationSchemaTable.datasourceId
+  );
+
+  const informationSchema = await getInformationSchemaById(
+    organization,
+    informationSchemaTable.informationSchemaId
+  );
+
+  if (!datasource || !informationSchema) {
+    logger.error(
+      "Unable to find datasource or information schema in order to refresh stale data: " +
+        informationSchemaTableId
+    );
+    return;
+  }
+
+  try {
+    const { tableData } = await fetchTableData(
+      context,
+      datasource,
+      informationSchema,
       informationSchemaTableId
     );
 
-    if (!informationSchemaTable) {
+    if (!tableData) {
       logger.error(
-        "Unable to find information schema table in order to refresh stale data: " +
+        "Unable to fetch table data in order to refresh stale data: " +
           informationSchemaTableId
       );
       return;
     }
 
-    const context = await getContextForAgendaJobByOrgId(organization);
-
-    const datasource = await getDataSourceById(
-      context,
-      informationSchemaTable.datasourceId
-    );
-
-    const informationSchema = await getInformationSchemaById(
-      organization,
-      informationSchemaTable.informationSchemaId
-    );
-
-    if (!datasource || !informationSchema) {
-      logger.error(
-        "Unable to find datasource or information schema in order to refresh stale data: " +
-          informationSchemaTableId
-      );
-      return;
-    }
-
-    try {
-      const { tableData } = await fetchTableData(
-        context,
-        datasource,
-        informationSchema,
-        informationSchemaTableId
-      );
-
-      if (!tableData) {
-        logger.error(
-          "Unable to fetch table data in order to refresh stale data: " +
-            informationSchemaTableId
-        );
-        return;
+    const columns: Column[] = tableData.map(
+      (row: { column_name: string; data_type: string }) => {
+        return {
+          columnName: row.column_name,
+          dataType: row.data_type,
+        };
       }
+    );
 
-      const columns: Column[] = tableData.map(
-        (row: { column_name: string; data_type: string }) => {
-          return {
-            columnName: row.column_name,
-            dataType: row.data_type,
-            path: getPath(datasource.type, {
-              tableCatalog: informationSchemaTable.databaseName,
-              tableSchema: informationSchemaTable.tableSchema,
-              tableName: informationSchemaTable.tableName,
-              columnName: row.column_name,
-            }),
-          };
-        }
-      );
-
-      // update the information schema table
-      await updateInformationSchemaTableById(
-        organization,
-        informationSchemaTableId,
-        {
-          columns,
-          dateUpdated: new Date(),
-        }
-      );
-    } catch (e) {
-      logger.error(
-        e,
-        "Unable to refresh stale information schema table for: " +
-          informationSchemaTableId +
-          " Error: " +
-          e.message
-      );
-    }
+    // update the information schema table
+    await updateInformationSchemaTableById(
+      organization,
+      informationSchemaTableId,
+      {
+        columns,
+        dateUpdated: new Date(),
+      }
+    );
+  } catch (e) {
+    logger.error(
+      e,
+      "Unable to refresh stale information schema table for: " +
+        informationSchemaTableId
+    );
   }
-);
+};
 
 let agenda: Agenda;
 export default function (ag: Agenda) {

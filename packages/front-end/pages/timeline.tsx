@@ -6,12 +6,11 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import { useExperiments } from "@/hooks/useExperiments";
-import { experimentDate } from "@/pages/experiments";
 import ExperimentTimeline from "@/enterprise/components/Insights/ExperimentTimeline";
 import ExperimentSearchFilters from "@/components/Search/ExperimentSearchFilters";
 import DatePicker from "@/components/DatePicker";
 import EmptyState from "@/components/EmptyState";
-import { useExperimentSearch } from "@/services/experiments";
+import { useExperimentSearch, experimentDate } from "@/services/experiments";
 import LinkButton from "@/components/Radix/LinkButton";
 
 const ExperimentTimelinePage = (): React.ReactElement => {
