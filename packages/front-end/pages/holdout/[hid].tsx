@@ -1,7 +1,7 @@
 import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React, { ReactElement, useState } from "react";
-import { includeExperimentInPayload } from "shared/util";
+import { includeHoldoutInPayload } from "shared/util";
 import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import { FeatureInterface } from "back-end/types/feature";
 import useApi from "@/hooks/useApi";
@@ -51,14 +51,7 @@ const HoldoutPage = (): ReactElement => {
     envs: string[];
   }>(`/holdout/${hid}`);
 
-  const {
-    getDecisionCriteria,
-    getRunningExperimentResultStatus,
-  } = useRunningExperimentStatus();
-
-  const decisionCriteria = getDecisionCriteria(
-    data?.experiment?.decisionFrameworkSettings?.decisionCriteriaId
-  );
+  const { getRunningExperimentResultStatus } = useRunningExperimentStatus();
 
   useSwitchOrg(data?.experiment?.organization ?? null);
 
@@ -129,7 +122,7 @@ const HoldoutPage = (): ReactElement => {
 
   const safeToEdit =
     experiment.status !== "running" ||
-    !includeExperimentInPayload(experiment, []);
+    !includeHoldoutInPayload(holdout, experiment);
 
   return (
     <>
@@ -144,7 +137,7 @@ const HoldoutPage = (): ReactElement => {
           experiment={experiment}
           cancel={() => setMetricsModalOpen(false)}
           mutate={mutate}
-          source="eid"
+          source="hid"
         />
       )}
       {stopModalOpen && (
@@ -153,8 +146,7 @@ const HoldoutPage = (): ReactElement => {
           mutate={mutate}
           experiment={experiment}
           runningExperimentStatus={runningExperimentStatus}
-          decisionCriteria={decisionCriteria}
-          source="eid"
+          source="hid"
         />
       )}
       {variationsModalOpen && (
@@ -163,7 +155,7 @@ const HoldoutPage = (): ReactElement => {
           cancel={() => setVariationsModalOpen(false)}
           onlySafeToEditVariationMetadata={!safeToEdit}
           mutate={mutate}
-          source="eid"
+          source="hid"
         />
       )}
       {duplicateModalOpen && (
@@ -187,7 +179,7 @@ const HoldoutPage = (): ReactElement => {
           }}
           cancel={() => setTagsModalOpen(false)}
           mutate={mutate}
-          source="eid"
+          source="hid"
         />
       )}
       {phaseModalOpen && (
@@ -195,7 +187,7 @@ const HoldoutPage = (): ReactElement => {
           close={() => setPhaseModalOpen(false)}
           mutate={mutate}
           experiment={experiment}
-          source="eid"
+          source="hid"
         />
       )}
       {editPhaseId !== null && (
@@ -205,7 +197,7 @@ const HoldoutPage = (): ReactElement => {
           mutate={mutate}
           i={editPhaseId}
           editTargeting={editTargeting}
-          source="eid"
+          source="hid"
         />
       )}
       {editPhasesOpen && (
@@ -214,7 +206,7 @@ const HoldoutPage = (): ReactElement => {
           mutateExperiment={mutate}
           experiment={experiment}
           editTargeting={editTargeting}
-          source="eid"
+          source="hid"
         />
       )}
       {targetingModalOpen && (

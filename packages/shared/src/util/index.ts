@@ -21,6 +21,7 @@ import {
   SafeRolloutSnapshotAnalysisSettings,
   SafeRolloutSnapshotInterface,
 } from "back-end/src/validators/safe-rollout-snapshot";
+import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import { SavedGroupInterface } from "../types";
 import { featureHasEnvironment } from "./features";
 
@@ -217,6 +218,32 @@ export function includeExperimentInPayload(
     if (!hasFeaturesWithPublishedRules) {
       return false;
     }
+  }
+
+  return true;
+}
+
+export function includeHoldoutInPayload(
+  holdout: HoldoutInterface,
+  exp: ExperimentInterface | ExperimentInterfaceStringDates
+): boolean {
+  // Archived experiments are always excluded
+  if (exp.archived) return false;
+
+  if (
+    Object.keys(holdout.linkedExperiments).length === 0 &&
+    Object.keys(holdout.linkedFeatures).length === 0
+  )
+    return false;
+
+  if (exp.status === "draft") return false;
+
+  if (!exp.phases?.length) return false;
+
+  // Stopped holdouts are only included if they are currently releasing a winning variant
+  if (exp.status === "stopped") {
+    if (exp.excludeFromPayload) return false;
+    if (!exp.releasedVariationId) return false;
   }
 
   return true;

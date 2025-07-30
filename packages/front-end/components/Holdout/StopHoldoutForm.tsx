@@ -10,7 +10,7 @@ import track from "@/services/track";
 import Modal from "@/components/Modal";
 import { Results } from "@/components/Experiment/ResultsIndicator";
 
-const StopExperimentForm: FC<{
+const StopHoldoutForm: FC<{
   experiment: ExperimentInterfaceStringDates;
   runningExperimentStatus?: ExperimentResultStatusData;
   mutate: () => void;
@@ -111,4 +111,4 @@ const StopExperimentForm: FC<{
   );
 };
 
-export default StopExperimentForm;
+export default StopHoldoutForm;
