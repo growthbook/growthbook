@@ -26,6 +26,7 @@ import { UpdateProps } from "back-end/types/models";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import { ArchetypeInterface } from "back-end/types/archetype";
 import { SegmentInterface } from "back-end/types/segment";
+import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import { SavedGroupInterface } from "../types";
 import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
 class PermissionError extends Error {
@@ -325,6 +326,45 @@ export class Permissions {
   ): boolean => {
     return this.checkProjectFilterPermission(
       { projects: experiment.project ? [experiment.project] : [] },
+      "createAnalyses"
+    );
+  };
+
+  // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
+  public canViewHoldoutModal = (projects?: string[]): boolean => {
+    return this.checkProjectFilterPermission(
+      {
+        projects: projects || [],
+      },
+      "createAnalyses"
+    );
+  };
+
+  public canCreateHoldout = (
+    holdout: Pick<HoldoutInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: holdout.projects || [] },
+      "createAnalyses"
+    );
+  };
+
+  public canUpdateHoldout = (
+    existing: Pick<HoldoutInterface, "projects">,
+    updated: Pick<HoldoutInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      { projects: existing.projects || [] },
+      "projects" in updated ? { projects: updated.projects } : {},
+      "createAnalyses"
+    );
+  };
+
+  public canDeleteHoldout = (
+    holdout: Pick<HoldoutInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: holdout.projects || [] },
       "createAnalyses"
     );
   };
@@ -840,6 +880,19 @@ export class Permissions {
     return this.checkEnvFilterPermission(
       {
         projects: experiment.project ? [experiment.project] : [],
+      },
+      environments,
+      "runExperiments"
+    );
+  };
+
+  public canRunHoldout = (
+    holdout: Pick<HoldoutInterface, "projects">,
+    environments: string[]
+  ): boolean => {
+    return this.checkEnvFilterPermission(
+      {
+        projects: holdout.projects || [],
       },
       environments,
       "runExperiments"

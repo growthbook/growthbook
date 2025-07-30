@@ -342,8 +342,9 @@ export default function TabbedPage({
             </div>
           </div>
         )}
-        <CustomMarkdown page={"experiment"} variables={variables} />
-
+        {experiment.type !== "holdout" && (
+          <CustomMarkdown page={"experiment"} variables={variables} />
+        )}
         {experiment.status === "stopped" && (
           <div className="pt-3">
             <StoppedExperimentBanner

@@ -88,12 +88,12 @@ const HoldoutPage = (): ReactElement => {
   };
 
   const canEditExperiment =
-    permissionsUtil.canViewExperimentModal(experiment.project) &&
+    permissionsUtil.canViewHoldoutModal(holdout.projects) &&
     !experiment.archived;
 
   let canRunExperiment = !experiment.archived;
   if (envs.length > 0) {
-    if (!permissionsUtil.canRunExperiment(experiment, envs)) {
+    if (!permissionsUtil.canRunHoldout(holdout, envs)) {
       canRunExperiment = false;
     }
   }

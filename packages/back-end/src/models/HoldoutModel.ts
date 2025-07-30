@@ -20,7 +20,7 @@ const BaseClass = MakeModelClass({
 export class HoldoutModel extends BaseClass {
   // CRUD permission checks
   protected canCreate(doc: HoldoutInterface): boolean {
-    return true;
+    return this.context.permissions.canCreateHoldout(doc);
   }
   protected canRead(doc: HoldoutInterface): boolean {
     return this.context.permissions.canReadMultiProjectResource(doc.projects);
@@ -29,10 +29,10 @@ export class HoldoutModel extends BaseClass {
     existing: HoldoutInterface,
     updates: HoldoutInterface
   ): boolean {
-    return true;
+    return this.context.permissions.canUpdateHoldout(existing, updates);
   }
   protected canDelete(doc: HoldoutInterface): boolean {
-    return true;
+    return this.context.permissions.canDeleteHoldout(doc);
   }
 
   // TODO: Add additional filtering for holdouts. Check that holdout is still active
