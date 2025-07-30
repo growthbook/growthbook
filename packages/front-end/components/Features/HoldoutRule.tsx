@@ -10,6 +10,7 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Badge from "@/components/Radix/Badge";
 import useApi from "@/hooks/useApi";
+import ExperimentStatusIndicator from "../Experiment/TabbedPage/ExperimentStatusIndicator";
 import HoldoutSummary from "./HoldoutSummary";
 import ConditionDisplay from "./ConditionDisplay";
 
@@ -77,10 +78,9 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
                         <Link href={`/holdout/${feature.holdout?.id}`}>
                           {holdout.name}
                         </Link>
-                        {/* TODO: add holdout status indicator */}
-                        {/* <ExperimentStatusIndicator
-                            experimentData={holdoutExperiment}
-                          /> */}
+                        <ExperimentStatusIndicator
+                          experimentData={holdoutExperiment}
+                        />
                       </Flex>
                     </Heading>
                   </Box>
