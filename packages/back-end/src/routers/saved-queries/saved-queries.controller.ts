@@ -19,11 +19,12 @@ import {
 import {
   InformationSchemaTablesInterface,
   InformationSchemaInterface,
+  Column,
 } from "back-end/src/types/Integration";
 import { getInformationSchemaByDatasourceId } from "back-end/src/models/InformationSchemaModel";
 import {
+  createInformationSchemaTable,
   getInformationSchemaTableById,
-  insertNewSchemaTable,
 } from "back-end/src/models/InformationSchemaTablesModel";
 import { fetchTableData } from "back-end/src/services/informationSchema";
 import { ReqContext } from "back-end/types/organization";
@@ -490,16 +491,27 @@ async function fetchOrCreateTableSchema({
   if (!tableData) {
     throw new Error("no tables found in schema " + tableId);
   }
-  return await insertNewSchemaTable({
-    tableData,
-    organizationId: context.org.id,
-    datasource,
-    informationSchema,
-    databaseName,
-    tableSchema,
+
+  const columns: Column[] = tableData.map(
+    (row: { column_name: string; data_type: string }) => {
+      return {
+        columnName: row.column_name,
+        dataType: row.data_type,
+      };
+    }
+  );
+
+  // Create the table record in Mongo.
+  return await createInformationSchemaTable({
+    organization: context.org.id,
     tableName,
+    tableSchema,
+    databaseName,
+    columns,
     refreshMS,
-    tableId: tableId,
+    datasourceId: datasource.id,
+    informationSchemaId: informationSchema.id,
+    id: tableId,
   })
     .then((x) => {
       return x;
