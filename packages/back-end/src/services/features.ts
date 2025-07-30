@@ -117,7 +117,7 @@ export function generateFeaturesPayload({
   groupMap,
   prereqStateCache = {},
   safeRolloutMap,
-  holdouts,
+  holdoutsMap,
 }: {
   features: FeatureInterface[];
   experimentMap: Map<string, ExperimentInterface>;
@@ -125,7 +125,7 @@ export function generateFeaturesPayload({
   groupMap: GroupMap;
   prereqStateCache?: Record<string, Record<string, PrerequisiteStateResult>>;
   safeRolloutMap: Map<string, SafeRolloutInterface>;
-  holdouts: HoldoutInterface[];
+  holdoutsMap: Map<string, HoldoutInterface>;
 }): Record<string, FeatureDefinition> {
   prereqStateCache[environment] = prereqStateCache[environment] || {};
 
@@ -142,12 +142,13 @@ export function generateFeaturesPayload({
       groupMap,
       experimentMap,
       safeRolloutMap,
+      holdoutsMap,
     });
     if (def) {
       defs[feature.id] = def;
     }
   });
-  holdouts.forEach((holdout) => {
+  holdoutsMap.forEach((holdout) => {
     const exp = experimentMap.get(holdout.experimentId);
     if (!exp) return;
 
@@ -175,7 +176,7 @@ export function generateFeaturesPayload({
         },
       ],
     };
-    defs[`holdout:${holdout.id}`] = def; // TODO: make sure this is unique. consider adding time create and hash maybe to make sure its unique
+    defs[`holdout:${holdout.id}`] = def; // TODO: make sure this is unique.
   });
 
   return defs;
@@ -489,7 +490,7 @@ export async function refreshSDKPayloadCache(
 
   const promises: (() => Promise<void>)[] = [];
   for (const environment of environments) {
-    const holdouts = await context.models.holdout.getAllPayloadHoldouts(
+    const holdoutsMap = await context.models.holdout.getAllPayloadHoldouts(
       environment
     );
     const featureDefinitions = generateFeaturesPayload({
@@ -499,7 +500,7 @@ export async function refreshSDKPayloadCache(
       experimentMap,
       prereqStateCache,
       safeRolloutMap,
-      holdouts,
+      holdoutsMap,
     });
 
     const experimentsDefinitions = generateAutoExperimentsPayload({
@@ -843,7 +844,7 @@ export async function getFeatureDefinitions({
   const groupMap = await getSavedGroupMap(context.org, savedGroups);
   const experimentMap = await getAllPayloadExperiments(context);
   const safeRolloutMap = await context.models.safeRollout.getAllPayloadSafeRollouts();
-  const holdouts = await context.models.holdout.getAllPayloadHoldouts(
+  const holdoutsMap = await context.models.holdout.getAllPayloadHoldouts(
     environment
   );
 
@@ -859,7 +860,7 @@ export async function getFeatureDefinitions({
     experimentMap,
     prereqStateCache,
     safeRolloutMap,
-    holdouts,
+    holdoutsMap,
   });
 
   const allVisualExperiments = await getAllVisualExperiments(
@@ -1099,7 +1100,9 @@ export async function evaluateAllFeatures({
     if (!env) {
       continue;
     }
-    const holdouts = await context.models.holdout.getAllPayloadHoldouts(env.id);
+    const holdoutsMap = await context.models.holdout.getAllPayloadHoldouts(
+      env.id
+    );
 
     const featurePayload = generateFeaturesPayload({
       features: allFeaturesRaw,
@@ -1108,7 +1111,7 @@ export async function evaluateAllFeatures({
       groupMap,
       prereqStateCache: {},
       safeRolloutMap,
-      holdouts,
+      holdoutsMap,
     });
 
     // now we have all the definitions, lets evaluate them

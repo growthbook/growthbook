@@ -35,20 +35,23 @@ export class HoldoutModel extends BaseClass {
     return this.context.permissions.canDeleteHoldout(doc);
   }
 
-  // TODO: Add additional filtering for holdouts. Check that holdout is still active
   public async getAllPayloadHoldouts(environment?: string) {
     const holdouts = await this._find({});
     const filteredHoldouts = holdouts.filter((h) => {
-      if (environment) {
-        return h.environmentSettings[environment].enabled;
+      if (
+        !Object.keys(h.linkedExperiments).length &&
+        !Object.keys(h.linkedFeatures).length
+      )
+        return false;
+      if (environment && !h.environmentSettings[environment]?.enabled) {
+        return false;
       }
       return true;
     });
-    // if (!filteredHoldouts || filteredHoldouts.length === 0) {
-    //   return new Map();
-    // }
-    // return new Map(filteredHoldouts.map((h) => [h.id, h]));
-    return filteredHoldouts;
+    if (!filteredHoldouts || filteredHoldouts.length === 0) {
+      return new Map();
+    }
+    return new Map(filteredHoldouts.map((h) => [h.id, h]));
   }
 
   public async removeExperimentFromHoldout(

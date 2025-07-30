@@ -20,6 +20,7 @@ import { ExperimentInterface } from "back-end/types/experiment";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { Environment } from "back-end/types/organization";
 import { SafeRolloutInterface } from "back-end/types/safe-rollout";
+import { HoldoutInterface } from "../routers/holdout/holdout.validators";
 import { getCurrentEnabledState } from "./scheduleRules";
 
 function getSavedGroupCondition(
@@ -323,6 +324,7 @@ export function getFeatureDefinition({
   revision,
   date,
   safeRolloutMap,
+  holdoutsMap,
 }: {
   feature: FeatureInterface;
   environment: string;
@@ -331,6 +333,7 @@ export function getFeatureDefinition({
   revision?: FeatureRevisionInterface;
   date?: Date;
   safeRolloutMap: Map<string, SafeRolloutInterface>;
+  holdoutsMap?: Map<string, HoldoutInterface>;
 }): FeatureDefinitionWithProject | null {
   const settings = feature.environmentSettings?.[environment];
 
@@ -348,21 +351,26 @@ export function getFeatureDefinition({
     : settings.rules;
 
   // If the feature has a holdout and it's enabled for the environment, add holdout as a
-  // pseudo force rule with a prerequisite condition
-  const holdoutRule: FeatureDefinitionRule[] = feature.holdout
-    ? [
-        {
-          id: `fr_${uuidv4()}`,
-          parentConditions: [
-            {
-              id: `holdout:${feature.holdout.id}`,
-              condition: { value: "holdoutcontrol" },
-            },
-          ],
-          force: getJSONValue(feature.valueType, feature.holdout.value),
-        },
-      ]
-    : [];
+  // pseudo force rule with a prerequisite condition. The environment being enabled is
+  // already checked in the getAllPayloadHoldouts function.
+  const holdoutRule: FeatureDefinitionRule[] =
+    feature.holdout &&
+    holdoutsMap &&
+    holdoutsMap.get(feature.holdout.id)?.environmentSettings?.[environment]
+      ?.enabled
+      ? [
+          {
+            id: `fr_${uuidv4()}`,
+            parentConditions: [
+              {
+                id: `holdout:${feature.holdout.id}`,
+                condition: { value: "holdoutcontrol" },
+              },
+            ],
+            force: getJSONValue(feature.valueType, feature.holdout.value),
+          },
+        ]
+      : [];
 
   // convert prerequisites to force rules:
   const prerequisiteRules = (feature.prerequisites ?? [])

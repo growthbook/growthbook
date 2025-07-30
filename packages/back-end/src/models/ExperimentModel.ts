@@ -1338,7 +1338,7 @@ export async function getAllPayloadExperiments(
 
   return new Map(
     experiments
-      .filter((e) => includeExperimentInPayload(e))
+      .filter((e) => includeExperimentInPayload(e) || e.type === "holdout")
       .map((e) => [e.id, e])
   );
 }
