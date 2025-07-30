@@ -319,29 +319,32 @@ export async function postGenerateSQL(
     )
     .filter((table) => table !== undefined && table !== null);
 
+  let filteredTablesInfo = tablesInfo;
   // if there are more than maxTables, lets do a two part search, asking the AI to give its best guess as to which tables to use.
-  if (tablesInfo.length > maxTables) {
+  if (filteredTablesInfo.length > maxTables) {
     const instructions =
       "You are a data analyst and SQL expert. " +
       "Please provide a list of the most relevant tables to use for the following question: " +
       input +
-      ". " +
-      "The list should be in the format: 'databaseName.schemaName.tableName'. " +
-      "The tables must be one of the following tables:" +
+      ". Return the Fully Qualified Table Name (FQTN). " +
+      (datasource.type === "mysql"
+        ? "The FQTN should be in the format: 'databaseName.tableName'. "
+        : "The FQTN should be in the format: 'databaseName.schemaName.tableName'. ") +
+      "The FQTN must be one of the following tables:" +
       "\n" +
-      tablesInfo
+      filteredTablesInfo
         .map(
           (table) =>
             `${table?.databaseName}.${table?.schemaName}.${table?.tableName}`
         )
         .join(", ") +
-      "Return at most 20 tables. Return only the table names, separated by commas, without any additional text or explanations.";
+      "Return at most 20 FQTN tables. Return only the FQTN, separated by commas, without any additional text or explanations.";
 
     const aiResults = await simpleCompletion({
       context,
       instructions,
       prompt:
-        "Return table names only, no markdown, no explanation, no comments.",
+        "Return FQTN table names only, no markdown, no explanation, no comments.",
       type: "generate-sql-query",
       isDefaultPrompt: true,
       temperature: 0.1,
@@ -353,7 +356,7 @@ export async function postGenerateSQL(
       .filter((name) => name);
 
     // filter the tablesInfo to only include the ones that are in the AI response:
-    const filteredTablesInfo = tablesInfo.filter((table) =>
+    filteredTablesInfo = tablesInfo.filter((table) =>
       tableNames.includes(
         `${table?.databaseName}.${table?.schemaName}.${table?.tableName}`
       )
@@ -365,66 +368,36 @@ export async function postGenerateSQL(
         message: "No relevant tables found based on AI response",
       });
     }
+  }
+  // for the tablesInfo/filteredTables, lets loop through them and fetch their schemas, from getInformationSchemaTableById() or fetchOrCreateTableSchema()
+  for (const table of filteredTablesInfo) {
+    // Sharded tables in BigQuery, as common with Google Analytics, can result in a huge number of tables, all of which share a schema.
+    // This code tries to detect sharded tables, and not scan them all to get the schema, but rather just one of them.
+    // we should probably find a better way to match sharded tables in bigquery...
 
-    // for the filteredTables, lets loop through them and fetch their schemas, from getInformationSchemaTableById() or fetchOrCreateTableSchema()
-    for (const table of filteredTablesInfo) {
-      // Sharded tables in BigQuery, as common with Google Analytics, can result in a huge number of tables, all of which share a schema.
-      // This code tries to detect sharded tables, and not scan them all to get the schema, but rather just one of them.
-      // we should probably find a better way to match sharded tables in bigquery...
-
-      if (table.numColumns) {
-        const tableSchema = await getInformationSchemaTableById(
-          context.org.id,
-          table.id
-        );
-        if (!tableSchema) {
-          // try to fetch the schema if not found:
-          try {
-            const tableSchemaData = await fetchOrCreateTableSchema({
-              context,
-              datasource,
-              informationSchema,
-              tableId: table.id,
-              databaseName: table.databaseName,
-              tableSchema: table.schemaName,
-              tableName: table.tableName,
-            });
-            dbSchemas.set(table.id, tableSchemaData);
-          } catch (error) {
-            errors.push(error);
-          }
-        } else {
-          dbSchemas.set(table.id, tableSchema);
+    if (table.numColumns) {
+      const tableSchema = await getInformationSchemaTableById(
+        context.org.id,
+        table.id
+      );
+      if (!tableSchema) {
+        // try to fetch the schema if not found:
+        try {
+          const tableSchemaData = await fetchOrCreateTableSchema({
+            context,
+            datasource,
+            informationSchema,
+            tableId: table.id,
+            databaseName: table.databaseName,
+            tableSchema: table.schemaName,
+            tableName: table.tableName,
+          });
+          dbSchemas.set(table.id, tableSchemaData);
+        } catch (error) {
+          errors.push(error);
         }
-      }
-    }
-  } else {
-    // Loop through the tablesInfo array
-    for (const table of tablesInfo) {
-      if (table.numColumns) {
-        const tableSchema = await getInformationSchemaTableById(
-          context.org.id,
-          table.id
-        );
-        if (!tableSchema) {
-          // Try to fetch the schema if not found
-          try {
-            const tableSchemaData = await fetchOrCreateTableSchema({
-              context,
-              datasource,
-              informationSchema,
-              tableId: table.id,
-              databaseName: table.databaseName,
-              tableSchema: table.schemaName,
-              tableName: table.tableName,
-            });
-            dbSchemas.set(table.id, tableSchemaData);
-          } catch (error) {
-            errors.push(error);
-          }
-        } else {
-          dbSchemas.set(table.id, tableSchema);
-        }
+      } else {
+        dbSchemas.set(table.id, tableSchema);
       }
     }
   }
@@ -447,7 +420,7 @@ export async function postGenerateSQL(
       ? "clickhouse"
       : datasource.type) +
     " database. Be sure to make queries valid for that database type." +
-    (isGA ? " This database and tables from Google Analytics." : "") +
+    (isGA ? " This database and tables are from Google Analytics." : "") +
     "\n\nTable structure: " +
     "\n" +
     schemasString +
@@ -466,7 +439,7 @@ export async function postGenerateSQL(
       "you're asked for a date range, you should use something like: " +
       "\n(_TABLE_SUFFIX BETWEEN 'yyyyMMdd' AND 'yyyyMMdd')" +
       "\nWhere yyyy is the full year, MM is the month, and dd is the day.\n when constructing the query " +
-      "to make sure it's fast and takes use of the sharding. If you use this code, be sure to replace the dates with the correct range.\n";
+      "to make sure it's fast and makes use of the sharding. If you use this code, be sure to replace the dates with the correct range.\n";
   }
 
   const aiResults = await simpleCompletion({

@@ -28,7 +28,6 @@ import {
   updateMetric,
   getMetricsByDatasource,
   generateMetricEmbeddings,
-  getMetricsByIds,
 } from "back-end/src/models/MetricModel";
 import { IdeaInterface } from "back-end/types/idea";
 
@@ -764,12 +763,6 @@ export const getGeneratedDescription = async (
         message: "Metric not found",
       });
     }
-    if (!req.organization) {
-      return res.status(404).json({
-        status: 404,
-        message: "Organization not found",
-      });
-    }
     // get the fact table:
     const factTable = await getFactTable(
       context,
@@ -782,13 +775,13 @@ export const getGeneratedDescription = async (
     const factTableDatasource = factTable?.datasource ?? "";
     const datasource = await getDataSourceById(context, factTableDatasource);
     const factMetricName = factMetric.name;
+    const allProjects = await context.getProjects();
+    const projectMap = new Map(
+      allProjects.map((project) => [project.id, project.name || ""])
+    );
+
     const projectNames = factMetric?.projects
-      ? await Promise.all(
-          factMetric.projects.map(async (p) => {
-            const project = await context.models.projects.getById(p);
-            return project?.name || "";
-          })
-        )
+      ? factMetric.projects.map((p) => projectMap.get(p) || "")
       : [];
     const factMetricNumerator = factMetric.numerator;
     const factMetricDenominator = factMetric?.denominator ?? null;
@@ -835,7 +828,19 @@ export const getGeneratedDescription = async (
         JSON.stringify(factTableColumns) +
         "\n" +
         "- the fact metric is of type:" +
-        factMetric.metricType,
+        factMetric.metricType +
+        "\n" +
+        "- the fact metric has the following window settings: " +
+        JSON.stringify(factMetric.windowSettings) +
+        "\n" +
+        "- the fact metric has the following capping settings: " +
+        JSON.stringify(factMetric.cappingSettings) +
+        "\n" +
+        "- the fact metric has the following quantile settings: " +
+        JSON.stringify(factMetric.quantileSettings) +
+        "\n" +
+        "- the fact metric has the following tags: " +
+        JSON.stringify(factMetric.tags),
       "Fact metrics are used with A/B testing experiments as metrics",
       "Fact tables are a way that one query can return multiple columns, and those columns can be used as a numerator and/or denominator in a metric",
       "Fact tables describe what columns are selectable in the fact metric",
@@ -843,11 +848,11 @@ export const getGeneratedDescription = async (
       "Fact tables describe filters that can be used in the fact metric",
       "Each fact metric is described by a json object that has following keys: factTableId, which will match the fact table described, a column that is the column of the fact table query, an optional array of filter ids which will match the fact table filters by id, and an optional object of inlineFilters, which are not references, but will match the key to the column, and the value to the value of that column",
       "Timeframes are common to all metrics, and not important to describe (eg: this SQL is common for all: AND timestamp BETWEEN '{{startDate}}' AND '{{endDate}}')",
-      "Fact metrics of type 'proportion' fact metrics are used to measure the percent of experiment users who exist in a fact table",
-      "Fact metrics of type 'retention' fact metrics are used to measure the percent of experiment users who exist in a fact table a certain period after experiment exposure",
-      "Fact metrics of type 'mean' fact metrics are used to measure the average of a numeric value among all experiment users",
-      "Fact metrics of type 'ratio' fact metrics are used to measure the ratio of two numeric values among experiment users",
-      "Fact metrics of type 'quantile' fact metrics are used to measure the quantile of values after aggregating per user",
+      "Fact metrics of type 'proportion' are used to measure the percent of experiment users who exist in a fact table",
+      "Fact metrics of type 'retention' are used to measure the percent of experiment users who exist in a fact table a certain period after experiment exposure",
+      "Fact metrics of type 'mean' are used to measure the average of a numeric value among all experiment users",
+      "Fact metrics of type 'ratio' are used to measure the ratio of two numeric values among experiment users",
+      "Fact metrics of type 'quantile' are used to measure the quantile of values after aggregating per user",
       "Projects are a way to isolate or organize teams or products within a single organization",
     ];
 
@@ -868,6 +873,7 @@ export const getGeneratedDescription = async (
     });
     return;
   } else {
+    // a regular metric:
     const metric = await getMetricById(context, id, true);
     if (!metric) {
       return res.status(404).json({
@@ -887,6 +893,16 @@ export const getGeneratedDescription = async (
           })
         )
       : [];
+    // get any metric denominators if set:
+    let denominatorMetric: MetricInterface | null = null;
+    if (metric.denominator) {
+      const denominatorMetricId = metric.denominator;
+      denominatorMetric = await getMetricById(
+        context,
+        denominatorMetricId,
+        true
+      );
+    }
 
     const priorKnowledge = [
       "You are a data analyst who provides concise and accurate descriptions of metrics used in an A/B tests for less technical users to understand what this metric does",
@@ -896,9 +912,31 @@ export const getGeneratedDescription = async (
         "\n- it is based on the SQL:" +
         metric.sql +
         "\n" +
-        (projectNames.length
-          ? "- the metric is added to the following projects: " +
-            projectNames.join(", ") +
+        "- the metric has the following aggregation: " +
+        (metric?.aggregation ?? "SUM") +
+        "\n" +
+        (metric.type ? "- the metric is of type: " + metric.type + "\n" : "") +
+        (denominatorMetric
+          ? "- the metric has a denominator: " +
+            "name: " +
+            denominatorMetric.name +
+            ", description: " +
+            denominatorMetric.description +
+            "\n"
+          : "") +
+        (metric.windowSettings
+          ? "- the metric has the following window settings: " +
+            JSON.stringify(metric.windowSettings) +
+            "\n"
+          : "") +
+        (metric.cappingSettings
+          ? "- the metric has the following capping settings: " +
+            JSON.stringify(metric.cappingSettings) +
+            "\n"
+          : "") +
+        (metric.tags && metric.tags.length
+          ? "- the metric has the following tags: " +
+            metric.tags.join(", ") +
             "\n"
           : "") +
         "- the metric has the following datasource: " +
@@ -914,8 +952,27 @@ export const getGeneratedDescription = async (
             JSON.stringify(metric.templateVariables) +
             "\n"
           : ""),
+      (projectNames.length
+        ? "- the metric is added to the following projects: " +
+          projectNames.join(", ") +
+          "\n"
+        : "") +
+        "- the metric has the following datasource: " +
+        (metricDatasource?.name ?? "") +
+        "\n" +
+        (metricDatasource?.description
+          ? "- the datasource has the description of: " +
+            metricDatasource.description +
+            "\n"
+          : "") +
+        (metric.templateVariables
+          ? "- the metric has the following template variables: " +
+            JSON.stringify(metric.templateVariables) +
+            "\n"
+          : ""),
       "Metrics are used for A/B testing",
       "A metric is defined by SQL which is run against the datasource",
+      "metric aggregation refers to how individual data points are combined or summarized to calculate the value of a metric for analysis in A/B tests or reports",
       "metrics may have template variables, which are replaced with values when the metric is run",
       "Timeframes are common to all metrics, and not important to describe (eg: this SQL is common for all: AND timestamp BETWEEN '{{startDate}}' AND '{{endDate}}')",
       "Projects are a way to isolate or organize teams or products within a single organization",
@@ -939,6 +996,11 @@ export const getGeneratedDescription = async (
   }
 };
 
+/**
+ * @todo - This endpoint is used to find similar metrics based on the name and description - make it also support fact metrics before using.
+ * @param req
+ * @param res
+ */
 export async function postSimilarMetrics(
   req: AuthRequest<{
     name: string;
@@ -960,21 +1022,13 @@ export async function postSimilarMetrics(
   const { name, description, full } = req.body;
   const { aiEnabled } = getAISettingsForOrg(context);
 
-  if (!req.organization) {
-    return res.status(404).json({
-      status: 404,
-      message: "Organization not found",
-    });
-  }
   if (!aiEnabled) {
     return res.status(404).json({
       status: 404,
       message: "AI configuration not set or enabled",
     });
   }
-  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(
-    req.organization
-  );
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
   if (secondsUntilReset > 0) {
     return res.status(429).json({
       status: 429,
@@ -1051,7 +1105,9 @@ export async function postSimilarMetrics(
 
   // loop through similarMetrics and get the full experiment object
   const similarMetricIds = similarMetrics.map((s) => s.id);
-  const similarMetricObjects = await getMetricsByIds(context, similarMetricIds);
+  const similarMetricObjects = allMetrics.filter((m) =>
+    similarMetricIds.includes(m.id)
+  );
   const similarMetricWithDetails = similarMetrics
     .map((s) => {
       if (!s) return null; // Ensure `s` is not null
@@ -1077,21 +1133,13 @@ export async function postRegenerateEmbeddings(
 
   const { aiEnabled } = getAISettingsForOrg(context);
 
-  if (!req.organization) {
-    return res.status(404).json({
-      status: 404,
-      message: "Organization not found",
-    });
-  }
   if (!aiEnabled) {
     return res.status(404).json({
       status: 404,
       message: "AI configuration not set or enabled",
     });
   }
-  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(
-    req.organization
-  );
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
   if (secondsUntilReset > 0) {
     return res.status(429).json({
       status: 429,

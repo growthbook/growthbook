@@ -1,5 +1,10 @@
 import { OpenAI } from "openai";
 import {
+  ResponseFormatText,
+  ResponseFormatJSONSchema,
+  ResponseFormatJSONObject,
+} from "openai/resources/shared";
+import {
   encoding_for_model,
   get_encoding,
   TiktokenModel,
@@ -25,22 +30,21 @@ const MODEL_TOKEN_LIMIT = 128000;
 const MESSAGE_TOKEN_LIMIT = MODEL_TOKEN_LIMIT - 30;
 
 let _openai: OpenAI | null = null;
-let _openAIModel: TiktokenModel = "gpt-4o-mini";
-export const getOpenAI = (context: ReqContext | ApiReqContext) => {
-  if (_openai == null) {
-    const { aiEnabled, openAIAPIKey, openAIDefaultModel } = getAISettingsForOrg(
-      context,
-      true
-    );
 
-    _openAIModel = openAIDefaultModel;
+export const getOpenAI = (context: ReqContext | ApiReqContext) => {
+  const { aiEnabled, openAIAPIKey, openAIDefaultModel } = getAISettingsForOrg(
+    context,
+    true
+  );
+  if (_openai == null) {
     if (openAIAPIKey && aiEnabled) {
       _openai = new OpenAI({
         apiKey: openAIAPIKey || "",
       });
     }
   }
-  return _openai;
+  const _openAIModel: TiktokenModel = openAIDefaultModel || "gpt-4o-mini";
+  return { client: _openai, model: _openAIModel };
 };
 
 type ChatCompletionRequestMessage = {
@@ -54,14 +58,16 @@ type ChatCompletionRequestMessage = {
  * to model. So when future model versions are released, the answers returned
  * by this function may be only approximate.
  */
-const numTokensFromMessages = (messages: ChatCompletionRequestMessage[]) => {
+const numTokensFromMessages = (
+  messages: ChatCompletionRequestMessage[],
+  context: ReqContext | ApiReqContext
+) => {
   let encoding;
   try {
-    encoding = encoding_for_model(_openAIModel);
+    const { model } = getOpenAI(context);
+    encoding = encoding_for_model(model);
   } catch (e) {
-    logger.warn(
-      `services/openai - Could not find encoding for model "${_openAIModel}"`
-    );
+    logger.warn(`services/openai - Could not find encoding for model`);
     encoding = get_encoding("cl100k_base");
   }
 
@@ -100,6 +106,8 @@ export const simpleCompletion = async ({
   temperature,
   type,
   isDefaultPrompt,
+  returnType = "text",
+  jsonSchema,
 }: {
   context: ReqContext | ApiReqContext;
   instructions?: string;
@@ -108,8 +116,10 @@ export const simpleCompletion = async ({
   temperature?: number;
   type: AIPromptType;
   isDefaultPrompt: boolean;
+  returnType?: "text" | "json";
+  jsonSchema?: ResponseFormatJSONSchema.JSONSchema;
 }) => {
-  const openai = getOpenAI(context);
+  const { client: openai, model } = getOpenAI(context);
 
   if (openai == null) {
     throw new Error("OpenAI not enabled or key not set");
@@ -130,7 +140,7 @@ export const simpleCompletion = async ({
   }
   messages.push({ role: "user", content: prompt });
 
-  const numTokens = numTokensFromMessages(messages);
+  const numTokens = numTokensFromMessages(messages, context);
   if (maxTokens != null && numTokens > maxTokens) {
     throw new Error(
       `Number of tokens (${numTokens}) exceeds maxTokens (${maxTokens})`
@@ -142,27 +152,34 @@ export const simpleCompletion = async ({
     );
   }
 
+  const response_format:
+    | ResponseFormatText
+    | ResponseFormatJSONSchema
+    | ResponseFormatJSONObject =
+    returnType === "json"
+      ? jsonSchema
+        ? { type: "json_schema", json_schema: jsonSchema }
+        : { type: "json_object" }
+      : { type: "text" };
   const response = await openai.chat.completions.create({
-    model: _openAIModel,
+    model,
     messages,
+    response_format,
     ...(temperature != null ? { temperature } : {}),
   });
 
   const numTokensUsed = response.usage?.total_tokens ?? numTokens;
-  try {
-    // Fire and forget
-    logCloudAIUsage({
-      organization: context.org.id,
-      type,
-      model: _openAIModel,
-      numPromptTokensUsed: response.usage?.prompt_tokens ?? 0,
-      numCompletionTokensUsed: response.usage?.completion_tokens ?? 0,
-      temperature,
-      usedDefaultPrompt: isDefaultPrompt,
-    });
-  } catch (e) {
-    logger.error(e, "Failed to log AI usage to Clickhouse");
-  }
+
+  // Fire and forget
+  logCloudAIUsage({
+    organization: context.org.id,
+    type,
+    model,
+    numPromptTokensUsed: response.usage?.prompt_tokens ?? 0,
+    numCompletionTokensUsed: response.usage?.completion_tokens ?? 0,
+    temperature,
+    usedDefaultPrompt: isDefaultPrompt,
+  });
 
   await updateTokenUsage({ numTokensUsed, organization: context.org });
 
@@ -176,7 +193,7 @@ export const generateEmbeddings = async ({
   context: ReqContext | ApiReqContext;
   input: string[];
 }) => {
-  const openai = getOpenAI(context);
+  const { client: openai } = getOpenAI(context);
 
   if (openai == null) {
     throw new Error("OpenAI not enabled or key not set");

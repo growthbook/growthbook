@@ -10,6 +10,7 @@ import {
   isDefined,
 } from "shared/util";
 import {
+  expandMetricGroups,
   getAllMetricIdsFromExperiment,
   getAllMetricSettingsForSnapshot,
 } from "shared/experiments";
@@ -40,6 +41,7 @@ import { MetricInterface, MetricStats } from "back-end/types/metric";
 import {
   createExperiment,
   deleteExperimentByIdForOrganization,
+  generateExperimentEmbeddings,
   getAllExperiments,
   getExperimentById,
   getExperimentByTrackingKey,
@@ -48,7 +50,6 @@ import {
   getPastExperimentsByDatasource,
   hasArchivedExperiments,
   updateExperiment,
-  generateExperimentEmbeddings,
 } from "back-end/src/models/ExperimentModel";
 import {
   createVisualChangeset,
@@ -173,7 +174,7 @@ export async function getExperiments(
   });
 }
 
-/* Post endpoint to use OpenAI library to generate an analysis for a given 
+/* Post endpoint to use OpenAI library to generate an analysis for a given
 experiment based on the id, and the suggested results, winner and releasedVariationId*/
 export async function postAIExperimentAnalysis(
   req: AuthRequest<
@@ -208,15 +209,8 @@ export async function postAIExperimentAnalysis(
       message: "AI configuration not set or enabled",
     });
   }
-  if (!req.organization) {
-    return res.status(404).json({
-      status: 404,
-      message: "Organization not found",
-    });
-  }
-  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(
-    req.organization
-  );
+
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
   if (secondsUntilReset > 0) {
     return res.status(429).json({
       status: 429,
@@ -233,14 +227,17 @@ export async function postAIExperimentAnalysis(
       type: "standard",
     })) || undefined;
 
-  const winnerVariationName = experiment.variations[winner].name;
+  const winnerVariationName =
+    experiment.variations[winner]?.name || "none chosen";
   const releasedVariationName =
     experiment.variations.find((v) => v.id === releasedVariationId)?.name || "";
 
-  const experimentMetricIds = experiment.goalMetrics.concat(
-    experiment.guardrailMetrics,
-    experiment.secondaryMetrics
+  const allMetricGroups = await context.models.metricGroups.getAll();
+  const experimentMetricIds = expandMetricGroups(
+    getAllMetricIdsFromExperiment(experiment, false),
+    allMetricGroups
   );
+
   const allOrgMetrics = await getMetricMap(context);
   const experimentMetrics = experimentMetricIds
     .map((id) => allOrgMetrics.get(id))
@@ -399,21 +396,13 @@ export async function postSimilarExperiments(
   const { hypothesis, name, description, project, full } = req.body;
   const { aiEnabled } = getAISettingsForOrg(context);
 
-  if (!req.organization) {
-    return res.status(404).json({
-      status: 404,
-      message: "Organization not found",
-    });
-  }
   if (!aiEnabled) {
     return res.status(404).json({
       status: 404,
       message: "AI configuration not set or enabled",
     });
   }
-  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(
-    req.organization
-  );
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
   if (secondsUntilReset > 0) {
     return res.status(429).json({
       status: 429,
@@ -517,11 +506,9 @@ export async function postSimilarExperiments(
     .slice(0, full ? 100 : 5); // Get top 5 similar experiments
 
   // loop through similarExperiments and get the full experiment object
-  const similarExperimentIds = similarExperiments.map((s) => s.id);
-  const similarExperimentObjects = await getExperimentsByIds(
-    context,
-    similarExperimentIds
-  );
+  const similarExperimentObjects = similarExperiments
+    .map((s) => previousExperiments.find((e) => e.id === s.id))
+    .filter(isDefined);
   const similarExperimentsWithDetails = similarExperiments
     .map((s) => {
       if (!s) return null; // Ensure `s` is not null
@@ -551,21 +538,13 @@ export async function postRegenerateEmbeddings(
     typeof req.query?.project === "string" ? req.query.project : "";
   const { aiEnabled } = getAISettingsForOrg(context);
 
-  if (!req.organization) {
-    return res.status(404).json({
-      status: 404,
-      message: "Organization not found",
-    });
-  }
   if (!aiEnabled) {
     return res.status(404).json({
       status: 404,
       message: "AI configuration not set or enabled",
     });
   }
-  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(
-    req.organization
-  );
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
   if (secondsUntilReset > 0) {
     return res.status(429).json({
       status: 429,
