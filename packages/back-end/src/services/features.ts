@@ -35,7 +35,6 @@ import {
   SavedGroupInterface,
 } from "shared/src/types";
 import { clone } from "lodash";
-import { v4 as uuidv4 } from "uuid";
 import {
   ApiReqContext,
   AutoExperimentWithProject,
@@ -62,6 +61,7 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import {
   getFeatureDefinition,
+  getHoldoutFeatureDefId,
   getParsedCondition,
 } from "back-end/src/util/features";
 import {
@@ -125,7 +125,10 @@ export function generateFeaturesPayload({
   groupMap: GroupMap;
   prereqStateCache?: Record<string, Record<string, PrerequisiteStateResult>>;
   safeRolloutMap: Map<string, SafeRolloutInterface>;
-  holdoutsMap: Map<string, HoldoutInterface>;
+  holdoutsMap: Map<
+    string,
+    HoldoutInterface & { experiment: ExperimentInterface }
+  >;
 }): Record<string, FeatureDefinition> {
   prereqStateCache[environment] = prereqStateCache[environment] || {};
 
@@ -149,14 +152,15 @@ export function generateFeaturesPayload({
     }
   });
   holdoutsMap.forEach((holdout) => {
-    const exp = experimentMap.get(holdout.experimentId);
+    const exp = holdout.experiment;
     if (!exp) return;
 
+    // TODO: Need to support an array of projects for holdout feature def (FeatureDefinitionWithProject)
     const def: FeatureDefinition = {
       defaultValue: "genpop",
       rules: [
         {
-          id: `fr_${uuidv4()}`,
+          id: getHoldoutFeatureDefId(holdout.id),
           coverage: exp.phases[0].coverage,
           hashAttribute: exp.hashAttribute,
           seed: exp.phases[0].seed,
@@ -164,7 +168,7 @@ export function generateFeaturesPayload({
           variations: ["holdoutcontrol", "holdouttreatment"],
           weights: [0.5, 0.5],
           key: exp.trackingKey,
-          phase: "0",
+          phase: `${exp.phases.length - 1}`,
           meta: [
             {
               key: "0",
@@ -176,7 +180,7 @@ export function generateFeaturesPayload({
         },
       ],
     };
-    defs[`holdout:${holdout.id}`] = def; // TODO: make sure this is unique.
+    defs[getHoldoutFeatureDefId(holdout.id)] = def;
   });
 
   return defs;
@@ -610,6 +614,7 @@ export async function getFeatureDefinitionsResponse({
     }
   }
 
+  // TODO: Check if theres intersections with holdout projects or holdouts array is empty
   // Filter list of features/experiments to the selected projects
   if (projects && projects.length > 0) {
     experiments = experiments.filter((exp) =>

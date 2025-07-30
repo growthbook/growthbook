@@ -316,6 +316,10 @@ export function roundVariationWeight(num: number): number {
   return Math.round(num * 10000) / 10000;
 }
 
+export function getHoldoutFeatureDefId(holdoutId: string) {
+  return `$holdout:${holdoutId}`;
+}
+
 export function getFeatureDefinition({
   feature,
   environment,
@@ -363,7 +367,7 @@ export function getFeatureDefinition({
             id: `fr_${uuidv4()}`,
             parentConditions: [
               {
-                id: `holdout:${feature.holdout.id}`,
+                id: getHoldoutFeatureDefId(feature.holdout.id),
                 condition: { value: "holdoutcontrol" },
               },
             ],

@@ -1330,15 +1330,12 @@ export async function getAllPayloadExperiments(
       {
         hasURLRedirects: true,
       },
-      {
-        type: "holdout", // include holdout experiments in the payload
-      },
     ],
   });
 
   return new Map(
     experiments
-      .filter((e) => includeExperimentInPayload(e) || e.type === "holdout")
+      .filter((e) => includeExperimentInPayload(e))
       .map((e) => [e.id, e])
   );
 }

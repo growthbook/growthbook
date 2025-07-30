@@ -2,7 +2,9 @@ import {
   HoldoutInterface,
   holdoutValidator,
 } from "back-end/src/routers/holdout/holdout.validators";
+import { ExperimentInterface } from "back-end/types/experiment";
 import { MakeModelClass } from "./BaseModel";
+import { getExperimentById } from "./ExperimentModel";
 
 const BaseClass = MakeModelClass({
   schema: holdoutValidator,
@@ -37,17 +39,33 @@ export class HoldoutModel extends BaseClass {
 
   public async getAllPayloadHoldouts(environment?: string) {
     const holdouts = await this._find({});
-    const filteredHoldouts = holdouts.filter((h) => {
-      if (
-        !Object.keys(h.linkedExperiments).length &&
-        !Object.keys(h.linkedFeatures).length
-      )
-        return false;
-      if (environment && !h.environmentSettings[environment]?.enabled) {
-        return false;
+    const holdoutsWithExperiments = await Promise.all(
+      holdouts.map(async (h) => {
+        const experiment = await getExperimentById(
+          this.context,
+          h.experimentId
+        );
+        return { ...h, experiment };
+      })
+    );
+
+    const filteredHoldouts = holdoutsWithExperiments.filter(
+      (h): h is HoldoutInterface & { experiment: ExperimentInterface } => {
+        if (!h.experiment) return false;
+        if (h.experiment.archived) return false;
+        if (h.experiment.status !== "running") return false;
+
+        if (
+          Object.keys(h.linkedExperiments).length === 0 &&
+          Object.keys(h.linkedFeatures).length === 0
+        )
+          return false;
+        if (environment && !h.environmentSettings[environment]?.enabled) {
+          return false;
+        }
+        return true;
       }
-      return true;
-    });
+    );
     if (!filteredHoldouts || filteredHoldouts.length === 0) {
       return new Map();
     }
