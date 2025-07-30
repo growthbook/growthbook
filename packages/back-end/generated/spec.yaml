@@ -177,6 +177,9 @@ tags:
   - name: FeatureForceRule_model
     x-displayName: FeatureForceRule
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureForceRule" />
+  - name: FeatureRevision_model
+    x-displayName: FeatureRevision
+    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureRevision" />
   - name: FeatureRolloutRule_model
     x-displayName: FeatureRolloutRule
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureRolloutRule" />
@@ -815,6 +818,74 @@ paths:
                 properties:
                   feature:
                     $ref: '#/components/schemas/Feature'
+  '/features/{id}/revert':
+    parameters:
+      - $ref: '#/components/parameters/id'
+    post:
+      summary: Revert a feature to a specific revision
+      tags:
+        - features
+      operationId: revertFeature
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/features/my-feature/revert \
+              -d '{ "revision": 3, "comment": "Bug found" }' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - revision
+              properties:
+                revision:
+                  type: number
+                comment:
+                  type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - feature
+                properties:
+                  feature:
+                    $ref: '#/components/schemas/Feature'
+  '/features/{id}/revisions':
+    get:
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+      summary: Get all revisions for a feature
+      tags:
+        - features
+      operationId: getFeatureRevisions
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/features/my_feature/revisions?limit=10&offset=0 \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - revisions
+                    properties:
+                      revisions:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/FeatureRevision'
+                  - $ref: '#/components/schemas/PaginationFields'
   /feature-keys:
     get:
       summary: Get list of feature keys
@@ -5783,39 +5854,7 @@ components:
             revisions:
               type: array
               items:
-                type: object
-                required:
-                  - baseVersion
-                  - version
-                  - comment
-                  - date
-                  - status
-                  - rules
-                properties:
-                  baseVersion:
-                    type: integer
-                  version:
-                    type: integer
-                  comment:
-                    type: string
-                  date:
-                    type: string
-                    format: date-time
-                  status:
-                    type: string
-                  publishedBy:
-                    type: string
-                  rules:
-                    type: object
-                    additionalProperties:
-                      type: array
-                      items:
-                        $ref: '#/components/schemas/FeatureRule'
-                  definitions:
-                    type: object
-                    additionalProperties:
-                      type: string
-                      description: 'A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)'
+                $ref: '#/components/schemas/FeatureRevision'
     FeatureEnvironment:
       type: object
       required:
@@ -6241,6 +6280,40 @@ components:
                 type: string
         experimentId:
           type: string
+    FeatureRevision:
+      type: object
+      required:
+        - baseVersion
+        - version
+        - comment
+        - date
+        - status
+        - rules
+      properties:
+        baseVersion:
+          type: integer
+        version:
+          type: integer
+        comment:
+          type: string
+        date:
+          type: string
+          format: date-time
+        status:
+          type: string
+        publishedBy:
+          type: string
+        rules:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              $ref: '#/components/schemas/FeatureRule'
+        definitions:
+          type: object
+          additionalProperties:
+            type: string
+            description: 'A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)'
     SdkConnection:
       type: object
       required:
@@ -7650,6 +7723,7 @@ x-tagGroups:
       - FeatureExperimentRefRule_model
       - FeatureExperimentRule_model
       - FeatureForceRule_model
+      - FeatureRevision_model
       - FeatureRolloutRule_model
       - FeatureRule_model
       - FeatureSafeRolloutRule_model

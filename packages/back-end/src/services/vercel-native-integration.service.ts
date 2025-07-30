@@ -163,7 +163,7 @@ const createVercelExperimentationItem = async ({
       throw new Error(`Error creating vercel resource: ${await ret.text()}`);
   } catch (err) {
     if (!(err instanceof VercelIntallationNotFound))
-      logger.error(`Error while creating vercel experimentation item: ${err}`);
+      logger.error(err, `Error while creating vercel experimentation item`);
   }
 };
 
@@ -231,7 +231,7 @@ const updateVercelExperimentationItem = async ({
       throw new Error(`Error updating vercel resource: ${await ret.text()}`);
   } catch (err) {
     if (!(err instanceof VercelIntallationNotFound))
-      logger.error("Error while creating vercel experimentation item:", err);
+      logger.error(err, "Error while creating vercel experimentation item");
   }
 };
 
@@ -300,7 +300,7 @@ const deleteVercelExperimentationItem = async ({
       throw new Error(`Error deleting vercel resource: ${await ret.text()}`);
   } catch (err) {
     if (!(err instanceof VercelIntallationNotFound))
-      logger.error(`Error while deleting vercel experimentation item: ${err}`);
+      logger.error(err, `Error while deleting vercel experimentation item`);
   }
 };
 
@@ -431,7 +431,7 @@ export const syncVercelSdkConnection = async (organization: string) => {
           try {
             await fireSdkWebhook(context, createdWebhook);
           } catch (err) {
-            logger.error("Error while firing webhook", err);
+            logger.error(err, "Error while firing webhook");
           }
         }, 1000);
       }

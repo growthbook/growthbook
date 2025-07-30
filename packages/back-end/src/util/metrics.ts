@@ -9,9 +9,14 @@ export type Histogram = {
   record: (value: number, attributes?: Attributes) => void;
 };
 
+export type Gauge = {
+  record: (value: number, attributes?: Attributes) => void;
+};
+
 type Metrics = {
   getCounter: (_: string) => Counter;
   getHistogram: (_: string) => Histogram;
+  getGauge: (_: string) => Gauge;
 };
 
 export const metrics: Metrics = {
@@ -20,6 +25,9 @@ export const metrics: Metrics = {
     decrement: () => undefined,
   }),
   getHistogram: (_: string) => ({
+    record: () => undefined,
+  }),
+  getGauge: (_: string) => ({
     record: () => undefined,
   }),
 };

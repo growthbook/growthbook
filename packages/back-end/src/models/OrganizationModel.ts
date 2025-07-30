@@ -143,6 +143,7 @@ const organizationSchema = new mongoose.Schema({
   deactivatedRoles: [],
   disabled: Boolean,
   setupEventTracker: String,
+  trackingDisabled: Boolean,
 });
 
 organizationSchema.index({ "members.id": 1 });
@@ -233,6 +234,19 @@ export async function createOrganization({
     ...(restrictLoginMethod ? { restrictLoginMethod } : {}),
   });
   return toInterface(doc);
+}
+
+export async function getOrganizationIdsWithTrackingDisabled(
+  organizationIds: string[]
+) {
+  const orgs = await OrganizationModel.find(
+    {
+      id: { $in: organizationIds },
+      trackingDisabled: true,
+    },
+    { id: 1, _id: 0 }
+  );
+  return new Set(orgs.map((org) => org.id));
 }
 
 export async function findAllOrganizations(

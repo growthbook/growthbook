@@ -49,12 +49,7 @@ export default async function (agenda: Agenda) {
     }
   });
 
-  agenda.define(
-    UPDATE_SINGLE_EXP,
-    // This job queries a datasource, which may be slow. Give it 30 minutes to complete.
-    { lockLifetime: 30 * 60 * 1000 },
-    updateSingleExperiment
-  );
+  agenda.define(UPDATE_SINGLE_EXP, updateSingleExperiment);
 
   // Update experiment results
   await startUpdateJob();
@@ -100,7 +95,7 @@ export default async function (agenda: Agenda) {
   }
 }
 
-async function updateSingleExperiment(job: UpdateSingleExpJob) {
+const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
   const experimentId = job.attrs.data?.experimentId;
   const orgId = job.attrs.data?.organization;
 
@@ -234,4 +229,4 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       await notifyAutoUpdate({ context, experiment, success: false });
     }
   }
-}
+};

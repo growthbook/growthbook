@@ -158,10 +158,7 @@ export class SafeRolloutResultsQueryRunner extends QueryRunner<
     error?: string;
   }): Promise<SafeRolloutSnapshotInterface> {
     if (result?.unknownVariations.length) {
-      logger.error(
-        new Error("more than 2 variations"),
-        "more than two variations on a saferollout"
-      );
+      logger.error(new Error("More than 2 variations on a safe rollout"));
     }
     const strippedResult = omit(result, ["unknownVariations"]);
     const updates: Partial<SafeRolloutSnapshotInterface> = {

@@ -143,6 +143,7 @@ import {
   getSubscriptionFromLicense,
 } from "back-end/src/enterprise";
 import { getUsageFromCache } from "back-end/src/enterprise/billing";
+import { logger } from "back-end/src/util/logger";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
@@ -702,8 +703,7 @@ export async function getOrganization(
           (await licenseInit(org, getUserCodesForOrg, getLicenseMetaData)) ||
           null;
       } catch (e) {
-        // eslint-disable-next-line no-console
-        console.error("setting license failed", e);
+        logger.error(e, "setting license failed");
       }
     }
   }

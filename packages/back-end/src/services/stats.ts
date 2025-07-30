@@ -51,6 +51,7 @@ import { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "back-end/src/integrations/SqlInte
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import { BanditResult } from "back-end/types/experiment";
 import { statsServerPool } from "back-end/src/services/python";
+import { metrics } from "back-end/src/util/metrics";
 
 // Keep these interfaces in sync with gbstats
 export interface AnalysisSettingsForStatsEngine {
@@ -202,14 +203,41 @@ export function getBanditSettingsForStatsEngine(
   };
 }
 
-async function runStatsEngine(
+export async function runStatsEngine(
   statsData: ExperimentDataForStatsEngine[]
 ): Promise<MultipleExperimentMetricAnalysis[]> {
-  const server = await statsServerPool.acquire();
-  try {
-    return await server.call(statsData);
-  } finally {
-    statsServerPool.release(server);
+  if (process.env.EXTERNAL_PYTHON_SERVER_URL) {
+    const retVal = await fetch(
+      `${process.env.EXTERNAL_PYTHON_SERVER_URL}/stats`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(statsData),
+      }
+    );
+    if (!retVal.ok) {
+      let { error } = await retVal.json();
+      if (!error) {
+        error = `Stats server errored with: ${retVal.status} - ${retVal.statusText}`;
+      }
+      logger.error(`Error fetching from stats engine: ${error}`);
+      throw new Error(error);
+    }
+    const { results } = await retVal.json();
+    return results;
+  } else {
+    const acquireStart = Date.now();
+    const server = await statsServerPool.acquire();
+    metrics
+      .getHistogram("python.stats_pool_acquire_ms")
+      .record(Date.now() - acquireStart);
+    try {
+      return await server.call(statsData);
+    } finally {
+      statsServerPool.release(server);
+    }
   }
 }
 
