@@ -3,6 +3,7 @@ import { Flex, Text } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import { PiWarning } from "react-icons/pi";
 import React from "react";
+import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import SortedTags from "@/components/Tags/SortedTags";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -13,10 +14,12 @@ import metaDataStyles from "@/components/Radix/Styles/Metadata.module.scss";
 import Link from "@/components/Radix/Link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useHoldouts } from "@/hooks/useHoldouts";
+import ProjectBadges from "@/components/ProjectBadges";
 import { FocusSelector } from "./EditExperimentInfoModal";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
+  holdout?: HoldoutInterface;
   setShowEditInfoModal: (value: boolean) => void;
   setEditInfoFocusSelector: (value: FocusSelector) => void;
   editTags?: (() => void) | null;
@@ -24,6 +27,7 @@ export interface Props {
 
 export default function ProjectTagBar({
   experiment,
+  holdout,
   setShowEditInfoModal,
   setEditInfoFocusSelector,
   editTags,
@@ -45,6 +49,9 @@ export default function ProjectTagBar({
   const permissionsUtil = usePermissionsUtil();
   const canUpdateExperimentProject = (project) =>
     permissionsUtil.canUpdateExperiment({ project }, {});
+
+  const canUpdateHoldoutProjects = (projects) =>
+    permissionsUtil.canUpdateHoldout({ projects }, { projects: [] });
 
   const trackingKey = experiment.trackingKey;
 
@@ -118,9 +125,44 @@ export default function ProjectTagBar({
       </Flex>
     );
   };
+
+  const renderHoldoutProjectMetaDataValue = () => {
+    if (!holdout) {
+      return null;
+    }
+
+    return (
+      <Flex gap="1">
+        {holdout.projects.length > 0 && (
+          <ProjectBadges resourceType="holdout" projectIds={holdout.projects} />
+        )}
+        {canUpdateHoldoutProjects(holdout.projects) &&
+          holdout.projects.length === 0 && (
+            <Link
+              onClick={(e) => {
+                e.preventDefault();
+                setEditInfoFocusSelector("projects");
+                setShowEditInfoModal(true);
+              }}
+            >
+              +Add
+            </Link>
+          )}
+        {!canUpdateHoldoutProjects(holdout.projects) &&
+          holdout.projects.length === 0 && (
+            <Text weight="regular" className={metaDataStyles.valueColor}>
+              None
+            </Text>
+          )}
+      </Flex>
+    );
+  };
+
   const renderProject = () => {
-    return projects.length > 0 || projectIsDeReferenced ? (
+    return (projects.length > 0 || projectIsDeReferenced) && !holdout ? (
       <Metadata label="Project" value={renderProjectMetaDataValue()} />
+    ) : holdout ? (
+      <Metadata label="Projects" value={renderHoldoutProjectMetaDataValue()} />
     ) : null;
   };
   const renderTagsValue = () => {
@@ -150,7 +192,6 @@ export default function ProjectTagBar({
   return (
     <div className="pb-3">
       <Flex gap="3" mt="2" mb="1" wrap="wrap">
-        {/* TODO: Render holdout name */}
         {experiment.holdoutId && (
           <Metadata
             label="Holdout"
@@ -161,7 +202,6 @@ export default function ProjectTagBar({
             }
           />
         )}
-        {/* TODO: Render projects for holdouts */}
         {renderProject()}
         {experiment.type !== "holdout" && (
           <Metadata label="Experiment Key" value={trackingKey || "None"} />

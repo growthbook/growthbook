@@ -63,6 +63,7 @@ import EditExperimentInfoModal, {
 } from "./EditExperimentInfoModal";
 import ExperimentActionButtons from "./ExperimentActionButtons";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
+import EditHoldoutInfoModal from "./EditHoldoutInfoModal";
 import { ExperimentTab } from ".";
 
 export interface Props {
@@ -228,10 +229,12 @@ export default function ExperimentHeader({
     "multi-armed-bandits"
   );
 
-  const hasUpdatePermissions = permissionsUtil.canViewExperimentModal(
-    experiment.project
-  );
-  const canDeleteExperiment = permissionsUtil.canDeleteExperiment(experiment);
+  const hasUpdatePermissions = !holdout
+    ? permissionsUtil.canViewExperimentModal(experiment.project)
+    : permissionsUtil.canViewHoldoutModal(holdout.projects);
+  const canDeleteExperiment = !holdout
+    ? permissionsUtil.canDeleteExperiment(experiment)
+    : permissionsUtil.canDeleteHoldout(holdout);
   const canEditExperiment = !experiment.archived && hasUpdatePermissions;
 
   let hasRunExperimentsPermission = true;
@@ -387,7 +390,7 @@ export default function ExperimentHeader({
   const showSaveAsTemplateButton = canCreateTemplate && !isBandit;
 
   const runningExperimentDecisionBanner =
-    experiment.status === "running" && runningExperimentStatus ? (
+    experiment.status === "running" && !isHoldout && runningExperimentStatus ? (
       <RunningExperimentDecisionBanner
         experiment={experiment}
         runningExperimentStatus={runningExperimentStatus}
@@ -397,9 +400,18 @@ export default function ExperimentHeader({
 
   return (
     <>
-      {showEditInfoModal ? (
+      {showEditInfoModal && !isHoldout ? (
         <EditExperimentInfoModal
           experiment={experiment}
+          setShowEditInfoModal={setShowEditInfoModal}
+          mutate={mutate}
+          focusSelector={editInfoFocusSelector}
+        />
+      ) : null}
+      {showEditInfoModal && isHoldout && holdout ? (
+        <EditHoldoutInfoModal
+          experiment={experiment}
+          holdout={holdout}
           setShowEditInfoModal={setShowEditInfoModal}
           mutate={mutate}
           focusSelector={editInfoFocusSelector}
@@ -997,6 +1009,7 @@ export default function ExperimentHeader({
         </div>
         <ProjectTagBar
           experiment={experiment}
+          holdout={holdout}
           setShowEditInfoModal={setShowEditInfoModal}
           setEditInfoFocusSelector={setEditInfoFocusSelector}
           editTags={!viewingOldPhase ? editTags : undefined}

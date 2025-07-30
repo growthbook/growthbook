@@ -1,8 +1,9 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useForm } from "react-hook-form";
+import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
+import { isEqual } from "lodash";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import TagsInput from "@/components/Tags/TagsInput";
 import useProjectOptions from "@/hooks/useProjectOptions";
@@ -10,35 +11,35 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/components/Radix/Callout";
 import { useAuth } from "@/services/auth";
 import SelectOwner from "@/components/Owner/SelectOwner";
-
-export type FocusSelector = "project" | "tags" | "name" | "projects";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
+import { FocusSelector } from "./EditExperimentInfoModal";
 
 interface Props {
   experiment: ExperimentInterfaceStringDates;
+  holdout: HoldoutInterface;
   setShowEditInfoModal: (value: boolean) => void;
   mutate: () => void;
   focusSelector?: FocusSelector;
 }
 
-export default function EditExperimentInfoModal({
+export default function EditHoldoutInfoModal({
   experiment,
+  holdout,
   setShowEditInfoModal,
   mutate,
   focusSelector = "name",
 }: Props) {
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
-  const canUpdateExperimentProject = (project) =>
-    permissionsUtil.canUpdateExperiment({ project }, {});
-  const initialProjectOption = canUpdateExperimentProject("") ? "None" : "";
+  const canUpdateHoldoutProjects = (project) =>
+    permissionsUtil.canUpdateHoldout({ projects: [project] }, { projects: [] });
 
   const form = useForm({
     defaultValues: {
-      name: experiment.name,
-      trackingKey: experiment.trackingKey,
+      name: holdout.name,
       owner: experiment.owner || "",
       tags: experiment.tags,
-      project: experiment.project || "",
+      projects: holdout.projects || [],
     },
   });
 
@@ -53,9 +54,15 @@ export default function EditExperimentInfoModal({
       autoFocusSelector=""
       header="Edit Info"
       submit={form.handleSubmit(async (data) => {
-        await apiCall(`/experiment/${experiment.id}`, {
+        const { projects, name, ...experimentData } = data;
+
+        await apiCall(`/experiment/${holdout.experimentId}`, {
           method: "POST",
-          body: JSON.stringify(data),
+          body: JSON.stringify({ name, ...experimentData }),
+        });
+        await apiCall(`/holdout/${holdout.id}`, {
+          method: "PUT",
+          body: JSON.stringify({ name, projects }),
         });
         mutate();
       })}
@@ -64,12 +71,6 @@ export default function EditExperimentInfoModal({
         autoFocus={focusSelector === "name"}
         label="Experiment Name"
         {...form.register("name")}
-        required
-      />
-      <Field
-        disabled={experiment.status !== "draft"}
-        label="Experiment Key"
-        {...form.register("trackingKey")}
         required
       />
       <SelectOwner
@@ -85,7 +86,7 @@ export default function EditExperimentInfoModal({
           onChange={(tags) => form.setValue("tags", tags)}
         />
       </div>
-      <SelectField
+      {/* <SelectField
         label={
           <>
             Project
@@ -101,16 +102,37 @@ export default function EditExperimentInfoModal({
         value={form.watch("project")}
         onChange={(v) => form.setValue("project", v)}
         options={useProjectOptions(
-          (project) => canUpdateExperimentProject(project),
+          (project) => canUpdateHoldoutProjects(project),
           experiment.project ? [experiment.project] : []
         )}
         initialOption={initialProjectOption}
+      /> */}
+      <MultiSelectField
+        label={
+          <>
+            Projects
+            <Tooltip
+              className="pl-1"
+              body={
+                "The dropdown below has been filtered to only include projects where you have permission to update Holdouts"
+              }
+            />
+          </>
+        }
+        placeholder="All projects"
+        autoFocus={focusSelector === "projects"}
+        value={form.watch("projects") || []}
+        options={useProjectOptions(
+          (project) => canUpdateHoldoutProjects(project),
+          experiment.project ? [experiment.project] : []
+        )}
+        onChange={(v) => form.setValue("projects", v)}
+        customClassName="label-overflow-ellipsis"
+        helpText="Assign this holdout to specific projects"
       />
-      {experiment.project !== form.watch("project") ? (
+      {!isEqual(form.watch("projects"), holdout.projects) ? (
         <Callout status="warning">
-          Moving to a different Project may prevent your linked Feature Flags,
-          Visual Changes, and URL Redirects from being sent to users, and could
-          restrict use of some Data Sources and Metrics.
+          Changing projects could restrict use of some Data Sources and Metrics.
         </Callout>
       ) : null}
     </Modal>

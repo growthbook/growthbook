@@ -214,21 +214,6 @@ export const createHoldout = async (
   try {
     validateVariationIds(obj.variations);
 
-    // // Make sure id is unique
-    // if (obj.trackingKey) {
-    //   const existing = await getExperimentByTrackingKey(
-    //     context,
-    //     obj.trackingKey
-    //   );
-    //   if (existing) {
-    //     return res.status(200).json({
-    //       status: 200,
-    //       duplicateTrackingKey: true,
-    //       existingId: existing.id,
-    //     });
-    //   }
-    // }
-
     const experiment = await createExperiment({
       data: obj,
       context,

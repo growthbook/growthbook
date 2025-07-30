@@ -316,7 +316,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
   const availableProjects: (SingleValue | GroupedValue)[] = projects
     .slice()
     .sort((a, b) => (a.name > b.name ? 1 : -1))
-    .filter((p) => permissionsUtils.canViewExperimentModal(p.id))
+    .filter((p) => permissionsUtils.canViewHoldoutModal([p.id]))
     .map((p) => ({ value: p.id, label: p.name }));
 
   const exposureQueries = useMemo(() => {
