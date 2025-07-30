@@ -29,19 +29,16 @@ const MODEL_TOKEN_LIMIT = 128000;
 // Require a minimum of 30 tokens for responses.
 const MESSAGE_TOKEN_LIMIT = MODEL_TOKEN_LIMIT - 30;
 
-let _openai: OpenAI | null = null;
-
 export const getOpenAI = (context: ReqContext | ApiReqContext) => {
   const { aiEnabled, openAIAPIKey, openAIDefaultModel } = getAISettingsForOrg(
     context,
     true
   );
-  if (_openai == null) {
-    if (openAIAPIKey && aiEnabled) {
-      _openai = new OpenAI({
-        apiKey: openAIAPIKey || "",
-      });
-    }
+  let _openai: OpenAI | null = null;
+  if (openAIAPIKey && aiEnabled) {
+    _openai = new OpenAI({
+      apiKey: openAIAPIKey || "",
+    });
   }
   const _openAIModel: TiktokenModel = openAIDefaultModel || "gpt-4o-mini";
   return { client: _openai, model: _openAIModel };
