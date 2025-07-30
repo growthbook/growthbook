@@ -97,6 +97,7 @@ export default function Implementation({
       {showEditEnvironmentsModal && holdout && (
         <EditEnvironmentsModal
           holdout={holdout}
+          experiment={experiment}
           handleCloseModal={() => setShowEditEnvironmentsModal(false)}
           mutate={mutate}
         />

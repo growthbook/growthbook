@@ -1,18 +1,23 @@
 import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import { useForm } from "react-hook-form";
+import { Box, Text } from "@radix-ui/themes";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import EnvironmentSelect from "../Features/FeatureModal/EnvironmentSelect";
 import Modal from "../Modal";
+import Callout from "../Radix/Callout";
 import { genEnvironmentSettings } from "./NewHoldoutForm";
 
 const EditEnvironmentsModal = ({
   holdout,
+  experiment,
   handleCloseModal,
   mutate,
 }: {
   holdout: HoldoutInterface;
+  experiment: ExperimentInterfaceStringDates;
   handleCloseModal: () => void;
   mutate: () => void;
 }) => {
@@ -56,7 +61,20 @@ const EditEnvironmentsModal = ({
       size="lg"
     >
       <div className="px-2">
-        {/* TODO: add warning states */}
+        <Box mb="4">
+          <Text size="2" style={{ color: "var(--color-text-mid)" }}>
+            Review all environment selections before starting a Holdout. Changes
+            made while a Holdout is running can render results inconclusive.
+          </Text>
+        </Box>
+        {experiment.status === "running" && (
+          <Callout status="warning" mb="4">
+            <Text>
+              Proceed with caution. Holdout is running. Adding or removing
+              environments could impact results.{" "}
+            </Text>
+          </Callout>
+        )}
         <EnvironmentSelect
           environmentSettings={environmentSettings}
           environments={environments}

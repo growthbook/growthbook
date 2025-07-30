@@ -262,6 +262,17 @@ export default function FeatureFromExperimentModal({
         }
 
         if (existing) {
+          // TODO: Only allow adding a FF with the same holdout to an experiment that already is in a holdout
+          if (
+            experiment.holdoutId &&
+            validFeatures.find((f) => f.id === featureToCreate.id)?.holdout
+              ?.id !== experiment.holdoutId
+          ) {
+            throw new Error(
+              "You can only add a feature flag with the same holdout to an experiment that already is in a holdout"
+            );
+          }
+
           await apiCall(
             `/feature/${featureToCreate.id}/${featureToCreate.version}/experiment`,
             {
