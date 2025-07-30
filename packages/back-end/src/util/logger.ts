@@ -3,7 +3,7 @@ import pinoHttp from "pino-http";
 import * as Sentry from "@sentry/node";
 import { Request } from "express";
 import { BaseLogger, Level } from "pino";
-import { parseProcessLogBase } from "shared/util";
+import { parseProcessLogBase, stringToBoolean } from "shared/util";
 import { ApiRequestLocals } from "back-end/types/api";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ENVIRONMENT, IS_CLOUD, LOG_LEVEL } from "./secrets";
@@ -93,11 +93,9 @@ export const httpLogger = pinoHttp({
     remove: true,
   },
   customProps: getCustomLogProps,
-  ...(IS_CLOUD
-    ? {
-        customReceivedMessage: () => "Request started",
-      }
-    : {}),
+  customReceivedMessage: stringToBoolean(process.env.LOG_REQUEST_STARTED)
+    ? () => "Request started"
+    : undefined,
   ...logBase,
 });
 
