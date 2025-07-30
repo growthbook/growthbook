@@ -90,7 +90,8 @@ export function RawExperimentStatusIndicator({
   const isInAnalysisPeriod =
     isHoldout &&
     experimentData.phases.length > 1 &&
-    experimentData.status !== "stopped";
+    experimentData.status === "running" &&
+    !experimentData.archived;
   // strip out awaiting decision from the label if is in holdout
   const labelWithoutAwaitingDecision = isHoldout
     ? label.replace(/: Awaiting decision/, "")

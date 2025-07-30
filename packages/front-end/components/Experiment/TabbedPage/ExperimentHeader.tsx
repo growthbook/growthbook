@@ -583,7 +583,7 @@ export default function ExperimentHeader({
           <div>
             <p>{`Are you sure you want to ${
               experiment.archived ? "unarchive" : "archive"
-            } this experiment?`}</p>
+            } this ${isHoldout ? "holdout" : "experiment"}?`}</p>
             {!safeToEdit && !experiment.archived ? (
               <div className="alert alert-danger">
                 This will immediately stop all linked Feature Flags and Visual

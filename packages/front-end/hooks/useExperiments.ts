@@ -9,7 +9,7 @@ import useApi from "./useApi";
 export function useExperiments(
   project?: string,
   includeArchived: boolean = false,
-  type?: ExperimentType
+  type?: Omit<ExperimentType, "holdout">
 ) {
   const { data, error, mutate } = useApi<{
     experiments: ExperimentInterfaceStringDates[];

@@ -402,6 +402,8 @@ export async function getAllExperiments(
     query.type = { $in: ["standard", null] };
   } else if (type === "holdout") {
     query.type = "holdout";
+  } else if (!type) {
+    query.type = { $ne: "holdout" };
   }
 
   return await findExperiments(context, query);

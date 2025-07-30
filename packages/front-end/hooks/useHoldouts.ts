@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
-import { ExperimentInterface } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import useApi from "./useApi";
 
 export function useHoldouts(
@@ -9,7 +9,8 @@ export function useHoldouts(
 ) {
   const { data, error, mutate } = useApi<{
     holdouts: HoldoutInterface[];
-    experiments: ExperimentInterface[];
+    experiments: ExperimentInterfaceStringDates[];
+    hasArchived: boolean;
   }>(
     `/holdout?project=${project || ""}&includeArchived=${
       includeArchived ? "1" : ""
@@ -36,6 +37,6 @@ export function useHoldouts(
     experimentsMap,
     error: error,
     mutateHoldouts: mutate,
-    hasArchived: false,
+    hasArchived: data?.hasArchived || false,
   };
 }

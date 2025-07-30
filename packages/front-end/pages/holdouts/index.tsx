@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import { date, datetime } from "shared/dates";
 import Link from "next/link";
 import clsx from "clsx";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { Flex } from "@radix-ui/themes";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -10,7 +9,6 @@ import Pagination from "@/components/Pagination";
 import { useUser } from "@/services/UserContext";
 import SortedTags from "@/components/Tags/SortedTags";
 import Field from "@/components/Forms/Field";
-import { useExperiments } from "@/hooks/useExperiments";
 import TagsFilter, { useTagsFilter } from "@/components/Tags/TagsFilter";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -21,7 +19,7 @@ import NewHoldoutForm from "@/components/Holdout/NewHoldoutForm";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import UserAvatar from "@/components/Avatar/UserAvatar";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
-// import { useHoldouts } from "@/hooks/useHoldouts";
+import { useHoldouts } from "@/hooks/useHoldouts";
 
 const NUM_PER_PAGE = 20;
 
@@ -32,19 +30,14 @@ const HoldoutsPage = (): React.ReactElement => {
   const { getUserDisplay } = useUser();
 
   const {
+    holdouts,
     experiments: allExperiments,
+    experimentsMap,
+    hasArchived,
     error,
     loading,
-    hasArchived,
-    mutateExperiments,
-    holdouts,
-    experimentsMap,
-  } = useExperiments(project, tabs.includes("archived"), "holdout");
-
-  // const { holdouts } = useHoldouts(
-  //   project,
-  //   tabs.includes("archived")
-  // );
+    mutateHoldouts,
+  } = useHoldouts(project, tabs.includes("archived"));
 
   const tagsFilter = useTagsFilter("experiments");
 
@@ -56,12 +49,18 @@ const HoldoutsPage = (): React.ReactElement => {
   const [currentPage, setCurrentPage] = useState(1);
 
   const holdoutsWithExperiment = useMemo(() => {
-    return holdouts.map((holdout) => ({
-      ...holdout,
-      experiment: experimentsMap.get(
-        holdout.experimentId
-      ) as ExperimentInterfaceStringDates,
-    }));
+    return holdouts
+      .map((holdout) => ({
+        ...holdout,
+        experiment: experimentsMap.get(holdout.experimentId),
+      }))
+      .filter(
+        (
+          item
+        ): item is typeof item & {
+          experiment: NonNullable<typeof item.experiment>;
+        } => !!item.experiment
+      );
   }, [holdouts, experimentsMap]);
 
   const holdoutItems = useAddComputedFields(holdoutsWithExperiment, (item) => {
@@ -85,17 +84,17 @@ const HoldoutsPage = (): React.ReactElement => {
       }
       return [...acc, project.name];
     }, []);
-    const ownerName = getUserDisplay(item?.experiment?.owner, false) || "";
+    const ownerName = getUserDisplay(item.experiment.owner, false) || "";
     return {
       name: item.name,
       projects: projectsComputed,
-      tags: item.experiment?.tags,
+      tags: item.experiment.tags,
       duration: durationString,
       numExperiments: Object.values(item.linkedExperiments).length || "--",
       numFeatures: Object.values(item.linkedFeatures).length || "--",
       ownerName,
-      hashAttribute: item.experiment?.hashAttribute,
-      status: item.experiment?.status,
+      hashAttribute: item.experiment.hashAttribute,
+      status: item.experiment.status,
     };
   });
 
@@ -393,7 +392,7 @@ const HoldoutsPage = (): React.ReactElement => {
           onClose={() => setOpenNewHoldoutModal(false)}
           source="holdouts-list"
           isNewHoldout
-          mutate={mutateExperiments}
+          mutate={mutateHoldouts}
         />
       )}
     </>

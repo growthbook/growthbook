@@ -15,6 +15,7 @@ import {
   getAllExperiments,
   getExperimentById,
   getExperimentsByIds,
+  hasArchivedExperiments,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
 import {
@@ -299,19 +300,46 @@ export const createHoldout = async (
 // region GET /holdouts
 
 export const getHoldouts = async (
-  req: AuthRequest,
+  req: AuthRequest<
+    unknown,
+    unknown,
+    {
+      project?: string;
+      includeArchived?: boolean;
+    }
+  >,
   res: Response<{
     status: 200 | 404;
     holdouts: HoldoutInterface[];
     experiments: ExperimentInterface[];
+    hasArchived: boolean;
   }>
 ) => {
   const context = getContextFromReq(req);
+  let project = "";
+  if (typeof req.query?.project === "string") {
+    project = req.query.project;
+  }
+
+  const includeArchived = !!req.query?.includeArchived;
+
   const holdouts = await context.models.holdout.getAll();
   const experiments = await getAllExperiments(context, {
+    project,
+    includeArchived,
     type: "holdout",
   });
-  return res.status(200).json({ status: 200, holdouts, experiments });
+
+  const hasArchived = includeArchived
+    ? experiments.some((e) => e.archived)
+    : await hasArchivedExperiments(context, project);
+
+  res.status(200).json({
+    status: 200,
+    experiments,
+    hasArchived,
+    holdouts,
+  });
 };
 
 // endregion GET /holdouts
