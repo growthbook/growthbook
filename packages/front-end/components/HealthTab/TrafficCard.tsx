@@ -47,7 +47,7 @@ export default function TrafficCard({
   isBandit: boolean;
   disableDimensions?: boolean;
   cardTitle?: string;
-  my: number;
+  my?: number;
 }) {
   const [cumulative, setCumulative] = useState(true);
   const { settings } = useUser();
