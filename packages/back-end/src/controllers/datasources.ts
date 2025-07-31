@@ -64,6 +64,7 @@ import {
 } from "back-end/src/services/clickhouse";
 import { FactTableColumnType } from "back-end/types/fact-table";
 import { factTableColumnTypes } from "back-end/src/routers/fact-table/fact-table.validators";
+import { getFactTablesForDatasource } from "../models/FactTableModel";
 
 export async function deleteDataSource(
   req: AuthRequest<null, { id: string }>,
@@ -114,6 +115,24 @@ export async function deleteDataSource(
   if (dimensions.length > 0) {
     throw new Error(
       "Error: Please delete all dimensions tied to this datasource first."
+    );
+  }
+
+  // Make sure there are no fact metrics
+  const factMetrics = await context.models.factMetrics.getByDataSource(
+    datasource.id
+  );
+  if (factMetrics.length > 0) {
+    throw new Error(
+      "Error: Please delete all fact metrics tied to this datasource first."
+    );
+  }
+
+  // Make sure there are no fact tables
+  const factTables = await getFactTablesForDatasource(context, datasource.id);
+  if (factTables.length > 0) {
+    throw new Error(
+      "Error: Please delete all fact tables tied to this datasource first."
     );
   }
 

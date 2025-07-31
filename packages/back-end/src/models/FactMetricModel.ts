@@ -309,4 +309,10 @@ export class FactMetricModel extends BaseClass {
       dateUpdated: dateUpdated?.toISOString() || "",
     };
   }
+
+  public async getByDataSource(
+    datasourceId: string
+  ): Promise<FactMetricInterface[]> {
+    return await this._find({ datasource: datasourceId });
+  }
 }
