@@ -274,20 +274,28 @@ export const scrubHoldouts = ({
     );
   }
 
-  // Scrub feature rules with holdoutId that is either not found or is not correctly project scoped
+  // Filter out holdout pre-requisite rules that do not have associated holdout feature definitions
+  // Also scrub holdoutId from all rules that have it
   for (const k in features) {
     if (features[k]?.rules) {
-      features[k].rules = features[k].rules?.filter((rule) => {
-        if (!rule.holdoutId) {
+      features[k].rules = features[k].rules
+        ?.filter((rule) => {
+          if (!rule.holdoutId) {
+            return true;
+          }
+          if (!holdouts[rule.holdoutId]) {
+            return false;
+          }
+
           return true;
-        }
-        if (!holdouts[rule.holdoutId]) {
-          return false;
-        }
-        // If the holdout is found, keep the rule and scrub the holdoutId
-        rule = omit(rule, ["holdoutId"]);
-        return true;
-      });
+        })
+        .map((rule) => {
+          if (!rule.holdoutId) {
+            return rule;
+          }
+          // Remove holdoutId from all remainingrules that have it
+          return omit(rule, ["holdoutId"]);
+        });
     }
   }
 
