@@ -76,12 +76,7 @@ export default async function (agenda: Agenda) {
     await promiseAllChunks(promiseCallbacks, 5);
   });
 
-  agenda.define(
-    UPDATE_SINGLE_METRIC,
-    // This job queries a datasource, which may be slow. Give it 30 minutes to complete.
-    { lockLifetime: 30 * 60 * 1000 },
-    updateSingleMetric
-  );
+  agenda.define(UPDATE_SINGLE_METRIC, updateSingleMetric);
 
   // Update experiment results
   await startUpdateJob();
@@ -113,7 +108,7 @@ export default async function (agenda: Agenda) {
   }
 }
 
-async function updateSingleMetric(job: UpdateSingleMetricJob) {
+const updateSingleMetric = async (job: UpdateSingleMetricJob) => {
   const metricId = job.attrs.data?.metricId;
   const orgId = job.attrs.data?.orgId;
   const daysToInclude =
@@ -143,4 +138,4 @@ async function updateSingleMetric(job: UpdateSingleMetricJob) {
     logger.error(e, "Error refreshing metric: " + metricId);
     return false;
   }
-}
+};

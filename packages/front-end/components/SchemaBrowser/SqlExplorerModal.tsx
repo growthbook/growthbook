@@ -1,12 +1,13 @@
 import { useCallback, useState } from "react";
 import { useForm } from "react-hook-form";
+import { FaPlay, FaExclamationTriangle } from "react-icons/fa";
 import {
-  FaPlay,
-  FaExclamationTriangle,
-  FaCheck,
-  FaTimes,
-} from "react-icons/fa";
-import { PiCaretDoubleRight, PiPencilSimpleFill, PiX } from "react-icons/pi";
+  PiCaretDoubleRight,
+  PiCheck,
+  PiFileSql,
+  PiPencilSimpleFill,
+  PiX,
+} from "react-icons/pi";
 import {
   DataVizConfig,
   SavedQuery,
@@ -14,7 +15,8 @@ import {
 } from "back-end/src/validators/saved-queries";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { getValidDate } from "shared/dates";
-import { isReadOnlySQL, SQL_EXPLORER_LIMIT } from "shared/sql";
+import { isReadOnlySQL, SQL_ROW_LIMIT } from "shared/sql";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -42,6 +44,7 @@ import { SqlExplorerDataVisualization } from "../DataViz/SqlExplorerDataVisualiz
 import Modal from "../Modal";
 import SelectField from "../Forms/SelectField";
 import Tooltip from "../Tooltip/Tooltip";
+import { DropdownMenu, DropdownMenuItem } from "../Radix/DropdownMenu";
 import SchemaBrowser from "./SchemaBrowser";
 import styles from "./EditSqlModal.module.scss";
 
@@ -160,7 +163,7 @@ export default function SqlExplorerModal({
         body: JSON.stringify({
           query: sql,
           datasourceId: form.watch("datasourceId"),
-          limit: SQL_EXPLORER_LIMIT,
+          limit: SQL_ROW_LIMIT,
         }),
       });
       return res;
@@ -304,6 +307,18 @@ export default function SqlExplorerModal({
     }
   };
 
+  const getTruncatedTitle = (
+    title: string,
+    totalVisualizationCount: number
+  ): string => {
+    // Only truncate if there are 4 or more visualizations
+    if (totalVisualizationCount < 4) return title;
+
+    const maxLength = 20;
+    if (title.length <= maxLength) return title;
+    return title.substring(0, maxLength) + "...";
+  };
+
   // Filter datasources to only those that support SQL queries
   // Also only show datasources that the user has permission to query
   const validDatasources = datasources.filter(
@@ -367,7 +382,9 @@ export default function SqlExplorerModal({
               align="center"
               mb="4"
               gap="3"
-              style={{ borderBottom: "1px solid var(--gray-a6)" }}
+              style={{
+                borderBottom: "1px solid var(--gray-a6)",
+              }}
             >
               <TabsList>
                 <TabsTrigger value="sql">
@@ -376,7 +393,6 @@ export default function SqlExplorerModal({
                       <Flex align="center" gap="2">
                         <input
                           type="text"
-                          className="form-control"
                           value={tempName}
                           placeholder="Enter a name..."
                           onChange={(e) => setTempName(e.target.value)}
@@ -391,36 +407,43 @@ export default function SqlExplorerModal({
                               setIsEditingName(false);
                             }
                           }}
+                          style={{
+                            border: "none",
+                            outline: "none",
+                          }}
                         />
                         <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setTempName(form.watch("name"));
-                            setIsEditingName(false);
-                          }}
-                        >
-                          <FaTimes color="var(--gray-11)" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
+                          variant="outline"
+                          size="xs"
                           onClick={() => {
                             setDirty(true);
                             form.setValue("name", tempName);
                             setIsEditingName(false);
                           }}
                         >
-                          <FaCheck color="var(--accent-11)" />
+                          <PiCheck />
+                        </Button>
+                        <Button
+                          color="red"
+                          variant="outline"
+                          size="xs"
+                          onClick={() => {
+                            setTempName(form.watch("name"));
+                            setIsEditingName(false);
+                          }}
+                        >
+                          <PiX />
                         </Button>
                       </Flex>
                     ) : (
                       <>
+                        <PiFileSql size={20} />
                         {form.watch("name") || "Untitled Query..."}
-                        {!readOnlyMode ? (
+                        {!readOnlyMode && tab === "sql" ? (
                           <Button
                             variant="ghost"
                             size="sm"
+                            title="Edit Name"
                             onClick={() => {
                               setTempName(form.watch("name"));
                               setIsEditingName(true);
@@ -434,62 +457,115 @@ export default function SqlExplorerModal({
                   </Flex>
                 </TabsTrigger>
                 {dataVizConfig.map((config, index) => (
-                  <TabsTrigger value={`visualization-${index}`} key={index}>
+                  <TabsTrigger
+                    value={`visualization-${index}`}
+                    key={index}
+                    style={{ paddingRight: "0px" }}
+                  >
                     <Flex align="center" gap="2">
-                      {config.title || `Visualization ${index + 1}`}
+                      <span
+                        title={config.title || `Visualization ${index + 1}`}
+                      >
+                        {getTruncatedTitle(
+                          config.title || `Visualization ${index + 1}`,
+                          dataVizConfig.length
+                        )}
+                      </span>
                       {!readOnlyMode && tab === `visualization-${index}` ? (
-                        <Button
-                          variant="ghost"
-                          size="xs"
-                          onClick={() => {
-                            setDirty(true);
-                            const currentConfig = [...dataVizConfig];
-                            currentConfig.splice(index, 1);
-                            form.setValue("dataVizConfig", currentConfig);
-                            setTab(
-                              index < dataVizConfig.length - 1
-                                ? `visualization-${index}`
-                                : index > 0
-                                ? `visualization-${index - 1}`
-                                : "sql"
-                            );
-                          }}
-                          title="Delete Visualization"
+                        <DropdownMenu
+                          trigger={
+                            <button className="btn btn-link pr-0">
+                              <BsThreeDotsVertical color="var(--text-color-main" />
+                            </button>
+                          }
                         >
-                          <PiX />
-                        </Button>
+                          <Tooltip
+                            body="You can only add up to 10 visualizations to a query."
+                            shouldDisplay={dataVizConfig.length >= 10}
+                          >
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setDirty(true);
+                                const newDataVizConfig = [
+                                  ...dataVizConfig,
+                                  {
+                                    ...config,
+                                    title: `${
+                                      config.title ||
+                                      `Visualization ${index + 1}`
+                                    } (Copy)`,
+                                  },
+                                ];
+                                form.setValue(
+                                  "dataVizConfig",
+                                  newDataVizConfig
+                                );
+                                setTab(`visualization-${dataVizConfig.length}`);
+                              }}
+                              disabled={dataVizConfig.length >= 10}
+                            >
+                              Duplicate
+                            </DropdownMenuItem>
+                          </Tooltip>
+                          <DropdownMenuItem
+                            color="red"
+                            onClick={() => {
+                              setDirty(true);
+                              const currentConfig = [...dataVizConfig];
+                              currentConfig.splice(index, 1);
+                              form.setValue("dataVizConfig", currentConfig);
+                              setTab(
+                                index < dataVizConfig.length - 1
+                                  ? `visualization-${index}`
+                                  : index > 0
+                                  ? `visualization-${index - 1}`
+                                  : "sql"
+                              );
+                            }}
+                          >
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenu>
                       ) : null}
                     </Flex>
                   </TabsTrigger>
                 ))}
               </TabsList>
-              {!readOnlyMode && dataVizConfig.length < 3 ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setDirty(true);
-                    const currentConfig = [...dataVizConfig];
-                    form.setValue("dataVizConfig", [
-                      ...currentConfig,
-                      { chartType: "bar" },
-                    ]);
-                    setTab(`visualization-${currentConfig.length}`);
-                    setSidePanel(true);
-                  }}
-                  title="Add Visualization"
-                  disabled={
-                    !form.watch("results").results ||
-                    form.watch("results").results.length === 0
-                  }
+              {!readOnlyMode ? (
+                <Tooltip
+                  shouldDisplay={dataVizConfig.length >= 10}
+                  body="You can only add up to 10 visualizations to a query."
                 >
-                  <VisualizationAddIcon />{" "}
-                  {!dataVizConfig.length ? (
-                    <span className="ml-1">Add Visualization</span>
-                  ) : (
-                    ""
-                  )}
-                </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setDirty(true);
+                      const currentConfig = [...dataVizConfig];
+                      form.setValue("dataVizConfig", [
+                        ...currentConfig,
+                        { chartType: "bar" },
+                      ]);
+                      setTab(`visualization-${currentConfig.length}`);
+                      setSidePanel(true);
+                    }}
+                    title={
+                      dataVizConfig.length >= 10 ? "" : "Add Visualization"
+                    }
+                    disabled={
+                      !form.watch("results").results ||
+                      form.watch("results").results.length === 0 ||
+                      dataVizConfig.length >= 10
+                    }
+                  >
+                    <VisualizationAddIcon />{" "}
+                    {!dataVizConfig.length ? (
+                      <span className="ml-1">Add Visualization</span>
+                    ) : (
+                      ""
+                    )}
+                  </Button>
+                </Tooltip>
               ) : null}
               <div className="ml-auto" />
               {!readOnlyMode ? (
@@ -530,7 +606,7 @@ export default function SqlExplorerModal({
                             SQL
                           </Text>
                           {!readOnlyMode ? (
-                            <Flex gap="3">
+                            <Flex gap="3" align="center">
                               <Tooltip body="The SQL Explorer automatically applies a 1000 row limit to ensure optimal performance.">
                                 <input
                                   type="checkbox"
@@ -545,7 +621,7 @@ export default function SqlExplorerModal({
                                   style={{ color: "var(--gray-8)" }}
                                   className="cursor-pointer"
                                 >
-                                  Limit to {SQL_EXPLORER_LIMIT} rows
+                                  Limit to {SQL_ROW_LIMIT} rows
                                 </Text>
                               </Tooltip>
                               {formatError && (

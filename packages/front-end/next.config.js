@@ -44,6 +44,10 @@ const nextConfig = {
     });
     return config;
   },
+  productionBrowserSourceMaps: true,
+  experimental: {
+    instrumentationHook: true,
+  },
 };
 
 module.exports = withBundleAnalyzer(nextConfig);

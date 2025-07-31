@@ -269,7 +269,7 @@ export default function AttributeModal({ close, attribute }: Props) {
             initialOption="None"
             options={[
               { value: "version", label: "Version string" },
-              { value: "date", label: "Date string" },
+              { value: "date", label: "Date string (ISO)" },
               { value: "isoCountryCode", label: "ISO Country Code (2 digit)" },
             ]}
             sort={false}
