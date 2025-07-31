@@ -28,7 +28,7 @@ import { getAuthConnection, processJWT, usingOpenId } from "./services/auth";
 import { wrapController } from "./routers/wrapController";
 import apiRouter from "./api/api.router";
 import scimRouter from "./scim/scim.router";
-import { getBuild } from "./util/handler";
+import { getBuild } from "./util/build";
 
 // Begin Controllers
 import * as authControllerRaw from "./controllers/auth";
