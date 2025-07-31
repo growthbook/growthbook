@@ -139,7 +139,7 @@ export function getColumnRefWhereClause(
     const filter = factTable.filters.find((f) => f.id === filterId);
     if (filter) {
       const comment = showSourceComment ? `-- Filter: ${filter.name}\n` : "";
-      where.add(comment + filter.value);
+      where.add(comment + `(${filter.value})`);
     }
   });
 
