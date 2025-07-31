@@ -18,6 +18,7 @@ import {
   ExperimentSnapshotHealth,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
+  SnapshotType,
 } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
 import { Queries, QueryPointer, QueryStatus } from "back-end/types/query";
@@ -26,12 +27,13 @@ import {
   findSnapshotById,
   updateSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
-import { parseDimensionId } from "back-end/src/services/experiments";
+import { parseDimension } from "back-end/src/services/experiments";
 import {
   analyzeExperimentResults,
   analyzeExperimentTraffic,
 } from "back-end/src/services/stats";
 import {
+  Dimension,
   ExperimentAggregateUnitsQueryResponseRows,
   ExperimentDimension,
   ExperimentFactMetricsQueryParams,
@@ -66,6 +68,7 @@ export type SnapshotResult = {
 };
 
 export type ExperimentResultsQueryParams = {
+  snapshotType: SnapshotType;
   snapshotSettings: ExperimentSnapshotSettings;
   variationNames: string[];
   metricMap: Map<string, ExperimentMetricInterface>;
@@ -88,6 +91,7 @@ export function getFactMetricGroup(metric: FactMetricInterface) {
   }
 
   // Quantile metrics get their own group to prevent slowing down the main query
+  // and because they do not support re-aggregation across pre-computed dimensions
   if (quantileMetricType(metric)) {
     return metric.numerator.factTableId
       ? `${metric.numerator.factTableId} (quantile metrics)`
@@ -116,6 +120,7 @@ export function getFactMetricGroups(
   if (settings.skipPartialData) {
     return defaultReturn;
   }
+
   // Combining metrics in a single query is an Enterprise-only feature
   if (!orgHasPremiumFeature(organization, "multi-metric-queries")) {
     return defaultReturn;
@@ -176,6 +181,7 @@ export const startExperimentResultQueries = async (
     params: StartQueryParams<RowsType, ProcessedRowsType>
   ) => Promise<QueryPointer>
 ): Promise<Queries> => {
+  const snapshotType = params.snapshotType;
   const snapshotSettings = params.snapshotSettings;
   const queryParentId = params.queryParentId;
   const metricMap = params.metricMap;
@@ -212,10 +218,13 @@ export const startExperimentResultQueries = async (
     (q) => q.id === snapshotSettings.exposureQueryId
   );
 
-  const dimensionObj = await parseDimensionId(
-    snapshotSettings.dimensions[0]?.id,
-    org.id
-  );
+  const dimensionObjs: Dimension[] = (
+    await Promise.all(
+      snapshotSettings.dimensions.map(
+        async (d) => await parseDimension(d.id, d.slices, org.id)
+      )
+    )
+  ).filter((d): d is Dimension => d !== null);
 
   const queries: Queries = [];
 
@@ -238,7 +247,8 @@ export const startExperimentResultQueries = async (
       : "";
 
   // Settings for health query
-  const runTrafficQuery = !dimensionObj && org.settings?.runHealthTrafficQuery;
+  const runTrafficQuery =
+    snapshotType === "standard" && org.settings?.runHealthTrafficQuery;
   let dimensionsForTraffic: ExperimentDimension[] = [];
   if (runTrafficQuery && exposureQuery?.dimensionMetadata) {
     dimensionsForTraffic = exposureQuery.dimensionMetadata
@@ -252,7 +262,7 @@ export const startExperimentResultQueries = async (
 
   const unitQueryParams: ExperimentUnitsQueryParams = {
     activationMetric: activationMetric,
-    dimensions: dimensionObj ? [dimensionObj] : dimensionsForTraffic,
+    dimensions: dimensionObjs.length ? dimensionObjs : dimensionsForTraffic,
     segment: segmentObj,
     settings: snapshotSettings,
     unitsTableFullName: unitsTableFullName,
@@ -298,10 +308,15 @@ export const startExperimentResultQueries = async (
           .filter(Boolean)
       );
     }
+    // Only run overall quantile analysis for standard snapshots
+    // regardless of how many dimensions are requested
+    const runOverallQuantileAnalysis =
+      snapshotType === "standard" && quantileMetricType(m);
+
     const queryParams: ExperimentMetricQueryParams = {
       activationMetric,
       denominatorMetrics,
-      dimensions: dimensionObj ? [dimensionObj] : [],
+      dimensions: runOverallQuantileAnalysis ? [] : dimensionObjs,
       metric: m,
       segment: segmentObj,
       settings: snapshotSettings,
@@ -323,9 +338,14 @@ export const startExperimentResultQueries = async (
   }
 
   for (const [i, m] of groups.entries()) {
+    // Only run overall quantile analysis for standard snapshots
+    // regardless of how many dimensions are requested
+    const runOverallQuantileAnalysis =
+      snapshotType === "standard" && m.some(quantileMetricType);
+
     const queryParams: ExperimentFactMetricsQueryParams = {
       activationMetric,
-      dimensions: dimensionObj ? [dimensionObj] : [],
+      dimensions: runOverallQuantileAnalysis ? [] : dimensionObjs,
       metrics: m,
       segment: segmentObj,
       settings: snapshotSettings,
@@ -363,7 +383,7 @@ export const startExperimentResultQueries = async (
       name: TRAFFIC_QUERY_NAME,
       query: integration.getExperimentAggregateUnitsQuery({
         ...unitQueryParams,
-        dimensions: dimensionsForTraffic,
+        dimensions: dimensionObjs.length ? dimensionObjs : dimensionsForTraffic,
         useUnitsTable: !!unitQuery,
       }),
       dependencies: unitQuery ? [unitQuery.query] : [],
@@ -585,8 +605,9 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       throw new Error("Experiment must have at least 1 metric selected.");
     }
 
-    const dimensionObj = await parseDimensionId(
+    const dimensionObj = await parseDimension(
       snapshotSettings.dimensions[0]?.id,
+      snapshotSettings.dimensions[0]?.slices,
       this.model.organization
     );
 

@@ -15,7 +15,6 @@ import { analysisUpdate } from "./DifferenceTypeChooser";
 
 export interface Props {
   variations: Variation[];
-  setVariationFilter: (variationFilter: number[]) => void;
   baselineRow: number;
   setBaselineRow: (baselineRow: number) => void;
   snapshot?: ExperimentSnapshotInterface;
@@ -29,7 +28,6 @@ export interface Props {
 
 export default function BaselineChooser({
   variations,
-  setVariationFilter,
   baselineRow,
   setBaselineRow,
   snapshot,
@@ -149,7 +147,6 @@ export default function BaselineChooser({
             setDesiredBaselineRow(variation.index);
             if (!snapshot) {
               setBaselineRow(variation.index);
-              setVariationFilter([]);
               return;
             }
             if (!analysis) return;
@@ -167,7 +164,6 @@ export default function BaselineChooser({
             ).then((status) => {
               if (status === "success") {
                 setBaselineRow(variation.index);
-                setVariationFilter([]);
                 setAnalysisSettings(newSettings);
                 track("Experiment Analysis: switch baseline", {
                   baseline: variation.index,
