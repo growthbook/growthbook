@@ -1,5 +1,6 @@
 import { Response } from "express";
 import { getValidDate } from "shared/dates";
+import { z } from "zod";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   getAISettingsForOrg,
@@ -15,6 +16,7 @@ import { runFreeFormQuery } from "back-end/src/services/datasource";
 import {
   secondsUntilAICanBeUsedAgain,
   simpleCompletion,
+  parsePrompt,
 } from "back-end/src/enterprise/services/openai";
 import {
   InformationSchemaTablesInterface,
@@ -425,8 +427,6 @@ export async function postGenerateSQL(
     "\n\nTable structure: " +
     "\n" +
     schemasString +
-    "\n\nInput: " +
-    input +
     "\n\n" +
     "Use date ranges if possible and it makes sense with the input. If the input requests a date range, like 'in the past month', use the current date: " +
     new Date().toISOString() +
@@ -443,26 +443,42 @@ export async function postGenerateSQL(
       "to make sure it's fast and makes use of the sharding. If you use this code, be sure to replace the dates with the correct range.\n";
   }
 
-  const aiResults = await simpleCompletion({
-    context,
-    instructions,
-    prompt: "Return SQL only, no markdown, no explanation, no comments.",
-    type: "generate-sql-query",
-    isDefaultPrompt: true,
-    temperature: 0.1,
+  const zodObjectSchema = z.object({
+    sql_string: z
+      .string()
+      .describe(
+        "A syntactically valid SQL statement as instructed by the user"
+      ),
   });
+  try {
+    const aiResults = await parsePrompt({
+      context,
+      instructions,
+      prompt: input,
+      type: "generate-sql-query",
+      isDefaultPrompt: true,
+      zodObjectSchema,
+      temperature: 0.1,
+    });
 
-  // sometimes, even though we ask it not to, it returns in markdown:
-  const cleanSQL = aiResults.startsWith("```")
-    ? aiResults.replace(/```sql|```/g, "").trim()
-    : aiResults;
-
-  res.status(200).json({
-    status: 200,
-    data: {
-      sql: cleanSQL,
-    },
-  });
+    if (!aiResults || typeof aiResults.sql_string !== "string") {
+      return res.status(400).json({
+        status: 400,
+        message: "AI did not return the expected SQL string",
+      });
+    }
+    res.status(200).json({
+      status: 200,
+      data: {
+        sql: aiResults.sql_string,
+      },
+    });
+  } catch (e) {
+    return res.status(400).json({
+      status: 400,
+      message: "AI did not return a valid SQL query",
+    });
+  }
 }
 
 async function fetchOrCreateTableSchema({

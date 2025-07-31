@@ -10,6 +10,8 @@ import {
   TiktokenModel,
 } from "@dqbd/tiktoken";
 import { AIPromptType } from "shared/ai";
+import { ZodObject, ZodRawShape, z } from "zod";
+import { zodResponseFormat } from "openai/helpers/zod";
 import { logger } from "back-end/src/util/logger";
 import { OrganizationInterface, ReqContext } from "back-end/types/organization";
 import {
@@ -127,15 +129,7 @@ export const simpleCompletion = async ({
     throw new Error("Prompt was flagged by OpenAI moderation");
   }
 
-  const messages: ChatCompletionRequestMessage[] = [];
-
-  if (instructions) {
-    messages.push({
-      role: "system",
-      content: instructions,
-    });
-  }
-  messages.push({ role: "user", content: prompt });
+  const messages = constructOpenAIMessages(prompt, instructions);
 
   const numTokens = numTokensFromMessages(messages, context);
   if (maxTokens != null && numTokens > maxTokens) {
@@ -181,6 +175,107 @@ export const simpleCompletion = async ({
   await updateTokenUsage({ numTokensUsed, organization: context.org });
 
   return response.choices[0].message?.content || "";
+};
+
+export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
+  context,
+  instructions,
+  prompt,
+  maxTokens,
+  temperature,
+  type,
+  isDefaultPrompt,
+  zodObjectSchema,
+  model,
+}: {
+  context: ReqContext | ApiReqContext;
+  instructions?: string;
+  prompt: string;
+  maxTokens?: number;
+  temperature?: number;
+  type: AIPromptType;
+  isDefaultPrompt: boolean;
+  zodObjectSchema: T;
+  model?: TiktokenModel;
+}): Promise<z.infer<T>> => {
+  const { client: openai, model: defaultModel } = getOpenAI(context);
+
+  if (openai == null) {
+    throw new Error("OpenAI not enabled or key not set");
+  }
+
+  if (!zodObjectSchema) {
+    throw new Error(
+      "a Zod Object for the JSON schema is required for structuredPrompt."
+    );
+  }
+
+  const messages = constructOpenAIMessages(prompt, instructions);
+
+  const numTokens = numTokensFromMessages(messages, context);
+  if (maxTokens != null && numTokens > maxTokens) {
+    throw new Error(
+      `Number of tokens (${numTokens}) exceeds maxTokens (${maxTokens})`
+    );
+  }
+  if (numTokens > MESSAGE_TOKEN_LIMIT) {
+    throw new Error(
+      `Number of tokens (${numTokens}) exceeds MESSAGE_TOKEN_LIMIT (${MESSAGE_TOKEN_LIMIT})`
+    );
+  }
+  const modelToUse = model || defaultModel;
+
+  const response = await openai.chat.completions.parse({
+    model: modelToUse,
+    messages,
+    response_format: zodResponseFormat(zodObjectSchema, "response_schema"),
+    ...(temperature != null ? { temperature } : {}),
+  });
+
+  const numTokensUsed = response.usage?.total_tokens ?? numTokens;
+
+  // Fire and forget
+  logCloudAIUsage({
+    organization: context.org.id,
+    type,
+    model: modelToUse,
+    numPromptTokensUsed: response.usage?.prompt_tokens ?? 0,
+    numCompletionTokensUsed: response.usage?.completion_tokens ?? 0,
+    temperature,
+    usedDefaultPrompt: isDefaultPrompt,
+  });
+
+  await updateTokenUsage({ numTokensUsed, organization: context.org });
+
+  if (
+    !response.choices ||
+    response.choices.length === 0 ||
+    !response.choices[0]?.message?.parsed
+  ) {
+    throw new Error("No choices returned from OpenAI API.");
+  }
+  return response.choices[0].message.parsed as z.infer<T>;
+};
+
+const constructOpenAIMessages = (
+  prompt: string,
+  instructions?: string
+): ChatCompletionRequestMessage[] => {
+  const messages: ChatCompletionRequestMessage[] = [];
+
+  if (instructions) {
+    messages.push({
+      role: "system",
+      content: instructions,
+    });
+  }
+
+  messages.push({
+    role: "user",
+    content: prompt,
+  });
+
+  return messages;
 };
 
 export const generateEmbeddings = async ({
