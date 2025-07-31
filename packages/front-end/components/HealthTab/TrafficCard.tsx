@@ -8,6 +8,7 @@ import { getValidDate } from "shared/dates";
 import { FaCircle } from "react-icons/fa6";
 import { parseISO } from "date-fns";
 import { DEFAULT_SRM_THRESHOLD } from "shared/constants";
+import clsx from "clsx";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
 import { formatTrafficSplit } from "@/services/utils";
@@ -39,12 +40,14 @@ export default function TrafficCard({
   isBandit,
   disableDimensions,
   cardTitle = "Traffic",
+  my = 4,
 }: {
   traffic: ExperimentSnapshotTraffic;
   variations: ExperimentReportVariation[];
   isBandit: boolean;
   disableDimensions?: boolean;
   cardTitle?: string;
+  my: number;
 }) {
   const [cumulative, setCumulative] = useState(true);
   const { settings } = useUser();
@@ -116,7 +119,7 @@ export default function TrafficCard({
   }, [selectedDimension, traffic.dimension]);
 
   return (
-    <div className="box my-4 p-3">
+    <div className={clsx("box p-3", `my-${my}`)}>
       <div className="mx-2">
         <div className="d-flex flex-row mt-1">
           <h2 className="d-inline">{cardTitle}</h2>

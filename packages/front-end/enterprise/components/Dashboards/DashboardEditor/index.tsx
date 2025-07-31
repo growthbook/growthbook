@@ -323,6 +323,7 @@ function DashboardEditor({
                   width: "100%",
                   height: "10px",
                   borderBottom: "1px solid var(--violet-a9)",
+                  zIndex: -1,
                 }}
               />
             )}

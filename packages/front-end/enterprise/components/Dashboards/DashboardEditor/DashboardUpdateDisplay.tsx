@@ -1,6 +1,6 @@
 import React, { useContext, useMemo } from "react";
 import { Flex, Text } from "@radix-ui/themes";
-import { ago } from "shared/dates";
+import { ago, getValidDate } from "shared/dates";
 import { PiArrowClockwise, PiInfo, PiLightning } from "react-icons/pi";
 import clsx from "clsx";
 import { dashboardCanAutoUpdate } from "shared/enterprise";
@@ -44,7 +44,7 @@ function SnapshotStatusSummary({
     dashboardCanAutoUpdate({ blocks }) &&
     updateSchedule?.type !== "never" &&
     experiment?.autoSnapshots;
-  const timeTillUpdate = experiment?.nextSnapshotAttempt;
+  const nextUpdate = experiment?.nextSnapshotAttempt;
 
   const textColor = refreshError || numFailed > 0 ? "red" : undefined;
   const content = refreshError
@@ -59,14 +59,16 @@ function SnapshotStatusSummary({
   return (
     <Flex gap="2" align="center">
       <Text size="1">
-        {autoUpdateEnabled && timeTillUpdate && (
-          <Tooltip
-            tipPosition="top"
-            body={`Next auto-update ${ago(timeTillUpdate)}`}
-          >
-            <PiLightning />{" "}
-          </Tooltip>
-        )}
+        {autoUpdateEnabled &&
+          nextUpdate &&
+          getValidDate(nextUpdate) > new Date() && (
+            <Tooltip
+              tipPosition="top"
+              body={`Next auto-update ${ago(nextUpdate)}`}
+            >
+              <PiLightning />{" "}
+            </Tooltip>
+          )}
       </Text>
       <Text color={textColor}>{content}</Text>
       {tooltipBody ? (

@@ -43,6 +43,7 @@ export default function TrafficGraphBlock({
       isBandit={experiment.type !== "multi-armed-bandit"}
       cardTitle={title.length > 0 ? title : undefined}
       disableDimensions
+      my={0}
     />
   );
 }

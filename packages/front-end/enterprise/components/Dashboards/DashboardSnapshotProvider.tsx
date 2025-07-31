@@ -175,15 +175,9 @@ export function useDashboardSnapshot(
     error: snapshotsError,
     mutateSnapshot: mutateDefault,
     mutateSnapshotsMap: mutateSnapshotsMap,
-    refreshStatus,
     snapshotsMap,
   } = useContext(DashboardSnapshotContext);
 
-  const refreshing = refreshStatus !== "running";
-
-  const [dashboardRefreshing, setDashboardRefreshing] = useState<
-    boolean | undefined
-  >(false);
   const { apiCall } = useAuth();
   const [
     postSnapshotAnalysisLoading,
@@ -220,28 +214,6 @@ export function useDashboardSnapshot(
     if (!snapshot || !blockAnalysisSettings) return null;
     return getSnapshotAnalysis(snapshot, blockAnalysisSettings);
   }, [blockAnalysisSettings, snapshot]);
-
-  // If the overall dashboard just finished refreshing, mutate the local snapshot
-  useEffect(() => {
-    if (dashboardRefreshing && !refreshing) {
-      mutateSnapshot();
-    }
-    setDashboardRefreshing(refreshing);
-  }, [dashboardRefreshing, refreshing, mutateSnapshot]);
-
-  // Wait for results to be ready if the snapshot is still running
-  useEffect(() => {
-    const intervalId = setInterval(() => {
-      if (snapshot?.status === "running") {
-        mutateSnapshot();
-      } else {
-        clearInterval(intervalId);
-      }
-    }, 2000);
-    return () => {
-      clearInterval(intervalId);
-    };
-  }, [mutateSnapshot, snapshot]);
 
   // If the current snapshot is incorrect, e.g. a dimension mismatch, fetch a matching snapshot
   useEffect(() => {
