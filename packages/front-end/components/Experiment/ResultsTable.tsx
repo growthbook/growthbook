@@ -110,7 +110,7 @@ const ROW_HEIGHT = 56;
 const METRIC_LABEL_ROW_HEIGHT = 44;
 const SPACER_ROW_HEIGHT = 6;
 export const RESULTS_TABLE_COLUMNS = [
-  "Variation Names",
+  "Metric & Variation Names",
   "Baseline Average",
   "Variation Averages",
   "Chance to Win",
@@ -427,7 +427,7 @@ export default function ResultsTable({
           <table id="main-results" className="experiment-results table-sm">
             <thead>
               <tr className="results-top-row">
-                {columnsToDisplay.includes("Variation Names") && (
+                {columnsToDisplay.includes("Metric & Variation Names") && (
                   <th
                     className={clsx("axis-col header-label", {
                       noStickyHeader,
@@ -661,7 +661,7 @@ export default function ResultsTable({
                     className={clsx("axis-col label", { noStickyHeader })}
                     colSpan={
                       columnsToDisplay.filter(
-                        (col) => col !== "Variation Names"
+                        (col) => col !== "Metric & Variation Names"
                       ).length
                     }
                   />
@@ -686,7 +686,7 @@ export default function ResultsTable({
 
               const includedLabelColumns = columnsToDisplay.filter((col) =>
                 [
-                  "Variation Names",
+                  "Metric & Variation Names",
                   "Baseline Average",
                   "Variation Averages",
                   "Chance to Win",
@@ -702,7 +702,9 @@ export default function ResultsTable({
                       renderLabel: includedLabelColumns.length > 0,
                       renderGraph: columnsToDisplay.includes("CI Graph"),
                       renderLastColumn: columnsToDisplay.includes("Lift"),
-                      label: columnsToDisplay.includes("Variation Names") ? (
+                      label: columnsToDisplay.includes(
+                        "Metric & Variation Names"
+                      ) ? (
                         renderLabelColumn(row.label, row.metric, row)
                       ) : (
                         <></>
@@ -813,7 +815,9 @@ export default function ResultsTable({
                         className="results-variation-row align-items-center"
                         key={j}
                       >
-                        {columnsToDisplay.includes("Variation Names") && (
+                        {columnsToDisplay.includes(
+                          "Metric & Variation Names"
+                        ) && (
                           <td
                             className={`variation with-variation-label variation${v.index}`}
                             style={{

@@ -6,6 +6,7 @@ export const dashboardEditLevel = z.enum(["organization", "private"]);
 export const dashboardInterface = z
   .object({
     id: z.string(),
+    uid: z.string(), // Enables sharing/linking to dashboards in future
     organization: z.string(),
     experimentId: z.string(),
     isDefault: z.boolean(),

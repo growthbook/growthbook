@@ -6,7 +6,7 @@ const baseBlockInterface = z
   .object({
     organization: z.string(),
     id: z.string(),
-    uid: z.string(),
+    uid: z.string(), // Enables sharing/linking to single blocks in future
     type: z.string(),
     title: z.string(),
     description: z.string(),
@@ -67,7 +67,7 @@ const experimentMetricBlockInterface = baseBlockInterface
     differenceType: z.enum(differenceTypes),
     columnsFilter: z.array(
       z.enum([
-        "Variation Names",
+        "Metric & Variation Names",
         "Baseline Average",
         "Variation Averages",
         "Chance to Win",
@@ -95,7 +95,7 @@ const experimentDimensionBlockInterface = baseBlockInterface
     differenceType: z.enum(differenceTypes),
     columnsFilter: z.array(
       z.enum([
-        "Variation Names",
+        "Metric & Variation Names",
         "Baseline Average",
         "Variation Averages",
         "Chance to Win",

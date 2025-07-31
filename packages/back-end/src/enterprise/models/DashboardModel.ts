@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { v4 as uuidv4 } from "uuid";
 import { createDashboardBlocksFromTemplate } from "shared/enterprise";
 import {
   dashboardInterface,
@@ -21,7 +22,12 @@ const DEFAULT_DASHBOARD_BLOCKS: DashboardTemplateInterface["blockInitialValues"]
   { type: "experiment-traffic-graph" },
   {
     type: "experiment-metric",
-    columnsFilter: ["Variation Names", "Chance to Win", "CI Graph", "Lift"],
+    columnsFilter: [
+      "Metric & Variation Names",
+      "Chance to Win",
+      "CI Graph",
+      "Lift",
+    ],
   },
   { type: "experiment-time-series" },
 ];
@@ -202,6 +208,7 @@ export class DashboardModel extends BaseClass {
       )
     );
     return this.dangerousCreateBypassPermission({
+      uid: uuidv4().replace(/-/g, ""),
       experimentId,
       isDefault: true,
       isDeleted: false,
