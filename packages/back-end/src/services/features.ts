@@ -40,6 +40,7 @@ import {
   AutoExperimentWithProject,
   FeatureDefinition,
   FeatureDefinitionWithProject,
+  FeatureDefinitionWithProjects,
 } from "back-end/types/api";
 import {
   ExperimentRefRule,
@@ -129,10 +130,14 @@ export function generateFeaturesPayload({
     string,
     HoldoutInterface & { experiment: ExperimentInterface }
   >;
-}): Record<string, FeatureDefinition> {
+}): {
+  featureDefs: Record<string, FeatureDefinition>;
+  holdoutDefs: Record<string, FeatureDefinition>;
+} {
   prereqStateCache[environment] = prereqStateCache[environment] || {};
 
-  const defs: Record<string, FeatureDefinition> = {};
+  const featureDefs: Record<string, FeatureDefinition> = {};
+  const holdoutDefs: Record<string, FeatureDefinition> = {};
   const newFeatures = reduceFeaturesWithPrerequisites(
     features,
     environment,
@@ -148,15 +153,14 @@ export function generateFeaturesPayload({
       holdoutsMap,
     });
     if (def) {
-      defs[feature.id] = def;
+      featureDefs[feature.id] = def;
     }
   });
   holdoutsMap.forEach((holdout) => {
     const exp = holdout.experiment;
     if (!exp) return;
 
-    // TODO: Need to support an array of projects for holdout feature def (FeatureDefinitionWithProject)
-    const def: FeatureDefinition = {
+    const def: FeatureDefinitionWithProjects = {
       defaultValue: "genpop",
       rules: [
         {
@@ -179,11 +183,12 @@ export function generateFeaturesPayload({
           ],
         },
       ],
+      projects: holdout.projects,
     };
-    defs[getHoldoutFeatureDefId(holdout.id)] = def;
+    holdoutDefs[getHoldoutFeatureDefId(holdout.id)] = def;
   });
 
-  return defs;
+  return { featureDefs: featureDefs, holdoutDefs };
 }
 
 export type VisualExperiment = {
@@ -497,7 +502,10 @@ export async function refreshSDKPayloadCache(
     const holdoutsMap = await context.models.holdout.getAllPayloadHoldouts(
       environment
     );
-    const featureDefinitions = generateFeaturesPayload({
+    const {
+      featureDefs: featureDefinitions,
+      holdoutDefs: holdoutFeatureDefinitions,
+    } = generateFeaturesPayload({
       features: allFeatures,
       environment: environment,
       groupMap,
@@ -530,6 +538,7 @@ export async function refreshSDKPayloadCache(
         organization: context.org.id,
         environment: environment,
         featureDefinitions,
+        holdoutFeatureDefinitions,
         experimentsDefinitions,
         savedGroupsInUse,
       });
@@ -552,6 +561,7 @@ export async function refreshSDKPayloadCache(
 export type FeatureDefinitionsResponseArgs = {
   features: Record<string, FeatureDefinitionWithProject>;
   experiments: AutoExperimentWithProject[];
+  holdouts: Record<string, FeatureDefinitionWithProjects>;
   dateUpdated: Date | null;
   encryptionKey?: string;
   includeVisualExperiments?: boolean;
@@ -570,6 +580,7 @@ export type FeatureDefinitionsResponseArgs = {
 export async function getFeatureDefinitionsResponse({
   features,
   experiments,
+  holdouts,
   dateUpdated,
   encryptionKey,
   includeVisualExperiments,
@@ -614,7 +625,6 @@ export async function getFeatureDefinitionsResponse({
     }
   }
 
-  // TODO: Check if theres intersections with holdout projects or holdouts array is empty
   // Filter list of features/experiments to the selected projects
   if (projects && projects.length > 0) {
     experiments = experiments.filter((exp) =>
@@ -625,6 +635,31 @@ export async function getFeatureDefinitionsResponse({
         projects.includes(feature.project || "")
       )
     );
+    holdouts = Object.fromEntries(
+      Object.entries(holdouts).filter(([_, holdout]) => {
+        if (holdout.projects?.length === 0) {
+          return true;
+        }
+        return projects.some((p) => (holdout.projects || []).includes(p));
+      })
+    );
+  }
+
+  // Scrub feature rules with holdoutId that is either not found or is not correctly project scoped
+  for (const k in features) {
+    if (features[k]?.rules) {
+      features[k].rules = features[k].rules?.filter((rule) => {
+        if (!rule.holdoutId) {
+          return true;
+        }
+        if (!holdouts[rule.holdoutId]) {
+          return false;
+        }
+        // If the holdout is found, keep the rule and scrub the holdoutId
+        rule = omit(rule, ["holdoutId"]);
+        return true;
+      });
+    }
   }
 
   // Remove `project` from all features/experiments
@@ -635,6 +670,16 @@ export async function getFeatureDefinitionsResponse({
     ])
   );
   experiments = experiments.map((exp) => omit(exp, ["project"]));
+  // Remove `projects` from holdouts
+  holdouts = Object.fromEntries(
+    Object.entries(holdouts).map(([key, holdout]) => [
+      key,
+      omit(holdout, ["projects"]),
+    ])
+  );
+
+  // Add holdouts to features
+  features = { ...features, ...holdouts };
 
   const hasSecureAttributes = attributes?.some((a) =>
     ["secureString", "secureString[]"].includes(a.datatype)
@@ -797,7 +842,12 @@ export async function getFeatureDefinitions({
       }
       let attributes: SDKAttributeSchema | undefined = undefined;
       let secureAttributeSalt: string | undefined = undefined;
-      const { features, experiments, savedGroupsInUse } = cached.contents;
+      const {
+        features,
+        experiments,
+        savedGroupsInUse,
+        holdouts,
+      } = cached.contents;
       const usedSavedGroups = await getSavedGroupsById(
         savedGroupsInUse,
         context.org.id
@@ -813,6 +863,7 @@ export async function getFeatureDefinitions({
       return await getFeatureDefinitionsResponse({
         features,
         experiments: experiments || [],
+        holdouts,
         dateUpdated: cached.dateUpdated,
         encryptionKey,
         includeVisualExperiments,
@@ -858,7 +909,10 @@ export async function getFeatureDefinitions({
     Record<string, PrerequisiteStateResult>
   > = {};
 
-  const featureDefinitions = generateFeaturesPayload({
+  const {
+    featureDefs: featureDefinitions,
+    holdoutDefs: holdoutFeatureDefinitions,
+  } = generateFeaturesPayload({
     features,
     environment,
     groupMap,
@@ -898,6 +952,7 @@ export async function getFeatureDefinitions({
     organization: context.org.id,
     environment,
     featureDefinitions,
+    holdoutFeatureDefinitions,
     experimentsDefinitions,
     savedGroupsInUse: Object.keys(savedGroupsInUse),
   });
@@ -915,6 +970,7 @@ export async function getFeatureDefinitions({
   return await getFeatureDefinitionsResponse({
     features: featureDefinitions,
     experiments: experimentsDefinitions,
+    holdouts: holdoutFeatureDefinitions,
     dateUpdated: new Date(),
     encryptionKey,
     includeVisualExperiments,
@@ -1109,7 +1165,10 @@ export async function evaluateAllFeatures({
       env.id
     );
 
-    const featurePayload = generateFeaturesPayload({
+    const {
+      featureDefs: featureDefinitions,
+      holdoutDefs: _,
+    } = generateFeaturesPayload({
       features: allFeaturesRaw,
       environment: env.id,
       experimentMap,
@@ -1121,7 +1180,7 @@ export async function evaluateAllFeatures({
 
     // now we have all the definitions, lets evaluate them
     const gb = new GrowthBook({
-      features: featurePayload,
+      features: featureDefinitions,
       savedGroups: savedGroups,
       attributes: attributeValues,
     });
@@ -1151,7 +1210,7 @@ export async function evaluateAllFeatures({
         enabled: false,
         defaultValue: revision.defaultValue,
       };
-      if (featurePayload[feature.id]) {
+      if (featureDefinitions[feature.id]) {
         const settings = feature.environmentSettings[env.id] ?? null;
         if (settings) {
           thisFeatureEnvResult.enabled = settings.enabled;

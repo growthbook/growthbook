@@ -372,6 +372,7 @@ export function getFeatureDefinition({
               },
             ],
             force: getJSONValue(feature.valueType, feature.holdout.value),
+            holdoutId: feature.holdout.id,
           },
         ]
       : [];
