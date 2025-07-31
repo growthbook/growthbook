@@ -20,14 +20,14 @@ export const dashboardBlockSchema = new mongoose.Schema(
       required: true,
       enum: [
         "markdown",
-        "metadata-description",
-        "metadata-hypothesis",
-        "variation-image",
-        "metric",
-        "dimension",
-        "time-series",
-        "traffic-table",
-        "traffic-graph",
+        "experiment-description",
+        "experiment-hypothesis",
+        "experiment-variation-image",
+        "experiment-metric",
+        "experiment-dimension",
+        "experiment-time-series",
+        "experiment-traffic-table",
+        "experiment-traffic-graph",
         "sql-explorer",
       ],
     },
@@ -42,20 +42,20 @@ const markdownBlockSchema = new mongoose.Schema({
   content: String,
 });
 
-const descriptionBlockSchema = new mongoose.Schema({
+const experimentDescriptionBlockSchema = new mongoose.Schema({
   experimentId: String,
 });
 
-const hypothesisBlockSchema = new mongoose.Schema({
+const experimentHypothesisBlockSchema = new mongoose.Schema({
   experimentId: String,
 });
 
-const variationImageBlockSchema = new mongoose.Schema({
+const experimentVariationImageBlockSchema = new mongoose.Schema({
   experimentId: String,
   variationIds: [String],
 });
 
-const metricBlockSchema = new mongoose.Schema({
+const experimentMetricBlockSchema = new mongoose.Schema({
   experimentId: String,
   metricIds: [String],
   variationIds: [String],
@@ -64,7 +64,7 @@ const metricBlockSchema = new mongoose.Schema({
   columnsFilter: [String],
 });
 
-const dimensionBlockSchema = new mongoose.Schema({
+const experimentDimensionBlockSchema = new mongoose.Schema({
   experimentId: String,
   metricIds: [String],
   dimensionId: String,
@@ -75,17 +75,17 @@ const dimensionBlockSchema = new mongoose.Schema({
   columnsFilter: [String],
 });
 
-const timeSeriesBlockSchema = new mongoose.Schema({
+const experimentTimeSeriesBlockSchema = new mongoose.Schema({
   experimentId: String,
   metricId: String,
   variationIds: [String],
 });
 
-const trafficTableBlockSchema = new mongoose.Schema({
+const experimentTrafficTableBlockSchema = new mongoose.Schema({
   experimentId: String,
 });
 
-const trafficGraphBlockSchema = new mongoose.Schema({
+const experimentTrafficGraphBlockSchema = new mongoose.Schema({
   experimentId: String,
 });
 
@@ -105,16 +105,37 @@ export const DashboardBlockModel = mongoose.model(
 
 DashboardBlockModel.discriminator("markdown", markdownBlockSchema);
 DashboardBlockModel.discriminator(
-  "metadata-description",
-  descriptionBlockSchema
+  "experiment-description",
+  experimentDescriptionBlockSchema
 );
-DashboardBlockModel.discriminator("metadata-hypothesis", hypothesisBlockSchema);
-DashboardBlockModel.discriminator("variation-image", variationImageBlockSchema);
-DashboardBlockModel.discriminator("metric", metricBlockSchema);
-DashboardBlockModel.discriminator("dimension", dimensionBlockSchema);
-DashboardBlockModel.discriminator("time-series", timeSeriesBlockSchema);
-DashboardBlockModel.discriminator("traffic-table", trafficTableBlockSchema);
-DashboardBlockModel.discriminator("traffic-graph", trafficGraphBlockSchema);
+DashboardBlockModel.discriminator(
+  "experiment-hypothesis",
+  experimentHypothesisBlockSchema
+);
+DashboardBlockModel.discriminator(
+  "experiment-variation-image",
+  experimentVariationImageBlockSchema
+);
+DashboardBlockModel.discriminator(
+  "experiment-metric",
+  experimentMetricBlockSchema
+);
+DashboardBlockModel.discriminator(
+  "experiment-dimension",
+  experimentDimensionBlockSchema
+);
+DashboardBlockModel.discriminator(
+  "experiment-time-series",
+  experimentTimeSeriesBlockSchema
+);
+DashboardBlockModel.discriminator(
+  "experiment-traffic-table",
+  experimentTrafficTableBlockSchema
+);
+DashboardBlockModel.discriminator(
+  "experiment-traffic-graph",
+  experimentTrafficGraphBlockSchema
+);
 DashboardBlockModel.discriminator("sql-explorer", sqlExplorerBlockSchema);
 
 export const toInterface: ToInterface<DashboardBlockInterface> = (doc) => {

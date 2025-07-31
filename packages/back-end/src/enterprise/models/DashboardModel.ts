@@ -17,13 +17,13 @@ import {
 } from "./DashboardBlockModel";
 
 const DEFAULT_DASHBOARD_BLOCKS: DashboardTemplateInterface["blockInitialValues"] = [
-  { type: "metadata-description" },
-  { type: "traffic-graph" },
+  { type: "experiment-description" },
+  { type: "experiment-traffic-graph" },
   {
-    type: "metric",
+    type: "experiment-metric",
     columnsFilter: ["Variation Names", "Chance to Win", "CI Graph", "Lift"],
   },
-  { type: "time-series" },
+  { type: "experiment-time-series" },
 ];
 
 export type DashboardDocument = mongoose.Document & DashboardInterface;

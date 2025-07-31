@@ -8,13 +8,7 @@ import { Flex, IconButton, Text } from "@radix-ui/themes";
 import { PiCaretDown, PiCaretUp, PiDotsSixVertical } from "react-icons/pi";
 import clsx from "clsx";
 import { blockHasFieldOfType } from "shared/enterprise";
-import {
-  isNumber,
-  isString,
-  isStringArray,
-  partialToFull,
-  isDefined,
-} from "shared/util";
+import { isNumber, isString, isStringArray, isDefined } from "shared/util";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
@@ -41,14 +35,14 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
 import { BLOCK_TYPE_INFO } from "..";
 import MarkdownBlock from "./MarkdownBlock";
-import DescriptionBlock from "./DescriptionBlock";
-import MetricBlock from "./MetricBlock";
-import VariationImageBlock from "./VariationImageBlock";
-import DimensionBlock from "./DimensionBlock";
-import TimeSeriesBlock from "./TimeSeriesBlock";
-import HypothesisBlock from "./HypothesisBlock";
-import TrafficGraphBlock from "./TrafficGraphBlock";
-import TrafficTableBlock from "./TrafficTableBlock";
+import ExperimentDescriptionBlock from "./ExperimentDescriptionBlock";
+import ExperimentMetricBlock from "./ExperimentMetricBlock";
+import ExperimentVariationImageBlock from "./ExperimentVariationImageBlock";
+import ExperimentDimensionBlock from "./ExperimentDimensionBlock";
+import ExperimentTimeSeriesBlock from "./ExperimentTimeSeriesBlock";
+import ExperimentHypothesisBlock from "./ExperimentHypothesisBlock";
+import ExperimentTrafficGraphBlock from "./ExperimentTrafficGraphBlock";
+import ExperimentTrafficTableBlock from "./ExperimentTrafficTableBlock";
 import SqlExplorerBlock from "./SqlExplorerBlock";
 import {
   BlockLoadingSnapshot,
@@ -107,14 +101,14 @@ const BLOCK_COMPONENTS: {
   [B in DashboardBlockInterface as B["type"]]: React.FC<BlockProps<B>>;
 } = {
   markdown: MarkdownBlock,
-  "metadata-description": DescriptionBlock,
-  "metadata-hypothesis": HypothesisBlock,
-  "variation-image": VariationImageBlock,
-  metric: MetricBlock,
-  dimension: DimensionBlock,
-  "time-series": TimeSeriesBlock,
-  "traffic-graph": TrafficGraphBlock,
-  "traffic-table": TrafficTableBlock,
+  "experiment-description": ExperimentDescriptionBlock,
+  "experiment-hypothesis": ExperimentHypothesisBlock,
+  "experiment-variation-image": ExperimentVariationImageBlock,
+  "experiment-metric": ExperimentMetricBlock,
+  "experiment-dimension": ExperimentDimensionBlock,
+  "experiment-time-series": ExperimentTimeSeriesBlock,
+  "experiment-traffic-graph": ExperimentTrafficGraphBlock,
+  "experiment-traffic-table": ExperimentTrafficTableBlock,
   "sql-explorer": SqlExplorerBlock,
 };
 
@@ -233,7 +227,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
         !blockSavedQuery?.dataVizConfig?.[block.dataVizConfigIndex]));
 
   const blockMissingHealthCheck =
-    block.type === "traffic-graph" && !snapshot?.health?.traffic;
+    block.type === "experiment-traffic-graph" && !snapshot?.health?.traffic;
 
   return (
     <Flex
@@ -379,7 +373,8 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
             snapshot={snapshot}
             analysis={analysis}
             mutate={mutate}
-            {...partialToFull(objectProps)}
+            // objectProps should be validated above to actually contain all the keys and not be Partial
+            {...((objectProps as unknown) as ObjectProps<T>)}
           />
         </ErrorBoundary>
       )}

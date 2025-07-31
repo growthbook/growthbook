@@ -1,11 +1,11 @@
 import React from "react";
-import { HypothesisBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
+import { ExperimentHypothesisBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
 import { Box } from "@radix-ui/themes";
 import { BlockProps } from ".";
 
-export default function HypothesisBlock({
+export default function ExperimentHypothesisBlock({
   experiment,
-}: BlockProps<HypothesisBlockInterface>) {
+}: BlockProps<ExperimentHypothesisBlockInterface>) {
   return (
     <>
       {experiment.hypothesis ? (

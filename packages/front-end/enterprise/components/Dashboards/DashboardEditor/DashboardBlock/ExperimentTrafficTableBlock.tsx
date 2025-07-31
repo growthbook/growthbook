@@ -1,12 +1,12 @@
-import { TrafficTableBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
+import { ExperimentTrafficTableBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
 import { useMemo } from "react";
 import VariationUsersTable from "@/components/Experiment/TabbedPage/VariationUsersTable";
 import { BlockProps } from ".";
 
-export default function TrafficTableBlock({
+export default function ExperimentTrafficTableBlock({
   analysis,
   experiment,
-}: BlockProps<TrafficTableBlockInterface>) {
+}: BlockProps<ExperimentTrafficTableBlockInterface>) {
   const results = useMemo(() => analysis?.results[0], [analysis]);
 
   const [_totalUsers, variationUsers] = useMemo(() => {

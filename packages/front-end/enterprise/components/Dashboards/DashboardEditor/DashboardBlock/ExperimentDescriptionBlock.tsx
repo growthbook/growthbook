@@ -1,13 +1,13 @@
 import React from "react";
-import { DescriptionBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
+import { ExperimentDescriptionBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
 import { ScrollArea } from "@radix-ui/themes";
 import Markdown from "react-markdown";
 import { Box } from "spectacle";
 import { BlockProps } from ".";
 
-export default function DescriptionBlock({
+export default function ExperimentDescriptionBlock({
   experiment,
-}: BlockProps<DescriptionBlockInterface>) {
+}: BlockProps<ExperimentDescriptionBlockInterface>) {
   return (
     <>
       {experiment.description ? (

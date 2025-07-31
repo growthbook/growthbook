@@ -120,30 +120,30 @@ export const CREATE_BLOCK_TYPE: {
     content: "",
     ...(initialValues || {}),
   }),
-  "metadata-description": ({ initialValues, experiment }) => ({
-    type: "metadata-description",
+  "experiment-description": ({ initialValues, experiment }) => ({
+    type: "experiment-description",
     title: "Experiment Description",
     description: "",
     experimentId: experiment.id,
     ...(initialValues || {}),
   }),
-  "metadata-hypothesis": ({ initialValues, experiment }) => ({
-    type: "metadata-hypothesis",
+  "experiment-hypothesis": ({ initialValues, experiment }) => ({
+    type: "experiment-hypothesis",
     title: "Experiment Hypothesis",
     description: "",
     experimentId: experiment.id,
     ...(initialValues || {}),
   }),
-  "variation-image": ({ initialValues, experiment }) => ({
-    type: "variation-image",
+  "experiment-variation-image": ({ initialValues, experiment }) => ({
+    type: "experiment-variation-image",
     title: "",
     description: "",
     variationIds: [],
     experimentId: experiment.id,
     ...(initialValues || {}),
   }),
-  metric: ({ initialValues, experiment }) => ({
-    type: "metric",
+  "experiment-metric": ({ initialValues, experiment }) => ({
+    type: "experiment-metric",
     title: "",
     description: "",
     experimentId: experiment.id,
@@ -155,8 +155,8 @@ export const CREATE_BLOCK_TYPE: {
     columnsFilter: [],
     ...(initialValues || {}),
   }),
-  dimension: ({ initialValues, experiment }) => ({
-    type: "dimension",
+  "experiment-dimension": ({ initialValues, experiment }) => ({
+    type: "experiment-dimension",
     title: "",
     description: "",
     experimentId: experiment.id,
@@ -170,8 +170,8 @@ export const CREATE_BLOCK_TYPE: {
     columnsFilter: [],
     ...(initialValues || {}),
   }),
-  "time-series": ({ initialValues, experiment, metricGroups }) => ({
-    type: "time-series",
+  "experiment-time-series": ({ initialValues, experiment, metricGroups }) => ({
+    type: "experiment-time-series",
     title: "",
     description: "",
     experimentId: experiment.id,
@@ -180,15 +180,15 @@ export const CREATE_BLOCK_TYPE: {
     variationIds: [],
     ...(initialValues || {}),
   }),
-  "traffic-graph": ({ initialValues, experiment }) => ({
-    type: "traffic-graph",
+  "experiment-traffic-graph": ({ initialValues, experiment }) => ({
+    type: "experiment-traffic-graph",
     title: "",
     description: "",
     experimentId: experiment.id,
     ...(initialValues || {}),
   }),
-  "traffic-table": ({ initialValues, experiment }) => ({
-    type: "traffic-table",
+  "experiment-traffic-table": ({ initialValues, experiment }) => ({
+    type: "experiment-traffic-table",
     title: "",
     description: "",
     experimentId: experiment.id,

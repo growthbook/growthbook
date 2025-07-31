@@ -2,7 +2,6 @@ import { Flex, IconButton, Text } from "@radix-ui/themes";
 import {
   DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
-  DimensionBlockInterface,
   DashboardBlockType,
 } from "back-end/src/enterprise/validators/dashboard-block";
 import React, { useMemo, useState } from "react";
@@ -45,13 +44,13 @@ const REQUIRED_FIELDS: {
     RequiredField<k, Extract<DashboardBlockInterface, { type: k }>>
   >;
 } = {
-  metric: [
+  "experiment-metric": [
     {
       field: "metricIds",
       validation: (metIds) => isStringArray(metIds) && metIds.length > 0,
     },
   ],
-  dimension: [
+  "experiment-dimension": [
     {
       field: "dimensionId",
       validation: (dimId) => typeof dimId === "string" && dimId.length > 0,
@@ -61,7 +60,7 @@ const REQUIRED_FIELDS: {
       validation: (metIds) => isStringArray(metIds) && metIds.length > 0,
     },
   ],
-  "time-series": [
+  "experiment-time-series": [
     {
       field: "metricId",
       validation: (metId) => typeof metId === "string" && metId.length > 0,
@@ -217,9 +216,9 @@ export default function DashboardBlockEditDrawer({
     : undefined;
 
   const requireBaselineVariation = [
-    "metric",
-    "dimension",
-    "time-series",
+    "experiment-metric",
+    "experiment-dimension",
+    "experiment-time-series",
   ].includes(block?.type || "");
   const baselineIndex = blockHasFieldOfType(block, "baselineRow", isNumber)
     ? block.baselineRow
@@ -539,7 +538,9 @@ export default function DashboardBlockEditDrawer({
                 onChange={(value) =>
                   setBlock({
                     ...block,
-                    differenceType: value as DimensionBlockInterface["differenceType"],
+                    differenceType: isDifferenceType(value)
+                      ? value
+                      : "absolute",
                   })
                 }
                 options={[

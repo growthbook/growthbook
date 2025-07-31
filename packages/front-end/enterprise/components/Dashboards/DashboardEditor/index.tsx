@@ -32,29 +32,29 @@ export const BLOCK_TYPE_INFO: Record<
   markdown: {
     name: "Markdown",
   },
-  "metadata-description": {
+  "experiment-description": {
     name: "Experiment Description",
   },
-  "metadata-hypothesis": {
+  "experiment-hypothesis": {
     name: "Experiment Hypothesis",
   },
-  "variation-image": {
+  "experiment-variation-image": {
     name: "Variations / Screenshots",
   },
-  metric: {
+  "experiment-metric": {
     name: "Metric Results",
   },
-  dimension: {
+  "experiment-dimension": {
     name: "Dimension Results",
   },
-  "time-series": {
+  "experiment-time-series": {
     name: "Time Series",
   },
-  "traffic-graph": {
+  "experiment-traffic-graph": {
     name: "Traffic Time Series",
     hideTitle: true,
   },
-  "traffic-table": {
+  "experiment-traffic-table": {
     name: "Traffic",
   },
   "sql-explorer": {
@@ -64,11 +64,21 @@ export const BLOCK_TYPE_INFO: Record<
 };
 
 const BLOCK_SUBGROUPS: [string, DashboardBlockType[]][] = [
-  ["Metric Results", ["metric", "dimension", "time-series"]],
-  ["Experiment Traffic", ["traffic-table", "traffic-graph"]],
+  [
+    "Metric Results",
+    ["experiment-metric", "experiment-dimension", "experiment-time-series"],
+  ],
+  [
+    "Experiment Traffic",
+    ["experiment-traffic-table", "experiment-traffic-graph"],
+  ],
   [
     "Experiment Overview",
-    ["metadata-description", "metadata-hypothesis", "variation-image"],
+    [
+      "experiment-description",
+      "experiment-hypothesis",
+      "experiment-variation-image",
+    ],
   ],
   ["Other", ["markdown", "sql-explorer"]],
 ];

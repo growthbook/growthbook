@@ -1,4 +1,4 @@
-import { TrafficGraphBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
+import { ExperimentTrafficGraphBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
 import TrafficCard from "@/components/HealthTab/TrafficCard";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Callout from "@/components/Radix/Callout";
@@ -9,7 +9,7 @@ export default function TrafficGraphBlock({
   experiment,
   snapshot,
   ssrPolyfills,
-}: BlockProps<TrafficGraphBlockInterface>) {
+}: BlockProps<ExperimentTrafficGraphBlockInterface>) {
   const { runHealthTrafficQuery } = useOrgSettings();
 
   const healthTrafficQueryRunning =

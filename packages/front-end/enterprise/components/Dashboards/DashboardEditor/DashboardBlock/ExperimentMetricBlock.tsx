@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { MetricBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
+import { ExperimentMetricBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
 import { isDefined } from "shared/util";
 import { groupBy } from "lodash";
 import {
@@ -12,13 +12,13 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { getMetricResultGroup } from "@/components/Experiment/BreakDownResults";
 import { BlockProps } from ".";
 
-export default function MetricBlock({
+export default function ExperimentMetricBlock({
   block: { baselineRow, columnsFilter, variationIds },
   experiment,
   analysis,
   ssrPolyfills,
   metrics,
-}: BlockProps<MetricBlockInterface>) {
+}: BlockProps<ExperimentMetricBlockInterface>) {
   const {
     pValueCorrection: hookPValueCorrection,
     statsEngine: hookStatsEngine,

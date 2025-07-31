@@ -1,4 +1,4 @@
-import { TimeSeriesBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
+import { ExperimentTimeSeriesBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
 import { expandMetricGroups } from "shared/experiments";
 import ExperimentMetricTimeSeriesGraphWrapper from "@/components/Experiment/ExperimentMetricTimeSeriesGraphWrapper";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -6,14 +6,14 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { getMetricResultGroup } from "@/components/Experiment/BreakDownResults";
 import { BlockProps } from ".";
 
-export default function TimeSeriesBlock({
+export default function ExperimentTimeSeriesBlock({
   block: { variationIds },
   experiment,
   snapshot,
   analysis,
   ssrPolyfills,
   metric,
-}: BlockProps<TimeSeriesBlockInterface>) {
+}: BlockProps<ExperimentTimeSeriesBlockInterface>) {
   const { pValueCorrection, statsEngine: hookStatsEngine } = useOrgSettings();
   const { metricGroups } = useDefinitions();
   const goalMetrics = expandMetricGroups(experiment.goalMetrics, metricGroups);
@@ -51,20 +51,18 @@ export default function TimeSeriesBlock({
     .map(({ name }) => name);
 
   return (
-    <div className="time-series-block">
-      <ExperimentMetricTimeSeriesGraphWrapper
-        experimentId={experiment.id}
-        phase={snapshot.phase}
-        experimentStatus={experiment.status}
-        metric={metric}
-        differenceType={analysis?.settings.differenceType || "relative"}
-        showVariations={showVariations}
-        variationNames={variationNames}
-        statsEngine={statsEngine}
-        pValueAdjustmentEnabled={!!appliedPValueCorrection}
-        // TODO: Time series graph wrapper doesn't actually use firstDateToRender correctly
-        firstDateToRender={new Date()}
-      />
-    </div>
+    <ExperimentMetricTimeSeriesGraphWrapper
+      experimentId={experiment.id}
+      phase={snapshot.phase}
+      experimentStatus={experiment.status}
+      metric={metric}
+      differenceType={analysis?.settings.differenceType || "relative"}
+      showVariations={showVariations}
+      variationNames={variationNames}
+      statsEngine={statsEngine}
+      pValueAdjustmentEnabled={!!appliedPValueCorrection}
+      // TODO: Time series graph wrapper doesn't actually use firstDateToRender correctly
+      firstDateToRender={new Date()}
+    />
   );
 }

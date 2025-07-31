@@ -1,5 +1,5 @@
 import React from "react";
-import { DimensionBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
+import { ExperimentDimensionBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
 import { MetricSnapshotSettings } from "back-end/types/report";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
@@ -12,7 +12,7 @@ import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { BlockProps } from ".";
 
-export default function DimensionBlock({
+export default function ExperimentDimensionBlock({
   block: {
     metricIds,
     baselineRow,
@@ -26,7 +26,7 @@ export default function DimensionBlock({
   snapshot,
   analysis,
   ssrPolyfills,
-}: BlockProps<DimensionBlockInterface>) {
+}: BlockProps<ExperimentDimensionBlockInterface>) {
   const { pValueCorrection: hookPValueCorrection } = useOrgSettings();
   const { metricGroups } = useDefinitions();
   const expandedMetricIds = expandMetricGroups(metricIds, metricGroups);
