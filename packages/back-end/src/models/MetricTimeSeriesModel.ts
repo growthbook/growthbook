@@ -2,6 +2,7 @@ import uniqid from "uniqid";
 import { formatISO } from "date-fns";
 import { FilterQuery } from "mongoose";
 import { isValidDataPoint } from "shared/util";
+import { getValidDate } from "shared/dates";
 import {
   metricTimeSeriesSchema,
   MetricTimeSeries,
@@ -278,24 +279,29 @@ export class MetricTimeSeriesModel extends BaseClass {
   private dropInvalidAndLimitDataPoints(
     dataPoints: MetricTimeSeries["dataPoints"]
   ) {
-    const lastDataPointPerDay = dataPoints.reduceRight((acc, dataPoint) => {
-      if (!isValidDataPoint(dataPoint)) {
-        return acc;
-      }
+    const lastDataPointPerDay = dataPoints
+      .sort(
+        (a, b) =>
+          getValidDate(b.date).getTime() - getValidDate(a.date).getTime()
+      )
+      .reduce((acc, dataPoint) => {
+        if (!isValidDataPoint(dataPoint)) {
+          return acc;
+        }
 
-      const dateKey = formatISO(dataPoint.date, { representation: "date" });
-      if (dataPoint.tags && dataPoint.tags.length > 0) {
-        if (!acc.has(dateKey)) {
-          acc.set(dateKey, []);
+        const dateKey = formatISO(dataPoint.date, { representation: "date" });
+        if (dataPoint.tags && dataPoint.tags.length > 0) {
+          if (!acc.has(dateKey)) {
+            acc.set(dateKey, []);
+          }
+          acc.get(dateKey)!.push(dataPoint);
+        } else {
+          if (!acc.has(dateKey)) {
+            acc.set(dateKey, [dataPoint]);
+          }
         }
-        acc.get(dateKey)!.push(dataPoint);
-      } else {
-        if (!acc.has(dateKey)) {
-          acc.set(dateKey, [dataPoint]);
-        }
-      }
-      return acc;
-    }, new Map<string, typeof dataPoints>());
+        return acc;
+      }, new Map<string, typeof dataPoints>());
 
     // Order of array is defined by order of insertion, which is the opposite of the desired order
     const sortedDataPoints = Array.from(lastDataPointPerDay.values())
@@ -306,7 +312,7 @@ export class MetricTimeSeriesModel extends BaseClass {
       return sortedDataPoints;
     }
 
-    // Drop the oldest data points
-    return sortedDataPoints.slice(0, 300);
+    // Drop the oldest data points (earliest in the array order)
+    return sortedDataPoints.slice(-300);
   }
 }
