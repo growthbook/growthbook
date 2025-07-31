@@ -58,6 +58,11 @@ const navlinks: SidebarLinkProps[] = [
         filter: ({ gb }) => !!gb?.isOn("bandits"),
       },
       {
+        name: "Holdouts",
+        href: "/holdouts",
+        path: /^holdouts/,
+      },
+      {
         name: "Templates",
         href: "/experiments/templates",
         path: /^experiments\/templates/,

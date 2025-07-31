@@ -548,8 +548,10 @@ pre {
 
 .main.experiment,
 .main.bandit,
+.main.holdout,
 .public.experiment,
-.public.bandit {
+.public.bandit,
+.public.holdout {
   .experiment-header {
     .border {
       border-bottom: 1px solid var(--border-color-200);

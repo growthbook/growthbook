@@ -2771,7 +2771,7 @@ export interface components {
       dateUpdated: string;
       name: string;
       /** @enum {string} */
-      type: "standard" | "multi-armed-bandit";
+      type: "standard" | "multi-armed-bandit" | "holdout";
       project: string;
       hypothesis: string;
       description: string;
@@ -3098,7 +3098,7 @@ export interface components {
       dateUpdated: string;
       name: string;
       /** @enum {string} */
-      type: "standard" | "multi-armed-bandit";
+      type: "standard" | "multi-armed-bandit" | "holdout";
       project: string;
       hypothesis: string;
       description: string;
@@ -8461,7 +8461,7 @@ export interface operations {
                 dateUpdated: string;
                 name: string;
                 /** @enum {string} */
-                type: "standard" | "multi-armed-bandit";
+                type: "standard" | "multi-armed-bandit" | "holdout";
                 project: string;
                 hypothesis: string;
                 description: string;
@@ -8736,7 +8736,7 @@ export interface operations {
               dateUpdated: string;
               name: string;
               /** @enum {string} */
-              type: "standard" | "multi-armed-bandit";
+              type: "standard" | "multi-armed-bandit" | "holdout";
               project: string;
               hypothesis: string;
               description: string;
@@ -8918,7 +8918,7 @@ export interface operations {
               dateUpdated: string;
               name: string;
               /** @enum {string} */
-              type: "standard" | "multi-armed-bandit";
+              type: "standard" | "multi-armed-bandit" | "holdout";
               project: string;
               hypothesis: string;
               description: string;
@@ -9197,7 +9197,7 @@ export interface operations {
               dateUpdated: string;
               name: string;
               /** @enum {string} */
-              type: "standard" | "multi-armed-bandit";
+              type: "standard" | "multi-armed-bandit" | "holdout";
               project: string;
               hypothesis: string;
               description: string;
@@ -10289,7 +10289,7 @@ export interface operations {
               dateUpdated: string;
               name: string;
               /** @enum {string} */
-              type: "standard" | "multi-armed-bandit";
+              type: "standard" | "multi-armed-bandit" | "holdout";
               project: string;
               hypothesis: string;
               description: string;

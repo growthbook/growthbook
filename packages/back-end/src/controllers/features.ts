@@ -432,7 +432,7 @@ export async function postFeatures(
 ) {
   const context = getContextFromReq(req);
   const { org, userId, userName } = context;
-  const { id, environmentSettings, ...otherProps } = req.body;
+  const { id, environmentSettings, holdout, ...otherProps } = req.body;
 
   if (
     !context.permissions.canCreateFeature(req.body) ||
@@ -479,6 +479,19 @@ export async function postFeatures(
     );
   }
 
+  if (holdout) {
+    const holdoutObj = await context.models.holdout.getById(holdout.id);
+    if (!holdoutObj) {
+      throw new Error("Holdout not found");
+    }
+    await context.models.holdout.updateById(holdout.id, {
+      linkedFeatures: {
+        ...holdoutObj.linkedFeatures,
+        [id]: { id, dateAdded: new Date() },
+      },
+    });
+  }
+
   const feature: FeatureInterface = {
     defaultValue: "",
     valueType: "boolean",
@@ -494,6 +507,7 @@ export async function postFeatures(
     archived: false,
     version: 1,
     hasDrafts: false,
+    holdout,
     jsonSchema: {
       schemaType: "schema",
       simple: {
@@ -1247,6 +1261,45 @@ export async function postFeatureRule(
       throw new Error("Failed to create safe rollout");
     }
     rule.safeRolloutId = safeRollout.id;
+  }
+
+  // Add holdout to existing experiment and experiment to holdout linkedExperiments
+  // if the experiment is not running and has no linked implementations for
+  // experiment-ref rules
+  if (rule.type === "experiment-ref" && feature.holdout) {
+    const experiment = await getExperimentById(context, rule.experimentId);
+    const expHasLinkedChanges =
+      (experiment?.linkedFeatures?.length ?? 0) > 0 ||
+      experiment?.hasURLRedirects ||
+      experiment?.hasVisualChangesets;
+
+    if (
+      experiment?.status !== "draft" ||
+      experiment?.holdoutId !== feature.holdout.id ||
+      expHasLinkedChanges
+    ) {
+      throw new Error(
+        "Failed to create experiment rule. Experiment has linked changes, is not in draft status, or is not linked to the same holdout as the feature."
+      );
+    }
+
+    await updateExperiment({
+      context,
+      experiment,
+      changes: {
+        holdoutId: feature.holdout.id,
+      },
+    });
+    const holdout = await context.models.holdout.getById(feature.holdout.id);
+    await context.models.holdout.updateById(feature.holdout.id, {
+      linkedExperiments: {
+        ...holdout?.linkedExperiments,
+        [experiment.id]: {
+          id: experiment.id,
+          dateAdded: new Date(),
+        },
+      },
+    });
   }
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
@@ -2195,6 +2248,7 @@ export async function putFeature(
     "project",
     "owner",
     "customFields",
+    "holdout",
   ];
 
   if (
@@ -2206,6 +2260,59 @@ export async function putFeature(
   }
 
   const updatedFeature = await updateFeature(context, feature, updates);
+
+  if (updates.holdout?.id !== feature.holdout?.id && feature.holdout?.id) {
+    await context.models.holdout.removeFeatureFromHoldout(
+      feature.holdout.id,
+      feature.id
+    );
+  }
+
+  if (updates.holdout) {
+    const holdoutObj = await context.models.holdout.getById(updates.holdout.id);
+    if (!holdoutObj) {
+      throw new Error("Holdout not found");
+    }
+    await context.models.holdout.updateById(updates.holdout.id, {
+      linkedFeatures: {
+        ...holdoutObj.linkedFeatures,
+        [id]: { id, dateAdded: new Date() },
+      },
+      ...(feature.linkedExperiments?.length
+        ? {
+            linkedExperiments: {
+              ...holdoutObj.linkedExperiments,
+              ...Object.fromEntries(
+                feature.linkedExperiments.map((experimentId) => [
+                  experimentId,
+                  { id: experimentId, dateAdded: new Date() },
+                ])
+              ),
+            },
+          }
+        : {}),
+    });
+    if (feature.linkedExperiments?.length) {
+      const linkedExperiments = await Promise.all(
+        feature.linkedExperiments.map(async (experimentId) => {
+          return getExperimentById(context, experimentId);
+        })
+      );
+
+      await Promise.all(
+        linkedExperiments.map(async (exp) => {
+          if (!exp) return;
+          return updateExperiment({
+            context,
+            experiment: exp,
+            changes: {
+              holdoutId: updates.holdout?.id,
+            },
+          });
+        })
+      );
+    }
+  }
 
   // If there are new tags to add
   await addTagsDiff(org.id, feature.tags || [], updates.tags || []);
@@ -2248,6 +2355,12 @@ export async function deleteFeatureById(
       )
     ) {
       context.permissions.throwPermissionError();
+    }
+    if (feature.holdout?.id) {
+      await context.models.holdout.removeFeatureFromHoldout(
+        feature.holdout.id,
+        feature.id
+      );
     }
     await deleteFeature(context, feature);
     await req.audit({
@@ -2675,6 +2788,13 @@ export async function getFeatureById(
     feature: feature.id,
     organization: org,
   });
+
+  // find holdout
+  let holdout;
+  if (feature.holdout) {
+    holdout = await context.models.holdout.getById(feature.holdout.id);
+  }
+
   res.status(200).json({
     status: 200,
     feature,
@@ -2683,6 +2803,7 @@ export async function getFeatureById(
     experiments: [...experimentsMap.values()],
     safeRollouts: [...safeRolloutMap.values()],
     codeRefs,
+    holdout: holdout || undefined,
   });
 }
 
