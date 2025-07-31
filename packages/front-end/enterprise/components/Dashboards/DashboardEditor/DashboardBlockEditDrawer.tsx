@@ -298,6 +298,7 @@ export default function DashboardBlockEditDrawer({
               background:
                 "linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.1) 100%)",
               zIndex: 10000,
+              pointerEvents: "none",
             }}
           ></div>
           <Flex justify="between" align="center" px="2">

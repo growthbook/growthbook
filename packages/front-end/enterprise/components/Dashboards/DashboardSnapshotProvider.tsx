@@ -109,6 +109,19 @@ export default function DashboardSnapshotProvider({
     return { status, snapshotsMap, allQueries };
   }, [allSnapshots]);
 
+  useEffect(() => {
+    const dashboardSnapshotIds = [
+      ...new Set(
+        (dashboard?.blocks?.map((block) => block.snapshotId) || []).filter(
+          isDefined
+        )
+      ),
+    ];
+    if (dashboardSnapshotIds.some((snapId) => !snapshotsMap.has(snapId))) {
+      mutateAllSnapshots();
+    }
+  }, [snapshotsMap, dashboard, mutateAllSnapshots]);
+
   // Periodically check for the status of all snapshots
   useEffect(() => {
     const intervalId = setInterval(() => {
@@ -237,7 +250,6 @@ export function useDashboardSnapshot(
         }/${dimension}`
       );
       setBlock({ ...block, snapshotId: res.snapshot?.id ?? "" });
-      mutateSnapshot();
       setFetchingSnapshot(false);
     };
     getNewSnapshot();
@@ -249,7 +261,6 @@ export function useDashboardSnapshot(
     apiCall,
     block,
     setBlock,
-    mutateSnapshot,
   ]);
 
   // If unable to get the necessary analysis on the current snapshot, post the updated settings
