@@ -707,7 +707,7 @@ const sidebars = {
         {
           type: "doc",
           id: "guide/sanity",
-          label: "Sanity CMS",
+          label: "Sanity",
         },
         {
           type: "doc",
