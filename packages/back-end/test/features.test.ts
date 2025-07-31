@@ -1709,6 +1709,7 @@ describe("SDK Payloads", () => {
         organization: organization,
         attributes: [secureStringAttr],
         secureAttributeSalt: "salt",
+        holdouts: {},
       });
       expect(features).toEqual({
         featureName: {
@@ -1740,6 +1741,7 @@ describe("SDK Payloads", () => {
         organization: organization,
         attributes: [secureStringAttr],
         secureAttributeSalt: "salt",
+        holdouts: {},
       });
       expect(features).toEqual({
         featureName: {

@@ -48,7 +48,6 @@ export type FeatureRule<T = any> = {
     experiment: Experiment<T>;
     result: Result<T>;
   }>;
-  holdoutId?: string;
 };
 
 export interface FeatureDefinition<T = any> {

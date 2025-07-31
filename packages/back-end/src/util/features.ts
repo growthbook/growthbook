@@ -1,7 +1,6 @@
 import isEqual from "lodash/isEqual";
 import {
   ConditionInterface,
-  FeatureRule as FeatureDefinitionRule,
   ParentConditionInterface,
 } from "@growthbook/growthbook";
 import { includeExperimentInPayload, isDefined } from "shared/util";
@@ -14,7 +13,10 @@ import {
   FeatureValueType,
   SavedGroupTargeting,
 } from "back-end/types/feature";
-import { FeatureDefinitionWithProject } from "back-end/types/api";
+import {
+  FeatureDefinitionWithProject,
+  FeatureDefinitionRuleWithHoldout as FeatureDefinitionRuleWithHoldout,
+} from "back-end/types/api";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { ExperimentInterface } from "back-end/types/experiment";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
@@ -357,7 +359,7 @@ export function getFeatureDefinition({
   // If the feature has a holdout and it's enabled for the environment, add holdout as a
   // pseudo force rule with a prerequisite condition. The environment being enabled is
   // already checked in the getAllPayloadHoldouts function.
-  const holdoutRule: FeatureDefinitionRule[] =
+  const holdoutRule: FeatureDefinitionRuleWithHoldout[] =
     feature.holdout &&
     holdoutsMap &&
     holdoutsMap.get(feature.holdout.id)?.environmentSettings?.[environment]
@@ -395,8 +397,8 @@ export function getFeatureDefinition({
     .filter(isDefined);
 
   const isRule = (
-    rule: FeatureDefinitionRule | null
-  ): rule is FeatureDefinitionRule => !!rule;
+    rule: FeatureDefinitionRuleWithHoldout | null
+  ): rule is FeatureDefinitionRuleWithHoldout => !!rule;
 
   const defRules = [
     ...holdoutRule,
@@ -406,7 +408,7 @@ export function getFeatureDefinition({
         return isRuleEnabled(r, date);
       })
       ?.map((r) => {
-        const rule: FeatureDefinitionRule = {
+        const rule: FeatureDefinitionRuleWithHoldout = {
           id: r.id,
         };
 
