@@ -9,6 +9,7 @@ if (SENTRY_DSN) {
     dsn: SENTRY_DSN,
     sendDefaultPii: true,
     environment: process.env.NODE_ENV || "development",
+    release: buildInfo.sha,
   });
   const buildDate = buildInfo.date;
   if (buildDate) {
