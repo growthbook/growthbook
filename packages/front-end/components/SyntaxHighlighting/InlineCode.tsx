@@ -19,12 +19,20 @@ export interface Props {
   code: string;
   language: Language;
   className?: string;
+  inTooltip?: boolean;
 }
 
-export default function InlineCode({ code, language, className }: Props) {
+export default function InlineCode({
+  code,
+  language,
+  className,
+  inTooltip,
+}: Props) {
   const { theme } = useAppearanceUITheme();
 
-  const style = cloneDeep(theme === "light" ? light : dark);
+  const style = cloneDeep(
+    theme === "light" ? (inTooltip ? dark : light) : inTooltip ? light : dark
+  );
   style['code[class*="language-"]'].fontSize = "0.85rem";
   style['code[class*="language-"]'].lineHeight = 1.5;
   style['code[class*="language-"]'].fontWeight = 600;

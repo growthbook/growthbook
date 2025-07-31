@@ -8,6 +8,7 @@ import {
 import { TemplateVariables } from "back-end/types/sql";
 import { Flex, Text, Box, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
+import { SQL_ROW_LIMIT } from "shared/sql";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { validateSQL } from "@/services/datasources";
@@ -36,9 +37,10 @@ import {
   DropdownMenuItem,
 } from "@/components/Radix/DropdownMenu";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
-import styles from "./EditSqlModal.module.scss";
-import { AreaWithHeader } from "./SqlExplorerModal";
+import Checkbox from "../Radix/Checkbox";
 import SchemaBrowser from "./SchemaBrowser";
+import { AreaWithHeader } from "./SqlExplorerModal";
+import styles from "./EditSqlModal.module.scss";
 
 export type TestQueryResults = {
   duration?: string;
@@ -78,6 +80,7 @@ export default function EditSqlModal({
     setTestQueryResults,
   ] = useState<TestQueryResults | null>(null);
   const [testQueryBeforeSaving, setTestQueryBeforeSaving] = useState(true);
+  const [apply5RowLimit, setApply5RowLimit] = useState(true);
   const [autoCompletions, setAutoCompletions] = useState<AceCompletion[]>([]);
   const [informationSchema, setInformationSchema] = useState<
     InformationSchemaInterface | undefined
@@ -128,6 +131,7 @@ export default function EditSqlModal({
           query: sql,
           datasourceId: datasourceId,
           templateVariables: templateVariables,
+          limit: apply5RowLimit ? 5 : undefined,
         }),
       });
 
@@ -147,6 +151,7 @@ export default function EditSqlModal({
       datasourceId,
       validateRequiredColumns,
       validateResponseOverride,
+      apply5RowLimit,
       // eslint-disable-next-line
       JSON.stringify(templateVariables),
     ]
@@ -312,9 +317,26 @@ export default function EditSqlModal({
                             <FaExclamationTriangle className="text-danger" />
                           </Tooltip>
                         )}
+
+                        <Tooltip
+                          className="pt-1"
+                          shouldDisplay={!!canRunQueries}
+                          body={`If unchecked, GrowthBook will automatically apply a ${SQL_ROW_LIMIT} row limit for optimal performance.`}
+                        >
+                          <Checkbox
+                            label="Limit 5"
+                            weight="regular"
+                            disabled={!canRunQueries}
+                            value={apply5RowLimit}
+                            setValue={(v) => {
+                              setApply5RowLimit(v);
+                            }}
+                            mb="0"
+                          />
+                        </Tooltip>
                         {canFormat ? (
                           <RadixButton
-                            size="xs"
+                            size="sm"
                             variant="ghost"
                             onClick={handleFormatClick}
                             disabled={!form.watch("sql")}
