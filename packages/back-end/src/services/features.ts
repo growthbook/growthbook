@@ -637,10 +637,12 @@ export async function getFeatureDefinitionsResponse({
     );
     holdouts = Object.fromEntries(
       Object.entries(holdouts).filter(([_, holdout]) => {
-        if (holdout.projects?.length === 0) {
+        // If the holdout has no projects, it's a part of all projects and we want to include it
+        if (!holdout.projects || holdout.projects.length === 0) {
           return true;
         }
-        return projects.some((p) => (holdout.projects || []).includes(p));
+        const holdoutProjects = holdout.projects;
+        return projects.some((p) => holdoutProjects.includes(p));
       })
     );
   }
@@ -863,7 +865,7 @@ export async function getFeatureDefinitions({
       return await getFeatureDefinitionsResponse({
         features,
         experiments: experiments || [],
-        holdouts,
+        holdouts: holdouts || {},
         dateUpdated: cached.dateUpdated,
         encryptionKey,
         includeVisualExperiments,
@@ -1165,10 +1167,7 @@ export async function evaluateAllFeatures({
       env.id
     );
 
-    const {
-      featureDefs: featureDefinitions,
-      holdoutDefs: _,
-    } = generateFeaturesPayload({
+    const { featureDefs: featureDefinitions } = generateFeaturesPayload({
       features: allFeaturesRaw,
       environment: env.id,
       experimentMap,

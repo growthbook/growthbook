@@ -374,7 +374,7 @@ export function getFeatureDefinition({
               },
             ],
             force: getJSONValue(feature.valueType, feature.holdout.value),
-            holdoutId: feature.holdout.id,
+            holdoutId: feature.holdout.id, // Used to do holdout project filtering. Scrubbed in the getFeatureDefinitionsResponse function.
           },
         ]
       : [];
