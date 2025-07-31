@@ -24,6 +24,7 @@ import {
 import {
   scrubExperiments,
   scrubFeatures,
+  scrubHoldouts,
   scrubSavedGroups,
   SDKCapability,
 } from "shared/sdk-versioning";
@@ -635,33 +636,6 @@ export async function getFeatureDefinitionsResponse({
         projects.includes(feature.project || "")
       )
     );
-    holdouts = Object.fromEntries(
-      Object.entries(holdouts).filter(([_, holdout]) => {
-        // If the holdout has no projects, it's a part of all projects and we want to include it
-        if (!holdout.projects || holdout.projects.length === 0) {
-          return true;
-        }
-        const holdoutProjects = holdout.projects;
-        return projects.some((p) => holdoutProjects.includes(p));
-      })
-    );
-  }
-
-  // Scrub feature rules with holdoutId that is either not found or is not correctly project scoped
-  for (const k in features) {
-    if (features[k]?.rules) {
-      features[k].rules = features[k].rules?.filter((rule) => {
-        if (!rule.holdoutId) {
-          return true;
-        }
-        if (!holdouts[rule.holdoutId]) {
-          return false;
-        }
-        // If the holdout is found, keep the rule and scrub the holdoutId
-        rule = omit(rule, ["holdoutId"]);
-        return true;
-      });
-    }
   }
 
   // Remove `project` from all features/experiments
@@ -672,16 +646,18 @@ export async function getFeatureDefinitionsResponse({
     ])
   );
   experiments = experiments.map((exp) => omit(exp, ["project"]));
-  // Remove `projects` from holdouts
-  holdouts = Object.fromEntries(
-    Object.entries(holdouts).map(([key, holdout]) => [
-      key,
-      omit(holdout, ["projects"]),
-    ])
-  );
+
+  const {
+    holdouts: scrubbedHoldouts,
+    features: scrubbedFeatures,
+  } = scrubHoldouts({
+    holdouts,
+    projects,
+    features,
+  });
 
   // Add holdouts to features
-  features = { ...features, ...holdouts };
+  features = { ...scrubbedFeatures, ...scrubbedHoldouts };
 
   const hasSecureAttributes = attributes?.some((a) =>
     ["secureString", "secureString[]"].includes(a.datatype)
