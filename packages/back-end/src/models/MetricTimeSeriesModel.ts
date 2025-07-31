@@ -1,12 +1,14 @@
 import uniqid from "uniqid";
 import { formatISO } from "date-fns";
 import { FilterQuery } from "mongoose";
+import { isValidDataPoint } from "shared/util";
 import {
   metricTimeSeriesSchema,
   MetricTimeSeries,
   CreateMetricTimeSeries,
   CreateMetricTimeSeriesSingleDataPoint,
 } from "back-end/src/validators/metric-time-series";
+import { logger } from "back-end/src/util/logger";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -74,37 +76,7 @@ export class MetricTimeSeriesModel extends BaseClass {
 
     const results = await this._find(query);
 
-    const filteredResults = results.map((ts) => {
-      const filteredDataPoints = ts.dataPoints.filter((dp) => {
-        if (!dp.variations || dp.variations.length <= 1) return true;
-
-        // Check variations from index 1 onwards (skip control)
-        for (let i = 1; i < dp.variations.length; i++) {
-          const variation = dp.variations[i];
-          if (
-            variation.absolute?.ci &&
-            variation.absolute.ci[0] === 0 &&
-            variation.absolute.ci[1] === 0
-          ) {
-            return false;
-          }
-        }
-
-        return true;
-      });
-
-      return {
-        ...ts,
-        dataPoints: filteredDataPoints,
-      };
-    });
-
-    // And from the filtered results, only return the ones that have data points
-    const resultsWithDataPoints = filteredResults.filter(
-      (ts) => ts.dataPoints.length > 0
-    );
-
-    return resultsWithDataPoints;
+    return results;
   }
 
   public async deleteAllBySource(
@@ -120,7 +92,7 @@ export class MetricTimeSeriesModel extends BaseClass {
 
   public async findMany(
     metricTimeSeriesIdentifiers: Pick<
-      CreateMetricTimeSeries,
+      MetricTimeSeries,
       "source" | "sourceId" | "sourcePhase" | "metricId"
     >[]
   ) {
@@ -133,6 +105,7 @@ export class MetricTimeSeriesModel extends BaseClass {
         metricIds: MetricTimeSeries["metricId"][];
       }
     >();
+
     metricTimeSeriesIdentifiers.forEach((mts) => {
       const sourceIdentifier = `${mts.source}::${mts.sourceId}::${mts.sourcePhase}`;
       if (!metricTimeSeriesPerSource.has(sourceIdentifier)) {
@@ -160,13 +133,16 @@ export class MetricTimeSeriesModel extends BaseClass {
     );
 
     const allResults = await Promise.all(allPromises);
+
     return allResults.flat();
   }
 
   /**
-   * If the existing source/metricId record already exists, it will be updated with the
-   * new data point being added to the end of the dataPoints array.
-   * If the record does not exist, it will be created.
+   * Based on the provided identifiers (source, sourceId, sourcePhase, metricId), this function will:
+   * - If a record does not exist, it will be created.
+   * - If a record exists, the provided data point will be added to the end of the dataPoints array.
+   *
+   * @param metricTimeSeries - An array of metric time series identifiers and data points to upsert.
    */
   public async upsertMultipleSingleDataPoint(
     metricTimeSeries: CreateMetricTimeSeriesSingleDataPoint[]
@@ -188,7 +164,10 @@ export class MetricTimeSeriesModel extends BaseClass {
       if (existing) {
         toUpdate.push(this.getUpdatedMetricTimeSeries(existing, mts));
       } else {
-        toCreate.push(this.getNewMetricTimeSeries(mts));
+        const newTimeSeries = this.getNewMetricTimeSeries(mts);
+        if (newTimeSeries) {
+          toCreate.push(newTimeSeries);
+        }
       }
     });
 
@@ -241,10 +220,21 @@ export class MetricTimeSeriesModel extends BaseClass {
       newTimeSeries.singleDataPoint.tags.push("metric-settings-changed");
     }
 
-    const dataPoints = this.limitTimeSeriesDataPoints([
+    const dataPoints = this.dropInvalidAndLimitDataPoints([
       ...existing.dataPoints,
       newTimeSeries.singleDataPoint,
     ]);
+
+    if (dataPoints.length === 0) {
+      logger.warn(
+        {
+          metricTimeSeriesId: existing.id,
+          newDataPoint: newTimeSeries.singleDataPoint,
+        },
+        "No valid data points for metric time series. Skipping update."
+      );
+      return existing;
+    }
 
     return metricTimeSeriesSchema.strip().parse({
       ...existing,
@@ -257,7 +247,17 @@ export class MetricTimeSeriesModel extends BaseClass {
 
   private getNewMetricTimeSeries(
     newTimeSeries: CreateMetricTimeSeriesSingleDataPoint
-  ): MetricTimeSeries {
+  ): MetricTimeSeries | undefined {
+    if (!isValidDataPoint(newTimeSeries.singleDataPoint)) {
+      logger.warn(
+        {
+          newTimeSeries,
+        },
+        "Invalid data point. Skipping creation of time series."
+      );
+      return;
+    }
+
     return metricTimeSeriesSchema.strip().parse({
       ...newTimeSeries,
       dataPoints: [newTimeSeries.singleDataPoint],
@@ -270,13 +270,19 @@ export class MetricTimeSeriesModel extends BaseClass {
   }
 
   /**
-   * Organizes data points by day and limits the total to 300 most recent points
-   * Keeps all tagged data points and at least one untagged point per day
+   * Drops invalid data points.
+   * Keeps the most recent data point per day, if it is not tagged.
+   * Keeps all data points that are tagged & valid.
+   * Limits the total to 300 most recent points.
    */
-  private limitTimeSeriesDataPoints(
+  private dropInvalidAndLimitDataPoints(
     dataPoints: MetricTimeSeries["dataPoints"]
   ) {
     const lastDataPointPerDay = dataPoints.reduceRight((acc, dataPoint) => {
+      if (!isValidDataPoint(dataPoint)) {
+        return acc;
+      }
+
       const dateKey = formatISO(dataPoint.date, { representation: "date" });
       if (dataPoint.tags && dataPoint.tags.length > 0) {
         if (!acc.has(dateKey)) {
@@ -300,7 +306,7 @@ export class MetricTimeSeriesModel extends BaseClass {
       return sortedDataPoints;
     }
 
-    // Drop the oldest data points (earliest in the array order)
-    return sortedDataPoints.slice(-300);
+    // Drop the oldest data points
+    return sortedDataPoints.slice(0, 300);
   }
 }
