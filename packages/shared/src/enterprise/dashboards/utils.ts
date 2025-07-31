@@ -4,7 +4,6 @@ import {
   DashboardBlockType,
   DashboardBlockInterfaceOrData,
   CreateDashboardBlockInterface,
-  differenceTypes,
 } from "back-end/src/enterprise/validators/dashboard-block";
 import {
   ExperimentInterface,
@@ -18,6 +17,8 @@ import { DashboardTemplateInterface } from "back-end/src/enterprise/validators/d
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { isNumber, isString } from "../../util/types";
 import { expandMetricGroups } from "../../experiments";
+
+export const differenceTypes = ["absolute", "relative", "scaled"] as const;
 
 export function getBlockData<T extends DashboardBlockInterface>(
   block: DashboardBlockInterfaceOrData<T>

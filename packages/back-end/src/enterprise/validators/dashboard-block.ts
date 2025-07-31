@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { DistributiveOmit } from "shared/util";
-
-export const differenceTypes = ["absolute", "relative", "scaled"] as const;
+import { differenceTypes } from "shared/enterprise";
 
 const baseBlockInterface = z
   .object({

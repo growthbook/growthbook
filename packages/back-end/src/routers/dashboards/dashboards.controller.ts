@@ -204,7 +204,7 @@ export async function refreshDashboardData(
   const dimensionBlockPairs = dashboard.blocks
     .map<[string, string] | undefined>((block) =>
       blockHasFieldOfType(block, "dimensionId", isString)
-        ? [block.dimensionId, block.uid]
+        ? [block.dimensionId, block.id]
         : undefined
     )
     .filter(isDefined);
@@ -212,14 +212,14 @@ export async function refreshDashboardData(
   // Create a map from dimension -> list of block IDs that use that dimension
   const dimensionsByBlocks = Object.fromEntries(
     Object.entries(
-      groupBy(dimensionBlockPairs, ([dimensionId, _blockUid]) => dimensionId)
+      groupBy(dimensionBlockPairs, ([dimensionId, _blockId]) => dimensionId)
     ).map(([dimensionId, dimBlockPairs]) => [
       dimensionId,
-      dimBlockPairs.map(([_dim, blockUid]) => blockUid),
+      dimBlockPairs.map(([_dim, blockId]) => blockId),
     ])
   );
 
-  for (const [dimensionId, blockUids] of Object.entries(dimensionsByBlocks)) {
+  for (const [dimensionId, blockIds] of Object.entries(dimensionsByBlocks)) {
     const { snapshot } = await createExperimentSnapshot({
       context,
       experiment,
@@ -230,7 +230,7 @@ export async function refreshDashboardData(
       triggeredBy: "manual",
     });
     newBlocks.forEach((block) => {
-      if (blockUids.includes(block.uid)) {
+      if (blockIds.includes(block.id)) {
         block.snapshotId = snapshot.id;
       }
     });
