@@ -16,7 +16,7 @@ export type ErrorReporterSettings = {
 export function createErrorReporter({
   logEvent,
   debounceTimeout = 100,
-  samplingRate = 0.1,
+  samplingRate = 1,
   hashAttribute = "id",
   userContext,
   growthbook,

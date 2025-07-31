@@ -101,6 +101,7 @@ type EventData = {
   properties: EventProperties;
   attributes: Attributes;
   url: string;
+  timestamp: string;
 };
 
 function getEventPayload({
@@ -136,7 +137,11 @@ async function track({
   const endpoint = `${
     ingestorHost || "https://us1.gb-ingest.com"
   }/track?client_key=${clientKey}`;
-  const body = JSON.stringify(events);
+  const payload = {
+    events,
+    sentAt: new Date().toISOString(),
+  };
+  const body = JSON.stringify(payload);
 
   try {
     await fetch(endpoint, {
@@ -199,6 +204,7 @@ export function growthbookTrackingPlugin({
           properties,
           attributes: userContext.attributes || {},
           url: userContext.url || "",
+          timestamp: new Date().toISOString(),
         };
 
         // Skip logging if the event is being filtered

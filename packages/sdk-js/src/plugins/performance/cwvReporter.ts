@@ -21,7 +21,7 @@ export function createCWVReporter({
   trackCLS = true,
   trackTTFB = true,
   trackTBT = true,
-  samplingRate = 0.1,
+  samplingRate = 1,
   hashAttribute = "id",
   growthbook,
 }: CWVReporterSettings) {

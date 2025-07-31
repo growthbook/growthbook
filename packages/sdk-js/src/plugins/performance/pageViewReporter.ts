@@ -47,15 +47,7 @@ export function createPageViewReporter({
 
   const reportPageView = () => {
     if (!observing) return;
-    growthbook.logEvent("page_view", {
-      url: window.location.href,
-      title: document.title,
-      referrer: document.referrer,
-      origin: window.location.origin,
-      path: window.location.pathname,
-      search: window.location.search,
-      hash: window.location.hash,
-    });
+    growthbook.logEvent("page_view");
   };
 
   const reportIfUrlChanged = (newPath: string) => {
