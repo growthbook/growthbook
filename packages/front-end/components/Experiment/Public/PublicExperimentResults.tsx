@@ -134,7 +134,6 @@ export default function PublicExperimentResults({
               />
             ) : showBreakDownResults ? (
               <BreakDownResults
-                // TODO: add blocking quantile re-aggregation
                 key={snapshot.dimension}
                 results={analysis?.results ?? []}
                 queryStatusData={queryStatusData}

@@ -488,7 +488,7 @@ export function getSnapshotSettings({
   );
 
   // get dimensions for standard analysis
-  // TODO customize at experiment level
+  // TODO(dimensions): customize which dimensions to use at experiment level
 
   const precomputeDimensions =
     snapshotType === "standard" &&

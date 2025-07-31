@@ -3173,7 +3173,6 @@ export default abstract class SqlIntegration
     applyMetricOverrides(metric, settings);
     denominatorMetrics.forEach((m) => applyMetricOverrides(m, settings));
 
-    // TODO math on max dimensions
     // Replace any placeholders in the user defined dimension SQL
     const { unitDimensions } = this.processDimensions(
       params.dimensions,
@@ -3463,7 +3462,7 @@ export default abstract class SqlIntegration
         }
       )
       ${
-        quantileMetric === "event" // TODO put quantiles in their own query
+        quantileMetric === "event" // TODO(sql): put quantiles in their own query
           ? `
           , __quantileMetric AS (
             SELECT
