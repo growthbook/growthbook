@@ -1,11 +1,15 @@
 ---
-title: "Sanity CMS with GrowthBook"
-description: "This comprehensive tutorial will walk you through setting up Sanity CMS with GrowthBook for A/B testing in a Next.js application. You'll learn how to create content variations in Sanity and use GrowthBook for feature flag experiments."
+title: "Sanity with GrowthBook"
+description: "This comprehensive tutorial will walk you through setting up Sanity with GrowthBook for A/B testing in a Next.js application. You'll learn how to create content variations with Sanity and use GrowthBook for feature flag experiments."
 ---
 
 import MaxWidthImage from '@site/src/components/MaxWidthImage';
 
-This comprehensive tutorial will walk you through setting up Sanity CMS with GrowthBook for A/B testing in a Next.js application. You'll learn how to create content variations in Sanity and use GrowthBook for feature flag experiments like in the example below.
+This comprehensive tutorial will walk you through setting up Sanity with GrowthBook for A/B testing in a Next.js application. You'll learn how to create content variations with Sanity and use GrowthBook for feature flag experiments like in the example below.
+
+Sanity is a real-time content backend for all your text and assets. Sanity Studio is a flexible, multiplayer TypeScript CMS which is configured with code and deployed to your authors. In this guide you’ll embed it as part of your Next.js application, but it can also be deployed standalone.
+
+GrowthBook (that's us!) is open source feature flag management and experimentation platform that works great with your stack—including Sanity.
 
 For the purposes of this guide, we'll be creating an A/B test for the product page of a fictional camera store, Camera World.
 
@@ -38,9 +42,13 @@ npx sanity@latest init
 
 Choose the default options when prompted. This creates Sanity Studio inside your Next.js project (accessible at `/studio`) and sets up the necessary config files.
 
+:::note
+You’ll need a free Sanity account to complete this guide, if you do not yet have one, you will be prompted to create one after running this command.
+:::
+
 ## Add the Sanity Personalization Plugin
 
-Sanity offers a plugin for personalization that includes a [direct integration with GrowthBook](https://github.com/sanity-io/sanity-plugin-personalization/blob/main/growthbook.md). This plugin allows you to create content variations in Sanity and use GrowthBook for feature flag experiments.
+Sanity offers a plugin for personalization that includes a [direct integration with GrowthBook](https://github.com/sanity-io/sanity-plugin-personalization/blob/main/growthbook.md). This plugin allows you to create content variations within Sanity and use GrowthBook for feature flag experiments.
 
 Install the plugin:
 
@@ -50,7 +58,7 @@ npm install @sanity/personalization-plugin
 
 ### Update your Sanity config
 
-In your Next.js project, update `sanity.config.ts` to include the personalization plugin. (Changes highlighted in the code block below.)
+In your Next.js project, update `sanity.config.ts` to include the personalization plugin. Note that the `fields` listed below are the existing defined fields that you are extending to be able to experiment on. (Changes highlighted in the code block below.)
 
 ```ts
 "use client";
@@ -99,49 +107,37 @@ With the personalization plugin installed, you can now add experiment fields to 
 Create a new file `sanity/schemaTypes/camera.ts`:
 
 ```ts
-export const camera = {
+import { defineField, defineType } from "sanity";
+
+export const camera = defineType({
   name: "camera",
   title: "Camera Product",
   type: "document",
   fields: [
-    {
+    defineField({
       name: "slug",
-      title: "Slug",
       type: "slug",
       options: {
         source: "title.default",
       },
-    },
-
-    // highlight-start
-    {
+    }),
+    defineField({
       name: "title",
-      title: "Title",
       type: "experimentString",
-    },
-
-    // highlight-end
-    {
+    }),
+    defineField({
       name: "price",
       type: "number",
-      title: "Price",
-    },
-
-    // highlight-start
-    {
+    }),
+    defineField({
       name: "image",
-      title: "Product Image",
       type: "experimentImage",
-    },
-
-    {
+    }),
+    defineField({
       name: "description",
-      title: "Description",
       type: "experimentString",
-    },
-    // highlight-end
-
-    {
+    }),
+    defineField({
       name: "specs",
       title: "Specifications",
       type: "object",
@@ -154,28 +150,21 @@ export const camera = {
         { name: "weight", title: "Weight", type: "string" },
         { name: "connectivity", title: "Connectivity", type: "string" },
       ],
-    },
-
-    {
+    }),
+    defineField({
       name: "features",
       title: "Key Features",
       type: "array",
       of: [{ type: "string" }],
-      options: {
-        layout: "tags",
-      },
-    },
-
-    {
+      options: { layout: "tags" },
+    }),
+    defineField({
       name: "inStock",
-      title: "In Stock",
       type: "boolean",
       initialValue: true,
-    },
-
-    {
+    }),
+    defineField({
       name: "category",
-      title: "Category",
       type: "string",
       options: {
         list: [
@@ -186,13 +175,19 @@ export const camera = {
           { title: "Instant Camera", value: "instant" },
         ],
       },
-    },
+    }),
   ],
-
-};
+  preview: {
+    select: {
+      title: "title.default",
+      subtitle: "category",
+      media: "image.default",
+    },
+  },
+});
 ```
 
-The schema uses `experimentString` and `experimentImage` field types (highlighted in the code block above) provided by the personalization plugin. These allow you to create content variations in Sanity and use GrowthBook for experiments.
+The schema uses `experimentString` and `experimentImage` field types (highlighted in the code block above) provided by the personalization plugin. These allow you to create content variations with Sanity and use GrowthBook for experiments.
 
 Import the schema into your `sanity/schemaTypes.ts` file:
 
@@ -238,6 +233,10 @@ export const CAMERA_PRODUCT_QUERY = defineQuery(`
 ```
 
 This query fetches the experiment content and serves the appropriate variation to the user.
+
+:::tip
+Run `npx sanity@latest schema extract && npx sanity@latest typegen generate` in your project to generate types for your queries/schema automatically.
+:::
 
 ## Configure GrowthBook
 
@@ -303,7 +302,7 @@ With the feature flag created, we can now create an experiment.
 
 5. Click **Review and Publish** to launch the experiment.
 
-Your experiment is now live! Before creating the content variations in Sanity, we'll need to create an API Key that allows Sanity to fetch the experiment content.
+Your experiment is now live! Before creating the content variations with Sanity, we'll need to create an API Key that allows Sanity to fetch the experiment content.
 
 ### Create an API Key
 
@@ -313,7 +312,7 @@ Your experiment is now live! Before creating the content variations in Sanity, w
 4. Set the role to **readonly**.
 5. Save and copy the API key for the next step.
 
-## Add Content Variations in Sanity
+## Add Content Variations with Sanity
 
 In Sanity Studio, we'll open the `Camera Product` document for the Sony A7 IV. While our control uses matter-of-fact language, the variation will be more exciting.
 
