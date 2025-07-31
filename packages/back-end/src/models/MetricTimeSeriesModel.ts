@@ -282,7 +282,7 @@ export class MetricTimeSeriesModel extends BaseClass {
     const lastDataPointPerDay = dataPoints
       .sort(
         (a, b) =>
-          getValidDate(b.date).getTime() - getValidDate(a.date).getTime()
+          getValidDate(a.date).getTime() - getValidDate(b.date).getTime()
       )
       .reduce((acc, dataPoint) => {
         if (!isValidDataPoint(dataPoint)) {
