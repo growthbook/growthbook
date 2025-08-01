@@ -36,6 +36,7 @@ export async function initEnv() {
       dsn: env.sentryDSN,
       sendDefaultPii: true,
       environment: env.environment,
+      release: env.build?.sha,
     });
   }
 }
