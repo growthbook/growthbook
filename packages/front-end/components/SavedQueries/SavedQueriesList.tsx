@@ -307,7 +307,7 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                                       dashboardIds.length
                                     } dashboard${
                                       dashboardIds.length === 1 ? "" : "s"
-                                    }. If deleted, SQL Explorer widgets will be cleared.`}</Callout>
+                                    }. If deleted, linked SQL Explorer blocks will lose their visualizations.`}</Callout>
                                     <ul>
                                       {dashboardIds.map((dashId) => {
                                         const dashboard = dashboardsMap.get(

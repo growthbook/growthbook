@@ -101,6 +101,9 @@ const BreakDownResults: FC<{
   isBandit?: boolean;
   ssrPolyfills?: SSRPolyfills;
   hideDetails?: boolean;
+  renderMetricName?: (
+    metric: ExperimentMetricInterface
+  ) => React.ReactElement | string;
 }> = ({
   dimensionId,
   dimensionValuesFilter,
@@ -132,6 +135,7 @@ const BreakDownResults: FC<{
   isBandit,
   ssrPolyfills,
   hideDetails,
+  renderMetricName,
 }) => {
   const [showMetricFilter, setShowMetricFilter] = useState<boolean>(false);
 
@@ -385,13 +389,17 @@ const BreakDownResults: FC<{
               hasRisk={_hasRisk}
               tableRowAxis="dimension" // todo: dynamic grouping?
               labelHeader={
-                <div style={{ marginBottom: 2 }}>
-                  {getRenderLabelColumn(
-                    !!regressionAdjustmentEnabled,
-                    statsEngine,
-                    hideDetails
-                  )(table.metric.name, table.metric, table.rows[0])}
-                </div>
+                renderMetricName ? (
+                  renderMetricName(table.metric)
+                ) : (
+                  <div style={{ marginBottom: 2 }}>
+                    {getRenderLabelColumn(
+                      !!regressionAdjustmentEnabled,
+                      statsEngine,
+                      hideDetails
+                    )(table.metric.name, table.metric, table.rows[0])}
+                  </div>
+                )
               }
               editMetrics={undefined}
               statsEngine={statsEngine}

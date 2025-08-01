@@ -314,14 +314,14 @@ function DashboardEditor({
         />
         {isEditing && (
           <Flex justify="center" mb="1em" position="relative">
-            {(hoverAddBlock === i || addBlockDropdown === i) && (
+            {isDefined(i) && (hoverAddBlock === i || addBlockDropdown === i) && (
               <div
                 style={{
                   pointerEvents: "none",
                   position: "absolute",
                   top: "0",
                   width: "100%",
-                  height: "10px",
+                  height: "9px",
                   borderBottom: "1px solid var(--violet-a9)",
                   zIndex: -1,
                 }}
@@ -351,7 +351,9 @@ function DashboardEditor({
                     ignoreMouseEvents
                     innerClassName="px-0 py-1"
                   >
-                    <PiPlus size="10" />
+                    <Flex height="16px" align="center">
+                      <PiPlus size="10" />
+                    </Flex>
                   </Tooltip>
                 </IconButton>
               }

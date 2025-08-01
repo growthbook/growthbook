@@ -129,6 +129,7 @@ export default function ExperimentDimensionBlock({
       sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
       differenceType={differenceType}
       isBandit={isBandit}
+      renderMetricName={(metric) => metric.name}
     />
   );
 }
