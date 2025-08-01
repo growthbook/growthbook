@@ -6,6 +6,7 @@ from typing import Any, Dict, Hashable, List, Optional, Set, Tuple, Union
 
 import pandas as pd
 import numpy as np
+from scipy.stats import norm
 
 from gbstats.bayesian.tests import (
     BayesianTestResult,
@@ -709,104 +710,27 @@ def process_analysis(
         metric=metric,
         analysis=analysis,
     )
-    # if analysis.interaction_dimensions is not None:
-    #     keepers = []
-    #     for s in analysis.var_names:
-    #         #clean this up
-    #         starts_with_int = s[0].isdigit() if s else False
-    #         ends_with_int = s[-1].isdigit() if s else False
-    #         keepers.append(starts_with_int and ends_with_int)
-
-    #     if analysis.stats_engine == "frequentist":
-    #         # bonferroni correction
-    #         raise ValueError([analysis.var_names, keepers])
-    #         num_tests = np.min(1, sum(keepers) - 1)
-    #         from scipy.stats import norm
-
-    #         multiplier_current = norm.ppf(1 - analysis.alpha / 2)
-    #         multiplier_updated = norm.ppf(1 - analysis.alpha / (2 * num_tests))
-    #         for col in result.columns:
-    #             if col.endswith("_ci"):
-    #                 ci = result[col][0]
-    #                 lower = ci[0]
-    #                 upper = ci[1]
-    #                 point = 0.5 * (lower + upper)
-    #                 width_current = upper - lower
-    #                 width_updated = (
-    #                     width_current * multiplier_updated / multiplier_current
-    #                 )
-    #                 lower_updated = point - width_updated
-    #                 upper_updated = point + width_updated
-    #                 result.at[0, col] = [lower_updated, upper_updated]
-    #     else:
-    #         raise ValueError("Only frequentist stats engine supported for interaction analysis")
-    #         ratio_indicator = metric.statistic_type in ["ratio", "ratio_ra"]
-    #         num_outcomes = 4 if ratio_indicator else 2
-    #         interaction_dimensions = analysis.interaction_dimensions
-    #         num_dimensions_0 = len(interaction_dimensions[0].variation_weights)
-    #         num_dimensions_1 = len(interaction_dimensions[1].variation_weights)
-    #         stats = np.empty((num_dimensions_0, num_dimensions_1), dtype=object)
-    #         mu_hat = np.empty((num_dimensions_0, num_dimensions_1, num_outcomes))
-    #         cell_data = []
-    #         stat_baseline = variation_statistic_from_metric_row(reduced.iloc[0, :], "baseline", metric)
-
-    #         for j in range(num_dimensions_1):
-    #             for i in range(num_dimensions_0):
-    #                 if i == 0 and j == 0:
-    #                     stat = copy.deepcopy(stat_baseline)
-    #                 else:
-    #                     test_index = i * (num_dimensions_1 + 1) + j
-    #                     stat = variation_statistic_from_metric_row(reduced.iloc[0, :], f"v{test_index}", metric)
-    #                 stats[i, j] = stat
-    #                 if isinstance(stat_baseline, (ProportionStatistic, SampleMeanStatistic)) and isinstance(stat, (ProportionStatistic, SampleMeanStatistic)):
-    #                     cell_result = PostStratification(stat_baseline, stat).compute_result()
-    #                 elif isinstance(stat_baseline, RegressionAdjustedStatistic) and isinstance(stat, RegressionAdjustedStatistic):
-    #                     cell_result = PostStratificationRegressionAdjusted(stat_baseline, stat).compute_result()
-    #                 elif isinstance(stat_baseline, RatioStatistic) and isinstance(stat, RatioStatistic):
-    #                     cell_result = PostStratificationRatio(stat_baseline, stat).compute_result()
-    #                 elif isinstance(stat_baseline, RegressionAdjustedRatioStatistic) and isinstance(stat, RegressionAdjustedRatioStatistic):
-    #                     cell_result = PostStratificationRegressionAdjustedRatio(stat_baseline, stat).compute_result()
-    #                 else:
-    #                     raise ValueError(f"Unexpected stat_baseline type: {type(stat_baseline)} and stat type: {type(stat)}")
-    #                 if i == 0 and j == 0:
-    #                     cell_result.sample_mean[1] = 0
-    #                     cell_result.sample_covariance[1, 1] = 100 * 2 * cell_result.sample_covariance[0, 0]
-    #                     cell_result.sample_covariance[0, 1] = 0.5 * np.sqrt(cell_result.sample_covariance[0, 0] * cell_result.sample_covariance[1, 1])
-    #                     cell_result.sample_covariance[1, 0] = cell_result.sample_covariance[0, 1]
-    #                     if ratio_indicator:
-    #                         cell_result.sample_mean[3] = 0
-    #                         cell_result.sample_covariance[3, 3] = 100 * 2 * cell_result.sample_covariance[2, 2]
-    #                         cell_result.sample_covariance[2, 3] = 0.5 * np.sqrt(cell_result.sample_covariance[2, 2] * cell_result.sample_covariance[3, 3])
-    #                         cell_result.sample_covariance[3, 2] = cell_result.sample_covariance[2, 3]
-    #                 mu_hat[i, j, :] = cell_result.sample_mean
-    #                 cell_data.append(cell_result)
-    #         hyperparms = TwoFactorPooling.specify_hyperparms(num_dimensions_0, num_dimensions_1, mu_hat)
-    #         config_mcmc = MCMCConfig(1000, 3000, seed=int(100), false_positive_rate=analysis.alpha, difference_type=analysis.difference_type)
-
-    #         mcmc = TwoFactorPooling(hyperparms=hyperparms, cell_data=cell_data, config=config_mcmc, params=None)
-    #         r = mcmc.run_mcmc()
-
-    #         tau_means = r.mu_mean
-    #         tau_variances = r.mu_standard_error ** 2
-    #         tau_lower = r.mu_lower
-    #         tau_upper = r.mu_upper
-
-    #         tau_index = 0
-    #         for index, keeper in enumerate(keepers):
-    #             if keeper:
-    #                 if tau_index > 0:
-    #                     a = int(np.floor(tau_index / num_dimensions_1))
-    #                     b = int(tau_index % num_dimensions_1)
-    #                     uplift = Uplift(
-    #                         dist="normal",
-    #                         mean=tau_means[a, b],
-    #                         stddev=np.sqrt(tau_variances[a, b]),
-    #                     )
-    #                     result.at[0, f"v{index}_uplift"] = asdict(uplift)
-    #                     result[f"v{index}_ci"][0] = [tau_lower[a, b], tau_upper[a, b]]
-    #                     result[f"v{index}_expected"] = tau_means[a, b]
-    #                     result[f"v{index}_cr"] = tau_means[a, b]
-    #                 tau_index += 1
+    if analysis.interaction_dimensions is not None and analysis.p_value_corrected:
+        var_names_to_keep = []
+        for var_name in analysis.var_names:
+            if 'GBNULLVARIATION' not in var_name:
+                var_names_to_keep.append(var_name)
+        num_tests = max(1, len(var_names_to_keep) - 1)
+        multiplier_current = norm.ppf(1 - analysis.alpha / 2)
+        multiplier_updated = norm.ppf(1 - analysis.alpha / (2 * num_tests))
+        for col in result.columns:
+            if col.endswith("_ci"):
+                ci = result[col][0]
+                lower = ci[0]
+                upper = ci[1]
+                point = 0.5 * (lower + upper)
+                width_current = upper - lower
+                width_updated = (
+                    width_current * multiplier_updated / multiplier_current
+                )
+                lower_updated = point - width_updated
+                upper_updated = point + width_updated
+                result.at[0, col] = [lower_updated, upper_updated]
     return result
 
 

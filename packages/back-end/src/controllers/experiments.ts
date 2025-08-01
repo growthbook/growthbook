@@ -2335,9 +2335,21 @@ export async function createExperimentInteractionSnapshot({
     hasRegressionAdjustmentFeature: true,
   });
 
+  //combine experiment1 and experiment2 for getting analysis settings
+  const combinedExperiment = JSON.parse(JSON.stringify(experiment1));
+  if (experiment2.sequentialTestingEnabled) {
+    combinedExperiment.sequentialTestingEnabled = true;
+  }
+
+  if (experiment1.sequentialTestingTuningParameter && experiment2.sequentialTestingTuningParameter && experiment1.sequentialTestingTuningParameter < experiment2.sequentialTestingTuningParameter) {
+    combinedExperiment.sequentialTestingTuningParameter = experiment2.sequentialTestingTuningParameter;
+  }
+  const combinedGoalMetrics = [...experiment1.goalMetrics, ...experiment2.goalMetrics];
+  const uniqueGoalMetrics = Array.from(new Set(combinedGoalMetrics));
+  combinedExperiment.goalMetrics = uniqueGoalMetrics;
   const analysisSettings: ExperimentSnapshotAnalysisSettings = getDefaultExperimentAnalysisSettings(
     statsEngine,
-    experiment1, // TODO
+    combinedExperiment, 
     org,
     regressionAdjustmentEnabled,
     undefined // TODO
@@ -2399,7 +2411,7 @@ export async function createExperimentInteractionSnapshot({
     experimentId2: experiment2.id,
     datasourceId: datasource.id,
     config: {
-      goalMetrics: metrics,
+      goalMetrics: uniqueGoalMetrics,
       metricSettings,
       startDate,
       endDate: endDate || new Date(),
