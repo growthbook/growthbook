@@ -133,6 +133,16 @@ class RatioStatistic(Statistic):
             sum_of_products=self.m_d_sum_of_products,
         )
 
+    def __add__(self, other):
+        if not isinstance(other, RatioStatistic):
+            raise TypeError("Can add only another RatioStatistic instance")
+        return RatioStatistic(
+            n=self.n + other.n,
+            m_statistic=self.m_statistic + other.m_statistic,
+            d_statistic=self.d_statistic + other.d_statistic,
+            m_d_sum_of_products=self.m_d_sum_of_products + other.m_d_sum_of_products,
+        )
+
 
 @dataclass
 class RegressionAdjustedStatistic(Statistic):
@@ -587,7 +597,9 @@ class QuantileClusteredStatistic(QuantileStatistic):
             * self.n_clusters
             / (self.n_clusters - 1)
         )
-        num = sigma_2_s - 2 * mu_s * sigma_s_n / mu_n + mu_s**2 * sigma_2_n / mu_n**2
+        num = (
+            sigma_2_s - 2 * mu_s * sigma_s_n / mu_n + mu_s**2 * sigma_2_n / mu_n**2
+        )
         den = self.n_clusters * mu_n**2
         return num / den
 
