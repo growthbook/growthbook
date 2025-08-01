@@ -46,20 +46,27 @@ const SortableMultiValue = SortableElement(
 const SortableMultiValueLabel = SortableHandle<any>(
   (props: MultiValueGenericProps) => {
     const label = <components.MultiValueLabel {...props} />;
-    if (props.data?.tooltip) {
-      return <div title={props.data.tooltip}>{label}</div>;
-    }
-    return label;
+    return (
+      <div
+        title={props.data?.tooltip}
+        // Constrain width to save room for x button
+        style={{ maxWidth: "calc(100% - 22px)" }}
+      >
+        {label}
+      </div>
+    );
   }
 );
 
 const OptionWithTitle = (props: OptionProps<SingleValue>) => {
   // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '{ children: ReactNode; innerRef: (instance: ... Remove this comment to see the full error message
   const option = <components.Option {...props} />;
-  if (props.data?.tooltip) {
-    return <div title={props.data.tooltip}>{option}</div>;
-  }
-  return option;
+  return (
+    // Constrain width to save room for x button
+    <div title={props.data?.tooltip} style={{ maxWidth: "calc(100% - 22px)" }}>
+      {option}
+    </div>
+  );
 };
 
 const SortableSelect = SortableContainer(ReactSelect) as React.ComponentClass<

@@ -294,6 +294,7 @@ const Presentation = ({
               startDate={phase?.dateStarted ?? ""}
               endDate={phase?.dateEnded ?? ""}
               isLatestPhase={snapshot.phase === experiment.phases.length - 1}
+              phase={snapshot.phase}
               status={experiment.status}
               goalMetrics={experiment.goalMetrics}
               secondaryMetrics={experiment.secondaryMetrics}

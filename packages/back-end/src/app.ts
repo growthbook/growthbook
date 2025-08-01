@@ -116,6 +116,7 @@ import { getContextFromReq } from "./services/organizations";
 import { templateRouter } from "./routers/experiment-template/template.router";
 import { safeRolloutRouter } from "./routers/safe-rollout/safe-rollout.router";
 import { runStatsEngine } from "./services/stats";
+import { dashboardsRouter } from "./routers/dashboards/dashboards.router";
 
 const app = express();
 
@@ -910,6 +911,9 @@ app.get(
     return res.json({ generatedHypothesis });
   }
 );
+
+// Dashboards
+app.use("/dashboards", dashboardsRouter);
 
 // Meta info
 app.get("/meta/ai", (req, res) => {

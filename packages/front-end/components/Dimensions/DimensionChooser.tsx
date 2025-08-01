@@ -1,9 +1,11 @@
 import React, { useEffect } from "react";
 import { ExperimentSnapshotAnalysisSettings } from "back-end/types/experiment-snapshot";
 import { DifferenceType } from "back-end/types/stats";
+import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { DimensionInterface } from "back-end/types/dimension";
 import { getExposureQuery } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import SelectField from "@/components/Forms/SelectField";
+import SelectField, { GroupedValue } from "@/components/Forms/SelectField";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 
 export interface Props {
@@ -26,41 +28,22 @@ export interface Props {
   ssrPolyfills?: SSRPolyfills;
 }
 
-export default function DimensionChooser({
-  value,
-  setValue,
-  datasourceId,
+export function getDimensionOptions({
+  datasource,
+  dimensions,
   exposureQueryId,
-  activationMetric,
   userIdType,
-  labelClassName,
-  showHelp,
-  newUi = true,
-  setVariationFilter,
-  setBaselineRow,
-  setDifferenceType,
-  setAnalysisSettings,
-  disabled,
-  ssrPolyfills,
-}: Props) {
-  const { dimensions, getDatasourceById, getDimensionById } = useDefinitions();
-  const datasource = datasourceId ? getDatasourceById(datasourceId) : null;
-
-  // If activation metric is not selected, don't allow using that dimension
-  useEffect(() => {
-    if (value === "pre:activation" && !activationMetric) {
-      setValue?.("");
-    }
-  }, [value, setValue, activationMetric]);
-
-  // Don't show anything if the datasource doesn't support dimensions
-  // if (!datasource || !datasource.properties?.dimensions) {
-  //   return null;
-  // }
-
+  activationMetric,
+}: {
+  datasource: DataSourceInterfaceWithParams | null;
+  dimensions: DimensionInterface[];
+  exposureQueryId?: string;
+  userIdType?: string;
+  activationMetric?: boolean;
+}): GroupedValue[] {
   // Include user dimensions tied to the datasource
   const filteredDimensions = dimensions
-    .filter((d) => d.datasource === datasourceId)
+    .filter((d) => d.datasource === datasource?.id)
     .map((d) => {
       return {
         label: d.name,
@@ -107,6 +90,53 @@ export default function DimensionChooser({
     });
   }
 
+  return [
+    {
+      label: "Built-in",
+      options: builtInDimensions,
+    },
+    {
+      label: "Custom",
+      options: filteredDimensions,
+    },
+  ];
+}
+
+export default function DimensionChooser({
+  value,
+  setValue,
+  datasourceId,
+  exposureQueryId,
+  activationMetric,
+  userIdType,
+  labelClassName,
+  showHelp,
+  newUi = true,
+  setVariationFilter,
+  setBaselineRow,
+  setDifferenceType,
+  setAnalysisSettings,
+  disabled,
+  ssrPolyfills,
+}: Props) {
+  const { dimensions, getDatasourceById, getDimensionById } = useDefinitions();
+  const datasource = datasourceId ? getDatasourceById(datasourceId) : null;
+
+  // If activation metric is not selected, don't allow using that dimension
+  useEffect(() => {
+    if (value === "pre:activation" && !activationMetric) {
+      setValue?.("");
+    }
+  }, [value, setValue, activationMetric]);
+
+  const dimensionOptions = getDimensionOptions({
+    exposureQueryId,
+    userIdType,
+    datasource,
+    dimensions,
+    activationMetric,
+  });
+
   if (disabled) {
     const dimensionName =
       ssrPolyfills?.getDimensionById?.(value)?.name ||
@@ -130,16 +160,7 @@ export default function DimensionChooser({
         label={newUi ? undefined : "Dimension"}
         labelClassName={labelClassName}
         containerClassName={newUi ? "select-dropdown-underline" : ""}
-        options={[
-          {
-            label: "Built-in",
-            options: builtInDimensions,
-          },
-          {
-            label: "Custom",
-            options: filteredDimensions,
-          },
-        ]}
+        options={dimensionOptions}
         formatGroupLabel={({ label }) => (
           <div className="pt-2 pb-1 border-bottom">{label}</div>
         )}

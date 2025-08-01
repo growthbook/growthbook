@@ -55,6 +55,8 @@ export const entityEvents = {
   decisionCriteria: ["create", "update", "delete"],
   execReport: ["create", "update", "delete"],
   savedQuery: ["create", "update", "delete"],
+  dashboard: ["create", "update", "delete"],
+  dashboardTemplate: ["create", "update", "delete"],
 } as const;
 
 export type EntityEvents = typeof entityEvents;
