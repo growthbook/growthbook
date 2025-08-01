@@ -306,7 +306,10 @@ export async function updateSnapshot({
           ? { ...block, snapshotId: experimentSnapshotModel.id }
           : block
       );
-      await context.models.dashboards.updateById(dashboard.id, { blocks });
+      await context.models.dashboards.dangerousUpdateBypassPermission(
+        dashboard,
+        { blocks }
+      );
     }
   }
 }
