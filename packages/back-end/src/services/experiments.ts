@@ -492,6 +492,7 @@ export function getSnapshotSettings({
 
   const precomputeDimensions =
     snapshotType === "standard" &&
+    experiment.type !== "multi-armed-bandit" &&
     !dimension &&
     !!datasource &&
     !!exposureQuery &&
