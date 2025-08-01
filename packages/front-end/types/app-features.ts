@@ -95,6 +95,5 @@ export type AppFeatures = {
   "ai-suggestions-for-experiment-analysis-input": boolean;
   "similar-experiments": boolean;
   asdf: boolean;
-  "similar-experiments": boolean;
   "experiment-dashboards-enabled": boolean;
 };
