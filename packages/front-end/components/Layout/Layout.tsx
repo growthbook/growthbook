@@ -23,6 +23,7 @@ import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
 import TopNav from "./TopNav";
 import styles from "./Layout.module.scss";
 import { usePageHead } from "./PageHead";
+import { useSidebarOpen } from "./SidebarOpenProvider";
 
 const navlinks: SidebarLinkProps[] = [
   {
@@ -396,7 +397,7 @@ const backgroundShade = (color: string) => {
 };
 
 const Layout = (): React.ReactElement => {
-  const [open, setOpen] = useState(false);
+  const { open, setOpen } = useSidebarOpen();
   const settings = useOrgSettings();
   const { accountPlan, license, subscription } = useUser();
   const growthbook = useGrowthBook<AppFeatures>();
