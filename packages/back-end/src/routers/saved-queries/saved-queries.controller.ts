@@ -243,12 +243,6 @@ export async function postGenerateSQL(
       message: "AI configuration not set or enabled",
     });
   }
-  if (!req.organization) {
-    return res.status(404).json({
-      status: 404,
-      message: "Organization not found",
-    });
-  }
   const datasource = await getDataSourceById(context, datasourceId);
   if (!datasource) {
     return res.status(404).json({
@@ -256,9 +250,7 @@ export async function postGenerateSQL(
       message: "Datasource not found",
     });
   }
-  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(
-    req.organization
-  );
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
   if (secondsUntilReset > 0) {
     return res.status(429).json({
       status: 429,
