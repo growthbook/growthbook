@@ -1,5 +1,5 @@
 import cloneDeep from "lodash/cloneDeep";
-import { dateStringArrayBetweenDates, getValidDate } from "shared/dates";
+import { getValidDate } from "shared/dates";
 import normal from "@stdlib/stats/base/dists/normal";
 import { format as formatDate, subDays } from "date-fns";
 import {
@@ -1544,7 +1544,6 @@ export default abstract class SqlIntegration
     endDate: Date,
     dimensionCols: { value: string; alias: string }[],
     regressionAdjusted: boolean = false,
-    cumulativeDate: boolean = false,
     overrideConversionWindows: boolean = false,
     banditDates: Date[] | undefined = undefined,
     tablePrefix: string = "__denominator",
@@ -1594,7 +1593,6 @@ export default abstract class SqlIntegration
               `${alias}.timestamp`,
               m,
               endDate,
-              cumulativeDate,
               overrideConversionWindows
             );
           })
@@ -1636,7 +1634,6 @@ export default abstract class SqlIntegration
     metricCol: string,
     metric: ExperimentMetricInterface,
     endDate: Date,
-    cumulativeDate: boolean,
     overrideConversionWindows: boolean
   ): string {
     let windowHours = getConversionWindowHours(metric.windowSettings);
@@ -1668,8 +1665,9 @@ export default abstract class SqlIntegration
       // also ensure for lookback windows that metric happened in last
       // X hours of the experiment
       metricWindow = `${metricWindow}
-      AND ${this.addHours(metricCol, windowHours)} >= 
-      ${cumulativeDate ? "dr.day" : this.toTimestamp(endDate)}`;
+      AND ${this.addHours(metricCol, windowHours)} >= ${this.toTimestamp(
+        endDate
+      )}`;
     }
 
     return metricWindow;
@@ -2040,7 +2038,6 @@ export default abstract class SqlIntegration
                   "a.timestamp",
                   activationMetric,
                   settings.endDate,
-                  false,
                   overrideConversionWindows
                 ),
                 "a.timestamp",
@@ -2635,7 +2632,6 @@ export default abstract class SqlIntegration
     });
 
     // Get date range for experiment and analysis
-    const startDate: Date = settings.startDate;
     const endDate: Date = this.getExperimentEndDate(
       settings,
       maxHoursToConvert
@@ -2665,7 +2661,6 @@ export default abstract class SqlIntegration
       );
     }
 
-    const cumulativeDate = false; // TODO enable flag for time series
     const banditDates = settings.banditSettings?.historicalWeights.map(
       (w) => w.date
     );
@@ -2782,21 +2777,11 @@ export default abstract class SqlIntegration
         factTableMap,
         experimentId: settings.experimentId,
       })})
-      ${
-        cumulativeDate
-          ? `, __dateRange AS (
-        ${this.getDateTable(
-          dateStringArrayBetweenDates(startDate, endDate || new Date())
-        )}
-      )`
-          : ""
-      }
       , __userMetricJoin as (
         SELECT
           d.variation AS variation
           ${dimensionCols.map((c) => `, d.${c.alias} AS ${c.alias}`).join("")}
           ${banditDates?.length ? `, d.bandit_period AS bandit_period` : ""}
-          ${cumulativeDate ? `, dr.day AS day` : ""}
           , d.${baseIdType} AS ${baseIdType}
           ${metricData
             .map(
@@ -2806,7 +2791,6 @@ export default abstract class SqlIntegration
                   data.metric,
                   data.overrideConversionWindows,
                   settings.endDate,
-                  cumulativeDate,
                   data.quantileMetric ? data.metricQuantileSettings : undefined
                 )} as ${data.alias}_value
                 ${
@@ -2815,8 +2799,7 @@ export default abstract class SqlIntegration
                         `m.${data.alias}_denominator`,
                         data.metric,
                         data.overrideConversionWindows,
-                        settings.endDate,
-                        cumulativeDate
+                        settings.endDate
                       )} as ${data.alias}_denominator`
                     : ""
                 }
@@ -2828,14 +2811,6 @@ export default abstract class SqlIntegration
         LEFT JOIN __factTable m ON (
           m.${baseIdType} = d.${baseIdType}
         )
-        ${
-          cumulativeDate
-            ? `
-            CROSS JOIN __dateRange dr
-            WHERE d.first_exposure_date <= dr.day
-          `
-            : ""
-        }
       )
       ${
         eventQuantileData.length
@@ -2866,7 +2841,6 @@ export default abstract class SqlIntegration
           umj.variation
           ${dimensionCols.map((c) => `, umj.${c.alias} AS ${c.alias}`).join("")}
           ${banditDates?.length ? `, umj.bandit_period` : ""}
-          ${cumulativeDate ? `, umj.day` : ""}
           , umj.${baseIdType}
           ${metricData
             .map(
@@ -2909,7 +2883,6 @@ export default abstract class SqlIntegration
         GROUP BY
           umj.variation
           ${dimensionCols.map((c) => `, umj.${c.alias}`).join("")}
-          ${cumulativeDate ? `, umj.day` : ""}
           ${banditDates?.length ? `, umj.bandit_period` : ""}
           , umj.${baseIdType}
       )
@@ -3206,7 +3179,6 @@ export default abstract class SqlIntegration
       ignoreZeros: false,
     };
 
-    const cumulativeDate = false; // TODO enable flag for time series
     const banditDates = settings.banditSettings?.historicalWeights.map(
       (w) => w.date
     );
@@ -3298,7 +3270,6 @@ export default abstract class SqlIntegration
     });
 
     // Get date range for experiment and analysis
-    const startDate: Date = settings.startDate;
     const endDate: Date = this.getExperimentEndDate(
       settings,
       this.getMaxHoursToConvert(
@@ -3415,7 +3386,6 @@ export default abstract class SqlIntegration
               settings.endDate,
               dimensionCols,
               regressionAdjusted,
-              cumulativeDate,
               overrideConversionWindows,
               banditDates,
               "__denominator",
@@ -3423,28 +3393,17 @@ export default abstract class SqlIntegration
             )})`
           : ""
       }
-      ${
-        cumulativeDate
-          ? `, __dateRange AS (
-        ${this.getDateTable(
-          dateStringArrayBetweenDates(startDate, endDate || new Date())
-        )}
-      )`
-          : ""
-      }
       , __userMetricJoin as (
         SELECT
           d.variation AS variation
           ${dimensionCols.map((c) => `, d.${c.alias} AS ${c.alias}`).join("")}
           ${banditDates?.length ? `, d.bandit_period AS bandit_period` : ""}
-          ${cumulativeDate ? `, dr.day AS day` : ""}
           , d.${baseIdType} AS ${baseIdType}
           , ${this.addCaseWhenTimeFilter(
             "m.value",
             metric,
             overrideConversionWindows,
             settings.endDate,
-            cumulativeDate,
             quantileMetric ? metricQuantileSettings : undefined
           )} as value
         FROM
@@ -3452,14 +3411,6 @@ export default abstract class SqlIntegration
         LEFT JOIN __metric m ON (
           m.${baseIdType} = d.${baseIdType}
         )
-        ${
-          cumulativeDate
-            ? `
-            CROSS JOIN __dateRange dr
-            WHERE d.first_exposure_date <= dr.day
-          `
-            : ""
-        }
       )
       ${
         quantileMetric === "event" // TODO(sql): put quantiles in their own query
@@ -3485,7 +3436,6 @@ export default abstract class SqlIntegration
           umj.variation AS variation
           ${dimensionCols.map((c) => `, umj.${c.alias} AS ${c.alias}`).join("")}
           ${banditDates?.length ? `, umj.bandit_period AS bandit_period` : ""}
-          ${cumulativeDate ? `, umj.day AS day` : ""}
           , umj.${baseIdType}
           , ${this.getAggregateMetricColumn({
             metric,
@@ -3506,7 +3456,6 @@ export default abstract class SqlIntegration
         GROUP BY
           umj.variation
           ${dimensionCols.map((c) => `, umj.${c.alias}`).join("")}
-          ${cumulativeDate ? ", umj.day" : ""}
           ${banditDates?.length ? `, umj.bandit_period` : ""}
           , umj.${baseIdType}
       )
@@ -3545,7 +3494,6 @@ export default abstract class SqlIntegration
                     ? `, d.bandit_period AS bandit_period`
                     : ""
                 }
-                ${cumulativeDate ? `, dr.day AS day` : ""}
                 , d.${baseIdType} AS ${baseIdType}
                 , ${this.getAggregateMetricColumn({
                   metric: denominator,
@@ -3556,28 +3504,18 @@ export default abstract class SqlIntegration
                 JOIN __denominator${denominatorMetrics.length - 1} m ON (
                   m.${baseIdType} = d.${baseIdType}
                 )
-                ${cumulativeDate ? "CROSS JOIN __dateRange dr" : ""}
               WHERE
                 ${this.getConversionWindowClause(
                   "d.timestamp",
                   "m.timestamp",
                   denominator,
                   settings.endDate,
-                  cumulativeDate,
                   overrideConversionWindows
                 )}
-                ${
-                  cumulativeDate
-                    ? `AND ${this.castToDate(
-                        "m.timestamp"
-                      )} <= dr.day AND d.first_exposure_date <= dr.day`
-                    : ""
-                }
               GROUP BY
                 d.variation
                 ${dimensionCols.map((c) => `, d.${c.alias}`).join("")}
                 ${banditDates?.length ? `, d.bandit_period` : ""}
-                ${cumulativeDate ? `, dr.day` : ""}
                 , d.${baseIdType}
             )
             ${
@@ -3725,7 +3663,6 @@ export default abstract class SqlIntegration
     ratioMetric
       ? `LEFT JOIN __userDenominatorAgg d ON (
           d.${baseIdType} = m.${baseIdType}
-          ${cumulativeDate ? "AND d.day = m.day" : ""}
         )
         ${
           denominatorIsPercentileCapped
@@ -5213,7 +5150,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     metric: ExperimentMetricInterface,
     overrideConversionWindows: boolean,
     endDate: Date,
-    cumulativeDate: boolean,
     metricQuantileSettings?: MetricQuantileSettings
   ): string {
     return `${this.ifElse(
@@ -5222,13 +5158,9 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         "m.timestamp",
         metric,
         endDate,
-        cumulativeDate,
         overrideConversionWindows
       )}
         ${metricQuantileSettings?.ignoreZeros ? `AND ${col} != 0` : ""}
-        ${
-          cumulativeDate ? `AND ${this.dateTrunc("m.timestamp")} <= dr.day` : ""
-        }
       `,
       `${col}`,
       `NULL`
