@@ -23,6 +23,7 @@ const env: EnvironmentInitValue = {
   superadminDefaultRole: "readonly",
   ingestorOverride: "",
   stripePublishableKey: "",
+  experimentRefreshFrequency: 6,
   hasOpenAIKey: false,
 };
 
@@ -115,4 +116,8 @@ export function getStripePublishableKey() {
 }
 export function hasOpenAIKey() {
   return env.hasOpenAIKey || false;
+}
+
+export function getExperimentRefreshFrequency() {
+  return env.experimentRefreshFrequency;
 }

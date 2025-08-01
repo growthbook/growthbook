@@ -42,6 +42,7 @@ const MarkdownInput: FC<{
   onOptInModalOpen?: () => void;
   onOptInModalClose?: () => void;
   onCancel?: () => void;
+  hidePreview?: boolean;
   showButtons?: boolean;
 }> = ({
   value,
@@ -52,6 +53,7 @@ const MarkdownInput: FC<{
   id,
   onCancel,
   placeholder,
+  hidePreview,
   aiSuggestFunction,
   aiButtonText = "Get AI Suggestion",
   aiSuggestionHeader = "Suggestion",
@@ -158,15 +160,16 @@ const MarkdownInput: FC<{
           setActiveControlledTab(tab === "write" ? "write" : "preview")
         }
       >
-        <Flex align="center" justify="between">
-          <TabsList>
-            <TabsTrigger value="write">Write</TabsTrigger>
-            <TabsTrigger value="preview" disabled={!value}>
-              Preview
-            </TabsTrigger>
-          </TabsList>
-        </Flex>
-
+        {!hidePreview && (
+          <Flex align="center" justify="between">
+            <TabsList>
+              <TabsTrigger value="write">Write</TabsTrigger>
+              <TabsTrigger value="preview" disabled={!value}>
+                Preview
+              </TabsTrigger>
+            </TabsList>
+          </Flex>
+        )}
         <Box pt="2">
           <TabsContent value="write">
             <div className="position-relative" {...typedRootProps}>

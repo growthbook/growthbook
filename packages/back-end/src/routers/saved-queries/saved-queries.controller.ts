@@ -8,6 +8,7 @@ import {
 } from "back-end/src/services/organizations";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
+  SavedQuery,
   SavedQueryCreateProps,
   SavedQueryUpdateProps,
 } from "back-end/src/validators/saved-queries";
@@ -164,38 +165,15 @@ export async function refreshSavedQuery(
     throw new Error("Cannot find datasource");
   }
 
-  const { results, sql, duration, error } = await runFreeFormQuery(
+  const debugResults = await executeAndSaveQuery(
     context,
-    datasource,
-    savedQuery.sql,
-    1000
+    savedQuery,
+    datasource
   );
-
-  // Don't save if there was an error
-  if (error || !results) {
-    return res.json({
-      status: 200,
-      debugResults: {
-        results: results,
-        error,
-        duration,
-        sql,
-      },
-    });
-  }
-
-  await context.models.savedQueries.update(savedQuery, {
-    results: {
-      results: results,
-      error,
-      duration,
-      sql,
-    },
-    dateLastRan: new Date(),
-  });
 
   res.status(200).json({
     status: 200,
+    debugResults,
   });
 }
 
@@ -209,6 +187,40 @@ export async function deleteSavedQuery(
   await context.models.savedQueries.deleteById(id);
   res.status(200).json({
     status: 200,
+  });
+}
+
+export async function executeAndSaveQuery(
+  context: ReqContext,
+  savedQuery: SavedQuery,
+  datasource: DataSourceInterface,
+  limit: number = 1000
+) {
+  const { results, sql, duration, error } = await runFreeFormQuery(
+    context,
+    datasource,
+    savedQuery.sql,
+    limit
+  );
+
+  // Don't save if there was an error
+  if (error || !results) {
+    return {
+      results: results,
+      error,
+      duration,
+      sql,
+    };
+  }
+
+  await context.models.savedQueries.update(savedQuery, {
+    results: {
+      results: results,
+      error,
+      duration,
+      sql,
+    },
+    dateLastRan: new Date(),
   });
 }
 

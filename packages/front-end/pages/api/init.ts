@@ -30,6 +30,7 @@ export interface EnvironmentInitValue {
   superadminDefaultRole: string;
   ingestorOverride: string;
   stripePublishableKey: string;
+  experimentRefreshFrequency: number;
   hasOpenAIKey?: boolean;
 }
 
@@ -58,6 +59,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     USE_FILE_PROXY: USING_FILE_PROXY,
     SUPERADMIN_DEFAULT_ROLE,
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+    EXPERIMENT_REFRESH_FREQUENCY,
     OPENAI_API_KEY,
   } = process.env;
 
@@ -134,6 +136,9 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     superadminDefaultRole: SUPERADMIN_DEFAULT_ROLE || "readonly",
     ingestorOverride: INGESTOR_HOST || "",
     stripePublishableKey: NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "",
+    experimentRefreshFrequency: EXPERIMENT_REFRESH_FREQUENCY
+      ? parseInt(EXPERIMENT_REFRESH_FREQUENCY)
+      : 6,
     hasOpenAIKey: !!OPENAI_API_KEY || false,
   };
 
