@@ -298,7 +298,8 @@ export default function ResultsTable({
   });
 
   const filteredMetricTimeSeries = useMemo(() => {
-    return filterInvalidMetricTimeSeries(metricTimeSeries?.timeSeries || []);
+    if (!metricTimeSeries) return undefined;
+    return filterInvalidMetricTimeSeries(metricTimeSeries.timeSeries);
   }, [metricTimeSeries]);
 
   const metricTimeSeriesMap = useMemo(() => {
