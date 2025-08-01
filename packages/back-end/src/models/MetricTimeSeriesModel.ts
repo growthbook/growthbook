@@ -284,7 +284,7 @@ export class MetricTimeSeriesModel extends BaseClass {
         (a, b) =>
           getValidDate(a.date).getTime() - getValidDate(b.date).getTime()
       )
-      .reduce((acc, dataPoint) => {
+      .reduceRight((acc, dataPoint) => {
         if (!isValidDataPoint(dataPoint)) {
           return acc;
         }
