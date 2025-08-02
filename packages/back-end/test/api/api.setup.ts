@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-import "openai/shims/node";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import { getAuthConnection } from "back-end/src/services/auth";
 import authenticateApiRequestMiddleware from "back-end/src/middleware/authenticateApiRequestMiddleware";

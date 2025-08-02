@@ -24,6 +24,7 @@ const env: EnvironmentInitValue = {
   ingestorOverride: "",
   stripePublishableKey: "",
   experimentRefreshFrequency: 6,
+  hasOpenAIKey: false,
 };
 
 export async function initEnv() {
@@ -112,6 +113,9 @@ export function getIngestorHost() {
 
 export function getStripePublishableKey() {
   return env.stripePublishableKey;
+}
+export function hasOpenAIKey() {
+  return env.hasOpenAIKey || false;
 }
 
 export function getExperimentRefreshFrequency() {

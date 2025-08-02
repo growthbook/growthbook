@@ -1,7 +1,11 @@
 import { Response } from "express";
 import { isFactMetricId } from "shared/experiments";
 import { daysBetween } from "shared/dates";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { isDefined } from "shared/util";
+import {
+  AuthRequest,
+  ResponseWithStatusAndError,
+} from "back-end/src/types/AuthRequest";
 import {
   _getSnapshots,
   createMetric,
@@ -13,13 +17,17 @@ import {
   getExperimentsByMetric,
   getExperimentsUsingMetric,
 } from "back-end/src/models/ExperimentModel";
-import { getContextFromReq } from "back-end/src/services/organizations";
+import {
+  getAISettingsForOrg,
+  getContextFromReq,
+} from "back-end/src/services/organizations";
 import {
   deleteMetricById,
   getMetricsByOrganization,
   getMetricById,
   updateMetric,
   getMetricsByDatasource,
+  generateMetricEmbeddings,
 } from "back-end/src/models/MetricModel";
 import { IdeaInterface } from "back-end/types/idea";
 
@@ -43,6 +51,13 @@ import { getUserById } from "back-end/src/models/UserModel";
 import { AuditUserLoggedIn } from "back-end/types/audit";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { MetricAnalysisInterface } from "back-end/types/metric-analysis";
+import { getFactTable } from "back-end/src/models/FactTableModel";
+import {
+  cosineSimilarity,
+  generateEmbeddings,
+  secondsUntilAICanBeUsedAgain,
+  simpleCompletion,
+} from "back-end/src/enterprise/services/openai";
 
 /**
  * Fields on a metric that we allow users to update. Excluded fields are
@@ -690,3 +705,447 @@ export const getMetricNorthstarData = async (
     },
   });
 };
+
+// get endpoint to use OpenAI library to generate a description for a given
+// metric based on the ID, based on the data source, project, SQL, any template
+// variables, and options. Supports both regular metrics and fact-table metrics.
+export const getGeneratedDescription = async (
+  req: AuthRequest<unknown, { id: string }>,
+  res: Response<{
+    status: number;
+    message?: string;
+    retryAfter?: number;
+    data?: {
+      description: string;
+    };
+  }>
+) => {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  const { aiEnabled } = getAISettingsForOrg(context);
+
+  if (!aiEnabled) {
+    return res.status(404).json({
+      status: 404,
+      message: "AI configuration not set or enabled",
+    });
+  }
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
+  if (secondsUntilReset > 0) {
+    return res.status(429).json({
+      status: 429,
+      message: "Over AI usage limits",
+      retryAfter: secondsUntilReset,
+    });
+  }
+
+  const type = "metric-description";
+  const {
+    isDefaultPrompt,
+    prompt,
+  } = await context.models.aiPrompts.getAIPrompt(type);
+
+  // try to see if this id is a fact metric id:
+  if (isFactMetricId(id)) {
+    const factMetric = await context.models.factMetrics.getById(id);
+
+    if (!factMetric) {
+      return res.status(404).json({
+        status: 404,
+        message: "Metric not found",
+      });
+    }
+    // get the fact table:
+    const factTable = await getFactTable(
+      context,
+      factMetric.numerator.factTableId
+    );
+
+    const factTableSQL = factTable?.sql ?? "";
+    const factTableName = factTable?.name ?? "";
+    const factTableDesc = factTable?.description ?? "";
+    const factTableDatasource = factTable?.datasource ?? "";
+    const datasource = await getDataSourceById(context, factTableDatasource);
+    const factMetricName = factMetric.name;
+    const allProjects = await context.getProjects();
+    const projectMap = new Map(
+      allProjects.map((project) => [project.id, project.name || ""])
+    );
+
+    const projectNames = factMetric?.projects
+      ? factMetric.projects.map((p) => projectMap.get(p) || "")
+      : [];
+    const factMetricNumerator = factMetric.numerator;
+    const factMetricDenominator = factMetric?.denominator ?? null;
+    const factTableColumns =
+      factTable?.columns.map((c) => {
+        return { column: c.column, datatype: c.datatype };
+      }) ?? [];
+
+    const priorKnowledge = [
+      "You are a data analyst who provides concise and accurate descriptions of metrics used in an A/B tests for less technical users to understand what this metric does",
+      "Do not start with the metric name as a title. The metric is defined from a fact table " +
+        " with the following properties: \n" +
+        "- the metric name is: " +
+        factMetricName +
+        "\n- it is based on the fact table: " +
+        factTableName +
+        "\n- the fact table has the SQL:" +
+        factTableSQL +
+        "\n" +
+        "- the fact table has the following description: " +
+        factTableDesc +
+        "\n" +
+        "- the fact table has the following datasource: " +
+        (datasource?.name ?? "") +
+        "\n" +
+        (datasource?.description
+          ? "- the datasource has the description of: " +
+            datasource.description +
+            "\n"
+          : "") +
+        "- the fact table is added to the following projects: " +
+        projectNames.join(", ") +
+        "\n" +
+        "- the fact metric has the following numerator: " +
+        JSON.stringify(factMetricNumerator) +
+        "\n" +
+        "- the fact metric has the following denominator: " +
+        JSON.stringify(factMetricDenominator) +
+        "\n" +
+        "- the fact table has the following filters: " +
+        JSON.stringify(factTable?.filters ?? []) +
+        "\n" +
+        "- the fact table has the following columns defined: " +
+        JSON.stringify(factTableColumns) +
+        "\n" +
+        "- the fact metric is of type:" +
+        factMetric.metricType +
+        "\n" +
+        "- the fact metric has the following window settings: " +
+        JSON.stringify(factMetric.windowSettings) +
+        "\n" +
+        "- the fact metric has the following capping settings: " +
+        JSON.stringify(factMetric.cappingSettings) +
+        "\n" +
+        "- the fact metric has the following quantile settings: " +
+        JSON.stringify(factMetric.quantileSettings) +
+        "\n" +
+        "- the fact metric has the following tags: " +
+        JSON.stringify(factMetric.tags),
+      "Fact metrics are used with A/B testing experiments as metrics",
+      "Fact tables are a way that one query can return multiple columns, and those columns can be used as a numerator and/or denominator in a metric",
+      "Fact tables describe what columns are selectable in the fact metric",
+      'Fact table columns have a JSON structure per column of the "column" with the name of the column, and a "datatype" that describes what kind of data will be in that column',
+      "Fact tables describe filters that can be used in the fact metric",
+      "Each fact metric is described by a json object that has following keys: factTableId, which will match the fact table described, a column that is the column of the fact table query, an optional array of filter ids which will match the fact table filters by id, and an optional object of inlineFilters, which are not references, but will match the key to the column, and the value to the value of that column",
+      "Timeframes are common to all metrics, and not important to describe (eg: this SQL is common for all: AND timestamp BETWEEN '{{startDate}}' AND '{{endDate}}')",
+      "Fact metrics of type 'proportion' are used to measure the percent of experiment users who exist in a fact table",
+      "Fact metrics of type 'retention' are used to measure the percent of experiment users who exist in a fact table a certain period after experiment exposure",
+      "Fact metrics of type 'mean' are used to measure the average of a numeric value among all experiment users",
+      "Fact metrics of type 'ratio' are used to measure the ratio of two numeric values among experiment users",
+      "Fact metrics of type 'quantile' are used to measure the quantile of values after aggregating per user",
+      "Projects are a way to isolate or organize teams or products within a single organization",
+    ];
+
+    const aiResults = await simpleCompletion({
+      context,
+      prompt: prompt,
+      instructions: priorKnowledge.join(".\n"),
+      temperature: 0.1,
+      type,
+      isDefaultPrompt,
+    });
+
+    res.status(200).json({
+      status: 200,
+      data: {
+        description: aiResults,
+      },
+    });
+    return;
+  } else {
+    // a regular metric:
+    const metric = await getMetricById(context, id, true);
+    if (!metric) {
+      return res.status(404).json({
+        status: 404,
+        message: "Metric not found",
+      });
+    }
+    const metricDatasource = await getDataSourceById(
+      context,
+      metric.datasource
+    );
+    const projectNames = metric?.projects
+      ? await Promise.all(
+          metric.projects.map(async (p) => {
+            const project = await context.models.projects.getById(p);
+            return project?.name || "";
+          })
+        )
+      : [];
+    // get any metric denominators if set:
+    let denominatorMetric: MetricInterface | null = null;
+    if (metric.denominator) {
+      const denominatorMetricId = metric.denominator;
+      denominatorMetric = await getMetricById(
+        context,
+        denominatorMetricId,
+        true
+      );
+    }
+
+    const priorKnowledge = [
+      "You are a data analyst who provides concise and accurate descriptions of metrics used in an A/B tests for less technical users to understand what this metric does",
+      "Do not start with the metric name as a title. The metric is defined with the following properties: \n" +
+        "- the metric name is: " +
+        metric.name +
+        "\n- it is based on the SQL:" +
+        metric.sql +
+        "\n" +
+        "- the metric has the following aggregation: " +
+        (metric?.aggregation ?? "SUM") +
+        "\n" +
+        (metric.type ? "- the metric is of type: " + metric.type + "\n" : "") +
+        (denominatorMetric
+          ? "- the metric has a denominator: " +
+            "name: " +
+            denominatorMetric.name +
+            ", description: " +
+            denominatorMetric.description +
+            "\n"
+          : "") +
+        (metric.windowSettings
+          ? "- the metric has the following window settings: " +
+            JSON.stringify(metric.windowSettings) +
+            "\n"
+          : "") +
+        (metric.cappingSettings
+          ? "- the metric has the following capping settings: " +
+            JSON.stringify(metric.cappingSettings) +
+            "\n"
+          : "") +
+        (metric.tags && metric.tags.length
+          ? "- the metric has the following tags: " +
+            metric.tags.join(", ") +
+            "\n"
+          : "") +
+        "- the metric has the following datasource: " +
+        (metricDatasource?.name ?? "") +
+        "\n" +
+        (metricDatasource?.description
+          ? "- the datasource has the description of: " +
+            metricDatasource.description +
+            "\n"
+          : "") +
+        (metric.templateVariables
+          ? "- the metric has the following template variables: " +
+            JSON.stringify(metric.templateVariables) +
+            "\n"
+          : ""),
+      (projectNames.length
+        ? "- the metric is added to the following projects: " +
+          projectNames.join(", ") +
+          "\n"
+        : "") +
+        "- the metric has the following datasource: " +
+        (metricDatasource?.name ?? "") +
+        "\n" +
+        (metricDatasource?.description
+          ? "- the datasource has the description of: " +
+            metricDatasource.description +
+            "\n"
+          : "") +
+        (metric.templateVariables
+          ? "- the metric has the following template variables: " +
+            JSON.stringify(metric.templateVariables) +
+            "\n"
+          : ""),
+      "Metrics are used for A/B testing",
+      "A metric is defined by SQL which is run against the datasource",
+      "metric aggregation refers to how individual data points are combined or summarized to calculate the value of a metric for analysis in A/B tests or reports",
+      "metrics may have template variables, which are replaced with values when the metric is run",
+      "Timeframes are common to all metrics, and not important to describe (eg: this SQL is common for all: AND timestamp BETWEEN '{{startDate}}' AND '{{endDate}}')",
+      "Projects are a way to isolate or organize teams or products within a single organization",
+    ];
+
+    const aiResults = await simpleCompletion({
+      context,
+      prompt: prompt,
+      instructions: priorKnowledge.join(".\n"),
+      temperature: 0.1,
+      type,
+      isDefaultPrompt,
+    });
+
+    res.status(200).json({
+      status: 200,
+      data: {
+        description: aiResults,
+      },
+    });
+  }
+};
+
+/**
+ * @todo - This endpoint is used to find similar metrics based on the name and description - make it also support fact metrics before using.
+ * @param req
+ * @param res
+ */
+export async function postSimilarMetrics(
+  req: AuthRequest<{
+    name: string;
+    description?: string;
+    project?: string;
+    full?: boolean;
+  }>,
+  res: Response<{
+    status: number;
+    message?: string;
+    retryAfter?: number;
+    similar?: {
+      metric: MetricInterface;
+      similarity: number;
+    }[];
+  }>
+) {
+  const context = getContextFromReq(req);
+  const { name, description, full } = req.body;
+  const { aiEnabled } = getAISettingsForOrg(context);
+
+  if (!aiEnabled) {
+    return res.status(404).json({
+      status: 404,
+      message: "AI configuration not set or enabled",
+    });
+  }
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
+  if (secondsUntilReset > 0) {
+    return res.status(429).json({
+      status: 429,
+      message: "Over AI usage limits",
+      retryAfter: secondsUntilReset,
+    });
+  }
+  const allMetrics = await getMetricsByOrganization(context);
+
+  if (allMetrics.length === 0) {
+    return res.status(200).json({
+      status: 200,
+      message: "No previous metrics found",
+    });
+  }
+  // get metric embeddings/vectors.
+  const metricIds = allMetrics.map((m) => m.id);
+  let existingVectors = await context.models.vectors.getByMetricIds(metricIds);
+  // check to see if we need to generate any missing vectors/embeddings:
+  if (existingVectors.length !== metricIds.length) {
+    // get the ids of the existing vectors:
+    const existingVectorIds = existingVectors.map((v) => v.joinId);
+    // check to see if there are any metrics that do not have an entry in the VectorsModel, or don't have embeddings:
+    const missingVectors = allMetrics.filter(
+      (m) => !existingVectorIds.includes(m.id)
+    );
+    // if there are any missing vectors, we need to generate them:
+    if (missingVectors.length > 0) {
+      await generateMetricEmbeddings(context, missingVectors);
+      // now fetch the updated vectors:
+      existingVectors = await context.models.vectors.getByMetricIds(metricIds);
+    }
+  }
+
+  // get the existing vectors that have embeddings with the text to search by:
+  const metricsToSearch = [];
+  for (const exp of allMetrics) {
+    // get the existing vector for the metric:
+    const existingVector = existingVectors.find((v) => v.joinId === exp.id);
+    if (!existingVector) continue;
+    metricsToSearch.push({
+      id: exp.id,
+      embeddings: existingVector.embeddings || [],
+    });
+  }
+  // Now we have all the existing metrics with embeddings, we can search for similar metrics
+  // Create the text to search by for the new metric
+  const newMetric = `Name: ${name}\nDescription: ${description || ""}`;
+
+  // Generate embeddings for the new metric
+  const newMetricEmbeddingResponse = await generateEmbeddings({
+    context,
+    input: [newMetric],
+  });
+  const newEmbedding = newMetricEmbeddingResponse.data[0].embedding;
+  // Call to calculate cosine similarity between the new metric and existing metrics: cosineSimilarity
+  const similarities = metricsToSearch
+    .map((mv) => {
+      if (!mv.embeddings) return null;
+      const similarity = cosineSimilarity(newEmbedding, mv.embeddings);
+      return {
+        id: mv.id,
+        similarity,
+      };
+    })
+    .filter(isDefined);
+
+  // Sort and filter
+  const SIMILARITY_THRESHOLD = full ? 0 : 0.55;
+  const similarMetrics = similarities
+    .filter((s) => s && s.similarity && s.similarity >= SIMILARITY_THRESHOLD)
+    .sort((a, b) => (b?.similarity ?? 0) - (a?.similarity ?? 0))
+    .slice(0, full ? 100 : 5); // Get top 5 similar experiments
+
+  // loop through similarMetrics and get the full experiment object
+  const similarMetricIds = similarMetrics.map((s) => s.id);
+  const similarMetricObjects = allMetrics.filter((m) =>
+    similarMetricIds.includes(m.id)
+  );
+  const similarMetricWithDetails = similarMetrics
+    .map((s) => {
+      if (!s) return null; // Ensure `s` is not null
+      const met = similarMetricObjects.find((m) => m.id === s.id) || null;
+      return met ? { metric: met, similarity: s.similarity } : null;
+    })
+    .filter(
+      (item): item is { metric: MetricInterface; similarity: number } =>
+        item !== null
+    );
+
+  return res.status(200).json({
+    status: 200,
+    similar: similarMetricWithDetails,
+  });
+}
+
+export async function postRegenerateEmbeddings(
+  req: AuthRequest<null, null, { project?: string }>,
+  res: ResponseWithStatusAndError<{ message: string }>
+) {
+  const context = getContextFromReq(req);
+
+  const { aiEnabled } = getAISettingsForOrg(context);
+
+  if (!aiEnabled) {
+    return res.status(404).json({
+      status: 404,
+      message: "AI configuration not set or enabled",
+    });
+  }
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
+  if (secondsUntilReset > 0) {
+    return res.status(429).json({
+      status: 429,
+      message: "Over AI usage limits",
+      retryAfter: secondsUntilReset,
+    });
+  }
+
+  const allMetrics = await getMetricsByOrganization(context);
+
+  await generateMetricEmbeddings(context, allMetrics);
+
+  return res.status(200).json({
+    status: 200,
+    message: "Embeddings regenerated successfully",
+  });
+}

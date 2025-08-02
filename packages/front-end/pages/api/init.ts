@@ -31,6 +31,7 @@ export interface EnvironmentInitValue {
   ingestorOverride: string;
   stripePublishableKey: string;
   experimentRefreshFrequency: number;
+  hasOpenAIKey?: boolean;
 }
 
 // Get env variables at runtime on the front-end while still using SSG
@@ -59,6 +60,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     SUPERADMIN_DEFAULT_ROLE,
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
     EXPERIMENT_REFRESH_FREQUENCY,
+    OPENAI_API_KEY,
   } = process.env;
 
   const rootPath = path.join(__dirname, "..", "..", "..", "..", "..", "..");
@@ -137,6 +139,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     experimentRefreshFrequency: EXPERIMENT_REFRESH_FREQUENCY
       ? parseInt(EXPERIMENT_REFRESH_FREQUENCY)
       : 6,
+    hasOpenAIKey: !!OPENAI_API_KEY || false,
   };
 
   res.setHeader("Cache-Control", "max-age=3600").status(200).json(body);
