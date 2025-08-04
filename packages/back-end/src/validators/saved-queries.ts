@@ -77,11 +77,20 @@ const chartWithXAndYAxisValidator = z.object({
   dimension: z.array(dimensionAxisConfigurationValidator).nonempty().optional(),
 });
 
+const formatEnum = z.enum([
+  "shortNumber",
+  "longNumber",
+  "currency",
+  "percentage",
+  "accounting",
+]);
+
 // Charts that only require y-axis (like big-value)
 const chartWithOnlyYAxisValidator = z.object({
   title: z.string().optional(),
   chartType: chartTypesThatRequireOnlyYAxis,
   yAxis: z.array(yAxisConfigurationValidator).nonempty(),
+  format: formatEnum,
 });
 
 export const dataVizConfigValidator = z.discriminatedUnion("chartType", [
@@ -92,6 +101,7 @@ export const dataVizConfigValidator = z.discriminatedUnion("chartType", [
 // Type helpers for better TypeScript inference
 export type ChartWithXAndYAxis = z.infer<typeof chartWithXAndYAxisValidator>;
 export type ChartWithOnlyYAxis = z.infer<typeof chartWithOnlyYAxisValidator>;
+export type BigValueFormat = z.infer<typeof formatEnum>;
 
 export const testQueryRowSchema = z.record(z.any());
 

@@ -524,12 +524,19 @@ export function DataVisualizationDisplay({
   if (dataVizConfig.chartType === "big-value") {
     const yField = dataVizConfig.yAxis?.[0]?.fieldName ?? "";
     const aggregation = dataVizConfig.yAxis?.[0]?.aggregation ?? "sum";
+    const format = dataVizConfig.format ?? "shortNumber";
     const yConfig = dataVizConfig.yAxis?.[0];
     const values = rows
       .map((row) => parseYValue(row, yField, yConfig?.type || "number"))
       .filter((v) => v !== undefined && v !== null);
     const value = aggregate(values, aggregation);
-    return <BigValueChart value={value} label={dataVizConfig.title} />;
+    return (
+      <BigValueChart
+        value={value}
+        label={dataVizConfig.title}
+        format={format}
+      />
+    );
   }
 
   if (isConfigValid) {

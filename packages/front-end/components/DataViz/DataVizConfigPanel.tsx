@@ -5,6 +5,7 @@ import {
   xAxisConfiguration,
   xAxisDateAggregationUnit,
   yAxisAggregationType,
+  BigValueFormat,
 } from "back-end/src/validators/saved-queries";
 import { requiresXAxis, supportsDimension } from "@/services/dataVizTypeGuards";
 import { Select, SelectItem } from "@/components/Radix/Select";
@@ -149,12 +150,32 @@ export default function DataVizConfigPanel({
             placeholder="Select Value Column"
           >
             {axisKeys
-              .filter((key) => typeof sampleRow[key] === "number")
+              .filter(
+                (key) =>
+                  typeof sampleRow[key] === "number" ||
+                  typeof sampleRow[key] === "string"
+              )
               .map((key) => (
                 <SelectItem key={key} value={key}>
                   {key}
                 </SelectItem>
               ))}
+          </Select>
+          <Select
+            label="Format"
+            value={dataVizConfig.format ?? "shortNumber"}
+            setValue={(v) => {
+              onDataVizConfigChange({
+                ...dataVizConfig,
+                format: v as BigValueFormat,
+              });
+            }}
+          >
+            <SelectItem value="shortNumber">Short Number</SelectItem>
+            <SelectItem value="longNumber">Long Number</SelectItem>
+            <SelectItem value="currency">Currency</SelectItem>
+            <SelectItem value="percentage">Percentage</SelectItem>
+            <SelectItem value="accounting">Accounting</SelectItem>
           </Select>
           <Select
             label="Aggregation"
