@@ -50,33 +50,6 @@ export type dimensionAxisConfiguration = z.infer<
   typeof dimensionAxisConfigurationValidator
 >;
 
-const chartTypesThatRequireXAndYAxis = z.enum([
-  "bar",
-  "line",
-  "area",
-  "scatter",
-]);
-const chartTypesThatRequireOnlyYAxis = z.enum(["big-value"]);
-
-export { chartTypesThatRequireXAndYAxis };
-export { chartTypesThatRequireOnlyYAxis };
-
-export type ChartsWithXAndYAxis = z.infer<
-  typeof chartTypesThatRequireXAndYAxis
->;
-export type ChartsWithOnlyYAxis = z.infer<
-  typeof chartTypesThatRequireOnlyYAxis
->;
-
-// Charts that require both x and y axes
-const chartWithXAndYAxisValidator = z.object({
-  title: z.string().optional(),
-  chartType: chartTypesThatRequireXAndYAxis,
-  xAxis: xAxisConfigurationValidator,
-  yAxis: z.array(yAxisConfigurationValidator).nonempty(),
-  dimension: z.array(dimensionAxisConfigurationValidator).nonempty().optional(),
-});
-
 const formatEnum = z.enum([
   "shortNumber",
   "longNumber",
@@ -85,22 +58,61 @@ const formatEnum = z.enum([
   "accounting",
 ]);
 
-// Charts that only require y-axis (like big-value)
-const chartWithOnlyYAxisValidator = z.object({
+// Individual chart type validators
+const barChartValidator = z.object({
   title: z.string().optional(),
-  chartType: chartTypesThatRequireOnlyYAxis,
+  chartType: z.literal("bar"),
+  xAxis: xAxisConfigurationValidator,
+  yAxis: z.array(yAxisConfigurationValidator).nonempty(),
+  dimension: z.array(dimensionAxisConfigurationValidator).nonempty().optional(),
+});
+
+const lineChartValidator = z.object({
+  title: z.string().optional(),
+  chartType: z.literal("line"),
+  xAxis: xAxisConfigurationValidator,
+  yAxis: z.array(yAxisConfigurationValidator).nonempty(),
+  dimension: z.array(dimensionAxisConfigurationValidator).nonempty().optional(),
+});
+
+const areaChartValidator = z.object({
+  title: z.string().optional(),
+  chartType: z.literal("area"),
+  xAxis: xAxisConfigurationValidator,
+  yAxis: z.array(yAxisConfigurationValidator).nonempty(),
+  dimension: z.array(dimensionAxisConfigurationValidator).nonempty().optional(),
+});
+
+const scatterChartValidator = z.object({
+  title: z.string().optional(),
+  chartType: z.literal("scatter"),
+  xAxis: xAxisConfigurationValidator,
+  yAxis: z.array(yAxisConfigurationValidator).nonempty(),
+  dimension: z.array(dimensionAxisConfigurationValidator).nonempty().optional(),
+});
+
+const bigValueChartValidator = z.object({
+  title: z.string().optional(),
+  chartType: z.literal("big-value"),
   yAxis: z.array(yAxisConfigurationValidator).nonempty(),
   format: formatEnum,
 });
 
+// Union of all chart type validators
 export const dataVizConfigValidator = z.discriminatedUnion("chartType", [
-  chartWithXAndYAxisValidator,
-  chartWithOnlyYAxisValidator,
+  barChartValidator,
+  lineChartValidator,
+  areaChartValidator,
+  scatterChartValidator,
+  bigValueChartValidator,
 ]);
 
 // Type helpers for better TypeScript inference
-export type ChartWithXAndYAxis = z.infer<typeof chartWithXAndYAxisValidator>;
-export type ChartWithOnlyYAxis = z.infer<typeof chartWithOnlyYAxisValidator>;
+export type BarChart = z.infer<typeof barChartValidator>;
+export type LineChart = z.infer<typeof lineChartValidator>;
+export type AreaChart = z.infer<typeof areaChartValidator>;
+export type ScatterChart = z.infer<typeof scatterChartValidator>;
+export type BigValueChart = z.infer<typeof bigValueChartValidator>;
 export type BigValueFormat = z.infer<typeof formatEnum>;
 
 export const testQueryRowSchema = z.record(z.any());
