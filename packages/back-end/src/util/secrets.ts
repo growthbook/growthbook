@@ -1,6 +1,4 @@
-import fs from "fs";
 import Handlebars from "handlebars";
-import dotenv from "dotenv";
 import trimEnd from "lodash/trimEnd";
 import { stringToBoolean } from "shared/util";
 import { DEFAULT_METRIC_WINDOW_HOURS } from "shared/constants";
@@ -8,10 +6,6 @@ import { z } from "zod";
 
 export const ENVIRONMENT = process.env.NODE_ENV;
 const prod = ENVIRONMENT === "production";
-
-if (fs.existsSync(".env.local")) {
-  dotenv.config({ path: ".env.local" });
-}
 
 export const LOG_LEVEL = process.env.LOG_LEVEL;
 

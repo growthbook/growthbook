@@ -4,6 +4,7 @@ import type pino from "pino";
 import type { Request } from "express";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { CommercialFeature } from "shared/enterprise";
+import { DashboardModel } from "back-end/src/enterprise/models/DashboardModel";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
 import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
@@ -74,6 +75,7 @@ export class ReqContextClass {
     metricTimeSeries: MetricTimeSeriesModel;
     webhookSecrets: WebhookSecretDataModel;
     holdout: HoldoutModel;
+    dashboards: DashboardModel;
   };
   private initModels() {
     this.models = {
@@ -94,6 +96,7 @@ export class ReqContextClass {
       metricTimeSeries: new MetricTimeSeriesModel(this),
       webhookSecrets: new WebhookSecretDataModel(this),
       holdout: new HoldoutModel(this),
+      dashboards: new DashboardModel(this),
     };
   }
 

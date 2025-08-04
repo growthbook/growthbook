@@ -29,6 +29,7 @@ export type BaseFieldProps = {
   error?: ReactNode;
   helpText?: ReactNode;
   containerClassName?: string;
+  containerStyle?: React.CSSProperties;
   inputGroupClassName?: string;
   labelClassName?: string;
   // eslint-disable-next-line
@@ -96,6 +97,7 @@ const Field = forwardRef(
       error,
       helpText,
       containerClassName,
+      containerStyle,
       inputGroupClassName,
       labelClassName,
       label,
@@ -216,6 +218,7 @@ const Field = forwardRef(
           { "mb-0": !label },
           render ? customClassName : ""
         )}
+        style={containerStyle}
       >
         <div className="d-flex flex-row justify-content-between">
           {label && (

@@ -29,6 +29,7 @@ const MarkdownInput: FC<{
   id?: string;
   placeholder?: string;
   onCancel?: () => void;
+  hidePreview?: boolean;
 }> = ({
   value,
   setValue,
@@ -38,6 +39,7 @@ const MarkdownInput: FC<{
   id,
   onCancel,
   placeholder,
+  hidePreview,
 }) => {
   const [activeControlledTab, setActiveControlledTab] = useState<
     "write" | "preview"
@@ -96,12 +98,14 @@ const MarkdownInput: FC<{
           setActiveControlledTab(tab === "write" ? "write" : "preview")
         }
       >
-        <TabsList>
-          <TabsTrigger value="write">Write</TabsTrigger>
-          <TabsTrigger value="preview" disabled={!value}>
-            Preview
-          </TabsTrigger>
-        </TabsList>
+        {!hidePreview && (
+          <TabsList>
+            <TabsTrigger value="write">Write</TabsTrigger>
+            <TabsTrigger value="preview" disabled={!value}>
+              Preview
+            </TabsTrigger>
+          </TabsList>
+        )}
         <Box pt="2">
           <TabsContent value="write">
             <div className="position-relative" {...typedRootProps}>

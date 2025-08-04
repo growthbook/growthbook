@@ -559,7 +559,13 @@ function ColumnRefSelector({
                       key={f}
                     >
                       <Tooltip
-                        body={<InlineCode language="sql" code={filter.value} />}
+                        body={
+                          <InlineCode
+                            language="sql"
+                            code={filter.value}
+                            inTooltip
+                          />
+                        }
                       >
                         <span className="cursor-default">{filter.name}</span>
                       </Tooltip>
