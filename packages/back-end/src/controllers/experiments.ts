@@ -1072,7 +1072,6 @@ export async function postExperiment(
     const phaseClone = { ...phases[currentPhase] };
     phases[Math.floor(currentPhase * 1)] = phaseClone;
     const firstPhaseClone = { ...phases[0] };
-    phases[0] = firstPhaseClone;
 
     if (phaseStartDate) {
       phaseClone.dateStarted = getValidDate(phaseStartDate + ":00Z");
@@ -1082,6 +1081,7 @@ export async function postExperiment(
       // update both phases when stopped
       if (experiment.type === "holdout") {
         firstPhaseClone.dateEnded = getValidDate(phaseEndDate + ":00Z");
+        phases[0] = firstPhaseClone; // update the first phase to the same date ended
       }
     }
     changes.phases = phases;
@@ -1468,16 +1468,20 @@ export async function postExperimentStatus(
     phases?.length > 0
   ) {
     const clonedPhase = { ...phases[lastIndex] };
-    const clonedRunningPhase = { ...phases[0] };
+    const clonedFirstPhase = { ...phases[0] };
     if (experiment.type === "holdout") {
-      delete clonedRunningPhase.dateEnded;
-      phases[0] = clonedRunningPhase;
+      //when setting moving back to running or draft remove the end date of both phases
+      delete clonedFirstPhase.dateEnded;
+      delete clonedPhase.dateEnded;
+      // reset the analysis phase if new status is set to "analysis-period"
       if (phases.length > 1 && holdoutRunningStatus === "analysis-period") {
-        delete clonedPhase.dateEnded;
-        delete clonedPhase.lookbackStartDate;
         clonedPhase.lookbackStartDate = new Date();
         phases[lastIndex] = clonedPhase;
+        // delete analysis phase if new status is set to "running"
+      } else {
+        delete phases[lastIndex];
       }
+      phases[0] = clonedFirstPhase;
     } else {
       delete clonedPhase.dateEnded;
       phases[lastIndex] = clonedPhase;
