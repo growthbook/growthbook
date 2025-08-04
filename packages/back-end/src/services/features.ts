@@ -166,9 +166,9 @@ export function generateFeaturesPayload({
       rules: [
         {
           id: getHoldoutFeatureDefId(holdout.id),
-          coverage: exp.phases[0].coverage,
+          coverage: exp.phases[0].coverage, // Phases in holdout experiments always have the same coverage
           hashAttribute: exp.hashAttribute,
-          seed: exp.phases[0].seed,
+          seed: exp.phases[0].seed, // Phases in holdout experiments always have the same seed
           hashVersion: 2,
           variations: ["holdoutcontrol", "holdouttreatment"],
           weights: [0.5, 0.5],
