@@ -556,11 +556,13 @@ export function SqlExplorerDataVisualization({
   dataVizConfig,
   onDataVizConfigChange,
   showPanel = true,
+  graphTitle = "Visualization",
 }: {
   rows: Rows;
   dataVizConfig: Partial<DataVizConfig>;
   onDataVizConfigChange: (dataVizConfig: Partial<DataVizConfig>) => void;
   showPanel?: boolean;
+  graphTitle?: string;
 }) {
   return (
     <PanelGroup direction="horizontal">
@@ -573,7 +575,7 @@ export function SqlExplorerDataVisualization({
         <AreaWithHeader
           header={
             <Text style={{ color: "var(--color-text-mid)", fontWeight: 500 }}>
-              Visualization
+              {graphTitle}
             </Text>
           }
         >

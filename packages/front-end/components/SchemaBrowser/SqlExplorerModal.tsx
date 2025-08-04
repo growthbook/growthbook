@@ -15,7 +15,7 @@ import {
 } from "back-end/src/validators/saved-queries";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { getValidDate } from "shared/dates";
-import { isReadOnlySQL, SQL_EXPLORER_LIMIT } from "shared/sql";
+import { isReadOnlySQL, SQL_ROW_LIMIT } from "shared/sql";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -164,7 +164,7 @@ export default function SqlExplorerModal({
         body: JSON.stringify({
           query: sql,
           datasourceId: form.watch("datasourceId"),
-          limit: SQL_EXPLORER_LIMIT,
+          limit: SQL_ROW_LIMIT,
         }),
       });
       return res;
@@ -623,7 +623,7 @@ export default function SqlExplorerModal({
                                   style={{ color: "var(--gray-8)" }}
                                   className="cursor-pointer"
                                 >
-                                  Limit to {SQL_EXPLORER_LIMIT} rows
+                                  Limit to {SQL_ROW_LIMIT} rows
                                 </Text>
                               </Tooltip>
                               {formatError && (

@@ -114,6 +114,7 @@ export const savedQueryValidator = z
     sql: z.string(),
     dataVizConfig: z.array(dataVizConfigValidator).optional(),
     results: queryExecutionResultValidator,
+    linkedDashboardIds: z.array(z.string()).optional(),
   })
   .strict();
 

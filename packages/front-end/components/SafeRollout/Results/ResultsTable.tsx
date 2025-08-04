@@ -25,6 +25,7 @@ import {
   StatsEngine,
 } from "back-end/types/stats";
 import { getValidDate } from "shared/dates";
+import { filterInvalidMetricTimeSeries } from "shared/util";
 import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
 import AnalysisResultPopover from "@/components/AnalysisResultPopover/AnalysisResultPopover";
 import { useAnalysisResultPopover } from "@/components/AnalysisResultPopover/useAnalysisResultPopover";
@@ -295,20 +296,26 @@ export default function ResultsTable({
   }>(`/safe-rollout/${id}/time-series?metricIds[]=${urlFormattedMetricIds}`, {
     shouldRun: () => showTimeSeries,
   });
+
+  const filteredMetricTimeSeries = useMemo(() => {
+    if (!metricTimeSeries) return undefined;
+    return filterInvalidMetricTimeSeries(metricTimeSeries.timeSeries);
+  }, [metricTimeSeries]);
+
   const metricTimeSeriesMap = useMemo(() => {
-    return metricTimeSeries?.timeSeries?.reduce((acc, curr) => {
+    return filteredMetricTimeSeries?.reduce((acc, curr) => {
       acc[curr.metricId] = curr;
       return acc;
     }, {} as Record<string, MetricTimeSeries>);
-  }, [metricTimeSeries]);
+  }, [filteredMetricTimeSeries]);
 
   const metricTimeSeriesDateExtent = useMemo(() => {
-    const dataPoints = metricTimeSeries?.timeSeries?.flatMap((t) =>
+    const dataPoints = filteredMetricTimeSeries?.flatMap((t) =>
       t.dataPoints.map((d) => getValidDate(d.date))
     );
     if (!dataPoints) return [undefined, undefined] as [undefined, undefined];
     return extent(dataPoints);
-  }, [metricTimeSeries]);
+  }, [filteredMetricTimeSeries]);
 
   // Ensure that if we get a new snapshot, we refetch the metric time series
   const { snapshot } = useSafeRolloutSnapshot();
