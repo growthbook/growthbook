@@ -240,10 +240,9 @@ export function includeHoldoutInPayload(
 
   if (!exp.phases?.length) return false;
 
-  // Stopped holdouts are only included if they are currently releasing a winning variant
+  // Stopped holdouts are not included in the payload
   if (exp.status === "stopped") {
-    if (exp.excludeFromPayload) return false;
-    if (!exp.releasedVariationId) return false;
+    return false;
   }
 
   return true;

@@ -6,7 +6,7 @@ import {
 import { includeExperimentInPayload, isDefined } from "shared/util";
 import { GroupMap } from "shared/src/types";
 import { cloneDeep, isNil } from "lodash";
-import { v4 as uuidv4 } from "uuid";
+import md5 from "md5";
 import {
   FeatureInterface,
   FeatureRule,
@@ -366,7 +366,7 @@ export function getFeatureDefinition({
       ?.enabled
       ? [
           {
-            id: `fr_${uuidv4()}`,
+            id: `holdout_${md5(feature.id + feature.holdout.id)}`,
             parentConditions: [
               {
                 id: getHoldoutFeatureDefId(feature.holdout.id),

@@ -965,7 +965,7 @@ export async function postExperiment(
     );
   }
 
-  if (data.holdoutId) {
+  if (data.holdoutId && data.holdoutId !== experiment.holdoutId) {
     const holdoutObj = await context.models.holdout.getById(data.holdoutId);
     if (!holdoutObj) {
       throw new Error("Holdout not found");
