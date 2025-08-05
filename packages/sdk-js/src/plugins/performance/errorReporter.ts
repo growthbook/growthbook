@@ -7,23 +7,15 @@ import type { EventProperties, UserContext } from "../../types/growthbook";
 import { detectEnv, shouldSample } from "./util";
 
 export type ErrorReporterSettings = {
-  logEvent:
-    | ((eventName: string, properties?: EventProperties) => void)
-    | ((
-        eventName: string,
-        properties: EventProperties,
-        userContext: UserContext
-      ) => void);
   debounceTimeout?: number;
   // sampling:
   samplingRate?: number;
   hashAttribute?: string;
   userContext?: UserContext;
-  growthbook?: GrowthBook | GrowthBookClient | UserScopedGrowthBook;
+  growthbook: GrowthBook | GrowthBookClient | UserScopedGrowthBook;
 };
 
 export function createErrorReporter({
-  logEvent,
   debounceTimeout = 100,
   samplingRate = 1,
   hashAttribute = "id",
@@ -32,9 +24,6 @@ export function createErrorReporter({
 }: ErrorReporterSettings) {
   if (samplingRate < 0 || samplingRate > 1) {
     throw new Error("samplingRate must be between 0 and 1");
-  }
-  if (!logEvent) {
-    throw new Error("missing logEvent");
   }
 
   const env = detectEnv();
@@ -80,14 +69,14 @@ export function createErrorReporter({
           colno: event.colno,
           stack,
         };
-        if (logEvent.length === 3) {
-          (logEvent as (
+        if (growthbook.logEvent.length === 3) {
+          (growthbook.logEvent as (
             eventName: string,
             properties: EventProperties,
             userContext: UserContext
           ) => void)("browser-error", properties, userContext || {});
         } else {
-          (logEvent as (
+          (growthbook.logEvent as (
             eventName: string,
             properties?: EventProperties
           ) => void)("browser-error", properties);
@@ -102,14 +91,14 @@ export function createErrorReporter({
         stack,
       };
       if (shouldLogError(message, stack)) {
-        if (logEvent.length === 3) {
-          (logEvent as (
+        if (growthbook.logEvent.length === 3) {
+          (growthbook.logEvent as (
             eventName: string,
             properties: EventProperties,
             userContext: UserContext
           ) => void)("browser-error", properties, userContext || {});
         } else {
-          (logEvent as (
+          (growthbook.logEvent as (
             eventName: string,
             properties?: EventProperties
           ) => void)("browser-error", properties);

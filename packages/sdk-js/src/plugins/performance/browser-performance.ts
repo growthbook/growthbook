@@ -59,7 +59,6 @@ export function browserPerformancePlugin({
 
     if (errorSamplingRate > 0) {
       createErrorReporter({
-        logEvent: gb.logEvent,
         debounceTimeout: debounceErrorTimeout,
         samplingRate: errorSamplingRate,
         hashAttribute,
