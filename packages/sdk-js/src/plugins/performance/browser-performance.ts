@@ -1,11 +1,11 @@
-import { createErrorReporter } from "./errorReporter";
-import { createCWVReporter } from "./cwvReporter";
-import { createPageViewReporter } from "./pageViewReporter";
 import type { GrowthBook } from "../../GrowthBook";
 import type {
   GrowthBookClient,
   UserScopedGrowthBook,
 } from "../../GrowthBookClient";
+import { createErrorReporter } from "./errorReporter";
+import { createCWVReporter } from "./cwvReporter";
+import { createPageViewReporter } from "./pageViewReporter";
 
 type BrowserPerformanceSettings = {
   cwvSamplingRate?: number;

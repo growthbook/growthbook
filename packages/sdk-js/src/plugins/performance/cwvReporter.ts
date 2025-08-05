@@ -1,9 +1,9 @@
-import { detectEnv, shouldSample } from "./util";
 import { GrowthBook } from "../../GrowthBook";
 import type {
   GrowthBookClient,
-  UserScopedGrowthBook
+  UserScopedGrowthBook,
 } from "../../GrowthBookClient";
+import { detectEnv, shouldSample } from "./util";
 
 export type CWVReporterSettings = {
   trackFCP?: boolean;
