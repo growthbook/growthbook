@@ -58,45 +58,48 @@ const formatEnum = z.enum([
   "accounting",
 ]);
 
-// Individual chart type validators
-const barChartValidator = z.object({
+// Base chart components for composition
+const baseChartConfig = z.object({
   title: z.string().optional(),
-  chartType: z.literal("bar"),
-  xAxis: xAxisConfigurationValidator,
   yAxis: z.array(yAxisConfigurationValidator).nonempty(),
+});
+
+const withXAxis = z.object({
+  xAxis: xAxisConfigurationValidator,
+});
+
+const withDimensions = z.object({
   dimension: z.array(dimensionAxisConfigurationValidator).nonempty().optional(),
 });
 
-const lineChartValidator = z.object({
-  title: z.string().optional(),
-  chartType: z.literal("line"),
-  xAxis: xAxisConfigurationValidator,
-  yAxis: z.array(yAxisConfigurationValidator).nonempty(),
-  dimension: z.array(dimensionAxisConfigurationValidator).nonempty().optional(),
-});
-
-const areaChartValidator = z.object({
-  title: z.string().optional(),
-  chartType: z.literal("area"),
-  xAxis: xAxisConfigurationValidator,
-  yAxis: z.array(yAxisConfigurationValidator).nonempty(),
-  dimension: z.array(dimensionAxisConfigurationValidator).nonempty().optional(),
-});
-
-const scatterChartValidator = z.object({
-  title: z.string().optional(),
-  chartType: z.literal("scatter"),
-  xAxis: xAxisConfigurationValidator,
-  yAxis: z.array(yAxisConfigurationValidator).nonempty(),
-  dimension: z.array(dimensionAxisConfigurationValidator).nonempty().optional(),
-});
-
-const bigValueChartValidator = z.object({
-  title: z.string().optional(),
-  chartType: z.literal("big-value"),
-  yAxis: z.array(yAxisConfigurationValidator).nonempty(),
+const withFormat = z.object({
   format: formatEnum,
 });
+
+// Chart type definitions using composition
+const barChartValidator = baseChartConfig
+  .merge(z.object({ chartType: z.literal("bar") }))
+  .merge(withXAxis)
+  .merge(withDimensions);
+
+const lineChartValidator = baseChartConfig
+  .merge(z.object({ chartType: z.literal("line") }))
+  .merge(withXAxis)
+  .merge(withDimensions);
+
+const areaChartValidator = baseChartConfig
+  .merge(z.object({ chartType: z.literal("area") }))
+  .merge(withXAxis)
+  .merge(withDimensions);
+
+const scatterChartValidator = baseChartConfig
+  .merge(z.object({ chartType: z.literal("scatter") }))
+  .merge(withXAxis)
+  .merge(withDimensions);
+
+const bigValueChartValidator = baseChartConfig
+  .merge(z.object({ chartType: z.literal("big-value") }))
+  .merge(withFormat);
 
 // Union of all chart type validators
 export const dataVizConfigValidator = z.discriminatedUnion("chartType", [
@@ -106,6 +109,40 @@ export const dataVizConfigValidator = z.discriminatedUnion("chartType", [
   scatterChartValidator,
   bigValueChartValidator,
 ]);
+
+// Helper function to check if a chart type requires xAxis by introspecting the schema
+export function requiresXAxis(chartType: string): boolean {
+  // Create a minimal config with just the chartType to test
+  const testConfig = { chartType };
+
+  // Try to parse it and see if it requires xAxis
+  const result = dataVizConfigValidator.safeParse(testConfig);
+  if (!result.success) return false;
+
+  // If parsing succeeds, check if xAxis is required by trying to parse without it
+  const resultWithoutXAxis = dataVizConfigValidator.safeParse({
+    ...testConfig,
+    xAxis: undefined,
+  });
+  return !resultWithoutXAxis.success;
+}
+
+// Helper function to check if a chart type supports dimensions by introspecting the schema
+export function supportsDimensions(chartType: string): boolean {
+  // Create a minimal config with just the chartType to test
+  const testConfig = { chartType };
+
+  // Try to parse it and see if it supports dimensions
+  const result = dataVizConfigValidator.safeParse(testConfig);
+  if (!result.success) return false;
+
+  // If parsing succeeds, check if dimension is supported by trying to parse with it
+  const resultWithDimension = dataVizConfigValidator.safeParse({
+    ...testConfig,
+    dimension: [{ fieldName: "test", display: "grouped" }],
+  });
+  return resultWithDimension.success;
+}
 
 // Type helpers for better TypeScript inference
 export type BarChart = z.infer<typeof barChartValidator>;
