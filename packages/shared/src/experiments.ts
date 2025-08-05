@@ -128,9 +128,13 @@ export function getColumnRefWhereClause(
     if (!escapedValues.size) {
       return;
     } else if (escapedValues.size === 1) {
-      where.add(`${columnExpr} = ${[...escapedValues][0]}`);
+      // parentheses are overkill here but they help de-dupe with
+      // any identical user additional filters
+      where.add(`(${columnExpr} = ${[...escapedValues][0]})`);
     } else {
-      where.add(`${columnExpr} IN (\n  ${[...escapedValues].join(",\n  ")}\n)`);
+      where.add(
+        `(${columnExpr} IN (\n  ${[...escapedValues].join(",\n  ")}\n))`
+      );
     }
   });
 
@@ -139,7 +143,7 @@ export function getColumnRefWhereClause(
     const filter = factTable.filters.find((f) => f.id === filterId);
     if (filter) {
       const comment = showSourceComment ? `-- Filter: ${filter.name}\n` : "";
-      where.add(comment + filter.value);
+      where.add(comment + `(${filter.value})`);
     }
   });
 

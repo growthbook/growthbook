@@ -205,6 +205,7 @@ export default function ReportResults({
                 startDate={getValidDate(phaseObj.dateStarted).toISOString()}
                 endDate={getValidDate(phaseObj.dateEnded).toISOString()}
                 isLatestPhase={phase === phases.length - 1}
+                phase={phase}
                 reportDate={snapshot.dateCreated}
                 status={"stopped"}
                 statsEngine={analysis.settings.statsEngine}
@@ -233,6 +234,7 @@ export default function ReportResults({
                 startDate={getValidDate(phaseObj.dateStarted).toISOString()}
                 endDate={getValidDate(phaseObj.dateEnded).toISOString()}
                 isLatestPhase={phase === phases.length - 1}
+                phase={phase}
                 status={"stopped"}
                 goalMetrics={report.experimentAnalysisSettings.goalMetrics}
                 secondaryMetrics={
