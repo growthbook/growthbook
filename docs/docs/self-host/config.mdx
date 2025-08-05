@@ -491,6 +491,17 @@ userIdType: user_id
 sql: SELECT user_id, country as value FROM users
 ```
 
+By default, when using `config.yml`, it's not possible to create dimensions via the GrowthBook UI. Everything must be done directly in the `config.yml` file.
+
+There is an optional environment variable you can specify to change this behavior:
+
+```sh
+ALLOW_CREATE_DIMENSIONS=true
+```
+
+This will let you create new dimensions via the UI. Dimensions defined in `config.yml` will be marked as "Official" and not editable, while ones defined via the UI will be editable.
+
+
 ### Segments
 
 Segments define important groups of users - for example, "annual subscribers" or "left-handed people from France." They are currently only supported for SQL data sources.

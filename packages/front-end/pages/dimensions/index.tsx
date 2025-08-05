@@ -26,6 +26,7 @@ import Table, {
 } from "@/components/Radix/Table";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { EAQ_ANCHOR_ID } from "@/pages/datasources/[did]";
+import { OfficialBadge } from "@/components/Metrics/MetricName";
 
 type ExperimentDimensionItem = {
   dimension: string;
@@ -262,6 +263,10 @@ const DimensionsPage: FC = () => {
                       <td>
                         {" "}
                         <>
+                          <OfficialBadge
+                            type="Dimension"
+                            managedBy={s.managedBy}
+                          />{" "}
                           {s.name}{" "}
                           {s.description ? (
                             <Tooltip body={s.description} />
@@ -296,9 +301,8 @@ const DimensionsPage: FC = () => {
                           expandable={true}
                         />
                       </td>
-                      {/* @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Date | null' is not assignable t... Remove this comment to see the full error message */}
-                      {!hasFileConfig() && <td>{ago(s.dateUpdated)}</td>}
-                      {!hasFileConfig() && (
+                      {s.dateUpdated ? <td>{ago(s.dateUpdated)}</td> : null}
+                      {!s.managedBy ? (
                         <td>
                           {canEditDimension ? (
                             <a
@@ -328,6 +332,8 @@ const DimensionsPage: FC = () => {
                             />
                           ) : null}
                         </td>
+                      ) : (
+                        <td></td>
                       )}
                     </tr>
                   );

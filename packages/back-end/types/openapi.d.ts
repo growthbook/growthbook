@@ -376,6 +376,11 @@ export interface components {
       identifierType: string;
       name: string;
       query: string;
+      /**
+       * @description Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere. 
+       * @enum {string}
+       */
+      managedBy?: "" | "api" | "config";
     };
     Metric: {
       id: string;
@@ -7908,7 +7913,7 @@ export interface operations {
     responses: {
       200: {
         content: {
-          "application/json": {
+          "application/json": ({
             dimensions: ({
                 id: string;
                 dateCreated: string;
@@ -7918,8 +7923,13 @@ export interface operations {
                 identifierType: string;
                 name: string;
                 query: string;
+                /**
+                 * @description Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere. 
+                 * @enum {string}
+                 */
+                managedBy?: "" | "api" | "config";
               })[];
-          } & {
+          }) & {
             limit: number;
             offset: number;
             count: number;
@@ -7946,6 +7956,11 @@ export interface operations {
               identifierType: string;
               name: string;
               query: string;
+              /**
+               * @description Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere. 
+               * @enum {string}
+               */
+              managedBy?: "" | "api" | "config";
             };
           };
         };

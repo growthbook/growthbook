@@ -858,8 +858,7 @@ export async function importConfig(
               ...d,
             };
             delete updates.organization;
-
-            await updateDimension(k, organization.id, updates);
+            await updateDimension(context, existing, updates);
           } else {
             await createDimension({
               ...d,
@@ -867,6 +866,7 @@ export async function importConfig(
               dateCreated: new Date(),
               dateUpdated: new Date(),
               organization: organization.id,
+              managedBy: "config",
             });
           }
         } catch (e) {
