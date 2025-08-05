@@ -160,7 +160,7 @@ export abstract class QueryRunner<
           await this.startReadyQueries(queryMap);
         } catch (e) {
           logger.error(
-            { err: e },
+            e,
             "Error refreshing query statuses for runner of " + this.model.id
           );
         }
@@ -193,7 +193,7 @@ export abstract class QueryRunner<
         result = await this.runAnalysis(queryMap);
         logger.debug(this.model.id + " runner: Ran analysis successfully");
       } catch (e) {
-        logger.error(this.model.id + " runner: Error running analysis");
+        logger.error(e, this.model.id + " runner: Error running analysis");
         error = "Error running analysis: " + e.message;
       }
     } else if (queryStatus === "failed") {
@@ -405,10 +405,7 @@ export abstract class QueryRunner<
         logger.debug(`Queries ${newStatus}, ran analysis successfully`);
       } catch (e) {
         error = "Error running analysis: " + e.message;
-        logger.error(
-          { err: e },
-          `Queries ${newStatus}, failed running analysis: ` + e.message
-        );
+        logger.error(e, `Queries ${newStatus}, failed running analysis`);
       }
     }
 

@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FaPlay, FaExclamationTriangle } from "react-icons/fa";
 import {
@@ -13,14 +13,15 @@ import {
   SavedQuery,
   QueryExecutionResult,
 } from "back-end/src/validators/saved-queries";
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
 import { getValidDate } from "shared/dates";
-import { isReadOnlySQL, SQL_EXPLORER_LIMIT } from "shared/sql";
+import { isReadOnlySQL, SQL_ROW_LIMIT } from "shared/sql";
 import { BsThreeDotsVertical } from "react-icons/bs";
+import { InformationSchemaInterface } from "back-end/src/types/Integration";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
-import CodeTextArea from "@/components/Forms/CodeTextArea";
+import CodeTextArea, { AceCompletion } from "@/components/Forms/CodeTextArea";
 import { CursorData } from "@/components/Segments/SegmentForm";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import Button from "@/components/Radix/Button";
@@ -40,6 +41,8 @@ import {
 } from "@/components/ResizablePanels";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { VisualizationAddIcon } from "@/components/Icons";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
+import { getAutoCompletions } from "@/services/sqlAutoComplete";
 import { SqlExplorerDataVisualization } from "../DataViz/SqlExplorerDataVisualization";
 import Modal from "../Modal";
 import SelectField from "../Forms/SelectField";
@@ -85,6 +88,14 @@ export default function SqlExplorerModal({
   const [tab, setTab] = useState(
     initial?.dataVizConfig?.length && !disableSave ? "visualization-0" : "sql"
   );
+  const [isAutocompleteEnabled, setIsAutocompleteEnabled] = useLocalStorage(
+    "sql-editor-autocomplete-enabled",
+    true
+  );
+  const [autoCompletions, setAutoCompletions] = useState<AceCompletion[]>([]);
+  const [informationSchema, setInformationSchema] = useState<
+    InformationSchemaInterface | undefined
+  >();
 
   const { getDatasourceById, datasources } = useDefinitions();
   const { defaultDataSource } = useOrgSettings();
@@ -113,6 +124,8 @@ export default function SqlExplorerModal({
       },
     },
   });
+
+  const datasourceId = form.watch("datasourceId") || initialDatasourceId;
 
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
@@ -163,7 +176,7 @@ export default function SqlExplorerModal({
         body: JSON.stringify({
           query: sql,
           datasourceId: form.watch("datasourceId"),
-          limit: SQL_EXPLORER_LIMIT,
+          limit: SQL_ROW_LIMIT,
         }),
       });
       return res;
@@ -328,6 +341,61 @@ export default function SqlExplorerModal({
   );
 
   const dataVizConfig = form.watch("dataVizConfig") || [];
+
+  // Update autocompletions when cursor or schema changes
+  useEffect(() => {
+    const fetchCompletions = async () => {
+      if (!isAutocompleteEnabled) {
+        setAutoCompletions([]);
+        return;
+      }
+      try {
+        const completions = await getAutoCompletions(
+          cursorData,
+          informationSchema,
+          datasource?.type,
+          apiCall,
+          "SqlExplorer"
+        );
+        setAutoCompletions(completions);
+      } catch (error) {
+        console.error("Failed to fetch autocompletions:", error);
+        setAutoCompletions([]);
+      }
+    };
+
+    // // Debounce: wait 300ms after last change before fetching
+    const timeoutId = setTimeout(fetchCompletions, 200);
+
+    // // Cleanup: cancel if dependencies change again
+    return () => clearTimeout(timeoutId);
+  }, [
+    cursorData,
+    informationSchema,
+    datasource?.type,
+    apiCall,
+    isAutocompleteEnabled,
+  ]);
+
+  useEffect(() => {
+    const fetchSchema = async () => {
+      if (!isAutocompleteEnabled) {
+        setInformationSchema(undefined);
+        return;
+      }
+      try {
+        const response = await apiCall<{
+          informationSchema: InformationSchemaInterface;
+        }>(`/datasource/${datasourceId}/schema`);
+        setInformationSchema(response.informationSchema);
+      } catch (error) {
+        console.error("Failed to fetch schema:", error);
+        setInformationSchema(undefined);
+      }
+    };
+
+    fetchSchema();
+  }, [datasourceId, apiCall, isAutocompleteEnabled]);
 
   return (
     <Modal
@@ -606,7 +674,7 @@ export default function SqlExplorerModal({
                             SQL
                           </Text>
                           {!readOnlyMode ? (
-                            <Flex gap="3">
+                            <Flex gap="3" align="center">
                               <Tooltip body="The SQL Explorer automatically applies a 1000 row limit to ensure optimal performance.">
                                 <input
                                   type="checkbox"
@@ -621,7 +689,7 @@ export default function SqlExplorerModal({
                                   style={{ color: "var(--gray-8)" }}
                                   className="cursor-pointer"
                                 >
-                                  Limit to {SQL_EXPLORER_LIMIT} rows
+                                  Limit to {SQL_ROW_LIMIT} rows
                                 </Text>
                               </Tooltip>
                               {formatError && (
@@ -656,6 +724,30 @@ export default function SqlExplorerModal({
                                   Run
                                 </Button>
                               </Tooltip>
+                              <DropdownMenu
+                                trigger={
+                                  <IconButton
+                                    variant="ghost"
+                                    color="gray"
+                                    radius="full"
+                                    size="3"
+                                  >
+                                    <BsThreeDotsVertical size={16} />
+                                  </IconButton>
+                                }
+                              >
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setIsAutocompleteEnabled(
+                                      !isAutocompleteEnabled
+                                    );
+                                  }}
+                                >
+                                  {isAutocompleteEnabled
+                                    ? "Disable Autocomplete"
+                                    : "Enable Autocomplete"}
+                                </DropdownMenuItem>
+                              </DropdownMenu>
                             </Flex>
                           ) : null}
                         </Flex>
@@ -678,6 +770,7 @@ export default function SqlExplorerModal({
                         setCursorData={setCursorData}
                         onCtrlEnter={handleQuery}
                         disabled={readOnlyMode}
+                        completions={autoCompletions}
                       />
                     </AreaWithHeader>
                   </Panel>

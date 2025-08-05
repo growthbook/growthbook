@@ -25,19 +25,16 @@ const informationSchema = new mongoose.Schema({
         const zodSchema = z.array(
           z.object({
             databaseName: z.string(),
-            path: z.string(),
             dateCreated: z.date(),
             dateUpdated: z.date(),
             schemas: z.array(
               z.object({
                 schemaName: z.string(),
-                path: z.string(),
                 dateCreated: z.date(),
                 dateUpdated: z.date(),
                 tables: z.array(
                   z.object({
                     tableName: z.string(),
-                    path: z.string(),
                     id: z.string(),
                     numOfColumns: z.number(),
                     dateCreated: z.date(),

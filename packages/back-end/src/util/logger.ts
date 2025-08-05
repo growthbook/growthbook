@@ -1,8 +1,9 @@
+import { format } from "util";
 import pinoHttp from "pino-http";
 import * as Sentry from "@sentry/node";
 import { Request } from "express";
 import { BaseLogger, Level } from "pino";
-import { parseProcessLogBase } from "shared/util";
+import { parseProcessLogBase, stringToBoolean } from "shared/util";
 import { ApiRequestLocals } from "back-end/types/api";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ENVIRONMENT, IS_CLOUD, LOG_LEVEL } from "./secrets";
@@ -33,6 +34,18 @@ if (!IS_CLOUD) {
     'req.headers["cache-control"]',
     "res.headers.etag"
   );
+}
+
+class ErrorWrapper extends Error {
+  constructor(
+    customMessage: string,
+    { message, stack }: { message: string; stack?: string }
+  ) {
+    super(customMessage);
+    this.name = customMessage;
+    this.message = message;
+    this.stack = stack;
+  }
 }
 
 // Request logging
@@ -80,6 +93,9 @@ export const httpLogger = pinoHttp({
     remove: true,
   },
   customProps: getCustomLogProps,
+  customReceivedMessage: stringToBoolean(process.env.LOG_REQUEST_STARTED)
+    ? () => "Request started"
+    : undefined,
   ...logBase,
 });
 
@@ -92,11 +108,11 @@ export const logger: BaseLogger = {
   },
   error(...args: Parameters<BaseLogger["error"]>) {
     httpLogger.logger.error(...args);
-    Sentry.captureException(...args);
+    logToSentry(...args);
   },
   fatal(...args: Parameters<BaseLogger["fatal"]>) {
-    Sentry.captureException(...args);
     httpLogger.logger.fatal(...args);
+    logToSentry(...args);
   },
   info(...args: Parameters<BaseLogger["info"]>) {
     httpLogger.logger.info(...args);
@@ -112,3 +128,52 @@ export const logger: BaseLogger = {
     httpLogger.logger.warn(...args);
   },
 };
+
+function logToSentry(...args: Parameters<BaseLogger["error" | "fatal"]>) {
+  // Ideally Pino typing would be better, but it's not
+  const [obj, message, ...rest] = args as [
+    string | Error | { err?: Error; [key: string]: unknown },
+    string | unknown,
+    ...unknown[]
+  ];
+
+  Sentry.withScope((scope) => {
+    if (typeof obj === "string") {
+      const msg = format(obj, message, ...rest);
+      Sentry.captureException(new Error(msg));
+      return;
+    }
+
+    if (obj instanceof Error) {
+      const msg = format(message, ...rest);
+      const errorToCapture = msg
+        ? new ErrorWrapper(msg, {
+            message: obj.message,
+            stack: obj.stack,
+          })
+        : obj;
+      Sentry.captureException(errorToCapture);
+      return;
+    }
+
+    if (typeof obj === "object" && obj !== null) {
+      const msg = format(message, ...rest);
+
+      let errorToCapture;
+      if ("err" in obj && obj.err) {
+        errorToCapture = msg
+          ? new ErrorWrapper(msg, {
+              message: obj.err.message,
+              stack: obj.err.stack,
+            })
+          : obj.err;
+      } else {
+        errorToCapture = new Error(msg);
+      }
+
+      delete (obj as Record<string, unknown>).err; // Do not double log the error
+      scope.setExtras(obj as Record<string, unknown>);
+      Sentry.captureException(errorToCapture);
+    }
+  });
+}

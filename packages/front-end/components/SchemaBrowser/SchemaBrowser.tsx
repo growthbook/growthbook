@@ -15,6 +15,7 @@ import {
   PanelGroup,
   PanelResizeHandle,
 } from "@/components/ResizablePanels";
+import { getTablePath } from "@/services/datasources";
 import SchemaBrowserWrapper from "./SchemaBrowserWrapper";
 import RetryInformationSchemaCard from "./RetryInformationSchemaCard";
 import PendingInformationSchemaCard from "./PendingInformationSchemaCard";
@@ -268,6 +269,15 @@ export default function SchemaBrowser({
                               transitionTime={100}
                             >
                               {schema.tables.map((table, k) => {
+                                // Generate the appropriate path for this datasource type using context
+                                const tablePath = getTablePath(
+                                  datasource.type,
+                                  {
+                                    catalog: database.databaseName,
+                                    schema: schema.schemaName,
+                                    tableName: table.tableName,
+                                  }
+                                );
                                 return (
                                   <div
                                     className={clsx(
@@ -279,7 +289,7 @@ export default function SchemaBrowser({
                                     role="button"
                                     key={k}
                                     onClick={async (e) =>
-                                      handleTableClick(e, table.path, table.id)
+                                      handleTableClick(e, tablePath, table.id)
                                     }
                                   >
                                     <FaTable /> {table.tableName}

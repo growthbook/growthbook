@@ -479,7 +479,13 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
 
   const hasDataForDay = useMemo(() => {
     const firstDateWithData =
-      sortedDatesWithData[lastDataPointIndexWithHelperText + 1].d;
+      sortedDatesWithData[
+        // Ensure we don't go past the end of the array
+        Math.min(
+          lastDataPointIndexWithHelperText + 1,
+          sortedDatesWithData.length - 1
+        )
+      ].d;
     const lastDateWithData =
       sortedDatesWithData[sortedDatesWithData.length - 1].d;
 

@@ -304,12 +304,28 @@ export abstract class BaseModel<
   ): Promise<z.infer<T>> {
     return this._createOne(props, writeOptions);
   }
+  public dangerousCreateBypassPermission(
+    props: CreateProps<z.infer<T>>,
+    writeOptions?: WriteOptions
+  ): Promise<z.infer<T>> {
+    return this._createOne(props, writeOptions, true);
+  }
   public update(
     existing: z.infer<T>,
     updates: UpdateProps<z.infer<T>>,
     writeOptions?: WriteOptions
   ): Promise<z.infer<T>> {
     return this._updateOne(existing, updates, { writeOptions });
+  }
+  public dangerousUpdateBypassPermission(
+    existing: z.infer<T>,
+    updates: UpdateProps<z.infer<T>>,
+    writeOptions?: WriteOptions
+  ): Promise<z.infer<T>> {
+    return this._updateOne(existing, updates, {
+      writeOptions,
+      forceCanUpdate: true,
+    });
   }
   public async updateById(
     id: string,
@@ -441,7 +457,8 @@ export abstract class BaseModel<
 
   protected async _createOne(
     rawData: CreateProps<z.infer<T>>,
-    writeOptions?: WriteOptions
+    writeOptions?: WriteOptions,
+    forceCanCreate?: boolean
   ) {
     const props = this.createValidator.parse(rawData);
 
@@ -469,7 +486,7 @@ export abstract class BaseModel<
     } as z.infer<T>;
 
     await this.populateForeignRefs([doc]);
-    if (!this.canCreate(doc)) {
+    if (!forceCanCreate && !this.canCreate(doc)) {
       throw new Error("You do not have access to create this resource");
     }
 
@@ -523,6 +540,7 @@ export abstract class BaseModel<
     options?: {
       auditEvent?: EventType;
       writeOptions?: WriteOptions;
+      forceCanUpdate?: boolean;
     }
   ) {
     updates = this.updateValidator.parse(updates);
@@ -572,7 +590,7 @@ export abstract class BaseModel<
 
     await this.populateForeignRefs([newDoc]);
 
-    if (!this.canUpdate(doc, updates, newDoc)) {
+    if (!options?.forceCanUpdate && !this.canUpdate(doc, updates, newDoc)) {
       throw new Error("You do not have access to update this resource");
     }
 
@@ -754,8 +772,8 @@ export abstract class BaseModel<
       .createIndex({ id: 1, organization: 1 }, { unique: true })
       .catch((err) => {
         logger.error(
-          `Error creating org/id unique index for ${this.config.collectionName}`,
-          err
+          err,
+          `Error creating org/id unique index for ${this.config.collectionName}`
         );
       });
 
@@ -765,8 +783,8 @@ export abstract class BaseModel<
         .createIndex({ id: 1 }, { unique: true })
         .catch((err) => {
           logger.error(
-            `Error creating id unique index for ${this.config.collectionName}`,
-            err
+            err,
+            `Error creating id unique index for ${this.config.collectionName}`
           );
         });
     }
@@ -782,8 +800,8 @@ export abstract class BaseModel<
           .dropIndex(index.name)
           .catch((err) => {
             logger.error(
-              `Error dropping index ${index.name} for ${this.config.collectionName}`,
-              err
+              err,
+              `Error dropping index ${index.name} for ${this.config.collectionName}`
             );
           });
       });
@@ -797,10 +815,10 @@ export abstract class BaseModel<
         })
         .catch((err) => {
           logger.error(
+            err,
             `Error creating ${Object.keys(index.fields).join("/")} ${
               index.unique ? "unique " : ""
-            }index for ${this.config.collectionName}`,
-            err
+            }index for ${this.config.collectionName}`
           );
         });
     });

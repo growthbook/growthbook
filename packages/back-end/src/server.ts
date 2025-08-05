@@ -1,4 +1,6 @@
 import "./init/aliases";
+import "./init/dotenv";
+import "./instrumentation";
 import app from "./app";
 import { logger } from "./util/logger";
 import { getAgendaInstance } from "./services/queueing";

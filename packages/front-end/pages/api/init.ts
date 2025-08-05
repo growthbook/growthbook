@@ -16,6 +16,7 @@ export interface EnvironmentInitValue {
   cdnHost: string;
   config: "file" | "db";
   defaultConversionWindowHours: number;
+  environment: string;
   build?: {
     sha: string;
     date: string;
@@ -29,6 +30,7 @@ export interface EnvironmentInitValue {
   superadminDefaultRole: string;
   ingestorOverride: string;
   stripePublishableKey: string;
+  experimentRefreshFrequency: number;
 }
 
 // Get env variables at runtime on the front-end while still using SSG
@@ -49,12 +51,14 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     DISABLE_TELEMETRY,
     DEFAULT_CONVERSION_WINDOW_HOURS,
     NEXT_PUBLIC_SENTRY_DSN,
+    NODE_ENV,
     SSO_CONFIG,
     STORE_SEGMENTS_IN_MONGO,
     ALLOW_CREATE_METRICS,
     USE_FILE_PROXY: USING_FILE_PROXY,
     SUPERADMIN_DEFAULT_ROLE,
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+    EXPERIMENT_REFRESH_FREQUENCY,
   } = process.env;
 
   const rootPath = path.join(__dirname, "..", "..", "..", "..", "..", "..");
@@ -111,6 +115,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     config: hasConfigFile ? "file" : "db",
     allowCreateMetrics: !hasConfigFile || stringToBoolean(ALLOW_CREATE_METRICS),
     build,
+    environment: NODE_ENV || "development",
     defaultConversionWindowHours: DEFAULT_CONVERSION_WINDOW_HOURS
       ? parseInt(DEFAULT_CONVERSION_WINDOW_HOURS)
       : 72,
@@ -129,6 +134,9 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     superadminDefaultRole: SUPERADMIN_DEFAULT_ROLE || "readonly",
     ingestorOverride: INGESTOR_HOST || "",
     stripePublishableKey: NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "",
+    experimentRefreshFrequency: EXPERIMENT_REFRESH_FREQUENCY
+      ? parseInt(EXPERIMENT_REFRESH_FREQUENCY)
+      : 6,
   };
 
   res.setHeader("Cache-Control", "max-age=3600").status(200).json(body);

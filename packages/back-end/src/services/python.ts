@@ -16,10 +16,44 @@ type PythonServerResponse<T> = {
   results: T;
 };
 
+function parseEnvInt(
+  value: string | undefined,
+  defaultValue: number,
+  opts?: { min?: number; max?: number; name?: string }
+): number {
+  const num = parseInt(value || "") || defaultValue;
+  if (
+    (opts?.min !== undefined && num < opts.min) ||
+    (opts?.max !== undefined && num > opts.max)
+  ) {
+    logger.warn(
+      `Invalid value for ${opts?.name || "environment variable"}: "${
+        value ?? ""
+      }". Falling back to default: ${defaultValue}`
+    );
+    return defaultValue;
+  }
+  return num;
+}
+
+const MAX_POOL_SIZE = parseEnvInt(process.env.GB_STATS_ENGINE_POOL_SIZE, 4, {
+  min: 1,
+  name: "GB_STATS_ENGINE_POOL_SIZE",
+});
+
+const MIN_POOL_SIZE = parseEnvInt(
+  process.env.GB_STATS_ENGINE_MIN_POOL_SIZE,
+  1,
+  { min: 0, max: MAX_POOL_SIZE, name: "GB_STATS_ENGINE_MIN_POOL_SIZE" }
+);
+
 // The stats engine usually finishes within 1 second
 // We use an overly conservative timeout to account for high load
-const STATS_ENGINE_TIMEOUT_MS = 60_000;
-const MAX_POOL_SIZE = 4;
+const STATS_ENGINE_TIMEOUT_MS = parseEnvInt(
+  process.env.GB_STATS_ENGINE_TIMEOUT_MS,
+  300_000,
+  { min: 1, name: "GB_STATS_ENGINE_TIMEOUT_MS" }
+);
 
 let cloudWatch: CloudWatch | null = null;
 if (IS_CLOUD) {
@@ -221,7 +255,7 @@ export const statsServerPool = createPool(
     validate: async (server) => server.isRunning(),
   },
   {
-    min: 1,
+    min: MIN_POOL_SIZE,
     max: MAX_POOL_SIZE,
     testOnBorrow: true,
     evictionRunIntervalMillis: 60000,

@@ -58,7 +58,7 @@ const slackIntegrationSchema = new mongoose.Schema({
 
         if (!result.success) {
           const errorString = errorStringFromZodResult(result);
-          logger.error(errorString, "Invalid Event name");
+          logger.error({ error: errorString }, "Invalid Event name");
         }
 
         return result.success;

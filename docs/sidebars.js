@@ -604,14 +604,12 @@ const sidebars = {
           label: "MCP Server",
           className: "pill-new",
         },
-        /*
         {
           type: "doc",
           id: "integrations/vercel",
           label: "Vercel",
           className: "pill-new",
         },
-        */
         {
           type: "doc",
           id: "integrations/framer",
@@ -706,6 +704,11 @@ const sidebars = {
       },
       className: "top-divider",
       items: [
+        {
+          type: "doc",
+          id: "guide/sanity",
+          label: "Sanity",
+        },
         {
           type: "doc",
           id: "guide/strapi",

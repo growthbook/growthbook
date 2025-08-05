@@ -8,7 +8,6 @@ import {
   updateInformationSchemaTableById,
 } from "back-end/src/models/InformationSchemaTablesModel";
 import { Column } from "back-end/src/types/Integration";
-import { getPath } from "back-end/src/util/informationSchemas";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 
 const UPDATE_STALE_INFORMATION_SCHEMA_TABLE_JOB_NAME =
@@ -80,12 +79,6 @@ const updateStaleInformationSchemaTable = async (
         return {
           columnName: row.column_name,
           dataType: row.data_type,
-          path: getPath(datasource.type, {
-            tableCatalog: informationSchemaTable.databaseName,
-            tableSchema: informationSchemaTable.tableSchema,
-            tableName: informationSchemaTable.tableName,
-            columnName: row.column_name,
-          }),
         };
       }
     );
@@ -103,9 +96,7 @@ const updateStaleInformationSchemaTable = async (
     logger.error(
       e,
       "Unable to refresh stale information schema table for: " +
-        informationSchemaTableId +
-        " Error: " +
-        e.message
+        informationSchemaTableId
     );
   }
 };
