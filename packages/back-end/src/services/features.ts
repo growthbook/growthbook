@@ -131,14 +131,10 @@ export function generateFeaturesPayload({
     string,
     HoldoutInterface & { experiment: ExperimentInterface }
   >;
-}): {
-  featureDefs: Record<string, FeatureDefinition>;
-  holdoutDefs: Record<string, FeatureDefinition>;
-} {
+}): Record<string, FeatureDefinition> {
   prereqStateCache[environment] = prereqStateCache[environment] || {};
 
-  const featureDefs: Record<string, FeatureDefinition> = {};
-  const holdoutDefs: Record<string, FeatureDefinition> = {};
+  const defs: Record<string, FeatureDefinition> = {};
   const newFeatures = reduceFeaturesWithPrerequisites(
     features,
     environment,
@@ -154,9 +150,22 @@ export function generateFeaturesPayload({
       holdoutsMap,
     });
     if (def) {
-      featureDefs[feature.id] = def;
+      defs[feature.id] = def;
     }
   });
+
+  return defs;
+}
+
+export function generateHoldoutsPayload({
+  holdoutsMap,
+}: {
+  holdoutsMap: Map<
+    string,
+    HoldoutInterface & { experiment: ExperimentInterface }
+  >;
+}): Record<string, FeatureDefinition> {
+  const holdoutDefs: Record<string, FeatureDefinition> = {};
   holdoutsMap.forEach((holdout) => {
     const exp = holdout.experiment;
     if (!exp) return;
@@ -188,8 +197,7 @@ export function generateFeaturesPayload({
     };
     holdoutDefs[getHoldoutFeatureDefId(holdout.id)] = def;
   });
-
-  return { featureDefs: featureDefs, holdoutDefs };
+  return holdoutDefs;
 }
 
 export type VisualExperiment = {
@@ -503,16 +511,17 @@ export async function refreshSDKPayloadCache(
     const holdoutsMap = await context.models.holdout.getAllPayloadHoldouts(
       environment
     );
-    const {
-      featureDefs: featureDefinitions,
-      holdoutDefs: holdoutFeatureDefinitions,
-    } = generateFeaturesPayload({
+    const featureDefinitions = generateFeaturesPayload({
       features: allFeatures,
       environment: environment,
       groupMap,
       experimentMap,
       prereqStateCache,
       safeRolloutMap,
+      holdoutsMap,
+    });
+
+    const holdoutFeatureDefinitions = generateHoldoutsPayload({
       holdoutsMap,
     });
 
@@ -887,16 +896,17 @@ export async function getFeatureDefinitions({
     Record<string, PrerequisiteStateResult>
   > = {};
 
-  const {
-    featureDefs: featureDefinitions,
-    holdoutDefs: holdoutFeatureDefinitions,
-  } = generateFeaturesPayload({
+  const featureDefinitions = generateFeaturesPayload({
     features,
     environment,
     groupMap,
     experimentMap,
     prereqStateCache,
     safeRolloutMap,
+    holdoutsMap,
+  });
+
+  const holdoutFeatureDefinitions = generateHoldoutsPayload({
     holdoutsMap,
   });
 
@@ -1143,7 +1153,7 @@ export async function evaluateAllFeatures({
       env.id
     );
 
-    const { featureDefs: featureDefinitions } = generateFeaturesPayload({
+    const featureDefinitions = generateFeaturesPayload({
       features: allFeaturesRaw,
       environment: env.id,
       experimentMap,
