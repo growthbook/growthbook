@@ -213,6 +213,7 @@ export default function EditSqlModal({
     informationSchema,
     datasource?.type,
     apiCall,
+    templateVariables?.eventName,
     isAutocompleteEnabled,
   ]);
 
