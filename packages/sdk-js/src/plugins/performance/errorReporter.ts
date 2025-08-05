@@ -1,10 +1,19 @@
-import { EventProperties, UserContext } from "../../types/growthbook";
-import { GrowthBookClient, UserScopedGrowthBook } from "../../GrowthBookClient";
 import { GrowthBook } from "../../GrowthBook";
+import type {
+  GrowthBookClient,
+  UserScopedGrowthBook,
+} from "../../GrowthBookClient";
+import type { EventProperties, UserContext } from "../../types/growthbook";
 import { detectEnv, shouldSample } from "./util";
 
 export type ErrorReporterSettings = {
-  logEvent: (eventName: string, properties?: EventProperties) => void;
+  logEvent:
+    | ((eventName: string, properties?: EventProperties) => void)
+    | ((
+        eventName: string,
+        properties: EventProperties,
+        userContext: UserContext
+      ) => void);
   debounceTimeout?: number;
   // sampling:
   samplingRate?: number;
@@ -23,6 +32,9 @@ export function createErrorReporter({
 }: ErrorReporterSettings) {
   if (samplingRate < 0 || samplingRate > 1) {
     throw new Error("samplingRate must be between 0 and 1");
+  }
+  if (!logEvent) {
+    throw new Error("missing logEvent");
   }
 
   const env = detectEnv();
@@ -49,7 +61,7 @@ export function createErrorReporter({
         rate: samplingRate,
         hashAttribute,
         attributes:
-          growthbook instanceof GrowthBook
+          growthbook && "getAttributes" in growthbook
             ? growthbook.getAttributes()
             : userContext?.attributes,
         seed: "error-sampling",
@@ -61,23 +73,47 @@ export function createErrorReporter({
       const message = event.message || "";
       const stack = event.error?.stack || "";
       if (shouldLogError(message, stack)) {
-        logEvent("browser-error", {
+        const properties = {
           message,
           source: event.filename,
           lineno: event.lineno,
           colno: event.colno,
           stack,
-        });
+        };
+        if (logEvent.length === 3) {
+          (logEvent as (
+            eventName: string,
+            properties: EventProperties,
+            userContext: UserContext
+          ) => void)("browser-error", properties, userContext || {});
+        } else {
+          (logEvent as (
+            eventName: string,
+            properties?: EventProperties
+          ) => void)("browser-error", properties);
+        }
       }
     });
     window.addEventListener("unhandledrejection", (event) => {
       const message = event.reason?.message || "Unhandled Promise rejection";
       const stack = event.reason?.stack || "";
+      const properties = {
+        message,
+        stack,
+      };
       if (shouldLogError(message, stack)) {
-        logEvent("browser-error", {
-          message,
-          stack,
-        });
+        if (logEvent.length === 3) {
+          (logEvent as (
+            eventName: string,
+            properties: EventProperties,
+            userContext: UserContext
+          ) => void)("browser-error", properties, userContext || {});
+        } else {
+          (logEvent as (
+            eventName: string,
+            properties?: EventProperties
+          ) => void)("browser-error", properties);
+        }
       }
     });
   }

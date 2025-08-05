@@ -1,5 +1,9 @@
-import { GrowthBook } from "../../GrowthBook";
 import { detectEnv, shouldSample } from "./util";
+import { GrowthBook } from "../../GrowthBook";
+import type {
+  GrowthBookClient,
+  UserScopedGrowthBook
+} from "../../GrowthBookClient";
 
 export type CWVReporterSettings = {
   trackFCP?: boolean;
@@ -11,7 +15,7 @@ export type CWVReporterSettings = {
   // sampling:
   samplingRate?: number;
   hashAttribute?: string;
-  growthbook: GrowthBook;
+  growthbook: GrowthBook | UserScopedGrowthBook | GrowthBookClient;
 };
 
 export function createCWVReporter({

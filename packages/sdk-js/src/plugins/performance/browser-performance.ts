@@ -1,7 +1,11 @@
-import type { GrowthBook } from "../../GrowthBook";
 import { createErrorReporter } from "./errorReporter";
 import { createCWVReporter } from "./cwvReporter";
 import { createPageViewReporter } from "./pageViewReporter";
+import type { GrowthBook } from "../../GrowthBook";
+import type {
+  GrowthBookClient,
+  UserScopedGrowthBook,
+} from "../../GrowthBookClient";
 
 type BrowserPerformanceSettings = {
   cwvSamplingRate?: number;
@@ -34,7 +38,7 @@ export function browserPerformancePlugin({
     throw new Error("browserPerformancePlugin only works in the browser");
   }
 
-  return (gb: GrowthBook) => {
+  return (gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient) => {
     if (!gb.logEvent) {
       throw new Error("GrowthBook instance must have a logEvent method");
     }
