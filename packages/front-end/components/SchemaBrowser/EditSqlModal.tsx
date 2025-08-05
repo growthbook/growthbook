@@ -193,7 +193,7 @@ export default function EditSqlModal({
           informationSchema,
           datasource?.type,
           apiCall,
-          "SqlExplorer"
+          "EditSqlModal"
         );
         setAutoCompletions(completions);
       } catch (error) {
