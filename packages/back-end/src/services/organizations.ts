@@ -866,7 +866,6 @@ export async function importConfig(
               dateCreated: new Date(),
               dateUpdated: new Date(),
               organization: organization.id,
-              managedBy: "config",
             });
           }
         } catch (e) {
