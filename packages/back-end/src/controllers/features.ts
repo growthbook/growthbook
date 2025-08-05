@@ -2264,6 +2264,28 @@ export async function putFeature(
 
   const updatedFeature = await updateFeature(context, feature, updates);
 
+  if (updates.holdout?.id !== feature.holdout?.id) {
+    const hasNonDraftExperimentsOrBandits = feature.linkedExperiments?.some(
+      async (experimentId) => {
+        const experiment = await getExperimentById(context, experimentId);
+        return (
+          experiment?.status !== "draft" ||
+          experiment?.type === "multi-armed-bandit"
+        );
+      }
+    );
+    const hasSafeRollouts = Object.values(feature.environmentSettings).some(
+      (env) => {
+        return env.rules.some((rule) => rule.type === "safe-rollout");
+      }
+    );
+    if (hasNonDraftExperimentsOrBandits || hasSafeRollouts) {
+      throw new Error(
+        "Cannot change holdout when there are running linked experiments, safe rollout rules, or multi-armed bandit rules"
+      );
+    }
+  }
+
   if (updates.holdout?.id !== feature.holdout?.id && feature.holdout?.id) {
     await context.models.holdout.removeFeatureFromHoldout(
       feature.holdout.id,

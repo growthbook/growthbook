@@ -629,11 +629,20 @@ export async function postExperiments(
     context.permissions.throwPermissionError();
   }
 
-  const result = await validateExperimentData(context, data, res);
-  // If datasource or metrics are invalid, return early
-  if (!result) {
+  let result:
+    | { metricIds: string[]; datasource: DataSourceInterface | null }
+    | undefined;
+
+  try {
+    result = await validateExperimentData(context, data);
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      message: e.message,
+    });
     return;
   }
+
   const { metricIds, datasource } = result;
 
   const experimentType = data.type ?? "standard";
@@ -891,7 +900,7 @@ export async function postExperiment(
     experiment,
   });
 
-  let datasourceId = experiment.datasource;
+  let datasourceId: string = experiment.datasource;
 
   if (data.datasource) {
     datasourceId = data.datasource;
@@ -959,6 +968,16 @@ export async function postExperiment(
   }
 
   if (data.holdoutId !== experiment.holdoutId && experiment.holdoutId) {
+    if (
+      experiment.status !== "draft" ||
+      experiment.hasURLRedirects ||
+      experiment.hasVisualChangesets ||
+      (experiment.linkedFeatures && experiment.linkedFeatures.length > 0)
+    ) {
+      throw new Error(
+        "Cannot change holdout after experiment has been run or linked changes have been added"
+      );
+    }
     await context.models.holdout.removeExperimentFromHoldout(
       experiment.holdoutId,
       experiment.id
