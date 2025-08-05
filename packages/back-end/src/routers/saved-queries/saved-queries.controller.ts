@@ -16,7 +16,6 @@ import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { runFreeFormQuery } from "back-end/src/services/datasource";
 import {
   secondsUntilAICanBeUsedAgain,
-  simpleCompletion,
   parsePrompt,
 } from "back-end/src/enterprise/services/openai";
 import {
@@ -331,8 +330,7 @@ export async function postGenerateSQL(
   if (filteredTablesInfo.length > maxTables) {
     const instructions =
       "You are a data analyst and SQL expert. " +
-      "Please provide a list of the most relevant tables to use for the following question: " +
-      input +
+      "Please provide a list of the most relevant tables to use for provided input." +
       ". Return the Fully Qualified Table Name (FQTN). " +
       (datasource.type === "mysql"
         ? "The FQTN should be in the format: 'databaseName.tableName'. "
@@ -345,29 +343,51 @@ export async function postGenerateSQL(
             `${table?.databaseName}.${table?.schemaName}.${table?.tableName}`
         )
         .join(", ") +
-      "Return at most 20 FQTN tables. Return only the FQTN, separated by commas, without any additional text or explanations.";
+      "\nReturn at most 20 FQTN tables. Return only the FQTN without any additional text or explanations.";
 
-    const aiResults = await simpleCompletion({
-      context,
-      instructions,
-      prompt:
-        "Return FQTN table names only, no markdown, no explanation, no comments.",
-      type: "generate-sql-query",
-      isDefaultPrompt: true,
-      temperature: 0.1,
+    const zodObjectSchemaTables = z.object({
+      table_names: z
+        .array(z.string())
+        .describe(
+          "Fully Qualified Table Names (FQTN) in the format 'databaseName.schemaName.tableName' or 'databaseName.tableName' (for MySQL)"
+        ),
     });
+    try {
+      const aiResultsTables = await parsePrompt({
+        context,
+        instructions,
+        prompt: input,
+        type: "generate-sql-query",
+        isDefaultPrompt: true,
+        zodObjectSchema: zodObjectSchemaTables,
+        temperature: 0.1,
+      });
 
-    const tableNames = aiResults
-      .split(",")
-      .map((name) => name.trim())
-      .filter((name) => name);
+      if (!aiResultsTables || typeof aiResultsTables.table_names !== "object") {
+        return res.status(400).json({
+          status: 400,
+          message: "AI did not return the expected list of tables",
+        });
+      }
+      const tableNames = Array.isArray(aiResultsTables.table_names)
+        ? aiResultsTables.table_names
+            .map((name) => name.trim())
+            .filter((name) => name)
+            .slice(0, 20)
+        : [];
 
-    // filter the tablesInfo to only include the ones that are in the AI response:
-    filteredTablesInfo = tablesInfo.filter((table) =>
-      tableNames.includes(
-        `${table?.databaseName}.${table?.schemaName}.${table?.tableName}`
-      )
-    );
+      // filter the tablesInfo to only include the ones that are in the AI response:
+      filteredTablesInfo = tablesInfo.filter((table) =>
+        tableNames.includes(
+          `${table?.databaseName}.${table?.schemaName}.${table?.tableName}`
+        )
+      );
+    } catch (e) {
+      return res.status(400).json({
+        status: 400,
+        message: "AI did not return a valid SQL query",
+      });
+    }
 
     if (filteredTablesInfo.length === 0) {
       return res.status(404).json({

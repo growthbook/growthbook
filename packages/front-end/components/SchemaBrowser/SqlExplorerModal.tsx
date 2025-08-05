@@ -43,6 +43,7 @@ import useOrgSettings, { useAISettings } from "@/hooks/useOrgSettings";
 import { VisualizationAddIcon } from "@/components/Icons";
 import Field from "@/components/Forms/Field";
 import OptInModal from "@/components/License/OptInModal";
+import Badge from "@/components/Radix/Badge";
 import { SqlExplorerDataVisualization } from "../DataViz/SqlExplorerDataVisualization";
 import Modal from "../Modal";
 import SelectField from "../Forms/SelectField";
@@ -718,6 +719,17 @@ export default function SqlExplorerModal({
                                     onClick={handleAIClick}
                                   >
                                     <BsStars /> Text to SQL{" "}
+                                    <Badge
+                                      label="BETA"
+                                      color="amber"
+                                      variant="solid"
+                                      style={{
+                                        margin: "0 4px",
+                                        paddingTop: "1px",
+                                        backgroundColor: "var(--slate-12)",
+                                        color: "var(--gray-1)",
+                                      }}
+                                    />
                                     <FiChevronRight
                                       style={{
                                         transform: openAIBox
