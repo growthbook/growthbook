@@ -135,6 +135,7 @@ import {
 } from "back-end/types/feature-rule";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { SafeRolloutRule } from "back-end/src/validators/features";
+import { HoldoutInterface } from "../routers/holdout/holdout.validators";
 
 class UnrecoverableApiError extends Error {
   constructor(message: string) {
@@ -1275,7 +1276,7 @@ export async function postFeatureRule(
 
     if (
       experiment?.status !== "draft" ||
-      experiment?.holdoutId !== feature.holdout.id ||
+      (experiment?.holdoutId && experiment.holdoutId !== feature.holdout.id) ||
       expHasLinkedChanges
     ) {
       throw new Error(
@@ -1283,23 +1284,25 @@ export async function postFeatureRule(
       );
     }
 
-    await updateExperiment({
-      context,
-      experiment,
-      changes: {
-        holdoutId: feature.holdout.id,
-      },
-    });
-    const holdout = await context.models.holdout.getById(feature.holdout.id);
-    await context.models.holdout.updateById(feature.holdout.id, {
-      linkedExperiments: {
-        ...holdout?.linkedExperiments,
-        [experiment.id]: {
-          id: experiment.id,
-          dateAdded: new Date(),
+    if (!experiment.holdoutId) {
+      await updateExperiment({
+        context,
+        experiment,
+        changes: {
+          holdoutId: feature.holdout.id,
         },
-      },
-    });
+      });
+      const holdout = await context.models.holdout.getById(feature.holdout.id);
+      await context.models.holdout.updateById(feature.holdout.id, {
+        linkedExperiments: {
+          ...holdout?.linkedExperiments,
+          [experiment.id]: {
+            id: experiment.id,
+            dateAdded: new Date(),
+          },
+        },
+      });
+    }
   }
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
@@ -2261,6 +2264,28 @@ export async function putFeature(
 
   const updatedFeature = await updateFeature(context, feature, updates);
 
+  if (updates.holdout?.id !== feature.holdout?.id) {
+    const hasNonDraftExperimentsOrBandits = feature.linkedExperiments?.some(
+      async (experimentId) => {
+        const experiment = await getExperimentById(context, experimentId);
+        return (
+          experiment?.status !== "draft" ||
+          experiment?.type === "multi-armed-bandit"
+        );
+      }
+    );
+    const hasSafeRollouts = Object.values(feature.environmentSettings).some(
+      (env) => {
+        return env.rules.some((rule) => rule.type === "safe-rollout");
+      }
+    );
+    if (hasNonDraftExperimentsOrBandits || hasSafeRollouts) {
+      throw new Error(
+        "Cannot change holdout when there are running linked experiments, safe rollout rules, or multi-armed bandit rules"
+      );
+    }
+  }
+
   if (updates.holdout?.id !== feature.holdout?.id && feature.holdout?.id) {
     await context.models.holdout.removeFeatureFromHoldout(
       feature.holdout.id,
@@ -2790,7 +2815,7 @@ export async function getFeatureById(
   });
 
   // find holdout
-  let holdout;
+  let holdout: HoldoutInterface | null = null;
   if (feature.holdout) {
     holdout = await context.models.holdout.getById(feature.holdout.id);
   }
@@ -2803,7 +2828,7 @@ export async function getFeatureById(
     experiments: [...experimentsMap.values()],
     safeRollouts: [...safeRolloutMap.values()],
     codeRefs,
-    holdout: holdout || undefined,
+    holdout,
   });
 }
 

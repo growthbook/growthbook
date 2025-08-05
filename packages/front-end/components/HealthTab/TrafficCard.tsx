@@ -37,23 +37,38 @@ export default function TrafficCard({
   traffic,
   variations,
   isBandit,
+  disableDimensions,
+  cardTitle = "Traffic",
+  containerClassName = "box p-3 my-4",
 }: {
   traffic: ExperimentSnapshotTraffic;
   variations: ExperimentReportVariation[];
   isBandit: boolean;
+  disableDimensions?: boolean;
+  cardTitle?: string;
+  containerClassName?: string;
 }) {
   const [cumulative, setCumulative] = useState(true);
   const { settings } = useUser();
 
   const srmThreshold = settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
 
-  const trafficByDate = traffic.dimension?.dim_exposure_date;
+  const trafficByDate = useMemo(
+    () => traffic.dimension?.dim_exposure_date || [],
+    [traffic]
+  );
 
-  const availableDimensions = transformDimensionData(
-    traffic.dimension,
-    variations,
-    srmThreshold,
-    isBandit
+  const availableDimensions = useMemo(
+    () =>
+      disableDimensions
+        ? []
+        : transformDimensionData(
+            traffic.dimension,
+            variations,
+            srmThreshold,
+            isBandit
+          ),
+    [disableDimensions, traffic, variations, srmThreshold, isBandit]
   );
 
   const [selectedDimension, setSelectedDimension] = useState<string>("");
@@ -97,14 +112,16 @@ export default function TrafficCard({
   }, [trafficByDate, variations, cumulative]);
 
   const sortedDimensionSlices = useMemo(() => {
-    return traffic.dimension[selectedDimension]?.sort(compareDimsByTotalUsers);
+    return traffic.dimension?.[selectedDimension]?.sort(
+      compareDimsByTotalUsers
+    );
   }, [selectedDimension, traffic.dimension]);
 
   return (
-    <div className="box my-4 p-3">
+    <div className={containerClassName}>
       <div className="mx-2">
         <div className="d-flex flex-row mt-1">
-          <h2 className="d-inline">{"Traffic"}</h2>
+          <h2 className="d-inline">{cardTitle}</h2>
           <div className="flex-1" />
           <div className="col-auto">
             <div className="uppercase-title text-muted">Dimension</div>

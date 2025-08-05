@@ -56,6 +56,8 @@ export const entityEvents = {
   execReport: ["create", "update", "delete"],
   holdout: ["create", "update", "delete"],
   savedQuery: ["create", "update", "delete"],
+  dashboard: ["create", "update", "delete"],
+  dashboardTemplate: ["create", "update", "delete"],
 } as const;
 
 export type EntityEvents = typeof entityEvents;

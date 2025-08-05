@@ -42,7 +42,6 @@ import {
 import { hoursBetween } from "shared/dates";
 import { v4 as uuidv4 } from "uuid";
 import { differenceInHours } from "date-fns";
-import { Response } from "express";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { MetricPriorSettings } from "back-end/types/fact-table";
 import {
@@ -532,6 +531,9 @@ export function getSnapshotSettings({
     guardrailMetrics = [];
   }
 
+  // Set currentDate in a const to use the same date for all metric settings
+  const currentDate = new Date();
+
   const metricSettings = expandMetricGroups(
     getAllMetricIdsFromExperiment(experiment),
     metricGroups
@@ -544,12 +546,13 @@ export function getSnapshotSettings({
         metricOverrides: experiment.metricOverrides,
         decisionFrameworkSettings: experiment.decisionFrameworkSettings,
         phaseLookbackWindow:
-          experiment.type === "holdout" && phase.lookbackStartDate
+          experiment.type === "holdout" &&
+          phase.lookbackStartDate &&
+          phase.lookbackStartDate < currentDate
             ? {
-                value: differenceInHours(
-                  phase.dateStarted,
-                  phase.lookbackStartDate
-                ),
+                value: differenceInHours(currentDate, phase.lookbackStartDate, {
+                  roundingMethod: "ceil",
+                }),
                 unit: "hours",
               }
             : undefined,
@@ -3228,20 +3231,13 @@ export async function computeResultsStatus({
 
 export async function validateExperimentData(
   context: ReqContext,
-  data: Partial<ExperimentInterfaceStringDates>,
-  res: Response
-): Promise<
-  { metricIds: string[]; datasource: DataSourceInterface | null } | undefined
-> {
+  data: Partial<ExperimentInterfaceStringDates>
+): Promise<{ metricIds: string[]; datasource: DataSourceInterface | null }> {
   let datasource: DataSourceInterface | null = null;
   if (data.datasource) {
     datasource = await getDataSourceById(context, data.datasource);
     if (!datasource) {
-      res.status(403).json({
-        status: 403,
-        message: "Invalid datasource: " + data.datasource,
-      });
-      return;
+      throw new Error("Invalid datasource: " + data.datasource);
     }
   }
 
@@ -3254,13 +3250,10 @@ export async function validateExperimentData(
       if (metric) {
         // Make sure it is tied to the same datasource as the experiment
         if (data.datasource && metric.datasource !== data.datasource) {
-          res.status(400).json({
-            status: 400,
-            message:
-              "Metrics must be tied to the same datasource as the experiment: " +
-              metricIds[i],
-          });
-          return;
+          throw new Error(
+            "Metrics must be tied to the same datasource as the experiment: " +
+              metricIds[i]
+          );
         }
       } else {
         // check to see if this metric is actually a metric group
@@ -3270,21 +3263,14 @@ export async function validateExperimentData(
         if (metricGroup) {
           // Make sure it is tied to the same datasource as the experiment
           if (data.datasource && metricGroup.datasource !== data.datasource) {
-            res.status(400).json({
-              status: 400,
-              message:
-                "Metric group must be tied to the same datasource as the experiment: " +
-                metricIds[i],
-            });
-            return;
+            throw new Error(
+              "Metric group must be tied to the same datasource as the experiment: " +
+                metricIds[i]
+            );
           }
         } else {
           // new metric that's not recognized...
-          res.status(403).json({
-            status: 403,
-            message: "Unknown metric: " + metricIds[i],
-          });
-          return;
+          throw new Error("Unknown metric: " + metricIds[i]);
         }
       }
     }

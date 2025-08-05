@@ -28,7 +28,7 @@ import { getAuthConnection, processJWT, usingOpenId } from "./services/auth";
 import { wrapController } from "./routers/wrapController";
 import apiRouter from "./api/api.router";
 import scimRouter from "./scim/scim.router";
-import { getBuild } from "./util/handler";
+import { getBuild } from "./util/build";
 
 // Begin Controllers
 import * as authControllerRaw from "./controllers/auth";
@@ -117,6 +117,7 @@ import { templateRouter } from "./routers/experiment-template/template.router";
 import { safeRolloutRouter } from "./routers/safe-rollout/safe-rollout.router";
 import { holdoutRouter } from "./routers/holdout/holdout.router";
 import { runStatsEngine } from "./services/stats";
+import { dashboardsRouter } from "./routers/dashboards/dashboards.router";
 
 const app = express();
 
@@ -914,6 +915,9 @@ app.get(
     return res.json({ generatedHypothesis });
   }
 );
+
+// Dashboards
+app.use("/dashboards", dashboardsRouter);
 
 // Meta info
 app.get("/meta/ai", (req, res) => {

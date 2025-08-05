@@ -706,6 +706,11 @@ const sidebars = {
       items: [
         {
           type: "doc",
+          id: "guide/sanity",
+          label: "Sanity",
+        },
+        {
+          type: "doc",
           id: "guide/strapi",
           label: "Strapi CMS",
         },

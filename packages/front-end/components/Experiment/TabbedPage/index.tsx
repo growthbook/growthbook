@@ -13,6 +13,7 @@ import { URLRedirectInterface } from "back-end/types/url-redirect";
 import { FaChartBar } from "react-icons/fa";
 import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import { FeatureInterface } from "back-end/types/feature";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import FeatureFromExperimentModal from "@/components/Features/FeatureModal/FeatureFromExperimentModal";
 import Modal from "@/components/Modal";
@@ -38,6 +39,7 @@ import BanditSummaryResultsTab from "@/components/Experiment/TabbedPage/BanditSu
 import Button from "@/components/Radix/Button";
 import PremiumCallout from "@/components/Radix/PremiumCallout";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import DashboardsTab from "@/enterprise/components/Dashboards/DashboardsTab";
 import ExperimentHeader from "./ExperimentHeader";
 import SetupTabOverview from "./SetupTabOverview";
 import Implementation from "./Implementation";
@@ -45,8 +47,17 @@ import ResultsTab from "./ResultsTab";
 import StoppedExperimentBanner from "./StoppedExperimentBanner";
 import HealthTab from "./HealthTab";
 
-const experimentTabs = ["overview", "results", "explore", "health"] as const;
-export type ExperimentTab = typeof experimentTabs[number];
+const experimentTabs = [
+  "overview",
+  "results",
+  "explore",
+  "dashboards",
+  "health",
+] as const;
+type ExperimentTabName = typeof experimentTabs[number];
+export type ExperimentTab =
+  | ExperimentTabName
+  | `${ExperimentTabName}/${string}`;
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -94,10 +105,13 @@ export default function TabbedPage({
   setChecklistItemsRemaining,
   stop,
 }: Props) {
+  const growthbook = useGrowthBook();
+  const dashboardsEnabled = growthbook.isOn("experiment-dashboards-enabled");
   const [tab, setTab] = useLocalStorage<ExperimentTab>(
     `tabbedPageTab__${experiment.id}`,
     "overview"
   );
+  const [tabPath, setTabPath] = useState("");
 
   const router = useRouter();
 
@@ -128,14 +142,26 @@ export default function TabbedPage({
   useEffect(() => {
     const handler = () => {
       const hash = window.location.hash.replace(/^#/, "") as ExperimentTab;
-      if (experimentTabs.includes(hash)) {
-        setTab(hash);
+      let [tabName, ...tabPathSegments] = hash.split("/") as [
+        ExperimentTabName,
+        ...string[]
+      ];
+      if (experimentTabs.includes(tabName)) {
+        if (tabName === "dashboards" && !dashboardsEnabled) {
+          tabName = "overview";
+          tabPathSegments = [];
+        }
+        const tabPath = tabPathSegments.join("/");
+        setTab(tabName);
+        setTabPath(tabPath);
+        // Drop the tab path from the URL after reading it into state
       }
+      window.history.replaceState({}, "", `#${tabName}`);
     };
     handler();
     window.addEventListener("hashchange", handler, false);
     return () => window.removeEventListener("hashchange", handler, false);
-  }, [setTab]);
+  }, [setTab, dashboardsEnabled]);
 
   const { phase, setPhase } = useSnapshot();
   const { metricGroups } = useDefinitions();
@@ -492,6 +518,15 @@ export default function TabbedPage({
           metricFilter={metricFilter}
           setMetricFilter={setMetricFilter}
         />
+      </div>
+      <div
+        className={
+          tab === "dashboards"
+            ? "container-fluid pagecontents d-block pt-0"
+            : "d-none d-print-block"
+        }
+      >
+        <DashboardsTab experiment={experiment} initialDashboardId={tabPath} />
       </div>
       <div
         className={

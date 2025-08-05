@@ -23,6 +23,7 @@ const env: EnvironmentInitValue = {
   superadminDefaultRole: "readonly",
   ingestorOverride: "",
   stripePublishableKey: "",
+  experimentRefreshFrequency: 6,
 };
 
 export async function initEnv() {
@@ -35,6 +36,7 @@ export async function initEnv() {
       dsn: env.sentryDSN,
       sendDefaultPii: true,
       environment: env.environment,
+      release: env.build?.sha,
     });
   }
 }
@@ -110,4 +112,8 @@ export function getIngestorHost() {
 
 export function getStripePublishableKey() {
   return env.stripePublishableKey;
+}
+
+export function getExperimentRefreshFrequency() {
+  return env.experimentRefreshFrequency;
 }
