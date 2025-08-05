@@ -350,7 +350,6 @@ export default function SqlExplorerModal({
         return;
       }
       try {
-        console.log("fetching completions");
         const completions = await getAutoCompletions(
           cursorData,
           informationSchema,
