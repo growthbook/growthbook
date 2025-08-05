@@ -198,7 +198,7 @@ export const deleteDimension = async (
     throw new Error("Could not find dimension");
   }
   try {
-    await deleteDimensionById(dimension, org.id);
+    await deleteDimensionById(context, dimension);
   } catch (e) {
     return res.status(400).json({
       status: 400,

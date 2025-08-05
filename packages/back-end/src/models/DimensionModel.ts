@@ -119,8 +119,8 @@ export async function updateDimension(
 }
 
 export async function deleteDimensionById(
-  dimension: DimensionInterface,
-  organization: string
+  context: ReqContext | ApiReqContext,
+  dimension: DimensionInterface
 ) {
   if (dimension?.managedBy === "config") {
     throw new Error(
@@ -128,7 +128,7 @@ export async function deleteDimensionById(
     );
   }
 
-  if (dimension?.managedBy === "api") {
+  if (dimension?.managedBy === "api" && context.auditUser?.type !== "api_key") {
     throw new Error(
       "Cannot delete. This Dimension is being managed by the API"
     );
@@ -136,7 +136,7 @@ export async function deleteDimensionById(
 
   await DimensionModel.deleteOne({
     id: dimension.id,
-    organization,
+    organization: context.org.id,
   });
 }
 
