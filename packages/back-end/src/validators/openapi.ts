@@ -172,7 +172,25 @@ export const listDimensionsValidator = {
   paramsSchema: z.never(),
 };
 
+export const postDimensionValidator = {
+  bodySchema: z.object({ "name": z.string().describe("Name of the dimension"), "owner": z.string().describe("Owner of the dimension").optional(), "datasourceId": z.string().describe("ID of the datasource this dimension belongs to"), "identifierType": z.string().describe("Type of identifier (user, anonymous, etc.)"), "query": z.string().describe("SQL query or equivalent for the dimension") }).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.never(),
+};
+
 export const getDimensionValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
+export const updateDimensionValidator = {
+  bodySchema: z.object({ "name": z.string().describe("Name of the dimension").optional(), "owner": z.string().describe("Owner of the dimension").optional(), "datasourceId": z.string().describe("ID of the datasource this dimension belongs to").optional(), "identifierType": z.string().describe("Type of identifier (user, anonymous, etc.)").optional(), "query": z.string().describe("SQL query or equivalent for the dimension").optional() }).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
+export const deleteDimensionValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
   paramsSchema: z.object({ "id": z.string() }).strict(),
