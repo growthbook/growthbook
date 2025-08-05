@@ -10,7 +10,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import Button from "@/components/Radix/Button";
 import DimensionForm from "@/components/Dimensions/DimensionForm";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { hasFileConfig } from "@/services/env";
+import { envAllowsCreatingDimensions, hasFileConfig } from "@/services/env";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import { DocLink } from "@/components/DocLink";
@@ -82,9 +82,12 @@ const DimensionsPage: FC = () => {
   } = useDefinitions();
 
   const permissionsUtil = usePermissionsUtil();
-  const canCreateDimension = permissionsUtil.canCreateDimension();
-  const canEditDimension = permissionsUtil.canUpdateDimension();
-  const canDeleteDimension = permissionsUtil.canDeleteDimension();
+  const hasCreateDimensionPermission = permissionsUtil.canCreateDimension();
+  const hasEditDimensionPermission = permissionsUtil.canUpdateDimension();
+  const hasDeleteDimensionPermissions = permissionsUtil.canDeleteDimension();
+  const orgCanCreateDimensions = hasFileConfig()
+    ? envAllowsCreatingDimensions()
+    : true;
 
   const [
     dimensionForm,
@@ -216,7 +219,7 @@ const DimensionsPage: FC = () => {
           <h1>Unit Dimensions</h1>
         </div>
         <div style={{ flex: 1 }}></div>
-        {!hasFileConfig() && canCreateDimension && (
+        {orgCanCreateDimensions && hasCreateDimensionPermission && (
           <div className="col-auto">
             <Button
               onClick={async () => {
@@ -304,7 +307,7 @@ const DimensionsPage: FC = () => {
                       {s.dateUpdated ? <td>{ago(s.dateUpdated)}</td> : null}
                       {!s.managedBy ? (
                         <td>
-                          {canEditDimension ? (
+                          {hasEditDimensionPermission ? (
                             <a
                               href="#"
                               className="tr-hover text-primary mr-3"
@@ -317,7 +320,7 @@ const DimensionsPage: FC = () => {
                               <FaPencilAlt />
                             </a>
                           ) : null}
-                          {canDeleteDimension ? (
+                          {hasDeleteDimensionPermissions ? (
                             <DeleteButton
                               link={true}
                               className={"tr-hover text-primary"}
@@ -343,14 +346,14 @@ const DimensionsPage: FC = () => {
           </div>
         </div>
       )}
-      {!error && dimensions.length === 0 && !hasFileConfig() && (
+      {!error && dimensions.length === 0 && orgCanCreateDimensions && (
         <div className="alert alert-info">
           You don&apos;t have any user dimensions defined yet.{" "}
-          {canCreateDimension &&
+          {hasCreateDimensionPermission &&
             "Click the button above to create your first one."}
         </div>
       )}
-      {!error && dimensions.length === 0 && hasFileConfig() && (
+      {!error && dimensions.length === 0 && !orgCanCreateDimensions && (
         <div className="alert alert-info">
           It looks like you have a <code>config.yml</code> file. Dimensions
           defined there will show up on this page.{" "}
