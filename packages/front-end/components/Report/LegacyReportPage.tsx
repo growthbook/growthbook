@@ -499,6 +499,9 @@ export default function LegacyReportPage({
                 ) : (
                   <BreakDownResults
                     isLatestPhase={true}
+                    phase={
+                      (experimentData?.experiment?.phases?.length ?? 1) - 1
+                    }
                     goalMetrics={report.args.goalMetrics}
                     secondaryMetrics={report.args.secondaryMetrics}
                     guardrailMetrics={report.args.guardrailMetrics}
@@ -579,6 +582,9 @@ export default function LegacyReportPage({
                       ).toISOString()}
                       endDate={getValidDate(report.args.endDate).toISOString()}
                       isLatestPhase={true}
+                      phase={
+                        (experimentData?.experiment?.phases?.length ?? 1) - 1
+                      }
                       status={"stopped"}
                       goalMetrics={report.args.goalMetrics}
                       secondaryMetrics={report.args.secondaryMetrics}

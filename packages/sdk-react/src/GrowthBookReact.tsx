@@ -38,7 +38,7 @@ export async function getGrowthBookSSRData(
 
   // Load feature flags from network if needed
   if (context.clientKey) {
-    await gb.loadFeatures();
+    await gb.init();
   }
 
   const data: GrowthBookSSRData = {

@@ -39,6 +39,7 @@ export default class Mysql extends SqlIntegration {
     const conn = await mysql.createConnection(config);
 
     const [rows] = await conn.query(sql);
+    conn.end();
     return { rows: rows as RowDataPacket[] };
   }
   dateDiff(startCol: string, endCol: string) {

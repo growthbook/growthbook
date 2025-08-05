@@ -96,9 +96,7 @@ const updateStaleInformationSchemaTable = async (
     logger.error(
       e,
       "Unable to refresh stale information schema table for: " +
-        informationSchemaTableId +
-        " Error: " +
-        e.message
+        informationSchemaTableId
     );
   }
 };
