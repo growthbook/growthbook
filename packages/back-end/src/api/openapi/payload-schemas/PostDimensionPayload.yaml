@@ -29,4 +29,3 @@ properties:
     enum:
       - ""
       - api
-      - config

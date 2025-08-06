@@ -7964,7 +7964,7 @@ export interface operations {
            * @description Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere. 
            * @enum {string}
            */
-          managedBy?: "" | "api" | "config";
+          managedBy?: "" | "api";
         };
       };
     };
@@ -8053,7 +8053,7 @@ export interface operations {
            * @description Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere. 
            * @enum {string}
            */
-          managedBy?: "" | "api" | "config";
+          managedBy?: "" | "api";
         };
       };
     };

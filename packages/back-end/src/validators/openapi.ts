@@ -173,7 +173,7 @@ export const listDimensionsValidator = {
 };
 
 export const postDimensionValidator = {
-  bodySchema: z.object({ "name": z.string().describe("Name of the dimension"), "description": z.string().describe("Description of the dimension").optional(), "owner": z.string().describe("Owner of the dimension").optional(), "datasourceId": z.string().describe("ID of the datasource this dimension belongs to"), "identifierType": z.string().describe("Type of identifier (user, anonymous, etc.)"), "query": z.string().describe("SQL query or equivalent for the dimension"), "managedBy": z.enum(["","api","config"]).describe("Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere.").optional() }).strict(),
+  bodySchema: z.object({ "name": z.string().describe("Name of the dimension"), "description": z.string().describe("Description of the dimension").optional(), "owner": z.string().describe("Owner of the dimension").optional(), "datasourceId": z.string().describe("ID of the datasource this dimension belongs to"), "identifierType": z.string().describe("Type of identifier (user, anonymous, etc.)"), "query": z.string().describe("SQL query or equivalent for the dimension"), "managedBy": z.enum(["","api"]).describe("Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere.").optional() }).strict(),
   querySchema: z.never(),
   paramsSchema: z.never(),
 };
@@ -185,7 +185,7 @@ export const getDimensionValidator = {
 };
 
 export const updateDimensionValidator = {
-  bodySchema: z.object({ "name": z.string().describe("Name of the dimension").optional(), "description": z.string().describe("Description of the dimension").optional(), "owner": z.string().describe("Owner of the dimension").optional(), "datasourceId": z.string().describe("ID of the datasource this dimension belongs to").optional(), "identifierType": z.string().describe("Type of identifier (user, anonymous, etc.)").optional(), "query": z.string().describe("SQL query or equivalent for the dimension").optional(), "managedBy": z.enum(["","api","config"]).describe("Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere.").optional() }).strict(),
+  bodySchema: z.object({ "name": z.string().describe("Name of the dimension").optional(), "description": z.string().describe("Description of the dimension").optional(), "owner": z.string().describe("Owner of the dimension").optional(), "datasourceId": z.string().describe("ID of the datasource this dimension belongs to").optional(), "identifierType": z.string().describe("Type of identifier (user, anonymous, etc.)").optional(), "query": z.string().describe("SQL query or equivalent for the dimension").optional(), "managedBy": z.enum(["","api"]).describe("Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere.").optional() }).strict(),
   querySchema: z.never(),
   paramsSchema: z.object({ "id": z.string() }).strict(),
 };

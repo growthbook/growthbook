@@ -1150,7 +1150,6 @@ paths:
                   enum:
                     - ''
                     - api
-                    - config
       responses:
         '200':
           content:
@@ -1230,7 +1229,6 @@ paths:
                   enum:
                     - ''
                     - api
-                    - config
       responses:
         '200':
           content:
