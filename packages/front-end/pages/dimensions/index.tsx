@@ -252,8 +252,8 @@ const DimensionsPage: FC = () => {
                   <th className="d-none d-sm-table-cell">Data Source</th>
                   <th className="d-none d-md-table-cell">Identifier Type</th>
                   <th className="d-none d-lg-table-cell">Definition</th>
-                  {!hasFileConfig() && <th>Date Updated</th>}
-                  {!hasFileConfig() && <th></th>}
+                  <th>Date Updated</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -304,7 +304,18 @@ const DimensionsPage: FC = () => {
                           expandable={true}
                         />
                       </td>
-                      {s.dateUpdated ? <td>{ago(s.dateUpdated)}</td> : null}
+                      <td>
+                        {s.dateUpdated ? (
+                          ago(s.dateUpdated)
+                        ) : (
+                          <Tooltip
+                            shouldDisplay={!s.dateUpdated}
+                            body="Dimensions created via the config file are not editable."
+                          >
+                            -
+                          </Tooltip>
+                        )}
+                      </td>
                       {!s.managedBy ? (
                         <td>
                           {hasEditDimensionPermission ? (
