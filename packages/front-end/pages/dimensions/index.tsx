@@ -305,16 +305,7 @@ const DimensionsPage: FC = () => {
                         />
                       </td>
                       <td>
-                        {s.dateUpdated ? (
-                          ago(s.dateUpdated)
-                        ) : (
-                          <Tooltip
-                            shouldDisplay={!s.dateUpdated}
-                            body="Dimensions created via the config file are not editable."
-                          >
-                            -
-                          </Tooltip>
-                        )}
+                        {s.dateUpdated ? ago(s.dateUpdated) : <span>-</span>}
                       </td>
                       {!s.managedBy ? (
                         <td>
