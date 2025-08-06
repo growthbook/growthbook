@@ -87,6 +87,7 @@ import {
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import { getEnabledEnvironments } from "back-end/src/util/features";
+import { Environment, ReqContext } from "back-end/types/organization";
 import {
   findSDKConnectionByKey,
   markSDKConnectionUsed,
@@ -117,7 +118,6 @@ import {
   getExperimentsByTrackingKeys,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
-import { ReqContext } from "back-end/types/organization";
 import { Changeset, ExperimentInterface } from "back-end/types/experiment";
 import { ApiReqContext } from "back-end/types/api";
 import { getAllCodeRefsForFeature } from "back-end/src/models/FeatureCodeRefs";
@@ -235,6 +235,63 @@ export async function getPayloadParamsFromApiKey(
   }
 }
 
+export async function getFeatureDefinitionsFilteredByEnvironment({
+  context,
+  projects,
+  environmentDoc,
+  capabilities,
+  encrypted,
+  encryptionKey,
+  includeVisualExperiments,
+  includeDraftExperiments,
+  includeExperimentNames,
+  includeRedirectExperiments,
+  includeRuleIds,
+  hashSecureAttributes,
+  savedGroupReferencesEnabled,
+  environment,
+}: {
+  context: ReqContext | ApiReqContext;
+  projects: string[];
+  environmentDoc: Environment | undefined;
+  capabilities: SDKCapability[];
+  encrypted: boolean;
+  encryptionKey: string | undefined;
+  includeVisualExperiments: boolean | undefined;
+  includeDraftExperiments: boolean | undefined;
+  includeExperimentNames: boolean | undefined;
+  includeRedirectExperiments: boolean | undefined;
+  includeRuleIds: boolean | undefined;
+  hashSecureAttributes: boolean | undefined;
+  savedGroupReferencesEnabled: boolean | undefined;
+  environment: string;
+}) {
+  const filteredProjects = filterProjectsByEnvironmentWithNull(
+    projects,
+    environmentDoc,
+    true
+  );
+
+  const defs = await getFeatureDefinitions({
+    context,
+    capabilities,
+    environment,
+    projects: filteredProjects,
+    encryptionKey: encrypted ? encryptionKey : "",
+    includeVisualExperiments,
+    includeDraftExperiments,
+    includeExperimentNames,
+    includeRedirectExperiments,
+    includeRuleIds,
+    hashSecureAttributes,
+    savedGroupReferencesEnabled:
+      savedGroupReferencesEnabled &&
+      capabilities.includes("savedGroupReferences"),
+  });
+
+  return defs;
+}
+
 export async function getFeaturesPublic(req: Request, res: Response) {
   try {
     const { key } = req.params;
@@ -271,27 +328,21 @@ export async function getFeaturesPublic(req: Request, res: Response) {
     const environmentDoc = context.org?.settings?.environments?.find(
       (e) => e.id === environment
     );
-    const filteredProjects = filterProjectsByEnvironmentWithNull(
+    const defs = await getFeatureDefinitionsFilteredByEnvironment({
+      context,
       projects,
       environmentDoc,
-      true
-    );
-
-    const defs = await getFeatureDefinitions({
-      context,
       capabilities,
-      environment,
-      projects: filteredProjects,
-      encryptionKey: encrypted ? encryptionKey : "",
+      encrypted,
+      encryptionKey,
       includeVisualExperiments,
       includeDraftExperiments,
       includeExperimentNames,
       includeRedirectExperiments,
       includeRuleIds,
       hashSecureAttributes,
-      savedGroupReferencesEnabled:
-        savedGroupReferencesEnabled &&
-        capabilities.includes("savedGroupReferences"),
+      savedGroupReferencesEnabled,
+      environment,
     });
 
     // The default is Cache for 30 seconds, serve stale up to 1 hour (10 hours if origin is down)
