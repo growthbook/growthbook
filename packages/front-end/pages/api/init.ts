@@ -26,6 +26,7 @@ export interface EnvironmentInitValue {
   usingSSO: boolean;
   storeSegmentsInMongo: boolean;
   allowCreateMetrics: boolean;
+  allowCreateDimensions: boolean;
   usingFileProxy: boolean;
   superadminDefaultRole: string;
   ingestorOverride: string;
@@ -55,6 +56,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     SSO_CONFIG,
     STORE_SEGMENTS_IN_MONGO,
     ALLOW_CREATE_METRICS,
+    ALLOW_CREATE_DIMENSIONS,
     USE_FILE_PROXY: USING_FILE_PROXY,
     SUPERADMIN_DEFAULT_ROLE,
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
@@ -114,6 +116,8 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     ),
     config: hasConfigFile ? "file" : "db",
     allowCreateMetrics: !hasConfigFile || stringToBoolean(ALLOW_CREATE_METRICS),
+    allowCreateDimensions:
+      !hasConfigFile || stringToBoolean(ALLOW_CREATE_DIMENSIONS),
     build,
     environment: NODE_ENV || "development",
     defaultConversionWindowHours: DEFAULT_CONVERSION_WINDOW_HOURS
