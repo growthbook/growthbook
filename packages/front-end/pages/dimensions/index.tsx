@@ -10,7 +10,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import Button from "@/components/Radix/Button";
 import DimensionForm from "@/components/Dimensions/DimensionForm";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { hasFileConfig } from "@/services/env";
+import { envAllowsCreatingDimensions, hasFileConfig } from "@/services/env";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import { DocLink } from "@/components/DocLink";
@@ -26,6 +26,7 @@ import Table, {
 } from "@/components/Radix/Table";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { EAQ_ANCHOR_ID } from "@/pages/datasources/[did]";
+import { OfficialBadge } from "@/components/Metrics/MetricName";
 
 type ExperimentDimensionItem = {
   dimension: string;
@@ -81,9 +82,12 @@ const DimensionsPage: FC = () => {
   } = useDefinitions();
 
   const permissionsUtil = usePermissionsUtil();
-  const canCreateDimension = permissionsUtil.canCreateDimension();
-  const canEditDimension = permissionsUtil.canUpdateDimension();
-  const canDeleteDimension = permissionsUtil.canDeleteDimension();
+  const hasCreateDimensionPermission = permissionsUtil.canCreateDimension();
+  const hasEditDimensionPermission = permissionsUtil.canUpdateDimension();
+  const hasDeleteDimensionPermissions = permissionsUtil.canDeleteDimension();
+  const orgCanCreateDimensions = hasFileConfig()
+    ? envAllowsCreatingDimensions()
+    : true;
 
   const [
     dimensionForm,
@@ -215,7 +219,7 @@ const DimensionsPage: FC = () => {
           <h1>Unit Dimensions</h1>
         </div>
         <div style={{ flex: 1 }}></div>
-        {!hasFileConfig() && canCreateDimension && (
+        {orgCanCreateDimensions && hasCreateDimensionPermission && (
           <div className="col-auto">
             <Button
               onClick={async () => {
@@ -248,8 +252,8 @@ const DimensionsPage: FC = () => {
                   <th className="d-none d-sm-table-cell">Data Source</th>
                   <th className="d-none d-md-table-cell">Identifier Type</th>
                   <th className="d-none d-lg-table-cell">Definition</th>
-                  {!hasFileConfig() && <th>Date Updated</th>}
-                  {!hasFileConfig() && <th></th>}
+                  <th>Date Updated</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -262,6 +266,10 @@ const DimensionsPage: FC = () => {
                       <td>
                         {" "}
                         <>
+                          <OfficialBadge
+                            type="Dimension"
+                            managedBy={s.managedBy}
+                          />{" "}
                           {s.name}{" "}
                           {s.description ? (
                             <Tooltip body={s.description} />
@@ -296,11 +304,12 @@ const DimensionsPage: FC = () => {
                           expandable={true}
                         />
                       </td>
-                      {/* @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Date | null' is not assignable t... Remove this comment to see the full error message */}
-                      {!hasFileConfig() && <td>{ago(s.dateUpdated)}</td>}
-                      {!hasFileConfig() && (
+                      <td>
+                        {s.dateUpdated ? ago(s.dateUpdated) : <span>-</span>}
+                      </td>
+                      {!s.managedBy ? (
                         <td>
-                          {canEditDimension ? (
+                          {hasEditDimensionPermission ? (
                             <a
                               href="#"
                               className="tr-hover text-primary mr-3"
@@ -313,7 +322,7 @@ const DimensionsPage: FC = () => {
                               <FaPencilAlt />
                             </a>
                           ) : null}
-                          {canDeleteDimension ? (
+                          {hasDeleteDimensionPermissions ? (
                             <DeleteButton
                               link={true}
                               className={"tr-hover text-primary"}
@@ -328,6 +337,8 @@ const DimensionsPage: FC = () => {
                             />
                           ) : null}
                         </td>
+                      ) : (
+                        <td></td>
                       )}
                     </tr>
                   );
@@ -337,14 +348,14 @@ const DimensionsPage: FC = () => {
           </div>
         </div>
       )}
-      {!error && dimensions.length === 0 && !hasFileConfig() && (
+      {!error && dimensions.length === 0 && orgCanCreateDimensions && (
         <div className="alert alert-info">
           You don&apos;t have any user dimensions defined yet.{" "}
-          {canCreateDimension &&
+          {hasCreateDimensionPermission &&
             "Click the button above to create your first one."}
         </div>
       )}
-      {!error && dimensions.length === 0 && hasFileConfig() && (
+      {!error && dimensions.length === 0 && !orgCanCreateDimensions && (
         <div className="alert alert-info">
           It looks like you have a <code>config.yml</code> file. Dimensions
           defined there will show up on this page.{" "}
