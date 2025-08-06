@@ -8,6 +8,9 @@ properties:
   name:
     type: string
     description: Name of the dimension
+  description:
+    type: string
+    description: Description of the dimension
   owner:
     type: string
     description: Owner of the dimension

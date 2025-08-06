@@ -25,6 +25,7 @@ export const postDimension = createApiRequestHandler(postDimensionValidator)(
       userIdType: req.body.identifierType,
       owner: req.body.owner || "",
       name: req.body.name,
+      description: req.body.description || "",
       sql: req.body.query,
       id: uniqid("dim_"),
       dateCreated: new Date(),

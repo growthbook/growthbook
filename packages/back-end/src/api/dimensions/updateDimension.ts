@@ -31,6 +31,9 @@ export const updateDimension = createApiRequestHandler(
 
     const updates: Partial<DimensionInterface> = {};
     if (req.body.name) updates.name = req.body.name;
+    if (req.body.description !== undefined) {
+      updates.description = req.body.description;
+    }
     if (req.body.owner) updates.owner = req.body.owner;
     if (req.body.datasourceId) updates.datasource = req.body.datasourceId;
     if (req.body.identifierType) updates.userIdType = req.body.identifierType;

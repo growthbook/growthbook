@@ -1129,6 +1129,9 @@ paths:
                 name:
                   type: string
                   description: Name of the dimension
+                description:
+                  type: string
+                  description: Description of the dimension
                 owner:
                   type: string
                   description: Owner of the dimension
@@ -1199,6 +1202,9 @@ paths:
                 name:
                   type: string
                   description: Name of the dimension
+                description:
+                  type: string
+                  description: Description of the dimension
                 owner:
                   type: string
                   description: Owner of the dimension
@@ -5482,6 +5488,8 @@ components:
         identifierType:
           type: string
         name:
+          type: string
+        description:
           type: string
         query:
           type: string

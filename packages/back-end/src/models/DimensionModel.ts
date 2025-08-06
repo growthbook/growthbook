@@ -104,6 +104,7 @@ export function toDimensionApiInterface(
   return {
     id: dimension.id,
     name: dimension.name,
+    description: dimension.description || "",
     owner: dimension.owner || "",
     identifierType: dimension.userIdType || "user_id",
     query: dimension.sql,

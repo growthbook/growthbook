@@ -375,6 +375,7 @@ export interface components {
       datasourceId: string;
       identifierType: string;
       name: string;
+      description?: string;
       query: string;
     };
     Metric: {
@@ -7917,6 +7918,7 @@ export interface operations {
                 datasourceId: string;
                 identifierType: string;
                 name: string;
+                description?: string;
                 query: string;
               })[];
           } & {
@@ -7938,6 +7940,8 @@ export interface operations {
         "application/json": {
           /** @description Name of the dimension */
           name: string;
+          /** @description Description of the dimension */
+          description?: string;
           /** @description Owner of the dimension */
           owner?: string;
           /** @description ID of the datasource this dimension belongs to */
@@ -7961,6 +7965,7 @@ export interface operations {
               datasourceId: string;
               identifierType: string;
               name: string;
+              description?: string;
               query: string;
             };
           };
@@ -7988,6 +7993,7 @@ export interface operations {
               datasourceId: string;
               identifierType: string;
               name: string;
+              description?: string;
               query: string;
             };
           };
@@ -8008,6 +8014,8 @@ export interface operations {
         "application/json": {
           /** @description Name of the dimension */
           name?: string;
+          /** @description Description of the dimension */
+          description?: string;
           /** @description Owner of the dimension */
           owner?: string;
           /** @description ID of the datasource this dimension belongs to */
@@ -8031,6 +8039,7 @@ export interface operations {
               datasourceId: string;
               identifierType: string;
               name: string;
+              description?: string;
               query: string;
             };
           };
