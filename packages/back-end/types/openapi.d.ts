@@ -333,6 +333,10 @@ export interface paths {
     /** Get a single query */
     get: operations["getQuery"];
   };
+  "/settings": {
+    /** Get organization settings */
+    get: operations["getSettings"];
+  };
   "/organization-defaults": {
     /** Get organization defaults */
     get: operations["getOrganizationDefaults"];
@@ -2407,6 +2411,44 @@ export interface components {
       externalId: string;
       dependencies: (string)[];
       runAtEnd: boolean;
+    };
+    Settings: {
+      confidenceLevel: number | null;
+      northStar: Record<string, unknown> | null;
+      metricDefaults: Record<string, unknown> | null;
+      pastExperimentsMinLength: number | null;
+      metricAnalysisDays: number;
+      updateSchedule: ({
+        /** @enum {string} */
+        type?: "cron" | "never" | "stale";
+        cron?: string | null;
+        hours?: number | null;
+      }) | null;
+      sdkInstructionsViewed: boolean;
+      videoInstructionsViewed: boolean;
+      multipleExposureMinPercent: number;
+      defaultRole: any;
+      statsEngine: string | null;
+      pValueThreshold: number;
+      regressionAdjustmentEnabled: boolean;
+      regressionAdjustmentDays: number;
+      sequentialTestingEnabled: boolean;
+      sequentialTestingTuningParameter: number;
+      /** @enum {string} */
+      attributionModel: "firstExposure" | "experimentDuration";
+      secureAttributeSalt: string;
+      killswitchConfirmation: boolean;
+      requireReviews: boolean;
+      featureKeyExample: string;
+      featureRegexValidator: string;
+      banditScheduleValue: number;
+      /** @enum {string} */
+      banditScheduleUnit: "hours" | "days";
+      banditBurnInValue: number;
+      /** @enum {string} */
+      banditBurnInUnit?: "hours" | "days";
+      experimentMinLengthDays: number;
+      experimentMaxLengthDays: number | null;
     };
     OrganizationDefaults: {
       id: string;
@@ -9540,6 +9582,55 @@ export interface operations {
       };
     };
   };
+  getSettings: {
+    /** Get organization settings */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            organizationDefaults?: {
+              confidenceLevel: number | null;
+              northStar: Record<string, unknown> | null;
+              metricDefaults: Record<string, unknown> | null;
+              pastExperimentsMinLength: number | null;
+              metricAnalysisDays: number;
+              updateSchedule: ({
+                /** @enum {string} */
+                type?: "cron" | "never" | "stale";
+                cron?: string | null;
+                hours?: number | null;
+              }) | null;
+              sdkInstructionsViewed: boolean;
+              videoInstructionsViewed: boolean;
+              multipleExposureMinPercent: number;
+              defaultRole: any;
+              statsEngine: string | null;
+              pValueThreshold: number;
+              regressionAdjustmentEnabled: boolean;
+              regressionAdjustmentDays: number;
+              sequentialTestingEnabled: boolean;
+              sequentialTestingTuningParameter: number;
+              /** @enum {string} */
+              attributionModel: "firstExposure" | "experimentDuration";
+              secureAttributeSalt: string;
+              killswitchConfirmation: boolean;
+              requireReviews: boolean;
+              featureKeyExample: string;
+              featureRegexValidator: string;
+              banditScheduleValue: number;
+              /** @enum {string} */
+              banditScheduleUnit: "hours" | "days";
+              banditBurnInValue: number;
+              /** @enum {string} */
+              banditBurnInUnit?: "hours" | "days";
+              experimentMinLengthDays: number;
+              experimentMaxLengthDays: number | null;
+            };
+          };
+        };
+      };
+    };
+  };
   getOrganizationDefaults: {
     /** Get organization defaults */
     responses: {
@@ -9621,6 +9712,7 @@ export type ApiFactMetric = z.infer<typeof openApiValidators.apiFactMetricValida
 export type ApiMember = z.infer<typeof openApiValidators.apiMemberValidator>;
 export type ApiArchetype = z.infer<typeof openApiValidators.apiArchetypeValidator>;
 export type ApiQuery = z.infer<typeof openApiValidators.apiQueryValidator>;
+export type ApiSettings = z.infer<typeof openApiValidators.apiSettingsValidator>;
 export type ApiOrganizationDefaults = z.infer<typeof openApiValidators.apiOrganizationDefaultsValidator>;
 
 // Operations
@@ -9708,4 +9800,5 @@ export type DeleteFactMetricResponse = operations["deleteFactMetric"]["responses
 export type PostBulkImportFactsResponse = operations["postBulkImportFacts"]["responses"]["200"]["content"]["application/json"];
 export type PostCodeRefsResponse = operations["postCodeRefs"]["responses"]["200"]["content"]["application/json"];
 export type GetQueryResponse = operations["getQuery"]["responses"]["200"]["content"]["application/json"];
+export type GetSettingsResponse = operations["getSettings"]["responses"]["200"]["content"]["application/json"];
 export type GetOrganizationDefaultsResponse = operations["getOrganizationDefaults"]["responses"]["200"]["content"]["application/json"];

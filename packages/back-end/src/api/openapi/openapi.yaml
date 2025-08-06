@@ -117,6 +117,9 @@ tags:
   - name: queries
     x-displayName: Queries
     description: Retrieve queries used in experiments to calculate results.
+  - name: settings
+    x-displayName: Settings
+    description: Organization settings that define default behaviour.
   - name: organization-defaults
     x-displayName: Organization Defaults
     description: Organization Defaults are the default settings for an organization.
@@ -325,6 +328,9 @@ paths:
   /queries/{id}:
     get:
       $ref: "./paths/getQuery.yaml"
+  /settings:
+    get:
+      $ref: "./paths/getSettings.yaml"
   /organization-defaults:
     get:
       $ref: "./paths/getOrganizationDefaults.yaml"

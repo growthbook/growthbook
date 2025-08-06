@@ -76,6 +76,8 @@ export const apiArchetypeValidator = z.object({ "id": z.string(), "dateCreated":
 
 export const apiQueryValidator = z.object({ "id": z.string(), "organization": z.string(), "datasource": z.string(), "language": z.string(), "query": z.string(), "queryType": z.string(), "createdAt": z.string(), "startedAt": z.string(), "status": z.enum(["running","queued","failed","partially-succeeded","succeeded"]), "externalId": z.string(), "dependencies": z.array(z.string()), "runAtEnd": z.boolean() }).strict()
 
+export const apiSettingsValidator = z.object({ "confidenceLevel": z.coerce.number().nullable(), "northStar": z.record(z.any()).nullable(), "metricDefaults": z.record(z.any()).nullable(), "pastExperimentsMinLength": z.coerce.number().nullable(), "metricAnalysisDays": z.coerce.number(), "updateSchedule": z.object({ "type": z.enum(["cron","never","stale"]).optional(), "cron": z.string().nullable().optional(), "hours": z.coerce.number().nullable().optional() }).nullable(), "sdkInstructionsViewed": z.boolean(), "videoInstructionsViewed": z.boolean(), "multipleExposureMinPercent": z.coerce.number(), "defaultRole": z.record(z.any()), "statsEngine": z.string().nullable(), "pValueThreshold": z.coerce.number(), "regressionAdjustmentEnabled": z.boolean(), "regressionAdjustmentDays": z.coerce.number(), "sequentialTestingEnabled": z.boolean(), "sequentialTestingTuningParameter": z.coerce.number(), "attributionModel": z.enum(["firstExposure","experimentDuration"]), "secureAttributeSalt": z.string(), "killswitchConfirmation": z.boolean(), "requireReviews": z.boolean(), "featureKeyExample": z.string(), "featureRegexValidator": z.string(), "banditScheduleValue": z.coerce.number(), "banditScheduleUnit": z.enum(["hours","days"]), "banditBurnInValue": z.coerce.number(), "banditBurnInUnit": z.enum(["hours","days"]).optional(), "experimentMinLengthDays": z.coerce.number(), "experimentMaxLengthDays": z.coerce.number().nullable() }).strict()
+
 export const apiOrganizationDefaultsValidator = z.object({ "id": z.string(), "statsEngine": z.string().nullable(), "metricAnalysisDays": z.coerce.number().int().nullable(), "northStar": z.object({ "name": z.string().optional(), "metricIds": z.array(z.string()).optional() }).nullable(), "srmThreshold": z.coerce.number().nullable(), "multipleExposureMinPercent": z.coerce.number().nullable(), "confidenceLevel": z.coerce.number().nullable(), "metricDefaults": z.object({ "priorSettings": z.object({ "override": z.boolean(), "proper": z.boolean(), "mean": z.coerce.number(), "stddev": z.coerce.number() }).optional(), "minimumSampleSize": z.coerce.number().int().nullable().optional(), "maxPercentageChange": z.coerce.number().nullable().optional(), "minPercentageChange": z.coerce.number().nullable().optional(), "targetMDE": z.coerce.number().nullable().optional() }).nullable(), "pValueThreshold": z.coerce.number().nullable(), "pValueCorrection": z.string().nullable(), "regressionAdjustmentEnabled": z.boolean().nullable().optional(), "regressionAdjustmentDays": z.coerce.number().int().nullable(), "sequentialTestingEnabled": z.boolean().nullable(), "sequentialTestingTuningParameter": z.coerce.number().nullable() }).strict()
 
 export const listFeaturesValidator = {
@@ -580,6 +582,12 @@ export const getQueryValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
   paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
+export const getSettingsValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.never(),
 };
 
 export const getOrganizationDefaultsValidator = {

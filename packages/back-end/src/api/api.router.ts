@@ -32,6 +32,7 @@ import ingestionRouter from "./ingestion/ingestion.router";
 import archetypesRouter from "./archetypes/archetypes.router";
 import { getExperimentNames } from "./experiments/getExperimentNames";
 import queryRouter from "./queries/queries.router";
+import settingsRouter from "./settings/settings.router";
 import organizationDefaultsRouter from "./organization-defaults/organization-defaults.router";
 
 const router = Router();
@@ -109,6 +110,7 @@ router.use("/members", membersRouter);
 router.use("/ingestion", ingestionRouter);
 router.use("/archetypes", archetypesRouter);
 router.use("/queries", queryRouter);
+router.use("/settings", settingsRouter);
 router.use("/organization-defaults", organizationDefaultsRouter);
 router.post("/transform-copy", postCopyTransform);
 
