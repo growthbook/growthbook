@@ -1102,10 +1102,69 @@ paths:
                         items:
                           $ref: '#/components/schemas/Dimension'
                   - $ref: '#/components/schemas/PaginationFields'
+    post:
+      parameters: []
+      tags:
+        - dimensions
+      summary: Create a single dimension
+      operationId: postDimension
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/dimensions \
+              -d '{"name":"User Country", "datasourceId":"ds_123abc", "identifierType":"user", "query":"SELECT country FROM users"}' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - datasourceId
+                - identifierType
+                - name
+                - query
+              properties:
+                name:
+                  type: string
+                  description: Name of the dimension
+                description:
+                  type: string
+                  description: Description of the dimension
+                owner:
+                  type: string
+                  description: Owner of the dimension
+                datasourceId:
+                  type: string
+                  description: ID of the datasource this dimension belongs to
+                identifierType:
+                  type: string
+                  description: 'Type of identifier (user, anonymous, etc.)'
+                query:
+                  type: string
+                  description: SQL query or equivalent for the dimension
+                managedBy:
+                  type: string
+                  description: 'Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere.'
+                  enum:
+                    - ''
+                    - api
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - dimension
+                properties:
+                  dimension:
+                    $ref: '#/components/schemas/Dimension'
   '/dimensions/{id}':
-    parameters:
-      - $ref: '#/components/parameters/id'
     get:
+      parameters:
+        - $ref: '#/components/parameters/id'
       summary: Get a single dimension
       tags:
         - dimensions
@@ -1126,6 +1185,86 @@ paths:
                 properties:
                   dimension:
                     $ref: '#/components/schemas/Dimension'
+    post:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - dimensions
+      summary: Update a single dimension
+      operationId: updateDimension
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/dimensions/dim_123abc \
+              -d '{"name":"User Region"}' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Name of the dimension
+                description:
+                  type: string
+                  description: Description of the dimension
+                owner:
+                  type: string
+                  description: Owner of the dimension
+                datasourceId:
+                  type: string
+                  description: ID of the datasource this dimension belongs to
+                identifierType:
+                  type: string
+                  description: 'Type of identifier (user, anonymous, etc.)'
+                query:
+                  type: string
+                  description: SQL query or equivalent for the dimension
+                managedBy:
+                  type: string
+                  description: 'Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere.'
+                  enum:
+                    - ''
+                    - api
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - dimension
+                properties:
+                  dimension:
+                    $ref: '#/components/schemas/Dimension'
+    delete:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - dimensions
+      summary: Deletes a single dimension
+      operationId: deleteDimension
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X DELETE https://api.growthbook.io/api/v1/dimensions/dim_123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - deletedId
+                properties:
+                  deletedId:
+                    type: string
+                    description: The ID of the deleted dimension
+                    example: dim_123abc
   /segments:
     get:
       summary: Get all segments
@@ -5361,6 +5500,8 @@ components:
         identifierType:
           type: string
         name:
+          type: string
+        description:
           type: string
         query:
           type: string
