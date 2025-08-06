@@ -17,7 +17,7 @@ export const deleteDimension = createApiRequestHandler(
       throw new Error("Could not find dimension with that id");
     }
 
-    await deleteDimensionById(dimension.id, organization);
+    await deleteDimensionById(req.context, dimension);
 
     return {
       deletedId: dimension.id,

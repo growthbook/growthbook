@@ -7960,6 +7960,11 @@ export interface operations {
           identifierType: string;
           /** @description SQL query or equivalent for the dimension */
           query: string;
+          /**
+           * @description Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere. 
+           * @enum {string}
+           */
+          managedBy?: "" | "api" | "config";
         };
       };
     };
@@ -8044,6 +8049,11 @@ export interface operations {
           identifierType?: string;
           /** @description SQL query or equivalent for the dimension */
           query?: string;
+          /**
+           * @description Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere. 
+           * @enum {string}
+           */
+          managedBy?: "" | "api" | "config";
         };
       };
     };

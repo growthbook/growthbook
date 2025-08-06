@@ -30,6 +30,7 @@ export const postDimension = createApiRequestHandler(postDimensionValidator)(
       id: uniqid("dim_"),
       dateCreated: new Date(),
       dateUpdated: new Date(),
+      managedBy: req.body.managedBy || "",
       organization,
     });
 

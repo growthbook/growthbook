@@ -23,3 +23,10 @@ properties:
   query:
     type: string
     description: SQL query or equivalent for the dimension
+  managedBy:
+    type: string
+    description: Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere.
+    enum:
+      - ""
+      - api
+      - config

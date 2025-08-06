@@ -38,9 +38,12 @@ export const updateDimension = createApiRequestHandler(
     if (req.body.datasourceId) updates.datasource = req.body.datasourceId;
     if (req.body.identifierType) updates.userIdType = req.body.identifierType;
     if (req.body.query) updates.sql = req.body.query;
+    if (req.body.managedBy !== undefined) {
+      updates.managedBy = req.body.managedBy;
+    }
     updates.dateUpdated = new Date();
 
-    await updateDimensionModel(dimension.id, organization, updates);
+    await updateDimensionModel(req.context, dimension, updates);
 
     return {
       dimension: toDimensionApiInterface({ ...dimension, ...updates }),
