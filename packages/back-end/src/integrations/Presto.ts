@@ -1,10 +1,14 @@
 /// <reference types="../../typings/presto-client" />
+import { format } from "shared/sql";
 import { Client, IPrestoClientOptions } from "presto-client";
 import { FormatDialect } from "shared/src/types";
 import { QueryStatistics } from "back-end/types/query";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { PrestoConnectionParams } from "back-end/types/integrations/presto";
-import { QueryResponse } from "back-end/src/types/Integration";
+import {
+  ExperimentUnitsQueryParams,
+  QueryResponse,
+} from "back-end/src/types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 // eslint-disable-next-line
@@ -20,6 +24,23 @@ export default class Presto extends SqlIntegration {
   }
   getFormatDialect(): FormatDialect {
     return "trino";
+  }
+  isWritingTablesSupported(): boolean {
+    return true;
+  }
+  getExperimentUnitsTableQuery(params: ExperimentUnitsQueryParams): string {
+    return format(
+      `
+    CREATE TABLE ${params.unitsTableFullName}
+    ${this.createUnitsTableOptions()}
+    AS (
+      WITH
+        ${this.getExperimentUnitsQuery(params)}
+      SELECT * FROM __experimentUnits
+    )
+    `,
+      this.getFormatDialect()
+    );
   }
   getSensitiveParamKeys(): string[] {
     return ["password"];
