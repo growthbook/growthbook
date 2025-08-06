@@ -240,6 +240,10 @@ export type DataSourceSettings = {
   };
   pipelineSettings?: DataSourcePipelineSettings;
   maxConcurrentQueries?: string;
+  incrementalRefresh?: {
+    enabled?: boolean;
+    partitionColumnConfig?: Record<string, string>; // Maps exposure query IDs and fact table IDs to column names
+  };
 };
 
 export interface GrowthbookClickhouseSettings extends DataSourceSettings {
