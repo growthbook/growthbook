@@ -213,6 +213,7 @@ export function getConfigDimensions(
       organization,
       dateCreated: null,
       dateUpdated: null,
+      managedBy: "config",
     };
   });
 }
