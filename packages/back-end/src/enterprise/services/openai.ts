@@ -1,8 +1,8 @@
 import { OpenAI } from "openai";
 import {
-  ResponseFormatText,
-  ResponseFormatJSONSchema,
   ResponseFormatJSONObject,
+  ResponseFormatJSONSchema,
+  ResponseFormatText,
 } from "openai/resources/shared";
 import {
   encoding_for_model,
@@ -10,7 +10,7 @@ import {
   TiktokenModel,
 } from "@dqbd/tiktoken";
 import { AIPromptType } from "shared/ai";
-import { ZodObject, ZodRawShape, z } from "zod";
+import { z, ZodObject, ZodRawShape } from "zod";
 import { zodResponseFormat } from "openai/helpers/zod";
 import { logger } from "back-end/src/util/logger";
 import { OrganizationInterface, ReqContext } from "back-end/types/organization";
@@ -143,14 +143,15 @@ export const simpleCompletion = async ({
     );
   }
 
+  // adjust the model if they change what models support json_schema
   const response_format:
     | ResponseFormatText
     | ResponseFormatJSONSchema
     | ResponseFormatJSONObject =
-    returnType === "json"
-      ? jsonSchema
-        ? { type: "json_schema", json_schema: jsonSchema }
-        : { type: "json_object" }
+    jsonSchema && supportsJSONSchema(model)
+      ? { type: "json_schema", json_schema: jsonSchema }
+      : returnType === "json"
+      ? { type: "json_object" }
       : { type: "text" };
   const response = await openai.chat.completions.create({
     model,
@@ -225,10 +226,26 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   }
   const modelToUse = model || defaultModel;
 
+  const response_format:
+    | ResponseFormatText
+    | ResponseFormatJSONSchema
+    | ResponseFormatJSONObject = zodResponseFormat(
+    zodObjectSchema,
+    "response_schema"
+  );
+  if (
+    !supportsJSONSchema(modelToUse) &&
+    response_format.type === "json_schema"
+  ) {
+    throw new Error(
+      `Model ${modelToUse} does not support JSON schema response format. Please use a model that supports it, such as gpt-4o or higher.`
+    );
+  }
+
   const response = await openai.chat.completions.parse({
     model: modelToUse,
     messages,
-    response_format: zodResponseFormat(zodObjectSchema, "response_schema"),
+    response_format,
     ...(temperature != null ? { temperature } : {}),
   });
 
@@ -255,6 +272,13 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     throw new Error("No choices returned from OpenAI API.");
   }
   return response.choices[0].message.parsed as z.infer<T>;
+};
+
+export const supportsJSONSchema = (model: TiktokenModel) => {
+  return (
+    /^gpt-(\d+(\.\d+)?)o/.test(model) &&
+    parseFloat(model.match(/^gpt-(\d+(\.\d+)?)o/)?.[1] ?? "0") >= 4
+  );
 };
 
 const constructOpenAIMessages = (

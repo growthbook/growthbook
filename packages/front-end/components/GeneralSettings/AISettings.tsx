@@ -221,7 +221,6 @@ export default function AISettings({
                       value={form.watch("openAIDefaultModel")}
                       onChange={(v) => form.setValue("openAIDefaultModel", v)}
                       options={openAIModels}
-                      initialOption="gpt-4o-mini"
                     />
                   </Box>
                 </>
