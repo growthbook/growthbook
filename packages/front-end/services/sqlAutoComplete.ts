@@ -567,7 +567,8 @@ export async function getAutoCompletions(
       // Isolate the text after the "FROM" or "from" SQL keyword
       // This allows us to identify if the FROM clause already has certain tables or schemas
       // for more accurate completions. e.g. if the FROM clause references a schema, only show tables in that schema
-      const textAfterFrom = textUpToCursor.split(/from/i)[1]?.trim() || "";
+      const textAfterFrom =
+        textUpToCursor.toLowerCase().split("from")[1]?.trim() || "";
 
       return handleFromClauseCompletions(
         textAfterFrom,
