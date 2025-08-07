@@ -61,6 +61,11 @@ const UrlRedirectModal: FC<{
     connections: sdkConnectionsData?.connections ?? [],
     project: experiment.project ?? "",
   }).includes("redirects");
+  const hasSDKWithNoRedirects = getConnectionsSDKCapabilities({
+    connections: sdkConnectionsData?.connections ?? [],
+    project: experiment.project ?? "",
+    mustMatchAllConnections: true,
+  }).includes("redirects");
 
   const form = useForm({
     defaultValues: {
@@ -146,23 +151,25 @@ const UrlRedirectModal: FC<{
       ctaEnabled={hasSDKWithRedirects}
     >
       <div className="mx-3">
-        <Callout status={hasSDKWithRedirects ? "warning" : "error"}>
-          <Box as="span" pr="1">
-            {hasSDKWithRedirects
-              ? "Some of your SDK Connections in this Project may not support URL Redirects."
-              : "None of your SDK Connections in this Project support URL Redirects. Either upgrade your SDKs or add a supported SDK."}
-            <Link
-              href={"/sdks"}
-              weight="bold"
-              className="pl-2"
-              rel="noreferrer"
-              target="_blank"
-            >
-              View SDKs
-              <PiArrowSquareOutFill className="ml-1" />
-            </Link>
-          </Box>
-        </Callout>
+        {hasSDKWithNoRedirects ? (
+          <Callout status={hasSDKWithRedirects ? "warning" : "error"}>
+            <Box as="span" pr="1">
+              {hasSDKWithRedirects
+                ? "Some of your SDK Connections in this Project may not support URL Redirects."
+                : "None of your SDK Connections in this Project support URL Redirects. Either upgrade your SDKs or add a supported SDK."}
+              <Link
+                href={"/sdks"}
+                weight="bold"
+                className="pl-2"
+                rel="noreferrer"
+                target="_blank"
+              >
+                View SDKs
+                <PiArrowSquareOutFill className="ml-1" />
+              </Link>
+            </Box>
+          </Callout>
+        ) : null}
 
         <div className="d-flex align-items-baseline mt-3">
           <h4>Original URL</h4>

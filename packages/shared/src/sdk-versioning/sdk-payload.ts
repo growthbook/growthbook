@@ -1,6 +1,8 @@
 import {
   AutoExperimentWithProject,
+  FeatureDefinition,
   FeatureDefinitionWithProject,
+  FeatureDefinitionWithProjects,
 } from "back-end/types/api";
 import { pick, omit } from "lodash";
 import cloneDeep from "lodash/cloneDeep";
@@ -239,4 +241,71 @@ const replaceSavedGroups: (
       delete object[key];
     }
   };
+};
+
+export const scrubHoldouts = ({
+  holdouts,
+  projects,
+  features,
+}: {
+  holdouts: Record<string, FeatureDefinitionWithProjects>;
+  projects: string[];
+  features: Record<string, FeatureDefinition>;
+}): {
+  holdouts: Record<string, FeatureDefinition>;
+  features: Record<string, FeatureDefinition>;
+} => {
+  // No scrubbing needed if there are no holdouts
+  if (Object.keys(holdouts).length === 0) {
+    return { holdouts, features };
+  }
+
+  // Filter list of holdouts to the selected projects
+  if (projects && projects.length > 0) {
+    holdouts = Object.fromEntries(
+      Object.entries(holdouts).filter(([_, holdout]) => {
+        // If the holdout has no projects, it's a part of all projects and we want to include it
+        if (!holdout.projects || holdout.projects.length === 0) {
+          return true;
+        }
+        const holdoutProjects = holdout.projects;
+        return projects.some((p) => holdoutProjects.includes(p));
+      })
+    );
+  }
+
+  // Filter out holdout pre-requisite rules that do not have associated holdout feature definitions
+  // Also scrub holdoutId from all rules that have it
+  for (const k in features) {
+    if (features[k]?.rules) {
+      features[k].rules = features[k].rules
+        ?.filter((rule) => {
+          if (!rule.holdoutId) {
+            return true;
+          }
+          if (!holdouts[rule.holdoutId]) {
+            return false;
+          }
+
+          return true;
+        })
+        .map((rule) => {
+          if (!rule.holdoutId) {
+            return rule;
+          }
+          // Remove holdoutId from all remainingrules that have it
+          return omit(rule, ["holdoutId"]);
+        });
+    }
+  }
+
+  // Remove `projects` from holdouts
+  holdouts = Object.fromEntries(
+    Object.entries(holdouts).map(([key, holdout]) => [
+      key,
+      omit(holdout, ["projects"]),
+    ])
+  );
+
+  return { holdouts, features };
 };

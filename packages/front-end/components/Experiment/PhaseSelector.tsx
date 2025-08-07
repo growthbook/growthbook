@@ -12,6 +12,7 @@ export interface Props {
   phases?: ExperimentPhaseStringDates[];
   setPhase?: (p: number) => void;
   isBandit?: boolean;
+  isHoldout?: boolean;
 }
 
 export default function PhaseSelector({
@@ -21,6 +22,7 @@ export default function PhaseSelector({
   phases,
   setPhase,
   isBandit,
+  isHoldout,
 }: Props) {
   const {
     phase: snapshotPhase,
@@ -51,9 +53,11 @@ export default function PhaseSelector({
           body={
             <>
               <div className="tooltip-phase-label font-weight-bold">
-                {phaseIndex + 1}: {phase.name}
+                {!isHoldout && `${phaseIndex + 1}: `} {phase.name}
               </div>
-              <div className="mt-1">{phaseSummary(phase, isBandit)}</div>
+              {!isHoldout && (
+                <div className="mt-1">{phaseSummary(phase, isBandit)}</div>
+              )}
             </>
           }
           shouldDisplay={!isBandit}
@@ -61,7 +65,9 @@ export default function PhaseSelector({
           className="phase-selector-with-tooltip"
         >
           <>
-            <span className="font-weight-bold">{phaseIndex + 1}: </span>
+            {!isHoldout && (
+              <span className="font-weight-bold">{phaseIndex + 1}: </span>
+            )}
             <span className="date-label">
               {date(phase.dateStarted ?? "")} —{" "}
               {phase.dateEnded ? date(phase.dateEnded) : "now"}
@@ -76,16 +82,18 @@ export default function PhaseSelector({
             {date(phase.dateStarted ?? "")} —{" "}
             {phase.dateEnded ? date(phase.dateEnded) : "now"}
           </span>
-          <div className="phase-summary text-muted small">
-            {phaseSummary(phase, isBandit)}
-          </div>
+          {!isHoldout && (
+            <div className="phase-summary text-muted small">
+              {phaseSummary(phase, isBandit)}
+            </div>
+          )}
         </div>
       </>
     );
   }
 
   const selectOptions =
-    editPhases && mutateExperiment
+    !isHoldout && editPhases && mutateExperiment
       ? [
           {
             label: "Phases",
@@ -107,7 +115,9 @@ export default function PhaseSelector({
 
   return (
     <div>
-      <div className="uppercase-title text-muted">Phase</div>
+      <div className="uppercase-title text-muted">
+        {isHoldout ? "Date Range" : "Phase"}
+      </div>
       {selectOptions.length > 1 ? (
         <SelectField
           options={selectOptions}

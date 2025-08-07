@@ -41,6 +41,7 @@ import {
 } from "shared/experiments";
 import { hoursBetween } from "shared/dates";
 import { v4 as uuidv4 } from "uuid";
+import { differenceInHours } from "date-fns";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { MetricPriorSettings } from "back-end/types/fact-table";
 import {
@@ -89,6 +90,7 @@ import { SegmentInterface } from "back-end/types/segment";
 import {
   Changeset,
   ExperimentInterface,
+  ExperimentInterfaceStringDates,
   ExperimentPhase,
   LinkedFeatureEnvState,
   LinkedFeatureInfo,
@@ -479,7 +481,7 @@ export function getSnapshotSettings({
   );
 
   // expand metric groups and scrub unjoinable metrics
-  const goalMetrics = expandMetricGroups(
+  let goalMetrics = expandMetricGroups(
     experiment.goalMetrics,
     metricGroups
   ).filter((m) =>
@@ -491,7 +493,7 @@ export function getSnapshotSettings({
       datasource,
     })
   );
-  const secondaryMetrics = expandMetricGroups(
+  let secondaryMetrics = expandMetricGroups(
     experiment.secondaryMetrics,
     metricGroups
   ).filter((m) =>
@@ -503,7 +505,7 @@ export function getSnapshotSettings({
       datasource,
     })
   );
-  const guardrailMetrics = expandMetricGroups(
+  let guardrailMetrics = expandMetricGroups(
     experiment.guardrailMetrics,
     metricGroups
   ).filter((m) =>
@@ -516,6 +518,22 @@ export function getSnapshotSettings({
     })
   );
 
+  // filter invalid metrics (holdouts)
+  if (experiment.type === "holdout") {
+    goalMetrics = goalMetrics.filter((m) => {
+      const metric = metricMap.get(m);
+      return metric?.windowSettings?.type !== "conversion";
+    });
+    secondaryMetrics = secondaryMetrics.filter((m) => {
+      const metric = metricMap.get(m);
+      return metric?.windowSettings?.type !== "conversion";
+    });
+    guardrailMetrics = [];
+  }
+
+  // Set currentDate in a const to use the same date for all metric settings
+  const currentDate = new Date();
+
   const metricSettings = expandMetricGroups(
     getAllMetricIdsFromExperiment(experiment),
     metricGroups
@@ -527,6 +545,17 @@ export function getSnapshotSettings({
         settingsForSnapshotMetrics,
         metricOverrides: experiment.metricOverrides,
         decisionFrameworkSettings: experiment.decisionFrameworkSettings,
+        phaseLookbackWindow:
+          experiment.type === "holdout" &&
+          phase.lookbackStartDate &&
+          phase.lookbackStartDate < currentDate
+            ? {
+                value: differenceInHours(currentDate, phase.lookbackStartDate, {
+                  roundingMethod: "ceil",
+                }),
+                unit: "hours",
+              }
+            : undefined,
       })
     )
     .filter(isDefined);
@@ -3198,4 +3227,54 @@ export async function computeResultsStatus({
       sequentialTesting: analysis.settings.sequentialTesting ?? false,
     },
   };
+}
+
+export async function validateExperimentData(
+  context: ReqContext,
+  data: Partial<ExperimentInterfaceStringDates>
+): Promise<{ metricIds: string[]; datasource: DataSourceInterface | null }> {
+  let datasource: DataSourceInterface | null = null;
+  if (data.datasource) {
+    datasource = await getDataSourceById(context, data.datasource);
+    if (!datasource) {
+      throw new Error("Invalid datasource: " + data.datasource);
+    }
+  }
+
+  // Validate that specified metrics exist and belong to the organization
+  const metricIds = getAllMetricIdsFromExperiment(data);
+  if (metricIds.length) {
+    const map = await getMetricMap(context);
+    for (let i = 0; i < metricIds.length; i++) {
+      const metric = map.get(metricIds[i]);
+      if (metric) {
+        // Make sure it is tied to the same datasource as the experiment
+        if (data.datasource && metric.datasource !== data.datasource) {
+          throw new Error(
+            "Metrics must be tied to the same datasource as the experiment: " +
+              metricIds[i]
+          );
+        }
+      } else {
+        // check to see if this metric is actually a metric group
+        const metricGroup = await context.models.metricGroups.getById(
+          metricIds[i]
+        );
+        if (metricGroup) {
+          // Make sure it is tied to the same datasource as the experiment
+          if (data.datasource && metricGroup.datasource !== data.datasource) {
+            throw new Error(
+              "Metric group must be tied to the same datasource as the experiment: " +
+                metricIds[i]
+            );
+          }
+        } else {
+          // new metric that's not recognized...
+          throw new Error("Unknown metric: " + metricIds[i]);
+        }
+      }
+    }
+  }
+
+  return { metricIds, datasource };
 }

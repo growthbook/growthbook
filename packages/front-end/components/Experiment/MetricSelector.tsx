@@ -25,6 +25,7 @@ const MetricSelector: FC<
     includeFacts?: boolean;
     availableIds?: string[];
     onlyBinomial?: boolean;
+    filterConversionWindowMetrics?: boolean;
     sortMetrics?: (a: MetricOption, b: MetricOption) => number;
     filterMetrics?: (m: MetricOption) => boolean;
     onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
@@ -38,6 +39,7 @@ const MetricSelector: FC<
   placeholder,
   availableIds,
   onlyBinomial,
+  filterConversionWindowMetrics,
   sortMetrics,
   filterMetrics,
   onPaste,
@@ -114,6 +116,12 @@ const MetricSelector: FC<
         );
       }
       return isProjectListValidForProject(m.projects, project);
+    })
+    .filter((m) => {
+      if (filterConversionWindowMetrics) {
+        return m?.windowSettings?.type !== "conversion";
+      }
+      return true;
     });
 
   return (

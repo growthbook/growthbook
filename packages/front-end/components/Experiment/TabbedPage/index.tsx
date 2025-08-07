@@ -11,6 +11,8 @@ import { useRouter } from "next/router";
 import { DifferenceType } from "back-end/types/stats";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
 import { FaChartBar } from "react-icons/fa";
+import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
+import { FeatureInterface } from "back-end/types/feature";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import FeatureFromExperimentModal from "@/components/Features/FeatureModal/FeatureFromExperimentModal";
@@ -59,7 +61,10 @@ export type ExperimentTab =
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
+  holdout?: HoldoutInterface;
   linkedFeatures: LinkedFeatureInfo[];
+  holdoutFeatures?: FeatureInterface[];
+  holdoutExperiments?: ExperimentInterfaceStringDates[];
   mutate: () => void;
   duplicate?: (() => void) | null;
   editTags?: (() => void) | null;
@@ -75,11 +80,15 @@ export interface Props {
   editTargeting?: (() => void) | null;
   editMetrics?: (() => void) | null;
   editResult?: (() => void) | null;
+  stop?: (() => void) | null;
 }
 
 export default function TabbedPage({
   experiment,
+  holdout,
   linkedFeatures,
+  holdoutFeatures,
+  holdoutExperiments,
   mutate,
   duplicate,
   editTags,
@@ -94,6 +103,7 @@ export default function TabbedPage({
   editResult,
   checklistItemsRemaining,
   setChecklistItemsRemaining,
+  stop,
 }: Props) {
   const growthbook = useGrowthBook();
   const dashboardsEnabled = growthbook.isOn("experiment-dashboards-enabled");
@@ -239,6 +249,8 @@ export default function TabbedPage({
     return false;
   };
 
+  const isHoldout = experiment.type === "holdout";
+
   return (
     <>
       {auditModal && (
@@ -302,6 +314,7 @@ export default function TabbedPage({
           close={() => setStatusModal(false)}
           mutate={mutate}
           source={trackSource}
+          holdout={holdout}
         />
       )}
       {featureModal && (
@@ -316,6 +329,7 @@ export default function TabbedPage({
 
       <ExperimentHeader
         experiment={experiment}
+        holdout={holdout}
         envs={envs}
         tab={tab}
         setTab={setTabAndScroll}
@@ -335,6 +349,7 @@ export default function TabbedPage({
         healthNotificationCount={healthNotificationCount}
         checklistItemsRemaining={checklistItemsRemaining}
         linkedFeatures={linkedFeatures}
+        stop={stop}
       />
 
       <div className="container-fluid pagecontents">
@@ -353,8 +368,9 @@ export default function TabbedPage({
             </div>
           </div>
         )}
-        <CustomMarkdown page={"experiment"} variables={variables} />
-
+        {experiment.type !== "holdout" && (
+          <CustomMarkdown page={"experiment"} variables={variables} />
+        )}
         {experiment.status === "stopped" && (
           <div className="pt-3">
             <StoppedExperimentBanner
@@ -370,7 +386,9 @@ export default function TabbedPage({
             (isBandit && tab === "explore")) && (
             <div className="alert alert-warning mt-3">
               <div>
-                You are viewing the results of a previous experiment phase.{" "}
+                {isHoldout
+                  ? "You are viewing the results of the whole holdout period not the analysis period."
+                  : "You are viewing the results of a previous experiment phase."}{" "}
                 <a
                   role="button"
                   onClick={(e) => {
@@ -378,13 +396,17 @@ export default function TabbedPage({
                     setPhase(experiment.phases.length - 1);
                   }}
                 >
-                  Switch to the latest phase
+                  {isHoldout
+                    ? "Switch to the analysis period"
+                    : "Switch to the latest phase"}
                 </a>
               </div>
-              <div className="mt-1">
-                <strong>Phase settings:</strong>{" "}
-                {phaseSummary(experiment?.phases?.[phase])}
-              </div>
+              {!isHoldout && (
+                <div className="mt-1">
+                  <strong>Phase settings:</strong>{" "}
+                  {phaseSummary(experiment?.phases?.[phase])}
+                </div>
+              )}
             </div>
           )}
         <div
@@ -395,6 +417,8 @@ export default function TabbedPage({
         >
           <SetupTabOverview
             experiment={experiment}
+            holdout={holdout}
+            holdoutExperiments={holdoutExperiments}
             mutate={mutate}
             disableEditing={viewingOldPhase}
             linkedFeatures={linkedFeatures}
@@ -407,6 +431,9 @@ export default function TabbedPage({
           />
           <Implementation
             experiment={experiment}
+            holdout={holdout}
+            holdoutFeatures={holdoutFeatures}
+            holdoutExperiments={holdoutExperiments}
             mutate={mutate}
             editVariations={editVariations}
             setFeatureModal={setFeatureModal}

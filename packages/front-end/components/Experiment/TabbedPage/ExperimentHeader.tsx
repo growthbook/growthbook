@@ -20,6 +20,7 @@ import {
   ExperimentSnapshotReportInterface,
   ReportInterface,
 } from "back-end/types/report";
+import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import { useAuth } from "@/services/auth";
 import { Tabs, TabsList, TabsTrigger } from "@/components/Radix/Tabs";
 import Avatar from "@/components/Radix/Avatar";
@@ -55,12 +56,14 @@ import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator
 import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
 import StartExperimentModal from "@/components/Experiment/TabbedPage/StartExperimentModal";
 import TemplateForm from "../Templates/TemplateForm";
+import AddToHoldoutModal from "../holdout/AddToHoldoutModal";
 import ProjectTagBar from "./ProjectTagBar";
 import EditExperimentInfoModal, {
   FocusSelector,
 } from "./EditExperimentInfoModal";
 import ExperimentActionButtons from "./ExperimentActionButtons";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
+import EditHoldoutInfoModal from "./EditHoldoutInfoModal";
 import { ExperimentTab } from ".";
 
 export interface Props {
@@ -84,6 +87,8 @@ export interface Props {
   editTags?: (() => void) | null;
   healthNotificationCount: number;
   linkedFeatures: LinkedFeatureInfo[];
+  holdout?: HoldoutInterface;
+  stop?: (() => void) | null;
 }
 
 const datasourcesWithoutHealthData = new Set(["mixpanel", "google_analytics"]);
@@ -135,6 +140,8 @@ export default function ExperimentHeader({
   editTags,
   healthNotificationCount,
   linkedFeatures,
+  holdout,
+  stop,
 }: Props) {
   const growthbook = useGrowthBook<AppFeatures>();
 
@@ -158,6 +165,7 @@ export default function ExperimentHeader({
     setEditInfoFocusSelector,
   ] = useState<FocusSelector>("name");
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [showAddToHoldoutModal, setShowAddToHoldoutModal] = useState(false);
 
   const isWatching = watchedExperiments.includes(experiment.id);
   const [showTemplateForm, setShowTemplateForm] = useState(false);
@@ -221,10 +229,12 @@ export default function ExperimentHeader({
     "multi-armed-bandits"
   );
 
-  const hasUpdatePermissions = permissionsUtil.canViewExperimentModal(
-    experiment.project
-  );
-  const canDeleteExperiment = permissionsUtil.canDeleteExperiment(experiment);
+  const hasUpdatePermissions = !holdout
+    ? permissionsUtil.canViewExperimentModal(experiment.project)
+    : permissionsUtil.canViewHoldoutModal(holdout.projects);
+  const canDeleteExperiment = !holdout
+    ? permissionsUtil.canDeleteExperiment(experiment)
+    : permissionsUtil.canDeleteHoldout(holdout);
   const canEditExperiment = !experiment.archived && hasUpdatePermissions;
 
   let hasRunExperimentsPermission = true;
@@ -243,6 +253,8 @@ export default function ExperimentHeader({
   const disableHealthTab = isUsingHealthUnsupportDatasource;
 
   const isBandit = experiment.type === "multi-armed-bandit";
+  const isHoldout = experiment.type === "holdout";
+
   const hasResults = !!analysis?.results?.[0];
 
   const {
@@ -367,7 +379,8 @@ export default function ExperimentHeader({
   const showConvertButton =
     canRunExperiment &&
     growthbook.isOn("bandits") &&
-    experiment.status === "draft";
+    experiment.status === "draft" &&
+    !isHoldout;
 
   const showShareableReportButton =
     permissionsUtil.canCreateReport(experiment) && snapshot;
@@ -377,7 +390,7 @@ export default function ExperimentHeader({
   const showSaveAsTemplateButton = canCreateTemplate && !isBandit;
 
   const runningExperimentDecisionBanner =
-    experiment.status === "running" && runningExperimentStatus ? (
+    experiment.status === "running" && !isHoldout && runningExperimentStatus ? (
       <RunningExperimentDecisionBanner
         experiment={experiment}
         runningExperimentStatus={runningExperimentStatus}
@@ -387,9 +400,18 @@ export default function ExperimentHeader({
 
   return (
     <>
-      {showEditInfoModal ? (
+      {showEditInfoModal && !isHoldout ? (
         <EditExperimentInfoModal
           experiment={experiment}
+          setShowEditInfoModal={setShowEditInfoModal}
+          mutate={mutate}
+          focusSelector={editInfoFocusSelector}
+        />
+      ) : null}
+      {showEditInfoModal && isHoldout && holdout ? (
+        <EditHoldoutInfoModal
+          experiment={experiment}
+          holdout={holdout}
           setShowEditInfoModal={setShowEditInfoModal}
           mutate={mutate}
           focusSelector={editInfoFocusSelector}
@@ -503,7 +525,7 @@ export default function ExperimentHeader({
       ) : null}
       {showDeleteModal ? (
         <Modal
-          header="Delete Experiment"
+          header={`Delete ${isHoldout ? "Holdout" : "Experiment"}`}
           trackingEventModalType="delete-experiment"
           trackingEventModalSource="experiment-more-menu"
           open={true}
@@ -512,20 +534,29 @@ export default function ExperimentHeader({
           submit={async () => {
             try {
               await apiCall<{ status: number; message?: string }>(
-                `/experiment/${experiment.id}`,
+                `/${isHoldout ? "holdout" : "experiment"}/${
+                  isHoldout ? holdout?.id : experiment.id
+                }`,
                 {
                   method: "DELETE",
-                  body: JSON.stringify({ id: experiment.id }),
+                  body: JSON.stringify({
+                    id: isHoldout ? holdout?.id : experiment.id,
+                  }),
                 }
               );
-              router.push(isBandit ? "/bandits" : "/experiments");
+              router.push(
+                isBandit ? "/bandits" : isHoldout ? "/holdouts" : "/experiments"
+              );
             } catch (e) {
               console.error(e);
             }
           }}
         >
           <div>
-            <p>Are you sure you want to delete this experiment?</p>
+            <p>
+              Are you sure you want to delete this{" "}
+              {isHoldout ? "holdout" : "experiment"}?
+            </p>
             {!safeToEdit ? (
               <div className="alert alert-danger">
                 This will immediately stop all linked Feature Flags and Visual
@@ -537,7 +568,9 @@ export default function ExperimentHeader({
       ) : null}
       {showArchiveModal ? (
         <Modal
-          header={`${experiment.archived ? "Unarchive" : "Archive"} Experiment`}
+          header={`${experiment.archived ? "Unarchive" : "Archive"} ${
+            isHoldout ? "Holdout" : "Experiment"
+          }`}
           trackingEventModalType="archive-experiment"
           trackingEventModalSource="experiment-more-menu"
           open={true}
@@ -562,7 +595,7 @@ export default function ExperimentHeader({
           <div>
             <p>{`Are you sure you want to ${
               experiment.archived ? "unarchive" : "archive"
-            } this experiment?`}</p>
+            } this ${isHoldout ? "holdout" : "experiment"}?`}</p>
             {!safeToEdit && !experiment.archived ? (
               <div className="alert alert-danger">
                 This will immediately stop all linked Feature Flags and Visual
@@ -578,6 +611,7 @@ export default function ExperimentHeader({
           close={() => setShowStartExperiment(false)}
           startExperiment={startExperiment}
           checklistItemsRemaining={checklistItemsRemaining || 0}
+          isHoldout={isHoldout}
         />
       )}
       {showTemplateForm && (
@@ -644,6 +678,13 @@ export default function ExperimentHeader({
           </div>
         </Modal>
       )}
+      {showAddToHoldoutModal ? (
+        <AddToHoldoutModal
+          experiment={experiment}
+          close={() => setShowAddToHoldoutModal(false)}
+          mutate={mutate}
+        />
+      ) : null}
 
       <div className="container-fluid pagecontents position-relative experiment-header px-3 pt-3">
         <div className="d-flex align-items-center flex-wrap">
@@ -662,6 +703,7 @@ export default function ExperimentHeader({
                   editTargeting={editTargeting}
                   isBandit={isBandit}
                   runningExperimentStatus={runningExperimentStatus}
+                  holdout={holdout}
                 />
               ) : experiment.status === "draft" ? (
                 <Tooltip
@@ -685,7 +727,8 @@ export default function ExperimentHeader({
                       )
                     }
                   >
-                    Start Experiment <MdRocketLaunch />
+                    Start {holdout ? "Holdout" : "Experiment"}{" "}
+                    <MdRocketLaunch />
                   </button>
                 </Tooltip>
               ) : null}
@@ -751,9 +794,22 @@ export default function ExperimentHeader({
                       setDropdownOpen(false);
                     }}
                   >
-                    Edit phases
+                    {`Edit ${
+                      experiment.type === "holdout" ? "holdout period" : "phase"
+                    }`}
                   </DropdownMenuItem>
                 )}
+                {canEditExperiment &&
+                  !isHoldout &&
+                  experiment.status === "draft" && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setShowAddToHoldoutModal(true);
+                      }}
+                    >
+                      Add to holdout
+                    </DropdownMenuItem>
+                  )}
                 <DropdownMenuItem
                   onClick={() => {
                     setAuditModal(true);
@@ -763,62 +819,84 @@ export default function ExperimentHeader({
                   Audit log
                 </DropdownMenuItem>
               </DropdownMenuGroup>
-              <DropdownMenuSeparator />
-              <DropdownMenuGroup>
-                <DropdownSubMenu
-                  trigger={
-                    <Flex
-                      align="center"
-                      className={isWatching ? "font-weight-bold" : ""}
-                    >
-                      <PiEye style={{ marginRight: "5px" }} size={18} />
-                      <span className="pr-5">
-                        {isWatching ? "Watching" : "Not watching"}
-                      </span>
-                    </Flex>
-                  }
-                >
-                  <DropdownMenuItem
-                    onClick={async () => {
-                      await handleWatchUpdates(!isWatching);
-                    }}
-                  >
-                    {isWatching ? "Stop watching" : "Start watching"}
-                  </DropdownMenuItem>
-                </DropdownSubMenu>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setWatchersModal(true);
-                    setDropdownOpen(false);
-                  }}
-                  disabled={!usersWatching.length}
-                >
-                  <Flex as="div" align="center">
-                    <IconButton
-                      style={{
-                        marginRight: "5px",
-                        backgroundColor:
-                          usersWatching.length > 0
-                            ? "var(--violet-9)"
-                            : "var(--slate-9)",
+              {isHoldout && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        stop?.();
+                        setDropdownOpen(false);
                       }}
-                      radius="full"
-                      size="1"
                     >
-                      {usersWatching.length || 0}
-                    </IconButton>
-                    {usersWatching.length > 0 ? "View watchers" : "No watchers"}
-                  </Flex>
-                </DropdownMenuItem>
-              </DropdownMenuGroup>
+                      Stop Holdout
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                </>
+              )}
+              {!isHoldout && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuGroup>
+                    <DropdownSubMenu
+                      trigger={
+                        <Flex
+                          align="center"
+                          className={isWatching ? "font-weight-bold" : ""}
+                        >
+                          <PiEye style={{ marginRight: "5px" }} size={18} />
+                          <span className="pr-5">
+                            {isWatching ? "Watching" : "Not watching"}
+                          </span>
+                        </Flex>
+                      }
+                    >
+                      <DropdownMenuItem
+                        onClick={async () => {
+                          await handleWatchUpdates(!isWatching);
+                        }}
+                      >
+                        {isWatching ? "Stop watching" : "Start watching"}
+                      </DropdownMenuItem>
+                    </DropdownSubMenu>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setWatchersModal(true);
+                        setDropdownOpen(false);
+                      }}
+                      disabled={!usersWatching.length}
+                    >
+                      <Flex as="div" align="center">
+                        <IconButton
+                          style={{
+                            marginRight: "5px",
+                            backgroundColor:
+                              usersWatching.length > 0
+                                ? "var(--violet-9)"
+                                : "var(--slate-9)",
+                          }}
+                          radius="full"
+                          size="1"
+                        >
+                          {usersWatching.length || 0}
+                        </IconButton>
+                        {usersWatching.length > 0
+                          ? "View watchers"
+                          : "No watchers"}
+                      </Flex>
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                </>
+              )}
               {/* Only show the separator if one of the following cases is true to avoid double separators */}
-              {showConvertButton ||
-              showShareableReportButton ||
-              showShareButton ||
-              showSaveAsTemplateButton ? (
+              {(showConvertButton ||
+                showShareableReportButton ||
+                showShareButton ||
+                showSaveAsTemplateButton) &&
+              !isHoldout ? (
                 <DropdownMenuSeparator />
               ) : null}
-              {showSaveAsTemplateButton && (
+              {showSaveAsTemplateButton && !isHoldout && (
                 <DropdownMenuItem
                   onClick={() => {
                     setShowTemplateForm(true);
@@ -828,7 +906,7 @@ export default function ExperimentHeader({
                   Save as template...
                 </DropdownMenuItem>
               )}
-              {showShareButton && (
+              {showShareButton && !isHoldout && (
                 <DropdownMenuItem
                   onClick={() => {
                     setShareModalOpen(true);
@@ -838,7 +916,7 @@ export default function ExperimentHeader({
                   Share {isBandit ? "Bandit" : "Experiment"}
                 </DropdownMenuItem>
               )}
-              {showShareableReportButton ? (
+              {showShareableReportButton && !isHoldout && (
                 <DropdownMenuItem
                   onClick={async () => {
                     const res = await apiCall<{ report: ReportInterface }>(
@@ -861,8 +939,8 @@ export default function ExperimentHeader({
                 >
                   Create shareable report
                 </DropdownMenuItem>
-              ) : null}
-              {showConvertButton && (
+              )}
+              {showConvertButton && !isHoldout && (
                 <>
                   <DropdownMenuGroup>
                     <DropdownMenuItem
@@ -931,6 +1009,7 @@ export default function ExperimentHeader({
         </div>
         <ProjectTagBar
           experiment={experiment}
+          holdout={holdout}
           setShowEditInfoModal={setShowEditInfoModal}
           setEditInfoFocusSelector={setEditInfoFocusSelector}
           editTags={!viewingOldPhase ? editTags : undefined}

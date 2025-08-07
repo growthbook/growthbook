@@ -269,6 +269,12 @@ export const featureInterface = z
     legacyDraftMigrated: z.boolean().optional(),
     neverStale: z.boolean().optional(),
     prerequisites: z.array(featurePrerequisite).optional(),
+    holdout: z
+      .object({
+        id: z.string(),
+        value: z.string(),
+      })
+      .optional(),
   })
   .strict();
 

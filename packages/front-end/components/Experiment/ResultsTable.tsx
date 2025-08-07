@@ -104,6 +104,7 @@ export type ResultsTableProps = {
   ssrPolyfills?: SSRPolyfills;
   disableTimeSeriesButton?: boolean;
   columnsFilter?: Array<typeof RESULTS_TABLE_COLUMNS[number]>;
+  isHoldout?: boolean;
 };
 
 const ROW_HEIGHT = 56;
@@ -156,6 +157,7 @@ export default function ResultsTable({
   ssrPolyfills,
   disableTimeSeriesButton,
   columnsFilter,
+  isHoldout,
 }: ResultsTableProps) {
   // fix any potential filter conflicts
   if (variationFilter?.includes(baselineRow)) {
@@ -488,8 +490,9 @@ export default function ResultsTable({
                           innerClassName={"text-left"}
                           body={
                             <div style={{ lineHeight: 1.5 }}>
-                              The baseline that all variations are compared
-                              against.
+                              {isHoldout
+                                ? "The holdout variation that all variations are compared against."
+                                : "The baseline that all variations are compared against."}
                               <div
                                 className={`variation variation${baselineRow} with-variation-label d-flex mt-1 align-items-top`}
                                 style={{ marginBottom: 2 }}
@@ -511,7 +514,7 @@ export default function ResultsTable({
                             </div>
                           }
                         >
-                          Baseline <RxInfoCircled />
+                          {isHoldout ? "Holdout" : "Baseline"} <RxInfoCircled />
                         </Tooltip>
                       </th>
                     )}
@@ -528,7 +531,9 @@ export default function ResultsTable({
                               ""
                             ) : (
                               <div style={{ lineHeight: 1.5 }}>
-                                The variation being compared to the baseline.
+                                {isHoldout
+                                  ? "The variation being compared to the holdout."
+                                  : "The variation being compared to the baseline."}
                                 <div
                                   className={`variation variation${filteredVariations[1]?.index} with-variation-label d-flex mt-1 align-items-top`}
                                   style={{ marginBottom: 2 }}

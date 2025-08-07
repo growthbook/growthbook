@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import {
   AutoExperimentWithProject,
   FeatureDefinitionWithProject,
+  FeatureDefinitionWithProjects,
 } from "back-end/types/api";
 import {
   SDKPayloadContents,
@@ -70,17 +71,20 @@ export async function updateSDKPayload({
   featureDefinitions,
   experimentsDefinitions,
   savedGroupsInUse,
+  holdoutFeatureDefinitions,
 }: {
   organization: string;
   environment: string;
   featureDefinitions: Record<string, FeatureDefinitionWithProject>;
   experimentsDefinitions: AutoExperimentWithProject[];
   savedGroupsInUse: string[];
+  holdoutFeatureDefinitions: Record<string, FeatureDefinitionWithProjects>;
 }) {
   const contents: SDKPayloadContents = {
     features: featureDefinitions,
     experiments: experimentsDefinitions,
     savedGroupsInUse: savedGroupsInUse,
+    holdouts: holdoutFeatureDefinitions,
   };
 
   await SDKPayloadModel.updateOne(
