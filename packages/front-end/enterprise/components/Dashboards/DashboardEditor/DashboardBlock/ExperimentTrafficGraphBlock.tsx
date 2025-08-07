@@ -5,7 +5,6 @@ import Callout from "@/components/Radix/Callout";
 import { BlockProps } from ".";
 
 export default function TrafficGraphBlock({
-  block: { title },
   experiment,
   snapshot,
   ssrPolyfills,
@@ -41,7 +40,7 @@ export default function TrafficGraphBlock({
       traffic={traffic}
       variations={variations}
       isBandit={experiment.type !== "multi-armed-bandit"}
-      cardTitle={title.length > 0 ? title : undefined}
+      cardTitle={""}
       disableDimensions
       containerClassName="p-0"
     />
