@@ -616,9 +616,42 @@ export default function FactMetricPage() {
         <div className="col-12 col-md-8">
           <div className="appbox p-3 mb-5">
             <MarkdownInlineEdit
+              header={"Description"}
               canCreate={canEdit}
               canEdit={canEdit}
               value={factMetric.description}
+              aiSuggestFunction={async () => {
+                const res = await apiCall<{
+                  status: number;
+                  data: {
+                    description: string;
+                  };
+                }>(
+                  `/metrics/${factMetric.id}/gen-description`,
+                  {
+                    method: "GET",
+                  },
+                  (responseData) => {
+                    if (responseData.status === 429) {
+                      const retryAfter = parseInt(responseData.retryAfter);
+                      const hours = Math.floor(retryAfter / 3600);
+                      const minutes = Math.floor((retryAfter % 3600) / 60);
+                      throw new Error(
+                        `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`
+                      );
+                    } else {
+                      throw new Error("Error getting AI suggestion");
+                    }
+                  }
+                );
+                if (res?.status !== 200) {
+                  throw new Error("Could not load AI suggestions");
+                }
+                return res.data.description;
+              }}
+              aiButtonText="Suggest Description"
+              aiSuggestionHeader="Suggested Description"
+              emptyHelperText="Add a description to keep your team informed about how to apply this metric."
               save={async (description) => {
                 await apiCall(`/fact-metrics/${factMetric.id}`, {
                   method: "PUT",
