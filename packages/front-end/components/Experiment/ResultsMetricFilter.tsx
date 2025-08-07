@@ -72,6 +72,7 @@ export default function ResultsMetricFilter({
         style={{ position: "absolute" }}
         popperStyle={{ marginLeft: 17, marginTop: -2 }}
         state={showMetricFilter}
+        flipTheme={false}
         body={
           <div style={{ width: 280 }}>
             <a
