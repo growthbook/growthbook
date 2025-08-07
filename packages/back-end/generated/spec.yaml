@@ -6429,7 +6429,6 @@ components:
           enum:
             - standard
             - multi-armed-bandit
-            - holdout
         project:
           type: string
         hypothesis:

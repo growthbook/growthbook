@@ -62,6 +62,7 @@ const navlinks: SidebarLinkProps[] = [
         name: "Holdouts",
         href: "/holdouts",
         path: /^holdouts/,
+        filter: ({ gb }) => !!gb?.isOn("holdouts_feature"),
       },
       {
         name: "Templates",

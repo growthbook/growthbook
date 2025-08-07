@@ -3,6 +3,8 @@ import { date, datetime } from "shared/dates";
 import Link from "next/link";
 import clsx from "clsx";
 import { Flex } from "@radix-ui/themes";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
+import { useRouter } from "next/router";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Pagination from "@/components/Pagination";
@@ -28,6 +30,14 @@ const HoldoutsPage = (): React.ReactElement => {
 
   const [tabs, setTabs] = useLocalStorage<string[]>("experiment_tabs", []);
   const { getUserDisplay } = useUser();
+  const router = useRouter();
+  const holdoutsEnabled = useFeatureIsOn("holdouts_feature");
+
+  useEffect(() => {
+    if (!holdoutsEnabled) {
+      router.replace("/experiments");
+    }
+  }, [router, holdoutsEnabled]);
 
   const {
     holdouts,
