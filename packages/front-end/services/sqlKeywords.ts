@@ -63,6 +63,45 @@ export interface SqlKeywordDefinition {
   //FUTURE: Add support for array. E.G.  dialects?: SqlDialect[]; so we can filter certain keywords by dialect. If undefined, available in all dialects
 }
 
+export const templateCompletions: AceCompletion[] = [
+  {
+    value: `'{{ startDate }}'`,
+    meta: COMPLETION_TYPES.TEMPLATE_VARIABLE,
+    score: COMPLETION_SCORES.TEMPLATE_VARIABLE,
+    caption: `{{ startDate }}`,
+  },
+  {
+    value: `'{{ startDateISO }}'`,
+    meta: COMPLETION_TYPES.TEMPLATE_VARIABLE,
+    score: COMPLETION_SCORES.TEMPLATE_VARIABLE,
+    caption: `{{ startDateISO }}`,
+  },
+  {
+    value: `'{{ endDate }}'`,
+    meta: COMPLETION_TYPES.TEMPLATE_VARIABLE,
+    score: COMPLETION_SCORES.TEMPLATE_VARIABLE,
+    caption: `{{ endDate }}`,
+  },
+  {
+    value: `'{{ endDateISO }}'`,
+    meta: COMPLETION_TYPES.TEMPLATE_VARIABLE,
+    score: COMPLETION_SCORES.TEMPLATE_VARIABLE,
+    caption: `{{ endDateISO }}`,
+  },
+];
+
+// Currently, template variables are only available in the EditSqlModal
+// In the future, we'll add template variable support to the SqlExplorer
+// including the ability to reference fact tables as template variables (e.g. {{ ftb_xxx }})
+export function getTemplateCompletions(
+  source: "EditSqlModal" | "SqlExplorer"
+): AceCompletion[] {
+  if (source === "EditSqlModal") {
+    return templateCompletions;
+  }
+  return [];
+}
+
 /**
  * Comprehensive SQL Keywords organized by category
  

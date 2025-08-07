@@ -560,6 +560,7 @@ const sidebars = {
         "self-host/production",
         { type: "doc", id: "self-host/cdn" },
         { type: "doc", id: "self-host/proxy", label: "Proxy" },
+        { type: "doc", id: "self-host/ferretdb", label: "FerretDB" },
       ],
     },
     { type: "doc", id: "api-overview", label: "API" },

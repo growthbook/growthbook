@@ -4,6 +4,7 @@ import path from "path";
 import { randomUUID } from "crypto";
 import { CloudWatch } from "aws-sdk";
 import { createPool } from "generic-pool";
+import { stringToBoolean } from "shared/util";
 import { MultipleExperimentMetricAnalysis } from "back-end/types/stats";
 import { logger } from "back-end/src/util/logger";
 import { ExperimentDataForStatsEngine } from "back-end/src/services/stats";
@@ -21,8 +22,9 @@ function parseEnvInt(
   defaultValue: number,
   opts?: { min?: number; max?: number; name?: string }
 ): number {
-  const num = parseInt(value || "") || defaultValue;
+  const num = value === undefined ? defaultValue : parseInt(value);
   if (
+    isNaN(num) ||
     (opts?.min !== undefined && num < opts.min) ||
     (opts?.max !== undefined && num > opts.max)
   ) {
@@ -323,7 +325,10 @@ function monitorServicePool() {
   }, 60 * 1000);
 }
 
-if (!process.env.EXTERNAL_PYTHON_SERVER_URL) {
+if (
+  !process.env.EXTERNAL_PYTHON_SERVER_URL &&
+  !stringToBoolean(process.env.DISABLE_PYTHON_MONITOR)
+) {
   monitorServicePool();
 }
 

@@ -880,8 +880,7 @@ export async function importConfig(
               ...d,
             };
             delete updates.organization;
-
-            await updateDimension(k, organization.id, updates);
+            await updateDimension(context, existing, updates);
           } else {
             await createDimension({
               ...d,

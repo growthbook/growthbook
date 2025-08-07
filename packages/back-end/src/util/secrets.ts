@@ -162,6 +162,11 @@ export const ALLOW_CREATE_METRICS = stringToBoolean(
   process.env.ALLOW_CREATE_METRICS
 );
 
+// If set to false AND using a config file, don't allow creating dimension via the UI
+export const ALLOW_CREATE_DIMENSIONS = stringToBoolean(
+  process.env.ALLOW_CREATE_DIMENSIONS
+);
+
 // Defines the User-Agent header for all requests made by the API
 export const API_USER_AGENT =
   process.env.API_USER_AGENT ||

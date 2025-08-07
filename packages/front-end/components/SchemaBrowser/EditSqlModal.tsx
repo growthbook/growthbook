@@ -182,7 +182,7 @@ export default function EditSqlModal({
 
   // Update autocompletions when cursor or schema changes
   useEffect(() => {
-    const timeoutId = setTimeout(async () => {
+    const fetchCompletions = async () => {
       if (!isAutocompleteEnabled) {
         setAutoCompletions([]);
         return;
@@ -193,6 +193,7 @@ export default function EditSqlModal({
           informationSchema,
           datasource?.type,
           apiCall,
+          "EditSqlModal",
           templateVariables?.eventName
         );
         setAutoCompletions(completions);
@@ -200,8 +201,12 @@ export default function EditSqlModal({
         console.error("Failed to fetch autocompletions:", error);
         setAutoCompletions([]);
       }
-    }, 300); // 300ms debounce
+    };
 
+    // // Debounce: wait 300ms after last change before fetching
+    const timeoutId = setTimeout(fetchCompletions, 200);
+
+    // // Cleanup: cancel if dependencies change again
     return () => clearTimeout(timeoutId);
   }, [
     cursorData,
