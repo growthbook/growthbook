@@ -70,16 +70,16 @@ export interface paths {
   "/dimensions": {
     /** Get all dimensions */
     get: operations["listDimensions"];
+    /** Create a single dimension */
+    post: operations["postDimension"];
   };
   "/dimensions/{id}": {
     /** Get a single dimension */
     get: operations["getDimension"];
-    parameters: {
-        /** @description The id of the requested resource */
-      path: {
-        id: string;
-      };
-    };
+    /** Update a single dimension */
+    post: operations["updateDimension"];
+    /** Deletes a single dimension */
+    delete: operations["deleteDimension"];
   };
   "/segments": {
     /** Get all segments */
@@ -375,7 +375,13 @@ export interface components {
       datasourceId: string;
       identifierType: string;
       name: string;
+      description?: string;
       query: string;
+      /**
+       * @description Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere. 
+       * @enum {string}
+       */
+      managedBy?: "" | "api" | "config";
     };
     Metric: {
       id: string;
@@ -7908,7 +7914,7 @@ export interface operations {
     responses: {
       200: {
         content: {
-          "application/json": {
+          "application/json": ({
             dimensions: ({
                 id: string;
                 dateCreated: string;
@@ -7917,9 +7923,15 @@ export interface operations {
                 datasourceId: string;
                 identifierType: string;
                 name: string;
+                description?: string;
                 query: string;
+                /**
+                 * @description Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere. 
+                 * @enum {string}
+                 */
+                managedBy?: "" | "api" | "config";
               })[];
-          } & {
+          }) & {
             limit: number;
             offset: number;
             count: number;
@@ -7931,8 +7943,31 @@ export interface operations {
       };
     };
   };
-  getDimension: {
-    /** Get a single dimension */
+  postDimension: {
+    /** Create a single dimension */
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description Name of the dimension */
+          name: string;
+          /** @description Description of the dimension */
+          description?: string;
+          /** @description Owner of the dimension */
+          owner?: string;
+          /** @description ID of the datasource this dimension belongs to */
+          datasourceId: string;
+          /** @description Type of identifier (user, anonymous, etc.) */
+          identifierType: string;
+          /** @description SQL query or equivalent for the dimension */
+          query: string;
+          /**
+           * @description Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere. 
+           * @enum {string}
+           */
+          managedBy?: "" | "api";
+        };
+      };
+    };
     responses: {
       200: {
         content: {
@@ -7945,8 +7980,125 @@ export interface operations {
               datasourceId: string;
               identifierType: string;
               name: string;
+              description?: string;
               query: string;
+              /**
+               * @description Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere. 
+               * @enum {string}
+               */
+              managedBy?: "" | "api" | "config";
             };
+          };
+        };
+      };
+    };
+  };
+  getDimension: {
+    /** Get a single dimension */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            dimension: {
+              id: string;
+              dateCreated: string;
+              dateUpdated: string;
+              owner: string;
+              datasourceId: string;
+              identifierType: string;
+              name: string;
+              description?: string;
+              query: string;
+              /**
+               * @description Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere. 
+               * @enum {string}
+               */
+              managedBy?: "" | "api" | "config";
+            };
+          };
+        };
+      };
+    };
+  };
+  updateDimension: {
+    /** Update a single dimension */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description Name of the dimension */
+          name?: string;
+          /** @description Description of the dimension */
+          description?: string;
+          /** @description Owner of the dimension */
+          owner?: string;
+          /** @description ID of the datasource this dimension belongs to */
+          datasourceId?: string;
+          /** @description Type of identifier (user, anonymous, etc.) */
+          identifierType?: string;
+          /** @description SQL query or equivalent for the dimension */
+          query?: string;
+          /**
+           * @description Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere. 
+           * @enum {string}
+           */
+          managedBy?: "" | "api";
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            dimension: {
+              id: string;
+              dateCreated: string;
+              dateUpdated: string;
+              owner: string;
+              datasourceId: string;
+              identifierType: string;
+              name: string;
+              description?: string;
+              query: string;
+              /**
+               * @description Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere. 
+               * @enum {string}
+               */
+              managedBy?: "" | "api" | "config";
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteDimension: {
+    /** Deletes a single dimension */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            /**
+             * @description The ID of the deleted dimension 
+             * @example dim_123abc
+             */
+            deletedId: string;
           };
         };
       };
@@ -12895,7 +13047,10 @@ export type GetProjectResponse = operations["getProject"]["responses"]["200"]["c
 export type PutProjectResponse = operations["putProject"]["responses"]["200"]["content"]["application/json"];
 export type DeleteProjectResponse = operations["deleteProject"]["responses"]["200"]["content"]["application/json"];
 export type ListDimensionsResponse = operations["listDimensions"]["responses"]["200"]["content"]["application/json"];
+export type PostDimensionResponse = operations["postDimension"]["responses"]["200"]["content"]["application/json"];
 export type GetDimensionResponse = operations["getDimension"]["responses"]["200"]["content"]["application/json"];
+export type UpdateDimensionResponse = operations["updateDimension"]["responses"]["200"]["content"]["application/json"];
+export type DeleteDimensionResponse = operations["deleteDimension"]["responses"]["200"]["content"]["application/json"];
 export type ListSegmentsResponse = operations["listSegments"]["responses"]["200"]["content"]["application/json"];
 export type GetSegmentResponse = operations["getSegment"]["responses"]["200"]["content"]["application/json"];
 export type ListSdkConnectionsResponse = operations["listSdkConnections"]["responses"]["200"]["content"]["application/json"];

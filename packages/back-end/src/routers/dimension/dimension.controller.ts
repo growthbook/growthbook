@@ -91,6 +91,7 @@ export const postDimension = async (
     dateUpdated: new Date(),
     organization: org.id,
     description,
+    managedBy: "",
   });
 
   res.status(200).json({
@@ -149,13 +150,14 @@ export const putDimension = async (
     throw new Error("Invalid data source");
   }
 
-  await updateDimension(id, org.id, {
+  await updateDimension(context, dimension, {
     datasource,
     userIdType,
     name,
     sql,
     owner,
     description,
+    managedBy: "",
     dateUpdated: new Date(),
   });
 
@@ -196,7 +198,7 @@ export const deleteDimension = async (
     throw new Error("Could not find dimension");
   }
   try {
-    await deleteDimensionById(id, org.id);
+    await deleteDimensionById(context, dimension);
   } catch (e) {
     return res.status(400).json({
       status: 400,
