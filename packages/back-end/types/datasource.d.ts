@@ -242,7 +242,6 @@ export type DataSourceSettings = {
   maxConcurrentQueries?: string;
   incrementalRefresh?: {
     enabled?: boolean;
-    partitionColumnConfig?: Record<string, string>; // Maps exposure query IDs and fact table IDs to column names
   };
 };
 
