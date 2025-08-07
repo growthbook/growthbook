@@ -538,8 +538,6 @@ export async function getAutoCompletions(
     apiCall
   );
 
-  console.log("cursorData", cursorData);
-
   // Generate suggestions based on context
   // TODO: We should explore updating the WHERE, GROUP BY, and ORDER BY completions to use only the columns included in the query
   // In addition to the sqlKeywords & template variables
