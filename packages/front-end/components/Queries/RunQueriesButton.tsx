@@ -57,10 +57,21 @@ export function getQueryStatus(
     if (queries[i].status === "running" || queries[i].status === "queued")
       running = true;
   }
-
-  if (numFailed > 0) status = "partially-succeeded";
+  
+  // Check for unit dimension failures
+  const hasUnitDimensionFailure = failedNames.some(name => 
+    name.includes("dim_unit_")
+  );
+  
   if (numFailed >= queries.length / 2) status = "failed";
-  if (running) status = "running";
+  // Unit dimension failures should be labeled as failed,  
+  else if (hasUnitDimensionFailure) {
+    status = "failed";
+  }
+  // Use standard behavior for other failures/running status
+  else if (numFailed > 0) status = "partially-succeeded";
+  else if (running) status = "running";
+  
   return { status, numFailed, failedNames };
 }
 
