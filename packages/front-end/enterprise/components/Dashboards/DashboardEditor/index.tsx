@@ -78,6 +78,19 @@ const BLOCK_SUBGROUPS: [string, DashboardBlockType[]][] = [
   ["Other", ["markdown", "sql-explorer"]],
 ];
 
+function reorderBlocks<T>(
+  blocks: Array<T>,
+  draggingBlock: number,
+  dropLocation: number
+) {
+  const otherBlocks = blocks.toSpliced(draggingBlock, 1);
+  return [
+    ...otherBlocks.slice(0, dropLocation),
+    blocks[draggingBlock],
+    ...otherBlocks.slice(dropLocation),
+  ];
+}
+
 function AddBlockDropdown({
   trigger,
   addBlockType,
@@ -177,6 +190,9 @@ function DashboardEditor({
   const [addBlockIndex, setAddBlockIndex] = useState<number | undefined>(
     undefined
   );
+  const [draggingBlock, setDraggingBlock] = useState<number | undefined>(
+    undefined
+  );
 
   useEffect(() => {
     if (!isEditing) {
@@ -271,15 +287,41 @@ function DashboardEditor({
     isEditingBlock: boolean;
   }) => {
     return (
-      <Flex direction="column" key={key}>
+      <Flex
+        direction="column"
+        key={key}
+        onDrop={
+          isDefined(i)
+            ? () => {
+                if (!isDefined(draggingBlock) || draggingBlock === i) return;
+                setBlocks(reorderBlocks(blocks, draggingBlock, i));
+                setDraggingBlock(undefined);
+                setHoverAddBlock(undefined);
+              }
+            : undefined
+        }
+        onDragEnter={
+          isDefined(i)
+            ? (e) => {
+                if (!isDefined(draggingBlock)) return;
+                if (draggingBlock === i) {
+                  setHoverAddBlock(undefined);
+                  return;
+                }
+                const dropPreview = i < draggingBlock ? i - 1 : i;
+                setHoverAddBlock(dropPreview);
+                e.preventDefault();
+              }
+            : undefined
+        }
+        onDragOver={(e) => e.preventDefault()}
+      >
         <DashboardBlock
           block={block}
           dashboardExperiment={experiment}
           isEditing={isEditing}
           editingBlock={isEditingBlock}
           disableBlock={editDrawerOpen && !isEditingBlock}
-          isFirstBlock={i === 0}
-          isLastBlock={i === blocks.length - 1}
           setBlock={setBlock}
           editBlock={() => {
             setEditingBlockIndex(i);
@@ -295,16 +337,15 @@ function DashboardEditor({
               setBlocks([...blocks.slice(0, i), ...blocks.slice(i + 1)]);
             }
           }}
-          moveBlock={(direction) => {
-            if (isDefined(i)) {
-              const otherBlocks = blocks.toSpliced(i, 1);
-              setBlocks([
-                ...otherBlocks.slice(0, i + direction),
-                block,
-                ...otherBlocks.slice(i + direction),
-              ]);
-            }
-          }}
+          onDragStart={isDefined(i) ? () => setDraggingBlock(i) : undefined}
+          onDragEnd={
+            isDefined(i)
+              ? () => {
+                  setDraggingBlock(undefined);
+                  setHoverAddBlock(undefined);
+                }
+              : undefined
+          }
           mutate={mutate}
         />
         <Container
@@ -328,7 +369,7 @@ function DashboardEditor({
                     position: "absolute",
                     top: "0",
                     width: "100%",
-                    height: "9px",
+                    height: "50%",
                     borderBottom: "1px solid var(--violet-a9)",
                     zIndex: -1,
                   }}
@@ -449,10 +490,10 @@ function DashboardEditor({
                   block: effectiveBlock,
                   setBlock: effectiveSetBlock,
                   isEditingBlock,
-                  // Always show the final add block button when there isn't a block being edited
+                  // Always show the final add block button when there isn't an interaction in progress
                   forceRenderAddBlock:
-                    !isDefined(addBlockIndex) &&
-                    !isDefined(editingBlockIndex) &&
+                    !editDrawerOpen &&
+                    !isDefined(draggingBlock) &&
                     i === blocks.length - 1,
                 })}
               </>
