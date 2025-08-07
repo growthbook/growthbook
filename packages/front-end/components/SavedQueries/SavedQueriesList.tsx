@@ -165,9 +165,10 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                           tipPosition="bottom"
                           state={showReferences === i}
                           popperStyle={{ marginLeft: 50, marginTop: 15 }}
+                          flipTheme={false}
                           body={
                             <div
-                              className="px-3 py-2"
+                              className="pl-3 pr-0 py-2"
                               style={{ minWidth: 250, maxWidth: 350 }}
                             >
                               <a

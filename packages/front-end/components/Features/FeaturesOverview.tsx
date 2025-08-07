@@ -973,11 +973,7 @@ export default function FeaturesOverview({
                         <SimpleTooltip position="right">
                           Copied to clipboard!
                         </SimpleTooltip>
-                      ) : (
-                        <SimpleTooltip position="right">
-                          Copied to clipboard!
-                        </SimpleTooltip>
-                      )}
+                      ) : null}
                     </a>
                   </Box>
                 </Flex>
