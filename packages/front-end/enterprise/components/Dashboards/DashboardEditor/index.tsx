@@ -1,5 +1,5 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import React, { Fragment, useEffect, useRef, useState } from "react";
+import React, { Fragment, useEffect, useState } from "react";
 import { PiCaretDownFill, PiPlus } from "react-icons/pi";
 import {
   DashboardBlockInterfaceOrData,
@@ -7,7 +7,7 @@ import {
   DashboardBlockType,
 } from "back-end/src/enterprise/validators/dashboard-block";
 import { isDefined } from "shared/util";
-import { Flex, Heading, IconButton, Text } from "@radix-ui/themes";
+import { Container, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
 import clsx from "clsx";
 import { CREATE_BLOCK_TYPE, getBlockData } from "shared/enterprise";
 import { withErrorBoundary } from "@sentry/react";
@@ -25,10 +25,7 @@ import DashboardBlock from "./DashboardBlock";
 import DashboardBlockEditDrawer from "./DashboardBlockEditDrawer";
 import DashboardUpdateDisplay from "./DashboardUpdateDisplay";
 
-export const BLOCK_TYPE_INFO: Record<
-  DashboardBlockType,
-  { name: string; hideTitle?: boolean }
-> = {
+export const BLOCK_TYPE_INFO: Record<DashboardBlockType, { name: string }> = {
   markdown: {
     name: "Markdown",
   },
@@ -52,14 +49,12 @@ export const BLOCK_TYPE_INFO: Record<
   },
   "experiment-traffic-graph": {
     name: "Traffic Time Series",
-    hideTitle: true,
   },
   "experiment-traffic-table": {
     name: "Traffic",
   },
   "sql-explorer": {
     name: "SQL Explorer",
-    hideTitle: true,
   },
 };
 
@@ -82,6 +77,19 @@ const BLOCK_SUBGROUPS: [string, DashboardBlockType[]][] = [
   ],
   ["Other", ["markdown", "sql-explorer"]],
 ];
+
+function reorderBlocks<T>(
+  blocks: Array<T>,
+  draggingBlock: number,
+  dropLocation: number
+) {
+  const otherBlocks = blocks.toSpliced(draggingBlock, 1);
+  return [
+    ...otherBlocks.slice(0, dropLocation),
+    blocks[draggingBlock],
+    ...otherBlocks.slice(dropLocation),
+  ];
+}
 
 function AddBlockDropdown({
   trigger,
@@ -166,9 +174,11 @@ function DashboardEditor({
   setEditDrawerOpen,
   mutate,
 }: Props) {
-  const blockRefs = useRef<Array<HTMLDivElement | null>>([]);
   const { metricGroups } = useDefinitions();
   const [hoverAddBlock, setHoverAddBlock] = useState<number | undefined>(
+    undefined
+  );
+  const [showAddBlock, setShowAddBlock] = useState<number | undefined>(
     undefined
   );
   const [addBlockDropdown, setAddBlockDropdown] = useState<number | undefined>(
@@ -178,6 +188,9 @@ function DashboardEditor({
     number | undefined
   >(undefined);
   const [addBlockIndex, setAddBlockIndex] = useState<number | undefined>(
+    undefined
+  );
+  const [draggingBlock, setDraggingBlock] = useState<number | undefined>(
     undefined
   );
 
@@ -259,12 +272,14 @@ function DashboardEditor({
   const renderSingleBlock = ({
     i,
     key,
+    forceRenderAddBlock,
     block,
     setBlock,
     isEditingBlock,
   }: {
     i: number | undefined;
     key: number | string;
+    forceRenderAddBlock?: boolean;
     block: DashboardBlockInterfaceOrData<DashboardBlockInterface>;
     setBlock: React.Dispatch<
       DashboardBlockInterfaceOrData<DashboardBlockInterface>
@@ -275,7 +290,31 @@ function DashboardEditor({
       <Flex
         direction="column"
         key={key}
-        ref={(el) => (isDefined(i) ? (blockRefs.current[i] = el) : null)}
+        onDrop={
+          isDefined(i)
+            ? () => {
+                if (!isDefined(draggingBlock) || draggingBlock === i) return;
+                setBlocks(reorderBlocks(blocks, draggingBlock, i));
+                setDraggingBlock(undefined);
+                setHoverAddBlock(undefined);
+              }
+            : undefined
+        }
+        onDragEnter={
+          isDefined(i)
+            ? (e) => {
+                if (!isDefined(draggingBlock)) return;
+                if (draggingBlock === i) {
+                  setHoverAddBlock(undefined);
+                  return;
+                }
+                const dropPreview = i < draggingBlock ? i - 1 : i;
+                setHoverAddBlock(dropPreview);
+                e.preventDefault();
+              }
+            : undefined
+        }
+        onDragOver={(e) => e.preventDefault()}
       >
         <DashboardBlock
           block={block}
@@ -283,8 +322,6 @@ function DashboardEditor({
           isEditing={isEditing}
           editingBlock={isEditingBlock}
           disableBlock={editDrawerOpen && !isEditingBlock}
-          isFirstBlock={i === 0}
-          isLastBlock={i === blocks.length - 1}
           setBlock={setBlock}
           editBlock={() => {
             setEditingBlockIndex(i);
@@ -300,71 +337,88 @@ function DashboardEditor({
               setBlocks([...blocks.slice(0, i), ...blocks.slice(i + 1)]);
             }
           }}
-          moveBlock={(direction) => {
-            if (isDefined(i)) {
-              const otherBlocks = blocks.toSpliced(i, 1);
-              setBlocks([
-                ...otherBlocks.slice(0, i + direction),
-                block,
-                ...otherBlocks.slice(i + direction),
-              ]);
-            }
-          }}
+          onDragStart={isDefined(i) ? () => setDraggingBlock(i) : undefined}
+          onDragEnd={
+            isDefined(i)
+              ? () => {
+                  setDraggingBlock(undefined);
+                  setHoverAddBlock(undefined);
+                }
+              : undefined
+          }
           mutate={mutate}
         />
-        {isEditing && (
-          <Flex justify="center" mb="1em" position="relative">
-            {isDefined(i) && (hoverAddBlock === i || addBlockDropdown === i) && (
-              <div
-                style={{
-                  pointerEvents: "none",
-                  position: "absolute",
-                  top: "0",
-                  width: "100%",
-                  height: "9px",
-                  borderBottom: "1px solid var(--violet-a9)",
-                  zIndex: -1,
+        <Container
+          py="1em"
+          onMouseEnter={() => {
+            if (!isDefined(addBlockDropdown)) setShowAddBlock(i);
+          }}
+          onMouseLeave={() => {
+            if (!isDefined(addBlockDropdown)) setShowAddBlock(undefined);
+          }}
+          className={clsx({
+            "dashboard-disabled": editDrawerOpen,
+          })}
+        >
+          {isEditing && (
+            <Flex justify="center" position="relative">
+              {isDefined(i) && (hoverAddBlock === i || addBlockDropdown === i) && (
+                <div
+                  style={{
+                    pointerEvents: "none",
+                    position: "absolute",
+                    top: "0",
+                    width: "100%",
+                    height: "50%",
+                    borderBottom: "1px solid var(--violet-a9)",
+                    zIndex: -1,
+                  }}
+                />
+              )}
+              <AddBlockDropdown
+                onDropdownOpen={() => setAddBlockDropdown(i)}
+                onDropdownClose={() => {
+                  setAddBlockDropdown(undefined);
+                  setShowAddBlock(undefined);
+                }}
+                trigger={
+                  <IconButton
+                    onMouseEnter={() => {
+                      setHoverAddBlock(i);
+                    }}
+                    onMouseLeave={() => {
+                      setHoverAddBlock(undefined);
+                    }}
+                    className={clsx({
+                      "d-none":
+                        !forceRenderAddBlock &&
+                        (!isDefined(i) || showAddBlock !== i),
+                    })}
+                    size="1"
+                  >
+                    <Tooltip
+                      body="Add block"
+                      tipPosition="top"
+                      delay={0}
+                      state={hoverAddBlock === i && addBlockDropdown !== i}
+                      ignoreMouseEvents
+                      innerClassName="px-0 py-1"
+                    >
+                      <Flex height="16px" align="center">
+                        <PiPlus size="10" />
+                      </Flex>
+                    </Tooltip>
+                  </IconButton>
+                }
+                addBlockType={(bType: DashboardBlockType) => {
+                  if (isDefined(i)) {
+                    addBlockType(bType, i + 1);
+                  }
                 }}
               />
-            )}
-            <AddBlockDropdown
-              onDropdownOpen={() => setAddBlockDropdown(i)}
-              onDropdownClose={() => setAddBlockDropdown(undefined)}
-              trigger={
-                <IconButton
-                  onMouseEnter={() => {
-                    setHoverAddBlock(i);
-                  }}
-                  onMouseLeave={() => {
-                    setHoverAddBlock(undefined);
-                  }}
-                  className={clsx({
-                    "dashboard-disabled": editDrawerOpen,
-                  })}
-                  size="1"
-                >
-                  <Tooltip
-                    body="Add block"
-                    tipPosition="top"
-                    delay={0}
-                    state={hoverAddBlock === i && addBlockDropdown !== i}
-                    ignoreMouseEvents
-                    innerClassName="px-0 py-1"
-                  >
-                    <Flex height="16px" align="center">
-                      <PiPlus size="10" />
-                    </Flex>
-                  </Tooltip>
-                </IconButton>
-              }
-              addBlockType={(bType: DashboardBlockType) => {
-                if (isDefined(i)) {
-                  addBlockType(bType, i + 1);
-                }
-              }}
-            />
-          </Flex>
-        )}
+            </Flex>
+          )}
+        </Container>
       </Flex>
     );
   };
@@ -436,6 +490,11 @@ function DashboardEditor({
                   block: effectiveBlock,
                   setBlock: effectiveSetBlock,
                   isEditingBlock,
+                  // Always show the final add block button when there isn't an interaction in progress
+                  forceRenderAddBlock:
+                    !editDrawerOpen &&
+                    !isDefined(draggingBlock) &&
+                    i === blocks.length - 1,
                 })}
               </>
             );

@@ -18,7 +18,7 @@ export default function SqlExplorerBlock({
         dataVizConfig={dataVizConfig}
         onDataVizConfigChange={() => {}}
         showPanel={false}
-        graphTitle={block.title.length > 0 ? block.title : undefined}
+        graphTitle={""}
       />
     </div>
   );

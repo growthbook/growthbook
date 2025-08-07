@@ -5,7 +5,7 @@ import {
   DashboardBlockInterfaceOrData,
 } from "back-end/src/enterprise/validators/dashboard-block";
 import { Flex, IconButton, Text } from "@radix-ui/themes";
-import { PiCaretDown, PiCaretUp, PiDotsSixVertical } from "react-icons/pi";
+import { PiCaretDown, PiDotsSixVertical } from "react-icons/pi";
 import clsx from "clsx";
 import { blockHasFieldOfType } from "shared/enterprise";
 import { isNumber, isString, isStringArray, isDefined } from "shared/util";
@@ -87,13 +87,12 @@ interface Props<DashboardBlock extends DashboardBlockInterface> {
   isEditing: boolean;
   editingBlock: boolean;
   disableBlock: boolean;
-  isFirstBlock: boolean;
-  isLastBlock: boolean;
   setBlock: React.Dispatch<DashboardBlockInterfaceOrData<DashboardBlock>>;
   editBlock: () => void;
   duplicateBlock: () => void;
   deleteBlock: () => void;
-  moveBlock: (direction: 1 | -1) => void;
+  onDragStart: React.DragEventHandler<HTMLButtonElement> | undefined;
+  onDragEnd: React.DragEventHandler<HTMLButtonElement> | undefined;
   mutate: () => void;
 }
 
@@ -117,13 +116,12 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
   isEditing,
   editingBlock,
   disableBlock,
-  isFirstBlock,
-  isLastBlock,
   setBlock,
   editBlock,
   duplicateBlock,
   deleteBlock,
-  moveBlock,
+  onDragStart,
+  onDragEnd,
   mutate,
 }: Props<T>) {
   const { experimentsMap, loading: experimentsLoading } = useExperiments();
@@ -132,7 +130,6 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
     metricGroups,
     ready: definitionsReady,
   } = useDefinitions();
-  const [moveBlockOpen, setMoveBlockOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const {
     snapshot,
@@ -232,59 +229,30 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
   return (
     <Flex
       ref={scrollRef}
-      className={clsx("appbox px-4 py-3 position-relative", {
+      className={clsx("appbox px-4 py-3 mb-0 position-relative", {
         "border-violet": editingBlock,
         "dashboard-disabled": disableBlock,
       })}
       direction="column"
     >
       {isEditing && (
-        <DropdownMenu
-          open={moveBlockOpen}
-          onOpenChange={setMoveBlockOpen}
-          disabled={disableBlock || editingBlock}
-          trigger={
-            <IconButton
-              className="position-absolute"
-              style={{
-                top: 20,
-                left: 6,
-              }}
-              variant="ghost"
-            >
-              <PiDotsSixVertical />
-            </IconButton>
-          }
+        <IconButton
+          className="position-absolute"
+          style={{
+            top: 20,
+            left: 6,
+          }}
+          variant="ghost"
+          draggable={!!onDragStart}
+          onDragStart={onDragStart}
+          onDragEnd={onDragEnd}
         >
-          <DropdownMenuItem
-            disabled={isFirstBlock}
-            onClick={() => {
-              moveBlock(-1);
-              setMoveBlockOpen(false);
-            }}
-          >
-            <Text>
-              <PiCaretUp /> Move up
-            </Text>
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            disabled={isLastBlock}
-            onClick={() => {
-              moveBlock(1);
-              setMoveBlockOpen(false);
-            }}
-          >
-            <Text>
-              <PiCaretDown /> Move down
-            </Text>
-          </DropdownMenuItem>
-        </DropdownMenu>
+          <PiDotsSixVertical />
+        </IconButton>
       )}
       <Flex align="center" justify="between">
         <h4 style={{ margin: 0 }}>
-          {BLOCK_TYPE_INFO[block.type].hideTitle
-            ? null
-            : block.title
+          {block.title
             ? block.title
             : isEditing
             ? BLOCK_TYPE_INFO[block.type].name
