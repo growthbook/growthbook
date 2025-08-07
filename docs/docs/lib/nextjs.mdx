@@ -45,8 +45,13 @@ GROWTHBOOK_CLIENT_KEY="sdk-abc123"
 # Optional for cloud customers, required for self-hosted
 GROWTHBOOK_API_HOST="https://api.your-growthbook-instance.io"
 
-# Optional, self-hosted only
-GROWTHBOOK_APP_ORIGIN="https://app.your-growthbook-instance.io" # For Flags Explorer integration
+
+# Flags Explorer (Optional)
+
+GROWTHBOOK_API_KEY="secret_user_abcd1234"
+
+# Self-hosted only
+GROWTHBOOK_APP_ORIGIN="https://app.your-growthbook-instance.io"
 
 
 # Edge Config (Optional)
@@ -234,11 +239,17 @@ export const GET = createFlagsDiscoveryEndpoint(async (request) => {
   return mergeProviderData([
     getProviderData(flags),
     getGrowthBookProviderData({
-      // Add any required options here
+      apiKey: process.env.GROWTHBOOK_API_KEY,
+      clientKey: process.env.GROWTHBOOK_CLIENT_KEY,
+      /** Self-hosted users should provide additional options: **/
+      // appApiHost: process.env.GROWTHBOOK_API_HOST,
+      // appOrigin: process.env.GROWTHBOOK_APP_ORIGIN,
     }),
   ]);
 });
 ```
+
+Note the required environment variable `GROWTHBOOK_API_KEY`. You will need to create and provide either a Personal Access Token (read-only) or an API Key.
 
 You will also need to provide a `FLAGS_SECRET` environment variable. See [Vercel&apos;s Flags Explorer guide](https://vercel.com/docs/feature-flags/flags-explorer/reference#flags_secret-environment-variable).
 
