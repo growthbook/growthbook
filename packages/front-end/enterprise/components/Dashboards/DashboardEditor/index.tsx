@@ -310,10 +310,10 @@ function DashboardEditor({
         <Container
           py="1em"
           onMouseEnter={() => {
-            setShowAddBlock(i);
+            if (!isDefined(addBlockDropdown)) setShowAddBlock(i);
           }}
           onMouseLeave={() => {
-            setShowAddBlock(undefined);
+            if (!isDefined(addBlockDropdown)) setShowAddBlock(undefined);
           }}
           className={clsx({
             "dashboard-disabled": editDrawerOpen,
