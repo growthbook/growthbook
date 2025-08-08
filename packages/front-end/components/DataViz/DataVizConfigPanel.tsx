@@ -1,12 +1,40 @@
-import { useMemo, useCallback, useEffect } from "react";
+import { useMemo, useCallback, useEffect, useState } from "react";
 import { Box, Flex, Separator, Text, TextField } from "@radix-ui/themes";
 import {
   DataVizConfig,
+  FilterConfiguration,
   xAxisConfiguration,
   xAxisDateAggregationUnit,
   yAxisAggregationType,
 } from "back-end/src/validators/saved-queries";
 import { Select, SelectItem } from "@/components/Radix/Select";
+
+function getFilterOptions(dataVizConfig: Partial<DataVizConfig>) {
+  const filterOptions: FilterConfiguration[] = [];
+  if (
+    dataVizConfig.xAxis?.type === "date" ||
+    dataVizConfig.xAxis?.type === "number"
+  ) {
+    filterOptions.push({
+      column: dataVizConfig.xAxis.fieldName,
+      type: dataVizConfig.xAxis.type,
+      operator: "between",
+      value: undefined,
+    });
+  }
+  if (
+    dataVizConfig.yAxis?.[0]?.type === "date" ||
+    dataVizConfig.yAxis?.[0]?.type === "number"
+  ) {
+    filterOptions.push({
+      column: dataVizConfig.yAxis[0].fieldName,
+      type: dataVizConfig.yAxis[0].type,
+      operator: "between",
+      value: undefined,
+    });
+  }
+  return filterOptions;
+}
 
 export default function DataVizConfigPanel({
   sampleRow,
@@ -17,6 +45,10 @@ export default function DataVizConfigPanel({
   dataVizConfig: Partial<DataVizConfig>;
   onDataVizConfigChange: (dataVizConfig: Partial<DataVizConfig>) => void;
 }) {
+  const [filterOptions, setFilterOptions] = useState<FilterConfiguration[]>(
+    () => getFilterOptions(dataVizConfig)
+  );
+
   const getInferredFieldType = useCallback(
     (fieldName: string): xAxisConfiguration["type"] => {
       const value = sampleRow[fieldName];
@@ -60,6 +92,9 @@ export default function DataVizConfigPanel({
   const axisKeys = useMemo(() => {
     return Object.keys(sampleRow);
   }, [sampleRow]);
+  // console.log("axisKeys", axisKeys);
+  // console.log("sampleRow", sampleRow);
+  // console.log("dataVizConfig", dataVizConfig);
 
   useEffect(() => {
     if (dataVizConfig.xAxis) {
@@ -75,6 +110,15 @@ export default function DataVizConfigPanel({
       }
     }
   }, [dataVizConfig, onDataVizConfigChange]);
+
+  useEffect(() => {
+    const filterOptions: FilterConfiguration[] = getFilterOptions(
+      dataVizConfig
+    );
+    setFilterOptions(filterOptions);
+  }, [dataVizConfig]);
+
+  // console.log("filterOptions", filterOptions);
 
   return (
     <Flex direction="column" gap="4">
@@ -484,6 +528,137 @@ export default function DataVizConfigPanel({
           </Flex>
         </>
       )}
+
+      {filterOptions.length > 0 ? (
+        <>
+          <Separator size="4" my={"2"} />
+
+          <Select
+            label="Filter"
+            // So the filter property on the dataVizConfig needs to be an array of filter objects. Needs: fieldName, operator, value
+            // Does the filter need to be an array of arrays to handle range filters? E.g. if the user wants to filter by date range, it'd be [{filedName: "date", operator}]
+            value={dataVizConfig.filter?.[0]?.column ?? ""}
+            setValue={(v) => {
+              // console.log("v", v);
+              if (!v) return;
+              const shouldRemove = !v || v === "remove-filter";
+              // This is a hack - we'll need to handle adding/removing filters and replacing filters. But for now, we'll just support a single filter
+              onDataVizConfigChange({
+                ...dataVizConfig,
+                filter: shouldRemove
+                  ? undefined
+                  : [
+                      {
+                        column: v,
+                        operator: "between",
+                        type:
+                          //MKTODO: Is there not a better way to handle this - I don't like having to have a fallback
+                          filterOptions.find((option) => option.column === v)
+                            ?.type || "number",
+                        value: undefined,
+                      },
+                    ],
+              });
+            }}
+            size="2"
+            placeholder="Select a filter"
+          >
+            {dataVizConfig.filter?.[0]?.column && (
+              <SelectItem value="remove-filter">- Remove filter -</SelectItem>
+            )}
+            {filterOptions.map((option, i) => (
+              <SelectItem key={`${option.column}-${i}`} value={option.column}>
+                {option.column}
+              </SelectItem>
+            ))}
+          </Select>
+          {dataVizConfig.filter?.[0] ? (
+            <>
+              {dataVizConfig.filter?.[0].type === "date" ? (
+                <>
+                  <Flex direction="column" gap="2">
+                    <Flex direction="row" justify="between" align="center">
+                      <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
+                        Start Date
+                      </Text>
+                      <TextField.Root
+                        style={{ flex: 1 }}
+                        size="2"
+                        required
+                        type="date"
+                        defaultValue={(() => {
+                          const thirtyDaysAgo = new Date();
+                          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+                          return thirtyDaysAgo.toISOString().split("T")[0];
+                        })()}
+                        value={dataVizConfig.filter?.[0].value?.startDate}
+                        onChange={(e) => {
+                          if (!dataVizConfig.filter?.[0]) return;
+                          onDataVizConfigChange({
+                            ...dataVizConfig,
+                            filter: [
+                              {
+                                column: dataVizConfig.filter[0].column,
+                                type: dataVizConfig.filter[0].type,
+                                operator: dataVizConfig.filter[0].operator,
+                                value: {
+                                  startDate: e.target.value,
+                                  endDate:
+                                    dataVizConfig.filter[0].value?.endDate ||
+                                    undefined,
+                                },
+                              },
+                            ],
+                          });
+                        }}
+                      />
+                    </Flex>
+                  </Flex>
+                  <Flex direction="column" gap="2">
+                    <Flex direction="row" justify="between" align="center">
+                      <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
+                        End Date
+                      </Text>
+                      <TextField.Root
+                        style={{ flex: 1 }}
+                        size="2"
+                        required
+                        type="date"
+                        defaultValue={(() => {
+                          const today = new Date();
+                          return today.toISOString().split("T")[0];
+                        })()}
+                        value={dataVizConfig.filter?.[0].value?.endDate}
+                        onChange={(e) => {
+                          if (!dataVizConfig.filter?.[0]) return;
+                          onDataVizConfigChange({
+                            ...dataVizConfig,
+                            filter: [
+                              {
+                                column: dataVizConfig.filter[0].column,
+                                type: dataVizConfig.filter[0].type,
+                                operator: dataVizConfig.filter[0].operator,
+                                value: {
+                                  startDate:
+                                    dataVizConfig.filter[0].value?.startDate ||
+                                    undefined,
+                                  endDate: e.target.value,
+                                },
+                              },
+                            ],
+                          });
+                        }}
+                      />
+                    </Flex>
+                  </Flex>
+                </>
+              ) : (
+                <>Number options go here</>
+              )}
+            </>
+          ) : null}
+        </>
+      ) : null}
     </Flex>
   );
 }

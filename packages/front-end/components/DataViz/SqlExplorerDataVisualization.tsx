@@ -132,6 +132,39 @@ export function DataVisualizationDisplay({
     return parsed.success;
   }, [dataVizConfig]);
 
+  console.log("dataVizConfig", dataVizConfig);
+
+  //MKTODO: Filter rows
+  const filteredRows = useMemo(() => {
+    if (!dataVizConfig.filter) return rows;
+    const filter = dataVizConfig.filter[0];
+    console.log("filter", filter);
+
+    return rows.filter((row) => {
+      console.log("row[column]", row[filter.column]);
+      const columnValue = row[filter.column];
+
+      if (!columnValue) return true;
+
+      //MKTODO: Make the logic below a switch case
+
+      if (filter.operator === "between") {
+        if (filter.type === "date") {
+          return (
+            getValidDate(columnValue).getTime() >=
+              getValidDate(filter.value?.startDate).getTime() &&
+            getValidDate(columnValue).getTime() <=
+              getValidDate(filter.value?.endDate).getTime()
+          );
+        }
+
+        return columnValue >= filter.value[0] && columnValue <= filter.value[1];
+      }
+
+      return false;
+    });
+  }, [dataVizConfig.filter, rows]);
+
   // TODO: Support multiple y-axis and dimension fields
   const xConfig = dataVizConfig.xAxis;
   const xField = xConfig?.fieldName;
@@ -153,7 +186,7 @@ export function DataVisualizationDisplay({
 
     // For each dimension value (e.g. "chrome", "firefox"), build a list of all y-values
     const dimensionValueCounts: Map<string, (number | string)[]> = new Map();
-    rows.forEach((row) => {
+    filteredRows.forEach((row) => {
       const dimensionValue = row[dimensionField] + "";
       const yValue = parseYValue(row, yField, yConfig?.type || "number");
       if (yValue !== undefined) {
@@ -188,7 +221,7 @@ export function DataVisualizationDisplay({
     };
   }, [
     dimensionField,
-    rows,
+    filteredRows,
     dimensionConfig?.maxValues,
     yConfig?.type,
     yField,
@@ -203,7 +236,7 @@ export function DataVisualizationDisplay({
 
     const yType = yConfig?.type || "number";
 
-    const parsedRows = rows.map((row) => {
+    const parsedRows = filteredRows.map((row) => {
       const newRow: {
         x?: number | Date | string;
         y?: string | number;
@@ -362,7 +395,7 @@ export function DataVisualizationDisplay({
     dimensionField,
     dimensionValues,
     hasOtherDimension,
-    rows,
+    filteredRows,
   ]);
 
   const dataset = useMemo(() => {
@@ -548,6 +581,8 @@ export function SqlExplorerDataVisualization({
   showPanel?: boolean;
   graphTitle?: string;
 }) {
+  //MKTODO: Should I filter rows here - I think it's ok that we pass in the non-filtered rows to get the sample row
+  // The shape shouldn't change
   return (
     <PanelGroup direction="horizontal">
       <Panel
