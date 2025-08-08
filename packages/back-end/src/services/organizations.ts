@@ -20,6 +20,7 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_TARGET_MDE,
 } from "shared/constants";
+import { TiktokenModel } from "@dqbd/tiktoken";
 import {
   MetricCappingSettings,
   MetricPriorSettings,
@@ -173,6 +174,27 @@ export function getConfidenceLevelsForOrg(context: ReqContext) {
     ciLower: 1 - ciUpper,
     ciUpperDisplay: Math.round(ciUpper * 100) + "%",
     ciLowerDisplay: Math.round((1 - ciUpper) * 100) + "%",
+  };
+}
+
+export function getAISettingsForOrg(
+  context: ReqContext,
+  includeKey: boolean = false
+): {
+  aiEnabled: boolean;
+  openAIAPIKey: string;
+  openAIDefaultModel: TiktokenModel;
+} {
+  const openAIKey = process.env.OPENAI_API_KEY || "";
+  const aiEnabled = IS_CLOUD
+    ? context.org.settings?.aiEnabled !== false
+    : !!(context.org.settings?.aiEnabled && openAIKey);
+
+  return {
+    aiEnabled,
+    openAIAPIKey: includeKey ? openAIKey : "",
+    openAIDefaultModel:
+      context.org.settings?.openAIDefaultModel || "gpt-4o-mini",
   };
 }
 

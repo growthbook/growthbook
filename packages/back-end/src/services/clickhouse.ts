@@ -1,6 +1,7 @@
 import * as crypto from "crypto";
 import { createClient as createClickhouseClient } from "@clickhouse/client";
 import generator from "generate-password";
+import { AIPromptType } from "shared/ai";
 import {
   CLICKHOUSE_HOST,
   CLICKHOUSE_ADMIN_USER,
@@ -8,6 +9,7 @@ import {
   CLICKHOUSE_DATABASE,
   CLICKHOUSE_MAIN_TABLE,
   ENVIRONMENT,
+  IS_CLOUD,
 } from "back-end/src/util/secrets";
 import {
   GrowthbookClickhouseDataSource,
@@ -507,6 +509,55 @@ export async function addCloudSDKMapping(connection: SDKConnectionInterface) {
       e,
       `Error inserting sdk key mapping (${key} -> ${organization})`
     );
+  }
+}
+
+// In order to monitor usage and quality of AI responses on cloud we log each request to AI agents
+export async function logCloudAIUsage({
+  organization,
+  type,
+  model,
+  temperature,
+  numPromptTokensUsed,
+  numCompletionTokensUsed,
+  usedDefaultPrompt,
+}: {
+  organization: string;
+  model: string;
+  numPromptTokensUsed: number;
+  numCompletionTokensUsed: number;
+  type: AIPromptType;
+  temperature?: number;
+  usedDefaultPrompt: boolean;
+}): Promise<void> {
+  if (!IS_CLOUD) {
+    // This is only for cloud
+    return;
+  }
+
+  const env = ENVIRONMENT === "production" ? "prod" : ENVIRONMENT;
+  // As this is just for logging, there is no need to make this a fatal error if it fails
+  try {
+    const client = createAdminClickhouseClient();
+    await client.insert({
+      table: "usage.ai_usage",
+      values: [
+        {
+          env,
+          organization,
+          type,
+          model,
+          num_prompt_tokens_used: numPromptTokensUsed,
+          num_completion_tokens_used: numCompletionTokensUsed,
+          temperature,
+          used_default_prompt: usedDefaultPrompt,
+          date_created: new Date(),
+        },
+      ],
+      format: "JSONEachRow",
+    });
+  } catch (e) {
+    logger.error(e, "Failed to log AI usage to Clickhouse");
   }
 }
 

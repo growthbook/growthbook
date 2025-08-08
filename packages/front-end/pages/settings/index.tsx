@@ -39,6 +39,7 @@ import FeaturesSettings from "@/components/GeneralSettings/FeaturesSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import DatasourceSettings from "@/components/GeneralSettings/DatasourceSettings";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
+import AISettings from "@/components/GeneralSettings/AISettings";
 import HelperText from "@/components/Radix/HelperText";
 import { AppFeatures } from "@/types/app-features";
 import {
@@ -83,6 +84,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const displayCurrency = useCurrency();
 
   const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
+
+  const promptForm = useForm();
 
   const { metricDefaults } = useOrganizationMetricDefaults();
   const form = useForm<OrganizationSettingsWithMetricDefaults>({
@@ -170,6 +173,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
       requireProjectForFeatures:
         settings.requireProjectForFeatures ??
         DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
+      aiEnabled: settings.aiEnabled ?? false,
+      openAIDefaultModel: settings.openAIDefaultModel || "gpt-4o-mini",
     },
   });
   const { apiCall } = useAuth();
@@ -214,6 +219,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
     codeReferencesEnabled: form.watch("codeReferencesEnabled"),
     codeRefsBranchesToFilter: form.watch("codeRefsBranchesToFilter"),
     codeRefsPlatformUrl: form.watch("codeRefsPlatformUrl"),
+    aiEnabled: form.watch("aiEnabled"),
+    openAIDefaultModel: form.watch("openAIDefaultModel"),
   };
   function updateCronString(cron?: string) {
     cron = cron || value.updateSchedule?.cron || "";
@@ -302,7 +309,23 @@ const GeneralSettingsPage = (): React.ReactElement => {
     );
   }, [codeRefsBranchesToFilterStr]);
 
-  const ctaEnabled = hasChanges(value, originalValue);
+  // I Don't think this works as intended - the hasChanges(value, originalValue) always seems to return true.
+  const ctaEnabled =
+    hasChanges(value, originalValue) || promptForm.formState.isDirty;
+
+  const savePrompts = promptForm.handleSubmit(async (promptValues) => {
+    const formattedPrompts = Object.entries(promptValues).map(
+      ([key, value]) => ({
+        type: key,
+        prompt: value,
+      })
+    );
+
+    await apiCall(`/ai/prompts`, {
+      method: "POST",
+      body: JSON.stringify({ prompts: formattedPrompts }),
+    });
+  });
 
   const saveSettings = form.handleSubmit(async (value) => {
     const transformedOrgSettings = {
@@ -357,7 +380,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         settings: transformedOrgSettings,
       }),
     });
-    refreshOrganization();
+    await refreshOrganization();
 
     // show the user that the settings have saved:
     setSaveMsg(true);
@@ -385,6 +408,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
             <TabsTrigger value="custom">
               <PremiumTooltip commercialFeature="custom-markdown">
                 Custom Markdown
+              </PremiumTooltip>
+            </TabsTrigger>
+            <TabsTrigger value="ai">
+              <PremiumTooltip commercialFeature="ai-suggestions">
+                AI Settings
               </PremiumTooltip>
             </TabsTrigger>
           </StickyTabsList>
@@ -444,6 +472,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 </Flex>
               </Frame>
             </TabsContent>
+            <TabsContent value="ai">
+              <AISettings promptForm={promptForm} />
+            </TabsContent>
           </Box>
         </Tabs>
       </Box>
@@ -477,6 +508,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 setSubmitError(null);
                 if (!ctaEnabled) return;
                 await saveSettings();
+                await savePrompts();
               }}
               setError={setSubmitError}
             >
