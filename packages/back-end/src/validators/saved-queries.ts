@@ -50,11 +50,15 @@ export type dimensionAxisConfiguration = z.infer<
   typeof dimensionAxisConfigurationValidator
 >;
 
+const filterRuleValidator = z.object({
+  operator: z.enum([">=", "<="]),
+  value: z.union([z.string(), z.number()]),
+});
+
 const filterConfigurationValidator = z.object({
   column: z.string(),
-  type: z.enum(["number", "date"]),
-  operator: z.enum(["between"]),
-  value: z.any(),
+  type: z.enum(["string", "number", "date"]),
+  rules: z.array(filterRuleValidator),
 });
 
 export type FilterConfiguration = z.infer<typeof filterConfigurationValidator>;
@@ -65,12 +69,7 @@ export const dataVizConfigValidator = z.object({
   xAxis: xAxisConfigurationValidator,
   yAxis: z.array(yAxisConfigurationValidator).nonempty(),
   dimension: z.array(dimensionAxisConfigurationValidator).nonempty().optional(),
-  // I think we should support multiple filters, but for now, just supporting one
   filter: z.array(filterConfigurationValidator).optional(),
-  // filter: z.object({
-  //   fieldName: z.string(),
-  //   operator: z.enum(["=", "!=", ">", "<", ">=", "<=", "between"]),
-  // }),
 });
 
 export const testQueryRowSchema = z.record(z.any());

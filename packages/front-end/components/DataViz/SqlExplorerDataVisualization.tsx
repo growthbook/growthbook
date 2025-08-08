@@ -134,34 +134,51 @@ export function DataVisualizationDisplay({
 
   console.log("dataVizConfig", dataVizConfig);
 
-  //MKTODO: Filter rows
   const filteredRows = useMemo(() => {
-    if (!dataVizConfig.filter) return rows;
-    const filter = dataVizConfig.filter[0];
-    console.log("filter", filter);
+    const filters = dataVizConfig.filter;
+    if (!filters || filters.length === 0) return rows;
 
     return rows.filter((row) => {
-      console.log("row[column]", row[filter.column]);
-      const columnValue = row[filter.column];
+      // ✅ Row must satisfy *all* filters
+      return filters.every((filter) => {
+        const { column, type, rules } = filter;
+        const cellValue = row[column];
 
-      if (!columnValue) return true;
+        // ✅ Filter must satisfy *all* its rules
+        return rules.every(({ operator, value }) => {
+          let left = cellValue;
+          let right = value;
 
-      //MKTODO: Make the logic below a switch case
+          // Convert values if needed
+          if (type === "date") {
+            left = new Date(cellValue).getTime();
+            right = new Date(value).getTime();
+          } else if (type === "number") {
+            left = Number(cellValue);
+            right = Number(value);
+          }
 
-      if (filter.operator === "between") {
-        if (filter.type === "date") {
-          return (
-            getValidDate(columnValue).getTime() >=
-              getValidDate(filter.value?.startDate).getTime() &&
-            getValidDate(columnValue).getTime() <=
-              getValidDate(filter.value?.endDate).getTime()
-          );
-        }
-
-        return columnValue >= filter.value[0] && columnValue <= filter.value[1];
-      }
-
-      return false;
+          // Apply operator dynamically
+          switch (operator) {
+            // case ">":
+            //   return left > right;
+            case ">=":
+              return left >= right;
+            // case "<":
+            //   return left < right;
+            case "<=":
+              return left <= right;
+            // case "=":
+            // case "==":
+            //   return left === right;
+            // case "!=":
+            //   return left !== right;
+            default:
+              console.warn(`Unknown operator: ${operator}`);
+              return true; // Fallback: ignore bad operator
+          }
+        });
+      });
     });
   }, [dataVizConfig.filter, rows]);
 

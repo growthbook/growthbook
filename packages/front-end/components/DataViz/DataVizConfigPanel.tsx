@@ -18,8 +18,7 @@ function getFilterOptions(dataVizConfig: Partial<DataVizConfig>) {
     filterOptions.push({
       column: dataVizConfig.xAxis.fieldName,
       type: dataVizConfig.xAxis.type,
-      operator: "between",
-      value: undefined,
+      rules: [],
     });
   }
   if (
@@ -29,8 +28,7 @@ function getFilterOptions(dataVizConfig: Partial<DataVizConfig>) {
     filterOptions.push({
       column: dataVizConfig.yAxis[0].fieldName,
       type: dataVizConfig.yAxis[0].type,
-      operator: "between",
-      value: undefined,
+      rules: [],
     });
   }
   return filterOptions;
@@ -117,8 +115,6 @@ export default function DataVizConfigPanel({
     );
     setFilterOptions(filterOptions);
   }, [dataVizConfig]);
-
-  // console.log("filterOptions", filterOptions);
 
   return (
     <Flex direction="column" gap="4">
@@ -529,6 +525,7 @@ export default function DataVizConfigPanel({
         </>
       )}
 
+      {/* MKTODO: This needs a refactor with the lastest changes */}
       {filterOptions.length > 0 ? (
         <>
           <Separator size="4" my={"2"} />
@@ -550,12 +547,11 @@ export default function DataVizConfigPanel({
                   : [
                       {
                         column: v,
-                        operator: "between",
                         type:
                           //MKTODO: Is there not a better way to handle this - I don't like having to have a fallback
                           filterOptions.find((option) => option.column === v)
                             ?.type || "number",
-                        value: undefined,
+                        rules: [],
                       },
                     ],
               });
@@ -591,22 +587,31 @@ export default function DataVizConfigPanel({
                           thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
                           return thirtyDaysAgo.toISOString().split("T")[0];
                         })()}
-                        value={dataVizConfig.filter?.[0].value?.startDate}
+                        value={dataVizConfig.filter?.[0].rules?.[0]?.value}
                         onChange={(e) => {
+                          console.log(
+                            "inside of onChange with value",
+                            e.target.value
+                          );
                           if (!dataVizConfig.filter?.[0]) return;
+                          console.log("made it past the if statement");
+
+                          const currentRules =
+                            dataVizConfig.filter[0].rules || [];
+                          const newRules = [...currentRules];
+
+                          newRules[0] = {
+                            operator: ">=",
+                            value: e.target.value,
+                          };
+
                           onDataVizConfigChange({
                             ...dataVizConfig,
                             filter: [
                               {
                                 column: dataVizConfig.filter[0].column,
                                 type: dataVizConfig.filter[0].type,
-                                operator: dataVizConfig.filter[0].operator,
-                                value: {
-                                  startDate: e.target.value,
-                                  endDate:
-                                    dataVizConfig.filter[0].value?.endDate ||
-                                    undefined,
-                                },
+                                rules: newRules,
                               },
                             ],
                           });
@@ -628,22 +633,27 @@ export default function DataVizConfigPanel({
                           const today = new Date();
                           return today.toISOString().split("T")[0];
                         })()}
-                        value={dataVizConfig.filter?.[0].value?.endDate}
+                        value={dataVizConfig.filter?.[0].rules?.[1]?.value}
                         onChange={(e) => {
                           if (!dataVizConfig.filter?.[0]) return;
+
+                          const currentRules =
+                            dataVizConfig.filter[0].rules || [];
+                          const newRules = [...currentRules];
+
+                          // Update or add the end date rule (<=)
+                          newRules[1] = {
+                            operator: "<=",
+                            value: e.target.value,
+                          };
+
                           onDataVizConfigChange({
                             ...dataVizConfig,
                             filter: [
                               {
                                 column: dataVizConfig.filter[0].column,
                                 type: dataVizConfig.filter[0].type,
-                                operator: dataVizConfig.filter[0].operator,
-                                value: {
-                                  startDate:
-                                    dataVizConfig.filter[0].value?.startDate ||
-                                    undefined,
-                                  endDate: e.target.value,
-                                },
+                                rules: newRules,
                               },
                             ],
                           });
