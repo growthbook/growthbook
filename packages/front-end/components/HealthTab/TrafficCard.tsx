@@ -151,11 +151,7 @@ export default function TrafficCard({
           {!selectedDimension && (
             <div className="ml-auto">
               Cumulative{" "}
-              <Switch
-                id="cumulativeTrafficSwitch"
-                checked={cumulative}
-                onCheckedChange={setCumulative}
-              />
+              <Switch checked={cumulative} onCheckedChange={setCumulative} />
             </div>
           )}
         </div>
