@@ -8,6 +8,7 @@ import { getValidDate } from "shared/dates";
 import { FaCircle } from "react-icons/fa6";
 import { parseISO } from "date-fns";
 import { DEFAULT_SRM_THRESHOLD } from "shared/constants";
+import { Switch } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
 import { formatTrafficSplit } from "@/services/utils";
@@ -15,7 +16,6 @@ import { formatNumber } from "@/services/metrics";
 import ExperimentDateGraph, {
   ExperimentDateGraphDataPoint,
 } from "@/components/Experiment/ExperimentDateGraph";
-import Toggle from "@/components/Forms/Toggle";
 import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { transformDimensionData } from "./DimensionIssues";
@@ -151,11 +151,10 @@ export default function TrafficCard({
           {!selectedDimension && (
             <div className="ml-auto">
               Cumulative{" "}
-              <Toggle
-                label="Cumulative"
-                id="cumulative"
-                value={cumulative}
-                setValue={setCumulative}
+              <Switch
+                id="cumulativeTrafficSwitch"
+                checked={cumulative}
+                onCheckedChange={setCumulative}
               />
             </div>
           )}
