@@ -550,19 +550,23 @@ export async function getAutoCompletions(
       return handleColumnCompletions(tableDataMap, source);
 
     case "FROM": {
-      // Get the text after FROM up to the cursor
-      const textAfterFrom =
-        cursorData.input
-          .slice(0, cursorData.row)
-          .concat(
-            (cursorData.input[cursorData.row] || "").substring(
-              0,
-              cursorData.column
-            )
+      // Get the sql text up to the cursor's current position
+      // This allows us to ignore additional clauses like WHERE, GROUP BY, ORDER BY, etc.
+      const textUpToCursor = cursorData.input
+        .slice(0, cursorData.row)
+        .concat(
+          (cursorData.input[cursorData.row] || "").substring(
+            0,
+            cursorData.column
           )
-          .join("\n")
-          .split("FROM")[1]
-          ?.trim() || "";
+        )
+        .join("\n");
+
+      // Isolate the text after the "FROM" or "from" SQL keyword
+      // This allows us to identify if the FROM clause already has certain tables or schemas
+      // for more accurate completions. e.g. if the FROM clause references a schema, only show tables in that schema
+      const textAfterFrom =
+        textUpToCursor.toLowerCase().split("from")[1]?.trim() || "";
 
       return handleFromClauseCompletions(
         textAfterFrom,
