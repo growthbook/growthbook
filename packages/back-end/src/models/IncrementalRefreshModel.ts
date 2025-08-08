@@ -26,6 +26,9 @@ const BaseClass = MakeModelClass({
 });
 
 export class IncrementalRefreshModel extends BaseClass {
+  public async getByExperimentId(experimentId: string) {
+    return this._findOne({ experimentId });
+  }
   public async upsertByExperimentId(
     experimentId: string,
     data: Pick<

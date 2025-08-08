@@ -263,6 +263,11 @@ export const startExperimentResultQueries = async (
     factTableMap: params.factTableMap,
   };
 
+  // TODO: Do we really need unitsTable / pipeline mode or can it work independently?
+  const incrementalRefreshEnabled =
+    useUnitsTable && settings.incrementalRefresh?.enabled;
+
+  let oldUnitsTableToDrop: string | null = null;
   if (useUnitsTable) {
     // The Mixpanel integration does not support writing tables
     if (!integration.generateTablePath) {
@@ -270,20 +275,45 @@ export const startExperimentResultQueries = async (
         "Unable to generate table; table path generator not specified."
       );
     }
+
+    // If incremental refresh is enabled and we have a previous scan, build incremental table query creating a new table name
+    let unitsTableSql = "";
+    if (incrementalRefreshEnabled) {
+      const existing = await context.models.incrementalRefresh.getByExperimentId(
+        snapshotSettings.experimentId
+      );
+      if (existing) {
+        const previousUnitsTableFullName = existing.unitsTableFullName;
+        unitsTableSql = integration.getExperimentIncrementalUnitsTableQuery({
+          ...unitQueryParams,
+          previousUnitsTableFullName,
+          lastScannedTimestamp: existing.lastScannedTimestamp,
+        });
+        oldUnitsTableToDrop = previousUnitsTableFullName;
+      }
+    }
+
+    // Fallback to full rebuild if not incremental or no previous state
+    if (!unitsTableSql) {
+      unitsTableSql = integration.getExperimentUnitsTableQuery(unitQueryParams);
+    }
+
     unitQuery = await startQuery({
       name: queryParentId,
-      query: integration.getExperimentUnitsTableQuery(unitQueryParams),
+      query: unitsTableSql,
       dependencies: [],
       run: (query, setExternalId) =>
         integration.runExperimentUnitsQuery(query, setExternalId),
       process: (rows) => {
-        // Persist units table metadata for incremental refresh
-        context.models.incrementalRefresh
-          .upsertByExperimentId(snapshotSettings.experimentId, {
-            unitsTableFullName,
-            lastScannedTimestamp: unitsQueryEndDate,
-          })
-          .catch((e) => context.logger.error(e));
+        // Persist units table metadata for incremental refresh only if enabled
+        if (incrementalRefreshEnabled) {
+          context.models.incrementalRefresh
+            .upsertByExperimentId(snapshotSettings.experimentId, {
+              unitsTableFullName: unitsTableFullName,
+              lastScannedTimestamp: unitsQueryEndDate,
+            })
+            .catch((e) => context.logger.error(e));
+        }
         return rows;
       },
       queryType: "experimentUnits",
@@ -398,11 +428,29 @@ export const startExperimentResultQueries = async (
     queries.push(trafficQuery);
   }
 
+  // Schedule a drop of the old units table at the end if we created a new one
+  if (oldUnitsTableToDrop) {
+    const dropOldUnitsTableQuery = await startQuery({
+      name: `drop_${queryParentId}_old`,
+      query: integration.getDropUnitsTableQuery({
+        fullTablePath: oldUnitsTableToDrop,
+      }),
+      dependencies: [],
+      runAtEnd: true,
+      run: (query, setExternalId) =>
+        integration.runDropTableQuery(query, setExternalId),
+      process: (rows) => rows,
+      queryType: "experimentDropUnitsTable",
+    });
+    queries.push(dropOldUnitsTableQuery);
+  }
+
   const dropUnitsTable =
     integration.getSourceProperties().dropUnitsTable &&
     settings.pipelineSettings?.unitsTableDeletion &&
-    // Never drop the units table when incremental refresh is enabled in datasource settings
-    !settings.incrementalRefresh?.enabled;
+    // TODO: This is not entirely true because we might want to drop the old table or when would we clean it up?
+    // Never drop the units table when incremental refresh is enabled for this refresh
+    !incrementalRefreshEnabled;
   if (useUnitsTable && dropUnitsTable) {
     const dropUnitsTableQuery = await startQuery({
       name: `drop_${queryParentId}`,

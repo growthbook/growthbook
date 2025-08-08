@@ -188,6 +188,8 @@ interface ExperimentBaseQueryParams {
 
 export interface ExperimentUnitsQueryParams extends ExperimentBaseQueryParams {
   includeIdJoins: boolean;
+  incrementalOldUnitsTableFullName?: string;
+  incrementalStartDate?: Date;
 }
 
 type UnitsSource = "exposureQuery" | "exposureTable" | "otherQuery";
@@ -607,6 +609,12 @@ export interface SourceIntegrationInterface {
     params: ExperimentAggregateUnitsQueryParams
   ): string;
   getExperimentUnitsTableQuery(params: ExperimentUnitsQueryParams): string;
+  getExperimentIncrementalUnitsTableQuery(
+    params: ExperimentUnitsQueryParams & {
+      previousUnitsTableFullName: string;
+      lastScannedTimestamp: Date;
+    }
+  ): string;
   getPastExperimentQuery(params: PastExperimentParams): string;
   getDimensionSlicesQuery(params: DimensionSlicesQueryParams): string;
   runDimensionSlicesQuery(
