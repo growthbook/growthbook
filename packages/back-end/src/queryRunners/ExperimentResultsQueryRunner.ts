@@ -250,6 +250,9 @@ export const startExperimentResultQueries = async (
       }));
   }
 
+  // TODO: Need to take into consideration other stuff (see SqlIntegration.getExperimentEndDate)
+  const unitsQueryEndDate = snapshotSettings.endDate;
+
   const unitQueryParams: ExperimentUnitsQueryParams = {
     activationMetric: activationMetric,
     dimensions: dimensionObj ? [dimensionObj] : dimensionsForTraffic,
@@ -273,10 +276,30 @@ export const startExperimentResultQueries = async (
       dependencies: [],
       run: (query, setExternalId) =>
         integration.runExperimentUnitsQuery(query, setExternalId),
-      process: (rows) => rows,
+      process: (rows) => {
+        // Persist units table metadata for incremental refresh
+        context.models.incrementalRefresh
+          .upsertByExperimentId(snapshotSettings.experimentId, {
+            unitsTableFullName,
+            lastScannedTimestamp: unitsQueryEndDate,
+          })
+          .catch((e) => context.logger.error(e));
+        return rows;
+      },
       queryType: "experimentUnits",
     });
     queries.push(unitQuery);
+
+    // NB: AI added this, but unsure if it's needed
+    // If the query was reused from cache and already succeeded, persist immediately
+    // if (unitQuery.status === "succeeded") {
+    //   context.models.incrementalRefresh
+    //     .upsertByExperimentId(snapshotSettings.experimentId, {
+    //       unitsTableFullName,
+    //       lastScannedTimestamp: unitsQueryEndDate,
+    //     })
+    //     .catch((e) => context.logger.error(e));
+    // }
   }
 
   const { groups, singles } = getFactMetricGroups(
@@ -377,7 +400,9 @@ export const startExperimentResultQueries = async (
 
   const dropUnitsTable =
     integration.getSourceProperties().dropUnitsTable &&
-    settings.pipelineSettings?.unitsTableDeletion;
+    settings.pipelineSettings?.unitsTableDeletion &&
+    // Never drop the units table when incremental refresh is enabled in datasource settings
+    !settings.incrementalRefresh?.enabled;
   if (useUnitsTable && dropUnitsTable) {
     const dropUnitsTableQuery = await startQuery({
       name: `drop_${queryParentId}`,

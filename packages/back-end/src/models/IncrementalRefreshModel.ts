@@ -17,9 +17,28 @@ const BaseClass = MakeModelClass({
     deleteEvent: "incrementalRefresh.delete",
   },
   globallyUniqueIds: true,
+  additionalIndexes: [
+    {
+      fields: { organization: 1, experimentId: 1 },
+      unique: true,
+    },
+  ],
 });
 
 export class IncrementalRefreshModel extends BaseClass {
+  public async upsertByExperimentId(
+    experimentId: string,
+    data: Pick<
+      IncrementalRefreshInterface,
+      "unitsTableFullName" | "lastScannedTimestamp"
+    >
+  ) {
+    const existing = await this._findOne({ experimentId });
+    if (existing) {
+      return this.update(existing, data);
+    }
+    return this.create({ experimentId, ...data });
+  }
   protected canRead(_doc: IncrementalRefreshInterface) {
     return true;
   }

@@ -7,7 +7,8 @@ const incrementalRefresh = z
     experimentId: z.string(),
 
     // Settings
-    unitsTableName: z.string(),
+    unitsTableFullName: z.string(),
+    lastScannedTimestamp: z.date(),
   })
   .strict();
 
