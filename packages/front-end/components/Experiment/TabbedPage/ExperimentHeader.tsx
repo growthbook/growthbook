@@ -1042,7 +1042,8 @@ export default function ExperimentHeader({
                     <TabsTrigger value="explore">Explore</TabsTrigger>
                   ) : null}
                   {growthbook.isOn("experiment-dashboards-enabled") &&
-                    !isBandit && (
+                    !isBandit &&
+                    !isHoldout && (
                       <TabsTrigger value="dashboards">Dashboards</TabsTrigger>
                     )}
                   {disableHealthTab ? (
