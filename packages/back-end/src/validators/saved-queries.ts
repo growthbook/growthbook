@@ -50,12 +50,26 @@ export type dimensionAxisConfiguration = z.infer<
   typeof dimensionAxisConfigurationValidator
 >;
 
+const filterRuleValidator = z.object({
+  operator: z.enum([">=", "<="]),
+  value: z.union([z.string(), z.number()]),
+});
+
+const filterConfigurationValidator = z.object({
+  column: z.string(),
+  type: z.enum(["string", "number", "date"]),
+  rules: z.array(filterRuleValidator),
+});
+
+export type FilterConfiguration = z.infer<typeof filterConfigurationValidator>;
+
 export const dataVizConfigValidator = z.object({
   title: z.string().optional(),
   chartType: z.enum(["bar", "line", "area", "scatter"]),
   xAxis: xAxisConfigurationValidator,
   yAxis: z.array(yAxisConfigurationValidator).nonempty(),
   dimension: z.array(dimensionAxisConfigurationValidator).nonempty().optional(),
+  filter: z.array(filterConfigurationValidator).optional(),
 });
 
 export const testQueryRowSchema = z.record(z.any());

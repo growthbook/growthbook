@@ -132,6 +132,56 @@ export function DataVisualizationDisplay({
     return parsed.success;
   }, [dataVizConfig]);
 
+  console.log("dataVizConfig", dataVizConfig);
+
+  const filteredRows = useMemo(() => {
+    const filters = dataVizConfig.filter;
+    if (!filters || filters.length === 0) return rows;
+
+    return rows.filter((row) => {
+      // ✅ Row must satisfy *all* filters
+      return filters.every((filter) => {
+        const { column, type, rules } = filter;
+        const cellValue = row[column];
+
+        // ✅ Filter must satisfy *all* its rules
+        return rules.every(({ operator, value }) => {
+          let left = cellValue;
+          let right = value;
+
+          // Convert values if needed
+          if (type === "date") {
+            left = new Date(cellValue).getTime();
+            right = new Date(value).getTime();
+          } else if (type === "number") {
+            left = Number(cellValue);
+            right = Number(value);
+          }
+
+          // Apply operator dynamically
+          switch (operator) {
+            // case ">":
+            //   return left > right;
+            case ">=":
+              return left >= right;
+            // case "<":
+            //   return left < right;
+            case "<=":
+              return left <= right;
+            // case "=":
+            // case "==":
+            //   return left === right;
+            // case "!=":
+            //   return left !== right;
+            default:
+              console.warn(`Unknown operator: ${operator}`);
+              return true; // Fallback: ignore bad operator
+          }
+        });
+      });
+    });
+  }, [dataVizConfig.filter, rows]);
+
   // TODO: Support multiple y-axis and dimension fields
   const xConfig = dataVizConfig.xAxis;
   const xField = xConfig?.fieldName;
@@ -153,7 +203,7 @@ export function DataVisualizationDisplay({
 
     // For each dimension value (e.g. "chrome", "firefox"), build a list of all y-values
     const dimensionValueCounts: Map<string, (number | string)[]> = new Map();
-    rows.forEach((row) => {
+    filteredRows.forEach((row) => {
       const dimensionValue = row[dimensionField] + "";
       const yValue = parseYValue(row, yField, yConfig?.type || "number");
       if (yValue !== undefined) {
@@ -188,7 +238,7 @@ export function DataVisualizationDisplay({
     };
   }, [
     dimensionField,
-    rows,
+    filteredRows,
     dimensionConfig?.maxValues,
     yConfig?.type,
     yField,
@@ -203,7 +253,7 @@ export function DataVisualizationDisplay({
 
     const yType = yConfig?.type || "number";
 
-    const parsedRows = rows.map((row) => {
+    const parsedRows = filteredRows.map((row) => {
       const newRow: {
         x?: number | Date | string;
         y?: string | number;
@@ -362,7 +412,7 @@ export function DataVisualizationDisplay({
     dimensionField,
     dimensionValues,
     hasOtherDimension,
-    rows,
+    filteredRows,
   ]);
 
   const dataset = useMemo(() => {
@@ -548,6 +598,8 @@ export function SqlExplorerDataVisualization({
   showPanel?: boolean;
   graphTitle?: string;
 }) {
+  //MKTODO: Should I filter rows here - I think it's ok that we pass in the non-filtered rows to get the sample row
+  // The shape shouldn't change
   return (
     <PanelGroup direction="horizontal">
       <Panel
