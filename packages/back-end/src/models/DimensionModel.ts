@@ -105,11 +105,11 @@ export async function updateDimension(
 ) {
   // If the dimension is managed by the config.yml, don't allow updates
   if (existing.managedBy === "config") {
-    throw new Error("Cannot update. Metric managed by config.yml");
+    throw new Error("Cannot update. Dimenision managed by config.yml");
   }
   // If the dimension is managed by the API, only allow updates via the API
   if (existing.managedBy === "api" && context.auditUser?.type !== "api_key") {
-    throw new Error("Cannot update. Metric managed by the API");
+    throw new Error("Cannot update. Dimenision managed by the API");
   }
 
   await DimensionModel.updateOne(
@@ -146,6 +146,7 @@ export function toDimensionApiInterface(
   return {
     id: dimension.id,
     name: dimension.name,
+    description: dimension.description || "",
     owner: dimension.owner || "",
     identifierType: dimension.userIdType || "user_id",
     query: dimension.sql,

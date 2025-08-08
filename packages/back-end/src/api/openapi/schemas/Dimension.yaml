@@ -23,6 +23,8 @@ properties:
     type: string
   name:
     type: string
+  description:
+    type: string
   query:
     type: string
   managedBy:
