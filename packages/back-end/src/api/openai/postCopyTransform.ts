@@ -7,7 +7,7 @@ import {
 import {
   secondsUntilAICanBeUsedAgain,
   simpleCompletion,
-} from "back-end/src/enterprise/services/openai";
+} from "back-end/src/enterprise/services/ollama";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
 const OPENAI_ENABLED = !!process.env.OPENAI_API_KEY;

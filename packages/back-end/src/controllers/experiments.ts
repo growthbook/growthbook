@@ -135,7 +135,7 @@ import {
   generateEmbeddings,
   secondsUntilAICanBeUsedAgain,
   simpleCompletion,
-} from "back-end/src/enterprise/services/openai";
+} from "back-end/src/enterprise/services/ollama";
 import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
@@ -487,7 +487,7 @@ export async function postSimilarExperiments(
     context,
     input: [newExperimentText],
   });
-  const newEmbedding = newExperimentEmbeddingResponse.data[0].embedding;
+  const newEmbedding = newExperimentEmbeddingResponse[0].embedding;
   // Call to calculate cosine similarity between the new experiment and existing experiments: cosineSimilarity
   const similarities = experimentsToSearch
     .map((exp) => {

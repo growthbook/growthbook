@@ -8,7 +8,7 @@ import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   secondsUntilAICanBeUsedAgain,
   simpleCompletion,
-} from "back-end/src/enterprise/services/openai";
+} from "back-end/src/enterprise/services/ollama";
 
 type GetAIPromptResponse = {
   status: 200;

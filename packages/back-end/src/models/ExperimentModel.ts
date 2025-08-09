@@ -44,7 +44,7 @@ import {
 import {
   generateEmbeddings,
   simpleCompletion,
-} from "back-end/src/enterprise/services/openai";
+} from "back-end/src/enterprise/services/ollama";
 import { DiffResult } from "back-end/types/events/diff";
 import { getObjectDiff } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
 import { IdeaDocument } from "./IdeasModel";
@@ -1548,7 +1548,7 @@ export async function generateExperimentEmbeddings(
       // save the embeddings back to the experiment:
       try {
         await context.models.vectors.addOrUpdateExperimentVector(exp.id, {
-          embeddings: embeddings.data[j].embedding,
+          embeddings: embeddings[j].embedding,
         });
       } catch (error) {
         throw new Error("Error updating embeddings");

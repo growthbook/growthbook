@@ -57,7 +57,7 @@ import {
   generateEmbeddings,
   secondsUntilAICanBeUsedAgain,
   simpleCompletion,
-} from "back-end/src/enterprise/services/openai";
+} from "back-end/src/enterprise/services/ollama";
 
 /**
  * Fields on a metric that we allow users to update. Excluded fields are
@@ -1067,7 +1067,7 @@ export async function postSimilarMetrics(
     context,
     input: [newMetric],
   });
-  const newEmbedding = newMetricEmbeddingResponse.data[0].embedding;
+  const newEmbedding = newMetricEmbeddingResponse[0].embedding;
   // Call to calculate cosine similarity between the new metric and existing metrics: cosineSimilarity
   const similarities = metricsToSearch
     .map((mv) => {

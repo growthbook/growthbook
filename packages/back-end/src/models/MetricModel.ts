@@ -15,7 +15,7 @@ import {
   getCollection,
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";
-import { generateEmbeddings } from "back-end/src/enterprise/services/openai";
+import { generateEmbeddings } from "back-end/src/enterprise/services/ollama";
 import { queriesSchema } from "./QueryModel";
 import { ImpactEstimateModel } from "./ImpactEstimateModel";
 import { removeMetricFromExperiments } from "./ExperimentModel";
@@ -614,7 +614,7 @@ export async function generateMetricEmbeddings(
       // save the embeddings back to the experiment:
       try {
         await context.models.vectors.addOrUpdateMetricVector(m.id, {
-          embeddings: embeddings.data[j].embedding,
+          embeddings: embeddings[j].embedding,
         });
       } catch (error) {
         throw new Error("Error updating embeddings");
