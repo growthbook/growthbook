@@ -169,7 +169,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
         settings.requireProjectForFeatures ??
         DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
       aiEnabled: settings.aiEnabled ?? false,
+      aiProvider: settings.aiProvider ?? "openai",
       openAIDefaultModel: settings.openAIDefaultModel || "gpt-4o-mini",
+      ollamaDefaultModel: settings.ollamaDefaultModel || "",
       disableLegacyMetricCreation:
         settings.disableLegacyMetricCreation ?? false,
       defaultFeatureRulesInAllEnvs:
@@ -224,7 +226,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
     codeRefsBranchesToFilter: form.watch("codeRefsBranchesToFilter"),
     codeRefsPlatformUrl: form.watch("codeRefsPlatformUrl"),
     aiEnabled: form.watch("aiEnabled"),
+    aiProvider: form.watch("aiProvider"),
     openAIDefaultModel: form.watch("openAIDefaultModel"),
+    ollamaDefaultModel: form.watch("ollamaDefaultModel"),
     disableLegacyMetricCreation: form.watch("disableLegacyMetricCreation"),
     defaultFeatureRulesInAllEnvs: form.watch("defaultFeatureRulesInAllEnvs"),
     preferredEnvironment: form.watch("preferredEnvironment") || "",
