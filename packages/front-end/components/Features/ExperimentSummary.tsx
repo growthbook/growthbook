@@ -111,8 +111,6 @@ export default function ExperimentSummary({
                 <div className="d-flex">
                   <div
                     style={{
-                      width: "4em",
-                      maxWidth: "4em",
                       margin: "0 0 0 auto",
                     }}
                   >
