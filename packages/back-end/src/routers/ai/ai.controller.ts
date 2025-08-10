@@ -8,7 +8,7 @@ import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   secondsUntilAICanBeUsedAgain,
   simpleCompletion,
-} from "back-end/src/enterprise/services/ollama";
+} from "back-end/src/enterprise/services/providerAI";
 
 type GetAIPromptResponse = {
   status: 200;
@@ -78,9 +78,7 @@ export async function postReformat(
     });
   }
 
-  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(
-    req.organization,
-  );
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context);
   if (secondsUntilReset > 0) {
     return res.status(429).json({
       status: 429,

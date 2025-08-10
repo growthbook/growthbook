@@ -26,8 +26,7 @@ import {
   secondsUntilAICanBeUsedAgain,
   simpleCompletion,
   parsePrompt,
-  supportsJSONSchema,
-} from "back-end/src/enterprise/services/ollama";
+} from "back-end/src/enterprise/services/providerAI";
 import { getInformationSchemaByDatasourceId } from "back-end/src/models/InformationSchemaModel";
 import {
   createInformationSchemaTable,
@@ -302,7 +301,7 @@ export async function postGenerateSQL(
       message: "Datasource not found",
     });
   }
-  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context);
   if (secondsUntilReset > 0) {
     return res.status(429).json({
       status: 429,

@@ -57,7 +57,7 @@ import {
   generateEmbeddings,
   secondsUntilAICanBeUsedAgain,
   simpleCompletion,
-} from "back-end/src/enterprise/services/ollama";
+} from "back-end/src/enterprise/services/providerAI";
 
 /**
  * Fields on a metric that we allow users to update. Excluded fields are
@@ -725,7 +725,7 @@ export const getGeneratedDescription = async (
       message: "AI configuration not set or enabled",
     });
   }
-  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context);
   if (secondsUntilReset > 0) {
     return res.status(429).json({
       status: 429,
@@ -1012,7 +1012,7 @@ export async function postSimilarMetrics(
       message: "AI configuration not set or enabled",
     });
   }
-  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context);
   if (secondsUntilReset > 0) {
     return res.status(429).json({
       status: 429,
@@ -1123,7 +1123,7 @@ export async function postRegenerateEmbeddings(
       message: "AI configuration not set or enabled",
     });
   }
-  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context);
   if (secondsUntilReset > 0) {
     return res.status(429).json({
       status: 429,

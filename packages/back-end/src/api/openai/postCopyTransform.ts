@@ -7,7 +7,7 @@ import {
 import {
   secondsUntilAICanBeUsedAgain,
   simpleCompletion,
-} from "back-end/src/enterprise/services/ollama";
+} from "back-end/src/enterprise/services/providerAI";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
 const OPENAI_ENABLED = !!process.env.OPENAI_API_KEY;
@@ -59,7 +59,7 @@ export const postCopyTransform = createApiRequestHandler(validation)(async (
 
   if (!visualChangeset) throw new Error("Visual Changeset not found");
 
-  if (await secondsUntilAICanBeUsedAgain(req.organization)) {
+  if (await secondsUntilAICanBeUsedAgain(context)) {
     return {
       visualChangeset: toVisualChangesetApiInterface(visualChangeset),
       original: copy,

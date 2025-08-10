@@ -184,6 +184,7 @@ export function getAISettingsForOrg(
   includeKey: boolean = false,
 ): {
   aiEnabled: boolean;
+  aiProvider: "openai" | "ollama" | null;
   openAIAPIKey: string;
   openAIDefaultModel: TiktokenModel;
   ollamaBaseUrl: string;
@@ -208,6 +209,7 @@ export function getAISettingsForOrg(
 
   return {
     aiEnabled,
+    aiProvider: context.org.settings?.aiProvider || null,
     openAIAPIKey: includeKey ? openAIKey : "",
     openAIDefaultModel,
     ollamaBaseUrl,

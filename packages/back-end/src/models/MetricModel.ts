@@ -15,7 +15,7 @@ import {
   getCollection,
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";
-import { generateEmbeddings } from "back-end/src/enterprise/services/ollama";
+import { generateEmbeddings } from "back-end/src/enterprise/services/providerAI";
 import { queriesSchema } from "./QueryModel";
 import { ImpactEstimateModel } from "./ImpactEstimateModel";
 import { removeMetricFromExperiments } from "./ExperimentModel";

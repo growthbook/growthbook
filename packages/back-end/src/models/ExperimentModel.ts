@@ -44,7 +44,7 @@ import {
 import {
   generateEmbeddings,
   simpleCompletion,
-} from "back-end/src/enterprise/services/ollama";
+} from "back-end/src/enterprise/services/providerAI";
 import { DiffResult } from "back-end/types/events/diff";
 import { getObjectDiff } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
 import { IdeaDocument } from "./IdeasModel";
