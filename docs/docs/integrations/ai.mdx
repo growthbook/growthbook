@@ -100,7 +100,9 @@ changes, however, you can regenerate the embeddings for your experiments at any 
 
 ## Self-Hosted AI Integrations
 
-Self-hosted GrowthBook instances can enable these AI features, by adding a OpenAI API key to the AI settings page.
+Self-hosted GrowthBook instances can enable these AI features by configuring one of the supported AI providers: OpenAI or Ollama.
+
+### OpenAI Integration
 
 To get started with the OpenAI integration in GrowthBook, follow these steps:
 
@@ -125,8 +127,26 @@ From the settings page you can also select the AI model you want to use. The def
   ![AI Settings Self-hosting](/images/integrations/ai/ai-settings-self-hosting.png)
 </MaxWidthImage>
 
+### Ollama Integration
+
+To use Ollama as your AI provider, follow these steps:
+
+1. **Set up Ollama**: Ensure you have access to an Ollama instance. Refer to [Ollama's documentation](https://ollama.ai/) for setup instructions.
+2. **Add environment variable**: Add the base URL of your Ollama instance to your GrowthBook instance as an environment variable. The variable should be named `OLLAMA_BASE_URL`.
+
+   For example, if you are using Docker, you can add the following line to your `docker-compose.yml` file:
+
+   ```yaml
+   environment:
+     - OLLAMA_BASE_URL=https://your-ollama-instance-url
+   ```
+
+   If you are running GrowthBook in a different environment, refer to your platform's documentation on how to set environment variables.
+
+3. **Configure GrowthBook**: In your GrowthBook settings, navigate to the AI settings tab and enable AI Ollama integration, and configure any additional prompts as desired.
+
 :::info AI features for self-hosted GrowthBook instances are part of the GrowthBook Enterprise plan.
 
 :::
 
-You can learn more from the [OpenAI Documentation](https://platform.openai.com/docs/).
+You can learn more from the [OpenAI Documentation](https://platform.openai.com/docs/) and [Ollama Documentation](https://ollama.ai/).
