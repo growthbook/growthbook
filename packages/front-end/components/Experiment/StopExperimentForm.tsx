@@ -138,6 +138,7 @@ const StopExperimentForm: FC<{
       releasedVariationId:
         experiment.releasedVariationId || recommendedReleaseVariationId || "",
       excludeFromPayload: !!experiment.excludeFromPayload,
+      analysis: experiment.analysis || "",
       results: experiment.results || recommendedResult,
       dateEnded: new Date().toISOString().substr(0, 16),
     },
