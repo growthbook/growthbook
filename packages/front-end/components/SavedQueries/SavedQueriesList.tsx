@@ -166,6 +166,7 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                           state={showReferences === i}
                           popperStyle={{ marginLeft: 50, marginTop: 15 }}
                           flipTheme={false}
+                          ignoreMouseEvents={true}
                           body={
                             <div
                               className="pl-3 pr-0 py-2"

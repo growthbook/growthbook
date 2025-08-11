@@ -31,13 +31,21 @@ const agreements: Record<
         third-party providers, automated recommendations, content generation, or
         data analysis.
         <Box mt="2">
-          For more information about how your data is used, please review our{" "}
+          For more information about how your data is used, please see our{" "}
+          <a
+            href="https://docs.growthbook.io/integrations/ai"
+            target="_blank"
+            rel="noreferrer"
+          >
+            AI docs
+          </a>
+          , review our{" "}
           <a
             href="https://www.growthbook.io/legal/privacy-policy/06-19-2025"
             target="_blank"
             rel="noreferrer"
           >
-            Privacy Notice
+            privacy notice
           </a>{" "}
           and OpenAI&apos;s{" "}
           <a

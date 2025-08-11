@@ -4,7 +4,6 @@ import {
   FeaturePrerequisite,
   SavedGroupTargeting,
 } from "back-end/types/feature";
-import Link from "next/link";
 import { isDefined } from "shared/util";
 import { SavedGroupInterface } from "shared/src/types";
 import { Flex } from "@radix-ui/themes";
@@ -223,14 +222,14 @@ function getConditionParts({
 
 function ParentIdLink({ parentId }: { parentId: string }) {
   return (
-    <Link
+    <a
       href={`/features/${parentId}`}
       key={`link-${parentId}`}
       className={`border px-2 bg-light rounded mr-1`}
       title="Manage Feature"
     >
       {parentId}
-    </Link>
+    </a>
   );
 }
 

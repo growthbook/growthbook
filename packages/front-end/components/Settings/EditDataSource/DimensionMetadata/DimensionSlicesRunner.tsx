@@ -362,7 +362,7 @@ export const DimensionSlicesResults: FC<{
                       <div>
                         {" "}
                         All other values:
-                        <Fragment key={`${metadata.dimension}--1`}>
+                        <Fragment key={`${metadata.dimension}--other`}>
                           {" "}
                           <code key={`${metadata.dimension}-code-_other_`}>
                             __Other__
