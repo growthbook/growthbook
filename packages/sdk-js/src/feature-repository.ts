@@ -548,7 +548,7 @@ function destroyChannel(channel: ScopedChannel, key: string) {
   streams.delete(key);
 }
 
-function clearAutoRefresh() {
+export function clearAutoRefresh() {
   // Clear list of which keys are auto-updated
   supportsSSE.clear();
 
