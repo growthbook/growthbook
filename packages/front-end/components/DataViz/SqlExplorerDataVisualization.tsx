@@ -139,45 +139,46 @@ export function DataVisualizationDisplay({
     return rows.filter((row) => {
       return filters.every((filter) => {
         const { column, type, filterType, config = {} } = filter;
-        const cellValue = row[column];
+        const rowValue = row[column];
 
         // Handle null/undefined values
-        if (cellValue == null) return false;
+        if (rowValue == null) return false;
 
         // Apply filter based on type and filterType
         switch (type) {
           case "date": {
-            const cellDate = new Date(cellValue as string);
-            if (isNaN(cellDate.getTime())) return false;
+            //MKTODO: This needs to be more robust - we should support both numbers and strings
+            const filterDate = new Date(rowValue as string);
+            if (isNaN(filterDate.getTime())) return false;
 
             switch (filterType) {
               case "today": {
                 const today = new Date();
-                const cellDateOnly = new Date(
-                  cellDate.getFullYear(),
-                  cellDate.getMonth(),
-                  cellDate.getDate()
+                const filterDateOnly = new Date(
+                  filterDate.getFullYear(),
+                  filterDate.getMonth(),
+                  filterDate.getDate()
                 );
                 const todayOnly = new Date(
                   today.getFullYear(),
                   today.getMonth(),
                   today.getDate()
                 );
-                return cellDateOnly.getTime() === todayOnly.getTime();
+                return filterDateOnly.getTime() === todayOnly.getTime();
               }
 
               case "last7Days": {
                 const now = new Date();
                 const sevenDaysAgo = new Date(now);
                 sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-                return cellDate >= sevenDaysAgo && cellDate <= now;
+                return filterDate >= sevenDaysAgo && filterDate <= now;
               }
 
               case "last30Days": {
                 const now = new Date();
                 const thirtyDaysAgo = new Date(now);
                 thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-                return cellDate >= thirtyDaysAgo && cellDate <= now;
+                return filterDate >= thirtyDaysAgo && filterDate <= now;
               }
 
               case "dateRange": {
@@ -188,8 +189,8 @@ export function DataVisualizationDisplay({
                   ? new Date(config.endDate as string)
                   : null;
 
-                if (startDate && cellDate < startDate) return false;
-                if (endDate && cellDate > endDate) return false;
+                if (startDate && filterDate < startDate) return false;
+                if (endDate && filterDate > endDate) return false;
                 return true;
               }
 
@@ -199,8 +200,7 @@ export function DataVisualizationDisplay({
           }
 
           case "number": {
-            const cellNumber = Number(cellValue);
-            if (isNaN(cellNumber)) return false;
+            if (isNaN(rowValue)) return false;
 
             switch (filterType) {
               case "numberRange": {
@@ -209,27 +209,27 @@ export function DataVisualizationDisplay({
                 const max =
                   config.max !== undefined ? Number(config.max) : null;
 
-                if (min !== null && cellNumber < min) return false;
-                if (max !== null && cellNumber > max) return false;
+                if (min !== null && rowValue < min) return false;
+                if (max !== null && rowValue > max) return false;
                 return true;
               }
 
               case "greaterThan": {
                 const threshold =
                   config.value !== undefined ? Number(config.value) : null;
-                return threshold !== null ? cellNumber >= threshold : true;
+                return threshold !== null ? rowValue > threshold : true;
               }
 
               case "lessThan": {
                 const threshold =
                   config.value !== undefined ? Number(config.value) : null;
-                return threshold !== null ? cellNumber <= threshold : true;
+                return threshold !== null ? rowValue < threshold : true;
               }
 
               case "equals": {
                 const target =
                   config.value !== undefined ? Number(config.value) : null;
-                return target !== null ? cellNumber === target : true;
+                return target !== null ? rowValue === target : true;
               }
 
               default:
