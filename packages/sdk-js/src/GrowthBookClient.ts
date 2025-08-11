@@ -211,7 +211,7 @@ export class GrowthBookClient<
     this._options.globalAttributes = attributes;
   }
 
-  public destroy(options: DestroyOptions) {
+  public destroy(options?: DestroyOptions) {
     options = options || {};
     this._destroyed = true;
     unsubscribe(this);
