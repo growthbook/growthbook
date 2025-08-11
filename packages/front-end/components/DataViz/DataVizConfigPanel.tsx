@@ -7,6 +7,7 @@ import {
   yAxisAggregationType,
 } from "back-end/src/validators/saved-queries";
 import { Select, SelectItem } from "@/components/Radix/Select";
+import Checkbox from "@/components/Radix/Checkbox";
 
 function inferFieldType(
   sampleRow: Record<string, unknown>,
@@ -59,12 +60,32 @@ const filterOptions = [
   { value: "numberRange", label: "Custom Range", supportedTypes: ["number"] },
   { value: "greaterThan", label: "Greater Than", supportedTypes: ["number"] },
   { value: "lessThan", label: "Less Than", supportedTypes: ["number"] },
-  { value: "equals", label: "Equals", supportedTypes: ["number", "string"] },
+  { value: "equals", label: "Equals", supportedTypes: ["number"] },
+
+  // String filters
+  { value: "includes", label: "Select Values", supportedTypes: ["string"] },
+  { value: "contains", label: "Text Search", supportedTypes: ["string"] },
 ];
+
+function getUniqueValuesFromColumn(
+  rows: Record<string, unknown>[],
+  columnName: string
+): string[] {
+  const uniqueValues = new Set<string>();
+
+  rows.forEach((row) => {
+    const value = row[columnName];
+    if (value != null) {
+      uniqueValues.add(String(value));
+    }
+  });
+
+  return Array.from(uniqueValues).sort();
+}
 
 type ColumnFilterOption = {
   column: string;
-  knownType?: "date" | "number";
+  knownType?: "date" | "number" | "string";
 };
 
 function getColumnFilterOptions(
@@ -91,18 +112,16 @@ function getColumnFilterOptions(
     });
   }
 
-  // Only add date/number columns from sample data
+  // Add all columns from sample data (including strings now)
   Object.keys(sampleRow).forEach((sampleRowColumn) => {
     if (
       !filterableColumns.some((column) => column.column === sampleRowColumn)
     ) {
       const inferredType = inferFieldType(sampleRow, sampleRowColumn);
-      if (inferredType === "date" || inferredType === "number") {
-        filterableColumns.push({
-          column: sampleRowColumn,
-          knownType: inferredType,
-        });
-      }
+      filterableColumns.push({
+        column: sampleRowColumn,
+        knownType: inferredType,
+      });
     }
   });
 
@@ -111,10 +130,12 @@ function getColumnFilterOptions(
 
 export default function DataVizConfigPanel({
   sampleRow,
+  rows,
   dataVizConfig,
   onDataVizConfigChange,
 }: {
   sampleRow: Record<string, unknown>;
+  rows?: Record<string, unknown>[];
   dataVizConfig: Partial<DataVizConfig>;
   onDataVizConfigChange: (dataVizConfig: Partial<DataVizConfig>) => void;
 }) {
@@ -591,7 +612,12 @@ export default function DataVizConfigPanel({
                           columnFilterOptions.find(
                             (option) => option.column === v
                           )?.knownType || getInferredFieldType(v),
-                        filterType: "today", // Default filter type
+                        filterType:
+                          v === "date"
+                            ? "today"
+                            : v === "number"
+                            ? "equals"
+                            : "contains",
                       },
                     ],
               });
@@ -629,7 +655,12 @@ export default function DataVizConfigPanel({
                             ...currentFilter,
                             type: v as "string" | "number" | "date",
                             // Clear config and set appropriate default filterType when changing type
-                            filterType: v === "date" ? "today" : "equals",
+                            filterType:
+                              v === "date"
+                                ? "today"
+                                : v === "number"
+                                ? "equals"
+                                : "contains",
                             config: {},
                           },
                         ],
@@ -734,6 +765,51 @@ export default function DataVizConfigPanel({
                           ))}
                       </Select>
                     </>
+                  ) : dataVizConfig.filter?.[0].type === "string" ? (
+                    <>
+                      <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
+                        Filter Options
+                      </Text>
+                      <Select
+                        style={{ flex: 1 }}
+                        size="2"
+                        placeholder="Select Option"
+                        value={dataVizConfig.filter?.[0]?.filterType || ""}
+                        setValue={(v) => {
+                          if (!v || !dataVizConfig.filter?.[0]) return;
+
+                          const currentFilter = dataVizConfig.filter[0];
+                          onDataVizConfigChange({
+                            ...dataVizConfig,
+                            filter: [
+                              {
+                                ...currentFilter,
+                                filterType: v as FilterConfiguration["filterType"],
+                                // Clear config when changing filter type
+                                config: {},
+                              },
+                            ],
+                          });
+                        }}
+                      >
+                        {filterOptions
+                          .filter(
+                            (filterOption) =>
+                              dataVizConfig.filter?.[0]?.type &&
+                              filterOption.supportedTypes.includes(
+                                dataVizConfig.filter[0].type
+                              )
+                          )
+                          .map((filterOption) => (
+                            <SelectItem
+                              key={filterOption.value}
+                              value={filterOption.value}
+                            >
+                              {filterOption.label}
+                            </SelectItem>
+                          ))}
+                      </Select>
+                    </>
                   ) : null}
                 </Flex>
 
@@ -748,7 +824,9 @@ export default function DataVizConfigPanel({
                         style={{ flex: 1 }}
                         size="2"
                         type="date"
-                        value={dataVizConfig.filter[0].config?.startDate || ""}
+                        value={String(
+                          dataVizConfig.filter[0].config?.startDate || ""
+                        )}
                         onChange={(e) => {
                           if (!dataVizConfig.filter?.[0]) return;
 
@@ -777,7 +855,9 @@ export default function DataVizConfigPanel({
                         style={{ flex: 1 }}
                         size="2"
                         type="date"
-                        value={dataVizConfig.filter[0].config?.endDate || ""}
+                        value={String(
+                          dataVizConfig.filter[0].config?.endDate || ""
+                        )}
                         onChange={(e) => {
                           if (!dataVizConfig.filter?.[0]) return;
 
@@ -935,6 +1015,177 @@ export default function DataVizConfigPanel({
                           });
                         }}
                       />
+                    </Flex>
+                  )}
+
+                {/* String Filter Inputs */}
+                {dataVizConfig.filter?.[0]?.type === "string" &&
+                  dataVizConfig.filter?.[0]?.filterType === "contains" && (
+                    <Flex direction="row" justify="between" align="center">
+                      <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
+                        Search Text
+                      </Text>
+                      <TextField.Root
+                        style={{ flex: 1 }}
+                        size="2"
+                        type="text"
+                        placeholder="Enter text to search for"
+                        value={String(
+                          dataVizConfig.filter[0].config?.value || ""
+                        )}
+                        onChange={(e) => {
+                          if (!dataVizConfig.filter?.[0]) return;
+
+                          const currentFilter = dataVizConfig.filter[0];
+                          const value = e.target.value;
+
+                          // Only update config with defined values
+                          const newConfig = { ...currentFilter.config };
+                          if (value) {
+                            newConfig.value = value;
+                          } else {
+                            delete newConfig.value;
+                          }
+
+                          onDataVizConfigChange({
+                            ...dataVizConfig,
+                            filter: [
+                              {
+                                ...currentFilter,
+                                config: newConfig,
+                              },
+                            ],
+                          });
+                        }}
+                      />
+                    </Flex>
+                  )}
+
+                {/* String Multi-Select Filter */}
+                {dataVizConfig.filter?.[0]?.type === "string" &&
+                  dataVizConfig.filter?.[0]?.filterType === "includes" &&
+                  rows && (
+                    <Flex direction="column" gap="2">
+                      <Text as="label" size="2" weight="medium">
+                        Select Values
+                      </Text>
+                      {(() => {
+                        const columnName = dataVizConfig.filter[0].column;
+                        const uniqueValues = getUniqueValuesFromColumn(
+                          rows,
+                          columnName
+                        );
+                        const selectedValues = Array.isArray(
+                          dataVizConfig.filter[0].config?.values
+                        )
+                          ? (dataVizConfig.filter[0].config.values as string[])
+                          : [];
+
+                        return (
+                          <Flex
+                            direction="column"
+                            gap="1"
+                            style={{ maxHeight: "200px", overflowY: "auto" }}
+                          >
+                            {/* Select All / None */}
+                            <Flex direction="row" align="center" gap="2">
+                              <Checkbox
+                                value={
+                                  selectedValues.length === uniqueValues.length
+                                }
+                                setValue={(checked) => {
+                                  if (!dataVizConfig.filter?.[0]) return;
+
+                                  const currentFilter = dataVizConfig.filter[0];
+                                  const newConfig: Record<string, any> = {
+                                    ...currentFilter.config,
+                                  };
+
+                                  if (checked) {
+                                    newConfig.values = uniqueValues;
+                                  } else {
+                                    delete newConfig.values;
+                                  }
+
+                                  onDataVizConfigChange({
+                                    ...dataVizConfig,
+                                    filter: [
+                                      {
+                                        ...currentFilter,
+                                        config: newConfig,
+                                      },
+                                    ],
+                                  });
+                                }}
+                              />
+                              <Text size="2" weight="medium">
+                                {selectedValues.length === uniqueValues.length
+                                  ? "Deselect All"
+                                  : "Select All"}
+                              </Text>
+                              <Text size="1" color="gray">
+                                ({selectedValues.length} of{" "}
+                                {uniqueValues.length} selected)
+                              </Text>
+                            </Flex>
+
+                            {/* Individual value checkboxes */}
+                            {uniqueValues.map((value) => (
+                              <Flex
+                                key={value}
+                                direction="row"
+                                align="center"
+                                gap="2"
+                              >
+                                <Checkbox
+                                  value={selectedValues.includes(value)}
+                                  setValue={(checked) => {
+                                    if (!dataVizConfig.filter?.[0]) return;
+
+                                    const currentFilter =
+                                      dataVizConfig.filter[0];
+                                    const currentValues = Array.isArray(
+                                      currentFilter.config?.values
+                                    )
+                                      ? (currentFilter.config
+                                          .values as string[])
+                                      : [];
+
+                                    let newValues: string[];
+                                    if (checked) {
+                                      newValues = [...currentValues, value];
+                                    } else {
+                                      newValues = currentValues.filter(
+                                        (v) => v !== value
+                                      );
+                                    }
+
+                                    const newConfig: Record<string, any> = {
+                                      ...currentFilter.config,
+                                    };
+                                    if (newValues.length > 0) {
+                                      newConfig.values = newValues;
+                                    } else {
+                                      delete newConfig.values;
+                                    }
+
+                                    onDataVizConfigChange({
+                                      ...dataVizConfig,
+                                      filter: [
+                                        {
+                                          ...currentFilter,
+                                          config: newConfig,
+                                        },
+                                      ],
+                                    });
+                                  }}
+                                />
+                                <Text size="2">{value}</Text>
+                              </Flex>
+                            ))}
+                          </Flex>
+                        );
+                      })()}
                     </Flex>
                   )}
               </Flex>

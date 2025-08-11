@@ -66,9 +66,14 @@ const filterConfigurationValidator = z.object({
     "greaterThan",
     "lessThan",
     "equals",
+    // String filters
+    "includes", // Multi-select from unique values
+    "contains", // Text search/substring match
   ]),
   // Static configuration values (e.g., for custom ranges)
-  config: z.record(z.union([z.string(), z.number()])).optional(),
+  config: z
+    .record(z.union([z.string(), z.number(), z.array(z.string())]))
+    .optional(),
 });
 
 export type FilterConfiguration = z.infer<typeof filterConfigurationValidator>;

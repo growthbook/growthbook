@@ -237,6 +237,32 @@ export function DataVisualizationDisplay({
             }
           }
 
+          case "string": {
+            switch (filterType) {
+              case "contains": {
+                const searchText =
+                  config.value !== undefined ? String(config.value) : null;
+                return searchText !== null
+                  ? String(rowValue)
+                      .toLowerCase()
+                      .includes(searchText.toLowerCase())
+                  : true;
+              }
+
+              case "includes": {
+                const selectedValues = Array.isArray(config.values)
+                  ? config.values.map((v) => String(v))
+                  : [];
+                return selectedValues.length === 0
+                  ? false
+                  : selectedValues.includes(String(rowValue));
+              }
+
+              default:
+                return true;
+            }
+          }
+
           default:
             return true;
         }
@@ -696,6 +722,7 @@ export function SqlExplorerDataVisualization({
               <Box p="4" style={{ overflow: "auto", height: "100%" }}>
                 <DataVizConfigPanel
                   sampleRow={rows[0]}
+                  rows={rows}
                   dataVizConfig={dataVizConfig}
                   onDataVizConfigChange={onDataVizConfigChange}
                 />
