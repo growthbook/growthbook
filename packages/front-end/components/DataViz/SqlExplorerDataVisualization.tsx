@@ -132,52 +132,114 @@ export function DataVisualizationDisplay({
     return parsed.success;
   }, [dataVizConfig]);
 
-  console.log("dataVizConfig", dataVizConfig);
-
   const filteredRows = useMemo(() => {
     const filters = dataVizConfig.filter;
     if (!filters || filters.length === 0) return rows;
 
     return rows.filter((row) => {
-      // ✅ Row must satisfy *all* filters
       return filters.every((filter) => {
-        const { column, type, rules } = filter;
+        const { column, type, filterType, config = {} } = filter;
         const cellValue = row[column];
 
-        // ✅ Filter must satisfy *all* its rules
-        return rules.every(({ operator, value }) => {
-          let left = cellValue;
-          let right = value;
+        // Handle null/undefined values
+        if (cellValue == null) return false;
 
-          // Convert values if needed
-          if (type === "date") {
-            left = new Date(cellValue).getTime();
-            right = new Date(value).getTime();
-          } else if (type === "number") {
-            left = Number(cellValue);
-            right = Number(value);
+        // Apply filter based on type and filterType
+        switch (type) {
+          case "date": {
+            const cellDate = new Date(cellValue as string);
+            if (isNaN(cellDate.getTime())) return false;
+
+            switch (filterType) {
+              case "today": {
+                const today = new Date();
+                const cellDateOnly = new Date(
+                  cellDate.getFullYear(),
+                  cellDate.getMonth(),
+                  cellDate.getDate()
+                );
+                const todayOnly = new Date(
+                  today.getFullYear(),
+                  today.getMonth(),
+                  today.getDate()
+                );
+                return cellDateOnly.getTime() === todayOnly.getTime();
+              }
+
+              case "last7Days": {
+                const now = new Date();
+                const sevenDaysAgo = new Date(now);
+                sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+                return cellDate >= sevenDaysAgo && cellDate <= now;
+              }
+
+              case "last30Days": {
+                const now = new Date();
+                const thirtyDaysAgo = new Date(now);
+                thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+                return cellDate >= thirtyDaysAgo && cellDate <= now;
+              }
+
+              case "dateRange": {
+                const startDate = config.startDate
+                  ? new Date(config.startDate as string)
+                  : null;
+                const endDate = config.endDate
+                  ? new Date(config.endDate as string)
+                  : null;
+
+                if (startDate && cellDate < startDate) return false;
+                if (endDate && cellDate > endDate) return false;
+                return true;
+              }
+
+              default:
+                return true;
+            }
           }
 
-          // Apply operator dynamically
-          switch (operator) {
-            // case ">":
-            //   return left > right;
-            case ">=":
-              return left >= right;
-            // case "<":
-            //   return left < right;
-            case "<=":
-              return left <= right;
-            // case "=":
-            // case "==":
-            //   return left === right;
-            // case "!=":
-            //   return left !== right;
-            default:
-              console.warn(`Unknown operator: ${operator}`);
-              return true; // Fallback: ignore bad operator
+          case "number": {
+            const cellNumber = Number(cellValue);
+            if (isNaN(cellNumber)) return false;
+
+            switch (filterType) {
+              case "numberRange": {
+                const min =
+                  config.min !== undefined ? Number(config.min) : null;
+                const max =
+                  config.max !== undefined ? Number(config.max) : null;
+
+                if (min !== null && cellNumber < min) return false;
+                if (max !== null && cellNumber > max) return false;
+                return true;
+              }
+
+              case "greaterThan": {
+                const threshold =
+                  config.value !== undefined ? Number(config.value) : null;
+                return threshold !== null ? cellNumber >= threshold : true;
+              }
+
+              case "lessThan": {
+                const threshold =
+                  config.value !== undefined ? Number(config.value) : null;
+                return threshold !== null ? cellNumber <= threshold : true;
+              }
+
+              case "equals": {
+                const target =
+                  config.value !== undefined ? Number(config.value) : null;
+                return target !== null ? cellNumber === target : true;
+              }
+
+              default:
+                return true;
+            }
           }
-        });
+
+          default:
+            return true;
+        }
       });
     });
   }, [dataVizConfig.filter, rows]);

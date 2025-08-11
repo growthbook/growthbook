@@ -49,16 +49,26 @@ const dimensionAxisConfigurationValidator = z.object({
 export type dimensionAxisConfiguration = z.infer<
   typeof dimensionAxisConfigurationValidator
 >;
-
-const filterRuleValidator = z.object({
-  operator: z.enum([">=", "<="]),
-  value: z.union([z.string(), z.number()]),
-});
-
 const filterConfigurationValidator = z.object({
   column: z.string(),
   type: z.enum(["string", "number", "date"]),
-  rules: z.array(filterRuleValidator),
+  filterType: z.enum([
+    // Date filters
+    "dateRange",
+    "today",
+    "last7Days",
+    "last30Days",
+    "thisWeek",
+    "thisMonth",
+    "thisYear",
+    // Number filters
+    "numberRange",
+    "greaterThan",
+    "lessThan",
+    "equals",
+  ]),
+  // Static configuration values (e.g., for custom ranges)
+  config: z.record(z.union([z.string(), z.number()])).optional(),
 });
 
 export type FilterConfiguration = z.infer<typeof filterConfigurationValidator>;
