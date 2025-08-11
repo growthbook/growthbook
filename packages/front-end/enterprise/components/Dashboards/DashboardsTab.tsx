@@ -1,5 +1,5 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { Fragment, useCallback, useEffect, useState } from "react";
 import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
 import {
   DashboardBlockInterfaceOrData,
@@ -330,14 +330,14 @@ export default function DashboardsTab({
                             {dashboards.length > 1 && <SelectSeparator />}
                           </>
                         )}
-                        {dashboards.map((dash) => (
-                          <>
+                        {dashboards.map((dash, i) => (
+                          <Fragment key={`dash-${i}`}>
                             {dash.id === defaultDashboard?.id ? null : (
                               <SelectItem key={dash.id} value={dash.id}>
                                 {dash.title}
                               </SelectItem>
                             )}
-                          </>
+                          </Fragment>
                         ))}
                       </Select>
                       {canCreate && (
