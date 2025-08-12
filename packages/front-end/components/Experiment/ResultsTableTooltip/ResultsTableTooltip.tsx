@@ -20,6 +20,7 @@ import {
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { PiInfo } from "react-icons/pi";
+import { upperFirst } from "lodash";
 import { getEffectLabel, RowResults } from "@/services/experiments";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricValueColumn from "@/components/Experiment/MetricValueColumn";
@@ -267,13 +268,15 @@ export default function ResultsTableTooltip({
                 {data.metric.name}
               </Text>
               <PercentileLabel metric={data.metric} />
-              <span className="small text-muted ml-2">
+              <Text weight="regular" size="2" color="gray" ml="2">
                 (
-                {isFactMetric(data.metric)
-                  ? data.metric.metricType
-                  : data.metric.type}
+                {upperFirst(
+                  isFactMetric(data.metric)
+                    ? data.metric.metricType
+                    : data.metric.type
+                )}
                 )
-              </span>
+              </Text>
               {metricInverseIconDisplay}
             </Flex>
 

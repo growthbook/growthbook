@@ -9,9 +9,9 @@ import {
   MetricSnapshotSettings,
   ExperimentReportVariationWithIndex,
 } from "back-end/types/report";
+import React from "react";
 import { pValueFormatter, RowResults } from "@/services/experiments";
 import styles from "./FlagCard.module.scss";
-import React from "react";
 
 const numberFormatter = Intl.NumberFormat(undefined, {
   notation: "compact",
@@ -225,9 +225,7 @@ export default function FlagCard({
             label="Suspicious"
             tooltip={data.rowResults.suspiciousChangeReason}
             value={
-              <span style={{ color: "var(--violet-a11)" }}>
-                suspicious
-              </span>
+              <span style={{ color: "var(--violet-a11)" }}>suspicious</span>
             }
           />
         ) : null}
