@@ -1256,7 +1256,7 @@ export default abstract class SqlIntegration
         const dimensionData: Record<string, string> = {};
         Object.entries(row)
           .filter(([key, _]) => key.startsWith("dim_"))
-          .map(([key, value]) => {
+          .forEach(([key, value]) => {
             dimensionData[key] = value;
           });
 
@@ -1288,7 +1288,7 @@ export default abstract class SqlIntegration
         const dimensionData: Record<string, string> = {};
         Object.entries(row)
           .filter(([key, _]) => key.startsWith("dim"))
-          .map(([key, value]) => {
+          .forEach(([key, value]) => {
             dimensionData[key] = value;
           });
         return {
@@ -1542,7 +1542,7 @@ export default abstract class SqlIntegration
     baseIdType: string,
     metrics: ExperimentMetricInterface[],
     endDate: Date,
-    dimensionCols: { value: string; alias: string }[],
+    dimensionCols: DimensionColumnData[],
     regressionAdjusted: boolean = false,
     cumulativeDate: boolean = false,
     overrideConversionWindows: boolean = false,
@@ -2646,8 +2646,8 @@ export default abstract class SqlIntegration
     );
 
     const computeOnActivatedUsersOnly =
-      activationMetric &&
-      !params.dimensions.find((d) => d.type === "activation");
+      activationMetric !== null &&
+      !params.dimensions.some((d) => d.type === "activation");
     const timestampColumn = computeOnActivatedUsersOnly
       ? "first_activation_timestamp"
       : "first_exposure_timestamp";
@@ -3320,8 +3320,8 @@ export default abstract class SqlIntegration
     }
 
     const computeOnActivatedUsersOnly =
-      activationMetric &&
-      !params.dimensions.find((d) => d.type === "activation");
+      activationMetric !== null &&
+      !params.dimensions.some((d) => d.type === "activation");
     const timestampColumn = computeOnActivatedUsersOnly
       ? "first_activation_timestamp"
       : "first_exposure_timestamp";
