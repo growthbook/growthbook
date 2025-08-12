@@ -43,47 +43,21 @@ export interface Props {
   ssrPolyfills?: SSRPolyfills;
 }
 
-export default function DimensionChooser({
-  value,
-  setValue,
+export function getDimensionOptions({
   precomputedDimensions,
-  datasourceId,
+  datasource,
+  dimensions,
+  activationMetric,
   exposureQueryId,
   userIdType,
-  activationMetric,
-  userIdType,
-  labelClassName,
-  showHelp,
-  newUi = true,
-  resetAnalysisBarSettings,
-  analysis,
-  snapshot,
-  mutate,
-  setSnapshotDimension,
-  setAnalysisSettings,
-  disabled,
-  ssrPolyfills,
-}: Props) {
-  const { apiCall } = useAuth();
-
-  const [postLoading, setPostLoading] = useState(false);
-  const { dimensions, getDatasourceById, getDimensionById } = useDefinitions();
-  const { dimensionless: standardSnapshot } = useSnapshot();
-  const datasource = datasourceId ? getDatasourceById(datasourceId) : null;
-
-  // If activation metric is not selected, don't allow using that dimension
-  useEffect(() => {
-    if (value === "pre:activation" && !activationMetric) {
-      setValue?.("");
-    }
-  }, [value, setValue, activationMetric]);
-
-  const triggerAnalysisUpdate = useCallback(analysisUpdate, [
-    analysis,
-    snapshot,
-    apiCall,
-  ]);
-
+}: {
+  precomputedDimensions?: string[];
+  datasource: DataSourceInterfaceWithParams | null;
+  dimensions: DimensionInterface[];
+  exposureQueryId?: string;
+  userIdType?: string;
+  activationMetric?: boolean;
+}): GroupedValue[] {
   // Include user dimensions tied to the datasource
   const filteredDimensions = dimensions
     .filter((d) => d.datasource === datasource?.id)
@@ -145,6 +119,75 @@ export default function DimensionChooser({
 
   const onDemandDimensions = [...builtInDimensions, ...filteredDimensions];
 
+  return [
+    ...(precomputedDimensionOptions.length > 0
+      ? [
+          {
+            label: "Pre-computed",
+            options: precomputedDimensionOptions,
+          },
+        ]
+      : []),
+    ...(onDemandDimensions.length > 0
+      ? [
+          {
+            label: "On-demand",
+            options: onDemandDimensions,
+          },
+        ]
+      : []),
+  ];
+}
+
+export default function DimensionChooser({
+  value,
+  setValue,
+  precomputedDimensions,
+  datasourceId,
+  exposureQueryId,
+  activationMetric,
+  userIdType,
+  labelClassName,
+  showHelp,
+  newUi = true,
+  analysis,
+  snapshot,
+  mutate,
+  setSnapshotDimension,
+  setAnalysisSettings,
+  resetAnalysisBarSettings,
+  disabled,
+  ssrPolyfills,
+}: Props) {
+  const { apiCall } = useAuth();
+
+  const [postLoading, setPostLoading] = useState(false);
+  const { dimensions, getDatasourceById, getDimensionById } = useDefinitions();
+  const { dimensionless: standardSnapshot } = useSnapshot();
+  const datasource = datasourceId ? getDatasourceById(datasourceId) : null;
+
+  // If activation metric is not selected, don't allow using that dimension
+  useEffect(() => {
+    if (value === "pre:activation" && !activationMetric) {
+      setValue?.("");
+    }
+  }, [value, setValue, activationMetric]);
+
+  const triggerAnalysisUpdate = useCallback(analysisUpdate, [
+    analysis,
+    snapshot,
+    apiCall,
+  ]);
+
+  const dimensionOptions = getDimensionOptions({
+    precomputedDimensions,
+    exposureQueryId,
+    userIdType,
+    datasource,
+    dimensions,
+    activationMetric,
+  });
+
   if (disabled) {
     const dimensionName =
       ssrPolyfills?.getDimensionById?.(value)?.name ||
@@ -169,24 +212,7 @@ export default function DimensionChooser({
           label={newUi ? undefined : "Dimension"}
           labelClassName={labelClassName}
           containerClassName={newUi ? "select-dropdown-underline" : ""}
-          options={[
-            ...(precomputedDimensionOptions.length > 0
-              ? [
-                  {
-                    label: "Pre-computed",
-                    options: precomputedDimensionOptions,
-                  },
-                ]
-              : []),
-            ...(onDemandDimensions.length > 0
-              ? [
-                  {
-                    label: "On-demand",
-                    options: onDemandDimensions,
-                  },
-                ]
-              : []),
-          ]}
+          options={dimensionOptions}
           formatGroupLabel={({ label }) => (
             <div className="pt-2 pb-1 border-bottom">{label}</div>
           )}
