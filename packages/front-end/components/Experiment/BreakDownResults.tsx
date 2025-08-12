@@ -287,24 +287,6 @@ const BreakDownResults: FC<{
           };
         }
 
-        if (showErrorsOnQuantileMetrics && quantileMetricType(newMetric)) {
-          return {
-            metric: newMetric,
-            isGuardrail: resultGroup === "guardrail",
-            rows: [
-              {
-                label: "",
-                metric: newMetric,
-                variations: [],
-                metricSnapshotSettings,
-                resultGroup,
-                metricOverrideFields: overrideFields,
-                error: RowError.QUANTILE_AGGREGATION_ERROR,
-              },
-            ],
-          };
-        }
-
         const rows: ExperimentTableRow[] = results
           .filter((d) => includeVariation(d, dimensionValuesFilter))
           .map((d) => ({
