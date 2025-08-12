@@ -81,7 +81,6 @@ export type AppFeatures = {
   "experiment-results-timeseries": boolean;
   "safe-rollout": boolean;
   "safe-rollout-promo": boolean;
-  "ai-suggestions-for-experiment-analysis-input": boolean;
   "safe-rollout-auto-rollback": boolean;
   "safe-rollout-ramp-up": boolean;
   "new-exec-reports": boolean;
@@ -93,8 +92,9 @@ export type AppFeatures = {
   "sql-explorer": boolean;
   "pre-computed-dimensions": boolean;
   "ai-suggestions-temperature": number;
-  asdf: boolean;
+  "ai-suggestions-for-experiment-analysis-input": boolean;
   "similar-experiments": boolean;
+  asdf: boolean;
   "experiment-dashboards-enabled": boolean;
   holdouts_feature: boolean;
 };

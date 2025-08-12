@@ -988,7 +988,7 @@ main.main {
   margin: 0 auto;
 }
 .gbtable {
-  background-color: var(--surface-background-color);
+  background-color: var(--color-panel-solid); //var(--surface-background-color);
   margin-bottom: 0;
   thead {
     th {

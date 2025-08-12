@@ -10,6 +10,7 @@ import {
   isDefined,
 } from "shared/util";
 import {
+  expandMetricGroups,
   getAllMetricIdsFromExperiment,
   getAllMetricSettingsForSnapshot,
 } from "shared/experiments";
@@ -41,6 +42,7 @@ import { MetricInterface, MetricStats } from "back-end/types/metric";
 import {
   createExperiment,
   deleteExperimentByIdForOrganization,
+  generateExperimentEmbeddings,
   getAllExperiments,
   getExperimentById,
   getExperimentByTrackingKey,
@@ -68,6 +70,7 @@ import {
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import {
+  getAISettingsForOrg,
   getContextForAgendaJobByOrgId,
   getContextFromReq,
 } from "back-end/src/services/organizations";
@@ -125,6 +128,12 @@ import { CreateURLRedirectProps } from "back-end/types/url-redirect";
 import { logger } from "back-end/src/util/logger";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { generateExperimentReportSSRData } from "back-end/src/services/reports";
+import {
+  cosineSimilarity,
+  generateEmbeddings,
+  secondsUntilAICanBeUsedAgain,
+  simpleCompletion,
+} from "back-end/src/enterprise/services/openai";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
 
@@ -166,6 +175,404 @@ export async function getExperiments(
     experiments,
     hasArchived,
     holdouts,
+  });
+}
+
+/* Post endpoint to use OpenAI library to generate an analysis for a given
+experiment based on the id, and the suggested results, winner and releasedVariationId*/
+export async function postAIExperimentAnalysis(
+  req: AuthRequest<
+    { results: string; winner: number; releasedVariationId: string },
+    { id: string }
+  >,
+  res: Response<{
+    status: number;
+    message?: string;
+    retryAfter?: number;
+    data?: {
+      description: string;
+    };
+  }>
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  const { results, winner, releasedVariationId } = req.body;
+
+  const experiment = await getExperimentById(context, id);
+  if (!experiment) {
+    return res.status(404).json({
+      status: 404,
+      message: "Experiment not found",
+    });
+  }
+  const { aiEnabled } = getAISettingsForOrg(context);
+
+  if (!aiEnabled) {
+    return res.status(404).json({
+      status: 404,
+      message: "AI configuration not set or enabled",
+    });
+  }
+
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
+  if (secondsUntilReset > 0) {
+    return res.status(429).json({
+      status: 429,
+      message: "Over AI usage limits",
+      retryAfter: secondsUntilReset,
+    });
+  }
+
+  const phase = experiment.phases.length - 1;
+  const snapshot =
+    (await getLatestSnapshot({
+      experiment: experiment.id,
+      phase,
+      type: "standard",
+    })) || undefined;
+
+  const winnerVariationName =
+    experiment.variations[winner]?.name || "none chosen";
+  const releasedVariationName =
+    experiment.variations.find((v) => v.id === releasedVariationId)?.name || "";
+
+  const allMetricGroups = await context.models.metricGroups.getAll();
+  const experimentMetricIds = expandMetricGroups(
+    getAllMetricIdsFromExperiment(experiment, false),
+    allMetricGroups
+  );
+
+  const allOrgMetrics = await getMetricMap(context);
+  const experimentMetrics = experimentMetricIds
+    .map((id) => allOrgMetrics.get(id))
+    .filter(isDefined);
+
+  const instructions =
+    "\nYou are an expert data analyst whose colleague has chosen a particular outcome for an A/B test. " +
+    "\nYou are fully aware of the experiment framework consisting of:" +
+    // Arguments
+    "\nThe chosen outcome can be 'dnf' which means 'did not finish', 'won' which means the experiment was successful, 'lost' which means none of the variations were as successful as the control, or 'inconclusive' which means no statistically significant result was detected." +
+    "\nIf the chosen outcome is 'dnf', 'inconclusive', or 'lost' then we stick with the control." +
+    "\nThe releasedVariationId is the variation that was released as a temporary rollout until the test can be removed from the codebase." +
+    "\nUsually the releasedVariationId is the same as the winning variation, but not always perhaps because the difference is not big enough to warrant the cost of maintaining the winning variant, or other external factors not measured by the metrics" +
+    // General context
+    "\nExperiments are A/B tests that evaluate the performance of different variations of a feature or product." +
+    "\nSnapshots are periodic summaries of experiment results, including metrics and statistical analyses." +
+    // Experiment structure
+    "\nAn Experiment object contains the following key fields:" +
+    "\n- id: A unique identifier for the experiment." +
+    "\n- name: The name of the experiment." +
+    "\n- status: The current status of the experiment (e.g., 'running', 'stopped')." +
+    "\n- variations: An array of variations being tested in the experiment. Each variation has an id, name, and description." +
+    "\n- phases: An array of phases, where each phase represents a time period during which the experiment was run with specific settings." +
+    "\n- results: A summary of the experiment's outcome (e.g., 'won', 'lost', 'inconclusive')." +
+    "\n- winner: The index of the winning variation, if applicable." +
+    "\n- releasedVariationId: The id of the variation that was released as a result of the experiment." +
+    "\n- analysis: A textual summary of the experiment's results and conclusions that you will come up with." +
+    "\n- metrics: Metrics are used to evaluate the performance of variations. These include goal metrics, guardrail metrics, and secondary metrics." +
+    "\n- linkedFeatures: A list of feature flags or features associated with the experiment." +
+    // Snapshot structure
+    "\nA Snapshot object contains the following key fields:" +
+    "\n- id: A unique identifier for the snapshot." +
+    "\n- experiment: The id of the experiment this snapshot belongs to." +
+    "\n- phase: The phase index of the experiment this snapshot corresponds to." +
+    "\n- status: The status of the snapshot (e.g., 'success', 'running', 'error')." +
+    "\n- results: An array of results for each variation in the experiment. Each result includes:" +
+    "\n  - name: The name of the variation." +
+    "\n  - srm: Sample Ratio Mismatch, a measure of whether traffic was evenly split." +
+    "\n  - variations: An array of metrics for each variation. Each metric includes:" +
+    "\n    - users: The number of users exposed to the variation." +
+    "\n    - metrics: A map of metric ids to their statistical results, including:" +
+    "\n      - value: The observed value of the metric." +
+    "\n      - cr: Conversion rate for the metric. For metrics with 'revenue' type this is in the local currency, for count it is a number, for duration it is a time, and for binomial it is a percent" +
+    "\n      - ci: Confidence interval for the metric." +
+    "\n      - uplift: The uplift in performance compared to the baseline." +
+    "\n      - chanceToWin: The probability that this variation is better than others." +
+    "\n- health: Information about the health of the experiment, including traffic and statistical power." +
+    // Metrics and statistical concepts
+    "\nMetrics are used to evaluate the performance of variations in an experiment. They include:" +
+    "\n- Goal metrics: Metrics that measure the primary objectives of the experiment." +
+    "\n- Guardrail metrics: Metrics that ensure the experiment does not negatively impact critical areas." +
+    "\n- Secondary metrics: Additional metrics that provide context or insights." +
+    "\nStatistical concepts used in experiments include:" +
+    "\n- Confidence intervals: A range of values that likely contains the true effect size." +
+    "\n- Statistical power: The probability of detecting a true effect." +
+    "\n- Sample Ratio Mismatch (SRM): Indicates whether traffic was evenly split among variations." +
+    "\n- Chance to Win: The probability that a variation is better than others." +
+    // Metric types
+    "\nMetrics can be of the following types:" +
+    "\n- Binomial Metrics: Represent yes/no outcomes (e.g., conversion rates). The value is the proportion of users who converted (e.g., 10% means 10 out of 100 users converted)." +
+    "\n- Count Metrics: Represent the total count of events per user (e.g., pages viewed per user). The value is the average count per user." +
+    "\n- Duration Metrics: Represent the total time spent per user (e.g., time on site). The value is the average duration per user, typically in seconds or minutes." +
+    "\n- Revenue Metrics: Represent the total revenue generated per user. The value is in the local currency, and not a percent.  (e.g. For instance 6.58 means the average revenue per user was $6.58 on average)." +
+    // Statistical results
+    "\n- Statistical results for metrics include: Conversion Rate (CR)" +
+    "\n- Statistical results for metrics include: Value: Represents the total value of the metric across all users who saw the variation." +
+    "\n- Statistical results for metrics include: Confidence Interval (CI): Represents the range within which the true metric value is likely to fall." +
+    "\n- Statistical results for metrics include: Uplift: Represents the difference in metric performance between variations (e.g., the increase in average revenue per user for a variation compared to the baseline)." +
+    "\n- Statistical results for metrics include: Chance to Win: Represents the probability that a variation is better than others for this metric." +
+    // Metric interpretation
+    "\n- For binomial metrics, the CR represents the proportion of users who achieved the outcome (e.g., 6.58% means 6.58 out of 100 users converted)." +
+    "\n- For count metrics, the CR represents the average number of events per user (e.g., 6.58 means each user performed 6.58 actions on average)." +
+    "\n- For duration metrics, the CR represents the average time spent per user (e.g., 6.58 means each user spent 6.58 seconds or minutes on average, depending on the unit)." +
+    "\n- For revenue metrics, the CR represents the average revenue per user (e.g., $6.58 means each user generated $6.58 in revenue on average)." +
+    // Metric aggregation
+    "\nMetrics are aggregated at the user level before being averaged across all users in a variation." +
+    "\nFor example, in revenue metrics, the total revenue for all users in a variation is divided by the total number of users in that variation to calculate the average revenue per user." +
+    // Relationships between experiments and snapshots
+    "\nEach experiment can have multiple snapshots, one for each phase or analysis." +
+    "\nSnapshots summarize the results of an experiment at a specific point in time." +
+    "\nThe 'results' field in a snapshot provides detailed metrics and statistical analyses for each variation." +
+    // Relationships between experiments and metrics
+    "\nExperiments are evaluated using metrics, which are categorized into three types:" +
+    "\n- Goal metrics: These measure the primary objectives of the experiment and are used to determine success or failure." +
+    "\n- Guardrail metrics: These ensure that the experiment does not negatively impact critical areas of the product or business." +
+    "\n- Secondary metrics: These provide additional insights or context but are not the primary focus of the experiment." +
+    "\nEach metric is identified by a unique ID, which is referenced in the experiment's `goalMetrics`, `guardrailMetrics`, and `secondaryMetrics` fields." +
+    "\nThe `experimentMetrics` object is a map where the keys are metric IDs and the values are detailed metric objects. These objects include statistical results and metadata about the metrics." +
+    "\nTo evaluate the experiment, the metric IDs in the `goalMetrics`, `guardrailMetrics`, and `secondaryMetrics` fields should be matched to their corresponding metric objects in the `experimentMetrics` map." +
+    "\nEach metric object in the `experimentMetrics` map contains the following key fields:" +
+    "\n- `value`: The observed value of the metric." +
+    "\n- `cr`: The conversion rate for the metric." +
+    "\n- `ci`: The confidence interval for the metric." +
+    "\n- `uplift`: The uplift in performance compared to the baseline." +
+    "\n- `chanceToWin`: The probability that the variation is better than others for this metric." +
+    "\n- `pValue`: The p-value for the metric, indicating statistical significance." +
+    "\nThe `experimentMetrics` map provides the detailed results for each metric, which are used to analyze the performance of the variations in the experiment." +
+    "\nThe keys in the `experimentMetrics` map refer to the ids mentioned in the `goalMetrics`, `guardrailMetrics`, and `secondaryMetrics` fields of the experiment." +
+    "\nIf the snapshot is undefined then the experiment probably never started." +
+    "\n- the experiment data is: " +
+    JSON.stringify(experiment) +
+    "\n- the latest snapshot is: " +
+    JSON.stringify(snapshot) +
+    "\n- the experiment metrics are: " +
+    JSON.stringify(experimentMetrics) +
+    "\n- Your colleague has chosen the following outcome for the experiment:" +
+    results +
+    (results === "won"
+      ? "\n- the chosen winning variation is: " + winnerVariationName
+      : "") +
+    "\n- the released variation name is: " +
+    releasedVariationName;
+
+  const type = "experiment-analysis";
+  const {
+    isDefaultPrompt,
+    prompt,
+  } = await context.models.aiPrompts.getAIPrompt(type);
+
+  const aiResults = await simpleCompletion({
+    context,
+    instructions,
+    prompt: prompt,
+    type,
+    isDefaultPrompt,
+    temperature: 0.1,
+  });
+
+  res.status(200).json({
+    status: 200,
+    data: {
+      description: aiResults,
+    },
+  });
+}
+
+export async function postSimilarExperiments(
+  req: AuthRequest<{
+    hypothesis: string;
+    name: string;
+    description?: string;
+    project?: string;
+    full?: boolean;
+  }>,
+  res: Response<{
+    status: number;
+    message?: string;
+    retryAfter?: number;
+    similar?: {
+      experiment: ExperimentInterface;
+      similarity: number;
+    }[];
+  }>
+) {
+  const context = getContextFromReq(req);
+  const { hypothesis, name, description, project, full } = req.body;
+  const { aiEnabled } = getAISettingsForOrg(context);
+
+  if (!aiEnabled) {
+    return res.status(404).json({
+      status: 404,
+      message: "AI configuration not set or enabled",
+    });
+  }
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
+  if (secondsUntilReset > 0) {
+    return res.status(429).json({
+      status: 429,
+      message: "Over AI usage limits",
+      retryAfter: secondsUntilReset,
+    });
+  }
+
+  // make sure we have enough words in the hypothesis and name for good results:
+  const words =
+    (hypothesis || "").split(" ").length + (name || "").split(" ").length;
+  if (words < 4) {
+    return res.status(200).json({
+      status: 200,
+      message: "Need more words for quality results",
+    });
+  }
+  const previousExperiments: ExperimentInterface[] = await getAllExperiments(
+    context,
+    {
+      project: project ? project : "",
+      includeArchived: false,
+    }
+  );
+  // filter to only experiments that have hypothesises, and enough words to make a good search:
+  const filteredPreviousExps = previousExperiments.filter((e) => {
+    const words =
+      (e.hypothesis || "").split(" ").length + (e.name || "").split(" ").length;
+    return words >= 4;
+  });
+  if (filteredPreviousExps.length === 0) {
+    return res.status(200).json({
+      status: 200,
+      message: "No previous experiments found with hypothesis",
+    });
+  }
+  // get Experiment embeddings/vectors.
+  const experimentIds = filteredPreviousExps.map((e) => e.id);
+  let existingVectors = await context.models.vectors.getByExperimentIds(
+    experimentIds
+  );
+  // check to see if we need to generate any missing vectors/embeddings:
+  if (existingVectors.length !== experimentIds.length) {
+    // get the ids of the existing vectors:
+    const existingVectorIds = existingVectors.map((v) => v.joinId);
+    // check to see if there are any experiments that do not have an entry in the ExperimentVectorsModel, or don't have embeddings:
+    const missingVectors = filteredPreviousExps.filter(
+      (exp) => !existingVectorIds.includes(exp.id)
+    );
+    // if there are any missing vectors, we need to generate them:
+    if (missingVectors.length > 0) {
+      await generateExperimentEmbeddings(context, missingVectors);
+      // now fetch the updated vectors:
+      existingVectors = await context.models.vectors.getByExperimentIds(
+        experimentIds
+      );
+    }
+  }
+
+  // get the existing vectors that have embeddings with the text to search by:
+  const experimentsToSearch = [];
+  for (const exp of filteredPreviousExps) {
+    // get the existing vector for the experiment:
+    const existingVector = existingVectors.find((v) => v.joinId === exp.id);
+    if (!existingVector) continue;
+    experimentsToSearch.push({
+      id: exp.id,
+      embeddings: existingVector.embeddings || [],
+    });
+  }
+  // Now we have all the existing experiments with embeddings, we can search for similar experiments
+  // Create the text to search by for the new experiment
+  const newExperimentText = `Name: ${name}\nHypothesis: ${hypothesis}${
+    description && description !== "" ? "\nDescription: " + description : ""
+  }
+  }`;
+
+  // Generate embeddings for the new experiment
+  const newExperimentEmbeddingResponse = await generateEmbeddings({
+    context,
+    input: [newExperimentText],
+  });
+  const newEmbedding = newExperimentEmbeddingResponse.data[0].embedding;
+  // Call to calculate cosine similarity between the new experiment and existing experiments: cosineSimilarity
+  const similarities = experimentsToSearch
+    .map((exp) => {
+      if (!exp.embeddings) return null;
+      const similarity = cosineSimilarity(newEmbedding, exp.embeddings);
+      return {
+        id: exp.id,
+        similarity,
+      };
+    })
+    .filter(isDefined);
+
+  // Sort and filter
+  const SIMILARITY_THRESHOLD = full ? 0 : 0.6;
+  const similarExperiments = similarities
+    .filter((s) => s && s.similarity && s.similarity >= SIMILARITY_THRESHOLD)
+    .sort((a, b) => (b?.similarity ?? 0) - (a?.similarity ?? 0))
+    .slice(0, full ? 100 : 5); // Get top 5 similar experiments
+
+  // loop through similarExperiments and get the full experiment object
+  const similarExperimentObjects = similarExperiments
+    .map((s) => previousExperiments.find((e) => e.id === s.id))
+    .filter(isDefined);
+  const similarExperimentsWithDetails = similarExperiments
+    .map((s) => {
+      if (!s) return null; // Ensure `s` is not null
+      const experiment =
+        similarExperimentObjects.find((exp) => exp.id === s.id) || null;
+      return experiment ? { experiment, similarity: s.similarity } : null;
+    })
+    .filter(
+      (item): item is { experiment: ExperimentInterface; similarity: number } =>
+        item !== null
+    );
+
+  return res.status(200).json({
+    status: 200,
+    similar: similarExperimentsWithDetails,
+  });
+}
+
+export async function postRegenerateEmbeddings(
+  req: AuthRequest<null, null, { project?: string }>,
+  res: ResponseWithStatusAndError<{
+    message: string;
+  }>
+) {
+  const context = getContextFromReq(req);
+  const project =
+    typeof req.query?.project === "string" ? req.query.project : "";
+  const { aiEnabled } = getAISettingsForOrg(context);
+
+  if (!aiEnabled) {
+    return res.status(404).json({
+      status: 404,
+      message: "AI configuration not set or enabled",
+    });
+  }
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
+  if (secondsUntilReset > 0) {
+    return res.status(429).json({
+      status: 429,
+      message: "Over AI usage limits",
+      retryAfter: secondsUntilReset,
+    });
+  }
+
+  const experiments = await getAllExperiments(context, {
+    project,
+    includeArchived: true,
+  });
+
+  // filter to only experiments that have enough words in the hypothesis and name for good results:
+  const filteredExperiments = experiments.filter((e) => {
+    const words =
+      (e.hypothesis || "").split(" ").length + (e.name || "").split(" ").length;
+    return words >= 4;
+  });
+  await generateExperimentEmbeddings(context, filteredExperiments);
+
+  return res.status(200).json({
+    status: 200,
+    message: "Embeddings regenerated successfully",
   });
 }
 
@@ -874,6 +1281,7 @@ export async function postExperiment(
   const { phaseStartDate, phaseEndDate, currentPhase, ...data } = req.body;
 
   const experiment = await getExperimentById(context, id);
+  const aiSettings = getAISettingsForOrg(context);
 
   if (!experiment) {
     res.status(403).json({
@@ -1228,6 +1636,13 @@ export async function postExperiment(
         )
       );
     }
+  }
+  if (
+    aiSettings.aiEnabled &&
+    (changes.name || changes.description || changes.hypothesis)
+  ) {
+    // If name, description or hypothesis changed, update the vectors:
+    await generateExperimentEmbeddings(context, [updated]);
   }
 
   await req.audit({

@@ -1,29 +1,28 @@
-get:
-  summary: Get all dimensions
-  tags:
-    - dimensions
-  parameters:
-  - $ref: "../parameters.yaml#/limit"
-  - $ref: "../parameters.yaml#/offset"
-  - $ref: "../parameters.yaml#/datasourceId"
-  operationId: listDimensions
-  x-codeSamples:
-    - lang: 'cURL'
-      source: |
-        curl https://api.growthbook.io/api/v1/dimensions \
-          -u secret_abc123DEF456:
-  responses:
-    "200":
-      content:
-        application/json:
-          schema:
-            allOf:
-              - type: object
-                required:
-                  - dimensions
-                properties:
-                  dimensions:
-                    type: array
-                    items:
-                      $ref: "../schemas/Dimension.yaml"
-              - $ref: "../schemas/PaginationFields.yaml"
+summary: Get all dimensions
+tags:
+  - dimensions
+parameters:
+- $ref: "../parameters.yaml#/limit"
+- $ref: "../parameters.yaml#/offset"
+- $ref: "../parameters.yaml#/datasourceId"
+operationId: listDimensions
+x-codeSamples:
+  - lang: 'cURL'
+    source: |
+      curl https://api.growthbook.io/api/v1/dimensions \
+        -u secret_abc123DEF456:
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          allOf:
+            - type: object
+              required:
+                - dimensions
+              properties:
+                dimensions:
+                  type: array
+                  items:
+                    $ref: "../schemas/Dimension.yaml"
+            - $ref: "../schemas/PaginationFields.yaml"

@@ -3,7 +3,7 @@
 export default {
   js: {
     name: "JS SDK",
-    version: "1.6.0",
+    version: "1.6.1",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
     examples: [
@@ -69,7 +69,7 @@ export default {
   },
   react: {
     name: "React SDK",
-    version: "1.6.0",
+    version: "1.6.1",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
     examples: [
@@ -234,7 +234,7 @@ export default {
   },
   node: {
     name: "Node SDK",
-    version: "1.6.0",
+    version: "1.6.1",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
     examples: [
@@ -331,7 +331,7 @@ export default {
   },
   python: {
     name: "Python SDK",
-    version: "1.2.1",
+    version: "1.3.1",
     github: "https://github.com/growthbook/growthbook-python",
     examples: [],
     packageRepos: [
@@ -372,7 +372,7 @@ export default {
   },
   go: {
     name: "Go SDK",
-    version: "0.2.3",
+    version: "0.2.4",
     github: "https://github.com/growthbook/growthbook-golang",
     examples: [
       {
@@ -565,7 +565,7 @@ export default {
   },
   kotlin: {
     name: "Kotlin SDK",
-    version: "2.0.0",
+    version: "5.0.1",
     github: "https://github.com/growthbook/growthbook-kotlin",
     examples: [],
     packageRepos: [
@@ -609,7 +609,7 @@ export default {
   },
   swift: {
     name: "Swift SDK",
-    version: "1.0.68",
+    version: "1.0.73",
     github: "https://github.com/growthbook/growthbook-swift",
     examples: [],
     packageRepos: [
@@ -653,7 +653,7 @@ export default {
   },
   reactNative: {
     name: "React Native SDK",
-    version: "1.6.0",
+    version: "1.6.1",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
     examples: [
@@ -959,7 +959,7 @@ export default {
   },
   flutter: {
     name: "Flutter SDK",
-    version: "3.9.9",
+    version: "3.9.11",
     github: "https://github.com/growthbook/growthbook-flutter",
     examples: [],
     packageRepos: [

@@ -26,11 +26,13 @@ export interface EnvironmentInitValue {
   usingSSO: boolean;
   storeSegmentsInMongo: boolean;
   allowCreateMetrics: boolean;
+  allowCreateDimensions: boolean;
   usingFileProxy: boolean;
   superadminDefaultRole: string;
   ingestorOverride: string;
   stripePublishableKey: string;
   experimentRefreshFrequency: number;
+  hasOpenAIKey?: boolean;
 }
 
 // Get env variables at runtime on the front-end while still using SSG
@@ -55,10 +57,12 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     SSO_CONFIG,
     STORE_SEGMENTS_IN_MONGO,
     ALLOW_CREATE_METRICS,
+    ALLOW_CREATE_DIMENSIONS,
     USE_FILE_PROXY: USING_FILE_PROXY,
     SUPERADMIN_DEFAULT_ROLE,
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
     EXPERIMENT_REFRESH_FREQUENCY,
+    OPENAI_API_KEY,
   } = process.env;
 
   const rootPath = path.join(__dirname, "..", "..", "..", "..", "..", "..");
@@ -114,6 +118,8 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     ),
     config: hasConfigFile ? "file" : "db",
     allowCreateMetrics: !hasConfigFile || stringToBoolean(ALLOW_CREATE_METRICS),
+    allowCreateDimensions:
+      !hasConfigFile || stringToBoolean(ALLOW_CREATE_DIMENSIONS),
     build,
     environment: NODE_ENV || "development",
     defaultConversionWindowHours: DEFAULT_CONVERSION_WINDOW_HOURS
@@ -137,6 +143,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     experimentRefreshFrequency: EXPERIMENT_REFRESH_FREQUENCY
       ? parseInt(EXPERIMENT_REFRESH_FREQUENCY)
       : 6,
+    hasOpenAIKey: !!OPENAI_API_KEY || false,
   };
 
   res.setHeader("Cache-Control", "max-age=3600").status(200).json(body);
