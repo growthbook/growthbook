@@ -149,7 +149,7 @@ export default function AnalysisResultPopover({
         ) : priorUsed ? (
           <>Bayesian Priors affect results</>
         ) : (
-          <>CUPED affect results</>
+          <>CUPED affects results</>
         )}{" "}
         <Tooltip
           content={

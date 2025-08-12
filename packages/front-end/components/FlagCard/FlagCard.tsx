@@ -11,6 +11,7 @@ import {
 } from "back-end/types/report";
 import { pValueFormatter, RowResults } from "@/services/experiments";
 import styles from "./FlagCard.module.scss";
+import React from "react";
 
 const numberFormatter = Intl.NumberFormat(undefined, {
   notation: "compact",
@@ -214,6 +215,18 @@ export default function FlagCard({
                 {data.rowResults.riskMeta.riskFormatted ? (
                   <>, {data.rowResults.riskMeta.riskFormatted}</>
                 ) : null}
+              </span>
+            }
+          />
+        ) : null}
+
+        {!data?.isGuardrail && data.rowResults.suspiciousChange ? (
+          <CardItem
+            label="Suspicious"
+            tooltip={data.rowResults.suspiciousChangeReason}
+            value={
+              <span style={{ color: "var(--violet-a11)" }}>
+                suspicious
               </span>
             }
           />
