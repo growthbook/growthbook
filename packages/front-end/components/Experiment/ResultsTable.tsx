@@ -689,6 +689,7 @@ export default function ResultsTable({
                 users: 0,
               };
               let alreadyShownQueryError = false;
+              let alreadyShownQuantileError = false;
 
               const timeSeriesButton = showTimeSeriesButton ? (
                 <TimeSeriesButton
@@ -790,25 +791,34 @@ export default function ResultsTable({
                       }
                     }
                     if (rowResults === RowError.QUANTILE_AGGREGATION_ERROR) {
-                      return drawEmptyRow({
-                        key: j,
-                        className:
-                          "results-variation-row align-items-center error-row",
-                        label: (
-                          <div className="alert alert-danger px-2 py-1">
-                            <FaExclamationTriangle className="mr-1" />
-                            Quantile metrics not available for pre-computed
-                            dimensions. Use a custom report instead.
-                          </div>
-                        ),
-                        graphCellWidth,
-                        rowHeight: compactResults
-                          ? ROW_HEIGHT + 20
-                          : ROW_HEIGHT,
-                        id,
-                        domain,
-                        ssrPolyfills,
-                      });
+                      if (!alreadyShownQuantileError) {
+                        alreadyShownQuantileError = true;
+                        return drawEmptyRow({
+                          key: j,
+                          className:
+                            "results-variation-row align-items-center error-row",
+                          labelColSpan: includedLabelColumns.length,
+                          renderLabel: includedLabelColumns.length > 0,
+                          renderGraph: columnsToDisplay.includes("CI Graph"),
+                          renderLastColumn: columnsToDisplay.includes("Lift"),
+                          label: (
+                            <div className="alert alert-danger px-2 py-1">
+                              <FaExclamationTriangle className="mr-1" />
+                              Quantile metrics not available for pre-computed
+                              dimensions. Use a custom report instead.
+                            </div>
+                          ),
+                          graphCellWidth,
+                          rowHeight: compactResults
+                            ? ROW_HEIGHT + 20
+                            : ROW_HEIGHT,
+                          id,
+                          domain,
+                          ssrPolyfills,
+                        });
+                      } else {
+                        return null;
+                      }
                     }
 
                     const hideScaledImpact =

@@ -222,7 +222,7 @@ export default function DimensionChooser({
             if (v === value) return;
             setPostLoading(true);
             setValue?.(v);
-            if (precomputedDimensionOptions.map((d) => d.value).includes(v)) {
+            if (precomputedDimensions?.includes(v)) {
               const defaultAnalysis = standardSnapshot
                 ? getSnapshotAnalysis(standardSnapshot)
                 : null;
