@@ -28,7 +28,7 @@ import { getAuthConnection, processJWT, usingOpenId } from "./services/auth";
 import { wrapController } from "./routers/wrapController";
 import apiRouter from "./api/api.router";
 import scimRouter from "./scim/scim.router";
-import { getBuild } from "./util/handler";
+import { getBuild } from "./util/build";
 
 // Begin Controllers
 import * as authControllerRaw from "./controllers/auth";
@@ -84,6 +84,7 @@ const informationSchemasController = wrapController(
 
 import { isEmailEnabled } from "./services/email";
 import { init } from "./init";
+import { aiRouter } from "./routers/ai/ai.router";
 import { getCustomLogProps, httpLogger, logger } from "./util/logger";
 import { usersRouter } from "./routers/users/users.router";
 import { organizationsRouter } from "./routers/organizations/organizations.router";
@@ -116,6 +117,7 @@ import { getContextFromReq } from "./services/organizations";
 import { templateRouter } from "./routers/experiment-template/template.router";
 import { safeRolloutRouter } from "./routers/safe-rollout/safe-rollout.router";
 import { runStatsEngine } from "./services/stats";
+import { dashboardsRouter } from "./routers/dashboards/dashboards.router";
 
 const app = express();
 
@@ -530,6 +532,10 @@ app.get(
   metricsController.getMetricExperimentResults
 );
 app.get("/metrics/:id/northstar", metricsController.getMetricNorthstarData);
+app.get(
+  "/metrics/:id/gen-description",
+  metricsController.getGeneratedDescription
+);
 
 // Metric Analyses
 app.use(metricAnalysisRouter);
@@ -571,6 +577,11 @@ app.get("/experiments/snapshots", experimentsController.getSnapshots);
 app.post(
   "/experiments/snapshots/scaled",
   experimentsController.postSnapshotsWithScaledImpactAnalysis
+);
+app.post("/experiments/similar", experimentsController.postSimilarExperiments);
+app.post(
+  "/experiments/regenerate-embeddings",
+  experimentsController.postRegenerateEmbeddings
 );
 app.post("/experiment/:id", experimentsController.postExperiment);
 app.delete("/experiment/:id", experimentsController.deleteExperiment);
@@ -618,6 +629,10 @@ app.post(
 app.post(
   "/experiments/notebook/:id",
   experimentsController.postSnapshotNotebook
+);
+app.post(
+  "/experiment/:id/analysis/ai-suggest",
+  experimentsController.postAIExperimentAnalysis
 );
 app.post(
   "/experiments/report/:snapshot",
@@ -911,12 +926,17 @@ app.get(
   }
 );
 
+// Dashboards
+app.use("/dashboards", dashboardsRouter);
+
 // Meta info
 app.get("/meta/ai", (req, res) => {
   res.json({
     enabled: !!process.env.OPENAI_API_KEY,
   });
 });
+
+app.use("/ai", aiRouter);
 
 // Fallback 404 route if nothing else matches
 app.use(function (req, res) {

@@ -8,6 +8,7 @@ import { getValidDate } from "shared/dates";
 import { FaCircle } from "react-icons/fa6";
 import { parseISO } from "date-fns";
 import { DEFAULT_SRM_THRESHOLD } from "shared/constants";
+import { Switch } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
 import { formatTrafficSplit } from "@/services/utils";
@@ -15,7 +16,6 @@ import { formatNumber } from "@/services/metrics";
 import ExperimentDateGraph, {
   ExperimentDateGraphDataPoint,
 } from "@/components/Experiment/ExperimentDateGraph";
-import Toggle from "@/components/Forms/Toggle";
 import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { transformDimensionData } from "./DimensionIssues";
@@ -37,23 +37,38 @@ export default function TrafficCard({
   traffic,
   variations,
   isBandit,
+  disableDimensions,
+  cardTitle = "Traffic",
+  containerClassName = "box p-3 my-4",
 }: {
   traffic: ExperimentSnapshotTraffic;
   variations: ExperimentReportVariation[];
   isBandit: boolean;
+  disableDimensions?: boolean;
+  cardTitle?: string;
+  containerClassName?: string;
 }) {
   const [cumulative, setCumulative] = useState(true);
   const { settings } = useUser();
 
   const srmThreshold = settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
 
-  const trafficByDate = traffic.dimension?.dim_exposure_date;
+  const trafficByDate = useMemo(
+    () => traffic.dimension?.dim_exposure_date || [],
+    [traffic]
+  );
 
-  const availableDimensions = transformDimensionData(
-    traffic.dimension,
-    variations,
-    srmThreshold,
-    isBandit
+  const availableDimensions = useMemo(
+    () =>
+      disableDimensions
+        ? []
+        : transformDimensionData(
+            traffic.dimension,
+            variations,
+            srmThreshold,
+            isBandit
+          ),
+    [disableDimensions, traffic, variations, srmThreshold, isBandit]
   );
 
   const [selectedDimension, setSelectedDimension] = useState<string>("");
@@ -97,14 +112,16 @@ export default function TrafficCard({
   }, [trafficByDate, variations, cumulative]);
 
   const sortedDimensionSlices = useMemo(() => {
-    return traffic.dimension[selectedDimension]?.sort(compareDimsByTotalUsers);
+    return traffic.dimension?.[selectedDimension]?.sort(
+      compareDimsByTotalUsers
+    );
   }, [selectedDimension, traffic.dimension]);
 
   return (
-    <div className="box my-4 p-3">
+    <div className={containerClassName}>
       <div className="mx-2">
         <div className="d-flex flex-row mt-1">
-          <h2 className="d-inline">{"Traffic"}</h2>
+          <h2 className="d-inline">{cardTitle}</h2>
           <div className="flex-1" />
           <div className="col-auto">
             <div className="uppercase-title text-muted">Dimension</div>
@@ -134,12 +151,7 @@ export default function TrafficCard({
           {!selectedDimension && (
             <div className="ml-auto">
               Cumulative{" "}
-              <Toggle
-                label="Cumulative"
-                id="cumulative"
-                value={cumulative}
-                setValue={setCumulative}
-              />
+              <Switch checked={cumulative} onCheckedChange={setCumulative} />
             </div>
           )}
         </div>

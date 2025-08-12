@@ -259,10 +259,10 @@ describe("Experiments", () => {
             jsonExtract
           )
         ).toStrictEqual([
-          "unknown_column = 'unknown_value'",
-          `${numericColumn.column} = '1'`,
-          `${deletedColumn.column} = 'deleted'`,
-          `${userIdColumn.column} = 'user'`,
+          "(unknown_column = 'unknown_value')",
+          `(${numericColumn.column} = '1')`,
+          `(${deletedColumn.column} = 'deleted')`,
+          `(${userIdColumn.column} = 'user')`,
         ]);
       });
       it("returns where clause for single filter", () => {
@@ -277,7 +277,7 @@ describe("Experiments", () => {
             escapeStringLiteral,
             jsonExtract
           )
-        ).toStrictEqual([filter.value]);
+        ).toStrictEqual([`(${filter.value})`]);
       });
       it("returns where clause for multiple filters", () => {
         expect(
@@ -291,7 +291,7 @@ describe("Experiments", () => {
             escapeStringLiteral,
             jsonExtract
           )
-        ).toStrictEqual([filter.value, filter2.value]);
+        ).toStrictEqual([`(${filter.value})`, `(${filter2.value})`]);
       });
       it("returns where clause for single inline filter value", () => {
         expect(
@@ -308,7 +308,7 @@ describe("Experiments", () => {
             escapeStringLiteral,
             jsonExtract
           )
-        ).toStrictEqual([`${column.column} = 'login'`]);
+        ).toStrictEqual([`(${column.column} = 'login')`]);
       });
       it("returns where clause for multiple inline filter values", () => {
         expect(
@@ -325,7 +325,7 @@ describe("Experiments", () => {
             escapeStringLiteral,
             jsonExtract
           )
-        ).toStrictEqual([`${column.column} IN (\n  'login',\n  'signup'\n)`]);
+        ).toStrictEqual([`(${column.column} IN (\n  'login',\n  'signup'\n))`]);
       });
       it("returns where clause for inline filters and filters", () => {
         expect(
@@ -342,7 +342,7 @@ describe("Experiments", () => {
             escapeStringLiteral,
             jsonExtract
           )
-        ).toStrictEqual([`${column.column} = 'login'`, filter.value]);
+        ).toStrictEqual([`(${column.column} = 'login')`, `(${filter.value})`]);
       });
       it("escapes string literals", () => {
         expect(
@@ -359,7 +359,7 @@ describe("Experiments", () => {
             escapeStringLiteral,
             jsonExtract
           )
-        ).toStrictEqual([`${column.column} = 'login''s'`]);
+        ).toStrictEqual([`(${column.column} = 'login''s')`]);
       });
       it("removes duplicate inline filter and filter values", () => {
         expect(
@@ -376,7 +376,7 @@ describe("Experiments", () => {
             escapeStringLiteral,
             jsonExtract
           )
-        ).toStrictEqual([`${column.column} = 'login'`]);
+        ).toStrictEqual([`(${column.column} = 'login')`]);
       });
       it("removes duplicate inline filter values", () => {
         expect(
@@ -393,7 +393,7 @@ describe("Experiments", () => {
             escapeStringLiteral,
             jsonExtract
           )
-        ).toStrictEqual([`${column.column} = 'login'`]);
+        ).toStrictEqual([`(${column.column} = 'login')`]);
       });
       it("supports JSON column inline filters", () => {
         expect(
@@ -410,7 +410,7 @@ describe("Experiments", () => {
             escapeStringLiteral,
             jsonExtract
           )
-        ).toStrictEqual([`${jsonColumn.column}:'b'::float = 'hello'`]);
+        ).toStrictEqual([`(${jsonColumn.column}:'b'::float = 'hello')`]);
       });
     });
     describe("getAggregateFilter", () => {

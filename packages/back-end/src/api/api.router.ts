@@ -5,7 +5,7 @@ import rateLimit from "express-rate-limit";
 import bodyParser from "body-parser";
 import * as Sentry from "@sentry/node";
 import authenticateApiRequestMiddleware from "back-end/src/middleware/authenticateApiRequestMiddleware";
-import { getBuild } from "back-end/src/util/handler";
+import { getBuild } from "back-end/src/util/build";
 import { ApiRequestLocals } from "back-end/types/api";
 import { SENTRY_DSN } from "../util/secrets";
 import featuresRouter from "./features/features.router";

@@ -6,9 +6,11 @@ import {
 } from "back-end/types/experiment-snapshot";
 import { Flex } from "@radix-ui/themes";
 import { getSnapshotAnalysis } from "shared/src/util";
+import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { DimensionInterface } from "back-end/types/dimension";
 import { getExposureQuery } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import SelectField from "@/components/Forms/SelectField";
+import SelectField, { GroupedValue } from "@/components/Forms/SelectField";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { analysisUpdate } from "@/components/Experiment/DifferenceTypeChooser";
 import { useAuth } from "@/services/auth";
@@ -47,6 +49,7 @@ export default function DimensionChooser({
   precomputedDimensions,
   datasourceId,
   exposureQueryId,
+  userIdType,
   activationMetric,
   userIdType,
   labelClassName,
@@ -83,7 +86,7 @@ export default function DimensionChooser({
 
   // Include user dimensions tied to the datasource
   const filteredDimensions = dimensions
-    .filter((d) => d.datasource === datasourceId)
+    .filter((d) => d.datasource === datasource?.id)
     .map((d) => {
       return {
         label: d.name,

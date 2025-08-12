@@ -292,7 +292,7 @@ export function getRenderLabelColumn(
         }
         tipPosition="right"
         className="d-inline-block font-weight-bold metric-label"
-        popperClassName="dark-theme"
+        flipTheme={false}
         usePortal={true}
       >
         {" "}

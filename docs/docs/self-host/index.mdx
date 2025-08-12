@@ -18,11 +18,10 @@ version that's free to get started.
 
 ## Installation
 
-You can use **docker-compose** to get started quickly:
+You can use **docker compose** to get started quickly:
 
 ```yml
 # docker-compose.yml
-version: "3"
 services:
   mongo:
     image: "mongo:latest"
@@ -47,7 +46,7 @@ volumes:
   mongodata:
 ```
 
-Then, just run `docker-compose up -d` to start everything and view the app at [http://localhost:3000](http://localhost:3000)
+Then, just run `docker compose up -d` to start everything and view the app at [http://localhost:3000](http://localhost:3000)
 
 :::caution
 The use of the mongo image within the docker-compose.yml is meant to quickly get a dev or staging environment up and running.
@@ -68,7 +67,7 @@ If you need to reference the image for a specific git commit for any reason, you
 If you are using docker-compose, and assuming you specify the growthbook container with `:latest`, you can update with:
 
 ```bash
-docker-compose pull growthbook
-docker-compose stop growthbook
-docker-compose up -d growthbook
+docker compose pull growthbook
+docker compose stop growthbook
+docker compose up -d growthbook
 ```

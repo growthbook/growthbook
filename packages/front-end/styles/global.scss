@@ -1,4 +1,5 @@
 @use "colors";
+@use "variables";
 @import "theme";
 
 // Bootstrap variable overrides must be loaded BEFORE Bootstrap
@@ -985,7 +986,7 @@ main.main {
   margin: 0 auto;
 }
 .gbtable {
-  background-color: var(--surface-background-color);
+  background-color: var(--color-panel-solid); //var(--surface-background-color);
   margin-bottom: 0;
   thead {
     th {
@@ -3578,7 +3579,7 @@ input:disabled {
 .ace_editor .ace_gutter {
   background: var(--color-panel-solid) !important;
 }
-.ace_editor.ace_autocomplete { 
+.ace_editor.ace_autocomplete {
   width: 500px !important;
   background-color: var(--color-surface-solid) !important;
 }
@@ -3693,5 +3694,28 @@ input:disabled {
   }
   tbody td {
     font-weight: 400;
+  }
+}
+
+.border-violet {
+  border-color: var(--violet-a7);
+}
+
+.dashboard-disabled {
+  opacity: 50%;
+  pointer-events: none;
+}
+
+// For absolute or fixed containers that should position themselves after the sidebar
+.sidebarLeft {
+  left: variables.$sidebarwidth;
+}
+// Conditionally add these classes based on the SidebarOpenProvider
+@media (max-width: 1180px) {
+  .sidebarLeftOpen {
+    left: variables.$sidebarwidth !important;
+  }
+  .sidebarLeftClosed {
+    left: 0 !important;
   }
 }

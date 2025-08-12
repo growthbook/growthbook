@@ -560,6 +560,7 @@ const sidebars = {
         "self-host/production",
         { type: "doc", id: "self-host/cdn" },
         { type: "doc", id: "self-host/proxy", label: "Proxy" },
+        { type: "doc", id: "self-host/ferretdb", label: "FerretDB" },
       ],
     },
     { type: "doc", id: "api-overview", label: "API" },
@@ -663,6 +664,12 @@ const sidebars = {
           label: "Jira",
           className: "pill-new",
         },
+        {
+          type: "doc",
+          id: "integrations/ai",
+          label: "AI",
+          className: "pill-new",
+        },
       ],
     },
     {
@@ -704,6 +711,11 @@ const sidebars = {
       },
       className: "top-divider",
       items: [
+        {
+          type: "doc",
+          id: "guide/sanity",
+          label: "Sanity",
+        },
         {
           type: "doc",
           id: "guide/strapi",
