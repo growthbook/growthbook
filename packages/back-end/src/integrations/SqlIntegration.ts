@@ -1287,7 +1287,7 @@ export default abstract class SqlIntegration
       rows: rows.map((row) => {
         const dimensionData: Record<string, string> = {};
         Object.entries(row)
-          .filter(([key, _]) => key.startsWith("dim"))
+          .filter(([key, _]) => key.startsWith("dim_"))
           .forEach(([key, value]) => {
             dimensionData[key] = value;
           });
@@ -2903,7 +2903,7 @@ export default abstract class SqlIntegration
         LEFT JOIN __eventQuantileMetric qm
         ON (qm.variation = umj.variation ${dimensionCols
           .map((c) => `AND qm.${c.alias} = umj.${c.alias}`)
-          .join("")})`
+          .join("\n")})`
             : ""
         }
         GROUP BY
@@ -3088,7 +3088,7 @@ export default abstract class SqlIntegration
           qm.variation = m.variation 
           ${dimensionCols
             .map((c) => `AND qm.${c.alias} = m.${c.alias}`)
-            .join("")}
+            .join("\n")}
             )`
             : ""
         }
@@ -3500,7 +3500,7 @@ export default abstract class SqlIntegration
         LEFT JOIN __quantileMetric qm
         ON (qm.variation = umj.variation ${dimensionCols
           .map((c) => `AND qm.${c.alias} = umj.${c.alias}`)
-          .join("")})`
+          .join("\n")})`
             : ""
         }
         GROUP BY
@@ -3717,7 +3717,7 @@ export default abstract class SqlIntegration
         ? `LEFT JOIN __quantileMetric qm ON (
       qm.variation = m.variation ${dimensionCols
         .map((c) => `AND qm.${c.alias} = m.${c.alias}`)
-        .join("")}
+        .join("\n")}
         )`
         : ""
     }
@@ -4041,7 +4041,7 @@ export default abstract class SqlIntegration
       bps.bandit_period = bpw.bandit_period 
       ${dimensionCols
         .map((d) => `AND bps.${d.alias} = bpw.${d.alias}`)
-        .join(" AND ")}
+        .join("\n")}
     )
   ${
     hasRegressionAdjustment

@@ -162,7 +162,6 @@ def get_metric_df(
         )
         # fall back to one unnamed dimension if no column found
         dim = getattr(row, dimension_column_name, "")
-        print(f"dim: {dim}")
         # If this is the first time we're seeing this dimension, create an empty dict
         if dim not in dimensions:
             # Overall columns
