@@ -49,7 +49,7 @@ export default function FeaturesHeader({
   setTab: (tab: FeatureTab) => void;
   setEditFeatureInfoModal: (open: boolean) => void;
   dependents: number;
-  dependentExperiments: ExperimentInterfaceStringDates;
+  dependentExperiments: ExperimentInterfaceStringDates[];
 }) {
   const router = useRouter();
   const projectId = feature?.project;
