@@ -82,26 +82,20 @@ export class SegmentModel extends BaseClass {
     // Special case: If using config file AND STORE_SEGMENTS_IN_MONGO is true,
     // we want to pull from both sources
     if (usingFileConfig() && STORE_SEGMENTS_IN_MONGO) {
-      const segments: SegmentInterface[] = [];
-      const segmentIds = new Set<string>();
+      const segmentSet = new Set<SegmentInterface>();
 
       // Get config documents first
       const configSegments = getConfigSegments(this.context.org.id);
       configSegments.forEach((segment) => {
-        segments.push(segment);
-        segmentIds.add(segment.id);
+        segmentSet.add(segment);
       });
 
-      // Get MongoDB documents (excluding those already in config)
       const mongoSegments = await super.getAll();
       mongoSegments.forEach((segment) => {
-        if (!segmentIds.has(segment.id)) {
-          segments.push(segment);
-          segmentIds.add(segment.id);
-        }
+        segmentSet.add(segment);
       });
 
-      return segments;
+      return Array.from(segmentSet);
     } else {
       // Use the default BaseModel logic
       return super.getAll();
@@ -139,27 +133,21 @@ export class SegmentModel extends BaseClass {
     // Special case: If using config file AND STORE_SEGMENTS_IN_MONGO is true,
     // we want to pull from both sources
     if (usingFileConfig() && STORE_SEGMENTS_IN_MONGO) {
-      const segments: SegmentInterface[] = [];
-      const segmentIds = new Set<string>();
+      const segmentSet = new Set<SegmentInterface>();
 
       // Get config documents first
       const configSegments = getConfigSegments(this.context.org.id).filter(
         (segment) => segment.datasource === datasourceId
       );
       configSegments.forEach((segment) => {
-        segments.push(segment);
-        segmentIds.add(segment.id);
+        segmentSet.add(segment);
       });
 
-      // Get MongoDB documents (excluding those already in config)
       const mongoSegments = await super._find({ datasource: datasourceId });
       mongoSegments.forEach((segment) => {
-        if (!segmentIds.has(segment.id)) {
-          segments.push(segment);
-          segmentIds.add(segment.id);
-        }
+        segmentSet.add(segment);
       });
-      return segments;
+      return Array.from(segmentSet);
     } else {
       return await this._find({ datasource: datasourceId });
     }
@@ -171,28 +159,22 @@ export class SegmentModel extends BaseClass {
     // Special case: If using config file AND STORE_SEGMENTS_IN_MONGO is true,
     // we want to pull from both sources
     if (usingFileConfig() && STORE_SEGMENTS_IN_MONGO) {
-      const segments: SegmentInterface[] = [];
-      const segmentIds = new Set<string>();
+      const segmentSet = new Set<SegmentInterface>();
 
       // Get config documents first
       const configSegments = getConfigSegments(this.context.org.id).filter(
         (segment) => segment.factTableId === factTableId
       );
       configSegments.forEach((segment) => {
-        segments.push(segment);
-        segmentIds.add(segment.id);
+        segmentSet.add(segment);
       });
 
-      // Get MongoDB documents (excluding those already in config)
       const mongoSegments = await super._find({ factTableId });
       mongoSegments.forEach((segment) => {
-        if (!segmentIds.has(segment.id)) {
-          segments.push(segment);
-          segmentIds.add(segment.id);
-        }
+        segmentSet.add(segment);
       });
 
-      return segments;
+      return Array.from(segmentSet);
     } else {
       return await this._find({ factTableId });
     }
