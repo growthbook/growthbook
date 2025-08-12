@@ -72,20 +72,130 @@ export class SegmentModel extends BaseClass {
     return false;
   }
   protected getConfigDocuments() {
-    if (!this.useConfigFile) return [];
+    if (!this.useConfigFile()) return [];
 
     return getConfigSegments(this.context.org.id);
   }
+
+  // Override getAll to handle the special case where we want to pull from both config and MongoDB
+  public async getAll(): Promise<SegmentInterface[]> {
+    // Special case: If using config file AND STORE_SEGMENTS_IN_MONGO is true,
+    // we want to pull from both sources
+    if (usingFileConfig() && STORE_SEGMENTS_IN_MONGO) {
+      const segments: SegmentInterface[] = [];
+      const segmentIds = new Set<string>();
+
+      // Get config documents first
+      const configSegments = getConfigSegments(this.context.org.id);
+      configSegments.forEach((segment) => {
+        segments.push(segment);
+        segmentIds.add(segment.id);
+      });
+
+      // Get MongoDB documents (excluding those already in config)
+      const mongoSegments = await super.getAll();
+      mongoSegments.forEach((segment) => {
+        if (!segmentIds.has(segment.id)) {
+          segments.push(segment);
+          segmentIds.add(segment.id);
+        }
+      });
+
+      return segments;
+    } else {
+      // Use the default BaseModel logic
+      return super.getAll();
+    }
+  }
+
+  // Override getById to handle the special case where we want to check both config and MongoDB
+  public async getById(id: string): Promise<SegmentInterface | null> {
+    if (typeof id !== "string") {
+      throw new Error("Invalid id");
+    }
+    if (!id) return Promise.resolve(null);
+
+    // Special case: If using config file AND STORE_SEGMENTS_IN_MONGO is true,
+    // we want to check both sources
+    if (usingFileConfig() && STORE_SEGMENTS_IN_MONGO) {
+      // Check config documents first
+      const configSegments = getConfigSegments(this.context.org.id);
+      const configSegment = configSegments.find((segment) => segment.id === id);
+      if (configSegment) {
+        return configSegment;
+      }
+
+      // If not found in config, check MongoDB
+      return await super.getById(id);
+    } else {
+      // Use the default BaseModel logic
+      return super.getById(id);
+    }
+  }
+
   public async getByDataSource(
     datasourceId: string
   ): Promise<SegmentInterface[]> {
-    return await this._find({ datasource: datasourceId });
+    // Special case: If using config file AND STORE_SEGMENTS_IN_MONGO is true,
+    // we want to pull from both sources
+    if (usingFileConfig() && STORE_SEGMENTS_IN_MONGO) {
+      const segments: SegmentInterface[] = [];
+      const segmentIds = new Set<string>();
+
+      // Get config documents first
+      const configSegments = getConfigSegments(this.context.org.id).filter(
+        (segment) => segment.datasource === datasourceId
+      );
+      configSegments.forEach((segment) => {
+        segments.push(segment);
+        segmentIds.add(segment.id);
+      });
+
+      // Get MongoDB documents (excluding those already in config)
+      const mongoSegments = await super._find({ datasource: datasourceId });
+      mongoSegments.forEach((segment) => {
+        if (!segmentIds.has(segment.id)) {
+          segments.push(segment);
+          segmentIds.add(segment.id);
+        }
+      });
+      return segments;
+    } else {
+      return await this._find({ datasource: datasourceId });
+    }
   }
 
   public async getByFactTableId(
     factTableId: string
   ): Promise<SegmentInterface[]> {
-    return await this._find({ factTableId });
+    // Special case: If using config file AND STORE_SEGMENTS_IN_MONGO is true,
+    // we want to pull from both sources
+    if (usingFileConfig() && STORE_SEGMENTS_IN_MONGO) {
+      const segments: SegmentInterface[] = [];
+      const segmentIds = new Set<string>();
+
+      // Get config documents first
+      const configSegments = getConfigSegments(this.context.org.id).filter(
+        (segment) => segment.factTableId === factTableId
+      );
+      configSegments.forEach((segment) => {
+        segments.push(segment);
+        segmentIds.add(segment.id);
+      });
+
+      // Get MongoDB documents (excluding those already in config)
+      const mongoSegments = await super._find({ factTableId });
+      mongoSegments.forEach((segment) => {
+        if (!segmentIds.has(segment.id)) {
+          segments.push(segment);
+          segmentIds.add(segment.id);
+        }
+      });
+
+      return segments;
+    } else {
+      return await this._find({ factTableId });
+    }
   }
 
   protected migrate(legacySegment: LegacySegmentInterface): SegmentInterface {
