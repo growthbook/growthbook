@@ -1,4 +1,3 @@
-import Link from "next/link";
 import React, { DetailedHTMLProps, HTMLAttributes, useEffect } from "react";
 import {
   ExperimentReportVariationWithIndex,
@@ -10,15 +9,8 @@ import {
   PValueCorrection,
   StatsEngine,
 } from "back-end/types/stats";
-import {
-  BsXCircle,
-  BsHourglassSplit,
-  BsArrowReturnRight,
-} from "react-icons/bs";
+import { BsXCircle, BsArrowReturnRight } from "react-icons/bs";
 import clsx from "clsx";
-import { FaArrowDown, FaArrowUp, FaQuestionCircle } from "react-icons/fa";
-import { HiOutlineExclamationCircle } from "react-icons/hi";
-import { RxInfoCircled } from "react-icons/rx";
 import { MdSwapCalls } from "react-icons/md";
 import {
   ExperimentMetricInterface,
@@ -28,13 +20,7 @@ import {
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { PiInfo } from "react-icons/pi";
-import NotEnoughData from "@/components/Experiment/NotEnoughData";
-import {
-  getEffectLabel,
-  pValueFormatter,
-  RowResults,
-} from "@/services/experiments";
-import { GBSuspicious } from "@/components/Icons";
+import { getEffectLabel, RowResults } from "@/services/experiments";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricValueColumn from "@/components/Experiment/MetricValueColumn";
 import {
@@ -46,7 +32,6 @@ import {
   getPercentileLabel,
 } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
-import { capitalizeFirstLetter } from "@/services/utils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { PercentileLabel } from "@/components/Metrics/MetricName";
@@ -75,10 +60,6 @@ export type LayoutX = "element-center" | "element-left" | "element-right";
 export type YAlign = "top" | "bottom";
 
 const numberFormatter = Intl.NumberFormat();
-const percentFormatter = new Intl.NumberFormat(undefined, {
-  style: "percent",
-  maximumFractionDigits: 2,
-});
 
 export interface TooltipData {
   metricRow: number;
@@ -120,7 +101,6 @@ export default function ResultsTableTooltip({
   ssrPolyfills,
   ...otherProps
 }: Props) {
-  console.log("row results", data?.rowResults)
   useEffect(() => {
     if (!data || !tooltipOpen) return;
 
@@ -169,24 +149,6 @@ export default function ResultsTableTooltip({
 
   const rows = [data.baseline, data.stats];
 
-  const flags = !data.isGuardrail
-    ? [
-        !data.rowResults.enoughData,
-        data.rowResults.riskMeta.showRisk &&
-          ["warning", "danger"].includes(data.rowResults.riskMeta.riskStatus) &&
-          data.rowResults.resultsStatus !== "lost",
-        data.rowResults.suspiciousChange,
-      ]
-    : [
-        !data.rowResults.enoughData,
-        data.rowResults.riskMeta.showRisk &&
-          ["warning", "danger"].includes(data.rowResults.riskMeta.riskStatus) &&
-          data.rowResults.resultsStatus !== "lost",
-        data.rowResults.guardrailWarning,
-      ];
-  console.log({flags})
-  const hasFlaggedItems = flags.some((flag) => flag);
-
   const metricInverseIconDisplay = data.metric.inverse ? (
     <Tooltip
       body="metric is inverse, lower is better"
@@ -197,29 +159,6 @@ export default function ResultsTableTooltip({
     </Tooltip>
   ) : null;
 
-  const confidencePct = percentFormatter.format(1 - pValueThreshold);
-
-  let pValText = (
-    <>
-      {data.stats?.pValue !== undefined
-        ? pValueFormatter(data.stats.pValue)
-        : ""}
-    </>
-  );
-  if (
-    data.stats?.pValueAdjusted !== undefined &&
-    data.pValueCorrection &&
-    !data.isGuardrail
-  ) {
-    pValText = (
-      <>
-        <div>{pValueFormatter(data.stats.pValueAdjusted)}</div>
-        <div className="text-muted font-weight-normal">
-          (unadj.:&nbsp;{pValText})
-        </div>
-      </>
-    );
-  }
   let denomFormatter = formatNumber;
   const hasCustomDenominator =
     ((isFactMetric(data.metric) && data.metric.metricType === "ratio") ||
@@ -241,38 +180,6 @@ export default function ResultsTableTooltip({
   const quantileValue = isFactMetric(data.metric)
     ? data.metric.quantileSettings?.quantile
     : undefined;
-  // Lift units
-  const ci1 = data.stats?.ciAdjusted?.[1] ?? data.stats?.ci?.[1] ?? Infinity;
-  const ci0 = data.stats?.ciAdjusted?.[0] ?? data.stats?.ci?.[0] ?? -Infinity;
-  const ciRangeText =
-    data.stats?.ciAdjusted?.[0] !== undefined ? (
-      <>
-        <div>
-          [{deltaFormatter(ci0, deltaFormatterOptions)},{" "}
-          {deltaFormatter(ci1, deltaFormatterOptions)}]
-        </div>
-        <div className="text-muted font-weight-normal">
-          (unadj.:&nbsp; [
-          {deltaFormatter(
-            data.stats.ci?.[0] ?? -Infinity,
-            deltaFormatterOptions
-          )}
-          ,{" "}
-          {deltaFormatter(
-            data.stats.ci?.[1] ?? Infinity,
-            deltaFormatterOptions
-          )}
-          ] )
-        </div>
-      </>
-    ) : (
-      <>
-        [
-        {deltaFormatter(data.stats.ci?.[0] ?? -Infinity, deltaFormatterOptions)}
-        ,{" "}
-        {deltaFormatter(data.stats.ci?.[1] ?? Infinity, deltaFormatterOptions)}]
-      </>
-    );
 
   const priorUsed =
     data.statsEngine === "bayesian" && data.metricSnapshotSettings?.properPrior;
@@ -427,7 +334,7 @@ export default function ResultsTableTooltip({
 
           <Flex direction="column" gap="2">
             {addLiftWarning && data.rowResults.enoughData ? (
-              <Callout size="sm" status="warning">
+              <Callout size="sm" status="info">
                 {priorUsed && cupedUsed ? (
                   <>CUPED and Bayesian Priors affect results</>
                 ) : priorUsed ? (
@@ -471,84 +378,18 @@ export default function ResultsTableTooltip({
               </Callout>
             ) : null}
 
-            {/*{!data.rowResults.enoughData ? (*/}
-            {/*  <Tooltip*/}
-            {/*    className="cursor-pointer"*/}
-            {/*    body={data.rowResults.enoughDataMeta.reasonText}*/}
-            {/*  >*/}
-            {/*    <Callout size="sm" status="info">*/}
-            {/*      <Flex align="center" gap="2">*/}
-            {/*        <BsHourglassSplit size={15} className="text-info" />*/}
-            {/*        <NotEnoughData*/}
-            {/*          rowResults={data.rowResults}*/}
-            {/*          showTimeRemaining={true}*/}
-            {/*          showPercentComplete={true}*/}
-            {/*          noStyle={true}*/}
-            {/*        />*/}
-            {/*      </Flex>*/}
-            {/*    </Callout>*/}
-            {/*  </Tooltip>*/}
-            {/*) : null}*/}
-
-            {/*{data.rowResults.riskMeta.showRisk &&*/}
-            {/*["warning", "danger"].includes(*/}
-            {/*  data.rowResults.riskMeta.riskStatus*/}
-            {/*) &&*/}
-            {/*data.rowResults.resultsStatus !== "lost" ? (*/}
-            {/*  <Tooltip*/}
-            {/*    className="cursor-pointer"*/}
-            {/*    body={data.rowResults.riskMeta.riskReason}*/}
-            {/*  >*/}
-            {/*    <Callout*/}
-            {/*      size="sm"*/}
-            {/*      status={*/}
-            {/*        data.rowResults.riskMeta.riskStatus === "danger"*/}
-            {/*          ? "error"*/}
-            {/*          : "warning"*/}
-            {/*      }*/}
-            {/*    >*/}
-            {/*      <Flex align="center" gap="2">*/}
-            {/*        <Link*/}
-            {/*          href="https://docs.growthbook.io/using/experimenting#bayesian-results"*/}
-            {/*          target="_blank"*/}
-            {/*        >*/}
-            {/*          <FaQuestionCircle size={12} />*/}
-            {/*        </Link>*/}
-            {/*        <div className="risk">*/}
-            {/*          <div className="risk-value">*/}
-            {/*            risk: {data.rowResults.riskMeta.relativeRiskFormatted}*/}
-            {/*          </div>*/}
-            {/*          {data.rowResults.riskMeta.riskFormatted ? (*/}
-            {/*            <div className="text-muted risk-relative">*/}
-            {/*              {data.rowResults.riskMeta.riskFormatted}*/}
-            {/*            </div>*/}
-            {/*          ) : null}*/}
-            {/*        </div>*/}
-            {/*      </Flex>*/}
-            {/*    </Callout>*/}
-            {/*  </Tooltip>*/}
-            {/*) : null}*/}
-
-            {/* suspicious flag moved into results-overview flags array */}
-
             {data.rowResults.guardrailWarning ? (
-              <Tooltip
-                className="cursor-pointer"
-                body={data.rowResults.guardrailWarning}
-              >
-                <Callout size="sm" status="warning">
-                  <Flex align="center" gap="2">
-                    <HiOutlineExclamationCircle size={18} />
-                    <div className="guardrail-warning">
-                      <div className="risk-value">
-                        bad guardrail
-                        <br />
-                        trend
-                      </div>
-                    </div>
-                  </Flex>
-                </Callout>
-              </Tooltip>
+              <Callout size="sm" status="warning">
+                bad guardrail trend{" "}
+                <Tooltip
+                  className="cursor-pointer"
+                  body={data.rowResults.guardrailWarning}
+                >
+                  <span>
+                    <PiInfo size={16} />
+                  </span>
+                </Tooltip>
+              </Callout>
             ) : null}
           </Flex>
 
@@ -692,6 +533,7 @@ export default function ResultsTableTooltip({
                           getFactTableById={
                             ssrPolyfills?.getFactTableById || getFactTableById
                           }
+                          asTd={false}
                         />
                       </TableCell>
                     </TableRow>
