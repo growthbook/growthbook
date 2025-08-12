@@ -82,20 +82,12 @@ export class SegmentModel extends BaseClass {
     // Special case: If using config file AND STORE_SEGMENTS_IN_MONGO is true,
     // we want to pull from both sources
     if (usingFileConfig() && STORE_SEGMENTS_IN_MONGO) {
-      const segmentSet = new Set<SegmentInterface>();
-
       // Get config documents first
       const configSegments = getConfigSegments(this.context.org.id);
-      configSegments.forEach((segment) => {
-        segmentSet.add(segment);
-      });
 
       const mongoSegments = await super.getAll();
-      mongoSegments.forEach((segment) => {
-        segmentSet.add(segment);
-      });
 
-      return Array.from(segmentSet);
+      return [...configSegments, ...mongoSegments];
     } else {
       // Use the default BaseModel logic
       return super.getAll();
@@ -133,21 +125,13 @@ export class SegmentModel extends BaseClass {
     // Special case: If using config file AND STORE_SEGMENTS_IN_MONGO is true,
     // we want to pull from both sources
     if (usingFileConfig() && STORE_SEGMENTS_IN_MONGO) {
-      const segmentSet = new Set<SegmentInterface>();
-
       // Get config documents first
       const configSegments = getConfigSegments(this.context.org.id).filter(
         (segment) => segment.datasource === datasourceId
       );
-      configSegments.forEach((segment) => {
-        segmentSet.add(segment);
-      });
 
       const mongoSegments = await super._find({ datasource: datasourceId });
-      mongoSegments.forEach((segment) => {
-        segmentSet.add(segment);
-      });
-      return Array.from(segmentSet);
+      return [...configSegments, ...mongoSegments];
     } else {
       return await this._find({ datasource: datasourceId });
     }
@@ -159,22 +143,14 @@ export class SegmentModel extends BaseClass {
     // Special case: If using config file AND STORE_SEGMENTS_IN_MONGO is true,
     // we want to pull from both sources
     if (usingFileConfig() && STORE_SEGMENTS_IN_MONGO) {
-      const segmentSet = new Set<SegmentInterface>();
-
       // Get config documents first
       const configSegments = getConfigSegments(this.context.org.id).filter(
         (segment) => segment.factTableId === factTableId
       );
-      configSegments.forEach((segment) => {
-        segmentSet.add(segment);
-      });
 
       const mongoSegments = await super._find({ factTableId });
-      mongoSegments.forEach((segment) => {
-        segmentSet.add(segment);
-      });
 
-      return Array.from(segmentSet);
+      return [...configSegments, ...mongoSegments];
     } else {
       return await this._find({ factTableId });
     }
