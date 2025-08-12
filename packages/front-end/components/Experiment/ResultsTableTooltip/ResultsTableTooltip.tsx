@@ -332,70 +332,9 @@ export default function ResultsTableTooltip({
             />
           </Box>
 
-          <Flex direction="column" gap="2">
-            {addLiftWarning && data.rowResults.enoughData ? (
-              <Callout size="sm" status="info">
-                {priorUsed && cupedUsed ? (
-                  <>CUPED and Bayesian Priors affect results</>
-                ) : priorUsed ? (
-                  <>Bayesian Priors affect results</>
-                ) : (
-                  <>CUPED affects results</>
-                )}{" "}
-                <Tooltip
-                  className="cursor-pointer"
-                  body={
-                    <>
-                      {priorUsed ? (
-                        <div className="mb-1">
-                          {`This metric was analyzed with a prior that is normally distributed with mean ${
-                            data.metricSnapshotSettings?.properPriorMean ?? 0
-                          } and standard deviation ${
-                            data.metricSnapshotSettings?.properPriorStdDev ??
-                            DEFAULT_PROPER_PRIOR_STDDEV
-                          }.`}
-                        </div>
-                      ) : null}
-                      {cupedUsed ? (
-                        <div className="mb-1">
-                          {`This metric was analyzed with CUPED, which adjusts for covariates.`}
-                        </div>
-                      ) : null}
-                      <div>
-                        {`This affects metrics results (e.g., lift, ${
-                          data.statsEngine === "bayesian"
-                            ? "chance to win, credible intervals"
-                            : "p-values, confidence intervals"
-                        }), and estimated lift will often differ from the raw difference between variation and baseline.`}
-                      </div>
-                    </>
-                  }
-                >
-                  <span>
-                    <PiInfo size={16} />
-                  </span>
-                </Tooltip>
-              </Callout>
-            ) : null}
-
-            {data.rowResults.guardrailWarning ? (
-              <Callout size="sm" status="warning">
-                bad guardrail trend{" "}
-                <Tooltip
-                  className="cursor-pointer"
-                  body={data.rowResults.guardrailWarning}
-                >
-                  <span>
-                    <PiInfo size={16} />
-                  </span>
-                </Tooltip>
-              </Callout>
-            ) : null}
-          </Flex>
-
-          <Box mt="3" mb="2" className="results">
+          <Box className="results">
             <Table size="1">
-              <TableHeader>
+              <TableHeader style={{ fontSize: "12px" }}>
                 <TableRow style={{ color: "var(--color-text-mid)" }}>
                   <TableColumnHeader pl="0" style={{ width: 130 }}>
                     Variation
@@ -445,6 +384,7 @@ export default function ResultsTableTooltip({
                       style={{
                         color: "var(--color-text-high)",
                         fontWeight: 500,
+                        fontSize: "12px",
                       }}
                     >
                       <TableCell pl="0">
@@ -542,6 +482,67 @@ export default function ResultsTableTooltip({
               </TableBody>
             </Table>
           </Box>
+
+          <Flex direction="column" gap="2">
+            {addLiftWarning && data.rowResults.enoughData ? (
+              <Callout size="sm" status="info" mt="2" mb="1">
+                {priorUsed && cupedUsed ? (
+                  <>CUPED and Bayesian Priors affect results</>
+                ) : priorUsed ? (
+                  <>Bayesian Priors affect results</>
+                ) : (
+                  <>CUPED affects results</>
+                )}{" "}
+                <Tooltip
+                  className="cursor-pointer"
+                  body={
+                    <>
+                      {priorUsed ? (
+                        <div className="mb-1">
+                          {`This metric was analyzed with a prior that is normally distributed with mean ${
+                            data.metricSnapshotSettings?.properPriorMean ?? 0
+                          } and standard deviation ${
+                            data.metricSnapshotSettings?.properPriorStdDev ??
+                            DEFAULT_PROPER_PRIOR_STDDEV
+                          }.`}
+                        </div>
+                      ) : null}
+                      {cupedUsed ? (
+                        <div className="mb-1">
+                          {`This metric was analyzed with CUPED, which adjusts for covariates.`}
+                        </div>
+                      ) : null}
+                      <div>
+                        {`This affects metrics results (e.g., lift, ${
+                          data.statsEngine === "bayesian"
+                            ? "chance to win, credible intervals"
+                            : "p-values, confidence intervals"
+                        }), and estimated lift will often differ from the raw difference between variation and baseline.`}
+                      </div>
+                    </>
+                  }
+                >
+                  <span>
+                    <PiInfo size={16} />
+                  </span>
+                </Tooltip>
+              </Callout>
+            ) : null}
+
+            {data.rowResults.guardrailWarning ? (
+              <Callout size="sm" status="warning" mt="2" mb="1">
+                bad guardrail trend{" "}
+                <Tooltip
+                  className="cursor-pointer"
+                  body={data.rowResults.guardrailWarning}
+                >
+                  <span>
+                    <PiInfo size={16} />
+                  </span>
+                </Tooltip>
+              </Callout>
+            ) : null}
+          </Flex>
         </Box>
       </div>
     </div>
