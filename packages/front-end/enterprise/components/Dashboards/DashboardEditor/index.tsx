@@ -116,7 +116,7 @@ function AddBlockDropdown({
       trigger={trigger}
     >
       {BLOCK_SUBGROUPS.map(([subgroup, blockTypes], i) => (
-        <Fragment key={subgroup}>
+        <Fragment key={`${subgroup}-${i}`}>
           <DropdownMenuLabel className="font-weight-bold">
             <Text style={{ color: "var(--color-text-high)" }}>{subgroup}</Text>
           </DropdownMenuLabel>
@@ -420,7 +420,7 @@ function DashboardEditor({
                   ]);
             };
             return (
-              <>
+              <Fragment key={`block-${i}`}>
                 {addBlockIndex === i &&
                   isDefined(stagedAddBlock) &&
                   renderSingleBlock({
@@ -437,7 +437,7 @@ function DashboardEditor({
                   setBlock: effectiveSetBlock,
                   isEditingBlock,
                 })}
-              </>
+              </Fragment>
             );
           })}
           {addBlockIndex === blocks.length &&

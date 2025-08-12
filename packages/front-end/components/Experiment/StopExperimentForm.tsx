@@ -1,4 +1,4 @@
-import { FC } from "react";
+import { FC, useState } from "react";
 import {
   DecisionCriteriaData,
   ExperimentInterfaceStringDates,
@@ -9,6 +9,7 @@ import { useForm } from "react-hook-form";
 import { experimentHasLinkedChanges } from "shared/util";
 import { datetime } from "shared/dates";
 import { Flex } from "@radix-ui/themes";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import SelectField from "@/components/Forms/SelectField";
@@ -19,6 +20,7 @@ import { DocLink } from "@/components/DocLink";
 import DatePicker from "@/components/DatePicker";
 import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
 import Callout from "@/components/Radix/Callout";
+import { AppFeatures } from "@/types/app-features";
 import { Results } from "./ResultsIndicator";
 
 const StopExperimentForm: FC<{
@@ -36,10 +38,48 @@ const StopExperimentForm: FC<{
   mutate,
   source,
 }) => {
+  const [showModal, setShowModal] = useState(true);
   const isBandit = experiment.type == "multi-armed-bandit";
   const isStopped = experiment.status === "stopped";
 
   const hasLinkedChanges = experimentHasLinkedChanges(experiment);
+
+  const gb = useGrowthBook<AppFeatures>();
+  const aiSuggestFunction = gb.isOn(
+    "ai-suggestions-for-experiment-analysis-input"
+  )
+    ? async () => {
+        const response = await apiCall<{
+          status: number;
+          data: {
+            description: string;
+          };
+        }>(
+          `/experiment/${experiment.id}/analysis/ai-suggest`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              results: form.watch("results"),
+              winner: form.watch("winner"),
+              releasedVariationId: form.watch("releasedVariationId"),
+            }),
+          },
+          (responseData) => {
+            if (responseData.status === 429) {
+              const retryAfter = parseInt(responseData.retryAfter);
+              const hours = Math.floor(retryAfter / 3600);
+              const minutes = Math.floor((retryAfter % 3600) / 60);
+              throw new Error(
+                `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`
+              );
+            } else {
+              throw new Error("Error getting AI suggestion");
+            }
+          }
+        );
+        return response.data.description;
+      }
+    : undefined;
 
   const phases = experiment.phases || [];
   const lastPhaseIndex = phases.length - 1;
@@ -98,6 +138,7 @@ const StopExperimentForm: FC<{
       releasedVariationId:
         experiment.releasedVariationId || recommendedReleaseVariationId || "",
       excludeFromPayload: !!experiment.excludeFromPayload,
+      analysis: experiment.analysis || "",
       results: experiment.results || recommendedResult,
       dateEnded: new Date().toISOString().substr(0, 16),
     },
@@ -173,7 +214,7 @@ const StopExperimentForm: FC<{
       }
       size="lg"
       close={close}
-      open={true}
+      open={showModal}
       submit={submit}
       cta={isStopped ? "Save" : "Stop"}
       submitColor={isStopped ? "primary" : "danger"}
@@ -349,6 +390,15 @@ const StopExperimentForm: FC<{
             <MarkdownInput
               value={form.watch("analysis")}
               setValue={(val) => form.setValue("analysis", val)}
+              aiSuggestFunction={aiSuggestFunction}
+              aiButtonText="Generate Analysis"
+              aiSuggestionHeader="Suggested Summary"
+              onOptInModalClose={() => {
+                setShowModal(true);
+              }}
+              onOptInModalOpen={() => {
+                setShowModal(false);
+              }}
             />
           </div>
         </div>
