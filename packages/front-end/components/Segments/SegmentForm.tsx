@@ -40,6 +40,20 @@ const SegmentForm: FC<{
     factTables,
   } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
+
+  // If the segment is externally managed, automatically set it as read-only, even if the user has create/update permissions
+  let isReadOnly = !!current?.managedBy;
+
+  // If the segment is not externally managed, check the user's permissions
+  if (isReadOnly === false) {
+    if (current?.id) {
+      // if the current segment has an id, this is an update
+      isReadOnly = !permissionsUtil.canUpdateSegment(current, {});
+    } else {
+      // otherwise, the user is trying to create a new segment
+      isReadOnly = !permissionsUtil.canCreateSegment({ projects: [project] });
+    }
+  }
   const filteredDatasources = datasources
     .filter((d) => d.properties?.segments)
     .filter(
@@ -127,6 +141,7 @@ const SegmentForm: FC<{
         close={close}
         open={true}
         size={"lg"}
+        ctaEnabled={!isReadOnly}
         cta={current.id ? "Update Segment" : "Create Segment"}
         header={current.id ? "Edit Segment" : "New Segment"}
         submit={form.handleSubmit(async (value) => {
@@ -181,18 +196,29 @@ const SegmentForm: FC<{
             </a>
           </div>
         ) : null}
-        <Field label="Name" required {...form.register("name")} />
+        <Field
+          label="Name"
+          required
+          {...form.register("name")}
+          disabled={isReadOnly}
+        />
         <SelectOwner
           resourceType="segment"
+          disabled={isReadOnly}
           value={form.watch("owner")}
           onChange={(v) => form.setValue("owner", v)}
         />
-        <Field label="Description" {...form.register("description")} textarea />
+        <Field
+          label="Description"
+          {...form.register("description")}
+          textarea
+          disabled={isReadOnly}
+        />
         <SelectField
           label="Data Source"
           required
           value={form.watch("datasource")}
-          disabled={!!current.id}
+          disabled={!!current.id || isReadOnly}
           onChange={(v) => {
             form.setValue("datasource", v);
             // When a new data source is selected, update the projects so they equal the data source's project list
@@ -210,6 +236,7 @@ const SegmentForm: FC<{
           <SelectField
             label="Identifier Type"
             required
+            disabled={isReadOnly}
             value={userIdType}
             onChange={(v) => form.setValue("userIdType", v)}
             options={(datasource?.settings?.userIdTypes || []).map((t) => {
@@ -235,6 +262,7 @@ const SegmentForm: FC<{
               }
               placeholder="All projects"
               value={form.watch("projects")}
+              disabled={isReadOnly}
               options={projectOptions}
               onChange={(v) => form.setValue("projects", v)}
               customClassName="label-overflow-ellipsis"
@@ -250,6 +278,7 @@ const SegmentForm: FC<{
               <button
                 className="btn btn-outline-primary"
                 type="button"
+                disabled={isReadOnly}
                 onClick={(e) => {
                   e.preventDefault();
                   setSqlOpen(true);
@@ -266,6 +295,7 @@ const SegmentForm: FC<{
             {...form.register("sql")}
             textarea
             minRows={3}
+            disabled={isReadOnly}
             placeholder={"event.properties.$browser === 'Chrome'"}
             helpText={
               <>

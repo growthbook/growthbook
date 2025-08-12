@@ -38,6 +38,33 @@ export class SegmentModel extends BaseClass {
   protected canDelete(doc: SegmentInterface): boolean {
     return this.context.permissions.canDeleteSegment(doc);
   }
+
+  protected async beforeCreate(doc: SegmentInterface) {
+    if (doc.managedBy === "api" && !this.context.isApiRequest) {
+      throw new Error("Cannot create segment managed by API");
+    }
+  }
+
+  protected async beforeUpdate(existing: SegmentInterface) {
+    if (existing.managedBy === "config") {
+      throw new Error("Cannot update segment managed by config");
+    }
+
+    if (existing.managedBy === "api" && !this.context.isApiRequest) {
+      throw new Error("Cannot update segment managed by API");
+    }
+  }
+
+  protected async beforeDelete(existing: SegmentInterface) {
+    if (existing.managedBy === "config") {
+      throw new Error("Cannot delete segment managed by config");
+    }
+
+    if (existing.managedBy === "api" && !this.context.isApiRequest) {
+      throw new Error("Cannot delete segment managed by API");
+    }
+  }
+
   protected useConfigFile(): boolean {
     if (usingFileConfig() && !STORE_SEGMENTS_IN_MONGO) {
       return true;
