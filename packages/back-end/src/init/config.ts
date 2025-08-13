@@ -237,6 +237,7 @@ export function getConfigSegments(organization: string): SegmentInterface[] {
       organization,
       dateCreated: new Date(),
       dateUpdated: new Date(),
+      managedBy: "config",
     };
   });
 }

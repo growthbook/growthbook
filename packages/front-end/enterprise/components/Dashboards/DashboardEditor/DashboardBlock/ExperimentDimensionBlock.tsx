@@ -14,6 +14,7 @@ import { BlockProps } from ".";
 
 export default function ExperimentDimensionBlock({
   block: {
+    id,
     metricIds,
     baselineRow,
     columnsFilter,
@@ -26,7 +27,10 @@ export default function ExperimentDimensionBlock({
   snapshot,
   analysis,
   ssrPolyfills,
-}: BlockProps<ExperimentDimensionBlockInterface>) {
+}: BlockProps<ExperimentDimensionBlockInterface> & { block: { id?: string } }) {
+  // todo?: assign stable temp ID when creating new block
+  id = id || "" + Math.floor(Math.random() * 10000);
+
   const { pValueCorrection: hookPValueCorrection } = useOrgSettings();
   const { metricGroups } = useDefinitions();
   const expandedMetricIds = expandMetricGroups(metricIds, metricGroups);
@@ -102,6 +106,7 @@ export default function ExperimentDimensionBlock({
 
   return (
     <BreakDownResults
+      idPrefix={id}
       key={snapshot.dimension}
       results={analysis.results}
       queryStatusData={queryStatusData}
