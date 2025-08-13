@@ -29,7 +29,7 @@ export default function ExperimentDimensionBlock({
   ssrPolyfills,
 }: BlockProps<ExperimentDimensionBlockInterface> & { block: { id?: string } }) {
   // todo?: assign stable temp ID when creating new block
-  id = id || Math.floor(Math.random() * 10000);
+  id = id || "" + Math.floor(Math.random() * 10000);
 
   const { pValueCorrection: hookPValueCorrection } = useOrgSettings();
   const { metricGroups } = useDefinitions();
