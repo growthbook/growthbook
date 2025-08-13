@@ -163,6 +163,7 @@ export default function DataVizConfigPanel({
           </Select>
           <Select
             label="Format"
+            size="2"
             value={dataVizConfig.format ?? "shortNumber"}
             setValue={(v) => {
               onDataVizConfigChange({
@@ -179,6 +180,7 @@ export default function DataVizConfigPanel({
           </Select>
           <Select
             label="Aggregation"
+            size="2"
             value={dataVizConfig.yAxis?.[0]?.aggregation ?? "sum"}
             setValue={(v) => {
               onDataVizConfigChange({
