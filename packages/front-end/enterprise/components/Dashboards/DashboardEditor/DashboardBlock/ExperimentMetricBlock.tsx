@@ -18,7 +18,7 @@ export default function ExperimentMetricBlock({
   analysis,
   ssrPolyfills,
   metrics,
-}: BlockProps<ExperimentMetricBlockInterface>) {
+}: BlockProps<ExperimentMetricBlockInterface> & { block: { id: string } }) {
   const { pValueCorrection: hookPValueCorrection } = useOrgSettings();
   const { metricGroups } = useDefinitions();
   const goalMetrics = useMemo(

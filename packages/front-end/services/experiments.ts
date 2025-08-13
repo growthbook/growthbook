@@ -455,6 +455,7 @@ export type RowResults = {
   significantUnadjusted: boolean;
   significantReason: string;
   suspiciousChange: boolean;
+  suspiciousThreshold: number;
   suspiciousChangeReason: string;
   belowMinChange: boolean;
   risk: number;
@@ -620,9 +621,11 @@ export function getRowResults({
     metricDefaults,
     differenceType
   );
+  const suspiciousThreshold =
+    metric.maxPercentChange ?? metricDefaults?.maxPercentageChange ?? 0;
   const suspiciousChangeReason = suspiciousChange
     ? `A suspicious result occurs when the percent change exceeds your maximum percent change (${percentFormatter.format(
-        metric.maxPercentChange ?? metricDefaults?.maxPercentageChange ?? 0
+        suspiciousThreshold
       )}).`
     : "";
 
@@ -754,6 +757,7 @@ export function getRowResults({
     significantUnadjusted,
     significantReason,
     suspiciousChange,
+    suspiciousThreshold,
     suspiciousChangeReason,
     belowMinChange,
     risk,

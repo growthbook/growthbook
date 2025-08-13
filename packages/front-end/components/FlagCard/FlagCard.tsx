@@ -222,7 +222,12 @@ export default function FlagCard({
           <CardItem
             label="Suspicious"
             tooltip={data.rowResults.suspiciousChangeReason}
-            value={<span style={{ color: "var(--pink-a11)" }}>suspicious</span>}
+            value={
+              <span style={{ color: "var(--pink-a11)" }}>
+                % change &gt;{" "}
+                {percentFormatter.format(data.rowResults.suspiciousThreshold)}
+              </span>
+            }
           />
         ) : null}
 

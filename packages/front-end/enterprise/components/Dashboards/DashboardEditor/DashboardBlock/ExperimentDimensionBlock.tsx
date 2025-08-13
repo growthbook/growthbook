@@ -27,7 +27,7 @@ export default function ExperimentDimensionBlock({
   snapshot,
   analysis,
   ssrPolyfills,
-}: BlockProps<ExperimentDimensionBlockInterface>) {
+}: BlockProps<ExperimentDimensionBlockInterface> & { block: { id: string } }) {
   const { pValueCorrection: hookPValueCorrection } = useOrgSettings();
   const { metricGroups } = useDefinitions();
   const expandedMetricIds = expandMetricGroups(metricIds, metricGroups);
@@ -103,7 +103,7 @@ export default function ExperimentDimensionBlock({
 
   return (
     <BreakDownResults
-      id={id}
+      idPrefix={id}
       key={snapshot.dimension}
       results={analysis.results}
       queryStatusData={queryStatusData}
