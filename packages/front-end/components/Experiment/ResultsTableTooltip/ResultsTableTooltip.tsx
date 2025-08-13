@@ -403,6 +403,7 @@ export default function ResultsTableTooltip({
                               alignItems: "center",
                               justifyContent: "center",
                               flexShrink: 0,
+                              marginTop: 1,
                             }}
                           >
                             {rowNumber}

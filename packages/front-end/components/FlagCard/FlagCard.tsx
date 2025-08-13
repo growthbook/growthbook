@@ -137,10 +137,11 @@ export default function FlagCard({
               align="center"
               gap="1"
               style={{
-                color:
-                  data.rowResults.directionalStatus === "winning"
-                    ? "var(--green-11)"
-                    : "var(--red-a12)",
+                color: !data.rowResults.significant
+                  ? undefined
+                  : data.rowResults.directionalStatus === "winning"
+                  ? "var(--green-11)"
+                  : "var(--red-a12)",
               }}
             >
               {deltaFormatter(data.stats.expected ?? 0, deltaFormatterOptions)}
@@ -202,9 +203,9 @@ export default function FlagCard({
                 style={{
                   color:
                     data.rowResults.riskMeta.riskStatus === "danger"
-                      ? "var(--red-a12)"
+                      ? "var(--red-a11)"
                       : data.rowResults.riskMeta.riskStatus === "warning"
-                      ? "var(--amber-a12)"
+                      ? "var(--amber-a11)"
                       : undefined,
                 }}
               >
