@@ -8,6 +8,7 @@ declare global {
       track?: (name: string, props?: Record<string, unknown>) => void;
     };
     gtag?: (...args: unknown[]) => void;
+    snowplow?: (...args: unknown[]) => void;
   }
 }
 
@@ -128,10 +129,72 @@ describe("thirdPartyTrackingPlugin", () => {
     gb.destroy();
   });
 
+  it("should call snowplow if enabled", async () => {
+    const plugin = thirdPartyTrackingPlugin({
+      trackers: ["snowplow"],
+    });
+
+    window.snowplow = jest.fn();
+
+    const gb = new GrowthBook({
+      plugins: [plugin],
+      attributes: {
+        id: "123",
+      },
+    });
+
+    const exp: Experiment<boolean> = {
+      key: "my-experiment",
+      variations: [false, true],
+    };
+    const res = gb.run(exp);
+
+    expect(window.snowplow).toHaveBeenCalledWith("trackSelfDescribingEvent", {
+      event: {
+        schema: "iglu:com.growthbook/experiment_viewed/jsonschema/1-0-0",
+        data: {
+          experimentId: exp.key,
+          variationId: res.key,
+          hashAttribute: res.hashAttribute,
+          hashValue: res.hashValue,
+        },
+      },
+    });
+
+    delete window.snowplow;
+    gb.destroy();
+  });
+
+  it("should not call snowplow unless explicitly enabled", () => {
+    const plugin = thirdPartyTrackingPlugin();
+
+    window.snowplow = jest.fn();
+
+    const gb = new GrowthBook({
+      plugins: [plugin],
+      attributes: {
+        id: "123",
+      },
+    });
+
+    const exp: Experiment<boolean> = {
+      key: "my-experiment",
+      variations: [false, true],
+    };
+    gb.run(exp);
+
+    expect(window.snowplow).not.toHaveBeenCalled();
+
+    delete window.snowplow;
+    gb.destroy();
+  });
+
   it("Fails silently if trackers don't exist", () => {
     delete window.dataLayer;
 
-    const plugin = thirdPartyTrackingPlugin();
+    const plugin = thirdPartyTrackingPlugin({
+      trackers: ["gtm", "gtag", "segment", "snowplow"],
+    });
 
     const gb = new GrowthBook({
       plugins: [plugin],
