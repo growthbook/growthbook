@@ -1,4 +1,3 @@
-import Link from "next/link";
 import React, { DetailedHTMLProps, HTMLAttributes, useEffect } from "react";
 import {
   ExperimentReportVariationWithIndex,
@@ -10,15 +9,8 @@ import {
   PValueCorrection,
   StatsEngine,
 } from "back-end/types/stats";
-import {
-  BsXCircle,
-  BsHourglassSplit,
-  BsArrowReturnRight,
-} from "react-icons/bs";
+import { BsX, BsArrowReturnRight } from "react-icons/bs";
 import clsx from "clsx";
-import { FaArrowDown, FaArrowUp, FaQuestionCircle } from "react-icons/fa";
-import { HiOutlineExclamationCircle } from "react-icons/hi";
-import { RxInfoCircled } from "react-icons/rx";
 import { MdSwapCalls } from "react-icons/md";
 import {
   ExperimentMetricInterface,
@@ -26,14 +18,10 @@ import {
   quantileMetricType,
 } from "shared/experiments";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
-import { Flex } from "@radix-ui/themes";
-import NotEnoughData from "@/components/Experiment/NotEnoughData";
-import {
-  getEffectLabel,
-  pValueFormatter,
-  RowResults,
-} from "@/services/experiments";
-import { GBSuspicious } from "@/components/Icons";
+import { Box, Flex, Text } from "@radix-ui/themes";
+import { PiInfo } from "react-icons/pi";
+import { upperFirst } from "lodash";
+import { getEffectLabel, RowResults } from "@/services/experiments";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricValueColumn from "@/components/Experiment/MetricValueColumn";
 import {
@@ -45,11 +33,20 @@ import {
   getPercentileLabel,
 } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
-import { capitalizeFirstLetter } from "@/services/utils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { PercentileLabel } from "@/components/Metrics/MetricName";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import Table, {
+  TableHeader,
+  TableRow,
+  TableColumnHeader,
+  TableBody,
+  TableCell,
+} from "@/components/Radix/Table";
+import Callout from "@/components/Radix/Callout";
+import FlagCard from "@/components/FlagCard/FlagCard";
+import { getVariationColor } from "@/services/features";
 
 export const TOOLTIP_WIDTH = 400;
 export const TOOLTIP_HEIGHT = 400; // Used for over/under layout calculation. Actual height may vary.
@@ -64,10 +61,6 @@ export type LayoutX = "element-center" | "element-left" | "element-right";
 export type YAlign = "top" | "bottom";
 
 const numberFormatter = Intl.NumberFormat();
-const percentFormatter = new Intl.NumberFormat(undefined, {
-  style: "percent",
-  maximumFractionDigits: 2,
-});
 
 export interface TooltipData {
   metricRow: number;
@@ -157,23 +150,6 @@ export default function ResultsTableTooltip({
 
   const rows = [data.baseline, data.stats];
 
-  const flags = !data.isGuardrail
-    ? [
-        !data.rowResults.enoughData,
-        data.rowResults.riskMeta.showRisk &&
-          ["warning", "danger"].includes(data.rowResults.riskMeta.riskStatus) &&
-          data.rowResults.resultsStatus !== "lost",
-        data.rowResults.suspiciousChange,
-      ]
-    : [
-        !data.rowResults.enoughData,
-        data.rowResults.riskMeta.showRisk &&
-          ["warning", "danger"].includes(data.rowResults.riskMeta.riskStatus) &&
-          data.rowResults.resultsStatus !== "lost",
-        data.rowResults.guardrailWarning,
-      ];
-  const hasFlaggedItems = flags.some((flag) => flag);
-
   const metricInverseIconDisplay = data.metric.inverse ? (
     <Tooltip
       body="metric is inverse, lower is better"
@@ -184,29 +160,6 @@ export default function ResultsTableTooltip({
     </Tooltip>
   ) : null;
 
-  const confidencePct = percentFormatter.format(1 - pValueThreshold);
-
-  let pValText = (
-    <>
-      {data.stats?.pValue !== undefined
-        ? pValueFormatter(data.stats.pValue)
-        : ""}
-    </>
-  );
-  if (
-    data.stats?.pValueAdjusted !== undefined &&
-    data.pValueCorrection &&
-    !data.isGuardrail
-  ) {
-    pValText = (
-      <>
-        <div>{pValueFormatter(data.stats.pValueAdjusted)}</div>
-        <div className="text-muted font-weight-normal">
-          (unadj.:&nbsp;{pValText})
-        </div>
-      </>
-    );
-  }
   let denomFormatter = formatNumber;
   const hasCustomDenominator =
     ((isFactMetric(data.metric) && data.metric.metricType === "ratio") ||
@@ -228,38 +181,6 @@ export default function ResultsTableTooltip({
   const quantileValue = isFactMetric(data.metric)
     ? data.metric.quantileSettings?.quantile
     : undefined;
-  // Lift units
-  const ci1 = data.stats?.ciAdjusted?.[1] ?? data.stats?.ci?.[1] ?? Infinity;
-  const ci0 = data.stats?.ciAdjusted?.[0] ?? data.stats?.ci?.[0] ?? -Infinity;
-  const ciRangeText =
-    data.stats?.ciAdjusted?.[0] !== undefined ? (
-      <>
-        <div>
-          [{deltaFormatter(ci0, deltaFormatterOptions)},{" "}
-          {deltaFormatter(ci1, deltaFormatterOptions)}]
-        </div>
-        <div className="text-muted font-weight-normal">
-          (unadj.:&nbsp; [
-          {deltaFormatter(
-            data.stats.ci?.[0] ?? -Infinity,
-            deltaFormatterOptions
-          )}
-          ,{" "}
-          {deltaFormatter(
-            data.stats.ci?.[1] ?? Infinity,
-            deltaFormatterOptions
-          )}
-          ] )
-        </div>
-      </>
-    ) : (
-      <>
-        [
-        {deltaFormatter(data.stats.ci?.[0] ?? -Infinity, deltaFormatterOptions)}
-        ,{" "}
-        {deltaFormatter(data.stats.ci?.[1] ?? Infinity, deltaFormatterOptions)}]
-      </>
-    );
 
   const priorUsed =
     data.statsEngine === "bayesian" && data.metricSnapshotSettings?.properPrior;
@@ -322,11 +243,11 @@ export default function ResultsTableTooltip({
           className="position-absolute text-gray cursor-pointer"
           onClick={close}
         >
-          <BsXCircle size={16} />
+          <BsX size={16} />
         </a>
 
         {/*tooltip contents*/}
-        <div className="px-2 py-1">
+        <Box p="2">
           {data.isGuardrail ? (
             <div
               className="uppercase-title text-muted mr-2"
@@ -335,199 +256,243 @@ export default function ResultsTableTooltip({
               guardrail
             </div>
           ) : null}
-          <div className="metric-label d-flex align-items-end">
-            <span
-              className="h5 mb-0 text-dark text-ellipsis"
-              style={{ maxWidth: 350 }}
-            >
-              {data.metric.name}
-            </span>
-            <PercentileLabel metric={data.metric} />
-            {metricInverseIconDisplay}
-            <span className="small text-muted ml-2">
-              (
-              {isFactMetric(data.metric)
-                ? data.metric.metricType
-                : data.metric.type}
-              )
-            </span>
-          </div>
-          {data.dimensionName ? (
-            <div className="dimension-label d-flex align-items-center">
-              <BsArrowReturnRight size={12} className="mx-1" />
-              <span className="text-ellipsis" style={{ maxWidth: 150 }}>
-                {data.dimensionName}
-              </span>
-              :{" "}
-              <span
-                className="ml-1 font-weight-bold text-ellipsis"
-                style={{ maxWidth: 250 }}
-              >
-                {data.dimensionValue}
-              </span>
-            </div>
-          ) : null}
 
-          <div
-            className="variation-label mt-2 d-flex justify-content-between"
-            style={{ gap: 8 }}
-          >
-            <div
-              className={`variation variation${data.variation.index} with-variation-label d-inline-flex align-items-center`}
-              style={{ maxWidth: 300 }}
-            >
-              <span className="label" style={{ width: 16, height: 16 }}>
+          <Flex direction="column" gap="2" mb="2">
+            <Flex gap="1" align="center">
+              <Text
+                weight="medium"
+                size="2"
+                className="text-ellipsis"
+                style={{ maxWidth: 350 }}
+              >
+                {data.metric.name}
+              </Text>
+              <PercentileLabel metric={data.metric} />
+              <Text weight="regular" size="2" color="gray" ml="2">
+                (
+                {upperFirst(
+                  isFactMetric(data.metric)
+                    ? data.metric.metricType
+                    : data.metric.type
+                )}
+                )
+              </Text>
+              {metricInverseIconDisplay}
+            </Flex>
+
+            {data.dimensionName ? (
+              <Flex ml="1" gap="1" mt="-2" align="center">
+                <BsArrowReturnRight size={12} />
+                <Flex gap="1">
+                  <span className="text-ellipsis" style={{ maxWidth: 150 }}>
+                    {data.dimensionName}:
+                  </span>
+                  <span
+                    className="font-weight-bold text-ellipsis"
+                    style={{ maxWidth: 250 }}
+                  >
+                    {data.dimensionValue}
+                  </span>
+                </Flex>
+              </Flex>
+            ) : null}
+
+            <Flex align="center" gap="2" className="variation-label">
+              <span
+                style={{
+                  color: getVariationColor(data.variation.index, true),
+                  borderColor: getVariationColor(data.variation.index, true),
+                  fontSize: "12px",
+                  width: 16,
+                  height: 16,
+                  borderRadius: 16,
+                  borderWidth: 1,
+                  borderStyle: "solid",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
                 {data.variation.index}
               </span>
-              <span className="d-inline-block text-ellipsis font-weight-bold">
+              <Text weight="bold" className="text-ellipsis">
                 {data.variation.name}
-              </span>
-            </div>
-          </div>
+              </Text>
+            </Flex>
+          </Flex>
 
-          <div
-            className={clsx(
-              "results-overview mt-1 px-3 pb-2 rounded position-relative",
-              data.rowResults.resultsStatus
-            )}
-            style={{ paddingTop: 12 }}
-          >
-            {(["won", "lost", "draw"].includes(data.rowResults.resultsStatus) ||
-              !data.rowResults.significant) &&
-            data.rowResults.enoughData ? (
-              <div
-                className={clsx(
-                  "results-status position-absolute d-flex align-items-center",
-                  data.rowResults.resultsStatus,
-                  {
-                    "non-significant": !data.rowResults.significant,
-                  }
-                )}
-              >
-                <Tooltip
-                  body={
-                    <>
-                      <p className="mb-0">
-                        {data.rowResults.significant
-                          ? data.rowResults.resultsReason
-                          : data.rowResults.significantReason}
-                      </p>
-                      {data.statsEngine === "frequentist" &&
-                      data.pValueCorrection &&
-                      !data.isGuardrail ? (
-                        <p className="mt-2 mb-0">
-                          Note that p-values have been corrected using the{" "}
-                          {data.pValueCorrection} method.
-                        </p>
+          <Box mb="3">
+            <FlagCard
+              effectLabel={effectLabel}
+              deltaFormatter={deltaFormatter}
+              deltaFormatterOptions={deltaFormatterOptions}
+              pValueThreshold={pValueThreshold}
+              data={data}
+            />
+          </Box>
+
+          <Box className="results">
+            <Table size="1">
+              <TableHeader style={{ fontSize: "12px" }}>
+                <TableRow style={{ color: "var(--color-text-mid)" }}>
+                  <TableColumnHeader pl="0" style={{ width: 130 }}>
+                    Variation
+                  </TableColumnHeader>
+                  <TableColumnHeader justify="end">
+                    {quantileMetric && quantileIgnoreZeros ? "Non-zero " : ""}
+                    {quantileMetric === "event" ? "Events" : "Users"}
+                  </TableColumnHeader>
+                  {!quantileMetric ? (
+                    <TableColumnHeader justify="end">
+                      Numerator
+                      {isBandit && (
+                        <>
+                          <br />
+                          <div className="small" style={{ marginTop: -2 }}>
+                            (adjusted)
+                          </div>
+                        </>
+                      )}
+                    </TableColumnHeader>
+                  ) : null}
+                  {hasCustomDenominator ? (
+                    <TableColumnHeader justify="end">Denom.</TableColumnHeader>
+                  ) : null}
+                  {quantileMetric && quantileValue ? (
+                    <TableColumnHeader justify="end">
+                      {getPercentileLabel(quantileValue)}
+                    </TableColumnHeader>
+                  ) : (
+                    <TableColumnHeader justify="end">Value</TableColumnHeader>
+                  )}
+                </TableRow>
+              </TableHeader>
+
+              <TableBody>
+                {rows.map((row, i) => {
+                  const rowNumber =
+                    i === 0
+                      ? data?.baselineVariation.index
+                      : data.variation.index;
+                  const rowName =
+                    i === 0 ? data.baselineVariation.name : data.variation.name;
+                  const variationColor = getVariationColor(rowNumber, true);
+                  return (
+                    <TableRow
+                      key={`result_tooltip_row_${i}`}
+                      style={{
+                        color: "var(--color-text-high)",
+                        fontWeight: 500,
+                        fontSize: "12px",
+                      }}
+                    >
+                      <TableCell pl="0">
+                        <Flex align="start" gap="2">
+                          <span
+                            style={{
+                              color: variationColor,
+                              borderColor: variationColor,
+                              fontSize: "12px",
+                              width: 16,
+                              height: 16,
+                              borderRadius: 16,
+                              borderWidth: 1,
+                              borderStyle: "solid",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              flexShrink: 0,
+                              marginTop: 1,
+                            }}
+                          >
+                            {rowNumber}
+                          </span>
+                          <Flex direction="column">
+                            <Text
+                              weight="bold"
+                              className="text-ellipsis"
+                              style={{ maxWidth: 90 }}
+                            >
+                              {rowName}
+                            </Text>
+                            {i === 0 ? (
+                              <Text
+                                size="1"
+                                style={{ color: "var(--color-text-mid)" }}
+                                weight="regular"
+                              >
+                                BASELINE
+                              </Text>
+                            ) : null}
+                          </Flex>
+                        </Flex>
+                      </TableCell>
+
+                      <TableCell justify="end">
+                        {quantileMetric && row.stats
+                          ? numberFormatter.format(row.stats.count)
+                          : numberFormatter.format(row.users)}
+                      </TableCell>
+
+                      {!quantileMetric ? (
+                        <TableCell justify="end">
+                          {isFactMetric(data.metric)
+                            ? getColumnRefFormatter(
+                                data.metric.numerator,
+                                ssrPolyfills?.getFactTableById ||
+                                  getFactTableById
+                              )(row.value, { currency: displayCurrency })
+                            : getMetricFormatter(
+                                data.metric.type === "binomial"
+                                  ? "count"
+                                  : data.metric.type
+                              )(row.value, { currency: displayCurrency })}
+                        </TableCell>
                       ) : null}
-                    </>
-                  }
-                  tipMinWidth={"250px"}
-                  className="cursor-pointer"
-                >
-                  <Flex align="center">
-                    <span className="mr-1">
-                      {data.rowResults.significant
-                        ? capitalizeFirstLetter(data.rowResults.resultsStatus)
-                        : "Not significant"}
-                    </span>
-                    <RxInfoCircled />
-                  </Flex>
-                </Tooltip>
-              </div>
-            ) : null}
-            {data.rowResults.enoughData ? (
-              <>
-                <div
-                  className={clsx(
-                    "results-change d-flex",
-                    data.rowResults.directionalStatus
-                  )}
-                >
-                  <div className="label mr-2">{effectLabel}:</div>
-                  <div
-                    className={clsx("value", {
-                      "font-weight-bold": !data.isGuardrail
-                        ? data.rowResults.significant
-                        : data.rowResults.significantUnadjusted,
-                      opacity50: !data.rowResults.enoughData,
-                    })}
-                  >
-                    <span className="expectedArrows">
-                      {(data.rowResults.directionalStatus === "winning" &&
-                        !data.metric.inverse) ||
-                      (data.rowResults.directionalStatus === "losing" &&
-                        data.metric.inverse) ? (
-                        <FaArrowUp />
-                      ) : (
-                        <FaArrowDown />
-                      )}
-                    </span>{" "}
-                    <span className="expected bold">
-                      {deltaFormatter(
-                        data.stats.expected ?? 0,
-                        deltaFormatterOptions
-                      )}
-                    </span>
-                  </div>
-                </div>
 
-                <div
-                  className={clsx(
-                    "results-ci d-flex mt-1",
-                    data.rowResults.resultsStatus
-                  )}
-                >
-                  <div className="label mr-2">
-                    {data.statsEngine === "bayesian"
-                      ? "95% Credible Interval:"
-                      : `${confidencePct} Confidence Interval:`}
-                  </div>
-                  <div
-                    className={clsx("value nowrap", {
-                      "font-weight-bold": !data.isGuardrail
-                        ? data.rowResults.significant
-                        : data.rowResults.significantUnadjusted,
-                      opacity50: !data.rowResults.enoughData,
-                    })}
-                  >
-                    {ciRangeText}
-                  </div>
-                </div>
+                      {hasCustomDenominator ? (
+                        <TableCell justify="end">
+                          {denomFormatter(row.denominator || row.users, {
+                            currency: displayCurrency,
+                          })}
+                        </TableCell>
+                      ) : null}
 
-                <div
-                  className={clsx(
-                    "results-chance d-flex mt-1",
-                    data.rowResults.resultsStatus
-                  )}
-                >
-                  <div className="label mr-2">
-                    {data.statsEngine === "bayesian"
-                      ? "Chance to Win:"
-                      : "P-Value:"}
-                  </div>
-                  <div
-                    className={clsx("value", {
-                      "font-weight-bold": !data.isGuardrail
-                        ? data.rowResults.significant
-                        : data.rowResults.significantUnadjusted,
-                      opacity50: !data.rowResults.enoughData,
-                    })}
-                  >
-                    {data.statsEngine === "bayesian"
-                      ? percentFormatter.format(data.stats.chanceToWin ?? 0)
-                      : pValText}
-                  </div>
-                </div>
-              </>
-            ) : null}
+                      <TableCell justify="end">
+                        <MetricValueColumn
+                          metric={data.metric}
+                          stats={row}
+                          users={row?.users || 0}
+                          showRatio={false}
+                          displayCurrency={displayCurrency}
+                          getExperimentMetricById={
+                            ssrPolyfills?.getExperimentMetricById ||
+                            getExperimentMetricById
+                          }
+                          getFactTableById={
+                            ssrPolyfills?.getFactTableById || getFactTableById
+                          }
+                          asTd={false}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </Box>
+
+          <Flex direction="column" gap="2">
             {addLiftWarning && data.rowResults.enoughData ? (
-              <div
-                className={clsx(
-                  "results-prior text-muted rounded d-flex justify-content-center my-2",
-                  data.rowResults.resultsStatus
-                )}
-              >
+              <Callout size="sm" status="info" icon={null} mt="2" mb="1">
+                {priorUsed && cupedUsed ? (
+                  <>CUPED and Bayesian Priors affect results</>
+                ) : priorUsed ? (
+                  <>Bayesian Priors affect results</>
+                ) : (
+                  <>CUPED affects results</>
+                )}{" "}
                 <Tooltip
                   className="cursor-pointer"
                   body={
@@ -557,245 +522,14 @@ export default function ResultsTableTooltip({
                     </>
                   }
                 >
-                  <HiOutlineExclamationCircle
-                    size={16}
-                    className="flag-icon mr-1"
-                  />
                   <span>
-                    {priorUsed
-                      ? `Your Bayesian prior ${
-                          cupedUsed ? "and CUPED " : ""
-                        }affects results`
-                      : "CUPED affects results"}
+                    <PiInfo size={16} />
                   </span>
                 </Tooltip>
-              </div>
+              </Callout>
             ) : null}
-
-            {hasFlaggedItems ? (
-              <div
-                className="results-flagged-items d-flex align-items-start"
-                style={{ gap: 12 }}
-              >
-                {!data.rowResults.enoughData ? (
-                  <Tooltip
-                    className="cursor-pointer"
-                    body={data.rowResults.enoughDataMeta.reasonText}
-                  >
-                    <div className="flagged d-flex border rounded p-1 flagged-not-enough-data">
-                      <BsHourglassSplit
-                        size={15}
-                        className="flag-icon text-info"
-                      />
-                      <NotEnoughData
-                        rowResults={data.rowResults}
-                        showTimeRemaining={true}
-                        showPercentComplete={true}
-                        noStyle={true}
-                      />
-                    </div>
-                  </Tooltip>
-                ) : null}
-
-                {data.rowResults.riskMeta.showRisk &&
-                ["warning", "danger"].includes(
-                  data.rowResults.riskMeta.riskStatus
-                ) &&
-                data.rowResults.resultsStatus !== "lost" ? (
-                  <Tooltip
-                    className="cursor-pointer"
-                    body={data.rowResults.riskMeta.riskReason}
-                  >
-                    <div
-                      className={clsx(
-                        "flagged d-flex border rounded p-1 flagged-risk",
-                        data.rowResults.riskMeta.riskStatus
-                      )}
-                    >
-                      <Link
-                        href="https://docs.growthbook.io/using/experimenting#bayesian-results"
-                        target="_blank"
-                      >
-                        <FaQuestionCircle
-                          size={12}
-                          style={{ marginRight: "8px" }}
-                        />
-                      </Link>
-                      <div className="risk">
-                        <div className="risk-value">
-                          risk: {data.rowResults.riskMeta.relativeRiskFormatted}
-                        </div>
-                        {data.rowResults.riskMeta.riskFormatted ? (
-                          <div className="text-muted risk-relative">
-                            {data.rowResults.riskMeta.riskFormatted}
-                          </div>
-                        ) : null}
-                      </div>
-                    </div>
-                  </Tooltip>
-                ) : null}
-
-                {!data?.isGuardrail && data.rowResults.suspiciousChange ? (
-                  <Tooltip
-                    className="cursor-pointer"
-                    body={data.rowResults.suspiciousChangeReason}
-                  >
-                    <div className="flagged d-flex border rounded p-1 flagged-suspicious suspicious">
-                      <GBSuspicious size={18} className="flag-icon" />
-                      <div className="suspicious-reason">
-                        <div>suspicious</div>
-                      </div>
-                    </div>
-                  </Tooltip>
-                ) : null}
-
-                {data.rowResults.guardrailWarning ? (
-                  <Tooltip
-                    className="cursor-pointer"
-                    body={data.rowResults.guardrailWarning}
-                  >
-                    <div
-                      className={clsx(
-                        "flagged d-flex border rounded p-1 flagged-guardrail-warning warning"
-                      )}
-                    >
-                      <HiOutlineExclamationCircle
-                        size={18}
-                        className="flag-icon"
-                      />
-                      <div className="guardrail-warning">
-                        <div className="risk-value">
-                          bad guardrail
-                          <br />
-                          trend
-                        </div>
-                      </div>
-                    </div>
-                  </Tooltip>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-
-          <div className="mt-3 mb-2 results">
-            <table className="table-condensed results-table">
-              <thead>
-                <tr>
-                  <th style={{ width: 130 }}>Variation</th>
-                  <th>
-                    {quantileMetric && quantileIgnoreZeros ? "Non-zero " : ""}
-                    {quantileMetric === "event" ? "Events" : "Users"}
-                  </th>
-                  {!quantileMetric ? (
-                    <th>
-                      Numerator
-                      {isBandit && (
-                        <>
-                          <br />
-                          <div className="small" style={{ marginTop: -2 }}>
-                            (adjusted)
-                          </div>
-                        </>
-                      )}
-                    </th>
-                  ) : null}
-                  {hasCustomDenominator ? <th>Denom.</th> : null}
-                  {quantileMetric && quantileValue ? (
-                    <th>{getPercentileLabel(quantileValue)}</th>
-                  ) : (
-                    <th>Value</th>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row, i) => {
-                  const rowNumber =
-                    i === 0
-                      ? data?.baselineVariation.index
-                      : data.variation.index;
-                  const rowName =
-                    i === 0 ? data.baselineVariation.name : data.variation.name;
-                  return (
-                    <tr key={i}>
-                      <td style={{ width: 130, height: 40 }}>
-                        <div
-                          className={`variation variation${rowNumber} with-variation-label d-inline-flex align-items-center`}
-                        >
-                          <span
-                            className="label"
-                            style={{ width: 16, height: 16 }}
-                          >
-                            {rowNumber}
-                          </span>
-                          <span
-                            className="d-inline-block text-ellipsis"
-                            style={{ width: 90 }}
-                          >
-                            {rowName}
-                          </span>
-                        </div>
-                        {i === 0 ? (
-                          <div
-                            className="text-muted text-uppercase"
-                            style={{
-                              fontSize: "10px",
-                              marginTop: -4,
-                              marginLeft: 20,
-                            }}
-                          >
-                            baseline
-                          </div>
-                        ) : null}
-                      </td>
-                      <td>
-                        {quantileMetric && row.stats
-                          ? numberFormatter.format(row.stats.count)
-                          : numberFormatter.format(row.users)}
-                      </td>
-
-                      {!quantileMetric ? (
-                        <td>
-                          {isFactMetric(data.metric)
-                            ? getColumnRefFormatter(
-                                data.metric.numerator,
-                                ssrPolyfills?.getFactTableById ||
-                                  getFactTableById
-                              )(row.value, { currency: displayCurrency })
-                            : getMetricFormatter(
-                                data.metric.type === "binomial"
-                                  ? "count"
-                                  : data.metric.type
-                              )(row.value, { currency: displayCurrency })}
-                        </td>
-                      ) : null}
-                      {hasCustomDenominator ? (
-                        <td>
-                          {denomFormatter(row.denominator || row.users, {
-                            currency: displayCurrency,
-                          })}
-                        </td>
-                      ) : null}
-                      <MetricValueColumn
-                        metric={data.metric}
-                        stats={row}
-                        users={row?.users || 0}
-                        showRatio={false}
-                        displayCurrency={displayCurrency}
-                        getExperimentMetricById={
-                          ssrPolyfills?.getExperimentMetricById ||
-                          getExperimentMetricById
-                        }
-                        getFactTableById={
-                          ssrPolyfills?.getFactTableById || getFactTableById
-                        }
-                      />
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
+          </Flex>
+        </Box>
       </div>
     </div>
   );
