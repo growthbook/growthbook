@@ -39,25 +39,6 @@ export default function ExperimentReportsList({
   const { reports } = data;
   const isAdmin = permissionsUtil.canSuperDeleteReport();
 
-  const filteredReports = reports
-    .map((report) => {
-      const isOwner = userId === report?.userId || !report?.userId;
-      const canDelete = isOwner || isAdmin;
-      const show = isOwner
-        ? true
-        : report.type === "experiment"
-        ? report.status === "published"
-        : report.shareLevel === "public" ||
-          report.shareLevel === "organization";
-      const showDelete = report.type === "experiment" ? isAdmin : canDelete;
-      return { report, show, showDelete, isOwner };
-    })
-    .filter((fr) => fr.show);
-
-  if (!filteredReports.length) {
-    return null;
-  }
-
   return (
     <div className="px-4 mb-4">
       <table className="table appbox gbtable table-hover mb-0">
@@ -66,16 +47,24 @@ export default function ExperimentReportsList({
             <th>Title</th>
             <th>Description</th>
             <th>Status</th>
-            <th className="d-none d-md-table-cell">Last Updated </th>
+            <th>Phase</th>
+            <th className="d-none d-md-table-cell">Last Updated</th>
             <th>By</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
-          {filteredReports.map((filteredReport) => {
-            const report = filteredReport.report;
+          {reports.map((report) => {
             const user = report.userId ? users.get(report.userId) : null;
             const name = user ? user.name : "";
+
+            const phaseIndex =
+              typeof report.snapshot === "object" && report.snapshot !== null
+                ? report.snapshot.phase
+                : 0;
+            const phaseName =
+              report.experimentMetadata.phases[phaseIndex]?.name || "Unknown";
+
             const status =
               report.type === "experiment"
                 ? report.status === "private"
@@ -86,6 +75,7 @@ export default function ExperimentReportsList({
                 : report.shareLevel === "private"
                 ? "private"
                 : "organization";
+
             return (
               <tr key={report.id} className="">
                 <td
@@ -107,7 +97,7 @@ export default function ExperimentReportsList({
 
                     <Link
                       href={`/report/${report.id}`}
-                      className={`text-dark font-weight-bold`}
+                      className="text-dark font-weight-bold"
                     >
                       {report.title}
                     </Link>
@@ -120,7 +110,7 @@ export default function ExperimentReportsList({
                     router.push(`/report/${report.id}`);
                   }}
                 >
-                  <Link href={`/report/${report.id}`} className={`text-dark`}>
+                  <Link href={`/report/${report.id}`} className="text-dark">
                     {report.description}
                   </Link>
                 </td>
@@ -132,9 +122,10 @@ export default function ExperimentReportsList({
                         ? report.editLevel
                         : "organization"
                     }
-                    isOwner={filteredReport.isOwner}
+                    isOwner={userId === report?.userId || !report?.userId}
                   />
                 </td>
+                <td>{phaseName || "Unknown"}</td>
                 <td
                   title={datetime(report.dateUpdated)}
                   className="d-none d-md-table-cell"
@@ -143,7 +134,7 @@ export default function ExperimentReportsList({
                 </td>
                 <td>{name}</td>
                 <td style={{ width: 50 }}>
-                  {filteredReport.showDelete ? (
+                  {(userId === report?.userId || isAdmin) && (
                     <DeleteButton
                       displayName="Custom Report"
                       link={true}
@@ -160,14 +151,14 @@ export default function ExperimentReportsList({
                         mutate();
                       }}
                     />
-                  ) : null}
+                  )}
                 </td>
               </tr>
             );
           })}
           {!reports.length && (
             <tr>
-              <td colSpan={3} align={"center"}>
+              <td colSpan={7} align={"center"}>
                 No custom reports created
               </td>
             </tr>
