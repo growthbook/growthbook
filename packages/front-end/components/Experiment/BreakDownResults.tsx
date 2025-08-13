@@ -81,6 +81,7 @@ const BreakDownResults: FC<{
   secondaryMetrics: string[];
   guardrailMetrics: string[];
   metricOverrides: MetricOverride[];
+  id?: string;
   dimensionId: string;
   dimensionValuesFilter?: string[];
   isLatestPhase: boolean;
@@ -116,6 +117,7 @@ const BreakDownResults: FC<{
   goalMetrics,
   secondaryMetrics,
   metricOverrides,
+  id,
   guardrailMetrics,
   isLatestPhase,
   phase,
@@ -385,7 +387,7 @@ const BreakDownResults: FC<{
               columnsFilter={columnsFilter}
               rows={table.rows}
               dimension={dimension}
-              id={table.metric.id}
+              id={(id ? `${id}_` : "") + table.metric.id}
               hasRisk={_hasRisk}
               tableRowAxis="dimension" // todo: dynamic grouping?
               labelHeader={

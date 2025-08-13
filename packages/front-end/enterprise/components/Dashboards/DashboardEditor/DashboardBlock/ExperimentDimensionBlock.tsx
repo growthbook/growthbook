@@ -14,6 +14,7 @@ import { BlockProps } from ".";
 
 export default function ExperimentDimensionBlock({
   block: {
+    id,
     metricIds,
     baselineRow,
     columnsFilter,
@@ -102,6 +103,7 @@ export default function ExperimentDimensionBlock({
 
   return (
     <BreakDownResults
+      id={id}
       key={snapshot.dimension}
       results={analysis.results}
       queryStatusData={queryStatusData}
