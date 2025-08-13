@@ -1255,7 +1255,7 @@ export default abstract class SqlIntegration
 
         const dimensionData: Record<string, string> = {};
         Object.entries(row)
-          .filter(([key, _]) => key.startsWith("dim_"))
+          .filter(([key, _]) => key.startsWith("dim_") || key === "dimension")
           .forEach(([key, value]) => {
             dimensionData[key] = value;
           });
@@ -1287,7 +1287,7 @@ export default abstract class SqlIntegration
       rows: rows.map((row) => {
         const dimensionData: Record<string, string> = {};
         Object.entries(row)
-          .filter(([key, _]) => key.startsWith("dim_"))
+          .filter(([key, _]) => key.startsWith("dim_") || key === "dimension")
           .forEach(([key, value]) => {
             dimensionData[key] = value;
           });
@@ -2641,9 +2641,22 @@ export default abstract class SqlIntegration
       maxHoursToConvert
     );
 
+    const banditDates = settings.banditSettings?.historicalWeights.map(
+      (w) => w.date
+    );
+
     const dimensionCols: DimensionColumnData[] = params.dimensions.map((d) =>
       this.getDimensionCol(d)
     );
+    // if bandit and there is no dimension column, we need to create a dummy column to make some of the joins
+    // work later on. `"dimension"` is a special column that gbstats can handle if there is no dimension
+    // column specified. See `BANDIT_DIMENSION` in gbstats.py.
+    if (banditDates?.length && dimensionCols.length === 0) {
+      dimensionCols.push({
+        alias: "dimension",
+        value: this.castToString("'All'"),
+      });
+    }
 
     const computeOnActivatedUsersOnly =
       activationMetric !== null &&
@@ -2666,9 +2679,6 @@ export default abstract class SqlIntegration
     }
 
     const cumulativeDate = false; // TODO enable flag for time series
-    const banditDates = settings.banditSettings?.historicalWeights.map(
-      (w) => w.date
-    );
 
     const percentileData: {
       valueCol: string;
@@ -3868,8 +3878,8 @@ export default abstract class SqlIntegration
       ${dimensionCols.map((d) => `, ${d.alias} AS ${d.alias}`).join("\n")}
     FROM 
       __banditPeriodStatistics
-    ${dimensionCols.length ? `GROUP BY` : ""}
-    ${dimensionCols.map((d) => `${d.alias}`).join(" AND \n")}
+    GROUP BY
+      ${dimensionCols.map((d) => `${d.alias}`).join(" AND ")}
   ),
   __banditPeriodWeights AS (
     SELECT
@@ -3906,14 +3916,13 @@ export default abstract class SqlIntegration
         .join("\n")}
     FROM 
       __banditPeriodStatistics bps
-    LEFT JOIN
-      __dimensionTotals dt 
-      ON (${dimensionCols
+    LEFT JOIN __dimensionTotals dt ON
+      (${dimensionCols
         .map((d) => `bps.${d.alias} = dt.${d.alias}`)
         .join(" AND ")})
     GROUP BY
       bps.bandit_period
-      ${dimensionCols.map((d) => `, bps.${d.alias}`).join("")}
+      ${dimensionCols.map((d) => `, bps.${d.alias}`).join("\n")}
   )
   ${
     hasRegressionAdjustment
