@@ -25,6 +25,7 @@ import FeatureTest from "@/components/Features/FeatureTest";
 import { useAuth } from "@/services/auth";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
 import EditFeatureInfoModal from "@/components/Features/EditFeatureInfoModal";
+import { useExperiments } from "@/hooks/useExperiments";
 
 const featureTabs = ["overview", "stats", "test"] as const;
 export type FeatureTab = typeof featureTabs[number];
@@ -69,6 +70,7 @@ export default function FeaturePage() {
   const experiments = data?.experiments;
   const safeRollouts = data?.safeRollouts;
   const [error, setError] = useState<string | null>(null);
+  const { experiments: allExperiments } = useExperiments();
 
   const fetchData = useCallback(
     async (queryString = "") => {
@@ -274,9 +276,9 @@ export default function FeaturePage() {
   }, [feature, features, envs]);
 
   const dependentExperiments = useMemo(() => {
-    if (!feature || !experiments) return [];
-    return getDependentExperiments(feature, experiments);
-  }, [feature, experiments]);
+    if (!feature || !allExperiments) return [];
+    return getDependentExperiments(feature, allExperiments);
+  }, [feature, allExperiments]);
 
   const dependents = dependentFeatures.length + dependentExperiments.length;
 
@@ -305,6 +307,7 @@ export default function FeaturePage() {
         setTab={setTabAndScroll}
         setEditFeatureInfoModal={setEditFeatureInfoModal}
         dependents={dependents}
+        dependentExperiments={dependentExperiments}
       />
 
       {tab === "overview" && (
