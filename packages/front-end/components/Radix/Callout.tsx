@@ -1,4 +1,4 @@
-import { Callout as RadixCallout, Box } from "@radix-ui/themes";
+import { Callout as RadixCallout, Box, Tooltip } from "@radix-ui/themes";
 import { forwardRef, ReactNode } from "react";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { Responsive } from "@radix-ui/themes/dist/esm/props/prop-def.js";
@@ -21,6 +21,7 @@ export default forwardRef<
     status: Status;
     size?: "sm" | "md";
     icon?: ReactNode | null;
+    iconTooltip?: ReactNode;
     contentsAs?: "text" | "div";
   } & MarginProps
 >(function Callout(
@@ -29,12 +30,13 @@ export default forwardRef<
     status,
     size = "md",
     icon,
+    iconTooltip,
     contentsAs = "text",
     ...containerProps
   },
   ref
 ) {
-  const renderedIcon = (() => {
+  const iconToRender = (() => {
     if (icon === null) {
       return null; // Render no icon if icon prop is null
     }
@@ -43,6 +45,18 @@ export default forwardRef<
     }
     // Otherwise render the default icon
     return <RadixStatusIcon status={status} size={size} />;
+  })();
+
+  const wrappedIcon = (() => {
+    if (icon === null) {
+      return null;
+    }
+    const calloutIcon = <RadixCallout.Icon>{iconToRender}</RadixCallout.Icon>;
+    if (iconTooltip) {
+      return <Tooltip content={iconTooltip}>{calloutIcon}</Tooltip>;
+    }
+
+    return calloutIcon;
   })();
 
   return (
@@ -54,9 +68,7 @@ export default forwardRef<
       size={getRadixSize(size)}
       {...containerProps}
     >
-      {renderedIcon ? (
-        <RadixCallout.Icon>{renderedIcon}</RadixCallout.Icon>
-      ) : null}
+      {wrappedIcon}
       {contentsAs === "div" ? (
         <Box>
           <div className={styles.calloutContent}>{children}</div>
