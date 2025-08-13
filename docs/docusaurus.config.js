@@ -343,6 +343,9 @@ const config = {
           "kb/google-analytics/*",
         ],
         includeUnmatchedLast: true,
+        pathTransformation: {
+          ignorePaths: ['docs'],
+        }
       },
     ],
   ],
