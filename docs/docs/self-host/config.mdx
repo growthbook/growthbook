@@ -518,7 +518,7 @@ sql: SELECT user_id, timestamp as date FROM pages WHERE country='US'
 ```
 
 Segment support for the config.yml was added in February 2023. If you are using the config.yml file and have previously created segments stored in MongoDB, in order to access,
-you will need to add the environment variable `STORE_SEGMENTS_IN_MONGO` or update your config.yml file to include these segments.
+you will need to add the environment variable `STORE_SEGMENTS_IN_MONGO` or update your config.yml file to include these segments. Likewise, if you'd like to create new segments via the UI in addition to those in the config.yml, you'll want to set this environment variable to `TRUE`.
 
 ### Organization Settings
 
