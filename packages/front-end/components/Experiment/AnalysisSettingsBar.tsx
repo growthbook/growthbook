@@ -83,6 +83,7 @@ export default function AnalysisSettingsBar({
     snapshot,
     analysis,
     dimension,
+    precomputedDimensions,
     mutateSnapshot: mutate,
     phase,
     setDimension: setSnapshotDimension,
@@ -173,9 +174,7 @@ export default function AnalysisSettingsBar({
               setValue={(d: string) =>
                 setAnalysisBarSettings({ ...analysisBarSettings, dimension: d })
               }
-              precomputedDimensions={
-                experiment.analysisSummary?.precomputedDimensions
-              }
+              precomputedDimensions={precomputedDimensions}
               activationMetric={!!experiment.activationMetric}
               datasourceId={experiment.datasource}
               exposureQueryId={experiment.exposureQueryId}
