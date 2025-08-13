@@ -14,7 +14,7 @@ export default function ExperimentTimeSeriesBlock({
   ssrPolyfills,
   metric,
 }: BlockProps<ExperimentTimeSeriesBlockInterface>) {
-  const { pValueCorrection, statsEngine: hookStatsEngine } = useOrgSettings();
+  const { pValueCorrection } = useOrgSettings();
   const { metricGroups } = useDefinitions();
   const goalMetrics = expandMetricGroups(experiment.goalMetrics, metricGroups);
   const secondaryMetrics = expandMetricGroups(
@@ -22,10 +22,7 @@ export default function ExperimentTimeSeriesBlock({
     metricGroups
   );
 
-  const statsEngine =
-    ssrPolyfills?.useOrgSettings()?.statsEngine ||
-    hookStatsEngine ||
-    "frequentist";
+  const statsEngine = analysis.settings.statsEngine;
 
   const resultGroup = getMetricResultGroup(
     metric.id,
