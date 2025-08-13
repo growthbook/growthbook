@@ -6,6 +6,8 @@ import {
   xAxisDateAggregationUnit,
   yAxisAggregationType,
 } from "back-end/src/validators/saved-queries";
+import Collapsible from "react-collapsible";
+import { FaAngleRight } from "react-icons/fa";
 import { Select, SelectItem } from "@/components/Radix/Select";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 
@@ -467,638 +469,504 @@ export default function DataVizConfigPanel({
 
       <Separator size="4" my={"2"} />
 
-      <Select
-        label="Dimension"
-        value={dataVizConfig.dimension?.[0]?.fieldName ?? ""}
-        setValue={(v) => {
-          const shouldRemove = !v || v === "remove-dimension";
-          const display =
-            dataVizConfig.chartType !== "bar"
-              ? "grouped"
-              : dataVizConfig.dimension?.[0]?.display || "grouped";
-          onDataVizConfigChange({
-            ...dataVizConfig,
-            dimension: shouldRemove
-              ? undefined
-              : [
-                  {
-                    fieldName: v,
-                    display,
-                    maxValues: dataVizConfig.dimension?.[0]?.maxValues || 5,
-                  },
-                ],
-          });
-        }}
-        size="2"
-        placeholder="Select a dimension"
-      >
-        {dataVizConfig.dimension?.[0]?.fieldName && (
-          <SelectItem value="remove-dimension">- Remove dimension -</SelectItem>
-        )}
-        {axisKeys.map((key) => (
-          <SelectItem key={key} value={key}>
-            {key}
-          </SelectItem>
-        ))}
-      </Select>
-
-      {dataVizConfig.dimension && (
-        <>
-          <Flex direction="column" gap="2">
-            {(dataVizConfig.chartType === "bar" ||
-              dataVizConfig.chartType === "area") && (
-              <Flex direction="row" justify="between" align="center">
-                <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
-                  Display
-                </Text>
-                <Select
-                  style={{ flex: 1 }}
-                  value={dataVizConfig.dimension?.[0]?.display}
-                  setValue={(v) => {
-                    if (!dataVizConfig.dimension) return;
-                    onDataVizConfigChange({
-                      ...dataVizConfig,
-                      dimension: [
-                        {
-                          ...dataVizConfig.dimension?.[0],
-                          display: v as "grouped" | "stacked",
-                        },
-                      ],
-                    });
-                  }}
-                  size="2"
-                >
-                  <SelectItem value="grouped">Grouped</SelectItem>
-                  <SelectItem value="stacked">Stacked</SelectItem>
-                </Select>
-              </Flex>
-            )}
-            <Flex direction="row" justify="between" align="center">
-              <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
-                Max Values
-              </Text>
-              <TextField.Root
-                style={{ flex: 1 }}
-                size="2"
-                min="1"
-                max="10"
-                step="1"
-                type="number"
-                defaultValue={
-                  dataVizConfig.dimension?.[0]?.maxValues?.toString() || "5"
-                }
-                onBlur={(e) => {
-                  const maxValues = parseInt(e.target.value, 10);
-                  if (isNaN(maxValues)) return;
-                  if (!dataVizConfig.dimension) return;
-                  onDataVizConfigChange({
-                    ...dataVizConfig,
-                    dimension: [
-                      {
-                        ...dataVizConfig.dimension?.[0],
-                        maxValues,
-                      },
-                    ],
-                  });
-                }}
-                onKeyDown={(e) => {
-                  // Ignore enter
-                  if (e.key === "Enter") {
-                    e.stopPropagation();
-                    e.preventDefault();
-
-                    const maxValues = parseInt(e.target.value, 10);
-                    if (isNaN(maxValues)) return;
-                    if (!dataVizConfig.dimension) return;
-                    onDataVizConfigChange({
-                      ...dataVizConfig,
-                      dimension: [
-                        {
-                          ...dataVizConfig.dimension?.[0],
-                          maxValues,
-                        },
-                      ],
-                    });
-                  }
-                }}
-              />
-            </Flex>
+      <Collapsible
+        trigger={
+          <Flex direction="row" justify="between" align="center">
+            <Text
+              as="label"
+              size="3"
+              weight="medium"
+              mr="2"
+              mb="0"
+              style={{ flex: 1 }}
+            >
+              Dimensions ({dataVizConfig.dimension?.length || 0})
+            </Text>
+            <FaAngleRight className="chevron ml-1" />
           </Flex>
-        </>
-      )}
-
-      {/* MKTODO: This needs a refactor with the lastest changes */}
-      {columnFilterOptions.length > 0 ? (
-        <>
-          <Separator size="4" my={"2"} />
+        }
+      >
+        <Flex direction="column" gap="2" mt="2">
           <Select
-            label="Filter"
-            // So the filter property on the dataVizConfig needs to be an array of filter objects. Needs: fieldName, operator, value
-            // Does the filter need to be an array of arrays to handle range filters? E.g. if the user wants to filter by date range, it'd be [{filedName: "date", operator}]
-            value={dataVizConfig.filter?.[0]?.column ?? ""}
+            // label="Dimension"
+            value={dataVizConfig.dimension?.[0]?.fieldName ?? ""}
             setValue={(v) => {
-              if (!v) return;
-              const shouldRemove = !v || v === "remove-filter";
-              // This is a hack - we'll need to handle adding/removing filters and replacing filters. But for now, we'll just support a single filter
+              const shouldRemove = !v || v === "remove-dimension";
+              const display =
+                dataVizConfig.chartType !== "bar"
+                  ? "grouped"
+                  : dataVizConfig.dimension?.[0]?.display || "grouped";
               onDataVizConfigChange({
                 ...dataVizConfig,
-                filter: shouldRemove
+                dimension: shouldRemove
                   ? undefined
                   : [
                       {
-                        column: v,
-                        type:
-                          //MKTODO: Is there not a better way to handle this - I don't like having to have a fallback
-                          columnFilterOptions.find(
-                            (option) => option.column === v
-                          )?.knownType || getInferredFieldType(v),
-                        filterType:
-                          v === "date"
-                            ? "today"
-                            : v === "number"
-                            ? "equals"
-                            : "contains",
+                        fieldName: v,
+                        display,
+                        maxValues: dataVizConfig.dimension?.[0]?.maxValues || 5,
                       },
                     ],
               });
             }}
             size="2"
-            placeholder="Select a column to filter by"
+            placeholder="Select a dimension"
           >
-            {dataVizConfig.filter?.[0] && (
-              <SelectItem value="remove-filter">- Remove filter -</SelectItem>
+            {dataVizConfig.dimension?.[0]?.fieldName && (
+              <SelectItem value="remove-dimension">
+                - Remove dimension -
+              </SelectItem>
             )}
-            {columnFilterOptions.map((option, i) => (
-              <SelectItem key={`${option.column}-${i}`} value={option.column}>
-                {option.column}
+            {axisKeys.map((key) => (
+              <SelectItem key={key} value={key}>
+                {key}
               </SelectItem>
             ))}
           </Select>
-          {dataVizConfig.filter?.[0] ? (
+
+          {dataVizConfig.dimension && (
             <>
               <Flex direction="column" gap="2">
+                {(dataVizConfig.chartType === "bar" ||
+                  dataVizConfig.chartType === "area") && (
+                  <Flex direction="row" justify="between" align="center">
+                    <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
+                      Display
+                    </Text>
+                    <Select
+                      style={{ flex: 1 }}
+                      value={dataVizConfig.dimension?.[0]?.display}
+                      setValue={(v) => {
+                        if (!dataVizConfig.dimension) return;
+                        onDataVizConfigChange({
+                          ...dataVizConfig,
+                          dimension: [
+                            {
+                              ...dataVizConfig.dimension?.[0],
+                              display: v as "grouped" | "stacked",
+                            },
+                          ],
+                        });
+                      }}
+                      size="2"
+                    >
+                      <SelectItem value="grouped">Grouped</SelectItem>
+                      <SelectItem value="stacked">Stacked</SelectItem>
+                    </Select>
+                  </Flex>
+                )}
                 <Flex direction="row" justify="between" align="center">
                   <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
-                    Type
+                    Max Values
                   </Text>
-                  <Select
+                  <TextField.Root
                     style={{ flex: 1 }}
-                    value={dataVizConfig.filter[0].type}
-                    setValue={(v) => {
-                      if (!v || !dataVizConfig.filter?.[0]) return;
-
-                      const currentFilter = dataVizConfig.filter[0];
+                    size="2"
+                    min="1"
+                    max="10"
+                    step="1"
+                    type="number"
+                    defaultValue={
+                      dataVizConfig.dimension?.[0]?.maxValues?.toString() || "5"
+                    }
+                    onBlur={(e) => {
+                      const maxValues = parseInt(e.target.value, 10);
+                      if (isNaN(maxValues)) return;
+                      if (!dataVizConfig.dimension) return;
                       onDataVizConfigChange({
                         ...dataVizConfig,
-                        filter: [
+                        dimension: [
                           {
-                            ...currentFilter,
-                            type: v as "string" | "number" | "date",
-                            // Clear config and set appropriate default filterType when changing type
+                            ...dataVizConfig.dimension?.[0],
+                            maxValues,
+                          },
+                        ],
+                      });
+                    }}
+                    onKeyDown={(e) => {
+                      // Ignore enter
+                      if (e.key === "Enter") {
+                        e.stopPropagation();
+                        e.preventDefault();
+
+                        const maxValues = parseInt(e.target.value, 10);
+                        if (isNaN(maxValues)) return;
+                        if (!dataVizConfig.dimension) return;
+                        onDataVizConfigChange({
+                          ...dataVizConfig,
+                          dimension: [
+                            {
+                              ...dataVizConfig.dimension?.[0],
+                              maxValues,
+                            },
+                          ],
+                        });
+                      }
+                    }}
+                  />
+                </Flex>
+              </Flex>
+            </>
+          )}
+        </Flex>
+      </Collapsible>
+
+      {/* MKTODO: This needs a refactor with the lastest changes */}
+      {columnFilterOptions.length > 0 ? (
+        <>
+          <Separator size="4" my={"2"} />
+          <Collapsible
+            trigger={
+              <Flex direction="row" justify="between" align="center">
+                <Text
+                  as="label"
+                  size="3"
+                  weight="medium"
+                  mr="2"
+                  mb="0"
+                  style={{ flex: 1 }}
+                >
+                  Filters ({dataVizConfig.filter?.length || 0})
+                </Text>
+                <FaAngleRight className="chevron ml-1" />
+              </Flex>
+            }
+          >
+            <Flex direction="column" gap="2" mt="2">
+              <Select
+                // So the filter property on the dataVizConfig needs to be an array of filter objects. Needs: fieldName, operator, value
+                // Does the filter need to be an array of arrays to handle range filters? E.g. if the user wants to filter by date range, it'd be [{filedName: "date", operator}]
+                value={dataVizConfig.filter?.[0]?.column ?? ""}
+                setValue={(v) => {
+                  if (!v) return;
+                  const shouldRemove = !v || v === "remove-filter";
+                  // This is a hack - we'll need to handle adding/removing filters and replacing filters. But for now, we'll just support a single filter
+                  onDataVizConfigChange({
+                    ...dataVizConfig,
+                    filter: shouldRemove
+                      ? undefined
+                      : [
+                          {
+                            column: v,
+                            type:
+                              //MKTODO: Is there not a better way to handle this - I don't like having to have a fallback
+                              columnFilterOptions.find(
+                                (option) => option.column === v
+                              )?.knownType || getInferredFieldType(v),
                             filterType:
                               v === "date"
                                 ? "today"
                                 : v === "number"
                                 ? "equals"
                                 : "contains",
-                            config: {},
                           },
                         ],
-                      });
-                    }}
-                    size="2"
-                    placeholder="Select type"
-                  >
-                    <SelectItem value="string">String</SelectItem>
-                    <SelectItem value="number">Number</SelectItem>
-                    <SelectItem value="date">Date</SelectItem>
-                  </Select>
-                </Flex>
-                <Flex direction="row" justify="between" align="center">
-                  {dataVizConfig.filter?.[0].type === "date" ? (
-                    <>
-                      <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
-                        Filter Options
-                      </Text>
-                      <Select
-                        style={{ flex: 1 }}
-                        size="2"
-                        placeholder="Select Option"
-                        value={dataVizConfig.filter?.[0]?.filterType || ""}
-                        setValue={(v) => {
-                          if (!v || !dataVizConfig.filter?.[0]) return;
-
-                          const currentFilter = dataVizConfig.filter[0];
-                          onDataVizConfigChange({
-                            ...dataVizConfig,
-                            filter: [
-                              {
-                                ...currentFilter,
-                                filterType: v as FilterConfiguration["filterType"],
-                                // Clear config when changing filter type
-                                config: {},
-                              },
-                            ],
-                          });
-                        }}
-                      >
-                        {filterOptions
-                          .filter(
-                            (filterOption) =>
-                              dataVizConfig.filter?.[0]?.type &&
-                              filterOption.supportedTypes.includes(
-                                dataVizConfig.filter[0].type
-                              )
-                          )
-                          .map((filterOption) => (
-                            <SelectItem
-                              key={filterOption.value}
-                              value={filterOption.value}
-                            >
-                              {filterOption.label}
-                            </SelectItem>
-                          ))}
-                      </Select>
-                    </>
-                  ) : dataVizConfig.filter?.[0].type === "number" ? (
-                    <>
-                      <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
-                        Filter Options
-                      </Text>
-                      <Select
-                        style={{ flex: 1 }}
-                        size="2"
-                        placeholder="Select Option"
-                        value={dataVizConfig.filter?.[0]?.filterType || ""}
-                        setValue={(v) => {
-                          if (!v || !dataVizConfig.filter?.[0]) return;
-
-                          const currentFilter = dataVizConfig.filter[0];
-                          onDataVizConfigChange({
-                            ...dataVizConfig,
-                            filter: [
-                              {
-                                ...currentFilter,
-                                filterType: v as FilterConfiguration["filterType"],
-                                // Clear config when changing filter type
-                                config: {},
-                              },
-                            ],
-                          });
-                        }}
-                      >
-                        {filterOptions
-                          .filter(
-                            (filterOption) =>
-                              dataVizConfig.filter?.[0]?.type &&
-                              filterOption.supportedTypes.includes(
-                                dataVizConfig.filter[0].type
-                              )
-                          )
-                          .map((filterOption) => (
-                            <SelectItem
-                              key={filterOption.value}
-                              value={filterOption.value}
-                            >
-                              {filterOption.label}
-                            </SelectItem>
-                          ))}
-                      </Select>
-                    </>
-                  ) : dataVizConfig.filter?.[0].type === "string" ? (
-                    <>
-                      <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
-                        Filter Options
-                      </Text>
-                      <Select
-                        style={{ flex: 1 }}
-                        size="2"
-                        placeholder="Select Option"
-                        value={dataVizConfig.filter?.[0]?.filterType || ""}
-                        setValue={(v) => {
-                          if (!v || !dataVizConfig.filter?.[0]) return;
-
-                          const currentFilter = dataVizConfig.filter[0];
-                          onDataVizConfigChange({
-                            ...dataVizConfig,
-                            filter: [
-                              {
-                                ...currentFilter,
-                                filterType: v as FilterConfiguration["filterType"],
-                                // Clear config when changing filter type
-                                config: {},
-                              },
-                            ],
-                          });
-                        }}
-                      >
-                        {filterOptions
-                          .filter(
-                            (filterOption) =>
-                              dataVizConfig.filter?.[0]?.type &&
-                              filterOption.supportedTypes.includes(
-                                dataVizConfig.filter[0].type
-                              )
-                          )
-                          .map((filterOption) => (
-                            <SelectItem
-                              key={filterOption.value}
-                              value={filterOption.value}
-                            >
-                              {filterOption.label}
-                            </SelectItem>
-                          ))}
-                      </Select>
-                    </>
-                  ) : null}
-                </Flex>
-
-                {/* Custom Date Range Inputs */}
-                {dataVizConfig.filter?.[0]?.filterType === "dateRange" && (
-                  <>
-                    <Flex direction="row" justify="between" align="center">
-                      <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
-                        Start Date
-                      </Text>
-                      <TextField.Root
-                        style={{ flex: 1 }}
-                        size="2"
-                        type="date"
-                        value={String(
-                          dataVizConfig.filter[0].config?.startDate || ""
-                        )}
-                        onChange={(e) => {
-                          if (!dataVizConfig.filter?.[0]) return;
-
-                          const currentFilter = dataVizConfig.filter[0];
-                          onDataVizConfigChange({
-                            ...dataVizConfig,
-                            filter: [
-                              {
-                                ...currentFilter,
-                                config: {
-                                  ...currentFilter.config,
-                                  startDate: e.target.value,
-                                },
-                              },
-                            ],
-                          });
-                        }}
-                      />
-                    </Flex>
-
-                    <Flex direction="row" justify="between" align="center">
-                      <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
-                        End Date
-                      </Text>
-                      <TextField.Root
-                        style={{ flex: 1 }}
-                        size="2"
-                        type="date"
-                        value={String(
-                          dataVizConfig.filter[0].config?.endDate || ""
-                        )}
-                        onChange={(e) => {
-                          if (!dataVizConfig.filter?.[0]) return;
-
-                          const currentFilter = dataVizConfig.filter[0];
-                          onDataVizConfigChange({
-                            ...dataVizConfig,
-                            filter: [
-                              {
-                                ...currentFilter,
-                                config: {
-                                  ...currentFilter.config,
-                                  endDate: e.target.value,
-                                },
-                              },
-                            ],
-                          });
-                        }}
-                      />
-                    </Flex>
-                  </>
+                  });
+                }}
+                size="2"
+                placeholder="Select a column to filter by"
+              >
+                {dataVizConfig.filter?.[0] && (
+                  <SelectItem value="remove-filter">
+                    - Remove filter -
+                  </SelectItem>
                 )}
-
-                {/* Number Filter Inputs */}
-                {dataVizConfig.filter?.[0]?.type === "number" &&
-                  dataVizConfig.filter?.[0]?.filterType === "numberRange" && (
-                    <>
-                      <Flex direction="row" justify="between" align="center">
-                        <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
-                          Min Value
-                        </Text>
-                        <TextField.Root
-                          style={{ flex: 1 }}
-                          size="2"
-                          type="number"
-                          placeholder="Minimum"
-                          value={
-                            dataVizConfig.filter[0].config?.min?.toString() ||
-                            ""
-                          }
-                          onChange={(e) => {
-                            if (!dataVizConfig.filter?.[0]) return;
-
-                            const currentFilter = dataVizConfig.filter[0];
-                            const value = e.target.value
-                              ? Number(e.target.value)
-                              : undefined;
-
-                            // Only update config with defined values
-                            const newConfig = { ...currentFilter.config };
-                            if (value !== undefined) {
-                              newConfig.min = value;
-                            } else {
-                              delete newConfig.min;
-                            }
-
-                            onDataVizConfigChange({
-                              ...dataVizConfig,
-                              filter: [
-                                {
-                                  ...currentFilter,
-                                  config: newConfig,
-                                },
-                              ],
-                            });
-                          }}
-                        />
-                      </Flex>
-
-                      <Flex direction="row" justify="between" align="center">
-                        <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
-                          Max Value
-                        </Text>
-                        <TextField.Root
-                          style={{ flex: 1 }}
-                          size="2"
-                          type="number"
-                          placeholder="Maximum"
-                          value={
-                            dataVizConfig.filter[0].config?.max?.toString() ||
-                            ""
-                          }
-                          onChange={(e) => {
-                            if (!dataVizConfig.filter?.[0]) return;
-
-                            const currentFilter = dataVizConfig.filter[0];
-                            const value = e.target.value
-                              ? Number(e.target.value)
-                              : undefined;
-
-                            // Only update config with defined values
-                            const newConfig = { ...currentFilter.config };
-                            if (value !== undefined) {
-                              newConfig.max = value;
-                            } else {
-                              delete newConfig.max;
-                            }
-
-                            onDataVizConfigChange({
-                              ...dataVizConfig,
-                              filter: [
-                                {
-                                  ...currentFilter,
-                                  config: newConfig,
-                                },
-                              ],
-                            });
-                          }}
-                        />
-                      </Flex>
-                    </>
-                  )}
-
-                {/* Single Value Number Filters */}
-                {dataVizConfig.filter?.[0]?.type === "number" &&
-                  (dataVizConfig.filter?.[0]?.filterType === "greaterThan" ||
-                    dataVizConfig.filter?.[0]?.filterType === "lessThan" ||
-                    dataVizConfig.filter?.[0]?.filterType === "equals") && (
+                {columnFilterOptions.map((option, i) => (
+                  <SelectItem
+                    key={`${option.column}-${i}`}
+                    value={option.column}
+                  >
+                    {option.column}
+                  </SelectItem>
+                ))}
+              </Select>
+              {dataVizConfig.filter?.[0] ? (
+                <>
+                  <Flex direction="column" gap="2">
                     <Flex direction="row" justify="between" align="center">
                       <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
-                        Value
+                        Type
                       </Text>
-                      <TextField.Root
+                      <Select
                         style={{ flex: 1 }}
-                        size="2"
-                        type="number"
-                        placeholder="Enter value"
-                        value={
-                          dataVizConfig.filter[0].config?.value?.toString() ||
-                          ""
-                        }
-                        onChange={(e) => {
-                          if (!dataVizConfig.filter?.[0]) return;
+                        value={dataVizConfig.filter[0].type}
+                        setValue={(v) => {
+                          if (!v || !dataVizConfig.filter?.[0]) return;
 
                           const currentFilter = dataVizConfig.filter[0];
-                          const value = e.target.value
-                            ? Number(e.target.value)
-                            : undefined;
-
-                          // Only update config with defined values
-                          const newConfig = { ...currentFilter.config };
-                          if (value !== undefined) {
-                            newConfig.value = value;
-                          } else {
-                            delete newConfig.value;
-                          }
-
                           onDataVizConfigChange({
                             ...dataVizConfig,
                             filter: [
                               {
                                 ...currentFilter,
-                                config: newConfig,
+                                type: v as "string" | "number" | "date",
+                                // Clear config and set appropriate default filterType when changing type
+                                filterType:
+                                  v === "date"
+                                    ? "today"
+                                    : v === "number"
+                                    ? "equals"
+                                    : "contains",
+                                config: {},
                               },
                             ],
                           });
                         }}
-                      />
-                    </Flex>
-                  )}
-
-                {/* String Filter Inputs */}
-                {dataVizConfig.filter?.[0]?.type === "string" &&
-                  dataVizConfig.filter?.[0]?.filterType === "contains" && (
-                    <Flex direction="row" justify="between" align="center">
-                      <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
-                        Search Text
-                      </Text>
-                      <TextField.Root
-                        style={{ flex: 1 }}
                         size="2"
-                        type="text"
-                        placeholder="Enter text to search for"
-                        value={String(
-                          dataVizConfig.filter[0].config?.value || ""
-                        )}
-                        onChange={(e) => {
-                          if (!dataVizConfig.filter?.[0]) return;
-
-                          const currentFilter = dataVizConfig.filter[0];
-                          const value = e.target.value;
-
-                          // Only update config with defined values
-                          const newConfig = { ...currentFilter.config };
-                          if (value) {
-                            newConfig.value = value;
-                          } else {
-                            delete newConfig.value;
-                          }
-
-                          onDataVizConfigChange({
-                            ...dataVizConfig,
-                            filter: [
-                              {
-                                ...currentFilter,
-                                config: newConfig,
-                              },
-                            ],
-                          });
-                        }}
-                      />
+                        placeholder="Select type"
+                      >
+                        <SelectItem value="string">String</SelectItem>
+                        <SelectItem value="number">Number</SelectItem>
+                        <SelectItem value="date">Date</SelectItem>
+                      </Select>
                     </Flex>
-                  )}
+                    <Flex direction="row" justify="between" align="center">
+                      {dataVizConfig.filter?.[0].type === "date" ? (
+                        <>
+                          <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
+                            Filter Options
+                          </Text>
+                          <Select
+                            style={{ flex: 1 }}
+                            size="2"
+                            placeholder="Select Option"
+                            value={dataVizConfig.filter?.[0]?.filterType || ""}
+                            setValue={(v) => {
+                              if (!v || !dataVizConfig.filter?.[0]) return;
 
-                {/* String Multi-Select Filter */}
-                {dataVizConfig.filter?.[0]?.type === "string" &&
-                  dataVizConfig.filter?.[0]?.filterType === "includes" &&
-                  rows && (
-                    <Flex direction="column" gap="2">
-                      {(() => {
-                        const columnName = dataVizConfig.filter[0].column;
-                        const uniqueValues = getUniqueValuesFromColumn(
-                          rows,
-                          columnName
-                        );
-                        const selectedValues = Array.isArray(
-                          dataVizConfig.filter[0].config?.values
-                        )
-                          ? (dataVizConfig.filter[0].config.values as string[])
-                          : [];
+                              const currentFilter = dataVizConfig.filter[0];
+                              onDataVizConfigChange({
+                                ...dataVizConfig,
+                                filter: [
+                                  {
+                                    ...currentFilter,
+                                    filterType: v as FilterConfiguration["filterType"],
+                                    // Clear config when changing filter type
+                                    config: {},
+                                  },
+                                ],
+                              });
+                            }}
+                          >
+                            {filterOptions
+                              .filter(
+                                (filterOption) =>
+                                  dataVizConfig.filter?.[0]?.type &&
+                                  filterOption.supportedTypes.includes(
+                                    dataVizConfig.filter[0].type
+                                  )
+                              )
+                              .map((filterOption) => (
+                                <SelectItem
+                                  key={filterOption.value}
+                                  value={filterOption.value}
+                                >
+                                  {filterOption.label}
+                                </SelectItem>
+                              ))}
+                          </Select>
+                        </>
+                      ) : dataVizConfig.filter?.[0].type === "number" ? (
+                        <>
+                          <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
+                            Filter Options
+                          </Text>
+                          <Select
+                            style={{ flex: 1 }}
+                            size="2"
+                            placeholder="Select Option"
+                            value={dataVizConfig.filter?.[0]?.filterType || ""}
+                            setValue={(v) => {
+                              if (!v || !dataVizConfig.filter?.[0]) return;
 
-                        return (
-                          <>
-                            <MultiSelectField
-                              label="Select Values"
-                              value={selectedValues}
-                              options={uniqueValues.map((value) => ({
-                                label: value,
-                                value,
-                              }))}
-                              onChange={(newValues) => {
+                              const currentFilter = dataVizConfig.filter[0];
+                              onDataVizConfigChange({
+                                ...dataVizConfig,
+                                filter: [
+                                  {
+                                    ...currentFilter,
+                                    filterType: v as FilterConfiguration["filterType"],
+                                    // Clear config when changing filter type
+                                    config: {},
+                                  },
+                                ],
+                              });
+                            }}
+                          >
+                            {filterOptions
+                              .filter(
+                                (filterOption) =>
+                                  dataVizConfig.filter?.[0]?.type &&
+                                  filterOption.supportedTypes.includes(
+                                    dataVizConfig.filter[0].type
+                                  )
+                              )
+                              .map((filterOption) => (
+                                <SelectItem
+                                  key={filterOption.value}
+                                  value={filterOption.value}
+                                >
+                                  {filterOption.label}
+                                </SelectItem>
+                              ))}
+                          </Select>
+                        </>
+                      ) : dataVizConfig.filter?.[0].type === "string" ? (
+                        <>
+                          <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
+                            Filter Options
+                          </Text>
+                          <Select
+                            style={{ flex: 1 }}
+                            size="2"
+                            placeholder="Select Option"
+                            value={dataVizConfig.filter?.[0]?.filterType || ""}
+                            setValue={(v) => {
+                              if (!v || !dataVizConfig.filter?.[0]) return;
+
+                              const currentFilter = dataVizConfig.filter[0];
+                              onDataVizConfigChange({
+                                ...dataVizConfig,
+                                filter: [
+                                  {
+                                    ...currentFilter,
+                                    filterType: v as FilterConfiguration["filterType"],
+                                    // Clear config when changing filter type
+                                    config: {},
+                                  },
+                                ],
+                              });
+                            }}
+                          >
+                            {filterOptions
+                              .filter(
+                                (filterOption) =>
+                                  dataVizConfig.filter?.[0]?.type &&
+                                  filterOption.supportedTypes.includes(
+                                    dataVizConfig.filter[0].type
+                                  )
+                              )
+                              .map((filterOption) => (
+                                <SelectItem
+                                  key={filterOption.value}
+                                  value={filterOption.value}
+                                >
+                                  {filterOption.label}
+                                </SelectItem>
+                              ))}
+                          </Select>
+                        </>
+                      ) : null}
+                    </Flex>
+
+                    {/* Custom Date Range Inputs */}
+                    {dataVizConfig.filter?.[0]?.filterType === "dateRange" && (
+                      <>
+                        <Flex direction="row" justify="between" align="center">
+                          <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
+                            Start Date
+                          </Text>
+                          <TextField.Root
+                            style={{ flex: 1 }}
+                            size="2"
+                            type="date"
+                            value={String(
+                              dataVizConfig.filter[0].config?.startDate || ""
+                            )}
+                            onChange={(e) => {
+                              if (!dataVizConfig.filter?.[0]) return;
+
+                              const currentFilter = dataVizConfig.filter[0];
+                              onDataVizConfigChange({
+                                ...dataVizConfig,
+                                filter: [
+                                  {
+                                    ...currentFilter,
+                                    config: {
+                                      ...currentFilter.config,
+                                      startDate: e.target.value,
+                                    },
+                                  },
+                                ],
+                              });
+                            }}
+                          />
+                        </Flex>
+
+                        <Flex direction="row" justify="between" align="center">
+                          <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
+                            End Date
+                          </Text>
+                          <TextField.Root
+                            style={{ flex: 1 }}
+                            size="2"
+                            type="date"
+                            value={String(
+                              dataVizConfig.filter[0].config?.endDate || ""
+                            )}
+                            onChange={(e) => {
+                              if (!dataVizConfig.filter?.[0]) return;
+
+                              const currentFilter = dataVizConfig.filter[0];
+                              onDataVizConfigChange({
+                                ...dataVizConfig,
+                                filter: [
+                                  {
+                                    ...currentFilter,
+                                    config: {
+                                      ...currentFilter.config,
+                                      endDate: e.target.value,
+                                    },
+                                  },
+                                ],
+                              });
+                            }}
+                          />
+                        </Flex>
+                      </>
+                    )}
+
+                    {/* Number Filter Inputs */}
+                    {dataVizConfig.filter?.[0]?.type === "number" &&
+                      dataVizConfig.filter?.[0]?.filterType ===
+                        "numberRange" && (
+                        <>
+                          <Flex
+                            direction="row"
+                            justify="between"
+                            align="center"
+                          >
+                            <Text
+                              as="label"
+                              size="2"
+                              mr="2"
+                              style={{ flex: 1 }}
+                            >
+                              Min Value
+                            </Text>
+                            <TextField.Root
+                              style={{ flex: 1 }}
+                              size="2"
+                              type="number"
+                              placeholder="Minimum"
+                              value={
+                                dataVizConfig.filter[0].config?.min?.toString() ||
+                                ""
+                              }
+                              onChange={(e) => {
                                 if (!dataVizConfig.filter?.[0]) return;
 
                                 const currentFilter = dataVizConfig.filter[0];
-                                const newConfig: Record<string, any> = {
-                                  ...currentFilter.config,
-                                };
+                                const value = e.target.value
+                                  ? Number(e.target.value)
+                                  : undefined;
 
-                                if (newValues.length > 0) {
-                                  newConfig.values = newValues;
+                                // Only update config with defined values
+                                const newConfig = { ...currentFilter.config };
+                                if (value !== undefined) {
+                                  newConfig.min = value;
                                 } else {
-                                  delete newConfig.values;
+                                  delete newConfig.min;
                                 }
 
                                 onDataVizConfigChange({
@@ -1111,23 +979,225 @@ export default function DataVizConfigPanel({
                                   ],
                                 });
                               }}
-                              placeholder="Select values to filter by..."
-                              closeMenuOnSelect={false}
                             />
+                          </Flex>
 
-                            {/* Selection count */}
-                            <Text size="1" color="gray">
-                              {selectedValues.length} of {uniqueValues.length}{" "}
-                              values selected
+                          <Flex
+                            direction="row"
+                            justify="between"
+                            align="center"
+                          >
+                            <Text
+                              as="label"
+                              size="2"
+                              mr="2"
+                              style={{ flex: 1 }}
+                            >
+                              Max Value
                             </Text>
-                          </>
-                        );
-                      })()}
-                    </Flex>
-                  )}
-              </Flex>
-            </>
-          ) : null}
+                            <TextField.Root
+                              style={{ flex: 1 }}
+                              size="2"
+                              type="number"
+                              placeholder="Maximum"
+                              value={
+                                dataVizConfig.filter[0].config?.max?.toString() ||
+                                ""
+                              }
+                              onChange={(e) => {
+                                if (!dataVizConfig.filter?.[0]) return;
+
+                                const currentFilter = dataVizConfig.filter[0];
+                                const value = e.target.value
+                                  ? Number(e.target.value)
+                                  : undefined;
+
+                                // Only update config with defined values
+                                const newConfig = { ...currentFilter.config };
+                                if (value !== undefined) {
+                                  newConfig.max = value;
+                                } else {
+                                  delete newConfig.max;
+                                }
+
+                                onDataVizConfigChange({
+                                  ...dataVizConfig,
+                                  filter: [
+                                    {
+                                      ...currentFilter,
+                                      config: newConfig,
+                                    },
+                                  ],
+                                });
+                              }}
+                            />
+                          </Flex>
+                        </>
+                      )}
+
+                    {/* Single Value Number Filters */}
+                    {dataVizConfig.filter?.[0]?.type === "number" &&
+                      (dataVizConfig.filter?.[0]?.filterType ===
+                        "greaterThan" ||
+                        dataVizConfig.filter?.[0]?.filterType === "lessThan" ||
+                        dataVizConfig.filter?.[0]?.filterType === "equals") && (
+                        <Flex direction="row" justify="between" align="center">
+                          <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
+                            Value
+                          </Text>
+                          <TextField.Root
+                            style={{ flex: 1 }}
+                            size="2"
+                            type="number"
+                            placeholder="Enter value"
+                            value={
+                              dataVizConfig.filter[0].config?.value?.toString() ||
+                              ""
+                            }
+                            onChange={(e) => {
+                              if (!dataVizConfig.filter?.[0]) return;
+
+                              const currentFilter = dataVizConfig.filter[0];
+                              const value = e.target.value
+                                ? Number(e.target.value)
+                                : undefined;
+
+                              // Only update config with defined values
+                              const newConfig = { ...currentFilter.config };
+                              if (value !== undefined) {
+                                newConfig.value = value;
+                              } else {
+                                delete newConfig.value;
+                              }
+
+                              onDataVizConfigChange({
+                                ...dataVizConfig,
+                                filter: [
+                                  {
+                                    ...currentFilter,
+                                    config: newConfig,
+                                  },
+                                ],
+                              });
+                            }}
+                          />
+                        </Flex>
+                      )}
+
+                    {/* String Filter Inputs */}
+                    {dataVizConfig.filter?.[0]?.type === "string" &&
+                      dataVizConfig.filter?.[0]?.filterType === "contains" && (
+                        <Flex direction="row" justify="between" align="center">
+                          <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
+                            Search Text
+                          </Text>
+                          <TextField.Root
+                            style={{ flex: 1 }}
+                            size="2"
+                            type="text"
+                            placeholder="Enter text to search for"
+                            value={String(
+                              dataVizConfig.filter[0].config?.value || ""
+                            )}
+                            onChange={(e) => {
+                              if (!dataVizConfig.filter?.[0]) return;
+
+                              const currentFilter = dataVizConfig.filter[0];
+                              const value = e.target.value;
+
+                              // Only update config with defined values
+                              const newConfig = { ...currentFilter.config };
+                              if (value) {
+                                newConfig.value = value;
+                              } else {
+                                delete newConfig.value;
+                              }
+
+                              onDataVizConfigChange({
+                                ...dataVizConfig,
+                                filter: [
+                                  {
+                                    ...currentFilter,
+                                    config: newConfig,
+                                  },
+                                ],
+                              });
+                            }}
+                          />
+                        </Flex>
+                      )}
+
+                    {/* String Multi-Select Filter */}
+                    {dataVizConfig.filter?.[0]?.type === "string" &&
+                      dataVizConfig.filter?.[0]?.filterType === "includes" &&
+                      rows && (
+                        <Flex direction="column" gap="2">
+                          {(() => {
+                            const columnName = dataVizConfig.filter[0].column;
+                            const uniqueValues = getUniqueValuesFromColumn(
+                              rows,
+                              columnName
+                            );
+                            const selectedValues = Array.isArray(
+                              dataVizConfig.filter[0].config?.values
+                            )
+                              ? (dataVizConfig.filter[0].config
+                                  .values as string[])
+                              : [];
+
+                            return (
+                              <>
+                                <MultiSelectField
+                                  label="Select Values"
+                                  value={selectedValues}
+                                  options={uniqueValues.map((value) => ({
+                                    label: value,
+                                    value,
+                                  }))}
+                                  onChange={(newValues) => {
+                                    if (!dataVizConfig.filter?.[0]) return;
+
+                                    const currentFilter =
+                                      dataVizConfig.filter[0];
+                                    const newConfig: Record<string, any> = {
+                                      ...currentFilter.config,
+                                    };
+
+                                    if (newValues.length > 0) {
+                                      newConfig.values = newValues;
+                                    } else {
+                                      delete newConfig.values;
+                                    }
+
+                                    onDataVizConfigChange({
+                                      ...dataVizConfig,
+                                      filter: [
+                                        {
+                                          ...currentFilter,
+                                          config: newConfig,
+                                        },
+                                      ],
+                                    });
+                                  }}
+                                  placeholder="Select values to filter by..."
+                                  closeMenuOnSelect={false}
+                                />
+
+                                {/* Selection count */}
+                                <Text size="1" color="gray">
+                                  {selectedValues.length} of{" "}
+                                  {uniqueValues.length} values selected
+                                </Text>
+                              </>
+                            );
+                          })()}
+                        </Flex>
+                      )}
+                  </Flex>
+                </>
+              ) : null}
+            </Flex>
+          </Collapsible>
         </>
       ) : null}
     </Flex>
