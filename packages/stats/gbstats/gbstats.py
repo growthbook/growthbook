@@ -160,8 +160,9 @@ def get_metric_df(
         dimension_column_name = (
             "dimension" if not dimension else get_dimension_column_name(dimension)
         )
-        # fall back to one unnamed dimension if no column found
-        dim = getattr(row, dimension_column_name, "")
+        # if not found, try to find a column with "dimension" for backwards compatibility
+        # fall back to one unnamed dimension if even that column is not found
+        dim = getattr(row, dimension_column_name, getattr(row, "dimension", ""))
         # If this is the first time we're seeing this dimension, create an empty dict
         if dim not in dimensions:
             # Overall columns
