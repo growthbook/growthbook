@@ -18,6 +18,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import ProjectBadges from "@/components/ProjectBadges";
+import { OfficialBadge } from "@/components/Metrics/MetricName";
 
 const SegmentPage: FC = () => {
   const {
@@ -248,7 +249,7 @@ const SegmentPage: FC = () => {
                   <th>Projects</th>
                   <th className="d-none d-sm-table-cell">Data Source</th>
                   <th className="d-none d-md-table-cell">Identifier Type</th>
-                  {canStoreSegmentsInMongo ? <th>Date Updated</th> : null}
+                  <th>Date Updated</th>
                   <th></th>
                 </tr>
               </thead>
@@ -262,6 +263,10 @@ const SegmentPage: FC = () => {
                     <tr key={s.id}>
                       <td>
                         <>
+                          <OfficialBadge
+                            type="Segment"
+                            managedBy={s.managedBy}
+                          />{" "}
                           {s.name}{" "}
                           {s.description ? (
                             <Tooltip body={s.description} />
@@ -299,25 +304,38 @@ const SegmentPage: FC = () => {
                           {userIdType}
                         </span>
                       </td>
-                      {canStoreSegmentsInMongo ? (
-                        <td>{ago(s.dateUpdated)}</td>
-                      ) : null}
+                      <td>
+                        {s.managedBy !== "config" ? (
+                          <>{ago(s.dateUpdated)}</>
+                        ) : (
+                          <>-</>
+                        )}
+                      </td>
                       <td>
                         <MoreMenu>
-                          {permissionsUtil.canUpdateSegment(s, {}) &&
-                          canStoreSegmentsInMongo ? (
-                            <button
-                              className="dropdown-item"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                setSegmentForm(s);
-                              }}
-                            >
-                              <FaPencilAlt /> Edit
-                            </button>
-                          ) : null}
+                          {/* If the user has permission & the segment isn't externally managed, show edit icon,
+                          otherwise the cta should be `View Details`. This is because Segment's don't have an id page,
+                         in order for the user to see the sql that powers the segment, we need to show the edit form, but in read only mode */}
+                          <button
+                            className="dropdown-item"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setSegmentForm(s);
+                            }}
+                          >
+                            {permissionsUtil.canUpdateSegment(s, {}) &&
+                            !s.managedBy ? (
+                              <>
+                                <FaPencilAlt /> Edit
+                              </>
+                            ) : (
+                              <>View Details</>
+                            )}
+                          </button>
                           {permissionsUtil.canDeleteSegment(s) &&
-                          canStoreSegmentsInMongo ? (
+                          canStoreSegmentsInMongo &&
+                          // if the segment has a managedBy value, it can't be deleted in the UI
+                          !s.managedBy ? (
                             <DeleteButton
                               className="dropdown-item"
                               displayName={s.name}
