@@ -294,7 +294,7 @@ const NeedingAttention = (): React.ReactElement | null => {
       }
     );
 
-    return (
+    return recentFeatures.length > 0 ? (
       <Container className="recent-items-container">
         <Text size="4" weight="medium" as="div">
           Recent
@@ -334,7 +334,7 @@ const NeedingAttention = (): React.ReactElement | null => {
           ))}
         </Grid>
       </Container>
-    );
+    ) : null;
   };
   const getAvatarAndName = (name: string) => {
     if (!name) return null;
