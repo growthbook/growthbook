@@ -182,6 +182,8 @@ Any time an experiment is run to determine the value of a feature, we may call t
 
 **The tracking callback is only called when the user is in the experiment**. If they are not in the experiment, this will not be called. If you'd like to subscribe to all evaluations, regardless of experiment result, see [Subscribing to experiment runs](#subscribing-to-experiment-runs-with-the-experimentruncallback).
 
+It's worth pointing out that as of the current implementation (version `v0.9.1`), registered callbacks are executed in a synchronous/blocking way for the list of the exposed experiments. Given that, there could be performance implications, so it's recommended to keep the callbacks fast and lightweight, and anything expensive should ideally be queued and processed asynchronously.
+
 <CodeTabsTrackingCallbackPartial />
 
 #### Feature usage callback
