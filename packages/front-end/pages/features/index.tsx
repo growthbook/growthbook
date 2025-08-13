@@ -57,6 +57,7 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import EmptyState from "@/components/EmptyState";
 import ProjectBadges from "@/components/ProjectBadges";
 import FeatureSearchFilters from "@/components/Search/FeatureSearchFilters";
+import { useExperiments } from "@/hooks/useExperiments";
 import FeaturesDraftTable from "./FeaturesDraftTable";
 
 const NUM_PER_PAGE = 20;
@@ -92,6 +93,7 @@ export default function FeaturesPage() {
     mutate,
     hasArchived,
   } = useFeaturesList(true, showArchived);
+  const { experiments: allExperiments } = useExperiments();
 
   const { usage, usageDomain } = useRealtimeData(
     allFeatures,
@@ -113,12 +115,12 @@ export default function FeaturesPage() {
       staleFeatures[feature.id] = isFeatureStale({
         feature,
         features: allFeatures,
-        experiments,
+        experiments: allExperiments,
         environments: envs,
       });
     });
     return staleFeatures;
-  }, [allFeatures, experiments, environments]);
+  }, [allFeatures, allExperiments, environments]);
 
   const renderFeaturesTable = () => {
     return (
