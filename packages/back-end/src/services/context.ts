@@ -41,6 +41,7 @@ import { SafeRolloutSnapshotModel } from "back-end/src/models/SafeRolloutSnapsho
 import { DecisionCriteriaModel } from "back-end/src/enterprise/models/DecisionCriteriaModel";
 import { MetricTimeSeriesModel } from "back-end/src/models/MetricTimeSeriesModel";
 import { WebhookSecretDataModel } from "back-end/src/models/WebhookSecretModel";
+import { HoldoutModel } from "back-end/src/models/HoldoutModel";
 import { SavedQueryDataModel } from "back-end/src/models/SavedQueryDataModel";
 import { FeatureRevisionLogModel } from "back-end/src/models/FeatureRevisionLogModel";
 import { FeatureInterface } from "back-end/types/feature";
@@ -79,6 +80,7 @@ export class ReqContextClass {
     decisionCriteria: DecisionCriteriaModel;
     metricTimeSeries: MetricTimeSeriesModel;
     webhookSecrets: WebhookSecretDataModel;
+    holdout: HoldoutModel;
     dashboards: DashboardModel;
   };
   private initModels() {
@@ -102,6 +104,7 @@ export class ReqContextClass {
       decisionCriteria: new DecisionCriteriaModel(this),
       metricTimeSeries: new MetricTimeSeriesModel(this),
       webhookSecrets: new WebhookSecretDataModel(this),
+      holdout: new HoldoutModel(this),
       dashboards: new DashboardModel(this),
     };
   }

@@ -3,16 +3,18 @@ import {
   ExperimentType,
 } from "back-end/types/experiment";
 import { useMemo } from "react";
+import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import useApi from "./useApi";
 
 export function useExperiments(
   project?: string,
   includeArchived: boolean = false,
-  type?: ExperimentType
+  type?: Omit<ExperimentType, "holdout">
 ) {
   const { data, error, mutate } = useApi<{
     experiments: ExperimentInterfaceStringDates[];
     hasArchived: boolean;
+    holdouts: HoldoutInterface[];
   }>(
     `/experiments?project=${project || ""}&includeArchived=${
       includeArchived ? "1" : ""
@@ -26,10 +28,13 @@ export function useExperiments(
     [experiments]
   );
 
+  const holdouts = useMemo(() => data?.holdouts || [], [data]);
+
   return {
     loading: !error && !data,
     experiments: experiments,
     experimentsMap,
+    holdouts: holdouts,
     error: error,
     mutateExperiments: mutate,
     hasArchived: data?.hasArchived || false,

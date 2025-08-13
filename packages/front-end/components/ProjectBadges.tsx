@@ -16,7 +16,8 @@ export interface Props {
     | "feature"
     | "attribute"
     | "sdk connection"
-    | "saved group";
+    | "saved group"
+    | "holdout";
   projectIds?: string[];
   invalidProjectIds?: string[];
   invalidProjectMessage?: string;

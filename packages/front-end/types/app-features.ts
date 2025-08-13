@@ -96,4 +96,5 @@ export type AppFeatures = {
   "similar-experiments": boolean;
   asdf: boolean;
   "experiment-dashboards-enabled": boolean;
+  holdouts_feature: boolean;
 };

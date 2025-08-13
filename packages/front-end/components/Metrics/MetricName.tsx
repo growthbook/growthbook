@@ -5,7 +5,7 @@ import {
   quantileMetricType,
 } from "shared/experiments";
 import React from "react";
-import { FaExclamationCircle } from "react-icons/fa";
+import { FaExclamationCircle, FaExclamationTriangle } from "react-icons/fa";
 import clsx from "clsx";
 import { PiFolderDuotone } from "react-icons/pi";
 import { Flex } from "@radix-ui/themes";
@@ -102,6 +102,7 @@ export default function MetricName({
   disableTooltip,
   showOfficialLabel,
   showDescription,
+  filterConversionWindowMetrics,
   isGroup,
   metrics,
 }: {
@@ -110,6 +111,7 @@ export default function MetricName({
   disableTooltip?: boolean;
   showOfficialLabel?: boolean;
   showDescription?: boolean;
+  filterConversionWindowMetrics?: boolean;
   isGroup?: boolean;
   metrics?: { metric: ExperimentMetricInterface | null; joinable: boolean }[];
 }) {
@@ -123,21 +125,36 @@ export default function MetricName({
       return <>{id}</>;
     }
     const allJoinable = metrics?.every((m) => m.joinable) ?? true;
+    const allNonConversionWindow = metrics?.every(
+      (m) => m?.metric?.windowSettings?.type !== "conversion"
+    );
+
     return (
       <Flex align="center">
         <PiFolderDuotone size={16} className="mr-1" />
         {metricGroup.name}
         <Tooltip
-          className={clsx("px-1", { "text-danger": !allJoinable })}
+          className={clsx("px-1", {
+            "text-danger": !allJoinable,
+            "text-warning":
+              filterConversionWindowMetrics && !allNonConversionWindow,
+          })}
           body={
             <>
-              {!allJoinable && (
+              {!allJoinable ? (
                 <div className="mb-2">
                   <HelperText status="error">
                     Includes metrics that are not joinable
                   </HelperText>
                 </div>
-              )}
+              ) : null}
+              {filterConversionWindowMetrics && !allNonConversionWindow ? (
+                <div className="mb-2">
+                  <HelperText status="warning">
+                    Includes metrics with conversion windows
+                  </HelperText>
+                </div>
+              ) : null}
               {metrics && metrics.length > 0 ? (
                 <>
                   <div>Metrics in group:</div>
@@ -145,7 +162,12 @@ export default function MetricName({
                     {metrics.map((m, i) => (
                       <li
                         key={i}
-                        className={clsx({ "text-danger": !m.joinable })}
+                        className={clsx({
+                          "text-danger": !m.joinable,
+                          "text-warning":
+                            filterConversionWindowMetrics &&
+                            m?.metric?.windowSettings?.type === "conversion",
+                        })}
                       >
                         {m.metric?.name}
                       </li>
@@ -166,6 +188,13 @@ export default function MetricName({
                 style={{ top: -2 }}
               />
             )}
+            {filterConversionWindowMetrics && !allNonConversionWindow ? (
+              <FaExclamationTriangle
+                size={10}
+                className="position-relative text-warning ml-1"
+                style={{ top: -2 }}
+              />
+            ) : null}
           </span>
         </Tooltip>
         {showDescription && metricGroup.description ? (

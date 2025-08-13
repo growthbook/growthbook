@@ -36,6 +36,7 @@ import {
   resetExperimentBanditSettings,
   SnapshotAnalysisParams,
   updateExperimentBanditSettings,
+  validateExperimentData,
 } from "back-end/src/services/experiments";
 import { MetricInterface, MetricStats } from "back-end/types/metric";
 import {
@@ -163,6 +164,8 @@ export async function getExperiments(
     type,
   });
 
+  const holdouts = await context.models.holdout.getAll();
+
   const hasArchived = includeArchived
     ? experiments.some((e) => e.archived)
     : await hasArchivedExperiments(context, project);
@@ -171,6 +174,7 @@ export async function getExperiments(
     status: 200,
     experiments,
     hasArchived,
+    holdouts,
   });
 }
 
@@ -1032,64 +1036,24 @@ export async function postExperiments(
     context.permissions.throwPermissionError();
   }
 
-  let datasource: DataSourceInterface | null = null;
-  if (data.datasource) {
-    datasource = await getDataSourceById(context, data.datasource);
-    if (!datasource) {
-      res.status(403).json({
-        status: 403,
-        message: "Invalid datasource: " + data.datasource,
-      });
-      return;
-    }
+  let result:
+    | { metricIds: string[]; datasource: DataSourceInterface | null }
+    | undefined;
+
+  try {
+    result = await validateExperimentData(context, data);
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      message: e.message,
+    });
+    return;
   }
 
-  // Validate that specified metrics exist and belong to the organization
-  const metricIds = getAllMetricIdsFromExperiment(data);
-  if (metricIds.length) {
-    const map = await getMetricMap(context);
-    for (let i = 0; i < metricIds.length; i++) {
-      const metric = map.get(metricIds[i]);
-      if (metric) {
-        // Make sure it is tied to the same datasource as the experiment
-        if (data.datasource && metric.datasource !== data.datasource) {
-          res.status(400).json({
-            status: 400,
-            message:
-              "Metrics must be tied to the same datasource as the experiment: " +
-              metricIds[i],
-          });
-          return;
-        }
-      } else {
-        // check to see if this metric is actually a metric group
-        const metricGroup = await context.models.metricGroups.getById(
-          metricIds[i]
-        );
-        if (metricGroup) {
-          // Make sure it is tied to the same datasource as the experiment
-          if (data.datasource && metricGroup.datasource !== data.datasource) {
-            res.status(400).json({
-              status: 400,
-              message:
-                "Metric group must be tied to the same datasource as the experiment: " +
-                metricIds[i],
-            });
-            return;
-          }
-        } else {
-          // new metric that's not recognized...
-          res.status(403).json({
-            status: 403,
-            message: "Unknown metric: " + metricIds[i],
-          });
-          return;
-        }
-      }
-    }
-  }
+  const { metricIds, datasource } = result;
 
   const experimentType = data.type ?? "standard";
+  const holdoutId = data.holdoutId;
 
   const obj: Omit<ExperimentInterface, "id" | "uid"> = {
     organization: data.organization,
@@ -1162,8 +1126,8 @@ export async function postExperiments(
     templateId: data.templateId || undefined,
     shareLevel: data.shareLevel || "organization",
     decisionFrameworkSettings: data.decisionFrameworkSettings || {},
+    holdoutId: holdoutId || undefined,
   };
-
   const { settings } = getScopedSettings({
     organization: org,
   });
@@ -1200,6 +1164,19 @@ export async function postExperiments(
       data: obj,
       context,
     });
+
+    if (holdoutId) {
+      const holdoutObj = await context.models.holdout.getById(holdoutId);
+      if (!holdoutObj) {
+        throw new Error("Holdout not found");
+      }
+      await context.models.holdout.updateById(holdoutId, {
+        linkedExperiments: {
+          ...holdoutObj.linkedExperiments,
+          [experiment.id]: { id: experiment.id, dateAdded: new Date() },
+        },
+      });
+    }
 
     if (req.query.originalId) {
       const visualChangesets = await findVisualChangesetsByExperiment(
@@ -1331,7 +1308,7 @@ export async function postExperiment(
     experiment,
   });
 
-  let datasourceId = experiment.datasource;
+  let datasourceId: string = experiment.datasource;
 
   if (data.datasource) {
     datasourceId = data.datasource;
@@ -1398,6 +1375,36 @@ export async function postExperiment(
     validateVariationIds(data.variations);
   }
 
+  if (data.holdoutId !== experiment.holdoutId && experiment.holdoutId) {
+    if (
+      experiment.status !== "draft" ||
+      experiment.hasURLRedirects ||
+      experiment.hasVisualChangesets ||
+      (experiment.linkedFeatures && experiment.linkedFeatures.length > 0)
+    ) {
+      throw new Error(
+        "Cannot change holdout after experiment has been run or linked changes have been added"
+      );
+    }
+    await context.models.holdout.removeExperimentFromHoldout(
+      experiment.holdoutId,
+      experiment.id
+    );
+  }
+
+  if (data.holdoutId && data.holdoutId !== experiment.holdoutId) {
+    const holdoutObj = await context.models.holdout.getById(data.holdoutId);
+    if (!holdoutObj) {
+      throw new Error("Holdout not found");
+    }
+    await context.models.holdout.updateById(data.holdoutId, {
+      linkedExperiments: {
+        ...holdoutObj.linkedExperiments,
+        [experiment.id]: { id: experiment.id, dateAdded: new Date() },
+      },
+    });
+  }
+
   const keys: (keyof ExperimentInterface)[] = [
     "trackingKey",
     "owner",
@@ -1452,6 +1459,7 @@ export async function postExperiment(
     "uid",
     "analysisSummary",
     "dismissedWarnings",
+    "holdoutId",
   ];
   let changes: Changeset = {};
 
@@ -1490,12 +1498,18 @@ export async function postExperiment(
     const phases = [...experiment.phases];
     const phaseClone = { ...phases[currentPhase] };
     phases[Math.floor(currentPhase * 1)] = phaseClone;
+    const firstPhaseClone = { ...phases[0] };
 
     if (phaseStartDate) {
       phaseClone.dateStarted = getValidDate(phaseStartDate + ":00Z");
     }
     if (experiment.status === "stopped" && phaseEndDate) {
       phaseClone.dateEnded = getValidDate(phaseEndDate + ":00Z");
+      // update both phases when stopped
+      if (experiment.type === "holdout") {
+        firstPhaseClone.dateEnded = getValidDate(phaseEndDate + ":00Z");
+        phases[0] = firstPhaseClone; // update the first phase to the same date ended
+      }
     }
     changes.phases = phases;
   }
@@ -1799,6 +1813,7 @@ export async function postExperimentStatus(
       status: ExperimentStatus;
       reason: string;
       dateEnded: string;
+      holdoutRunningStatus?: "running" | "analysis-period";
     },
     { id: string }
   >,
@@ -1807,7 +1822,7 @@ export async function postExperimentStatus(
   const context = getContextFromReq(req);
   const { org } = context;
   const { id } = req.params;
-  const { status, reason, dateEnded } = req.body;
+  const { status, reason, dateEnded, holdoutRunningStatus } = req.body;
 
   const changes: Changeset = {};
 
@@ -1854,6 +1869,12 @@ export async function postExperimentStatus(
     phases?.length > 0 &&
     !phases[lastIndex].dateEnded
   ) {
+    if (experiment.type === "holdout") {
+      phases[0] = {
+        ...phases[0],
+        dateEnded: dateEnded ? getValidDate(dateEnded + ":00Z") : new Date(),
+      };
+    }
     phases[lastIndex] = {
       ...phases[lastIndex],
       reason,
@@ -1881,8 +1902,24 @@ export async function postExperimentStatus(
     phases?.length > 0
   ) {
     const clonedPhase = { ...phases[lastIndex] };
-    delete clonedPhase.dateEnded;
-    phases[lastIndex] = clonedPhase;
+    const clonedFirstPhase = { ...phases[0] };
+    if (experiment.type === "holdout") {
+      //when setting moving back to running or draft remove the end date of both phases
+      delete clonedFirstPhase.dateEnded;
+      delete clonedPhase.dateEnded;
+      // reset the analysis phase if new status is set to "analysis-period"
+      if (phases.length > 1 && holdoutRunningStatus === "analysis-period") {
+        clonedPhase.lookbackStartDate = new Date();
+        phases[lastIndex] = clonedPhase;
+        // delete analysis phase if new status is set to "running"
+      } else {
+        delete phases[lastIndex];
+      }
+      phases[0] = clonedFirstPhase;
+    } else {
+      delete clonedPhase.dateEnded;
+      phases[lastIndex] = clonedPhase;
+    }
     changes.phases = phases;
 
     // Bandit-specific changes
@@ -2006,6 +2043,12 @@ export async function postExperimentStop(
   const phases = [...experiment.phases];
   // Already has phases
   if (phases.length) {
+    if (experiment.type === "holdout") {
+      phases[0] = {
+        ...phases[0],
+        dateEnded: dateEnded ? getValidDate(dateEnded + ":00Z") : new Date(),
+      };
+    }
     phases[phases.length - 1] = {
       ...phases[phases.length - 1],
       dateEnded: dateEnded ? getValidDate(dateEnded + ":00Z") : new Date(),
@@ -2319,16 +2362,25 @@ export async function postExperimentTargeting(
 
   // Already has phases and we're updating an existing phase
   if (phases.length && !newPhase) {
-    phases[phases.length - 1] = {
-      ...phases[phases.length - 1],
-      condition,
-      savedGroups,
-      prerequisites,
-      coverage,
-      namespace,
-      variationWeights,
-      seed,
-    };
+    if (experiment.type !== "holdout") {
+      phases[phases.length - 1] = {
+        ...phases[phases.length - 1],
+        condition,
+        savedGroups,
+        prerequisites,
+        coverage,
+        namespace,
+        variationWeights,
+        seed,
+      };
+    } else {
+      phases[phases.length - 1] = {
+        ...phases[phases.length - 1],
+        condition,
+        savedGroups,
+        coverage,
+      };
+    }
   } else {
     // If we had a previous phase, mark it as ended
     if (phases.length) {
@@ -2362,12 +2414,14 @@ export async function postExperimentTargeting(
   }
 
   changes.hashAttribute = hashAttribute;
-  changes.fallbackAttribute = fallbackAttribute;
-  changes.hashVersion = hashVersion;
-  changes.disableStickyBucketing = disableStickyBucketing;
-  changes.bucketVersion = bucketVersion;
-  changes.minBucketVersion = minBucketVersion;
-  if (trackingKey) changes.trackingKey = trackingKey;
+  if (experiment.type !== "holdout") {
+    changes.fallbackAttribute = fallbackAttribute;
+    changes.hashVersion = hashVersion;
+    changes.disableStickyBucketing = disableStickyBucketing;
+    changes.bucketVersion = bucketVersion;
+    changes.minBucketVersion = minBucketVersion;
+    if (trackingKey) changes.trackingKey = trackingKey;
+  }
 
   // TODO: validation
   try {
@@ -2458,6 +2512,9 @@ export async function postExperimentPhase(
   const phases = [...experiment.phases];
   // Already has phases
   if (phases.length) {
+    if (experiment.type === "holdout") {
+      phases[0].dateEnded = date;
+    }
     phases[phases.length - 1] = {
       ...phases[phases.length - 1],
       dateEnded: date,
@@ -2578,12 +2635,23 @@ export async function deleteExperiment(
     context.permissions.throwPermissionError();
   }
 
-  await Promise.all([
+  const promises = [
     // note: we might want to change this to change the status to
     // 'deleted' instead of actually deleting the document.
     deleteExperimentByIdForOrganization(context, experiment),
     removeExperimentFromPresentations(experiment.id),
-  ]);
+  ];
+
+  if (experiment.holdoutId) {
+    promises.push(
+      context.models.holdout.removeExperimentFromHoldout(
+        experiment.holdoutId,
+        experiment.id
+      )
+    );
+  }
+
+  await Promise.all(promises);
 
   await req.audit({
     event: "experiment.delete",

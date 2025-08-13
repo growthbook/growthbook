@@ -306,6 +306,7 @@ const experimentSchema = new mongoose.Schema({
     },
   },
   dismissedWarnings: [String],
+  holdoutId: String,
 });
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;
@@ -403,6 +404,10 @@ export async function getAllExperiments(
     query.type = "multi-armed-bandit";
   } else if (type === "standard") {
     query.type = { $in: ["standard", null] };
+  } else if (type === "holdout") {
+    query.type = "holdout";
+  } else if (!type) {
+    query.type = { $ne: "holdout" };
   }
 
   return await findExperiments(context, query);
@@ -913,7 +918,6 @@ export const logExperimentUpdated = async ({
     context,
     previous
   );
-
   const currentApiExperimentPromise = toExperimentApiInterface(
     context,
     current
@@ -922,7 +926,6 @@ export const logExperimentUpdated = async ({
     previousApiExperimentPromise,
     currentApiExperimentPromise,
   ]);
-
   // If experiment is part of the SDK payload, it affects all environments
   // Otherwise, it doesn't affect any
   const hasPayloadChanges = hasChangesForSDKPayloadRefresh(previous, current);

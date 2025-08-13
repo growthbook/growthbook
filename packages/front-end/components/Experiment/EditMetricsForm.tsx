@@ -149,6 +149,7 @@ const EditMetricsForm: FC<{
   );
 
   const isBandit = experiment.type === "multi-armed-bandit";
+  const isHoldout = experiment.type === "holdout";
 
   const form = useForm<EditMetricsFormInterface>({
     defaultValues: {
@@ -209,9 +210,13 @@ const EditMetricsForm: FC<{
         setSecondaryMetrics={(secondaryMetrics) =>
           form.setValue("secondaryMetrics", secondaryMetrics)
         }
-        setGuardrailMetrics={(guardrailMetrics) =>
-          form.setValue("guardrailMetrics", guardrailMetrics)
+        setGuardrailMetrics={
+          !isHoldout
+            ? (guardrailMetrics) =>
+                form.setValue("guardrailMetrics", guardrailMetrics)
+            : undefined
         }
+        filterConversionWindowMetrics={isHoldout}
       />
       {/* If the org has the feature, we render a callout within MetricsSelector */}
       {!hasCommercialFeature("metric-groups") ? (
@@ -227,7 +232,7 @@ const EditMetricsForm: FC<{
         </PremiumCallout>
       ) : null}
 
-      {!(isBandit && experiment.status === "running") && (
+      {!isHoldout && !(isBandit && experiment.status === "running") ? (
         <>
           <div className="form-group">
             <label className="font-weight-bold mb-1">Activation Metric</label>
@@ -278,7 +283,7 @@ const EditMetricsForm: FC<{
             )}
           </div>
         </>
-      )}
+      ) : null}
     </Modal>
   );
 };
