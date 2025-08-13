@@ -17,6 +17,7 @@ import {
   getExperimentMetricFormatter,
   getMetricFormatter,
 } from "@/services/metrics";
+import ConditionalWrapper from "@/components/ConditionalWrapper";
 
 const numberFormatter = Intl.NumberFormat("en-US", {
   notation: "compact",
@@ -39,6 +40,7 @@ interface Props
   displayCurrency: string;
   getExperimentMetricById: (id: string) => null | ExperimentMetricInterface;
   getFactTableById: (id: string) => null | FactTableInterface;
+  asTd?: boolean;
 }
 
 export default function MetricValueColumn({
@@ -53,6 +55,7 @@ export default function MetricValueColumn({
   displayCurrency,
   getExperimentMetricById,
   getFactTableById,
+  asTd = true,
   ...otherProps
 }: Props) {
   const formatterOptions = { currency: displayCurrency };
@@ -98,7 +101,17 @@ export default function MetricValueColumn({
   }
 
   return (
-    <td className={className} style={style} rowSpan={rowSpan} {...otherProps}>
+    <ConditionalWrapper
+      condition={asTd}
+      wrapper={
+        <td
+          className={className}
+          style={style}
+          rowSpan={rowSpan}
+          {...otherProps}
+        />
+      }
+    >
       {metric && stats.users ? (
         <>
           <div className="result-number">{overall}</div>
@@ -126,6 +139,6 @@ export default function MetricValueColumn({
       ) : (
         <em className="text-muted">{noDataMessage}</em>
       )}
-    </td>
+    </ConditionalWrapper>
   );
 }
