@@ -138,12 +138,9 @@ export default function FlagCard({
               gap="1"
               style={{
                 color:
-                  (data.rowResults.directionalStatus === "winning" &&
-                    !data.metric.inverse) ||
-                  (data.rowResults.directionalStatus === "losing" &&
-                    data.metric.inverse)
+                  data.rowResults.directionalStatus === "winning"
                     ? "var(--green-11)"
-                    : "var(--red-a11)",
+                    : "var(--red-a12)",
               }}
             >
               {deltaFormatter(data.stats.expected ?? 0, deltaFormatterOptions)}
@@ -205,9 +202,9 @@ export default function FlagCard({
                 style={{
                   color:
                     data.rowResults.riskMeta.riskStatus === "danger"
-                      ? "var(--red-a11)"
+                      ? "var(--red-a12)"
                       : data.rowResults.riskMeta.riskStatus === "warning"
-                      ? "var(--amber-a11)"
+                      ? "var(--amber-a12)"
                       : undefined,
                 }}
               >
@@ -224,8 +221,18 @@ export default function FlagCard({
           <CardItem
             label="Suspicious"
             tooltip={data.rowResults.suspiciousChangeReason}
+            value={<span style={{ color: "var(--pink-a11)" }}>suspicious</span>}
+          />
+        ) : null}
+
+        {data.rowResults.guardrailWarning ? (
+          <CardItem
+            label="Guardrail trend"
+            tooltip={data.rowResults.guardrailWarning}
             value={
-              <span style={{ color: "var(--violet-a11)" }}>suspicious</span>
+              <span style={{ color: "var(--red-a12)" }}>
+                Bad guardrail trend
+              </span>
             }
           />
         ) : null}

@@ -9,7 +9,7 @@ import {
   PValueCorrection,
   StatsEngine,
 } from "back-end/types/stats";
-import { BsXCircle, BsArrowReturnRight } from "react-icons/bs";
+import { BsX, BsArrowReturnRight } from "react-icons/bs";
 import clsx from "clsx";
 import { MdSwapCalls } from "react-icons/md";
 import {
@@ -243,7 +243,7 @@ export default function ResultsTableTooltip({
           className="position-absolute text-gray cursor-pointer"
           onClick={close}
         >
-          <BsXCircle size={16} />
+          <BsX size={16} />
         </a>
 
         {/*tooltip contents*/}
@@ -322,10 +322,7 @@ export default function ResultsTableTooltip({
             </Flex>
           </Flex>
 
-          <Box
-            mb="3"
-            className={clsx("results-overview", data.rowResults.resultsStatus)}
-          >
+          <Box mb="3">
             <FlagCard
               effectLabel={effectLabel}
               deltaFormatter={deltaFormatter}
@@ -406,7 +403,6 @@ export default function ResultsTableTooltip({
                               alignItems: "center",
                               justifyContent: "center",
                               flexShrink: 0,
-                              marginTop: 2,
                             }}
                           >
                             {rowNumber}
@@ -488,7 +484,7 @@ export default function ResultsTableTooltip({
 
           <Flex direction="column" gap="2">
             {addLiftWarning && data.rowResults.enoughData ? (
-              <Callout size="sm" status="info" mt="2" mb="1">
+              <Callout size="sm" status="info" icon={null} mt="2" mb="1">
                 {priorUsed && cupedUsed ? (
                   <>CUPED and Bayesian Priors affect results</>
                 ) : priorUsed ? (
@@ -524,20 +520,6 @@ export default function ResultsTableTooltip({
                       </div>
                     </>
                   }
-                >
-                  <span>
-                    <PiInfo size={16} />
-                  </span>
-                </Tooltip>
-              </Callout>
-            ) : null}
-
-            {data.rowResults.guardrailWarning ? (
-              <Callout size="sm" status="warning" mt="2" mb="1">
-                bad guardrail trend{" "}
-                <Tooltip
-                  className="cursor-pointer"
-                  body={data.rowResults.guardrailWarning}
                 >
                   <span>
                     <PiInfo size={16} />
