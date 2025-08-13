@@ -3865,11 +3865,11 @@ export default abstract class SqlIntegration
   __dimensionTotals AS (
     SELECT
       ${this.ensureFloat(`SUM(users)`)} AS total_users
-      ${dimensionCols.map((d) => `, ${d.alias} AS ${d.alias}`).join(", ")}
+      ${dimensionCols.map((d) => `, ${d.alias} AS ${d.alias}`).join("\n")}
     FROM 
       __banditPeriodStatistics
-    GROUP BY
-      ${dimensionCols.map((d) => `${d.alias}`).join(", ")}
+    ${dimensionCols.length ? `GROUP BY` : ""}
+    ${dimensionCols.map((d) => `${d.alias}`).join(" AND \n")}
   ),
   __banditPeriodWeights AS (
     SELECT
