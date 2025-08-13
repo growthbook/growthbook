@@ -19,6 +19,7 @@ interface Props {
     | "archetype"
     | "factTable";
   placeholder?: string;
+  disabled?: boolean;
 }
 
 export default function SelectOwner({
@@ -26,6 +27,7 @@ export default function SelectOwner({
   onChange,
   placeholder = "",
   resourceType,
+  disabled = false,
 }: Props) {
   const { memberUsernameOptions, memberUserNameAndIdOptions } = useMembers();
 
@@ -53,6 +55,7 @@ export default function SelectOwner({
         label: member.display,
       }))}
       value={value}
+      disabled={disabled}
       placeholder={placeholder}
       onChange={(v) => onChange(v)}
       formatOptionLabel={({ label }) => {
