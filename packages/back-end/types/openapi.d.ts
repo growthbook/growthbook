@@ -353,6 +353,20 @@ export interface paths {
     /** Get a single query */
     get: operations["getQuery"];
   };
+  "/metric-groups": {
+    /** Get all metric groups for an organization (paginated) */
+    get: operations["listMetricGroups"];
+    /** Create a metric group */
+    post: operations["postMetricGroup"];
+  };
+  "/metric-groups/{id}": {
+    /** Get a single metric group */
+    get: operations["getMetricGroup"];
+    /** Update a single metric group */
+    post: operations["updateMetricGroup"];
+    /** Deletes a single metric group */
+    delete: operations["deleteMetricGroup"];
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -3558,6 +3572,38 @@ export interface components {
           /** @description The feature flag key referenced */
           flagKey: string;
         })[];
+    };
+    MetricGroup: {
+      /** @description Unique identifier for the metric group */
+      id: string;
+      /** @description Organization id */
+      organization: string;
+      /** @description Owner of the metric group */
+      owner?: string;
+      /**
+       * Format: date-time 
+       * @description Date the metric group was created
+       */
+      dateCreated: string;
+      /**
+       * Format: date-time 
+       * @description Date the metric group was last updated
+       */
+      dateUpdated: string;
+      /** @description Name of the metric group */
+      name: string;
+      /** @description Description of the metric group */
+      description?: string;
+      /** @description Tags associated with the metric group */
+      tags?: (string)[];
+      /** @description Project ids associated with the metric group */
+      projects?: (string)[];
+      /** @description List of metric ids in the group */
+      metrics: (string)[];
+      /** @description Datasource id for the metric group */
+      datasource: string;
+      /** @description Whether the metric group is archived */
+      archived?: boolean;
     };
   };
   responses: {
@@ -12987,6 +13033,271 @@ export interface operations {
       };
     };
   };
+  listMetricGroups: {
+    /** Get all metric groups for an organization (paginated) */
+    parameters: {
+        /** @description The number of items to return */
+        /** @description How many items to skip (use in conjunction with limit for pagination) */
+      query: {
+        limit?: number;
+        offset?: number;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            metricGroups: ({
+                /** @description Unique identifier for the metric group */
+                id: string;
+                /** @description Organization id */
+                organization: string;
+                /** @description Owner of the metric group */
+                owner?: string;
+                /**
+                 * Format: date-time 
+                 * @description Date the metric group was created
+                 */
+                dateCreated: string;
+                /**
+                 * Format: date-time 
+                 * @description Date the metric group was last updated
+                 */
+                dateUpdated: string;
+                /** @description Name of the metric group */
+                name: string;
+                /** @description Description of the metric group */
+                description?: string;
+                /** @description Tags associated with the metric group */
+                tags?: (string)[];
+                /** @description Project ids associated with the metric group */
+                projects?: (string)[];
+                /** @description List of metric ids in the group */
+                metrics: (string)[];
+                /** @description Datasource id for the metric group */
+                datasource: string;
+                /** @description Whether the metric group is archived */
+                archived?: boolean;
+              })[];
+          } & {
+            limit: number;
+            offset: number;
+            count: number;
+            total: number;
+            hasMore: boolean;
+            nextOffset: OneOf<[number, null]>;
+          };
+        };
+      };
+    };
+  };
+  postMetricGroup: {
+    /** Create a metric group */
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description Name of the metric group */
+          name: string;
+          /** @description Description of the metric group */
+          description?: string;
+          /** @description Datasource id for the metric group */
+          datasource: string;
+          /** @description List of metric ids in the group */
+          metrics?: (string)[];
+          /** @description Owner of the metric group */
+          owner?: string;
+          /** @description Project ids associated with the metric group */
+          projects?: (string)[];
+          /** @description Tags associated with the metric group */
+          tags?: (string)[];
+          /** @description Whether the metric group is archived */
+          archived?: boolean;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            metricGroup: {
+              /** @description Unique identifier for the metric group */
+              id: string;
+              /** @description Organization id */
+              organization: string;
+              /** @description Owner of the metric group */
+              owner?: string;
+              /**
+               * Format: date-time 
+               * @description Date the metric group was created
+               */
+              dateCreated: string;
+              /**
+               * Format: date-time 
+               * @description Date the metric group was last updated
+               */
+              dateUpdated: string;
+              /** @description Name of the metric group */
+              name: string;
+              /** @description Description of the metric group */
+              description?: string;
+              /** @description Tags associated with the metric group */
+              tags?: (string)[];
+              /** @description Project ids associated with the metric group */
+              projects?: (string)[];
+              /** @description List of metric ids in the group */
+              metrics: (string)[];
+              /** @description Datasource id for the metric group */
+              datasource: string;
+              /** @description Whether the metric group is archived */
+              archived?: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  getMetricGroup: {
+    /** Get a single metric group */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            metricGroup: {
+              /** @description Unique identifier for the metric group */
+              id: string;
+              /** @description Organization id */
+              organization: string;
+              /** @description Owner of the metric group */
+              owner?: string;
+              /**
+               * Format: date-time 
+               * @description Date the metric group was created
+               */
+              dateCreated: string;
+              /**
+               * Format: date-time 
+               * @description Date the metric group was last updated
+               */
+              dateUpdated: string;
+              /** @description Name of the metric group */
+              name: string;
+              /** @description Description of the metric group */
+              description?: string;
+              /** @description Tags associated with the metric group */
+              tags?: (string)[];
+              /** @description Project ids associated with the metric group */
+              projects?: (string)[];
+              /** @description List of metric ids in the group */
+              metrics: (string)[];
+              /** @description Datasource id for the metric group */
+              datasource: string;
+              /** @description Whether the metric group is archived */
+              archived?: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  updateMetricGroup: {
+    /** Update a single metric group */
+    parameters: {
+        /** @description Metric group id */
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description Name of the metric group */
+          name?: string;
+          /** @description List of metric ids in the group */
+          metrics?: (string)[];
+          /** @description Datasource id for the metric group */
+          datasource?: string;
+          /** @description Description of the metric group */
+          description?: string;
+          /** @description Owner of the metric group */
+          owner?: string;
+          /** @description Project ids associated with the metric group */
+          projects?: (string)[];
+          /** @description Tags associated with the metric group */
+          tags?: (string)[];
+          /** @description Whether the metric group is archived */
+          archived?: boolean;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            metricGroup: {
+              /** @description Unique identifier for the metric group */
+              id: string;
+              /** @description Organization id */
+              organization: string;
+              /** @description Owner of the metric group */
+              owner?: string;
+              /**
+               * Format: date-time 
+               * @description Date the metric group was created
+               */
+              dateCreated: string;
+              /**
+               * Format: date-time 
+               * @description Date the metric group was last updated
+               */
+              dateUpdated: string;
+              /** @description Name of the metric group */
+              name: string;
+              /** @description Description of the metric group */
+              description?: string;
+              /** @description Tags associated with the metric group */
+              tags?: (string)[];
+              /** @description Project ids associated with the metric group */
+              projects?: (string)[];
+              /** @description List of metric ids in the group */
+              metrics: (string)[];
+              /** @description Datasource id for the metric group */
+              datasource: string;
+              /** @description Whether the metric group is archived */
+              archived?: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteMetricGroup: {
+    /** Deletes a single metric group */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            /**
+             * @description The ID of the deleted metric group 
+             * @example ds_123abc
+             */
+            deletedId?: string;
+          };
+        };
+      };
+    };
+  };
 }
 import { z } from "zod";
 import * as openApiValidators from "back-end/src/validators/openapi";
@@ -13030,6 +13341,7 @@ export type ApiMember = z.infer<typeof openApiValidators.apiMemberValidator>;
 export type ApiArchetype = z.infer<typeof openApiValidators.apiArchetypeValidator>;
 export type ApiQuery = z.infer<typeof openApiValidators.apiQueryValidator>;
 export type ApiCodeRef = z.infer<typeof openApiValidators.apiCodeRefValidator>;
+export type ApiMetricGroup = z.infer<typeof openApiValidators.apiMetricGroupValidator>;
 
 // Operations
 export type ListFeaturesResponse = operations["listFeatures"]["responses"]["200"]["content"]["application/json"];
@@ -13123,3 +13435,8 @@ export type ListCodeRefsResponse = operations["listCodeRefs"]["responses"]["200"
 export type PostCodeRefsResponse = operations["postCodeRefs"]["responses"]["200"]["content"]["application/json"];
 export type GetCodeRefsResponse = operations["getCodeRefs"]["responses"]["200"]["content"]["application/json"];
 export type GetQueryResponse = operations["getQuery"]["responses"]["200"]["content"]["application/json"];
+export type ListMetricGroupsResponse = operations["listMetricGroups"]["responses"]["200"]["content"]["application/json"];
+export type PostMetricGroupResponse = operations["postMetricGroup"]["responses"]["200"]["content"]["application/json"];
+export type GetMetricGroupResponse = operations["getMetricGroup"]["responses"]["200"]["content"]["application/json"];
+export type UpdateMetricGroupResponse = operations["updateMetricGroup"]["responses"]["200"]["content"]["application/json"];
+export type DeleteMetricGroupResponse = operations["deleteMetricGroup"]["responses"]["200"]["content"]["application/json"];

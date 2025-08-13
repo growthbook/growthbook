@@ -114,6 +114,9 @@ tags:
   - name: queries
     x-displayName: Queries
     description: Retrieve queries used in experiments to calculate results.
+  - name: metric-groups
+    x-displayName: Metric Groups
+    description: Metric Groups allow you to group multiple metrics together for easier management and analysis.
   - name: Archetype_model
     x-displayName: Archetype
     description: <SchemaDefinition schemaRef="#/components/schemas/Archetype" />
@@ -198,6 +201,9 @@ tags:
   - name: Metric_model
     x-displayName: Metric
     description: <SchemaDefinition schemaRef="#/components/schemas/Metric" />
+  - name: MetricGroup_model
+    x-displayName: MetricGroup
+    description: <SchemaDefinition schemaRef="#/components/schemas/MetricGroup" />
   - name: Organization_model
     x-displayName: Organization
     description: <SchemaDefinition schemaRef="#/components/schemas/Organization" />
@@ -5350,6 +5356,196 @@ paths:
                 properties:
                   query:
                     $ref: '#/components/schemas/Query'
+  /metric-groups:
+    get:
+      tags:
+        - metric-groups
+      summary: Get all metric groups for an organization (paginated)
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+      operationId: listMetricGroups
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - metricGroups
+                    properties:
+                      metricGroups:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/MetricGroup'
+                  - $ref: '#/components/schemas/PaginationFields'
+    post:
+      parameters: []
+      tags:
+        - metric-groups
+      summary: Create a metric group
+      operationId: postMetricGroup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - datasource
+              properties:
+                name:
+                  type: string
+                  description: Name of the metric group
+                description:
+                  type: string
+                  description: Description of the metric group
+                datasource:
+                  type: string
+                  description: Datasource id for the metric group
+                metrics:
+                  type: array
+                  items:
+                    type: string
+                  description: List of metric ids in the group
+                owner:
+                  type: string
+                  description: Owner of the metric group
+                projects:
+                  type: array
+                  items:
+                    type: string
+                  description: Project ids associated with the metric group
+                tags:
+                  type: array
+                  items:
+                    type: string
+                  description: Tags associated with the metric group
+                archived:
+                  type: boolean
+                  description: Whether the metric group is archived
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - metricGroup
+                properties:
+                  metricGroup:
+                    $ref: '#/components/schemas/MetricGroup'
+  '/metric-groups/{id}':
+    get:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - metric-groups
+      summary: Get a single metric group
+      operationId: getMetricGroup
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/metric-groups/ds_123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - metricGroup
+                properties:
+                  metricGroup:
+                    $ref: '#/components/schemas/MetricGroup'
+    post:
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
+          description: Metric group id
+      tags:
+        - metric-groups
+      summary: Update a single metric group
+      operationId: updateMetricGroup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Name of the metric group
+                metrics:
+                  type: array
+                  items:
+                    type: string
+                  description: List of metric ids in the group
+                datasource:
+                  type: string
+                  description: Datasource id for the metric group
+                description:
+                  type: string
+                  description: Description of the metric group
+                owner:
+                  type: string
+                  description: Owner of the metric group
+                projects:
+                  type: array
+                  items:
+                    type: string
+                  description: Project ids associated with the metric group
+                tags:
+                  type: array
+                  items:
+                    type: string
+                  description: Tags associated with the metric group
+                archived:
+                  type: boolean
+                  description: Whether the metric group is archived
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - metricGroup
+                properties:
+                  metricGroup:
+                    $ref: '#/components/schemas/MetricGroup'
+    delete:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - metric-groups
+      summary: Deletes a single metric group
+      operationId: deleteMetricGroup
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X DELETE https://api.growthbook.io/api/v1/metric-groups/ds_123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - metricGroup
+                properties:
+                  deletedId:
+                    type: string
+                    description: The ID of the deleted metric group
+                    example: ds_123abc
 components:
   parameters:
     id:
@@ -7793,6 +7989,61 @@ components:
               flagKey:
                 type: string
                 description: The feature flag key referenced
+    MetricGroup:
+      type: object
+      required:
+        - id
+        - organization
+        - name
+        - datasource
+        - metrics
+        - dateCreated
+        - dateUpdated
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the metric group
+        organization:
+          type: string
+          description: Organization id
+        owner:
+          type: string
+          description: Owner of the metric group
+        dateCreated:
+          type: string
+          format: date-time
+          description: Date the metric group was created
+        dateUpdated:
+          type: string
+          format: date-time
+          description: Date the metric group was last updated
+        name:
+          type: string
+          description: Name of the metric group
+        description:
+          type: string
+          description: Description of the metric group
+        tags:
+          type: array
+          items:
+            type: string
+          description: Tags associated with the metric group
+        projects:
+          type: array
+          items:
+            type: string
+          description: Project ids associated with the metric group
+        metrics:
+          type: array
+          items:
+            type: string
+          description: List of metric ids in the group
+        datasource:
+          type: string
+          description: Datasource id for the metric group
+        archived:
+          type: boolean
+          description: Whether the metric group is archived
   securitySchemes:
     bearerAuth:
       type: http
@@ -7848,6 +8099,7 @@ x-tagGroups:
       - code-references
       - archetypes
       - queries
+      - metric-groups
   - name: Models
     tags:
       - Archetype_model
@@ -7878,6 +8130,7 @@ x-tagGroups:
       - FeatureWithRevisions_model
       - Member_model
       - Metric_model
+      - MetricGroup_model
       - Organization_model
       - PaginationFields_model
       - Project_model

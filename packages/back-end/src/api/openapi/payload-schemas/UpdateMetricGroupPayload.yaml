@@ -1,0 +1,32 @@
+type: object
+properties:
+  name:
+    type: string
+    description: Name of the metric group
+  metrics:
+    type: array
+    items:
+      type: string
+    description: List of metric ids in the group
+  datasource:
+    type: string
+    description: Datasource id for the metric group
+  description:
+    type: string
+    description: Description of the metric group
+  owner:
+    type: string
+    description: Owner of the metric group
+  projects:
+    type: array
+    items:
+      type: string
+    description: Project ids associated with the metric group
+  tags:
+    type: array
+    items:
+      type: string
+    description: Tags associated with the metric group
+  archived:
+    type: boolean
+    description: Whether the metric group is archived
