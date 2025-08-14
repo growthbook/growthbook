@@ -218,7 +218,7 @@ export default function FlagCard({
           />
         ) : null}
 
-        {!data?.isGuardrail && data.rowResults.suspiciousChange ? (
+        {!data.isGuardrail && data.rowResults.suspiciousChange ? (
           <CardItem
             label="Suspicious"
             tooltip={data.rowResults.suspiciousChangeReason}
