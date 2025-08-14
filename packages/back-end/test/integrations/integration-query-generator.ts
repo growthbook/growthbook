@@ -70,7 +70,7 @@ function buildInterface(engine: string): DataSourceInterface {
             name: "",
             userIdType: USER_ID_TYPE,
             query: `SELECT\nuserId as user_id,timestamp as timestamp,experimentId as experiment_id,variationId as variation_id,browser\nFROM ${getTableString(
-              engine
+              engine,
             )}experiment_viewed`,
             dimensions: ["browser"],
           },
@@ -79,7 +79,7 @@ function buildInterface(engine: string): DataSourceInterface {
           {
             ids: ["user_id", "anonymous_id"],
             query: `SELECT DISTINCT\nuserId as user_id,anonymousId as anonymous_id\nFROM ${getTableString(
-              engine
+              engine,
             )}orders`,
           },
         ],
@@ -92,7 +92,7 @@ function buildInterface(engine: string): DataSourceInterface {
 
 function buildDimension(
   exp: TestExperimentConfig,
-  engine: string
+  engine: string,
 ): Dimension | null {
   if (!exp.dimensionType) {
     return null;
@@ -131,7 +131,7 @@ function buildDimension(
 
 function buildSegment(
   exp: TestExperimentConfig,
-  engine: string
+  engine: string,
 ): SegmentInterface | null {
   if (exp.segment) {
     return {
@@ -142,7 +142,7 @@ function buildSegment(
       userIdType: USER_ID_TYPE,
       name: exp.segment,
       sql: `SELECT DISTINCT\nuserId as user_id,CAST('2022-01-01' AS DATE) as date\nFROM ${getTableString(
-        engine
+        engine,
       )}experiment_viewed\nWHERE browser = 'Chrome'`,
       dateCreated: currentDate,
       dateUpdated: currentDate,
@@ -154,7 +154,7 @@ function buildSegment(
 
 function addDatabaseToMetric(
   metric: MetricInterface,
-  engine: string
+  engine: string,
 ): MetricInterface {
   const tableString = getTableString(engine);
   if (!tableString) {
@@ -237,7 +237,7 @@ const allActivationMetrics: MetricInterface[] = [
 
 // Build full metric objects
 const analysisMetrics: MetricInterface[] = metricConfigs.map(
-  (metricConfig) => ({ ...baseMetric, ...metricConfig })
+  (metricConfig) => ({ ...baseMetric, ...metricConfig }),
 );
 
 // fact metrics
@@ -256,7 +256,7 @@ const columns: ColumnInterface[] = (columnConfigData as ColumnConfig[]).map(
     filters: [],
     deleted: false,
     ...f,
-  })
+  }),
 );
 
 import filterConfigData from "./json/filters.json";
@@ -267,7 +267,7 @@ const filters: FactFilterInterface[] = (filterConfigData as FilterConfig[]).map(
     description: "",
     name: f.id,
     ...f,
-  })
+  }),
 );
 
 import factMetricConfigData from "./json/fact-metrics.json";
@@ -329,7 +329,7 @@ const baseFactMetric: Omit<
 };
 
 const analysisFactMetrics: FactMetricInterface[] = factMetricConfigs.map(
-  (factMetricConfig) => ({ ...baseFactMetric, ...factMetricConfig })
+  (factMetricConfig) => ({ ...baseFactMetric, ...factMetricConfig }),
 );
 
 type FactTableConfig = Pick<FactTableInterface, "id" | "sql">;
@@ -360,8 +360,8 @@ allActivationMetrics.forEach((m) => baseMetricMap.set(m.id, m));
 
 const allMetricMap: Map<string, ExperimentMetricInterface> = new Map(
   [...analysisMetrics, ...allActivationMetrics, ...analysisFactMetrics].map(
-    (m) => [m.id, m]
-  )
+    (m) => [m.id, m],
+  ),
 );
 
 const metricRegressionAdjustmentStatuses = [
@@ -469,7 +469,7 @@ engines.forEach((engine) => {
   const factTablesCopy = cloneDeep<FactTableInterface[]>(factTables);
   factTablesCopy.forEach(
     (ft) =>
-      (ft.sql = ft.sql?.replace("FROM ", `FROM ${getTableString(engine)}`))
+      (ft.sql = ft.sql?.replace("FROM ", `FROM ${getTableString(engine)}`)),
   );
   const factTableMap = new Map(factTablesCopy.map((f) => [f.id, f]));
 
@@ -501,7 +501,7 @@ engines.forEach((engine) => {
     if (experiment.activationMetric) {
       activationMetric =
         allActivationMetrics.find(
-          (m) => m.id === experiment.activationMetric
+          (m) => m.id === experiment.activationMetric,
         ) ?? null;
       if (activationMetric) {
         activationMetric = addDatabaseToMetric(activationMetric, engine);
@@ -510,11 +510,11 @@ engines.forEach((engine) => {
 
     const dimension: Dimension | null = buildDimension(
       experimentConfig,
-      engine
+      engine,
     );
     const segment: SegmentInterface | null = buildSegment(
       experimentConfig,
-      engine
+      engine,
     );
 
     let dimensionId = "";
@@ -580,8 +580,8 @@ engines.forEach((engine) => {
         engine === "bigquery"
           ? "sample."
           : engine === "snowflake"
-          ? `"SAMPLE".GROWTHBOOK.`
-          : ""
+            ? `"SAMPLE".GROWTHBOOK.`
+            : ""
       }growthbook_tmp_units_${experiment.id}`,
       includeIdJoins: true,
     };
@@ -644,14 +644,14 @@ engines.forEach((engine) => {
         denominatorMetrics.push(
           ...expandDenominatorMetrics(metric.denominator, baseMetricMap)
             .map((m) => baseMetricMap.get(m) as MetricInterface)
-            .filter(Boolean)
+            .filter(Boolean),
         );
       }
 
       if (!isFactMetric(metric)) {
         metric = addDatabaseToMetric(metric, engine);
         denominatorMetrics = denominatorMetrics.map((d) =>
-          addDatabaseToMetric(d, engine)
+          addDatabaseToMetric(d, engine),
         );
       }
 

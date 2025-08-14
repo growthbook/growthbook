@@ -37,7 +37,7 @@ interface MultiDashboardResponse {
 
 export async function getAllDashboards(
   req: AuthRequest<never, never, never>,
-  res: ResponseWithStatusAndError<MultiDashboardResponse>
+  res: ResponseWithStatusAndError<MultiDashboardResponse>,
 ) {
   const context = getContextFromReq(req);
 
@@ -47,20 +47,19 @@ export async function getAllDashboards(
 
 export async function getDashboardsForExperiment(
   req: AuthRequest<never, { experimentId: string }, never>,
-  res: ResponseWithStatusAndError<MultiDashboardResponse>
+  res: ResponseWithStatusAndError<MultiDashboardResponse>,
 ) {
   const context = getContextFromReq(req);
   const { experimentId } = req.params;
 
-  const dashboards = await context.models.dashboards.findByExperiment(
-    experimentId
-  );
+  const dashboards =
+    await context.models.dashboards.findByExperiment(experimentId);
   return res.status(200).json({ status: 200, dashboards });
 }
 
 export async function createDashboard(
   req: AuthRequest<z.infer<typeof createDashboardBody>, never, never>,
-  res: ResponseWithStatusAndError<SingleDashboardResponse>
+  res: ResponseWithStatusAndError<SingleDashboardResponse>,
 ) {
   const context = getContextFromReq(req);
   if (!context.hasPremiumFeature("dashboards")) {
@@ -78,7 +77,7 @@ export async function createDashboard(
   }
 
   const createdBlocks = await Promise.all(
-    blocks.map((blockData) => createDashboardBlock(context.org.id, blockData))
+    blocks.map((blockData) => createDashboardBlock(context.org.id, blockData)),
   );
 
   const dashboard = await context.models.dashboards.create({
@@ -101,7 +100,7 @@ export async function createDashboard(
 
 export async function updateDashboard(
   req: AuthRequest<z.infer<typeof updateDashboardBody>, { id: string }, never>,
-  res: ResponseWithStatusAndError<SingleDashboardResponse>
+  res: ResponseWithStatusAndError<SingleDashboardResponse>,
 ) {
   const context = getContextFromReq(req);
   if (!context.hasPremiumFeature("dashboards")) {
@@ -140,15 +139,15 @@ export async function updateDashboard(
       updates.blocks.map((blockData) =>
         isPersistedDashboardBlock(blockData)
           ? blockData
-          : createDashboardBlock(context.org.id, blockData)
-      )
+          : createDashboardBlock(context.org.id, blockData),
+      ),
     );
     updates.blocks = createdBlocks;
   }
 
   const updatedDashboard = await context.models.dashboards.updateById(
     id,
-    updates as Partial<DashboardInterface>
+    updates as Partial<DashboardInterface>,
   );
 
   res.status(200).json({
@@ -159,7 +158,7 @@ export async function updateDashboard(
 
 export async function deleteDashboard(
   req: AuthRequest<never, { id: string }, never>,
-  res: ResponseWithStatusAndError
+  res: ResponseWithStatusAndError,
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
@@ -169,7 +168,7 @@ export async function deleteDashboard(
 
 export async function refreshDashboardData(
   req: AuthRequest<never, { id: string }, never>,
-  res: ResponseWithStatusAndError
+  res: ResponseWithStatusAndError,
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
@@ -195,25 +194,23 @@ export async function refreshDashboardData(
   const newBlocks = dashboard.blocks.map((block) =>
     blockHasFieldOfType(block, "snapshotId", isString)
       ? { ...block, snapshotId: mainSnapshot.id }
-      : { ...block }
+      : { ...block },
   );
 
   const dimensionBlockPairs = dashboard.blocks
-    .map<[string, string] | undefined>((block) =>
-      blockHasFieldOfType(block, "dimensionId", isString)
-        ? [block.dimensionId, block.id]
-        : undefined
-    )
+    .map<
+      [string, string] | undefined
+    >((block) => (blockHasFieldOfType(block, "dimensionId", isString) ? [block.dimensionId, block.id] : undefined))
     .filter(isDefined);
 
   // Create a map from dimension -> list of block IDs that use that dimension
   const dimensionsByBlocks = Object.fromEntries(
     Object.entries(
-      groupBy(dimensionBlockPairs, ([dimensionId, _blockId]) => dimensionId)
+      groupBy(dimensionBlockPairs, ([dimensionId, _blockId]) => dimensionId),
     ).map(([dimensionId, dimBlockPairs]) => [
       dimensionId,
       dimBlockPairs.map(([_dim, blockId]) => blockId),
-    ])
+    ]),
   );
 
   for (const [dimensionId, blockIds] of Object.entries(dimensionsByBlocks)) {
@@ -241,7 +238,7 @@ export async function refreshDashboardData(
     ...new Set(
       dashboard.blocks
         .filter((block) => block.type === "sql-explorer" && block.savedQueryId)
-        .map((block: SqlExplorerBlockInterface) => block.savedQueryId!)
+        .map((block: SqlExplorerBlockInterface) => block.savedQueryId!),
     ),
   ]);
 
@@ -257,7 +254,7 @@ export async function getDashboardSnapshots(
   res: ResponseWithStatusAndError<{
     snapshots: ExperimentSnapshotInterface[];
     savedQueries: SavedQuery[];
-  }>
+  }>,
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
@@ -270,7 +267,7 @@ export async function getDashboardSnapshots(
       ...dashboard.blocks.map((block) => block.snapshotId),
     ]),
   ].filter(
-    (snapId): snapId is string => isDefined(snapId) && snapId.length > 0
+    (snapId): snapId is string => isDefined(snapId) && snapId.length > 0,
   );
   const snapshots = await findSnapshotsByIds(context, snapshotIds);
   const savedQueries = await context.models.savedQueries.getByIds([
@@ -278,15 +275,15 @@ export async function getDashboardSnapshots(
       dashboard.blocks
         .filter(
           (
-            block
+            block,
           ): block is Extract<
             DashboardBlockInterface,
             { savedQueryId: string }
           > =>
             blockHasFieldOfType(block, "savedQueryId", isString) &&
-            block.savedQueryId.length > 0
+            block.savedQueryId.length > 0,
         )
-        .map((block) => block.savedQueryId)
+        .map((block) => block.savedQueryId),
     ),
   ]);
   return res.status(200).json({ status: 200, snapshots, savedQueries });

@@ -60,11 +60,11 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       if (
         !req.context.permissions.canPublishFeature(
           feature,
-          Array.from(getEnabledEnvironments(feature, orgEnvs))
+          Array.from(getEnabledEnvironments(feature, orgEnvs)),
         ) ||
         !req.context.permissions.canPublishFeature(
           { project },
-          Array.from(getEnabledEnvironments(feature, orgEnvs))
+          Array.from(getEnabledEnvironments(feature, orgEnvs)),
         )
       ) {
         req.context.permissions.throwPermissionError();
@@ -76,7 +76,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       const projects = await req.context.getProjects();
       if (!projects.some((p) => p.id === req.body.project)) {
         throw new Error(
-          `Project id ${req.body.project} is not a valid project.`
+          `Project id ${req.body.project} is not a valid project.`,
         );
       }
     }
@@ -96,7 +96,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
                 // Validate that the org has access to schedule rules
                 if (!req.context.hasPremiumFeature("schedule-feature-flag")) {
                   throw new Error(
-                    "This organization does not have access to schedule rules. Upgrade to Pro or Enterprise."
+                    "This organization does not have access to schedule rules. Upgrade to Pro or Enterprise.",
                   );
                 }
                 try {
@@ -105,13 +105,13 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
                   throw new Error(
                     `Invalid scheduleRules in environment "${envName}", rule ${
                       ruleIndex + 1
-                    }: ${error.message}`
+                    }: ${error.message}`,
                   );
                 }
               }
             });
           }
-        }
+        },
       );
     }
 
@@ -125,7 +125,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       req.body.environments != null
         ? updateInterfaceEnvSettingsFromApiEnvSettings(
             feature,
-            req.body.environments
+            req.body.environments,
           )
         : null;
 
@@ -169,9 +169,9 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
                 ...feature,
                 ...updates,
               },
-              orgEnvs
-            )
-          )
+              orgEnvs,
+            ),
+          ),
         )
       ) {
         req.context.permissions.throwPermissionError();
@@ -206,7 +206,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
             if (
               !isEqual(
                 settings.rules,
-                feature.environmentSettings?.[env]?.rules || []
+                feature.environmentSettings?.[env]?.rules || [],
               )
             ) {
               hasChanges = true;
@@ -214,7 +214,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
               // if the rule is different from the current feature value, update revisionChanges
               revisedRules[env] = settings.rules;
             }
-          }
+          },
         );
       }
 
@@ -225,12 +225,12 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
           feature,
           changedEnvironments,
           defaultValueChanged,
-          req.organization.settings
+          req.organization.settings,
         );
         if (reviewRequired) {
           if (!req.context.permissions.canBypassApprovalChecks(feature)) {
             throw new Error(
-              "This feature requires a review and the API key being used does not have permission to bypass reviews."
+              "This feature requires a review and the API key being used does not have permission to bypass reviews.",
             );
           }
         }
@@ -254,13 +254,13 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     const updatedFeature = await updateFeatureToDb(
       req.context,
       feature,
-      updates
+      updates,
     );
 
     await addTagsDiff(
       req.context.org.id,
       feature.tags || [],
-      updates.tags || []
+      updates.tags || [],
     );
 
     await req.audit({
@@ -276,7 +276,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
 
     const experimentMap = await getExperimentMapForFeature(
       req.context,
-      feature.id
+      feature.id,
     );
     const revision = await getRevision({
       context: req.context,
@@ -296,5 +296,5 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         safeRolloutMap,
       }),
     };
-  }
+  },
 );

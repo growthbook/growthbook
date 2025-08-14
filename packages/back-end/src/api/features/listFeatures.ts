@@ -24,7 +24,7 @@ export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
     const groupMap = await getSavedGroupMap(req.organization);
     const experimentMap = await getAllPayloadExperiments(
       req.context,
-      req.query.projectId
+      req.query.projectId,
     );
 
     // If SDK clientKey is provided, get the SDK connection and use its projects/environment
@@ -51,22 +51,22 @@ export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
       });
 
       filteredFeatures = features.filter(
-        (feature) => feature.id in payload.features
+        (feature) => feature.id in payload.features,
       );
     }
 
     // TODO: Move sorting/limiting to the database query for better performance
     const { filtered, returnFields } = applyPagination(
       filteredFeatures.sort(
-        (a, b) => a.dateCreated.getTime() - b.dateCreated.getTime()
+        (a, b) => a.dateCreated.getTime() - b.dateCreated.getTime(),
       ),
-      req.query
+      req.query,
     );
 
     //get all feature ids and there version
     const revisions = await getFeatureRevisionsByFeaturesCurrentVersion(
       req.context,
-      filtered
+      filtered,
     );
     const safeRolloutMap =
       await req.context.models.safeRollout.getAllPayloadSafeRollouts();
@@ -75,7 +75,7 @@ export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
       features: filtered.map((feature) => {
         const revision =
           revisions?.find(
-            (r) => r.featureId === feature.id && r.version === feature.version
+            (r) => r.featureId === feature.id && r.version === feature.version,
           ) || null;
         return getApiFeatureObj({
           feature,
@@ -88,5 +88,5 @@ export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
       }),
       ...returnFields,
     };
-  }
+  },
 );

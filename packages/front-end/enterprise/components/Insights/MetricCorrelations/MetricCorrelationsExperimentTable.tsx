@@ -42,7 +42,7 @@ interface Props {
     variationIndex: number;
   }[];
   setExcludedExperimentVariations: (
-    experimentVariations: { experimentId: string; variationIndex: number }[]
+    experimentVariations: { experimentId: string; variationIndex: number }[],
   ) => void;
 }
 
@@ -169,7 +169,7 @@ const ExperimentWithMetricsTable: FC<Props> = ({
           });
           expVariationData.users = Math.max(
             expVariationData.users ?? 0,
-            variationResults[variationIndex][metricIndex].users
+            variationResults[variationIndex][metricIndex].users,
           );
         }
       });
@@ -193,11 +193,11 @@ const ExperimentWithMetricsTable: FC<Props> = ({
         lift1: e.metricResults[1]?.lift,
         included: !excludedExperimentVariations.some(
           (ev) =>
-            ev.experimentId === e.id && ev.variationIndex === e.variationIndex
+            ev.experimentId === e.id && ev.variationIndex === e.variationIndex,
         ),
       };
     },
-    [excludedExperimentVariations, metrics]
+    [excludedExperimentVariations, metrics],
   );
 
   const { items, SortableTH } = useSearch({
@@ -221,7 +221,7 @@ const ExperimentWithMetricsTable: FC<Props> = ({
               !excludedExperimentVariations.some(
                 (ev) =>
                   ev.experimentId === e.id &&
-                  ev.variationIndex === e.variationIndex
+                  ev.variationIndex === e.variationIndex,
               )
             }
             setValue={(value) => {
@@ -230,12 +230,12 @@ const ExperimentWithMetricsTable: FC<Props> = ({
                   ? excludedExperimentVariations.filter(
                       (ev) =>
                         ev.experimentId !== e.id ||
-                        ev.variationIndex !== e.variationIndex
+                        ev.variationIndex !== e.variationIndex,
                     )
                   : [
                       ...excludedExperimentVariations,
                       { experimentId: e.id, variationIndex: e.variationIndex },
-                    ]
+                    ],
               );
             }}
           />
@@ -275,10 +275,10 @@ const ExperimentWithMetricsTable: FC<Props> = ({
           {e.status === "running"
             ? "started"
             : e.status === "draft"
-            ? "created"
-            : e.status === "stopped"
-            ? "ended"
-            : ""}{" "}
+              ? "created"
+              : e.status === "stopped"
+                ? "ended"
+                : ""}{" "}
           {date(e.date)}
         </td>
         <td>

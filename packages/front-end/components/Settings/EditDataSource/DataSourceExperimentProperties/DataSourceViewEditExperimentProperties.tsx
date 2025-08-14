@@ -35,7 +35,7 @@ export const DataSourceViewEditExperimentProperties: FC<
       copy.settings.events = eventProperties;
       await onSave(copy);
     },
-    [dataSource, onSave]
+    [dataSource, onSave],
   );
 
   if (!dataSource) {

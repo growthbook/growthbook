@@ -359,7 +359,7 @@ describe("importing utils", () => {
 
       const result = transformLDFeatureFlagToGBFeature(
         booleanTypeInput,
-        "prj_abc1234"
+        "prj_abc1234",
       );
 
       expect(result).toEqual(expected);
@@ -757,7 +757,7 @@ describe("importing utils", () => {
             },
           ],
         } as unknown as LDListFeatureFlagsResponse,
-        "prj_xyz987"
+        "prj_xyz987",
       );
 
       const ruleIds0 = result?.[0]?.environmentSettings?.[
@@ -1115,7 +1115,7 @@ describe("importing utils", () => {
 
       const result = transformLDFeatureFlagToGBFeature(
         stringTypeInput,
-        "prj_xyz987"
+        "prj_xyz987",
       );
 
       expect(result).toEqual(expected);

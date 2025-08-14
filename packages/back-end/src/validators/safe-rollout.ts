@@ -26,7 +26,7 @@ const rampUpSchedule = z.object({
     z.object({
       percent: z.number(),
       dateRampedUp: z.date().optional(),
-    })
+    }),
   ),
   nextUpdate: z.date().optional(),
   lastUpdate: z.date().optional(),
@@ -76,7 +76,7 @@ export type SafeRolloutInterface = z.infer<typeof safeRolloutValidator>;
 
 export async function validateCreateSafeRolloutFields(
   safeRolloutFields: Partial<CreateSafeRolloutInterface> | undefined,
-  context: ReqContext | ApiReqContext
+  context: ReqContext | ApiReqContext,
 ): Promise<CreateSafeRolloutInterface> {
   // TODO: How to use Zod validator here and provide a good error message to the user?
   if (!safeRolloutFields) {
@@ -114,20 +114,20 @@ export async function validateCreateSafeRolloutFields(
         if (datasourceId && metric.datasource !== datasourceId) {
           throw new Error(
             "Metrics must belong to the same datasource as the safe rollout: " +
-              metricIds[i]
+              metricIds[i],
           );
         }
       } else {
         // check to see if this metric is actually a metric group
         const metricGroup = await context.models.metricGroups.getById(
-          metricIds[i]
+          metricIds[i],
         );
         if (metricGroup) {
           // Make sure it is tied to the same datasource as the experiment
           if (datasourceId && metricGroup.datasource !== datasourceId) {
             throw new Error(
               "Metrics must be tied to the same datasource as the safe rollout: " +
-                metricIds[i]
+                metricIds[i],
             );
           }
         } else {

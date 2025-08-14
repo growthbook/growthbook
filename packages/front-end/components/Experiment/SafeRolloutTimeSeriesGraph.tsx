@@ -102,7 +102,7 @@ const SafeRolloutTimeSeriesGraphContent = ({
       : getExperimentMetricFormatter(
           metric,
           getFactTableById,
-          "percentagePoints"
+          "percentagePoints",
         );
   const formatterOptions = {
     currency: displayCurrency,
@@ -263,7 +263,7 @@ const SafeRolloutTimeSeriesGraphContent = ({
                     // Calculate where line crosses y=0
                     const zeroY = yScale(0);
                     const ratio = Math.abs(
-                      (prevPoint.y - zeroY) / (prevPoint.y - point.y)
+                      (prevPoint.y - zeroY) / (prevPoint.y - point.y),
                     );
                     const crossingX =
                       prevPoint.x + ratio * (point.x - prevPoint.x);
@@ -393,12 +393,12 @@ const SafeRolloutTimeSeriesGraphContent = ({
 function getTooltipContent(
   tooltipData: { datum: DataPoint; index: number },
   formatter: (value: number, options?: Intl.NumberFormatOptions) => string,
-  formatterOptions: Intl.NumberFormatOptions
+  formatterOptions: Intl.NumberFormatOptions,
 ) {
   const rolloutVariation = tooltipData.datum.variations?.find(
     (v) =>
       v.name.toLowerCase().includes("variation") ||
-      v.name.toLowerCase().includes("rollout")
+      v.name.toLowerCase().includes("rollout"),
   );
 
   if (!rolloutVariation) return null;
@@ -484,7 +484,7 @@ function getTooltipContent(
 }
 
 const getNonInfiniteSideOfCI = (
-  variation: VariationData | undefined
+  variation: VariationData | undefined,
 ): { value: number | null; isUpperBound: boolean } => {
   if (!variation || !variation.ci) return { value: null, isUpperBound: false };
 

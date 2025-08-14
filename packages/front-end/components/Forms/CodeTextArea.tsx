@@ -116,7 +116,7 @@ const AceEditor = dynamic(
                 session: Ace.EditSession,
                 pos: Ace.Position,
                 prefix: string,
-                callback: (err: unknown, results: AceCompletion[]) => void
+                callback: (err: unknown, results: AceCompletion[]) => void,
               ) => {
                 const filteredCompletions = completions.filter(
                   (completion: AceCompletion) => {
@@ -144,7 +144,7 @@ const AceEditor = dynamic(
                     }
 
                     return checkParts(lowerValue) || checkParts(lowerCaption);
-                  }
+                  },
                 );
 
                 callback(null, filteredCompletions);
@@ -169,7 +169,7 @@ const AceEditor = dynamic(
   },
   {
     ssr: false,
-  }
+  },
 );
 
 export type Language = "sql" | "json" | "javascript" | "python" | "yml";
@@ -228,7 +228,7 @@ export default function CodeTextArea({
       {
         exec: onCtrlEnter,
         name: "ctrl-enter",
-      }
+      },
     );
   }, [editor, onCtrlEnter]);
 

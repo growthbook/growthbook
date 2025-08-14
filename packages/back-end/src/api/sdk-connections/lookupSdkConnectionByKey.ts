@@ -7,7 +7,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { lookupSdkConnectionByKeyValidator } from "back-end/src/validators/openapi";
 
 export const lookupSdkConnectionByKey = createApiRequestHandler(
-  lookupSdkConnectionByKeyValidator
+  lookupSdkConnectionByKeyValidator,
 )(async (req): Promise<GetSdkConnectionResponse> => {
   const sdkConnection = await findSDKConnectionByKey(req.params.key);
   if (!sdkConnection) {

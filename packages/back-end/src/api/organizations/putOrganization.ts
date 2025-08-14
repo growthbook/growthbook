@@ -12,7 +12,7 @@ import {
 import { OrganizationInterface } from "back-end/types/organization";
 
 export const putOrganization = createApiRequestHandler(
-  putOrganizationValidator
+  putOrganizationValidator,
 )(async (req): Promise<PostOrganizationResponse> => {
   await validateIsSuperUserRequest(req);
 

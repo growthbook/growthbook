@@ -107,7 +107,7 @@ export const ArchetypeList: FC<{
               {archetypes.map((archetype: ArchetypeInterface) => {
                 const canEdit = permissionsUtil.canUpdateArchetype(
                   archetype,
-                  {}
+                  {},
                 );
                 let parsedAttributes = {};
                 try {
@@ -115,7 +115,7 @@ export const ArchetypeList: FC<{
                 } catch {
                   console.error(
                     "Failed to parse attributes. Invalid JSON string: " +
-                      archetype.attributes
+                      archetype.attributes,
                   );
                 }
                 const canDelete = permissionsUtil.canDeleteArchetype(archetype);

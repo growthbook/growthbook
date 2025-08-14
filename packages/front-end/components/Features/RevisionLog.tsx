@@ -112,10 +112,10 @@ function RevisionLogRow({ log, first }: { log: RevisionLog; first: boolean }) {
 
 const Revisionlog: React.ForwardRefRenderFunction<MutateLog, Props> = (
   { feature, revision },
-  ref
+  ref,
 ) => {
   const { data, error, mutate } = useApi<{ log: RevisionLog[] }>(
-    `/feature/${feature.id}/${revision.version}/log`
+    `/feature/${feature.id}/${revision.version}/log`,
   );
   useImperativeHandle(ref, () => ({
     async mutateLog() {
@@ -128,8 +128,8 @@ const Revisionlog: React.ForwardRefRenderFunction<MutateLog, Props> = (
     const logs = [...data.log];
     logs.sort((a, b) =>
       (b.timestamp as unknown as string).localeCompare(
-        a.timestamp as unknown as string
-      )
+        a.timestamp as unknown as string,
+      ),
     );
 
     const byDate: Record<string, RevisionLog[]> = {};

@@ -16,7 +16,7 @@ export default function BooleanSelect(
   } & React.DetailedHTMLProps<
     React.SelectHTMLAttributes<HTMLSelectElement>,
     HTMLSelectElement
-  >
+  >,
 ) {
   const { name, control, className, falseLabel, trueLabel, ...passThrough } =
     props;

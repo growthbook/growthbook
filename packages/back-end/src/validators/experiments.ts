@@ -302,7 +302,7 @@ export const experimentInterface = z
             key: z.string(),
             status: z.enum(["complete", "incomplete"]),
           })
-          .strict()
+          .strict(),
       )
       .optional(),
     type: z.enum(experimentType).optional(),

@@ -293,7 +293,7 @@ const VariationsTable: FC<Props> = ({
               mutate={mutate}
               percent={percentages?.[i]}
             />
-          )
+          ),
         )}
       </Grid>
       {openCarousel && (
@@ -320,12 +320,12 @@ const VariationsTable: FC<Props> = ({
                       body: JSON.stringify({
                         url: screenshotPath,
                       }),
-                    }
+                    },
                   );
 
                   if (status >= 400) {
                     throw new Error(
-                      message || "There was an error deleting the image"
+                      message || "There was an error deleting the image",
                     );
                   }
 

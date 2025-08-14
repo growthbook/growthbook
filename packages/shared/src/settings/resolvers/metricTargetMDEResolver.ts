@@ -7,7 +7,7 @@ export default function metricTargetMDEResolver(): SettingsResolver<
   return (ctx: SettingsContext) => {
     const metricTargetMDEOverride =
       ctx.scopes?.experiment?.decisionFrameworkSettings?.decisionFrameworkMetricOverrides?.find(
-        (mo) => mo.id === ctx.scopes?.metric?.id
+        (mo) => mo.id === ctx.scopes?.metric?.id,
       );
 
     if (metricTargetMDEOverride?.targetMDE !== undefined) {

@@ -31,7 +31,7 @@ export class SafeRolloutSnapshotModel extends BaseClass {
     const { datasource } = this.getForeignRefs(doc);
 
     return this.context.permissions.canReadMultiProjectResource(
-      datasource?.projects
+      datasource?.projects,
     );
   }
   protected canUpdate() {
@@ -70,7 +70,7 @@ export class SafeRolloutSnapshotModel extends BaseClass {
       {
         sort: { dateCreated: -1 },
         limit: 1,
-      }
+      },
     );
 
     if (all[0]) {
@@ -81,7 +81,7 @@ export class SafeRolloutSnapshotModel extends BaseClass {
   protected async afterUpdate(
     _existingDoc: SafeRolloutSnapshotInterface,
     _updates: Partial<SafeRolloutSnapshotInterface>,
-    updatedDoc: SafeRolloutSnapshotInterface
+    updatedDoc: SafeRolloutSnapshotInterface,
   ) {
     const latestSafeRolloutSnapshot = await this.getSnapshotForSafeRollout({
       safeRolloutId: updatedDoc.safeRolloutId,
@@ -95,7 +95,7 @@ export class SafeRolloutSnapshotModel extends BaseClass {
 
     if (isLatestSnapshot && updatedDoc.status === "success") {
       const safeRollout = await this.context.models.safeRollout.getById(
-        updatedDoc.safeRolloutId
+        updatedDoc.safeRolloutId,
       );
       if (!safeRollout) {
         throw new Error("Safe rollout not found");
@@ -128,7 +128,7 @@ export class SafeRolloutSnapshotModel extends BaseClass {
       } catch (e) {
         this.context.logger.error(
           { err: e, safeRolloutId: safeRollout.id, snapshotId: updatedDoc.id },
-          "Failed to update Safe Rollout time series data"
+          "Failed to update Safe Rollout time series data",
         );
       }
 
@@ -141,7 +141,7 @@ export class SafeRolloutSnapshotModel extends BaseClass {
         throw new Error("Environment not found");
       }
       const ruleIndex = environment.rules.findIndex(
-        (r) => r.type === "safe-rollout" && r.safeRolloutId === safeRollout.id
+        (r) => r.type === "safe-rollout" && r.safeRolloutId === safeRollout.id,
       );
       if (ruleIndex === -1) {
         throw new Error("Rule not found");

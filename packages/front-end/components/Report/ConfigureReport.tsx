@@ -69,13 +69,13 @@ export default function ConfigureReport({
         dateStarted: new Date(
           getValidDate(report.experimentAnalysisSettings?.dateStarted ?? "")
             .toISOString()
-            .substr(0, 16)
+            .substr(0, 16),
         ),
         dateEnded: report.experimentAnalysisSettings?.dateEnded
           ? new Date(
               getValidDate(report.experimentAnalysisSettings.dateEnded)
                 .toISOString()
-                .substr(0, 16)
+                .substr(0, 16),
             )
           : null,
       },
@@ -93,14 +93,14 @@ export default function ConfigureReport({
       ...value.experimentAnalysisSettings,
       dateStarted: new Date(
         getValidDate(
-          value.experimentAnalysisSettings?.dateStarted ?? ""
+          value.experimentAnalysisSettings?.dateStarted ?? "",
         ).getTime() -
-          d.getTimezoneOffset() * 60 * 1000
+          d.getTimezoneOffset() * 60 * 1000,
       ),
       dateEnded: value.experimentAnalysisSettings?.dateEnded
         ? new Date(
             getValidDate(value.experimentAnalysisSettings.dateEnded).getTime() -
-              d.getTimezoneOffset() * 60 * 1000
+              d.getTimezoneOffset() * 60 * 1000,
           )
         : null,
     };
@@ -120,7 +120,7 @@ export default function ConfigureReport({
 
   const [tab, setTab] = useState<TabOptions>("overview");
   const [useToday, setUseToday] = useState(
-    !form.watch("experimentAnalysisSettings.dateEnded")
+    !form.watch("experimentAnalysisSettings.dateEnded"),
   );
   const [upgradeModal, setUpgradeModal] = useState(false);
   const [hasMetricOverrideRiskError, setHasMetricOverrideRiskError] =
@@ -137,17 +137,17 @@ export default function ConfigureReport({
     ? getDatasourceById(experiment.datasource)
     : null;
   const filteredSegments = segments.filter(
-    (s) => s.datasource === experiment?.datasource
+    (s) => s.datasource === experiment?.datasource,
   );
   const datasourceProperties = datasource?.properties;
   const exposureQueries = datasource?.settings?.queries?.exposure;
   const exposureQueryId = form.watch(
-    "experimentAnalysisSettings.exposureQueryId"
+    "experimentAnalysisSettings.exposureQueryId",
   );
   const exposureQuery = exposureQueries?.find((e) => e.id === exposureQueryId);
 
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
-    "regression-adjustment"
+    "regression-adjustment",
   );
   const hasSequentialTestingFeature =
     hasCommercialFeature("sequential-testing");
@@ -213,7 +213,7 @@ export default function ConfigureReport({
               }
               datasourceId={experiment?.datasource}
               exposureQueryId={form.watch(
-                "experimentAnalysisSettings.exposureQueryId"
+                "experimentAnalysisSettings.exposureQueryId",
               )}
               userIdType={form.watch("experimentAnalysisSettings.userIdType")}
               newUi={false}
@@ -227,7 +227,7 @@ export default function ConfigureReport({
               onChange={(v) =>
                 form.setValue(
                   "experimentAnalysisSettings.differenceType",
-                  v as DifferenceType
+                  v as DifferenceType,
                 )
               }
               sort={false}
@@ -272,8 +272,8 @@ export default function ConfigureReport({
                       new Date(
                         getValidDate(experiment?.phases?.[0]?.dateStarted)
                           .toISOString()
-                          .substr(0, 16)
-                      )
+                          .substr(0, 16),
+                      ),
                     );
                     incrementDatePickerKey();
                   }}
@@ -285,7 +285,7 @@ export default function ConfigureReport({
                       {new Date(
                         getValidDate(experiment?.phases?.[0]?.dateStarted)
                           .toISOString()
-                          .substr(0, 16)
+                          .substr(0, 16),
                       ).toLocaleDateString()}
                     </small>
                   </div>
@@ -303,11 +303,11 @@ export default function ConfigureReport({
                           new Date(
                             getValidDate(
                               experiment?.phases?.[latestPhaseIndex]
-                                ?.dateStarted ?? ""
+                                ?.dateStarted ?? "",
                             )
                               .toISOString()
-                              .substr(0, 16)
-                          )
+                              .substr(0, 16),
+                          ),
                         );
                         incrementDatePickerKey();
                       }}
@@ -319,10 +319,10 @@ export default function ConfigureReport({
                           {new Date(
                             getValidDate(
                               experiment?.phases?.[latestPhaseIndex]
-                                ?.dateStarted
+                                ?.dateStarted,
                             )
                               .toISOString()
-                              .substr(0, 16)
+                              .substr(0, 16),
                           ).toLocaleDateString()}
                         </small>
                       </div>
@@ -352,7 +352,7 @@ export default function ConfigureReport({
                       form.setValue("experimentAnalysisSettings.dateEnded", d)
                     }
                     disableBefore={form.watch(
-                      "experimentAnalysisSettings.dateStarted"
+                      "experimentAnalysisSettings.dateStarted",
                     )}
                   />
                 )}
@@ -371,11 +371,11 @@ export default function ConfigureReport({
                             new Date(
                               getValidDate(
                                 experiment?.phases?.[latestPhaseIndex]
-                                  ?.dateEnded
+                                  ?.dateEnded,
                               )
                                 .toISOString()
-                                .substr(0, 16)
-                            )
+                                .substr(0, 16),
+                            ),
                           );
                           incrementDatePickerKey();
                           setUseToday(false);
@@ -388,10 +388,10 @@ export default function ConfigureReport({
                             {new Date(
                               getValidDate(
                                 experiment?.phases?.[latestPhaseIndex]
-                                  ?.dateEnded
+                                  ?.dateEnded,
                               )
                                 .toISOString()
-                                .substr(0, 16)
+                                .substr(0, 16),
                             ).toLocaleDateString()}
                           </small>
                         </div>
@@ -415,7 +415,7 @@ export default function ConfigureReport({
             <ExperimentMetricsSelector
               datasource={form.watch("experimentAnalysisSettings.datasource")}
               exposureQueryId={form.watch(
-                "experimentAnalysisSettings.exposureQueryId"
+                "experimentAnalysisSettings.exposureQueryId",
               )}
               project={experiment?.project}
               forceSingleGoalMetric={experiment?.type === "multi-armed-bandit"}
@@ -434,19 +434,19 @@ export default function ConfigureReport({
               setGoalMetrics={(goalMetrics) =>
                 form.setValue(
                   "experimentAnalysisSettings.goalMetrics",
-                  goalMetrics
+                  goalMetrics,
                 )
               }
               setSecondaryMetrics={(secondaryMetrics) =>
                 form.setValue(
                   "experimentAnalysisSettings.secondaryMetrics",
-                  secondaryMetrics
+                  secondaryMetrics,
                 )
               }
               setGuardrailMetrics={(guardrailMetrics) =>
                 form.setValue(
                   "experimentAnalysisSettings.guardrailMetrics",
-                  guardrailMetrics
+                  guardrailMetrics,
                 )
               }
             />
@@ -466,7 +466,7 @@ export default function ConfigureReport({
                   const model = value as AttributionModel;
                   form.setValue(
                     "experimentAnalysisSettings.attributionModel",
-                    model
+                    model,
                   );
                 }}
                 options={[
@@ -546,7 +546,7 @@ export default function ConfigureReport({
                 })}
                 formatOptionLabel={({ label, value }) => {
                   const userIdType = exposureQueries?.find(
-                    (e) => e.id === value
+                    (e) => e.id === value,
                   )?.userIdType;
                   return (
                     <>
@@ -572,7 +572,7 @@ export default function ConfigureReport({
             <MetricSelector
               datasource={form.watch("experimentAnalysisSettings.datasource")}
               exposureQueryId={form.watch(
-                "experimentAnalysisSettings.exposureQueryId"
+                "experimentAnalysisSettings.exposureQueryId",
               )}
               project={experiment?.project}
               includeFacts={true}
@@ -590,7 +590,7 @@ export default function ConfigureReport({
               onChange={(value) =>
                 form.setValue(
                   "experimentAnalysisSettings.activationMetric",
-                  value || ""
+                  value || "",
                 )
               }
               helpText="Users must convert on this metric before being included"
@@ -602,7 +602,7 @@ export default function ConfigureReport({
                 onChange={(value) =>
                   form.setValue(
                     "experimentAnalysisSettings.segment",
-                    value || ""
+                    value || "",
                   )
                 }
                 initialOption="None (All Users)"
@@ -626,7 +626,7 @@ export default function ConfigureReport({
                 onChange={(v) => {
                   form.setValue(
                     "experimentAnalysisSettings.skipPartialData",
-                    v === "strict"
+                    v === "strict",
                   );
                 }}
                 options={[
@@ -662,7 +662,7 @@ export default function ConfigureReport({
               }
               value={
                 form.watch(
-                  "experimentAnalysisSettings.regressionAdjustmentEnabled"
+                  "experimentAnalysisSettings.regressionAdjustmentEnabled",
                 )
                   ? "on"
                   : "off"
@@ -670,7 +670,7 @@ export default function ConfigureReport({
               onChange={(v) => {
                 form.setValue(
                   "experimentAnalysisSettings.regressionAdjustmentEnabled",
-                  v === "on"
+                  v === "on",
                 );
               }}
               options={[
@@ -698,7 +698,7 @@ export default function ConfigureReport({
                     }
                     value={
                       form.watch(
-                        "experimentAnalysisSettings.sequentialTestingEnabled"
+                        "experimentAnalysisSettings.sequentialTestingEnabled",
                       )
                         ? "on"
                         : "off"
@@ -706,7 +706,7 @@ export default function ConfigureReport({
                     onChange={(v) => {
                       form.setValue(
                         "experimentAnalysisSettings.sequentialTestingEnabled",
-                        v === "on"
+                        v === "on",
                       );
                     }}
                     options={[
@@ -724,7 +724,7 @@ export default function ConfigureReport({
                   />
                 </div>
                 {form.watch(
-                  "experimentAnalysisSettings.sequentialTestingEnabled"
+                  "experimentAnalysisSettings.sequentialTestingEnabled",
                 ) ? (
                   <div style={{ width: 250 }}>
                     <Field
@@ -750,7 +750,7 @@ export default function ConfigureReport({
                             // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                             return !(v <= 0);
                           },
-                        }
+                        },
                       )}
                     />
                   </div>
@@ -803,7 +803,7 @@ export default function ConfigureReport({
               setWeight={(i, weight) => {
                 form.setValue(
                   `experimentMetadata.phases.${latestPhaseIndex}.variationWeights.${i}`,
-                  weight
+                  weight,
                 );
               }}
               variations={
@@ -812,7 +812,7 @@ export default function ConfigureReport({
                     value: v.key || "",
                     name: v.name,
                     weight: form.watch(
-                      `experimentMetadata.phases.${latestPhaseIndex}.variationWeights.${i}`
+                      `experimentMetadata.phases.${latestPhaseIndex}.variationWeights.${i}`,
                     ),
                     id: v.id,
                   };
@@ -831,20 +831,20 @@ export default function ConfigureReport({
                       ...newData,
                       key: value,
                     };
-                  })
+                  }),
                 );
                 form.setValue(
                   `experimentMetadata.phases.${latestPhaseIndex}.variationWeights`,
-                  v.map((v) => v.weight)
+                  v.map((v) => v.weight),
                 );
               }}
               coverage={form.watch(
-                `experimentMetadata.phases.${latestPhaseIndex}.coverage`
+                `experimentMetadata.phases.${latestPhaseIndex}.coverage`,
               )}
               setCoverage={(c) =>
                 form.setValue(
                   `experimentMetadata.phases.${latestPhaseIndex}.coverage`,
-                  c
+                  c,
                 )
               }
               showPreview={false}

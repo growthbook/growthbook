@@ -65,7 +65,7 @@ export const SimulateFeatureValues: FC<{
   const environments = useEnvironments();
   const showAllEnv = environments.length <= maxEnvironments;
   const [selectedEnvironment, setSelectedEnvironment] = useState<string>(
-    showAllEnv ? "all" : environments[0].id
+    showAllEnv ? "all" : environments[0].id,
   );
   const [evaluatedEnvironment, setEvaluatedEnvironment] =
     useState(selectedEnvironment);
@@ -80,7 +80,7 @@ export const SimulateFeatureValues: FC<{
       items = filterByTags(items, tagsFilter.tags);
       return items;
     },
-    [tagsFilter.tags]
+    [tagsFilter.tags],
   );
   const permissionsUtil = usePermissionsUtil();
   const { project } = useDefinitions();
@@ -127,7 +127,7 @@ export const SimulateFeatureValues: FC<{
               Object.keys(r).forEach((featureId) => {
                 featureResultsMap.set(
                   featureId + r[featureId].env,
-                  r[featureId]
+                  r[featureId],
                 );
               });
             });
@@ -305,7 +305,7 @@ export const SimulateFeatureValues: FC<{
                           }
                         });
                       }
-                    }
+                    },
                   );
                 }
                 return (
@@ -343,7 +343,7 @@ export const SimulateFeatureValues: FC<{
                       {selectedEnvironment !== "all" ? (
                         (() => {
                           const res = featureResultsMap.get(
-                            feature.id + selectedEnvironment
+                            feature.id + selectedEnvironment,
                           );
                           if (!res) {
                             return <td>-</td>;
@@ -363,7 +363,7 @@ export const SimulateFeatureValues: FC<{
                         <>
                           {environments.slice(0, maxEnvironments).map((en) => {
                             const res = featureResultsMap.get(
-                              feature.id + en.id
+                              feature.id + en.id,
                             );
                             if (!res) {
                               return (

@@ -7,7 +7,7 @@ import {
 import { deleteDimensionValidator } from "back-end/src/validators/openapi";
 
 export const deleteDimension = createApiRequestHandler(
-  deleteDimensionValidator
+  deleteDimensionValidator,
 )(async (req): Promise<DeleteDimensionResponse> => {
   const organization = req.organization.id;
   const dimension = await findDimensionById(req.params.id, organization);

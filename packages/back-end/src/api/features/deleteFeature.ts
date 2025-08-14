@@ -8,13 +8,13 @@ import { getEnvironments } from "back-end/src/util/organization.util";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 
 export const deleteFeatureById = createApiRequestHandler(
-  deleteFeatureValidator
+  deleteFeatureValidator,
 )(async (req): Promise<DeleteFeatureResponse> => {
   const feature = await getFeature(req.context, req.params.id);
 
   if (!feature) {
     throw new Error(
-      `Unable to delete - could not find feature ID ${req.params.id}`
+      `Unable to delete - could not find feature ID ${req.params.id}`,
     );
   }
 
@@ -27,7 +27,7 @@ export const deleteFeatureById = createApiRequestHandler(
     !req.context.permissions.canManageFeatureDrafts(feature) ||
     !req.context.permissions.canPublishFeature(
       feature,
-      Array.from(getEnabledEnvironments(feature, environmentsIds))
+      Array.from(getEnabledEnvironments(feature, environmentsIds)),
     )
   ) {
     req.context.permissions.throwPermissionError();

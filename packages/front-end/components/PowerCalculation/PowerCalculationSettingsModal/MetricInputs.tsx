@@ -180,7 +180,7 @@ export const MetricParamsInput = ({
       <div className="row">
         {Object.keys(params)
           .filter((v) =>
-            (displayedMetricParams as readonly string[]).includes(v)
+            (displayedMetricParams as readonly string[]).includes(v),
           )
           .map((entry: keyof Omit<MetricParams, "name" | "type">) => (
             <InputField
@@ -207,7 +207,7 @@ export const MetricParamsInput = ({
                 onChange={() =>
                   form.setValue(
                     `metrics.${metricId}.overrideMetricLevelSettings`,
-                    !params.overrideMetricLevelSettings
+                    !params.overrideMetricLevelSettings,
                   )
                 }
               />
@@ -218,7 +218,7 @@ export const MetricParamsInput = ({
             {params.overrideMetricLevelSettings &&
               Object.keys(params)
                 .filter((v) =>
-                  (displayedBayesianParams as readonly string[]).includes(v)
+                  (displayedBayesianParams as readonly string[]).includes(v),
                 )
                 .map((entry: keyof Omit<MetricParams, "name" | "type">) => (
                   <InputField

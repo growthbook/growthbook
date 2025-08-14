@@ -133,13 +133,13 @@ const AlignedGraph: FC<Props> = ({
     return metricForFormatting
       ? getExperimentMetricFormatter(metricForFormatting, getFactTableById)(
           v as number,
-          metricFormatterOptions
+          metricFormatterOptions,
         )
       : !percent
-      ? numberFormatter.format(v)
-      : domainWidth < 0.05
-      ? smallPercentFormatter.format(v)
-      : percentFormatter.format(v);
+        ? numberFormatter.format(v)
+        : domainWidth < 0.05
+          ? smallPercentFormatter.format(v)
+          : percentFormatter.format(v);
   };
 
   // rough number of columns:
@@ -171,12 +171,12 @@ const AlignedGraph: FC<Props> = ({
     barFillType === "color"
       ? barFillColor
       : barFillType === "gradient"
-      ? `url(#${gradientId})`
-      : significant
-      ? (expected ?? 0) > 0
-        ? sigBarColorPos
-        : sigBarColorNeg
-      : barColor;
+        ? `url(#${gradientId})`
+        : significant
+          ? (expected ?? 0) > 0
+            ? sigBarColorPos
+            : sigBarColorNeg
+          : barColor;
 
   // forced color state (nothing needed for non-significant):
   if (barFillType === "significant") {
@@ -206,7 +206,7 @@ const AlignedGraph: FC<Props> = ({
     <div
       className={clsx(
         "d-flex aligned-graph align-items-center aligned-graph-row position-relative",
-        className
+        className,
       )}
     >
       <ParentSize className="graph-container" debounceTime={1000}>
@@ -341,12 +341,12 @@ const AlignedGraph: FC<Props> = ({
                         let x = normal.quantile(
                           n,
                           uplift?.mean || 0,
-                          uplift?.stddev || 0
+                          uplift?.stddev || 0,
                         );
                         const y = normal.pdf(
                           x,
                           uplift?.mean || 0,
-                          uplift?.stddev || 0
+                          uplift?.stddev || 0,
                         );
 
                         if (uplift?.dist === "lognormal") {

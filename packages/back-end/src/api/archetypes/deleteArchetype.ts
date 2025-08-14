@@ -8,7 +8,7 @@ import {
 import { auditDetailsDelete } from "back-end/src/services/audit";
 
 export const deleteArchetype = createApiRequestHandler(
-  deleteArchetypeValidator
+  deleteArchetypeValidator,
 )(async (req): Promise<DeleteArchetypeResponse> => {
   const { id } = req.params;
   const orgId = req.organization.id;

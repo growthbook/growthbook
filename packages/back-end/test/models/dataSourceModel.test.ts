@@ -123,7 +123,7 @@ describe("dataSourceModel", () => {
       const new_updates = await validateExposureQueriesAndAddMissingIds(
         context,
         datasource,
-        updates
+        updates,
       );
 
       expect(mockedTestQueryValidity).toHaveBeenCalled();
@@ -160,7 +160,7 @@ describe("dataSourceModel", () => {
       const new_updates = await validateExposureQueriesAndAddMissingIds(
         context,
         datasource,
-        updates
+        updates,
       );
       expect(testQueryValidity).toHaveBeenCalled();
       const expected = updates;
@@ -189,7 +189,7 @@ describe("dataSourceModel", () => {
       const new_updates = await validateExposureQueriesAndAddMissingIds(
         context,
         datasource,
-        updates
+        updates,
       );
       expect(testQueryValidity).toHaveBeenCalled();
       const expected = updates;
@@ -218,7 +218,7 @@ describe("dataSourceModel", () => {
       const new_updates = await validateExposureQueriesAndAddMissingIds(
         context,
         datasource,
-        updates
+        updates,
       );
       expect(testQueryValidity).toHaveBeenCalled();
       const expected = updates;
@@ -248,7 +248,7 @@ describe("dataSourceModel", () => {
       const new_updates = await validateExposureQueriesAndAddMissingIds(
         context,
         datasource,
-        updates
+        updates,
       );
       expect(testQueryValidity).toHaveBeenCalled();
       const expected = updates;
@@ -277,7 +277,7 @@ describe("dataSourceModel", () => {
       const new_updates = await validateExposureQueriesAndAddMissingIds(
         context,
         datasource,
-        updates
+        updates,
       );
       expect(testQueryValidity).not.toHaveBeenCalled();
       const expected = updates;
@@ -307,7 +307,7 @@ describe("dataSourceModel", () => {
         context,
         datasource,
         updates,
-        true
+        true,
       );
       expect(testQueryValidity).toHaveBeenCalled();
       const expected = updates;
@@ -326,7 +326,7 @@ describe("dataSourceModel", () => {
       };
       await expect(
         //TODO: Create a helper function to create a mock datasource if we need to do this again
-        updateDataSource(context, datasource, updates)
+        updateDataSource(context, datasource, updates),
       ).rejects.toThrow("Cannot update. Data sources managed by config.yml");
     });
   });

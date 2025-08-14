@@ -28,7 +28,7 @@ type ArchetypeDocument = mongoose.Document & ArchetypeInterface;
 
 const ArchetypeModel = mongoose.model<ArchetypeInterface>(
   "archetype",
-  archetypeSchema
+  archetypeSchema,
 );
 
 type CreateArchetypeProps = Omit<
@@ -54,7 +54,7 @@ export function parseArchetypeString(list: string) {
 }
 
 export async function createArchetype(
-  arch: CreateArchetypeProps
+  arch: CreateArchetypeProps,
 ): Promise<ArchetypeInterface> {
   const newArch = await ArchetypeModel.create({
     ...arch,
@@ -68,7 +68,7 @@ export async function createArchetype(
 export async function getAllArchetypes(
   organization: string,
   owner: string,
-  project?: string
+  project?: string,
 ): Promise<ArchetypeInterface[]> {
   const query: FilterQuery<ArchetypeDocument> = {
     organization: organization,
@@ -97,7 +97,7 @@ export async function getAllArchetypes(
 
 export async function getArchetypeById(
   archetypeId: string,
-  organization: string
+  organization: string,
 ): Promise<ArchetypeInterface | null> {
   const archetype = await ArchetypeModel.findOne({
     id: archetypeId,
@@ -110,7 +110,7 @@ export async function getArchetypeById(
 export async function updateArchetypeById(
   archetypeId: string,
   organization: string,
-  archProps: UpdateArchetypeProps
+  archProps: UpdateArchetypeProps,
 ): Promise<UpdateArchetypeProps> {
   const changes = {
     ...archProps,
@@ -122,7 +122,7 @@ export async function updateArchetypeById(
       id: archetypeId,
       organization: organization,
     },
-    changes
+    changes,
   );
 
   return changes;
@@ -136,7 +136,7 @@ export async function deleteArchetypeById(id: string, organization: string) {
 }
 
 export function toArchetypeApiInterface(
-  archetype: ArchetypeInterface
+  archetype: ArchetypeInterface,
 ): ApiArchetype {
   let parsedAttributes = {};
   try {
@@ -146,7 +146,7 @@ export function toArchetypeApiInterface(
       {
         archetypeId: archetype.id,
       },
-      "Failed to parse archetype attributes json"
+      "Failed to parse archetype attributes json",
     );
   }
   return {

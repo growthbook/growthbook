@@ -9,14 +9,14 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getVisualChangesetValidator } from "back-end/src/validators/openapi";
 
 export const getVisualChangeset = createApiRequestHandler(
-  getVisualChangesetValidator
+  getVisualChangesetValidator,
 )(async (req): Promise<GetVisualChangesetResponse> => {
   const { organization } = req;
   const { includeExperiment = 0 } = req.query;
 
   const visualChangeset = await findVisualChangesetById(
     req.params.id,
-    organization.id
+    organization.id,
   );
 
   if (!visualChangeset) {

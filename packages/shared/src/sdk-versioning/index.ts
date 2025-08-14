@@ -105,7 +105,7 @@ export const getSDKVersions = (language: SDKLanguage = "other"): string[] => {
 };
 
 export const getLatestSDKVersion = (
-  language: SDKLanguage = "other"
+  language: SDKLanguage = "other",
 ): string => {
   const sdkData = getSdkData(language);
   const versions = sdkData?.versions || [];
@@ -114,14 +114,14 @@ export const getLatestSDKVersion = (
 };
 
 export const getDefaultSDKVersion = (
-  language: SDKLanguage = "other"
+  language: SDKLanguage = "other",
 ): string => {
   return defaultSdkVersions[language] || "0.0.0";
 };
 
 export const isSDKOutdated = (
   language: SDKLanguage = "other",
-  version?: string
+  version?: string,
 ): boolean => {
   version = version || getDefaultSDKVersion(language);
   const current = getLatestSDKVersion(language);
@@ -131,18 +131,18 @@ export const isSDKOutdated = (
 export const getSDKCapabilities = (
   language: SDKLanguage = "other",
   version?: string,
-  expandLooseUnmashalling?: boolean
+  expandLooseUnmashalling?: boolean,
 ): SDKCapability[] => {
   language = language || "other";
   version = version || getDefaultSDKVersion(language);
   const sdkData = getSdkData(language);
   const versions = sdkData?.versions || [];
   const matches = versions.filter(
-    (data) => paddedVersionString(data.version) <= paddedVersionString(version)
+    (data) => paddedVersionString(data.version) <= paddedVersionString(version),
   );
   const capabilities = matches.reduce(
     (acc, data) => [...acc, ...(data?.capabilities ?? [])],
-    []
+    [],
   );
   if (expandLooseUnmashalling && capabilities.includes("looseUnmarshalling")) {
     capabilities.push("bucketingV2");
@@ -154,7 +154,7 @@ export const getSDKCapabilities = (
 // minimal-allowed SDK Version (0.0.0), and return the intersection of capabilities between all languages.
 export const getConnectionSDKCapabilities = (
   connection: Partial<SDKConnectionInterface>,
-  strategy: CapabilityStrategy = "min-ver-intersection-loose-unmarshalling"
+  strategy: CapabilityStrategy = "min-ver-intersection-loose-unmarshalling",
 ) => {
   if ((connection?.languages?.length || 0) <= 1) {
     return getSDKCapabilities(
@@ -164,7 +164,7 @@ export const getConnectionSDKCapabilities = (
         "min-ver-intersection-loose-unmarshalling",
       ].includes(strategy)
         ? connection.sdkVersion
-        : getLatestSDKVersion(connection.languages?.[0])
+        : getLatestSDKVersion(connection.languages?.[0]),
     );
   }
   let capabilities: SDKCapability[] = [];
@@ -178,13 +178,13 @@ export const getConnectionSDKCapabilities = (
       ].includes(strategy)
         ? undefined
         : getLatestSDKVersion(language),
-      strategy === "min-ver-intersection-loose-unmarshalling"
+      strategy === "min-ver-intersection-loose-unmarshalling",
     );
     if (i === 0) {
       capabilities = languageCapabilities;
     } else {
       capabilities = capabilities.filter((c) =>
-        languageCapabilities.includes(c)
+        languageCapabilities.includes(c),
       );
     }
     i++;
@@ -212,13 +212,13 @@ export const getConnectionsSDKCapabilities = ({
     const connection = filteredConnections[i];
     const connectionCapabilities = getConnectionSDKCapabilities(
       connection,
-      strategy
+      strategy,
     );
     if (!mustMatchAllConnections || i === 0) {
       capabilities = capabilities.concat(connectionCapabilities);
     } else {
       capabilities = capabilities.filter((c) =>
-        connectionCapabilities.includes(c)
+        connectionCapabilities.includes(c),
       );
     }
   }
@@ -227,7 +227,7 @@ export const getConnectionsSDKCapabilities = ({
 
 export const getSDKCapabilityVersion = (
   language: SDKLanguage = "other",
-  capability: SDKCapability
+  capability: SDKCapability,
 ): string | null => {
   const sdkData = getSdkData(language);
   const versions = sdkData?.versions || [];
@@ -245,7 +245,7 @@ export type MinSupportedSDKVersions = {
   minVersion: string;
 };
 export function getMinSupportedSDKVersions(
-  capability: SDKCapability
+  capability: SDKCapability,
 ): MinSupportedSDKVersions[] {
   const languages = Object.keys(sdks) as SDKLanguage[];
   const matches: MinSupportedSDKVersions[] = [];

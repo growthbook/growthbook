@@ -16,7 +16,7 @@ export function useTemplates() {
 
   const templatesMap = useMemo(
     () => new Map(templates.map((t) => [t.id, t])),
-    [templates]
+    [templates],
   );
 
   const templateExperimentMap = useMemo(() => {

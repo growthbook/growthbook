@@ -55,7 +55,7 @@ export async function getSavedQueries(req: AuthRequest, res: Response) {
 
 export async function getSavedQuery(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const { id } = req.params;
   const context = getContextFromReq(req);
@@ -84,7 +84,7 @@ export async function getSavedQuery(
 
 export async function postSavedQuery(
   req: AuthRequest<SavedQueryCreateProps>,
-  res: Response
+  res: Response,
 ) {
   const { name, sql, datasourceId, results, dateLastRan, dataVizConfig } =
     req.body;
@@ -114,7 +114,7 @@ export async function postSavedQuery(
 
 export async function putSavedQuery(
   req: AuthRequest<SavedQueryUpdateProps, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const { id } = req.params;
   const context = getContextFromReq(req);
@@ -138,7 +138,7 @@ export async function putSavedQuery(
 
 export async function refreshSavedQuery(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const { id } = req.params;
   const context = getContextFromReq(req);
@@ -163,7 +163,7 @@ export async function refreshSavedQuery(
   const debugResults = await executeAndSaveQuery(
     context,
     savedQuery,
-    datasource
+    datasource,
   );
 
   res.status(200).json({
@@ -174,7 +174,7 @@ export async function refreshSavedQuery(
 
 export async function deleteSavedQuery(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const { id } = req.params;
   const context = getContextFromReq(req);
@@ -189,13 +189,13 @@ export async function executeAndSaveQuery(
   context: ReqContext,
   savedQuery: SavedQuery,
   datasource: DataSourceInterface,
-  limit: number = 1000
+  limit: number = 1000,
 ) {
   const { results, sql, duration, error } = await runFreeFormQuery(
     context,
     datasource,
     savedQuery.sql,
-    limit
+    limit,
   );
 
   // Don't save if there was an error
@@ -221,7 +221,7 @@ export async function executeAndSaveQuery(
 
 export async function postGenerateSQL(
   req: AuthRequest<{ input: string; datasourceId: string }>,
-  res: Response
+  res: Response,
 ) {
   const { input, datasourceId } = req.body;
   const context = getContextFromReq(req);
@@ -229,7 +229,7 @@ export async function postGenerateSQL(
 
   if (!orgHasPremiumFeature(context.org, "ai-suggestions")) {
     throw new Error(
-      "Your organization's plan does not support generating queries"
+      "Your organization's plan does not support generating queries",
     );
   }
   if (!aiEnabled) {
@@ -255,7 +255,7 @@ export async function postGenerateSQL(
   }
   const informationSchema = await getInformationSchemaByDatasourceId(
     datasource.id,
-    context.org.id
+    context.org.id,
   );
 
   if (!informationSchema) {
@@ -292,12 +292,12 @@ export async function postGenerateSQL(
             }
             if (
               !shardedTables.has(
-                database.databaseName + schema.schemaName + tableType
+                database.databaseName + schema.schemaName + tableType,
               )
             ) {
               shardedTables.set(
                 database.databaseName + schema.schemaName + tableType,
-                true
+                true,
               );
               return {
                 databaseName: database.databaseName,
@@ -316,8 +316,8 @@ export async function postGenerateSQL(
             numColumns: table.numOfColumns,
             id: table.id,
           };
-        })
-      )
+        }),
+      ),
     )
     .filter((table) => table !== undefined && table !== null);
 
@@ -336,7 +336,7 @@ export async function postGenerateSQL(
       filteredTablesInfo
         .map(
           (table) =>
-            `${table?.databaseName}.${table?.schemaName}.${table?.tableName}`
+            `${table?.databaseName}.${table?.schemaName}.${table?.tableName}`,
         )
         .join(", ") +
       "\nReturn at most 20 FQTN tables. Return only the FQTN without any additional text or explanations.";
@@ -345,7 +345,7 @@ export async function postGenerateSQL(
       table_names: z
         .array(z.string())
         .describe(
-          "Fully Qualified Table Names (FQTN) in the format 'databaseName.schemaName.tableName' or 'databaseName.tableName' (for MySQL)"
+          "Fully Qualified Table Names (FQTN) in the format 'databaseName.schemaName.tableName' or 'databaseName.tableName' (for MySQL)",
         ),
     });
     try {
@@ -381,8 +381,8 @@ export async function postGenerateSQL(
         // filter the tablesInfo to only include the ones that are in the AI response:
         filteredTablesInfo = tablesInfo.filter((table) =>
           tableNames.includes(
-            `${table?.databaseName}.${table?.schemaName}.${table?.tableName}`
-          )
+            `${table?.databaseName}.${table?.schemaName}.${table?.tableName}`,
+          ),
         );
       } else {
         // fall back to simple completion if the model does not support json_schema
@@ -405,8 +405,8 @@ export async function postGenerateSQL(
         // filter the tablesInfo to only include the ones that are in the AI response:
         filteredTablesInfo = tablesInfo.filter((table) =>
           tableNames.includes(
-            `${table?.databaseName}.${table?.schemaName}.${table?.tableName}`
-          )
+            `${table?.databaseName}.${table?.schemaName}.${table?.tableName}`,
+          ),
         );
       }
     } catch (e) {
@@ -432,7 +432,7 @@ export async function postGenerateSQL(
     if (table.numColumns) {
       const tableSchema = await getInformationSchemaTableById(
         context.org.id,
-        table.id
+        table.id,
       );
       if (!tableSchema) {
         // try to fetch the schema if not found:
@@ -463,7 +463,7 @@ export async function postGenerateSQL(
         .map((column) => `${column.columnName} (${column.dataType})`)
         .join(", ");
       return `Database: ${value.databaseName}, Table: ${value.tableName}, Schema name: ${value.tableSchema}, Columns: [${columnsDescription}]`;
-    }
+    },
   ).join("\n");
 
   let instructions =
@@ -498,7 +498,7 @@ export async function postGenerateSQL(
     sql_string: z
       .string()
       .describe(
-        "A syntactically valid SQL statement as instructed by the user"
+        "A syntactically valid SQL statement as instructed by the user",
       ),
   });
   try {
@@ -580,7 +580,7 @@ async function fetchOrCreateTableSchema({
     context,
     datasource,
     informationSchema,
-    tableId
+    tableId,
   );
   if (!tableData) {
     throw new Error("no tables found in schema " + tableId);
@@ -592,7 +592,7 @@ async function fetchOrCreateTableSchema({
         columnName: row.column_name,
         dataType: row.data_type,
       };
-    }
+    },
   );
 
   // Create the table record in Mongo.

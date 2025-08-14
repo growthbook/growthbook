@@ -77,7 +77,7 @@ export default function FeaturePage() {
       const mergeArraysByKey = <T, K extends keyof T>(
         existingArray: T[],
         newArray: T[],
-        key: K
+        key: K,
       ): T[] => {
         const keyMap = new Map(existingArray.map((item) => [item[key], item]));
 
@@ -107,17 +107,17 @@ export default function FeaturePage() {
           revisions: mergeArraysByKey<FeatureRevisionInterface, "version">(
             prevData.revisions,
             response.revisions,
-            "version"
+            "version",
           ),
           experiments: mergeArraysByKey<ExperimentInterfaceStringDates, "id">(
             prevData.experiments,
             response.experiments,
-            "id"
+            "id",
           ),
           safeRollouts: mergeArraysByKey<SafeRolloutInterface, "id">(
             prevData.safeRollouts,
             response.safeRollouts,
-            "id"
+            "id",
           ),
           codeRefs: response.codeRefs,
         }));
@@ -128,7 +128,7 @@ export default function FeaturePage() {
         setLoading(false);
       }
     },
-    [fid, apiCall] // Dependencies of fetchData
+    [fid, apiCall], // Dependencies of fetchData
   );
 
   // Fetch data on initial load and when the version changes if the version is not in revisions
@@ -159,7 +159,7 @@ export default function FeaturePage() {
 
   const [tab, setTab] = useLocalStorage<FeatureTab>(
     `tabbedPageTab__${fid}`,
-    "overview"
+    "overview",
   );
 
   const setTabAndScroll = (tab: FeatureTab) => {
@@ -205,7 +205,7 @@ export default function FeaturePage() {
         r.status === "draft" ||
         r.status === "approved" ||
         r.status === "changes-requested" ||
-        r.status === "pending-review"
+        r.status === "pending-review",
     );
     setVersion(draft ? draft.version : baseFeatureVersion);
   }, [revisions, version, router.query, baseFeatureVersion]);
@@ -215,7 +215,7 @@ export default function FeaturePage() {
       baseFeature
         ? filterEnvironmentsByFeature(allEnvironments, baseFeature)
         : [],
-    [allEnvironments, baseFeature]
+    [allEnvironments, baseFeature],
   );
   const envs = environments.map((e) => e.id);
 
@@ -228,7 +228,7 @@ export default function FeaturePage() {
     } else if (lastDisplayedVersion) {
       // Keep showing the most recently displayed version until the data is fetched
       const lastMatch = revisions.find(
-        (r) => r.version === lastDisplayedVersion
+        (r) => r.version === lastDisplayedVersion,
       );
       if (lastMatch) {
         return lastMatch;
@@ -265,7 +265,7 @@ export default function FeaturePage() {
       ? mergeRevision(
           baseFeature,
           revision,
-          environments.map((e) => e.id)
+          environments.map((e) => e.id),
         )
       : baseFeature;
   }, [baseFeature, revision, environments]);

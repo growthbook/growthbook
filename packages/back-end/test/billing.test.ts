@@ -98,7 +98,7 @@ describe("getUsage", () => {
     describe("pro plan", () => {
       beforeEach(() => {
         (licenseUtil.getEffectiveAccountPlan as jest.Mock).mockReturnValue(
-          "pro"
+          "pro",
         );
       });
 
@@ -131,7 +131,7 @@ describe("getUsage", () => {
     describe("starter plan", () => {
       beforeEach(() => {
         (licenseUtil.getEffectiveAccountPlan as jest.Mock).mockReturnValue(
-          "starter"
+          "starter",
         );
       });
 

@@ -132,7 +132,7 @@ const NewDataSourceForm: FC<{
 
   const possibleSchemas = eventSchemas
     .filter(
-      (s) => connectionInfo.type && s.types?.includes(connectionInfo.type)
+      (s) => connectionInfo.type && s.types?.includes(connectionInfo.type),
     )
     .map((s) => s.value);
 
@@ -162,7 +162,7 @@ const NewDataSourceForm: FC<{
         schemaOptionsForm.reset({});
       }
     },
-    [schemaOptionsForm, source]
+    [schemaOptionsForm, source],
   );
 
   useEffect(() => {
@@ -170,7 +170,7 @@ const NewDataSourceForm: FC<{
       if (
         initial.type !== "mixpanel" &&
         eventSchemas.some(
-          (s) => initial.type && s.types?.includes(initial.type)
+          (s) => initial.type && s.types?.includes(initial.type),
         )
       ) {
         setStep("eventTracker");
@@ -181,7 +181,7 @@ const NewDataSourceForm: FC<{
   }, [initial?.type]);
 
   const selectedSchema: eventSchema = schemasMap.get(
-    eventTracker || "custom"
+    eventTracker || "custom",
   ) || {
     label: "Custom",
     value: "custom",
@@ -193,7 +193,7 @@ const NewDataSourceForm: FC<{
       !isDemoDatasourceProject({
         projectId: p.id,
         organizationId: orgId || "",
-      })
+      }),
   );
   const projectOptions = useProjectOptions(
     (project) =>
@@ -201,7 +201,7 @@ const NewDataSourceForm: FC<{
         projects: [project],
         type: undefined,
       }),
-    []
+    [],
   );
 
   let ctaEnabled = true;
@@ -253,7 +253,7 @@ const NewDataSourceForm: FC<{
               ...getInitialSettings(
                 selectedSchema.value,
                 connectionInfo.params,
-                {}
+                {},
               ),
               ...(connectionInfo.settings || {}),
             },
@@ -295,7 +295,7 @@ const NewDataSourceForm: FC<{
     const settings = getInitialSettings(
       selectedSchema.value,
       createdDatasource.params,
-      values
+      values,
     );
 
     const updates: Pick<DataSourceInterfaceWithParams, "settings"> = {
@@ -310,7 +310,7 @@ const NewDataSourceForm: FC<{
       {
         method: "PUT",
         body: JSON.stringify(updates),
-      }
+      },
     );
     track("Saving Datasource Query Settings", {
       source,
@@ -323,7 +323,7 @@ const NewDataSourceForm: FC<{
   };
 
   const onChange: ChangeEventHandler<HTMLInputElement | HTMLTextAreaElement> = (
-    e
+    e,
   ) => {
     setConnectionInfo({
       ...connectionInfo,
@@ -388,34 +388,34 @@ const NewDataSourceForm: FC<{
           }
         }
       : step === "eventTracker"
-      ? async () => {
-          setStep("connection");
-        }
-      : step === "connection"
-      ? async () => {
-          const ds = await saveConnectionInfo();
-          mutateDefinitions();
-
-          // If the selected schema supports options, go to that step
-          // Otherwise, skip to end
-          if (selectedSchema.options) {
-            setStep("schemaOptions");
-          } else {
-            createResources(ds);
-            setStep("done");
+        ? async () => {
+            setStep("connection");
           }
-        }
-      : step === "schemaOptions"
-      ? schemaOptionsForm.handleSubmit(async (values) => {
-          await saveSchemaOptions(values);
-          createdDatasource && createResources(createdDatasource);
-          setStep("done");
-        })
-      : async () => {
-          // Done
-          await onSuccess(createdDatasource?.id || "");
-          onCancel && onCancel();
-        };
+        : step === "connection"
+          ? async () => {
+              const ds = await saveConnectionInfo();
+              mutateDefinitions();
+
+              // If the selected schema supports options, go to that step
+              // Otherwise, skip to end
+              if (selectedSchema.options) {
+                setStep("schemaOptions");
+              } else {
+                createResources(ds);
+                setStep("done");
+              }
+            }
+          : step === "schemaOptions"
+            ? schemaOptionsForm.handleSubmit(async (values) => {
+                await saveSchemaOptions(values);
+                createdDatasource && createResources(createdDatasource);
+                setStep("done");
+              })
+            : async () => {
+                // Done
+                await onSuccess(createdDatasource?.id || "");
+                onCancel && onCancel();
+              };
 
   let stepContents: ReactNode = null;
   if (step === "initial") {
@@ -432,7 +432,7 @@ const NewDataSourceForm: FC<{
             value={connectionInfo.type || ""}
             setValue={(value) => {
               const option = dataSourceConnections.find(
-                (o) => o.type === value
+                (o) => o.type === value,
               );
               if (!option) return;
 
@@ -531,7 +531,7 @@ const NewDataSourceForm: FC<{
     );
   } else if (step === "connection") {
     const datasourceInfo = dataSourceConnections.find(
-      (d) => d.type === connectionInfo.type
+      (d) => d.type === connectionInfo.type,
     );
 
     const headerParts: string[] = [

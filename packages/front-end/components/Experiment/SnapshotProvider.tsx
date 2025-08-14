@@ -24,7 +24,7 @@ const snapshotContext = React.createContext<{
   setPhase: (phase: number) => void;
   setDimension: (dimension: string) => void;
   setAnalysisSettings: (
-    analysisSettings: ExperimentSnapshotAnalysisSettings | null
+    analysisSettings: ExperimentSnapshotAnalysisSettings | null,
   ) => void;
   setSnapshotType: (snapshotType: SnapshotType | undefined) => void;
   loading?: boolean;
@@ -52,7 +52,7 @@ const snapshotContext = React.createContext<{
 
 export function getPrecomputedDimensions(
   snapshot: ExperimentSnapshotInterface | undefined,
-  dimensionless: ExperimentSnapshotInterface | undefined
+  dimensionless: ExperimentSnapshotInterface | undefined,
 ): string[] {
   if (snapshot?.type === "standard" && !snapshot?.dimension) {
     return snapshot?.settings.dimensions.map((d) => d.id) ?? [];
@@ -77,7 +77,7 @@ export default function SnapshotProvider({
   const [phase, setPhase] = useState(experiment.phases?.length - 1 || 0);
   const [dimension, setDimension] = useState("");
   const [snapshotType, setSnapshotType] = useState<SnapshotType | undefined>(
-    undefined
+    undefined,
   );
 
   const { data, error, isValidating, mutate } = useApi<{
@@ -87,14 +87,14 @@ export default function SnapshotProvider({
   }>(
     `/experiment/${experiment.id}/snapshot/${phase}` +
       (dimension ? "/" + dimension : "") +
-      (snapshotType ? `?type=${snapshotType}` : "")
+      (snapshotType ? `?type=${snapshotType}` : ""),
   );
 
   const defaultAnalysisSettings = data?.snapshot
     ? getSnapshotAnalysis(data?.snapshot)?.settings
     : null;
   const [analysisSettings, setAnalysisSettings] = useState(
-    defaultAnalysisSettings
+    defaultAnalysisSettings,
   );
   return (
     <snapshotContext.Provider
@@ -104,16 +104,16 @@ export default function SnapshotProvider({
         dimensionless: data?.dimensionless ?? data?.snapshot,
         latest: data?.latest,
         analysis: data?.snapshot
-          ? (getSnapshotAnalysis(
+          ? ((getSnapshotAnalysis(
               data?.snapshot,
-              analysisSettings
-            ) as ExperimentSnapshotAnalysis) ?? undefined
+              analysisSettings,
+            ) as ExperimentSnapshotAnalysis) ?? undefined)
           : undefined,
         latestAnalysis: data?.latest
-          ? (getSnapshotAnalysis(
+          ? ((getSnapshotAnalysis(
               data?.latest,
-              analysisSettings
-            ) as ExperimentSnapshotAnalysis) ?? undefined
+              analysisSettings,
+            ) as ExperimentSnapshotAnalysis) ?? undefined)
           : undefined,
         mutateSnapshot: mutate,
         phase,
@@ -121,7 +121,7 @@ export default function SnapshotProvider({
         analysisSettings,
         precomputedDimensions: getPrecomputedDimensions(
           data?.snapshot,
-          data?.dimensionless
+          data?.dimensionless,
         ),
         setPhase,
         setDimension,

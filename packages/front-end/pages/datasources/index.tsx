@@ -140,7 +140,7 @@ const DataSourcesPage: FC = () => {
   const filteredDatasources = (
     project
       ? datasources.filter((ds) =>
-          isProjectListValidForProject(ds.projects, project)
+          isProjectListValidForProject(ds.projects, project),
         )
       : datasources
   ).filter((ds) => !ds.projects?.includes(demoProjectId || ""));
@@ -254,7 +254,7 @@ const DataSourcesPage: FC = () => {
               value=""
               setValue={(value) => {
                 const option = dataSourceConnections.find(
-                  (o) => o.type === value
+                  (o) => o.type === value,
                 );
                 if (!option) return;
 

@@ -132,7 +132,7 @@ export default function SQLInputField({
               setValue={(sql) =>
                 form.setValue(
                   queryType === "experiment-assignment" ? "query" : "sql",
-                  sql
+                  sql,
                 )
               }
               placeholder={placeholder}

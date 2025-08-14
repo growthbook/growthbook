@@ -27,7 +27,7 @@ export const postPopulationData = async (
   res: Response<
     | { status: 200; populationData: PopulationDataInterface }
     | PrivateApiErrorResponse
-  >
+  >,
 ) => {
   const data = req.body;
   const context = getContextFromReq(req);
@@ -40,7 +40,7 @@ export const postPopulationData = async (
   const integration = await getIntegrationFromDatasourceId(
     context,
     data.datasourceId,
-    true
+    true,
   );
 
   if (
@@ -59,7 +59,7 @@ export const postPopulationData = async (
   const populationData =
     await context.models.populationData.getRecentUsingSettings(
       data.sourceId,
-      data.userIdType
+      data.userIdType,
     );
 
   const snapshotSettings: ExperimentSnapshotSettings = {
@@ -99,7 +99,7 @@ export const postPopulationData = async (
     const populationMetrics = populationData.metrics.map((m) => m.metricId);
     // only ask for new metrics
     snapshotSettings.goalMetrics = data.metricIds.filter(
-      (m) => !populationMetrics.includes(m)
+      (m) => !populationMetrics.includes(m),
     );
     if (snapshotSettings.goalMetrics.length === 0) {
       return res.status(200).json({
@@ -133,7 +133,7 @@ export const postPopulationData = async (
     context,
     model,
     integration,
-    true
+    true,
   );
 
   const metricMap = await getMetricMap(context);
@@ -161,12 +161,15 @@ export const postPopulationData = async (
 
 export const getPopulationData = async (
   req: AuthRequest<null, { id: string }>,
-  res: Response<{ status: 200; populationData: PopulationDataInterface | null }>
+  res: Response<{
+    status: 200;
+    populationData: PopulationDataInterface | null;
+  }>,
 ) => {
   const context = getContextFromReq(req);
 
   const populationData = await context.models.populationData.getById(
-    req.params.id
+    req.params.id,
   );
 
   if (!populationData) {
@@ -181,12 +184,12 @@ export const getPopulationData = async (
 
 export async function cancelPopulationData(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
   const populationData = await context.models.populationData.getById(
-    req.params.id
+    req.params.id,
   );
 
   if (!populationData) {
@@ -195,7 +198,7 @@ export async function cancelPopulationData(
 
   const datasource = await getDataSourceById(
     context,
-    populationData.datasourceId
+    populationData.datasourceId,
   );
 
   if (!datasource) {
@@ -207,7 +210,7 @@ export async function cancelPopulationData(
   const queryRunner = new PopulationDataQueryRunner(
     context,
     populationData,
-    integration
+    integration,
   );
   await queryRunner.cancelQueries();
 

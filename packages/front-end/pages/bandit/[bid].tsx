@@ -116,7 +116,7 @@ const BanditExperimentPage = (): ReactElement => {
     experiment.status !== "running" ||
     !includeExperimentInPayload(
       experiment,
-      linkedFeatures.map((f) => f.feature)
+      linkedFeatures.map((f) => f.feature),
     );
 
   return (
@@ -163,7 +163,7 @@ const BanditExperimentPage = (): ReactElement => {
                 dateStarted: new Date().toISOString(),
                 dateEnded: undefined,
                 variationWeights: p.variationWeights.map(
-                  () => 1 / (p.variationWeights.length || 2)
+                  () => 1 / (p.variationWeights.length || 2),
                 ),
                 banditEvents: undefined,
               };

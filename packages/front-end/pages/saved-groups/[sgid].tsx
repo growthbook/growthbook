@@ -45,7 +45,7 @@ export default function EditSavedGroupPage() {
   const router = useRouter();
   const { sgid } = router.query;
   const { data, error, mutate } = useApi<{ savedGroup: SavedGroupInterface }>(
-    `/saved-groups/${sgid}`
+    `/saved-groups/${sgid}`,
   );
   const savedGroup = data?.savedGroup;
   const { features } = useFeaturesList(false);
@@ -70,7 +70,7 @@ export default function EditSavedGroupPage() {
   const end = start + NUM_PER_PAGE;
   const valuesPage = sortedValues.slice(start, end);
   const [importOperation, setImportOperation] = useState<"replace" | "append">(
-    "replace"
+    "replace",
   );
   const { attributeSchema } = useOrgSettings();
   const { projects } = useDefinitions();
@@ -93,7 +93,7 @@ export default function EditSavedGroupPage() {
         },
       });
     },
-    [mutate, savedGroup]
+    [mutate, savedGroup],
   );
 
   const referencingFeatures = useMemo(() => {
@@ -118,7 +118,7 @@ export default function EditSavedGroupPage() {
   }, [referencingFeatures, referencingExperiments]);
 
   const attr = (attributeSchema || []).find(
-    (attr) => attr.property === savedGroup?.attributeKey
+    (attr) => attr.property === savedGroup?.attributeKey,
   );
 
   if (!data || !savedGroup) {
@@ -353,10 +353,10 @@ export default function EditSavedGroupPage() {
                       {
                         method: "POST",
                         body: JSON.stringify({ items: [...selected] }),
-                      }
+                      },
                     );
                     const newValues = values.filter(
-                      (value) => !selected.has(value)
+                      (value) => !selected.has(value),
                     );
                     mutateValues(newValues);
                     setSelected(new Set());

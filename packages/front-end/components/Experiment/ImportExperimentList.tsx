@@ -48,7 +48,7 @@ const ImportExperimentList: FC<{
 
   const { status } = getQueryStatus(
     data?.experiments?.queries || [],
-    data?.experiments?.error
+    data?.experiments?.error,
   );
   const pastExpArr = useAddComputedFields(
     data?.experiments?.experiments,
@@ -57,22 +57,22 @@ const ImportExperimentList: FC<{
         ? getExposureQuery(datasource?.settings, item.exposureQueryId)?.name
         : "experiments",
     }),
-    [datasource]
+    [datasource],
   );
   const { pastExperimentsMinLength, defaultDataSource } = useOrgSettings();
 
   const [minUsersFilter, setMinUsersFilter] = useLocalStorage(
     "pastImportNumUsersFilter",
-    "100"
+    "100",
   );
   const [minLengthFilter, setMinLengthFilter] = useLocalStorage(
     "pastImportMinLengthFilter",
-    `${pastExperimentsMinLength || 2}`
+    `${pastExperimentsMinLength || 2}`,
   );
   const [alreadyImportedFilter, setAlreadyImportedFilter] = useState(true);
   const [dedupeFilter, setDedupeFilter] = useState(true);
   const [statusFilter, setStatusFilter] = useState<"" | "running" | "stopped">(
-    ""
+    "",
   );
 
   const [minVariationsFilter, setMinVariationsFilter] = useState("2");
@@ -140,7 +140,7 @@ const ImportExperimentList: FC<{
       minUsersFilter,
       minVariationsFilter,
       statusFilter,
-    ]
+    ],
   );
   const {
     items,
@@ -171,7 +171,7 @@ const ImportExperimentList: FC<{
     .filter(
       (d) =>
         d.id === data?.experiments?.datasource ||
-        isProjectListValidForProject(d.projects, project)
+        isProjectListValidForProject(d.projects, project),
     );
 
   function clearFilters() {
@@ -454,7 +454,7 @@ const ImportExperimentList: FC<{
                 value={statusFilter}
                 onChange={(e) => {
                   setStatusFilter(
-                    (e.target.value as "" | "stopped" | "running") || ""
+                    (e.target.value as "" | "stopped" | "running") || "",
                   );
                 }}
               />

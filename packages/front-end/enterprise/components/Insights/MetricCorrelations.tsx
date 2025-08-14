@@ -37,7 +37,7 @@ import { useCurrency } from "@/hooks/useCurrency";
 export const filterExperimentsByMetrics = (
   experiments: ExperimentInterfaceStringDates[],
   metric1: string,
-  metric2?: string
+  metric2?: string,
 ): ExperimentInterfaceStringDates[] => {
   if (!experiments || experiments.length === 0) {
     return [];
@@ -70,7 +70,7 @@ type MetricCorrelationTooltipData = {
 };
 
 const parseQueryParams = (
-  query: Record<string, string | string[] | undefined>
+  query: Record<string, string | string[] | undefined>,
 ): MetricCorrelationParams[] => {
   const params: MetricCorrelationParams[] = [];
   const paramGroups = new Map<string, MetricCorrelationParams>();
@@ -80,7 +80,7 @@ const parseQueryParams = (
     if (typeof value !== "string") return;
 
     const match = key.match(
-      /^(m1|m2|diff|excludedExperimentVariations)(?:_(.+))?$/
+      /^(m1|m2|diff|excludedExperimentVariations)(?:_(.+))?$/,
     );
     if (!match) return;
 
@@ -141,12 +141,12 @@ const MetricCorrelations = (): React.ReactElement => {
 
   const filteredExperiments = useMemo(
     () => experiments.filter((e) => e.type !== "multi-armed-bandit"),
-    [experiments]
+    [experiments],
   );
 
   const { hasCommercialFeature } = useUser();
   const hasMetricCorrelationCommercialFeature = hasCommercialFeature(
-    "metric-correlations"
+    "metric-correlations",
   );
 
   if (!hasMetricCorrelationCommercialFeature) {
@@ -185,7 +185,7 @@ const MetricCorrelations = (): React.ReactElement => {
 
 export const updateSearchParams = (
   params: Record<string, string>,
-  deleteAll: boolean = false
+  deleteAll: boolean = false,
 ) => {
   const searchParams = new URLSearchParams(window.location.search);
 
@@ -193,7 +193,7 @@ export const updateSearchParams = (
   const shouldSet =
     Object.keys(params).length > 0 &&
     Object.entries(params).some(
-      ([key, value]) => searchParams.get(key) !== value
+      ([key, value]) => searchParams.get(key) !== value,
     );
   const shouldUpdateURL = shouldDelete || shouldSet;
 
@@ -216,7 +216,7 @@ export const updateSearchParams = (
         undefined,
         {
           shallow: true,
-        }
+        },
       )
       .then();
   }
@@ -225,7 +225,7 @@ export const updateSearchParams = (
 const formattedValueWithCI = (
   value: number,
   ci: [number, number],
-  formatter: (value: number) => string
+  formatter: (value: number) => string,
 ) => {
   return `${formatter(value)} (${formatter(ci[0])} - ${formatter(ci[1])})`;
 };
@@ -253,7 +253,7 @@ const MetricCorrelationCard = ({
   const [metric2Name, setMetric2Name] = useState<string>("");
   const [searchParams, setSearchParams] = useState<Record<string, string>>({});
   const [differenceType, setDifferenceType] = useState<DifferenceType>(
-    params?.diff || "relative"
+    params?.diff || "relative",
   );
   const [metricData, setMetricData] = useState<{
     correlationData: ScatterPointData<MetricCorrelationTooltipData>[];
@@ -265,7 +265,7 @@ const MetricCorrelationCard = ({
   >([]);
   const [excludedExperimentVariations, setExcludedExperimentVariations] =
     useState<{ experimentId: string; variationIndex: number }[]>(
-      params?.excludedExperimentVariations || []
+      params?.excludedExperimentVariations || [],
     );
 
   const metric1OptionCounts = useMemo(() => {
@@ -274,7 +274,7 @@ const MetricCorrelationCard = ({
       const metricIds = getAllMetricIdsFromExperiment(
         experiment,
         false,
-        metricGroups
+        metricGroups,
       );
       metricIds.forEach((metricId) => {
         counts[metricId] = (counts[metricId] || 0) + 1;
@@ -310,8 +310,8 @@ const MetricCorrelationCard = ({
       differenceType === "relative"
         ? "(Lift %)"
         : differenceType === "absolute"
-        ? "(Absolute Change)"
-        : "(Scaled Impact)";
+          ? "(Absolute Change)"
+          : "(Scaled Impact)";
 
     if (metric1Obj) {
       setMetric1Name(`${metric1Obj.name} ${title}`);
@@ -324,7 +324,7 @@ const MetricCorrelationCard = ({
   const getLiftFormatter = useCallback(
     (
       metric: ExperimentMetricInterface | null,
-      differenceType: DifferenceType
+      differenceType: DifferenceType,
     ) => {
       if (!metric) {
         return (value: number) => formatPercent(value);
@@ -336,10 +336,10 @@ const MetricCorrelationCard = ({
         getExperimentMetricFormatter(
           metric,
           getFactTableById,
-          differenceType === "absolute" ? "percentagePoints" : "number"
+          differenceType === "absolute" ? "percentagePoints" : "number",
         )(value, { currency: displayCurrency });
     },
-    [getFactTableById, displayCurrency]
+    [getFactTableById, displayCurrency],
   );
 
   const formatterM1 = getLiftFormatter(metric1Obj, differenceType);
@@ -355,7 +355,7 @@ const MetricCorrelationCard = ({
     const filteredExperiments = filterExperimentsByMetrics(
       experiments,
       metric1,
-      metric2
+      metric2,
     );
 
     const filteredExperimentsWithSnapshot: Record<
@@ -387,7 +387,7 @@ const MetricCorrelationCard = ({
           [];
         snapshots.forEach((snapshot) => {
           const experiment = filteredExperiments.find(
-            (exp) => exp.id === snapshot.experiment
+            (exp) => exp.id === snapshot.experiment,
           );
           if (!experiment) return;
 
@@ -428,7 +428,7 @@ const MetricCorrelationCard = ({
                 excludedExperimentVariations.some(
                   (ev) =>
                     ev.experimentId === experiment.id &&
-                    ev.variationIndex === variationIndex
+                    ev.variationIndex === variationIndex,
                 )
               ) {
                 return;
@@ -615,7 +615,7 @@ const MetricCorrelationCard = ({
                           {formattedValueWithCI(
                             data.x,
                             [data.xmin, data.xmax],
-                            formatterM1
+                            formatterM1,
                           )}
                         </Text>
                       </Flex>
@@ -625,7 +625,7 @@ const MetricCorrelationCard = ({
                           {formattedValueWithCI(
                             data.y,
                             [data.ymin, data.ymax],
-                            formatterM2
+                            formatterM2,
                           )}
                         </Text>
                       </Flex>

@@ -7,7 +7,7 @@ import { auditDetailsCreate } from "back-end/src/services/audit";
 import { validatePayload } from "./validations";
 
 export const postEnvironment = createApiRequestHandler(
-  postEnvironmentValidator
+  postEnvironmentValidator,
 )(async (req): Promise<PostEnvironmentResponse> => {
   const environment = await validatePayload(req.context, req.body);
 

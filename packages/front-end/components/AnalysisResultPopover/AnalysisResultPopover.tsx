@@ -92,7 +92,7 @@ export default function AnalysisResultPopover({
       : getExperimentMetricFormatter(
           data.metric,
           ssrPolyfills?.getFactTableById || getFactTableById,
-          differenceType === "absolute" ? "percentagePoints" : "number"
+          differenceType === "absolute" ? "percentagePoints" : "number",
         );
   const deltaFormatterOptions = {
     currency: displayCurrency,
@@ -122,7 +122,7 @@ export default function AnalysisResultPopover({
   ) {
     denomFormatter = getColumnRefFormatter(
       data.metric.denominator,
-      getFactTableById
+      getFactTableById,
     );
   }
   const quantileMetric = quantileMetricType(data.metric);
@@ -216,7 +216,7 @@ export default function AnalysisResultPopover({
             {upperFirst(
               isFactMetric(data.metric)
                 ? data.metric.metricType
-                : data.metric.type
+                : data.metric.type,
             )}
             )
           </Text>
@@ -377,12 +377,12 @@ export default function AnalysisResultPopover({
                     {isFactMetric(data.metric)
                       ? getColumnRefFormatter(
                           data.metric.numerator,
-                          ssrPolyfills?.getFactTableById || getFactTableById
+                          ssrPolyfills?.getFactTableById || getFactTableById,
                         )(row.value, { currency: displayCurrency })
                       : getMetricFormatter(
                           data.metric.type === "binomial"
                             ? "count"
-                            : data.metric.type
+                            : data.metric.type,
                         )(row.value, { currency: displayCurrency })}
                   </TableCell>
                 ) : null}

@@ -136,10 +136,13 @@ export default function ExperimentRefNewFields({
   const availableTemplates = allTemplates
     .slice()
     .sort((a, b) =>
-      a.templateMetadata.name > b.templateMetadata.name ? 1 : -1
+      a.templateMetadata.name > b.templateMetadata.name ? 1 : -1,
     )
     .filter((t) =>
-      isProjectListValidForProject(t.project ? [t.project] : [], currentProject)
+      isProjectListValidForProject(
+        t.project ? [t.project] : [],
+        currentProject,
+      ),
     )
     .map((t) => ({ value: t.id, label: t.templateMetadata.name }));
 
@@ -158,11 +161,11 @@ export default function ExperimentRefNewFields({
   const { data: sdkConnectionsData } = useSDKConnections();
   const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
     sdkConnectionsData?.connections,
-    project
+    project,
   );
 
   const filteredSegments = segments.filter(
-    (s) => s.datasource === datasource?.id
+    (s) => s.datasource === datasource?.id,
   );
 
   const settings = useOrgSettings();
@@ -176,7 +179,7 @@ export default function ExperimentRefNewFields({
   const customFields = filterCustomFieldsForSectionAndProject(
     useCustomFields(),
     "experiment",
-    project
+    project,
   );
 
   return (
@@ -376,7 +379,7 @@ export default function ExperimentRefNewFields({
             feature={feature}
             revisions={revisions}
             version={version}
-            environments={environment ? [environment] : environments ?? []}
+            environments={environment ? [environment] : (environments ?? [])}
             setPrerequisiteTargetingSdkIssues={
               setPrerequisiteTargetingSdkIssues
             }
@@ -468,7 +471,7 @@ export default function ExperimentRefNewFields({
                 })}
                 formatOptionLabel={({ label, value }) => {
                   const userIdType = exposureQueries?.find(
-                    (e) => e.id === value
+                    (e) => e.id === value,
                   )?.userIdType;
                   return (
                     <>

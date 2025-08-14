@@ -45,7 +45,7 @@ type CreateSavedGroupResponse = {
  */
 export const postSavedGroup = async (
   req: CreateSavedGroupRequest,
-  res: Response<CreateSavedGroupResponse>
+  res: Response<CreateSavedGroupResponse>,
 ) => {
   const context = getContextFromReq(req);
   const { org, userName } = context;
@@ -85,14 +85,14 @@ export const postSavedGroup = async (
     }
     const attributeSchema = org.settings?.attributeSchema || [];
     const datatype = attributeSchema.find(
-      (sdkAttr) => sdkAttr.property === attributeKey
+      (sdkAttr) => sdkAttr.property === attributeKey,
     )?.datatype;
     if (!datatype) {
       throw new Error("Unknown attributeKey");
     }
     if (!ID_LIST_DATATYPES.includes(datatype)) {
       throw new Error(
-        "Cannot create an ID List for the given attribute key. Try using a Condition Group instead."
+        "Cannot create an ID List for the given attribute key. Try using a Condition Group instead.",
       );
     }
     uniqValues = [...new Set(values)];
@@ -101,8 +101,8 @@ export const postSavedGroup = async (
     ) {
       throw new Error(
         `The maximum size for a list is ${formatByteSizeString(
-          SAVED_GROUP_SIZE_LIMIT_BYTES
-        )}.`
+          SAVED_GROUP_SIZE_LIMIT_BYTES,
+        )}.`,
       );
     }
   }
@@ -156,7 +156,7 @@ type GetSavedGroupResponse = {
  */
 export const getSavedGroup = async (
   req: GetSavedGroupRequest,
-  res: Response<GetSavedGroupResponse>
+  res: Response<GetSavedGroupResponse>,
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -199,7 +199,7 @@ type PostSavedGroupAddItemsResponse = {
  */
 export const postSavedGroupAddItems = async (
   req: PostSavedGroupAddItemsRequest,
-  res: Response<PostSavedGroupAddItemsResponse | ApiErrorResponse>
+  res: Response<PostSavedGroupAddItemsResponse | ApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -234,14 +234,14 @@ export const postSavedGroupAddItems = async (
 
   const attributeSchema = org.settings?.attributeSchema || [];
   const datatype = attributeSchema.find(
-    (sdkAttr) => sdkAttr.property === savedGroup.attributeKey
+    (sdkAttr) => sdkAttr.property === savedGroup.attributeKey,
   )?.datatype;
   if (!datatype) {
     throw new Error("Unknown attributeKey");
   }
   if (!ID_LIST_DATATYPES.includes(datatype)) {
     throw new Error(
-      "Cannot add items to this group. The attribute key's datatype is not supported."
+      "Cannot add items to this group. The attribute key's datatype is not supported.",
     );
   }
   const newValues = [...new Set([...(savedGroup.values || []), ...items])];
@@ -250,8 +250,8 @@ export const postSavedGroupAddItems = async (
   ) {
     throw new Error(
       `The maximum size for a list is ${formatByteSizeString(
-        SAVED_GROUP_SIZE_LIMIT_BYTES
-      )}. Adding these items to the list would exceed the limit.`
+        SAVED_GROUP_SIZE_LIMIT_BYTES,
+      )}. Adding these items to the list would exceed the limit.`,
     );
   }
 
@@ -299,7 +299,7 @@ type PostSavedGroupRemoveItemsResponse = {
  */
 export const postSavedGroupRemoveItems = async (
   req: PostSavedGroupRemoveItemsRequest,
-  res: Response<PostSavedGroupRemoveItemsResponse | ApiErrorResponse>
+  res: Response<PostSavedGroupRemoveItemsResponse | ApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -334,19 +334,19 @@ export const postSavedGroupRemoveItems = async (
 
   const attributeSchema = org.settings?.attributeSchema || [];
   const datatype = attributeSchema.find(
-    (sdkAttr) => sdkAttr.property === savedGroup.attributeKey
+    (sdkAttr) => sdkAttr.property === savedGroup.attributeKey,
   )?.datatype;
   if (!datatype) {
     throw new Error("Unknown attributeKey");
   }
   if (!ID_LIST_DATATYPES.includes(datatype)) {
     throw new Error(
-      "Cannot remove items from this group. The attribute key's datatype is not supported."
+      "Cannot remove items from this group. The attribute key's datatype is not supported.",
     );
   }
   const toRemove = new Set(items);
   const newValues = (savedGroup.values || []).filter(
-    (value) => !toRemove.has(value)
+    (value) => !toRemove.has(value),
   );
   const changes = await updateSavedGroupById(id, org.id, {
     values: newValues,
@@ -389,7 +389,7 @@ type PutSavedGroupResponse = {
  */
 export const putSavedGroup = async (
   req: PutSavedGroupRequest,
-  res: Response<PutSavedGroupResponse | ApiErrorResponse>
+  res: Response<PutSavedGroupResponse | ApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -519,7 +519,7 @@ type DeleteSavedGroupResponse =
  */
 export const deleteSavedGroup = async (
   req: DeleteSavedGroupRequest,
-  res: Response<DeleteSavedGroupResponse>
+  res: Response<DeleteSavedGroupResponse>,
 ) => {
   const { id } = req.params;
   const context = getContextFromReq(req);

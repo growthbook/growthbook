@@ -116,15 +116,15 @@ const DateResults: FC<{
     useMemo(() => {
       const expandedGoals = expandMetricGroups(
         goalMetrics,
-        ssrPolyfills?.metricGroups || metricGroups
+        ssrPolyfills?.metricGroups || metricGroups,
       );
       const expandedSecondaries = expandMetricGroups(
         secondaryMetrics,
-        ssrPolyfills?.metricGroups || metricGroups
+        ssrPolyfills?.metricGroups || metricGroups,
       );
       const expandedGuardrails = expandMetricGroups(
         guardrailMetrics,
-        ssrPolyfills?.metricGroups || metricGroups
+        ssrPolyfills?.metricGroups || metricGroups,
       );
 
       return { expandedGoals, expandedSecondaries, expandedGuardrails };
@@ -149,8 +149,8 @@ const DateResults: FC<{
     return (
       Array.from(
         new Set(
-          expandedGoals.concat(expandedSecondaries).concat(expandedGuardrails)
-        )
+          expandedGoals.concat(expandedSecondaries).concat(expandedGuardrails),
+        ),
       )
         .map((metricId) => {
           const metric =
@@ -215,14 +215,14 @@ const DateResults: FC<{
 
                   const v_formatted = getExperimentMetricFormatter(
                     metric,
-                    ssrPolyfills?.getFactTableById || getFactTableById
+                    ssrPolyfills?.getFactTableById || getFactTableById,
                   )(
                     cumulative
                       ? totalDenominator[i]
                         ? totalValue[i] / totalDenominator[i]
                         : 0
                       : stats?.cr || 0,
-                    { currency: displayCurrency }
+                    { currency: displayCurrency },
                   );
 
                   const p = stats?.pValueAdjusted ?? stats?.pValue ?? 1;
@@ -245,7 +245,7 @@ const DateResults: FC<{
                     if (statsEngine === "frequentist" && statSig) {
                       const expectedDirection = isExpectedDirection(
                         stats,
-                        metric
+                        metric,
                       );
                       if (expectedDirection) {
                         className = "won";
@@ -275,7 +275,7 @@ const DateResults: FC<{
                   };
                 }),
               };
-            }
+            },
           );
 
           return {
@@ -283,7 +283,7 @@ const DateResults: FC<{
             resultGroup: getMetricResultGroup(
               metric.id,
               expandedGoals,
-              expandedSecondaries
+              expandedSecondaries,
             ),
             datapoints,
           };
@@ -388,7 +388,7 @@ const DateResults: FC<{
                       getFactTableById,
                       differenceType === "absolute"
                         ? "percentagePoints"
-                        : "number"
+                        : "number",
                     )
               }
               formatterOptions={metricFormatterOptions}

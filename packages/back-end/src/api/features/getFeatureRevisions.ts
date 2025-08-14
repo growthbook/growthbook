@@ -7,7 +7,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeatureRevisionsValidator } from "back-end/src/validators/openapi";
 
 export const getFeatureRevisions = createApiRequestHandler(
-  getFeatureRevisionsValidator
+  getFeatureRevisionsValidator,
 )(async (req) => {
   const limit = req.query.limit ?? 10;
   const offset = req.query.offset ?? 0;

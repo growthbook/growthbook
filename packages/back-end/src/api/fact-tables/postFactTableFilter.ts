@@ -8,7 +8,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { postFactTableFilterValidator } from "back-end/src/validators/openapi";
 
 export const postFactTableFilter = createApiRequestHandler(
-  postFactTableFilterValidator
+  postFactTableFilterValidator,
 )(async (req): Promise<PostFactTableFilterResponse> => {
   const factTable = await getFactTable(req.context, req.params.factTableId);
   if (!factTable) {
@@ -21,7 +21,7 @@ export const postFactTableFilter = createApiRequestHandler(
 
   if (req.body.managedBy === "api" && !factTable.managedBy) {
     throw new Error(
-      "Cannot set filter to be managed by api unless Fact Table is also managed by api"
+      "Cannot set filter to be managed by api unless Fact Table is also managed by api",
     );
   }
 
@@ -36,7 +36,7 @@ export const postFactTableFilter = createApiRequestHandler(
         ...factTable,
         filters: [...factTable.filters, filter],
       },
-      filter.id
+      filter.id,
     ),
   };
 });

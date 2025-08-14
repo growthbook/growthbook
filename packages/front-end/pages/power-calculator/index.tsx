@@ -62,7 +62,7 @@ const PowerCalculationPage = (): React.ReactElement => {
 
   const [statsEngineSettings, setStatsEngineSettings] =
     useState<StatsEngineSettings>(
-      initialParams.statsEngineSettings || defaultStatsEngineSettings
+      initialParams.statsEngineSettings || defaultStatsEngineSettings,
     );
 
   const [modalStatsEngineSettings, setModalStatsEngineSettings] =
@@ -76,7 +76,7 @@ const PowerCalculationPage = (): React.ReactElement => {
         settingsModalParams,
         variations,
         statsEngineSettings,
-      })
+      }),
     );
   }, [
     powerCalculationParams,

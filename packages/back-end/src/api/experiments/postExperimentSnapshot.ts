@@ -11,7 +11,7 @@ import { PostExperimentSnapshotResponse } from "back-end/types/openapi";
 
 // TODO update params (add phase, useCache)
 export const postExperimentSnapshot = createApiRequestHandler(
-  postExperimentSnapshotValidator
+  postExperimentSnapshotValidator,
 )(async (req): Promise<PostExperimentSnapshotResponse> => {
   const context = req.context;
   const id = req.params.id;
@@ -29,7 +29,7 @@ export const postExperimentSnapshot = createApiRequestHandler(
   const datasource = await getDataSourceById(context, experiment.datasource);
   if (!datasource) {
     throw new Error(
-      `Could not find datasource for this experiment (datasource id: ${experiment.datasource})`
+      `Could not find datasource for this experiment (datasource id: ${experiment.datasource})`,
     );
   }
 

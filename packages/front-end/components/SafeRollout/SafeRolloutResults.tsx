@@ -29,7 +29,7 @@ import { useSafeRolloutSnapshot } from "./SnapshotProvider";
 import SafeRolloutAnalysisSettingsSummary from "./AnalysisSettingsSummary";
 
 const CompactResults = dynamic(
-  () => import("@/components/SafeRollout/Results/CompactResults")
+  () => import("@/components/SafeRollout/Results/CompactResults"),
 );
 
 const WarningIcon = () => (
@@ -89,12 +89,12 @@ const SafeRolloutResults: FC<{
   const datasource = getDatasourceById(safeRollout.datasourceId);
 
   const exposureQuery = datasource?.settings.queries?.exposure?.find(
-    (e) => e.id === safeRollout.exposureQueryId
+    (e) => e.id === safeRollout.exposureQueryId,
   );
 
   const totalUsers = snapshot?.health?.traffic?.overall?.variationUnits?.reduce(
     (acc, a) => acc + a,
-    0
+    0,
   );
 
   const traffic = snapshot?.health?.traffic;
@@ -104,7 +104,7 @@ const SafeRolloutResults: FC<{
 
   const resultsStatus = safeRollout.analysisSummary?.resultsStatus;
   const showGuardrailWarning = Object.values(
-    resultsStatus?.variations[0].guardrailMetrics ?? {}
+    resultsStatus?.variations[0].guardrailMetrics ?? {},
   )?.some((metric) => metric.status === "lost");
 
   const daysLeft = getSafeRolloutDaysLeft({
@@ -116,7 +116,7 @@ const SafeRolloutResults: FC<{
     safeRollout,
     healthSettings: getHealthSettings(
       settings,
-      hasCommercialFeature("decision-framework")
+      hasCommercialFeature("decision-framework"),
     ),
     daysLeft,
   });
@@ -265,7 +265,7 @@ export type ResultsMetricFilters = {
 };
 export function sortAndFilterMetricsByTags(
   metrics: ExperimentMetricInterface[],
-  filters?: ResultsMetricFilters
+  filters?: ResultsMetricFilters,
 ): string[] {
   let { tagOrder, filterByTag, tagFilter } = filters || {};
   // normalize input

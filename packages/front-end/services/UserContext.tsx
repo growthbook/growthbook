@@ -56,11 +56,11 @@ export interface PermissionFunctions {
   check(
     permission: EnvScopedPermission,
     project: string[] | string | undefined,
-    envs: string[]
+    envs: string[],
   ): boolean;
   check(
     permission: ProjectScopedPermission,
-    project: string[] | string | undefined
+    project: string[] | string | undefined,
   ): boolean;
 }
 
@@ -251,7 +251,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
           }
           return res;
         },
-        []
+        [],
       );
       return { ...team, members: hydratedMembers };
     });
@@ -390,7 +390,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     (
       permission: Permission,
       project?: string[] | string,
-      envs?: string[]
+      envs?: string[],
     ): boolean => {
       if (!currentOrg?.currentUserPermissions || !currentOrg || !data?.userId)
         return false;
@@ -399,10 +399,10 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         currentOrg.currentUserPermissions,
         permission,
         project,
-        envs ? [...envs] : undefined
+        envs ? [...envs] : undefined,
       );
     },
-    [currentOrg, data?.userId]
+    [currentOrg, data?.userId],
   );
 
   const permissions = useMemo(() => {
@@ -435,7 +435,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
           environments: [],
         },
         projects: {},
-      }
+      },
     );
   }, [currentOrg?.currentUserPermissions]);
 
@@ -445,7 +445,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       if (!u && fallback) return id;
       return u?.name || u?.email || "";
     },
-    [users]
+    [users],
   );
 
   const watching = useMemo(() => {

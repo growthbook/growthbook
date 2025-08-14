@@ -213,7 +213,7 @@ const IdeaPage = (): ReactElement => {
                       {
                         method: "DELETE",
                         body: JSON.stringify({ id: iid }),
-                      }
+                      },
                     );
 
                     push("/ideas");
@@ -252,7 +252,7 @@ const IdeaPage = (): ReactElement => {
                   {
                     method: "POST",
                     body: JSON.stringify(value),
-                  }
+                  },
                 );
                 await mutate({
                   ...data,

@@ -73,7 +73,7 @@ export class VercelNativeIntegrationModel extends BaseClass {
 }
 
 export const findVercelInstallationByInstallationId = async (
-  installationId: string
+  installationId: string,
 ): Promise<VercelNativeIntegration> => {
   const model = await mongoose.connection.db
     .collection(COLLECTION_NAME)
@@ -87,7 +87,7 @@ export const findVercelInstallationByInstallationId = async (
 export class VercelIntallationNotFound extends Error {}
 
 export const findVercelInstallationByOrganization = async (
-  organization: string
+  organization: string,
 ): Promise<VercelNativeIntegration> => {
   const model = await mongoose.connection.db
     .collection(COLLECTION_NAME)
@@ -95,7 +95,7 @@ export const findVercelInstallationByOrganization = async (
 
   if (!model)
     throw new VercelIntallationNotFound(
-      `Vercel installation not found for org ${organization}!`
+      `Vercel installation not found for org ${organization}!`,
     );
 
   return model as unknown as VercelNativeIntegration;

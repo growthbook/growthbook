@@ -115,13 +115,13 @@ const MetricsSelector: FC<{
   const { hasCommercialFeature } = useUser();
 
   const metricListContainsGroup = selected.some((metric) =>
-    isMetricGroupId(metric)
+    isMetricGroupId(metric),
   );
 
   const options: MetricOption[] = [
     ...metrics
       .filter((m) =>
-        noPercentile ? m.cappingSettings.type !== "percentile" : true
+        noPercentile ? m.cappingSettings.type !== "percentile" : true,
       )
       .filter((m) => (noManual ? m.datasource : true))
       .map((m) => ({
@@ -191,7 +191,7 @@ const MetricsSelector: FC<{
     : undefined;
   // todo: get specific exposure query from experiment?
   const userIdType = datasourceSettings?.queries?.exposure?.find(
-    (e) => e.id === exposureQueryId
+    (e) => e.id === exposureQueryId,
   )?.userIdType;
 
   const filteredOptions = options
@@ -199,7 +199,7 @@ const MetricsSelector: FC<{
     .filter((m) =>
       datasourceSettings && userIdType && m.userIdTypes.length
         ? isMetricJoinable(m.userIdTypes, userIdType, datasourceSettings)
-        : true
+        : true,
     )
     .filter((m) => isProjectListValidForProject(m.projects, project));
 
@@ -254,7 +254,7 @@ const MetricsSelector: FC<{
                     ? isMetricJoinable(
                         userIdTypes,
                         userIdType,
-                        datasourceSettings
+                        datasourceSettings,
                       )
                     : true,
               };
@@ -280,7 +280,7 @@ const MetricsSelector: FC<{
               (d) =>
                 d.startsWith("met_") ||
                 d.startsWith("mg_") ||
-                d.startsWith("fact__")
+                d.startsWith("fact__"),
             )
           ) {
             e.preventDefault();

@@ -154,7 +154,7 @@ export const SlackIntegrationsListViewContainer = () => {
         id,
       });
     },
-    []
+    [],
   );
 
   const handleOnCreateModalOpen = useCallback(() => {
@@ -188,7 +188,7 @@ export const SlackIntegrationsListViewContainer = () => {
 
       await mutate();
     },
-    [apiCall, mutate]
+    [apiCall, mutate],
   );
 
   const handleCreate = useCallback(
@@ -208,7 +208,7 @@ export const SlackIntegrationsListViewContainer = () => {
           setAddEditError(
             `Failed to create Slack integration: ${
               response.error || "Unknown error"
-            }`
+            }`,
           );
         } else {
           setAddEditError(null);
@@ -219,7 +219,7 @@ export const SlackIntegrationsListViewContainer = () => {
         setAddEditError(`Failed to create Slack integration: ${e.message}`);
       }
     },
-    [apiCall, mutate]
+    [apiCall, mutate],
   );
 
   const handleUpdate = useCallback(
@@ -243,7 +243,7 @@ export const SlackIntegrationsListViewContainer = () => {
               "slackAppId",
               "slackSigningKey",
               "slackIncomingWebHook",
-            ])
+            ]),
           ),
         });
 
@@ -251,7 +251,7 @@ export const SlackIntegrationsListViewContainer = () => {
           setAddEditError(
             `Failed to update Slack integration: ${
               response.error || "Unknown error"
-            }`
+            }`,
           );
         } else {
           setAddEditError(null);
@@ -262,7 +262,7 @@ export const SlackIntegrationsListViewContainer = () => {
         setAddEditError(`Failed to update Slack integration: ${e.message}`);
       }
     },
-    [apiCall, mutate]
+    [apiCall, mutate],
   );
 
   const environmentSettings = useEnvironments();

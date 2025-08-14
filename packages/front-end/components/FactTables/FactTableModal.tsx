@@ -73,7 +73,7 @@ export default function FactTableModal({
 
     const [userIdTypes, sql] = getInitialMetricQuery(
       selectedDataSource,
-      "binomial"
+      "binomial",
     );
 
     form.setValue("userIdTypes", userIdTypes);
@@ -84,7 +84,7 @@ export default function FactTableModal({
   const isNew = !existing || duplicate;
   useEffect(() => {
     track(
-      isNew ? "Viewed Create Fact Table Modal" : "Viewed Edit Fact Table Modal"
+      isNew ? "Viewed Create Fact Table Modal" : "Viewed Edit Fact Table Modal",
     );
   }, [isNew]);
 
@@ -256,7 +256,7 @@ export default function FactTableModal({
                     ({ userIdType }) => ({
                       value: userIdType,
                       label: userIdType,
-                    })
+                    }),
                   )}
                   helpText="The default values were auto-detected from your SQL query."
                   autoFocus={true}

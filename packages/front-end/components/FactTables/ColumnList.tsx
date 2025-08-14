@@ -93,7 +93,7 @@ export default function ColumnList({ factTable }: Props) {
                 {
                   method: "PUT",
                   body: JSON.stringify({}),
-                }
+                },
               );
               mutateDefinitions();
             }}

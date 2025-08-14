@@ -6,7 +6,7 @@ import { OrganizationInterface } from "back-end/types/organization";
 import { auditDetailsDelete } from "back-end/src/services/audit";
 
 export const deleteEnvironment = createApiRequestHandler(
-  deleteEnvironmentValidator
+  deleteEnvironmentValidator,
 )(async (req): Promise<DeleteEnvironmentResponse> => {
   const id = req.params.id;
   const org = req.context.org;

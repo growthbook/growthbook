@@ -217,7 +217,7 @@ const ExperimentsPage = (): React.ReactElement => {
                                 )}
                               </TabsTrigger>
                             );
-                          }
+                          },
                         )}
                       </TabsList>
                     </div>

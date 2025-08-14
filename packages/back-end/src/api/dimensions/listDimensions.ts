@@ -18,17 +18,17 @@ export const listDimensions = createApiRequestHandler(listDimensionsValidator)(
     const { filtered, returnFields } = applyPagination(
       dimensions
         .filter((dimension) =>
-          applyFilter(req.query.datasourceId, dimension.datasource)
+          applyFilter(req.query.datasourceId, dimension.datasource),
         )
         .sort((a, b) => a.id.localeCompare(b.id)),
-      req.query
+      req.query,
     );
 
     return {
       dimensions: filtered.map((dimension) =>
-        toDimensionApiInterface(dimension)
+        toDimensionApiInterface(dimension),
       ),
       ...returnFields,
     };
-  }
+  },
 );

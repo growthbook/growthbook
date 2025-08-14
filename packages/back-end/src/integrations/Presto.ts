@@ -99,7 +99,7 @@ export default class Presto extends SqlIntegration {
     col: string,
     unit: "hour" | "minute",
     sign: "+" | "-",
-    amount: number
+    amount: number,
   ): string {
     return `${col} ${sign} INTERVAL '${amount}' ${unit}`;
   }

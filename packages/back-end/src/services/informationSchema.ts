@@ -17,14 +17,14 @@ import { getSourceIntegrationObject } from "./datasource";
 
 export function getRecentlyDeletedTables(
   staleInformationSchema: InformationSchema[],
-  updatedInformationSchema: InformationSchema[]
+  updatedInformationSchema: InformationSchema[],
 ): string[] {
   const deletedTableIds: string[] = [];
 
   staleInformationSchema.forEach((database) => {
     const correspondingIndex = updatedInformationSchema.findIndex(
       (updatedInformationSchemaRecord) =>
-        updatedInformationSchemaRecord.databaseName === database.databaseName
+        updatedInformationSchemaRecord.databaseName === database.databaseName,
     );
     if (!database.schemas || correspondingIndex === -1) return;
     database.schemas.forEach((schema) => {
@@ -32,7 +32,7 @@ export function getRecentlyDeletedTables(
         correspondingIndex
       ]?.schemas.findIndex(
         (updatedSchemaRecord) =>
-          updatedSchemaRecord.schemaName === schema.schemaName
+          updatedSchemaRecord.schemaName === schema.schemaName,
       );
       if (!schema.tables) return;
       schema.tables.forEach((table) => {
@@ -47,7 +47,7 @@ export function getRecentlyDeletedTables(
             correspondingIndex
           ].schemas[correspondingSchemaIndex].tables.findIndex(
             (updatedTableRecord) =>
-              updatedTableRecord.tableName === table.tableName
+              updatedTableRecord.tableName === table.tableName,
           );
 
           if (correspondingTableIndex === -1) {
@@ -65,7 +65,7 @@ export function getRecentlyDeletedTables(
 export async function mergeStaleInformationSchemaWithUpdate(
   staleInformationSchema: InformationSchema[],
   updatedInformationSchema: InformationSchema[],
-  organization: string
+  organization: string,
 ): Promise<InformationSchema[]> {
   // If there is no stale information schema, then return the updated information schema
   // This could happen if there was an error when initially creating the informationSchema
@@ -78,7 +78,7 @@ export async function mergeStaleInformationSchemaWithUpdate(
   updatedInformationSchema.forEach((database) => {
     const correspondingIndex = staleInformationSchema.findIndex(
       (staleInformationSchemaRecord) =>
-        staleInformationSchemaRecord.databaseName === database.databaseName
+        staleInformationSchemaRecord.databaseName === database.databaseName,
     );
     // If the database exists in the staleInformationSchemaArray, then update the dateUpdated
     if (correspondingIndex > -1) {
@@ -91,7 +91,7 @@ export async function mergeStaleInformationSchemaWithUpdate(
         correspondingIndex
       ]?.schemas.findIndex(
         (staleSchemaRecord) =>
-          staleSchemaRecord.schemaName === schema.schemaName
+          staleSchemaRecord.schemaName === schema.schemaName,
       );
 
       if (correspondingSchemaIndex > -1) {
@@ -107,7 +107,7 @@ export async function mergeStaleInformationSchemaWithUpdate(
             correspondingSchemaIndex
           ]?.tables || [];
         const correspondingTableIndex = staleInformationSchemaTables.findIndex(
-          (staleTableRecord) => staleTableRecord.tableName === table.tableName
+          (staleTableRecord) => staleTableRecord.tableName === table.tableName,
         );
 
         if (
@@ -125,7 +125,7 @@ export async function mergeStaleInformationSchemaWithUpdate(
             if (table.id) {
               // If numOfColumns has changed & the table has an id, then it needs to be updated.
               promises.push(() =>
-                queueUpdateStaleInformationSchemaTable(organization, table.id)
+                queueUpdateStaleInformationSchemaTable(organization, table.id),
               );
             }
           }
@@ -145,7 +145,7 @@ export async function fetchTableData(
   context: ReqContext,
   datasource: DataSourceInterface,
   informationSchema: InformationSchemaInterface,
-  tableId: string
+  tableId: string,
 ): Promise<{
   tableData: null | unknown[];
   refreshMS: number;
@@ -183,7 +183,7 @@ export async function fetchTableData(
   const { tableData } = await integration.getTableData(
     databaseName,
     tableSchema,
-    tableName
+    tableName,
   );
   const queryEndTime = Date.now();
 
@@ -198,7 +198,7 @@ export async function fetchTableData(
 
 export async function generateInformationSchema(
   context: ReqContext,
-  datasource: DataSourceInterface
+  datasource: DataSourceInterface,
 ): Promise<{
   informationSchema: InformationSchema[];
   refreshMS: number;
@@ -225,13 +225,13 @@ export async function generateInformationSchema(
 
 export async function initializeDatasourceInformationSchema(
   context: ReqContext | ApiReqContext,
-  datasource: DataSourceInterface
+  datasource: DataSourceInterface,
 ): Promise<void> {
   // Create an empty informationSchema
   const emptyInformationSchema = await createInformationSchema(
     [],
     context.org.id,
-    datasource.id
+    datasource.id,
   );
 
   // Update the datasource with the informationSchemaId
@@ -244,7 +244,7 @@ export async function initializeDatasourceInformationSchema(
 
   const { informationSchema, refreshMS } = await generateInformationSchema(
     context,
-    datasource
+    datasource,
   );
 
   // Update the empty informationSchema record with the actual informationSchema
@@ -259,7 +259,7 @@ export async function initializeDatasourceInformationSchema(
 export async function updateDatasourceInformationSchema(
   context: ReqContext,
   datasource: DataSourceInterface,
-  informationSchema: InformationSchemaInterface
+  informationSchema: InformationSchemaInterface,
 ): Promise<void> {
   // Reset the informationSchema to remove any errors and change status to "PENDING"
   await updateInformationSchemaById(context.org.id, informationSchema.id, {
@@ -273,19 +273,19 @@ export async function updateDatasourceInformationSchema(
   const mergedInformationSchema = await mergeStaleInformationSchemaWithUpdate(
     informationSchema.databases,
     updatedInformationSchema,
-    context.org.id
+    context.org.id,
   );
 
   const tablesToDelete = await getRecentlyDeletedTables(
     informationSchema.databases,
-    updatedInformationSchema
+    updatedInformationSchema,
   );
 
   if (tablesToDelete.length > 0) {
     await removeDeletedInformationSchemaTables(
       context.org.id,
       informationSchema.id,
-      tablesToDelete
+      tablesToDelete,
     );
   }
 

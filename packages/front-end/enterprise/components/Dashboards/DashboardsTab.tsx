@@ -50,7 +50,7 @@ export type UpdateDashboardArgs = {
   }>;
 };
 export type SubmitDashboard<
-  T extends CreateDashboardArgs | UpdateDashboardArgs
+  T extends CreateDashboardArgs | UpdateDashboardArgs,
 > = (args: T) => Promise<void>;
 
 export const autoUpdateDisabledMessage =
@@ -161,7 +161,7 @@ export default function DashboardsTab({
                 editLevel: data.editLevel,
                 enableAutoUpdates: data.enableAutoUpdates,
                 experimentId: experiment.id,
-              }
+              },
         ),
       });
       if (res.status === 200) {
@@ -174,7 +174,7 @@ export default function DashboardsTab({
         console.error(res);
       }
     },
-    [apiCall, experiment.id, mutateDashboards]
+    [apiCall, experiment.id, mutateDashboards],
   );
 
   const autoUpdateDisabled =
@@ -421,7 +421,7 @@ export default function DashboardsTab({
                               onClick={() => {
                                 const url = window.location.href.replace(
                                   /[?#].*/,
-                                  `#dashboards/${dashboardId}`
+                                  `#dashboards/${dashboardId}`,
                                 );
                                 performCopy(url);
                               }}

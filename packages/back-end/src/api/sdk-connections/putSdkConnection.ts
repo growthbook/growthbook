@@ -10,7 +10,7 @@ import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { validatePutPayload } from "./validations";
 
 export const putSdkConnection = createApiRequestHandler(
-  putSdkConnectionValidator
+  putSdkConnectionValidator,
 )(async (req): Promise<PutSdkConnectionResponse> => {
   const sdkConnection = await findSDKConnectionById(req.context, req.params.id);
   if (!sdkConnection) {
@@ -25,7 +25,7 @@ export const putSdkConnection = createApiRequestHandler(
   const updatedSdkConnection = await editSDKConnection(
     req.context,
     sdkConnection,
-    params
+    params,
   );
 
   await req.audit({

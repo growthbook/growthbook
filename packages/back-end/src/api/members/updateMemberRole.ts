@@ -15,7 +15,7 @@ import {
 function validateRoleAndEnvs(
   org: OrganizationInterface,
   role: string,
-  environments?: string[]
+  environments?: string[],
 ): { memberIsValid: boolean; reason: string } {
   try {
     if (!isRoleValid(role, org)) {
@@ -24,20 +24,20 @@ function validateRoleAndEnvs(
 
     if (role === "noaccess" && !orgHasPremiumFeature(org, "no-access-role")) {
       throw new Error(
-        "Must have a commercial License Key to gain access to the no-access role."
+        "Must have a commercial License Key to gain access to the no-access role.",
       );
     }
 
     if (environments?.length) {
       if (!orgHasPremiumFeature(org, "advanced-permissions")) {
         throw new Error(
-          "Must have a commercial License Key to restrict permissions by environment."
+          "Must have a commercial License Key to restrict permissions by environment.",
         );
       }
 
       if (!roleSupportsEnvLimit(role, org)) {
         throw new Error(
-          `${role} does not support restricting access to certain environments.`
+          `${role} does not support restricting access to certain environments.`,
         );
       }
 
@@ -46,7 +46,7 @@ function validateRoleAndEnvs(
           org.settings?.environments?.map((e) => e.id) || [];
         if (!environmentIds.includes(env)) {
           throw new Error(
-            `${env} is not a valid environment ID for this organization.`
+            `${env} is not a valid environment ID for this organization.`,
           );
         }
       });
@@ -65,14 +65,14 @@ function validateRoleAndEnvs(
 }
 
 export const updateMemberRole = createApiRequestHandler(
-  updateMemberRoleValidator
+  updateMemberRoleValidator,
 )(async (req): Promise<UpdateMemberRoleResponse> => {
   if (!req.context.permissions.canManageTeam()) {
     req.context.permissions.throwPermissionError();
   }
 
   const orgUser = req.context.org.members.find(
-    (member) => member.id === req.params.id
+    (member) => member.id === req.params.id,
   );
 
   if (!orgUser) {
@@ -81,7 +81,7 @@ export const updateMemberRole = createApiRequestHandler(
 
   if (orgUser.managedByIdp) {
     throw new Error(
-      "This user is managed via an External Identity Provider (IDP) via SCIM 2.0 - User can only be updated via the IDP"
+      "This user is managed via an External Identity Provider (IDP) via SCIM 2.0 - User can only be updated via the IDP",
     );
   }
 
@@ -98,7 +98,7 @@ export const updateMemberRole = createApiRequestHandler(
   const { memberIsValid, reason } = validateRoleAndEnvs(
     req.context.org,
     updatedMember.role,
-    updatedMember.environments
+    updatedMember.environments,
   );
 
   if (!memberIsValid) {
@@ -109,7 +109,7 @@ export const updateMemberRole = createApiRequestHandler(
   if (member.projectRoles?.length) {
     if (!orgHasPremiumFeature(req.context.org, "advanced-permissions")) {
       throw new Error(
-        "Your plan does not support providing users with project-level permissions."
+        "Your plan does not support providing users with project-level permissions.",
       );
     }
     const updatedProjectRoles: ProjectMemberRole[] = [];
@@ -117,7 +117,7 @@ export const updateMemberRole = createApiRequestHandler(
       const { memberIsValid, reason } = validateRoleAndEnvs(
         req.context.org,
         updatedProjectRole.role,
-        updatedProjectRole.environments
+        updatedProjectRole.environments,
       );
 
       if (!memberIsValid) {
@@ -142,7 +142,7 @@ export const updateMemberRole = createApiRequestHandler(
     const updatedOrgMembers = cloneDeep(req.context.org.members);
 
     const userIndex = req.context.org.members.findIndex(
-      (member) => member.id === req.params.id
+      (member) => member.id === req.params.id,
     );
 
     if (userIndex === -1) {

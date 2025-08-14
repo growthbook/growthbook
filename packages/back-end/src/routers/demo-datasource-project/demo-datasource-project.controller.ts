@@ -164,7 +164,7 @@ export const postDemoDatasourceProject = async (
   res: Response<
     CreateDemoDatasourceProjectResponse | PrivateApiErrorResponse,
     EventUserForResponseLocals
-  >
+  >,
 ) => {
   const context = getContextFromReq(req);
 
@@ -217,7 +217,7 @@ export const postDemoDatasourceProject = async (
       DEMO_DATASOURCE_SETTINGS,
       undefined,
       "",
-      [project.id]
+      [project.id],
     );
 
     // Create metrics
@@ -233,11 +233,11 @@ export const postDemoDatasourceProject = async (
           projects: [project.id],
           tags: DEMO_TAGS,
         });
-      })
+      }),
     );
 
     const denominatorMetricId = metrics.find(
-      (m) => m.name === DENOMINATOR_METRIC_NAME
+      (m) => m.name === DENOMINATOR_METRIC_NAME,
     )?.id;
     const ratioMetric = denominatorMetricId
       ? await createMetric({

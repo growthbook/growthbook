@@ -238,7 +238,7 @@ export function growthbookTrackingPlugin({
         debug &&
           console.log(
             "Logging event to GrowthBook",
-            JSON.parse(JSON.stringify(payload))
+            JSON.parse(JSON.stringify(payload)),
           );
         if (!enable) return;
 

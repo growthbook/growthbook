@@ -32,7 +32,7 @@ const SafeRolloutStatusBadge = ({ rule }: { rule: SafeRolloutRule }) => {
     safeRollout,
     healthSettings: getHealthSettings(
       settings,
-      hasCommercialFeature("decision-framework")
+      hasCommercialFeature("decision-framework"),
     ),
     daysLeft,
   });

@@ -32,14 +32,14 @@ if (!IS_CLOUD) {
   redactPaths.push(
     'req.headers["if-none-match"]',
     'req.headers["cache-control"]',
-    "res.headers.etag"
+    "res.headers.etag",
   );
 }
 
 class ErrorWrapper extends Error {
   constructor(
     customMessage: string,
-    { message, stack }: { message: string; stack?: string }
+    { message, stack }: { message: string; stack?: string },
   ) {
     super(customMessage);
     this.name = customMessage;
@@ -129,7 +129,7 @@ function logToSentry(...args: Parameters<BaseLogger["error" | "fatal"]>) {
   const [obj, message, ...rest] = args as [
     string | Error | { err?: Error; [key: string]: unknown },
     string | unknown,
-    ...unknown[]
+    ...unknown[],
   ];
 
   Sentry.withScope((scope) => {

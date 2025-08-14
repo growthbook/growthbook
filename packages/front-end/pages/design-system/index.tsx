@@ -423,7 +423,7 @@ export default function DesignSystemPage() {
                     } else {
                       reject(new Error("Something went wrong."));
                     }
-                  }, 1000)
+                  }, 1000),
                 )
               }
               setError={setButtonLoadError}
@@ -1446,7 +1446,7 @@ DesignSystemPage.preAuthTopNav = true;
 function TabContentExample({ number }: { number: number }) {
   useEffect(
     () => console.log(`Tab number ${number} content mounted`),
-    [number]
+    [number],
   );
 
   return <>Tab number {number} content</>;

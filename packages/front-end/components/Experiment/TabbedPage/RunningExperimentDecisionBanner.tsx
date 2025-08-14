@@ -44,7 +44,7 @@ export default function RunningExperimentDecisionBanner({
   const decidedVariations: VariationWithIndex[] =
     runningExperimentStatus.variations
       .map(({ variationId }) =>
-        indexedVariations.find((v) => v.id === variationId)
+        indexedVariations.find((v) => v.id === variationId),
       )
       .filter((v) => v !== undefined);
 

@@ -75,7 +75,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
       className = "",
       ...props
     },
-    ref
+    ref,
   ) => {
     const weights = variations.map((v) => v.weight);
     const weight = weights[i];
@@ -91,7 +91,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
     const rebalanceAndUpdate = (
       i: number,
       newValue: number,
-      precision: number = 4
+      precision: number = 4,
     ) => {
       if (!setWeight) return;
       rebalance(weights, i, newValue, precision).forEach((w, j) => {
@@ -153,7 +153,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
             <Field
               placeholder={`${getVariationDefaultName(
                 variation,
-                valueType ?? "string"
+                valueType ?? "string",
               )}`}
               value={variation.name || ""}
               onChange={(e) => {
@@ -248,7 +248,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                       disabled={variations.length <= 2}
                       className={clsx(
                         "dropdown-item",
-                        variations.length > 2 && "text-danger"
+                        variations.length > 2 && "text-danger",
                       )}
                       onClick={(e) => {
                         e.preventDefault();
@@ -258,7 +258,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
 
                         const newWeights = distributeWeights(
                           newValues.map((v) => v.weight),
-                          customSplit
+                          customSplit,
                         );
 
                         newValues.forEach((v, j) => {
@@ -278,7 +278,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
         </td>
       </tr>
     );
-  }
+  },
 );
 
 VariationRow.displayName = "VariationRow";

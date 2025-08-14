@@ -102,5 +102,5 @@ run.forEach((testCase) => {
 
 fs.writeFileSync(
   path.join(__dirname, "test-cases--typed.json"),
-  stringify(newCases, null, 2)
+  stringify(newCases, null, 2),
 );

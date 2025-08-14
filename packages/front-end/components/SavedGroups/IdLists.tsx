@@ -55,7 +55,7 @@ export default function IdLists({ groups, mutate }: Props) {
 
   const filteredIdLists = project
     ? idLists.filter((list) =>
-        isProjectListValidForProject(list.projects, project)
+        isProjectListValidForProject(list.projects, project),
       )
     : idLists;
 
@@ -76,7 +76,7 @@ export default function IdLists({ groups, mutate }: Props) {
         features,
         environments,
       }),
-    [filteredIdLists, environments, features]
+    [filteredIdLists, environments, features],
   );
   const referencingExperimentsByGroup = useMemo(
     () =>
@@ -84,7 +84,7 @@ export default function IdLists({ groups, mutate }: Props) {
         savedGroups: filteredIdLists,
         experiments,
       }),
-    [filteredIdLists, experiments]
+    [filteredIdLists, experiments],
   );
 
   const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
@@ -242,7 +242,7 @@ export default function IdLists({ groups, mutate }: Props) {
                                   }}
                                   getConfirmationContent={getSavedGroupMessage(
                                     referencingFeaturesByGroup[s.id],
-                                    referencingExperimentsByGroup[s.id]
+                                    referencingExperimentsByGroup[s.id],
                                   )}
                                   canDelete={
                                     isEmpty(referencingFeaturesByGroup[s.id]) &&

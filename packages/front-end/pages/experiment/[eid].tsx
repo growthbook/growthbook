@@ -58,7 +58,7 @@ const ExperimentPage = (): ReactElement => {
     useRunningExperimentStatus();
 
   const decisionCriteria = getDecisionCriteria(
-    data?.experiment?.decisionFrameworkSettings?.decisionCriteriaId
+    data?.experiment?.decisionFrameworkSettings?.decisionCriteriaId,
   );
 
   useSwitchOrg(data?.experiment?.organization ?? null);
@@ -122,7 +122,7 @@ const ExperimentPage = (): ReactElement => {
     experiment.status !== "running" ||
     !includeExperimentInPayload(
       experiment,
-      linkedFeatures.map((f) => f.feature)
+      linkedFeatures.map((f) => f.feature),
     );
 
   return (

@@ -47,7 +47,7 @@ export default class Mssql extends SqlIntegration {
     col: string,
     unit: "hour" | "minute",
     sign: "+" | "-",
-    amount: number
+    amount: number,
   ): string {
     return `DATEADD(${unit}, ${sign === "-" ? "-" : ""}${amount}, ${col})`;
   }

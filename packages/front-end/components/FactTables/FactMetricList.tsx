@@ -28,12 +28,12 @@ export interface Props {
 
 export function getMetricsForFactTable(
   factMetrics: FactMetricInterface[],
-  factTable: string
+  factTable: string,
 ) {
   return factMetrics.filter(
     (m) =>
       m.numerator.factTableId === factTable ||
-      (m.denominator && m.denominator.factTableId === factTable)
+      (m.denominator && m.denominator.factTableId === factTable),
   );
 }
 

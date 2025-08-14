@@ -20,7 +20,7 @@ type PythonServerResponse<T> = {
 function parseEnvInt(
   value: string | undefined,
   defaultValue: number,
-  opts?: { min?: number; max?: number; name?: string }
+  opts?: { min?: number; max?: number; name?: string },
 ): number {
   const num = value === undefined ? defaultValue : parseInt(value);
   if (
@@ -31,7 +31,7 @@ function parseEnvInt(
     logger.warn(
       `Invalid value for ${opts?.name || "environment variable"}: "${
         value ?? ""
-      }". Falling back to default: ${defaultValue}`
+      }". Falling back to default: ${defaultValue}`,
     );
     return defaultValue;
   }
@@ -46,7 +46,7 @@ const MAX_POOL_SIZE = parseEnvInt(process.env.GB_STATS_ENGINE_POOL_SIZE, 4, {
 const MIN_POOL_SIZE = parseEnvInt(
   process.env.GB_STATS_ENGINE_MIN_POOL_SIZE,
   1,
-  { min: 0, max: MAX_POOL_SIZE, name: "GB_STATS_ENGINE_MIN_POOL_SIZE" }
+  { min: 0, max: MAX_POOL_SIZE, name: "GB_STATS_ENGINE_MIN_POOL_SIZE" },
 );
 
 // The stats engine usually finishes within 1 second
@@ -54,7 +54,7 @@ const MIN_POOL_SIZE = parseEnvInt(
 const STATS_ENGINE_TIMEOUT_MS = parseEnvInt(
   process.env.GB_STATS_ENGINE_TIMEOUT_MS,
   300_000,
-  { min: 1, name: "GB_STATS_ENGINE_TIMEOUT_MS" }
+  { min: 1, name: "GB_STATS_ENGINE_TIMEOUT_MS" },
 );
 
 let cloudWatch: CloudWatch | null = null;
@@ -106,7 +106,7 @@ class PythonStatsServer<Input, Output> {
 
           if (!parsed.id) {
             logger.error(
-              `Python stats server (pid: ${this.pid}) stdout missing 'id': ${parsed}`
+              `Python stats server (pid: ${this.pid}) stdout missing 'id': ${parsed}`,
             );
             return;
           }
@@ -115,7 +115,7 @@ class PythonStatsServer<Input, Output> {
           if (!promise) {
             logger.warn(
               `Python stats server (pid: ${this.pid}) stdout has unknown id: ${parsed.id}`,
-              parsed
+              parsed,
             );
             return;
           }
@@ -136,7 +136,7 @@ class PythonStatsServer<Input, Output> {
         } catch (e) {
           logger.error(
             `Python stats server (pid: ${this.pid}) failed to parse stdout: ${output}`,
-            e
+            e,
           );
           return;
         }
@@ -161,7 +161,7 @@ class PythonStatsServer<Input, Output> {
     // When the process dies
     this.python.on("close", (code, signal) => {
       logger.debug(
-        `Python stats server (pid: ${this.pid}) exited with code ${code} ${signal}. Destroying server.`
+        `Python stats server (pid: ${this.pid}) exited with code ${code} ${signal}. Destroying server.`,
       );
       this.destroy();
     });
@@ -172,7 +172,7 @@ class PythonStatsServer<Input, Output> {
       this.python.kill();
     }
     this.promises.forEach((promise) =>
-      promise.reject(new Error("Stats server killed"))
+      promise.reject(new Error("Stats server killed")),
     );
     this.promises = new Map();
   }
@@ -190,7 +190,7 @@ class PythonStatsServer<Input, Output> {
       // Timeout if the server doesn't respond within the defined timeout
       const timer = setTimeout(() => {
         logger.error(
-          `Python stats server (pid: ${this.pid}) call timed out for id ${id}`
+          `Python stats server (pid: ${this.pid}) call timed out for id ${id}`,
         );
         this.promises.delete(id);
         metrics.getCounter("python.stats_calls_rejected").increment();
@@ -200,17 +200,17 @@ class PythonStatsServer<Input, Output> {
       this.promises.set(id, {
         resolve: ({ results, time }) => {
           logger.debug(
-            `Python stats server (pid: ${this.pid}) Python time: ${time}`
+            `Python stats server (pid: ${this.pid}) Python time: ${time}`,
           );
           logger.debug(
             `Python stats server (pid: ${this.pid}) Typescript time: ${
               (Date.now() - start) / 1000
-            }`
+            }`,
           );
           logger.debug(
             `Python stats server (pid: ${
               this.pid
-            }) Average CPU: ${JSON.stringify(getAvgCPU(cpus, os.cpus()))}`
+            }) Average CPU: ${JSON.stringify(getAvgCPU(cpus, os.cpus()))}`,
           );
           clearTimeout(timer);
 
@@ -224,7 +224,7 @@ class PythonStatsServer<Input, Output> {
         reject: (reason?: Error) => {
           logger.error(
             `Python stats server (pid: ${this.pid}) failed for id ${id}`,
-            reason
+            reason,
           );
           clearTimeout(timer);
 
@@ -237,7 +237,7 @@ class PythonStatsServer<Input, Output> {
         },
       });
       logger.debug(
-        `Python stats server (pid: ${this.pid}) call started for id ${id}`
+        `Python stats server (pid: ${this.pid}) call started for id ${id}`,
       );
       this.python.stdin?.write(JSON.stringify({ id, data }) + "\n");
     });
@@ -261,7 +261,7 @@ export const statsServerPool = createPool(
     testOnBorrow: true,
     evictionRunIntervalMillis: 60000,
     numTestsPerEvictionRun: 2,
-  }
+  },
 );
 
 function publishPoolSizeToCloudWatch(value: number) {
@@ -282,17 +282,17 @@ function publishPoolSizeToCloudWatch(value: number) {
         if (error && ENVIRONMENT === "production") {
           logger.error(
             "Failed to publish Python stats pool size to CloudWatch (callback): " +
-              error.message
+              error.message,
           );
         }
-      }
+      },
     );
   } catch (error) {
     // When not running on AWS, no need to publish to cloudwatch or warn us every minute.
     if (ENVIRONMENT === "production") {
       logger.error(
         "Failed to publish Python stats pool size to CloudWatch: " +
-          error.message
+          error.message,
       );
     }
   }

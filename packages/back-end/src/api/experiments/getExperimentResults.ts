@@ -6,7 +6,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getExperimentResultsValidator } from "back-end/src/validators/openapi";
 
 export const getExperimentResults = createApiRequestHandler(
-  getExperimentResultsValidator
+  getExperimentResultsValidator,
 )(async (req): Promise<GetExperimentResultsResponse> => {
   const experiment = await getExperimentById(req.context, req.params.id);
   if (!experiment) {

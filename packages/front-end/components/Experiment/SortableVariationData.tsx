@@ -95,7 +95,7 @@ const Card = forwardRef<HTMLDivElement, VariationProps>(
         </div>
       </div>
     );
-  }
+  },
 );
 
 Card.displayName = "Card";

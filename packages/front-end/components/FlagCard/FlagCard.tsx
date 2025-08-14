@@ -85,12 +85,12 @@ export default function FlagCard({
           unadj.:&nbsp; [
           {deltaFormatter(
             data.stats.ci?.[0] ?? -Infinity,
-            deltaFormatterOptions
+            deltaFormatterOptions,
           )}
           ,{" "}
           {deltaFormatter(
             data.stats.ci?.[1] ?? Infinity,
-            deltaFormatterOptions
+            deltaFormatterOptions,
           )}
           ]
         </Text>
@@ -140,8 +140,8 @@ export default function FlagCard({
                 color: !data.rowResults.significant
                   ? undefined
                   : data.rowResults.directionalStatus === "winning"
-                  ? "var(--green-11)"
-                  : "var(--red-a12)",
+                    ? "var(--green-11)"
+                    : "var(--red-a12)",
               }}
             >
               {deltaFormatter(data.stats.expected ?? 0, deltaFormatterOptions)}
@@ -205,8 +205,8 @@ export default function FlagCard({
                     data.rowResults.riskMeta.riskStatus === "danger"
                       ? "var(--red-a11)"
                       : data.rowResults.riskMeta.riskStatus === "warning"
-                      ? "var(--amber-a11)"
-                      : undefined,
+                        ? "var(--amber-a11)"
+                        : undefined,
                 }}
               >
                 {data.rowResults.riskMeta.relativeRiskFormatted}
@@ -268,7 +268,7 @@ export default function FlagCard({
               {numberFormatter.format(enoughDataMeta.percentCompleteNumerator)}{" "}
               /{" "}
               {numberFormatter.format(
-                enoughDataMeta.percentCompleteDenominator
+                enoughDataMeta.percentCompleteDenominator,
               )}{" "}
               ({percentFormatter.format(enoughDataMeta.percentComplete)})
             </Text>

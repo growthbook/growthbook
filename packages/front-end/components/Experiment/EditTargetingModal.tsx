@@ -77,7 +77,7 @@ export default function EditTargetingModal({
   const { data: sdkConnectionsData } = useSDKConnections();
   const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
     sdkConnectionsData?.connections,
-    experiment.project
+    experiment.project,
   );
 
   const isBandit = experiment.type === "multi-armed-bandit";
@@ -575,8 +575,8 @@ function TargetingForm({
             changeType === "traffic" || type === "multi-armed-bandit"
               ? "Traffic Percentage"
               : changeType === "weights"
-              ? "Variation Weights"
-              : "Traffic Percentage & Variation Weights"
+                ? "Variation Weights"
+                : "Traffic Percentage & Variation Weights"
           }
           startEditingSplits={true}
         />

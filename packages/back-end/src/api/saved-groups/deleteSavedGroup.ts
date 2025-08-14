@@ -7,11 +7,11 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { deleteSavedGroupValidator } from "back-end/src/validators/openapi";
 
 export const deleteSavedGroup = createApiRequestHandler(
-  deleteSavedGroupValidator
+  deleteSavedGroupValidator,
 )(async (req): Promise<DeleteSavedGroupResponse> => {
   const savedGroup = await getSavedGroupById(
     req.params.id,
-    req.organization.id
+    req.organization.id,
   );
 
   if (!savedGroup) {

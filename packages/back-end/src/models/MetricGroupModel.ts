@@ -19,7 +19,7 @@ const BaseClass = MakeModelClass({
 export class MetricGroupModel extends BaseClass {
   protected canRead(metricGroup: MetricGroupInterface): boolean {
     return this.context.permissions.canReadMultiProjectResource(
-      metricGroup.projects
+      metricGroup.projects,
     );
   }
 

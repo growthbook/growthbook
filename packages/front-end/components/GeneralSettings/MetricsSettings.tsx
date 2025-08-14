@@ -16,7 +16,7 @@ export default function MetricsSettings() {
       ? "Using more historical data will slow down metric analysis queries"
       : "";
   const currencyOptions = Object.entries(supportedCurrencies).map(
-    ([value, label]) => ({ value, label })
+    ([value, label]) => ({ value, label }),
   );
   return (
     <Frame>

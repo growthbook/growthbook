@@ -8,7 +8,7 @@ import { deleteSdkConnectionValidator } from "back-end/src/validators/openapi";
 import { auditDetailsDelete } from "back-end/src/services/audit";
 
 export const deleteSdkConnection = createApiRequestHandler(
-  deleteSdkConnectionValidator
+  deleteSdkConnectionValidator,
 )(async (req): Promise<DeleteSdkConnectionResponse> => {
   const sdkConnection = await findSDKConnectionById(req.context, req.params.id);
   if (!sdkConnection) {

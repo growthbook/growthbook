@@ -28,7 +28,7 @@ export const getLatestSafeRolloutSnapshot = async (
     status: 200;
     snapshot?: SafeRolloutSnapshotInterface;
     latest?: SafeRolloutSnapshotInterface;
-  }>
+  }>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -65,7 +65,7 @@ export const postSafeRolloutSnapshot = async (
     status: 200 | 404;
     snapshot?: SafeRolloutSnapshotInterface;
     message?: string;
-  }>
+  }>,
 ) => {
   const context = getContextFromReq(req);
   const { id } = req.params;
@@ -103,7 +103,7 @@ export const postSafeRolloutSnapshot = async (
  */
 export const cancelSafeRolloutSnapshot = async (
   req: AuthRequest<null, { id: string }>,
-  res: Response<{ status: 200 | 400 | 404; message?: string }>
+  res: Response<{ status: 200 | 400 | 404; message?: string }>,
 ) => {
   const context = getContextFromReq(req);
   const { id } = req.params;
@@ -116,7 +116,7 @@ export const cancelSafeRolloutSnapshot = async (
   }
 
   const safeRollout = await context.models.safeRollout.getById(
-    snapshot.safeRolloutId
+    snapshot.safeRolloutId,
   );
   if (!safeRollout) {
     return res.status(404).json({
@@ -132,13 +132,13 @@ export const cancelSafeRolloutSnapshot = async (
 
   const integration = await getIntegrationFromDatasourceId(
     context,
-    snapshot.settings.datasourceId
+    snapshot.settings.datasourceId,
   );
 
   const queryRunner = new SafeRolloutResultsQueryRunner(
     context,
     snapshot,
-    integration
+    integration,
   );
   await queryRunner.cancelQueries();
   await context.models.safeRolloutSnapshots.deleteById(snapshot.id);
@@ -156,7 +156,7 @@ export const cancelSafeRolloutSnapshot = async (
  */
 export async function putSafeRolloutStatus(
   req: AuthRequest<{ status: "released" | "rolled-back" }, { id: string }>,
-  res: Response<{ status: 200 }>
+  res: Response<{ status: 200 }>,
 ) {
   const { id } = req.params;
   const { status } = req.body;
@@ -191,7 +191,7 @@ export async function putSafeRollout(
     },
     { id: string }
   >,
-  res: Response<{ status: 200 }>
+  res: Response<{ status: 200 }>,
 ) {
   const { id } = req.params;
   const { safeRolloutFields, environment } = req.body;
@@ -206,7 +206,7 @@ export async function putSafeRollout(
 
   const validatedSafeRolloutFields = await validateCreateSafeRolloutFields(
     safeRolloutFields,
-    context
+    context,
   );
 
   await context.models.safeRollout.update(safeRollout, {
@@ -228,7 +228,7 @@ export async function putSafeRollout(
  */
 export const getSafeRolloutTimeSeries = async (
   req: AuthRequest<null, { id: string }, { metricIds: string[] }>,
-  res: Response<{ status: 200; timeSeries: MetricTimeSeries[] }>
+  res: Response<{ status: 200; timeSeries: MetricTimeSeries[] }>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -265,7 +265,7 @@ export const getSafeRolloutTimeSeries = async (
  */
 export const getSafeRollouts = async (
   req: AuthRequest<null, null>,
-  res: Response<{ status: 200; safeRollouts: SafeRolloutInterface[] }>
+  res: Response<{ status: 200; safeRollouts: SafeRolloutInterface[] }>,
 ) => {
   const context = getContextFromReq(req);
 

@@ -111,7 +111,7 @@ describe("experiments", () => {
         include: () => {
           throw new Error("Blah");
         },
-      }).inExperiment
+      }).inExperiment,
     ).toEqual(false);
 
     // Should fail gracefully
@@ -119,14 +119,14 @@ describe("experiments", () => {
       throw new Error("Blah");
     };
     expect(
-      growthbook.run({ key: "my-test", variations: [0, 1] }).value
+      growthbook.run({ key: "my-test", variations: [0, 1] }).value,
     ).toEqual(1);
 
     growthbook.subscribe(() => {
       throw new Error("Blah");
     });
     expect(
-      growthbook.run({ key: "my-new-test", variations: [0, 1] }).value
+      growthbook.run({ key: "my-new-test", variations: [0, 1] }).value,
     ).toEqual(0);
 
     spy.mockRestore();
@@ -171,14 +171,14 @@ describe("experiments", () => {
         key: "my-test",
         variations: [0, 1],
         url: /^\/path/,
-      }).inExperiment
+      }).inExperiment,
     ).toEqual(true);
     expect(
       growthbook.run({
         key: "my-test",
         variations: [0, 1],
         url: /^\/bath/,
-      }).inExperiment
+      }).inExperiment,
     ).toEqual(false);
 
     growthbook.destroy();
@@ -285,7 +285,7 @@ describe("experiments", () => {
       growthbook.run({
         key: "my-test",
         variations: [0, 1],
-      }).inExperiment
+      }).inExperiment,
     ).toEqual(false);
 
     growthbook.destroy();
@@ -307,7 +307,7 @@ describe("experiments", () => {
         key: "my-test",
         variations: [0, 1],
         groups: ["internal", "qa"],
-      }).inExperiment
+      }).inExperiment,
     ).toEqual(false);
 
     expect(
@@ -315,14 +315,14 @@ describe("experiments", () => {
         key: "my-test",
         variations: [0, 1],
         groups: ["internal", "qa", "beta"],
-      }).inExperiment
+      }).inExperiment,
     ).toEqual(true);
 
     expect(
       growthbook.run({
         key: "my-test",
         variations: [0, 1],
-      }).inExperiment
+      }).inExperiment,
     ).toEqual(true);
 
     growthbook.destroy();
@@ -350,7 +350,7 @@ describe("experiments", () => {
         key: "my-test",
         variations: [0, 1],
         include: () => false,
-      }).inExperiment
+      }).inExperiment,
     ).toEqual(false);
 
     growthbook.destroy();
@@ -433,7 +433,7 @@ describe("experiments", () => {
       growthbook.run({
         key: "my-test",
         variations: [0, 1],
-      }).value
+      }).value,
     ).toEqual(1);
 
     spy.mockRestore();

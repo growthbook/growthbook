@@ -22,7 +22,7 @@ export class PastExperimentsQueryRunner extends QueryRunner<
 > {
   checkPermissions(): boolean {
     return this.context.permissions.canRunPastExperimentQueries(
-      this.integration.datasource
+      this.integration.datasource,
     );
   }
 
@@ -131,7 +131,7 @@ export class PastExperimentsQueryRunner extends QueryRunner<
       // Make sure total weight adds to 1 (if not, increase the control until it does)
       const newTotalWeight = exp.weights.reduce(
         (sum, weight) => sum + weight,
-        0
+        0,
       );
       if (newTotalWeight < 100) {
         exp.weights[0] += 100 - newTotalWeight;
@@ -144,7 +144,7 @@ export class PastExperimentsQueryRunner extends QueryRunner<
   async getLatestModel(): Promise<PastExperimentsInterface> {
     const model = await getPastExperimentsById(
       this.model.organization,
-      this.model.id
+      this.model.id,
     );
     if (!model) throw new Error("Could not find past experiments model");
     return model;
@@ -180,7 +180,7 @@ export class PastExperimentsQueryRunner extends QueryRunner<
   private processPastExperimentQueryResponse(
     rows: PastExperimentResponseRows,
     merge: boolean,
-    from: Date
+    from: Date,
   ): PastExperimentResult {
     const fromBuffer = new Date(from);
     fromBuffer.setDate(fromBuffer.getDate() + 2);

@@ -144,15 +144,14 @@ const checkAuth = async <T extends string | "user">({
 
 const getOrgFromInstallationResource = async <T>(
   installationId: string,
-  resourceId?: T
+  resourceId?: T,
 ): Promise<{
   org: OrganizationInterface;
   integration: VercelNativeIntegration;
   resource: T extends string ? Resource : undefined;
 }> => {
-  const integration = await findVercelInstallationByInstallationId(
-    installationId
-  );
+  const integration =
+    await findVercelInstallationByInstallationId(installationId);
 
   if (!integration) throw new Error("Invalid installation!");
 
@@ -307,7 +306,7 @@ export async function upsertInstallation(req: Request, res: Response) {
 
   const user = await findOrCreateUser(
     payload.account.contact.email,
-    payload.account.name
+    payload.account.name,
   );
 
   const org = await createOrganization({
@@ -342,7 +341,7 @@ export async function getInstallation(req: Request, res: Response) {
 
   // billingPlan is not initially set.
   const billingPlan = billingPlans.find(
-    ({ id }) => id === integration.billingPlanId
+    ({ id }) => id === integration.billingPlanId,
   );
 
   return res.json({ billingPlan });
@@ -351,7 +350,7 @@ export async function getInstallation(req: Request, res: Response) {
 export async function updateInstallation(req: Request, res: Response) {
   const { integration, integrationModel, org, user } = await authContext(
     req,
-    res
+    res,
   );
 
   const { billingPlanId } = req.body as UpdateInstallation;
@@ -368,12 +367,12 @@ export async function updateInstallation(req: Request, res: Response) {
         const result = await postNewVercelSubscriptionToLicenseServer(
           org,
           req.params.installation_id,
-          user?.name || ""
+          user?.name || "",
         );
         await updateOrganization(org.id, { licenseKey: result.id });
       } catch (e) {
         throw new Error(
-          `Unable to create new subscription. Reason: ${e.message} || "Unknown`
+          `Unable to create new subscription. Reason: ${e.message} || "Unknown`,
         );
       }
     } else {
@@ -389,7 +388,7 @@ export async function updateInstallation(req: Request, res: Response) {
         await postCancelSubscriptionToLicenseServer(license.id);
       } catch (e) {
         throw new Error(
-          `Unable to cancel subscription. Reason: ${e.message} || "Unknown`
+          `Unable to cancel subscription. Reason: ${e.message} || "Unknown`,
         );
       }
     }
@@ -403,7 +402,7 @@ export async function updateInstallation(req: Request, res: Response) {
 export async function deleteInstallation(req: Request, res: Response) {
   const { context, integrationModel, integration, org } = await authContext(
     req,
-    res
+    res,
   );
 
   if (integration.billingPlanId === "pro-billing-plan") {
@@ -424,7 +423,7 @@ export async function deleteInstallation(req: Request, res: Response) {
     {
       isVercelIntegration: false,
     },
-    { restrictLoginMethod: 1 }
+    { restrictLoginMethod: 1 },
   );
 
   //MKTODO: Remove the finalized: true before we ship this to production
@@ -458,12 +457,12 @@ export async function provisionResource(req: Request, res: Response) {
         const result = await postNewVercelSubscriptionToLicenseServer(
           updatedOrg,
           req.params.installation_id,
-          user?.name || ""
+          user?.name || "",
         );
         await updateOrganization(org.id, { licenseKey: result.id });
       } catch (e) {
         throw new Error(
-          `Unable to create new subscription. Reason: ${e.message} || "Unknown`
+          `Unable to create new subscription. Reason: ${e.message} || "Unknown`,
         );
       }
     }
@@ -531,7 +530,7 @@ export async function getResource(req: Request, res: Response) {
 export async function updateResource(req: Request, res: Response) {
   const { org, integrationModel, integration, resource } = await authContext(
     req,
-    res
+    res,
   );
 
   if (!resource) return res.status(400).send("Resource not found!");
@@ -545,7 +544,7 @@ export async function updateResource(req: Request, res: Response) {
 
   await integrationModel.update(integration, {
     resources: integration.resources.map((r) =>
-      r.id === resource.id ? updatedResource : r
+      r.id === resource.id ? updatedResource : r,
     ),
   });
 
@@ -562,7 +561,7 @@ export async function getInstallationProducts(req: Request, res: Response) {
 
 async function removeManagedBy(
   context: ReqContext,
-  managedBy: Partial<ManagedBy>
+  managedBy: Partial<ManagedBy>,
 ) {
   await updateSdkConnectionsRemoveManagedBy(context, managedBy);
   await context.models.projects.removeManagedBy(managedBy);
@@ -593,7 +592,7 @@ export async function getProducts(req: Request, res: Response) {
   if (!slug) return res.status(400).send("Invalid request!");
 
   const existingBillingPlan = billingPlans.find(
-    ({ id }) => id === integration.billingPlanId
+    ({ id }) => id === integration.billingPlanId,
   );
 
   if (!existingBillingPlan) {
@@ -629,20 +628,19 @@ export async function postVercelIntegrationSSO(req: Request, res: Response) {
     },
   } = checkedToken;
 
-  const vercelInstallation = await findVercelInstallationByInstallationId(
-    installationId
-  );
+  const vercelInstallation =
+    await findVercelInstallationByInstallationId(installationId);
 
   if (!vercelInstallation)
     return res
       .status(400)
       .send(
-        `Could not find installation for installationId: ${installationId}`
+        `Could not find installation for installationId: ${installationId}`,
       );
 
   const { org, resource } = await getOrgFromInstallationResource(
     installationId,
-    resourceId
+    resourceId,
   );
 
   const user = await findOrCreateUser(userEmail);

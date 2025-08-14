@@ -57,7 +57,7 @@ export default function DataVizConfigPanel({
 
       return "string";
     },
-    [sampleRow]
+    [sampleRow],
   );
 
   const axisKeys = useMemo(() => {
@@ -215,7 +215,7 @@ export default function DataVizConfigPanel({
             label="X Axis"
             value={
               requiresXAxis(dataVizConfig)
-                ? dataVizConfig.xAxis?.fieldName ?? ""
+                ? (dataVizConfig.xAxis?.fieldName ?? "")
                 : ""
             }
             setValue={(v) => {
@@ -230,9 +230,9 @@ export default function DataVizConfigPanel({
                     type !== "string"
                       ? "asc"
                       : requiresXAxis(dataVizConfig) &&
-                        dataVizConfig.xAxis?.sort
-                      ? dataVizConfig.xAxis.sort
-                      : "none",
+                          dataVizConfig.xAxis?.sort
+                        ? dataVizConfig.xAxis.sort
+                        : "none",
                   // TODO: infer date aggregation unit based on data
                   dateAggregationUnit: "day",
                 },
@@ -384,8 +384,8 @@ export default function DataVizConfigPanel({
                       type === "string" || type === "date"
                         ? "count"
                         : oldType !== "number" && type === "number"
-                        ? "sum"
-                        : dataVizConfig.yAxis?.[0]?.aggregation || "sum",
+                          ? "sum"
+                          : dataVizConfig.yAxis?.[0]?.aggregation || "sum",
                   },
                 ],
               });
@@ -482,7 +482,7 @@ export default function DataVizConfigPanel({
             label="Dimension"
             value={
               supportsDimension(dataVizConfig)
-                ? dataVizConfig.dimension?.[0]?.fieldName ?? ""
+                ? (dataVizConfig.dimension?.[0]?.fieldName ?? "")
                 : ""
             }
             setValue={(v) => {
@@ -491,9 +491,9 @@ export default function DataVizConfigPanel({
                 dataVizConfig.chartType !== "bar"
                   ? "grouped"
                   : supportsDimension(dataVizConfig) &&
-                    dataVizConfig.dimension?.[0]?.display
-                  ? dataVizConfig.dimension[0].display
-                  : "grouped";
+                      dataVizConfig.dimension?.[0]?.display
+                    ? dataVizConfig.dimension[0].display
+                    : "grouped";
               onDataVizConfigChange({
                 ...dataVizConfig,
                 dimension: shouldRemove

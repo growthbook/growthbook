@@ -7,7 +7,7 @@ import {
 import { putVisualChangeValidator } from "back-end/src/validators/openapi";
 
 export const putVisualChange = createApiRequestHandler(
-  putVisualChangeValidator
+  putVisualChangeValidator,
 )(async (req): Promise<PutVisualChangeResponse> => {
   const changesetId = req.params.id;
   const visualChangeId = req.params.visualChangeId;
@@ -16,7 +16,7 @@ export const putVisualChange = createApiRequestHandler(
 
   const experiment = await findExperimentByVisualChangesetId(
     req.context,
-    changesetId
+    changesetId,
   );
 
   if (!experiment) {

@@ -83,7 +83,7 @@ const UrlRedirectModal: FC<{
           const initialArray = Array(experiment.variations.length).fill(true);
           initialArray[0] = false;
           return initialArray;
-        }
+        },
   );
 
   const onSubmit = form.handleSubmit(async (value) => {
@@ -103,7 +103,7 @@ const UrlRedirectModal: FC<{
         {
           method: "POST",
           body: JSON.stringify({ ...payload, experiment: experiment.id }),
-        }
+        },
       );
       mutate();
     } else {
@@ -112,7 +112,7 @@ const UrlRedirectModal: FC<{
         {
           method: "PUT",
           body: JSON.stringify(payload),
-        }
+        },
       );
       mutate();
     }
@@ -225,7 +225,7 @@ const UrlRedirectModal: FC<{
               if (
                 destinationMatchesOrigin &&
                 Array.from(variantUrl.searchParams.keys()).some(
-                  (k) => !originUrl.searchParams.has(k)
+                  (k) => !originUrl.searchParams.has(k),
                 )
               ) {
                 warning = (

@@ -80,7 +80,7 @@ export const DemoDataSourcePage: FC<DemoDataSourcePageProps> = ({
 
 export async function deleteDemoDatasource(
   orgId: string | undefined,
-  apiCall: AuthContextValue["apiCall"]
+  apiCall: AuthContextValue["apiCall"],
 ) {
   if (!orgId) throw new Error("Missing organization id");
   const demoDataSourceProjectId =
@@ -89,7 +89,7 @@ export async function deleteDemoDatasource(
     `/projects/${demoDataSourceProjectId}?deleteExperiments=1&deleteFeatures=1&deleteMetrics=1&deleteSlackIntegrations=1&deleteDataSources=1`,
     {
       method: "DELETE",
-    }
+    },
   );
 }
 
@@ -105,7 +105,7 @@ export function DeleteDemoDatasourceButton({
   const { mutateDefinitions, setProject, project } = useDefinitions();
 
   const demoProjectId = getDemoDatasourceProjectIdForOrganization(
-    organization.id
+    organization.id,
   );
 
   const permissionsUtil = usePermissionsUtil();
@@ -183,7 +183,7 @@ export const DemoDataSourcePageContainer = () => {
         setError(e.message);
       } else {
         setError(
-          "An unknown error occurred when creating the demo datasource project"
+          "An unknown error occurred when creating the demo datasource project",
         );
       }
     }
@@ -211,7 +211,7 @@ export const DemoDataSourcePageContainer = () => {
         setError(e.message);
       } else {
         setError(
-          "An unknown error occurred when deleting the demo datasource project"
+          "An unknown error occurred when deleting the demo datasource project",
         );
       }
     }

@@ -10,11 +10,11 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { putVisualChangesetValidator } from "back-end/src/validators/openapi";
 
 export const putVisualChangeset = createApiRequestHandler(
-  putVisualChangesetValidator
+  putVisualChangesetValidator,
 )(async (req): Promise<PutVisualChangesetResponse> => {
   const visualChangeset = await findVisualChangesetById(
     req.params.id,
-    req.organization.id
+    req.organization.id,
   );
   if (!visualChangeset) {
     throw new Error("Visual Changeset not found");
@@ -22,7 +22,7 @@ export const putVisualChangeset = createApiRequestHandler(
 
   const experiment = await getExperimentById(
     req.context,
-    visualChangeset.experiment
+    visualChangeset.experiment,
   );
 
   if (!experiment) {
@@ -42,7 +42,7 @@ export const putVisualChangeset = createApiRequestHandler(
 
   const updatedVisualChangeset = await findVisualChangesetById(
     req.params.id,
-    req.organization.id
+    req.organization.id,
   );
 
   return {

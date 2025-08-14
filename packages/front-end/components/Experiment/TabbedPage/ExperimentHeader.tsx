@@ -162,7 +162,7 @@ export default function ExperimentHeader({
 
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [shareLevel, setShareLevel] = useState<ShareLevel>(
-    experiment.shareLevel || "organization"
+    experiment.shareLevel || "organization",
   );
   const [saveShareLevelStatus, setSaveShareLevelStatus] = useState<
     null | "loading" | "success" | "fail"
@@ -181,7 +181,7 @@ export default function ExperimentHeader({
     ? getDatasourceById(experiment.datasource)?.settings
     : undefined;
   const userIdType = datasourceSettings?.queries?.exposure?.find(
-    (e) => e.id === experiment.exposureQueryId
+    (e) => e.id === experiment.exposureQueryId,
   )?.userIdType;
 
   const reportArgs: ExperimentSnapshotReportArgs = {
@@ -216,11 +216,11 @@ export default function ExperimentHeader({
   const [showStartExperiment, setShowStartExperiment] = useState(false);
 
   const hasMultiArmedBanditFeature = hasCommercialFeature(
-    "multi-armed-bandits"
+    "multi-armed-bandits",
   );
 
   const hasUpdatePermissions = permissionsUtil.canViewExperimentModal(
-    experiment.project
+    experiment.project,
   );
   const canDeleteExperiment = permissionsUtil.canDeleteExperiment(experiment);
   const canEditExperiment = !experiment.archived && hasUpdatePermissions;
@@ -247,7 +247,7 @@ export default function ExperimentHeader({
     useRunningExperimentStatus();
 
   const decisionCriteria = getDecisionCriteria(
-    experiment.decisionFrameworkSettings?.decisionCriteriaId
+    experiment.decisionFrameworkSettings?.decisionCriteriaId,
   );
 
   const runningExperimentStatus = getRunningExperimentResultStatus(experiment);
@@ -265,7 +265,7 @@ export default function ExperimentHeader({
       `/user/${watch ? "watch" : "unwatch"}/experiment/${experiment.id}`,
       {
         method: "POST",
-      }
+      },
     );
     refreshWatching();
     mutateWatchers();
@@ -313,14 +313,14 @@ export default function ExperimentHeader({
           setSaveShareLevelStatus("success");
           saveShareLevelTimeout.current = window.setTimeout(
             () => setSaveShareLevelStatus(null),
-            SAVE_SETTING_TIMEOUT_MS
+            SAVE_SETTING_TIMEOUT_MS,
           );
         })
         .catch(() => {
           setSaveShareLevelStatus("fail");
           saveShareLevelTimeout.current = window.setTimeout(
             () => setSaveShareLevelStatus(null),
-            SAVE_SETTING_TIMEOUT_MS
+            SAVE_SETTING_TIMEOUT_MS,
           );
         });
       track("Experiment: Set Share Level", {
@@ -469,11 +469,11 @@ export default function ExperimentHeader({
                         .map((_, i) =>
                           i < 3
                             ? formatPercent(
-                                1 / (experiment.variations.length ?? 2)
+                                1 / (experiment.variations.length ?? 2),
                               )
                             : i === 3
-                            ? "..."
-                            : null
+                              ? "..."
+                              : null,
                         )
                         .filter(Boolean)
                         .join(", ")}
@@ -512,7 +512,7 @@ export default function ExperimentHeader({
                 {
                   method: "DELETE",
                   body: JSON.stringify({ id: experiment.id }),
-                }
+                },
               );
               router.push(isBandit ? "/bandits" : "/experiments");
             } catch (e) {
@@ -547,7 +547,7 @@ export default function ExperimentHeader({
                 }`,
                 {
                   method: "POST",
-                }
+                },
               );
               mutate();
             } catch (e) {
@@ -671,7 +671,7 @@ export default function ExperimentHeader({
                       isBandit &&
                       !experimentHasLiveLinkedChanges(
                         experiment,
-                        linkedFeatures
+                        linkedFeatures,
                       )
                     }
                     body="Add at least one live Linked Feature, Visual Editor change, or URL Redirect before starting."
@@ -686,7 +686,7 @@ export default function ExperimentHeader({
                         isBandit &&
                         !experimentHasLiveLinkedChanges(
                           experiment,
-                          linkedFeatures
+                          linkedFeatures,
                         )
                       }
                     >
@@ -853,7 +853,7 @@ export default function ExperimentHeader({
                         body: reportArgs
                           ? JSON.stringify(reportArgs)
                           : undefined,
-                      }
+                      },
                     );
                     if (!res.report) {
                       throw new Error("Failed to create report");

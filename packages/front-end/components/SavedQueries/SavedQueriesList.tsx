@@ -49,7 +49,7 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
       });
       mutate();
     },
-    [apiCall, mutate]
+    [apiCall, mutate],
   );
 
   const handleEdit = useCallback((query: SavedQuery) => {
@@ -71,7 +71,7 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
         ? permissionsUtil.canUpdateSqlExplorerQueries(datasource, {})
         : false;
     },
-    [getDatasourceById, permissionsUtil]
+    [getDatasourceById, permissionsUtil],
   );
 
   const canDelete = useCallback(
@@ -81,7 +81,7 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
         ? permissionsUtil.canDeleteSqlExplorerQueries(datasource)
         : false;
     },
-    [getDatasourceById, permissionsUtil]
+    [getDatasourceById, permissionsUtil],
   );
 
   return (
@@ -220,7 +220,7 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                                                 ) : null}
                                               </Fragment>
                                             );
-                                          }
+                                          },
                                         )}
                                       </ul>
                                     </div>
@@ -239,7 +239,7 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                             onClick={(e) => {
                               e.preventDefault();
                               setShowReferences(
-                                showReferences !== i ? i : null
+                                showReferences !== i ? i : null,
                               );
                             }}
                           >

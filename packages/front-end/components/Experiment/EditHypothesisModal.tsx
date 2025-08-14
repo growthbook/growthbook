@@ -72,13 +72,13 @@ export default function EditHypothesisModal({
               const hours = Math.floor(retryAfter / 3600);
               const minutes = Math.floor((retryAfter % 3600) / 60);
               setError(
-                `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`
+                `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`,
               );
             } else {
               setError("Error getting AI suggestion");
             }
             setLoading(false);
-          }
+          },
         )
           .then((res: { data: { output: string } }) => {
             setAiResponse(res.data.output);

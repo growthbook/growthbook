@@ -69,7 +69,7 @@ export default function DashboardSnapshotProvider({
     snapshot: ExperimentSnapshotInterface;
   }>(`/experiment/${experiment.id}/snapshot/${experiment.phases.length - 1}`);
   const [refreshError, setRefreshError] = useState<string | undefined>(
-    undefined
+    undefined,
   );
 
   const {
@@ -91,19 +91,19 @@ export default function DashboardSnapshotProvider({
       allSnapshotsData?.snapshots || [],
       allSnapshotsData?.savedQueries || [],
     ],
-    [allSnapshotsData]
+    [allSnapshotsData],
   );
 
   const savedQueriesMap = useMemo(
     () =>
       new Map(allSavedQueries.map((savedQuery) => [savedQuery.id, savedQuery])),
-    [allSavedQueries]
+    [allSavedQueries],
   );
 
   const { status, snapshotsMap, allQueries } = useMemo(() => {
     const snapshotsMap = new Map(allSnapshots.map((snap) => [snap.id, snap]));
     const allQueries = allSnapshots.flatMap(
-      (snapshot) => snapshot.queries || []
+      (snapshot) => snapshot.queries || [],
     );
     const { status } = getQueryStatus(allQueries);
     return { status, snapshotsMap, allQueries };
@@ -113,8 +113,8 @@ export default function DashboardSnapshotProvider({
     const dashboardSnapshotIds = [
       ...new Set(
         (dashboard?.blocks?.map((block) => block.snapshotId) || []).filter(
-          isDefined
-        )
+          isDefined,
+        ),
       ),
     ];
     if (dashboardSnapshotIds.some((snapId) => !snapshotsMap.has(snapId))) {
@@ -179,7 +179,7 @@ export function useDashboardSnapshot(
   block?: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
   setBlock?: React.Dispatch<
     DashboardBlockInterfaceOrData<DashboardBlockInterface>
-  >
+  >,
 ) {
   const {
     experiment,
@@ -245,7 +245,7 @@ export function useDashboardSnapshot(
       const res = await apiCall<{ snapshot?: ExperimentSnapshotInterface }>(
         `/experiment/${experiment.id}/snapshot/${
           experiment.phases.length - 1
-        }/${dimension}`
+        }/${dimension}`,
       );
       setBlock({ ...block, snapshotId: res.snapshot?.id ?? "" });
       setFetchingSnapshot(false);

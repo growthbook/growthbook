@@ -11,7 +11,7 @@ import {
 import { listDataSourcesValidator } from "back-end/src/validators/openapi";
 
 export const listDataSources = createApiRequestHandler(
-  listDataSourcesValidator
+  listDataSourcesValidator,
 )(async (req): Promise<ListDataSourcesResponse> => {
   const dataSources = await getDataSourcesByOrganization(req.context);
 
@@ -19,15 +19,15 @@ export const listDataSources = createApiRequestHandler(
   const { filtered, returnFields } = applyPagination(
     dataSources
       .filter((datasource) =>
-        applyFilter(req.query.projectId, datasource.projects, true)
+        applyFilter(req.query.projectId, datasource.projects, true),
       )
       .sort((a, b) => a.id.localeCompare(b.id)),
-    req.query
+    req.query,
   );
 
   return {
     dataSources: filtered.map((dataSource) =>
-      toDataSourceApiInterface(dataSource)
+      toDataSourceApiInterface(dataSource),
     ),
     ...returnFields,
   };

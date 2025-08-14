@@ -10,7 +10,7 @@ import {
 import { listFactTableFiltersValidator } from "back-end/src/validators/openapi";
 
 export const listFactTableFilters = createApiRequestHandler(
-  listFactTableFiltersValidator
+  listFactTableFiltersValidator,
 )(async (req): Promise<ListFactTableFiltersResponse> => {
   const factTable = await getFactTable(req.context, req.params.factTableId);
   if (!factTable) {
@@ -20,12 +20,12 @@ export const listFactTableFilters = createApiRequestHandler(
   // TODO: Move sorting/limiting to the database query for better performance
   const { filtered, returnFields } = applyPagination(
     factTable.filters.sort((a, b) => a.id.localeCompare(b.id)),
-    req.query
+    req.query,
   );
 
   return {
     factTableFilters: filtered.map((filter) =>
-      toFactTableFilterApiInterface(factTable, filter.id)
+      toFactTableFilterApiInterface(factTable, filter.id),
     ),
     ...returnFields,
   };

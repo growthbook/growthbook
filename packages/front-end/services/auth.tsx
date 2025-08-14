@@ -29,7 +29,7 @@ type ErrorHandler = (responseData: any) => void;
 export type ApiCallType<T> = (
   url: string,
   options?: RequestInit,
-  errorHandler?: ErrorHandler
+  errorHandler?: ErrorHandler,
 ) => Promise<T>;
 
 export interface AuthContextValue {
@@ -39,7 +39,7 @@ export interface AuthContextValue {
   apiCall: <T>(
     url: string | null,
     options?: RequestInit,
-    errorHandler?: ErrorHandler
+    errorHandler?: ErrorHandler,
   ) => Promise<T>;
   orgId: string | null;
   setOrgId?: (orgId: string) => void;
@@ -136,7 +136,7 @@ const isUnregisteredCloudUser = () => {
 
   try {
     const currentProject = window.localStorage.getItem(
-      LOCALSTORAGE_PROJECT_KEY
+      LOCALSTORAGE_PROJECT_KEY,
     );
     return currentProject === null;
   } catch (_) {
@@ -244,7 +244,7 @@ export const AuthProvider: React.FC<{
             <p>
               You must sign in with your Enterprise SSO provider to continue.
             </p>
-          </Modal>
+          </Modal>,
         );
       } else {
         try {
@@ -252,7 +252,7 @@ export const AuthProvider: React.FC<{
             window.location.pathname + (window.location.search || "");
           window.sessionStorage.setItem(
             "postAuthRedirectPath",
-            redirectAddress
+            redirectAddress,
           );
         } catch (e) {
           // ignore
@@ -277,7 +277,7 @@ export const AuthProvider: React.FC<{
             }
             setAuthComponent(null);
           }}
-        />
+        />,
       );
     } else {
       console.log(resp);
@@ -334,14 +334,14 @@ export const AuthProvider: React.FC<{
 
       return responseData;
     },
-    [orgId]
+    [orgId],
   );
 
   const apiCall = useCallback(
     async (
       url: string | null,
       options: RequestInit = {},
-      errorHandler: ErrorHandler | null = null
+      errorHandler: ErrorHandler | null = null,
     ) => {
       if (typeof url !== "string") return;
 
@@ -365,7 +365,7 @@ export const AuthProvider: React.FC<{
                 window.location.pathname + (window.location.search || "");
               window.sessionStorage.setItem(
                 "postAuthRedirectPath",
-                redirectAddress
+                redirectAddress,
               );
             } catch (e) {
               // ignore
@@ -375,7 +375,7 @@ export const AuthProvider: React.FC<{
           }
           setSessionError(true);
           throw new Error(
-            "Your session has expired. Refresh the page to continue."
+            "Your session has expired. Refresh the page to continue.",
           );
         }
 
@@ -387,7 +387,7 @@ export const AuthProvider: React.FC<{
 
       return responseData;
     },
-    [token, _makeApiCall]
+    [token, _makeApiCall],
   );
 
   const wrappedSetOrganizations = useCallback(
@@ -424,7 +424,7 @@ export const AuthProvider: React.FC<{
         }
       }
     },
-    [initialOrgId, orgId, router.query.org, specialOrg?.id]
+    [initialOrgId, orgId, router.query.org, specialOrg?.id],
   );
 
   if (initError) {
@@ -521,7 +521,7 @@ export const AuthProvider: React.FC<{
 export function roleHasAccessToEnv(
   role: MemberRoleInfo,
   env: string,
-  org: Partial<OrganizationInterface>
+  org: Partial<OrganizationInterface>,
 ): "yes" | "no" | "N/A" {
   if (!roleSupportsEnvLimit(role.role, org)) return "N/A";
 

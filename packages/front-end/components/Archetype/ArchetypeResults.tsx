@@ -142,7 +142,7 @@ const ArchetypeResults: FC<{
                   code={JSON.stringify(
                     JSON.parse(details.archetype.attributes),
                     null,
-                    2
+                    2,
                   )}
                 />
               </div>
@@ -154,7 +154,7 @@ const ArchetypeResults: FC<{
                     code={JSON.stringify(
                       details.results.result.experimentResult,
                       null,
-                      2
+                      2,
                     )}
                   />
                 </div>
@@ -175,7 +175,7 @@ const ArchetypeResults: FC<{
                   code={JSON.stringify(
                     details.results?.featureDefinition,
                     null,
-                    2
+                    2,
                   )}
                 />
               </div>
@@ -278,7 +278,7 @@ const ArchetypeResults: FC<{
                             <span className="text-muted">disabled</span>
                           )}
                         </td>
-                      )
+                      ),
                     )}
                 </tr>
                 {showExpandedResults &&
@@ -286,8 +286,8 @@ const ArchetypeResults: FC<{
                     <>
                       {expandedResults(
                         detailsMap.get(
-                          showExpandedResultsId + showExpandedResultsEnv
-                        )
+                          showExpandedResultsId + showExpandedResultsEnv,
+                        ),
                       )}
                     </>
                   )}

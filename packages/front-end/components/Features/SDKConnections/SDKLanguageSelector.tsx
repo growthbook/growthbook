@@ -109,7 +109,7 @@ export default function SDKLanguageSelector({
   const filterLanguages = (languages: SDKLanguage[]): SDKLanguage[] => {
     if (includeAll) return languages;
     return languages.filter(
-      (language) => !limitLanguages || limitLanguages.includes(language)
+      (language) => !limitLanguages || limitLanguages.includes(language),
     );
   };
 

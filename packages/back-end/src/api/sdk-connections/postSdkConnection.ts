@@ -9,7 +9,7 @@ import { auditDetailsCreate } from "back-end/src/services/audit";
 import { validatePostPayload } from "./validations";
 
 export const postSdkConnection = createApiRequestHandler(
-  postSdkConnectionValidator
+  postSdkConnectionValidator,
 )(async (req): Promise<PostSdkConnectionResponse> => {
   const params = {
     ...(await validatePostPayload(req.context, req.body)),

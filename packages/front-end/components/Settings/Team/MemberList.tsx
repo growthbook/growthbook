@@ -55,7 +55,7 @@ const MemberList: FC<{
   const roleModalUser = users.get(roleModal);
 
   const members = Array.from(users).sort((a, b) =>
-    a[1].name.localeCompare(b[1].name)
+    a[1].name.localeCompare(b[1].name),
   );
 
   const membersList: ExpandedMember[] =
@@ -199,7 +199,7 @@ const MemberList: FC<{
                       const access = roleHasAccessToEnv(
                         roleInfo,
                         env.id,
-                        organization
+                        organization,
                       );
                       return (
                         <td key={env.id}>

@@ -24,5 +24,5 @@ export type DiscussionDocument = mongoose.Document & DiscussionInterface;
 
 export const DiscussionModel = mongoose.model<DiscussionInterface>(
   "Discussion",
-  discussionSchema
+  discussionSchema,
 );

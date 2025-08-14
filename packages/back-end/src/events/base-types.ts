@@ -130,7 +130,7 @@ export type NotificationEventResource = keyof NotificationEvents;
  * Supported resources for event notifications
  */
 export const notificationEventResources = Object.keys(
-  notificationEvents
+  notificationEvents,
 ) as NotificationEventResource[];
 
 // Only use this for zod validations!
@@ -153,10 +153,10 @@ export const notificationEventNames = (
   (names, key) => [
     ...names,
     ...Object.keys(notificationEvents[key]).map(
-      (name) => `${key}.${name}` as NotificationEventName
+      (name) => `${key}.${name}` as NotificationEventName,
     ),
   ],
-  [] as NotificationEventName[]
+  [] as NotificationEventName[],
 );
 
 // Only use this for zod validations!
@@ -172,8 +172,9 @@ type OptionalNotificationEventNames<R> = R extends NotificationEventResource
 
 export type LegacyNotificationEventPayload<
   ResourceType extends NotificationEventResource | undefined,
-  EventName extends OptionalNotificationEventNames<ResourceType> = OptionalNotificationEventNames<ResourceType>,
-  DataType = never
+  EventName extends
+    OptionalNotificationEventNames<ResourceType> = OptionalNotificationEventNames<ResourceType>,
+  DataType = never,
 > = {
   event: EventName;
   object: ResourceType;
@@ -187,7 +188,7 @@ export type LegacyNotificationEventPayload<
 
 export type NotificationEventPayloadSchemaType<
   Resource extends NotificationEventResource,
-  Event extends ResourceEvents<Resource>
+  Event extends ResourceEvents<Resource>,
 > = NotificationEvents[Resource][Event] extends {
   schema: ZodType<infer T, infer U, infer V>;
 }
@@ -196,7 +197,7 @@ export type NotificationEventPayloadSchemaType<
 
 export type NotificationEventPayloadExtraAttributes<
   Resource extends NotificationEventResource,
-  Event extends ResourceEvents<Resource>
+  Event extends ResourceEvents<Resource>,
 > = NotificationEvents[Resource][Event] extends {
   extra: ZodType<infer T, infer U, infer V>;
 }
@@ -205,10 +206,10 @@ export type NotificationEventPayloadExtraAttributes<
 
 export const notificationEventPayloadData = <
   Resource extends NotificationEventResource,
-  Event extends ResourceEvents<Resource>
+  Event extends ResourceEvents<Resource>,
 >(
   resource: Resource,
-  event: Event
+  event: Event,
 ) => {
   const data = notificationEvents[resource][event] as WebhookEntry;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -232,7 +233,7 @@ export type NotificationEventPayloadDataType<
   Resource extends NotificationEventResource,
   Event extends ResourceEvents<Resource>,
   Obj = NotificationEventPayloadSchemaType<Resource, Event>,
-  PreviousAttributes = Partial<Obj>
+  PreviousAttributes = Partial<Obj>,
 > = NotificationEvents[Resource][Event] extends {
   isDiff: true;
 }
@@ -247,7 +248,7 @@ export type NotificationEventPayloadDataType<
  */
 export type NotificationEventPayload<
   Resource extends NotificationEventResource,
-  Event extends ResourceEvents<Resource>
+  Event extends ResourceEvents<Resource>,
 > = {
   event: `${Resource}.${Event}`;
   object: Resource;
@@ -263,10 +264,10 @@ export type NotificationEventPayload<
 
 export const notificationEventPayload = <
   Resource extends NotificationEventResource,
-  Event extends ResourceEvents<Resource>
+  Event extends ResourceEvents<Resource>,
 >(
   resource: Resource,
-  event: Event
+  event: Event,
 ) =>
   z.object({
     event: z.literal(`${resource}.${event}`),

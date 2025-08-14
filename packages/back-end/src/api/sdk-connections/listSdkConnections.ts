@@ -14,7 +14,7 @@ import { listSdkConnectionsValidator } from "back-end/src/validators/openapi";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 
 export const listSdkConnections = createApiRequestHandler(
-  listSdkConnectionsValidator
+  listSdkConnectionsValidator,
 )(async (req): Promise<ListSdkConnectionsResponse> => {
   let connections: SDKConnectionInterface[] = [];
 
@@ -30,19 +30,19 @@ export const listSdkConnections = createApiRequestHandler(
       .filter(
         (c) =>
           (!req.query.withProxy || c.proxy?.enabled) &&
-          applyFilter(req.query.projectId, c.projects, true)
+          applyFilter(req.query.projectId, c.projects, true),
       )
       .filter((c) => {
         if (!req.query.withProxy) return true;
         return c.proxy?.enabled;
       })
       .sort((a, b) => a.dateCreated.getTime() - b.dateCreated.getTime()),
-    req.query
+    req.query,
   );
 
   return {
     connections: filtered.map((connection) =>
-      toApiSDKConnectionInterface(connection)
+      toApiSDKConnectionInterface(connection),
     ),
     ...returnFields,
   };

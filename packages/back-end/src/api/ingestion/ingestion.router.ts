@@ -41,7 +41,7 @@ export const getDataEnrichment = createApiRequestHandler({
 
   const dataSources = await _dangerousGetAllGrowthbookClickhouseDataSources();
   const dataSourcesByOrgId = Object.fromEntries(
-    dataSources.map((ds) => [ds.organization, ds.id])
+    dataSources.map((ds) => [ds.organization, ds.id]),
   );
   const orgIds = Object.keys(dataSourcesByOrgId);
 
@@ -49,18 +49,18 @@ export const getDataEnrichment = createApiRequestHandler({
     await getOrganizationIdsWithTrackingDisabled(orgIds);
 
   const orgIdsWithTrackingEnabled = orgIds.filter(
-    (x) => !orgIdsWithTrackingDisabled.has(x)
+    (x) => !orgIdsWithTrackingDisabled.has(x),
   );
 
   const sdkConnections = await _dangerousGetSdkConnectionsAcrossMultipleOrgs(
-    orgIdsWithTrackingEnabled
+    orgIdsWithTrackingEnabled,
   );
 
   const sdkData = Object.fromEntries(
     sdkConnections.map((conn) => [
       conn.key,
       sdkInfo(conn, dataSourcesByOrgId[conn.organization]),
-    ])
+    ]),
   );
 
   return { sdkData };

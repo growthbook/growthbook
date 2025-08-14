@@ -169,16 +169,16 @@ function DashboardEditor({
   const blockRefs = useRef<Array<HTMLDivElement | null>>([]);
   const { metricGroups } = useDefinitions();
   const [hoverAddBlock, setHoverAddBlock] = useState<number | undefined>(
-    undefined
+    undefined,
   );
   const [addBlockDropdown, setAddBlockDropdown] = useState<number | undefined>(
-    undefined
+    undefined,
   );
   const [editingBlockIndex, setEditingBlockIndex] = useState<
     number | undefined
   >(undefined);
   const [addBlockIndex, setAddBlockIndex] = useState<number | undefined>(
-    undefined
+    undefined,
   );
 
   useEffect(() => {
@@ -203,7 +203,7 @@ function DashboardEditor({
 
   useEffect(() => {
     setStagedEditBlock(
-      isDefined(editingBlockIndex) ? blocks[editingBlockIndex] : undefined
+      isDefined(editingBlockIndex) ? blocks[editingBlockIndex] : undefined,
     );
   }, [editingBlockIndex, blocks]);
 
@@ -213,7 +213,7 @@ function DashboardEditor({
       CREATE_BLOCK_TYPE[bType]({
         experiment,
         metricGroups,
-      })
+      }),
     );
     setAddBlockIndex(index);
   };
@@ -404,10 +404,10 @@ function DashboardEditor({
             // Show in-progress edits directly on the block
             const isEditingBlock = i === editingBlockIndex;
             const effectiveBlock = isEditingBlock
-              ? stagedEditBlock ?? block
+              ? (stagedEditBlock ?? block)
               : block;
             const effectiveSetBlock = (
-              blockData: DashboardBlockInterfaceOrData<DashboardBlockInterface>
+              blockData: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
             ) => {
               isEditingBlock
                 ? setStagedEditBlock({
@@ -484,8 +484,8 @@ function DashboardEditor({
           isDefined(addBlockIndex)
             ? stagedAddBlock
             : isDefined(editingBlockIndex)
-            ? stagedEditBlock
-            : undefined
+              ? stagedEditBlock
+              : undefined
         }
         setBlock={
           isDefined(addBlockIndex) ? setStagedAddBlock : setStagedEditBlock

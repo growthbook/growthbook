@@ -52,7 +52,7 @@ export default function ReportAnalysisSettingsBar({
   }, [_snapshot, snapshot]);
 
   const analysis = snapshot
-    ? getSnapshotAnalysis(snapshot) ?? undefined
+    ? (getSnapshotAnalysis(snapshot) ?? undefined)
     : undefined;
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;

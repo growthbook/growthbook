@@ -94,7 +94,7 @@ export const templateCompletions: AceCompletion[] = [
 // In the future, we'll add template variable support to the SqlExplorer
 // including the ability to reference fact tables as template variables (e.g. {{ ftb_xxx }})
 export function getTemplateCompletions(
-  source: "EditSqlModal" | "SqlExplorer"
+  source: "EditSqlModal" | "SqlExplorer",
 ): AceCompletion[] {
   if (source === "EditSqlModal") {
     return templateCompletions;

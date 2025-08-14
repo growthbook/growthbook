@@ -55,7 +55,7 @@ import {
 
 function shouldShowPayloadSecurity(
   languageType: LanguageType,
-  languages: SDKLanguage[]
+  languages: SDKLanguage[],
 ): boolean {
   // Next.js should always use plain text
   if (languages.includes("nextjs")) return false;
@@ -65,7 +65,7 @@ function shouldShowPayloadSecurity(
 }
 
 function getSecurityTabState(
-  value: Partial<SDKConnectionInterface>
+  value: Partial<SDKConnectionInterface>,
 ): "none" | "ciphered" | "remote" {
   if (value.remoteEvalEnabled) return "remote";
   if (
@@ -102,10 +102,10 @@ export default function SDKConnectionForm({
   const { hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const hasEncryptionFeature = hasCommercialFeature(
-    "encrypt-features-endpoint"
+    "encrypt-features-endpoint",
   );
   const hasSecureAttributesFeature = hasCommercialFeature(
-    "hash-secure-attributes"
+    "hash-secure-attributes",
   );
   const hasRemoteEvaluationFeature = hasCommercialFeature("remote-evaluation");
 
@@ -117,7 +117,7 @@ export default function SDKConnectionForm({
   }, [edit]);
 
   const [selectedSecurityTab, setSelectedSecurityTab] = useState<string | null>(
-    getSecurityTabState(initialValue)
+    getSecurityTabState(initialValue),
   );
 
   const [languageError, setLanguageError] = useState<string | null>(null);
@@ -131,15 +131,15 @@ export default function SDKConnectionForm({
         getDefaultSDKVersion(
           initialValue?.languages?.length === 1
             ? initialValue.languages[0]
-            : "other"
+            : "other",
         ),
       environment: initialValue.environment ?? environments[0]?.id ?? "",
       projects:
         "projects" in initialValue
           ? initialValue.projects
           : project
-          ? [project]
-          : [],
+            ? [project]
+            : [],
       encryptPayload: initialValue.encryptPayload ?? false,
       hashSecureAttributes:
         initialValue.hashSecureAttributes ?? hasSecureAttributesFeature,
@@ -159,11 +159,11 @@ export default function SDKConnectionForm({
 
   const usingLatestVersion = !isSDKOutdated(
     form.watch("languages")?.[0] || "other",
-    form.watch("sdkVersion")
+    form.watch("sdkVersion"),
   );
 
   const [languageFilter, setLanguageFilter] = useState<LanguageFilter>(
-    getConnectionLanguageFilter(initialValue.languages ?? [])
+    getConnectionLanguageFilter(initialValue.languages ?? []),
   );
 
   const useLatestSdkVersion = () => {
@@ -174,32 +174,32 @@ export default function SDKConnectionForm({
 
   const languages = form.watch("languages");
   const languageTypes: Set<LanguageType> = new Set(
-    languages.map((l) => languageMapping[l].type)
+    languages.map((l) => languageMapping[l].type),
   );
   const languageType =
     languageTypes.size === 0
       ? "backend" // show the least amount of configuration options if nothing is set
       : languageTypes.size === 1
-      ? [...languageTypes][0]
-      : languageTypes.has("frontend")
-      ? "frontend"
-      : languageTypes.has("backend")
-      ? "backend"
-      : languageTypes.has("mobile")
-      ? "mobile"
-      : languageTypes.has("nocode")
-      ? "mobile"
-      : languageTypes.has("edge")
-      ? "edge"
-      : "other";
+        ? [...languageTypes][0]
+        : languageTypes.has("frontend")
+          ? "frontend"
+          : languageTypes.has("backend")
+            ? "backend"
+            : languageTypes.has("mobile")
+              ? "mobile"
+              : languageTypes.has("nocode")
+                ? "mobile"
+                : languageTypes.has("edge")
+                  ? "edge"
+                  : "other";
 
   const latestSdkCapabilities = getConnectionSDKCapabilities(
     form.getValues(),
-    "max-ver-intersection"
+    "max-ver-intersection",
   );
   const currentSdkCapabilities = getConnectionSDKCapabilities(
     form.getValues(),
-    "min-ver-intersection"
+    "min-ver-intersection",
   );
   const showVisualEditorSettings =
     latestSdkCapabilities.includes("visualEditor");
@@ -209,7 +209,7 @@ export default function SDKConnectionForm({
 
   const showSavedGroupSettings = useMemo(
     () => currentSdkCapabilities.includes("savedGroupReferences"),
-    [currentSdkCapabilities]
+    [currentSdkCapabilities],
   );
 
   useEffect(() => {
@@ -220,29 +220,29 @@ export default function SDKConnectionForm({
 
   const selectedProjects = form.watch("projects");
   const selectedEnvironment = environments.find(
-    (e) => e.id === form.watch("environment")
+    (e) => e.id === form.watch("environment"),
   );
   const environmentHasProjects =
     (selectedEnvironment?.projects?.length ?? 0) > 0;
   const filteredProjectIds = filterProjectsByEnvironment(
     projectIds,
-    selectedEnvironment
+    selectedEnvironment,
   );
   const filteredProjects = projects.filter((p) =>
-    filteredProjectIds.includes(p.id)
+    filteredProjectIds.includes(p.id),
   );
 
   const disallowedProjects = getDisallowedProjects(
     projects,
     selectedProjects ?? [],
-    selectedEnvironment
+    selectedEnvironment,
   );
 
   const permissionRequired = (project: string) => {
     return edit
       ? permissionsUtil.canUpdateSDKConnection(
           { projects: [project], environment: form.watch("environment") },
-          {}
+          {},
         )
       : permissionsUtil.canCreateSDKConnection({
           projects: [project],
@@ -253,7 +253,7 @@ export default function SDKConnectionForm({
   const projectsOptions = useProjectOptions(
     permissionRequired,
     form.watch("projects") || [],
-    [...filteredProjects, ...disallowedProjects]
+    [...filteredProjects, ...disallowedProjects],
   );
   const selectedValidProjects = selectedProjects?.filter((p) => {
     return disallowedProjects?.find((dp) => dp.id === p) === undefined;
@@ -401,7 +401,7 @@ export default function SDKConnectionForm({
             {
               method: "POST",
               body: JSON.stringify(body),
-            }
+            },
           );
           track("Create SDK Connection", {
             source: "SDKConnectionForm",
@@ -449,7 +449,7 @@ export default function SDKConnectionForm({
                 if (languages?.length === 1) {
                   form.setValue(
                     "sdkVersion",
-                    getLatestSDKVersion(languages[0])
+                    getLatestSDKVersion(languages[0]),
                   );
                 }
               }}
@@ -475,7 +475,7 @@ export default function SDKConnectionForm({
                       autoComplete="off"
                       sort={false}
                       options={getSDKVersions(form.watch("languages")[0]).map(
-                        (ver) => ({ label: ver, value: ver })
+                        (ver) => ({ label: ver, value: ver }),
                       )}
                       createable={true}
                       isClearable={false}
@@ -486,7 +486,7 @@ export default function SDKConnectionForm({
                       onChange={(v) => form.setValue("sdkVersion", v)}
                       formatOptionLabel={({ value, label }) => {
                         const latest = getLatestSDKVersion(
-                          form.watch("languages")[0]
+                          form.watch("languages")[0],
                         );
                         return (
                           <span>
@@ -529,7 +529,7 @@ export default function SDKConnectionForm({
                         />
                         {getPackageRepositoryName(
                           languageMapping[form.watch("languages")[0]]
-                            .packageUrl || ""
+                            .packageUrl || "",
                         )}
                       </a>
                       <code
@@ -568,7 +568,7 @@ export default function SDKConnectionForm({
             sort={false}
             formatOptionLabel={({ value, label }) => {
               const selectedEnvironment = environments.find(
-                (e) => e.id === value
+                (e) => e.id === value,
               );
               const numProjects = selectedEnvironment?.projects?.length ?? 0;
               return (
@@ -618,7 +618,7 @@ export default function SDKConnectionForm({
             closeMenuOnSelect={true}
             formatOptionLabel={({ value, label }) => {
               const disallowed = disallowedProjects?.find(
-                (p) => p.id === value
+                (p) => p.id === value,
               );
               return disallowed ? (
                 <Tooltip body="This project is not allowed in the selected environment and will not be included in the SDK payload.">
@@ -861,14 +861,14 @@ export default function SDKConnectionForm({
                             <div className="mt-1 text-gray">
                               {getSDKCapabilityVersion(
                                 languages[0],
-                                "encryption"
+                                "encryption",
                               ) ? (
                                 <>
                                   It was introduced in SDK version{" "}
                                   <code>
                                     {getSDKCapabilityVersion(
                                       languages[0],
-                                      "encryption"
+                                      "encryption",
                                     )}
                                   </code>
                                   . The SDK version specified in this connection
@@ -1017,14 +1017,14 @@ export default function SDKConnectionForm({
                           <div className="mt-1 text-gray">
                             {getSDKCapabilityVersion(
                               languages[0],
-                              "remoteEval"
+                              "remoteEval",
                             ) ? (
                               <>
                                 It was introduced in SDK version{" "}
                                 <code>
                                   {getSDKCapabilityVersion(
                                     languages[0],
-                                    "remoteEval"
+                                    "remoteEval",
                                   )}
                                 </code>
                                 . The SDK version specified in this connection

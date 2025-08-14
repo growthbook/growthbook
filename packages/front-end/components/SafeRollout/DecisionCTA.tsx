@@ -40,7 +40,7 @@ const DecisionCTA = ({
     safeRollout,
     healthSettings: getHealthSettings(
       settings,
-      hasCommercialFeature("decision-framework")
+      hasCommercialFeature("decision-framework"),
     ),
     daysLeft,
   });

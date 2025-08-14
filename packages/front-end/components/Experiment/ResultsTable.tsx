@@ -85,7 +85,7 @@ export type ResultsTableProps = {
     label: string,
     metric: ExperimentMetricInterface,
     row: ExperimentTableRow,
-    maxRows?: number
+    maxRows?: number,
   ) => string | ReactElement;
   dateCreated: Date;
   statsEngine: StatsEngine;
@@ -214,7 +214,7 @@ export default function ResultsTable({
     setVisibleTimeSeriesMetricIds((prev) =>
       prev.includes(metricId)
         ? prev.filter((id) => id !== metricId)
-        : [...prev, metricId]
+        : [...prev, metricId],
     );
   };
 
@@ -227,7 +227,7 @@ export default function ResultsTable({
     if (!tableContainerRef?.current?.clientWidth) return;
     const tableWidth = tableContainerRef.current?.clientWidth as number;
     const firstRowCells = tableContainerRef.current?.querySelectorAll(
-      "#main-results thead tr:first-child th:not(.graph-cell)"
+      "#main-results thead tr:first-child th:not(.graph-cell)",
     );
     let totalCellWidth = 0;
     for (let i = 0; i < firstRowCells.length; i++) {
@@ -265,10 +265,10 @@ export default function ResultsTable({
     }, [variations, baselineRow]);
 
   const showVariations = orderedVariations.map(
-    (v) => !variationFilter?.includes(v.index)
+    (v) => !variationFilter?.includes(v.index),
   );
   const filteredVariations = orderedVariations.filter(
-    (v) => !variationFilter?.includes(v.index)
+    (v) => !variationFilter?.includes(v.index),
   );
   const compactResults = filteredVariations.length <= 2;
 
@@ -317,11 +317,11 @@ export default function ResultsTable({
 
           const denominator =
             !isFactMetric(row.metric) && row.metric.denominator
-              ? (ssrPolyfills?.getExperimentMetricById?.(
-                  row.metric.denominator
+              ? ((ssrPolyfills?.getExperimentMetricById?.(
+                  row.metric.denominator,
                 ) ||
                   getExperimentMetricById(row.metric.denominator)) ??
-                undefined
+                undefined)
               : undefined;
           const rowResults = getRowResults({
             stats,
@@ -400,7 +400,7 @@ export default function ResultsTable({
 
   const hasGoalMetrics = rows.some((r) => r.resultGroup === "goal");
   const appliedPValueCorrection = hasGoalMetrics
-    ? pValueCorrection ?? null
+    ? (pValueCorrection ?? null)
     : null;
 
   return (
@@ -594,7 +594,7 @@ export default function ResultsTable({
                                   appliedPValueCorrection,
                                   orgSettings.pValueThreshold ??
                                     DEFAULT_P_VALUE_THRESHOLD,
-                                  tableRowAxis
+                                  tableRowAxis,
                                 )}
                               </div>
                             }
@@ -656,7 +656,7 @@ export default function ResultsTable({
                                   differenceType,
                                   !!sequentialTestingEnabled,
                                   pValueCorrection ?? null,
-                                  pValueThreshold
+                                  pValueThreshold,
                                 )}
                               </div>
                             }
@@ -672,7 +672,7 @@ export default function ResultsTable({
                     className={clsx("axis-col label", { noStickyHeader })}
                     colSpan={
                       columnsToDisplay.filter(
-                        (col) => col !== "Metric & Variation Names"
+                        (col) => col !== "Metric & Variation Names",
                       ).length
                     }
                   />
@@ -702,7 +702,7 @@ export default function ResultsTable({
                   "Baseline Average",
                   "Variation Averages",
                   "Chance to Win",
-                ].includes(col)
+                ].includes(col),
               );
 
               return (
@@ -715,7 +715,7 @@ export default function ResultsTable({
                       renderGraph: columnsToDisplay.includes("CI Graph"),
                       renderLastColumn: columnsToDisplay.includes("Lift"),
                       label: columnsToDisplay.includes(
-                        "Metric & Variation Names"
+                        "Metric & Variation Names",
                       ) ? (
                         renderLabelColumn(row.label, row.metric, row)
                       ) : (
@@ -764,7 +764,7 @@ export default function ResultsTable({
                                   {renderLabelColumn(
                                     row.label,
                                     row.metric,
-                                    row
+                                    row,
                                   )}
                                 </div>
                               ) : null}
@@ -830,12 +830,12 @@ export default function ResultsTable({
                       {
                         "non-significant": !rowResults.significant,
                         hover: isHovered,
-                      }
+                      },
                     );
 
                     const onPointerMove = (
                       e,
-                      settings?: TooltipHoverSettings
+                      settings?: TooltipHoverSettings,
                     ) => {
                       // No hover tooltip if the screen is too narrow. Clicks still work.
                       if (
@@ -858,7 +858,7 @@ export default function ResultsTable({
                         key={j}
                       >
                         {columnsToDisplay.includes(
-                          "Metric & Variation Names"
+                          "Metric & Variation Names",
                         ) && (
                           <td
                             className={`variation with-variation-label variation${v.index}`}
@@ -952,7 +952,7 @@ export default function ResultsTable({
                                   hideScaledImpact={hideScaledImpact}
                                   className={clsx(
                                     "results-ctw",
-                                    resultsHighlightClassname
+                                    resultsHighlightClassname,
                                   )}
                                   onMouseMove={onPointerMove}
                                   onMouseLeave={onPointerLeave}
@@ -979,7 +979,7 @@ export default function ResultsTable({
                                   hideScaledImpact={hideScaledImpact}
                                   className={clsx(
                                     "results-pval",
-                                    resultsHighlightClassname
+                                    resultsHighlightClassname,
                                   )}
                                   onMouseMove={onPointerMove}
                                   onMouseLeave={onPointerLeave}
@@ -1022,7 +1022,7 @@ export default function ResultsTable({
                                 percent={differenceType === "relative"}
                                 className={clsx(
                                   resultsHighlightClassname,
-                                  "overflow-hidden"
+                                  "overflow-hidden",
                                 )}
                                 rowStatus={
                                   statsEngine === "frequentist"
@@ -1099,7 +1099,7 @@ export default function ResultsTable({
                               metric={row.metric}
                               differenceType={differenceType}
                               variationNames={orderedVariations.map(
-                                (v) => v.name
+                                (v) => v.name,
                               )}
                               showVariations={showVariations}
                               statsEngine={statsEngine}
@@ -1200,7 +1200,7 @@ function getChangeTooltip(
   differenceType: DifferenceType,
   sequentialTestingEnabled: boolean,
   pValueCorrection: PValueCorrection,
-  pValueThreshold: number
+  pValueThreshold: number,
 ) {
   let changeText =
     "The uplift comparing the variation to the baseline, in percent change from the baseline value.";
@@ -1272,7 +1272,7 @@ function getPValueTooltip(
   sequentialTestingEnabled: boolean,
   pValueCorrection: PValueCorrection,
   pValueThreshold: number,
-  tableRowAxis: "dimension" | "metric"
+  tableRowAxis: "dimension" | "metric",
 ) {
   return (
     <>

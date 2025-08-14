@@ -7,7 +7,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFactTableFilterValidator } from "back-end/src/validators/openapi";
 
 export const getFactTableFilter = createApiRequestHandler(
-  getFactTableFilterValidator
+  getFactTableFilterValidator,
 )(async (req): Promise<GetFactTableFilterResponse> => {
   const factTable = await getFactTable(req.context, req.params.factTableId);
   if (!factTable) {

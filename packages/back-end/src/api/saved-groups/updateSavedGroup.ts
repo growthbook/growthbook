@@ -13,7 +13,7 @@ import { savedGroupUpdated } from "back-end/src/services/savedGroups";
 import { UpdateSavedGroupProps } from "back-end/types/saved-group";
 
 export const updateSavedGroup = createApiRequestHandler(
-  updateSavedGroupValidator
+  updateSavedGroupValidator,
 )(async (req): Promise<UpdateSavedGroupResponse> => {
   const { name, values, condition, owner, projects } = req.body;
 
@@ -86,7 +86,7 @@ export const updateSavedGroup = createApiRequestHandler(
   const updatedSavedGroup = await updateSavedGroupById(
     id,
     req.organization.id,
-    fieldsToUpdate
+    fieldsToUpdate,
   );
 
   // If the values, condition, or projects change, we need to invalidate cached feature rules

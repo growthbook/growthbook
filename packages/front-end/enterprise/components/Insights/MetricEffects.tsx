@@ -120,7 +120,7 @@ type MetricEffectParams = {
 };
 
 const parseQueryParams = (
-  query: Record<string, string | string[] | undefined>
+  query: Record<string, string | string[] | undefined>,
 ): MetricEffectParams[] => {
   const params: MetricEffectParams[] = [];
   const paramGroups = new Map<string, MetricEffectParams>();
@@ -166,7 +166,7 @@ const MetricEffects = (): React.ReactElement => {
 
   const filteredExperiments = useMemo(
     () => experiments.filter((e) => e.type !== "multi-armed-bandit"),
-    [experiments]
+    [experiments],
   );
 
   const { hasCommercialFeature } = useUser();
@@ -235,7 +235,7 @@ function useMetricExpCounts(experiments: ExperimentInterfaceStringDates[]) {
       getAllMetricIdsFromExperiment(exp, false, metricGroups).forEach(
         (metric) => {
           counts[metric] = (counts[metric] || 0) + 1;
-        }
+        },
       );
     });
     return counts;
@@ -267,7 +267,7 @@ const MetricEffectCard = ({
   const [metric, setMetric] = useState<string>(params?.metric || "");
   const [searchParams, setSearchParams] = useState<Record<string, string>>({});
   const [differenceType, setDifferenceType] = useState<DifferenceType>(
-    params?.diff || "relative"
+    params?.diff || "relative",
   );
   const [metricData, setMetricData] = useState<{
     histogramData: HistogramDatapoint[];
@@ -293,12 +293,12 @@ const MetricEffectCard = ({
   const formatterM1 = !metricObj
     ? formatPercent
     : differenceType === "relative"
-    ? formatPercent
-    : getExperimentMetricFormatter(
-        metricObj,
-        getFactTableById,
-        differenceType === "absolute" ? "percentagePoints" : "number"
-      );
+      ? formatPercent
+      : getExperimentMetricFormatter(
+          metricObj,
+          getFactTableById,
+          differenceType === "absolute" ? "percentagePoints" : "number",
+        );
 
   const formatterOptions: Intl.NumberFormatOptions = {
     currency: displayCurrency,
@@ -336,7 +336,7 @@ const MetricEffectCard = ({
         filteredExperiments.map((e) => ({
           ...e,
           snapshot: snapshots.find((s) => s.experiment === e.id) ?? undefined,
-        }))
+        })),
       );
 
       if (snapshots && snapshots.length > 0) {
@@ -344,7 +344,7 @@ const MetricEffectCard = ({
 
         snapshots.forEach((snapshot) => {
           const experiment = filteredExperiments.find(
-            (exp) => exp.id === snapshot.experiment
+            (exp) => exp.id === snapshot.experiment,
           );
           if (!experiment) return;
 
@@ -380,7 +380,7 @@ const MetricEffectCard = ({
           histogramValues.reduce((a, b) => a + b, 0) / histogramValues.length;
         const metricStandardDeviation = Math.sqrt(
           histogramValues.reduce((a, b) => a + Math.pow(b - metricMean, 2), 0) /
-            histogramValues.length
+            histogramValues.length,
         );
         setMetricData({
           histogramData: createHistogramData(histogramValues),
@@ -544,10 +544,10 @@ const MetricEffectCard = ({
                             <Text weight="medium">Standard Deviation:</Text>{" "}
                             {differenceType === "relative"
                               ? formatPercent(
-                                  metricData.stats?.standardDeviation || 0
+                                  metricData.stats?.standardDeviation || 0,
                                 )
                               : formatNumber(
-                                  metricData.stats?.standardDeviation || 0
+                                  metricData.stats?.standardDeviation || 0,
                                 )}
                           </Text>
                         </Flex>

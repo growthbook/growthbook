@@ -75,7 +75,7 @@ export function validateName(name: string) {
 
 export function validateEnvironment(
   org: OrganizationInterface,
-  environment: string
+  environment: string,
 ) {
   if (
     !getEnvironments(org)
@@ -87,15 +87,15 @@ export function validateEnvironment(
 
 export async function validateProjects(
   context: ApiReqContext,
-  projects: string[]
+  projects: string[],
 ) {
   const allProjects = await context.models.projects.getAll();
   const nonexistentProjects = projects.filter(
-    (p) => !allProjects.some(({ id }) => p === id)
+    (p) => !allProjects.some(({ id }) => p === id),
   );
   if (nonexistentProjects.length)
     throw new Error(
-      `The following projects do not exist: ${nonexistentProjects.join(", ")}`
+      `The following projects do not exist: ${nonexistentProjects.join(", ")}`,
     );
 }
 
@@ -109,7 +109,7 @@ export function validateSdkCapabilities(
   payload: CreateSdkConnectionPayload | UpdateSdkConnectionPayload,
   language: SDKLanguage,
   sdkVersion: string | undefined,
-  latestSdkVersion: string
+  latestSdkVersion: string,
 ) {
   const latestCapabilities = getSDKCapabilities(language, latestSdkVersion);
   const capabilities = getSDKCapabilities(language, sdkVersion);
@@ -118,18 +118,18 @@ export function validateSdkCapabilities(
     if (payload[param] && !capabilities.includes(capability))
       if (latestCapabilities.includes(capability))
         throw new Error(
-          `You need to ugrade to version ${latestSdkVersion} to support ${capability}`
+          `You need to ugrade to version ${latestSdkVersion} to support ${capability}`,
         );
       else
         throw new Error(
-          `SDK version ${sdkVersion} does not support ${capability}`
+          `SDK version ${sdkVersion} does not support ${capability}`,
         );
   });
 }
 
 export function validatePremiumFeatures(
   context: ApiReqContext,
-  payload: CreateSdkConnectionPayload | UpdateSdkConnectionPayload
+  payload: CreateSdkConnectionPayload | UpdateSdkConnectionPayload,
 ) {
   premiumFeatures.forEach(([feature, param]) => {
     if (!payload[param]) return;
@@ -165,7 +165,7 @@ export async function validatePostPayload(
     proxyHost,
     hashSecureAttributes = false,
     ...otherParams
-  }: CreateSdkConnectionRequestBody
+  }: CreateSdkConnectionRequestBody,
 ) {
   validateName(name);
 
@@ -225,7 +225,7 @@ export async function validatePutPayload(
     hashSecureAttributes,
     ...otherParams
   }: Partial<CreateSdkConnectionRequestBody>,
-  sdkConnection: SDKConnectionInterface
+  sdkConnection: SDKConnectionInterface,
 ) {
   if (name) validateName(name);
 

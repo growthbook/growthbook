@@ -160,7 +160,7 @@ export default function SubscriptionInfo() {
                   `/subscription/manage`,
                   {
                     method: "POST",
-                  }
+                  },
                 );
                 if (res && res.url) {
                   await redirectWithTimeout(res.url);

@@ -48,7 +48,7 @@ const baseSDKInfo = {
       ...defaultCapabilities,
       ...defineSDKCapabilityVersion(
         "javascript",
-        getSDKCapabilities("javascript", getLatestSDKVersion("javascript"))
+        getSDKCapabilities("javascript", getLatestSDKVersion("javascript")),
       ),
     ],
   },
@@ -81,7 +81,7 @@ const baseSDKInfo = {
       ...defaultCapabilities,
       ...defineSDKCapabilityVersion(
         "react",
-        getSDKCapabilities("react", getLatestSDKVersion("react"))
+        getSDKCapabilities("react", getLatestSDKVersion("react")),
       ),
     ],
   },
@@ -106,7 +106,7 @@ const baseSDKInfo = {
       ...defaultCapabilities,
       ...defineSDKCapabilityVersion(
         "nextjs",
-        getSDKCapabilities("nextjs", getLatestSDKVersion("nextjs"))
+        getSDKCapabilities("nextjs", getLatestSDKVersion("nextjs")),
       ),
     ],
   },
@@ -125,7 +125,7 @@ const baseSDKInfo = {
       ...defaultCapabilities,
       ...defineSDKCapabilityVersion(
         "php",
-        getSDKCapabilities("php", getLatestSDKVersion("php"))
+        getSDKCapabilities("php", getLatestSDKVersion("php")),
       ),
     ],
   },
@@ -150,7 +150,7 @@ const baseSDKInfo = {
       ...defaultCapabilities,
       ...defineSDKCapabilityVersion(
         "nodejs",
-        getSDKCapabilities("nodejs", getLatestSDKVersion("nodejs"))
+        getSDKCapabilities("nodejs", getLatestSDKVersion("nodejs")),
       ),
     ],
   },
@@ -174,7 +174,7 @@ const baseSDKInfo = {
       ...defaultCapabilities,
       ...defineSDKCapabilityVersion(
         "ruby",
-        getSDKCapabilities("ruby", getLatestSDKVersion("ruby"))
+        getSDKCapabilities("ruby", getLatestSDKVersion("ruby")),
       ),
     ],
   },
@@ -193,7 +193,7 @@ const baseSDKInfo = {
       ...defaultCapabilities,
       ...defineSDKCapabilityVersion(
         "python",
-        getSDKCapabilities("python", getLatestSDKVersion("python"))
+        getSDKCapabilities("python", getLatestSDKVersion("python")),
       ),
     ],
   },
@@ -217,7 +217,7 @@ const baseSDKInfo = {
       ...defaultCapabilities,
       ...defineSDKCapabilityVersion(
         "go",
-        getSDKCapabilities("go", getLatestSDKVersion("go"))
+        getSDKCapabilities("go", getLatestSDKVersion("go")),
       ),
     ],
   },
@@ -253,7 +253,7 @@ const baseSDKInfo = {
       ...defaultCapabilities,
       ...defineSDKCapabilityVersion(
         "java",
-        getSDKCapabilities("java", getLatestSDKVersion("java"))
+        getSDKCapabilities("java", getLatestSDKVersion("java")),
       ),
     ],
   },
@@ -277,7 +277,7 @@ const baseSDKInfo = {
       ...defaultCapabilities,
       ...defineSDKCapabilityVersion(
         "csharp",
-        getSDKCapabilities("csharp", getLatestSDKVersion("csharp"))
+        getSDKCapabilities("csharp", getLatestSDKVersion("csharp")),
       ),
     ],
   },
@@ -296,7 +296,7 @@ const baseSDKInfo = {
       ...defaultCapabilities,
       ...defineSDKCapabilityVersion(
         "elixir",
-        getSDKCapabilities("elixir", getLatestSDKVersion("elixir"))
+        getSDKCapabilities("elixir", getLatestSDKVersion("elixir")),
       ),
     ],
   },
@@ -315,7 +315,7 @@ const baseSDKInfo = {
       ...defaultCapabilities,
       ...defineSDKCapabilityVersion(
         "android",
-        getSDKCapabilities("android", getLatestSDKVersion("android"))
+        getSDKCapabilities("android", getLatestSDKVersion("android")),
       ),
     ],
   },
@@ -334,7 +334,7 @@ const baseSDKInfo = {
       ...defaultCapabilities,
       ...defineSDKCapabilityVersion(
         "ios",
-        getSDKCapabilities("ios", getLatestSDKVersion("ios"))
+        getSDKCapabilities("ios", getLatestSDKVersion("ios")),
       ),
     ],
   },
@@ -359,7 +359,7 @@ const baseSDKInfo = {
       ...defaultCapabilities,
       ...defineSDKCapabilityVersion(
         "react",
-        getSDKCapabilities("react", getLatestSDKVersion("react"))
+        getSDKCapabilities("react", getLatestSDKVersion("react")),
       ),
     ],
   },
@@ -386,8 +386,8 @@ const baseSDKInfo = {
         "edge-cloudflare",
         getSDKCapabilities(
           "edge-cloudflare",
-          getLatestSDKVersion("edge-cloudflare")
-        )
+          getLatestSDKVersion("edge-cloudflare"),
+        ),
       ),
     ],
   },
@@ -412,7 +412,7 @@ const baseSDKInfo = {
       ...defaultCapabilities,
       ...defineSDKCapabilityVersion(
         "edge-fastly",
-        getSDKCapabilities("edge-fastly", getLatestSDKVersion("edge-fastly"))
+        getSDKCapabilities("edge-fastly", getLatestSDKVersion("edge-fastly")),
       ),
     ],
   },
@@ -432,7 +432,7 @@ const baseSDKInfo = {
       ...defaultCapabilities,
       ...defineSDKCapabilityVersion(
         "edge-lambda",
-        getSDKCapabilities("edge-lambda", getLatestSDKVersion("edge-lambda"))
+        getSDKCapabilities("edge-lambda", getLatestSDKVersion("edge-lambda")),
       ),
     ],
   },
@@ -452,7 +452,7 @@ const baseSDKInfo = {
       ...defaultCapabilities,
       ...defineSDKCapabilityVersion(
         "edge-other",
-        getSDKCapabilities("edge-other", getLatestSDKVersion("edge-other"))
+        getSDKCapabilities("edge-other", getLatestSDKVersion("edge-other")),
       ),
     ],
   },
@@ -471,7 +471,7 @@ const baseSDKInfo = {
       ...defaultCapabilities,
       ...defineSDKCapabilityVersion(
         "flutter",
-        getSDKCapabilities("flutter", getLatestSDKVersion("flutter"))
+        getSDKCapabilities("flutter", getLatestSDKVersion("flutter")),
       ),
     ],
   },
@@ -480,7 +480,7 @@ const baseSDKInfo = {
 const content = `// THIS FILE IS AUTOGENERATED. DO NOT EDIT DIRECTLY.\n\nexport default ${JSON.stringify(
   baseSDKInfo,
   null,
-  2
+  2,
 )}`;
 
 const formattedSDKInfo = prettier.format(content, { parser: "typescript" });

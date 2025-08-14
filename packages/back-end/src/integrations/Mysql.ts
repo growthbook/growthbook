@@ -48,7 +48,7 @@ export default class Mysql extends SqlIntegration {
     col: string,
     unit: "hour" | "minute",
     sign: "+" | "-",
-    amount: number
+    amount: number,
   ): string {
     return `DATE_${
       sign === "+" ? "ADD" : "SUB"
@@ -77,11 +77,11 @@ export default class Mysql extends SqlIntegration {
       ignoreZeros: boolean;
     }[],
     metricTable: string,
-    where: string = ""
+    where: string = "",
   ): string {
     if (values.length > 1) {
       throw new Error(
-        "MySQL only supports one percentile capped metric at a time"
+        "MySQL only supports one percentile capped metric at a time",
       );
     }
 
@@ -117,7 +117,7 @@ export default class Mysql extends SqlIntegration {
   getInformationSchemaWhereClause(): string {
     if (!this.params.database)
       throw new Error(
-        `No database name provided in MySql connection. Please add a database by editing the connection settings.`
+        `No database name provided in MySql connection. Please add a database by editing the connection settings.`,
       );
     return `table_schema IN ('${this.params.database}')`;
   }

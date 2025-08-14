@@ -65,7 +65,7 @@ export function getChecklistItems({
     // Some items we check completion for automatically, others require users to manually check an item as complete
     type: "auto" | "manual",
     key: string,
-    customFieldId?: string
+    customFieldId?: string,
   ): boolean {
     if (type === "auto") {
       if (!key) return false;
@@ -109,7 +109,7 @@ export function getChecklistItems({
   if (checkLinkedChanges) {
     const hasLiveLinkedChanges = experimentHasLiveLinkedChanges(
       experiment,
-      linkedFeatures
+      linkedFeatures,
     );
     const hasLinkedChanges =
       linkedFeatures.some((f) => f.state === "live" || f.state === "draft") ||
@@ -170,8 +170,8 @@ export function getChecklistItems({
           f.state === "draft" ||
           (f.state === "live" &&
             !Object.values(f.environmentStates || {}).some(
-              (s) => s === "active"
-            ))
+              (s) => s === "active",
+            )),
       );
       items.push({
         status: hasFeatureFlagsErrors ? "incomplete" : "complete",
@@ -196,7 +196,7 @@ export function getChecklistItems({
     // No empty visual changesets
     if (visualChangesets.length > 0) {
       const hasSomeVisualChanges = visualChangesets.some((vc) =>
-        hasVisualChanges(vc.visualChanges)
+        hasVisualChanges(vc.visualChanges),
       );
       items.push({
         display: (
@@ -318,7 +318,7 @@ export function getChecklistItems({
           status: isChecklistItemComplete(
             "auto",
             item.propertyKey,
-            item.customFieldId
+            item.customFieldId,
           )
             ? "complete"
             : "incomplete",
@@ -369,20 +369,20 @@ export function PreLaunchChecklistUI({
     !experiment.archived && permissionsUtil.canUpdateExperiment(experiment, {});
 
   const { data } = useApi<{ checklist: ExperimentLaunchChecklistInterface }>(
-    "/experiments/launch-checklist"
+    "/experiments/launch-checklist",
   );
 
   async function updateTaskStatus(checked: boolean, key: string | undefined) {
     if (!key) return;
     setUpdatingChecklist(true);
     const updatedManualChecklistStatus = Array.isArray(
-      experiment.manualLaunchChecklist
+      experiment.manualLaunchChecklist,
     )
       ? [...experiment.manualLaunchChecklist]
       : [];
 
     const index = updatedManualChecklistStatus.findIndex(
-      (task) => task.key === key
+      (task) => task.key === key,
     );
     if (index === -1) {
       updatedManualChecklistStatus.push({
@@ -413,7 +413,7 @@ export function PreLaunchChecklistUI({
   useEffect(() => {
     if (data && checklist.length > 0) {
       setChecklistItemsRemaining(
-        checklist.filter((item) => item.status === "incomplete").length
+        checklist.filter((item) => item.status === "incomplete").length,
       );
     }
   }, [checklist, data, setChecklistItemsRemaining]);
@@ -456,8 +456,8 @@ export function PreLaunchChecklistUI({
               item.status === "incomplete" && item.type === "auto"
                 ? "GrowthBook will mark this as completed automatically when you finish the task."
                 : item.status === "incomplete"
-                ? "You must manually mark this as complete. GrowthBook is unable to detect this automatically."
-                : undefined
+                  ? "You must manually mark this as complete. GrowthBook is unable to detect this automatically."
+                  : undefined
             }
             error={item.warning}
             errorLevel="warning"
@@ -547,7 +547,7 @@ export function PreLaunchChecklistFeatureExpRule({
   envs: string[];
 }) {
   const failedRequired = checklist.some(
-    (item) => item.status === "incomplete" && item.required
+    (item) => item.status === "incomplete" && item.required,
   );
 
   return (
@@ -606,7 +606,7 @@ export function PreLaunchChecklist({
     !experiment.archived && permissionsUtil.canUpdateExperiment(experiment, {});
 
   const { data } = useApi<{ checklist: ExperimentLaunchChecklistInterface }>(
-    "/experiments/launch-checklist"
+    "/experiments/launch-checklist",
   );
 
   const [showSdkForm, setShowSdkForm] = useState(false);

@@ -80,7 +80,7 @@ export default function ReportMetaInfo({
   const [shareModalOpen, setShareModalOpen] = useState(false);
 
   const [shareLevel, setShareLevel] = useState<ShareLevel>(
-    report.shareLevel || "organization"
+    report.shareLevel || "organization",
   );
   const [saveShareLevelStatus, setSaveShareLevelStatus] = useState<
     null | "loading" | "success" | "fail"
@@ -88,7 +88,7 @@ export default function ReportMetaInfo({
   const saveShareLevelTimeout = useRef<number | undefined>();
 
   const [editLevel, setEditLevel] = useState<EditLevel>(
-    report.editLevel || "organization"
+    report.editLevel || "organization",
   );
   const [saveEditLevelStatus, setSaveEditLevelStatus] = useState<
     null | "loading" | "success" | "fail"
@@ -111,10 +111,10 @@ export default function ReportMetaInfo({
         report.experimentMetadata.phases?.[snapshot?.phase || 0]
           ?.variationWeights?.[i] ||
         1 / (report.experimentMetadata?.variations?.length || 2),
-    })
+    }),
   );
   const analysis = snapshot
-    ? getSnapshotAnalysis(snapshot) ?? undefined
+    ? (getSnapshotAnalysis(snapshot) ?? undefined)
     : undefined;
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
 
@@ -135,14 +135,14 @@ export default function ReportMetaInfo({
           setSaveShareLevelStatus("success");
           saveShareLevelTimeout.current = window.setTimeout(
             () => setSaveShareLevelStatus(null),
-            SAVE_SETTING_TIMEOUT_MS
+            SAVE_SETTING_TIMEOUT_MS,
           );
         })
         .catch(() => {
           setSaveShareLevelStatus("fail");
           saveShareLevelTimeout.current = window.setTimeout(
             () => setSaveShareLevelStatus(null),
-            SAVE_SETTING_TIMEOUT_MS
+            SAVE_SETTING_TIMEOUT_MS,
           );
         });
       track("Experiment Report: Set Share Level", {
@@ -179,14 +179,14 @@ export default function ReportMetaInfo({
           setSaveEditLevelStatus("success");
           saveEditLevelTimeout.current = window.setTimeout(
             () => setSaveEditLevelStatus(null),
-            1500
+            1500,
           );
         })
         .catch(() => {
           setSaveEditLevelStatus("fail");
           saveEditLevelTimeout.current = window.setTimeout(
             () => setSaveEditLevelStatus(null),
-            1500
+            1500,
           );
         });
       track("Experiment Report: Set Edit Level", {

@@ -129,7 +129,7 @@ export function generateFeaturesPayload({
   const newFeatures = reduceFeaturesWithPrerequisites(
     features,
     environment,
-    prereqStateCache
+    prereqStateCache,
   );
   newFeatures.forEach((feature) => {
     const def = getFeatureDefinition({
@@ -177,7 +177,7 @@ export function generateAutoExperimentsPayload({
 
   const savedGroups = getSavedGroupsValuesFromGroupMap(groupMap);
   const isValidSDKExperiment = (
-    e: AutoExperimentWithProject | null
+    e: AutoExperimentWithProject | null,
   ): e is AutoExperimentWithProject => !!e;
 
   const newVisualExperiments = reduceExperimentsWithPrerequisites(
@@ -185,7 +185,7 @@ export function generateAutoExperimentsPayload({
     features,
     environment,
     savedGroups,
-    prereqStateCache
+    prereqStateCache,
   );
 
   const newURLRedirectExperiments = reduceExperimentsWithPrerequisites(
@@ -193,7 +193,7 @@ export function generateAutoExperimentsPayload({
     features,
     environment,
     savedGroups,
-    prereqStateCache
+    prereqStateCache,
   );
 
   const sortedAutoExperiments = [
@@ -215,7 +215,7 @@ export function generateAutoExperimentsPayload({
       const condition = getParsedCondition(
         groupMap,
         phase?.condition,
-        phase?.savedGroups
+        phase?.savedGroups,
       );
 
       const prerequisites = (phase?.prerequisites ?? [])
@@ -240,14 +240,14 @@ export function generateAutoExperimentsPayload({
         key: e.trackingKey,
         changeId: sha256(
           `${e.trackingKey}_${data.type}_${implementationId}`,
-          ""
+          "",
         ),
         status: e.status,
         project: e.project,
         variations: e.variations.map((v) => {
           if (data.type === "redirect") {
             const match = data.urlRedirect.destinationURLs.find(
-              (d) => d.variation === v.id
+              (d) => d.variation === v.id,
             );
             return {
               urlRedirect: match?.url || "",
@@ -255,7 +255,7 @@ export function generateAutoExperimentsPayload({
           }
 
           const match = data.visualChangeset.visualChanges.find(
-            (vc) => vc.variation === v.id
+            (vc) => vc.variation === v.id,
           );
           return {
             css: match?.css || "",
@@ -316,7 +316,7 @@ export function generateAutoExperimentsPayload({
 
 export async function getSavedGroupMap(
   organization: OrganizationInterface,
-  savedGroups?: SavedGroupInterface[]
+  savedGroups?: SavedGroupInterface[],
 ): Promise<GroupMap> {
   const attributes = organization.settings?.attributeSchema;
 
@@ -333,7 +333,7 @@ export async function getSavedGroupMap(
 
   function getGroupValues(
     values: string[],
-    type?: string
+    type?: string,
   ): string[] | number[] {
     if (type === "number") {
       return values.map((v) => parseFloat(v));
@@ -355,7 +355,7 @@ export async function getSavedGroupMap(
           values,
         },
       ];
-    })
+    }),
   );
 
   return groupMap;
@@ -365,7 +365,7 @@ export async function getSavedGroupMap(
 export function filterUsedSavedGroups(
   savedGroups: SavedGroupsValues,
   features: Record<string, FeatureDefinition>,
-  experimentsDefinitions: AutoExperimentWithProject[]
+  experimentsDefinitions: AutoExperimentWithProject[],
 ) {
   const usedGroupIds = new Set();
   const addToUsedGroupIds: NodeHandler = (node) => {
@@ -388,7 +388,7 @@ export function filterUsedSavedGroups(
   });
 
   return pickBy(savedGroups, (_values, savedGroupId) =>
-    usedGroupIds.has(savedGroupId)
+    usedGroupIds.has(savedGroupId),
   );
 }
 
@@ -398,7 +398,7 @@ export async function refreshSDKPayloadCache(
   allFeatures: FeatureInterface[] | null = null,
   experimentMap?: Map<string, ExperimentInterface>,
   safeRolloutMap?: Map<string, SafeRolloutInterface>,
-  skipRefreshForProject?: string
+  skipRefreshForProject?: string,
 ) {
   // This is a background job, so switch to using a background context
   // This is required so that we have full read access to the entire org's data
@@ -406,8 +406,8 @@ export async function refreshSDKPayloadCache(
 
   logger.debug(
     `Refreshing SDK Payloads for ${context.org.id}: ${JSON.stringify(
-      payloadKeys
-    )}`
+      payloadKeys,
+    )}`,
   );
 
   // Ignore any old environments which don't exist anymore
@@ -417,7 +417,7 @@ export async function refreshSDKPayloadCache(
   // Remove any projects to skip
   if (skipRefreshForProject) {
     payloadKeys = payloadKeys.filter(
-      (k) => k.project !== skipRefreshForProject
+      (k) => k.project !== skipRefreshForProject,
     );
   }
 
@@ -435,16 +435,16 @@ export async function refreshSDKPayloadCache(
   allFeatures = allFeatures || (await getAllFeatures(context));
   const allVisualExperiments = await getAllVisualExperiments(
     context,
-    experimentMap
+    experimentMap,
   );
   const allURLRedirectExperiments = await getAllURLRedirectExperiments(
     context,
-    experimentMap
+    experimentMap,
   );
 
   // For each affected environment, generate a new SDK payload and update the cache
   const environments = Array.from(
-    new Set(payloadKeys.map((k) => k.environment))
+    new Set(payloadKeys.map((k) => k.environment)),
   );
 
   const prereqStateCache: Record<
@@ -476,8 +476,8 @@ export async function refreshSDKPayloadCache(
       filterUsedSavedGroups(
         getSavedGroupsValuesFromGroupMap(groupMap),
         featureDefinitions,
-        experimentsDefinitions
-      )
+        experimentsDefinitions,
+      ),
     );
 
     promises.push(async () => {
@@ -573,12 +573,12 @@ export async function getFeatureDefinitionsResponse({
   // Filter list of features/experiments to the selected projects
   if (projects && projects.length > 0) {
     experiments = experiments.filter((exp) =>
-      projects.includes(exp.project || "")
+      projects.includes(exp.project || ""),
     );
     features = Object.fromEntries(
       Object.entries(features).filter(([_, feature]) =>
-        projects.includes(feature.project || "")
-      )
+        projects.includes(feature.project || ""),
+      ),
     );
   }
 
@@ -587,12 +587,12 @@ export async function getFeatureDefinitionsResponse({
     Object.entries(features).map(([key, feature]) => [
       key,
       omit(feature, ["project"]),
-    ])
+    ]),
   );
   experiments = experiments.map((exp) => omit(exp, ["project"]));
 
   const hasSecureAttributes = attributes?.some((a) =>
-    ["secureString", "secureString[]"].includes(a.datatype)
+    ["secureString", "secureString[]"].includes(a.datatype),
   );
   if (attributes && hasSecureAttributes && secureAttributeSalt !== undefined) {
     features = applyFeatureHashing(features, attributes, secureAttributeSalt);
@@ -601,20 +601,20 @@ export async function getFeatureDefinitionsResponse({
       experiments = applyExperimentHashing(
         experiments,
         attributes,
-        secureAttributeSalt
+        secureAttributeSalt,
       );
     }
 
     savedGroups = applySavedGroupHashing(
       savedGroups,
       attributes,
-      secureAttributeSalt
+      secureAttributeSalt,
     );
   }
 
   const savedGroupsValues = getSavedGroupsValuesFromInterfaces(
     savedGroups,
-    organization
+    organization,
   );
 
   features = scrubFeatures(
@@ -622,19 +622,19 @@ export async function getFeatureDefinitionsResponse({
     capabilities,
     savedGroups,
     savedGroupReferencesEnabled,
-    organization
+    organization,
   );
   experiments = scrubExperiments(
     experiments,
     capabilities,
     savedGroups,
     savedGroupReferencesEnabled,
-    organization
+    organization,
   );
   const scrubbedSavedGroups = scrubSavedGroups(
     savedGroupsValues,
     capabilities,
-    savedGroupReferencesEnabled
+    savedGroupReferencesEnabled,
   );
 
   const includeAutoExperiments =
@@ -643,12 +643,12 @@ export async function getFeatureDefinitionsResponse({
   if (includeAutoExperiments) {
     if (!includeRedirectExperiments) {
       experiments = experiments.filter(
-        (e) => getAutoExperimentChangeType(e) !== "redirect"
+        (e) => getAutoExperimentChangeType(e) !== "redirect",
       );
     }
     if (!includeVisualExperiments) {
       experiments = experiments.filter(
-        (e) => getAutoExperimentChangeType(e) !== "visual"
+        (e) => getAutoExperimentChangeType(e) !== "visual",
       );
     }
   }
@@ -675,7 +675,7 @@ export async function getFeatureDefinitionsResponse({
 
   const encryptedFeatures = await encrypt(
     JSON.stringify(features),
-    encryptionKey
+    encryptionKey,
   );
   const encryptedExperiments = includeAutoExperiments
     ? await encrypt(JSON.stringify(experiments || []), encryptionKey)
@@ -755,7 +755,7 @@ export async function getFeatureDefinitions({
       const { features, experiments, savedGroupsInUse } = cached.contents;
       const usedSavedGroups = await getSavedGroupsById(
         savedGroupsInUse,
-        context.org.id
+        context.org.id,
       );
       if (hashSecureAttributes) {
         // Note: We don't check for whether the org has the hash-secure-attributes premium feature here because
@@ -822,11 +822,11 @@ export async function getFeatureDefinitions({
 
   const allVisualExperiments = await getAllVisualExperiments(
     context,
-    experimentMap
+    experimentMap,
   );
   const allURLRedirectExperiments = await getAllURLRedirectExperiments(
     context,
-    experimentMap
+    experimentMap,
   );
 
   // Generate visual experiments
@@ -842,7 +842,7 @@ export async function getFeatureDefinitions({
   const savedGroupsInUse = filterUsedSavedGroups(
     getSavedGroupsValuesFromGroupMap(groupMap),
     featureDefinitions,
-    experimentsDefinitions
+    experimentsDefinitions,
   );
 
   // Cache in Mongo
@@ -1133,7 +1133,7 @@ export function generateRuleId() {
 
 export function addIdsToRules(
   environmentSettings: Record<string, FeatureEnvironment> = {},
-  featureId: string
+  featureId: string,
 ) {
   Object.values(environmentSettings).forEach((env) => {
     if (env.rules && env.rules.length) {
@@ -1152,20 +1152,20 @@ export function addIdsToRules(
 export function arrayMove<T>(
   array: Array<T>,
   from: number,
-  to: number
+  to: number,
 ): Array<T> {
   const newArray = array.slice();
   newArray.splice(
     to < 0 ? newArray.length + to : to,
     0,
-    newArray.splice(from, 1)[0]
+    newArray.splice(from, 1)[0],
   );
   return newArray;
 }
 
 export function verifyDraftsAreEqual(
   actual?: FeatureDraftChanges,
-  expected?: FeatureDraftChanges
+  expected?: FeatureDraftChanges,
 ) {
   if (
     !isEqual(
@@ -1176,18 +1176,18 @@ export function verifyDraftsAreEqual(
       {
         defaultValue: expected?.defaultValue,
         rules: expected?.rules,
-      }
+      },
     )
   ) {
     throw new Error(
-      "New changes have been made to this feature. Please review and try again."
+      "New changes have been made to this feature. Please review and try again.",
     );
   }
 }
 
 export async function encrypt(
   plainText: string,
-  keyString: string | undefined
+  keyString: string | undefined,
 ): Promise<string> {
   if (!keyString) {
     throw new Error("Unable to encrypt the feature list.");
@@ -1201,7 +1201,7 @@ export async function encrypt(
       length: 128,
     },
     true,
-    ["encrypt", "decrypt"]
+    ["encrypt", "decrypt"],
   );
   const iv = crypto.getRandomValues(new Uint8Array(16));
   const encryptedBuffer = await crypto.subtle.encrypt(
@@ -1210,7 +1210,7 @@ export async function encrypt(
       iv,
     },
     key,
-    new TextEncoder().encode(plainText)
+    new TextEncoder().encode(plainText),
   );
   return bufToBase64(iv) + "." + bufToBase64(encryptedBuffer);
 }
@@ -1242,7 +1242,7 @@ export function getApiFeatureObj({
       ...rule,
       coverage:
         rule.type === "rollout" || rule.type === "experiment"
-          ? rule.coverage ?? 1
+          ? (rule.coverage ?? 1)
           : 1,
       condition: rule.condition || "",
       savedGroupTargeting: (rule.savedGroups || []).map((s) => ({
@@ -1282,7 +1282,7 @@ export function getApiFeatureObj({
         ...rule,
         coverage:
           rule.type === "rollout" || rule.type === "experiment"
-            ? rule.coverage ?? 1
+            ? (rule.coverage ?? 1)
             : 1,
         condition: rule.condition || "",
         savedGroupTargeting: (rule.savedGroups || []).map((s) => ({
@@ -1348,7 +1348,7 @@ export function getApiFeatureObj({
 
 export function getNextScheduledUpdate(
   envSettings: Record<string, FeatureEnvironment>,
-  environments: string[]
+  environments: string[],
 ): Date | null {
   if (!envSettings) {
     return null;
@@ -1387,7 +1387,7 @@ export function getNextScheduledUpdate(
 export function applyFeatureHashing(
   features: Record<string, FeatureDefinition>,
   attributes: SDKAttributeSchema,
-  salt: string
+  salt: string,
 ): Record<string, FeatureDefinition> {
   return Object.keys(features).reduce<Record<string, FeatureDefinition>>(
     (acc, key) => {
@@ -1407,7 +1407,7 @@ export function applyFeatureHashing(
       acc[key] = feature;
       return acc;
     },
-    {}
+    {},
   );
 }
 
@@ -1415,7 +1415,7 @@ export function applyFeatureHashing(
 export function applyExperimentHashing(
   experiments: AutoExperiment[],
   attributes: SDKAttributeSchema,
-  salt: string
+  salt: string,
 ): AutoExperiment[] {
   return experiments.map((experiment) => {
     if (experiment?.condition) {
@@ -1433,12 +1433,12 @@ export function applyExperimentHashing(
 export function applySavedGroupHashing(
   savedGroups: SavedGroupInterface[],
   attributes: SDKAttributeSchema,
-  salt: string
+  salt: string,
 ): SavedGroupInterface[] {
   const clonedGroups = clone(savedGroups);
   clonedGroups.forEach((group) => {
     const attribute = attributes.find(
-      (attr) => attr.property === group.attributeKey
+      (attr) => attr.property === group.attributeKey,
     );
     if (attribute) {
       group.values = hashStrings({
@@ -1551,13 +1551,13 @@ export function sha256(str: string, salt: string): string {
 
 const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
   feature: FeatureInterface,
-  rules: ApiFeatureEnvSettingsRules
+  rules: ApiFeatureEnvSettingsRules,
 ): FeatureInterface["environmentSettings"][string]["rules"] =>
   rules.map((r) => {
     const conditionRes = validateCondition(r.condition);
     if (!conditionRes.success) {
       throw new Error(
-        "Invalid targeting condition JSON: " + conditionRes.error
+        "Invalid targeting condition JSON: " + conditionRes.error,
       );
     }
 
@@ -1634,7 +1634,7 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
 export const createInterfaceEnvSettingsFromApiEnvSettings = (
   feature: FeatureInterface,
   baseEnvs: Environment[],
-  incomingEnvs: ApiFeatureEnvSettings
+  incomingEnvs: ApiFeatureEnvSettings,
 ): FeatureInterface["environmentSettings"] =>
   baseEnvs.reduce(
     (acc, e) => ({
@@ -1644,17 +1644,17 @@ export const createInterfaceEnvSettingsFromApiEnvSettings = (
         rules: incomingEnvs?.[e.id]?.rules
           ? fromApiEnvSettingsRulesToFeatureEnvSettingsRules(
               feature,
-              incomingEnvs[e.id].rules
+              incomingEnvs[e.id].rules,
             )
           : [],
       },
     }),
-    {} as Record<string, FeatureEnvironment>
+    {} as Record<string, FeatureEnvironment>,
   );
 
 export const updateInterfaceEnvSettingsFromApiEnvSettings = (
   feature: FeatureInterface,
-  incomingEnvs: ApiFeatureEnvSettings
+  incomingEnvs: ApiFeatureEnvSettings,
 ): FeatureInterface["environmentSettings"] => {
   const existing = feature.environmentSettings;
   return Object.keys(incomingEnvs).reduce((acc, k) => {
@@ -1665,7 +1665,7 @@ export const updateInterfaceEnvSettingsFromApiEnvSettings = (
         rules: incomingEnvs[k].rules
           ? fromApiEnvSettingsRulesToFeatureEnvSettingsRules(
               feature,
-              incomingEnvs[k].rules
+              incomingEnvs[k].rules,
             )
           : existing[k].rules,
       },
@@ -1677,7 +1677,10 @@ export const updateInterfaceEnvSettingsFromApiEnvSettings = (
 export const reduceFeaturesWithPrerequisites = (
   features: FeatureInterface[],
   environment: string,
-  prereqStateCache: Record<string, Record<string, PrerequisiteStateResult>> = {}
+  prereqStateCache: Record<
+    string,
+    Record<string, PrerequisiteStateResult>
+  > = {},
 ): FeatureInterface[] => {
   prereqStateCache[environment] = prereqStateCache[environment] || {};
 
@@ -1706,7 +1709,7 @@ export const reduceFeaturesWithPrerequisites = (
             featuresMap,
             environment,
             undefined,
-            true
+            true,
           );
         }
         prereqStateCache[environment][prereq.id] = state;
@@ -1723,7 +1726,7 @@ export const reduceFeaturesWithPrerequisites = (
         case "deterministic": {
           const evaled = evalDeterministicPrereqValue(
             state.value ?? null,
-            prereq.condition
+            prereq.condition,
           );
           if (evaled === "fail") {
             removeFeature = true;
@@ -1756,7 +1759,7 @@ export const reduceFeaturesWithPrerequisites = (
           rule.prerequisites || [],
           featuresMap,
           environment,
-          prereqStateCache
+          prereqStateCache,
         );
       if (!removeRule) {
         rule.prerequisites = newPrerequisites;
@@ -1770,13 +1773,16 @@ export const reduceFeaturesWithPrerequisites = (
 };
 
 export const reduceExperimentsWithPrerequisites = <
-  T extends { experiment: ExperimentInterface }
+  T extends { experiment: ExperimentInterface },
 >(
   experiments: T[],
   features: FeatureInterface[],
   environment: string,
   savedGroups: SavedGroupsValues,
-  prereqStateCache: Record<string, Record<string, PrerequisiteStateResult>> = {}
+  prereqStateCache: Record<
+    string,
+    Record<string, PrerequisiteStateResult>
+  > = {},
 ): T[] => {
   prereqStateCache[environment] = prereqStateCache[environment] || {};
 
@@ -1795,7 +1801,7 @@ export const reduceExperimentsWithPrerequisites = <
         phase.prerequisites || [],
         featuresMap,
         environment,
-        prereqStateCache
+        prereqStateCache,
       );
     if (!removeRule) {
       newData.experiment.phases[phaseIndex].prerequisites = newPrerequisites;
@@ -1809,7 +1815,10 @@ const getInlinePrerequisitesReductionInfo = (
   prerequisites: FeaturePrerequisite[],
   featuresMap: Map<string, FeatureInterface>,
   environment: string,
-  prereqStateCache: Record<string, Record<string, PrerequisiteStateResult>> = {}
+  prereqStateCache: Record<
+    string,
+    Record<string, PrerequisiteStateResult>
+  > = {},
 ): {
   removeRule: boolean;
   newPrerequisites: FeaturePrerequisite[];
@@ -1834,7 +1843,7 @@ const getInlinePrerequisitesReductionInfo = (
           featuresMap,
           environment,
           undefined,
-          true
+          true,
         );
       }
       prereqStateCache[environment][pc.id] = state;
@@ -1851,7 +1860,7 @@ const getInlinePrerequisitesReductionInfo = (
       case "deterministic": {
         const evaled = evalDeterministicPrereqValue(
           state.value ?? null,
-          pc.condition
+          pc.condition,
         );
         if (evaled === "fail") {
           // remove the rule

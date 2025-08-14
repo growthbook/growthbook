@@ -33,7 +33,7 @@ export default function Home(): React.ReactElement {
     }
 
     const demoProjectId = getDemoDatasourceProjectIdForOrganization(
-      organization.id || ""
+      organization.id || "",
     );
 
     // has features and experiments that are not demo projects

@@ -60,7 +60,7 @@ export default function SRMCard({
         totalUsersCount: totalUsers,
         minUsersPerVariation: DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
       }),
-    [traffic.overall.srm, srmThreshold, variations.length, totalUsers]
+    [traffic.overall.srm, srmThreshold, variations.length, totalUsers],
   );
 
   function onResize() {

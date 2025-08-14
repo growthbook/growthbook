@@ -40,7 +40,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<
     ({ userIdType }) => ({
       display: userIdType,
       value: userIdType,
-    })
+    }),
   );
   const defaultUserId = userIdTypeOptions
     ? userIdTypeOptions[0]?.value
@@ -95,14 +95,14 @@ export const AddEditExperimentAssignmentQueryModal: FC<
 
   const identityTypes = useMemo(
     () => dataSource.settings.userIdTypes || [],
-    [dataSource.settings.userIdTypes]
+    [dataSource.settings.userIdTypes],
   );
 
   const saveEnabled = !!userEnteredUserIdType && !!userEnteredQuery;
 
   if (!exposureQuery && mode === "edit") {
     console.error(
-      "ImplementationError: exposureQuery is required for Edit mode"
+      "ImplementationError: exposureQuery is required for Edit mode",
     );
     return null;
   }
@@ -119,7 +119,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<
       (col) =>
         !requiredColumns.has(col) &&
         !namedCols.includes(col) &&
-        !userIdTypes?.includes(col)
+        !userIdTypes?.includes(col),
     );
     let missingColumns = requiredColumnsArray.filter((col) => !(col in result));
 
@@ -135,13 +135,13 @@ export const AddEditExperimentAssignmentQueryModal: FC<
       // Only selected `experiment_name`, add warning
       else if (returnedColumns.has("experiment_name")) {
         throw new Error(
-          "Missing variation_name column. Please add it to your SELECT clause to enable GrowthBook to populate names automatically or remove experiment_name."
+          "Missing variation_name column. Please add it to your SELECT clause to enable GrowthBook to populate names automatically or remove experiment_name.",
         );
       }
       // Only selected `variation_name`, add warning
       else if (returnedColumns.has("variation_name")) {
         throw new Error(
-          "Missing experiment_name column. Please add it to your SELECT clause to enable GrowthBook to populate names automatically or remove variation_name."
+          "Missing experiment_name column. Please add it to your SELECT clause to enable GrowthBook to populate names automatically or remove variation_name.",
         );
       }
     } else {
@@ -153,21 +153,21 @@ export const AddEditExperimentAssignmentQueryModal: FC<
         form.setValue("hasNameCol", false);
         missingColumns = missingColumns.filter(
           (column) =>
-            column !== "experiment_name" && column !== "variation_name"
+            column !== "experiment_name" && column !== "variation_name",
         );
       } else if (
         returnedColumns.has("experiment_name") &&
         !returnedColumns.has("variation_name")
       ) {
         throw new Error(
-          "Missing variation_name column. Please add it to your SELECT clause to enable GrowthBook to populate names automatically or remove experiment_name."
+          "Missing variation_name column. Please add it to your SELECT clause to enable GrowthBook to populate names automatically or remove experiment_name.",
         );
       } else if (
         returnedColumns.has("variation_name") &&
         !returnedColumns.has("experiment_name")
       ) {
         throw new Error(
-          "Missing experiment_name column. Please add it to your SELECT clause to enable GrowthBook to populate names automatically or remove variation_name."
+          "Missing experiment_name column. Please add it to your SELECT clause to enable GrowthBook to populate names automatically or remove variation_name.",
         );
       }
     }
@@ -183,11 +183,11 @@ export const AddEditExperimentAssignmentQueryModal: FC<
       // If so, remove them from as a userEnteredDimension & remove from missingColumns
       if (missingDimensions.length > 0) {
         missingColumns = missingColumns.filter(
-          (column) => !missingDimensions.includes(column)
+          (column) => !missingDimensions.includes(column),
         );
 
         const newUserEnteredDimensions = userEnteredDimensions.filter(
-          (column) => !missingDimensions.includes(column)
+          (column) => !missingDimensions.includes(column),
         );
         form.setValue("dimensions", newUserEnteredDimensions);
       }
@@ -195,7 +195,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<
       // Now, if missingColumns still has a length, throw an error
       if (missingColumns.length > 0) {
         throw new Error(
-          `You are missing the following columns: ${missingColumns.join(", ")}`
+          `You are missing the following columns: ${missingColumns.join(", ")}`,
         );
       }
     }

@@ -55,22 +55,22 @@ export default function ReportResults({
         report.experimentMetadata.phases?.[snapshot?.phase || 0]
           ?.variationWeights?.[i] ||
         1 / (report.experimentMetadata?.variations?.length || 2),
-    })
+    }),
   );
   // find analysis matching the difference type
   const analysis = snapshot
-    ? getSnapshotAnalysis(
+    ? (getSnapshotAnalysis(
         snapshot,
         snapshot.analyses.find(
           (a) =>
             a.settings.differenceType ===
-            report.experimentAnalysisSettings.differenceType
-        )?.settings
-      ) ?? undefined
+            report.experimentAnalysisSettings.differenceType,
+        )?.settings,
+      ) ?? undefined)
     : undefined;
   const queryStatusData = getQueryStatus(
     snapshot?.queries || [],
-    snapshot?.error
+    snapshot?.error,
   );
 
   const settingsForSnapshotMetrics: MetricSnapshotSettings[] =

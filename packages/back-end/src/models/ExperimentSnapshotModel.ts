@@ -181,20 +181,20 @@ export type ExperimentSnapshotDocument = mongoose.Document &
 const ExperimentSnapshotModel =
   mongoose.model<LegacyExperimentSnapshotInterface>(
     "ExperimentSnapshot",
-    experimentSnapshotSchema
+    experimentSnapshotSchema,
   );
 
 const toInterface = (
-  doc: ExperimentSnapshotDocument
+  doc: ExperimentSnapshotDocument,
 ): ExperimentSnapshotInterface =>
   migrateSnapshot(
-    omit(doc.toJSON<ExperimentSnapshotDocument>(), ["__v", "_id"])
+    omit(doc.toJSON<ExperimentSnapshotDocument>(), ["__v", "_id"]),
   );
 
 export async function updateSnapshotsOnPhaseDelete(
   organization: string,
   experiment: string,
-  phase: number
+  phase: number,
 ) {
   // Delete all snapshots for the phase
   await ExperimentSnapshotModel.deleteMany({
@@ -216,7 +216,7 @@ export async function updateSnapshotsOnPhaseDelete(
       $inc: {
         phase: -1,
       },
-    }
+    },
   );
 }
 
@@ -238,7 +238,7 @@ export async function updateSnapshot({
     },
     {
       $set: updates,
-    }
+    },
   );
 
   const experimentSnapshotModel = await ExperimentSnapshotModel.findOne({
@@ -254,7 +254,7 @@ export async function updateSnapshot({
   if (shouldUpdateExperimentAnalysisSummary) {
     const currentExperimentModel = await getExperimentById(
       context,
-      experimentSnapshotModel.experiment
+      experimentSnapshotModel.experiment,
     );
 
     const isLatestPhase = currentExperimentModel
@@ -291,13 +291,13 @@ export async function updateSnapshot({
             experimentId: currentExperimentModel.id,
             snapshotId: experimentSnapshotModel.id,
           },
-          "Unable to update experiment time series"
+          "Unable to update experiment time series",
         );
       }
     }
 
     const dashboards = await context.models.dashboards.findByExperiment(
-      experimentSnapshotModel.experiment
+      experimentSnapshotModel.experiment,
     );
     for (const dashboard of dashboards) {
       if (!dashboard.enableAutoUpdates || !dashboardCanAutoUpdate(dashboard))
@@ -305,11 +305,11 @@ export async function updateSnapshot({
       const blocks = dashboard.blocks.map((block) =>
         blockHasFieldOfType(block, "snapshotId", isString)
           ? { ...block, snapshotId: experimentSnapshotModel.id }
-          : block
+          : block,
       );
       await context.models.dashboards.dangerousUpdateBypassPermission(
         dashboard,
-        { blocks }
+        { blocks },
       );
     }
   }
@@ -322,7 +322,7 @@ export type AddOrUpdateSnapshotAnalysisParams = {
 };
 
 export async function addOrUpdateSnapshotAnalysis(
-  params: AddOrUpdateSnapshotAnalysisParams
+  params: AddOrUpdateSnapshotAnalysisParams,
 ) {
   const { organization, id, analysis } = params;
   // looks for snapshots with this ID but WITHOUT these analysis settings
@@ -334,7 +334,7 @@ export async function addOrUpdateSnapshotAnalysis(
     },
     {
       $push: { analyses: analysis },
-    }
+    },
   );
   // if analysis already exist, no documents will be returned by above query
   // so instead find and update existing analysis in DB
@@ -360,7 +360,7 @@ export async function updateSnapshotAnalysis({
     },
     {
       $set: { "analyses.$": analysis },
-    }
+    },
   );
 
   const experimentSnapshotModel = await ExperimentSnapshotModel.findOne({
@@ -383,7 +383,7 @@ export async function deleteSnapshotById(organization: string, id: string) {
 
 export async function findSnapshotById(
   organization: string,
-  id: string
+  id: string,
 ): Promise<ExperimentSnapshotInterface | null> {
   const doc = await ExperimentSnapshotModel.findOne({ organization, id });
   return doc ? toInterface(doc) : null;
@@ -391,7 +391,7 @@ export async function findSnapshotById(
 
 export async function findSnapshotsByIds(
   context: ReqContext | ApiReqContext,
-  ids: string[]
+  ids: string[],
 ): Promise<ExperimentSnapshotInterface[]> {
   const docs = await ExperimentSnapshotModel.find({
     organization: context.org.id,
@@ -417,7 +417,7 @@ export async function findRunningSnapshotsByQueryId(ids: string[]) {
 
 export async function findLatestRunningSnapshotByReportId(
   organization: string,
-  report: string
+  report: string,
 ) {
   // Only look for match in the past 24 hours to make the query more efficient
   // Older snapshots should not still be running anyway
@@ -477,7 +477,7 @@ export async function getLatestSnapshot({
     {
       sort: { dateCreated: -1 },
       limit: 1,
-    }
+    },
   ).exec();
 
   if (all[0]) {
@@ -501,7 +501,7 @@ export async function getLatestSnapshot({
 export async function getLatestSnapshotMultipleExperiments(
   experimentPhaseMap: Map<string, number>,
   dimension?: string,
-  withResults: boolean = true
+  withResults: boolean = true,
 ): Promise<ExperimentSnapshotInterface[]> {
   const experimentPhasesToGet = new Map(experimentPhaseMap);
   const query: FilterQuery<ExperimentSnapshotDocument> = {
@@ -538,7 +538,7 @@ export async function getLatestSnapshotMultipleExperiments(
 
   const all =
     await ExperimentSnapshotModel.aggregate<ExperimentSnapshotDocument>(
-      aggregatePipeline
+      aggregatePipeline,
     ).exec();
 
   const snapshots: ExperimentSnapshotInterface[] = [];
@@ -568,5 +568,5 @@ export async function createExperimentSnapshotModel({
 }
 
 export const getDefaultAnalysisResults = (
-  snapshot: ExperimentSnapshotDocument
+  snapshot: ExperimentSnapshotDocument,
 ) => snapshot.analyses?.[0]?.results?.[0];

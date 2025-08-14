@@ -72,7 +72,7 @@ export const getVercelSSOToken = async ({
 
 const getVercelInstallationData = async (
   organizationId: string,
-  projectId: string
+  projectId: string,
 ) => {
   const {
     installationId,
@@ -153,7 +153,7 @@ const createVercelExperimentationItem = async ({
           "Content-Type": "application/json",
           Authorization: `Bearer ${accessToken}`,
         },
-      }
+      },
     );
 
     if (!ret.ok)
@@ -218,7 +218,7 @@ const updateVercelExperimentationItem = async ({
           "Content-Type": "application/json",
           Authorization: `Bearer ${accessToken}`,
         },
-      }
+      },
     );
 
     if (!ret.ok)
@@ -284,7 +284,7 @@ const deleteVercelExperimentationItem = async ({
           "Content-Type": "application/json",
           Authorization: `Bearer ${accessToken}`,
         },
-      }
+      },
     );
 
     if (!ret.ok)
@@ -328,12 +328,12 @@ export const deleteVercelExperimentationItemFromExperiment = ({
 export const deleteVercelSdkWebhook = async (context: ReqContextClass) => {
   const webhooks = await findAllSdkWebhooksByPayloadFormat(
     context,
-    "vercelNativeIntegration"
+    "vercelNativeIntegration",
   );
 
   await BluebirdPromise.each(webhooks, async (webhook) => {
     await context.models.webhookSecrets.deleteByKey(
-      VERCEL_WEBHOOK_TOKEN_SECRET_NAME(webhook.sdks[0])
+      VERCEL_WEBHOOK_TOKEN_SECRET_NAME(webhook.sdks[0]),
     );
 
     await deleteSdkWebhookById(context, webhook.id);
@@ -358,7 +358,7 @@ export const syncVercelSdkConnection = async (organization: string) => {
   await BluebirdPromise.each(nativeIntegration.resources, async (resource) => {
     const sdkConnection = await findSDKConnectionsById(
       context,
-      resource.sdkConnectionId
+      resource.sdkConnectionId,
     );
 
     if (!sdkConnection)
@@ -366,26 +366,26 @@ export const syncVercelSdkConnection = async (organization: string) => {
 
     const webhooks = await findAllSdkWebhooksByConnection(
       context,
-      sdkConnection.id
+      sdkConnection.id,
     );
 
     const webhook = webhooks.find(
       (w) =>
         w.managedBy?.type === "vercel" &&
-        w.managedBy?.resourceId === resource.id
+        w.managedBy?.resourceId === resource.id,
     );
 
     if (!resource.protocolSettings?.experimentation?.edgeConfigId) {
       if (webhook) {
         await deleteSdkWebhookById(context, webhook.id);
         await context.models.webhookSecrets.deleteByKey(
-          VERCEL_WEBHOOK_TOKEN_SECRET_NAME(sdkConnection.id)
+          VERCEL_WEBHOOK_TOKEN_SECRET_NAME(sdkConnection.id),
         );
       }
     } else {
       if (!webhook) {
         await context.models.webhookSecrets.deleteByKey(
-          VERCEL_WEBHOOK_TOKEN_SECRET_NAME(sdkConnection.id)
+          VERCEL_WEBHOOK_TOKEN_SECRET_NAME(sdkConnection.id),
         );
 
         const createdWebhook = await createSdkWebhook(
@@ -403,10 +403,10 @@ export const syncVercelSdkConnection = async (organization: string) => {
             },
             headers: JSON.stringify({
               Authorization: `Bearer {{${VERCEL_WEBHOOK_TOKEN_SECRET_NAME(
-                sdkConnection.id
+                sdkConnection.id,
               )}}}`,
             }),
-          }
+          },
         );
 
         await context.models.webhookSecrets.create({

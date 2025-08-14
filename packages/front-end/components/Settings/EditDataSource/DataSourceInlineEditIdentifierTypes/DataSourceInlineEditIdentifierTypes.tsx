@@ -27,7 +27,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<
 
   const userIdTypes = useMemo(
     () => dataSource.settings?.userIdTypes || [],
-    [dataSource.settings?.userIdTypes]
+    [dataSource.settings?.userIdTypes],
   );
 
   const recordEditing = useMemo((): null | UserIdType => {
@@ -45,7 +45,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<
       setEditingIndex(idx);
       setUiMode("edit");
     },
-    []
+    [],
   );
 
   const handleActionDeleteClicked = useCallback(
@@ -56,7 +56,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<
 
       await onSave(copy);
     },
-    [onSave, dataSource]
+    [onSave, dataSource],
   );
 
   const handleSave = useCallback(
@@ -70,7 +70,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<
 
       await onSave(copy);
     },
-    [dataSource, onSave]
+    [dataSource, onSave],
   );
 
   const handleAdd = useCallback(() => {

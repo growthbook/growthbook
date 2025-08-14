@@ -6,7 +6,7 @@ import { errorStringFromZodResult } from "back-end/src/util/validation";
 type ValidationParams<
   ParamsSchema extends Schema,
   BodySchema extends Schema,
-  QuerySchema extends Schema
+  QuerySchema extends Schema,
 > = {
   body?: BodySchema;
   query?: QuerySchema;
@@ -20,7 +20,7 @@ export const validateRequestMiddleware =
     ParamsSchema extends Schema,
     ResponseType,
     BodySchema extends Schema,
-    QuerySchema extends Schema
+    QuerySchema extends Schema,
   >({
     query: querySchema,
     body: bodySchema,

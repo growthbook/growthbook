@@ -31,7 +31,7 @@ const DecisionCriteriaTable: FC<DecisionCriteriaTableProps> = ({
   // Prevent dropdown clicks from triggering row click
   const handleDropdownClick = (
     e: MouseEvent,
-    criteria: DecisionCriteriaData
+    criteria: DecisionCriteriaData,
   ) => {
     e.stopPropagation();
     if (dropdownOpen !== criteria.id) {

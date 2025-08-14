@@ -108,7 +108,7 @@ const PresentationPage = (): React.ReactElement => {
         {
           method: "DELETE",
           body: JSON.stringify({ id: deleteId }),
-        }
+        },
       );
       if (res.status === 200) {
         setDeleteLoading(false);
@@ -118,7 +118,7 @@ const PresentationPage = (): React.ReactElement => {
         console.error(res);
         setDeleteError(
           res.message ||
-            "There was an error submitting the form. Please try again."
+            "There was an error submitting the form. Please try again.",
         );
         setDeleteLoading(false);
         setDeleteConfirmModal(false);
@@ -234,7 +234,7 @@ const PresentationPage = (): React.ReactElement => {
               </a>
             </div>
           </Flex>
-        </Card>
+        </Card>,
       );
     });
   }

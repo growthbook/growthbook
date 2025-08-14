@@ -27,7 +27,7 @@ const events = Object.keys(notificationEvents).reduce(
         payload: notificationEventPayload(resource as any, event as any),
       })),
   ],
-  []
+  [],
 );
 
 const eventTableEntry = ({ name, description }) =>

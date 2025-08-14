@@ -39,7 +39,7 @@ const DecisionHelpText = ({ rule }: { rule: SafeRolloutRule }) => {
     safeRollout,
     healthSettings: getHealthSettings(
       settings,
-      hasCommercialFeature("decision-framework")
+      hasCommercialFeature("decision-framework"),
     ),
     daysLeft,
   });
@@ -88,16 +88,16 @@ const DecisionHelpText = ({ rule }: { rule: SafeRolloutRule }) => {
 
     if (decisionStatus.unhealthyData.srm) {
       messages.push(
-        "SRM Warning - Traffic is imbalanced and the Safe Rollout should be reverted."
+        "SRM Warning - Traffic is imbalanced and the Safe Rollout should be reverted.",
       );
     }
     if (decisionStatus.unhealthyData.multipleExposures) {
       messages.push(
         `Multiple Exposures Warning - ${numberFormatter.format(
-          decisionStatus.unhealthyData.multipleExposures.multipleExposedUsers
+          decisionStatus.unhealthyData.multipleExposures.multipleExposedUsers,
         )} users (${percentFormatter.format(
-          decisionStatus.unhealthyData.multipleExposures.rawDecimal
-        )}) saw multiple variations and were automatically removed from results.`
+          decisionStatus.unhealthyData.multipleExposures.rawDecimal,
+        )}) saw multiple variations and were automatically removed from results.`,
       );
     }
 

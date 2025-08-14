@@ -52,7 +52,7 @@ const WatchButton: FC<{
             `/user/${isWatching ? "unwatch" : "watch"}/${itemType}/${item}`,
             {
               method: "POST",
-            }
+            },
           );
           refreshWatching();
         } catch (e) {

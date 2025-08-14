@@ -34,7 +34,7 @@ const DRAWER_MIN_HEIGHT = 184;
 
 type RequiredField<
   BType extends DashboardBlockType,
-  BInterface extends Extract<DashboardBlockInterface, { type: BType }>
+  BInterface extends Extract<DashboardBlockInterface, { type: BType }>,
 > = {
   field: keyof BInterface;
   validation: (val: BInterface[keyof BInterface]) => boolean;
@@ -114,7 +114,7 @@ export default function DashboardBlockEditDrawer({
 
   const metricGroupMap = useMemo(
     () => new Map(metricGroups.map((group) => [group.id, group])),
-    [metricGroups]
+    [metricGroups],
   );
 
   const { snapshot, analysis } = useDashboardSnapshot(block, setBlock);
@@ -138,10 +138,10 @@ export default function DashboardBlockEditDrawer({
         options: [
           ...experiment.goalMetrics.filter((mId) => metricGroupMap.has(mId)),
           ...experiment.secondaryMetrics.filter((mId) =>
-            metricGroupMap.has(mId)
+            metricGroupMap.has(mId),
           ),
           ...experiment.guardrailMetrics.filter((mId) =>
-            metricGroupMap.has(mId)
+            metricGroupMap.has(mId),
           ),
         ]
           .map((groupId) => {
@@ -201,7 +201,7 @@ export default function DashboardBlockEditDrawer({
       label: optionGroup.label,
       // For now, remove the date cohorts time-series as the visualization isn't supported yet
       options: optionGroup.options.filter(
-        (option) => option.value !== "pre:date"
+        (option) => option.value !== "pre:date",
       ),
     }));
   }, [experiment, dimensions, getDatasourceById]);
@@ -215,7 +215,7 @@ export default function DashboardBlockEditDrawer({
     })) || [];
   const savedQuery = blockHasFieldOfType(block, "savedQueryId", isString)
     ? savedQueriesData?.savedQueries?.find(
-        (q: SavedQuery) => q.id === block.savedQueryId
+        (q: SavedQuery) => q.id === block.savedQueryId,
       )
     : undefined;
 
@@ -243,7 +243,7 @@ export default function DashboardBlockEditDrawer({
       DashboardBlockInterfaceOrData<DashboardBlockInterface>,
       { variationIds: string[] }
     >,
-    value: string[]
+    value: string[],
   ) => {
     setBlock({
       ...block,
@@ -328,7 +328,7 @@ export default function DashboardBlockEditDrawer({
                 size="xs"
                 disabled={
                   !!(REQUIRED_FIELDS[block.type] || []).find(
-                    ({ field, validation }) => !validation(block[field])
+                    ({ field, validation }) => !validation(block[field]),
                   )
                 }
               >
@@ -379,7 +379,7 @@ export default function DashboardBlockEditDrawer({
                 }}
                 // Can't select metric groups for a single metric block
                 options={metricOptions.filter(
-                  ({ label }) => label !== "Metric Groups"
+                  ({ label }) => label !== "Metric Groups",
                 )}
                 formatOptionLabel={({ value }, { context }) => (
                   <MetricName
@@ -494,7 +494,7 @@ export default function DashboardBlockEditDrawer({
                 options={variationOptions}
                 formatOptionLabel={({ value, label }) => {
                   const varIndex = experiment.variations.findIndex(
-                    ({ id }) => id === value
+                    ({ id }) => id === value,
                   );
                   return (
                     <div
@@ -649,7 +649,7 @@ export default function DashboardBlockEditDrawer({
                       ({ title }, i) => ({
                         label: title || `Visualization ${i}`,
                         value: i.toString(),
-                      })
+                      }),
                     )}
                     onChange={(value) =>
                       setBlock({

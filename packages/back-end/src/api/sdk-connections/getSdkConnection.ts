@@ -7,7 +7,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getSdkConnectionValidator } from "back-end/src/validators/openapi";
 
 export const getSdkConnection = createApiRequestHandler(
-  getSdkConnectionValidator
+  getSdkConnectionValidator,
 )(async (req): Promise<GetSdkConnectionResponse> => {
   const sdkConnection = await findSDKConnectionById(req.context, req.params.id);
   if (!sdkConnection) {

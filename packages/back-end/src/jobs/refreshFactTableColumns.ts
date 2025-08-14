@@ -44,7 +44,7 @@ const refreshFactTableColumns = async (job: RefreshFactTableColumnsJob) => {
     const columns = await runRefreshColumnsQuery(
       context,
       datasource,
-      factTable
+      factTable,
     );
     updates.columns = columns;
     updates.columnsError = null;
@@ -59,7 +59,7 @@ export async function runColumnTopValuesQuery(
   context: ReqContext,
   datasource: DataSourceInterface,
   factTable: Pick<FactTableInterface, "sql" | "eventName">,
-  column: ColumnInterface
+  column: ColumnInterface,
 ): Promise<string[]> {
   if (!context.permissions.canRunFactQueries(datasource)) {
     context.permissions.throwPermissionError();
@@ -91,7 +91,7 @@ export async function runRefreshColumnsQuery(
   factTable: Pick<
     FactTableInterface,
     "sql" | "eventName" | "columns" | "userIdTypes"
-  >
+  >,
 ): Promise<ColumnInterface[]> {
   if (!context.permissions.canRunFactQueries(datasource)) {
     context.permissions.throwPermissionError();
@@ -194,7 +194,7 @@ export async function runRefreshColumnsQuery(
           context,
           datasource,
           factTable,
-          col
+          col,
         );
         col.topValuesDate = new Date();
       } catch (e) {
@@ -214,7 +214,7 @@ export default function (ag: Agenda) {
 }
 
 export async function queueFactTableColumnsRefresh(
-  factTable: FactTableInterface
+  factTable: FactTableInterface,
 ) {
   const job = agenda.create(JOB_NAME, {
     organization: factTable.organization,

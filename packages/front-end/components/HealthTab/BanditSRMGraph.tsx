@@ -64,7 +64,7 @@ const getTooltipContents = (
   data: TooltipData,
   variationNames: string[],
   mode: "users" | "weights",
-  showVariations: boolean[]
+  showVariations: boolean[],
 ) => {
   const { d } = data;
   return (
@@ -141,7 +141,7 @@ const getTooltipData = (
   mx: number,
   width: number,
   stackedData: any[],
-  xScale
+  xScale,
 ): TooltipData => {
   const xCoords = stackedData.map((d) => xScale(d.date));
 
@@ -175,7 +175,7 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
   });
 
   const [showVariations, setShowVariations] = useState<boolean[]>(
-    variationNames.map(() => true)
+    variationNames.map(() => true),
   );
 
   const {
@@ -204,18 +204,18 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
       const users = variationNames.map(
         (_, i) =>
           (event.banditResult?.singleVariationResults?.[i]?.users ?? 0) -
-          (previousUsers?.[i] ?? 0)
+          (previousUsers?.[i] ?? 0),
       );
       previousUsers = variationNames.map(
-        (_, i) => event.banditResult?.singleVariationResults?.[i]?.users ?? 0
+        (_, i) => event.banditResult?.singleVariationResults?.[i]?.users ?? 0,
       );
       const totalUsers = users.reduce((sum, val) => sum + val, 0);
       const expectedUsers = variationNames.map(
-        (_, i) => (weights[i] ?? 0) * totalUsers
+        (_, i) => (weights[i] ?? 0) * totalUsers,
       );
 
       const userRatios = variationNames.map((_, i) =>
-        totalUsers ? (users[i] ?? 0) / totalUsers : undefined
+        totalUsers ? (users[i] ?? 0) / totalUsers : undefined,
       );
 
       const srm = event?.health?.srm;
@@ -250,9 +250,9 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
                       .filter((_, i) => showVariations[i]),
                     ...variationNames
                       .map((_, i) => d?.expectedUsers?.[i] ?? 0)
-                      .filter((_, i) => showVariations[i])
-                  )
-                )
+                      .filter((_, i) => showVariations[i]),
+                  ),
+                ),
               ) * 1.03,
               Math.max(
                 ...data.map((d) =>
@@ -262,9 +262,9 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
                       .filter((_, i) => showVariations[i]),
                     ...variationNames
                       .map((_, i) => d?.expectedUsers?.[i] ?? 0)
-                      .filter((_, i) => showVariations[i])
-                  )
-                )
+                      .filter((_, i) => showVariations[i]),
+                  ),
+                ),
               ) * 1.03,
             ],
             range: [yMax, 0],
@@ -274,7 +274,7 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
             domain: [0, 1],
             range: [yMax, 0],
           }),
-    [variationNames, mode, data, yMax, showVariations]
+    [variationNames, mode, data, yMax, showVariations],
   );
 
   // Get x-axis domain
@@ -299,7 +299,7 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
         const visibleTickIndexes = getVisibleTickIndexes(
           allXTicks,
           xScale,
-          width * 0.11
+          width * 0.11,
         );
 
         const handlePointer = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -331,7 +331,7 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
                   tooltipData,
                   variationNames,
                   mode,
-                  showVariations
+                  showVariations,
                 )}
               </TooltipWithBounds>
             )}
@@ -370,7 +370,7 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
                       }}
                       onClick={() => {
                         setShowVariations(
-                          variationNames.map((_, j) => i === j)
+                          variationNames.map((_, j) => i === j),
                         );
                       }}
                     >

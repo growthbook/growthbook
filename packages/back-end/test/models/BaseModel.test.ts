@@ -386,7 +386,7 @@ describe("BaseModel", () => {
     const model = new TestModel(defaultContext);
     model.canCreateMock.mockReturnValue(false);
     expect(model.create({ name: "foo", id: "aabb" })).rejects.toEqual(
-      new Error("You do not have access to create this resource")
+      new Error("You do not have access to create this resource"),
     );
   });
 
@@ -402,7 +402,7 @@ describe("BaseModel", () => {
           path: ["name"],
           message: "Required",
         },
-      ])
+      ]),
     );
   });
 
@@ -417,7 +417,7 @@ describe("BaseModel", () => {
 
     await model.create(
       { name: "foo", id: "aabb", readonlyField: "bla" },
-      { option: true }
+      { option: true },
     );
 
     const expectedModel = expect.objectContaining({
@@ -454,10 +454,10 @@ describe("BaseModel", () => {
           dateCreated: new Date(),
           dateUpdated: new Date(),
         },
-        { name: "gni" }
-      )
+        { name: "gni" },
+      ),
     ).rejects.toEqual(
-      new Error("You do not have access to update this resource")
+      new Error("You do not have access to update this resource"),
     );
   });
 
@@ -473,10 +473,10 @@ describe("BaseModel", () => {
           dateCreated: new Date(),
           dateUpdated: new Date(),
         },
-        { readonlyField: "gni" }
-      )
+        { readonlyField: "gni" },
+      ),
     ).rejects.toEqual(
-      new Error("Cannot update readonly fields: readonlyField")
+      new Error("Cannot update readonly fields: readonlyField"),
     );
   });
 
@@ -507,20 +507,20 @@ describe("BaseModel", () => {
 
     expect(updateOneMock).toHaveBeenCalledWith(
       { id: "aabb", organization: "a" },
-      { $set: expectedSet }
+      { $set: expectedSet },
     );
     expect(auditLogMock).toHaveBeenCalled();
     expect(model.beforeUpdateMock).toHaveBeenCalledWith(
       existing,
       { name: "gni" },
       expectedSet,
-      { option: true }
+      { option: true },
     );
     expect(model.afterUpdateMock).toHaveBeenCalledWith(
       existing,
       { name: "gni" },
       expectedSet,
-      { option: true }
+      { option: true },
     );
     expect(model.afterCreateOrUpdateMock).toHaveBeenCalledWith(expectedSet, {
       option: true,
@@ -537,9 +537,9 @@ describe("BaseModel", () => {
         organization: "a",
         dateCreated: new Date(),
         dateUpdated: new Date(),
-      })
+      }),
     ).rejects.toEqual(
-      new Error("You do not have access to delete this resource")
+      new Error("You do not have access to delete this resource"),
     );
   });
 });

@@ -6,7 +6,7 @@ import { OrganizationInterface } from "back-end/types/organization";
 import { auditDetailsDelete } from "back-end/src/services/audit";
 
 export const deleteAttribute = createApiRequestHandler(
-  deleteAttributeValidator
+  deleteAttributeValidator,
 )(async (req): Promise<DeleteAttributeResponse> => {
   const property = req.params.property;
   const org = req.context.org;

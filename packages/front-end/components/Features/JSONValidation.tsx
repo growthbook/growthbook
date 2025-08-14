@@ -31,7 +31,7 @@ export default function JSONValidation({ feature, mutate }: Props) {
   const hasJsonValidator = hasCommercialFeature("json-validation");
 
   const [collapsed, setCollapsed] = useState(
-    (hasJsonValidator && validationEnabled) || !isNew
+    (hasJsonValidator && validationEnabled) || !isNew,
   );
 
   const [edit, setEdit] = useState(false);

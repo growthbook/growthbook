@@ -2,7 +2,7 @@ import { isBinomialMetric, isFactMetric } from "../../experiments";
 import { Settings, SettingsContext, SettingsResolver } from "../types";
 
 const regressionAdjustmentResolver = (
-  field: "enabled" | "days"
+  field: "enabled" | "days",
 ): SettingsResolver<boolean | number> => {
   // todo: set `meta.scopeApplied`
   return (ctx: SettingsContext) => {
@@ -33,7 +33,7 @@ const regressionAdjustmentResolver = (
 
     // experiment-level metric overrides
     const metricOverride = ctx.scopes?.experiment?.metricOverrides?.find(
-      (mo) => mo.id === ctx.scopes?.metric?.id
+      (mo) => mo.id === ctx.scopes?.metric?.id,
     );
     if (metricOverride?.regressionAdjustmentOverride) {
       regressionAdjustmentEnabled =

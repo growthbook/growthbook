@@ -93,7 +93,7 @@ export default function LegacyReportPage({
     : false;
 
   const canDeleteReport = permissionsUtil.canDeleteReport(
-    experimentData?.experiment || {}
+    experimentData?.experiment || {},
   );
 
   // todo: move to report args
@@ -101,7 +101,7 @@ export default function LegacyReportPage({
   const pValueCorrection = orgSettings?.pValueCorrection;
 
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
-    "regression-adjustment"
+    "regression-adjustment",
   );
   const hasSequentialTestingFeature =
     hasCommercialFeature("sequential-testing");
@@ -245,13 +245,13 @@ export default function LegacyReportPage({
                     `/report/${report.id}`,
                     {
                       method: "DELETE",
-                    }
+                    },
                   );
                   trackReport(
                     "delete",
                     "DeleteButton",
                     datasource?.type || null,
-                    report
+                    report,
                   );
                   router.push(`/experiment/${report.experimentId}#results`);
                 }}
@@ -381,7 +381,7 @@ export default function LegacyReportPage({
                               "update",
                               "RefreshData",
                               datasource?.type || null,
-                              res.report as ExperimentReportInterface
+                              res.report as ExperimentReportInterface,
                             );
                             mutate();
                             setRefreshError("");
@@ -416,7 +416,7 @@ export default function LegacyReportPage({
                             "update",
                             "ForceRefreshData",
                             datasource?.type || null,
-                            res.report as ExperimentReportInterface
+                            res.report as ExperimentReportInterface,
                           );
                           mutate();
                         } catch (e) {
@@ -439,7 +439,7 @@ export default function LegacyReportPage({
                       variations={variations}
                       metrics={getAllMetricIdsFromExperiment(
                         report.args,
-                        false
+                        false,
                       )}
                       differenceType={report.args.differenceType ?? "relative"}
                       trackingKey={report.title}
@@ -512,7 +512,7 @@ export default function LegacyReportPage({
                     queryStatusData={queryStatusData}
                     status={"stopped"}
                     startDate={getValidDate(
-                      report.args.startDate
+                      report.args.startDate,
                     ).toISOString()}
                     endDate={getValidDate(report.args.endDate).toISOString()}
                     dimensionId={report.args.dimension}
@@ -559,7 +559,7 @@ export default function LegacyReportPage({
                       "update",
                       "VariationIdWarning",
                       datasource?.type || null,
-                      res.updatedReport as ExperimentReportInterface
+                      res.updatedReport as ExperimentReportInterface,
                     );
                     mutate();
                   }}
@@ -579,7 +579,7 @@ export default function LegacyReportPage({
                       queryStatusData={queryStatusData}
                       reportDate={report.dateCreated}
                       startDate={getValidDate(
-                        report.args.startDate
+                        report.args.startDate,
                       ).toISOString()}
                       endDate={getValidDate(report.args.endDate).toISOString()}
                       isLatestPhase={true}

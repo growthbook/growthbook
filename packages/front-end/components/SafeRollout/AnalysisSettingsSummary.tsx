@@ -56,7 +56,7 @@ export default function SafeRolloutAnalysisSettingsSummary({
   const guardrails: string[] = [];
   expandMetricGroups(
     safeRollout.guardrailMetricIds ?? [],
-    metricGroups
+    metricGroups,
   ).forEach((m) => {
     const name = getExperimentMetricById(m)?.name;
     if (name) guardrails.push(name);
@@ -80,7 +80,7 @@ export default function SafeRolloutAnalysisSettingsSummary({
             <Metadata
               label="Total units"
               value={numberFormatter.format(
-                safeRollout.analysisSummary?.health?.totalUsers ?? 0
+                safeRollout.analysisSummary?.health?.totalUsers ?? 0,
               )}
             />
           </div>
@@ -185,7 +185,7 @@ export default function SafeRolloutAnalysisSettingsSummary({
                     {
                       "outline-danger": showQueryWarning,
                     },
-                    " "
+                    " ",
                   )}
                   display={null}
                   status={status}

@@ -50,15 +50,15 @@ const ViewAsyncQueriesButton: FC<{
                 ? status === "running"
                   ? "View running queries"
                   : status === "failed"
-                  ? "View failed queries"
-                  : status === "partially-succeeded"
-                  ? "View failed queries"
-                  : ""
+                    ? "View failed queries"
+                    : status === "partially-succeeded"
+                      ? "View failed queries"
+                      : ""
                 : ""
               : "No queries were run"
           }
           shouldDisplay={["running", "failed", "partially-succeeded"].includes(
-            status ?? ""
+            status ?? "",
           )}
         >
           <button

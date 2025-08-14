@@ -18,10 +18,10 @@ export async function analysisUpdate(
   snapshot: ExperimentSnapshotInterface,
   apiCall: <T>(
     url: string | null,
-    options?: RequestInit | undefined
+    options?: RequestInit | undefined,
   ) => Promise<T>,
   setPostLoading: (value: SetStateAction<boolean>) => void,
-  phase?: number
+  phase?: number,
 ): Promise<"success" | "fail" | "abort"> {
   if (!analysis || !snapshot) return "abort";
   let status: "success" | "fail" | "abort" = "fail";
@@ -61,7 +61,7 @@ export interface Props {
   phase: number;
   analysis?: ExperimentSnapshotAnalysis;
   setAnalysisSettings: (
-    settings: ExperimentSnapshotAnalysisSettings | null
+    settings: ExperimentSnapshotAnalysisSettings | null,
   ) => void;
   mutate: () => void;
   disabled?: boolean;
@@ -145,7 +145,7 @@ export default function DifferenceTypeChooser({
               snapshot,
               apiCall,
               setPostLoading,
-              phase
+              phase,
             ).then((status) => {
               if (status === "success") {
                 setDifferenceType(newDifferenceType);

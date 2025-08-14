@@ -5,7 +5,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getExperimentSnapshotValidator } from "back-end/src/validators/openapi";
 
 export const getExperimentSnapshot = createApiRequestHandler(
-  getExperimentSnapshotValidator
+  getExperimentSnapshotValidator,
 )(async (req): Promise<GetExperimentSnapshotResponse> => {
   const snapshot = await findSnapshotById(req.context.org.id, req.params.id);
   if (!snapshot) {

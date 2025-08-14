@@ -386,7 +386,7 @@ export default function TargetingInfo({
                             ,{" "}
                             {formatTrafficSplit(
                               phase.variationWeights,
-                              showDecimals ? 2 : 0
+                              showDecimals ? 2 : 0,
                             )}{" "}
                             split
                           </>
@@ -405,7 +405,7 @@ export default function TargetingInfo({
                               ,{" "}
                               {formatTrafficSplit(
                                 changes?.variationWeights ?? [],
-                                showDecimals ? 2 : 0
+                                showDecimals ? 2 : 0,
                               )}{" "}
                               split
                             </>
@@ -476,7 +476,7 @@ export default function TargetingInfo({
                           <div>
                             {formatTrafficSplit(
                               phase.variationWeights,
-                              showDecimals ? 2 : 0
+                              showDecimals ? 2 : 0,
                             )}
                           </div>
                         </div>
@@ -488,7 +488,7 @@ export default function TargetingInfo({
                             <div>
                               {formatTrafficSplit(
                                 changes?.variationWeights ?? [],
-                                showDecimals ? 2 : 0
+                                showDecimals ? 2 : 0,
                               )}
                             </div>
                           </div>

@@ -26,7 +26,7 @@ function expectsDenominator(metricType: FactMetricType) {
 export async function getUpdateFactMetricPropsFromBody(
   body: z.infer<typeof updateFactMetricValidator.bodySchema>,
   factMetric: FactMetricInterface,
-  getFactTable: (id: string) => Promise<FactTableInterface | null>
+  getFactTable: (id: string) => Promise<FactTableInterface | null>,
 ): Promise<UpdateFactMetricProps> {
   const {
     numerator,
@@ -132,10 +132,10 @@ export async function getUpdateFactMetricPropsFromBody(
 }
 
 export const updateFactMetric = createApiRequestHandler(
-  updateFactMetricValidator
+  updateFactMetricValidator,
 )(async (req): Promise<UpdateFactMetricResponse> => {
   const factMetric = await req.context.models.factMetrics.getById(
-    req.params.id
+    req.params.id,
   );
   if (!factMetric) {
     throw new Error("Could not find factMetric with that id");
@@ -144,12 +144,12 @@ export const updateFactMetric = createApiRequestHandler(
   const updates = await getUpdateFactMetricPropsFromBody(
     req.body,
     factMetric,
-    lookupFactTable
+    lookupFactTable,
   );
 
   const newFactMetric = await req.context.models.factMetrics.update(
     factMetric,
-    updates
+    updates,
   );
 
   return {

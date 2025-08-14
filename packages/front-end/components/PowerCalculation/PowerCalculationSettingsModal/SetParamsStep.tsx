@@ -246,7 +246,7 @@ const PopulationDataQueryInput = ({
                   });
                   form.setValue(
                     "metricValuesData.populationId",
-                    res.populationData?.id
+                    res.populationData?.id,
                   );
                   setMetricsEditable(false);
                   mutate();
@@ -457,8 +457,8 @@ export const SetParamsStep = ({
             onSubmit(
               ensureAndReturnPowerCalculationParams(
                 engineType,
-                form.getValues()
-              )
+                form.getValues(),
+              ),
             )
           }
         >

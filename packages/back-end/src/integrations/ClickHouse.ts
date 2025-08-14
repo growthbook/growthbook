@@ -42,7 +42,7 @@ export default class ClickHouse extends SqlIntegration {
       clickhouse_settings: {
         max_execution_time: Math.min(
           this.params.maxExecutionTime ?? 1800,
-          3600
+          3600,
         ),
       },
     });
@@ -70,7 +70,7 @@ export default class ClickHouse extends SqlIntegration {
     col: string,
     unit: "hour" | "minute",
     sign: "+" | "-",
-    amount: number
+    amount: number,
   ): string {
     return `date${sign === "+" ? "Add" : "Sub"}(${unit}, ${amount}, ${col})`;
   }
@@ -138,7 +138,7 @@ if(
   getInformationSchemaWhereClause(): string {
     if (!this.params.database)
       throw new Error(
-        "No database name provided in ClickHouse connection. Please add a database by editing the connection settings."
+        "No database name provided in ClickHouse connection. Please add a database by editing the connection settings.",
       );
 
     // For Managed Warehouse, filter out materialized views
@@ -152,10 +152,10 @@ if(
 
   async getFeatureUsage(
     feature: string,
-    lookback: FeatureUsageLookback
+    lookback: FeatureUsageLookback,
   ): Promise<{ start: number; rows: FeatureUsageAggregateRow[] }> {
     logger.info(
-      `Getting feature usage for ${feature} with lookback ${lookback}`
+      `Getting feature usage for ${feature} with lookback ${lookback}`,
     );
     const start = new Date();
     start.setSeconds(0, 0);

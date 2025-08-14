@@ -10,19 +10,19 @@ import {
 import { listSavedGroupsValidator } from "back-end/src/validators/openapi";
 
 export const listSavedGroups = createApiRequestHandler(
-  listSavedGroupsValidator
+  listSavedGroupsValidator,
 )(async (req): Promise<ListSavedGroupsResponse> => {
   const savedGroups = await getAllSavedGroups(req.organization.id);
 
   // TODO: Move sorting/limiting to the database query for better performance
   const { filtered, returnFields } = applyPagination(
     savedGroups.sort((a, b) => a.id.localeCompare(b.id)),
-    req.query
+    req.query,
   );
 
   return {
     savedGroups: filtered.map((savedGroup) =>
-      toSavedGroupApiInterface(savedGroup)
+      toSavedGroupApiInterface(savedGroup),
     ),
     ...returnFields,
   };

@@ -38,7 +38,7 @@ export class SafeRolloutModel extends BaseClass {
     return true;
   }
   protected migrate(
-    legacyDoc: Partial<SafeRolloutInterface>
+    legacyDoc: Partial<SafeRolloutInterface>,
   ): SafeRolloutInterface {
     if (!("rampUpSchedule" in legacyDoc)) {
       legacyDoc["rampUpSchedule"] = {
@@ -72,7 +72,7 @@ export class SafeRolloutModel extends BaseClass {
 
   protected async afterUpdate(
     existing: SafeRolloutInterface,
-    updates: UpdateProps<SafeRolloutInterface>
+    updates: UpdateProps<SafeRolloutInterface>,
   ) {
     if (
       updates.rampUpSchedule &&
@@ -85,15 +85,15 @@ export class SafeRolloutModel extends BaseClass {
         this.context,
         getAffectedSDKPayloadKeys(
           [feature],
-          getEnvironmentIdsFromOrg(this.context.org)
-        )
+          getEnvironmentIdsFromOrg(this.context.org),
+        ),
       );
     }
   }
 
   protected async beforeUpdate(
     existing: SafeRolloutInterface,
-    updates: UpdateProps<SafeRolloutInterface>
+    updates: UpdateProps<SafeRolloutInterface>,
   ) {
     // If the Safe Rollout has already been started, we are limited on what we can update to keep the data consistent
     // If the Safe Rollout has not been started, we can update all fields
@@ -120,7 +120,7 @@ export class SafeRolloutModel extends BaseClass {
           existing[typedKey] !== value
         ) {
           throw new Error(
-            `Cannot update field '${key}' after the Safe Rollout has started.`
+            `Cannot update field '${key}' after the Safe Rollout has started.`,
           );
         }
       }

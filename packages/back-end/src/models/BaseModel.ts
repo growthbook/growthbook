@@ -50,13 +50,14 @@ export type CreateRawShape<T extends z.ZodRawShape> = {
   id: z.ZodOptional<z.ZodString>;
 };
 
-export type CreateZodObject<T> = T extends z.ZodObject<
-  infer RawShape,
-  infer UnknownKeysParam,
-  infer ZodTypeAny
->
-  ? z.ZodObject<CreateRawShape<RawShape>, UnknownKeysParam, ZodTypeAny>
-  : never;
+export type CreateZodObject<T> =
+  T extends z.ZodObject<
+    infer RawShape,
+    infer UnknownKeysParam,
+    infer ZodTypeAny
+  >
+    ? z.ZodObject<CreateRawShape<RawShape>, UnknownKeysParam, ZodTypeAny>
+    : never;
 
 export const createSchema = <T extends BaseSchema>(schema: T) =>
   schema
@@ -79,13 +80,14 @@ export type UpdateRawShape<T extends z.ZodRawShape> = {
   >]: z.ZodOptional<T[k]>;
 };
 
-export type UpdateZodObject<T> = T extends z.ZodObject<
-  infer RawShape,
-  infer UnknownKeysParam,
-  infer ZodTypeAny
->
-  ? z.ZodObject<UpdateRawShape<RawShape>, UnknownKeysParam, ZodTypeAny>
-  : never;
+export type UpdateZodObject<T> =
+  T extends z.ZodObject<
+    infer RawShape,
+    infer UnknownKeysParam,
+    infer ZodTypeAny
+  >
+    ? z.ZodObject<UpdateRawShape<RawShape>, UnknownKeysParam, ZodTypeAny>
+    : never;
 
 const updateSchema = <T extends BaseSchema>(schema: T) =>
   schema
@@ -131,7 +133,7 @@ const indexesUpdated: Set<string> = new Set();
 export abstract class BaseModel<
   T extends BaseSchema,
   E extends EntityType,
-  WriteOptions = never
+  WriteOptions = never,
 > {
   public validator: T;
   public createValidator: CreateZodObject<T>;
@@ -157,7 +159,7 @@ export abstract class BaseModel<
   protected abstract canUpdate(
     existing: z.infer<T>,
     updates: UpdateProps<z.infer<T>>,
-    newDoc: z.infer<T>
+    newDoc: z.infer<T>,
   ): boolean;
   protected abstract canDelete(existing: z.infer<T>): boolean;
 
@@ -171,7 +173,7 @@ export abstract class BaseModel<
     return [];
   }
   protected async filterByReadPermissions(
-    docs: z.infer<T>[]
+    docs: z.infer<T>[],
   ): Promise<z.infer<T>[]> {
     await this.populateForeignRefs(docs);
 
@@ -192,7 +194,7 @@ export abstract class BaseModel<
   }
   protected async customValidation(
     doc: z.infer<T>,
-    writeOptions?: WriteOptions
+    writeOptions?: WriteOptions,
   ) {
     // Do nothing by default
   }
@@ -206,7 +208,7 @@ export abstract class BaseModel<
     existing: z.infer<T>,
     updates: UpdateProps<z.infer<T>>,
     newDoc: z.infer<T>,
-    writeOptions?: WriteOptions
+    writeOptions?: WriteOptions,
   ) {
     // Do nothing by default
   }
@@ -214,7 +216,7 @@ export abstract class BaseModel<
     existing: z.infer<T>,
     updates: UpdateProps<z.infer<T>>,
     newDoc: z.infer<T>,
-    writeOptions?: WriteOptions
+    writeOptions?: WriteOptions,
   ) {
     // Do nothing by default
   }
@@ -226,7 +228,7 @@ export abstract class BaseModel<
   }
   protected async afterCreateOrUpdate(
     doc: z.infer<T>,
-    writeOptions?: WriteOptions
+    writeOptions?: WriteOptions,
   ) {
     // Do nothing by default
   }
@@ -298,27 +300,27 @@ export abstract class BaseModel<
   }
   public create(
     props: CreateProps<z.infer<T>>,
-    writeOptions?: WriteOptions
+    writeOptions?: WriteOptions,
   ): Promise<z.infer<T>> {
     return this._createOne(props, writeOptions);
   }
   public dangerousCreateBypassPermission(
     props: CreateProps<z.infer<T>>,
-    writeOptions?: WriteOptions
+    writeOptions?: WriteOptions,
   ): Promise<z.infer<T>> {
     return this._createOne(props, writeOptions, true);
   }
   public update(
     existing: z.infer<T>,
     updates: UpdateProps<z.infer<T>>,
-    writeOptions?: WriteOptions
+    writeOptions?: WriteOptions,
   ): Promise<z.infer<T>> {
     return this._updateOne(existing, updates, { writeOptions });
   }
   public dangerousUpdateBypassPermission(
     existing: z.infer<T>,
     updates: UpdateProps<z.infer<T>>,
-    writeOptions?: WriteOptions
+    writeOptions?: WriteOptions,
   ): Promise<z.infer<T>> {
     return this._updateOne(existing, updates, {
       writeOptions,
@@ -328,7 +330,7 @@ export abstract class BaseModel<
   public async updateById(
     id: string,
     updates: UpdateProps<z.infer<T>>,
-    writeOptions?: WriteOptions
+    writeOptions?: WriteOptions,
   ): Promise<z.infer<T>> {
     const existing = await this.getById(id);
     if (!existing) {
@@ -338,14 +340,14 @@ export abstract class BaseModel<
   }
   public async delete(
     existing: z.infer<T>,
-    writeOptions?: WriteOptions
+    writeOptions?: WriteOptions,
   ): Promise<z.infer<T> | undefined> {
     await this._deleteOne(existing, writeOptions);
     return existing;
   }
   public async deleteById(
     id: string,
-    writeOptions?: WriteOptions
+    writeOptions?: WriteOptions,
   ): Promise<z.infer<T> | undefined> {
     const existing = await this.getById(id);
     if (!existing) {
@@ -376,7 +378,7 @@ export abstract class BaseModel<
       limit?: number;
       skip?: number;
       bypassReadPermissionChecks?: boolean;
-    } = {}
+    } = {},
   ) {
     const queryWithOrg = {
       ...query,
@@ -387,7 +389,7 @@ export abstract class BaseModel<
     if (this.useConfigFile()) {
       const docs =
         this.getConfigDocuments().filter((doc) =>
-          evalCondition(doc, queryWithOrg)
+          evalCondition(doc, queryWithOrg),
         ) || [];
 
       sort &&
@@ -409,7 +411,7 @@ export abstract class BaseModel<
         cursor.sort(
           sort as {
             [key: string]: 1 | -1;
-          }
+          },
         );
       rawDocs = await cursor.toArray();
     }
@@ -417,7 +419,7 @@ export abstract class BaseModel<
     if (!rawDocs.length) return [];
 
     const migrated = rawDocs.map((d) =>
-      this.migrate(this._removeMongooseFields(d))
+      this.migrate(this._removeMongooseFields(d)),
     );
     const filtered = bypassReadPermissionChecks
       ? migrated
@@ -429,11 +431,11 @@ export abstract class BaseModel<
   }
 
   protected async _findOne(
-    query: FilterQuery<Omit<z.infer<T>, "organization">>
+    query: FilterQuery<Omit<z.infer<T>, "organization">>,
   ) {
     const doc = this.useConfigFile()
       ? this.getConfigDocuments().find((doc) =>
-          evalCondition(doc, { ...query, organization: this.context.org.id })
+          evalCondition(doc, { ...query, organization: this.context.org.id }),
         )
       : await this._dangerousGetCollection().findOne({
           ...query,
@@ -454,7 +456,7 @@ export abstract class BaseModel<
   protected async _createOne(
     rawData: CreateProps<z.infer<T>>,
     writeOptions?: WriteOptions,
-    forceCanCreate?: boolean
+    forceCanCreate?: boolean,
   ) {
     const props = this.createValidator.parse(rawData);
 
@@ -491,7 +493,7 @@ export abstract class BaseModel<
 
     if (this.useConfigFile()) {
       throw new Error(
-        `Cannot create - ${this.config.collectionName} are being managed by config.yml`
+        `Cannot create - ${this.config.collectionName} are being managed by config.yml`,
       );
     }
 
@@ -514,7 +516,7 @@ export abstract class BaseModel<
       } catch (e) {
         this.context.logger.error(
           e,
-          `Error creating audit log for ${this.config.auditLog.createEvent}`
+          `Error creating audit log for ${this.config.auditLog.createEvent}`,
         );
       }
     }
@@ -537,7 +539,7 @@ export abstract class BaseModel<
       auditEvent?: EventType;
       writeOptions?: WriteOptions;
       forceCanUpdate?: boolean;
-    }
+    },
   ) {
     updates = this.updateValidator.parse(updates);
 
@@ -555,11 +557,11 @@ export abstract class BaseModel<
     // Make sure the updates don't include any fields that shouldn't be updated
     if (
       ["id", "organization", "dateCreated", "dateUpdated"].some(
-        (k) => k in updates
+        (k) => k in updates,
       )
     ) {
       throw new Error(
-        "Cannot update id, organization, dateCreated, or dateUpdated"
+        "Cannot update id, organization, dateCreated, or dateUpdated",
       );
     }
 
@@ -567,14 +569,14 @@ export abstract class BaseModel<
       const readonlyFields = new Set(this.config.readonlyFields);
       if (updatedFields.some((field) => readonlyFields.has(field))) {
         throw new Error(
-          "Cannot update readonly fields: " + [...readonlyFields].join(", ")
+          "Cannot update readonly fields: " + [...readonlyFields].join(", "),
         );
       }
     }
 
     // Only set dateUpdated if at least one important field has changed
     const setDateUpdated = updatedFields.some(
-      (field) => !this.config.skipDateUpdatedFields?.includes(field)
+      (field) => !this.config.skipDateUpdatedFields?.includes(field),
     );
 
     const allUpdates = {
@@ -594,7 +596,7 @@ export abstract class BaseModel<
 
     if (this.useConfigFile()) {
       throw new Error(
-        `Cannot update - ${this.config.collectionName} are being managed by config.yml`
+        `Cannot update - ${this.config.collectionName} are being managed by config.yml`,
       );
     }
 
@@ -609,7 +611,7 @@ export abstract class BaseModel<
       },
       {
         $set: allUpdates,
-      }
+      },
     );
 
     const auditEvent = options?.auditEvent || this.config.auditLog?.updateEvent;
@@ -631,7 +633,7 @@ export abstract class BaseModel<
       } catch (e) {
         this.context.logger.error(
           e,
-          `Error creating audit log for ${auditEvent}`
+          `Error creating audit log for ${auditEvent}`,
         );
       }
     }
@@ -654,7 +656,7 @@ export abstract class BaseModel<
 
     if (this.useConfigFile()) {
       throw new Error(
-        `Cannot delete - ${this.config.collectionName} are being managed by config.yml`
+        `Cannot delete - ${this.config.collectionName} are being managed by config.yml`,
       );
     }
     await this.beforeDelete(doc, writeOptions);
@@ -678,7 +680,7 @@ export abstract class BaseModel<
       } catch (e) {
         this.context.logger.error(
           e,
-          `Error creating audit log for ${this.config.auditLog.deleteEvent}`
+          `Error creating audit log for ${this.config.auditLog.deleteEvent}`,
         );
       }
     }
@@ -688,7 +690,7 @@ export abstract class BaseModel<
 
   protected detectForeignKey(
     doc: z.infer<T>,
-    potentialFields: string[]
+    potentialFields: string[],
   ): string | null {
     for (const field of potentialFields) {
       if (
@@ -704,7 +706,7 @@ export abstract class BaseModel<
 
   protected getForeignRefs(
     doc: z.infer<T>,
-    throwIfMissing: boolean = true
+    throwIfMissing: boolean = true,
   ): ForeignRefs {
     const refs = this.context.foreignRefs;
     const keys = this.getForeignKeys(doc);
@@ -718,7 +720,7 @@ export abstract class BaseModel<
       if (!value) {
         if (throwIfMissing) {
           throw new Error(
-            `Could not find foreign ref for ${type}: ${keys[type]}`
+            `Could not find foreign ref for ${type}: ${keys[type]}`,
           );
         } else {
           continue;
@@ -737,7 +739,7 @@ export abstract class BaseModel<
     if (!this._collection) {
       // TODO: don't use Mongoose, use the native Mongo Driver instead
       this._collection = mongoose.connection.db.collection(
-        this.config.collectionName
+        this.config.collectionName,
       );
     }
     return this._collection;
@@ -753,7 +755,7 @@ export abstract class BaseModel<
         ([type, id]: [keyof ForeignKeys, string]) => {
           mergedKeys[type] = mergedKeys[type] || [];
           mergedKeys[type]?.push(id);
-        }
+        },
       );
     });
 
@@ -769,7 +771,7 @@ export abstract class BaseModel<
       .catch((err) => {
         logger.error(
           err,
-          `Error creating org/id unique index for ${this.config.collectionName}`
+          `Error creating org/id unique index for ${this.config.collectionName}`,
         );
       });
 
@@ -780,7 +782,7 @@ export abstract class BaseModel<
         .catch((err) => {
           logger.error(
             err,
-            `Error creating id unique index for ${this.config.collectionName}`
+            `Error creating id unique index for ${this.config.collectionName}`,
           );
         });
     }
@@ -797,7 +799,7 @@ export abstract class BaseModel<
           .catch((err) => {
             logger.error(
               err,
-              `Error dropping index ${index.name} for ${this.config.collectionName}`
+              `Error dropping index ${index.name} for ${this.config.collectionName}`,
             );
           });
       });
@@ -814,7 +816,7 @@ export abstract class BaseModel<
             err,
             `Error creating ${Object.keys(index.fields).join("/")} ${
               index.unique ? "unique " : ""
-            }index for ${this.config.collectionName}`
+            }index for ${this.config.collectionName}`,
           );
         });
     });
@@ -839,7 +841,7 @@ export abstract class BaseModel<
       const projects = await this.context.getProjects();
       if (
         !obj.projects.every((p: string) =>
-          projects.some((proj) => proj.id === p)
+          projects.some((proj) => proj.id === p),
         )
       ) {
         throw new Error("Invalid project");
@@ -854,7 +856,7 @@ export abstract class BaseModel<
 }
 
 export const MakeModelClass = <T extends BaseSchema, E extends EntityType>(
-  config: ModelConfig<T, E>
+  config: ModelConfig<T, E>,
 ) => {
   const createValidator = createSchema(config.schema);
   const updateValidator = updateSchema(config.schema);

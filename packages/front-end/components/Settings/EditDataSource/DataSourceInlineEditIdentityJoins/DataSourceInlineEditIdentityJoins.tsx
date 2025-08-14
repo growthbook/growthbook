@@ -42,17 +42,17 @@ export const DataSourceInlineEditIdentityJoins: FC<
 
       setOpenIndexes(updatedOpenIndexes);
     },
-    [openIndexes]
+    [openIndexes],
   );
 
   const userIdTypes = useMemo(
     () => dataSource.settings?.userIdTypes || [],
-    [dataSource.settings?.userIdTypes]
+    [dataSource.settings?.userIdTypes],
   );
   const addIsDisabled = userIdTypes.length < 2;
   const identityJoins = useMemo(
     () => dataSource?.settings?.queries?.identityJoins || [],
-    [dataSource?.settings?.queries?.identityJoins]
+    [dataSource?.settings?.queries?.identityJoins],
   );
 
   const handleAdd = useCallback(() => {
@@ -65,7 +65,7 @@ export const DataSourceInlineEditIdentityJoins: FC<
       setEditingIndex(idx);
       setUiMode("edit");
     },
-    []
+    [],
   );
 
   const handleActionDeleteClicked = useCallback(
@@ -77,7 +77,7 @@ export const DataSourceInlineEditIdentityJoins: FC<
 
       await onSave(copy);
     },
-    [onSave, dataSource]
+    [onSave, dataSource],
   );
 
   const handleSave = useCallback(
@@ -87,7 +87,7 @@ export const DataSourceInlineEditIdentityJoins: FC<
       copy.settings.queries.identityJoins[idx] = identityJoin;
       await onSave(copy);
     },
-    [dataSource, onSave]
+    [dataSource, onSave],
   );
 
   if (!dataSource) {
@@ -152,7 +152,7 @@ export const DataSourceInlineEditIdentityJoins: FC<
                           useRadix={true}
                           displayName={identityJoin.ids.join(" ↔ ")}
                           deleteMessage={`Are you sure you want to delete identifier join ${identityJoin.ids.join(
-                            " ↔ "
+                            " ↔ ",
                           )}?`}
                           title="Delete"
                           text="Delete"

@@ -43,7 +43,7 @@ export class SavedQueryDataModel extends BaseClass {
   }
   protected canUpdate(
     existing: SavedQuery,
-    updates: UpdateProps<SavedQuery>
+    updates: UpdateProps<SavedQuery>,
   ): boolean {
     // Always get the datasource from the existing object
     const { datasource: existingDatasource } = this.getForeignRefs(existing);
@@ -68,7 +68,7 @@ export class SavedQueryDataModel extends BaseClass {
       },
       {
         projects: newDatasource.projects || [],
-      }
+      },
     );
   }
   protected canDelete(doc: SavedQuery): boolean {

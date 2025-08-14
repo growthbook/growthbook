@@ -20,7 +20,7 @@ const MetricsPage = (): React.ReactElement => {
   const { metrics, factMetrics, datasources, project } = useDefinitions();
 
   const hasDatasource = datasources.some((d) =>
-    isProjectListValidForProject(d.projects, project)
+    isProjectListValidForProject(d.projects, project),
   );
   const hasMetrics =
     metrics.some((m) => isProjectListValidForProject(m.projects, project)) ||

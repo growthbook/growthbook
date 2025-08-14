@@ -139,7 +139,7 @@ describe("src/license", () => {
         expect(() => {
           getLicenseError(org);
         }).toThrowError(
-          "You need an enterprise license for SSO functionality. Either upgrade to enterprise or remove SSO_CONFIG environment variable."
+          "You need an enterprise license for SSO functionality. Either upgrade to enterprise or remove SSO_CONFIG environment variable.",
         );
       });
 
@@ -158,7 +158,7 @@ describe("src/license", () => {
         expect(() => {
           getLicenseError(org);
         }).toThrowError(
-          "You need an enterprise license for multi-org functionality. Either upgrade to enterprise or remove IS_MULTI_ORG environment variable."
+          "You need an enterprise license for multi-org functionality. Either upgrade to enterprise or remove IS_MULTI_ORG environment variable.",
         );
       });
 
@@ -199,7 +199,7 @@ describe("src/license", () => {
         expect(() => {
           getLicenseError(org);
         }).toThrowError(
-          "You need an enterprise license for SSO functionality. Either upgrade to enterprise or remove SSO_CONFIG environment variable."
+          "You need an enterprise license for SSO functionality. Either upgrade to enterprise or remove SSO_CONFIG environment variable.",
         );
       });
 
@@ -218,7 +218,7 @@ describe("src/license", () => {
         expect(() => {
           getLicenseError(org);
         }).toThrowError(
-          "You need an enterprise license for multi-org functionality. Either upgrade to enterprise or remove IS_MULTI_ORG environment variable."
+          "You need an enterprise license for multi-org functionality. Either upgrade to enterprise or remove IS_MULTI_ORG environment variable.",
         );
       });
 
@@ -254,7 +254,7 @@ describe("src/license", () => {
 
       it("should have an error since no plan but an error means the license server errored or could not connect on first ever try", () => {
         expect(getLicenseError(org)).toBe(
-          "License server erroring for too long"
+          "License server erroring for too long",
         );
       });
     });
@@ -279,7 +279,7 @@ describe("src/license", () => {
 
       it("should have an error since no plan but an error means the license server errored or could not connect on first ever try", () => {
         expect(getLicenseError(org)).toBe(
-          "License server unreachable for too long"
+          "License server unreachable for too long",
         );
       });
     });
@@ -289,7 +289,7 @@ describe("src/license", () => {
         ...cloneDeep(licenseData),
         usingMongoCache: true,
         dateUpdated: new Date(
-          now.getTime() - 15 * 24 * 60 * 60 * 1000
+          now.getTime() - 15 * 24 * 60 * 60 * 1000,
         ).toISOString(),
       };
 
@@ -305,7 +305,7 @@ describe("src/license", () => {
 
       it("should return an error saying the server is down too long", () => {
         expect(getLicenseError(org)).toBe(
-          "License server unreachable for too long"
+          "License server unreachable for too long",
         );
       });
     });
@@ -354,7 +354,7 @@ describe("src/license", () => {
 
       it("should return an error saying the server is down too long", () => {
         expect(getLicenseError(org)).toBe(
-          "License server erroring for too long"
+          "License server erroring for too long",
         );
       });
     });
@@ -380,7 +380,7 @@ describe("src/license", () => {
 
       it("should return an error saying the server is down too long", () => {
         expect(getLicenseError(org)).toBe(
-          "License server unreachable for too long"
+          "License server unreachable for too long",
         );
       });
     });
@@ -388,7 +388,7 @@ describe("src/license", () => {
     describe("when there is a license but has expired", () => {
       const expiredLicense = cloneDeep(licenseData);
       expiredLicense.dateExpires = new Date(
-        now.getTime() - 8 * 24 * 60 * 60 * 1000
+        now.getTime() - 8 * 24 * 60 * 60 * 1000,
       ).toISOString();
       expiredLicense.signedChecksum =
         "dmFmZdVbiR3Ed-s9lyHys2hqmu_fMYMS7EreU4g6FKipPatQL-dsrC-vvUo3DYhEWZzC72T5mPoRcsUWPUWNp_wtpuYnozDbLCVs4nzbr0yQJ32eSFlO3qvTkzElVWCipILDKHKmzs6JXUSerljxOAI0TtXxkXkWMdTuOvxEwwO0KMTazz9c-rLg4P4iuFhSvZmnE82kecLvf0ZeRImQuW_8Ts7dT1L-5uzVH0eQjz2S0e3xdwYFE5F0vBufxkizg-68RG_AFmJ8sqO53Ys316Q3S2dwNFlA-dmAGc3TVJKis9D-TZCkHENuSdKfbj4nKwql3Uye8Vj9LxMHI2Vps-R6RXr2f-r2IKk6aqqUGl9A3p2FFvrf1QhFrmyQBKOeyvRI_tojd0F7rh4-FptLV8_Z46KUblGSSdhjg79JZV-KpH4h_uH0HwVtyFoi-deI4A-4cRynYJEu2IWvDCc5XJr6tspC_tuNX37D_Nw17uxC1Gy9a7vk832zkUdQlwOtzt2GV23QUSSOYFjSkOgoCAybbcWNSeZuaE3sEsso_Gwq9aqPrN1FlcNuyIVlmXWJt-0rI9uUD5hmpcTeH01m3AmNOu8es4yjTz1JmJY3TTQ4JgZqRyMvasxgZcEUCF_4p9Qn58l1kWo4AHkvlbHAHEHovwPX1YdiacBux82ORIk";
@@ -509,7 +509,7 @@ describe("src/license", () => {
         expect(() => {
           getLicenseError(org);
         }).toThrowError(
-          "You need an enterprise license for SSO functionality. Either upgrade to enterprise or remove SSO_CONFIG environment variable."
+          "You need an enterprise license for SSO functionality. Either upgrade to enterprise or remove SSO_CONFIG environment variable.",
         );
       });
 
@@ -528,7 +528,7 @@ describe("src/license", () => {
         expect(() => {
           getLicenseError(org);
         }).toThrowError(
-          "You need an enterprise license for multi-org functionality. Either upgrade to enterprise or remove IS_MULTI_ORG environment variable."
+          "You need an enterprise license for multi-org functionality. Either upgrade to enterprise or remove IS_MULTI_ORG environment variable.",
         );
       });
 
@@ -546,7 +546,7 @@ describe("src/license", () => {
       const result = await licenseInit(
         { id: org.id },
         getUserCodesForOrg,
-        getLicenseMetaData
+        getLicenseMetaData,
       );
 
       expect(result).toBeUndefined();
@@ -573,7 +573,7 @@ describe("src/license", () => {
           const result = await licenseInit(
             { id: org.id },
             getUserCodesForOrg,
-            getLicenseMetaData
+            getLicenseMetaData,
           );
 
           expect(getLicense()).toEqual(licenseData);
@@ -584,15 +584,15 @@ describe("src/license", () => {
           expect.assertions(2);
 
           await expect(
-            licenseInit(org, undefined, getLicenseMetaData)
+            licenseInit(org, undefined, getLicenseMetaData),
           ).rejects.toThrowError(
-            "Missing org, getUserCodesForOrg, or getLicenseMetaData for connected license key"
+            "Missing org, getUserCodesForOrg, or getLicenseMetaData for connected license key",
           );
 
           await expect(
-            licenseInit(org, getUserCodesForOrg, undefined)
+            licenseInit(org, getUserCodesForOrg, undefined),
           ).rejects.toThrowError(
-            "Missing org, getUserCodesForOrg, or getLicenseMetaData for connected license key"
+            "Missing org, getUserCodesForOrg, or getLicenseMetaData for connected license key",
           );
         });
 
@@ -611,7 +611,7 @@ describe("src/license", () => {
                 licenseUserCodes: userLicenseCodes,
                 metaData,
               }),
-            })
+            }),
           );
 
           expect(getLicense(licenseKey)).toEqual(licenseData);
@@ -623,7 +623,7 @@ describe("src/license", () => {
           expect(LicenseModel.findOneAndReplace).toHaveBeenCalledWith(
             { id: licenseKey },
             licenseData,
-            { upsert: true }
+            { upsert: true },
           );
           expect(LicenseModelModule.getLicenseByKey).toHaveBeenCalledTimes(2);
         });
@@ -643,7 +643,7 @@ describe("src/license", () => {
                 licenseUserCodes: userLicenseCodes,
                 metaData,
               }),
-            })
+            }),
           );
 
           expect(getLicense(licenseKey)).toEqual(licenseData);
@@ -662,7 +662,7 @@ describe("src/license", () => {
           expect(LicenseModel.findOneAndReplace).toHaveBeenCalledWith(
             { id: licenseKey },
             licenseData,
-            { upsert: true }
+            { upsert: true },
           );
           expect(LicenseModelModule.getLicenseByKey).toHaveBeenCalledTimes(3);
         });
@@ -682,7 +682,7 @@ describe("src/license", () => {
                 licenseUserCodes: userLicenseCodes,
                 metaData,
               }),
-            })
+            }),
           );
 
           expect(getLicense(licenseKey)).toEqual(licenseData);
@@ -746,16 +746,16 @@ describe("src/license", () => {
                 return await licenseInit(
                   org,
                   getUserCodesForOrg,
-                  getLicenseMetaData
+                  getLicenseMetaData,
                 );
               } else {
                 return await licenseInit(
                   { id: org.id, licenseKey: licenseKey2 },
                   getUserCodesForOrg,
-                  getLicenseMetaData
+                  getLicenseMetaData,
                 );
               }
-            })
+            }),
           );
 
           expect(fetch).toHaveBeenCalledTimes(2);
@@ -764,8 +764,8 @@ describe("src/license", () => {
           expect(results[1]).toEqual(licenseData3);
           expect(
             results.every((result, i) =>
-              i % 2 === 0 ? result === licenseData : result === licenseData3
-            )
+              i % 2 === 0 ? result === licenseData : result === licenseData3,
+            ),
           ).toBe(true);
 
           expect(getLicense(licenseKey)).toEqual(licenseData);
@@ -787,7 +787,7 @@ describe("src/license", () => {
                 licenseUserCodes: userLicenseCodes,
                 metaData,
               }),
-            })
+            }),
           );
 
           expect(getLicense(licenseKey)).toEqual(licenseData);
@@ -852,7 +852,7 @@ describe("src/license", () => {
               org,
               getUserCodesForOrg,
               getLicenseMetaData,
-              true
+              true,
             );
           }).rejects.toThrowError("Invalid license key signature");
 
@@ -869,7 +869,7 @@ describe("src/license", () => {
           expect(LicenseModel.findOneAndReplace).toHaveBeenCalledWith(
             { id: licenseKey },
             expectedLicenseData,
-            { upsert: true }
+            { upsert: true },
           );
         });
       });
@@ -908,7 +908,7 @@ describe("src/license", () => {
             await expect(async () => {
               await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
             }).rejects.toThrowError(
-              "License server errored with: internal server error"
+              "License server errored with: internal server error",
             );
             expect(getLicense(licenseKey)).toEqual({
               firstFailedFetchDate: now,
@@ -934,10 +934,10 @@ describe("src/license", () => {
                 org,
                 getUserCodesForOrg,
                 getLicenseMetaData,
-                true
+                true,
               );
             }).rejects.toThrowError(
-              "License server errored with: internal server error"
+              "License server errored with: internal server error",
             );
 
             const expectedLicense = {
@@ -953,7 +953,7 @@ describe("src/license", () => {
             expect(LicenseModel.findOneAndReplace).toHaveBeenCalledWith(
               { id: licenseKey },
               expectedLicense,
-              { upsert: true }
+              { upsert: true },
             );
 
             expect(getLicense(licenseKey)).toEqual(expectedLicense);
@@ -986,7 +986,7 @@ describe("src/license", () => {
             expect(LicenseModel.findOneAndReplace).toHaveBeenCalledWith(
               { id: licenseKey },
               expectedLicenseData,
-              { upsert: true }
+              { upsert: true },
             );
 
             const mockedResponse: Response = {
@@ -1020,7 +1020,7 @@ describe("src/license", () => {
             expect(LicenseModel.findOneAndReplace).toHaveBeenCalledWith(
               { id: licenseKey },
               updatedLicenseData,
-              { upsert: true }
+              { upsert: true },
             );
           });
 
@@ -1033,10 +1033,10 @@ describe("src/license", () => {
                 org,
                 getUserCodesForOrg,
                 getLicenseMetaData,
-                true
+                true,
               );
             }).rejects.toThrowError(
-              "License server errored with: internal server error"
+              "License server errored with: internal server error",
             );
 
             expect(getLicense(licenseKey)).toEqual({
@@ -1066,7 +1066,7 @@ describe("src/license", () => {
             await expect(async () => {
               await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
             }).rejects.toThrowError(
-              "License server errored with: internal server error"
+              "License server errored with: internal server error",
             );
 
             expect(getLicense(licenseKey)).toEqual({
@@ -1103,7 +1103,7 @@ describe("src/license", () => {
         const result = await licenseInit(
           org,
           getUserCodesForOrg,
-          getLicenseMetaData
+          getLicenseMetaData,
         );
 
         expect(getLicense(licenseKey)).toEqual(oldLicenseData);
@@ -1122,7 +1122,7 @@ describe("src/license", () => {
         const result = await licenseInit(
           org,
           getUserCodesForOrg,
-          getLicenseMetaData
+          getLicenseMetaData,
         );
 
         expect(getLicense(licenseKey)).toEqual(licenseData);
@@ -1142,7 +1142,7 @@ describe("src/license", () => {
         await licenseInit(
           orgWithOldKey,
           getUserCodesForOrg,
-          getLicenseMetaData
+          getLicenseMetaData,
         );
         expect(getLicense(oldLicenseKey)).toEqual(oldLicenseData);
       });
@@ -1153,7 +1153,7 @@ describe("src/license", () => {
             await licenseInit({
               id: org.id,
               licenseKey: oldLicenseKey + "extrasignature",
-            })
+            }),
         ).rejects.toThrowError("Invalid license key signature");
       });
 
@@ -1179,7 +1179,7 @@ describe("src/license", () => {
         await expect(async () => {
           await licenseInit(orgWithOldKey);
         }).rejects.toThrowError(
-          "Invalid License Key - Missing expiration date"
+          "Invalid License Key - Missing expiration date",
         );
       });
 

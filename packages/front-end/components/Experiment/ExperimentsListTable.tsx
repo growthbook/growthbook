@@ -133,7 +133,7 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
                         <span className="text-danger">Invalid project</span>
                       </Tooltip>
                     ) : (
-                      e.projectName ?? <em>None</em>
+                      (e.projectName ?? <em>None</em>)
                     )}
                   </td>
                 )}
@@ -148,12 +148,12 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
                   {e.tab === "running"
                     ? "started"
                     : e.tab === "drafts"
-                    ? "created"
-                    : e.tab === "stopped"
-                    ? "ended"
-                    : e.tab === "archived"
-                    ? "updated"
-                    : ""}{" "}
+                      ? "created"
+                      : e.tab === "stopped"
+                        ? "ended"
+                        : e.tab === "archived"
+                          ? "updated"
+                          : ""}{" "}
                   {date(e.date)}
                 </td>
                 {needsStatusColumn ? (

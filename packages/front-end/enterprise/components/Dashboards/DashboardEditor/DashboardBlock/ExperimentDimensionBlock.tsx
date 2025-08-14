@@ -36,15 +36,15 @@ export default function ExperimentDimensionBlock({
   const expandedMetricIds = expandMetricGroups(metricIds, metricGroups);
   const expGoalMetrics = expandMetricGroups(
     experiment.goalMetrics,
-    metricGroups
+    metricGroups,
   );
   const expSecondaryMetrics = expandMetricGroups(
     experiment.secondaryMetrics,
-    metricGroups
+    metricGroups,
   );
   const expGuardrailMetrics = expandMetricGroups(
     experiment.guardrailMetrics,
-    metricGroups
+    metricGroups,
   );
 
   const pValueCorrection =
@@ -73,7 +73,7 @@ export default function ExperimentDimensionBlock({
 
   const queryStatusData = getQueryStatus(
     snapshot.queries || [],
-    snapshot.error
+    snapshot.error,
   );
 
   const settingsForSnapshotMetrics: MetricSnapshotSettings[] =
@@ -95,13 +95,13 @@ export default function ExperimentDimensionBlock({
   const isBandit = experiment.type === "multi-armed-bandit";
 
   const goalMetrics = expGoalMetrics.filter((mId) =>
-    expandedMetricIds.includes(mId)
+    expandedMetricIds.includes(mId),
   );
   const secondaryMetrics = expSecondaryMetrics.filter((mId) =>
-    expandedMetricIds.includes(mId)
+    expandedMetricIds.includes(mId),
   );
   const guardrailMetrics = expGuardrailMetrics.filter((mId) =>
-    expandedMetricIds.includes(mId)
+    expandedMetricIds.includes(mId),
   );
 
   return (

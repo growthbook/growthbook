@@ -7,7 +7,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { deleteFactTableValidator } from "back-end/src/validators/openapi";
 
 export const deleteFactTable = createApiRequestHandler(
-  deleteFactTableValidator
+  deleteFactTableValidator,
 )(async (req): Promise<DeleteFactTableResponse> => {
   const factTable = await getFactTable(req.context, req.params.id);
   if (!factTable) {

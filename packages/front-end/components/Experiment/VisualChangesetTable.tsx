@@ -184,7 +184,7 @@ const drawChange = ({
                               setShowChangeset(
                                 showChangeset.includes(j)
                                   ? showChangeset.filter((item) => item !== j)
-                                  : [...showChangeset, j]
+                                  : [...showChangeset, j],
                               );
                             }}
                           >
@@ -243,11 +243,11 @@ const drawChange = ({
                                 ([key]) =>
                                   key !== "id" &&
                                   key !== "variation" &&
-                                  key !== "description"
-                              )
+                                  key !== "description",
+                              ),
                             ),
                             null,
-                            2
+                            2,
                           )}
                         />
                       </Box>
@@ -292,7 +292,7 @@ export const VisualChangesetTable: FC<Props> = ({
         source: "visual-editor-ui",
       });
     },
-    [apiCall, mutate]
+    [apiCall, mutate],
   );
 
   const updateVisualChange = useCallback(
@@ -308,7 +308,7 @@ export const VisualChangesetTable: FC<Props> = ({
       const newVisualChangeset: VisualChangesetInterface = {
         ...visualChangeset,
         visualChanges: visualChangeset.visualChanges.map((c, i) =>
-          i === index ? visualChange : c
+          i === index ? visualChange : c,
         ),
       };
       await apiCall(`/visual-changesets/${visualChangeset.id}`, {
@@ -320,7 +320,7 @@ export const VisualChangesetTable: FC<Props> = ({
         source: "visual-editor-ui",
       });
     },
-    [apiCall, mutate]
+    [apiCall, mutate],
   );
 
   return (
@@ -363,7 +363,7 @@ export const VisualChangesetTable: FC<Props> = ({
         const visualChangeTypesDict: string[] = ["Text", "CSS", "Javascript"];
         const visualChangeTypes: string[] = [...visualChangeTypesSet].sort(
           (a, b) =>
-            visualChangeTypesDict.indexOf(a) - visualChangeTypesDict.indexOf(b)
+            visualChangeTypesDict.indexOf(a) - visualChangeTypesDict.indexOf(b),
         );
 
         return (

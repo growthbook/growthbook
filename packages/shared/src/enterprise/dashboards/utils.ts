@@ -21,20 +21,20 @@ import { expandMetricGroups } from "../../experiments";
 export const differenceTypes = ["absolute", "relative", "scaled"] as const;
 
 export function getBlockData<T extends DashboardBlockInterface>(
-  block: DashboardBlockInterfaceOrData<T>
+  block: DashboardBlockInterfaceOrData<T>,
 ): DashboardBlockData<T> {
   return { ...block, organization: undefined, id: undefined, uid: undefined };
 }
 
 export function isPersistedDashboardBlock<T extends DashboardBlockInterface>(
-  data: DashboardBlockInterfaceOrData<T>
+  data: DashboardBlockInterfaceOrData<T>,
 ): data is T {
   const block = data as T;
   return !!(block.id && block.uid && block.organization);
 }
 
 export function isDifferenceType(
-  value: string
+  value: string,
 ): value is (typeof differenceTypes)[number] {
   return (differenceTypes as readonly string[]).includes(value);
 }
@@ -42,7 +42,7 @@ export function isDifferenceType(
 export function blockHasFieldOfType<Field extends string, T>(
   data: DashboardBlockInterfaceOrData<DashboardBlockInterface> | undefined,
   field: Field,
-  typeCheck: (val: unknown) => val is T
+  typeCheck: (val: unknown) => val is T,
 ): data is Extract<
   DashboardBlockInterfaceOrData<DashboardBlockInterface>,
   { [K in Field]: T }
@@ -56,7 +56,7 @@ export function blockHasFieldOfType<Field extends string, T>(
 }
 
 export function getBlockSnapshotSettings(
-  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
 ): Partial<ExperimentSnapshotSettings> {
   const blockSettings: Partial<ExperimentSnapshotSettings> = {};
   if (
@@ -70,7 +70,7 @@ export function getBlockSnapshotSettings(
 
 export function getBlockAnalysisSettings(
   block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
-  defaultAnalysisSettings: ExperimentSnapshotAnalysisSettings
+  defaultAnalysisSettings: ExperimentSnapshotAnalysisSettings,
 ): ExperimentSnapshotAnalysisSettings {
   const blockSettings: Partial<ExperimentSnapshotAnalysisSettings> = {};
   if (
@@ -99,7 +99,7 @@ export function dashboardCanAutoUpdate({
 }) {
   // Only update dashboards where all the blocks will stay up to date with each other
   return !blocks.find((block) =>
-    ["sql-explorer", "dimension"].includes(block.type)
+    ["sql-explorer", "dimension"].includes(block.type),
   );
 }
 
@@ -210,9 +210,9 @@ export function createDashboardBlocksFromTemplate(
     blockInitialValues,
   }: Pick<DashboardTemplateInterface, "blockInitialValues">,
   experiment: ExperimentInterface | ExperimentInterfaceStringDates,
-  metricGroups: MetricGroupInterface[]
+  metricGroups: MetricGroupInterface[],
 ): CreateDashboardBlockInterface[] {
   return blockInitialValues.map(({ type, ...initialValues }) =>
-    CREATE_BLOCK_TYPE[type]({ initialValues, experiment, metricGroups })
+    CREATE_BLOCK_TYPE[type]({ initialValues, experiment, metricGroups }),
   );
 }

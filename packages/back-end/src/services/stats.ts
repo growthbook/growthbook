@@ -141,11 +141,11 @@ export function getAnalysisSettingsForStatsEngine(
   settings: ExperimentSnapshotAnalysisSettings,
   variations: ExperimentReportVariation[],
   coverage: number,
-  phaseLengthDays: number
+  phaseLengthDays: number,
 ): AnalysisSettingsForStatsEngine {
   const sortedVariations = putBaselineVariationFirst(
     variations,
-    settings.baselineVariationIndex ?? 0
+    settings.baselineVariationIndex ?? 0,
   );
 
   const sequentialTestingTuningParameterNumber =
@@ -182,11 +182,11 @@ export function getAnalysisSettingsForStatsEngine(
 export function getBanditSettingsForStatsEngine(
   banditSettings: SnapshotBanditSettings,
   settings: ExperimentSnapshotAnalysisSettings,
-  variations: ExperimentReportVariation[]
+  variations: ExperimentReportVariation[],
 ): BanditSettingsForStatsEngine {
   const sortedVariations = putBaselineVariationFirst(
     variations,
-    settings.baselineVariationIndex ?? 0
+    settings.baselineVariationIndex ?? 0,
   );
   return {
     reweight: banditSettings.reweight,
@@ -204,7 +204,7 @@ export function getBanditSettingsForStatsEngine(
 }
 
 export async function runStatsEngine(
-  statsData: ExperimentDataForStatsEngine[]
+  statsData: ExperimentDataForStatsEngine[],
 ): Promise<MultipleExperimentMetricAnalysis[]> {
   if (process.env.EXTERNAL_PYTHON_SERVER_URL) {
     const retVal = await fetch(
@@ -215,7 +215,7 @@ export async function runStatsEngine(
           "Content-Type": "application/json",
         },
         body: JSON.stringify(statsData),
-      }
+      },
     );
     if (!retVal.ok) {
       let { error } = await retVal.json();
@@ -242,7 +242,7 @@ export async function runStatsEngine(
 }
 
 function createStatsEngineData(
-  params: ExperimentMetricAnalysisParams
+  params: ExperimentMetricAnalysisParams,
 ): DataForStatsEngine {
   const {
     variations,
@@ -264,8 +264,8 @@ function createStatsEngineData(
         a,
         variations,
         coverage,
-        phaseLengthDays
-      )
+        phaseLengthDays,
+      ),
     ),
     bandit_settings: banditSettings
       ? getBanditSettingsForStatsEngine(banditSettings, analyses[0], variations)
@@ -274,7 +274,7 @@ function createStatsEngineData(
 }
 
 export async function runSnapshotAnalysis(
-  params: ExperimentMetricAnalysisParams
+  params: ExperimentMetricAnalysisParams,
 ): Promise<{ results: ExperimentMetricAnalysis; banditResult?: BanditResult }> {
   const analysis: MultipleExperimentMetricAnalysis | undefined = (
     await runStatsEngine([
@@ -301,7 +301,7 @@ export async function runSnapshotAnalysis(
 }
 
 export async function runSnapshotAnalyses(
-  params: ExperimentMetricAnalysisParams[]
+  params: ExperimentMetricAnalysisParams[],
 ): Promise<MultipleExperimentMetricAnalysis[]> {
   const paramsWithId = params.map((p) => {
     return { id: p.id, data: createStatsEngineData(p) };
@@ -317,7 +317,7 @@ export async function runSnapshotAnalyses(
 
 function getBusinessMetricTypeForStatsEngine(
   metricId: string,
-  settings: ExperimentSnapshotSettings
+  settings: ExperimentSnapshotSettings,
 ): BusinessMetricTypeForStatsEngine[] {
   return [
     settings.goalMetrics.includes(metricId) ? ("goal" as const) : null,
@@ -334,7 +334,7 @@ export function getMetricSettingsForStatsEngine(
   metricDoc: ExperimentMetricInterface,
   metricMap: Map<string, ExperimentMetricInterface>,
   settings: ExperimentSnapshotSettings,
-  optimizedFactMetric: boolean = false
+  optimizedFactMetric: boolean = false,
 ): MetricSettingsForStatsEngine {
   const metric = cloneDeep<ExperimentMetricInterface>(metricDoc);
   applyMetricOverrides(metric, settings);
@@ -359,8 +359,8 @@ export function getMetricSettingsForStatsEngine(
   const mainMetricType = quantileMetric
     ? "quantile"
     : isBinomialMetric(metric)
-    ? "binomial"
-    : "count";
+      ? "binomial"
+      : "count";
   // Fact ratio metrics contain denominator
   if (isFactMetric(metric) && ratioMetric) {
     denominator = metric;
@@ -374,14 +374,14 @@ export function getMetricSettingsForStatsEngine(
       quantileMetric === "unit"
         ? "quantile_unit"
         : quantileMetric === "event"
-        ? "quantile_event"
-        : ratioMetric && regressionAdjusted
-        ? "ratio_ra"
-        : ratioMetric && !regressionAdjusted
-        ? "ratio"
-        : regressionAdjusted
-        ? "mean_ra"
-        : "mean",
+          ? "quantile_event"
+          : ratioMetric && regressionAdjusted
+            ? "ratio_ra"
+            : ratioMetric && !regressionAdjusted
+              ? "ratio"
+              : regressionAdjusted
+                ? "mean_ra"
+                : "mean",
     main_metric_type: mainMetricType,
     ...(denominator && {
       denominator_metric_type: isBinomialMetric(denominator)
@@ -401,7 +401,7 @@ export function getMetricSettingsForStatsEngine(
     target_mde: metric.targetMDE ?? DEFAULT_TARGET_MDE,
     business_metric_type: getBusinessMetricTypeForStatsEngine(
       metric.id,
-      settings
+      settings,
     ),
   };
 }
@@ -409,7 +409,7 @@ export function getMetricSettingsForStatsEngine(
 export function getMetricsAndQueryDataForStatsEngine(
   queryData: QueryMap,
   metricMap: Map<string, ExperimentMetricInterface>,
-  settings: ExperimentSnapshotSettings
+  settings: ExperimentSnapshotSettings,
 ) {
   const queryResults: QueryResultsForStatsEngine[] = [];
   const metricSettings: Record<string, MetricSettingsForStatsEngine> = {};
@@ -435,7 +435,7 @@ export function getMetricsAndQueryDataForStatsEngine(
           metricSettings[metric] = getMetricSettingsForStatsEngine(
             metricInterface,
             metricMap,
-            settings
+            settings,
           );
           byMetric[metric].push({
             dimension: row.dimension,
@@ -478,7 +478,7 @@ export function getMetricsAndQueryDataForStatsEngine(
               metric,
               metricMap,
               settings,
-              true
+              true,
             );
           } else {
             metricIds.push(null);
@@ -499,7 +499,7 @@ export function getMetricsAndQueryDataForStatsEngine(
         metric,
         metricMap,
         settings,
-        false
+        false,
       );
       queryResults.push({
         metrics: [key],
@@ -535,8 +535,8 @@ function parseStatsEngineResult({
   const multipleExposures = Math.max(
     ...queryResults.map(
       (q) =>
-        q.rows.filter((r) => r.variation === "__multiple__")?.[0]?.users || 0
-    )
+        q.rows.filter((r) => r.variation === "__multiple__")?.[0]?.users || 0,
+    ),
   );
 
   analysisSettings.forEach((_, i) => {
@@ -550,7 +550,7 @@ function parseStatsEngineResult({
       if (!result) return;
 
       unknownVariationsCopy = unknownVariationsCopy.concat(
-        result.unknownVariations
+        result.unknownVariations,
       );
 
       result.dimensions.forEach((row) => {
@@ -598,7 +598,7 @@ function parseStatsEngineResult({
         // Calculate SRM
         dimension.srm = checkSrm(
           dimension.variations.map((v) => v.users),
-          snapshotSettings.variations.map((v) => v.weight)
+          snapshotSettings.variations.map((v) => v.weight),
         );
       });
     }
@@ -613,7 +613,7 @@ function parseStatsEngineResult({
 
 export async function writeSnapshotAnalyses(
   results: MultipleExperimentMetricAnalysis[],
-  paramsMap: Map<string, ExperimentAnalysisParamsContextData>
+  paramsMap: Map<string, ExperimentAnalysisParamsContextData>,
 ) {
   const promises: (() => Promise<void>)[] = [];
   results.map((result) => {
@@ -648,7 +648,7 @@ export async function writeSnapshotAnalyses(
         organization,
         id: snapshot,
         analysis: analysisObj,
-      })
+      }),
     );
   });
   if (promises.length > 0) {
@@ -675,7 +675,7 @@ export async function analyzeExperimentResults({
   const mdat = getMetricsAndQueryDataForStatsEngine(
     queryData,
     metricMap,
-    snapshotSettings
+    snapshotSettings,
   );
   const { queryResults, metricSettings } = mdat;
   const { unknownVariations } = mdat;
@@ -685,7 +685,7 @@ export async function analyzeExperimentResults({
     coverage: snapshotSettings.coverage ?? 1,
     phaseLengthHours: Math.max(
       hoursBetween(snapshotSettings.startDate, snapshotSettings.endDate),
-      1
+      1,
     ),
     variations: snapshotSettings.variations.map((v, i) => ({
       ...v,
@@ -776,7 +776,7 @@ export function analyzeExperimentTraffic({
     const dimTraffic: Map<string, ExperimentSnapshotTrafficDimension> =
       dimTrafficResults.get(r.dimension_name) ?? new Map();
     const dimValueTraffic: ExperimentSnapshotTrafficDimension = dimTraffic.get(
-      r.dimension_value
+      r.dimension_value,
     ) || {
       name: r.dimension_value,
       srm: 0,
@@ -798,7 +798,7 @@ export function analyzeExperimentTraffic({
   if (!banditSrmSet) {
     trafficResults.overall.srm = checkSrm(
       trafficResults.overall.variationUnits,
-      variationWeights
+      variationWeights,
     );
   }
 
@@ -806,7 +806,7 @@ export function analyzeExperimentTraffic({
     for (const dimValueTraffic of dimTraffic.values()) {
       dimValueTraffic.srm = checkSrm(
         dimValueTraffic.variationUnits,
-        variationWeights
+        variationWeights,
       );
       if (dimName in trafficResults.dimension) {
         trafficResults.dimension[dimName].push(dimValueTraffic);

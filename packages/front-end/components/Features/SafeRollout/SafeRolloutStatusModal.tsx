@@ -38,7 +38,7 @@ export interface Props {
 type RolloutStatusChoice = "rolled-back" | "released" | "";
 
 function getDefaultStatusAndText(
-  decisionStatus: ExperimentResultStatus | undefined
+  decisionStatus: ExperimentResultStatus | undefined,
 ): { defaultStatus: RolloutStatusChoice; text: string } {
   if (!decisionStatus) {
     return {
@@ -110,7 +110,7 @@ export default function SafeRolloutStatusModal({
     safeRollout: safeRollout,
     healthSettings: getHealthSettings(
       settings,
-      hasCommercialFeature("decision-framework")
+      hasCommercialFeature("decision-framework"),
     ),
     daysLeft,
   });
@@ -129,8 +129,8 @@ export default function SafeRolloutStatusModal({
     status === "released"
       ? rule.variationValue
       : status === "rolled-back"
-      ? rule.controlValue
-      : null;
+        ? rule.controlValue
+        : null;
 
   // The default status depends on async API calls, so when that finishes, update the form
   // As long as the user has not interacted with the input yet
@@ -156,7 +156,7 @@ export default function SafeRolloutStatusModal({
               safeRolloutFields: values,
               i,
             }),
-          }
+          },
         );
         setVersion(res.version);
         mutate?.();

@@ -10,7 +10,7 @@ import {
 } from "back-end/src/models/OrganizationModel";
 
 export const postOrganization = createApiRequestHandler(
-  postOrganizationValidator
+  postOrganizationValidator,
 )(async (req): Promise<PostOrganizationResponse> => {
   const user = await validateIsSuperUserRequest(req);
 

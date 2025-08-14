@@ -175,7 +175,7 @@ const TeamPage: FC = () => {
                                 `/teams/${team.id}/member/${member.id}`,
                                 {
                                   method: "DELETE",
-                                }
+                                },
                               );
                               refreshOrganization();
                             }}

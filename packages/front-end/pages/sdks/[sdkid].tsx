@@ -77,7 +77,7 @@ export default function SDKConnectionPage() {
         <div className="mb-2">
           <Badge
             label={`Managed by ${capitalizeFirstLetter(
-              connection.managedBy.type
+              connection.managedBy.type,
             )}`}
           />
         </div>

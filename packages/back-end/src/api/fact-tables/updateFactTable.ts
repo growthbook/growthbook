@@ -12,7 +12,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { updateFactTableValidator } from "back-end/src/validators/openapi";
 
 export const updateFactTable = createApiRequestHandler(
-  updateFactTableValidator
+  updateFactTableValidator,
 )(async (req): Promise<UpdateFactTableResponse> => {
   const factTable = await getFactTable(req.context, req.params.id);
   if (!factTable) {
@@ -38,7 +38,7 @@ export const updateFactTable = createApiRequestHandler(
   if (req.body.userIdTypes) {
     const datasource = await getDataSourceById(
       req.context,
-      factTable.datasource
+      factTable.datasource,
     );
     if (!datasource) {
       throw new Error("Could not find datasource for this fact table");
@@ -46,7 +46,7 @@ export const updateFactTable = createApiRequestHandler(
     for (const userIdType of req.body.userIdTypes) {
       if (
         !datasource.settings?.userIdTypes?.some(
-          (t) => t.userIdType === userIdType
+          (t) => t.userIdType === userIdType,
         )
       ) {
         throw new Error(`Invalid userIdType: ${userIdType}`);

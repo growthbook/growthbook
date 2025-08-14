@@ -13,7 +13,7 @@ const normalizeJobName = (jobName: string) => {
 export const trackJob =
   <T extends JobAttributesData>(
     jobNameRaw: string,
-    fn: (job: Job<T>) => Promise<void>
+    fn: (job: Job<T>) => Promise<void>,
   ) =>
   async (job: Job<T>) => {
     let counter: Counter;
@@ -35,7 +35,7 @@ export const trackJob =
     } catch (e) {
       logger.error(
         { err: e, job: job.attrs },
-        `Error initializing counter for job`
+        `Error initializing counter for job`,
       );
     }
     try {
@@ -43,7 +43,7 @@ export const trackJob =
     } catch (e) {
       logger.error(
         { err: e, job: job.attrs },
-        `Error initializing histogram for job`
+        `Error initializing histogram for job`,
       );
     }
 
@@ -54,7 +54,7 @@ export const trackJob =
       } catch (e) {
         logger.error(
           { err: e, job: job.attrs },
-          `Error recording duration metric for job`
+          `Error recording duration metric for job`,
         );
       }
       if (!hasMetricsStarted) return;
@@ -63,7 +63,7 @@ export const trackJob =
       } catch (e) {
         logger.error(
           { err: e, job: job.attrs },
-          `Error decrementing count metric for job`
+          `Error decrementing count metric for job`,
         );
       }
     };
@@ -81,7 +81,7 @@ export const trackJob =
       } catch (e) {
         logger.error(
           { err: e, job: job.attrs },
-          `Error wrapping up metrics: ${jobName}`
+          `Error wrapping up metrics: ${jobName}`,
         );
       }
       throw e;
@@ -95,7 +95,7 @@ export const trackJob =
     } catch (e) {
       logger.error(
         { err: e, job: job.attrs },
-        `Error wrapping up metrics: ${jobName}`
+        `Error wrapping up metrics: ${jobName}`,
       );
     }
 

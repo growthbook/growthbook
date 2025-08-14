@@ -46,7 +46,7 @@ export async function updateSafeRolloutTimeSeries({
   const metricGroups = await context.models.metricGroups.getAll();
   const metricsIds = expandMetricGroups(
     safeRollout.guardrailMetricIds,
-    metricGroups
+    metricGroups,
   );
 
   const analysis = safeRolloutSnapshot.analyses?.[0];
@@ -60,7 +60,7 @@ export async function updateSafeRolloutTimeSeries({
   // Only control & variant are expected for Safe Rollouts
   if (variations.length !== 2) {
     logger.warn(
-      `Safe Rollout ${safeRollout.id} has ${variations.length} variations, expected 2`
+      `Safe Rollout ${safeRollout.id} has ${variations.length} variations, expected 2`,
     );
   }
 
@@ -72,23 +72,26 @@ export async function updateSafeRolloutTimeSeries({
     factTableMap = await getFactTableMap(context);
   }
 
-  const timeSeriesVariationsPerMetricId = metricsIds.reduce((acc, metricId) => {
-    acc[metricId] = variations.map((_, variationIndex) => ({
-      id: safeRolloutSnapshot.settings.variations[variationIndex].id,
-      name: SAFE_ROLLOUT_VARIATIONS[variationIndex].name,
-      stats:
-        analysisResults?.variations[variationIndex]?.metrics[metricId]?.stats,
-      absolute: convertMetricToMetricValue(
-        analysisResults?.variations[variationIndex]?.metrics[metricId]
-      ),
-    }));
+  const timeSeriesVariationsPerMetricId = metricsIds.reduce(
+    (acc, metricId) => {
+      acc[metricId] = variations.map((_, variationIndex) => ({
+        id: safeRolloutSnapshot.settings.variations[variationIndex].id,
+        name: SAFE_ROLLOUT_VARIATIONS[variationIndex].name,
+        stats:
+          analysisResults?.variations[variationIndex]?.metrics[metricId]?.stats,
+        absolute: convertMetricToMetricValue(
+          analysisResults?.variations[variationIndex]?.metrics[metricId],
+        ),
+      }));
 
-    return acc;
-  }, {} as Record<string, MetricTimeSeriesVariation[]>);
+      return acc;
+    },
+    {} as Record<string, MetricTimeSeriesVariation[]>,
+  );
 
   const settingsHash = getSafeRolloutSettingsHash(
     safeRolloutSnapshot.settings,
-    analysis.settings
+    analysis.settings,
   );
 
   const metricTimeSeriesSingleDataPoints: CreateMetricTimeSeriesSingleDataPoint[] =
@@ -100,10 +103,10 @@ export async function updateSafeRolloutTimeSeries({
       lastMetricSettingsHash: getSafeRolloutMetricSettingsHash(
         metricId,
         safeRolloutSnapshot.settings.metricSettings.find(
-          (it) => it.id === metricId
+          (it) => it.id === metricId,
         ),
         factMetrics,
-        factTableMap
+        factTableMap,
       ),
       singleDataPoint: {
         date: safeRolloutSnapshot.dateCreated,
@@ -113,13 +116,13 @@ export async function updateSafeRolloutTimeSeries({
     }));
 
   await context.models.metricTimeSeries.upsertMultipleSingleDataPoint(
-    metricTimeSeriesSingleDataPoints
+    metricTimeSeriesSingleDataPoints,
   );
 }
 
 // Adjusted function for SafeRolloutSnapshotMetric type
 function convertMetricToMetricValue(
-  metric: SafeRolloutSnapshotMetricInterface | undefined
+  metric: SafeRolloutSnapshotMetricInterface | undefined,
 ): MetricTimeSeriesValue | undefined {
   if (!metric) {
     return undefined;
@@ -141,7 +144,7 @@ const hashObject = (obj: object) => md5(JSON.stringify(obj));
 
 function getSafeRolloutSettingsHash(
   snapshotSettings: SafeRolloutSnapshotSettings,
-  snapshotAnalysisSettings: SafeRolloutSnapshotAnalysisSettings
+  snapshotAnalysisSettings: SafeRolloutSnapshotAnalysisSettings,
 ): string {
   return hashObject({
     // Snapshot Settings
@@ -166,7 +169,7 @@ function getSafeRolloutMetricSettingsHash(
   metricId: string,
   metricSettings: MetricForSafeRolloutSnapshot | undefined,
   factMetrics?: FactMetricInterface[],
-  factTableMap?: Map<string, FactTableInterface>
+  factTableMap?: Map<string, FactTableInterface>,
 ): string {
   const factMetric = factMetrics?.find((metric) => metric.id === metricId);
   if (!factMetric) {
@@ -183,7 +186,7 @@ function getSafeRolloutMetricSettingsHash(
       : undefined;
 
     const numeratorFilters = numeratorFactTable?.filters.filter((it) =>
-      factMetric.numerator.filters.includes(it.id)
+      factMetric.numerator.filters.includes(it.id),
     );
 
     return hashObject({

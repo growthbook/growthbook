@@ -41,7 +41,7 @@ export const ChecklistItem = forwardRef<HTMLDivElement, ChecklistItemProps>(
       handle,
       ...props
     },
-    ref
+    ref,
   ) => {
     const [showDeleteBtn, setShowDeleteBtn] = useState(false);
     return (
@@ -85,7 +85,7 @@ export const ChecklistItem = forwardRef<HTMLDivElement, ChecklistItemProps>(
         </button>
       </div>
     );
-  }
+  },
 );
 
 function SortableChecklistItem(props: SortableProps) {
@@ -120,7 +120,7 @@ export default function SortableExperimentChecklist({
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
-    })
+    }),
   );
 
   function getTaskIndex(task: string) {
@@ -146,7 +146,7 @@ export default function SortableExperimentChecklist({
             const newRules = arrayMove(
               experimentLaunchChecklist,
               oldIndex,
-              newIndex
+              newIndex,
             );
             setExperimentLaunchChecklist(newRules);
           }

@@ -26,7 +26,7 @@ export default function RoleForm({
   const [error, setError] = useState<string | null>(null);
   const { refreshOrganization } = useUser();
   const [status, setStatus] = useState<"editing" | "viewing" | "creating">(
-    action
+    action,
   );
 
   const validateInputs = (input: {

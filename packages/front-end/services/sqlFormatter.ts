@@ -45,13 +45,13 @@ function replaceTemplateVariables(sql: string): {
 function restoreTemplateVariables(sql: string, placeholders: string[]): string {
   return sql.replace(
     /__TEMPLATE_(\d+)__/g,
-    (_, index) => placeholders[parseInt(index)]
+    (_, index) => placeholders[parseInt(index)],
   );
 }
 
 export function formatSql(
   sql: string,
-  datasourceType?: DataSourceType
+  datasourceType?: DataSourceType,
 ): { formattedSql: string | null; error: string | null } {
   if (!datasourceType) {
     return { formattedSql: null, error: "No datasource type provided" };

@@ -9,7 +9,7 @@ import {
 import { listExperimentsValidator } from "back-end/src/validators/openapi";
 
 export const listExperiments = createApiRequestHandler(
-  listExperimentsValidator
+  listExperimentsValidator,
 )(async (req): Promise<ListExperimentsResponse> => {
   const experiments = await getAllExperiments(req.context, {
     includeArchived: true,
@@ -22,14 +22,14 @@ export const listExperiments = createApiRequestHandler(
         (exp) =>
           applyFilter(req.query.experimentId, exp.trackingKey) &&
           applyFilter(req.query.datasourceId, exp.datasource) &&
-          applyFilter(req.query.projectId, exp.project)
+          applyFilter(req.query.projectId, exp.project),
       )
       .sort((a, b) => a.dateCreated.getTime() - b.dateCreated.getTime()),
-    req.query
+    req.query,
   );
 
   const promises = filtered.map((experiment) =>
-    toExperimentApiInterface(req.context, experiment)
+    toExperimentApiInterface(req.context, experiment),
   );
   const apiExperiments = await Promise.all(promises);
 

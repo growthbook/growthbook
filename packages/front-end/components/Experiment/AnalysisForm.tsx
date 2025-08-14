@@ -94,7 +94,7 @@ const AnalysisForm: FC<{
   });
 
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
-    "regression-adjustment"
+    "regression-adjustment",
   );
   const hasSequentialTestingFeature =
     hasCommercialFeature("sequential-testing");
@@ -116,7 +116,7 @@ const AnalysisForm: FC<{
         getExposureQuery(
           getDatasourceById(experiment.datasource)?.settings,
           experiment.exposureQueryId,
-          experiment.userIdType
+          experiment.userIdType,
         )?.id || "",
       activationMetric: experiment.activationMetric || "",
       segment: experiment.segment || "",
@@ -142,15 +142,15 @@ const AnalysisForm: FC<{
       sequentialTestingTuningParameter:
         experiment.sequentialTestingEnabled !== undefined
           ? experiment.sequentialTestingTuningParameter
-          : orgSettings.sequentialTestingTuningParameter ??
-            DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+          : (orgSettings.sequentialTestingTuningParameter ??
+            DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER),
       goalMetrics: experiment.goalMetrics,
       guardrailMetrics: experiment.guardrailMetrics || [],
       secondaryMetrics: experiment.secondaryMetrics || [],
       metricOverrides: getDefaultMetricOverridesFormValue(
         experiment.metricOverrides || [],
         getExperimentMetricById,
-        orgSettings
+        orgSettings,
       ),
       statsEngine: experiment.statsEngine,
       regressionAdjustmentEnabled: experiment.regressionAdjustmentEnabled,
@@ -175,12 +175,12 @@ const AnalysisForm: FC<{
       if (enable) {
         form.setValue(
           "sequentialTestingEnabled",
-          !!orgSettings.sequentialTestingEnabled
+          !!orgSettings.sequentialTestingEnabled,
         );
         form.setValue(
           "sequentialTestingTuningParameter",
           orgSettings.sequentialTestingTuningParameter ??
-            DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER
+            DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
         );
       }
       setUsingSequentialTestingDefault(enable);
@@ -190,7 +190,7 @@ const AnalysisForm: FC<{
       setUsingSequentialTestingDefault,
       orgSettings.sequentialTestingEnabled,
       orgSettings.sequentialTestingTuningParameter,
-    ]
+    ],
   );
 
   const { apiCall } = useAuth();
@@ -199,7 +199,7 @@ const AnalysisForm: FC<{
   const datasourceProperties = datasource?.properties;
 
   const filteredSegments = segments.filter(
-    (s) => s.datasource === datasource?.id
+    (s) => s.datasource === datasource?.id,
   );
 
   // Error: Type instantiation is excessively deep and possibly infinite.
@@ -285,7 +285,7 @@ const AnalysisForm: FC<{
           const phaseId = (body.phases?.length ?? 0) - 1;
           if (body.phases?.[phaseId] && body.variations) {
             body.phases[phaseId].variationWeights = body.variations.map(
-              () => 1 / (body?.variations?.length || 2)
+              () => 1 / (body?.variations?.length || 2),
             );
           }
           const banditScheduleHours =
@@ -369,7 +369,7 @@ const AnalysisForm: FC<{
             const secondaryMetrics = form.watch("secondaryMetrics");
             form.setValue(
               "secondaryMetrics",
-              secondaryMetrics.filter(isValidMetric)
+              secondaryMetrics.filter(isValidMetric),
             );
 
             const guardrails = form.watch("guardrailMetrics");
@@ -379,7 +379,7 @@ const AnalysisForm: FC<{
             .filter(
               (ds) =>
                 ds.id === experiment.datasource ||
-                isProjectListValidForProject(ds.projects, experiment.project)
+                isProjectListValidForProject(ds.projects, experiment.project),
             )
             .map((d) => ({
               value: d.id,
@@ -415,7 +415,7 @@ const AnalysisForm: FC<{
             })}
             formatOptionLabel={({ label, value }) => {
               const userIdType = exposureQueries?.find(
-                (e) => e.id === value
+                (e) => e.id === value,
               )?.userIdType;
               return (
                 <>
@@ -458,7 +458,7 @@ const AnalysisForm: FC<{
                 <div
                   className={`col-${Math.max(
                     Math.round(12 / variations.fields.length),
-                    3
+                    3,
                   )} mb-2`}
                   key={i}
                 >

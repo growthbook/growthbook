@@ -116,10 +116,10 @@ const Field = forwardRef(
       ...otherProps
     }: FieldProps,
     // eslint-disable-next-line
-    ref: any
+    ref: any,
   ) => {
     const [fieldId] = useState(
-      () => id || `field_${Math.floor(Math.random() * 1000000)}`
+      () => id || `field_${Math.floor(Math.random() * 1000000)}`,
     );
 
     const cn = clsx("form-control", className);
@@ -216,7 +216,7 @@ const Field = forwardRef(
           "form-group",
           containerClassName,
           { "mb-0": !label },
-          render ? customClassName : ""
+          render ? customClassName : "",
         )}
         style={containerStyle}
       >
@@ -238,7 +238,7 @@ const Field = forwardRef(
         {helpText && <small className="form-text text-muted">{helpText}</small>}
       </div>
     );
-  }
+  },
 );
 Field.displayName = "Field";
 

@@ -234,7 +234,7 @@ export const SlackIntegrationAddEditModal: FC<
             onChange={(selected: string[]) => {
               form.setValue(
                 "tags",
-                selected.map((item) => item)
+                selected.map((item) => item),
               );
               handleFormValidation();
             }}

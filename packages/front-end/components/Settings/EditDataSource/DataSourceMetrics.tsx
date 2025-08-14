@@ -150,7 +150,7 @@ export default function DataSourceMetrics({
                                 {
                                   "text-muted": metric.archived,
                                 },
-                                "pr-3"
+                                "pr-3",
                               )}
                             >
                               <strong>Owner: </strong>
@@ -161,7 +161,7 @@ export default function DataSourceMetrics({
                                 {
                                   "text-muted": metric.archived,
                                 },
-                                "pr-3"
+                                "pr-3",
                               )}
                             >
                               <strong>Projects: </strong>
@@ -181,7 +181,7 @@ export default function DataSourceMetrics({
                                   {
                                     "text-muted": metric.archived,
                                   },
-                                  "d-none d-md-table-cell"
+                                  "d-none d-md-table-cell",
                                 )}
                               >
                                 <strong>Last Updated: </strong>

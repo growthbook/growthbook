@@ -46,7 +46,7 @@ export default function SdkWebhooks({
   connection: SDKConnectionInterface;
 }) {
   const { data, mutate } = useApi<{ webhooks?: WebhookInterface[] }>(
-    `/sdk-connections/${connection.id}/webhooks`
+    `/sdk-connections/${connection.id}/webhooks`,
   );
 
   const [createWebhookModalOpen, setCreateWebhookModalOpen] = useState(false);
@@ -75,7 +75,7 @@ export default function SdkWebhooks({
             <div>
               <Badge
                 label={`Managed by ${capitalizeFirstLetter(
-                  webhook.managedBy.type
+                  webhook.managedBy.type,
                 )}`}
               />
             </div>

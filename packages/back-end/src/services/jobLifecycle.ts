@@ -22,7 +22,7 @@ export const addJobLifecycleChecks =
                 job: job.attrs,
                 err: e,
               },
-              `Error while trying to touch Agenda job ${job.attrs.name}`
+              `Error while trying to touch Agenda job ${job.attrs.name}`,
             );
           });
         }

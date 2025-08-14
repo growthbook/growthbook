@@ -130,14 +130,14 @@ const GetStartedAndHomePage = (): React.ReactElement => {
       id: "production",
     });
   const demoProjectId = getDemoDatasourceProjectIdForOrganization(
-    organization.id || ""
+    organization.id || "",
   );
   const hasFeatures = features.some((f) => f.project !== demoProjectId);
   const hasExperiments = experiments.some((e) => e.project !== demoProjectId);
   const orgIsUsingFeatureOrExperiment = hasFeatures || hasExperiments;
 
   const [showGettingStarted, setShowGettingStarted] = useState<boolean>(
-    !orgIsUsingFeatureOrExperiment
+    !orgIsUsingFeatureOrExperiment,
   );
   const [openNewFeatureFlagModal, setOpenNewFeatureFlagModal] =
     useState<boolean>(false);

@@ -7,10 +7,10 @@ export default function AccountPlanBadge() {
     effectiveAccountPlan === "enterprise"
       ? "ENTERPRISE"
       : effectiveAccountPlan === "pro"
-      ? "PRO"
-      : effectiveAccountPlan === "pro_sso"
-      ? "PRO + SSO"
-      : "";
+        ? "PRO"
+        : effectiveAccountPlan === "pro_sso"
+          ? "PRO + SSO"
+          : "";
 
   if (!badgeText) return null;
 

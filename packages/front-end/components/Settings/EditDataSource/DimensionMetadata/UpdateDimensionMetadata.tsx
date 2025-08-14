@@ -19,7 +19,7 @@ type UpdateDimensionMetadataModalProps = {
   close: () => void;
   onSave: (
     customDimensionMetadata: CustomDimensionMetadata[],
-    dimensionSlices?: DimensionSlicesInterface
+    dimensionSlices?: DimensionSlicesInterface,
   ) => Promise<void>;
 };
 
@@ -42,7 +42,7 @@ export const UpdateDimensionMetadataModal: FC<
   >(
     exposureQuery.dimensions?.map((d, i) => {
       const existingMetadata = exposureQuery.dimensionMetadata?.find(
-        (m) => m.dimension === d
+        (m) => m.dimension === d,
       );
       return {
         dimension: d,
@@ -51,7 +51,7 @@ export const UpdateDimensionMetadataModal: FC<
           : undefined,
         priority: i + 1,
       };
-    }) ?? []
+    }) ?? [],
   );
 
   const secondaryCTA = (
@@ -68,7 +68,7 @@ export const UpdateDimensionMetadataModal: FC<
 
   if (!exposureQuery) {
     console.error(
-      "ImplementationError: exposureQuery is required for Edit mode"
+      "ImplementationError: exposureQuery is required for Edit mode",
     );
     return null;
   }

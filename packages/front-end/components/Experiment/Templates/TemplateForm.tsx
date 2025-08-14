@@ -120,7 +120,7 @@ const TemplateForm: FC<Props> = ({
   const customFields = filterCustomFieldsForSectionAndProject(
     useCustomFields(),
     "experiment",
-    form.watch("project")
+    form.watch("project"),
   );
 
   const datasource = form.watch("datasource")
@@ -166,14 +166,14 @@ const TemplateForm: FC<Props> = ({
             {
               method: "PUT",
               body,
-            }
+            },
           )
         : await apiCall<{ template: ExperimentTemplateInterface }>(
             "/templates",
             {
               method: "POST",
               body,
-            }
+            },
           );
 
     track("Create Experiment Template", {

@@ -184,7 +184,7 @@ export default function SavedGroupTargetingField({
 }
 
 export function getSavedGroupTargetingConflicts(
-  savedGroups: SavedGroupTargeting[]
+  savedGroups: SavedGroupTargeting[],
 ): string[] {
   const required = new Set<string>();
   const excluded = new Set<string>();
@@ -201,7 +201,7 @@ export function getSavedGroupTargetingConflicts(
 }
 
 export function validateSavedGroupTargeting(
-  savedGroups?: SavedGroupTargeting[]
+  savedGroups?: SavedGroupTargeting[],
 ) {
   if (!savedGroups) return;
 
@@ -211,7 +211,7 @@ export function validateSavedGroupTargeting(
 
   if (getSavedGroupTargetingConflicts(savedGroups).length > 0) {
     throw new Error(
-      "Please fix conflicts in your Saved Group rules before saving"
+      "Please fix conflicts in your Saved Group rules before saving",
     );
   }
 }

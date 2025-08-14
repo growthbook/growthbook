@@ -52,7 +52,7 @@ const fireWebhooks = async (job: SDKWebhookJob) => {
       {
         webhookId,
       },
-      "SDK webhook: No webhook provided for webhook job"
+      "SDK webhook: No webhook provided for webhook job",
     );
     return;
   }
@@ -63,7 +63,7 @@ const fireWebhooks = async (job: SDKWebhookJob) => {
       {
         webhookId,
       },
-      "SDK webhook: No webhook found for id"
+      "SDK webhook: No webhook found for id",
     );
     return;
   }
@@ -102,7 +102,7 @@ export default function addSdkWebhooksJob(ag: Agenda) {
       job.attrs.data.retryCount++;
       job.attrs.nextRunAt = new Date(nextRunAt);
       await job.save();
-    }
+    },
   );
 }
 async function queueSingleSdkWebhookJob(webhook: WebhookInterface) {
@@ -118,7 +118,7 @@ async function queueSingleSdkWebhookJob(webhook: WebhookInterface) {
 }
 export async function queueWebhooksForSdkConnection(
   context: ReqContext,
-  connection: SDKConnectionInterface
+  connection: SDKConnectionInterface,
 ) {
   const webhooks = await findAllSdkWebhooksByConnection(context, connection.id);
   for (const webhook of webhooks) {
@@ -127,7 +127,7 @@ export async function queueWebhooksForSdkConnection(
 }
 export async function queueWebhooksBySdkPayloadKeys(
   context: ReqContext | ApiReqContext,
-  payloadKeys: SDKPayloadKey[]
+  payloadKeys: SDKPayloadKey[],
 ) {
   if (!payloadKeys.length) return;
   const connections = await findSDKConnectionsByOrganization(context);
@@ -285,12 +285,12 @@ async function runWebhookFetch({
       {
         maxTimeMs: requestTimeout,
         maxContentSize: maxContentSize,
-      }
+      },
     );
 
     if (!res.responseWithoutBody.ok) {
       throw new Error(
-        "Returned an invalid status code: " + res.responseWithoutBody.status
+        "Returned an invalid status code: " + res.responseWithoutBody.status,
       );
     }
 
@@ -326,7 +326,7 @@ async function runWebhookFetch({
 }
 export async function fireSdkWebhook(
   context: ReqContext,
-  webhook: WebhookInterface
+  webhook: WebhookInterface,
 ) {
   const webhookContext = getContextForAgendaJobByOrgObject(context.org);
 
@@ -341,7 +341,7 @@ export async function fireSdkWebhook(
       {
         webhookId: webhook.id,
       },
-      "SDK webhook: Could not find sdk connections"
+      "SDK webhook: Could not find sdk connections",
     );
     return;
   }
@@ -353,12 +353,12 @@ export async function fireSdkWebhook(
         if (!sendPayload) return [[connection.key, {}], ...payloads];
 
         const environmentDoc = webhookContext.org?.settings?.environments?.find(
-          (e) => e.id === connection.environment
+          (e) => e.id === connection.environment,
         );
         const filteredProjects = filterProjectsByEnvironmentWithNull(
           connection.projects,
           environmentDoc,
-          true
+          true,
         );
 
         const defs = await getFeatureDefinitions({
@@ -379,7 +379,7 @@ export async function fireSdkWebhook(
 
         return [[connection.key, defs], ...payloads];
       },
-      []
+      [],
     );
 
   await BluebirdPromise.each(payloads, ([key, payload]) =>
@@ -388,13 +388,13 @@ export async function fireSdkWebhook(
       key,
       payload,
       context: webhookContext,
-    })
+    }),
   );
 }
 
 export async function getSDKConnectionsByPayloadKeys(
   context: ReqContext | ApiReqContext,
-  payloadKeys: SDKPayloadKey[]
+  payloadKeys: SDKPayloadKey[],
 ) {
   if (!payloadKeys.length) return [];
 
@@ -403,12 +403,12 @@ export async function getSDKConnectionsByPayloadKeys(
 
   return connections.filter((c) => {
     const environmentDoc = context.org?.settings?.environments?.find(
-      (e) => e.id === c.environment
+      (e) => e.id === c.environment,
     );
     const filteredProjects = filterProjectsByEnvironmentWithNull(
       c.projects,
       environmentDoc,
-      true
+      true,
     );
     if (!filteredProjects) {
       return false;
@@ -419,7 +419,7 @@ export async function getSDKConnectionsByPayloadKeys(
       !payloadKeys.some(
         (key) =>
           key.environment === c.environment &&
-          (!filteredProjects.length || filteredProjects.includes(key.project))
+          (!filteredProjects.length || filteredProjects.includes(key.project)),
       )
     ) {
       return false;
@@ -430,29 +430,29 @@ export async function getSDKConnectionsByPayloadKeys(
 
 export async function fireGlobalSdkWebhooksByPayloadKeys(
   context: ReqContext | ApiReqContext,
-  payloadKeys: SDKPayloadKey[]
+  payloadKeys: SDKPayloadKey[],
 ) {
   const connections = await getSDKConnectionsByPayloadKeys(
     context,
-    payloadKeys
+    payloadKeys,
   );
   await fireGlobalSdkWebhooks(context, connections);
 }
 
 export async function fireGlobalSdkWebhooks(
   context: ReqContext | ApiReqContext,
-  connections: SDKConnectionInterface[]
+  connections: SDKConnectionInterface[],
 ) {
   if (!connections.length) return;
 
   for (const connection of connections) {
     const environmentDoc = context.org?.settings?.environments?.find(
-      (e) => e.id === connection.environment
+      (e) => e.id === connection.environment,
     );
     const filteredProjects = filterProjectsByEnvironmentWithNull(
       connection.projects,
       environmentDoc,
-      true
+      true,
     );
 
     const payload = await getFeatureDefinitions({

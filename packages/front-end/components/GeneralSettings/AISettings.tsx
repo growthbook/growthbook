@@ -104,12 +104,12 @@ export default function AISettings({
             const hours = Math.floor(retryAfter / 3600);
             const minutes = Math.floor((retryAfter % 3600) / 60);
             setError(
-              `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`
+              `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`,
             );
           } else {
             setError("Error getting AI suggestion");
           }
-        }
+        },
       );
       setEmbeddingMsg("Embeddings have been regenerated successfully.");
     } catch (error) {
@@ -283,7 +283,7 @@ export default function AISettings({
                                     e.preventDefault();
                                     promptForm.setValue(
                                       prompt.promptType,
-                                      prompt.promptDefaultValue
+                                      prompt.promptDefaultValue,
                                     );
                                   }}
                                 >

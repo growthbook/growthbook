@@ -57,7 +57,7 @@ export const ConnectSettingsForm = ({ children }) => {
 
 function hasChanges(
   value: OrganizationSettings,
-  existing: OrganizationSettings
+  existing: OrganizationSettings,
 ) {
   if (!existing) return true;
 
@@ -204,7 +204,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     regressionAdjustmentDays: form.watch("regressionAdjustmentDays"),
     sequentialTestingEnabled: form.watch("sequentialTestingEnabled"),
     sequentialTestingTuningParameter: form.watch(
-      "sequentialTestingTuningParameter"
+      "sequentialTestingTuningParameter",
     ),
     attributionModel: form.watch("attributionModel"),
     displayCurrency: form.watch("displayCurrency"),
@@ -229,7 +229,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       `${cronstrue.toString(cron, {
         throwExceptionOnParseError: false,
         verbose: true,
-      })} (UTC time)`
+      })} (UTC time)`,
     );
   }
 
@@ -290,7 +290,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       updateCronString(newVal.updateSchedule?.cron || "");
       if (newVal.codeRefsBranchesToFilter) {
         setCodeRefsBranchesToFilterStr(
-          newVal.codeRefsBranchesToFilter.join(", ")
+          newVal.codeRefsBranchesToFilter.join(", "),
         );
       }
     }
@@ -302,7 +302,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       codeRefsBranchesToFilterStr
         .split(",")
         .map((s) => s.trim())
-        .filter(Boolean)
+        .filter(Boolean),
     );
   }, [codeRefsBranchesToFilterStr]);
 
@@ -315,7 +315,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       ([key, value]) => ({
         type: key,
         prompt: value,
-      })
+      }),
     );
 
     await apiCall(`/ai/prompts`, {
@@ -344,7 +344,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       !transformedOrgSettings.featureKeyExample.match(/^[a-zA-Z0-9_.:|-]+$/)
     ) {
       throw new Error(
-        "Feature key examples can only include letters, numbers, hyphens, and underscores."
+        "Feature key examples can only include letters, numbers, hyphens, and underscores.",
       );
     }
 
@@ -355,18 +355,18 @@ const GeneralSettingsPage = (): React.ReactElement => {
         !transformedOrgSettings.featureRegexValidator
       ) {
         throw new Error(
-          "Feature key example must not be empty when a regex validator is defined."
+          "Feature key example must not be empty when a regex validator is defined.",
         );
       }
 
       const regexValidator = transformedOrgSettings.featureRegexValidator;
       if (
         !new RegExp(regexValidator).test(
-          transformedOrgSettings.featureKeyExample
+          transformedOrgSettings.featureKeyExample,
         )
       ) {
         throw new Error(
-          `Feature key example does not match the regex validator. '${transformedOrgSettings.featureRegexValidator}' Example: '${transformedOrgSettings.featureKeyExample}'`
+          `Feature key example does not match the regex validator. '${transformedOrgSettings.featureRegexValidator}' Example: '${transformedOrgSettings.featureKeyExample}'`,
         );
       }
     }

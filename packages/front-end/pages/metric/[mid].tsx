@@ -97,11 +97,11 @@ const MetricPage: FC = () => {
   const storageKeySum = `metric_smoothBy_sum`;
   const [smoothByAvg, setSmoothByAvg] = useLocalStorage<"day" | "week">(
     storageKeyAvg,
-    "day"
+    "day",
   );
   const [smoothBySum, setSmoothBySum] = useLocalStorage<"day" | "week">(
     storageKeySum,
-    "day"
+    "day",
   );
 
   const [hoverDate, setHoverDate] = useState<number | null>(null);
@@ -212,17 +212,17 @@ const MetricPage: FC = () => {
             refs.push(
               res.experiments.length === 1
                 ? "1 experiment"
-                : res.experiments.length + " experiments"
+                : res.experiments.length + " experiments",
             );
             res.experiments.forEach((e) => {
               experimentLinks.push(
-                <Link href={`/experiment/${e.id}`}>{e.name}</Link>
+                <Link href={`/experiment/${e.id}`}>{e.name}</Link>,
               );
             });
           }
           if (res.ideas && res.ideas.length) {
             refs.push(
-              res.ideas.length === 1 ? "1 idea" : res.ideas.length + " ideas"
+              res.ideas.length === 1 ? "1 idea" : res.ideas.length + " ideas",
             );
             res.ideas.forEach((i) => {
               ideaLinks.push(<Link href={`/idea/${i.id}`}>{i.text}</Link>);
@@ -420,7 +420,7 @@ const MetricPage: FC = () => {
       )}
 
       {metric.projects?.includes(
-        getDemoDatasourceProjectIdForOrganization(organization.id)
+        getDemoDatasourceProjectIdForOrganization(organization.id),
       ) && (
         <div className="alert alert-info mb-3 d-flex align-items-center mt-3">
           <div className="flex-1">
@@ -568,19 +568,19 @@ const MetricPage: FC = () => {
                             (responseData) => {
                               if (responseData.status === 429) {
                                 const retryAfter = parseInt(
-                                  responseData.retryAfter
+                                  responseData.retryAfter,
                                 );
                                 const hours = Math.floor(retryAfter / 3600);
                                 const minutes = Math.floor(
-                                  (retryAfter % 3600) / 60
+                                  (retryAfter % 3600) / 60,
                                 );
                                 throw new Error(
-                                  `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`
+                                  `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`,
                                 );
                               } else {
                                 throw new Error("Error getting AI suggestion");
                               }
-                            }
+                            },
                           );
                           if (res?.status !== 200) {
                             throw new Error("Could not load AI suggestions");
@@ -718,7 +718,7 @@ const MetricPage: FC = () => {
                                 analysis.average,
                                 {
                                   currency: displayCurrency,
-                                }
+                                },
                               )}
                             </div>
                             <div className="pb-2 ml-1">average</div>
@@ -784,7 +784,7 @@ const MetricPage: FC = () => {
                                     value={smoothByAvg === "week"}
                                     setValue={() =>
                                       setSmoothByAvg(
-                                        smoothByAvg === "week" ? "day" : "week"
+                                        smoothByAvg === "week" ? "day" : "week",
                                       )
                                     }
                                     id="toggle-group-by-avg"
@@ -859,7 +859,7 @@ const MetricPage: FC = () => {
                                 value={smoothBySum === "week"}
                                 setValue={() =>
                                   setSmoothBySum(
-                                    smoothBySum === "week" ? "day" : "week"
+                                    smoothBySum === "week" ? "day" : "week",
                                   )
                                 }
                                 id="toggle-group-by-sum"
@@ -1074,7 +1074,7 @@ const MetricPage: FC = () => {
                       {metric.conditions && metric.conditions.length > 0 && (
                         <RightRailSectionGroup title="Conditions" type="list">
                           {metric.conditions.map(
-                            (c) => `${c.column} ${c.operator} "${c.value}"`
+                            (c) => `${c.column} ${c.operator} "${c.value}"`,
                           )}
                         </RightRailSectionGroup>
                       )}
@@ -1292,7 +1292,7 @@ const MetricPage: FC = () => {
                         getMinSampleSizeForMetric(metric),
                         {
                           currency: displayCurrency,
-                        }
+                        },
                       )}
                     </span>
                   </li>

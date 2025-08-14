@@ -17,7 +17,7 @@ import { validateVariationIds } from "back-end/src/controllers/experiments";
 import { Variation } from "back-end/src/validators/experiments";
 
 export const updateExperiment = createApiRequestHandler(
-  updateExperimentValidator
+  updateExperimentValidator,
 )(async (req): Promise<UpdateExperimentResponse> => {
   const experiment = await getExperimentById(req.context, req.params.id);
   if (!experiment) {
@@ -45,7 +45,7 @@ export const updateExperiment = createApiRequestHandler(
   ) {
     if (experiment.datasource) {
       throw new Error(
-        "Cannot change datasource via API if one is already set."
+        "Cannot change datasource via API if one is already set.",
       );
     }
     if (!datasource) {
@@ -63,11 +63,11 @@ export const updateExperiment = createApiRequestHandler(
     }
     if (
       !datasource.settings.queries?.exposure?.some(
-        (q) => q.id === req.body.assignmentQueryId
+        (q) => q.id === req.body.assignmentQueryId,
       )
     ) {
       throw new Error(
-        `Unrecognized assignment query ID: ${req.body.assignmentQueryId}`
+        `Unrecognized assignment query ID: ${req.body.assignmentQueryId}`,
       );
     }
   }
@@ -79,11 +79,11 @@ export const updateExperiment = createApiRequestHandler(
   ) {
     const existingByTrackingKey = await getExperimentByTrackingKey(
       req.context,
-      req.body.trackingKey
+      req.body.trackingKey,
     );
     if (existingByTrackingKey) {
       throw new Error(
-        `Experiment with tracking key already exists: ${req.body.trackingKey}`
+        `Experiment with tracking key already exists: ${req.body.trackingKey}`,
       );
     }
   }
@@ -110,20 +110,20 @@ export const updateExperiment = createApiRequestHandler(
         if (datasource.id && metric.datasource !== datasource.id) {
           throw new Error(
             "Metrics must be tied to the same datasource as the experiment: " +
-              newMetricIds[i]
+              newMetricIds[i],
           );
         }
       } else {
         // check to see if this metric is actually a metric group
         const metricGroup = await req.context.models.metricGroups.getById(
-          newMetricIds[i]
+          newMetricIds[i],
         );
         if (metricGroup) {
           // Make sure it is tied to the same datasource as the experiment
           if (datasource.id && metricGroup.datasource !== datasource.id) {
             throw new Error(
               "Metrics must be tied to the same datasource as the experiment: " +
-                newMetricIds[i]
+                newMetricIds[i],
             );
           }
         } else {
@@ -154,7 +154,7 @@ export const updateExperiment = createApiRequestHandler(
       req.body,
       experiment,
       map,
-      req.organization
+      req.organization,
     ),
   });
 
@@ -163,7 +163,7 @@ export const updateExperiment = createApiRequestHandler(
   }
   const apiExperiment = await toExperimentApiInterface(
     req.context,
-    updatedExperiment
+    updatedExperiment,
   );
   return {
     experiment: apiExperiment,

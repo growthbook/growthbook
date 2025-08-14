@@ -117,7 +117,7 @@ interface IndexableItem {
   id: string;
 }
 function useGetById<T extends IndexableItem>(
-  items?: T[]
+  items?: T[],
 ): (id: string) => T | null {
   return useMemo(() => {
     if (!items) {
@@ -147,7 +147,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
   children,
 }) => {
   const { data, error, mutate } = useApi<Definitions & { status: 200 }>(
-    "/organization/definitions"
+    "/organization/definitions",
   );
 
   const [project, setProject] = useProject();
@@ -186,7 +186,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
     }
     return data.factMetrics.filter((m) => {
       const numeratorFactTable = data.factTables.find(
-        (f) => f.id === m.denominator?.factTableId
+        (f) => f.id === m.denominator?.factTableId,
       );
       const denominatorFactTable = m.denominator?.factTableId
         ? data.factTables.find((f) => f.id === m.denominator?.factTableId)
@@ -256,7 +256,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       }
       return getMetricById(id);
     },
-    [getMetricById, getFactMetricById]
+    [getMetricById, getFactMetricById],
   );
 
   let value: DefinitionContextValue;
@@ -314,10 +314,10 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
                   id: t,
                   color: "blue",
                   description: "",
-                }))
+                })),
               ),
             },
-            false
+            false,
           );
         }
       },

@@ -36,7 +36,7 @@ type ExperimentDimensionItem = {
 };
 
 function getExperimentDimensions(
-  datasources: DataSourceInterfaceWithParams[]
+  datasources: DataSourceInterfaceWithParams[],
 ): ExperimentDimensionItem[] {
   const collapsedExperimentDimensions: Record<string, ExperimentDimensionItem> =
     {};
@@ -54,11 +54,11 @@ function getExperimentDimensions(
           };
         } else if (
           !collapsedExperimentDimensions[key].identifierTypes.includes(
-            eq.userIdType
+            eq.userIdType,
           )
         ) {
           collapsedExperimentDimensions[key].identifierTypes.push(
-            eq.userIdType
+            eq.userIdType,
           );
         }
       });
@@ -113,7 +113,7 @@ const DimensionsPage: FC = () => {
   }
 
   const hasValidDataSources = !!datasources.filter(
-    (d) => d.properties?.dimensions
+    (d) => d.properties?.dimensions,
   )[0];
 
   if (!hasValidDataSources) {

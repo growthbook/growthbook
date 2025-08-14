@@ -30,7 +30,7 @@ export const ExperimentAssignmentQueries: FC<
   let intitialOpenIndexes: boolean[] = [];
   if (router.query.openAll === "1") {
     intitialOpenIndexes = Array.from(
-      Array(dataSource.settings?.queries?.exposure?.length || 0)
+      Array(dataSource.settings?.queries?.exposure?.length || 0),
     ).fill(true);
   }
 
@@ -50,7 +50,7 @@ export const ExperimentAssignmentQueries: FC<
 
       setOpenIndexes(updatedOpenIndexes);
     },
-    [openIndexes]
+    [openIndexes],
   );
 
   const handleCancel = useCallback(() => {
@@ -61,7 +61,7 @@ export const ExperimentAssignmentQueries: FC<
 
   const experimentExposureQueries = useMemo(
     () => dataSource.settings?.queries?.exposure || [],
-    [dataSource.settings?.queries?.exposure]
+    [dataSource.settings?.queries?.exposure],
   );
 
   const handleAdd = useCallback(() => {
@@ -74,7 +74,7 @@ export const ExperimentAssignmentQueries: FC<
       setEditingIndex(idx);
       setUiMode(uiMode);
     },
-    []
+    [],
   );
 
   const handleActionDeleteClicked = useCallback(
@@ -86,7 +86,7 @@ export const ExperimentAssignmentQueries: FC<
 
       await onSave(copy);
     },
-    [onSave, dataSource]
+    [onSave, dataSource],
   );
 
   const handleSave = useCallback(
@@ -96,7 +96,7 @@ export const ExperimentAssignmentQueries: FC<
       copy.settings.queries.exposure[idx] = exposureQuery;
       await onSave(copy);
     },
-    [dataSource, onSave]
+    [dataSource, onSave],
   );
 
   const [validatingQuery, setValidatingQuery] = useState(false);
@@ -109,7 +109,7 @@ export const ExperimentAssignmentQueries: FC<
       await onSave(copy);
       setValidatingQuery(false);
     },
-    [dataSource, onSave]
+    [dataSource, onSave],
   );
 
   if (!dataSource) {
@@ -319,24 +319,24 @@ const handleSaveDimensionMetadata =
   (
     editingIndex: number,
     dataSource: DataSourceInterfaceWithParams,
-    onSave: (dataSource: DataSourceInterfaceWithParams) => void
+    onSave: (dataSource: DataSourceInterfaceWithParams) => void,
   ) =>
   async (
     customDimensionMetadata: CustomDimensionMetadata[],
-    dimensionSlices?: DimensionSlicesInterface
+    dimensionSlices?: DimensionSlicesInterface,
   ) => {
     const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
     const exposureQuery = copy.settings?.queries?.exposure?.[editingIndex];
 
     if (!exposureQuery) {
       throw new Error(
-        "Exposure queries out of sync. Refresh the page and try again."
+        "Exposure queries out of sync. Refresh the page and try again.",
       );
     }
 
     exposureQuery.dimensionMetadata = exposureQuery.dimensions.map((d) => {
       const existingMetadata = exposureQuery.dimensionMetadata?.find(
-        (m) => m.dimension === d
+        (m) => m.dimension === d,
       ) ?? {
         dimension: d,
         specifiedSlices: [],
@@ -347,14 +347,14 @@ const handleSaveDimensionMetadata =
         ?.dimensionSlices.map((s) => s.name);
 
       const customDimension = customDimensionMetadata?.find(
-        (m) => m.dimension === d
+        (m) => m.dimension === d,
       );
 
       // if custom slices are defined, use them, otherwise use the traffic slices.
       // If neither are defined, use fall back to the existing values.
       const specifiedSlices = customDimension?.customSlicesArray?.length
         ? customDimension.customSlicesArray
-        : trafficSlices ?? existingMetadata.specifiedSlices;
+        : (trafficSlices ?? existingMetadata.specifiedSlices);
 
       return {
         ...existingMetadata,

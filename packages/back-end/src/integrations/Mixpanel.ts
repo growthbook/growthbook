@@ -57,7 +57,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
     this.decryptionError = false;
     try {
       this.params = decryptDataSourceParams<MixpanelConnectionParams>(
-        datasource.params
+        datasource.params,
       );
     } catch (e) {
       this.params = { projectId: "", secret: "", username: "" };
@@ -124,7 +124,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
     snapshotSettings: ExperimentSnapshotSettings,
     metricDocs: MetricInterface[],
     activationMetricDoc: MetricInterface,
-    dimension: DimensionInterface
+    dimension: DimensionInterface,
   ): string {
     const activationMetric = cloneDeep<MetricInterface>(activationMetricDoc);
     applyMetricOverrides(activationMetric, snapshotSettings);
@@ -151,10 +151,10 @@ export default class Mixpanel implements SourceIntegrationInterface {
             .map(
               (metric, i) => `// Metric - ${metric.name}
           if(isMetric${i}(event) && event.time - state.start > ${
-                getDelayWindowHours(metric.windowSettings) * 60 * 60 * 1000
-              }) {
+            getDelayWindowHours(metric.windowSettings) * 60 * 60 * 1000
+          }) {
             state.m${i}.push(${this.getMetricValueExpression(metric.column)});
-          }`
+          }`,
             )
             .join("\n")}
         });
@@ -168,7 +168,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
           return ${this.getValidExperimentCondition(
             snapshotSettings.experimentId,
             snapshotSettings.startDate,
-            snapshotSettings.endDate
+            snapshotSettings.endDate,
           )};
         }
         ${
@@ -187,7 +187,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
             ...metrics.map((m) => m.table),
             activationMetric?.table,
             this.getExperimentEventName(),
-          ]
+          ],
         )}
         .filter(function(event) {
           // Experiment exposure event
@@ -201,7 +201,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
           ${metrics
             .map(
               (metric, i) => `// ${metric.name}
-          if(isMetric${i}(event)) return true;`
+          if(isMetric${i}(event)) return true;`,
             )
             .join("\n")}
           // Otherwise, ignore the event
@@ -217,8 +217,8 @@ export default class Mixpanel implements SourceIntegrationInterface {
             start: null,
             variation: null,
             ${metrics.map((m, i) => `m${i}: [],`).join("\n")} ${
-      hasEarlyStartMetrics ? "\nqueuedEvents: []" : ""
-    }
+              hasEarlyStartMetrics ? "\nqueuedEvents: []" : ""
+            }
           };
           for(var i=0; i<events.length; i++) {
             const event = events[i];
@@ -228,7 +228,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
                 state.inExperiment = true;
                 state.variation = ${getMixpanelPropertyColumn(
                   this.datasource.settings.events?.variationIdProperty ||
-                    "Variant name"
+                    "Variant name",
                 )};
                 ${
                   dimension
@@ -236,7 +236,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
                         dimension.sql,
                         snapshotSettings.startDate,
                         snapshotSettings.endDate,
-                        snapshotSettings.experimentId
+                        snapshotSettings.experimentId,
                       )}) || null;`
                     : ""
                 }
@@ -245,7 +245,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
               }
               else if(state.variation !== ${getMixpanelPropertyColumn(
                 this.datasource.settings.events?.variationIdProperty ||
-                  "Variant name"
+                  "Variant name",
               )}) {
                 state.multipleVariants = true;
                 continue;
@@ -294,18 +294,18 @@ export default class Mixpanel implements SourceIntegrationInterface {
                   this.getConversionWindowCondition(
                     metric,
                     snapshotSettings.endDate,
-                    "state.start"
+                    "state.start",
                   );
 
                 return `// Metric - ${metric.name}
                     if(isMetric${i}(event) ${
-                  conversionWindowCondition
-                    ? `&& ${conversionWindowCondition}`
-                    : ""
-                }) {
+                      conversionWindowCondition
+                        ? `&& ${conversionWindowCondition}`
+                        : ""
+                    }) {
                       state.m${i}.push(${this.getMetricValueExpression(
-                  metric.column
-                )});
+                        metric.column,
+                      )});
                     }
                   `;
               })
@@ -325,7 +325,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
         .map(function(user) {
           ${metrics
             .map((metric, i) =>
-              this.aggregateMetricValues(metric, `user.value.m${i}`)
+              this.aggregateMetricValues(metric, `user.value.m${i}`),
             )
             .join("\n")}
 
@@ -340,7 +340,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
           ${metrics
             .map(
               (metric, i) => `// Metric - ${metric.name}
-          mixpanel.reducer.numeric_summary('value.m${i}'),`
+          mixpanel.reducer.numeric_summary('value.m${i}'),`,
             )
             .join("\n")}
         ])
@@ -357,7 +357,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
               .map(
                 (m) => `
               // ${m.name}
-              ${JSON.stringify(m.id)}`
+              ${JSON.stringify(m.id)}`,
               )
               .join(",")}
           ];
@@ -383,13 +383,13 @@ export default class Mixpanel implements SourceIntegrationInterface {
     snapshotSettings: ExperimentSnapshotSettings,
     metrics: MetricInterface[],
     activationMetric: MetricInterface,
-    dimension: DimensionInterface
+    dimension: DimensionInterface,
   ): Promise<ExperimentQueryResponses> {
     const query = this.getExperimentResultsQuery(
       snapshotSettings,
       metrics,
       activationMetric,
-      dimension
+      dimension,
     );
 
     const result = await runQuery<
@@ -475,7 +475,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
             const event = events[i];
             if(isMetric(event)) {
               state.metricValue.push(${this.getMetricValueExpression(
-                metric.column
+                metric.column,
               )});
             }
           }
@@ -551,7 +551,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
               sum: number | null;
               sum_squares: number | null;
             }
-        )[]
+        )[],
       ]
     >(this.params, query);
 
@@ -667,7 +667,7 @@ function is${name}(event) {
     col: string,
     startDate: Date,
     endDate?: Date,
-    experimentId?: string
+    experimentId?: string,
   ) {
     return compileSqlTemplate(getMixpanelPropertyColumn(col), {
       startDate,
@@ -679,7 +679,7 @@ function is${name}(event) {
   private getConversionWindowCondition(
     metric: MetricInterface,
     experimentEnd: Date,
-    conversionWindowStart: string = ""
+    conversionWindowStart: string = "",
   ) {
     const windowHours = getConversionWindowHours(metric.windowSettings);
     const checks: string[] = [];
@@ -697,7 +697,7 @@ function is${name}(event) {
     if (metric.windowSettings.type === "lookback") {
       const lookbackLength = windowHours * 60 * 60 * 1000;
       checks.push(
-        `${experimentEnd.getTime()} - event.time <= ${lookbackLength}`
+        `${experimentEnd.getTime()} - event.time <= ${lookbackLength}`,
       );
     }
     return checks.length ? checks.join(" && ") : "";
@@ -729,7 +729,8 @@ function is${name}(event) {
   private getValidExperimentCondition(id: string, start: Date, end?: Date) {
     const experimentEvent = this.getExperimentEventName();
     const experimentIdCol = getMixpanelPropertyColumn(
-      this.datasource.settings.events?.experimentIdProperty || "Experiment name"
+      this.datasource.settings.events?.experimentIdProperty ||
+        "Experiment name",
     );
     let timeCheck = `event.time >= ${start.getTime()}`;
     if (end) {

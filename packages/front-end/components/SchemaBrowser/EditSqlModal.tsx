@@ -85,7 +85,7 @@ export default function EditSqlModal({
   >();
   const [isAutocompleteEnabled, setIsAutocompleteEnabled] = useLocalStorage(
     "sql-editor-autocomplete-enabled",
-    true
+    true,
   );
   const form = useForm({
     defaultValues: {
@@ -106,17 +106,17 @@ export default function EditSqlModal({
 
       const requiredColumnsArray = Array.from(requiredColumns);
       const missingColumns = requiredColumnsArray.filter(
-        (col) => !((col as string) in result)
+        (col) => !((col as string) in result),
       );
 
       if (missingColumns.length > 0) {
         throw new Error(
-          `You are missing the following columns: ${missingColumns.join(", ")}`
+          `You are missing the following columns: ${missingColumns.join(", ")}`,
         );
       }
     },
     // eslint-disable-next-line
-    [Array.from(requiredColumns).join("")]
+    [Array.from(requiredColumns).join("")],
   );
 
   const runTestQuery = useCallback(
@@ -152,7 +152,7 @@ export default function EditSqlModal({
       apply5RowLimit,
       // eslint-disable-next-line
       JSON.stringify(templateVariables),
-    ]
+    ],
   );
 
   const handleTestQuery = useCallback(async () => {
@@ -192,7 +192,7 @@ export default function EditSqlModal({
           datasource?.type,
           apiCall,
           "EditSqlModal",
-          templateVariables?.eventName
+          templateVariables?.eventName,
         );
         setAutoCompletions(completions);
       } catch (error) {

@@ -28,10 +28,10 @@ export default function ScheduleInputs(props: Props) {
   }, [props, props.defaultValue, rules]);
 
   const [date0, setDate0] = useState<Date | undefined>(
-    rules?.[0]?.timestamp ? getValidDate(rules[0].timestamp) : undefined
+    rules?.[0]?.timestamp ? getValidDate(rules[0].timestamp) : undefined,
   );
   const [date1, setDate1] = useState<Date | undefined>(
-    rules?.[1]?.timestamp ? getValidDate(rules[1].timestamp) : undefined
+    rules?.[1]?.timestamp ? getValidDate(rules[1].timestamp) : undefined,
   );
 
   function dateIsValid(date: Date) {

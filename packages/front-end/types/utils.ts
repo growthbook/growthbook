@@ -13,7 +13,7 @@ export function ensureAndReturn<T>(x: T): NonNullable<T> {
 export type PartialOn<
   O extends object,
   Key extends keyof O,
-  Type extends O[Key]
+  Type extends O[Key],
 > =
   | ({
       [k in Key]: Extract<O[k], Type>;

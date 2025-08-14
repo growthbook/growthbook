@@ -10,7 +10,7 @@ import { DimensionInterface } from "back-end/types/dimension";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 
 export const updateDimension = createApiRequestHandler(
-  updateDimensionValidator
+  updateDimensionValidator,
 )(async (req): Promise<UpdateDimensionResponse> => {
   const organization = req.organization.id;
   const dimension = await findDimensionById(req.params.id, organization);
@@ -21,7 +21,7 @@ export const updateDimension = createApiRequestHandler(
   if (req.body.datasourceId) {
     const datasourceDoc = await getDataSourceById(
       req.context,
-      req.body.datasourceId
+      req.body.datasourceId,
     );
     if (!datasourceDoc) {
       throw new Error("Invalid data source");

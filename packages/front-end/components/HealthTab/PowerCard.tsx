@@ -93,19 +93,19 @@ export function PowerCard({
         <li key="coverage">
           Consider increasing the traffic percentage above{" "}
           {phase.coverage * 100}%
-        </li>
+        </li>,
       );
     }
 
     if (snapshot.settings.variations.length > 2) {
       recommendations.push(
-        <li key="variations">Consider reducing the number of variations</li>
+        <li key="variations">Consider reducing the number of variations</li>,
       );
     }
 
     if (snapshot.settings.goalMetrics.length > 3) {
       recommendations.push(
-        <li key="metrics">Consider reducing the number of goal metrics</li>
+        <li key="metrics">Consider reducing the number of goal metrics</li>,
       );
     }
 
@@ -128,10 +128,10 @@ export function PowerCard({
   const content = !hasMidExperimentPowerFeature
     ? renderUpsell()
     : !hasPowerData
-    ? renderNoPowerData()
-    : !isLowPowered
-    ? renderHealthyExperiment()
-    : renderLowPowerRecommendations();
+      ? renderNoPowerData()
+      : !isLowPowered
+        ? renderHealthyExperiment()
+        : renderLowPowerRecommendations();
 
   return (
     <div id="power-card" style={{ scrollMarginTop: "100px" }}>

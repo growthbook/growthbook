@@ -41,11 +41,11 @@ export type ExperimentLaunchChecklistDocument = mongoose.Document &
 export const ExperimentLaunchChecklistModel =
   mongoose.model<ExperimentLaunchChecklistInterface>(
     "ExperimentLaunchChecklist",
-    experimentLaunchChecklistSchema
+    experimentLaunchChecklistSchema,
   );
 
 function toInterface(
-  doc: ExperimentLaunchChecklistDocument
+  doc: ExperimentLaunchChecklistDocument,
 ): ExperimentLaunchChecklistInterface {
   return omit(doc.toJSON<ExperimentLaunchChecklistDocument>(), ["__v", "_id"]);
 }
@@ -54,7 +54,7 @@ export async function createExperimentLaunchChecklist(
   organizationId: string,
   createdByUserId: string,
   tasks: ChecklistTask[],
-  projectId: string
+  projectId: string,
 ): Promise<ExperimentLaunchChecklistInterface> {
   const doc: ExperimentLaunchChecklistDocument =
     await ExperimentLaunchChecklistModel.create({
@@ -73,7 +73,7 @@ export async function createExperimentLaunchChecklist(
 
 export async function getExperimentLaunchChecklist(
   organizationId: string,
-  projectId: string
+  projectId: string,
 ): Promise<ExperimentLaunchChecklistInterface | null> {
   const doc: ExperimentLaunchChecklistDocument | null =
     await ExperimentLaunchChecklistModel.findOne({
@@ -86,7 +86,7 @@ export async function getExperimentLaunchChecklist(
 
 export async function getExperimentLaunchChecklistById(
   organizationId: string,
-  id: string
+  id: string,
 ): Promise<ExperimentLaunchChecklistInterface | null> {
   const doc: ExperimentLaunchChecklistDocument | null =
     await ExperimentLaunchChecklistModel.findOne({
@@ -100,7 +100,7 @@ export async function updateExperimentLaunchChecklist(
   organizationId: string,
   updatedByUserId: string,
   checklistId: string,
-  tasks: ChecklistTask[]
+  tasks: ChecklistTask[],
 ): Promise<ExperimentLaunchChecklistInterface | null> {
   const doc: ExperimentLaunchChecklistDocument | null =
     await ExperimentLaunchChecklistModel.findOneAndUpdate(
@@ -112,7 +112,7 @@ export async function updateExperimentLaunchChecklist(
         dateUpdated: new Date(),
         updatedByUserId,
         tasks,
-      }
+      },
     );
 
   return doc ? toInterface(doc) : null;

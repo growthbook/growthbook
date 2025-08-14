@@ -54,8 +54,8 @@ export default function ProxyTestButton({
                     proxyTestResult.body.trim().substring(0, 1) === "<"
                       ? "html"
                       : proxyTestResult.body.trim().substring(0, 1) === "{"
-                      ? "json"
-                      : "none"
+                        ? "json"
+                        : "none"
                   }
                   code={proxyTestResult.body}
                   filename="response.body"

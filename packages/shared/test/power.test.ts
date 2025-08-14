@@ -22,13 +22,13 @@ import {
 describe("backend", () => {
   it("delta method variance absolute correct", () => {
     expect(+frequentistVariance(2, 7, 4, 0.5, 5, 15, false).toFixed(5)).toEqual(
-      0.53333
+      0.53333,
     );
   });
 
   it("delta method variance relative correct", () => {
     expect(+frequentistVariance(2, 7, 4, 0.5, 5, 15, true).toFixed(5)).toEqual(
-      0.00589
+      0.00589,
     );
   });
   it("calculates power correctly", () => {
@@ -47,7 +47,7 @@ describe("backend", () => {
       metricProper: false,
     };
     expect(
-      +powerEstFrequentist(meanMetric, 400000, 3, 0.05, true, 0).toFixed(5)
+      +powerEstFrequentist(meanMetric, 400000, 3, 0.05, true, 0).toFixed(5),
     ).toEqual(0.52144);
   });
   it("calculates two-tailed mde correctly", () => {
@@ -88,7 +88,7 @@ describe("backend", () => {
       metricProper: false,
     };
     expect(
-      +powerEstFrequentist(meanMetric, 400000, 3, 0.05, true, 5000).toFixed(5)
+      +powerEstFrequentist(meanMetric, 400000, 3, 0.05, true, 5000).toFixed(5),
     ).toEqual(0.20596);
   });
   it("calculates sequential mde correctly", () => {
@@ -243,17 +243,17 @@ describe("backend", () => {
         (result, { metrics }) =>
           Object.values(metrics).reduce(
             (result, { power }) => [...result, power],
-            result
+            result,
           ),
-        []
+        [],
       );
       mdeMultiple = resultsTS.weeks.reduce(
         (result, { metrics }) =>
           Object.values(metrics).reduce(
             (result, { effectSize }) => [...result, effectSize],
-            result
+            result,
           ),
-        []
+        [],
       );
       if (
         resultsTS.sampleSizeAndRuntime.click_through_rate?.weeks !== undefined
@@ -269,17 +269,17 @@ describe("backend", () => {
         (result, { metrics }) =>
           Object.values(metrics).reduce(
             (result, { power }) => [...result, power],
-            result
+            result,
           ),
-        []
+        [],
       );
       mdeMultipleBayesian = resultsTSBayesian.weeks.reduce(
         (result, { metrics }) =>
           Object.values(metrics).reduce(
             (result, { effectSize }) => [...result, effectSize],
-            result
+            result,
           ),
-        []
+        [],
       );
       if (
         resultsTSBayesian.sampleSizeAndRuntime.click_through_rate?.weeks !==
@@ -296,10 +296,10 @@ describe("backend", () => {
     expect(w0).toEqual(sampleSizeAndRuntime[0]);
     expect(w1).toEqual(sampleSizeAndRuntime[1]);
     expect(powerMultipleBayesian.map(roundToFifthDecimal)).toEqual(
-      powerSolutionBayesian
+      powerSolutionBayesian,
     );
     expect(mdeMultipleBayesian.map(roundToFifthDecimal)).toEqual(
-      mdeSolutionBayesian
+      mdeSolutionBayesian,
     );
     expect(sampleSizeAndRuntime[0]).toEqual(w0Bayesian);
     expect(sampleSizeAndRuntime[1]).toEqual(w1Bayesian);
@@ -340,17 +340,17 @@ describe("backend", () => {
         (result, { metrics }) =>
           Object.values(metrics).reduce(
             (result, { power }) => [...result, power],
-            result
+            result,
           ),
-        []
+        [],
       );
       mdeMultiple = resultsTS.weeks.reduce(
         (result, { metrics }) =>
           Object.values(metrics).reduce(
             (result, { effectSize }) => [...result, effectSize],
-            result
+            result,
           ),
-        []
+        [],
       );
       if (
         resultsTS.sampleSizeAndRuntime.click_through_rate?.weeks !== undefined
@@ -406,14 +406,14 @@ it("powerEstBayesian", () => {
     alpha,
     power,
     nPerVariation,
-    true
+    true,
   );
   const mdeAbsolute = findMdeBayesian(
     myMetricAbs,
     alpha,
     power,
     nPerVariation,
-    false
+    false,
   );
   let mdeRelativeScalar = -999;
   if (mdeRelative.type === "success") {
@@ -428,22 +428,22 @@ it("powerEstBayesian", () => {
     myMetricRel,
     alpha,
     nPerVariation,
-    true
+    true,
   );
 
   const powerAbsolute = powerEstBayesian(
     myMetricAbs,
     alpha,
     nPerVariation,
-    false
+    false,
   );
 
   expect(parseFloat(mdeRelativeScalar.toFixed(5))).toEqual(
-    parseFloat(effectSizeRelative.toFixed(5))
+    parseFloat(effectSizeRelative.toFixed(5)),
   );
 
   expect(parseFloat(mdeAbsoluteScalar.toFixed(5))).toEqual(
-    parseFloat(effectSizeAbsolute.toFixed(5))
+    parseFloat(effectSizeAbsolute.toFixed(5)),
   );
 
   expect(parseFloat(powerRelative.toFixed(3))).toEqual(power);
@@ -467,7 +467,7 @@ describe("getAverageExposureOverLastNDays", () => {
       },
     };
     expect(
-      getAverageExposureOverLastNDays(traffic, 3, new Date(2024, 0, 4))
+      getAverageExposureOverLastNDays(traffic, 3, new Date(2024, 0, 4)),
     ).toEqual(587);
   });
 
@@ -488,7 +488,7 @@ describe("getAverageExposureOverLastNDays", () => {
       },
     };
     expect(
-      getAverageExposureOverLastNDays(traffic, 3, new Date(2024, 0, 3))
+      getAverageExposureOverLastNDays(traffic, 3, new Date(2024, 0, 3)),
     ).toEqual(394);
   });
 });
@@ -573,38 +573,38 @@ it("midExperimentPower", () => {
   const resultsSingleMetricFreq = calculateMidExperimentPowerSingle(
     powerParamsFreq,
     metricId,
-    variation
+    variation,
   );
   const resultsSingleMetricSeq = calculateMidExperimentPowerSingle(
     powerParamsSeq,
     metricId,
-    variation
+    variation,
   );
   const resultsSingleMetricBayes = calculateMidExperimentPowerSingle(
     powerParamsBayes,
     metricId,
-    variation
+    variation,
   );
   const powerTrue = 0.8;
   if (resultsSingleMetricFreq.power === undefined) {
     throw new Error("freq power is undefined.");
   } else {
     expect(parseFloat(resultsSingleMetricFreq.power.toFixed(4))).toEqual(
-      parseFloat(powerTrue.toFixed(5))
+      parseFloat(powerTrue.toFixed(5)),
     );
   }
   if (resultsSingleMetricSeq.power === undefined) {
     throw new Error("seq power is undefined.");
   } else {
     expect(parseFloat(resultsSingleMetricSeq.power.toFixed(4))).toEqual(
-      parseFloat(powerTrue.toFixed(5))
+      parseFloat(powerTrue.toFixed(5)),
     );
   }
   if (resultsSingleMetricBayes.power === undefined) {
     throw new Error("bayes power is undefined.");
   } else {
     expect(parseFloat(resultsSingleMetricBayes.power.toFixed(4))).toEqual(
-      parseFloat(powerTrue.toFixed(5))
+      parseFloat(powerTrue.toFixed(5)),
     );
   }
 });

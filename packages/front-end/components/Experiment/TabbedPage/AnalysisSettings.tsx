@@ -67,7 +67,7 @@ export default function AnalysisSettings({
 
   const { getDecisionCriteria } = useRunningExperimentStatus();
   const decisionCriteria = getDecisionCriteria(
-    experiment.decisionFrameworkSettings?.decisionCriteriaId
+    experiment.decisionFrameworkSettings?.decisionCriteriaId,
   );
 
   const [analysisModal, setAnalysisModal] = useState(false);
@@ -82,22 +82,22 @@ export default function AnalysisSettings({
     : null;
 
   const assignmentQuery = datasource?.settings?.queries?.exposure?.find(
-    (e) => e.id === experiment.exposureQueryId
+    (e) => e.id === experiment.exposureQueryId,
   );
 
   const { expandedGoals, expandedSecondaries, expandedGuardrails } =
     useMemo(() => {
       const expandedGoals = expandMetricGroups(
         experiment.goalMetrics,
-        ssrPolyfills?.metricGroups || metricGroups
+        ssrPolyfills?.metricGroups || metricGroups,
       );
       const expandedSecondaries = expandMetricGroups(
         experiment.secondaryMetrics,
-        ssrPolyfills?.metricGroups || metricGroups
+        ssrPolyfills?.metricGroups || metricGroups,
       );
       const expandedGuardrails = expandMetricGroups(
         experiment.guardrailMetrics,
-        ssrPolyfills?.metricGroups || metricGroups
+        ssrPolyfills?.metricGroups || metricGroups,
       );
 
       return { expandedGoals, expandedSecondaries, expandedGuardrails };

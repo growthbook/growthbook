@@ -55,14 +55,14 @@ export default class BigQuery extends SqlIntegration {
     const [apiResult] = await job.cancel();
     logger.debug(
       `Cancelled BigQuery job ${externalId} - ${JSON.stringify(
-        apiResult.job?.status
-      )}`
+        apiResult.job?.status,
+      )}`,
     );
   }
 
   async runQuery(
     sql: string,
-    setExternalId?: ExternalIdCallback
+    setExternalId?: ExternalIdCallback,
   ): Promise<QueryResponse> {
     const client = this.getClient();
 
@@ -80,7 +80,7 @@ export default class BigQuery extends SqlIntegration {
     const [metadata] = await job.getMetadata();
     const statistics = {
       executionDurationMs: Number(
-        metadata?.statistics?.finalExecutionDurationMs
+        metadata?.statistics?.finalExecutionDurationMs,
       ),
       totalSlotMs: Number(metadata?.statistics?.totalSlotMs),
       bytesProcessed: Number(metadata?.statistics?.totalBytesProcessed),
@@ -112,7 +112,7 @@ export default class BigQuery extends SqlIntegration {
 
   createUnitsTableOptions() {
     return bigQueryCreateTableOptions(
-      this.datasource.settings.pipelineSettings ?? {}
+      this.datasource.settings.pipelineSettings ?? {},
     );
   }
 
@@ -120,7 +120,7 @@ export default class BigQuery extends SqlIntegration {
     col: string,
     unit: "hour" | "minute",
     sign: "+" | "-",
-    amount: number
+    amount: number,
   ): string {
     return `DATETIME_${
       sign === "+" ? "ADD" : "SUB"
@@ -177,7 +177,7 @@ export default class BigQuery extends SqlIntegration {
     return this.generateTablePath(
       "INFORMATION_SCHEMA.COLUMNS",
       schema,
-      database
+      database,
     );
   }
 
@@ -219,7 +219,7 @@ export default class BigQuery extends SqlIntegration {
 
       try {
         const { rows: datasetResults } = await this.runQuery(
-          format(query, this.getFormatDialect())
+          format(query, this.getFormatDialect()),
         );
 
         if (datasetResults.length > 0) {
@@ -228,7 +228,7 @@ export default class BigQuery extends SqlIntegration {
       } catch (e) {
         logger.error(
           e,
-          `Error fetching information schema data for dataset: ${datasetName}`
+          `Error fetching information schema data for dataset: ${datasetName}`,
         );
       }
     }

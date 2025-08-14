@@ -15,12 +15,12 @@ function getBrowserDevice(ua: string): { browser: string; deviceType: string } {
   const browser = ua.match(/Edg/)
     ? "edge"
     : ua.match(/Chrome/)
-    ? "chrome"
-    : ua.match(/Firefox/)
-    ? "firefox"
-    : ua.match(/Safari/)
-    ? "safari"
-    : "unknown";
+      ? "chrome"
+      : ua.match(/Firefox/)
+        ? "firefox"
+        : ua.match(/Safari/)
+          ? "safari"
+          : "unknown";
 
   const deviceType = ua.match(/Mobi/) ? "mobile" : "desktop";
 

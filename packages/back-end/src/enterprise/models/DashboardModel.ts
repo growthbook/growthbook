@@ -59,7 +59,7 @@ export const toInterface: ToInterface<DashboardInterface> = (doc) => {
 
 export class DashboardModel extends BaseClass {
   public async findByExperiment(
-    experimentId: string
+    experimentId: string,
   ): Promise<DashboardInterface[]> {
     const dashboards = await this._find({ experimentId });
     if (!dashboards.find((dash) => dash.isDefault)) {
@@ -82,7 +82,7 @@ export class DashboardModel extends BaseClass {
 
   protected canUpdate(
     existing: DashboardInterface,
-    updates: UpdateProps<DashboardInterface>
+    updates: UpdateProps<DashboardInterface>,
   ): boolean {
     if (!this.context.hasPremiumFeature("dashboards"))
       throw new Error("Must have a commercial License Key to use Dashboards");
@@ -133,7 +133,7 @@ export class DashboardModel extends BaseClass {
   protected async afterUpdate(
     existing: DashboardDocument,
     _updates: UpdateProps<DashboardDocument>,
-    newDoc: DashboardDocument
+    newDoc: DashboardDocument,
   ) {
     const initialQueryIdSet = getSavedQueryIds(existing);
     const finalQueryIdSet = getSavedQueryIds(newDoc);
@@ -172,7 +172,7 @@ export class DashboardModel extends BaseClass {
     if (savedQuery) {
       if ((savedQuery.linkedDashboardIds || []).includes(doc.id)) {
         const linkedDashboardIds = (savedQuery.linkedDashboardIds || []).filter(
-          (dashId) => dashId !== doc.id
+          (dashId) => dashId !== doc.id,
         );
 
         await this.context.models.savedQueries.updateById(queryId, {
@@ -201,12 +201,12 @@ export class DashboardModel extends BaseClass {
     const blocksToCreate = createDashboardBlocksFromTemplate(
       { blockInitialValues: DEFAULT_DASHBOARD_BLOCKS },
       experiment,
-      metricGroups
+      metricGroups,
     );
     const blocks = await Promise.all(
       blocksToCreate.map((blockData) =>
-        createDashboardBlock(this.context.org.id, blockData)
-      )
+        createDashboardBlock(this.context.org.id, blockData),
+      ),
     );
     return this.dangerousCreateBypassPermission({
       uid: uuidv4().replace(/-/g, ""),

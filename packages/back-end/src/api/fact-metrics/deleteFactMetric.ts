@@ -3,7 +3,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { deleteFactMetricValidator } from "back-end/src/validators/openapi";
 
 export const deleteFactMetric = createApiRequestHandler(
-  deleteFactMetricValidator
+  deleteFactMetricValidator,
 )(async (req): Promise<DeleteFactMetricResponse> => {
   let id = req.params.id;
   // Add `fact__` prefix if it doesn't exist

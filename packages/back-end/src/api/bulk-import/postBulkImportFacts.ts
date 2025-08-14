@@ -20,7 +20,7 @@ import { getUpdateFactMetricPropsFromBody } from "back-end/src/api/fact-metrics/
 import { needsColumnRefresh } from "back-end/src/api/fact-tables/updateFactTable";
 
 export const postBulkImportFacts = createApiRequestHandler(
-  postBulkImportFactsValidator
+  postBulkImportFactsValidator,
 )(async (req): Promise<PostBulkImportFactsResponse> => {
   const numCreated = {
     factTables: 0,
@@ -37,12 +37,12 @@ export const postBulkImportFacts = createApiRequestHandler(
 
   const allFactMetrics = await req.context.models.factMetrics.getAll();
   const factMetricMap = new Map<string, FactMetricInterface>(
-    allFactMetrics.map((m) => [m.id, m])
+    allFactMetrics.map((m) => [m.id, m]),
   );
 
   const allDataSources = await getDataSourcesByOrganization(req.context);
   const dataSourceMap = new Map<string, DataSourceInterface>(
-    allDataSources.map((s) => [s.id, s])
+    allDataSources.map((s) => [s.id, s]),
   );
 
   const tagsToAdd = new Set<string>();
@@ -64,7 +64,7 @@ export const postBulkImportFacts = createApiRequestHandler(
     for (const id of ids) {
       if (!datasource.settings?.userIdTypes?.some((t) => t.userIdType === id)) {
         throw new Error(
-          `User ID type ${id} not found in datasource ${datasourceId}`
+          `User ID type ${id} not found in datasource ${datasourceId}`,
         );
       }
     }
@@ -145,7 +145,7 @@ export const postBulkImportFacts = createApiRequestHandler(
       const factTable = factTableMap.get(factTableId);
       if (!factTable) {
         throw new Error(
-          `Could not find fact table ${factTableId} for filter ${id}`
+          `Could not find fact table ${factTableId} for filter ${id}`,
         );
       }
       if (!req.context.permissions.canCreateAndUpdateFactFilter(factTable)) {
@@ -165,7 +165,7 @@ export const postBulkImportFacts = createApiRequestHandler(
           req.context,
           factTable,
           existingFactFilter.id,
-          data
+          data,
         );
         Object.assign(existingFactFilter, data);
         numUpdated.factTableFilters++;
@@ -205,12 +205,12 @@ export const postBulkImportFacts = createApiRequestHandler(
         const changes = await getUpdateFactMetricPropsFromBody(
           data,
           existing,
-          lookupFactTable
+          lookupFactTable,
         );
 
         const newFactMetric = await req.context.models.factMetrics.update(
           existing,
-          changes
+          changes,
         );
         factMetricMap.set(existing.id, newFactMetric);
 
@@ -221,13 +221,12 @@ export const postBulkImportFacts = createApiRequestHandler(
         const createProps = await getCreateMetricPropsFromBody(
           data,
           req.organization,
-          lookupFactTable
+          lookupFactTable,
         );
         createProps.id = id;
 
-        const newFactMetric = await req.context.models.factMetrics.create(
-          createProps
-        );
+        const newFactMetric =
+          await req.context.models.factMetrics.create(createProps);
         factMetricMap.set(newFactMetric.id, newFactMetric);
 
         numCreated.factMetrics++;
