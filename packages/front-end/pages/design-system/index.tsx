@@ -549,6 +549,16 @@ export default function DesignSystemPage() {
             </Link>
             .
           </Box>
+          <Box>
+            Links with icons:{" "}
+            <Link href="#" iconVariant="externalLink">
+              See documentation
+            </Link>{" "}
+            or{" "}
+            <Link href="#" iconVariant="plusButton">
+              Add prerequisite
+            </Link>
+          </Box>
 
           <Box>
             Here&apos;s the Link without href where it{" "}

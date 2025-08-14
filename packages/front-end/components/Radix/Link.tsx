@@ -1,15 +1,20 @@
 import clsx from "clsx";
-import { ForwardedRef, forwardRef } from "react";
+import { ForwardedRef, forwardRef, ReactNode } from "react";
 import NextLink, { LinkProps as NextLinkProps } from "next/link";
 import {
+  Text,
   Link as RadixLink,
   LinkProps as RadixLinkProps,
 } from "@radix-ui/themes";
+import { PiArrowSquareOut, PiPlusCircleFill } from "react-icons/pi";
 import styles from "./RadixOverrides.module.scss";
 
 type RadixProps = Omit<RadixLinkProps, "color" | "href"> & {
   type?: "submit" | "reset" | "button";
   color?: RadixLinkProps["color"] | "dark";
+  iconVariant?: "externalLink" | "plusButton";
+  icon?: ReactNode;
+  iconPosition?: "left" | "right";
 };
 
 type NextProps = Omit<
@@ -33,10 +38,28 @@ type Props = RadixProps & ConditionalProps;
 
 const Link = forwardRef<HTMLAnchorElement, Props>(
   (
-    { children, className, color, href, type, ...props },
+    {
+      children,
+      className,
+      color,
+      href,
+      type,
+      iconVariant,
+      icon,
+      iconPosition = "right",
+      ...props
+    },
     ref: ForwardedRef<HTMLAnchorElement>
   ) => {
     const isCustomDarkColor = color === "dark";
+
+    if (iconVariant === "externalLink") {
+      icon = <PiArrowSquareOut style={{ verticalAlign: -2 }} />;
+      iconPosition = "right";
+    } else if (iconVariant === "plusButton") {
+      icon = <PiPlusCircleFill style={{ verticalAlign: -2 }} />;
+      iconPosition = "left";
+    }
 
     let childrenWrapper: JSX.Element | null;
     let radixProps = props;
@@ -67,7 +90,13 @@ const Link = forwardRef<HTMLAnchorElement, Props>(
           locale={locale}
           legacyBehavior={legacyBehavior}
         >
+          {icon && iconPosition === "left" ? (
+            <Text style={{ marginRight: 2 }}>{icon}</Text>
+          ) : null}
           {children}
+          {icon && iconPosition === "right" ? (
+            <Text style={{ marginLeft: 2 }}>{icon}</Text>
+          ) : null}
         </NextLink>
       );
     }

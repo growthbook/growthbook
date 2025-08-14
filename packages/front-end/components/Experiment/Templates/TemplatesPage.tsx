@@ -111,7 +111,7 @@ export const TemplatesPage = ({
       </>
     );
   }
-  return hasTemplates ? (
+  return !hasTemplates ? (
     <Box>
       <table className="appbox table gbtable">
         <thead>
