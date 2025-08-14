@@ -281,12 +281,14 @@ interface IsFeatureStaleInterface {
   feature: FeatureInterface;
   features?: FeatureInterface[];
   experiments?: ExperimentInterfaceStringDates[];
+  dependentExperiments?: ExperimentInterfaceStringDates[];
   environments?: string[];
 }
 export function isFeatureStale({
   feature,
   features,
   experiments = [],
+  dependentExperiments,
   environments = [],
 }: IsFeatureStaleInterface): { stale: boolean; reason?: StaleFeatureReason } {
   const featuresMap = new Map<string, FeatureInterface>();
@@ -349,10 +351,8 @@ export function isFeatureStale({
           return { stale: false };
         }
       }
-      const dependentExperiments = getDependentExperiments(
-        feature,
-        experiments
-      );
+      dependentExperiments =
+        dependentExperiments ?? getDependentExperiments(feature, experiments);
       const hasNonStaleDependentExperiments = dependentExperiments.some((e) =>
         includeExperimentInPayload(e)
       );
@@ -822,7 +822,6 @@ export function getDependentFeatures(
         !!r.enabled && (r.prerequisites || []).some((p) => p.id === feature.id),
       environments
     );
-
     return prerequisites.some((p) => p.id === feature.id) || rules.length > 0;
   });
   return dependentFeatures.map((f) => f.id);
