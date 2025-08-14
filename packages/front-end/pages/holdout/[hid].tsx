@@ -74,8 +74,12 @@ const HoldoutPage = (): ReactElement => {
   const runningExperimentStatus = getRunningExperimentResultStatus(experiment);
 
   const startAnalysis = async () => {
-    await apiCall(`/holdout/${hid}/start-analysis`, {
+    await apiCall(`/holdout/${hid}/edit-status`, {
       method: "POST",
+      body: JSON.stringify({
+        status: "running",
+        holdoutRunningStatus: "analysis-period",
+      }),
     });
     mutate();
   };

@@ -6,6 +6,7 @@ import { generateVariationId } from "shared/util";
 import {
   ExperimentInterface,
   ExperimentInterfaceStringDates,
+  ExperimentPhase,
 } from "back-end/types/experiment";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -354,10 +355,16 @@ export const updateHoldout = async (
 
 // endregion PUT /holdout/:id
 
-// region POST /holdout/:id/start-analysis
+// region POST /holdout/:id/edit-status
 
-export const startAnalysis = async (
-  req: AuthRequest<null, { id: string }>,
+export const editStatus = async (
+  req: AuthRequest<
+    {
+      status: "stopped" | "running" | "draft";
+      holdoutRunningStatus?: "running" | "analysis-period";
+    },
+    { id: string }
+  >,
   res: Response<{ status: 200 | 404 }>
 ) => {
   const context = getContextFromReq(req);
@@ -373,28 +380,75 @@ export const startAnalysis = async (
   if (!experiment) {
     return res.status(404).json({ status: 404 });
   }
-  // this deletes the old analysis phase and create a new one when ever the user ends the analysis
-  const currentPhase = experiment.phases[0];
 
-  const phases = [
-    experiment.phases[0],
-    {
-      ...currentPhase,
-      lookbackStartDate: new Date(),
-      name: "Analysis Period",
-    },
-  ];
+  let phases = [...experiment.phases] as ExperimentPhase[];
 
-  await updateExperiment({
-    context,
-    experiment,
-    changes: {
-      phases,
-    },
-  });
-  await context.models.holdout.update(holdout, {
-    analysisStartDate: new Date(),
-  });
+  if (req.body.status === "stopped" && experiment.status !== "stopped") {
+    // put end date on both phases
+    phases[0].dateEnded = new Date();
+    phases[1].dateEnded = new Date();
+    // set the status to stopped for the experiment
+    await updateExperiment({
+      context,
+      experiment,
+      changes: {
+        phases,
+        status: "stopped",
+      },
+    });
+  } else if (req.body.status === "running") {
+    // check to see if already in analysis period
+    if (!phases[0]) {
+      throw new Error("holdout does not have a phase ");
+    }
+    if (
+      !phases[1] ||
+      (phases[1] &&
+        phases[1].dateEnded &&
+        req.body.holdoutRunningStatus === "analysis-period")
+    ) {
+      phases[1] = {
+        ...phases[0],
+        lookbackStartDate: new Date(),
+        dateEnded: undefined,
+        name: "Analysis Period",
+      };
+      await context.models.holdout.update(holdout, {
+        analysisStartDate: new Date(),
+      });
+      // check to see if we already are in the running phase
+    } else if (
+      ((phases[0] && !phases[0].dateEnded) || !!phases[1]) &&
+      req.body.holdoutRunningStatus === "running"
+    ) {
+      phases[0] = {
+        ...phases[0],
+        dateEnded: undefined,
+      };
+      if (phases[1]) {
+        phases = [phases[0]];
+      }
+      await context.models.holdout.update(holdout, {
+        analysisStartDate: undefined,
+      });
+    }
+    await updateExperiment({
+      context,
+      experiment,
+      changes: { phases, status: "running" },
+    });
+  } else if (req.body.status === "draft") {
+    // set the status to draft for the experiment
+    phases[0].dateEnded = undefined;
+    await updateExperiment({
+      context,
+      experiment,
+      changes: { phases: [phases[0]], status: "draft" },
+    });
+    await context.models.holdout.update(holdout, {
+      analysisStartDate: undefined,
+    });
+  }
 
   return res.status(200).json({ status: 200 });
 };

@@ -9,7 +9,7 @@ router.get("/", holdoutController.getHoldouts);
 router.get("/:id", holdoutController.getHoldout);
 router.put("/:id", holdoutController.updateHoldout);
 router.post("/", holdoutController.createHoldout);
-router.post("/:id/start-analysis", holdoutController.startAnalysis);
+router.post("/:id/edit-status", holdoutController.editStatus);
 router.delete("/:id", holdoutController.deleteHoldout);
 
 export { router as holdoutRouter };

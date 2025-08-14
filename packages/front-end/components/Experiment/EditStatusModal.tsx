@@ -85,13 +85,10 @@ export default function EditStatusModal({
             value.holdoutRunningStatus = "running";
             value.status = "running";
           }
-          if (
-            holdout &&
-            status === "analysis" &&
-            experiment.status === "running"
-          ) {
-            await apiCall(`/holdout/${holdout.id}/start-analysis`, {
+          if (holdout) {
+            await apiCall(`/holdout/${holdout.id}/edit-status`, {
               method: "POST",
+              body: JSON.stringify(value),
             });
             mutate();
           } else {
